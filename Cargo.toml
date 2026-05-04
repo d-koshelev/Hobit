@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "crates/hobit-core",
+    "crates/hobit-storage-sqlite",
+    "crates/hobit-agent",
+    "crates/hobit-tools",
+    "crates/hobit-app",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/d-koshelev/Hobit"
+
+[workspace.dependencies]
+hobit-core = { path = "crates/hobit-core" }
+hobit-storage-sqlite = { path = "crates/hobit-storage-sqlite" }
+hobit-agent = { path = "crates/hobit-agent" }
+hobit-tools = { path = "crates/hobit-tools" }
