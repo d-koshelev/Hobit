@@ -1,0 +1,59 @@
+# Hobit
+
+Hobit is a modular AI Workbench: a configurable operator workspace where AI agents, tools, context, widgets, and presets are composed into a visible, controllable working surface.
+
+The workbench is the product surface. It is not centered on a single chat stream, script runner, terminal, IDE, runbook engine, or knowledge catalog. Those can exist as widgets or capabilities, but they do not define the product.
+
+## What Hobit Is
+
+Hobit is an AI Workbench for composing work surfaces around a task. Operators choose the widgets and presets that expose the capabilities needed right now, while agents propose actions, report activity, and request approval through explicit workbench surfaces.
+
+The minimal valid Hobit product is:
+
+- Terminal Widget
+- Agent CLI Widget
+
+This minimal form proves the workbench model before larger capabilities are added.
+
+## What Hobit Is Not
+
+Hobit is not:
+
+- a script executor
+- a terminal wrapper
+- an IDE clone
+- a runbook runner
+- a knowledge manager
+- a chat app
+
+These functions may appear as optional widgets, but Hobit remains workbench-first.
+
+## Optional Widgets And Capabilities
+
+Future Hobit capabilities may include:
+
+- Agent CLI
+- Terminal
+- Stages
+- Knowledge
+- Runbooks
+- Git
+- Database/JDBC
+- SQL Results
+- Image Edit
+- Agent Activity
+- Shared State
+
+Each capability should be expressed as a widget, tool, or shared state surface that can be added, removed, configured, and composed through presets.
+
+## Product Principles
+
+- Workbench is the product surface.
+- Every visible UI block is a Widget.
+- Widgets are optional capabilities.
+- Presets are saved compositions of widget instances.
+- Widgets are created from reusable templates and rules, not hardcoded per customer or system.
+- UI must be simple, non-duplicative, and limited to information needed right now.
+- The operator must always understand what they are working on and what the agent is doing.
+- Agent proposes; operator controls.
+- Tools and actions must be explicit, visible, and approval-aware.
