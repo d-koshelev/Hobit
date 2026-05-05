@@ -30,6 +30,12 @@ The Minimal Workbench preset defines the visible widget instances and their orde
 
 This milestone is still mock/static. There is no persistence, backend integration, or runtime widget loading yet.
 
+## Visual Direction
+
+The Minimal Workbench visuals now follow `docs/DESIGN_SYSTEM_CONTRACT.md`: dark-first surfaces, semantic status badges, shared widget anatomy, and low-noise operator controls.
+
+This is still a static mock. There is no real terminal, agent runtime, Tauri bridge, persistence, or runtime widget loading yet.
+
 ## Run Locally
 
 ```powershell

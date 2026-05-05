@@ -8,13 +8,20 @@ body,
   min-height: 100%;
 }
 
+html {
+  background: var(--color-app-bg);
+}
+
 body {
   margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background:
+    linear-gradient(180deg, #0a0f15 0%, var(--color-app-bg) 62%);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-md);
-  line-height: 1.5;
+  line-height: var(--line-normal);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -33,7 +40,14 @@ select:disabled {
   cursor: not-allowed;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 ::selection {
-  background: var(--color-accent-soft);
-  color: var(--color-text);
+  background: var(--color-primary-soft);
+  color: var(--color-text-primary);
 }

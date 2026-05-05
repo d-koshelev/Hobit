@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
-type BadgeVariant = "neutral" | "info" | "success" | "warning";
+type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   children: ReactNode;

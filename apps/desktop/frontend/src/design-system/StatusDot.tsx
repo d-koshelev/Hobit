@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 
-type StatusDotVariant = "neutral" | "success" | "warning" | "info";
+type StatusDotVariant = "neutral" | "success" | "warning" | "error" | "info";
 
 type StatusDotProps = HTMLAttributes<HTMLSpanElement> & {
   variant?: StatusDotVariant;

@@ -1,16 +1,16 @@
 import { Badge } from "../../design-system/Badge";
 import { Button } from "../../design-system/Button";
-import { EmptyState } from "../../design-system/EmptyState";
 import { StatusDot } from "../../design-system/StatusDot";
 import { WidgetFrame } from "../../design-system/WidgetFrame";
 import type { WidgetRenderProps } from "../../workbench/types";
 
 const lines = [
-  { kind: "prompt", text: "$ hobit session status" },
-  { kind: "output", text: "Preset: Minimal Workbench" },
-  { kind: "output", text: "Widgets: Terminal, Agent CLI" },
-  { kind: "prompt", text: "$ ls current-workspace" },
-  { kind: "muted", text: "mock output only - no command was executed" },
+  { kind: "prompt", text: "$ hobit workbench status" },
+  { kind: "output", text: "preset        Minimal Workbench" },
+  { kind: "output", text: "widgets       Terminal, Agent CLI" },
+  { kind: "output", text: "connection    mock / read-only preview" },
+  { kind: "prompt", text: "$ hobit tools list" },
+  { kind: "muted", text: "terminal execution is not connected in this milestone" },
 ];
 
 export function TerminalWidget({ title }: WidgetRenderProps) {
@@ -26,11 +26,36 @@ export function TerminalWidget({ title }: WidgetRenderProps) {
           </Button>
         </>
       }
-      status={<Badge variant="warning">Preview</Badge>}
-      subtitle="Mock terminal surface"
+      footer={
+        <p className="mock-note">
+          <StatusDot variant="warning" /> No shell or production system is
+          connected.
+        </p>
+      }
+      status={
+        <Badge variant="warning">
+          <StatusDot variant="warning" />
+          Preview
+        </Badge>
+      }
+      subtitle="Mock command and output surface"
       title={title}
     >
+      <div className="surface-row">
+        <div className="surface-row-copy">
+          <p className="surface-row-title">Local preview terminal</p>
+          <p className="surface-row-text">
+            Static output only. Commands are not executed.
+          </p>
+        </div>
+        <Badge variant="neutral">Mock</Badge>
+      </div>
+
       <div className="terminal-screen" aria-label="Mock terminal output">
+        <div className="terminal-chrome">
+          <span className="terminal-path">hobit://minimal/terminal</span>
+          <Badge variant="neutral">Read-only</Badge>
+        </div>
         <pre className="terminal-lines">
           {lines.map((line) => (
             <span className={`terminal-${line.kind}`} key={line.text}>
@@ -40,14 +65,6 @@ export function TerminalWidget({ title }: WidgetRenderProps) {
           ))}
         </pre>
       </div>
-      <EmptyState
-        text="Commands are static in this milestone. No shell or production system is connected."
-        title="Preview terminal"
-      />
-      <p className="mock-note">
-        <StatusDot variant="warning" /> Terminal execution is intentionally not
-        implemented.
-      </p>
     </WidgetFrame>
   );
 }

@@ -16,13 +16,17 @@ export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
     <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
       <div className="canvas-summary">
         <div className="summary-copy">
+          <span className="summary-eyebrow">Workbench Surface</span>
           <h1 className="summary-title">{preset.title}</h1>
           <p className="summary-text">{preset.description}</p>
         </div>
-        <Badge variant="success">
-          <StatusDot variant="success" />
-          {visibleWidgets.length} mock widgets
-        </Badge>
+        <div className="canvas-status">
+          <Badge variant="info">
+            <StatusDot variant="info" />
+            Preset-driven
+          </Badge>
+          <Badge variant="neutral">{visibleWidgets.length} mock widgets</Badge>
+        </div>
       </div>
 
       <div className="widget-grid">

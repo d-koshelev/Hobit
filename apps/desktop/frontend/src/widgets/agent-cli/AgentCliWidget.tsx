@@ -15,6 +15,12 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
   return (
     <WidgetFrame
       actions={<Badge variant="neutral">Mock agent</Badge>}
+      footer={
+        <p className="mock-note">
+          <StatusDot variant="neutral" /> Agent calls are intentionally not
+          implemented.
+        </p>
+      }
       status={
         <Badge variant="success">
           <StatusDot variant="success" />
@@ -24,19 +30,39 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
       subtitle="Direct operator surface for agent interaction"
       title={title}
     >
-      <div className="agent-thread">
-        <div className="agent-message">
-          <p>
-            Mock agent ready. This static surface shows where operator prompts,
-            agent activity, proposals, and approvals will appear.
+      <div className="surface-row">
+        <div className="surface-row-copy">
+          <p className="surface-row-title">Operator prompt surface</p>
+          <p className="surface-row-text">
+            Static preview. No model or runtime is connected.
           </p>
+        </div>
+        <Badge variant="info">Local mock</Badge>
+      </div>
+
+      <div className="agent-thread">
+        <div className="agent-message agent-message-compact">
+          <p>
+            Mock agent ready. Prompts, activity, proposals, and approvals will
+            appear here.
+          </p>
+          <div className="activity-row">
+            <StatusDot variant="success" />
+            Idle, waiting for operator input
+          </div>
         </div>
       </div>
 
       <div className="suggestions" aria-label="Mock suggested prompts">
+        <span className="section-label">Suggestions</span>
         <div className="suggestion-grid">
           {prompts.map((prompt) => (
-            <Button className="suggestion" disabled key={prompt} variant="secondary">
+            <Button
+              className="suggestion"
+              disabled
+              key={prompt}
+              variant="secondary"
+            >
               {prompt}
             </Button>
           ))}
@@ -54,11 +80,6 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
           Send
         </Button>
       </div>
-
-      <p className="mock-note">
-        <StatusDot variant="neutral" /> Agent calls are intentionally not
-        implemented.
-      </p>
     </WidgetFrame>
   );
 }
