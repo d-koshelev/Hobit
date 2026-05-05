@@ -1,7 +1,4 @@
-import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
-import { StatusDot } from "../design-system/StatusDot";
 import type { WorkbenchPreset } from "./types";
 
 type WorkbenchTopBarProps = {
@@ -28,14 +25,7 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
               <option value={preset.id}>{preset.title}</option>
             </Select>
           </label>
-          <Badge variant="info">
-            <StatusDot variant="info" />
-            Local preview
-          </Badge>
         </div>
-        <Button disabled variant="secondary">
-          + Add Widget
-        </Button>
       </div>
     </header>
   );

@@ -16,7 +16,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  background: var(--color-topbar-bg);
+  background: var(--color-canvas-bg);
   padding: var(--space-md) var(--space-xl) var(--space-sm);
 }
 
@@ -92,6 +92,33 @@
   gap: var(--space-lg);
   padding: var(--space-sm) var(--space-xl) var(--space-xl);
   background: var(--color-canvas-bg);
+}
+
+.workbench-empty-state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+}
+
+.workbench-empty-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-2xl);
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: var(--line-tight);
+}
+
+.workbench-empty-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
 }
 
 .widget-grid {
