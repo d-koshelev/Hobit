@@ -28,14 +28,12 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
         <p className="agent-text">Ask the agent to help with this workspace.</p>
       </div>
 
-      <div className="suggestions" aria-label="Mock suggested prompts">
-        <div className="suggestion-grid">
-          {prompts.map((prompt) => (
-            <span className="suggestion-chip" key={prompt}>
-              {prompt}
-            </span>
-          ))}
-        </div>
+      <div className="suggestion-grid" aria-label="Mock suggested prompts">
+        {prompts.map((prompt) => (
+          <span className="suggestion-chip" key={prompt}>
+            {prompt}
+          </span>
+        ))}
       </div>
 
       <div className="prompt-row">
