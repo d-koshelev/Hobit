@@ -3,10 +3,14 @@ import { WidgetHost } from "./WidgetHost";
 import type { WorkbenchPreset } from "./types";
 
 type WorkbenchCanvasProps = {
+  onOpenWidgetCatalog: () => void;
   preset: WorkbenchPreset;
 };
 
-export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
+export function WorkbenchCanvas({
+  onOpenWidgetCatalog,
+  preset,
+}: WorkbenchCanvasProps) {
   const visibleWidgets = preset.widgets
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
@@ -20,7 +24,7 @@ export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
             <p className="empty-workbench-text">
               Add widgets to compose your AI workspace.
             </p>
-            <Button disabled variant="primary">
+            <Button onClick={onOpenWidgetCatalog} variant="primary">
               + Add Widget
             </Button>
           </div>

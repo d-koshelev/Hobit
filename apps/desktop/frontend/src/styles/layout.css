@@ -136,6 +136,86 @@
   align-items: stretch;
 }
 
+.widget-catalog-overlay {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--color-app-bg);
+}
+
+.widget-catalog-scrim {
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.widget-catalog-drawer {
+  display: flex;
+  width: min(440px, 100%);
+  min-height: 100%;
+  flex-direction: column;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-widget-surface);
+  box-shadow: var(--shadow-elevated);
+}
+
+.widget-catalog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-xl);
+}
+
+.widget-catalog-heading {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.widget-catalog-title,
+.widget-catalog-subtitle,
+.widget-catalog-empty-title,
+.widget-catalog-empty-text {
+  margin: 0;
+}
+
+.widget-catalog-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-xl);
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: var(--line-tight);
+}
+
+.widget-catalog-subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+}
+
+.widget-catalog-empty {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+}
+
+.widget-catalog-empty-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.widget-catalog-empty-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+}
+
 .panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -437,6 +517,19 @@
 
   .widget-grid {
     grid-template-columns: 1fr;
+  }
+
+  .widget-catalog-overlay {
+    justify-content: stretch;
+  }
+
+  .widget-catalog-scrim {
+    display: none;
+  }
+
+  .widget-catalog-drawer {
+    width: 100%;
+    border-left: 0;
   }
 
   .widget-frame {

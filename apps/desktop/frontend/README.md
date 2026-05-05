@@ -8,6 +8,8 @@ The current milestone is a static Empty Workbench shell built with Vite, React, 
 
 The default preset intentionally renders no widgets. The goal is to perfect the workbench shell, locked theme, spacing, and empty canvas before concrete widgets are added back through the widget catalog.
 
+The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
+
 The UI is a frontend-only preview. It does not connect to Tauri, a backend, a terminal, or an agent runtime.
 
 ## Widget Registry And Preset Model
@@ -42,7 +44,7 @@ npm run build
 ## Intentionally Not Implemented Yet
 
 - Concrete visible widgets.
-- Widget catalog behavior.
+- Runtime widget catalog behavior.
 - Real terminal execution.
 - Real agent calls.
 - Preset persistence.

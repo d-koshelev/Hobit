@@ -43,6 +43,8 @@ A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/front
 
 The current UI is a static Empty Workbench shell. It intentionally renders no concrete widgets by default.
 
+The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog is currently a UI-only surface with no runtime widget insertion, template registration, backend integration, or persistence.
+
 There is no backend integration, Tauri integration, terminal execution, agent runtime, or preset persistence yet.
 
 ## Current Frontend Widget Milestone

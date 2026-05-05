@@ -5,10 +5,14 @@ import { StatusDot } from "../design-system/StatusDot";
 import type { WorkbenchPreset } from "./types";
 
 type WorkbenchTopBarProps = {
+  onOpenWidgetCatalog: () => void;
   preset: WorkbenchPreset;
 };
 
-export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
+export function WorkbenchTopBar({
+  onOpenWidgetCatalog,
+  preset,
+}: WorkbenchTopBarProps) {
   return (
     <header className="workbench-topbar">
       <div className="topbar-left">
@@ -32,7 +36,7 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
           <StatusDot variant="info" />
           Local preview
         </Badge>
-        <Button disabled variant="secondary">
+        <Button onClick={onOpenWidgetCatalog} variant="secondary">
           + Add Widget
         </Button>
       </div>
