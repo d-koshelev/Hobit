@@ -20,18 +20,15 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
           Idle
         </Badge>
       }
-      subtitle="Direct operator surface for agent interaction"
+      subtitle="Operator prompt surface"
       title={title}
     >
-      <div className="agent-hero">
-        <div className="surface-row-copy">
-          <p className="surface-row-title">Agent ready.</p>
-          <p className="surface-row-text">Ask the agent to help with this workspace.</p>
-        </div>
+      <div className="agent-intro">
+        <p className="agent-title">Agent ready.</p>
+        <p className="agent-text">Ask the agent to help with this workspace.</p>
       </div>
 
       <div className="suggestions" aria-label="Mock suggested prompts">
-        <span className="section-label">Examples</span>
         <div className="suggestion-grid">
           {prompts.map((prompt) => (
             <span className="suggestion-chip" key={prompt}>

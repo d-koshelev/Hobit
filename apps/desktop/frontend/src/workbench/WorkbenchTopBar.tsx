@@ -24,7 +24,6 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
       <div className="topbar-controls">
         <div className="topbar-context" aria-label="Current workbench context">
           <label className="control-group">
-            <span className="control-label">Preset</span>
             <Select aria-label="Current preset" value={preset.id} disabled>
               <option value={preset.id}>{preset.title}</option>
             </Select>
@@ -34,7 +33,7 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
             Local preview
           </Badge>
         </div>
-        <Button disabled variant="primary">
+        <Button disabled variant="secondary">
           + Add Widget
         </Button>
       </div>
