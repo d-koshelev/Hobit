@@ -15,11 +15,7 @@ export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
     return (
       <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
         <div className="empty-workbench" aria-label="Empty workbench">
-          <div className="empty-workbench-card">
-            <div className="empty-workbench-mark" aria-hidden="true">
-              +
-            </div>
-            <p className="empty-workbench-kicker">Workbench canvas</p>
+          <div className="empty-workbench-content">
             <h1 className="empty-workbench-title">Your workbench is empty</h1>
             <p className="empty-workbench-text">
               Add widgets to compose your AI workspace.
