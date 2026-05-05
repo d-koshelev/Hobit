@@ -31,7 +31,7 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
           </label>
           <Badge variant="info">
             <StatusDot variant="info" />
-            Local mock
+            Local preview
           </Badge>
         </div>
         <Button disabled variant="primary">

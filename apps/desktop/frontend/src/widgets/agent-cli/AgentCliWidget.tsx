@@ -6,27 +6,14 @@ import { WidgetFrame } from "../../design-system/WidgetFrame";
 import type { WidgetRenderProps } from "../../workbench/types";
 
 const prompts = [
-  "Summarize this workspace",
-  "Plan the next change",
-  "Explain pending approvals",
-];
-
-const statusItems = [
-  "No runtime connected",
-  "Uses workbench context",
-  "Waiting for operator input",
+  "Summarize workspace",
+  "Plan next step",
+  "Explain current setup",
 ];
 
 export function AgentCliWidget({ title }: WidgetRenderProps) {
   return (
     <WidgetFrame
-      actions={<Badge variant="neutral">Mock agent</Badge>}
-      footer={
-        <p className="mock-note">
-          <StatusDot variant="neutral" /> Agent calls are intentionally not
-          implemented.
-        </p>
-      }
       status={
         <Badge variant="success">
           <StatusDot variant="success" />
@@ -38,53 +25,25 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
     >
       <div className="agent-hero">
         <div className="surface-row-copy">
-          <p className="surface-row-title">Operator prompt surface</p>
-          <p className="surface-row-text">
-            Ask, review proposals, and approve actions here once the runtime is
-            connected.
-          </p>
+          <p className="surface-row-title">Agent ready.</p>
+          <p className="surface-row-text">Ask the agent to help with this workspace.</p>
         </div>
-        <Badge variant="info">Local mock</Badge>
-      </div>
-
-      <div className="agent-thread">
-        <div className="agent-message agent-message-compact">
-          <p>Mock agent ready.</p>
-          <div className="activity-row">
-            <StatusDot variant="success" />
-            Idle, waiting for operator input
-          </div>
-        </div>
-      </div>
-
-      <div className="agent-status-grid">
-        {statusItems.map((item) => (
-          <div className="agent-status-item" key={item}>
-            <StatusDot variant="neutral" />
-            {item}
-          </div>
-        ))}
       </div>
 
       <div className="suggestions" aria-label="Mock suggested prompts">
-        <span className="section-label">Suggestions</span>
+        <span className="section-label">Examples</span>
         <div className="suggestion-grid">
           {prompts.map((prompt) => (
-            <Button
-              className="suggestion"
-              disabled
-              key={prompt}
-              variant="secondary"
-            >
+            <span className="suggestion-chip" key={prompt}>
               {prompt}
-            </Button>
+            </span>
           ))}
         </div>
       </div>
 
       <div className="prompt-row">
         <Input
-          aria-label="Mock agent prompt"
+          aria-label="Agent prompt"
           disabled
           placeholder="Ask the agent..."
           type="text"

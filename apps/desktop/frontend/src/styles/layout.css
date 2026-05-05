@@ -109,7 +109,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
   padding: var(--space-xl);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 180px),
@@ -121,18 +121,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent),
-    rgba(255, 255, 255, 0.012);
-  box-shadow: var(--shadow-surface);
-  padding: var(--space-md) var(--space-lg);
+  padding: 0 var(--space-xs);
 }
 
 .summary-copy {
   display: grid;
-  gap: var(--space-xs);
+  gap: 2px;
 }
 
 .summary-eyebrow {
@@ -162,7 +156,7 @@
 .summary-text {
   margin: 0;
   max-width: 620px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-size: var(--text-xs);
 }
 
@@ -328,9 +322,14 @@
 .button:disabled,
 .icon-button:disabled {
   border-color: var(--color-border-subtle);
-  background: rgba(154, 168, 186, 0.055);
+  background: rgba(154, 168, 186, 0.04);
   color: var(--color-text-disabled);
-  opacity: 0.72;
+  opacity: 0.62;
+}
+
+.button-ghost:disabled {
+  border-color: transparent;
+  background: transparent;
 }
 
 .icon-button {
@@ -460,9 +459,7 @@
   gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
-    var(--color-nested-surface);
+  background: rgba(255, 255, 255, 0.018);
   padding: var(--space-md);
 }
 
@@ -638,10 +635,17 @@
   gap: var(--space-sm);
 }
 
-.suggestion {
-  justify-content: flex-start;
-  min-height: 48px;
-  text-align: left;
+.suggestion-chip {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  padding: 0 var(--space-md);
 }
 
 .prompt-row {
