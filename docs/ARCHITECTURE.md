@@ -4,6 +4,10 @@ This document describes the current repository skeleton and intended future arch
 
 The current repository contains a Rust workspace skeleton, placeholder desktop directories, and a static frontend scaffold. No Tauri app, backend integration, database schema, agents, real widgets, terminal execution, or tool implementations exist yet.
 
+## Documentation Contracts
+
+`DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.
+
 ## Current Repository Skeleton
 
 The implemented skeleton is:

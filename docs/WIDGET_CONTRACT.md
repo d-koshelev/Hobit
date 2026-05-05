@@ -6,6 +6,8 @@ Every visible block in Hobit is a Widget.
 
 Widgets are optional capabilities that can be added, removed, configured, and composed into workbench presets.
 
+Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md`. Widgets should normally use the shared WidgetFrame anatomy.
+
 ## WidgetDefinition
 
 A WidgetDefinition describes a widget type. It defines the widget's purpose, supported configuration, required capabilities, events, state inputs, actions, and rendering contract.

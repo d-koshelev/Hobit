@@ -35,3 +35,9 @@ Examples:
 ## Approval Visibility
 
 Actions that need approval must be explicit and visible. The UI must show the action purpose, risk, expected output, and available operator decisions.
+
+## Design System Reference
+
+UI work must also follow `DESIGN_SYSTEM_CONTRACT.md`.
+
+This UI contract defines behavioral clarity. The design system contract defines visual consistency.
