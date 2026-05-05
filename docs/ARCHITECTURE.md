@@ -57,6 +57,12 @@ The Minimal Workbench is rendered from preset data and currently contains no vis
 
 The registry is frontend-local for now. There is no backend persistence, runtime widget loading, or Tauri bridge integration yet.
 
+## Current Core Model Milestone
+
+`hobit-core` now contains minimal Rust domain contracts for Workspace, Workbench, Presets, Widgets, Actions, Events, and Shared State.
+
+These are contracts only. They are not persistence, runtime execution, frontend integration, Tauri integration, or concrete widget implementation.
+
 ## Planned Workspace Model
 
 Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.

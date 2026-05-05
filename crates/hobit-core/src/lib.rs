@@ -1,7 +1,9 @@
 //! Core Hobit domain contracts.
 //!
-//! This crate intentionally contains only small placeholder types for the
-//! initial monorepo skeleton.
+//! This crate contains dependency-free Rust representations of the canonical
+//! Workspace, Workbench, Preset, Widget runtime, action, event, and shared state
+//! contracts. It does not implement persistence, frontend behavior, Tauri
+//! integration, agent calls, tool execution, or concrete widgets.
 
 #![forbid(unsafe_code)]
 
