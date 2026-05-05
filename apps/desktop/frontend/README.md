@@ -34,6 +34,8 @@ This milestone is still mock/static. There is no persistence, backend integratio
 
 The Minimal Workbench visuals now follow `docs/DESIGN_SYSTEM_CONTRACT.md`: dark-first surfaces, semantic status badges, shared widget anatomy, and low-noise operator controls.
 
+The current visual milestone refines the Minimal Workbench hierarchy so the top bar, canvas context, widget cards, and mock terminal/agent surfaces read as a polished dark desktop workbench.
+
 This is still a static mock. There is no real terminal, agent runtime, Tauri bridge, persistence, or runtime widget loading yet.
 
 ## Run Locally

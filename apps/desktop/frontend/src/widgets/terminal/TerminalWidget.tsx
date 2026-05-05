@@ -41,18 +41,26 @@ export function TerminalWidget({ title }: WidgetRenderProps) {
       subtitle="Mock command and output surface"
       title={title}
     >
-      <div className="surface-row">
+      <div className="terminal-meta">
         <div className="surface-row-copy">
           <p className="surface-row-title">Local preview terminal</p>
           <p className="surface-row-text">
             Static output only. Commands are not executed.
           </p>
         </div>
-        <Badge variant="neutral">Mock</Badge>
+        <div className="terminal-meta-badges">
+          <Badge variant="neutral">Mock</Badge>
+          <Badge variant="warning">No runtime</Badge>
+        </div>
       </div>
 
       <div className="terminal-screen" aria-label="Mock terminal output">
         <div className="terminal-chrome">
+          <div className="terminal-window-controls" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
           <span className="terminal-path">hobit://minimal/terminal</span>
           <Badge variant="neutral">Read-only</Badge>
         </div>

@@ -11,6 +11,12 @@ const prompts = [
   "Explain pending approvals",
 ];
 
+const statusItems = [
+  "No runtime connected",
+  "Uses workbench context",
+  "Waiting for operator input",
+];
+
 export function AgentCliWidget({ title }: WidgetRenderProps) {
   return (
     <WidgetFrame
@@ -30,11 +36,12 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
       subtitle="Direct operator surface for agent interaction"
       title={title}
     >
-      <div className="surface-row">
+      <div className="agent-hero">
         <div className="surface-row-copy">
           <p className="surface-row-title">Operator prompt surface</p>
           <p className="surface-row-text">
-            Static preview. No model or runtime is connected.
+            Ask, review proposals, and approve actions here once the runtime is
+            connected.
           </p>
         </div>
         <Badge variant="info">Local mock</Badge>
@@ -42,15 +49,21 @@ export function AgentCliWidget({ title }: WidgetRenderProps) {
 
       <div className="agent-thread">
         <div className="agent-message agent-message-compact">
-          <p>
-            Mock agent ready. Prompts, activity, proposals, and approvals will
-            appear here.
-          </p>
+          <p>Mock agent ready.</p>
           <div className="activity-row">
             <StatusDot variant="success" />
             Idle, waiting for operator input
           </div>
         </div>
+      </div>
+
+      <div className="agent-status-grid">
+        {statusItems.map((item) => (
+          <div className="agent-status-item" key={item}>
+            <StatusDot variant="neutral" />
+            {item}
+          </div>
+        ))}
       </div>
 
       <div className="suggestions" aria-label="Mock suggested prompts">

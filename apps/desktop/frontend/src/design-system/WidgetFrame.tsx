@@ -21,12 +21,14 @@ export function WidgetFrame({
   return (
     <Panel className="widget-frame">
       <header className="widget-header">
-        <div className="widget-heading">
-          <div className="widget-title-row">
-            <h2 className="widget-title">{title}</h2>
-            {status ? <div className="widget-status">{status}</div> : null}
+        <div className="widget-header-main">
+          <div className="widget-heading">
+            <div className="widget-title-row">
+              <h2 className="widget-title">{title}</h2>
+              {status ? <div className="widget-status">{status}</div> : null}
+            </div>
+            <p className="widget-subtitle">{subtitle}</p>
           </div>
-          <p className="widget-subtitle">{subtitle}</p>
         </div>
         {actions ? <div className="widget-actions">{actions}</div> : null}
       </header>

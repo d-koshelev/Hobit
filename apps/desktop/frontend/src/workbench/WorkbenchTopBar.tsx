@@ -22,16 +22,18 @@ export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
       </div>
 
       <div className="topbar-controls">
-        <label className="control-group">
-          <span className="control-label">Preset</span>
-          <Select aria-label="Current preset" value={preset.id} disabled>
-            <option value={preset.id}>{preset.title}</option>
-          </Select>
-        </label>
-        <Badge variant="info">
-          <StatusDot variant="info" />
-          Local mock
-        </Badge>
+        <div className="topbar-context" aria-label="Current workbench context">
+          <label className="control-group">
+            <span className="control-label">Preset</span>
+            <Select aria-label="Current preset" value={preset.id} disabled>
+              <option value={preset.id}>{preset.title}</option>
+            </Select>
+          </label>
+          <Badge variant="info">
+            <StatusDot variant="info" />
+            Local mock
+          </Badge>
+        </div>
         <Button disabled variant="primary">
           + Add Widget
         </Button>

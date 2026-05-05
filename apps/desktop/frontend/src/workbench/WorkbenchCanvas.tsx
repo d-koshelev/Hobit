@@ -16,9 +16,14 @@ export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
     <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
       <div className="canvas-summary">
         <div className="summary-copy">
-          <span className="summary-eyebrow">Workbench Surface</span>
-          <h1 className="summary-title">{preset.title}</h1>
-          <p className="summary-text">{preset.description}</p>
+          <span className="summary-eyebrow">Active Workbench</span>
+          <div className="summary-row">
+            <h1 className="summary-title">{preset.title}</h1>
+            <Badge variant="neutral">Local mock</Badge>
+          </div>
+          <p className="summary-text">
+            {preset.description} Static preview, rendered from preset data.
+          </p>
         </div>
         <div className="canvas-status">
           <Badge variant="info">

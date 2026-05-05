@@ -15,7 +15,7 @@ html {
 body {
   margin: 0;
   background:
-    linear-gradient(180deg, #0a0f15 0%, var(--color-app-bg) 62%);
+    linear-gradient(180deg, var(--color-workbench-bg) 0%, var(--color-app-bg) 64%);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-md);
