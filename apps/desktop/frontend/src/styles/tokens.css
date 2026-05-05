@@ -1,11 +1,9 @@
 :root {
   --color-app-bg: var(--hb-bg-app);
-  --color-workbench-bg: var(--hb-bg-app);
   --color-canvas-bg: var(--hb-bg-canvas);
   --color-topbar-bg: var(--hb-bg-topbar);
   --color-widget-surface: var(--hb-surface-widget);
   --color-widget-surface-raised: var(--hb-surface-widget-raised);
-  --color-widget-header: var(--hb-surface-panel);
   --color-nested-surface: var(--hb-surface-panel);
   --color-io-surface: var(--hb-surface-output);
   --color-overlay-surface: var(--hb-surface-panel-raised);
@@ -56,7 +54,7 @@
   --radius-sm: 5px;
   --radius-md: 7px;
   --radius-lg: 8px;
-  --radius-xl: 8px;
+  --radius-xl: 10px;
 
   --shadow-surface: 0 0 0 1px var(--color-border-subtle) inset;
   --shadow-widget: 0 0 0 1px var(--color-border-subtle);
@@ -72,24 +70,4 @@
 
   --line-tight: 1.2;
   --line-normal: 1.5;
-
-  --color-bg: var(--color-app-bg);
-  --color-bg-soft: var(--color-nested-surface);
-  --color-surface: var(--color-widget-surface);
-  --color-surface-raised: var(--color-widget-surface-raised);
-  --color-text: var(--color-text-primary);
-  --color-text-soft: var(--color-text-muted);
-  --color-accent: var(--color-primary);
-  --color-accent-strong: var(--color-primary-strong);
-  --color-accent-soft: var(--color-primary-soft);
-  --color-danger: var(--color-error);
-  --shadow-panel: var(--shadow-widget);
-  --shadow-soft: var(--shadow-surface);
-  --space-1: var(--space-xs);
-  --space-2: var(--space-sm);
-  --space-3: var(--space-md);
-  --space-4: var(--space-lg);
-  --space-5: 20px;
-  --space-6: var(--space-xl);
-  --space-8: var(--space-2xl);
 }

@@ -3,10 +3,8 @@ import type { WorkbenchPreset } from "./types";
 export const minimalWorkbenchPreset: WorkbenchPreset = {
   id: "minimal",
   title: "Minimal Workbench",
-  description: "Empty workbench surface.",
+  description: "Empty workbench surface for composing widgets.",
   widgets: [],
 };
 
-// Additional presets such as Codebase, Database, and Design Workbench will be
-// added when those capabilities exist as real widgets.
 export const workbenchPresets = [minimalWorkbenchPreset];

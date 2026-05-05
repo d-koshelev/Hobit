@@ -26,7 +26,8 @@ A preset may define:
 
 ## Examples
 
-- Minimal Workbench: Terminal Widget + Agent CLI Widget.
+- Empty Workbench: no default widgets; the operator composes the surface from the catalog.
+- Starter Workbench: Terminal Widget + Agent CLI Widget when those widgets are implemented.
 - Codebase Workbench: Agent CLI, Terminal, Git, Agent Activity, Shared State.
 - Database Workbench: Agent CLI, Database/JDBC, SQL Results, Shared State.
 - Design Workbench: Agent CLI, Image Edit, Agent Activity, Shared State.

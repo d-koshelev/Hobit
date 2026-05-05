@@ -2,15 +2,10 @@ import type { ComponentType } from "react";
 import { Badge } from "../design-system/Badge";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import { AgentCliWidget } from "../widgets/agent-cli/AgentCliWidget";
-import { TerminalWidget } from "../widgets/terminal/TerminalWidget";
 import type { WidgetInstance, WidgetRenderProps } from "./types";
 import { getWidgetDefinition } from "./widgetRegistry";
 
-const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
-  terminal: TerminalWidget,
-  "agent-cli": AgentCliWidget,
-};
+const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {};
 
 type WidgetHostProps = {
   instance: WidgetInstance;

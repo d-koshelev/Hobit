@@ -2,24 +2,21 @@
 
 ## Status
 
-Accepted
+Superseded by `ADR-0005-empty-workbench-shell-first.md`.
 
 ## Context
 
 Hobit should prove the AI Workbench foundation before building optional capability widgets such as Knowledge, Stages, Runbooks, Git, JDBC, SQL Results, or Image Edit.
 
-Overbuilding early capabilities would obscure whether the workbench model itself is clear, useful, and controllable.
+Earlier planning treated Terminal Widget + Agent CLI Widget as the smallest useful product slice.
 
 ## Decision
 
-The minimal valid Hobit product is:
+The earlier decision was that a minimal starter product would include:
 
 - Terminal Widget
 - Agent CLI Widget
 
-## Consequences
+## Superseding Decision
 
-- The early MVP avoids overbuilding Knowledge, Stages, and Runbooks.
-- The workbench foundation is proven first.
-- Agent operation does not require Knowledge or Stages widgets.
-- Optional capability widgets can be introduced after the minimal workbench and event model are stable.
+The implementation now starts with an empty Workbench shell first. Terminal and Agent CLI remain valid future starter widgets, but they are no longer present by default while the workbench shell, theme, layout, and widget contract are being finalized.

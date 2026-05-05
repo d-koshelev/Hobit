@@ -22,7 +22,7 @@ This awareness must come from the workbench surface itself, not from hidden logs
 
 ## Responsibility Boundaries
 
-Each widget should own one clear responsibility. A widget may summarize adjacent context, but it must not duplicate another widget's primary responsibility.
+Each widget should own one clear responsibility. A widget may summarize adjacent context, but it must not duplicate another widget's primary responsibility. Visible grouping must serve operator understanding, not decoration. Avoid unnecessary internal subdivision.
 
 Examples:
 

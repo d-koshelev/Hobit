@@ -1,5 +1,5 @@
-import { WidgetHost } from "./WidgetHost";
 import { Button } from "../design-system/Button";
+import { WidgetHost } from "./WidgetHost";
 import type { WorkbenchPreset } from "./types";
 
 type WorkbenchCanvasProps = {
@@ -14,14 +14,20 @@ export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
   if (visibleWidgets.length === 0) {
     return (
       <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
-        <div className="workbench-empty-state">
-          <h1 className="workbench-empty-title">Your workbench is empty</h1>
-          <p className="workbench-empty-subtitle">
-            Add widgets to compose your AI workspace
-          </p>
-          <Button disabled variant="secondary">
-            + Add Widget
-          </Button>
+        <div className="empty-workbench" aria-label="Empty workbench">
+          <div className="empty-workbench-card">
+            <div className="empty-workbench-mark" aria-hidden="true">
+              +
+            </div>
+            <p className="empty-workbench-kicker">Workbench canvas</p>
+            <h1 className="empty-workbench-title">Your workbench is empty</h1>
+            <p className="empty-workbench-text">
+              Add widgets to compose your AI workspace.
+            </p>
+            <Button disabled variant="primary">
+              + Add Widget
+            </Button>
+          </div>
         </div>
       </section>
     );

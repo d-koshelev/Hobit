@@ -41,7 +41,7 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
 
-The current UI is a static Minimal Workbench shell. It contains mock Terminal Widget and Agent CLI Widget surfaces only.
+The current UI is a static Empty Workbench shell. It intentionally renders no concrete widgets by default.
 
 There is no backend integration, Tauri integration, terminal execution, agent runtime, or preset persistence yet.
 
@@ -49,9 +49,9 @@ There is no backend integration, Tauri integration, terminal execution, agent ru
 
 The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `WorkbenchPreset` model.
 
-The Minimal Workbench is rendered from preset data rather than hardcoded widget placement.
+The Minimal Workbench is rendered from preset data and currently contains no visible widget instances.
 
-`WidgetHost` resolves widget instances through the frontend-local registry and maps them to React widget components.
+`WidgetHost` remains the single future mapping layer from widget instances to React components. The current frontend registry is intentionally empty.
 
 The registry is frontend-local for now. There is no backend persistence, runtime widget loading, or Tauri bridge integration yet.
 

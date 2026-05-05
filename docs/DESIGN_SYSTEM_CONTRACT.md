@@ -173,6 +173,30 @@ Rules:
 - Widget must not duplicate another widget's responsibility.
 - Widget content should be scannable.
 
+
+## Unified Widget Surface
+
+WidgetFrame must visually read as one continuous working surface. The header is the top meta zone of the widget, not a separate block. The body is the working area of the same surface. Title, subtitle, status badge/dot, actions, body, and optional footer belong to one unified widget surface.
+
+Avoid:
+
+- strong header/body divider lines
+- noticeably different header background from body
+- excessive vertical gaps between header and body
+- nested "box inside box" composition
+- toolbar-like detached header treatment
+- repeated internal section cards for every small piece of information
+
+Allow:
+
+- subtle spacing between header/meta and content
+- quiet status badges and dots
+- right-aligned actions
+- terminal/output/input surfaces when they are the actual working surface
+- inner panels only when they represent meaningful nested content, not decoration
+
+Practical test: if the header could be visually cut out and reused as a separate toolbar, the widget frame is probably wrong.
+
 ## Typography
 
 Typography should be functional.

@@ -31,12 +31,9 @@ These may appear as widgets or capabilities, but they must not define Hobit's pr
 
 ## Minimal Product
 
-The minimal valid Hobit product is:
+The minimal product surface is an empty, composable AI Workbench shell. It must make the workbench model clear before any concrete capability widgets are added.
 
-- Terminal Widget
-- Agent CLI Widget
-
-This proves the AI Workbench surface without requiring Knowledge, Stages, Runbooks, Git, JDBC, or image editing.
+A future starter preset may include Terminal Widget and Agent CLI Widget, but those are optional widget capabilities rather than the product center.
 
 ## Expansion Model
 

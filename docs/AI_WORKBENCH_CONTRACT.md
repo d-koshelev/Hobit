@@ -26,4 +26,6 @@ A Preset is a saved composition of widget instances, configuration, layout, and 
 
 ## Minimal Mode
 
-The agent can work in minimal mode with only a Terminal Widget and Agent CLI Widget. Knowledge and Stages widgets are optional capabilities, not requirements for agent operation.
+The default implementation starts from an empty Workbench shell. Widgets are optional capabilities added through presets or the future widget catalog.
+
+A future starter preset may include Terminal and Agent CLI widgets, but Knowledge, Stages, Runbooks, and other capabilities are never required for the workbench to exist.

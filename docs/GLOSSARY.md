@@ -10,7 +10,7 @@ The visible product surface for an active task.
 
 ## Widget
 
-A visible UI block with one responsibility. Every visible block in Hobit is a widget.
+A first-class workbench entity with one responsibility. A widget has identity, configuration, layout state, input data, actions/commands, local logs, and structured results. Every visible workbench capability should be expressed as a widget.
 
 ## Widget Template
 
@@ -18,11 +18,19 @@ A reusable rule or starting configuration for creating widget instances.
 
 ## Widget Instance
 
-A configured and placed instance of a widget inside a Workbench Session.
+A configured and placed instance of a widget inside a Workbench Session. Its identity persists when moved, resized, popped out, or docked back.
 
 ## Widget Catalog
 
 The set of available widget definitions and templates that can be instantiated in a workbench.
+
+## Widget Console
+
+A widget-local log/activity surface. Every widget has a console capability, even if it is opened through a small button or popover.
+
+## Widget Result
+
+Structured final output produced by a widget run/action. Results are separate from logs.
 
 ## Preset
 
