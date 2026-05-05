@@ -14,22 +14,17 @@ export function WidgetCatalogShell({
   }
 
   return (
-    <div
-      aria-label="Widget Catalog"
-      aria-modal="true"
-      className="widget-catalog-overlay"
-      role="dialog"
-    >
-      <button
-        aria-label="Close Widget Catalog"
-        className="widget-catalog-scrim"
-        onClick={onClose}
-        type="button"
-      />
-      <aside className="widget-catalog-drawer">
+    <div className="widget-catalog-layer">
+      <aside
+        aria-labelledby="widget-catalog-title"
+        className="widget-catalog-drawer"
+        role="dialog"
+      >
         <header className="widget-catalog-header">
           <div className="widget-catalog-heading">
-            <h2 className="widget-catalog-title">Widget Catalog</h2>
+            <h2 className="widget-catalog-title" id="widget-catalog-title">
+              Widget Catalog
+            </h2>
             <p className="widget-catalog-subtitle">
               Add widgets to compose your AI workspace.
             </p>

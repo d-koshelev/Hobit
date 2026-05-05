@@ -17,15 +17,21 @@ export function WorkbenchShell() {
           onOpenWidgetCatalog={openWidgetCatalog}
           preset={preset}
         />
-        <WorkbenchCanvas
-          onOpenWidgetCatalog={openWidgetCatalog}
-          preset={preset}
-        />
+        <div
+          className={`workbench-content${
+            isWidgetCatalogOpen ? " workbench-content-catalog-open" : ""
+          }`}
+        >
+          <WorkbenchCanvas
+            onOpenWidgetCatalog={openWidgetCatalog}
+            preset={preset}
+          />
+          <WidgetCatalogShell
+            isOpen={isWidgetCatalogOpen}
+            onClose={closeWidgetCatalog}
+          />
+        </div>
       </div>
-      <WidgetCatalogShell
-        isOpen={isWidgetCatalogOpen}
-        onClose={closeWidgetCatalog}
-      />
     </main>
   );
 }
