@@ -2,7 +2,7 @@
 
 This document describes the current repository skeleton and intended future architecture for Hobit.
 
-The current repository contains a Rust workspace skeleton and placeholder directories only. No Tauri app, React/Vite app, database schema, agents, real widgets, terminal execution, or tool implementations exist yet.
+The current repository contains a Rust workspace skeleton, placeholder desktop directories, and a static frontend scaffold. No Tauri app, backend integration, database schema, agents, real widgets, terminal execution, or tool implementations exist yet.
 
 ## Current Repository Skeleton
 
@@ -39,7 +39,17 @@ A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/front
 
 The current UI is a static Minimal Workbench shell. It contains mock Terminal Widget and Agent CLI Widget surfaces only.
 
-There is no backend integration, Tauri integration, terminal execution, agent runtime, widget registry, or preset persistence yet.
+There is no backend integration, Tauri integration, terminal execution, agent runtime, or preset persistence yet.
+
+## Current Frontend Widget Milestone
+
+The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `WorkbenchPreset` model.
+
+The Minimal Workbench is rendered from preset data rather than hardcoded widget placement.
+
+`WidgetHost` resolves widget instances through the frontend-local registry and maps them to React widget components.
+
+The registry is frontend-local for now. There is no backend persistence, runtime widget loading, or Tauri bridge integration yet.
 
 ## Intended Repository Layout
 

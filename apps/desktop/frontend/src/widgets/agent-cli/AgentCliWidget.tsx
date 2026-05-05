@@ -3,6 +3,7 @@ import { Button } from "../../design-system/Button";
 import { Input } from "../../design-system/Input";
 import { StatusDot } from "../../design-system/StatusDot";
 import { WidgetFrame } from "../../design-system/WidgetFrame";
+import type { WidgetRenderProps } from "../../workbench/types";
 
 const prompts = [
   "Summarize this workspace",
@@ -10,7 +11,7 @@ const prompts = [
   "Explain pending approvals",
 ];
 
-export function AgentCliWidget() {
+export function AgentCliWidget({ title }: WidgetRenderProps) {
   return (
     <WidgetFrame
       actions={<Badge variant="neutral">Mock agent</Badge>}
@@ -21,7 +22,7 @@ export function AgentCliWidget() {
         </Badge>
       }
       subtitle="Direct operator surface for agent interaction"
-      title="Agent CLI Widget"
+      title={title}
     >
       <div className="agent-thread">
         <div className="agent-message">

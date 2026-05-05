@@ -2,8 +2,13 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
+import type { WorkbenchPreset } from "./types";
 
-export function WorkbenchTopBar() {
+type WorkbenchTopBarProps = {
+  preset: WorkbenchPreset;
+};
+
+export function WorkbenchTopBar({ preset }: WorkbenchTopBarProps) {
   return (
     <header className="workbench-topbar">
       <div className="brand" aria-label="Hobit AI Workbench">
@@ -17,8 +22,8 @@ export function WorkbenchTopBar() {
       </div>
 
       <div className="topbar-controls">
-        <Select aria-label="Current preset" value="minimal" disabled>
-          <option value="minimal">Minimal Workbench</option>
+        <Select aria-label="Current preset" value={preset.id} disabled>
+          <option value={preset.id}>{preset.title}</option>
         </Select>
         <Badge variant="info">
           <StatusDot variant="info" />

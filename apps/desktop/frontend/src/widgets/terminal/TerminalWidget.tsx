@@ -3,6 +3,7 @@ import { Button } from "../../design-system/Button";
 import { EmptyState } from "../../design-system/EmptyState";
 import { StatusDot } from "../../design-system/StatusDot";
 import { WidgetFrame } from "../../design-system/WidgetFrame";
+import type { WidgetRenderProps } from "../../workbench/types";
 
 const lines = [
   { kind: "prompt", text: "$ hobit session status" },
@@ -12,7 +13,7 @@ const lines = [
   { kind: "muted", text: "mock output only - no command was executed" },
 ];
 
-export function TerminalWidget() {
+export function TerminalWidget({ title }: WidgetRenderProps) {
   return (
     <WidgetFrame
       actions={
@@ -27,7 +28,7 @@ export function TerminalWidget() {
       }
       status={<Badge variant="warning">Preview</Badge>}
       subtitle="Mock terminal surface"
-      title="Terminal Widget"
+      title={title}
     >
       <div className="terminal-screen" aria-label="Mock terminal output">
         <pre className="terminal-lines">

@@ -1,27 +1,34 @@
 import { Badge } from "../design-system/Badge";
 import { StatusDot } from "../design-system/StatusDot";
-import { AgentCliWidget } from "../widgets/agent-cli/AgentCliWidget";
-import { TerminalWidget } from "../widgets/terminal/TerminalWidget";
+import { WidgetHost } from "./WidgetHost";
+import type { WorkbenchPreset } from "./types";
 
-export function WorkbenchCanvas() {
+type WorkbenchCanvasProps = {
+  preset: WorkbenchPreset;
+};
+
+export function WorkbenchCanvas({ preset }: WorkbenchCanvasProps) {
+  const visibleWidgets = preset.widgets
+    .filter((widget) => widget.visible)
+    .sort((first, second) => first.layout.order - second.layout.order);
+
   return (
-    <section className="canvas-shell" aria-label="Minimal Workbench canvas">
+    <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
       <div className="canvas-summary">
         <div className="summary-copy">
-          <h1 className="summary-title">Minimal Workbench</h1>
-          <p className="summary-text">
-            Static preview with Terminal and Agent CLI widget blocks.
-          </p>
+          <h1 className="summary-title">{preset.title}</h1>
+          <p className="summary-text">{preset.description}</p>
         </div>
         <Badge variant="success">
           <StatusDot variant="success" />
-          2 mock widgets
+          {visibleWidgets.length} mock widgets
         </Badge>
       </div>
 
       <div className="widget-grid">
-        <TerminalWidget />
-        <AgentCliWidget />
+        {visibleWidgets.map((widget) => (
+          <WidgetHost instance={widget} key={widget.id} />
+        ))}
       </div>
     </section>
   );
