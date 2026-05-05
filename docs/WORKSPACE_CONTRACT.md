@@ -1,0 +1,219 @@
+# Hobit Workspace Contract
+
+## Purpose
+
+Workspace is the durable unit of resumable work in Hobit.
+
+Hobit must let a user start a piece of work, close the application, return later, and continue from the same place. The Workspace owns the saved work context, Workbench composition, widget state, shared state, results, logs, and event history needed for that resume behavior.
+
+## Core Terms
+
+### Workspace
+
+A Workspace is a durable, persisted, user-facing container for a specific piece of work.
+
+It represents what the user is working on, why it exists, what state has accumulated, and how the Workbench should be restored when the user returns.
+
+### WorkspaceSession
+
+A WorkspaceSession is the current runtime opening of a Workspace.
+
+It represents the active application runtime state while the Workspace is open. It may include transient UI state, live tool connections, live agent runs, and runtime-only window details.
+
+### Workbench
+
+A Workbench is the configurable working surface inside a Workspace.
+
+It hosts widget instances, layout, presentation state, context bindings, active preset origin, and the current UI composition for that Workspace.
+
+### WorkbenchPreset / Preset
+
+A WorkbenchPreset, or Preset, is a reusable saved Workbench layout and configuration.
+
+Choosing a Preset instantiates or copies its recommended layout and configuration into a Workspace. The Workspace owns the actual widget instances and layout after the Preset is applied.
+
+### WidgetInstance
+
+A WidgetInstance is a configured, placed instance of a widget inside a Workspace Workbench.
+
+The instance identity, configuration, layout, presentation state, inputs, logs, results, and current runtime state are part of the Workspace resume data.
+
+### SharedState
+
+SharedState is named state available to the Workbench and relevant widgets through the common state and event model.
+
+SharedState that belongs to a Workspace is persisted with that Workspace for resume behavior.
+
+### EventLog
+
+EventLog is the ordered history of structured Workspace and Workbench events relevant to a piece of work.
+
+The EventLog can support auditability, summarization, replay, restore behavior, and operator understanding when resuming work.
+
+### CurrentFocus
+
+CurrentFocus is the saved pointer to what the user was focused on inside the Workspace.
+
+It may refer to an active widget, selected object, active decision, highlighted result, open note, or other durable focus target. It should be restored only when the target is still valid.
+
+## Product Rule
+
+A user does not just open Hobit.
+
+A user opens an existing Workspace or creates a new Workspace.
+
+Opening or creating a Workspace starts a WorkspaceSession.
+
+## Workspace
+
+A Workspace is the durable, persisted, user-facing work container.
+
+A Workspace should persist:
+
+- title/name
+- goal/description
+- status
+- selected or instantiated workbench preset
+- widget instances
+- widget layout
+- widget states
+- widget inputs
+- command/action history
+- widget-local logs
+- widget results
+- shared state objects
+- notes
+- decisions
+- current focus
+- docked/popped-out state
+- ghost placeholders
+- event history
+- enough state to resume from the same place
+
+The Workspace is the user's durable product object. It is what appears in recent work, search, archive flows, restore flows, and future storage.
+
+## WorkspaceSession
+
+A WorkspaceSession is the runtime/current opening of a Workspace.
+
+It may contain:
+
+- opened_at
+- closed_at
+- active widget
+- transient UI state
+- currently open drawer/popup
+- live tool connections
+- live agent runs
+- popout window geometry for current runtime
+- temporary non-persisted runtime details
+
+Session is not the durable product object.
+
+Workspace is.
+
+## Workbench
+
+A Workbench is the configurable working surface inside a Workspace.
+
+The Workbench contains:
+
+- widget instances
+- layout
+- presentation state
+- context bindings
+- active preset origin
+- current UI composition
+
+The Workbench is saved as part of the Workspace so the visible working surface can be restored. A Workspace may later support multiple workbench surfaces, but the current contract only requires one configurable Workbench per Workspace.
+
+## Presets
+
+A Preset is a reusable layout/configuration.
+
+Rules:
+
+- system presets and user presets are allowed
+- users can create custom presets
+- choosing a preset instantiates/copies it into a Workspace
+- editing Workspace layout does not mutate a Preset
+- user must explicitly choose Save as Preset or Update Preset
+- preset may recommend widget templates/configuration but Workspace owns actual instances
+
+Example presets:
+
+- Empty Workbench
+- Codebase Workbench
+- Database Workbench
+- Design Workbench
+- Operations Workbench
+- user custom presets
+
+## User Flows
+
+### New Workspace
+
+The user creates a new Workspace, names or describes the work, optionally chooses a Preset, and starts a new WorkspaceSession.
+
+### Open Existing Workspace
+
+The user opens a durable Workspace and Hobit restores its Workbench, widget instances, shared state, logs, results, decisions, and current focus when possible.
+
+### Continue Recent Workspace
+
+The user selects a recent Workspace and Hobit starts a new WorkspaceSession from the saved Workspace state.
+
+### Choose Preset
+
+The user chooses a system or user Preset. Hobit copies the Preset's recommended layout and configuration into the Workspace.
+
+### Customize Workbench
+
+The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
+
+### Save Layout as Preset
+
+The user explicitly saves the current Workspace Workbench layout/configuration as a new Preset for reuse.
+
+### Update Existing Preset
+
+The user explicitly chooses to update an existing Preset from the current Workspace Workbench layout/configuration.
+
+### Archive Workspace
+
+The user archives a Workspace when the work should no longer appear as active, while preserving durable history unless explicitly deleted by a future deletion flow.
+
+## Resume Behavior
+
+Expected resume:
+
+1. Load Workspace.
+2. Restore Workbench layout.
+3. Restore widget instances/states.
+4. Restore shared state/logs/results.
+5. Restore current focus if valid.
+6. Create new WorkspaceSession.
+7. Continue from saved state.
+
+Resume behavior should preserve enough state that the operator can understand what was happening, what decisions were made, what results exist, and what work should continue next.
+
+## Distinction from Other Terms
+
+- Workspace is not a browser/auth session.
+- WorkspaceSession is not AgentSession.
+- Workspace is not a Preset.
+- Workbench is not a Workspace.
+- Widget state is part of Workspace resume data.
+- Global notes/global settings are not Workspace-local unless explicitly attached.
+
+## Non-goals for now
+
+The following are not implemented yet:
+
+- persistence
+- database schema
+- start screen
+- workspace restore runtime
+- custom preset editor
+- multi-user sync
+- cloud sync

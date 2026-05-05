@@ -4,9 +4,17 @@
 
 A configurable operator workspace where AI agents, tools, context, widgets, and presets are composed into a visible, controllable working surface.
 
+## Workspace
+
+A durable, persisted, user-facing container for a specific piece of work. A Workspace owns the saved Workbench composition, widget instances, layout, shared state, logs, results, decisions, current focus, and event history needed to resume later.
+
+## WorkspaceSession
+
+The current runtime opening of a Workspace. A WorkspaceSession may contain transient UI state, live tool connections, live agent runs, and runtime-only details, but the durable product object is the Workspace.
+
 ## Workbench
 
-The visible product surface for an active task.
+The configurable working surface inside a Workspace. It hosts widgets, layout, presentation state, context bindings, active preset origin, and the current UI composition for the active work.
 
 ## Widget
 
@@ -18,7 +26,7 @@ A reusable rule or starting configuration for creating widget instances.
 
 ## Widget Instance
 
-A configured and placed instance of a widget inside a Workbench Session. Its identity persists when moved, resized, popped out, or docked back.
+A configured and placed instance of a widget inside a Workspace Workbench. Its identity persists when moved, resized, popped out, or docked back, and its state is part of Workspace resume data.
 
 ## Widget Catalog
 
@@ -34,7 +42,11 @@ Structured final output produced by a widget run/action. Results are separate fr
 
 ## Preset
 
-A saved composition of widget instances, layout, configuration, and initial context rules.
+A reusable saved Workbench layout/configuration. Choosing a Preset instantiates or copies it into a Workspace; editing the Workspace layout does not mutate the original Preset unless the user explicitly saves or updates it.
+
+## CurrentFocus
+
+The saved pointer to what the user was focused on inside a Workspace, such as an active widget, selected object, decision, result, or note. It should be restored on resume only when the target is still valid.
 
 ## Agent CLI
 
@@ -48,9 +60,13 @@ A widget that exposes terminal interaction and terminal state.
 
 Structured information about what the agent is doing, has done, or is waiting on.
 
-## Shared State
+## SharedState / Shared State
 
-Named state available to the workbench and relevant widgets through the common state and event model.
+Named state available to the Workbench and relevant widgets through the common state and event model. Workspace-local SharedState is persisted with the Workspace for resume behavior.
+
+## EventLog
+
+The ordered history of structured Workspace and Workbench events relevant to a piece of work. It supports auditability, summarization, replay, restore behavior, and operator understanding.
 
 ## Knowledge Widget
 

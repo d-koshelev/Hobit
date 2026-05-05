@@ -23,6 +23,9 @@ A preset may define:
 - A preset must not bypass approval requirements.
 - A preset must not make optional capabilities mandatory for the whole product.
 - A preset should compose existing widget definitions and templates.
+- Choosing a preset instantiates or copies it into a Workspace.
+- Workspace layout changes do not mutate the original preset unless the user explicitly chooses Save as Preset or Update Preset.
+- A Workspace owns the actual widget instances created from a preset.
 
 ## Examples
 

@@ -36,6 +36,12 @@ An event emitted by a widget to describe user interaction, configuration changes
 
 A structured result produced by a Tool Action.
 
+### Workspace Event Log
+
+A Workspace event log is part of resumable work. It stores the structured history needed to understand, summarize, replay, or restore relevant Workspace and Workbench state when the user returns later.
+
 ## Event Boundaries
 
 Events should be explicit and typed. Widgets may render events differently, but they should not rely on private state from other widgets.
+
+Events may be replayed, summarized, or restored to support resume behavior. The durable Workspace owns the persisted event history; a WorkspaceSession only represents the current runtime opening.

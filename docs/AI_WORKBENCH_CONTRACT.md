@@ -4,6 +4,12 @@
 
 A Workbench is the visible operator surface for an active task. It hosts widgets, exposes context, presents agent activity, and coordinates tool actions and approvals.
 
+## Workspace And WorkspaceSession
+
+For resumable work, a Workbench exists inside a Workspace. The Workspace is the durable work container that persists the Workbench layout, widget instances, shared state, logs, results, and event history needed to continue later.
+
+Opening or creating a Workspace starts a WorkspaceSession, which represents the current runtime opening of that Workspace.
+
 ## Workbench Session
 
 A Workbench Session is a running instance of a workbench. It has active context, widget instances, layout, shared state, event history, and available capabilities.

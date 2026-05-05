@@ -57,6 +57,12 @@ The Minimal Workbench is rendered from preset data and currently contains no vis
 
 The registry is frontend-local for now. There is no backend persistence, runtime widget loading, or Tauri bridge integration yet.
 
+## Planned Workspace Model
+
+Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.
+
+This is not implemented yet. There is no Workspace persistence, database schema, start screen, restore runtime, or preset editor in the current repository.
+
 ## Intended Repository Layout
 
 Future implementation may extend the skeleton into a structure similar to:
