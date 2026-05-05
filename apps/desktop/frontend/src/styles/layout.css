@@ -1,6 +1,6 @@
 .app-shell {
   min-height: 100vh;
-  background: var(--color-canvas-bg);
+  background: var(--color-app-bg);
 }
 
 .workbench {
@@ -16,7 +16,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  background: var(--color-canvas-bg);
+  background: var(--color-topbar-bg);
   padding: var(--space-md) var(--space-xl) var(--space-sm);
 }
 
