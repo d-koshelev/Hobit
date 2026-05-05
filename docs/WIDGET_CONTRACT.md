@@ -152,6 +152,7 @@ Future widget types may include:
 - Terminal
 - Stages
 - Knowledge
+- Notes
 - Database/JDBC
 - Git
 - Image Edit
@@ -159,3 +160,5 @@ Future widget types may include:
 - Shared State
 - Notebook
 - To-do List
+
+Notes Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`.

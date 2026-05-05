@@ -63,6 +63,12 @@ Future Workspace model and storage work will support resumable work. A Workspace
 
 This is not implemented yet. There is no Workspace persistence, database schema, start screen, restore runtime, or preset editor in the current repository.
 
+## Planned Notes Model
+
+Future notes work will support Markdown documents organized in folders with global and workspace-local scopes.
+
+This is not implemented yet. There is no notes storage, notes widget implementation, folder UI, Markdown editor, sync, or Knowledge ingestion flow in the current repository.
+
 ## Intended Repository Layout
 
 Future implementation may extend the skeleton into a structure similar to:

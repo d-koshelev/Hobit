@@ -82,7 +82,7 @@ A Workspace should persist:
 - widget-local logs
 - widget results
 - shared state objects
-- notes
+- workspace-local notes
 - decisions
 - current focus
 - docked/popped-out state
@@ -91,6 +91,10 @@ A Workspace should persist:
 - enough state to resume from the same place
 
 The Workspace is the user's durable product object. It is what appears in recent work, search, archive flows, restore flows, and future storage.
+
+Workspace-local notes are part of Workspace resumable state and should be restored with the Workspace.
+
+Global notes are outside a Workspace unless they are explicitly linked or attached to that Workspace.
 
 ## WorkspaceSession
 

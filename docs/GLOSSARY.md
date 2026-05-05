@@ -72,6 +72,26 @@ The ordered history of structured Workspace and Workbench events relevant to a p
 
 A widget that exposes knowledge sources, references, or retrieved context. It is an optional capability, not the product center.
 
+## Notes Widget
+
+A widget/capability for Markdown-based operator notes. Notes can be global or workspace-local and remain separate from Knowledge Catalog unless explicitly promoted or linked by the operator.
+
+## Global Notes
+
+Markdown notes independent of any Workspace and available across Workspaces. Global Notes are useful for personal or common reference.
+
+## Workspace Notes
+
+Markdown notes bound to one Workspace. Workspace Notes are persisted and restored with the Workspace as part of resumable work.
+
+## NoteFolder
+
+A hierarchical folder used to organize NoteDocuments within one note scope.
+
+## NoteDocument
+
+A Markdown text document stored in either Global Notes or Workspace Notes.
+
 ## Stages Widget
 
 A widget that exposes staged workflow state. It is an optional capability, not the product center.
