@@ -36,6 +36,8 @@ The Minimal Workbench visuals now follow `docs/DESIGN_SYSTEM_CONTRACT.md`: dark-
 
 The current visual milestone simplifies the Minimal Workbench surface so mock/runtime status appears once, while the top bar, canvas context, widget cards, and terminal/agent surfaces read as a polished dark desktop workbench.
 
+Frontend colors are centralized in `src/styles/hobit-theme.css`. Raw colors outside that file are not allowed, and gradients are intentionally forbidden for the base UI.
+
 This is still a static mock. There is no real terminal, agent runtime, Tauri bridge, persistence, or runtime widget loading yet.
 
 ## Run Locally

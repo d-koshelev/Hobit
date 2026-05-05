@@ -44,6 +44,67 @@ The baseline theme uses:
 
 The UI should be readable and high-contrast, but not harsh.
 
+## Locked Theme Palette
+
+The frontend base palette is locked. Raw color values are only allowed in `apps/desktop/frontend/src/styles/hobit-theme.css`.
+
+Base:
+
+- `--hb-bg-app`: `#05080e`
+- `--hb-bg-topbar`: `#05080e`
+- `--hb-bg-canvas`: `#0b0f19`
+
+Surfaces:
+
+- `--hb-surface-widget`: `#11161d`
+- `--hb-surface-widget-raised`: `#171c24`
+- `--hb-surface-panel`: `#181e26`
+- `--hb-surface-panel-raised`: `#1e232d`
+- `--hb-surface-input`: `#12171d`
+- `--hb-surface-output`: `#04070d`
+
+Borders:
+
+- `--hb-border-subtle`: `#262b34`
+- `--hb-border-default`: `#2b3541`
+- `--hb-border-strong`: `#3f4a60`
+
+Text:
+
+- `--hb-text-primary`: `#f4f7fa`
+- `--hb-text-secondary`: `#c0cad9`
+- `--hb-text-muted`: `#8b95a5`
+- `--hb-text-disabled`: `#52636d`
+
+Accent:
+
+- `--hb-accent-primary`: `#4785e2`
+- `--hb-accent-primary-hover`: `#3971c0`
+- `--hb-accent-primary-subtle`: `#1d3057`
+- `--hb-accent-primary-muted`: `#233a69`
+
+Status:
+
+- `--hb-status-success`: `#3db54d`
+- `--hb-status-warning`: `#f2a103`
+- `--hb-status-error`: `#ef4444`
+- `--hb-status-info`: `#4a94c6`
+- `--hb-status-neutral`: `#747f90`
+
+Status surfaces:
+
+- `--hb-status-success-bg`: `#1d452a`
+- `--hb-status-warning-bg`: `#463518`
+- `--hb-status-error-bg`: `#3b1518`
+- `--hb-status-info-bg`: `#17254d`
+- `--hb-status-neutral-bg`: `#1e232d`
+
+Rules:
+
+- Components and widgets must use semantic CSS variables instead of raw color values.
+- Gradients are forbidden in the base UI.
+- Any new color requires updating this contract and `hobit-theme.css` before use.
+
 ## Color Semantics
 
 Colors communicate meaning. They must not be chosen per-widget arbitrarily.

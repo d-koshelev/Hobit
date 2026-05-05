@@ -1,40 +1,43 @@
 :root {
-  --color-app-bg: #070a0f;
-  --color-workbench-bg: #0b1118;
-  --color-canvas-bg: #0f151e;
-  --color-topbar-bg: rgba(8, 12, 17, 0.94);
-  --color-widget-surface: #151d27;
-  --color-widget-surface-raised: #1b2532;
-  --color-widget-header: rgba(255, 255, 255, 0.026);
-  --color-nested-surface: #101821;
-  --color-io-surface: #060a0f;
-  --color-overlay-surface: #202b39;
+  --color-app-bg: var(--hb-bg-app);
+  --color-workbench-bg: var(--hb-bg-app);
+  --color-canvas-bg: var(--hb-bg-canvas);
+  --color-topbar-bg: var(--hb-bg-topbar);
+  --color-widget-surface: var(--hb-surface-widget);
+  --color-widget-surface-raised: var(--hb-surface-widget-raised);
+  --color-widget-header: var(--hb-surface-panel);
+  --color-nested-surface: var(--hb-surface-panel);
+  --color-io-surface: var(--hb-surface-output);
+  --color-overlay-surface: var(--hb-surface-panel-raised);
+  --color-input-surface: var(--hb-surface-input);
 
-  --color-border-subtle: rgba(143, 161, 184, 0.13);
-  --color-border: rgba(143, 161, 184, 0.2);
-  --color-border-strong: rgba(143, 161, 184, 0.34);
+  --color-border-subtle: var(--hb-border-subtle);
+  --color-border: var(--hb-border-default);
+  --color-border-strong: var(--hb-border-strong);
 
-  --color-text-primary: #edf5fb;
-  --color-text-secondary: #b6c3d2;
-  --color-text-muted: #7f8da0;
-  --color-text-disabled: #596678;
-  --color-terminal-text: #d9e8ef;
-  --color-on-primary: #041016;
+  --color-text-primary: var(--hb-text-primary);
+  --color-text-secondary: var(--hb-text-secondary);
+  --color-text-muted: var(--hb-text-muted);
+  --color-text-disabled: var(--hb-text-disabled);
+  --color-terminal-text: var(--hb-text-primary);
+  --color-on-primary: var(--hb-bg-app);
 
-  --color-primary: #43c7e8;
-  --color-primary-strong: #20b7dc;
-  --color-primary-soft: rgba(67, 199, 232, 0.13);
-  --color-primary-quiet: rgba(67, 199, 232, 0.07);
-  --color-primary-hairline: rgba(67, 199, 232, 0.28);
+  --color-primary: var(--hb-accent-primary);
+  --color-primary-strong: var(--hb-accent-primary-hover);
+  --color-primary-soft: var(--hb-accent-primary-subtle);
+  --color-primary-quiet: var(--hb-accent-primary-muted);
+  --color-primary-hairline: var(--hb-accent-primary-muted);
 
-  --color-success: #65d6a4;
-  --color-success-soft: rgba(101, 214, 164, 0.12);
-  --color-warning: #f2bf4e;
-  --color-warning-soft: rgba(242, 191, 78, 0.13);
-  --color-error: #ff786f;
-  --color-error-soft: rgba(255, 120, 111, 0.12);
-  --color-neutral: #9aa8ba;
-  --color-neutral-soft: rgba(154, 168, 186, 0.1);
+  --color-success: var(--hb-status-success);
+  --color-success-soft: var(--hb-status-success-bg);
+  --color-warning: var(--hb-status-warning);
+  --color-warning-soft: var(--hb-status-warning-bg);
+  --color-error: var(--hb-status-error);
+  --color-error-soft: var(--hb-status-error-bg);
+  --color-info: var(--hb-status-info);
+  --color-info-soft: var(--hb-status-info-bg);
+  --color-neutral: var(--hb-status-neutral);
+  --color-neutral-soft: var(--hb-status-neutral-bg);
 
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -55,14 +58,10 @@
   --radius-lg: 8px;
   --radius-xl: 8px;
 
-  --shadow-surface: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  --shadow-widget:
-    0 1px 0 rgba(255, 255, 255, 0.035) inset,
-    0 18px 48px rgba(0, 0, 0, 0.24);
-  --shadow-elevated:
-    0 1px 0 rgba(255, 255, 255, 0.045) inset,
-    0 24px 80px rgba(0, 0, 0, 0.34);
-  --focus-ring: 0 0 0 3px rgba(67, 199, 232, 0.2);
+  --shadow-surface: 0 0 0 1px var(--color-border-subtle) inset;
+  --shadow-widget: 0 0 0 1px var(--color-border-subtle);
+  --shadow-elevated: 0 0 0 1px var(--color-border);
+  --focus-ring: 0 0 0 2px var(--color-primary-quiet);
 
   --text-xs: 12px;
   --text-sm: 13px;

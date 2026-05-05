@@ -1,17 +1,13 @@
 .app-shell {
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, var(--color-primary-quiet), transparent 260px),
-    var(--color-app-bg);
+  background: var(--color-app-bg);
 }
 
 .workbench {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.016), transparent 128px),
-    var(--color-workbench-bg);
+  background: var(--color-workbench-bg);
 }
 
 .workbench-topbar {
@@ -22,14 +18,11 @@
   gap: var(--space-lg);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-topbar-bg);
-  box-shadow:
-    var(--shadow-surface),
-    0 12px 34px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-surface);
   padding: var(--space-md) var(--space-xl);
   position: sticky;
   top: 0;
   z-index: 2;
-  backdrop-filter: blur(14px);
 }
 
 .brand {
@@ -46,9 +39,7 @@
   place-items: center;
   border: 1px solid var(--color-primary-hairline);
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, var(--color-primary-soft), var(--color-primary-quiet)),
-    var(--color-widget-surface-raised);
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-size: var(--text-lg);
   font-weight: 800;
@@ -87,7 +78,7 @@
   gap: var(--space-sm);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--color-widget-surface);
   padding: var(--space-xs);
 }
 
@@ -111,9 +102,7 @@
   flex-direction: column;
   gap: var(--space-lg);
   padding: var(--space-xl);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 180px),
-    var(--color-canvas-bg);
+  background: var(--color-canvas-bg);
 }
 
 .canvas-summary {
@@ -179,9 +168,7 @@
 .panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 120px),
-    var(--color-widget-surface);
+  background: var(--color-widget-surface);
   box-shadow: var(--shadow-widget);
 }
 
@@ -198,9 +185,7 @@
   justify-content: space-between;
   gap: var(--space-lg);
   border-bottom: 1px solid var(--color-border-subtle);
-  background:
-    linear-gradient(180deg, var(--color-widget-header), transparent),
-    rgba(255, 255, 255, 0.008);
+  background: var(--color-widget-header);
   padding: var(--space-lg) var(--space-lg) var(--space-md);
 }
 
@@ -263,7 +248,7 @@
 
 .widget-footer {
   border-top: 1px solid var(--color-border-subtle);
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--color-widget-surface);
   padding: var(--space-sm) var(--space-lg);
 }
 
@@ -295,21 +280,19 @@
 }
 
 .button-primary {
-  border-color: rgba(67, 199, 232, 0.55);
-  background:
-    linear-gradient(180deg, rgba(67, 199, 232, 0.95), rgba(32, 183, 220, 0.88)),
-    var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary);
   color: var(--color-on-primary);
 }
 
 .button-secondary {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--color-widget-surface-raised);
   color: var(--color-text-secondary);
 }
 
 .button-ghost {
-  border-color: transparent;
-  background: transparent;
+  border-color: var(--color-border-subtle);
+  background: none;
   color: var(--color-text-muted);
 }
 
@@ -319,17 +302,22 @@
   background: var(--color-overlay-surface);
 }
 
+.button-primary:not(:disabled):hover {
+  border-color: var(--color-primary-strong);
+  background: var(--color-primary-strong);
+}
+
 .button:disabled,
 .icon-button:disabled {
   border-color: var(--color-border-subtle);
-  background: rgba(154, 168, 186, 0.04);
+  background: var(--color-neutral-soft);
   color: var(--color-text-disabled);
   opacity: 0.62;
 }
 
 .button-ghost:disabled {
-  border-color: transparent;
-  background: transparent;
+  border-color: var(--color-border-subtle);
+  background: none;
 }
 
 .icon-button {
@@ -355,6 +343,7 @@
 
 .input {
   width: 100%;
+  background: var(--color-input-surface);
 }
 
 .input::placeholder {
@@ -366,7 +355,7 @@
   min-height: 24px;
   align-items: center;
   gap: var(--space-xs);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-subtle);
   border-radius: 999px;
   padding: 0 var(--space-sm);
   font-size: var(--text-xs);
@@ -382,25 +371,25 @@
 }
 
 .badge-info {
-  border-color: var(--color-primary-hairline);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  border-color: var(--color-info);
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }
 
 .badge-success {
-  border-color: rgba(101, 214, 164, 0.28);
+  border-color: var(--color-success);
   background: var(--color-success-soft);
   color: var(--color-success);
 }
 
 .badge-warning {
-  border-color: rgba(242, 191, 78, 0.32);
+  border-color: var(--color-warning);
   background: var(--color-warning-soft);
   color: var(--color-warning);
 }
 
 .badge-error {
-  border-color: rgba(255, 120, 111, 0.34);
+  border-color: var(--color-error);
   background: var(--color-error-soft);
   color: var(--color-error);
 }
@@ -411,7 +400,7 @@
   height: 7px;
   border-radius: 999px;
   background: var(--color-neutral);
-  box-shadow: 0 0 0 3px rgba(154, 168, 186, 0.08);
+  box-shadow: 0 0 0 3px var(--color-neutral-soft);
 }
 
 .status-dot-neutral {
@@ -419,8 +408,8 @@
 }
 
 .status-dot-info {
-  background: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
+  background: var(--color-info);
+  box-shadow: 0 0 0 3px var(--color-info-soft);
 }
 
 .status-dot-success {
@@ -445,9 +434,7 @@
   gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
-    var(--color-nested-surface);
+  background: var(--color-nested-surface);
   padding: var(--space-md);
 }
 
@@ -459,7 +446,7 @@
   gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--color-nested-surface);
   padding: var(--space-md);
 }
 
@@ -493,14 +480,14 @@
   min-height: 330px;
   flex: 1;
   flex-direction: column;
-  border: 1px solid rgba(67, 199, 232, 0.16);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-io-surface);
   color: var(--color-terminal-text);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   overflow: hidden;
-  box-shadow: 0 20px 36px rgba(0, 0, 0, 0.22) inset;
+  box-shadow: var(--shadow-surface);
 }
 
 .terminal-chrome {
@@ -509,9 +496,7 @@
   align-items: center;
   gap: var(--space-md);
   border-bottom: 1px solid var(--color-border-subtle);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
-    var(--color-nested-surface);
+  background: var(--color-nested-surface);
   padding: var(--space-sm) var(--space-md);
 }
 
@@ -573,9 +558,7 @@
 .agent-message {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, rgba(67, 199, 232, 0.045), transparent),
-    var(--color-nested-surface);
+  background: var(--color-nested-surface);
   padding: var(--space-md);
 }
 
@@ -610,7 +593,7 @@
   gap: var(--space-sm);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--color-nested-surface);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   padding: 0 var(--space-md);
@@ -641,7 +624,7 @@
   align-items: center;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--color-nested-surface);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-weight: 650;
@@ -658,7 +641,7 @@
 .empty-state {
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
-  background: rgba(154, 168, 186, 0.045);
+  background: var(--color-nested-surface);
   padding: var(--space-md);
 }
 
