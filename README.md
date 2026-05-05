@@ -57,3 +57,7 @@ Each capability should be expressed as a widget, tool, or shared state surface t
 - The operator must always understand what they are working on and what the agent is doing.
 - Agent proposes; operator controls.
 - Tools and actions must be explicit, visible, and approval-aware.
+
+## Project Agent Instructions
+
+Codex and other project agents must read `AGENTS.md` before making changes.
