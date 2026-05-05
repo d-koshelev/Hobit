@@ -31,7 +31,15 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 `hobit-storage-sqlite`, `hobit-agent`, `hobit-tools`, and `hobit-app` are placeholder crates with package metadata and crate-level documentation.
 
-`apps/desktop/frontend` and `apps/desktop/src-tauri` contain README placeholders only. They are not scaffolded applications.
+`apps/desktop/frontend` contains the first static frontend scaffold. `apps/desktop/src-tauri` remains a README placeholder only.
+
+## Current Frontend Milestone
+
+A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
+
+The current UI is a static Minimal Workbench shell. It contains mock Terminal Widget and Agent CLI Widget surfaces only.
+
+There is no backend integration, Tauri integration, terminal execution, agent runtime, widget registry, or preset persistence yet.
 
 ## Intended Repository Layout
 

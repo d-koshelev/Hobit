@@ -1,31 +1,36 @@
 # Desktop Frontend
 
-This directory is reserved for the future desktop frontend.
+This directory contains the future Hobit desktop frontend.
 
-No Vite, React, TypeScript, or frontend build tooling is scaffolded yet.
+## Current State
 
-## Intended Future Structure
+The current milestone is a static Minimal Workbench shell built with Vite, React, and TypeScript.
 
-```text
-src/
-  app/
-  design-system/
-  workbench/
-  widgets/
-  state/
+It shows two mock widget blocks:
+
+- Terminal Widget
+- Agent CLI Widget
+
+The UI is a frontend-only preview. It does not connect to Tauri, a backend, a terminal, or an agent runtime.
+
+## Run Locally
+
+```powershell
+npm install
+npm run dev
 ```
 
-## Belongs Here Later
+## Build
 
-- Frontend app shell.
-- Design system primitives.
-- Workbench UI composition.
-- Widget UI implementations.
-- Frontend state coordination.
+```powershell
+npm run build
+```
 
-## Does Not Belong Here Yet
+## Intentionally Not Implemented Yet
 
-- Real widgets.
-- Terminal UI execution.
-- Agent UI implementation.
+- Real terminal execution.
+- Real agent calls.
+- Widget registry.
+- Preset persistence.
+- Tauri integration.
 - Knowledge, Stages, Runbooks, Git, JDBC, Image Edit, or database UI.
