@@ -1,16 +1,23 @@
 # hobit-app
 
-Future application orchestration and bridge layer for Hobit.
+Application orchestration layer for Hobit.
+
+The current milestone provides `WorkspaceService`, a thin application service
+over SQLite storage. It creates empty Workspaces, creates WorkspaceSessions
+when Workspaces are opened, and lists or loads simple Workspace summaries.
 
 ## Belongs Here
 
 - Application-level coordination between core, storage, agent, and tools crates.
 - Future bridge boundaries for the desktop shell.
 - Workbench session orchestration once implementation begins.
+- Product-level use cases composed from row-level storage primitives.
 
-## Does Not Belong Here Yet
+## Current Limits
 
 - Tauri commands.
+- Frontend integration.
+- Runtime or widget execution.
 - Product feature implementation.
 - Terminal execution.
 - Agent provider calls.

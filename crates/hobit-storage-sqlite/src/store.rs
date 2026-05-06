@@ -31,6 +31,30 @@ pub struct WorkspaceWorkbenchRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceSessionRow {
+    pub id: String,
+    pub workspace_id: String,
+    pub status: String,
+    pub opened_at: String,
+    pub closed_at: Option<String>,
+    pub active_widget_id: Option<String>,
+    pub current_focus_kind: Option<String>,
+    pub current_focus_ref: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewWorkspaceSession<'a> {
+    pub id: &'a str,
+    pub workspace_id: &'a str,
+    pub status: &'a str,
+    pub opened_at: Option<&'a str>,
+    pub closed_at: Option<&'a str>,
+    pub active_widget_id: Option<&'a str>,
+    pub current_focus_kind: Option<&'a str>,
+    pub current_focus_ref: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WidgetInstanceRow {
     pub id: String,
     pub workspace_id: String,
@@ -231,6 +255,61 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn list_workspaces(&self) -> Result<Vec<WorkspaceRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, title, description, status, created_at, updated_at
+             FROM workspaces
+             ORDER BY updated_at DESC, id",
+        )?;
+
+        let rows = statement.query_map([], workspace_row)?;
+        rows.collect()
+    }
+
+    pub fn create_workspace_session(
+        &self,
+        input: NewWorkspaceSession<'_>,
+    ) -> Result<WorkspaceSessionRow> {
+        let opened_at = input
+            .opened_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_timestamp);
+
+        self.connection.execute(
+            "INSERT INTO workspace_sessions (
+                id, workspace_id, status, opened_at, closed_at, active_widget_id,
+                current_focus_kind, current_focus_ref
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                input.id,
+                input.workspace_id,
+                input.status,
+                opened_at,
+                input.closed_at,
+                input.active_widget_id,
+                input.current_focus_kind,
+                input.current_focus_ref,
+            ],
+        )?;
+
+        self.get_workspace_session(input.id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn get_workspace_session(&self, id: &str) -> Result<Option<WorkspaceSessionRow>> {
+        self.connection
+            .query_row(
+                "SELECT
+                    id, workspace_id, status, opened_at, closed_at, active_widget_id,
+                    current_focus_kind, current_focus_ref
+                 FROM workspace_sessions
+                 WHERE id = ?1",
+                params![id],
+                workspace_session_row,
+            )
+            .optional()
+    }
+
     pub fn create_workspace_workbench(
         &self,
         id: &str,
@@ -259,6 +338,21 @@ impl SqliteStore {
                 workspace_workbench_row,
             )
             .optional()
+    }
+
+    pub fn list_workspace_workbenches(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<WorkspaceWorkbenchRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, workspace_id, preset_origin_id, created_at, updated_at
+             FROM workspace_workbenches
+             WHERE workspace_id = ?1
+             ORDER BY created_at, id",
+        )?;
+
+        let rows = statement.query_map(params![workspace_id], workspace_workbench_row)?;
+        rows.collect()
     }
 
     pub fn insert_widget_instance(
@@ -596,6 +690,19 @@ fn workspace_workbench_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceWorkbench
     })
 }
 
+fn workspace_session_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceSessionRow> {
+    Ok(WorkspaceSessionRow {
+        id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        status: row.get(2)?,
+        opened_at: row.get(3)?,
+        closed_at: row.get(4)?,
+        active_widget_id: row.get(5)?,
+        current_focus_kind: row.get(6)?,
+        current_focus_ref: row.get(7)?,
+    })
+}
+
 fn widget_instance_row(row: &rusqlite::Row<'_>) -> Result<WidgetInstanceRow> {
     Ok(WidgetInstanceRow {
         id: row.get(0)?,
@@ -793,6 +900,83 @@ mod tests {
 
         assert_eq!(workbench.workspace_id, "workspace-1");
         assert!(widgets.is_empty());
+    }
+
+    #[test]
+    fn list_workspaces_returns_created_rows() {
+        let store = initialized_store();
+
+        store
+            .create_workspace("workspace-1", "First", None, "active")
+            .expect("create first workspace");
+        store
+            .create_workspace("workspace-2", "Second", None, "active")
+            .expect("create second workspace");
+
+        let workspaces = store.list_workspaces().expect("list workspaces");
+
+        assert_eq!(workspaces.len(), 2);
+        assert!(workspaces
+            .iter()
+            .any(|workspace| workspace.id == "workspace-1"));
+        assert!(workspaces
+            .iter()
+            .any(|workspace| workspace.id == "workspace-2"));
+    }
+
+    #[test]
+    fn create_and_load_workspace_session() {
+        let store = initialized_store();
+        store
+            .create_workspace("workspace-1", "Incident", None, "active")
+            .expect("create workspace");
+
+        let session = store
+            .create_workspace_session(NewWorkspaceSession {
+                id: "session-1",
+                workspace_id: "workspace-1",
+                status: "open",
+                opened_at: Some("1"),
+                closed_at: None,
+                active_widget_id: None,
+                current_focus_kind: None,
+                current_focus_ref: None,
+            })
+            .expect("create session");
+        let loaded = store
+            .get_workspace_session("session-1")
+            .expect("load session")
+            .expect("session row");
+
+        assert_eq!(session, loaded);
+        assert_eq!(loaded.workspace_id, "workspace-1");
+        assert_eq!(loaded.status, "open");
+    }
+
+    #[test]
+    fn list_workspace_workbenches_for_workspace() {
+        let store = initialized_store();
+        store
+            .create_workspace("workspace-1", "Incident", None, "active")
+            .expect("create workspace");
+        store
+            .create_workspace_workbench("workbench-1", "workspace-1", None)
+            .expect("create first workbench");
+        store
+            .create_workspace_workbench("workbench-2", "workspace-1", None)
+            .expect("create second workbench");
+
+        let workbenches = store
+            .list_workspace_workbenches("workspace-1")
+            .expect("list workbenches");
+
+        assert_eq!(workbenches.len(), 2);
+        assert!(workbenches
+            .iter()
+            .any(|workbench| workbench.id == "workbench-1"));
+        assert!(workbenches
+            .iter()
+            .any(|workbench| workbench.id == "workbench-2"));
     }
 
     #[test]

@@ -73,6 +73,14 @@ It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetR
 
 This storage layer is foundational only. It is not wired to the frontend, Tauri, agent runtime, terminal execution, or concrete widget behavior yet.
 
+## Current Application Service Milestone
+
+`hobit-app` now provides a minimal `WorkspaceService` over SQLite storage.
+
+The service creates empty Workspaces with one associated empty Workbench, opens Workspaces by creating WorkspaceSession rows, appends basic Workbench events, and returns simple Workspace and WorkspaceSession summaries.
+
+This application layer is not wired to desktop/Tauri/frontend yet. It does not restore runtime state, execute widgets, run agents, execute terminal commands, or add UI behavior.
+
 ## Planned Workspace Model
 
 Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.

@@ -10,8 +10,10 @@
 pub mod schema;
 pub mod store;
 
+pub use rusqlite::Error as StorageError;
 pub use store::{
     NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    SharedStateObjectRow, SqliteStore, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceWorkbenchRow,
+    NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow,
+    WorkspaceWorkbenchRow,
 };
