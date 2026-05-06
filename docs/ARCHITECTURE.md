@@ -43,17 +43,25 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
 
-The current UI is a static Empty Workbench shell. It intentionally renders no concrete widgets by default.
+The current UI starts with a frontend-only Workspace Start Screen shell. Creating a workspace uses local React state only and opens the static Empty Workbench shell.
+
+The Empty Workbench shell intentionally renders no concrete widgets by default.
 
 The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog is currently a UI-only surface with no runtime widget insertion, template registration, backend integration, or persistence.
 
 There is no backend integration, Tauri integration, terminal execution, agent runtime, or preset persistence yet.
 
+## Current Frontend Workspace Shell Milestone
+
+The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
+
+This milestone is frontend-only. It is not wired to `hobit-app`, Tauri, SQLite storage, runtime restoration, real recent workspaces, or persistence.
+
 ## Current Frontend Widget Milestone
 
 The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `WorkbenchPreset` model.
 
-The Minimal Workbench is rendered from preset data and currently contains no visible widget instances.
+The Empty Workbench is rendered from preset data and currently contains no visible widget instances.
 
 `WidgetHost` remains the single future mapping layer from widget instances to React components. The current frontend registry is intentionally empty.
 
@@ -85,7 +93,7 @@ This application layer is not wired to desktop/Tauri/frontend yet. It does not r
 
 Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.
 
-Full Workspace application persistence is not implemented yet. There is no start screen, restore runtime, preset editor, or frontend/Tauri wiring in the current repository.
+Full Workspace application persistence is not implemented yet. There is no restore runtime, preset editor, or frontend/Tauri wiring in the current repository.
 
 ## Planned Notes Model
 

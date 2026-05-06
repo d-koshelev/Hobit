@@ -4,9 +4,11 @@ This directory contains the future Hobit desktop frontend.
 
 ## Current State
 
-The current milestone is a static Empty Workbench shell built with Vite, React, and TypeScript.
+The current milestone is a frontend-only Workspace Start Screen shell built with Vite, React, and TypeScript.
 
-The default preset intentionally renders no widgets. The goal is to perfect the workbench shell, locked theme, spacing, and empty canvas before concrete widgets are added back through the widget catalog.
+The app starts on the Workspace Start Screen. Creating a workspace is local React state only and opens the Empty Workbench shell for the selected preset. This state is not persisted and is lost on refresh.
+
+The default preset intentionally renders no widgets. The goal is to keep the workbench shell, locked theme, spacing, and empty canvas correct before concrete widgets are added back through the widget catalog.
 
 The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
 
@@ -18,7 +20,7 @@ The workbench is rendered from a frontend-local preset model and an empty widget
 
 Current preset:
 
-- Minimal Workbench: empty workbench surface
+- Empty Workbench: empty workbench surface
 
 `WidgetHost` remains in place for future widget instances, but no concrete widget React components are registered in this milestone.
 
@@ -43,6 +45,9 @@ npm run build
 
 ## Intentionally Not Implemented Yet
 
+- Workspace persistence.
+- Real recent workspace loading.
+- Tauri or backend workspace wiring.
 - Concrete visible widgets.
 - Runtime widget catalog behavior.
 - Real terminal execution.

@@ -7,11 +7,13 @@ import type { WorkbenchPreset } from "./types";
 type WorkbenchTopBarProps = {
   onOpenWidgetCatalog: () => void;
   preset: WorkbenchPreset;
+  workspaceTitle: string;
 };
 
 export function WorkbenchTopBar({
   onOpenWidgetCatalog,
   preset,
+  workspaceTitle,
 }: WorkbenchTopBarProps) {
   return (
     <header className="workbench-topbar">
@@ -25,6 +27,11 @@ export function WorkbenchTopBar({
             <div className="brand-subtitle">AI Workbench</div>
           </div>
         </div>
+
+        <Badge className="workspace-pill" variant="neutral">
+          <span className="workspace-context-label">Workspace</span>
+          <span className="workspace-context-title">{workspaceTitle}</span>
+        </Badge>
 
         <Select aria-label="Current workbench preset" value={preset.id} disabled>
           <option value={preset.id}>{preset.title}</option>

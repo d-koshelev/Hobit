@@ -1,5 +1,20 @@
+import { useState } from "react";
 import { WorkbenchShell } from "./workbench/WorkbenchShell";
+import { WorkspaceStartScreen } from "./workspace/WorkspaceStartScreen";
+import type { WorkspaceStartSelection } from "./workspace/WorkspaceStartScreen";
 
 export default function App() {
-  return <WorkbenchShell />;
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<WorkspaceStartSelection | null>(null);
+
+  if (!activeWorkspace) {
+    return <WorkspaceStartScreen onCreateWorkspace={setActiveWorkspace} />;
+  }
+
+  return (
+    <WorkbenchShell
+      preset={activeWorkspace.preset}
+      workspaceTitle={activeWorkspace.workspaceTitle}
+    />
+  );
 }
