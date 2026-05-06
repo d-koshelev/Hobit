@@ -2,7 +2,7 @@
 
 This document describes the current repository skeleton and intended future architecture for Hobit.
 
-The current repository contains a Rust workspace skeleton, placeholder desktop directories, and a static frontend scaffold. No Tauri app, backend integration, database schema, agents, real widgets, terminal execution, or tool implementations exist yet.
+The current repository contains a Rust workspace skeleton, placeholder desktop directories, a static frontend scaffold, and an initial SQLite storage schema. No Tauri app, backend integration, agents, real widgets, terminal execution, or tool implementations exist yet.
 
 ## Documentation Contracts
 
@@ -31,9 +31,11 @@ crates/
 
 The root `Cargo.toml` defines a Rust workspace for the five crates under `crates/`.
 
-`hobit-core` contains small placeholder domain contract types only.
+`hobit-core` contains minimal domain contract types.
 
-`hobit-storage-sqlite`, `hobit-agent`, `hobit-tools`, and `hobit-app` are placeholder crates with package metadata and crate-level documentation.
+`hobit-storage-sqlite` contains the initial idempotent SQLite schema and row-level storage primitives.
+
+`hobit-agent`, `hobit-tools`, and `hobit-app` are placeholder crates with package metadata and crate-level documentation.
 
 `apps/desktop/frontend` contains the first static frontend scaffold. `apps/desktop/src-tauri` remains a README placeholder only.
 
@@ -63,11 +65,19 @@ The registry is frontend-local for now. There is no backend persistence, runtime
 
 These are contracts only. They are not persistence, runtime execution, frontend integration, Tauri integration, or concrete widget implementation.
 
+## Current SQLite Storage Milestone
+
+`hobit-storage-sqlite` now has idempotent SQLite schema initialization.
+
+It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
+
+This storage layer is foundational only. It is not wired to the frontend, Tauri, agent runtime, terminal execution, or concrete widget behavior yet.
+
 ## Planned Workspace Model
 
 Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.
 
-This is not implemented yet. There is no Workspace persistence, database schema, start screen, restore runtime, or preset editor in the current repository.
+Full Workspace application persistence is not implemented yet. There is no start screen, restore runtime, preset editor, or frontend/Tauri wiring in the current repository.
 
 ## Planned Notes Model
 
