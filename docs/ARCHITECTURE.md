@@ -76,6 +76,8 @@ The shell exposes minimal WorkspaceService lifecycle commands over the Tauri bri
 - `get_workspace_summary`
 - `open_workspace`
 
+The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, and command DTO mapping in `workspace_dto.rs`.
+
 The React frontend now calls these commands from the Workspace Start Screen when running inside Tauri. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
 
 ## Current Workbench State Command Milestone
