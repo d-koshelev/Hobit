@@ -24,6 +24,8 @@ at `hobit.sqlite3` inside that app data directory.
   - `list_workspaces`
   - `get_workspace_summary`
   - `open_workspace`
+- Workspace Workbench state command:
+  - `get_workspace_workbench_state`
 
 ## Not Implemented Yet
 

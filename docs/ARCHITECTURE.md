@@ -78,6 +78,14 @@ The shell exposes minimal WorkspaceService lifecycle commands over the Tauri bri
 
 The React frontend now calls these commands from the Workspace Start Screen when running inside Tauri. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
 
+## Current Workbench State Command Milestone
+
+`hobit-app` can now return a canonical Workspace Workbench state summary for a Workspace. The summary includes the Workspace, current Workbench, persisted widget instance summaries, shared state object summaries, and stored Workbench event summaries.
+
+The Tauri shell exposes this through `get_workspace_workbench_state`, backed by the existing local SQLite store and `WorkspaceService`.
+
+Frontend wiring to this command is future work. There is still no event replay, runtime reconstruction, widget execution, terminal execution, or agent call behavior.
+
 ## Current Frontend Workspace Shell Milestone
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.

@@ -1,7 +1,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hobit_storage_sqlite::{NewWorkspaceSession, SqliteStore, WorkspaceRow};
+use hobit_storage_sqlite::{
+    NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow, WorkbenchEventRow,
+    WorkspaceRow, WorkspaceWorkbenchRow,
+};
 
 use crate::WorkspaceServiceError;
 
@@ -22,6 +25,48 @@ pub struct WorkspaceSessionSummary {
     pub workspace_id: String,
     pub status: String,
     pub active_widget_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceWorkbenchState {
+    pub workspace: WorkspaceSummary,
+    pub workbench: Option<WorkbenchSummary>,
+    pub widget_instances: Vec<WidgetInstanceSummary>,
+    pub shared_state_objects: Vec<SharedStateObjectSummary>,
+    pub recent_events: Vec<WorkbenchEventSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkbenchSummary {
+    pub id: String,
+    pub workspace_id: String,
+    pub preset_origin_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetInstanceSummary {
+    pub id: String,
+    pub definition_id: String,
+    pub title: String,
+    pub category: String,
+    pub layout_mode: String,
+    pub is_visible: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SharedStateObjectSummary {
+    pub id: String,
+    pub key: String,
+    pub value: String,
+    pub value_kind: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkbenchEventSummary {
+    pub id: String,
+    pub kind: String,
+    pub summary: String,
+    pub created_at: String,
 }
 
 pub struct WorkspaceService {
@@ -130,6 +175,52 @@ impl WorkspaceService {
         }))
     }
 
+    pub fn get_workspace_workbench_state(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<WorkspaceWorkbenchState>, WorkspaceServiceError> {
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let workbench = self
+            .store
+            .list_workspace_workbenches(&workspace.id)?
+            .into_iter()
+            .next();
+        let workbench_id = workbench.as_ref().map(|workbench| workbench.id.clone());
+        let widget_instances = match workbench.as_ref() {
+            Some(workbench) => self
+                .store
+                .list_widget_instances(&workspace.id)?
+                .into_iter()
+                .filter(|widget| widget.workbench_id == workbench.id.as_str())
+                .map(widget_instance_summary)
+                .collect(),
+            None => Vec::new(),
+        };
+        let shared_state_objects = self
+            .store
+            .list_shared_state_objects(&workspace.id)?
+            .into_iter()
+            .map(shared_state_object_summary)
+            .collect();
+        let recent_events = self
+            .store
+            .list_workbench_events(&workspace.id)?
+            .into_iter()
+            .map(workbench_event_summary)
+            .collect();
+
+        Ok(Some(WorkspaceWorkbenchState {
+            workspace: workspace_summary(&workspace, workbench_id),
+            workbench: workbench.map(workbench_summary),
+            widget_instances,
+            shared_state_objects,
+            recent_events,
+        }))
+    }
+
     fn first_workbench_id(
         &self,
         workspace_id: &str,
@@ -143,6 +234,14 @@ impl WorkspaceService {
     }
 }
 
+fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
+    WorkbenchSummary {
+        id: row.id,
+        workspace_id: row.workspace_id,
+        preset_origin_id: row.preset_origin_id,
+    }
+}
+
 fn workspace_summary(row: &WorkspaceRow, workbench_id: Option<String>) -> WorkspaceSummary {
     WorkspaceSummary {
         id: row.id.clone(),
@@ -150,6 +249,35 @@ fn workspace_summary(row: &WorkspaceRow, workbench_id: Option<String>) -> Worksp
         description: row.description.clone(),
         status: row.status.clone(),
         workbench_id,
+    }
+}
+
+fn widget_instance_summary(row: WidgetInstanceRow) -> WidgetInstanceSummary {
+    WidgetInstanceSummary {
+        id: row.id,
+        definition_id: row.definition_id,
+        title: row.title,
+        category: row.category,
+        layout_mode: row.layout_mode,
+        is_visible: row.is_visible,
+    }
+}
+
+fn shared_state_object_summary(row: SharedStateObjectRow) -> SharedStateObjectSummary {
+    SharedStateObjectSummary {
+        id: row.id,
+        key: row.key,
+        value: row.value,
+        value_kind: row.value_kind,
+    }
+}
+
+fn workbench_event_summary(row: WorkbenchEventRow) -> WorkbenchEventSummary {
+    WorkbenchEventSummary {
+        id: row.id,
+        kind: row.kind,
+        summary: row.summary,
+        created_at: row.created_at,
     }
 }
 
@@ -176,6 +304,7 @@ fn unix_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance};
 
     fn initialized_service() -> WorkspaceService {
         let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -287,5 +416,144 @@ mod tests {
             .expect_err("reject empty title");
 
         assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+    }
+
+    #[test]
+    fn get_workbench_state_returns_none_for_missing_workspace() {
+        let service = initialized_service();
+
+        let state = service
+            .get_workspace_workbench_state("missing")
+            .expect("get workbench state");
+
+        assert!(state.is_none());
+    }
+
+    #[test]
+    fn get_workbench_state_for_empty_workspace_has_empty_widgets() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+
+        let state = service
+            .get_workspace_workbench_state(&workspace.id)
+            .expect("get workbench state")
+            .expect("workbench state");
+
+        assert_eq!(state.workspace, workspace);
+        assert_eq!(
+            state
+                .workbench
+                .as_ref()
+                .map(|workbench| workbench.id.as_str()),
+            state.workspace.workbench_id.as_deref()
+        );
+        assert!(state.widget_instances.is_empty());
+        assert!(state.shared_state_objects.is_empty());
+        assert_eq!(state.recent_events.len(), 1);
+        assert_eq!(state.recent_events[0].kind, "workspace_created");
+    }
+
+    #[test]
+    fn get_workbench_state_includes_shared_state_and_events() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+
+        service
+            .store
+            .insert_shared_state_object(NewSharedStateObject {
+                id: "shared-1",
+                workspace_id: &workspace.id,
+                key: "current_goal",
+                value: "Investigate outage",
+                value_kind: "text",
+            })
+            .expect("insert shared state");
+        service
+            .store
+            .append_workbench_event(
+                "event-1",
+                &workspace.id,
+                "shared_state_changed",
+                "Shared state changed",
+                Some("shared_state_id=shared-1"),
+            )
+            .expect("append event");
+
+        let state = service
+            .get_workspace_workbench_state(&workspace.id)
+            .expect("get workbench state")
+            .expect("workbench state");
+
+        assert_eq!(
+            state.shared_state_objects,
+            vec![SharedStateObjectSummary {
+                id: "shared-1".to_owned(),
+                key: "current_goal".to_owned(),
+                value: "Investigate outage".to_owned(),
+                value_kind: "text".to_owned(),
+            }]
+        );
+        assert!(state
+            .recent_events
+            .iter()
+            .any(|event| event.kind == "shared_state_changed"));
+    }
+
+    #[test]
+    fn get_workbench_state_includes_widget_instances() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "widget-1",
+                workspace_id: &workspace.id,
+                workbench_id,
+                definition_id: "notes",
+                title: "Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: None,
+                dock_y: None,
+                dock_width: None,
+                dock_height: None,
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: None,
+                state: None,
+            })
+            .expect("insert widget");
+
+        let state = service
+            .get_workspace_workbench_state(&workspace.id)
+            .expect("get workbench state")
+            .expect("workbench state");
+
+        assert_eq!(
+            state.widget_instances,
+            vec![WidgetInstanceSummary {
+                id: "widget-1".to_owned(),
+                definition_id: "notes".to_owned(),
+                title: "Notes".to_owned(),
+                category: "notes".to_owned(),
+                layout_mode: "docked".to_owned(),
+                is_visible: true,
+            }]
+        );
     }
 }

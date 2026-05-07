@@ -4,7 +4,9 @@ Application orchestration layer for Hobit.
 
 The current milestone provides `WorkspaceService`, a thin application service
 over SQLite storage. It creates empty Workspaces, creates WorkspaceSessions
-when Workspaces are opened, and lists or loads simple Workspace summaries.
+when Workspaces are opened, lists or loads simple Workspace summaries, and
+returns a canonical Workspace Workbench state summary for future frontend
+restore wiring.
 
 ## Belongs Here
 

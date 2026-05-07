@@ -10,4 +10,7 @@ mod error;
 mod workspace_service;
 
 pub use error::WorkspaceServiceError;
-pub use workspace_service::{WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary};
+pub use workspace_service::{
+    SharedStateObjectSummary, WidgetInstanceSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+};
