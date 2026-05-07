@@ -102,7 +102,7 @@ export function WorkspaceStartScreen({
 
             <div className="workspace-start-actions">
               <Button type="submit" variant="primary">
-                New Workspace
+                Create Workspace
               </Button>
             </div>
           </form>
