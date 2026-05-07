@@ -4,15 +4,17 @@ This directory contains the future Hobit desktop frontend.
 
 ## Current State
 
-The current milestone is a frontend-only Workspace Start Screen shell built with Vite, React, and TypeScript.
+The current milestone is a Workspace Start Screen shell built with Vite, React, and TypeScript.
 
-The app starts on the Workspace Start Screen. Creating a workspace is local React state only and opens the Empty Workbench shell for the selected preset. This state is not persisted and is lost on refresh.
+The app starts on the Workspace Start Screen. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands and then opens the Empty Workbench shell for the selected preset.
+
+In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces are local to the current page session and are lost on refresh.
 
 The default preset intentionally renders no widgets. The goal is to keep the workbench shell, locked theme, spacing, and empty canvas correct before concrete widgets are added back through the widget catalog.
 
 The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
 
-The UI remains local React state only. The Tauri desktop shell exposes backend workspace commands, but this frontend does not call them yet. The frontend still makes no backend calls, terminal execution, or agent runtime calls.
+Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
 ## Widget Registry And Preset Model
 
@@ -31,6 +33,8 @@ The Empty Workbench follows `docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal
 Raw colors outside `src/styles/hobit-theme.css` are not allowed.
 
 ## Run Frontend-Only Dev
+
+This mode uses the in-memory workspace API fallback.
 
 ```powershell
 npm install
@@ -59,9 +63,7 @@ npm run tauri:build
 
 ## Intentionally Not Implemented Yet
 
-- Workspace persistence.
-- Real recent workspace loading.
-- Tauri workspace commands or backend workspace wiring.
+- Frontend persistence outside the Tauri workspace commands.
 - Concrete visible widgets.
 - Runtime widget catalog behavior.
 - Real terminal execution.

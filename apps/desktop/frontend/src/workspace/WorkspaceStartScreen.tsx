@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
@@ -6,33 +6,120 @@ import { Input } from "../design-system/Input";
 import { StatusDot } from "../design-system/StatusDot";
 import { emptyWorkbenchPreset } from "../workbench/presets";
 import type { WorkbenchPreset } from "../workbench/types";
+import {
+  createWorkspace as createWorkspaceCommand,
+  listWorkspaces,
+  openWorkspace,
+} from "./workspaceApi";
+import type { WorkspaceSessionSummary, WorkspaceSummary } from "./workspaceApi";
 
 const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
 
 export type WorkspaceStartSelection = {
   preset: WorkbenchPreset;
-  workspaceTitle: string;
+  session: WorkspaceSessionSummary | null;
+  workspace: WorkspaceSummary;
 };
 
 type WorkspaceStartScreenProps = {
-  onCreateWorkspace: (selection: WorkspaceStartSelection) => void;
+  onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
 };
 
 export function WorkspaceStartScreen({
-  onCreateWorkspace,
+  onOpenWorkspace,
 }: WorkspaceStartScreenProps) {
   const [workspaceName, setWorkspaceName] = useState(DEFAULT_WORKSPACE_NAME);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<WorkspaceSummary[]>(
+    [],
+  );
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [openingWorkspaceId, setOpeningWorkspaceId] = useState<string | null>(
+    null,
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedPreset = emptyWorkbenchPreset;
 
-  function createWorkspace(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    let shouldUpdate = true;
+
+    async function loadRecentWorkspaces() {
+      setIsLoadingWorkspaces(true);
+      setErrorMessage(null);
+
+      try {
+        const workspaces = await listWorkspaces();
+
+        if (shouldUpdate) {
+          setRecentWorkspaces(workspaces);
+        }
+      } catch (error) {
+        if (shouldUpdate) {
+          setErrorMessage(errorToMessage(error));
+        }
+      } finally {
+        if (shouldUpdate) {
+          setIsLoadingWorkspaces(false);
+        }
+      }
+    }
+
+    void loadRecentWorkspaces();
+
+    return () => {
+      shouldUpdate = false;
+    };
+  }, []);
+
+  async function createWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const workspaceTitle = workspaceName.trim() || DEFAULT_WORKSPACE_NAME;
 
-    onCreateWorkspace({
-      preset: selectedPreset,
-      workspaceTitle,
-    });
+    setIsCreatingWorkspace(true);
+    setErrorMessage(null);
+
+    try {
+      const workspace = await createWorkspaceCommand({
+        title: workspaceTitle,
+        description: null,
+      });
+      const session = await openWorkspace(workspace.id);
+
+      onOpenWorkspace({
+        preset: selectedPreset,
+        session,
+        workspace,
+      });
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
+      setIsCreatingWorkspace(false);
+    }
+  }
+
+  async function openRecentWorkspace(workspace: WorkspaceSummary) {
+    setOpeningWorkspaceId(workspace.id);
+    setErrorMessage(null);
+
+    try {
+      const session = await openWorkspace(workspace.id);
+
+      if (!session) {
+        setErrorMessage("Workspace could not be opened.");
+        return;
+      }
+
+      onOpenWorkspace({
+        preset: selectedPreset,
+        session,
+        workspace,
+      });
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
+      setOpeningWorkspaceId(null);
+    }
   }
 
   return (
@@ -70,6 +157,7 @@ export function WorkspaceStartScreen({
                 Workspace name
               </label>
               <Input
+                disabled={isCreatingWorkspace}
                 id="workspace-name"
                 onChange={(event) => setWorkspaceName(event.target.value)}
                 placeholder="Workspace name"
@@ -101,10 +189,20 @@ export function WorkspaceStartScreen({
             </fieldset>
 
             <div className="workspace-start-actions">
-              <Button type="submit" variant="primary">
-                Create Workspace
+              <Button
+                disabled={isCreatingWorkspace}
+                type="submit"
+                variant="primary"
+              >
+                {isCreatingWorkspace ? "Creating..." : "Create Workspace"}
               </Button>
             </div>
+
+            {errorMessage ? (
+              <p className="workspace-error" role="alert">
+                {errorMessage}
+              </p>
+            ) : null}
           </form>
 
           <section
@@ -119,17 +217,63 @@ export function WorkspaceStartScreen({
                 Recent Workspaces
               </h2>
             </div>
-            <div className="workspace-recent-empty">
-              <p className="workspace-recent-empty-title">
-                No recent workspaces yet.
-              </p>
-              <p className="workspace-recent-empty-text">
-                Create a workspace to start building an AI workbench.
-              </p>
-            </div>
+            {isLoadingWorkspaces ? (
+              <div className="workspace-recent-empty">
+                <p className="workspace-recent-empty-title">
+                  Loading recent workspaces.
+                </p>
+              </div>
+            ) : recentWorkspaces.length > 0 ? (
+              <div className="workspace-recent-list">
+                {recentWorkspaces.map((workspace) => (
+                  <button
+                    className="workspace-recent-item"
+                    disabled={
+                      isCreatingWorkspace || openingWorkspaceId === workspace.id
+                    }
+                    key={workspace.id}
+                    onClick={() => void openRecentWorkspace(workspace)}
+                    type="button"
+                  >
+                    <span className="workspace-recent-item-copy">
+                      <span className="workspace-recent-item-title">
+                        {workspace.title}
+                      </span>
+                      {workspace.description ? (
+                        <span className="workspace-recent-item-text">
+                          {workspace.description}
+                        </span>
+                      ) : null}
+                    </span>
+                    <Badge variant="neutral">{workspace.status}</Badge>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="workspace-recent-empty">
+                <p className="workspace-recent-empty-title">
+                  No recent workspaces yet.
+                </p>
+                <p className="workspace-recent-empty-text">
+                  Create a workspace to start building an AI workbench.
+                </p>
+              </div>
+            )}
           </section>
         </div>
       </section>
     </main>
   );
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Workspace command failed.";
 }

@@ -18,6 +18,7 @@ at `hobit.sqlite3` inside that app data directory.
 - Desktop window titled Hobit.
 - Frontend hosting.
 - Local SQLite schema initialization.
+- Workspace Start Screen frontend calls to the workspace lifecycle commands.
 - Workspace lifecycle commands:
   - `create_workspace`
   - `list_workspaces`
@@ -26,7 +27,6 @@ at `hobit.sqlite3` inside that app data directory.
 
 ## Not Implemented Yet
 
-- Frontend calls to the workspace commands.
 - Frontend persistence or workspace restore behavior.
 - Widget runtime or widget insertion.
 - Terminal execution.

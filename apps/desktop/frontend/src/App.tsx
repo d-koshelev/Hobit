@@ -8,13 +8,13 @@ export default function App() {
     useState<WorkspaceStartSelection | null>(null);
 
   if (!activeWorkspace) {
-    return <WorkspaceStartScreen onCreateWorkspace={setActiveWorkspace} />;
+    return <WorkspaceStartScreen onOpenWorkspace={setActiveWorkspace} />;
   }
 
   return (
     <WorkbenchShell
       preset={activeWorkspace.preset}
-      workspaceTitle={activeWorkspace.workspaceTitle}
+      workspaceTitle={activeWorkspace.workspace.title}
     />
   );
 }

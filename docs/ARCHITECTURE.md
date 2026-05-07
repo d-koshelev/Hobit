@@ -45,13 +45,15 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
 
-The current UI starts with a frontend-only Workspace Start Screen shell. Creating a workspace uses local React state only and opens the static Empty Workbench shell.
+The current UI starts with a Workspace Start Screen shell. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands and then opens the static Empty Workbench shell.
+
+In plain browser/Vite development, the frontend uses an in-memory workspace API fallback so the start screen remains usable without Tauri. Browser fallback state is not persisted.
 
 The Empty Workbench shell intentionally renders no concrete widgets by default.
 
 The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog is currently a UI-only surface with no runtime widget insertion, template registration, backend integration, or persistence.
 
-There is no frontend wiring to backend workspace commands, terminal execution, agent runtime, or preset persistence yet.
+There is no terminal execution, agent runtime, widget insertion behavior, or preset persistence yet.
 
 ## Current Desktop Shell Milestone
 
@@ -59,7 +61,7 @@ There is no frontend wiring to backend workspace commands, terminal execution, a
 
 The shell loads the frontend dev server at `http://127.0.0.1:5173` during development and uses `apps/desktop/frontend/dist` for production frontend assets.
 
-This milestone hosts the existing frontend without wiring frontend calls to backend commands.
+This milestone hosts the existing frontend and allows it to call the workspace lifecycle commands when running inside Tauri.
 
 ## Current Tauri Workspace Bridge Milestone
 
@@ -74,13 +76,13 @@ The shell exposes minimal WorkspaceService lifecycle commands over the Tauri bri
 - `get_workspace_summary`
 - `open_workspace`
 
-The React frontend is not wired to those commands yet. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
+The React frontend now calls these commands from the Workspace Start Screen when running inside Tauri. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
 
 ## Current Frontend Workspace Shell Milestone
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone is frontend-local state only. It is not wired to the Tauri workspace commands, runtime restoration, real recent workspaces, or persisted frontend state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It does not implement runtime restoration, widget state restoration, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 
