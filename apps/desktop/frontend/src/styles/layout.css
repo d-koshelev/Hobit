@@ -5,17 +5,17 @@
 
 .workspace-start-shell {
   min-height: 100vh;
-  background: var(--color-canvas-bg);
+  background: var(--color-app-bg);
   color: var(--color-text-primary);
   padding: var(--space-2xl);
 }
 
 .workspace-start {
   display: flex;
-  width: min(1120px, 100%);
+  width: min(1160px, 100%);
   min-height: calc(100vh - 64px);
   flex-direction: column;
-  gap: var(--space-2xl);
+  gap: var(--space-xl);
   margin: 0 auto;
 }
 
@@ -24,34 +24,36 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  padding: var(--space-md) 0 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-md) 0 var(--space-lg);
 }
 
 .workspace-start-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
-  gap: var(--space-xl);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: var(--space-lg);
+  align-items: stretch;
 }
 
 .workspace-start-primary,
 .workspace-recent {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--color-widget-surface);
   box-shadow: var(--shadow-widget);
 }
 
 .workspace-start-primary {
   display: grid;
+  align-content: start;
   gap: var(--space-xl);
   padding: var(--space-2xl);
 }
 
 .workspace-start-copy {
   display: grid;
-  max-width: 560px;
-  gap: var(--space-md);
+  max-width: 620px;
+  gap: var(--space-sm);
 }
 
 .workspace-start-title {
@@ -78,7 +80,7 @@
 }
 
 .workspace-field {
-  max-width: 520px;
+  max-width: 560px;
 }
 
 .preset-field {
@@ -99,21 +101,16 @@
 .preset-choice {
   display: flex;
   width: 100%;
-  min-height: 92px;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-lg);
-  border: 1px solid var(--color-primary-hairline);
+  gap: var(--space-md);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-nested-surface);
   color: var(--color-text-primary);
-  padding: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
   text-align: left;
-}
-
-.preset-choice:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-overlay-surface);
 }
 
 .preset-choice-copy {
@@ -140,17 +137,23 @@
   justify-content: flex-start;
 }
 
+.workspace-start-actions .button {
+  min-height: 38px;
+}
+
 .workspace-error {
   margin: 0;
+  border-left: 2px solid var(--color-error);
   color: var(--color-error);
   font-size: var(--text-sm);
   line-height: var(--line-normal);
+  padding-left: var(--space-md);
 }
 
 .workspace-recent {
   display: grid;
   align-content: start;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   padding: var(--space-xl);
 }
 
@@ -178,10 +181,7 @@
 .workspace-recent-empty {
   display: grid;
   gap: var(--space-sm);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-nested-surface);
-  padding: var(--space-lg);
+  padding-top: var(--space-sm);
 }
 
 .workspace-recent-empty-title {
@@ -199,19 +199,19 @@
 
 .workspace-recent-list {
   display: grid;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .workspace-recent-item {
   display: flex;
   width: 100%;
-  min-height: 64px;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-nested-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--color-text-primary);
   padding: var(--space-md);
   text-align: left;
@@ -241,6 +241,7 @@
   font-weight: 720;
   line-height: var(--line-tight);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-recent-item-text {
@@ -249,6 +250,7 @@
   font-size: var(--text-xs);
   line-height: var(--line-normal);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workbench {
@@ -773,7 +775,7 @@
 
   .workspace-start {
     min-height: auto;
-    gap: var(--space-xl);
+    gap: var(--space-lg);
   }
 
   .workspace-start-layout {
@@ -845,6 +847,11 @@
   .workspace-start-primary,
   .workspace-recent {
     padding: var(--space-lg);
+  }
+
+  .workspace-recent-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .workbench-topbar {

@@ -28,7 +28,7 @@ Current preset:
 
 ## Visual Direction
 
-The Empty Workbench follows `docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal surfaces, a locked theme in `src/styles/hobit-theme.css`, no gradients, semantic state colors, and a unified shell/canvas surface.
+The Workspace Start Screen and Empty Workbench follow `docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal surfaces, a locked theme in `src/styles/hobit-theme.css`, no gradients, semantic state colors, and a unified shell/canvas surface.
 
 Raw colors outside `src/styles/hobit-theme.css` are not allowed.
 

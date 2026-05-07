@@ -138,17 +138,18 @@ export function WorkspaceStartScreen({
               <div className="brand-subtitle">AI Workbench</div>
             </div>
           </div>
+          <Badge variant="neutral">Workspace Shell</Badge>
         </header>
 
         <div className="workspace-start-layout">
           <form className="workspace-start-primary" onSubmit={createWorkspace}>
             <div className="workspace-start-copy">
               <h1 className="workspace-start-title" id="workspace-start-title">
-                Start a Workspace
+                New Workspace
               </h1>
               <p className="workspace-start-text">
-                Create a workspace to open an empty workbench for the task in
-                front of you.
+                Name a workspace and open a clean AI Workbench shell for the
+                task in front of you.
               </p>
             </div>
 
@@ -167,10 +168,10 @@ export function WorkspaceStartScreen({
 
             <fieldset className="preset-field">
               <legend className="workspace-label">Preset</legend>
-              <button
-                aria-pressed="true"
+              <div
+                aria-label="Selected preset"
                 className="preset-choice"
-                type="button"
+                role="group"
               >
                 <span className="preset-choice-copy">
                   <span className="preset-choice-title">
@@ -185,7 +186,7 @@ export function WorkspaceStartScreen({
                   <StatusDot variant="success" />
                   Selected
                 </Badge>
-              </button>
+              </div>
             </fieldset>
 
             <div className="workspace-start-actions">
@@ -220,13 +221,14 @@ export function WorkspaceStartScreen({
             {isLoadingWorkspaces ? (
               <div className="workspace-recent-empty">
                 <p className="workspace-recent-empty-title">
-                  Loading recent workspaces.
+                  Loading recent workspaces...
                 </p>
               </div>
             ) : recentWorkspaces.length > 0 ? (
               <div className="workspace-recent-list">
                 {recentWorkspaces.map((workspace) => (
                   <button
+                    aria-label={`Open ${workspace.title}`}
                     className="workspace-recent-item"
                     disabled={
                       isCreatingWorkspace || openingWorkspaceId === workspace.id
