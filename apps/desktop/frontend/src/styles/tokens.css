@@ -17,7 +17,6 @@
   --color-text-secondary: var(--hb-text-secondary);
   --color-text-muted: var(--hb-text-muted);
   --color-text-disabled: var(--hb-text-disabled);
-  --color-terminal-text: var(--hb-text-primary);
   --color-on-primary: var(--hb-bg-app);
 
   --color-primary: var(--hb-accent-primary);
