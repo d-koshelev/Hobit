@@ -3,8 +3,8 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import { StatusDot } from "../design-system/StatusDot";
+import type { WorkspaceStartSelection } from "./selection";
 import { useWorkspaceFlow } from "./useWorkspaceFlow";
-import type { WorkspaceStartSelection } from "./types";
 
 type WorkspaceStartScreenProps = {
   onOpenWorkspace: (selection: WorkspaceStartSelection) => void;

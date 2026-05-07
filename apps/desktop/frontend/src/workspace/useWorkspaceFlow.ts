@@ -5,7 +5,8 @@ import {
   listWorkspaces,
   openWorkspace,
 } from "./workspaceApi";
-import type { WorkspaceStartSelection, WorkspaceSummary } from "./types";
+import type { WorkspaceStartSelection } from "./selection";
+import type { WorkspaceSummary } from "./types";
 
 export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
 

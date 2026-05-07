@@ -19,8 +19,9 @@ Recent workspaces are loaded from Tauri in desktop mode and from the in-memory f
 The workspace frontend flow is split by responsibility: `workspaceApi.ts` is the
 public facade, `tauriWorkspaceApi.ts` invokes Tauri commands,
 `memoryWorkspaceApi.ts` provides the browser/Vite in-memory fallback, and
-`useWorkspaceFlow.ts` owns the start-screen lifecycle state. This does not add
-Workbench state loading yet.
+`useWorkspaceFlow.ts` owns the start-screen lifecycle state. Workspace API DTOs
+stay separate from UI selection state for opening the Workbench. This does not
+add Workbench state loading yet.
 
 ## Widget Registry And Preset Model
 
