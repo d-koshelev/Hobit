@@ -1,125 +1,58 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { memoryWorkspaceApi } from "./memoryWorkspaceApi";
+import { tauriWorkspaceApi } from "./tauriWorkspaceApi";
+import { isTauriRuntime } from "./tauriEnvironment";
+import type {
+  CreateWorkspaceRequest,
+  WorkspaceSessionSummary,
+  WorkspaceSummary,
+} from "./types";
 
-export type CreateWorkspaceRequest = {
-  title: string;
-  description?: string | null;
+export type WorkspaceApi = {
+  createWorkspace: (
+    request: CreateWorkspaceRequest,
+  ) => Promise<WorkspaceSummary>;
+  listWorkspaces: () => Promise<WorkspaceSummary[]>;
+  getWorkspaceSummary: (
+    workspaceId: string,
+  ) => Promise<WorkspaceSummary | null>;
+  openWorkspace: (
+    workspaceId: string,
+  ) => Promise<WorkspaceSessionSummary | null>;
 };
 
-export type WorkspaceSummary = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  workbench_id: string | null;
-};
+export function getWorkspaceApi(): WorkspaceApi {
+  return isTauriRuntime() ? tauriWorkspaceApi : memoryWorkspaceApi;
+}
 
-export type WorkspaceSessionSummary = {
-  id: string;
-  workspace_id: string;
-  status: string;
-  active_widget_id: string | null;
-};
-
-const fallbackWorkspaces: WorkspaceSummary[] = [];
-let fallbackId = 1;
-
-export async function createWorkspace(
+export function createWorkspace(
   request: CreateWorkspaceRequest,
 ): Promise<WorkspaceSummary> {
-  const normalizedRequest = normalizeCreateWorkspaceRequest(request);
-
-  if (shouldUseTauri()) {
-    return invoke<WorkspaceSummary>("create_workspace", {
-      request: normalizedRequest,
-    });
-  }
-
-  return createFallbackWorkspace(normalizedRequest);
+  return getWorkspaceApi().createWorkspace(
+    normalizeCreateWorkspaceRequest(request),
+  );
 }
 
-export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
-  if (shouldUseTauri()) {
-    return invoke<WorkspaceSummary[]>("list_workspaces");
-  }
-
-  return [...fallbackWorkspaces];
+export function listWorkspaces(): Promise<WorkspaceSummary[]> {
+  return getWorkspaceApi().listWorkspaces();
 }
 
-export async function getWorkspaceSummary(
+export function getWorkspaceSummary(
   workspaceId: string,
 ): Promise<WorkspaceSummary | null> {
-  if (shouldUseTauri()) {
-    return invoke<WorkspaceSummary | null>("get_workspace_summary", {
-      workspaceId,
-    });
-  }
-
-  return (
-    fallbackWorkspaces.find((workspace) => workspace.id === workspaceId) ??
-    null
-  );
+  return getWorkspaceApi().getWorkspaceSummary(workspaceId);
 }
 
-export async function openWorkspace(
+export function openWorkspace(
   workspaceId: string,
 ): Promise<WorkspaceSessionSummary | null> {
-  if (shouldUseTauri()) {
-    return invoke<WorkspaceSessionSummary | null>("open_workspace", {
-      workspaceId,
-    });
-  }
-
-  const workspace = fallbackWorkspaces.find(
-    (candidate) => candidate.id === workspaceId,
-  );
-
-  if (!workspace) {
-    return null;
-  }
-
-  return {
-    id: `fallback_wss_${fallbackId++}`,
-    workspace_id: workspace.id,
-    status: "open",
-    active_widget_id: null,
-  };
-}
-
-function shouldUseTauri() {
-  try {
-    return isTauri();
-  } catch {
-    return false;
-  }
+  return getWorkspaceApi().openWorkspace(workspaceId);
 }
 
 function normalizeCreateWorkspaceRequest(
   request: CreateWorkspaceRequest,
-): Required<CreateWorkspaceRequest> {
+): CreateWorkspaceRequest {
   return {
     title: request.title,
     description: request.description ?? null,
   };
-}
-
-function createFallbackWorkspace(
-  request: Required<CreateWorkspaceRequest>,
-): WorkspaceSummary {
-  const title = request.title.trim();
-
-  if (!title) {
-    throw new Error("workspace title must not be empty");
-  }
-
-  const id = `fallback_ws_${fallbackId++}`;
-  const workspace: WorkspaceSummary = {
-    id,
-    title,
-    description: request.description,
-    status: "active",
-    workbench_id: `fallback_wb_${fallbackId++}`,
-  };
-
-  fallbackWorkspaces.unshift(workspace);
-  return workspace;
 }

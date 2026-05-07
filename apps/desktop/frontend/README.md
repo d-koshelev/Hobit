@@ -16,6 +16,12 @@ The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no 
 
 Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
+The workspace frontend flow is split by responsibility: `workspaceApi.ts` is the
+public facade, `tauriWorkspaceApi.ts` invokes Tauri commands,
+`memoryWorkspaceApi.ts` provides the browser/Vite in-memory fallback, and
+`useWorkspaceFlow.ts` owns the start-screen lifecycle state. This does not add
+Workbench state loading yet.
+
 ## Widget Registry And Preset Model
 
 The workbench is rendered from a frontend-local preset model and an empty widget registry.

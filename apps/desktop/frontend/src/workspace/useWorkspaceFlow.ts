@@ -1,0 +1,140 @@
+import { useEffect, useState } from "react";
+import { emptyWorkbenchPreset } from "../workbench/presets";
+import {
+  createWorkspace as createWorkspaceCommand,
+  listWorkspaces,
+  openWorkspace,
+} from "./workspaceApi";
+import type { WorkspaceStartSelection, WorkspaceSummary } from "./types";
+
+export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
+
+type UseWorkspaceFlowOptions = {
+  onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
+};
+
+export function useWorkspaceFlow({
+  onOpenWorkspace,
+}: UseWorkspaceFlowOptions) {
+  const [workspaceName, setWorkspaceName] = useState(DEFAULT_WORKSPACE_NAME);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<WorkspaceSummary[]>(
+    [],
+  );
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [openingWorkspaceId, setOpeningWorkspaceId] = useState<string | null>(
+    null,
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedPreset = emptyWorkbenchPreset;
+
+  useEffect(() => {
+    let shouldUpdate = true;
+
+    async function loadRecentWorkspaces() {
+      setIsLoadingWorkspaces(true);
+      setErrorMessage(null);
+
+      try {
+        const workspaces = await listWorkspaces();
+
+        if (shouldUpdate) {
+          setRecentWorkspaces(workspaces);
+        }
+      } catch (error) {
+        if (shouldUpdate) {
+          setErrorMessage(errorToMessage(error));
+        }
+      } finally {
+        if (shouldUpdate) {
+          setIsLoadingWorkspaces(false);
+        }
+      }
+    }
+
+    void loadRecentWorkspaces();
+
+    return () => {
+      shouldUpdate = false;
+    };
+  }, []);
+
+  async function createWorkspace() {
+    const workspaceTitle = workspaceName.trim() || DEFAULT_WORKSPACE_NAME;
+
+    setIsCreatingWorkspace(true);
+    setErrorMessage(null);
+
+    try {
+      const workspace = await createWorkspaceCommand({
+        title: workspaceTitle,
+        description: null,
+      });
+      const session = await openWorkspace(workspace.id);
+
+      onOpenWorkspace({
+        preset: selectedPreset,
+        session,
+        workspace,
+      });
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
+      setIsCreatingWorkspace(false);
+    }
+  }
+
+  async function openRecentWorkspace(workspace: WorkspaceSummary) {
+    setOpeningWorkspaceId(workspace.id);
+    setErrorMessage(null);
+
+    try {
+      const session = await openWorkspace(workspace.id);
+
+      if (!session) {
+        setErrorMessage("Workspace could not be opened.");
+        return;
+      }
+
+      onOpenWorkspace({
+        preset: selectedPreset,
+        session,
+        workspace,
+      });
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
+      setOpeningWorkspaceId(null);
+    }
+  }
+
+  function clearError() {
+    setErrorMessage(null);
+  }
+
+  return {
+    clearError,
+    createWorkspace,
+    errorMessage,
+    isCreatingWorkspace,
+    isLoadingWorkspaces,
+    openingWorkspaceId,
+    openRecentWorkspace,
+    recentWorkspaces,
+    selectedPreset,
+    setWorkspaceName,
+    workspaceName,
+  };
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Workspace command failed.";
+}
