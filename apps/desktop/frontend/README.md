@@ -12,7 +12,7 @@ The default preset intentionally renders no widgets. The goal is to keep the wor
 
 The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
 
-The UI remains local React state only. The Tauri desktop shell can host this frontend, but there are no Tauri commands, backend calls, terminal execution, or agent runtime calls yet.
+The UI remains local React state only. The Tauri desktop shell exposes backend workspace commands, but this frontend does not call them yet. The frontend still makes no backend calls, terminal execution, or agent runtime calls.
 
 ## Widget Registry And Preset Model
 
