@@ -1,0 +1,26 @@
+[package]
+name = "hobit-desktop"
+version = "0.1.0"
+description = "Hobit desktop shell"
+authors = ["Hobit"]
+license = "MIT"
+repository = "https://github.com/d-koshelev/Hobit"
+edition = "2021"
+default-run = "hobit-desktop"
+build = "build.rs"
+
+[lib]
+name = "hobit_desktop"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "hobit-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[workspace]

@@ -2,7 +2,7 @@
 
 This document describes the current repository skeleton and intended future architecture for Hobit.
 
-The current repository contains a Rust workspace skeleton, placeholder desktop directories, a static frontend scaffold, and an initial SQLite storage schema. No Tauri app, backend integration, agents, real widgets, terminal execution, or tool implementations exist yet.
+The current repository contains a Rust workspace skeleton, a minimal Tauri desktop shell, a static frontend scaffold, and an initial SQLite storage schema. No backend integration, agents, real widgets, terminal execution, or tool implementations exist yet.
 
 ## Documentation Contracts
 
@@ -20,6 +20,8 @@ apps/
       README.md
     src-tauri/
       README.md
+      Cargo.toml
+      tauri.conf.json
 
 crates/
   hobit-core/
@@ -37,7 +39,7 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 `hobit-agent`, `hobit-tools`, and `hobit-app` are placeholder crates with package metadata and crate-level documentation.
 
-`apps/desktop/frontend` contains the first static frontend scaffold. `apps/desktop/src-tauri` remains a README placeholder only.
+`apps/desktop/frontend` contains the first static frontend scaffold. `apps/desktop/src-tauri` contains a minimal Tauri 2 desktop shell that hosts the frontend.
 
 ## Current Frontend Milestone
 
@@ -49,13 +51,21 @@ The Empty Workbench shell intentionally renders no concrete widgets by default.
 
 The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog is currently a UI-only surface with no runtime widget insertion, template registration, backend integration, or persistence.
 
-There is no backend integration, Tauri integration, terminal execution, agent runtime, or preset persistence yet.
+There is no backend integration, Tauri command integration, terminal execution, agent runtime, or preset persistence yet.
+
+## Current Desktop Shell Milestone
+
+`apps/desktop/src-tauri` now contains a minimal Tauri 2 desktop shell for Hobit.
+
+The shell loads the frontend dev server at `http://127.0.0.1:5173` during development and uses `apps/desktop/frontend/dist` for production frontend assets.
+
+This milestone only hosts the existing frontend. It is not wired to `hobit-app`, SQLite storage, WorkspaceService commands, workspace lifecycle commands, widget runtime behavior, terminal execution, or agent calls.
 
 ## Current Frontend Workspace Shell Milestone
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone is frontend-only. It is not wired to `hobit-app`, Tauri, SQLite storage, runtime restoration, real recent workspaces, or persistence.
+This milestone is frontend-local state only. It is not wired to `hobit-app`, Tauri commands, SQLite storage, runtime restoration, real recent workspaces, or persistence.
 
 ## Current Frontend Widget Milestone
 
@@ -131,7 +141,7 @@ crates/
 
 `apps/desktop/frontend` is intended to hold the future frontend app, design system, workbench shell, widget UI, and frontend state coordination.
 
-`apps/desktop/src-tauri` is intended to hold the future Tauri desktop shell.
+`apps/desktop/src-tauri` holds the current minimal Tauri desktop shell and future native bridge work.
 
 `crates/hobit-core` is intended to hold core domain contracts and shared models.
 
@@ -145,6 +155,6 @@ crates/
 
 ## Current Boundary
 
-The current repository state is documentation, repository hygiene, workspace package metadata, placeholder directories, and placeholder Rust modules only.
+The current repository state is documentation, repository hygiene, workspace package metadata, placeholder Rust modules, a frontend-only Workbench shell, and a minimal Tauri desktop host.
 
 Feature implementation should begin in later phases when the contracts are ready to be exercised by real code.

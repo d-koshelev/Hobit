@@ -1,20 +1,24 @@
 # Tauri Shell
 
-This directory is reserved for the future Tauri desktop shell.
+This directory contains the minimal Tauri desktop shell for Hobit.
 
-No Tauri project has been scaffolded yet.
+The shell hosts the existing frontend from `apps/desktop/frontend`. In
+development it loads the Vite dev server at `http://127.0.0.1:5173`; in builds
+it uses the frontend `dist` output.
 
-## Belongs Here Later
+## Current Scope
 
 - Tauri application configuration.
-- Desktop shell integration.
-- Native bridge setup.
-- Packaging configuration.
+- Minimal Rust entry point.
+- Desktop window titled Hobit.
+- Frontend hosting only.
 
-## Does Not Belong Here Yet
+## Not Implemented Yet
 
-- Tauri commands.
+- WorkspaceService or Tauri workspace commands.
+- SQLite initialization or database path handling.
+- Persistence or workspace restore behavior.
+- Widget runtime or widget insertion.
 - Terminal execution.
-- Agent runtime code.
-- SQLite schema or migrations.
+- Agent runtime calls.
 - Tool execution adapters.

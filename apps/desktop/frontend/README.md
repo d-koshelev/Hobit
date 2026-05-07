@@ -12,7 +12,7 @@ The default preset intentionally renders no widgets. The goal is to keep the wor
 
 The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
 
-The UI is a frontend-only preview. It does not connect to Tauri, a backend, a terminal, or an agent runtime.
+The UI remains local React state only. The Tauri desktop shell can host this frontend, but there are no Tauri commands, backend calls, terminal execution, or agent runtime calls yet.
 
 ## Widget Registry And Preset Model
 
@@ -30,11 +30,19 @@ The Empty Workbench follows `docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal
 
 Raw colors outside `src/styles/hobit-theme.css` are not allowed.
 
-## Run Locally
+## Run Frontend-Only Dev
 
 ```powershell
 npm install
 npm run dev
+```
+
+## Run Tauri Dev
+
+The Tauri shell lives in the sibling `apps/desktop/src-tauri` directory and hosts this frontend.
+
+```powershell
+npm run tauri:dev
 ```
 
 ## Build
@@ -43,15 +51,20 @@ npm run dev
 npm run build
 ```
 
+## Build Tauri Shell
+
+```powershell
+npm run tauri:build
+```
+
 ## Intentionally Not Implemented Yet
 
 - Workspace persistence.
 - Real recent workspace loading.
-- Tauri or backend workspace wiring.
+- Tauri workspace commands or backend workspace wiring.
 - Concrete visible widgets.
 - Runtime widget catalog behavior.
 - Real terminal execution.
 - Real agent calls.
 - Preset persistence.
-- Tauri integration.
 - Knowledge, Stages, Runbooks, Git, JDBC, Image Edit, or database UI.
