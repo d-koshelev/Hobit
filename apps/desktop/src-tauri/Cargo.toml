@@ -25,5 +25,3 @@ hobit-app = { path = "../../../crates/hobit-app" }
 hobit-storage-sqlite = { path = "../../../crates/hobit-storage-sqlite" }
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
-
-[workspace]

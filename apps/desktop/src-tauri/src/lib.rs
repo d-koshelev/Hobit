@@ -3,6 +3,7 @@ mod workspace_commands;
 mod workspace_dto;
 
 use app_state::initialize_app_state;
+use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
