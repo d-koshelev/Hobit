@@ -97,7 +97,8 @@ export type WidgetRun = {
 
 export type WidgetLogEntry = {
   id: string;
-  runId: WidgetRunId;
+  widgetInstanceId: WidgetInstanceId;
+  runId?: WidgetRunId | null;
   level: "debug" | "info" | "warning" | "error";
   message: string;
   timestamp: string;
@@ -107,9 +108,10 @@ export type WidgetLogEntry = {
 export type WidgetResult = {
   id: string;
   runId: WidgetRunId;
-  type: string;
-  summary: string;
-  payload: Record<string, unknown>;
+  resultType: string;
+  summary: string | null;
+  content: string | null;
+  payload: Record<string, unknown> | null;
 };
 
 export type WidgetRenderProps = {

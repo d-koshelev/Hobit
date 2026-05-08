@@ -129,7 +129,8 @@ pub struct NewWidgetRun<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WidgetLogRow {
     pub id: String,
-    pub run_id: String,
+    pub widget_instance_id: String,
+    pub run_id: Option<String>,
     pub level: String,
     pub message: String,
     pub created_at: String,
@@ -139,7 +140,8 @@ pub struct WidgetLogRow {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWidgetLog<'a> {
     pub id: &'a str,
-    pub run_id: &'a str,
+    pub widget_instance_id: &'a str,
+    pub run_id: Option<&'a str>,
     pub level: &'a str,
     pub message: &'a str,
     pub created_at: Option<&'a str>,
@@ -151,7 +153,9 @@ pub struct WidgetResultRow {
     pub id: String,
     pub run_id: String,
     pub status: String,
+    pub result_type: String,
     pub summary: Option<String>,
+    pub content: Option<String>,
     pub payload: Option<String>,
     pub created_at: String,
 }
@@ -161,9 +165,17 @@ pub struct NewWidgetResult<'a> {
     pub id: &'a str,
     pub run_id: &'a str,
     pub status: &'a str,
+    pub result_type: Option<&'a str>,
     pub summary: Option<&'a str>,
+    pub content: Option<&'a str>,
     pub payload: Option<&'a str>,
     pub created_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TableColumn {
+    name: String,
+    not_null: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -221,7 +233,110 @@ impl SqliteStore {
     pub fn init_schema(&self) -> Result<()> {
         self.enable_foreign_keys()?;
         self.connection.execute_batch(schema::INIT_SCHEMA)?;
+        self.upgrade_schema()?;
         Ok(())
+    }
+
+    fn upgrade_schema(&self) -> Result<()> {
+        self.upgrade_widget_logs_schema()?;
+        self.ensure_column(
+            "widget_results",
+            "result_type",
+            "result_type TEXT NOT NULL DEFAULT 'generic'",
+        )?;
+        self.ensure_column("widget_results", "content", "content TEXT NULL")?;
+        self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
+        Ok(())
+    }
+
+    fn upgrade_widget_logs_schema(&self) -> Result<()> {
+        let columns = self.table_columns("widget_logs")?;
+        let has_widget_instance_id = columns
+            .iter()
+            .any(|column| column.name == "widget_instance_id");
+        let run_id_is_not_null = columns
+            .iter()
+            .find(|column| column.name == "run_id")
+            .is_some_and(|column| column.not_null);
+
+        if has_widget_instance_id && !run_id_is_not_null {
+            return Ok(());
+        }
+
+        let widget_instance_id_expression = if has_widget_instance_id {
+            "legacy.widget_instance_id"
+        } else {
+            "widget_runs.widget_instance_id"
+        };
+        let widget_run_join = if has_widget_instance_id {
+            ""
+        } else {
+            "INNER JOIN widget_runs ON widget_runs.id = legacy.run_id"
+        };
+
+        let sql = format!(
+            r#"
+            ALTER TABLE widget_logs RENAME TO widget_logs_legacy;
+
+            CREATE TABLE widget_logs (
+                id TEXT PRIMARY KEY,
+                widget_instance_id TEXT NOT NULL REFERENCES widget_instances(id),
+                run_id TEXT NULL REFERENCES widget_runs(id),
+                level TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                details TEXT NULL
+            );
+
+            INSERT INTO widget_logs (
+                id, widget_instance_id, run_id, level, message, created_at, details
+            )
+            SELECT
+                legacy.id,
+                {widget_instance_id_expression},
+                legacy.run_id,
+                legacy.level,
+                legacy.message,
+                legacy.created_at,
+                legacy.details
+            FROM widget_logs_legacy legacy
+            {widget_run_join};
+
+            DROP TABLE widget_logs_legacy;
+            "#
+        );
+
+        self.connection.execute_batch(&sql)?;
+        Ok(())
+    }
+
+    fn ensure_column(
+        &self,
+        table_name: &str,
+        column_name: &str,
+        column_definition: &str,
+    ) -> Result<()> {
+        let columns = self.table_columns(table_name)?;
+        if columns.iter().any(|column| column.name == column_name) {
+            return Ok(());
+        }
+
+        let sql = format!("ALTER TABLE {table_name} ADD COLUMN {column_definition}");
+        self.connection.execute(&sql, [])?;
+        Ok(())
+    }
+
+    fn table_columns(&self, table_name: &str) -> Result<Vec<TableColumn>> {
+        let sql = format!("PRAGMA table_info({table_name})");
+        let mut statement = self.connection.prepare(&sql)?;
+        let rows = statement.query_map([], |row| {
+            Ok(TableColumn {
+                name: row.get(1)?,
+                not_null: row.get::<_, i64>(3)? != 0,
+            })
+        })?;
+
+        rows.collect()
     }
 
     pub fn create_workspace(
@@ -491,10 +606,11 @@ impl SqliteStore {
 
         self.connection.execute(
             "INSERT INTO widget_logs (
-                id, run_id, level, message, created_at, details
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                id, widget_instance_id, run_id, level, message, created_at, details
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 input.id,
+                input.widget_instance_id,
                 input.run_id,
                 input.level,
                 input.message,
@@ -510,7 +626,7 @@ impl SqliteStore {
     pub fn get_widget_log(&self, id: &str) -> Result<Option<WidgetLogRow>> {
         self.connection
             .query_row(
-                "SELECT id, run_id, level, message, created_at, details
+                "SELECT id, widget_instance_id, run_id, level, message, created_at, details
                  FROM widget_logs
                  WHERE id = ?1",
                 params![id],
@@ -521,13 +637,28 @@ impl SqliteStore {
 
     pub fn list_widget_logs(&self, run_id: &str) -> Result<Vec<WidgetLogRow>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, run_id, level, message, created_at, details
+            "SELECT id, widget_instance_id, run_id, level, message, created_at, details
              FROM widget_logs
              WHERE run_id = ?1
              ORDER BY created_at, id",
         )?;
 
         let rows = statement.query_map(params![run_id], widget_log_row)?;
+        rows.collect()
+    }
+
+    pub fn list_widget_logs_for_widget(
+        &self,
+        widget_instance_id: &str,
+    ) -> Result<Vec<WidgetLogRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, widget_instance_id, run_id, level, message, created_at, details
+             FROM widget_logs
+             WHERE widget_instance_id = ?1
+             ORDER BY created_at, id",
+        )?;
+
+        let rows = statement.query_map(params![widget_instance_id], widget_log_row)?;
         rows.collect()
     }
 
@@ -539,13 +670,15 @@ impl SqliteStore {
 
         self.connection.execute(
             "INSERT INTO widget_results (
-                id, run_id, status, summary, payload, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                id, run_id, status, result_type, summary, content, payload, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 input.id,
                 input.run_id,
                 input.status,
+                input.result_type.unwrap_or("generic"),
                 input.summary,
+                input.content,
                 input.payload,
                 created_at,
             ],
@@ -558,7 +691,7 @@ impl SqliteStore {
     pub fn get_widget_result(&self, id: &str) -> Result<Option<WidgetResultRow>> {
         self.connection
             .query_row(
-                "SELECT id, run_id, status, summary, payload, created_at
+                "SELECT id, run_id, status, result_type, summary, content, payload, created_at
                  FROM widget_results
                  WHERE id = ?1",
                 params![id],
@@ -569,7 +702,7 @@ impl SqliteStore {
 
     pub fn list_widget_results(&self, run_id: &str) -> Result<Vec<WidgetResultRow>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, run_id, status, summary, payload, created_at
+            "SELECT id, run_id, status, result_type, summary, content, payload, created_at
              FROM widget_results
              WHERE run_id = ?1
              ORDER BY created_at, id",
@@ -756,11 +889,12 @@ fn widget_run_row(row: &rusqlite::Row<'_>) -> Result<WidgetRunRow> {
 fn widget_log_row(row: &rusqlite::Row<'_>) -> Result<WidgetLogRow> {
     Ok(WidgetLogRow {
         id: row.get(0)?,
-        run_id: row.get(1)?,
-        level: row.get(2)?,
-        message: row.get(3)?,
-        created_at: row.get(4)?,
-        details: row.get(5)?,
+        widget_instance_id: row.get(1)?,
+        run_id: row.get(2)?,
+        level: row.get(3)?,
+        message: row.get(4)?,
+        created_at: row.get(5)?,
+        details: row.get(6)?,
     })
 }
 
@@ -769,9 +903,11 @@ fn widget_result_row(row: &rusqlite::Row<'_>) -> Result<WidgetResultRow> {
         id: row.get(0)?,
         run_id: row.get(1)?,
         status: row.get(2)?,
-        summary: row.get(3)?,
-        payload: row.get(4)?,
-        created_at: row.get(5)?,
+        result_type: row.get(3)?,
+        summary: row.get(4)?,
+        content: row.get(5)?,
+        payload: row.get(6)?,
+        created_at: row.get(7)?,
     })
 }
 
@@ -869,6 +1005,21 @@ mod tests {
             .expect("insert widget");
     }
 
+    fn insert_widget_run(store: &SqliteStore) -> WidgetRunRow {
+        store
+            .insert_widget_run(NewWidgetRun {
+                id: "run-1",
+                widget_instance_id: "widget-1",
+                status: "completed",
+                command_kind: Some("save_note"),
+                command_payload: Some("{note:1}"),
+                started_at: Some("1"),
+                finished_at: Some("2"),
+                summary: Some("Saved note"),
+            })
+            .expect("insert run")
+    }
+
     #[test]
     fn init_schema_is_idempotent() {
         let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -882,6 +1033,82 @@ mod tests {
             .expect("foreign key pragma");
 
         assert_eq!(foreign_keys_enabled, 1);
+    }
+
+    #[test]
+    fn init_schema_upgrades_widget_log_and_result_columns() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+        insert_widget_run(&store);
+
+        store
+            .connection
+            .execute_batch(
+                r#"
+                DROP TABLE widget_logs;
+                DROP TABLE widget_results;
+
+                CREATE TABLE widget_logs (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES widget_runs(id),
+                    level TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    details TEXT NULL
+                );
+
+                CREATE TABLE widget_results (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES widget_runs(id),
+                    status TEXT NOT NULL,
+                    summary TEXT NULL,
+                    payload TEXT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                INSERT INTO widget_logs (
+                    id, run_id, level, message, created_at, details
+                ) VALUES (
+                    'legacy-log', 'run-1', 'info', 'Legacy log', '1', NULL
+                );
+
+                INSERT INTO widget_results (
+                    id, run_id, status, summary, payload, created_at
+                ) VALUES (
+                    'legacy-result', 'run-1', 'completed', 'Legacy result', '{ok:true}', '1'
+                );
+                "#,
+            )
+            .expect("create legacy widget tables");
+
+        store.init_schema().expect("upgrade schema");
+
+        let legacy_log = store
+            .get_widget_log("legacy-log")
+            .expect("get legacy log")
+            .expect("legacy log");
+        let legacy_result = store
+            .get_widget_result("legacy-result")
+            .expect("get legacy result")
+            .expect("legacy result");
+        let widget_local_log = store
+            .append_widget_log(NewWidgetLog {
+                id: "widget-local-log",
+                widget_instance_id: "widget-1",
+                run_id: None,
+                level: "info",
+                message: "Widget-local log",
+                created_at: Some("2"),
+                details: None,
+            })
+            .expect("append widget-local log");
+
+        assert_eq!(legacy_log.widget_instance_id, "widget-1");
+        assert_eq!(legacy_log.run_id.as_deref(), Some("run-1"));
+        assert_eq!(legacy_result.result_type, "generic");
+        assert_eq!(legacy_result.content, None);
+        assert_eq!(widget_local_log.run_id, None);
     }
 
     #[test]
@@ -1072,22 +1299,12 @@ mod tests {
         create_workspace_and_workbench(&store);
         insert_widget(&store);
 
-        let run = store
-            .insert_widget_run(NewWidgetRun {
-                id: "run-1",
-                widget_instance_id: "widget-1",
-                status: "completed",
-                command_kind: Some("save_note"),
-                command_payload: Some("{note:1}"),
-                started_at: Some("1"),
-                finished_at: Some("2"),
-                summary: Some("Saved note"),
-            })
-            .expect("insert run");
+        let run = insert_widget_run(&store);
         let log = store
             .append_widget_log(NewWidgetLog {
                 id: "log-1",
-                run_id: "run-1",
+                widget_instance_id: "widget-1",
+                run_id: Some("run-1"),
                 level: "info",
                 message: "Saved note",
                 created_at: Some("2"),
@@ -1099,16 +1316,28 @@ mod tests {
                 id: "result-1",
                 run_id: "run-1",
                 status: "completed",
+                result_type: Some("note"),
                 summary: Some("Note persisted"),
+                content: Some("Saved note content"),
                 payload: Some("{ok:true}"),
                 created_at: Some("2"),
             })
             .expect("insert result");
 
         assert_eq!(run.widget_instance_id, "widget-1");
-        assert_eq!(log.run_id, "run-1");
+        assert_eq!(log.widget_instance_id, "widget-1");
+        assert_eq!(log.run_id.as_deref(), Some("run-1"));
+        assert_eq!(result.result_type, "note");
         assert_eq!(result.summary.as_deref(), Some("Note persisted"));
+        assert_eq!(result.content.as_deref(), Some("Saved note content"));
         assert_eq!(store.list_widget_logs("run-1").expect("list logs").len(), 1);
+        assert_eq!(
+            store
+                .list_widget_logs_for_widget("widget-1")
+                .expect("list widget logs")
+                .len(),
+            1
+        );
         assert_eq!(
             store
                 .list_widget_results("run-1")
@@ -1116,5 +1345,32 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn append_widget_local_log_without_run_id() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+
+        let log = store
+            .append_widget_log(NewWidgetLog {
+                id: "log-1",
+                widget_instance_id: "widget-1",
+                run_id: None,
+                level: "info",
+                message: "Workspace context loaded",
+                created_at: Some("1"),
+                details: Some("{source:widget}"),
+            })
+            .expect("append widget-local log");
+        let widget_logs = store
+            .list_widget_logs_for_widget("widget-1")
+            .expect("list widget-local logs");
+
+        assert_eq!(log.widget_instance_id, "widget-1");
+        assert_eq!(log.run_id, None);
+        assert_eq!(widget_logs.len(), 1);
+        assert_eq!(widget_logs[0].id, "log-1");
     }
 }

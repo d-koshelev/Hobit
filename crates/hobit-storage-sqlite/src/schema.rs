@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS widget_runs (
 
 CREATE TABLE IF NOT EXISTS widget_logs (
     id TEXT PRIMARY KEY,
-    run_id TEXT NOT NULL REFERENCES widget_runs(id),
+    widget_instance_id TEXT NOT NULL REFERENCES widget_instances(id),
+    run_id TEXT NULL REFERENCES widget_runs(id),
     level TEXT NOT NULL,
     message TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -88,7 +89,9 @@ CREATE TABLE IF NOT EXISTS widget_results (
     id TEXT PRIMARY KEY,
     run_id TEXT NOT NULL REFERENCES widget_runs(id),
     status TEXT NOT NULL,
+    result_type TEXT NOT NULL DEFAULT 'generic',
     summary TEXT NULL,
+    content TEXT NULL,
     payload TEXT NULL,
     created_at TEXT NOT NULL
 );
@@ -127,9 +130,6 @@ CREATE INDEX IF NOT EXISTS idx_widget_instances_workbench_id
 CREATE INDEX IF NOT EXISTS idx_widget_runs_widget_instance_id
     ON widget_runs(widget_instance_id);
 
-CREATE INDEX IF NOT EXISTS idx_widget_logs_run_id
-    ON widget_logs(run_id);
-
 CREATE INDEX IF NOT EXISTS idx_widget_results_run_id
     ON widget_results(run_id);
 
@@ -138,4 +138,15 @@ CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_workbench_events_workspace_id
     ON workbench_events(workspace_id);
+"#;
+
+pub const POST_INIT_SCHEMA: &str = r#"
+CREATE INDEX IF NOT EXISTS idx_widget_logs_widget_instance_id
+    ON widget_logs(widget_instance_id);
+
+CREATE INDEX IF NOT EXISTS idx_widget_logs_run_id
+    ON widget_logs(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_widget_logs_widget_instance_created_at
+    ON widget_logs(widget_instance_id, created_at);
 "#;
