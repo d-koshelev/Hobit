@@ -6,9 +6,9 @@ This directory contains the future Hobit desktop frontend.
 
 The current milestone is a Workspace Start Screen shell built with Vite, React, and TypeScript.
 
-The app starts on the Workspace Start Screen. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands and then opens the Empty Workbench shell for the selected preset.
+The app starts on the Workspace Start Screen. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands, loads the Workbench state through `get_workspace_workbench_state`, maps it into `WorkbenchViewState`, and then opens the Empty Workbench shell.
 
-In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces are local to the current page session and are lost on refresh.
+In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces and their empty Workbench states are local to the current page session and are lost on refresh.
 
 The default preset intentionally renders no widgets. The goal is to keep the workbench shell, locked theme, spacing, and empty canvas correct before concrete widgets are added back through the widget catalog.
 
@@ -20,13 +20,12 @@ The workspace frontend flow is split by responsibility: `workspaceApi.ts` is the
 public facade, `tauriWorkspaceApi.ts` invokes Tauri commands,
 `memoryWorkspaceApi.ts` provides the browser/Vite in-memory fallback, and
 `useWorkspaceFlow.ts` owns the start-screen lifecycle state. Workspace API DTOs
-stay separate from UI selection state for opening the Workbench. This does not
-add Workbench state loading yet.
+stay separate from UI selection state for opening the Workbench.
 
 Workbench rendering consumes a frontend `WorkbenchViewState` boundary. Current
-selection and preset data is adapted into that view state before rendering,
-which prepares future `get_workspace_workbench_state` wiring without changing
-the current Empty Workbench behavior.
+Tauri or memory Workbench state is adapted into that view state before
+rendering, which keeps backend DTOs out of `WorkbenchShell`, `WorkbenchCanvas`,
+and widget rendering.
 
 ## Widget Registry And Preset Model
 

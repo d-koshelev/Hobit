@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { emptyWorkbenchPreset } from "../workbench/presets";
+import { createWorkbenchViewStateFromWorkspaceState } from "../workbench/viewState";
 import {
   createWorkspace as createWorkspaceCommand,
+  getWorkspaceWorkbenchState,
   listWorkspaces,
-  openWorkspace,
+  openWorkspace as openWorkspaceCommand,
 } from "./workspaceApi";
 import type { WorkspaceStartSelection } from "./selection";
 import type { WorkspaceSummary } from "./types";
@@ -71,12 +73,25 @@ export function useWorkspaceFlow({
         title: workspaceTitle,
         description: null,
       });
-      const session = await openWorkspace(workspace.id);
+      const session = await openWorkspaceCommand(workspace.id);
+
+      if (!session) {
+        setErrorMessage("Workspace could not be opened.");
+        return;
+      }
+
+      const workbenchState = await getWorkspaceWorkbenchState(workspace.id);
+
+      if (!workbenchState) {
+        setErrorMessage("Workbench state could not be loaded.");
+        return;
+      }
 
       onOpenWorkspace({
         preset: selectedPreset,
         session,
-        workspace,
+        viewState: createWorkbenchViewStateFromWorkspaceState(workbenchState),
+        workspace: workbenchState.workspace,
       });
     } catch (error) {
       setErrorMessage(errorToMessage(error));
@@ -90,17 +105,25 @@ export function useWorkspaceFlow({
     setErrorMessage(null);
 
     try {
-      const session = await openWorkspace(workspace.id);
+      const session = await openWorkspaceCommand(workspace.id);
 
       if (!session) {
         setErrorMessage("Workspace could not be opened.");
         return;
       }
 
+      const workbenchState = await getWorkspaceWorkbenchState(workspace.id);
+
+      if (!workbenchState) {
+        setErrorMessage("Workbench state could not be loaded.");
+        return;
+      }
+
       onOpenWorkspace({
         preset: selectedPreset,
         session,
-        workspace,
+        viewState: createWorkbenchViewStateFromWorkspaceState(workbenchState),
+        workspace: workbenchState.workspace,
       });
     } catch (error) {
       setErrorMessage(errorToMessage(error));

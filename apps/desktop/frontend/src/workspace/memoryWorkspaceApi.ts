@@ -3,6 +3,7 @@ import type {
   CreateWorkspaceRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
+  WorkspaceWorkbenchState,
 } from "./types";
 
 const fallbackWorkspaces: WorkspaceSummary[] = [];
@@ -13,6 +14,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   listWorkspaces,
   getWorkspaceSummary,
   openWorkspace,
+  getWorkspaceWorkbenchState,
 };
 
 async function createWorkspace(
@@ -30,7 +32,7 @@ async function createWorkspace(
     title,
     description: request.description ?? null,
     status: "active",
-    workbench_id: `fallback_wb_${fallbackId++}`,
+    workbenchId: `fallback_wb_${fallbackId++}`,
   };
 
   fallbackWorkspaces.unshift(workspace);
@@ -63,8 +65,32 @@ async function openWorkspace(
 
   return {
     id: `fallback_wss_${fallbackId++}`,
-    workspace_id: workspace.id,
+    workspaceId: workspace.id,
     status: "open",
-    active_widget_id: null,
+    activeWidgetId: null,
+  };
+}
+
+async function getWorkspaceWorkbenchState(
+  workspaceId: string,
+): Promise<WorkspaceWorkbenchState | null> {
+  const workspace = fallbackWorkspaces.find(
+    (candidate) => candidate.id === workspaceId,
+  );
+
+  if (!workspace) {
+    return null;
+  }
+
+  return {
+    workspace,
+    workbench: {
+      id: workspace.workbenchId ?? `fallback_wb_${workspace.id}`,
+      workspaceId: workspace.id,
+      presetOriginId: null,
+    },
+    widgetInstances: [],
+    sharedStateObjects: [],
+    recentEvents: [],
   };
 }

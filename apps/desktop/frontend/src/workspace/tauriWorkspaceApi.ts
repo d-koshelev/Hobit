@@ -4,6 +4,7 @@ import type {
   CreateWorkspaceRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
+  WorkspaceWorkbenchState,
 } from "./types";
 
 export const tauriWorkspaceApi: WorkspaceApi = {
@@ -11,35 +12,173 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listWorkspaces,
   getWorkspaceSummary,
   openWorkspace,
+  getWorkspaceWorkbenchState,
 };
 
-function createWorkspace(
+type TauriWorkspaceSummary = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  workbench_id: string | null;
+};
+
+type TauriWorkspaceSessionSummary = {
+  id: string;
+  workspace_id: string;
+  status: string;
+  active_widget_id: string | null;
+};
+
+type TauriWorkspaceWorkbenchState = {
+  workspace: TauriWorkspaceSummary;
+  workbench: TauriWorkbenchSummary | null;
+  widget_instances: TauriWorkspaceWidgetInstanceSummary[];
+  shared_state_objects: TauriWorkspaceSharedStateObjectSummary[];
+  recent_events: TauriWorkspaceEventSummary[];
+};
+
+type TauriWorkbenchSummary = {
+  id: string;
+  workspace_id: string;
+  preset_origin_id: string | null;
+};
+
+type TauriWorkspaceWidgetInstanceSummary = {
+  id: string;
+  definition_id: string;
+  title: string;
+  category: string;
+  layout_mode: string;
+  is_visible: boolean;
+};
+
+type TauriWorkspaceSharedStateObjectSummary = {
+  id: string;
+  key: string;
+  value: string;
+  value_kind: string;
+};
+
+type TauriWorkspaceEventSummary = {
+  id: string;
+  kind: string;
+  summary: string;
+  created_at: string;
+};
+
+async function createWorkspace(
   request: CreateWorkspaceRequest,
 ): Promise<WorkspaceSummary> {
-  return invoke<WorkspaceSummary>("create_workspace", {
+  const workspace = await invoke<TauriWorkspaceSummary>("create_workspace", {
     request: {
       title: request.title,
       description: request.description ?? null,
     },
   });
+
+  return normalizeWorkspaceSummary(workspace);
 }
 
-function listWorkspaces(): Promise<WorkspaceSummary[]> {
-  return invoke<WorkspaceSummary[]>("list_workspaces");
+async function listWorkspaces(): Promise<WorkspaceSummary[]> {
+  const workspaces = await invoke<TauriWorkspaceSummary[]>("list_workspaces");
+
+  return workspaces.map(normalizeWorkspaceSummary);
 }
 
-function getWorkspaceSummary(
+async function getWorkspaceSummary(
   workspaceId: string,
 ): Promise<WorkspaceSummary | null> {
-  return invoke<WorkspaceSummary | null>("get_workspace_summary", {
-    workspaceId,
-  });
+  const workspace = await invoke<TauriWorkspaceSummary | null>(
+    "get_workspace_summary",
+    {
+      workspaceId,
+    },
+  );
+
+  return workspace ? normalizeWorkspaceSummary(workspace) : null;
 }
 
-function openWorkspace(
+async function openWorkspace(
   workspaceId: string,
 ): Promise<WorkspaceSessionSummary | null> {
-  return invoke<WorkspaceSessionSummary | null>("open_workspace", {
-    workspaceId,
-  });
+  const session = await invoke<TauriWorkspaceSessionSummary | null>(
+    "open_workspace",
+    {
+      workspaceId,
+    },
+  );
+
+  return session ? normalizeWorkspaceSessionSummary(session) : null;
+}
+
+async function getWorkspaceWorkbenchState(
+  workspaceId: string,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = await invoke<TauriWorkspaceWorkbenchState | null>(
+    "get_workspace_workbench_state",
+    {
+      workspaceId,
+    },
+  );
+
+  return state ? normalizeWorkspaceWorkbenchState(state) : null;
+}
+
+function normalizeWorkspaceSummary(
+  workspace: TauriWorkspaceSummary,
+): WorkspaceSummary {
+  return {
+    id: workspace.id,
+    title: workspace.title,
+    description: workspace.description,
+    status: workspace.status,
+    workbenchId: workspace.workbench_id,
+  };
+}
+
+function normalizeWorkspaceSessionSummary(
+  session: TauriWorkspaceSessionSummary,
+): WorkspaceSessionSummary {
+  return {
+    id: session.id,
+    workspaceId: session.workspace_id,
+    status: session.status,
+    activeWidgetId: session.active_widget_id,
+  };
+}
+
+function normalizeWorkspaceWorkbenchState(
+  state: TauriWorkspaceWorkbenchState,
+): WorkspaceWorkbenchState {
+  return {
+    workspace: normalizeWorkspaceSummary(state.workspace),
+    workbench: state.workbench
+      ? {
+          id: state.workbench.id,
+          workspaceId: state.workbench.workspace_id,
+          presetOriginId: state.workbench.preset_origin_id,
+        }
+      : null,
+    widgetInstances: state.widget_instances.map((widgetInstance) => ({
+      id: widgetInstance.id,
+      definitionId: widgetInstance.definition_id,
+      title: widgetInstance.title,
+      category: widgetInstance.category,
+      layoutMode: widgetInstance.layout_mode,
+      isVisible: widgetInstance.is_visible,
+    })),
+    sharedStateObjects: state.shared_state_objects.map((stateObject) => ({
+      id: stateObject.id,
+      key: stateObject.key,
+      value: stateObject.value,
+      valueKind: stateObject.value_kind,
+    })),
+    recentEvents: state.recent_events.map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      summary: event.summary,
+      createdAt: event.created_at,
+    })),
+  };
 }

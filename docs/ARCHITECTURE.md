@@ -45,9 +45,9 @@ The root `Cargo.toml` defines a Rust workspace for the five crates under `crates
 
 A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
 
-The current UI starts with a Workspace Start Screen shell. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands and then opens the static Empty Workbench shell.
+The current UI starts with a Workspace Start Screen shell. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands, loads the Workspace Workbench state through the workspace API facade, maps it into `WorkbenchViewState`, and then opens the Empty Workbench shell.
 
-In plain browser/Vite development, the frontend uses an in-memory workspace API fallback so the start screen remains usable without Tauri. Browser fallback state is not persisted.
+In plain browser/Vite development, the frontend uses an in-memory workspace API fallback so the start screen remains usable without Tauri. Browser fallback state is not persisted, and its Workbench state remains an in-memory empty surface.
 
 The Empty Workbench shell intentionally renders no concrete widgets by default.
 
@@ -86,13 +86,13 @@ The React frontend now calls these commands from the Workspace Start Screen when
 
 The Tauri shell exposes this through `get_workspace_workbench_state`, backed by the existing local SQLite store and `WorkspaceService`.
 
-Frontend wiring to this command is future work. There is still no event replay, runtime reconstruction, widget execution, terminal execution, or agent call behavior.
+The frontend consumes this command through its workspace API boundary and adapts the response into `WorkbenchViewState` before rendering the Workbench. There is still no event replay, runtime reconstruction, widget execution, terminal execution, or agent call behavior.
 
 ## Current Frontend Workspace Shell Milestone
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It does not implement runtime restoration, widget state restoration, or persisted browser fallback state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget state restoration, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 

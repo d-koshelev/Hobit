@@ -5,6 +5,7 @@ import type {
   CreateWorkspaceRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
+  WorkspaceWorkbenchState,
 } from "./types";
 
 export type WorkspaceApi = {
@@ -18,6 +19,9 @@ export type WorkspaceApi = {
   openWorkspace: (
     workspaceId: string,
   ) => Promise<WorkspaceSessionSummary | null>;
+  getWorkspaceWorkbenchState: (
+    workspaceId: string,
+  ) => Promise<WorkspaceWorkbenchState | null>;
 };
 
 export function getWorkspaceApi(): WorkspaceApi {
@@ -46,6 +50,12 @@ export function openWorkspace(
   workspaceId: string,
 ): Promise<WorkspaceSessionSummary | null> {
   return getWorkspaceApi().openWorkspace(workspaceId);
+}
+
+export function getWorkspaceWorkbenchState(
+  workspaceId: string,
+): Promise<WorkspaceWorkbenchState | null> {
+  return getWorkspaceApi().getWorkspaceWorkbenchState(workspaceId);
 }
 
 function normalizeCreateWorkspaceRequest(
