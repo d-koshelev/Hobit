@@ -138,6 +138,9 @@ CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_workbench_events_workspace_id
     ON workbench_events(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_workbench_events_workspace_created_at
+    ON workbench_events(workspace_id, created_at);
 "#;
 
 pub const POST_INIT_SCHEMA: &str = r#"

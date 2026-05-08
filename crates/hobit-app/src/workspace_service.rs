@@ -9,6 +9,7 @@ use hobit_storage_sqlite::{
 use crate::WorkspaceServiceError;
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
+const WORKBENCH_STATE_RECENT_EVENT_LIMIT: usize = 100;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -204,9 +205,8 @@ impl WorkspaceService {
         let widget_instances = match workbench.as_ref() {
             Some(workbench) => self
                 .store
-                .list_widget_instances(&workspace.id)?
+                .list_widget_instances_for_workbench(&workbench.id)?
                 .into_iter()
-                .filter(|widget| widget.workbench_id == workbench.id.as_str())
                 .map(widget_instance_summary)
                 .collect(),
             None => Vec::new(),
@@ -217,12 +217,15 @@ impl WorkspaceService {
             .into_iter()
             .map(shared_state_object_summary)
             .collect();
-        let recent_events = self
-            .store
-            .list_workbench_events(&workspace.id)?
-            .into_iter()
-            .map(workbench_event_summary)
-            .collect();
+        let recent_events = match workbench_id.as_deref() {
+            Some(workbench_id) => self
+                .store
+                .list_recent_workbench_events(workbench_id, WORKBENCH_STATE_RECENT_EVENT_LIMIT)?
+                .into_iter()
+                .map(workbench_event_summary)
+                .collect(),
+            None => Vec::new(),
+        };
 
         Ok(Some(WorkspaceWorkbenchState {
             workspace: workspace_summary(&workspace, workbench_id),
@@ -572,6 +575,10 @@ mod tests {
             .workbench_id
             .as_deref()
             .expect("created workbench id");
+        service
+            .store
+            .create_workspace_workbench("zz-other-workbench", &workspace.id, None)
+            .expect("create other workbench");
 
         service
             .store
@@ -597,6 +604,30 @@ mod tests {
                 state: Some("{\"dirty\":false}"),
             })
             .expect("insert widget");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "widget-2",
+                workspace_id: &workspace.id,
+                workbench_id: "zz-other-workbench",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(320),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: None,
+                state: None,
+            })
+            .expect("insert other workbench widget");
 
         let state = service
             .get_workspace_workbench_state(&workspace.id)

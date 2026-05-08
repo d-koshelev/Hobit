@@ -557,6 +557,25 @@ impl SqliteStore {
         rows.collect()
     }
 
+    pub fn list_widget_instances_for_workbench(
+        &self,
+        workbench_id: &str,
+    ) -> Result<Vec<WidgetInstanceRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT
+                id, workspace_id, workbench_id, definition_id, title, category,
+                layout_mode, dock_x, dock_y, dock_width, dock_height, popout_x,
+                popout_y, popout_width, popout_height, always_on_top,
+                is_visible, config, state, created_at, updated_at
+             FROM widget_instances
+             WHERE workbench_id = ?1
+             ORDER BY created_at, id",
+        )?;
+
+        let rows = statement.query_map(params![workbench_id], widget_instance_row)?;
+        rows.collect()
+    }
+
     pub fn insert_widget_run(&self, input: NewWidgetRun<'_>) -> Result<WidgetRunRow> {
         let started_at = input
             .started_at
@@ -805,6 +824,34 @@ impl SqliteStore {
 
         let rows = statement.query_map(params![workspace_id], workbench_event_row)?;
         rows.collect()
+    }
+
+    pub fn list_recent_workbench_events(
+        &self,
+        workbench_id: &str,
+        limit: usize,
+    ) -> Result<Vec<WorkbenchEventRow>> {
+        let limit = limit.min(i64::MAX as usize) as i64;
+        let mut statement = self.connection.prepare(
+            "SELECT
+                workbench_events.id,
+                workbench_events.workspace_id,
+                workbench_events.kind,
+                workbench_events.summary,
+                workbench_events.payload,
+                workbench_events.created_at
+             FROM workbench_events
+             INNER JOIN workspace_workbenches
+                ON workspace_workbenches.workspace_id = workbench_events.workspace_id
+             WHERE workspace_workbenches.id = ?1
+             ORDER BY workbench_events.created_at DESC, workbench_events.id DESC
+             LIMIT ?2",
+        )?;
+
+        let rows = statement.query_map(params![workbench_id, limit], workbench_event_row)?;
+        let mut events: Vec<_> = rows.collect::<Result<Vec<_>>>()?;
+        events.reverse();
+        Ok(events)
     }
 
     fn enable_foreign_keys(&self) -> Result<()> {
@@ -1269,6 +1316,48 @@ mod tests {
     }
 
     #[test]
+    fn list_widget_instances_for_workbench_returns_only_that_workbench() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        store
+            .create_workspace_workbench("workbench-2", "workspace-1", None)
+            .expect("create second workbench");
+
+        insert_widget(&store);
+        store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "widget-2",
+                workspace_id: "workspace-1",
+                workbench_id: "workbench-2",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(320),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: None,
+                state: None,
+            })
+            .expect("insert second widget");
+
+        let widgets = store
+            .list_widget_instances_for_workbench("workbench-1")
+            .expect("list workbench widgets");
+
+        assert_eq!(widgets.len(), 1);
+        assert_eq!(widgets[0].id, "widget-1");
+        assert_eq!(widgets[0].workbench_id, "workbench-1");
+    }
+
+    #[test]
     fn append_and_list_workbench_events() {
         let store = initialized_store();
         store
@@ -1291,6 +1380,60 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].kind, "workspace_opened");
         assert_eq!(events[0].payload.as_deref(), Some("{source:test}"));
+    }
+
+    #[test]
+    fn list_recent_workbench_events_respects_limit_and_order() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        store
+            .create_workspace("workspace-2", "Other", None, "active")
+            .expect("create other workspace");
+        store
+            .create_workspace_workbench("workbench-2", "workspace-2", None)
+            .expect("create other workbench");
+
+        for event_id in ["event-1", "event-2", "event-3"] {
+            store
+                .append_workbench_event(
+                    event_id,
+                    "workspace-1",
+                    "workspace_changed",
+                    "Workspace changed",
+                    None,
+                )
+                .expect("append event");
+        }
+        store
+            .append_workbench_event(
+                "other-event",
+                "workspace-2",
+                "workspace_changed",
+                "Other workspace changed",
+                None,
+            )
+            .expect("append other event");
+
+        for (event_id, created_at) in [
+            ("event-1", "1"),
+            ("event-2", "2"),
+            ("event-3", "3"),
+            ("other-event", "4"),
+        ] {
+            store
+                .connection
+                .execute(
+                    "UPDATE workbench_events SET created_at = ?1 WHERE id = ?2",
+                    rusqlite::params![created_at, event_id],
+                )
+                .expect("set event timestamp");
+        }
+
+        let events = store
+            .list_recent_workbench_events("workbench-1", 2)
+            .expect("list recent events");
+
+        assert_eq!(event_ids(&events), vec!["event-2", "event-3"]);
     }
 
     #[test]
@@ -1372,5 +1515,9 @@ mod tests {
         assert_eq!(log.run_id, None);
         assert_eq!(widget_logs.len(), 1);
         assert_eq!(widget_logs[0].id, "log-1");
+    }
+
+    fn event_ids(events: &[WorkbenchEventRow]) -> Vec<&str> {
+        events.iter().map(|event| event.id.as_str()).collect()
     }
 }
