@@ -1,8 +1,8 @@
 # Architecture
 
-This document describes the current repository skeleton and intended future architecture for Hobit.
+This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a Rust workspace skeleton, a minimal Tauri desktop shell, a static frontend scaffold, and an initial SQLite storage schema. No agents, real widgets, terminal execution, runtime execution, or tool implementations exist yet.
+The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. No agents, real widgets, terminal execution, runtime execution, or tool implementations exist yet.
 
 ## Documentation Contracts
 
@@ -31,15 +31,15 @@ crates/
   hobit-app/
 ```
 
-The root `Cargo.toml` defines a Rust workspace for the five crates under `crates/`.
+The root `Cargo.toml` defines a Rust workspace for `apps/desktop/src-tauri` and the five crates under `crates/`. Root workspace validation checks the Tauri desktop shell and the core crates together.
 
 `hobit-core` contains minimal domain contract types.
 
 `hobit-storage-sqlite` contains the initial idempotent SQLite schema and row-level storage primitives.
 
-`hobit-agent`, `hobit-tools`, and `hobit-app` are placeholder crates with package metadata and crate-level documentation.
+`hobit-agent` and `hobit-tools` are placeholder crates with package metadata and crate-level documentation. `hobit-app` contains the current Workspace application service foundation.
 
-`apps/desktop/frontend` contains the first static frontend scaffold. `apps/desktop/src-tauri` contains a minimal Tauri 2 desktop shell that hosts the frontend.
+`apps/desktop/frontend` contains the current workspace/start screen and Empty Workbench frontend. `apps/desktop/src-tauri` contains a minimal Tauri 2 desktop shell that hosts the frontend and exposes workspace lifecycle/state commands.
 
 ## Current Frontend Milestone
 
@@ -51,9 +51,9 @@ In plain browser/Vite development, the frontend uses an in-memory workspace API 
 
 The Empty Workbench shell intentionally renders no concrete widgets by default.
 
-The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog now renders display-only planned widget template metadata. These templates are not registered widget definitions and there is still no runtime widget insertion, backend integration, or persistence.
+The frontend includes a Widget Catalog drawer opened from Add Widget controls. The catalog renders display-only planned widget template metadata. These templates are not registered widget definitions and there is still no runtime widget insertion or Tauri-backed widget catalog behavior.
 
-There is no terminal execution, agent runtime, widget insertion behavior, or preset persistence yet.
+There is no terminal execution, agent runtime, widget insertion behavior, preset editor, or layout persistence editing yet.
 
 ## Current Desktop Shell Milestone
 
@@ -75,10 +75,11 @@ The shell exposes minimal WorkspaceService lifecycle commands over the Tauri bri
 - `list_workspaces`
 - `get_workspace_summary`
 - `open_workspace`
+- `get_workspace_workbench_state`
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, and command DTO mapping in `workspace_dto.rs`.
 
-The React frontend now calls these commands from the Workspace Start Screen when running inside Tauri. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
+The React frontend calls these commands from the Workspace Start Screen when running inside Tauri. The browser/Vite path uses the same workspace API facade with an in-memory implementation. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -88,11 +89,26 @@ The Tauri shell exposes this through `get_workspace_workbench_state`, backed by 
 
 The frontend consumes this command through its workspace API boundary and adapts the response into `WorkbenchViewState` before rendering the Workbench. There is still no event replay, runtime reconstruction, widget execution, terminal execution, or agent call behavior.
 
+## Current Workspace Flow
+
+The implemented desktop flow is:
+
+```text
+Create or open Workspace
+  -> WorkspaceService creates or opens a WorkspaceSession
+  -> frontend requests get_workspace_workbench_state
+  -> Tauri bridge returns persisted Workspace/Workbench summary state
+  -> frontend workspace API adapts it into WorkbenchViewState
+  -> Empty Workbench renders from that view state
+```
+
+The browser/Vite flow keeps the same frontend boundary but uses in-memory Workspace and Workbench state instead of the Tauri bridge and SQLite store.
+
 ## Current Frontend Workspace Shell Milestone
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget state restoration, or persisted browser fallback state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime state restoration, widget insertion, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 
@@ -108,7 +124,7 @@ The Widget Catalog has frontend-only planned template metadata for future capabi
 
 `hobit-core` now contains minimal Rust domain contracts for Workspace, Workbench, Presets, Widgets, Actions, Events, and Shared State.
 
-These are contracts only. They are not persistence, runtime execution, frontend integration, Tauri integration, or concrete widget implementation.
+These are pure domain contracts only. Persistence, frontend integration, and Tauri integration live outside `hobit-core`.
 
 ## Current SQLite Storage Milestone
 
@@ -116,7 +132,7 @@ These are contracts only. They are not persistence, runtime execution, frontend 
 
 It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
 
-This storage layer is foundational only. It is wired to the minimal Tauri workspace lifecycle bridge, but not to frontend UI, agent runtime, terminal execution, or concrete widget behavior yet.
+This storage layer is foundational only. It is wired through `hobit-app` and the minimal Tauri workspace lifecycle/state bridge, but not to agent runtime, terminal execution, concrete widget behavior, or widget insertion yet.
 
 ## Current Application Service Milestone
 
@@ -126,11 +142,11 @@ The service creates empty Workspaces with one associated empty Workbench, opens 
 
 This application layer is wired to the minimal Tauri workspace lifecycle bridge. It does not restore runtime state, execute widgets, run agents, execute terminal commands, or add UI behavior.
 
-## Planned Workspace Model
+## Workspace Model Boundary
 
-Future Workspace model and storage work will support resumable work. A Workspace will be the durable user-facing container for a specific piece of work, and a WorkspaceSession will represent the current runtime opening of that Workspace.
+The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, empty Workbench records, widget instance summaries, shared state summaries, and Workbench event summaries.
 
-Full Workspace application persistence is not implemented yet. There is no restore runtime, preset editor, or frontend/Tauri wiring in the current repository.
+Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, layout editor, real widget insertion, terminal execution, or agent runtime behavior.
 
 ## Planned Notes Model
 
@@ -172,7 +188,7 @@ crates/
 
 `crates/hobit-core` is intended to hold core domain contracts and shared models.
 
-`crates/hobit-storage-sqlite` is intended to hold local persistence when storage is introduced.
+`crates/hobit-storage-sqlite` owns the current local SQLite persistence foundation.
 
 `crates/hobit-agent` is intended to hold agent runtime integration.
 
@@ -182,6 +198,6 @@ crates/
 
 ## Current Boundary
 
-The current repository state is documentation, repository hygiene, workspace package metadata, placeholder Rust modules, a frontend-only Workbench shell, and a minimal Tauri desktop host.
+The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a display-only Widget Catalog drawer, a minimal Tauri desktop host, and SQLite-backed workspace/workbench state loading in desktop mode.
 
-Feature implementation should begin in later phases when the contracts are ready to be exercised by real code.
+Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.

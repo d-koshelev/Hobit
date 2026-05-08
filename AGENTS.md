@@ -42,12 +42,15 @@ For architectural decisions, inspect:
 
 Current foundation target:
 - Empty AI Workbench shell first.
-- No default widgets on the board.
-- Add Widget is placeholder until Widget Catalog is implemented.
+- The default Workbench is the Empty Workbench with zero real widget instances.
+- Workspace Start Screen exists and can create or open a Workspace.
+- In the Tauri desktop shell, workspace lifecycle/state loading uses the Tauri workspace API bridge and local SQLite storage.
+- In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
+- Add Widget opens the Widget Catalog drawer. Catalog items are planned/display-only templates and do not insert widgets yet.
 - Widgets are future first-class entities, not just React components.
 - Existing Widget Registry, Preset model, and WidgetHost architecture must be preserved.
 
-Terminal and Agent CLI widgets may exist later, but they must not be shown by default unless explicitly requested.
+Terminal and Agent CLI widgets may exist later, but they must not be shown by default or implemented unless explicitly requested.
 
 ## Hard product rules
 
@@ -110,16 +113,18 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 - Preserve widgetRegistry.
 - Preserve WidgetHost as the mapping layer from widget instance to React component.
 - Do not hardcode widget components directly into WorkbenchCanvas.
-- Do not add future widgets unless explicitly requested.
+- Do not add real widgets unless explicitly requested.
+- Do not add widget insertion behavior beyond the existing display-only Widget Catalog unless explicitly requested.
 - Do not add UI frameworks or icon libraries unless explicitly requested.
 - Do not add drag-and-drop until explicitly requested.
-- Do not add persistence until explicitly requested.
+- Do not add layout persistence editing, preset editing, or new persistence flows unless explicitly requested.
 
 ## Rust/core rules
 
 - hobit-core owns pure domain contracts and types.
 - hobit-core must not depend on Tauri, React, SQLite, or frontend code.
 - storage, agent, tools, and app orchestration must remain separate crates.
+- The root Rust workspace includes `apps/desktop/src-tauri`; `cargo check --workspace` validates the Tauri desktop crate as well as the core crates.
 - Do not over-model prematurely.
 - Prefer small explicit types and clear contracts.
 
@@ -128,16 +133,19 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 Do not add:
 - real terminal execution
 - real agent calls
-- Tauri integration
+- new Tauri bridge capabilities beyond existing workspace lifecycle/state loading
 - database/JDBC implementation
 - Git integration
 - Knowledge Catalog implementation
 - Stages implementation
 - Runbook engine
 - Image Edit implementation
-- widget catalog behavior
+- real widget implementation
+- widget insertion behavior
 - drag-and-drop layout editor
-- persistence
+- layout persistence editing or preset editor behavior
+- unplanned SQLite schema changes
+- new runtime execution behavior
 - new dependencies
 
 ## Validation
@@ -146,6 +154,7 @@ For most changes, run:
 
 - cargo fmt --all
 - cargo check --workspace
+- cargo test --workspace
 - npm.cmd run typecheck --prefix apps/desktop/frontend
 
 For frontend changes, also try:

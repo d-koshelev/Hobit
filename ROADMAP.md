@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure before implementation work begins.
+This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure, and current implementation work continues to exercise those contracts through the Workbench shell.
 
 ## Phase 0: Contracts And Repository Foundation
 
@@ -10,9 +10,9 @@ This roadmap defines the intended foundation order for Hobit. Early phases estab
 
 ## Phase 1: Clean Monorepo Skeleton
 
-- Create the future repository layout without product implementation.
+- Create the initial repository layout for staged product implementation.
 - Establish workspace boundaries for desktop app, core crates, storage, agent runtime, tools, app orchestration, and frontend modules.
-- Add baseline build tooling only when implementation begins.
+- Keep the desktop shell and core crates in the root validation path.
 
 ## Phase 2: Design System
 

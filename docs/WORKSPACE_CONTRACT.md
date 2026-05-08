@@ -64,6 +64,32 @@ A user opens an existing Workspace or creates a new Workspace.
 
 Opening or creating a Workspace starts a WorkspaceSession.
 
+## Current Implementation Foundation
+
+The current implementation has the Workspace foundation in place, but not the full runtime restore system.
+
+Implemented foundation:
+
+- The Workspace Start Screen lets the user create a Workspace or open an existing Workspace.
+- In the Tauri desktop shell, Workspace lifecycle and Workbench state loading use Tauri commands backed by `hobit-app` and `hobit-storage-sqlite`.
+- In browser/Vite development, the same frontend workspace API boundary uses an in-memory fallback. Browser fallback state is not persisted.
+- Creating or opening a Workspace starts a WorkspaceSession.
+- The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
+- The current default Workbench has zero real widget instances.
+- SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
+
+Not implemented yet:
+
+- runtime restore or event replay
+- widget runtime reconstruction
+- widget insertion from the Widget Catalog
+- real Terminal, Agent CLI, or other capability widgets
+- drag-and-drop layout editing
+- layout persistence editing
+- custom preset editor
+- terminal execution
+- agent runtime calls
+
 ## Workspace
 
 A Workspace is the durable, persisted, user-facing work container.
@@ -157,11 +183,15 @@ Example presets:
 
 ### New Workspace
 
-The user creates a new Workspace, names or describes the work, optionally chooses a Preset, and starts a new WorkspaceSession.
+The user creates a new Workspace, names or describes the work, and starts a new WorkspaceSession.
+
+Current foundation: desktop mode persists the Workspace and associated empty Workbench through SQLite; browser/Vite mode uses in-memory fallback state.
 
 ### Open Existing Workspace
 
-The user opens a durable Workspace and Hobit restores its Workbench, widget instances, shared state, logs, results, decisions, and current focus when possible.
+The user opens a durable Workspace and Hobit starts a new WorkspaceSession from saved Workspace state.
+
+Current foundation: Hobit loads the persisted Workbench summary and renders it as frontend `WorkbenchViewState`. Full widget runtime restore, current focus restore, and event replay are future work.
 
 ### Continue Recent Workspace
 
@@ -171,9 +201,13 @@ The user selects a recent Workspace and Hobit starts a new WorkspaceSession from
 
 The user chooses a system or user Preset. Hobit copies the Preset's recommended layout and configuration into the Workspace.
 
+Current foundation: the default Empty Workbench path exists. Full preset selection, preset instantiation UI, and preset editing are future work.
+
 ### Customize Workbench
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
+
+Current foundation: the data model and storage primitives exist. Widget insertion, drag-and-drop layout editing, and layout persistence editing are future work.
 
 ### Save Layout as Preset
 
@@ -210,14 +244,18 @@ Resume behavior should preserve enough state that the operator can understand wh
 - Widget state is part of Workspace resume data.
 - Global notes/global settings are not Workspace-local unless explicitly attached.
 
-## Non-goals for now
+## Not Implemented Yet
 
 The following are not implemented yet:
 
-- persistence
-- database schema
-- start screen
 - workspace restore runtime
+- event replay
+- widget runtime reconstruction
+- widget insertion from catalog items
+- real capability widgets
 - custom preset editor
+- drag-and-drop layout editor
+- layout persistence editing
+- notes storage and notes UI
 - multi-user sync
 - cloud sync
