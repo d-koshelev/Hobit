@@ -10,10 +10,18 @@
 pub mod schema;
 pub mod store;
 
-pub use rusqlite::Error as StorageError;
-pub use store::{
+mod inputs;
+mod mappers;
+mod rows;
+mod time;
+
+pub use inputs::{
     NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow,
-    WorkspaceWorkbenchRow,
+    NewWorkspaceSession,
 };
+pub use rows::{
+    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceWorkbenchRow,
+};
+pub use rusqlite::Error as StorageError;
+pub use store::SqliteStore;
