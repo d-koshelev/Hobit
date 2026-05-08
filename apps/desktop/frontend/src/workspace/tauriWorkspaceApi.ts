@@ -50,7 +50,18 @@ type TauriWorkspaceWidgetInstanceSummary = {
   title: string;
   category: string;
   layout_mode: string;
+  dock_x: number | null;
+  dock_y: number | null;
+  dock_width: number | null;
+  dock_height: number | null;
+  popout_x: number | null;
+  popout_y: number | null;
+  popout_width: number | null;
+  popout_height: number | null;
+  always_on_top: boolean;
   is_visible: boolean;
+  config: string | null;
+  state: string | null;
 };
 
 type TauriWorkspaceSharedStateObjectSummary = {
@@ -166,7 +177,18 @@ function normalizeWorkspaceWorkbenchState(
       title: widgetInstance.title,
       category: widgetInstance.category,
       layoutMode: widgetInstance.layout_mode,
+      dockX: widgetInstance.dock_x ?? null,
+      dockY: widgetInstance.dock_y ?? null,
+      dockWidth: widgetInstance.dock_width ?? null,
+      dockHeight: widgetInstance.dock_height ?? null,
+      popoutX: widgetInstance.popout_x ?? null,
+      popoutY: widgetInstance.popout_y ?? null,
+      popoutWidth: widgetInstance.popout_width ?? null,
+      popoutHeight: widgetInstance.popout_height ?? null,
+      alwaysOnTop: widgetInstance.always_on_top ?? false,
       isVisible: widgetInstance.is_visible,
+      config: widgetInstance.config ?? null,
+      state: widgetInstance.state ?? null,
     })),
     sharedStateObjects: state.shared_state_objects.map((stateObject) => ({
       id: stateObject.id,

@@ -50,7 +50,18 @@ pub(crate) struct WidgetInstanceSummaryDto {
     pub title: String,
     pub category: String,
     pub layout_mode: String,
+    pub dock_x: Option<i64>,
+    pub dock_y: Option<i64>,
+    pub dock_width: Option<i64>,
+    pub dock_height: Option<i64>,
+    pub popout_x: Option<i64>,
+    pub popout_y: Option<i64>,
+    pub popout_width: Option<i64>,
+    pub popout_height: Option<i64>,
+    pub always_on_top: bool,
     pub is_visible: bool,
+    pub config: Option<String>,
+    pub state: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -134,7 +145,18 @@ impl From<WidgetInstanceSummary> for WidgetInstanceSummaryDto {
             title: summary.title,
             category: summary.category,
             layout_mode: summary.layout_mode,
+            dock_x: summary.dock_x,
+            dock_y: summary.dock_y,
+            dock_width: summary.dock_width,
+            dock_height: summary.dock_height,
+            popout_x: summary.popout_x,
+            popout_y: summary.popout_y,
+            popout_width: summary.popout_width,
+            popout_height: summary.popout_height,
+            always_on_top: summary.always_on_top,
             is_visible: summary.is_visible,
+            config: summary.config,
+            state: summary.state,
         }
     }
 }
@@ -232,7 +254,18 @@ mod tests {
                 title: "Notes".to_owned(),
                 category: "notes".to_owned(),
                 layout_mode: "docked".to_owned(),
+                dock_x: Some(12),
+                dock_y: Some(24),
+                dock_width: Some(480),
+                dock_height: Some(320),
+                popout_x: Some(120),
+                popout_y: Some(140),
+                popout_width: Some(640),
+                popout_height: Some(480),
+                always_on_top: true,
                 is_visible: true,
+                config: Some("{\"scope\":\"workspace\"}".to_owned()),
+                state: Some("{\"dirty\":false}".to_owned()),
             }],
             shared_state_objects: vec![SharedStateObjectSummary {
                 id: "shared-1".to_owned(),
@@ -258,6 +291,23 @@ mod tests {
             Some("wb_1")
         );
         assert_eq!(dto.widget_instances[0].definition_id, "notes");
+        assert_eq!(dto.widget_instances[0].dock_x, Some(12));
+        assert_eq!(dto.widget_instances[0].dock_y, Some(24));
+        assert_eq!(dto.widget_instances[0].dock_width, Some(480));
+        assert_eq!(dto.widget_instances[0].dock_height, Some(320));
+        assert_eq!(dto.widget_instances[0].popout_x, Some(120));
+        assert_eq!(dto.widget_instances[0].popout_y, Some(140));
+        assert_eq!(dto.widget_instances[0].popout_width, Some(640));
+        assert_eq!(dto.widget_instances[0].popout_height, Some(480));
+        assert!(dto.widget_instances[0].always_on_top);
+        assert_eq!(
+            dto.widget_instances[0].config.as_deref(),
+            Some("{\"scope\":\"workspace\"}")
+        );
+        assert_eq!(
+            dto.widget_instances[0].state.as_deref(),
+            Some("{\"dirty\":false}")
+        );
         assert_eq!(dto.shared_state_objects[0].key, "current_goal");
         assert_eq!(dto.recent_events[0].kind, "workspace_created");
     }

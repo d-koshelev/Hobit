@@ -38,7 +38,18 @@ export type WorkspaceWidgetInstanceSummary = {
   title: string;
   category: string;
   layoutMode: string;
+  dockX: number | null;
+  dockY: number | null;
+  dockWidth: number | null;
+  dockHeight: number | null;
+  popoutX: number | null;
+  popoutY: number | null;
+  popoutWidth: number | null;
+  popoutHeight: number | null;
+  alwaysOnTop: boolean;
   isVisible: boolean;
+  config: string | null;
+  state: string | null;
 };
 
 export type WorkspaceSharedStateObjectSummary = {

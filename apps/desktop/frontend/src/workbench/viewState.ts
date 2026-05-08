@@ -1,7 +1,9 @@
 import type { WorkspaceWorkbenchState } from "../workspace/types";
 import { emptyWorkbenchPreset } from "./presets";
 import type {
+  WidgetGeometry,
   WidgetInstance,
+  WidgetLayout,
   WidgetLayoutMode,
   WorkbenchPreset,
   WorkbenchPresetId,
@@ -101,22 +103,28 @@ export function createWorkbenchViewStateFromWorkspaceState(
         description: emptyWorkbenchPreset.description,
       },
     },
-    widgets: state.widgetInstances.map((widgetInstance, index) => ({
-      id: widgetInstance.id,
-      definitionId: widgetInstance.definitionId,
-      title: widgetInstance.title,
-      config: {},
-      layout: {
+    widgets: state.widgetInstances.map((widgetInstance, index) => {
+      const mode = normalizeWidgetLayoutMode(widgetInstance.layoutMode);
+      const dockLayout: WidgetLayout = {
         area: "main",
-        mode: normalizeWidgetLayoutMode(widgetInstance.layoutMode),
+        mode,
         order: index,
-        x: 0,
-        y: index,
-        width: 360,
-        height: 240,
-      },
-      visible: widgetInstance.isVisible,
-    })),
+        x: widgetInstance.dockX ?? 0,
+        y: widgetInstance.dockY ?? index,
+        width: widgetInstance.dockWidth ?? 360,
+        height: widgetInstance.dockHeight ?? 240,
+      };
+      const popout = normalizePopoutGeometry(widgetInstance, dockLayout, mode);
+
+      return {
+        id: widgetInstance.id,
+        definitionId: widgetInstance.definitionId,
+        title: widgetInstance.title,
+        config: normalizeWidgetConfig(widgetInstance.config),
+        layout: popout ? { ...dockLayout, popout } : dockLayout,
+        visible: widgetInstance.isVisible,
+      };
+    }),
     sharedStateObjects: state.sharedStateObjects.map((stateObject) => ({
       id: stateObject.id,
       key: stateObject.key,
@@ -142,4 +150,54 @@ function normalizeWidgetLayoutMode(layoutMode: string): WidgetLayoutMode {
   }
 
   return "docked";
+}
+
+function normalizePopoutGeometry(
+  widgetInstance: WorkspaceWorkbenchState["widgetInstances"][number],
+  dockLayout: WidgetLayout,
+  mode: WidgetLayoutMode,
+): (WidgetGeometry & { alwaysOnTop: boolean }) | undefined {
+  const hasPopoutState =
+    mode === "popped-out" ||
+    widgetInstance.alwaysOnTop ||
+    widgetInstance.popoutX !== null ||
+    widgetInstance.popoutY !== null ||
+    widgetInstance.popoutWidth !== null ||
+    widgetInstance.popoutHeight !== null;
+
+  if (!hasPopoutState) {
+    return undefined;
+  }
+
+  return {
+    x: widgetInstance.popoutX ?? dockLayout.x,
+    y: widgetInstance.popoutY ?? dockLayout.y,
+    width: widgetInstance.popoutWidth ?? dockLayout.width,
+    height: widgetInstance.popoutHeight ?? dockLayout.height,
+    alwaysOnTop: widgetInstance.alwaysOnTop,
+  };
+}
+
+function normalizeWidgetConfig(
+  config: string | null,
+): Record<string, unknown> {
+  if (config === null) {
+    return {};
+  }
+
+  try {
+    const parsedConfig: unknown = JSON.parse(config);
+
+    if (isRecord(parsedConfig)) {
+      return parsedConfig;
+    }
+
+    return { value: parsedConfig };
+  } catch {
+    return { raw: config };
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
