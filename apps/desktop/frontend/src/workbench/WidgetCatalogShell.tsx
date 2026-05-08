@@ -1,4 +1,12 @@
+import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  plannedWidgetCatalogTemplates,
+  widgetCatalogCategoryLabels,
+  widgetCatalogCategoryOrder,
+  type WidgetCatalogTemplate,
+  type WidgetCatalogTemplateStatus,
+} from "./catalogTemplates";
 
 type WidgetCatalogShellProps = {
   isOpen: boolean;
@@ -12,6 +20,15 @@ export function WidgetCatalogShell({
   if (!isOpen) {
     return null;
   }
+
+  const templateGroups = widgetCatalogCategoryOrder
+    .map((category) => ({
+      category,
+      templates: plannedWidgetCatalogTemplates.filter(
+        (template) => template.category === category,
+      ),
+    }))
+    .filter((group) => group.templates.length > 0);
 
   return (
     <div className="widget-catalog-layer">
@@ -34,16 +51,62 @@ export function WidgetCatalogShell({
           </Button>
         </header>
 
-        <div className="widget-catalog-empty">
-          <p className="widget-catalog-empty-title">
-            No widget templates configured yet.
-          </p>
-          <p className="widget-catalog-empty-text">
-            Widget templates will appear here when they are added to the
-            catalog.
-          </p>
+        <div className="widget-catalog-body">
+          {templateGroups.map((group) => (
+            <section className="catalog-template-group" key={group.category}>
+              <h3 className="catalog-template-group-title">
+                {widgetCatalogCategoryLabels[group.category]}
+              </h3>
+              <div className="catalog-template-list">
+                {group.templates.map((template) => (
+                  <CatalogTemplateCard
+                    key={template.id}
+                    template={template}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       </aside>
     </div>
   );
+}
+
+type CatalogTemplateCardProps = {
+  template: WidgetCatalogTemplate;
+};
+
+function CatalogTemplateCard({ template }: CatalogTemplateCardProps) {
+  return (
+    <article className="catalog-template-card">
+      <div className="catalog-template-card-main">
+        <div className="catalog-template-card-header">
+          <h4 className="catalog-template-title">{template.title}</h4>
+          <Badge variant={statusBadgeVariant(template.status)}>
+            {statusLabel(template.status)}
+          </Badge>
+        </div>
+        <p className="catalog-template-description">{template.description}</p>
+        <ul className="catalog-template-capabilities">
+          {template.capabilitySummary.map((capability) => (
+            <li className="catalog-template-capability" key={capability}>
+              {capability}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Button disabled variant="secondary">
+        Not available yet
+      </Button>
+    </article>
+  );
+}
+
+function statusLabel(status: WidgetCatalogTemplateStatus) {
+  return status === "available" ? "Available" : "Planned";
+}
+
+function statusBadgeVariant(status: WidgetCatalogTemplateStatus) {
+  return status === "available" ? "success" : "neutral";
 }

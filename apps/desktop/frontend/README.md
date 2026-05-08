@@ -12,7 +12,7 @@ In plain browser/Vite development, the workspace API uses an in-memory fallback 
 
 The default preset intentionally renders no widgets. The goal is to keep the workbench shell, locked theme, spacing, and empty canvas correct before concrete widgets are added back through the widget catalog.
 
-The Add Widget controls open a Widget Catalog shell. The catalog is UI-only: no widget templates, widget insertion, preset persistence, backend integration, or runtime widget behavior are implemented yet.
+The Add Widget controls open a Widget Catalog shell. The catalog shows display-only planned widget template metadata for future capabilities. No widget insertion, preset persistence, backend integration, or runtime widget behavior is implemented yet.
 
 Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
@@ -35,7 +35,7 @@ Current preset:
 
 - Empty Workbench: empty workbench surface
 
-`WidgetHost` remains in place for future widget instances, but no concrete widget React components are registered in this milestone.
+`WidgetHost` remains in place for future widget instances, but no concrete widget React components are registered in this milestone. The Widget Catalog template list is separate display metadata and is not added to `widgetRegistry`.
 
 ## Visual Direction
 
@@ -76,7 +76,7 @@ npm run tauri:build
 
 - Frontend persistence outside the Tauri workspace commands.
 - Concrete visible widgets.
-- Runtime widget catalog behavior.
+- Runtime widget catalog behavior or widget insertion.
 - Real terminal execution.
 - Real agent calls.
 - Preset persistence.

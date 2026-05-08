@@ -51,7 +51,7 @@ In plain browser/Vite development, the frontend uses an in-memory workspace API 
 
 The Empty Workbench shell intentionally renders no concrete widgets by default.
 
-The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog is currently a UI-only surface with no runtime widget insertion, template registration, backend integration, or persistence.
+The frontend includes a Widget Catalog shell opened from Add Widget controls. The catalog now renders display-only planned widget template metadata. These templates are not registered widget definitions and there is still no runtime widget insertion, backend integration, or persistence.
 
 There is no terminal execution, agent runtime, widget insertion behavior, or preset persistence yet.
 
@@ -102,7 +102,7 @@ The Empty Workbench is rendered from preset data and currently contains no visib
 
 `WidgetHost` remains the single future mapping layer from widget instances to React components. The current frontend registry is intentionally empty.
 
-The registry is frontend-local for now. There is no runtime widget loading or widget insertion through the Tauri bridge yet.
+The Widget Catalog has frontend-only planned template metadata for future capabilities. The registry is frontend-local and empty for now. There is no runtime widget loading or widget insertion through the Tauri bridge yet.
 
 ## Current Core Model Milestone
 
