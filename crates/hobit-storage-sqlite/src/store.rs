@@ -266,6 +266,17 @@ impl SqliteStore {
         rows.collect()
     }
 
+    pub fn touch_workspace(&self, workspace_id: &str) -> Result<()> {
+        let updated_at = now_precise_timestamp();
+        self.connection.execute(
+            "UPDATE workspaces
+             SET updated_at = ?1
+             WHERE id = ?2",
+            params![updated_at, workspace_id],
+        )?;
+        Ok(())
+    }
+
     pub fn create_workspace_session(
         &self,
         input: NewWorkspaceSession<'_>,
@@ -806,6 +817,13 @@ fn now_timestamp() -> String {
         .unwrap_or_else(|_| "0".to_owned())
 }
 
+fn now_precise_timestamp() -> String {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| format!("{}.{:09}", duration.as_secs(), duration.subsec_nanos()))
+        .unwrap_or_else(|_| "0.000000000".to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -922,6 +940,33 @@ mod tests {
         assert!(workspaces
             .iter()
             .any(|workspace| workspace.id == "workspace-2"));
+    }
+
+    #[test]
+    fn touch_workspace_updates_updated_at() {
+        let store = initialized_store();
+        store
+            .create_workspace("workspace-1", "Incident", None, "active")
+            .expect("create workspace");
+        store
+            .connection
+            .execute(
+                "UPDATE workspaces SET updated_at = ?1 WHERE id = ?2",
+                rusqlite::params!["1", "workspace-1"],
+            )
+            .expect("set stale updated_at");
+
+        store
+            .touch_workspace("workspace-1")
+            .expect("touch workspace");
+
+        let touched = store
+            .get_workspace("workspace-1")
+            .expect("get workspace")
+            .expect("workspace row");
+
+        assert_ne!(touched.updated_at, "1");
+        assert!(touched.updated_at.as_str() > "1");
     }
 
     #[test]

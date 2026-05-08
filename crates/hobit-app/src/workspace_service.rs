@@ -157,6 +157,7 @@ impl WorkspaceService {
             current_focus_kind: None,
             current_focus_ref: None,
         })?;
+        self.store.touch_workspace(workspace_id)?;
 
         let event_payload = format!("session_id={}", session.id);
         self.store.append_workbench_event(
@@ -358,6 +359,42 @@ mod tests {
     }
 
     #[test]
+    fn open_workspace_moves_it_to_recent_workspaces_front() {
+        let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
+        store.init_schema().expect("initialize schema");
+        store
+            .create_workspace("workspace-z-older", "Older", None, "active")
+            .expect("create older workspace");
+        store
+            .create_workspace_workbench("workbench-older", "workspace-z-older", None)
+            .expect("create older workbench");
+        store
+            .create_workspace("workspace-a-newer", "Newer", None, "active")
+            .expect("create newer workspace");
+        store
+            .create_workspace_workbench("workbench-newer", "workspace-a-newer", None)
+            .expect("create newer workbench");
+        let service = WorkspaceService::new(store);
+
+        let initial_workspaces = service.list_workspaces().expect("list workspaces");
+        assert_eq!(
+            workspace_ids(&initial_workspaces),
+            vec!["workspace-a-newer", "workspace-z-older"]
+        );
+
+        service
+            .open_workspace("workspace-z-older")
+            .expect("open workspace")
+            .expect("session summary");
+
+        let recent_workspaces = service.list_workspaces().expect("list workspaces");
+        assert_eq!(
+            workspace_ids(&recent_workspaces),
+            vec!["workspace-z-older", "workspace-a-newer"]
+        );
+    }
+
+    #[test]
     fn get_workspace_summary_returns_none_for_missing_workspace() {
         let service = initialized_service();
 
@@ -555,5 +592,12 @@ mod tests {
                 is_visible: true,
             }]
         );
+    }
+
+    fn workspace_ids(workspaces: &[WorkspaceSummary]) -> Vec<&str> {
+        workspaces
+            .iter()
+            .map(|workspace| workspace.id.as_str())
+            .collect()
     }
 }
