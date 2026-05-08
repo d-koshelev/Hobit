@@ -2,19 +2,20 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
-import type { WorkbenchPreset } from "./types";
+import type { WorkbenchViewState } from "./viewState";
 
 type WorkbenchTopBarProps = {
   onOpenWidgetCatalog: () => void;
-  preset: WorkbenchPreset;
-  workspaceTitle: string;
+  viewState: WorkbenchViewState;
 };
 
 export function WorkbenchTopBar({
   onOpenWidgetCatalog,
-  preset,
-  workspaceTitle,
+  viewState,
 }: WorkbenchTopBarProps) {
+  const presetId = viewState.workbench.preset.id ?? "";
+  const presetTitle = viewState.workbench.preset.title;
+
   return (
     <header className="workbench-topbar">
       <div className="topbar-left">
@@ -30,11 +31,13 @@ export function WorkbenchTopBar({
 
         <Badge className="workspace-pill" variant="neutral">
           <span className="workspace-context-label">Workspace</span>
-          <span className="workspace-context-title">{workspaceTitle}</span>
+          <span className="workspace-context-title">
+            {viewState.workspace.title}
+          </span>
         </Badge>
 
-        <Select aria-label="Current workbench preset" value={preset.id} disabled>
-          <option value={preset.id}>{preset.title}</option>
+        <Select aria-label="Current workbench preset" value={presetId} disabled>
+          <option value={presetId}>{presetTitle}</option>
         </Select>
       </div>
 

@@ -23,6 +23,11 @@ public facade, `tauriWorkspaceApi.ts` invokes Tauri commands,
 stay separate from UI selection state for opening the Workbench. This does not
 add Workbench state loading yet.
 
+Workbench rendering consumes a frontend `WorkbenchViewState` boundary. Current
+selection and preset data is adapted into that view state before rendering,
+which prepares future `get_workspace_workbench_state` wiring without changing
+the current Empty Workbench behavior.
+
 ## Widget Registry And Preset Model
 
 The workbench is rendered from a frontend-local preset model and an empty widget registry.

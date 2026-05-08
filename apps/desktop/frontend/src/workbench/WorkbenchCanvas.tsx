@@ -1,23 +1,24 @@
 import { Button } from "../design-system/Button";
 import { WidgetHost } from "./WidgetHost";
-import type { WorkbenchPreset } from "./types";
+import type { WorkbenchViewState } from "./viewState";
 
 type WorkbenchCanvasProps = {
   onOpenWidgetCatalog: () => void;
-  preset: WorkbenchPreset;
+  viewState: WorkbenchViewState;
 };
 
 export function WorkbenchCanvas({
   onOpenWidgetCatalog,
-  preset,
+  viewState,
 }: WorkbenchCanvasProps) {
-  const visibleWidgets = preset.widgets
+  const visibleWidgets = viewState.widgets
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
+  const canvasLabel = `${viewState.workbench.preset.title} canvas`;
 
   if (visibleWidgets.length === 0) {
     return (
-      <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
+      <section className="canvas-shell" aria-label={canvasLabel}>
         <div className="empty-workbench" aria-label="Empty workbench">
           <div className="empty-workbench-content">
             <h1 className="empty-workbench-title">Your workbench is empty</h1>
@@ -34,7 +35,7 @@ export function WorkbenchCanvas({
   }
 
   return (
-    <section className="canvas-shell" aria-label={`${preset.title} canvas`}>
+    <section className="canvas-shell" aria-label={canvasLabel}>
       <div className="widget-grid">
         {visibleWidgets.map((widget) => (
           <WidgetHost instance={widget} key={widget.id} />

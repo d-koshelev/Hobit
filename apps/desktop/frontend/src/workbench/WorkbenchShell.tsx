@@ -1,19 +1,14 @@
 import { useState } from "react";
-import { emptyWorkbenchPreset } from "./presets";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
-import type { WorkbenchPreset } from "./types";
+import type { WorkbenchViewState } from "./viewState";
 
 type WorkbenchShellProps = {
-  preset?: WorkbenchPreset;
-  workspaceTitle: string;
+  viewState: WorkbenchViewState;
 };
 
-export function WorkbenchShell({
-  preset = emptyWorkbenchPreset,
-  workspaceTitle,
-}: WorkbenchShellProps) {
+export function WorkbenchShell({ viewState }: WorkbenchShellProps) {
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);
   const closeWidgetCatalog = () => setIsWidgetCatalogOpen(false);
@@ -23,8 +18,7 @@ export function WorkbenchShell({
       <div className="workbench">
         <WorkbenchTopBar
           onOpenWidgetCatalog={openWidgetCatalog}
-          preset={preset}
-          workspaceTitle={workspaceTitle}
+          viewState={viewState}
         />
         <div
           className={`workbench-content${
@@ -33,7 +27,7 @@ export function WorkbenchShell({
         >
           <WorkbenchCanvas
             onOpenWidgetCatalog={openWidgetCatalog}
-            preset={preset}
+            viewState={viewState}
           />
           <WidgetCatalogShell
             isOpen={isWidgetCatalogOpen}
