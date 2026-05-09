@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { parseNotesState, serializeNotesState } from "./notesState";
 import type { WidgetRenderProps } from "./types";
 
 export function NotesPlaceholderWidget({
@@ -9,7 +10,7 @@ export function NotesPlaceholderWidget({
   onUpdateState,
   title,
 }: WidgetRenderProps) {
-  const noteBody = getNoteBody(instance.state);
+  const noteBody = parseNotesState(instance.state).body;
   const textareaId = useId();
   const [draft, setDraft] = useState(noteBody);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,10 +31,7 @@ export function NotesPlaceholderWidget({
     setIsSaving(true);
 
     try {
-      await onUpdateState(instance.id, {
-        ...instance.state,
-        body: draft,
-      });
+      await onUpdateState(instance.id, serializeNotesState(draft));
     } catch (error) {
       setErrorMessage(errorToMessage(error));
     } finally {
@@ -70,10 +68,6 @@ export function NotesPlaceholderWidget({
       ) : null}
     </WidgetFrame>
   );
-}
-
-function getNoteBody(state: Record<string, unknown>): string {
-  return typeof state.body === "string" ? state.body : "";
 }
 
 function errorToMessage(error: unknown): string {
