@@ -1,6 +1,6 @@
 use hobit_app::{
-    SharedStateObjectSummary, WidgetInstanceSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    SharedStateObjectSummary, WidgetInstanceLayout, WidgetInstanceSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +25,29 @@ pub(crate) struct UpdateWidgetInstanceStateRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub state: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct UpdateWidgetInstanceLayoutRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub layout: WidgetInstanceLayoutDto,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct WidgetInstanceLayoutDto {
+    pub layout_mode: String,
+    pub dock_x: Option<i64>,
+    pub dock_y: Option<i64>,
+    pub dock_width: Option<i64>,
+    pub dock_height: Option<i64>,
+    pub popout_x: Option<i64>,
+    pub popout_y: Option<i64>,
+    pub popout_width: Option<i64>,
+    pub popout_height: Option<i64>,
+    pub always_on_top: bool,
+    pub is_visible: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -196,6 +219,24 @@ impl From<WorkbenchEventSummary> for WorkbenchEventSummaryDto {
             kind: summary.kind,
             summary: summary.summary,
             created_at: summary.created_at,
+        }
+    }
+}
+
+impl From<WidgetInstanceLayoutDto> for WidgetInstanceLayout {
+    fn from(layout: WidgetInstanceLayoutDto) -> Self {
+        Self {
+            layout_mode: layout.layout_mode,
+            dock_x: layout.dock_x,
+            dock_y: layout.dock_y,
+            dock_width: layout.dock_width,
+            dock_height: layout.dock_height,
+            popout_x: layout.popout_x,
+            popout_y: layout.popout_y,
+            popout_width: layout.popout_width,
+            popout_height: layout.popout_height,
+            always_on_top: layout.always_on_top,
+            is_visible: layout.is_visible,
         }
     }
 }

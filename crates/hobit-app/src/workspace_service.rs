@@ -3,7 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
     NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, StorageError,
-    WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    WidgetInstanceLayoutUpdate, WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -17,6 +18,10 @@ const PLACEHOLDER_WIDGET_DOCK_HEIGHT: i64 = 240;
 const PLACEHOLDER_WIDGET_DOCK_GAP: i64 = 16;
 const PLACEHOLDER_WIDGET_CONFIG: &str = "{}";
 const PLACEHOLDER_WIDGET_STATE: &str = "{}";
+const WIDGET_LAYOUT_MODE_DOCKED: &str = "docked";
+const WIDGET_LAYOUT_MODE_POPPED_OUT: &str = "popped_out";
+const WIDGET_LAYOUT_MODE_MINIMIZED: &str = "minimized";
+const MAX_WIDGET_LAYOUT_DIMENSION: i64 = 16_384;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -70,6 +75,21 @@ pub struct WidgetInstanceSummary {
     pub is_visible: bool,
     pub config: Option<String>,
     pub state: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetInstanceLayout {
+    pub layout_mode: String,
+    pub dock_x: Option<i64>,
+    pub dock_y: Option<i64>,
+    pub dock_width: Option<i64>,
+    pub dock_height: Option<i64>,
+    pub popout_x: Option<i64>,
+    pub popout_y: Option<i64>,
+    pub popout_width: Option<i64>,
+    pub popout_height: Option<i64>,
+    pub always_on_top: bool,
+    pub is_visible: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -349,6 +369,77 @@ impl WorkspaceService {
             .map_err(WorkspaceServiceError::from)
     }
 
+    pub fn update_widget_instance_layout(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        layout: WidgetInstanceLayout,
+    ) -> Result<Option<WorkspaceWorkbenchState>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let layout = validate_widget_instance_layout(layout)?;
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some(workspace) = store.get_workspace(workspace_id)? else {
+                    return Ok(None);
+                };
+
+                let Some(workbench) = store
+                    .list_workspace_workbenches(&workspace.id)?
+                    .into_iter()
+                    .find(|workbench| workbench.id == workbench_id)
+                else {
+                    return Ok(None);
+                };
+
+                let Some(widget) = store.get_widget_instance(widget_instance_id)? else {
+                    return Ok(None);
+                };
+
+                if widget.workspace_id != workspace.id || widget.workbench_id != workbench.id {
+                    return Ok(None);
+                }
+
+                store.update_widget_instance_layout(
+                    &widget.id,
+                    WidgetInstanceLayoutUpdate {
+                        layout_mode: &layout.layout_mode,
+                        dock_x: layout.dock_x,
+                        dock_y: layout.dock_y,
+                        dock_width: layout.dock_width,
+                        dock_height: layout.dock_height,
+                        popout_x: layout.popout_x,
+                        popout_y: layout.popout_y,
+                        popout_width: layout.popout_width,
+                        popout_height: layout.popout_height,
+                        always_on_top: layout.always_on_top,
+                        is_visible: layout.is_visible,
+                    },
+                )?;
+
+                let event_payload = format!(
+                    "workbench_id={};widget_instance_id={};layout_mode={}",
+                    workbench.id, widget.id, layout.layout_mode
+                );
+                store.append_workbench_event(
+                    &placeholder_id("evt_"),
+                    &workspace.id,
+                    "widget_layout_updated",
+                    "Widget layout updated",
+                    Some(&event_payload),
+                )?;
+                store.touch_workspace(&workspace.id)?;
+
+                let state =
+                    workspace_workbench_state_from_store(store, workspace, Some(workbench))?;
+                Ok(Some(state))
+            })
+            .map_err(WorkspaceServiceError::from)
+    }
+
     fn first_workbench_id(
         &self,
         workspace_id: &str,
@@ -414,6 +505,70 @@ fn validate_json_state(state: &str) -> Result<(), WorkspaceServiceError> {
     serde_json::from_str::<serde_json::Value>(state).map_err(|error| {
         WorkspaceServiceError::InvalidInput(format!("widget state must be valid JSON: {error}"))
     })?;
+    Ok(())
+}
+
+fn validate_widget_instance_layout(
+    mut layout: WidgetInstanceLayout,
+) -> Result<WidgetInstanceLayout, WorkspaceServiceError> {
+    let layout_mode = required_input(&layout.layout_mode, "widget layout mode")?.to_owned();
+    match layout_mode.as_str() {
+        WIDGET_LAYOUT_MODE_DOCKED
+        | WIDGET_LAYOUT_MODE_POPPED_OUT
+        | WIDGET_LAYOUT_MODE_MINIMIZED => {}
+        _ => {
+            return Err(WorkspaceServiceError::InvalidInput(format!(
+                "unsupported widget layout mode: {layout_mode}"
+            )));
+        }
+    }
+    layout.layout_mode = layout_mode;
+
+    validate_dimension("dock_width", layout.dock_width)?;
+    validate_dimension("dock_height", layout.dock_height)?;
+    validate_dimension("popout_width", layout.popout_width)?;
+    validate_dimension("popout_height", layout.popout_height)?;
+
+    if layout.dock_width.is_none() || layout.dock_height.is_none() {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "dock dimensions are required".to_owned(),
+        ));
+    }
+
+    if layout.layout_mode == WIDGET_LAYOUT_MODE_POPPED_OUT
+        && (layout.popout_width.is_none() || layout.popout_height.is_none())
+    {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "popout dimensions are required for popped_out layout".to_owned(),
+        ));
+    }
+
+    if layout.always_on_top && layout.layout_mode != WIDGET_LAYOUT_MODE_POPPED_OUT {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "always_on_top is only valid for popped_out layout".to_owned(),
+        ));
+    }
+
+    Ok(layout)
+}
+
+fn validate_dimension(label: &str, dimension: Option<i64>) -> Result<(), WorkspaceServiceError> {
+    let Some(dimension) = dimension else {
+        return Ok(());
+    };
+
+    if dimension <= 0 {
+        return Err(WorkspaceServiceError::InvalidInput(format!(
+            "{label} must be positive"
+        )));
+    }
+
+    if dimension > MAX_WIDGET_LAYOUT_DIMENSION {
+        return Err(WorkspaceServiceError::InvalidInput(format!(
+            "{label} must be no greater than {MAX_WIDGET_LAYOUT_DIMENSION}"
+        )));
+    }
+
     Ok(())
 }
 
@@ -1103,6 +1258,216 @@ mod tests {
             .expect_err("reject invalid JSON");
 
         assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+    }
+
+    #[test]
+    fn update_widget_instance_layout_persists_layout_and_returns_updated_state() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+
+        let updated_state = service
+            .update_widget_instance_layout(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                popped_out_layout(),
+            )
+            .expect("update widget layout")
+            .expect("updated workbench state");
+        let stored_widget = service
+            .store
+            .get_widget_instance(&widget_id)
+            .expect("get stored widget")
+            .expect("stored widget");
+
+        assert_eq!(stored_widget.layout_mode, "popped_out");
+        assert_eq!(stored_widget.dock_x, Some(12));
+        assert_eq!(stored_widget.dock_y, Some(24));
+        assert_eq!(stored_widget.dock_width, Some(480));
+        assert_eq!(stored_widget.dock_height, Some(320));
+        assert_eq!(stored_widget.popout_x, Some(120));
+        assert_eq!(stored_widget.popout_y, Some(140));
+        assert_eq!(stored_widget.popout_width, Some(720));
+        assert_eq!(stored_widget.popout_height, Some(520));
+        assert!(stored_widget.always_on_top);
+        assert!(stored_widget.is_visible);
+        assert_eq!(updated_state.widget_instances[0].layout_mode, "popped_out");
+        assert_eq!(updated_state.widget_instances[0].popout_width, Some(720));
+        assert!(updated_state.widget_instances[0].always_on_top);
+        assert!(updated_state
+            .recent_events
+            .iter()
+            .any(|event| event.kind == "widget_layout_updated"));
+    }
+
+    #[test]
+    fn update_widget_instance_layout_for_other_workbench_returns_none_without_mutation() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        service
+            .store
+            .create_workspace_workbench("other-workbench", &workspace.id, None)
+            .expect("create other workbench");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "other-widget",
+                workspace_id: &workspace.id,
+                workbench_id: "other-workbench",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{}"),
+            })
+            .expect("insert other workbench widget");
+
+        let state = service
+            .update_widget_instance_layout(
+                &workspace.id,
+                workbench_id,
+                "other-widget",
+                popped_out_layout(),
+            )
+            .expect("update widget layout");
+        let stored_widget = service
+            .store
+            .get_widget_instance("other-widget")
+            .expect("get stored widget")
+            .expect("stored widget");
+        let events = service
+            .store
+            .list_workbench_events(&workspace.id)
+            .expect("list events");
+
+        assert!(state.is_none());
+        assert_eq!(stored_widget.layout_mode, "docked");
+        assert_eq!(stored_widget.dock_width, Some(360));
+        assert_eq!(stored_widget.popout_width, None);
+        assert!(!stored_widget.always_on_top);
+        assert!(!events
+            .iter()
+            .any(|event| event.kind == "widget_layout_updated"));
+    }
+
+    #[test]
+    fn update_widget_instance_layout_rejects_invalid_dimensions() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        let mut invalid_layout = docked_layout();
+        invalid_layout.dock_width = Some(0);
+
+        let error = service
+            .update_widget_instance_layout(&workspace.id, workbench_id, &widget_id, invalid_layout)
+            .expect_err("reject invalid dimensions");
+        let stored_widget = service
+            .store
+            .get_widget_instance(&widget_id)
+            .expect("get stored widget")
+            .expect("stored widget");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+        let mut oversized_layout = docked_layout();
+        oversized_layout.dock_height = Some(MAX_WIDGET_LAYOUT_DIMENSION + 1);
+        let oversized_error = service
+            .update_widget_instance_layout(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                oversized_layout,
+            )
+            .expect_err("reject oversized dimensions");
+
+        assert!(matches!(
+            oversized_error,
+            WorkspaceServiceError::InvalidInput(_)
+        ));
+        assert_eq!(stored_widget.layout_mode, "docked");
+        assert_eq!(stored_widget.dock_width, Some(360));
+        assert_eq!(stored_widget.dock_height, Some(240));
+    }
+
+    fn docked_layout() -> WidgetInstanceLayout {
+        WidgetInstanceLayout {
+            layout_mode: "docked".to_owned(),
+            dock_x: Some(12),
+            dock_y: Some(24),
+            dock_width: Some(480),
+            dock_height: Some(320),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+        }
+    }
+
+    fn popped_out_layout() -> WidgetInstanceLayout {
+        WidgetInstanceLayout {
+            layout_mode: "popped_out".to_owned(),
+            dock_x: Some(12),
+            dock_y: Some(24),
+            dock_width: Some(480),
+            dock_height: Some(320),
+            popout_x: Some(120),
+            popout_y: Some(140),
+            popout_width: Some(720),
+            popout_height: Some(520),
+            always_on_top: true,
+            is_visible: true,
+        }
     }
 
     fn workspace_ids(workspaces: &[WorkspaceSummary]) -> Vec<&str> {

@@ -18,7 +18,8 @@ pub fn run() {
             workspace_commands::open_workspace,
             workspace_commands::get_workspace_workbench_state,
             workspace_commands::add_widget_instance_to_workbench,
-            workspace_commands::update_widget_instance_state
+            workspace_commands::update_widget_instance_state,
+            workspace_commands::update_widget_instance_layout
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");

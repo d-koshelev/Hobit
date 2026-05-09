@@ -11,6 +11,7 @@ mod workspace_service;
 
 pub use error::WorkspaceServiceError;
 pub use workspace_service::{
-    SharedStateObjectSummary, WidgetInstanceSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    SharedStateObjectSummary, WidgetInstanceLayout, WidgetInstanceSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };

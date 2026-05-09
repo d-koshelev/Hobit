@@ -36,6 +36,21 @@ pub struct NewWidgetInstance<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetInstanceLayoutUpdate<'a> {
+    pub layout_mode: &'a str,
+    pub dock_x: Option<i64>,
+    pub dock_y: Option<i64>,
+    pub dock_width: Option<i64>,
+    pub dock_height: Option<i64>,
+    pub popout_x: Option<i64>,
+    pub popout_y: Option<i64>,
+    pub popout_width: Option<i64>,
+    pub popout_height: Option<i64>,
+    pub always_on_top: bool,
+    pub is_visible: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWidgetRun<'a> {
     pub id: &'a str,
     pub widget_instance_id: &'a str,

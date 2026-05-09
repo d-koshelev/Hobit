@@ -10,7 +10,7 @@ use rusqlite::{params, Connection, OptionalExtension, Result};
 
 pub use crate::inputs::{
     NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceSession,
+    NewWorkspaceSession, WidgetInstanceLayoutUpdate,
 };
 use crate::mappers::{
     bool_to_i64, shared_state_object_row, widget_instance_row, widget_log_row, widget_result_row,
@@ -419,6 +419,52 @@ impl SqliteStore {
              SET state = ?1, updated_at = ?2
              WHERE id = ?3",
             params![state, updated_at, widget_instance_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Ok(())
+    }
+
+    pub fn update_widget_instance_layout(
+        &self,
+        widget_instance_id: &str,
+        layout: WidgetInstanceLayoutUpdate<'_>,
+    ) -> Result<()> {
+        let updated_at = now_precise_timestamp();
+        let affected_rows = self.connection.execute(
+            "UPDATE widget_instances
+             SET
+                layout_mode = ?1,
+                dock_x = ?2,
+                dock_y = ?3,
+                dock_width = ?4,
+                dock_height = ?5,
+                popout_x = ?6,
+                popout_y = ?7,
+                popout_width = ?8,
+                popout_height = ?9,
+                always_on_top = ?10,
+                is_visible = ?11,
+                updated_at = ?12
+             WHERE id = ?13",
+            params![
+                layout.layout_mode,
+                layout.dock_x,
+                layout.dock_y,
+                layout.dock_width,
+                layout.dock_height,
+                layout.popout_x,
+                layout.popout_y,
+                layout.popout_width,
+                layout.popout_height,
+                bool_to_i64(layout.always_on_top),
+                bool_to_i64(layout.is_visible),
+                updated_at,
+                widget_instance_id,
+            ],
         )?;
 
         if affected_rows == 0 {
@@ -1149,6 +1195,54 @@ mod tests {
             .expect("widget row");
 
         assert_eq!(after_update.state.as_deref(), Some("{\"body\":\"Draft\"}"));
+        assert_ne!(after_update.updated_at, before_update.updated_at);
+    }
+
+    #[test]
+    fn update_widget_instance_layout_persists_layout_fields() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+        let before_update = store
+            .get_widget_instance("widget-1")
+            .expect("get widget before update")
+            .expect("widget row");
+
+        store
+            .update_widget_instance_layout(
+                "widget-1",
+                WidgetInstanceLayoutUpdate {
+                    layout_mode: "docked",
+                    dock_x: Some(30),
+                    dock_y: Some(40),
+                    dock_width: Some(720),
+                    dock_height: Some(360),
+                    popout_x: None,
+                    popout_y: None,
+                    popout_width: None,
+                    popout_height: None,
+                    always_on_top: false,
+                    is_visible: false,
+                },
+            )
+            .expect("update widget layout");
+
+        let after_update = store
+            .get_widget_instance("widget-1")
+            .expect("get widget after update")
+            .expect("widget row");
+
+        assert_eq!(after_update.layout_mode, "docked");
+        assert_eq!(after_update.dock_x, Some(30));
+        assert_eq!(after_update.dock_y, Some(40));
+        assert_eq!(after_update.dock_width, Some(720));
+        assert_eq!(after_update.dock_height, Some(360));
+        assert_eq!(after_update.popout_x, None);
+        assert_eq!(after_update.popout_y, None);
+        assert_eq!(after_update.popout_width, None);
+        assert_eq!(after_update.popout_height, None);
+        assert!(!after_update.always_on_top);
+        assert!(!after_update.is_visible);
         assert_ne!(after_update.updated_at, before_update.updated_at);
     }
 
