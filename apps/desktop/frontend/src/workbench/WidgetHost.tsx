@@ -3,13 +3,8 @@ import { Badge } from "../design-system/Badge";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
-import type {
-  WidgetLayout,
-  WidgetInstance,
-  WidgetRenderProps,
-  WidgetState,
-  WidgetInstanceId,
-} from "./types";
+import type { WidgetInstance, WidgetRenderProps } from "./types";
+import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { WidgetSizePresetControls } from "./WidgetSizePresetControls";
 import {
   getWidgetDefinition,
@@ -22,27 +17,16 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 
 type WidgetHostProps = {
   instance: WidgetInstance;
-  onUpdateLayout?: (
-    widgetInstanceId: WidgetInstanceId,
-    layout: WidgetLayout,
-  ) => Promise<void>;
-  onUpdateState?: (
-    widgetInstanceId: WidgetInstanceId,
-    state: WidgetState,
-  ) => Promise<void>;
+  widgetActions: WorkbenchWidgetInstanceActions;
 };
 
-export function WidgetHost({
-  instance,
-  onUpdateLayout,
-  onUpdateState,
-}: WidgetHostProps) {
+export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
   const frameActions =
-    instance.layout.mode === "docked" && onUpdateLayout ? (
+    instance.layout.mode === "docked" ? (
       <WidgetSizePresetControls
         instance={instance}
-        onUpdateLayout={onUpdateLayout}
+        onUpdateLayout={widgetActions.updateWidgetLayout}
       />
     ) : undefined;
   const frameStyle = widgetFrameStyle(instance);
@@ -90,8 +74,8 @@ export function WidgetHost({
       frameActions={frameActions}
       frameStyle={frameStyle}
       instance={instance}
-      onUpdateLayout={onUpdateLayout}
-      onUpdateState={onUpdateState}
+      onUpdateLayout={widgetActions.updateWidgetLayout}
+      onUpdateState={widgetActions.updateWidgetState}
       title={instance.title || definition.defaultTitle}
     />
   );
