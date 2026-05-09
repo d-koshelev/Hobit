@@ -13,6 +13,7 @@ const fallbackWorkspaces: WorkspaceSummary[] = [];
 const fallbackWorkbenchStates = new Map<string, WorkspaceWorkbenchState>();
 const PLACEHOLDER_WIDGET_DOCK_HEIGHT = 240;
 const PLACEHOLDER_WIDGET_DOCK_GAP = 16;
+const RECENT_EVENT_LIMIT = 100;
 let fallbackId = 1;
 
 export const memoryWorkspaceApi: WorkspaceApi = {
@@ -46,7 +47,7 @@ async function createWorkspace(
   };
 
   fallbackWorkspaces.unshift(workspace);
-  fallbackWorkbenchStates.set(id, {
+  const workbenchState: WorkspaceWorkbenchState = {
     workspace,
     workbench: {
       id: workbenchId,
@@ -56,7 +57,10 @@ async function createWorkspace(
     widgetInstances: [],
     sharedStateObjects: [],
     recentEvents: [],
-  });
+  };
+
+  appendRecentEvent(workbenchState, "workspace_created", "Workspace created");
+  fallbackWorkbenchStates.set(id, workbenchState);
 
   return cloneWorkspaceSummary(workspace);
 }
@@ -84,6 +88,12 @@ async function openWorkspace(
 
   if (!workspace) {
     return null;
+  }
+
+  const state = fallbackWorkbenchStates.get(workspace.id);
+
+  if (state) {
+    appendRecentEvent(state, "workspace_opened", "Workspace opened");
   }
 
   return {
@@ -147,15 +157,7 @@ async function addWidgetInstanceToWorkbench(
       state: "{}",
     },
   ];
-  state.recentEvents = [
-    ...state.recentEvents,
-    {
-      id: `fallback_evt_${fallbackId++}`,
-      kind: "widget_instance_added",
-      summary: "Widget instance added",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  appendRecentEvent(state, "widget_instance_added", "Widget instance added");
 
   return cloneWorkspaceWorkbenchState(state);
 }
@@ -182,15 +184,7 @@ async function updateWidgetInstanceState(
   state.widgetInstances = state.widgetInstances.map((widget, index) =>
     index === widgetIndex ? { ...widget, state: request.state } : widget,
   );
-  state.recentEvents = [
-    ...state.recentEvents,
-    {
-      id: `fallback_evt_${fallbackId++}`,
-      kind: "widget_state_updated",
-      summary: "Widget state updated",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  appendRecentEvent(state, "widget_state_updated", "Widget state updated");
 
   return cloneWorkspaceWorkbenchState(state);
 }
@@ -232,15 +226,7 @@ async function updateWidgetInstanceLayout(
         }
       : widget,
   );
-  state.recentEvents = [
-    ...state.recentEvents,
-    {
-      id: `fallback_evt_${fallbackId++}`,
-      kind: "widget_layout_updated",
-      summary: "Widget layout updated",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  appendRecentEvent(state, "widget_layout_updated", "Widget layout updated");
 
   return cloneWorkspaceWorkbenchState(state);
 }
@@ -299,6 +285,22 @@ function validateDimension(value: number | null, label: string) {
   if (value > 16_384) {
     throw new Error(`${label} must be no greater than 16384`);
   }
+}
+
+function appendRecentEvent(
+  state: WorkspaceWorkbenchState,
+  kind: string,
+  summary: string,
+) {
+  state.recentEvents = [
+    ...state.recentEvents,
+    {
+      id: `fallback_evt_${fallbackId++}`,
+      kind,
+      summary,
+      createdAt: new Date().toISOString(),
+    },
+  ].slice(-RECENT_EVENT_LIMIT);
 }
 
 function cloneWorkspaceSummary(workspace: WorkspaceSummary): WorkspaceSummary {
