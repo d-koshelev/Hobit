@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { Button } from "./Button";
 import { Panel } from "./Panel";
 
 type WidgetFrameProps = {
@@ -20,6 +21,10 @@ export function WidgetFrame({
   subtitle,
   title,
 }: WidgetFrameProps) {
+  const logPanelId = useId();
+  const logPanelTitleId = useId();
+  const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
+
   return (
     <Panel className="widget-frame" style={style}>
       <header className="widget-header">
@@ -30,9 +35,33 @@ export function WidgetFrame({
           </div>
           <p className="widget-subtitle">{subtitle}</p>
         </div>
-        {actions ? <div className="widget-actions">{actions}</div> : null}
+        <div className="widget-actions">
+          {actions}
+          <Button
+            aria-controls={logPanelId}
+            aria-expanded={isLogPanelOpen}
+            onClick={() => setIsLogPanelOpen((current) => !current)}
+            variant={isLogPanelOpen ? "secondary" : "ghost"}
+          >
+            Logs
+          </Button>
+        </div>
       </header>
       <div className="widget-content">{children}</div>
+      {isLogPanelOpen ? (
+        <section
+          aria-labelledby={logPanelTitleId}
+          className="widget-log-panel"
+          id={logPanelId}
+        >
+          <h3 className="widget-log-title" id={logPanelTitleId}>
+            Logs
+          </h3>
+          <p className="widget-log-placeholder">
+            Widget logs will appear here when this widget emits activity.
+          </p>
+        </section>
+      ) : null}
       {footer ? <footer className="widget-footer">{footer}</footer> : null}
     </Panel>
   );
