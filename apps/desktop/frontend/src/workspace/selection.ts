@@ -1,5 +1,4 @@
-import type { WorkbenchViewState } from "../workbench/viewState";
-import type { WorkbenchPreset } from "../workbench/types";
+import type { WorkbenchPreset, WorkbenchViewState } from "../workbench/types";
 import type { WorkspaceSessionSummary, WorkspaceSummary } from "./types";
 
 export type WorkspaceStartSelection = {

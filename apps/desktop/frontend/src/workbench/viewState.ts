@@ -2,52 +2,12 @@ import type { WorkspaceWorkbenchState } from "../workspace/types";
 import { emptyWorkbenchPreset } from "./presets";
 import type {
   WidgetGeometry,
-  WidgetInstance,
   WidgetLayout,
   WidgetLayoutMode,
   WorkbenchPreset,
   WorkbenchPresetId,
+  WorkbenchViewState,
 } from "./types";
-
-export type WorkbenchWorkspaceView = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-};
-
-export type WorkbenchPresetView = {
-  id: WorkbenchPresetId | null;
-  title: string;
-  description: string | null;
-};
-
-export type WorkbenchSurfaceView = {
-  id: string | null;
-  preset: WorkbenchPresetView;
-};
-
-export type WorkbenchSharedStateView = {
-  id: string;
-  key: string;
-  value: string;
-  valueKind: string;
-};
-
-export type WorkbenchEventView = {
-  id: string;
-  kind: string;
-  summary: string;
-  createdAt: string;
-};
-
-export type WorkbenchViewState = {
-  workspace: WorkbenchWorkspaceView;
-  workbench: WorkbenchSurfaceView;
-  widgets: WidgetInstance[];
-  sharedStateObjects: WorkbenchSharedStateView[];
-  recentEvents: WorkbenchEventView[];
-};
 
 type WorkbenchSelectionViewInput = {
   preset: WorkbenchPreset;

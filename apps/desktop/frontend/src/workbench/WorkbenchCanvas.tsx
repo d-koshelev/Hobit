@@ -2,7 +2,7 @@ import { Button } from "../design-system/Button";
 import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WidgetHost } from "./WidgetHost";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
-import type { WorkbenchViewState } from "./viewState";
+import type { WorkbenchViewState } from "./types";
 
 type WorkbenchCanvasProps = {
   onOpenWidgetCatalog: () => void;

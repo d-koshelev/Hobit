@@ -2,7 +2,7 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
-import type { WorkbenchViewState } from "./viewState";
+import type { WorkbenchViewState } from "./types";
 
 type WorkbenchTopBarProps = {
   onOpenWidgetCatalog: () => void;

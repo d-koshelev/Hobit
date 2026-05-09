@@ -4,7 +4,7 @@ import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
-import type { WorkbenchViewState } from "./viewState";
+import type { WorkbenchViewState } from "./types";
 
 type WorkbenchShellProps = {
   onViewStateChange: (viewState: WorkbenchViewState) => void;

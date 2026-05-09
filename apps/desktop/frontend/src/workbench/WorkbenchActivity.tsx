@@ -1,4 +1,4 @@
-import type { WorkbenchEventView } from "./viewState";
+import type { WorkbenchEventView } from "./types";
 
 const RECENT_ACTIVITY_LIMIT = 5;
 

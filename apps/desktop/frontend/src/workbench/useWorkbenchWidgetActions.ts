@@ -5,11 +5,13 @@ import {
 } from "../workspace/workspaceApi";
 import type { WorkspaceWorkbenchState } from "../workspace/types";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
-import type { WidgetInstanceId, WidgetLayout, WidgetState } from "./types";
-import {
-  createWorkbenchViewStateFromWorkspaceState,
-  type WorkbenchViewState,
-} from "./viewState";
+import type {
+  WidgetInstanceId,
+  WidgetLayout,
+  WidgetState,
+  WorkbenchViewState,
+} from "./types";
+import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 
 type UseWorkbenchWidgetActionsOptions = {
   onViewStateChange: (viewState: WorkbenchViewState) => void;

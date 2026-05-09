@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { WorkbenchShell } from "./workbench/WorkbenchShell";
-import type { WorkbenchViewState } from "./workbench/viewState";
+import type { WorkbenchViewState } from "./workbench/types";
 import { WorkspaceStartScreen } from "./workspace/WorkspaceStartScreen";
 import type { WorkspaceStartSelection } from "./workspace/selection";
 
