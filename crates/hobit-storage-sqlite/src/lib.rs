@@ -21,7 +21,8 @@ pub use inputs::{
 };
 pub use rows::{
     SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceWorkbenchRow,
+    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;
 pub use store::SqliteStore;

@@ -15,12 +15,13 @@ pub use crate::inputs::{
 use crate::mappers::{
     bool_to_i64, shared_state_object_row, widget_instance_row, widget_log_row, widget_result_row,
     widget_run_row, workbench_event_row, workspace_row, workspace_session_row,
-    workspace_workbench_row,
+    workspace_summary_row, workspace_workbench_row,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceWorkbenchRow,
+    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 use crate::schema;
 use crate::time::{now_precise_timestamp, now_timestamp};
@@ -220,6 +221,30 @@ impl SqliteStore {
         )?;
 
         let rows = statement.query_map([], workspace_row)?;
+        rows.collect()
+    }
+
+    pub fn list_workspace_summaries_with_workbench(&self) -> Result<Vec<WorkspaceSummaryRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT
+                workspaces.id,
+                workspaces.title,
+                workspaces.description,
+                workspaces.status,
+                workspaces.created_at,
+                workspaces.updated_at,
+                (
+                    SELECT workspace_workbenches.id
+                    FROM workspace_workbenches
+                    WHERE workspace_workbenches.workspace_id = workspaces.id
+                    ORDER BY workspace_workbenches.created_at, workspace_workbenches.id
+                    LIMIT 1
+                ) AS workbench_id
+             FROM workspaces
+             ORDER BY workspaces.updated_at DESC, workspaces.id",
+        )?;
+
+        let rows = statement.query_map([], workspace_summary_row)?;
         rows.collect()
     }
 
@@ -928,6 +953,61 @@ mod tests {
         assert!(workspaces
             .iter()
             .any(|workspace| workspace.id == "workspace-2"));
+    }
+
+    #[test]
+    fn list_workspace_summaries_with_workbench_returns_first_workbench_without_duplicates() {
+        let store = initialized_store();
+
+        store
+            .create_workspace("workspace-older", "Older", None, "active")
+            .expect("create older workspace");
+        store
+            .create_workspace_workbench("workbench-later", "workspace-older", None)
+            .expect("create later workbench");
+        store
+            .create_workspace_workbench("workbench-first", "workspace-older", None)
+            .expect("create first workbench");
+        store
+            .create_workspace("workspace-newer", "Newer", None, "active")
+            .expect("create newer workspace");
+
+        for (workbench_id, created_at) in [("workbench-later", "2"), ("workbench-first", "1")] {
+            store
+                .connection
+                .execute(
+                    "UPDATE workspace_workbenches SET created_at = ?1 WHERE id = ?2",
+                    rusqlite::params![created_at, workbench_id],
+                )
+                .expect("set workbench created_at");
+        }
+        for (workspace_id, updated_at) in [("workspace-older", "1"), ("workspace-newer", "2")] {
+            store
+                .connection
+                .execute(
+                    "UPDATE workspaces SET updated_at = ?1 WHERE id = ?2",
+                    rusqlite::params![updated_at, workspace_id],
+                )
+                .expect("set workspace updated_at");
+        }
+
+        let summaries = store
+            .list_workspace_summaries_with_workbench()
+            .expect("list workspace summaries");
+
+        assert_eq!(summaries.len(), 2);
+        assert_eq!(
+            summaries
+                .iter()
+                .map(|workspace| workspace.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["workspace-newer", "workspace-older"]
+        );
+        assert_eq!(summaries[0].workbench_id, None);
+        assert_eq!(
+            summaries[1].workbench_id.as_deref(),
+            Some("workbench-first")
+        );
     }
 
     #[test]

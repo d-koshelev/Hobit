@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
     NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, StorageError,
-    WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow, WorkspaceWorkbenchRow,
+    WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -147,14 +147,12 @@ impl WorkspaceService {
     }
 
     pub fn list_workspaces(&self) -> Result<Vec<WorkspaceSummary>, WorkspaceServiceError> {
-        self.store
-            .list_workspaces()?
+        Ok(self
+            .store
+            .list_workspace_summaries_with_workbench()?
             .into_iter()
-            .map(|workspace| {
-                let workbench_id = self.first_workbench_id(&workspace.id)?;
-                Ok(workspace_summary(&workspace, workbench_id))
-            })
-            .collect()
+            .map(workspace_summary_row)
+            .collect())
     }
 
     pub fn open_workspace(
@@ -378,6 +376,16 @@ fn workspace_summary(row: &WorkspaceRow, workbench_id: Option<String>) -> Worksp
     }
 }
 
+fn workspace_summary_row(row: WorkspaceSummaryRow) -> WorkspaceSummary {
+    WorkspaceSummary {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        status: row.status,
+        workbench_id: row.workbench_id,
+    }
+}
+
 fn widget_instance_summary(row: WidgetInstanceRow) -> WidgetInstanceSummary {
     WidgetInstanceSummary {
         id: row.id,
@@ -492,6 +500,39 @@ mod tests {
         let workspaces = service.list_workspaces().expect("list workspaces");
 
         assert_eq!(workspaces, vec![created]);
+    }
+
+    #[test]
+    fn list_workspaces_returns_recent_workspaces_with_first_workbench_ids() {
+        let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
+        store.init_schema().expect("initialize schema");
+        store
+            .create_workspace("workspace-z-older", "Older", None, "active")
+            .expect("create older workspace");
+        store
+            .create_workspace_workbench("workbench-a-first", "workspace-z-older", None)
+            .expect("create first workbench");
+        store
+            .create_workspace_workbench("workbench-z-later", "workspace-z-older", None)
+            .expect("create later workbench");
+        store
+            .create_workspace("workspace-a-newer", "Newer", None, "active")
+            .expect("create newer workspace");
+        store
+            .create_workspace_workbench("workbench-newer", "workspace-a-newer", None)
+            .expect("create newer workbench");
+        let service = WorkspaceService::new(store);
+
+        let workspaces = service.list_workspaces().expect("list workspaces");
+
+        assert_eq!(
+            workspace_ids(&workspaces),
+            vec!["workspace-a-newer", "workspace-z-older"]
+        );
+        assert_eq!(
+            workspace_workbench_ids(&workspaces),
+            vec![Some("workbench-newer"), Some("workbench-a-first")]
+        );
     }
 
     #[test]
@@ -879,6 +920,13 @@ mod tests {
         workspaces
             .iter()
             .map(|workspace| workspace.id.as_str())
+            .collect()
+    }
+
+    fn workspace_workbench_ids(workspaces: &[WorkspaceSummary]) -> Vec<Option<&str>> {
+        workspaces
+            .iter()
+            .map(|workspace| workspace.workbench_id.as_deref())
             .collect()
     }
 }

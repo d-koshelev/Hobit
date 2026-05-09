@@ -11,6 +11,17 @@ pub struct WorkspaceRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceSummaryRow {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub workbench_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceWorkbenchRow {
     pub id: String,
     pub workspace_id: String,
