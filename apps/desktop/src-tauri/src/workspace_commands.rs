@@ -6,8 +6,8 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::workspace_dto::{
-    CreateWorkspaceRequest, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
-    WorkspaceWorkbenchStateDto,
+    AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, WorkspaceSessionSummaryDto,
+    WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[tauri::command]
@@ -70,6 +70,24 @@ pub(crate) fn get_workspace_workbench_state(
     let service = workspace_service(state.db_path())?;
     service
         .get_workspace_workbench_state(&workspace_id)
+        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn add_widget_instance_to_workbench(
+    request: AddWidgetInstanceToWorkbenchRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .add_widget_instance_to_workbench(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.definition_id,
+            &request.title,
+            &request.category,
+        )
         .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
         .map_err(command_error)
 }

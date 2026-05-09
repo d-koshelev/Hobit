@@ -2,14 +2,21 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
-    NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow, WorkbenchEventRow,
-    WorkspaceRow, WorkspaceWorkbenchRow,
+    NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow,
+    WorkbenchEventRow, WorkspaceRow, WorkspaceWorkbenchRow,
 };
 
 use crate::WorkspaceServiceError;
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
 const WORKBENCH_STATE_RECENT_EVENT_LIMIT: usize = 100;
+const PLACEHOLDER_WIDGET_LAYOUT_MODE: &str = "docked";
+const PLACEHOLDER_WIDGET_DOCK_X: i64 = 0;
+const PLACEHOLDER_WIDGET_DOCK_WIDTH: i64 = 360;
+const PLACEHOLDER_WIDGET_DOCK_HEIGHT: i64 = 240;
+const PLACEHOLDER_WIDGET_DOCK_GAP: i64 = 16;
+const PLACEHOLDER_WIDGET_CONFIG: &str = "{}";
+const PLACEHOLDER_WIDGET_STATE: &str = "{}";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -201,6 +208,86 @@ impl WorkspaceService {
             .list_workspace_workbenches(&workspace.id)?
             .into_iter()
             .next();
+
+        Ok(Some(self.workspace_workbench_state(workspace, workbench)?))
+    }
+
+    pub fn add_widget_instance_to_workbench(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        definition_id: &str,
+        title: &str,
+        category: &str,
+    ) -> Result<Option<WorkspaceWorkbenchState>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let definition_id = required_input(definition_id, "widget definition id")?;
+        let title = required_input(title, "widget title")?;
+        let category = required_input(category, "widget category")?;
+
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let Some(workbench) = self
+            .store
+            .list_workspace_workbenches(&workspace.id)?
+            .into_iter()
+            .find(|workbench| workbench.id == workbench_id)
+        else {
+            return Ok(None);
+        };
+
+        let existing_widget_count = self
+            .store
+            .list_widget_instances_for_workbench(&workbench.id)?
+            .len();
+        let widget_id = placeholder_id("wid_");
+        let widget = self.store.insert_widget_instance(NewWidgetInstance {
+            id: &widget_id,
+            workspace_id: &workspace.id,
+            workbench_id: &workbench.id,
+            definition_id,
+            title,
+            category,
+            layout_mode: PLACEHOLDER_WIDGET_LAYOUT_MODE,
+            dock_x: Some(PLACEHOLDER_WIDGET_DOCK_X),
+            dock_y: Some(next_placeholder_widget_dock_y(existing_widget_count)),
+            dock_width: Some(PLACEHOLDER_WIDGET_DOCK_WIDTH),
+            dock_height: Some(PLACEHOLDER_WIDGET_DOCK_HEIGHT),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some(PLACEHOLDER_WIDGET_CONFIG),
+            state: Some(PLACEHOLDER_WIDGET_STATE),
+        })?;
+
+        let event_payload = format!(
+            "workbench_id={};widget_instance_id={};definition_id={}",
+            workbench.id, widget.id, widget.definition_id
+        );
+        self.store.append_workbench_event(
+            &placeholder_id("evt_"),
+            &workspace.id,
+            "widget_instance_added",
+            "Widget instance added",
+            Some(&event_payload),
+        )?;
+        self.store.touch_workspace(&workspace.id)?;
+
+        let state = self.workspace_workbench_state(workspace, Some(workbench))?;
+        Ok(Some(state))
+    }
+
+    fn workspace_workbench_state(
+        &self,
+        workspace: WorkspaceRow,
+        workbench: Option<WorkspaceWorkbenchRow>,
+    ) -> Result<WorkspaceWorkbenchState, WorkspaceServiceError> {
         let workbench_id = workbench.as_ref().map(|workbench| workbench.id.clone());
         let widget_instances = match workbench.as_ref() {
             Some(workbench) => self
@@ -227,13 +314,13 @@ impl WorkspaceService {
             None => Vec::new(),
         };
 
-        Ok(Some(WorkspaceWorkbenchState {
+        Ok(WorkspaceWorkbenchState {
             workspace: workspace_summary(&workspace, workbench_id),
             workbench: workbench.map(workbench_summary),
             widget_instances,
             shared_state_objects,
             recent_events,
-        }))
+        })
     }
 
     fn first_workbench_id(
@@ -247,6 +334,21 @@ impl WorkspaceService {
             .next()
             .map(|workbench| workbench.id))
     }
+}
+
+fn required_input<'a>(value: &'a str, label: &str) -> Result<&'a str, WorkspaceServiceError> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(WorkspaceServiceError::InvalidInput(format!(
+            "{label} must not be empty"
+        )));
+    }
+
+    Ok(value)
+}
+
+fn next_placeholder_widget_dock_y(existing_widget_count: usize) -> i64 {
+    existing_widget_count as i64 * (PLACEHOLDER_WIDGET_DOCK_HEIGHT + PLACEHOLDER_WIDGET_DOCK_GAP)
 }
 
 fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -330,7 +432,7 @@ fn unix_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance};
+    use hobit_storage_sqlite::NewSharedStateObject;
 
     fn initialized_service() -> WorkspaceService {
         let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -656,6 +758,112 @@ mod tests {
                 state: Some("{\"dirty\":false}".to_owned()),
             }]
         );
+    }
+
+    #[test]
+    fn add_widget_instance_to_workbench_persists_widget_and_returns_updated_state() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+
+        let state = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance")
+            .expect("updated workbench state");
+        let stored_widgets = service
+            .store
+            .list_widget_instances_for_workbench(workbench_id)
+            .expect("list stored widgets");
+
+        assert_eq!(stored_widgets.len(), 1);
+        assert_eq!(
+            state.widget_instances,
+            vec![WidgetInstanceSummary {
+                id: stored_widgets[0].id.clone(),
+                definition_id: "notes".to_owned(),
+                title: "Notes".to_owned(),
+                category: "notes".to_owned(),
+                layout_mode: "docked".to_owned(),
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}".to_owned()),
+                state: Some("{}".to_owned()),
+            }]
+        );
+        assert!(stored_widgets[0].id.starts_with("wid_"));
+        assert!(state
+            .recent_events
+            .iter()
+            .any(|event| event.kind == "widget_instance_added"));
+    }
+
+    #[test]
+    fn add_widget_instance_to_unowned_workbench_returns_none() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let other_workspace = service
+            .create_empty_workspace("Other Incident", None)
+            .expect("create other workspace");
+        let other_workbench_id = other_workspace
+            .workbench_id
+            .as_deref()
+            .expect("other workbench id");
+
+        let state = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                other_workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance");
+        let other_widgets = service
+            .store
+            .list_widget_instances_for_workbench(other_workbench_id)
+            .expect("list other workbench widgets");
+
+        assert!(state.is_none());
+        assert!(other_widgets.is_empty());
+    }
+
+    #[test]
+    fn add_widget_instance_rejects_empty_definition_id() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+
+        let error = service
+            .add_widget_instance_to_workbench(&workspace.id, workbench_id, "  ", "Notes", "notes")
+            .expect_err("reject empty definition id");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
     }
 
     fn workspace_ids(workspaces: &[WorkspaceSummary]) -> Vec<&str> {

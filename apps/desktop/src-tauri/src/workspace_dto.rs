@@ -10,6 +10,15 @@ pub(crate) struct CreateWorkspaceRequest {
     pub description: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct AddWidgetInstanceToWorkbenchRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub definition_id: String,
+    pub title: String,
+    pub category: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct WorkspaceSummaryDto {
     pub id: String,
