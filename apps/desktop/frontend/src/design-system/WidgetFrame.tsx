@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Panel } from "./Panel";
 
 type WidgetFrameProps = {
   actions?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  style?: CSSProperties;
   status?: ReactNode;
   subtitle: string;
   title: string;
@@ -14,12 +15,13 @@ export function WidgetFrame({
   actions,
   children,
   footer,
+  style,
   status,
   subtitle,
   title,
 }: WidgetFrameProps) {
   return (
-    <Panel className="widget-frame">
+    <Panel className="widget-frame" style={style}>
       <header className="widget-header">
         <div className="widget-heading">
           <div className="widget-title-row">

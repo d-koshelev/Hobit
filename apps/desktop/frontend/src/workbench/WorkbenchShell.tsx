@@ -1,10 +1,11 @@
 import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
+  updateWidgetInstanceLayout,
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
-import type { WidgetInstanceId, WidgetState } from "./types";
+import type { WidgetInstanceId, WidgetLayout, WidgetState } from "./types";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
@@ -77,6 +78,53 @@ export function WorkbenchShell({
     );
   }
 
+  async function updateWidgetLayout(
+    widgetInstanceId: WidgetInstanceId,
+    layout: WidgetLayout,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to update widget layout.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Widget layout could not be updated.");
+    }
+
+    const workbenchState = await updateWidgetInstanceLayout({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      layout: {
+        layoutMode: persistedLayoutMode(layout.mode),
+        dockX: layout.x,
+        dockY: layout.y,
+        dockWidth: layout.width,
+        dockHeight: layout.height,
+        popoutX: layout.popout?.x ?? null,
+        popoutY: layout.popout?.y ?? null,
+        popoutWidth: layout.popout?.width ?? null,
+        popoutHeight: layout.popout?.height ?? null,
+        alwaysOnTop:
+          layout.mode === "popped-out"
+            ? (layout.popout?.alwaysOnTop ?? false)
+            : false,
+        isVisible: widget.visible,
+      },
+    });
+
+    if (!workbenchState) {
+      throw new Error("Widget layout could not be updated.");
+    }
+
+    onViewStateChange(
+      createWorkbenchViewStateFromWorkspaceState(workbenchState),
+    );
+  }
+
   return (
     <main className="app-shell">
       <div className="workbench">
@@ -91,6 +139,7 @@ export function WorkbenchShell({
         >
           <WorkbenchCanvas
             onOpenWidgetCatalog={openWidgetCatalog}
+            onUpdateWidgetLayout={updateWidgetLayout}
             onUpdateWidgetState={updateWidgetState}
             viewState={viewState}
           />
@@ -103,4 +152,8 @@ export function WorkbenchShell({
       </div>
     </main>
   );
+}
+
+function persistedLayoutMode(mode: WidgetLayout["mode"]) {
+  return mode === "popped-out" ? "popped_out" : mode;
 }

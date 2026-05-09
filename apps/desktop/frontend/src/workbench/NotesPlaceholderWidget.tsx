@@ -6,6 +6,8 @@ import { parseNotesState, serializeNotesState } from "./notesState";
 import type { WidgetRenderProps } from "./types";
 
 export function NotesPlaceholderWidget({
+  frameActions,
+  frameStyle,
   instance,
   onUpdateState,
   title,
@@ -42,14 +44,18 @@ export function NotesPlaceholderWidget({
   return (
     <WidgetFrame
       actions={
-        <Button
-          disabled={!onUpdateState || !isDirty || isSaving}
-          onClick={saveDraft}
-          variant="primary"
-        >
-          {isSaving ? "Saving" : "Save"}
-        </Button>
+        <>
+          {frameActions}
+          <Button
+            disabled={!onUpdateState || !isDirty || isSaving}
+            onClick={saveDraft}
+            variant="primary"
+          >
+            {isSaving ? "Saving" : "Save"}
+          </Button>
+        </>
       }
+      style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
       subtitle="Workspace note draft"
       title={title}

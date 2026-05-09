@@ -2,6 +2,7 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
@@ -22,6 +23,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getWorkspaceWorkbenchState,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
+  updateWidgetInstanceLayout,
 };
 
 async function createWorkspace(
@@ -193,6 +195,56 @@ async function updateWidgetInstanceState(
   return cloneWorkspaceWorkbenchState(state);
 }
 
+async function updateWidgetInstanceLayout(
+  request: UpdateWidgetInstanceLayoutRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = fallbackWorkbenchStates.get(request.workspaceId);
+
+  if (!state || state.workbench?.id !== request.workbenchId) {
+    return null;
+  }
+
+  validateWidgetLayout(request.layout);
+
+  const widgetIndex = state.widgetInstances.findIndex(
+    (widget) => widget.id === request.widgetInstanceId,
+  );
+
+  if (widgetIndex === -1) {
+    return null;
+  }
+
+  state.widgetInstances = state.widgetInstances.map((widget, index) =>
+    index === widgetIndex
+      ? {
+          ...widget,
+          layoutMode: request.layout.layoutMode,
+          dockX: request.layout.dockX,
+          dockY: request.layout.dockY,
+          dockWidth: request.layout.dockWidth,
+          dockHeight: request.layout.dockHeight,
+          popoutX: request.layout.popoutX,
+          popoutY: request.layout.popoutY,
+          popoutWidth: request.layout.popoutWidth,
+          popoutHeight: request.layout.popoutHeight,
+          alwaysOnTop: request.layout.alwaysOnTop,
+          isVisible: request.layout.isVisible,
+        }
+      : widget,
+  );
+  state.recentEvents = [
+    ...state.recentEvents,
+    {
+      id: `fallback_evt_${fallbackId++}`,
+      kind: "widget_layout_updated",
+      summary: "Widget layout updated",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  return cloneWorkspaceWorkbenchState(state);
+}
+
 function requiredValue(value: string, label: string) {
   const trimmedValue = value.trim();
 
@@ -201,6 +253,52 @@ function requiredValue(value: string, label: string) {
   }
 
   return trimmedValue;
+}
+
+function validateWidgetLayout(
+  layout: UpdateWidgetInstanceLayoutRequest["layout"],
+) {
+  if (
+    layout.layoutMode !== "docked" &&
+    layout.layoutMode !== "popped_out" &&
+    layout.layoutMode !== "minimized"
+  ) {
+    throw new Error(`unsupported widget layout mode: ${layout.layoutMode}`);
+  }
+
+  validateDimension(layout.dockWidth, "dock width");
+  validateDimension(layout.dockHeight, "dock height");
+  validateDimension(layout.popoutWidth, "popout width");
+  validateDimension(layout.popoutHeight, "popout height");
+
+  if (layout.dockWidth === null || layout.dockHeight === null) {
+    throw new Error("dock dimensions are required");
+  }
+
+  if (
+    layout.layoutMode === "popped_out" &&
+    (layout.popoutWidth === null || layout.popoutHeight === null)
+  ) {
+    throw new Error("popout dimensions are required for popped_out layout");
+  }
+
+  if (layout.alwaysOnTop && layout.layoutMode !== "popped_out") {
+    throw new Error("always_on_top is only valid for popped_out layout");
+  }
+}
+
+function validateDimension(value: number | null, label: string) {
+  if (value === null) {
+    return;
+  }
+
+  if (value <= 0) {
+    throw new Error(`${label} must be positive`);
+  }
+
+  if (value > 16_384) {
+    throw new Error(`${label} must be no greater than 16384`);
+  }
 }
 
 function cloneWorkspaceSummary(workspace: WorkspaceSummary): WorkspaceSummary {

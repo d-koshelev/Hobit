@@ -1,10 +1,14 @@
 import { Button } from "../design-system/Button";
 import { WidgetHost } from "./WidgetHost";
-import type { WidgetInstanceId, WidgetState } from "./types";
+import type { WidgetInstanceId, WidgetLayout, WidgetState } from "./types";
 import type { WorkbenchViewState } from "./viewState";
 
 type WorkbenchCanvasProps = {
   onOpenWidgetCatalog: () => void;
+  onUpdateWidgetLayout: (
+    widgetInstanceId: WidgetInstanceId,
+    layout: WidgetLayout,
+  ) => Promise<void>;
   onUpdateWidgetState: (
     widgetInstanceId: WidgetInstanceId,
     state: WidgetState,
@@ -14,6 +18,7 @@ type WorkbenchCanvasProps = {
 
 export function WorkbenchCanvas({
   onOpenWidgetCatalog,
+  onUpdateWidgetLayout,
   onUpdateWidgetState,
   viewState,
 }: WorkbenchCanvasProps) {
@@ -47,6 +52,7 @@ export function WorkbenchCanvas({
           <WidgetHost
             instance={widget}
             key={widget.id}
+            onUpdateLayout={onUpdateWidgetLayout}
             onUpdateState={onUpdateWidgetState}
           />
         ))}

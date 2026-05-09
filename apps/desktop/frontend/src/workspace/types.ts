@@ -18,6 +18,27 @@ export type UpdateWidgetInstanceStateRequest = {
   state: string;
 };
 
+export type WidgetInstanceLayoutUpdate = {
+  layoutMode: string;
+  dockX: number | null;
+  dockY: number | null;
+  dockWidth: number | null;
+  dockHeight: number | null;
+  popoutX: number | null;
+  popoutY: number | null;
+  popoutWidth: number | null;
+  popoutHeight: number | null;
+  alwaysOnTop: boolean;
+  isVisible: boolean;
+};
+
+export type UpdateWidgetInstanceLayoutRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  layout: WidgetInstanceLayoutUpdate;
+};
+
 export type WorkspaceSummary = {
   id: string;
   title: string;

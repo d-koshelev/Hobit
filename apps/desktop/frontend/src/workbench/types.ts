@@ -1,3 +1,5 @@
+import type { CSSProperties, ReactNode } from "react";
+
 export type WidgetCategory =
   | "core"
   | "tool"
@@ -120,7 +122,13 @@ export type WidgetResult = {
 export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
+  frameActions?: ReactNode;
+  frameStyle?: CSSProperties;
   instance: WidgetInstance;
+  onUpdateLayout?: (
+    widgetInstanceId: WidgetInstanceId,
+    layout: WidgetLayout,
+  ) => Promise<void>;
   onUpdateState?: (
     widgetInstanceId: WidgetInstanceId,
     state: WidgetState,

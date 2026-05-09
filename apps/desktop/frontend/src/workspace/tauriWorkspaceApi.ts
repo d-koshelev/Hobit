@@ -3,6 +3,7 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
@@ -17,6 +18,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getWorkspaceWorkbenchState,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
+  updateWidgetInstanceLayout,
 };
 
 type TauriWorkspaceSummary = {
@@ -170,6 +172,36 @@ async function updateWidgetInstanceState(
         workbench_id: request.workbenchId,
         widget_instance_id: request.widgetInstanceId,
         state: request.state,
+      },
+    },
+  );
+
+  return state ? normalizeWorkspaceWorkbenchState(state) : null;
+}
+
+async function updateWidgetInstanceLayout(
+  request: UpdateWidgetInstanceLayoutRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = await invoke<TauriWorkspaceWorkbenchState | null>(
+    "update_widget_instance_layout",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        widget_instance_id: request.widgetInstanceId,
+        layout: {
+          layout_mode: request.layout.layoutMode,
+          dock_x: request.layout.dockX,
+          dock_y: request.layout.dockY,
+          dock_width: request.layout.dockWidth,
+          dock_height: request.layout.dockHeight,
+          popout_x: request.layout.popoutX,
+          popout_y: request.layout.popoutY,
+          popout_width: request.layout.popoutWidth,
+          popout_height: request.layout.popoutHeight,
+          always_on_top: request.layout.alwaysOnTop,
+          is_visible: request.layout.isVisible,
+        },
       },
     },
   );
