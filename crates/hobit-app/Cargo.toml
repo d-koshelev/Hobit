@@ -14,3 +14,4 @@ hobit-agent.workspace = true
 hobit-core.workspace = true
 hobit-storage-sqlite.workspace = true
 hobit-tools.workspace = true
+serde_json = "1"

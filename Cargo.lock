@@ -1299,6 +1299,7 @@ dependencies = [
  "hobit-core",
  "hobit-storage-sqlite",
  "hobit-tools",
+ "serde_json",
 ]
 
 [[package]]

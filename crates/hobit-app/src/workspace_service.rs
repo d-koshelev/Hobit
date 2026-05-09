@@ -293,6 +293,62 @@ impl WorkspaceService {
             .map_err(WorkspaceServiceError::from)
     }
 
+    pub fn update_widget_instance_state(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        state: &str,
+    ) -> Result<Option<WorkspaceWorkbenchState>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        validate_json_state(state)?;
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some(workspace) = store.get_workspace(workspace_id)? else {
+                    return Ok(None);
+                };
+
+                let Some(workbench) = store
+                    .list_workspace_workbenches(&workspace.id)?
+                    .into_iter()
+                    .find(|workbench| workbench.id == workbench_id)
+                else {
+                    return Ok(None);
+                };
+
+                let Some(widget) = store.get_widget_instance(widget_instance_id)? else {
+                    return Ok(None);
+                };
+
+                if widget.workspace_id != workspace.id || widget.workbench_id != workbench.id {
+                    return Ok(None);
+                }
+
+                store.update_widget_instance_state(&widget.id, state)?;
+
+                let event_payload = format!(
+                    "workbench_id={};widget_instance_id={}",
+                    workbench.id, widget.id
+                );
+                store.append_workbench_event(
+                    &placeholder_id("evt_"),
+                    &workspace.id,
+                    "widget_state_updated",
+                    "Widget state updated",
+                    Some(&event_payload),
+                )?;
+                store.touch_workspace(&workspace.id)?;
+
+                let state =
+                    workspace_workbench_state_from_store(store, workspace, Some(workbench))?;
+                Ok(Some(state))
+            })
+            .map_err(WorkspaceServiceError::from)
+    }
+
     fn first_workbench_id(
         &self,
         workspace_id: &str,
@@ -352,6 +408,13 @@ fn required_input<'a>(value: &'a str, label: &str) -> Result<&'a str, WorkspaceS
     }
 
     Ok(value)
+}
+
+fn validate_json_state(state: &str) -> Result<(), WorkspaceServiceError> {
+    serde_json::from_str::<serde_json::Value>(state).map_err(|error| {
+        WorkspaceServiceError::InvalidInput(format!("widget state must be valid JSON: {error}"))
+    })?;
+    Ok(())
 }
 
 fn next_placeholder_widget_dock_y(existing_widget_count: usize) -> i64 {
@@ -449,7 +512,7 @@ fn unix_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hobit_storage_sqlite::NewSharedStateObject;
+    use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance};
 
     fn initialized_service() -> WorkspaceService {
         let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -912,6 +975,132 @@ mod tests {
         let error = service
             .add_widget_instance_to_workbench(&workspace.id, workbench_id, "  ", "Notes", "notes")
             .expect_err("reject empty definition id");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+    }
+
+    #[test]
+    fn update_widget_instance_state_persists_state_and_returns_updated_state() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+
+        let updated_state = service
+            .update_widget_instance_state(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                "{\"body\":\"Draft\"}",
+            )
+            .expect("update widget state")
+            .expect("updated workbench state");
+        let stored_widget = service
+            .store
+            .get_widget_instance(&widget_id)
+            .expect("get stored widget")
+            .expect("stored widget");
+
+        assert_eq!(stored_widget.state.as_deref(), Some("{\"body\":\"Draft\"}"));
+        assert_eq!(
+            updated_state.widget_instances[0].state.as_deref(),
+            Some("{\"body\":\"Draft\"}")
+        );
+        assert!(updated_state
+            .recent_events
+            .iter()
+            .any(|event| event.kind == "widget_state_updated"));
+    }
+
+    #[test]
+    fn update_widget_instance_state_for_other_workbench_returns_none_without_mutation() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        service
+            .store
+            .create_workspace_workbench("other-workbench", &workspace.id, None)
+            .expect("create other workbench");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "other-widget",
+                workspace_id: &workspace.id,
+                workbench_id: "other-workbench",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{\"body\":\"Original\"}"),
+            })
+            .expect("insert other workbench widget");
+
+        let state = service
+            .update_widget_instance_state(
+                &workspace.id,
+                workbench_id,
+                "other-widget",
+                "{\"body\":\"Changed\"}",
+            )
+            .expect("update widget state");
+        let stored_widget = service
+            .store
+            .get_widget_instance("other-widget")
+            .expect("get stored widget")
+            .expect("stored widget");
+
+        assert!(state.is_none());
+        assert_eq!(
+            stored_widget.state.as_deref(),
+            Some("{\"body\":\"Original\"}")
+        );
+    }
+
+    #[test]
+    fn update_widget_instance_state_rejects_invalid_json_state() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+
+        let error = service
+            .update_widget_instance_state(&workspace.id, workbench_id, "widget-1", "{bad")
+            .expect_err("reject invalid JSON");
 
         assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
     }

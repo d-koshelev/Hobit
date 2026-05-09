@@ -19,6 +19,14 @@ pub(crate) struct AddWidgetInstanceToWorkbenchRequest {
     pub category: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct UpdateWidgetInstanceStateRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub state: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct WorkspaceSummaryDto {
     pub id: String,

@@ -408,6 +408,26 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn update_widget_instance_state(
+        &self,
+        widget_instance_id: &str,
+        state: &str,
+    ) -> Result<()> {
+        let updated_at = now_precise_timestamp();
+        let affected_rows = self.connection.execute(
+            "UPDATE widget_instances
+             SET state = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![state, updated_at, widget_instance_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Ok(())
+    }
+
     pub fn list_widget_instances(&self, workspace_id: &str) -> Result<Vec<WidgetInstanceRow>> {
         let mut statement = self.connection.prepare(
             "SELECT
@@ -1107,6 +1127,29 @@ mod tests {
         assert_eq!(widgets[0].dock_width, Some(480));
         assert_eq!(widgets[0].popout_width, Some(640));
         assert!(widgets[0].always_on_top);
+    }
+
+    #[test]
+    fn update_widget_instance_state_persists_state() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+        let before_update = store
+            .get_widget_instance("widget-1")
+            .expect("get widget before update")
+            .expect("widget row");
+
+        store
+            .update_widget_instance_state("widget-1", "{\"body\":\"Draft\"}")
+            .expect("update widget state");
+
+        let after_update = store
+            .get_widget_instance("widget-1")
+            .expect("get widget after update")
+            .expect("widget row");
+
+        assert_eq!(after_update.state.as_deref(), Some("{\"body\":\"Draft\"}"));
+        assert_ne!(after_update.updated_at, before_update.updated_at);
     }
 
     #[test]
