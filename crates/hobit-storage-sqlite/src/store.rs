@@ -643,29 +643,27 @@ impl SqliteStore {
         rows.collect()
     }
 
-    pub fn list_recent_workbench_events(
+    pub fn list_recent_workspace_events(
         &self,
-        workbench_id: &str,
+        workspace_id: &str,
         limit: usize,
     ) -> Result<Vec<WorkbenchEventRow>> {
         let limit = limit.min(i64::MAX as usize) as i64;
         let mut statement = self.connection.prepare(
             "SELECT
-                workbench_events.id,
-                workbench_events.workspace_id,
-                workbench_events.kind,
-                workbench_events.summary,
-                workbench_events.payload,
-                workbench_events.created_at
+                id,
+                workspace_id,
+                kind,
+                summary,
+                payload,
+                created_at
              FROM workbench_events
-             INNER JOIN workspace_workbenches
-                ON workspace_workbenches.workspace_id = workbench_events.workspace_id
-             WHERE workspace_workbenches.id = ?1
-             ORDER BY workbench_events.created_at DESC, workbench_events.id DESC
+             WHERE workspace_id = ?1
+             ORDER BY created_at DESC, id DESC
              LIMIT ?2",
         )?;
 
-        let rows = statement.query_map(params![workbench_id, limit], workbench_event_row)?;
+        let rows = statement.query_map(params![workspace_id, limit], workbench_event_row)?;
         let mut events: Vec<_> = rows.collect::<Result<Vec<_>>>()?;
         events.reverse();
         Ok(events)
@@ -1053,7 +1051,7 @@ mod tests {
     }
 
     #[test]
-    fn list_recent_workbench_events_respects_limit_and_order() {
+    fn list_recent_workspace_events_respects_limit_and_order() {
         let store = initialized_store();
         create_workspace_and_workbench(&store);
         store
@@ -1100,7 +1098,7 @@ mod tests {
         }
 
         let events = store
-            .list_recent_workbench_events("workbench-1", 2)
+            .list_recent_workspace_events("workspace-1", 2)
             .expect("list recent events");
 
         assert_eq!(event_ids(&events), vec!["event-2", "event-3"]);

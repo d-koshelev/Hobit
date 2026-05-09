@@ -217,10 +217,10 @@ impl WorkspaceService {
             .into_iter()
             .map(shared_state_object_summary)
             .collect();
-        let recent_events = match workbench_id.as_deref() {
-            Some(workbench_id) => self
+        let recent_events = match workbench.as_ref() {
+            Some(_) => self
                 .store
-                .list_recent_workbench_events(workbench_id, WORKBENCH_STATE_RECENT_EVENT_LIMIT)?
+                .list_recent_workspace_events(&workspace.id, WORKBENCH_STATE_RECENT_EVENT_LIMIT)?
                 .into_iter()
                 .map(workbench_event_summary)
                 .collect(),
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn get_workbench_state_includes_shared_state_and_events() {
+    fn get_workbench_state_includes_shared_state_and_recent_workspace_events() {
         let service = initialized_service();
         let workspace = service
             .create_empty_workspace("Incident", None)
