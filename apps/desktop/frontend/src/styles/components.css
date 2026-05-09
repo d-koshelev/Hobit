@@ -90,10 +90,18 @@
 .input {
   width: 100%;
   background: var(--color-input-surface);
+  font: inherit;
 }
 
 .input::placeholder {
   color: var(--color-text-disabled);
+}
+
+.notes-textarea {
+  min-height: 320px;
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
 }
 
 .badge {

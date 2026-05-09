@@ -1,14 +1,20 @@
 import { Button } from "../design-system/Button";
 import { WidgetHost } from "./WidgetHost";
+import type { WidgetInstanceId, WidgetState } from "./types";
 import type { WorkbenchViewState } from "./viewState";
 
 type WorkbenchCanvasProps = {
   onOpenWidgetCatalog: () => void;
+  onUpdateWidgetState: (
+    widgetInstanceId: WidgetInstanceId,
+    state: WidgetState,
+  ) => Promise<void>;
   viewState: WorkbenchViewState;
 };
 
 export function WorkbenchCanvas({
   onOpenWidgetCatalog,
+  onUpdateWidgetState,
   viewState,
 }: WorkbenchCanvasProps) {
   const visibleWidgets = viewState.widgets
@@ -38,7 +44,11 @@ export function WorkbenchCanvas({
     <section className="canvas-shell" aria-label={canvasLabel}>
       <div className="widget-grid">
         {visibleWidgets.map((widget) => (
-          <WidgetHost instance={widget} key={widget.id} />
+          <WidgetHost
+            instance={widget}
+            key={widget.id}
+            onUpdateState={onUpdateWidgetState}
+          />
         ))}
       </div>
     </section>

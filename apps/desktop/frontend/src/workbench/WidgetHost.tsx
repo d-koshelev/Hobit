@@ -3,7 +3,12 @@ import { Badge } from "../design-system/Badge";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
-import type { WidgetInstance, WidgetRenderProps } from "./types";
+import type {
+  WidgetInstance,
+  WidgetRenderProps,
+  WidgetState,
+  WidgetInstanceId,
+} from "./types";
 import {
   getWidgetDefinition,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
@@ -15,9 +20,13 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 
 type WidgetHostProps = {
   instance: WidgetInstance;
+  onUpdateState?: (
+    widgetInstanceId: WidgetInstanceId,
+    state: WidgetState,
+  ) => Promise<void>;
 };
 
-export function WidgetHost({ instance }: WidgetHostProps) {
+export function WidgetHost({ instance, onUpdateState }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
 
   if (!definition) {
@@ -57,6 +66,7 @@ export function WidgetHost({ instance }: WidgetHostProps) {
       config={{ ...definition.defaultConfig, ...instance.config }}
       definition={definition}
       instance={instance}
+      onUpdateState={onUpdateState}
       title={instance.title || definition.defaultTitle}
     />
   );

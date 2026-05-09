@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { addWidgetInstanceToWorkbench } from "../workspace/workspaceApi";
+import {
+  addWidgetInstanceToWorkbench,
+  updateWidgetInstanceState,
+} from "../workspace/workspaceApi";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
+import type { WidgetInstanceId, WidgetState } from "./types";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
@@ -49,6 +53,30 @@ export function WorkbenchShell({
     }
   }
 
+  async function updateWidgetState(
+    widgetInstanceId: WidgetInstanceId,
+    state: WidgetState,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to update widget state.");
+    }
+
+    const workbenchState = await updateWidgetInstanceState({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      state: JSON.stringify(state),
+    });
+
+    if (!workbenchState) {
+      throw new Error("Widget state could not be updated.");
+    }
+
+    onViewStateChange(
+      createWorkbenchViewStateFromWorkspaceState(workbenchState),
+    );
+  }
+
   return (
     <main className="app-shell">
       <div className="workbench">
@@ -63,6 +91,7 @@ export function WorkbenchShell({
         >
           <WorkbenchCanvas
             onOpenWidgetCatalog={openWidgetCatalog}
+            onUpdateWidgetState={updateWidgetState}
             viewState={viewState}
           />
           <WidgetCatalogShell

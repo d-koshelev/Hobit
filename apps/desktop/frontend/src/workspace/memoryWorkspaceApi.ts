@@ -2,6 +2,7 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  UpdateWidgetInstanceStateRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -20,6 +21,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   openWorkspace,
   getWorkspaceWorkbenchState,
   addWidgetInstanceToWorkbench,
+  updateWidgetInstanceState,
 };
 
 async function createWorkspace(
@@ -149,6 +151,41 @@ async function addWidgetInstanceToWorkbench(
       id: `fallback_evt_${fallbackId++}`,
       kind: "widget_instance_added",
       summary: "Widget instance added",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  return cloneWorkspaceWorkbenchState(state);
+}
+
+async function updateWidgetInstanceState(
+  request: UpdateWidgetInstanceStateRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = fallbackWorkbenchStates.get(request.workspaceId);
+
+  if (!state || state.workbench?.id !== request.workbenchId) {
+    return null;
+  }
+
+  JSON.parse(request.state);
+
+  const widgetIndex = state.widgetInstances.findIndex(
+    (widget) => widget.id === request.widgetInstanceId,
+  );
+
+  if (widgetIndex === -1) {
+    return null;
+  }
+
+  state.widgetInstances = state.widgetInstances.map((widget, index) =>
+    index === widgetIndex ? { ...widget, state: request.state } : widget,
+  );
+  state.recentEvents = [
+    ...state.recentEvents,
+    {
+      id: `fallback_evt_${fallbackId++}`,
+      kind: "widget_state_updated",
+      summary: "Widget state updated",
       createdAt: new Date().toISOString(),
     },
   ];

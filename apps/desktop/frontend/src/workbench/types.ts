@@ -47,11 +47,14 @@ export type WidgetDefinition = {
   componentKey: string;
 };
 
+export type WidgetState = Record<string, unknown>;
+
 export type WidgetInstance = {
   id: WidgetInstanceId;
   definitionId: WidgetDefinitionId;
   title: string;
   config: Record<string, unknown>;
+  state: WidgetState;
   layout: WidgetLayout;
   visible: boolean;
 };
@@ -118,5 +121,9 @@ export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   instance: WidgetInstance;
+  onUpdateState?: (
+    widgetInstanceId: WidgetInstanceId,
+    state: WidgetState,
+  ) => Promise<void>;
   title: string;
 };

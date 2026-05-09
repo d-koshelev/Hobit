@@ -4,6 +4,7 @@ import { isTauriRuntime } from "./tauriEnvironment";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  UpdateWidgetInstanceStateRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -25,6 +26,9 @@ export type WorkspaceApi = {
   ) => Promise<WorkspaceWorkbenchState | null>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
+  ) => Promise<WorkspaceWorkbenchState | null>;
+  updateWidgetInstanceState: (
+    request: UpdateWidgetInstanceStateRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;
 };
 
@@ -66,6 +70,12 @@ export function addWidgetInstanceToWorkbench(
   request: AddWidgetInstanceToWorkbenchRequest,
 ): Promise<WorkspaceWorkbenchState | null> {
   return getWorkspaceApi().addWidgetInstanceToWorkbench(request);
+}
+
+export function updateWidgetInstanceState(
+  request: UpdateWidgetInstanceStateRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  return getWorkspaceApi().updateWidgetInstanceState(request);
 }
 
 function normalizeCreateWorkspaceRequest(

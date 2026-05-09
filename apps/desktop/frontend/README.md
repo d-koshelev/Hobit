@@ -8,11 +8,11 @@ The current milestone is a Workspace Start Screen shell built with Vite, React, 
 
 The app starts on the Workspace Start Screen. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands, loads the Workbench state through `get_workspace_workbench_state`, maps it into `WorkbenchViewState`, and then opens the Empty Workbench shell.
 
-In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces and their empty Workbench states are local to the current page session and are lost on refresh.
+In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces and Workbench states are local to the current page session and are lost on refresh.
 
 The default preset intentionally renders no widgets. New workspaces still begin with an empty Workbench, and the first concrete catalog insertion path is limited to a persisted Notes placeholder widget.
 
-The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes placeholder through the workspace API boundary. All other catalog templates remain planned and display-only. No real Notes editing, preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
+The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes placeholder through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state`; it is not a full Notes document model. All other catalog templates remain planned and display-only. No preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
 
 Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
@@ -75,8 +75,8 @@ npm run tauri:build
 ## Intentionally Not Implemented Yet
 
 - Frontend persistence outside the Tauri workspace commands.
-- Real Notes editing or note document storage.
-- Runtime widget behavior beyond the Notes placeholder insertion path.
+- Full Notes editing or note document storage.
+- Runtime widget behavior beyond the Notes placeholder insertion and state-save path.
 - Non-Notes widget insertion.
 - Real terminal execution.
 - Real agent calls.

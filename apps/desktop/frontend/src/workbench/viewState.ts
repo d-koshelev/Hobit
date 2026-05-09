@@ -120,7 +120,8 @@ export function createWorkbenchViewStateFromWorkspaceState(
         id: widgetInstance.id,
         definitionId: widgetInstance.definitionId,
         title: widgetInstance.title,
-        config: normalizeWidgetConfig(widgetInstance.config),
+        config: normalizeJsonRecord(widgetInstance.config),
+        state: normalizeJsonRecord(widgetInstance.state),
         layout: popout ? { ...dockLayout, popout } : dockLayout,
         visible: widgetInstance.isVisible,
       };
@@ -178,23 +179,21 @@ function normalizePopoutGeometry(
   };
 }
 
-function normalizeWidgetConfig(
-  config: string | null,
-): Record<string, unknown> {
-  if (config === null) {
+function normalizeJsonRecord(value: string | null): Record<string, unknown> {
+  if (value === null) {
     return {};
   }
 
   try {
-    const parsedConfig: unknown = JSON.parse(config);
+    const parsedValue: unknown = JSON.parse(value);
 
-    if (isRecord(parsedConfig)) {
-      return parsedConfig;
+    if (isRecord(parsedValue)) {
+      return parsedValue;
     }
 
-    return { value: parsedConfig };
+    return { value: parsedValue };
   } catch {
-    return { raw: config };
+    return { raw: value };
   }
 }
 

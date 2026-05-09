@@ -11,6 +11,13 @@ export type AddWidgetInstanceToWorkbenchRequest = {
   category: string;
 };
 
+export type UpdateWidgetInstanceStateRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  state: string;
+};
+
 export type WorkspaceSummary = {
   id: string;
   title: string;

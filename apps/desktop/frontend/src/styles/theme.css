@@ -25,6 +25,7 @@ body {
 
 button,
 input,
+textarea,
 select {
   font: inherit;
 }
@@ -35,12 +36,14 @@ button {
 
 button:disabled,
 input:disabled,
+textarea:disabled,
 select:disabled {
   cursor: not-allowed;
 }
 
 button:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
 select:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
