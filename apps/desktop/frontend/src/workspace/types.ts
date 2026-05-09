@@ -3,6 +3,14 @@ export type CreateWorkspaceRequest = {
   description?: string | null;
 };
 
+export type AddWidgetInstanceToWorkbenchRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  definitionId: string;
+  title: string;
+  category: string;
+};
+
 export type WorkspaceSummary = {
   id: string;
   title: string;

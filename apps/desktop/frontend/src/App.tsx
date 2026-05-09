@@ -16,5 +16,10 @@ export default function App() {
     return <WorkspaceStartScreen onOpenWorkspace={openWorkspace} />;
   }
 
-  return <WorkbenchShell viewState={workbenchViewState} />;
+  return (
+    <WorkbenchShell
+      onViewStateChange={setWorkbenchViewState}
+      viewState={workbenchViewState}
+    />
+  );
 }

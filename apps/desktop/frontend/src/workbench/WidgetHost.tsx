@@ -2,10 +2,16 @@ import type { ComponentType } from "react";
 import { Badge } from "../design-system/Badge";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import type { WidgetInstance, WidgetRenderProps } from "./types";
-import { getWidgetDefinition } from "./widgetRegistry";
+import {
+  getWidgetDefinition,
+  NOTES_PLACEHOLDER_COMPONENT_KEY,
+} from "./widgetRegistry";
 
-const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {};
+const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
+  [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
+};
 
 type WidgetHostProps = {
   instance: WidgetInstance;

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
+  AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
@@ -13,6 +14,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,
+  addWidgetInstanceToWorkbench,
 };
 
 type TauriWorkspaceSummary = {
@@ -130,6 +132,25 @@ async function getWorkspaceWorkbenchState(
     "get_workspace_workbench_state",
     {
       workspaceId,
+    },
+  );
+
+  return state ? normalizeWorkspaceWorkbenchState(state) : null;
+}
+
+async function addWidgetInstanceToWorkbench(
+  request: AddWidgetInstanceToWorkbenchRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = await invoke<TauriWorkspaceWorkbenchState | null>(
+    "add_widget_instance_to_workbench",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        definition_id: request.definitionId,
+        title: request.title,
+        category: request.category,
+      },
     },
   );
 

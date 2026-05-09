@@ -10,7 +10,7 @@ import {
 
 type WidgetCatalogShellProps = {
   isOpen: boolean;
-  onAddTemplate?: (template: WidgetCatalogTemplate) => void;
+  onAddTemplate?: (template: WidgetCatalogTemplate) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -77,7 +77,7 @@ export function WidgetCatalogShell({
 }
 
 type CatalogTemplateCardProps = {
-  onAddTemplate?: (template: WidgetCatalogTemplate) => void;
+  onAddTemplate?: (template: WidgetCatalogTemplate) => void | Promise<void>;
   template: WidgetCatalogTemplate;
 };
 
@@ -108,7 +108,9 @@ function CatalogTemplateCard({
       </div>
       <Button
         disabled={!canAddTemplate}
-        onClick={() => onAddTemplate?.(template)}
+        onClick={() => {
+          void onAddTemplate?.(template);
+        }}
         variant="secondary"
       >
         {template.status === "available" ? "Add widget" : "Not available yet"}

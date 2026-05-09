@@ -57,12 +57,13 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Notes",
     category: "productivity",
     description: "Markdown notes with global and workspace-local scopes.",
-    status: "planned",
+    status: "available",
     capabilitySummary: [
       "Markdown documents",
       "Global and workspace scopes",
       "Explicit knowledge promotion",
     ],
+    futureWidgetDefinitionId: "notes",
   },
   {
     id: "todo-list",
