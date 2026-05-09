@@ -10,11 +10,13 @@ import {
 
 type WidgetCatalogShellProps = {
   isOpen: boolean;
+  onAddTemplate?: (template: WidgetCatalogTemplate) => void;
   onClose: () => void;
 };
 
 export function WidgetCatalogShell({
   isOpen,
+  onAddTemplate,
   onClose,
 }: WidgetCatalogShellProps) {
   if (!isOpen) {
@@ -61,6 +63,7 @@ export function WidgetCatalogShell({
                 {group.templates.map((template) => (
                   <CatalogTemplateCard
                     key={template.id}
+                    onAddTemplate={onAddTemplate}
                     template={template}
                   />
                 ))}
@@ -74,10 +77,17 @@ export function WidgetCatalogShell({
 }
 
 type CatalogTemplateCardProps = {
+  onAddTemplate?: (template: WidgetCatalogTemplate) => void;
   template: WidgetCatalogTemplate;
 };
 
-function CatalogTemplateCard({ template }: CatalogTemplateCardProps) {
+function CatalogTemplateCard({
+  onAddTemplate,
+  template,
+}: CatalogTemplateCardProps) {
+  const canAddTemplate =
+    template.status === "available" && onAddTemplate !== undefined;
+
   return (
     <article className="catalog-template-card">
       <div className="catalog-template-card-main">
@@ -96,8 +106,12 @@ function CatalogTemplateCard({ template }: CatalogTemplateCardProps) {
           ))}
         </ul>
       </div>
-      <Button disabled variant="secondary">
-        Not available yet
+      <Button
+        disabled={!canAddTemplate}
+        onClick={() => onAddTemplate?.(template)}
+        variant="secondary"
+      >
+        {template.status === "available" ? "Add widget" : "Not available yet"}
       </Button>
     </article>
   );
