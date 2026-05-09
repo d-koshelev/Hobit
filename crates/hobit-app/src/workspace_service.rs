@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
-    NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, WidgetInstanceRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceWorkbenchRow,
+    NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, StorageError,
+    WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow, WorkspaceWorkbenchRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -114,21 +114,22 @@ impl WorkspaceService {
         let workspace_id = placeholder_id("ws_");
         let workbench_id = placeholder_id("wb_");
 
-        let workspace =
-            self.store
-                .create_workspace(&workspace_id, title, description.as_deref(), "active")?;
-        let workbench =
-            self.store
-                .create_workspace_workbench(&workbench_id, &workspace.id, None)?;
+        let (workspace, workbench) = self.store.with_immediate_transaction(|store| {
+            let workspace =
+                store.create_workspace(&workspace_id, title, description.as_deref(), "active")?;
+            let workbench = store.create_workspace_workbench(&workbench_id, &workspace.id, None)?;
 
-        let event_payload = format!("workbench_id={}", workbench.id);
-        self.store.append_workbench_event(
-            &placeholder_id("evt_"),
-            &workspace.id,
-            "workspace_created",
-            "Workspace created",
-            Some(&event_payload),
-        )?;
+            let event_payload = format!("workbench_id={}", workbench.id);
+            store.append_workbench_event(
+                &placeholder_id("evt_"),
+                &workspace.id,
+                "workspace_created",
+                "Workspace created",
+                Some(&event_payload),
+            )?;
+
+            Ok((workspace, workbench))
+        })?;
 
         Ok(workspace_summary(&workspace, Some(workbench.id)))
     }
@@ -160,32 +161,36 @@ impl WorkspaceService {
         &self,
         workspace_id: &str,
     ) -> Result<Option<WorkspaceSessionSummary>, WorkspaceServiceError> {
-        if self.store.get_workspace(workspace_id)?.is_none() {
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
             return Ok(None);
-        }
+        };
 
         let session_id = placeholder_id("wss_");
         let opened_at = placeholder_timestamp();
-        let session = self.store.create_workspace_session(NewWorkspaceSession {
-            id: &session_id,
-            workspace_id,
-            status: "open",
-            opened_at: Some(&opened_at),
-            closed_at: None,
-            active_widget_id: None,
-            current_focus_kind: None,
-            current_focus_ref: None,
-        })?;
-        self.store.touch_workspace(workspace_id)?;
+        let session = self.store.with_immediate_transaction(|store| {
+            let session = store.create_workspace_session(NewWorkspaceSession {
+                id: &session_id,
+                workspace_id: &workspace.id,
+                status: "open",
+                opened_at: Some(&opened_at),
+                closed_at: None,
+                active_widget_id: None,
+                current_focus_kind: None,
+                current_focus_ref: None,
+            })?;
+            store.touch_workspace(&workspace.id)?;
 
-        let event_payload = format!("session_id={}", session.id);
-        self.store.append_workbench_event(
-            &placeholder_id("evt_"),
-            workspace_id,
-            "workspace_opened",
-            "Workspace opened",
-            Some(&event_payload),
-        )?;
+            let event_payload = format!("session_id={}", session.id);
+            store.append_workbench_event(
+                &placeholder_id("evt_"),
+                &workspace.id,
+                "workspace_opened",
+                "Workspace opened",
+                Some(&event_payload),
+            )?;
+
+            Ok(session)
+        })?;
 
         Ok(Some(WorkspaceSessionSummary {
             id: session.id,
@@ -209,7 +214,11 @@ impl WorkspaceService {
             .into_iter()
             .next();
 
-        Ok(Some(self.workspace_workbench_state(workspace, workbench)?))
+        Ok(Some(workspace_workbench_state_from_store(
+            &self.store,
+            workspace,
+            workbench,
+        )?))
     }
 
     pub fn add_widget_instance_to_workbench(
@@ -226,101 +235,64 @@ impl WorkspaceService {
         let title = required_input(title, "widget title")?;
         let category = required_input(category, "widget category")?;
 
-        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
-            return Ok(None);
-        };
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some(workspace) = store.get_workspace(workspace_id)? else {
+                    return Ok(None);
+                };
 
-        let Some(workbench) = self
-            .store
-            .list_workspace_workbenches(&workspace.id)?
-            .into_iter()
-            .find(|workbench| workbench.id == workbench_id)
-        else {
-            return Ok(None);
-        };
+                let Some(workbench) = store
+                    .list_workspace_workbenches(&workspace.id)?
+                    .into_iter()
+                    .find(|workbench| workbench.id == workbench_id)
+                else {
+                    return Ok(None);
+                };
 
-        let existing_widget_count = self
-            .store
-            .list_widget_instances_for_workbench(&workbench.id)?
-            .len();
-        let widget_id = placeholder_id("wid_");
-        let widget = self.store.insert_widget_instance(NewWidgetInstance {
-            id: &widget_id,
-            workspace_id: &workspace.id,
-            workbench_id: &workbench.id,
-            definition_id,
-            title,
-            category,
-            layout_mode: PLACEHOLDER_WIDGET_LAYOUT_MODE,
-            dock_x: Some(PLACEHOLDER_WIDGET_DOCK_X),
-            dock_y: Some(next_placeholder_widget_dock_y(existing_widget_count)),
-            dock_width: Some(PLACEHOLDER_WIDGET_DOCK_WIDTH),
-            dock_height: Some(PLACEHOLDER_WIDGET_DOCK_HEIGHT),
-            popout_x: None,
-            popout_y: None,
-            popout_width: None,
-            popout_height: None,
-            always_on_top: false,
-            is_visible: true,
-            config: Some(PLACEHOLDER_WIDGET_CONFIG),
-            state: Some(PLACEHOLDER_WIDGET_STATE),
-        })?;
+                let existing_widget_count = store
+                    .list_widget_instances_for_workbench(&workbench.id)?
+                    .len();
+                let widget_id = placeholder_id("wid_");
+                let widget = store.insert_widget_instance(NewWidgetInstance {
+                    id: &widget_id,
+                    workspace_id: &workspace.id,
+                    workbench_id: &workbench.id,
+                    definition_id,
+                    title,
+                    category,
+                    layout_mode: PLACEHOLDER_WIDGET_LAYOUT_MODE,
+                    dock_x: Some(PLACEHOLDER_WIDGET_DOCK_X),
+                    dock_y: Some(next_placeholder_widget_dock_y(existing_widget_count)),
+                    dock_width: Some(PLACEHOLDER_WIDGET_DOCK_WIDTH),
+                    dock_height: Some(PLACEHOLDER_WIDGET_DOCK_HEIGHT),
+                    popout_x: None,
+                    popout_y: None,
+                    popout_width: None,
+                    popout_height: None,
+                    always_on_top: false,
+                    is_visible: true,
+                    config: Some(PLACEHOLDER_WIDGET_CONFIG),
+                    state: Some(PLACEHOLDER_WIDGET_STATE),
+                })?;
 
-        let event_payload = format!(
-            "workbench_id={};widget_instance_id={};definition_id={}",
-            workbench.id, widget.id, widget.definition_id
-        );
-        self.store.append_workbench_event(
-            &placeholder_id("evt_"),
-            &workspace.id,
-            "widget_instance_added",
-            "Widget instance added",
-            Some(&event_payload),
-        )?;
-        self.store.touch_workspace(&workspace.id)?;
+                let event_payload = format!(
+                    "workbench_id={};widget_instance_id={};definition_id={}",
+                    workbench.id, widget.id, widget.definition_id
+                );
+                store.append_workbench_event(
+                    &placeholder_id("evt_"),
+                    &workspace.id,
+                    "widget_instance_added",
+                    "Widget instance added",
+                    Some(&event_payload),
+                )?;
+                store.touch_workspace(&workspace.id)?;
 
-        let state = self.workspace_workbench_state(workspace, Some(workbench))?;
-        Ok(Some(state))
-    }
-
-    fn workspace_workbench_state(
-        &self,
-        workspace: WorkspaceRow,
-        workbench: Option<WorkspaceWorkbenchRow>,
-    ) -> Result<WorkspaceWorkbenchState, WorkspaceServiceError> {
-        let workbench_id = workbench.as_ref().map(|workbench| workbench.id.clone());
-        let widget_instances = match workbench.as_ref() {
-            Some(workbench) => self
-                .store
-                .list_widget_instances_for_workbench(&workbench.id)?
-                .into_iter()
-                .map(widget_instance_summary)
-                .collect(),
-            None => Vec::new(),
-        };
-        let shared_state_objects = self
-            .store
-            .list_shared_state_objects(&workspace.id)?
-            .into_iter()
-            .map(shared_state_object_summary)
-            .collect();
-        let recent_events = match workbench.as_ref() {
-            Some(_) => self
-                .store
-                .list_recent_workspace_events(&workspace.id, WORKBENCH_STATE_RECENT_EVENT_LIMIT)?
-                .into_iter()
-                .map(workbench_event_summary)
-                .collect(),
-            None => Vec::new(),
-        };
-
-        Ok(WorkspaceWorkbenchState {
-            workspace: workspace_summary(&workspace, workbench_id),
-            workbench: workbench.map(workbench_summary),
-            widget_instances,
-            shared_state_objects,
-            recent_events,
-        })
+                let state =
+                    workspace_workbench_state_from_store(store, workspace, Some(workbench))?;
+                Ok(Some(state))
+            })
+            .map_err(WorkspaceServiceError::from)
     }
 
     fn first_workbench_id(
@@ -334,6 +306,43 @@ impl WorkspaceService {
             .next()
             .map(|workbench| workbench.id))
     }
+}
+
+fn workspace_workbench_state_from_store(
+    store: &SqliteStore,
+    workspace: WorkspaceRow,
+    workbench: Option<WorkspaceWorkbenchRow>,
+) -> Result<WorkspaceWorkbenchState, StorageError> {
+    let workbench_id = workbench.as_ref().map(|workbench| workbench.id.clone());
+    let widget_instances = match workbench.as_ref() {
+        Some(workbench) => store
+            .list_widget_instances_for_workbench(&workbench.id)?
+            .into_iter()
+            .map(widget_instance_summary)
+            .collect(),
+        None => Vec::new(),
+    };
+    let shared_state_objects = store
+        .list_shared_state_objects(&workspace.id)?
+        .into_iter()
+        .map(shared_state_object_summary)
+        .collect();
+    let recent_events = match workbench.as_ref() {
+        Some(_) => store
+            .list_recent_workspace_events(&workspace.id, WORKBENCH_STATE_RECENT_EVENT_LIMIT)?
+            .into_iter()
+            .map(workbench_event_summary)
+            .collect(),
+        None => Vec::new(),
+    };
+
+    Ok(WorkspaceWorkbenchState {
+        workspace: workspace_summary(&workspace, workbench_id),
+        workbench: workbench.map(workbench_summary),
+        widget_instances,
+        shared_state_objects,
+        recent_events,
+    })
 }
 
 fn required_input<'a>(value: &'a str, label: &str) -> Result<&'a str, WorkspaceServiceError> {

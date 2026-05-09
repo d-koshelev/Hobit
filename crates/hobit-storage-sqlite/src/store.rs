@@ -54,6 +54,31 @@ impl SqliteStore {
         Ok(())
     }
 
+    /// Runs a set of store operations in a single SQLite transaction.
+    ///
+    /// Callers must avoid nesting this helper.
+    pub fn with_immediate_transaction<T>(
+        &self,
+        operation: impl FnOnce(&Self) -> Result<T>,
+    ) -> Result<T> {
+        self.connection.execute_batch("BEGIN IMMEDIATE")?;
+
+        match operation(self) {
+            Ok(value) => {
+                if let Err(error) = self.connection.execute_batch("COMMIT") {
+                    let _ = self.connection.execute_batch("ROLLBACK");
+                    return Err(error);
+                }
+
+                Ok(value)
+            }
+            Err(error) => {
+                let _ = self.connection.execute_batch("ROLLBACK");
+                Err(error)
+            }
+        }
+    }
+
     fn upgrade_schema(&self) -> Result<()> {
         self.upgrade_widget_logs_schema()?;
         self.ensure_column(
@@ -748,6 +773,27 @@ mod tests {
             .expect("foreign key pragma");
 
         assert_eq!(foreign_keys_enabled, 1);
+    }
+
+    #[test]
+    fn transaction_rolls_back_when_operation_fails() {
+        let store = initialized_store();
+
+        let result = store.with_immediate_transaction(|store| {
+            store.create_workspace("workspace-rollback", "Rollback", None, "active")?;
+            store.create_workspace_workbench("workbench-rollback", "missing-workspace", None)?;
+            Ok(())
+        });
+
+        assert!(result.is_err());
+        assert!(store
+            .get_workspace("workspace-rollback")
+            .expect("get rolled back workspace")
+            .is_none());
+        assert!(store
+            .get_workspace_workbench("workbench-rollback")
+            .expect("get rolled back workbench")
+            .is_none());
     }
 
     #[test]
