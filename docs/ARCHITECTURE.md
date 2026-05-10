@@ -2,7 +2,7 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. No agents, real widgets, terminal execution, runtime execution, or tool implementations exist yet.
+The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. A persisted Notes placeholder widget exists as the first catalog insertion path. No agents, Terminal or Agent widgets, runtime execution, or tool implementations exist yet.
 
 ## Documentation Contracts
 
@@ -49,11 +49,11 @@ The current UI starts with a Workspace Start Screen shell. In the Tauri desktop 
 
 In plain browser/Vite development, the frontend uses an in-memory workspace API fallback so the start screen remains usable without Tauri. Browser fallback state is not persisted, and its Workbench state remains an in-memory empty surface.
 
-The Empty Workbench shell intentionally renders no concrete widgets by default.
+The Empty Workbench shell intentionally renders no concrete widgets by default. New Workspaces still start with zero widget instances.
 
-The frontend includes a Widget Catalog drawer opened from Add Widget controls. The catalog renders display-only planned widget template metadata. These templates are not registered widget definitions and there is still no runtime widget insertion or Tauri-backed widget catalog behavior.
+The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes placeholder template can be inserted through the workspace API as a persisted WidgetInstance and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, widget insertion behavior, preset editor, or layout persistence editing yet.
+There is no terminal execution, agent runtime, non-Notes widget insertion behavior, preset editor, drag/drop layout editor, resize handles, popout UI, or full Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -69,17 +69,21 @@ The Tauri shell initializes a local SQLite database at `hobit.sqlite3` in the Ta
 
 On startup, the shell creates the app data directory if needed and runs the idempotent SQLite schema initialization.
 
-The shell exposes minimal WorkspaceService lifecycle commands over the Tauri bridge:
+The shell exposes WorkspaceService lifecycle and widget foundation commands over the Tauri bridge:
 
 - `create_workspace`
 - `list_workspaces`
 - `get_workspace_summary`
 - `open_workspace`
 - `get_workspace_workbench_state`
+- `add_widget_instance_to_workbench`
+- `update_widget_instance_state`
+- `update_widget_instance_layout`
+- `list_widget_logs`
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, and command DTO mapping in `workspace_dto.rs`.
 
-The React frontend calls these commands from the Workspace Start Screen when running inside Tauri. The browser/Vite path uses the same workspace API facade with an in-memory implementation. There is no widget runtime behavior, widget insertion, terminal execution, agent call, workspace restore runtime, or settings UI in this milestone.
+The React frontend calls these commands through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation. There is no widget runtime behavior, non-Notes widget insertion, terminal execution, agent call, workspace restore runtime, log streaming/polling, or settings UI in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -108,17 +112,25 @@ The browser/Vite flow keeps the same frontend boundary but uses in-memory Worksp
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime state restoration, widget insertion, or persisted browser fallback state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime reconstruction, non-Notes widget insertion, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 
 The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `WorkbenchPreset` model.
 
-The Empty Workbench is rendered from preset data and currently contains no visible widget instances.
+The Empty Workbench is rendered from preset data and new Workspaces currently start with no visible widget instances.
 
-`WidgetHost` remains the single future mapping layer from widget instances to React components. The current frontend registry is intentionally empty.
+`WidgetHost` remains the mapping layer from persisted widget instances to React components. The current frontend registry contains the Notes placeholder renderer.
 
-The Widget Catalog has frontend-only planned template metadata for future capabilities. The registry is frontend-local and empty for now. There is no runtime widget loading or widget insertion through the Tauri bridge yet.
+The Widget Catalog has frontend-local template metadata for future capabilities. Only the Notes template is currently available for insertion; all other catalog templates remain planned/display-only. There is no runtime widget loading or non-Notes widget insertion through the Tauri bridge yet.
+
+The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notes document model, Markdown editor, autosave flow, folder system, or AI-in-Notes implementation.
+
+Docked widget size presets update persisted layout through `update_widget_instance_layout`. There is no drag/drop layout editor, resize handle UI, popout UI, or preset editor.
+
+Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. There is no runtime log streaming, polling, or widget execution.
+
+The Workbench canvas includes a compact Recent activity surface backed by workspace-scoped events from `get_workspace_workbench_state`. This is not a runtime log console.
 
 ## Current Core Model Milestone
 
@@ -132,27 +144,27 @@ These are pure domain contracts only. Persistence, frontend integration, and Tau
 
 It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
 
-This storage layer is foundational only. It is wired through `hobit-app` and the minimal Tauri workspace lifecycle/state bridge, but not to agent runtime, terminal execution, concrete widget behavior, or widget insertion yet.
+This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, Notes placeholder insertion/state, docked layout size presets, workspace activity events, and widget-local logs. It is not wired to agent runtime, terminal execution, non-Notes widgets, runtime execution, or log streaming.
 
 ## Current Application Service Milestone
 
 `hobit-app` now provides a minimal `WorkspaceService` over SQLite storage.
 
-The service creates empty Workspaces with one associated empty Workbench, opens Workspaces by creating WorkspaceSession rows, appends basic Workbench events, and returns simple Workspace and WorkspaceSession summaries.
+The service creates empty Workspaces with one associated empty Workbench, opens Workspaces by creating WorkspaceSession rows, appends basic Workbench events, returns simple Workspace and WorkspaceSession summaries, and supports the current widget foundation mutations for adding a WidgetInstance, updating widget state, updating widget layout, and listing widget-local logs.
 
-This application layer is wired to the minimal Tauri workspace lifecycle bridge. It does not restore runtime state, execute widgets, run agents, execute terminal commands, or add UI behavior.
+This application layer is wired to the Tauri workspace bridge. It does not restore runtime state, execute widgets, run agents, execute terminal commands, stream logs, or add UI behavior.
 
 ## Workspace Model Boundary
 
-The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, empty Workbench records, widget instance summaries, shared state summaries, and Workbench event summaries.
+The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, Workbench records, widget instance summaries, widget state/layout fields, shared state summaries, widget-local logs, and Workbench event summaries.
 
-Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, layout editor, real widget insertion, terminal execution, or agent runtime behavior.
+Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, drag/drop layout editor, non-Notes widget insertion, terminal execution, or agent runtime behavior.
 
 ## Planned Notes Model
 
 Future notes work will support Markdown documents organized in folders with global and workspace-local scopes.
 
-This is not implemented yet. There is no notes storage, notes widget implementation, folder UI, Markdown editor, sync, or Knowledge ingestion flow in the current repository.
+The current app has only a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`. There is no notes document storage, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, or AI-in-Notes implementation in the current repository.
 
 ## Intended Repository Layout
 
@@ -198,6 +210,6 @@ crates/
 
 ## Current Boundary
 
-The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a display-only Widget Catalog drawer, a minimal Tauri desktop host, and SQLite-backed workspace/workbench state loading in desktop mode.
+The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget Catalog with a persisted Notes placeholder insertion path, a minimal Tauri desktop host, and SQLite-backed workspace/workbench state, widget state/layout, workspace event, and widget-local log foundations in desktop mode.
 
 Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.

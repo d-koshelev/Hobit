@@ -8,7 +8,7 @@ The workbench is the product surface. It is not centered on a single chat stream
 
 Hobit is an AI Workbench for composing work surfaces around a task. Operators choose the widgets and presets that expose the capabilities needed right now, while agents propose actions, report activity, and request approval through explicit workbench surfaces.
 
-The current frontend starts from an empty Workbench surface. This lets the shell, theme, layout, and widget contract become correct before concrete widgets are added.
+The current frontend starts new Workspaces from an empty Workbench surface. The first implemented widget foundation is a persisted Notes placeholder that can be added from the catalog; Terminal, Agent CLI, runtime execution, and other capability widgets are still future work.
 
 A future starter preset may include Terminal and Agent CLI widgets, but those are optional capabilities, not the product center.
 

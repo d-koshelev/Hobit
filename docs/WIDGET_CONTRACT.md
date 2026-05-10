@@ -144,6 +144,26 @@ Widgets may:
 
 Widgets should communicate through workbench state and events, not direct widget-to-widget calls.
 
+## Current Implementation Foundation
+
+The current implemented widget lifecycle foundation is:
+
+```text
+Widget Catalog
+  -> persisted WidgetInstance
+  -> WidgetHost render
+  -> widget state/layout mutations
+  -> workspace-scoped activity events
+  -> widget-local persisted logs
+  -> Logs panel read/refresh
+```
+
+Only the Notes placeholder template is currently available for catalog insertion. It persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model, Markdown editor, autosave, and AI-in-Notes behavior are not implemented yet.
+
+Docked widget size presets persist layout updates. Drag/drop layout editing, resize handles, popout UI, and preset editing are not implemented yet.
+
+The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions when already open. Existing widget add/state/layout mutations emit basic logs. Runtime execution, runtime log emission, streaming, and polling are not implemented yet.
+
 ## Examples
 
 Future widget types may include:

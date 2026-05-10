@@ -76,16 +76,23 @@ Implemented foundation:
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
+- The Widget Catalog can insert the Notes placeholder as a persisted WidgetInstance; other catalog templates remain planned/display-only.
+- The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
+- Docked widget size presets update persisted widget layout.
+- Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
+- Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
 - SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
 
 Not implemented yet:
 
 - runtime restore or event replay
 - widget runtime reconstruction
-- widget insertion from the Widget Catalog
+- non-Notes widget insertion from the Widget Catalog
 - real Terminal, Agent CLI, or other capability widgets
 - drag-and-drop layout editing
-- layout persistence editing
+- resize handles, popout UI, and freeform layout editing
+- log streaming or polling
+- full Notes document model, Markdown editor, autosave, or AI-in-Notes behavior
 - custom preset editor
 - terminal execution
 - agent runtime calls
@@ -207,7 +214,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model and storage primitives exist. Widget insertion, drag-and-drop layout editing, and layout persistence editing are future work.
+Current foundation: the data model, storage primitives, Notes placeholder insertion, Notes widget-state save, docked size preset layout updates, workspace activity events, and widget-local log reads/writes exist. Non-Notes widget insertion, drag-and-drop layout editing, resize handles, popout UI, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -251,11 +258,13 @@ The following are not implemented yet:
 - workspace restore runtime
 - event replay
 - widget runtime reconstruction
-- widget insertion from catalog items
+- non-Notes widget insertion from catalog items
 - real capability widgets
 - custom preset editor
 - drag-and-drop layout editor
-- layout persistence editing
-- notes storage and notes UI
+- resize handles and popout UI
+- freeform layout persistence editing beyond docked size presets
+- full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
+- log streaming or polling
 - multi-user sync
 - cloud sync
