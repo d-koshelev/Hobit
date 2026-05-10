@@ -179,6 +179,7 @@ export function WidgetHost({
       frameStyle={frameStyle}
       instance={instance}
       logRefreshToken={logRefreshToken}
+      onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onLoadLogs={widgetActions.listWidgetLogs}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}

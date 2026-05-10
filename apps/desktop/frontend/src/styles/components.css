@@ -232,6 +232,141 @@
   flex: 1 1 240px;
 }
 
+.git-status-feedback {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-status-feedback-error {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.git-status-card {
+  display: grid;
+  gap: var(--space-md);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.git-status-card-header,
+.git-status-badge-row,
+.git-status-commit {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.git-status-card-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.git-status-badge-row {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.git-status-title-copy,
+.git-status-root,
+.git-status-metric,
+.git-status-commit-copy,
+.git-status-warnings {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.git-status-card-title,
+.git-status-card-subtitle,
+.git-status-warning-title,
+.git-status-warning-list {
+  margin: 0;
+}
+
+.git-status-card-title,
+.git-status-root-label,
+.git-status-metric-value,
+.git-status-commit-label,
+.git-status-warning-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-status-card-subtitle,
+.git-status-root-label,
+.git-status-metric-label,
+.git-status-commit-meta,
+.git-status-warning-list {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-status-root-value,
+.git-status-commit-meta {
+  font-family: var(--font-mono);
+}
+
+.git-status-root-value {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+}
+
+.git-status-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: var(--space-sm);
+}
+
+.git-status-metric {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-status-metric-value {
+  overflow-wrap: anywhere;
+}
+
+.git-status-commit {
+  align-items: flex-start;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.git-status-commit-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-status-warnings {
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  padding: var(--space-sm);
+}
+
+.git-status-warning-title {
+  color: var(--color-warning);
+}
+
+.git-status-warning-list {
+  padding-left: var(--space-lg);
+}
+
 .git-review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

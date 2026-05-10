@@ -2,6 +2,8 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  GetGitRepositoryStatusRequest,
+  GitRepositoryStatus,
   ListWidgetLogsRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
@@ -28,6 +30,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
   listWidgetLogs,
+  getGitRepositoryStatus,
 };
 
 async function createWorkspace(
@@ -238,6 +241,14 @@ async function listWidgetLogs(
   _request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return [];
+}
+
+async function getGitRepositoryStatus(
+  _request: GetGitRepositoryStatusRequest,
+): Promise<GitRepositoryStatus | null> {
+  throw new Error(
+    "Git status is only available in the Tauri desktop shell. Browser fallback cannot read Git repositories.",
+  );
 }
 
 function requiredValue(value: string, label: string) {

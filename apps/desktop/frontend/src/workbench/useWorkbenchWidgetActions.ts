@@ -1,11 +1,13 @@
 import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
+  getGitRepositoryStatus,
   listWidgetLogs,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
+  GitRepositoryStatus,
   WidgetLogEntry as WorkspaceWidgetLogEntry,
   WorkspaceWorkbenchState,
 } from "../workspace/types";
@@ -26,6 +28,10 @@ type UseWorkbenchWidgetActionsOptions = {
 
 export type WorkbenchWidgetActions = {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
+  getGitRepositoryStatus: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<GitRepositoryStatus | null>;
   listWidgetLogs: (
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
@@ -44,6 +50,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   WorkbenchWidgetActions,
   | "listWidgetLogs"
   | "logRefreshTokens"
+  | "getGitRepositoryStatus"
   | "updateWidgetLayout"
   | "updateWidgetState"
 >;
@@ -187,8 +194,33 @@ export function useWorkbenchWidgetActions({
     return logs.map(widgetLogEntryFromApi);
   }
 
+  async function loadGitRepositoryStatus(
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to refresh Git status.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Git status could not be refreshed for this widget.");
+    }
+
+    return getGitRepositoryStatus({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      repositoryRoot,
+    });
+  }
+
   return {
     addWidgetTemplate,
+    getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
     updateWidgetLayout,

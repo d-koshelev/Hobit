@@ -46,6 +46,13 @@ export type ListWidgetLogsRequest = {
   limit: number;
 };
 
+export type GetGitRepositoryStatusRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repositoryRoot: string;
+};
+
 export type WidgetLogEntry = {
   id: string;
   widgetInstanceId: string;
@@ -117,4 +124,42 @@ export type WorkspaceEventSummary = {
   kind: string;
   summary: string;
   createdAt: string;
+};
+
+export type GitRepositoryStatus = {
+  branch: GitBranchStatus | null;
+  workingTree: GitWorkingTreeStatus;
+  changedFiles: GitFileChange[];
+  lastCommit: GitLastCommit | null;
+  warnings: string[];
+};
+
+export type GitBranchStatus = {
+  name: string | null;
+  upstream: string | null;
+  ahead: number | null;
+  behind: number | null;
+  isDetached: boolean;
+};
+
+export type GitWorkingTreeStatus = {
+  isClean: boolean;
+  isDirty: boolean;
+  stagedCount: number;
+  unstagedCount: number;
+  untrackedCount: number;
+};
+
+export type GitFileChange = {
+  area: string;
+  kind: string;
+  path: string;
+  originalPath: string | null;
+};
+
+export type GitLastCommit = {
+  hash: string;
+  title: string;
+  author: string | null;
+  committedAt: string | null;
 };

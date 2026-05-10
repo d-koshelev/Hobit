@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import type { GitRepositoryStatus } from "../workspace/types";
 
 export type WidgetCategory =
   | "core"
@@ -179,5 +180,9 @@ export type WidgetRenderProps = {
     state: WidgetState,
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
+  onGetGitRepositoryStatus?: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<GitRepositoryStatus | null>;
   title: string;
 };

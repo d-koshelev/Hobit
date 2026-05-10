@@ -4,6 +4,8 @@ import { isTauriRuntime } from "./tauriEnvironment";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  GetGitRepositoryStatusRequest,
+  GitRepositoryStatus,
   ListWidgetLogsRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
@@ -39,6 +41,9 @@ export type WorkspaceApi = {
   listWidgetLogs: (
     request: ListWidgetLogsRequest,
   ) => Promise<WidgetLogEntry[]>;
+  getGitRepositoryStatus: (
+    request: GetGitRepositoryStatusRequest,
+  ) => Promise<GitRepositoryStatus | null>;
 };
 
 export function getWorkspaceApi(): WorkspaceApi {
@@ -97,6 +102,12 @@ export function listWidgetLogs(
   request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return getWorkspaceApi().listWidgetLogs(request);
+}
+
+export function getGitRepositoryStatus(
+  request: GetGitRepositoryStatusRequest,
+): Promise<GitRepositoryStatus | null> {
+  return getWorkspaceApi().getGitRepositoryStatus(request);
 }
 
 function normalizeCreateWorkspaceRequest(
