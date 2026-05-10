@@ -125,6 +125,8 @@ Rules:
 
 Templates support the coordinator/executor operating model defined in `docs/AGENT_OPERATING_MODEL.md`.
 
+The operating model defines executor thread lifecycle, one-block-per-executor rules, and coordinator validation responsibilities; templates define the reusable request and response structures used by that flow.
+
 Expected future workflow:
 
 1. Coordinator chooses a Request Template.

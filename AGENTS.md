@@ -49,7 +49,7 @@ For request/response template work, also read:
 
 Request Templates and Response Templates are future product assets, not only conversation prompt conventions.
 
-Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
+Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
 For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output.
 

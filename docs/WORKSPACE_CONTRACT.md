@@ -120,6 +120,7 @@ A Workspace should persist:
 - captured executor responses when future agent workflows exist
 - validation results linked to requests/responses when future agent workflows exist
 - Git commits linked to requests/responses when future Git review workflows exist
+- block/task history following the future agent operating model
 - workspace-local notes
 - decisions
 - current focus

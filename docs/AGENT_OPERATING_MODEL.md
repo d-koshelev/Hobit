@@ -27,7 +27,12 @@ Strict workflow:
 - One block means one focused commit or one no-commit audit.
 - Executor prompts must be generated from Request Templates.
 - Executor responses must follow Response Templates.
+- The coordinator may be long-lived.
+- Executor threads should be short-lived and disposable.
 - Strategic planning belongs to the coordinator unless a block is explicitly a plan-only executor block.
+- The executor should inspect current code before editing.
+- The executor should not invent scope beyond the concrete request.
+- The executor should report skipped or failed validation honestly.
 - After a commit or no-commit audit is complete, the next block must start a new executor thread/task.
 
 ## Coordinator Agent
@@ -49,6 +54,7 @@ The coordinator may:
 - validate response structure against the selected Response Template
 - decide accept, fix, rerun, or next block with operator control
 - keep the block queue, completed block history, and follow-up plan coherent
+- summarize Workspace/Project context for future executor tasks
 
 The coordinator must not:
 
@@ -57,6 +63,7 @@ The coordinator must not:
 - bypass approval requirements
 - treat strategic discussion as executor implementation context unless the generated block explicitly includes that context
 - treat executor output as accepted until validation and operator review allow it
+- do broad implementation work directly unless explicitly acting as the executor for a focused block
 
 ## Executor Agent
 
@@ -70,8 +77,10 @@ The executor must:
 - treat the concrete request as the authoritative scope
 - avoid strategic discussion outside the block
 - avoid broad refactors unless explicitly requested
+- inspect current code and relevant contracts before editing
 - preserve existing contracts and product boundaries
-- run requested validation or report why validation could not run
+- run requested validation
+- report skipped or failed validation honestly
 - create one focused commit when the block changes files
 - perform one no-commit audit when the block is audit-only and needs no changes
 - return the final response using `docs/AGENT_RESPONSE_CONTRACT.md` and the selected Response Template
@@ -90,13 +99,14 @@ The executor must not:
 Separating coordinator and executor roles exists to:
 
 - reduce token usage in executor tasks
-- reduce stale or misleading context
+- reduce stale context and misleading carryover
 - reduce accidental scope creep
 - keep strategic planning separate from implementation execution
 - improve validation and final-report consistency
 - make each block easier to review, replay, rerun, or audit
 - keep Workspace and task history clean
 - make commits focused and easier to revert or inspect
+- make agent work structured, repeatable, safe, observable, and fast
 
 ## Allowed Exceptions
 
@@ -108,6 +118,7 @@ Allowed continuations:
 - rerun requested validation for the same block
 - make a tiny correction before commit for the same block
 - answer a narrow clarification required to finish the same block
+- answer a clarification about its just-produced diff
 - amend the same block's final response when the coordinator requests a formatting fix before acceptance
 
 Not allowed:
@@ -125,7 +136,7 @@ Response Templates structure executor reports.
 
 The coordinator selects and applies both templates for a block. Applying a Request Template creates a concrete Request Snapshot for that executor task. Applying a Response Template creates the expected response/report contract for that block.
 
-The executor receives the concrete Request Snapshot, not an evolving template. Future edits to the source Request Template or Response Template must not silently mutate the active executor request or historical block record.
+The executor receives the concrete Request Snapshot, not an evolving template. Executor final responses are checked against the selected Response Template when future response validation exists. Future edits to the source Request Template or Response Template must not silently mutate the active executor request, captured response, or historical block record.
 
 For template asset rules, see `docs/TEMPLATE_CONTRACT.md`.
 
@@ -141,10 +152,25 @@ Future Workspace history should be able to show:
 - selected Response Template and revision
 - executor response captures
 - validation checklist state
+- validation command results
+- Git commits linked to the block
+- widget logs
+- produced artifacts
 - commit or no-commit audit result
+- follow-up blocks
 - coordinator accept, fix, rerun, or next-block decisions
 
+The coordinator uses Workspace context to generate precise executor requests. The executor should receive only the minimal context needed for the block.
+
 This does not require implementation in the current block.
+
+## Relation To Git Widget
+
+After executor code work, the future Git Widget can surface repository review as defined in `docs/GIT_WIDGET_CONTRACT.md`.
+
+The coordinator may use Git Widget state, executor final response content, validation results, and commit metadata to decide accept, fix, push, revert, or follow-up.
+
+Git review remains operator-controlled. The operating model must not introduce hidden commit, push, reset, clean, or discard behavior.
 
 ## Future UI Behavior
 
@@ -161,7 +187,8 @@ Future Hobit UI may support:
 - response validation checklist
 - missing-section and warning display
 - accept, fix, rerun, and next-block controls
-- task history that links requests, responses, validations, commits, and decisions
+- Git review companion after code blocks
+- task history that links applied templates, requests, responses, validations, commits, logs, artifacts, and decisions
 
 Future UI rules:
 
@@ -181,12 +208,15 @@ This contract does not implement:
 - TypeScript types
 - React UI
 - Tauri commands
+- coordinator UI
 - template editor UI
 - response validation engine
 - automatic agent execution
 - hidden prompt mutation
 - secret injection
 - approval bypasses
+- background automation
+- runtime/tool execution changes
 - new widgets
 - product behavior changes
 
