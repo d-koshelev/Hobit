@@ -90,7 +90,7 @@ Not implemented yet:
 - non-Notes widget insertion from the Widget Catalog
 - real Terminal, Agent CLI, or other capability widgets
 - drag-and-drop layout editing
-- resize handles, popout UI, and freeform layout editing
+- resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and freeform layout editing
 - log streaming or polling
 - full Notes document model, Markdown editor, autosave, or AI-in-Notes behavior
 - custom preset editor
@@ -214,7 +214,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes placeholder insertion, Notes widget-state save, docked size preset layout updates, workspace activity events, and widget-local log reads/writes exist. Non-Notes widget insertion, drag-and-drop layout editing, resize handles, popout UI, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes placeholder insertion, Notes widget-state save, docked size preset layout updates, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Non-Notes widget insertion, drag-and-drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -262,7 +262,7 @@ The following are not implemented yet:
 - real capability widgets
 - custom preset editor
 - drag-and-drop layout editor
-- resize handles and popout UI
+- resize handles, Tauri separate-window popouts, persisted popout geometry, and always-on-top behavior
 - freeform layout persistence editing beyond docked size presets
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling

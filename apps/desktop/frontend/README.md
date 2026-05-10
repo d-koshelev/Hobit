@@ -12,7 +12,7 @@ In plain browser/Vite development, the workspace API uses an in-memory fallback 
 
 The default preset intentionally renders no widgets. New workspaces still begin with an empty Workbench, and the first concrete catalog insertion path is limited to a persisted Notes placeholder widget.
 
-The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes placeholder through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state` with the shape `{ "body": "..." }`; it is not a full Notes document model. Docked widgets expose Compact, Normal, and Wide size preset controls that persist through `update_widget_instance_layout`. Widget frames include a local Logs toggle that performs bounded `list_widget_logs` reads when opened and refreshes an open panel after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs, but no runtime log emission, polling, or streaming exists yet. The Workbench canvas shows a compact Recent activity surface backed by workspace-scoped events returned from `get_workspace_workbench_state`; it is not a runtime log console. All other catalog templates remain planned and display-only. No preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
+The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes placeholder through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state` with the shape `{ "body": "..." }`; it is not a full Notes document model. Docked widgets expose Compact, Normal, and Wide size preset controls that persist through `update_widget_instance_layout`. Widget frames include a frontend-only Pop out action that moves the same mounted widget into an in-app overlay and leaves a ghost placeholder with Dock back in the original slot; this popout state is not persisted and does not use Tauri windows. Widget frames also include a local Logs toggle that performs bounded `list_widget_logs` reads when opened and refreshes an open panel after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs, but no runtime log emission, polling, or streaming exists yet. The Workbench canvas shows a compact Recent activity surface backed by workspace-scoped events returned from `get_workspace_workbench_state`; it is not a runtime log console. All other catalog templates remain planned and display-only. No preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
 
 Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
@@ -78,6 +78,7 @@ npm run tauri:build
 - Full Notes editing or note document storage.
 - Runtime widget behavior beyond the Notes placeholder insertion and state-save path.
 - Non-Notes widget insertion.
+- Tauri separate-window popouts, persisted popout geometry, and always-on-top behavior.
 - Real terminal execution.
 - Real agent calls.
 - Preset persistence.

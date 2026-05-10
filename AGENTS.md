@@ -48,7 +48,7 @@ Current foundation target:
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
 - Add Widget opens the Widget Catalog drawer. The Notes placeholder template can be inserted as a persisted WidgetInstance; other catalog items remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model is not implemented yet.
-- Docked widget size presets update persisted layout. Drag/drop, resize handles, popout UI, and preset editing are not implemented yet.
+- Docked widget size presets update persisted layout. Widgets also have frontend-only popout presentation state with an in-app overlay, a ghost placeholder, and Dock back behavior. Drag/drop, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top, and preset editing are not implemented yet.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; runtime logging, streaming, and polling are not implemented.
 - Widgets are first-class entities, not just React components.
 - Existing Widget Registry, Preset model, and WidgetHost architecture must be preserved.

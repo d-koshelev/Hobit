@@ -53,7 +53,7 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes placeholder template can be inserted through the workspace API as a persisted WidgetInstance and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, non-Notes widget insertion behavior, preset editor, drag/drop layout editor, resize handles, popout UI, or full Notes document model yet.
+There is no terminal execution, agent runtime, non-Notes widget insertion behavior, preset editor, drag/drop layout editor, resize handles, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or full Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -126,7 +126,7 @@ The Widget Catalog has frontend-local template metadata for future capabilities.
 
 The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notes document model, Markdown editor, autosave flow, folder system, or AI-in-Notes implementation.
 
-Docked widget size presets update persisted layout through `update_widget_instance_layout`. There is no drag/drop layout editor, resize handle UI, popout UI, or preset editor.
+Docked widget size presets update persisted layout through `update_widget_instance_layout`. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no drag/drop layout editor, resize handle UI, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. There is no runtime log streaming, polling, or widget execution.
 

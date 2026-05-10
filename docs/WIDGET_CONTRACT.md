@@ -160,7 +160,7 @@ Widget Catalog
 
 Only the Notes placeholder template is currently available for catalog insertion. It persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model, Markdown editor, autosave, and AI-in-Notes behavior are not implemented yet.
 
-Docked widget size presets persist layout updates. Drag/drop layout editing, resize handles, popout UI, and preset editing are not implemented yet.
+Docked widget size presets persist layout updates. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. Drag/drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are not implemented yet.
 
 The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions when already open. Existing widget add/state/layout mutations emit basic logs. Runtime execution, runtime log emission, streaming, and polling are not implemented yet.
 

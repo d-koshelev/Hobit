@@ -67,6 +67,16 @@
   .widget-frame {
     min-height: 440px;
   }
+
+  .widget-popout-layer {
+    top: 80px;
+    width: calc(100vw - 32px);
+    max-height: calc(100vh - 96px);
+  }
+
+  .widget-popout-layer .widget-frame {
+    min-height: min(520px, calc(100vh - 96px));
+  }
 }
 
 @media (max-width: 560px) {
