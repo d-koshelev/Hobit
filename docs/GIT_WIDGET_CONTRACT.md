@@ -4,7 +4,7 @@
 
 This contract defines the future Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
-The Git Widget is not implemented yet. This document is a product/domain contract only. It does not add Git command execution, UI, storage schema, Tauri commands, Workspace API behavior, or runtime behavior.
+The Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend only has an insertable static Git placeholder widget; it does not add Git command execution, repository access, storage schema, Tauri commands, Workspace API behavior, or runtime behavior.
 
 ## Role
 
@@ -285,6 +285,15 @@ This contract does not implement:
 
 ## Current Implementation Boundary
 
-There is no Git Widget / Git Plugin implementation in the current repository.
+The current repository has an insertable static Git placeholder widget in the frontend Widget Catalog. It renders a planned Git review surface through the existing `WidgetHost`/`WidgetFrame` path and uses the generic widget insertion flow.
 
-Git remains a future optional capability. It must not be shown by default, inserted as a real widget, or wired to execution unless explicitly requested by a future implementation block.
+Git runtime remains a future optional capability. The current placeholder must not be shown by default, treated as a real Git integration, or wired to execution unless explicitly requested by a future implementation block.
+
+Not implemented:
+
+- Git command execution
+- repository access or repository selection
+- status, diff, branch, log, ahead/behind, or validation parsing
+- staging, commit, push, revert, reset, clean, or stash
+- background watching
+- Tauri Git commands, backend API, storage schema, or runtime behavior

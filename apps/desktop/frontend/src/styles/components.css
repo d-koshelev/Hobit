@@ -173,6 +173,52 @@
   min-width: 0;
 }
 
+.git-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.git-review-card {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.git-review-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.git-review-card-title,
+.git-review-card-text {
+  margin: 0;
+}
+
+.git-review-card-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-review-card-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .badge {
   display: inline-flex;
   min-height: 24px;
