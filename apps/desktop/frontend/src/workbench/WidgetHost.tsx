@@ -14,6 +14,7 @@ import type {
   WidgetInstance,
   WidgetPresentationMode,
   WidgetRenderProps,
+  WorkbenchLayoutMode,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import {
@@ -31,8 +32,14 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 
 type WidgetHostProps = {
   instance: WidgetInstance;
+  layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
   onPopOut: (widgetInstanceId: WidgetInstance["id"]) => void;
+  onStartDockedDrag: (
+    widgetInstanceId: WidgetInstance["id"],
+    pointerX: number,
+    pointerY: number,
+  ) => void;
   onStartPopoutDrag: (
     widgetInstanceId: WidgetInstance["id"],
     pointerX: number,
@@ -44,13 +51,20 @@ type WidgetHostProps = {
 
 export function WidgetHost({
   instance,
+  layoutMode,
   onDockBack,
   onPopOut,
+  onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
   widgetActions,
 }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
+  const canMoveDockedWidget =
+    layoutMode === "editing" &&
+    presentationMode === "docked" &&
+    instance.layout.mode === "docked";
+
   function startPopoutDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (
       presentationMode !== "popped-out" ||
@@ -63,6 +77,14 @@ export function WidgetHost({
     event.preventDefault();
     event.stopPropagation();
     onStartPopoutDrag(instance.id, event.clientX, event.clientY);
+  }
+
+  function startDockedDrag(pointerX: number, pointerY: number) {
+    if (!canMoveDockedWidget) {
+      return;
+    }
+
+    onStartDockedDrag(instance.id, pointerX, pointerY);
   }
 
   const presentationAction =
@@ -101,6 +123,8 @@ export function WidgetHost({
       <WidgetFrame
         actions={frameActions}
         logRefreshToken={logRefreshToken}
+        moveEnabled={canMoveDockedWidget}
+        onMoveStart={startDockedDrag}
         onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
@@ -122,6 +146,8 @@ export function WidgetHost({
       <WidgetFrame
         actions={frameActions}
         logRefreshToken={logRefreshToken}
+        moveEnabled={canMoveDockedWidget}
+        onMoveStart={startDockedDrag}
         onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
@@ -141,10 +167,12 @@ export function WidgetHost({
       config={{ ...definition.defaultConfig, ...instance.config }}
       definition={definition}
       frameActions={frameActions}
+      frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
       instance={instance}
       logRefreshToken={logRefreshToken}
       onLoadLogs={widgetActions.listWidgetLogs}
+      onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}
       onUpdateState={widgetActions.updateWidgetState}
       title={instance.title || definition.defaultTitle}

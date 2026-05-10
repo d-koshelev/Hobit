@@ -4,17 +4,21 @@ import type { WidgetRenderProps } from "./types";
 
 export function TerminalPlaceholderWidget({
   frameActions,
+  frameMoveEnabled,
   frameStyle,
   instance,
   logRefreshToken,
   onLoadLogs,
+  onStartFrameMove,
   title,
 }: WidgetRenderProps) {
   return (
     <WidgetFrame
       actions={frameActions}
       logRefreshToken={logRefreshToken}
+      moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
+      onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
       subtitle="Terminal runtime placeholder"

@@ -7,10 +7,12 @@ import type { WidgetRenderProps } from "./types";
 
 export function NotesPlaceholderWidget({
   frameActions,
+  frameMoveEnabled,
   frameStyle,
   instance,
   logRefreshToken,
   onLoadLogs,
+  onStartFrameMove,
   onUpdateState,
   title,
 }: WidgetRenderProps) {
@@ -61,6 +63,8 @@ export function NotesPlaceholderWidget({
         onLoadLogs ? () => onLoadLogs(instance.id) : undefined
       }
       logRefreshToken={logRefreshToken}
+      moveEnabled={frameMoveEnabled}
+      onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
       subtitle="Workspace note draft"

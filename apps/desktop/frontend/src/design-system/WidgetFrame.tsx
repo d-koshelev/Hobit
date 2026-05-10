@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { Button } from "./Button";
@@ -22,6 +23,8 @@ type WidgetFrameProps = {
   children: ReactNode;
   footer?: ReactNode;
   logRefreshToken?: number;
+  moveEnabled?: boolean;
+  onMoveStart?: (pointerX: number, pointerY: number) => void;
   onLoadLogs?: () => Promise<WidgetFrameLogEntry[]>;
   style?: CSSProperties;
   status?: ReactNode;
@@ -34,6 +37,8 @@ export function WidgetFrame({
   children,
   footer,
   logRefreshToken,
+  moveEnabled = false,
+  onMoveStart,
   onLoadLogs,
   style,
   status,
@@ -88,9 +93,28 @@ export function WidgetFrame({
     };
   }, [isLogPanelOpen, logRefreshToken]);
 
+  function startMove(event: ReactPointerEvent<HTMLElement>) {
+    if (
+      !moveEnabled ||
+      !onMoveStart ||
+      !event.isPrimary ||
+      event.button !== 0 ||
+      isInteractiveHeaderTarget(event.target)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onMoveStart(event.clientX, event.clientY);
+  }
+
+  const headerClassName = moveEnabled
+    ? "widget-header widget-header-movable"
+    : "widget-header";
+
   return (
     <Panel className="widget-frame" style={style}>
-      <header className="widget-header">
+      <header className={headerClassName} onPointerDown={startMove}>
         <div className="widget-heading">
           <div className="widget-title-row">
             <h2 className="widget-title">{title}</h2>
@@ -129,6 +153,30 @@ export function WidgetFrame({
       ) : null}
       {footer ? <footer className="widget-footer">{footer}</footer> : null}
     </Panel>
+  );
+}
+
+function isInteractiveHeaderTarget(target: EventTarget) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      [
+        ".widget-actions",
+        "a",
+        "button",
+        "input",
+        "select",
+        "textarea",
+        "summary",
+        "[contenteditable='true']",
+        "[data-widget-header-drag-ignore]",
+        "[role='button']",
+        "[role='link']",
+      ].join(","),
+    ),
   );
 }
 

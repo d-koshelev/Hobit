@@ -48,10 +48,6 @@
     padding: var(--space-sm) var(--space-lg) var(--space-lg);
   }
 
-  .widget-grid {
-    grid-template-columns: 1fr;
-  }
-
   .workbench-content {
     --widget-catalog-width: 100%;
   }

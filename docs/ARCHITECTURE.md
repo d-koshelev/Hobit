@@ -61,7 +61,7 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes, Terminal placeholder, and Agent Chat placeholder templates can be inserted through the workspace API as persisted WidgetInstances and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, chat execution, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, preset editor, drag/drop layout editor, resize handles, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or full Notes document model yet.
+There is no terminal execution, agent runtime, chat execution, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, preset editor, full drag/drop layout editor, resize handles, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or full Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -136,7 +136,7 @@ The Notes placeholder persists a minimal draft through widget state using the sh
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode is currently only an explicit mode indicator and does not implement drag/drop or resize handles. Existing persisted docked layout sizes still render, and `update_widget_instance_layout` remains available for future docked drag/resize. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no drag/drop layout editor, resize handle UI, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area, with the final docked position persisted through `update_widget_instance_layout`. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no full drag/drop layout editor, resize handle UI, snapping, collision detection, auto-reflow, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. There is no runtime log streaming, polling, or widget execution.
 
@@ -168,7 +168,7 @@ This application layer is wired to the Tauri workspace bridge. It does not resto
 
 The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, Workbench records, widget instance summaries, widget state/layout fields, shared state summaries, widget-local logs, and Workbench event summaries.
 
-Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, drag/drop layout editor, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, terminal execution, chat execution, or agent runtime behavior.
+Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, full drag/drop layout editor, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, terminal execution, chat execution, or agent runtime behavior.
 
 ## Planned Notes Model
 

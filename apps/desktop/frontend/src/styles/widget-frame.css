@@ -20,6 +20,19 @@
   padding: var(--space-lg) var(--space-lg) var(--space-sm);
 }
 
+.widget-header-movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.widget-header-movable:active {
+  cursor: grabbing;
+}
+
+.widget-header-movable .widget-actions {
+  cursor: auto;
+}
+
 .widget-heading {
   display: grid;
   min-width: 0;

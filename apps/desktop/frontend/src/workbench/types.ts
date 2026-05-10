@@ -165,9 +165,11 @@ export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   frameActions?: ReactNode;
+  frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
   instance: WidgetInstance;
   logRefreshToken?: number;
+  onStartFrameMove?: (pointerX: number, pointerY: number) => void;
   onUpdateLayout?: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,

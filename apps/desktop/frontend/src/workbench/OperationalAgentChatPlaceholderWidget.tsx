@@ -5,17 +5,21 @@ import type { WidgetRenderProps } from "./types";
 
 export function OperationalAgentChatPlaceholderWidget({
   frameActions,
+  frameMoveEnabled,
   frameStyle,
   instance,
   logRefreshToken,
   onLoadLogs,
+  onStartFrameMove,
   title,
 }: WidgetRenderProps) {
   return (
     <WidgetFrame
       actions={frameActions}
       logRefreshToken={logRefreshToken}
+      moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
+      onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
       subtitle="Operational agent chat placeholder"

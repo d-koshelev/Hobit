@@ -65,7 +65,7 @@ Current foundation target:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model is not implemented yet.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
-- The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode is only an explicit mode indicator for now. Existing persisted docked sizes still render, and `update_widget_instance_layout` remains available for future docked drag/resize. Widgets also have frontend-only popout presentation state with an in-app overlay, a ghost placeholder, and Dock back behavior. Drag/drop, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top, and preset editing are not implemented yet.
+- The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area, with final `dock_x`/`dock_y` persisted through `update_widget_instance_layout`. Docked resize handles, snapping, collision detection, auto-reflow, Tauri separate-window popouts, persisted popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only popout presentation state with an in-app overlay, a ghost placeholder, and Dock back behavior.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; runtime logging, streaming, and polling are not implemented.
 - Widgets are first-class entities, not just React components.
 - Existing Widget Registry, Preset model, and WidgetHost architecture must be preserved.
@@ -137,7 +137,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 - Do not add widget insertion behavior beyond the existing Notes, Terminal placeholder, and Agent Chat placeholder catalog paths unless explicitly requested.
 - Do not add UI frameworks or icon libraries unless explicitly requested.
 - Do not add drag-and-drop until explicitly requested.
-- Do not add docked drag/resize layout editing, preset editing, or new persistence flows unless explicitly requested.
+- Do not add docked resize layout editing, snapping, collision detection, auto-reflow, preset editing, or new persistence flows unless explicitly requested.
 
 ## Rust/core rules
 
@@ -162,8 +162,8 @@ Do not add:
 - Image Edit implementation
 - real widget implementation
 - additional widget insertion behavior beyond the existing Notes, Terminal placeholder, and Agent Chat placeholder paths
-- drag-and-drop layout editor
-- docked drag/resize layout editing or preset editor behavior
+- full drag-and-drop layout editor
+- docked resize layout editing, snapping, collision detection, auto-reflow, or preset editor behavior
 - unplanned SQLite schema changes
 - new runtime execution behavior
 - new dependencies
