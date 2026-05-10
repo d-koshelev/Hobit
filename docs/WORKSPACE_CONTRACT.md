@@ -115,6 +115,11 @@ A Workspace should persist:
 - widget-local logs
 - widget results
 - shared state objects
+- applied request snapshots when future template workflows exist
+- selected response template references when future template workflows exist
+- captured executor responses when future agent workflows exist
+- validation results linked to requests/responses when future agent workflows exist
+- Git commits linked to requests/responses when future Git review workflows exist
 - workspace-local notes
 - decisions
 - current focus
@@ -258,6 +263,7 @@ The following are not implemented yet:
 - workspace restore runtime
 - event replay
 - widget runtime reconstruction
+- applied request/response snapshot history
 - non-Notes widget insertion from catalog items
 - real capability widgets
 - custom preset editor

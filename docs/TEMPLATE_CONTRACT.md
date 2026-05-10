@@ -2,17 +2,17 @@
 
 ## Purpose
 
-This contract defines future Hobit product and domain rules for first-class Request Templates and Response Templates.
+This contract defines Hobit's future product/domain rules for first-class Request Templates and Response Templates.
 
-Hobit currently uses prompt and response formats outside the product flow. This contract defines how reusable templates should eventually become Workspace/Project assets that help operators create consistent agent/tool requests and validate responses without making prompts hidden, automatic, or approval-bypassing behavior.
+Hobit currently relies on manually written prompts and manually enforced response formats outside the product flow. That is error-prone, hard to reuse, hard to validate, and easy to drift. Request Templates and Response Templates should eventually become reusable Workspace/Project assets for structured agent, tool, and manual workflows.
 
-This is a product/domain contract only. No storage schema, UI implementation, agent runtime behavior, or tool execution behavior exists in this block.
+This is a documentation and product/domain contract only. It does not implement storage, UI, response parsing, agent runtime behavior, tool execution, or automation.
 
 ## Current Status
 
 Request Templates and Response Templates are not implemented yet.
 
-The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defines the final-response format for project agents working on Hobit tasks. That document is a project agent operating contract. It is not yet a Hobit product feature, editable template asset, validation engine, or persisted Workspace object.
+The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defines the final-response format for project agents working on Hobit blocks. That document is a project agent operating contract. It is not yet a Hobit product feature, editable template asset, validation engine, or persisted Workspace object.
 
 ## Definitions
 
@@ -20,27 +20,31 @@ The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defin
 
 A Template is a reusable asset that helps create or validate a concrete work request or response.
 
-Templates are not WidgetInstances. They may be selected or edited through future Workbench UI, but the template asset itself is not a visible workbench block.
-
-Templates are reusable across Workspaces and Projects when the future product model supports those scopes. Applying a template to a task creates a concrete snapshot for that task.
+Templates are reusable Workspace/Project assets. They are not WidgetInstances, Workbench layout entries, Presets, or hidden runtime instructions.
 
 ### Request Template
 
 A Request Template is a reusable structured request/prompt template for agent, tool, or manual work.
 
-It defines the expected request shape, required context, constraints, safety rules, validation expectations, and optional response-template pairing before a concrete request is sent, copied, exported, or handed to an agent/tool.
+It defines the expected request shape, required context, scope boundaries, exclusions, safety rules, validation expectations, manual checks, and optional response-template pairing before a concrete request is sent, copied, exported, or handed to an executor.
 
 ### Response Template
 
-A Response Template is a reusable expected response/report format.
+A Response Template is a reusable expected response/report structure for executor results.
 
-It defines the required output structure, validation-reporting rules, warning sections, out-of-scope reporting, git/status expectations when relevant, and rules that prevent success claims when validation or commit steps fail.
+It defines the required final report shape, validation-reporting rules, warnings, out-of-scope reporting, commit reporting, final git status reporting, and rules that prevent success claims when validation or commit steps fail.
 
 ### Request Snapshot
 
-A Request Snapshot is the concrete request created by applying a Request Template and filling its variables for a specific task.
+A Request Snapshot is the concrete request created by applying a Request Template and filling its variables for a specific block/task.
 
-Request Snapshots are durable task artifacts when future storage supports them. Edits to the source template after snapshot creation must not silently mutate previous request snapshots.
+Request Snapshots are durable task artifacts when future Workspace history supports them. Future edits to the source Request Template must not silently mutate previous request snapshots.
+
+### Captured Response
+
+A Captured Response is the executor's final response associated with a Request Snapshot.
+
+Captured Responses may be checked against the selected Response Template when future response validation exists. Future edits to the source Response Template must not silently mutate historical response expectations.
 
 ## Request Template Contract
 
@@ -49,12 +53,13 @@ A Request Template should model:
 - `id`: stable template identifier.
 - `title`: short operator-facing name.
 - `description`: concise purpose and expected use.
-- `template_kind`: task category such as `implementation`, `audit`, `docs`, `refactor`, `bugfix`, or `smoke-test`.
-- `target`: intended recipient such as `codex`, `agent`, `tool`, or `manual`.
+- `template_kind`: task category such as `implementation`, `audit`, `docs-only`, `refactor`, `bugfix`, `smoke-test`, `investigation`, or `validation-only`.
+- `target`: intended recipient such as `codex`, `executor-agent`, `tool`, or `manual-operator`.
 - `variables`: named placeholders with labels, descriptions, default values, required flags, and allowed values when constrained.
 - `required_context_sections`: named context blocks that must be supplied before use.
 - `scope_section`: explicit boundaries for what the request includes.
-- `do_not_change_section`: explicit exclusions and protected files, systems, or behavior.
+- `likely_files_section`: expected files or areas that may be relevant.
+- `do_not_change_section`: explicit exclusions and protected files, systems, behavior, or contracts.
 - `implementation_requirements_section`: concrete requirements the assignee must satisfy.
 - `safety_stopping_rules`: conditions that require stopping, asking, or refusing to proceed.
 - `validation_commands`: requested commands or checks with ordering, optionality, and expected reporting.
@@ -71,9 +76,10 @@ Rules:
 - A Request Template must make scope and exclusions explicit.
 - A Request Template must not hide material instructions from the operator.
 - A Request Template must not inject secrets or credentials.
-- A Request Template must not bypass approval requirements for tools, actions, file edits, commits, or runtime execution.
-- A Request Template may prepare a request for an agent or tool, but applying it must not automatically execute the request unless a future explicit approval-aware flow defines that behavior.
-- A Request Template may reference a default Response Template, but the operator must be able to see the selected response expectations.
+- A Request Template must not bypass approval requirements for tools, actions, file edits, Git operations, commits, or runtime execution.
+- A Request Template may prepare a request for an agent, tool, or operator, but applying it must not automatically execute the request.
+- A Request Template may reference a default Response Template, but the operator must be able to see and change the selected response expectations when future UI supports that.
+- A generated executor prompt is an applied Request Snapshot, not a live view of the template.
 
 ## Response Template Contract
 
@@ -81,12 +87,13 @@ A Response Template should model:
 
 - `id`: stable template identifier.
 - `title`: short operator-facing name.
-- `response_kind`: report category such as `implementation`, `audit`, `blocked`, or `validation-only`.
+- `response_kind`: report category such as `implementation-result`, `no-code-audit-result`, `failed-blocked-result`, or `validation-only-result`.
 - `required_header_format`: expected first line or header pattern.
 - `required_sections`: ordered sections that must appear in the response.
-- `validation_reporting_rules`: rules for listing requested commands, pass/fail/not-run status, and failure details.
-- `warnings_section`: section for environmental warnings, caveats, and residual risk.
+- `validation_reporting_rules`: rules for listing requested commands, pass/fail/not-run status, warnings, and failure details.
+- `warnings_section`: section for environmental warnings, caveats, skipped checks, and residual risk.
 - `out_of_scope_section`: section for intentionally excluded work.
+- `commit_section`: section for commit hash and commit message when a commit is required or created.
 - `final_git_status_section`: section for final working-tree status when repository work is involved.
 - `no_success_claim_rule`: explicit rule that success must not be claimed when required validation, implementation, or commit steps failed.
 - `version`: human-facing template version.
@@ -96,38 +103,61 @@ A Response Template should model:
 
 Rules:
 
-- A Response Template describes the expected final report shape. It does not prove the underlying work succeeded by itself.
-- Response validation must report missing required sections as warnings or errors according to the future validation policy.
-- Response validation must distinguish command failures from commands that were not run.
-- Response validation must not rewrite the agent's report invisibly.
+- A Response Template describes the expected final report shape. It does not prove that the underlying work succeeded.
+- Response validation must report missing required sections as warnings or errors according to future validation policy.
+- Response validation must distinguish failed commands from commands that were not run.
+- Response validation must not hide failed or skipped validation.
+- Response validation must not rewrite the executor's report invisibly.
 - Response Templates may be reused across many Request Templates.
 
-## Relationships
+## Request And Response Relationship
 
 - A Request Template may reference one default Response Template.
 - A Response Template may be reused by many Request Templates.
 - The operator may override the default Response Template before creating a concrete request when future UI supports it.
 - Applying a Request Template creates a Request Snapshot containing the rendered request, filled variables, source request template id, source request template revision, selected response template id, and selected response template revision.
-- Future edits to Request Templates or Response Templates must not silently mutate previous Request Snapshots or historical response expectations.
-- Templates are reusable assets for Workspace/Project flows. They are not WidgetInstances, Workbench layout entries, or Presets.
-- A future widget may expose a Template Library or request builder UI, but the template asset remains distinct from the widget instance rendering it.
-- For agent block workflow, `docs/AGENT_OPERATING_MODEL.md` defines how a coordinator selects templates and creates concrete executor request snapshots.
+- A captured final response is checked against the selected Response Template when future response validation exists.
+- Template edits must not silently mutate already-applied historical requests, captured responses, or historical response expectations.
+- Templates are reusable Workspace/Project assets, not widget instances.
+- A future widget may expose a Template Library or request builder UI, but the template definition remains distinct from the widget instance rendering it.
 
-## Future UI Behavior
+## Relation To Coordinator / Executor Workflow
+
+Templates support the coordinator/executor operating model defined in `docs/AGENT_OPERATING_MODEL.md`.
+
+Expected future workflow:
+
+1. Coordinator chooses a Request Template.
+2. Coordinator chooses or accepts the default Response Template.
+3. Coordinator fills variables and required context.
+4. Coordinator previews the concrete executor prompt.
+5. Coordinator creates a Request Snapshot and sends, copies, or exports it.
+6. Executor starts in a fresh task/thread for that block.
+7. Executor performs the focused block.
+8. Executor returns a final response following the selected Response Template and `docs/AGENT_RESPONSE_CONTRACT.md`.
+9. Coordinator validates the captured response.
+10. Coordinator accepts, asks for a fix, reruns, or creates the next block.
+
+Strategic planning belongs in the coordinator flow unless a Request Template explicitly defines a plan-only block.
+
+## Future UI / Product Behavior
 
 Future Hobit UI may support:
 
 - Template Library / Template Catalog browsing.
 - Creating, editing, duplicating, archiving, and versioning templates.
-- Selecting a Request Template when creating an agent request, tool request, task, or manual work item.
+- Viewing version/revision history.
+- Selecting a Request Template when creating an agent block, tool request, task, or manual work item.
 - Selecting or overriding the linked Response Template.
 - Filling variables with validation for required placeholders.
 - Showing required context sections before request creation.
 - Previewing the generated concrete request before use.
-- Copying or exporting the generated request.
-- Creating a durable Request Snapshot for a Workspace task.
-- Validating a response against the selected Response Template.
-- Showing missing required sections, malformed sections, validation-reporting gaps, and warning conditions.
+- Copying, exporting, or sending the generated request.
+- Capturing executor responses.
+- Validating captured responses against the selected Response Template.
+- Showing missing required sections.
+- Showing warnings, malformed sections, failed validation, and skipped validation.
+- Creating follow-up blocks from failed validation, diff review, Git review, or operator notes.
 
 Future UI rules:
 
@@ -136,6 +166,50 @@ Future UI rules:
 - Hidden prompt mutation is forbidden.
 - Template application must preserve approval-aware tool/action rules.
 - Template editing must not change historical request snapshots unless the operator explicitly creates a new snapshot.
+
+## Relation To Workspaces
+
+Future Workspaces may store:
+
+- applied Request Snapshots
+- selected Response Template id and revision
+- captured executor responses
+- response validation results
+- validation command results
+- Git commit hashes and messages
+- widget logs and activity associated with the block
+- artifacts created by the block
+- coordinator accept/fix/rerun/next-block decisions
+
+Reusable templates may exist across Workspaces or Projects, but applied snapshots belong to the specific Workspace history where the work happened.
+
+Workspace history should link requests, executor responses, validation results, Git commits, logs, and artifacts when future storage supports those relationships.
+
+## Relation To Widgets
+
+Widgets may use templates to generate structured requests, but template definitions are not owned by widget instances.
+
+Examples:
+
+- A future coordinator/request-builder widget may use Request Templates to generate executor prompts.
+- The Git Widget may use response metadata, validation output, commits, and Request Snapshot links for review cards.
+- Notes or Notebook widgets may later use templates for AI-assisted writing or review workflows.
+- Agent-facing widgets may display the selected Response Template expectations before executor work begins.
+
+All visible template management or request-generation surfaces must follow `docs/WIDGET_CONTRACT.md` and preserve operator control.
+
+## Safety Principles
+
+- No hidden prompt mutation.
+- No hidden agent execution.
+- No secret injection.
+- Generated prompts must be previewable.
+- Template variables must be explicit.
+- Operator approval remains required for tool actions, Git actions, external effects, file changes, and destructive operations.
+- Validation requirements must be visible before the request is sent.
+- Response validation must not hide failed or skipped commands.
+- Template edits must not silently rewrite historical requests or responses.
+- Templates must not create an implicit execution path around the Workbench approval model.
 
 ## Workspace And Project Scope
 
@@ -162,15 +236,19 @@ This contract does not implement:
 - TypeScript types
 - React UI
 - Tauri commands
+- Workspace API changes
 - template editor UI
 - template catalog UI
+- response parser implementation
 - response validation engine
 - automatic agent execution
+- background automation
 - prompt execution or tool execution
+- secret management implementation
 - secret injection
 - approval bypasses
-- hidden mutation of prompts
-- changes to `docs/AGENT_RESPONSE_CONTRACT.md` as a product feature
+- runtime/tool execution changes
+- product behavior changes
 
 ## Architecture Boundary
 
@@ -181,3 +259,4 @@ Future implementation must preserve existing Hobit boundaries:
 - Frontend UI must treat visible template management surfaces as widgets or explicit Workbench controls.
 - Agent/runtime integration must not make templates an implicit execution path.
 - Tool/action execution must remain explicit, visible, and approval-aware.
+- Git review integration must remain explicit and approval-aware under `docs/GIT_WIDGET_CONTRACT.md`.
