@@ -31,11 +31,13 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
     ) : undefined;
   const frameStyle = widgetFrameStyle(instance);
   const loadLogs = () => widgetActions.listWidgetLogs(instance.id);
+  const logRefreshToken = widgetActions.logRefreshTokens[instance.id] ?? 0;
 
   if (!definition) {
     return (
       <WidgetFrame
         actions={frameActions}
+        logRefreshToken={logRefreshToken}
         onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
@@ -56,6 +58,7 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
     return (
       <WidgetFrame
         actions={frameActions}
+        logRefreshToken={logRefreshToken}
         onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
@@ -77,6 +80,7 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
       frameActions={frameActions}
       frameStyle={frameStyle}
       instance={instance}
+      logRefreshToken={logRefreshToken}
       onLoadLogs={widgetActions.listWidgetLogs}
       onUpdateLayout={widgetActions.updateWidgetLayout}
       onUpdateState={widgetActions.updateWidgetState}

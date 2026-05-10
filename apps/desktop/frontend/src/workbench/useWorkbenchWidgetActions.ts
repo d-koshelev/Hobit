@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
   listWidgetLogs,
@@ -28,6 +29,7 @@ export type WorkbenchWidgetActions = {
   listWidgetLogs: (
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
+  logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
   updateWidgetLayout: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,
@@ -40,17 +42,31 @@ export type WorkbenchWidgetActions = {
 
 export type WorkbenchWidgetInstanceActions = Pick<
   WorkbenchWidgetActions,
-  "listWidgetLogs" | "updateWidgetLayout" | "updateWidgetState"
+  | "listWidgetLogs"
+  | "logRefreshTokens"
+  | "updateWidgetLayout"
+  | "updateWidgetState"
 >;
 
 export function useWorkbenchWidgetActions({
   onViewStateChange,
   viewState,
 }: UseWorkbenchWidgetActionsOptions): WorkbenchWidgetActions {
+  const [logRefreshTokens, setLogRefreshTokens] = useState<
+    Partial<Record<WidgetInstanceId, number>>
+  >({});
+
   function applyWorkbenchState(workbenchState: WorkspaceWorkbenchState) {
     onViewStateChange(
       createWorkbenchViewStateFromWorkspaceState(workbenchState),
     );
+  }
+
+  function bumpWidgetLogRefreshToken(widgetInstanceId: WidgetInstanceId) {
+    setLogRefreshTokens((currentTokens) => ({
+      ...currentTokens,
+      [widgetInstanceId]: (currentTokens[widgetInstanceId] ?? 0) + 1,
+    }));
   }
 
   async function addWidgetTemplate(template: WidgetCatalogTemplate) {
@@ -99,6 +115,7 @@ export function useWorkbenchWidgetActions({
     }
 
     applyWorkbenchState(workbenchState);
+    bumpWidgetLogRefreshToken(widgetInstanceId);
   }
 
   async function updateWidgetLayout(
@@ -144,6 +161,7 @@ export function useWorkbenchWidgetActions({
     }
 
     applyWorkbenchState(workbenchState);
+    bumpWidgetLogRefreshToken(widgetInstanceId);
   }
 
   async function loadWidgetLogs(widgetInstanceId: WidgetInstanceId) {
@@ -172,6 +190,7 @@ export function useWorkbenchWidgetActions({
   return {
     addWidgetTemplate,
     listWidgetLogs: loadWidgetLogs,
+    logRefreshTokens,
     updateWidgetLayout,
     updateWidgetState,
   };

@@ -9,6 +9,7 @@ export function NotesPlaceholderWidget({
   frameActions,
   frameStyle,
   instance,
+  logRefreshToken,
   onLoadLogs,
   onUpdateState,
   title,
@@ -59,6 +60,7 @@ export function NotesPlaceholderWidget({
       onLoadLogs={
         onLoadLogs ? () => onLoadLogs(instance.id) : undefined
       }
+      logRefreshToken={logRefreshToken}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
       subtitle="Workspace note draft"

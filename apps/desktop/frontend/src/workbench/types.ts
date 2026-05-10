@@ -165,6 +165,7 @@ export type WidgetRenderProps = {
   frameActions?: ReactNode;
   frameStyle?: CSSProperties;
   instance: WidgetInstance;
+  logRefreshToken?: number;
   onUpdateLayout?: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,

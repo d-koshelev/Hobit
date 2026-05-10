@@ -21,6 +21,7 @@ type WidgetFrameProps = {
   actions?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  logRefreshToken?: number;
   onLoadLogs?: () => Promise<WidgetFrameLogEntry[]>;
   style?: CSSProperties;
   status?: ReactNode;
@@ -32,6 +33,7 @@ export function WidgetFrame({
   actions,
   children,
   footer,
+  logRefreshToken,
   onLoadLogs,
   style,
   status,
@@ -84,7 +86,7 @@ export function WidgetFrame({
     return () => {
       shouldUpdate = false;
     };
-  }, [isLogPanelOpen]);
+  }, [isLogPanelOpen, logRefreshToken]);
 
   return (
     <Panel className="widget-frame" style={style}>
