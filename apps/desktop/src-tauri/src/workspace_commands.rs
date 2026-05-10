@@ -6,9 +6,9 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::workspace_dto::{
-    AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, UpdateWidgetInstanceLayoutRequest,
-    UpdateWidgetInstanceStateRequest, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
-    WorkspaceWorkbenchStateDto,
+    AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, ListWidgetLogsRequest,
+    UpdateWidgetInstanceLayoutRequest, UpdateWidgetInstanceStateRequest, WidgetLogDto,
+    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[tauri::command]
@@ -124,6 +124,23 @@ pub(crate) fn update_widget_instance_layout(
             request.layout.into(),
         )
         .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn list_widget_logs(
+    request: ListWidgetLogsRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<Vec<WidgetLogDto>>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .list_widget_logs(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            request.limit,
+        )
+        .map(|logs| logs.map(|logs| logs.into_iter().map(WidgetLogDto::from).collect()))
         .map_err(command_error)
 }
 

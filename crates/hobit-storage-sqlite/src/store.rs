@@ -602,16 +602,21 @@ impl SqliteStore {
     pub fn list_widget_logs_for_widget(
         &self,
         widget_instance_id: &str,
+        limit: usize,
     ) -> Result<Vec<WidgetLogRow>> {
+        let limit = limit.min(i64::MAX as usize) as i64;
         let mut statement = self.connection.prepare(
             "SELECT id, widget_instance_id, run_id, level, message, created_at, details
              FROM widget_logs
              WHERE widget_instance_id = ?1
-             ORDER BY created_at, id",
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?2",
         )?;
 
-        let rows = statement.query_map(params![widget_instance_id], widget_log_row)?;
-        rows.collect()
+        let rows = statement.query_map(params![widget_instance_id, limit], widget_log_row)?;
+        let mut logs: Vec<_> = rows.collect::<Result<Vec<_>>>()?;
+        logs.reverse();
+        Ok(logs)
     }
 
     pub fn insert_widget_result(&self, input: NewWidgetResult<'_>) -> Result<WidgetResultRow> {
@@ -1407,7 +1412,7 @@ mod tests {
         assert_eq!(store.list_widget_logs("run-1").expect("list logs").len(), 1);
         assert_eq!(
             store
-                .list_widget_logs_for_widget("widget-1")
+                .list_widget_logs_for_widget("widget-1", 100)
                 .expect("list widget logs")
                 .len(),
             1
@@ -1439,7 +1444,7 @@ mod tests {
             })
             .expect("append widget-local log");
         let widget_logs = store
-            .list_widget_logs_for_widget("widget-1")
+            .list_widget_logs_for_widget("widget-1", 100)
             .expect("list widget-local logs");
 
         assert_eq!(log.widget_instance_id, "widget-1");
@@ -1448,7 +1453,88 @@ mod tests {
         assert_eq!(widget_logs[0].id, "log-1");
     }
 
+    #[test]
+    fn list_widget_logs_for_widget_does_not_leak_other_widget_logs() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+        store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "widget-2",
+                workspace_id: "workspace-1",
+                workbench_id: "workbench-1",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{}"),
+            })
+            .expect("insert second widget");
+
+        for (id, widget_instance_id) in [("log-1", "widget-1"), ("log-2", "widget-2")] {
+            store
+                .append_widget_log(NewWidgetLog {
+                    id,
+                    widget_instance_id,
+                    run_id: None,
+                    level: "info",
+                    message: "Widget activity",
+                    created_at: Some("1"),
+                    details: None,
+                })
+                .expect("append widget log");
+        }
+
+        let logs = store
+            .list_widget_logs_for_widget("widget-1", 100)
+            .expect("list widget logs");
+
+        assert_eq!(log_ids(&logs), vec!["log-1"]);
+    }
+
+    #[test]
+    fn list_widget_logs_for_widget_respects_limit_and_chronological_order() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+
+        for (id, created_at) in [("log-1", "1"), ("log-c", "2"), ("log-a", "2")] {
+            store
+                .append_widget_log(NewWidgetLog {
+                    id,
+                    widget_instance_id: "widget-1",
+                    run_id: None,
+                    level: "info",
+                    message: "Widget activity",
+                    created_at: Some(created_at),
+                    details: None,
+                })
+                .expect("append widget log");
+        }
+
+        let logs = store
+            .list_widget_logs_for_widget("widget-1", 2)
+            .expect("list widget logs");
+
+        assert_eq!(log_ids(&logs), vec!["log-a", "log-c"]);
+    }
+
     fn event_ids(events: &[WorkbenchEventRow]) -> Vec<&str> {
         events.iter().map(|event| event.id.as_str()).collect()
+    }
+
+    fn log_ids(logs: &[WidgetLogRow]) -> Vec<&str> {
+        logs.iter().map(|log| log.id.as_str()).collect()
     }
 }

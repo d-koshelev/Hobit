@@ -1,6 +1,7 @@
 use hobit_app::{
-    SharedStateObjectSummary, WidgetInstanceLayout, WidgetInstanceSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    SharedStateObjectSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +34,14 @@ pub(crate) struct UpdateWidgetInstanceLayoutRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub layout: WidgetInstanceLayoutDto,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct ListWidgetLogsRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub limit: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -102,6 +111,17 @@ pub(crate) struct WidgetInstanceSummaryDto {
     pub is_visible: bool,
     pub config: Option<String>,
     pub state: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct WidgetLogDto {
+    pub id: String,
+    pub widget_instance_id: String,
+    pub run_id: Option<String>,
+    pub level: String,
+    pub message: String,
+    pub payload: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -197,6 +217,20 @@ impl From<WidgetInstanceSummary> for WidgetInstanceSummaryDto {
             is_visible: summary.is_visible,
             config: summary.config,
             state: summary.state,
+        }
+    }
+}
+
+impl From<WidgetLogSummary> for WidgetLogDto {
+    fn from(summary: WidgetLogSummary) -> Self {
+        Self {
+            id: summary.id,
+            widget_instance_id: summary.widget_instance_id,
+            run_id: summary.run_id,
+            level: summary.level,
+            message: summary.message,
+            payload: summary.payload,
+            created_at: summary.created_at,
         }
     }
 }
@@ -368,5 +402,33 @@ mod tests {
         );
         assert_eq!(dto.shared_state_objects[0].key, "current_goal");
         assert_eq!(dto.recent_events[0].kind, "workspace_created");
+    }
+
+    #[test]
+    fn maps_widget_log_to_dto() {
+        let summary = WidgetLogSummary {
+            id: "log-1".to_owned(),
+            widget_instance_id: "widget-1".to_owned(),
+            run_id: Some("run-1".to_owned()),
+            level: "info".to_owned(),
+            message: "Saved note".to_owned(),
+            payload: Some("{\"source\":\"test\"}".to_owned()),
+            created_at: "1".to_owned(),
+        };
+
+        let dto = WidgetLogDto::from(summary);
+
+        assert_eq!(
+            dto,
+            WidgetLogDto {
+                id: "log-1".to_owned(),
+                widget_instance_id: "widget-1".to_owned(),
+                run_id: Some("run-1".to_owned()),
+                level: "info".to_owned(),
+                message: "Saved note".to_owned(),
+                payload: Some("{\"source\":\"test\"}".to_owned()),
+                created_at: "1".to_owned(),
+            }
+        );
     }
 }

@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
     NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, StorageError,
-    WidgetInstanceLayoutUpdate, WidgetInstanceRow, WorkbenchEventRow, WorkspaceRow,
+    WidgetInstanceLayoutUpdate, WidgetInstanceRow, WidgetLogRow, WorkbenchEventRow, WorkspaceRow,
     WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
@@ -22,6 +22,7 @@ const WIDGET_LAYOUT_MODE_DOCKED: &str = "docked";
 const WIDGET_LAYOUT_MODE_POPPED_OUT: &str = "popped_out";
 const WIDGET_LAYOUT_MODE_MINIMIZED: &str = "minimized";
 const MAX_WIDGET_LAYOUT_DIMENSION: i64 = 16_384;
+const MAX_WIDGET_LOG_LIMIT: usize = 200;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -90,6 +91,17 @@ pub struct WidgetInstanceLayout {
     pub popout_height: Option<i64>,
     pub always_on_top: bool,
     pub is_visible: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetLogSummary {
+    pub id: String,
+    pub widget_instance_id: String,
+    pub run_id: Option<String>,
+    pub level: String,
+    pub message: String,
+    pub payload: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -440,6 +452,48 @@ impl WorkspaceService {
             .map_err(WorkspaceServiceError::from)
     }
 
+    pub fn list_widget_logs(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        limit: usize,
+    ) -> Result<Option<Vec<WidgetLogSummary>>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let limit = clamp_widget_log_limit(limit);
+
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let Some(workbench) = self
+            .store
+            .list_workspace_workbenches(&workspace.id)?
+            .into_iter()
+            .find(|workbench| workbench.id == workbench_id)
+        else {
+            return Ok(None);
+        };
+
+        let Some(widget) = self.store.get_widget_instance(widget_instance_id)? else {
+            return Ok(None);
+        };
+
+        if widget.workspace_id != workspace.id || widget.workbench_id != workbench.id {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            self.store
+                .list_widget_logs_for_widget(&widget.id, limit)?
+                .into_iter()
+                .map(widget_log_summary)
+                .collect(),
+        ))
+    }
+
     fn first_workbench_id(
         &self,
         workspace_id: &str,
@@ -572,6 +626,10 @@ fn validate_dimension(label: &str, dimension: Option<i64>) -> Result<(), Workspa
     Ok(())
 }
 
+fn clamp_widget_log_limit(limit: usize) -> usize {
+    limit.min(MAX_WIDGET_LOG_LIMIT)
+}
+
 fn next_placeholder_widget_dock_y(existing_widget_count: usize) -> i64 {
     existing_widget_count as i64 * (PLACEHOLDER_WIDGET_DOCK_HEIGHT + PLACEHOLDER_WIDGET_DOCK_GAP)
 }
@@ -626,6 +684,18 @@ fn widget_instance_summary(row: WidgetInstanceRow) -> WidgetInstanceSummary {
     }
 }
 
+fn widget_log_summary(row: WidgetLogRow) -> WidgetLogSummary {
+    WidgetLogSummary {
+        id: row.id,
+        widget_instance_id: row.widget_instance_id,
+        run_id: row.run_id,
+        level: row.level,
+        message: row.message,
+        payload: row.details,
+        created_at: row.created_at,
+    }
+}
+
 fn shared_state_object_summary(row: SharedStateObjectRow) -> SharedStateObjectSummary {
     SharedStateObjectSummary {
         id: row.id,
@@ -667,7 +737,7 @@ fn unix_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance};
+    use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance, NewWidgetLog};
 
     fn initialized_service() -> WorkspaceService {
         let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -1436,6 +1506,128 @@ mod tests {
         assert_eq!(stored_widget.layout_mode, "docked");
         assert_eq!(stored_widget.dock_width, Some(360));
         assert_eq!(stored_widget.dock_height, Some(240));
+    }
+
+    #[test]
+    fn list_widget_logs_for_valid_widget_returns_logs() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add widget instance")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        service
+            .store
+            .append_widget_log(NewWidgetLog {
+                id: "log-1",
+                widget_instance_id: &widget_id,
+                run_id: None,
+                level: "info",
+                message: "Saved note",
+                created_at: Some("1"),
+                details: Some("{\"source\":\"test\"}"),
+            })
+            .expect("append widget log");
+        let event_count = service
+            .store
+            .list_workbench_events(&workspace.id)
+            .expect("list events")
+            .len();
+
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list widget logs")
+            .expect("widget logs");
+        let events_after_listing = service
+            .store
+            .list_workbench_events(&workspace.id)
+            .expect("list events")
+            .len();
+
+        assert_eq!(
+            logs,
+            vec![WidgetLogSummary {
+                id: "log-1".to_owned(),
+                widget_instance_id: widget_id,
+                run_id: None,
+                level: "info".to_owned(),
+                message: "Saved note".to_owned(),
+                payload: Some("{\"source\":\"test\"}".to_owned()),
+                created_at: "1".to_owned(),
+            }]
+        );
+        assert_eq!(events_after_listing, event_count);
+    }
+
+    #[test]
+    fn list_widget_logs_for_other_workbench_returns_none_without_leaking_logs() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        service
+            .store
+            .create_workspace_workbench("other-workbench", &workspace.id, None)
+            .expect("create other workbench");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "other-widget",
+                workspace_id: &workspace.id,
+                workbench_id: "other-workbench",
+                definition_id: "notes",
+                title: "Other Notes",
+                category: "notes",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{}"),
+            })
+            .expect("insert other workbench widget");
+        service
+            .store
+            .append_widget_log(NewWidgetLog {
+                id: "other-log",
+                widget_instance_id: "other-widget",
+                run_id: None,
+                level: "info",
+                message: "Other workbench activity",
+                created_at: Some("1"),
+                details: None,
+            })
+            .expect("append other widget log");
+
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, "other-widget", 10)
+            .expect("list widget logs");
+
+        assert!(logs.is_none());
     }
 
     fn docked_layout() -> WidgetInstanceLayout {
