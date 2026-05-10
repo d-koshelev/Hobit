@@ -1,6 +1,13 @@
 # Hobit
 
-Hobit is a modular AI Workbench: a configurable operator workspace where AI agents, tools, context, widgets, and presets are composed into a visible, controllable working surface.
+Hobit is an AI Workbench for precise, fast, and efficient work with AI agents.
+
+It is not just an agent runner. Hobit is an operator-controlled environment for planning, preparing, executing, validating, reviewing, and continuing AI-assisted work.
+
+AI agents execute focused tasks.
+Hobit makes that work structured, repeatable, safe, observable, and fast.
+
+Hobit is also a modular AI Workbench: a configurable operator workspace where AI agents, tools, context, widgets, and presets are composed into a visible, controllable working surface.
 
 The workbench is the product surface. It is not centered on a single chat stream, script runner, terminal, IDE, runbook engine, or knowledge catalog. Those can exist as widgets or capabilities, but they do not define the product.
 

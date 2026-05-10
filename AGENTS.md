@@ -8,12 +8,15 @@ Hobit is a modular AI Workbench. The Workbench is the product surface. Widgets, 
 
 Codex must not treat Hobit as a script executor, terminal wrapper, IDE clone, runbook runner, knowledge manager, or chat app.
 
+Future agent work must preserve `docs/PRODUCT_POSITIONING.md` and avoid implementing Hobit as a generic hidden automation or agent-runner system.
+
 ## Mandatory contract reading
 
 Before making changes, Codex must read the relevant project contracts.
 
 Always read:
 - README.md
+- docs/PRODUCT_POSITIONING.md
 - ROADMAP.md
 - docs/PRODUCT_CONTRACT.md
 - docs/AI_WORKBENCH_CONTRACT.md

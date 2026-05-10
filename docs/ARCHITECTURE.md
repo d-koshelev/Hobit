@@ -6,6 +6,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 ## Documentation Contracts
 
+`PRODUCT_POSITIONING.md` defines Hobit's core positioning as an operator-controlled AI Workbench for precise, fast, and efficient work with AI agents. Future architecture must not drift toward a generic hidden automation or agent-runner system.
+
 `DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
