@@ -60,6 +60,17 @@ export function WidgetHost({
     onStartPopoutDrag(instance.id, event.clientX, event.clientY);
   }
 
+  const presentationAction =
+    presentationMode === "popped-out" ? (
+      <Button onClick={() => onDockBack(instance.id)} variant="secondary">
+        Dock back
+      </Button>
+    ) : (
+      <Button onClick={() => onPopOut(instance.id)} variant="ghost">
+        Pop out
+      </Button>
+    );
+
   const frameActions = (
     <>
       {presentationMode === "popped-out" ? (
@@ -79,16 +90,7 @@ export function WidgetHost({
           onUpdateLayout={widgetActions.updateWidgetLayout}
         />
       ) : null}
-      <Button
-        onClick={() =>
-          presentationMode === "popped-out"
-            ? onDockBack(instance.id)
-            : onPopOut(instance.id)
-        }
-        variant="ghost"
-      >
-        {presentationMode === "popped-out" ? "Dock back" : "Pop out"}
-      </Button>
+      {presentationAction}
     </>
   );
   const frameStyle = widgetFrameStyle(instance, presentationMode);
