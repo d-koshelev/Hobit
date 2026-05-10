@@ -31,6 +31,10 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 };
 
 type WidgetHostProps = {
+  dockedSize?: {
+    height: number;
+    width: number;
+  };
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
@@ -50,6 +54,7 @@ type WidgetHostProps = {
 };
 
 export function WidgetHost({
+  dockedSize,
   instance,
   layoutMode,
   onDockBack,
@@ -114,7 +119,7 @@ export function WidgetHost({
       {presentationAction}
     </>
   );
-  const frameStyle = widgetFrameStyle(instance, presentationMode);
+  const frameStyle = widgetFrameStyle(instance, presentationMode, dockedSize);
   const loadLogs = () => widgetActions.listWidgetLogs(instance.id);
   const logRefreshToken = widgetActions.logRefreshTokens[instance.id] ?? 0;
 
@@ -183,14 +188,18 @@ export function WidgetHost({
 function widgetFrameStyle(
   instance: WidgetInstance,
   presentationMode: WidgetPresentationMode,
+  dockedSize: WidgetHostProps["dockedSize"],
 ): CSSProperties | undefined {
   if (presentationMode === "popped-out" || instance.layout.mode !== "docked") {
     return undefined;
   }
 
+  const height = dockedSize?.height ?? instance.layout.height;
+  const width = dockedSize?.width ?? instance.layout.width;
+
   return {
-    height: `${instance.layout.height}px`,
-    minHeight: `${instance.layout.height}px`,
-    width: `min(100%, ${instance.layout.width}px)`,
+    height: `${height}px`,
+    minHeight: `${height}px`,
+    width: `min(100%, ${width}px)`,
   };
 }

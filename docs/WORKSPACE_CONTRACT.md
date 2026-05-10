@@ -80,7 +80,7 @@ Implemented foundation:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
-- Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag in edit mode. Docked resize editing is not implemented.
+- Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
 - SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
@@ -92,7 +92,7 @@ Not implemented yet:
 - real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder
 - real Terminal, Agent CLI, operational agent chat, or other capability widgets
 - full drag-and-drop layout editing
-- resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
+- Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, popout resize, snapping, collision detection, auto-reflow, and freeform layout editing
 - log streaming or polling
 - full Notes document model, Markdown editor, autosave, or AI-in-Notes behavior
 - custom preset editor
@@ -222,7 +222,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, resize handles, snapping, collision detection, auto-reflow, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, popout resize, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -271,8 +271,8 @@ The following are not implemented yet:
 - real capability widgets
 - custom preset editor
 - full drag-and-drop layout editor
-- resize handles, Tauri separate-window popouts, persisted popout geometry, and always-on-top behavior
-- docked resize layout editing, snapping, collision detection, auto-reflow, and freeform layout persistence editing
+- Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and popout resize
+- snapping, collision detection, auto-reflow, and freeform layout persistence editing
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling
 - multi-user sync
