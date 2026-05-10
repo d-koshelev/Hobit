@@ -1,11 +1,22 @@
 import type { WidgetDefinition, WidgetDefinitionId } from "./types";
 
+export const AGENT_CHAT_WIDGET_DEFINITION_ID = "agent-chat";
+export const AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY = "agent-chat-placeholder";
 export const NOTES_WIDGET_DEFINITION_ID = "notes";
 export const NOTES_PLACEHOLDER_COMPONENT_KEY = "notes-placeholder";
 export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
 export const widgetRegistry: WidgetDefinition[] = [
+  {
+    id: AGENT_CHAT_WIDGET_DEFINITION_ID,
+    title: "Agent Chat",
+    category: "core",
+    description: "Static placeholder for future operational agent chat.",
+    defaultTitle: "Agent Chat",
+    defaultConfig: {},
+    componentKey: AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
+  },
   {
     id: NOTES_WIDGET_DEFINITION_ID,
     title: "Notes",

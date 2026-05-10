@@ -53,6 +53,19 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     ],
   },
   {
+    id: "agent-chat",
+    title: "Agent Chat",
+    category: "core",
+    description: "Static placeholder for future operational agent chat.",
+    status: "available",
+    capabilitySummary: [
+      "Operational agent chat placeholder",
+      "Agent runtime not implemented",
+      "Workspace context access not implemented",
+    ],
+    futureWidgetDefinitionId: "agent-chat",
+  },
+  {
     id: "notes",
     title: "Notes",
     category: "productivity",

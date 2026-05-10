@@ -8,6 +8,7 @@ import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
+import { OperationalAgentChatPlaceholderWidget } from "./OperationalAgentChatPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import type {
   WidgetInstance,
@@ -17,12 +18,14 @@ import type {
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { WidgetSizePresetControls } from "./WidgetSizePresetControls";
 import {
+  AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
 const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
+  [AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY]: OperationalAgentChatPlaceholderWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
   [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
 };
