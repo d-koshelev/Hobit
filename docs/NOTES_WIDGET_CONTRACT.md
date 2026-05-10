@@ -108,9 +108,9 @@ Notes Widget must follow the base widget contract:
 - input/action/result lifecycle where relevant
 - widget-local console/logs
 - resize/reposition
-- pop-out/detach
+- float in workspace / detach
 - ghost placeholder
-- optional always-on-top in popout mode
+- optional always-on-top in future true external popout mode
 - communicates through Workbench state/events, not direct coupling
 
 ## Actions

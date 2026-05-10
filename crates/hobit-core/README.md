@@ -8,7 +8,7 @@ Pure domain contracts and shared core model types for Hobit.
 - Workbench surfaces inside a Workspace.
 - Workbench presets copied into Workspace state.
 - Widget runtime lifecycle: input, command/action, run, local logs, and structured results.
-- Widget layout and presentation state, including docked, minimized, popped-out, ghost, resize/reposition, and always-on-top concepts.
+- Widget layout and presentation state, including docked, minimized, floating, future external popout, ghost, resize/reposition, and always-on-top concepts.
 - Action proposals, decision requests, Workbench events, agent activity events, and shared state objects.
 
 ## Belongs Here

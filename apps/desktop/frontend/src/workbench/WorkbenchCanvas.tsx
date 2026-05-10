@@ -685,7 +685,7 @@ export function WorkbenchCanvas({
                       onDockBack={dockBackWidget}
                     />
                     <div
-                      aria-label={`${widget.title} popped out`}
+                      aria-label={`${widget.title} floating widget`}
                       className="widget-popout-layer"
                       role="dialog"
                       style={widgetPopoutLayerStyle(
@@ -929,13 +929,13 @@ function WidgetGhostPlaceholder({
 }: WidgetGhostPlaceholderProps) {
   return (
     <Panel
-      aria-label={`${instance.title} popped out placeholder`}
+      aria-label={`${instance.title} floating widget placeholder`}
       className="widget-ghost"
       style={widgetGhostStyle(instance)}
     >
       <div className="widget-ghost-copy">
         <h2 className="widget-ghost-title">{instance.title}</h2>
-        <p className="widget-ghost-status">Popped out</p>
+        <p className="widget-ghost-status">Floating in workspace</p>
       </div>
       <Button onClick={() => onDockBack(instance.id)} variant="secondary">
         Dock back

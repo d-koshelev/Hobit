@@ -92,7 +92,7 @@ Not implemented yet:
 - real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder
 - real Terminal, Agent CLI, operational agent chat, or other capability widgets
 - full drag-and-drop layout editing
-- Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, popout resize, snapping, collision detection, auto-reflow, and freeform layout editing
+- floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
 - log streaming or polling
 - full Notes document model, Markdown editor, autosave, or AI-in-Notes behavior
 - custom preset editor
@@ -126,7 +126,7 @@ A Workspace should persist:
 - workspace-local notes
 - decisions
 - current focus
-- docked/popped-out state
+- docked/floating presentation state and future true external popout state
 - ghost placeholders
 - event history
 - enough state to resume from the same place
@@ -150,7 +150,7 @@ It may contain:
 - currently open drawer/popup
 - live tool connections
 - live agent runs
-- popout window geometry for current runtime
+- future external popout window geometry for current runtime
 - temporary non-persisted runtime details
 
 Session is not the durable product object.
@@ -220,9 +220,9 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 ### Customize Workbench
 
-The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
+The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, popout resize, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -271,7 +271,7 @@ The following are not implemented yet:
 - real capability widgets
 - custom preset editor
 - full drag-and-drop layout editor
-- Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and popout resize
+- floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, and always-on-top behavior
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling

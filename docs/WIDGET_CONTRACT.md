@@ -6,7 +6,7 @@ Every visible workbench block in Hobit is a Widget.
 
 A widget is a first-class workbench entity, not only a React component. It has identity, configuration, layout state, input data, actions/commands, local logs, and structured result output.
 
-Widgets are optional capabilities that can be added, removed, configured, popped out, resized, repositioned, and composed into workbench presets.
+Widgets are optional capabilities that can be added, removed, configured, floated in the workspace, resized, repositioned, and composed into workbench presets. A future true popout means a separate Tauri/OS window, not the current in-app floating overlay.
 
 Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md`. Widgets should normally use the shared WidgetFrame anatomy and the unified widget surface rule.
 
@@ -18,7 +18,7 @@ A WidgetDefinition describes a widget type. It defines the widget's purpose, sup
 
 A WidgetInstance is a configured, placed instance of a WidgetDefinition in a Workbench Session. Multiple instances of the same widget type may exist with different configuration.
 
-A WidgetInstance keeps the same identity when it is moved, resized, popped out, minimized, or docked back into the workbench.
+A WidgetInstance keeps the same identity when it is moved, resized, floated, minimized, docked back into the workbench, or later moved into a true external popout window.
 
 ## WidgetTemplate
 
@@ -87,7 +87,7 @@ The widget-local console may open through a small action in the widget header/me
 
 A WidgetResult is structured final output. It can contain summaries, data tables, edited images, generated files, action proposals, evidence, or other artifacts.
 
-## Layout, Resize, And Pop-Out
+## Layout, Resize, Floating, And Future Popout
 
 Every widget is layout-managed.
 
@@ -95,8 +95,9 @@ A widget can be:
 
 - moved inside the Workbench
 - resized inside the Workbench
-- popped out / detached
-- moved and resized in pop-out mode
+- floated in the workspace / detached
+- moved in floating mode
+- moved and resized in future true external popout mode
 - minimized
 - returned/docked back to its original or selected workbench slot
 
@@ -104,20 +105,20 @@ Changing size, position, or presentation mode must not create a new widget insta
 
 ## Ghost Placeholder
 
-When a widget is popped out, its original workbench slot remains occupied by a ghost placeholder.
+When a widget is floated in the workspace, its original workbench slot remains occupied by a ghost placeholder. Future true external popout windows must keep the same ghost anchor behavior.
 
 The ghost placeholder should show:
 
 - widget title
-- detached status
+- floating or detached status
 - last known status if useful
 - return/dock action
 
-The ghost is the return anchor for the detached widget.
+The ghost is the return anchor for the floating or detached widget.
 
 ## Always On Top
 
-Popped-out widgets must support an explicit optional `Always on Top` mode.
+Future true external popout widgets must support an explicit optional `Always on Top` mode. The current in-app floating widget mode does not leave the main Hobit window and does not implement always-on-top behavior.
 
 Rules:
 
@@ -160,7 +161,7 @@ Widget Catalog
 
 The Notes, Terminal placeholder, and Agent Chat placeholder templates are currently available for catalog insertion. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model, Markdown editor, autosave, and AI-in-Notes behavior are not implemented yet. The Terminal placeholder is static and does not execute commands, accept command input, stream output, or write widget state. The Agent Chat placeholder is static and does not accept chat input, call agents or LLMs, access Workspace context, stream responses, propose actions, or write widget state.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, popout resize, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
 The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions when already open. Existing widget add/state/layout mutations emit basic logs. Runtime execution, runtime log emission, streaming, and polling are not implemented yet.
 

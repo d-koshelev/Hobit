@@ -26,7 +26,7 @@ A reusable rule or starting configuration for creating widget instances.
 
 ## Widget Instance
 
-A configured and placed instance of a widget inside a Workspace Workbench. Its identity persists when moved, resized, popped out, or docked back, and its state is part of Workspace resume data.
+A configured and placed instance of a widget inside a Workspace Workbench. Its identity persists when moved, resized, floated in the workspace, docked back, or later moved into a true external popout window, and its state is part of Workspace resume data.
 
 ## Widget Catalog
 

@@ -99,7 +99,7 @@ export function WidgetHost({
       </Button>
     ) : (
       <Button onClick={() => onPopOut(instance.id)} variant="ghost">
-        Pop out
+        Float
       </Button>
     );
 
@@ -107,10 +107,10 @@ export function WidgetHost({
     <>
       {presentationMode === "popped-out" ? (
         <Button
-          aria-label={`Move ${instance.title || "widget"} popout`}
+          aria-label={`Move ${instance.title || "widget"} floating widget`}
           className="widget-drag-handle"
           onPointerDown={startPopoutDrag}
-          title="Drag popout"
+          title="Drag floating widget"
           variant="ghost"
         >
           Move

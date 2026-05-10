@@ -61,7 +61,7 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes, Terminal placeholder, and Agent Chat placeholder templates can be inserted through the workspace API as persisted WidgetInstances and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, chat execution, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, popout resize, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or full Notes document model yet.
+There is no terminal execution, agent runtime, chat execution, real capability widget insertion beyond the Notes, Terminal placeholder, and Agent Chat placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -136,7 +136,7 @@ The Notes placeholder persists a minimal draft through widget state using the sh
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no full drag/drop layout editor, snapping, collision detection, auto-reflow, popout resize, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This floating widget mode is not a separate OS window and is not persisted as external window geometry. There is no full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or preset editor.
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. There is no runtime log streaming, polling, or widget execution.
 

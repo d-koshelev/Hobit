@@ -240,7 +240,7 @@ It must support:
 - widget-local logs/console
 - structured state and result output
 - layout state
-- pop-out/dock behavior
+- float/dock behavior and future true external popout support
 - operator-controlled actions
 - approval-aware mutating operations
 - Workbench state/event communication rather than private widget coupling
