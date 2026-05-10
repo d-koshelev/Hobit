@@ -84,7 +84,7 @@ export function WidgetHost({
           Move
         </Button>
       ) : null}
-      {instance.layout.mode === "docked" ? (
+      {presentationMode === "docked" && instance.layout.mode === "docked" ? (
         <WidgetSizePresetControls
           instance={instance}
           onUpdateLayout={widgetActions.updateWidgetLayout}
