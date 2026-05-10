@@ -111,6 +111,7 @@ Rules:
 - Future edits to Request Templates or Response Templates must not silently mutate previous Request Snapshots or historical response expectations.
 - Templates are reusable assets for Workspace/Project flows. They are not WidgetInstances, Workbench layout entries, or Presets.
 - A future widget may expose a Template Library or request builder UI, but the template asset remains distinct from the widget instance rendering it.
+- For agent block workflow, `docs/AGENT_OPERATING_MODEL.md` defines how a coordinator selects templates and creates concrete executor request snapshots.
 
 ## Future UI Behavior
 

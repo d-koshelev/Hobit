@@ -8,6 +8,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.
 
+`AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
+
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape.
 
 ## Current Repository Skeleton

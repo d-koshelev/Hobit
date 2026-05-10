@@ -25,6 +25,7 @@ Always read:
 - docs/GLOSSARY.md
 
 For agent/runtime work, also read:
+- docs/AGENT_OPERATING_MODEL.md
 - docs/AGENT_RUNTIME_CONTRACT.md
 - docs/STATE_AND_EVENTS_CONTRACT.md
 - docs/TOOL_ACTION_CONTRACT.md
@@ -39,8 +40,11 @@ For architectural decisions, inspect:
 - decisions/
 
 For request/response template work, also read:
+- docs/AGENT_OPERATING_MODEL.md
 - docs/TEMPLATE_CONTRACT.md
 - docs/AGENT_RESPONSE_CONTRACT.md
+
+Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
 ## Current product direction
 
