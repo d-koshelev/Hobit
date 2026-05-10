@@ -2,9 +2,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
-    NewWidgetInstance, NewWorkspaceSession, SharedStateObjectRow, SqliteStore, StorageError,
-    WidgetInstanceLayoutUpdate, WidgetInstanceRow, WidgetLogRow, WorkbenchEventRow, WorkspaceRow,
-    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    NewWidgetInstance, NewWidgetLog, NewWorkspaceSession, SharedStateObjectRow, SqliteStore,
+    StorageError, WidgetInstanceLayoutUpdate, WidgetInstanceRow, WidgetLogRow, WorkbenchEventRow,
+    WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -23,6 +23,10 @@ const WIDGET_LAYOUT_MODE_POPPED_OUT: &str = "popped_out";
 const WIDGET_LAYOUT_MODE_MINIMIZED: &str = "minimized";
 const MAX_WIDGET_LAYOUT_DIMENSION: i64 = 16_384;
 const MAX_WIDGET_LOG_LIMIT: usize = 200;
+const WIDGET_LOG_INFO_LEVEL: &str = "info";
+const WIDGET_LOG_WIDGET_ADDED: &str = "Widget added";
+const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
+const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -305,6 +309,8 @@ impl WorkspaceService {
                     state: Some(PLACEHOLDER_WIDGET_STATE),
                 })?;
 
+                append_widget_info_log(store, &widget.id, WIDGET_LOG_WIDGET_ADDED)?;
+
                 let event_payload = format!(
                     "workbench_id={};widget_instance_id={};definition_id={}",
                     workbench.id, widget.id, widget.definition_id
@@ -360,6 +366,8 @@ impl WorkspaceService {
                 }
 
                 store.update_widget_instance_state(&widget.id, state)?;
+
+                append_widget_info_log(store, &widget.id, WIDGET_LOG_STATE_SAVED)?;
 
                 let event_payload = format!(
                     "workbench_id={};widget_instance_id={}",
@@ -431,6 +439,8 @@ impl WorkspaceService {
                         is_visible: layout.is_visible,
                     },
                 )?;
+
+                append_widget_info_log(store, &widget.id, WIDGET_LOG_LAYOUT_UPDATED)?;
 
                 let event_payload = format!(
                     "workbench_id={};widget_instance_id={};layout_mode={}",
@@ -628,6 +638,24 @@ fn validate_dimension(label: &str, dimension: Option<i64>) -> Result<(), Workspa
 
 fn clamp_widget_log_limit(limit: usize) -> usize {
     limit.min(MAX_WIDGET_LOG_LIMIT)
+}
+
+fn append_widget_info_log(
+    store: &SqliteStore,
+    widget_instance_id: &str,
+    message: &str,
+) -> Result<(), StorageError> {
+    let log_id = placeholder_id("wlog_");
+    store.append_widget_log(NewWidgetLog {
+        id: &log_id,
+        widget_instance_id,
+        run_id: None,
+        level: WIDGET_LOG_INFO_LEVEL,
+        message,
+        created_at: None,
+        details: None,
+    })?;
+    Ok(())
 }
 
 fn next_placeholder_widget_dock_y(existing_widget_count: usize) -> i64 {
@@ -1123,12 +1151,17 @@ mod tests {
             .store
             .list_widget_instances_for_workbench(workbench_id)
             .expect("list stored widgets");
+        let widget_id = stored_widgets[0].id.clone();
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list widget logs")
+            .expect("widget logs");
 
         assert_eq!(stored_widgets.len(), 1);
         assert_eq!(
             state.widget_instances,
             vec![WidgetInstanceSummary {
-                id: stored_widgets[0].id.clone(),
+                id: widget_id.clone(),
                 definition_id: "notes".to_owned(),
                 title: "Notes".to_owned(),
                 category: "notes".to_owned(),
@@ -1148,6 +1181,11 @@ mod tests {
             }]
         );
         assert!(stored_widgets[0].id.starts_with("wid_"));
+        assert_eq!(widget_log_messages(&logs), vec![WIDGET_LOG_WIDGET_ADDED]);
+        assert_eq!(logs[0].widget_instance_id, widget_id);
+        assert_eq!(logs[0].level, WIDGET_LOG_INFO_LEVEL);
+        assert_eq!(logs[0].run_id, None);
+        assert_eq!(logs[0].payload, None);
         assert!(state
             .recent_events
             .iter()
@@ -1246,6 +1284,15 @@ mod tests {
             updated_state.widget_instances[0].state.as_deref(),
             Some("{\"body\":\"Draft\"}")
         );
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list widget logs")
+            .expect("widget logs");
+        let messages = widget_log_messages(&logs);
+
+        assert_eq!(logs.len(), 2);
+        assert!(messages.contains(&WIDGET_LOG_WIDGET_ADDED));
+        assert!(messages.contains(&WIDGET_LOG_STATE_SAVED));
         assert!(updated_state
             .recent_events
             .iter()
@@ -1304,12 +1351,17 @@ mod tests {
             .get_widget_instance("other-widget")
             .expect("get stored widget")
             .expect("stored widget");
+        let logs = service
+            .list_widget_logs(&workspace.id, "other-workbench", "other-widget", 10)
+            .expect("list widget logs")
+            .expect("widget logs");
 
         assert!(state.is_none());
         assert_eq!(
             stored_widget.state.as_deref(),
             Some("{\"body\":\"Original\"}")
         );
+        assert!(logs.is_empty());
     }
 
     #[test]
@@ -1381,6 +1433,15 @@ mod tests {
         assert_eq!(updated_state.widget_instances[0].layout_mode, "popped_out");
         assert_eq!(updated_state.widget_instances[0].popout_width, Some(720));
         assert!(updated_state.widget_instances[0].always_on_top);
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list widget logs")
+            .expect("widget logs");
+        let messages = widget_log_messages(&logs);
+
+        assert_eq!(logs.len(), 2);
+        assert!(messages.contains(&WIDGET_LOG_WIDGET_ADDED));
+        assert!(messages.contains(&WIDGET_LOG_LAYOUT_UPDATED));
         assert!(updated_state
             .recent_events
             .iter()
@@ -1443,6 +1504,10 @@ mod tests {
             .store
             .list_workbench_events(&workspace.id)
             .expect("list events");
+        let logs = service
+            .list_widget_logs(&workspace.id, "other-workbench", "other-widget", 10)
+            .expect("list widget logs")
+            .expect("widget logs");
 
         assert!(state.is_none());
         assert_eq!(stored_widget.layout_mode, "docked");
@@ -1452,6 +1517,7 @@ mod tests {
         assert!(!events
             .iter()
             .any(|event| event.kind == "widget_layout_updated"));
+        assert!(logs.is_empty());
     }
 
     #[test]
@@ -1506,6 +1572,12 @@ mod tests {
         assert_eq!(stored_widget.layout_mode, "docked");
         assert_eq!(stored_widget.dock_width, Some(360));
         assert_eq!(stored_widget.dock_height, Some(240));
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list widget logs")
+            .expect("widget logs");
+
+        assert_eq!(widget_log_messages(&logs), vec![WIDGET_LOG_WIDGET_ADDED]);
     }
 
     #[test]
@@ -1557,18 +1629,19 @@ mod tests {
             .expect("list events")
             .len();
 
-        assert_eq!(
-            logs,
-            vec![WidgetLogSummary {
-                id: "log-1".to_owned(),
-                widget_instance_id: widget_id,
-                run_id: None,
-                level: "info".to_owned(),
-                message: "Saved note".to_owned(),
-                payload: Some("{\"source\":\"test\"}".to_owned()),
-                created_at: "1".to_owned(),
-            }]
-        );
+        let saved_log = logs
+            .iter()
+            .find(|log| log.id == "log-1")
+            .expect("manual saved log");
+
+        assert_eq!(logs.len(), 2);
+        assert!(widget_log_messages(&logs).contains(&WIDGET_LOG_WIDGET_ADDED));
+        assert_eq!(saved_log.widget_instance_id, widget_id);
+        assert_eq!(saved_log.run_id, None);
+        assert_eq!(saved_log.level, "info");
+        assert_eq!(saved_log.message, "Saved note");
+        assert_eq!(saved_log.payload.as_deref(), Some("{\"source\":\"test\"}"));
+        assert_eq!(saved_log.created_at, "1");
         assert_eq!(events_after_listing, event_count);
     }
 
@@ -1674,5 +1747,9 @@ mod tests {
             .iter()
             .map(|workspace| workspace.workbench_id.as_deref())
             .collect()
+    }
+
+    fn widget_log_messages(logs: &[WidgetLogSummary]) -> Vec<&str> {
+        logs.iter().map(|log| log.message.as_str()).collect()
     }
 }
