@@ -38,6 +38,10 @@ For design/frontend/widget work, always read:
 For architectural decisions, inspect:
 - decisions/
 
+For request/response template work, also read:
+- docs/TEMPLATE_CONTRACT.md
+- docs/AGENT_RESPONSE_CONTRACT.md
+
 ## Current product direction
 
 Current foundation target:
