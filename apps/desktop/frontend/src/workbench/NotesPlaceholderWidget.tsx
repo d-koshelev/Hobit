@@ -9,6 +9,7 @@ export function NotesPlaceholderWidget({
   frameActions,
   frameStyle,
   instance,
+  onLoadLogs,
   onUpdateState,
   title,
 }: WidgetRenderProps) {
@@ -54,6 +55,9 @@ export function NotesPlaceholderWidget({
             {isSaving ? "Saving" : "Save"}
           </Button>
         </>
+      }
+      onLoadLogs={
+        onLoadLogs ? () => onLoadLogs(instance.id) : undefined
       }
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}

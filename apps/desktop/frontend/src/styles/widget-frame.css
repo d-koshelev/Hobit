@@ -95,6 +95,35 @@
   line-height: var(--line-normal);
 }
 
+.widget-log-list {
+  display: grid;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.widget-log-item {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.widget-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.widget-log-message {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
 .widget-footer {
   border-top: 1px solid var(--color-border-subtle);
   padding: var(--space-sm) var(--space-lg);

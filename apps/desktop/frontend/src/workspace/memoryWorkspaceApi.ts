@@ -2,8 +2,10 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  ListWidgetLogsRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
+  WidgetLogEntry,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -25,6 +27,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
+  listWidgetLogs,
 };
 
 async function createWorkspace(
@@ -229,6 +232,12 @@ async function updateWidgetInstanceLayout(
   appendRecentEvent(state, "widget_layout_updated", "Widget layout updated");
 
   return cloneWorkspaceWorkbenchState(state);
+}
+
+async function listWidgetLogs(
+  _request: ListWidgetLogsRequest,
+): Promise<WidgetLogEntry[]> {
+  return [];
 }
 
 function requiredValue(value: string, label: string) {

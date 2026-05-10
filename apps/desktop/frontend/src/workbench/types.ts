@@ -143,11 +143,11 @@ export type WidgetRun = {
 export type WidgetLogEntry = {
   id: string;
   widgetInstanceId: WidgetInstanceId;
-  runId?: WidgetRunId | null;
-  level: "debug" | "info" | "warning" | "error";
+  runId: WidgetRunId | null;
+  level: string;
   message: string;
-  timestamp: string;
-  details?: Record<string, unknown>;
+  payload: string | null;
+  createdAt: string;
 };
 
 export type WidgetResult = {
@@ -173,5 +173,6 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     state: WidgetState,
   ) => Promise<void>;
+  onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   title: string;
 };

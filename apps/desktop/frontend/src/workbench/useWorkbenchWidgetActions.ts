@@ -1,12 +1,17 @@
 import {
   addWidgetInstanceToWorkbench,
+  listWidgetLogs,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
-import type { WorkspaceWorkbenchState } from "../workspace/types";
+import type {
+  WidgetLogEntry as WorkspaceWidgetLogEntry,
+  WorkspaceWorkbenchState,
+} from "../workspace/types";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import type {
   WidgetInstanceId,
+  WidgetLogEntry,
   WidgetLayout,
   WidgetState,
   WorkbenchViewState,
@@ -20,6 +25,9 @@ type UseWorkbenchWidgetActionsOptions = {
 
 export type WorkbenchWidgetActions = {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
+  listWidgetLogs: (
+    widgetInstanceId: WidgetInstanceId,
+  ) => Promise<WidgetLogEntry[]>;
   updateWidgetLayout: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,
@@ -32,7 +40,7 @@ export type WorkbenchWidgetActions = {
 
 export type WorkbenchWidgetInstanceActions = Pick<
   WorkbenchWidgetActions,
-  "updateWidgetLayout" | "updateWidgetState"
+  "listWidgetLogs" | "updateWidgetLayout" | "updateWidgetState"
 >;
 
 export function useWorkbenchWidgetActions({
@@ -138,8 +146,32 @@ export function useWorkbenchWidgetActions({
     applyWorkbenchState(workbenchState);
   }
 
+  async function loadWidgetLogs(widgetInstanceId: WidgetInstanceId) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to load widget logs.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Widget logs could not be loaded.");
+    }
+
+    const logs = await listWidgetLogs({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      limit: 100,
+    });
+
+    return logs.map(widgetLogEntryFromApi);
+  }
+
   return {
     addWidgetTemplate,
+    listWidgetLogs: loadWidgetLogs,
     updateWidgetLayout,
     updateWidgetState,
   };
@@ -147,4 +179,16 @@ export function useWorkbenchWidgetActions({
 
 function persistedLayoutMode(mode: WidgetLayout["mode"]) {
   return mode === "popped-out" ? "popped_out" : mode;
+}
+
+function widgetLogEntryFromApi(log: WorkspaceWidgetLogEntry): WidgetLogEntry {
+  return {
+    id: log.id,
+    widgetInstanceId: log.widgetInstanceId,
+    runId: log.runId,
+    level: log.level,
+    message: log.message,
+    payload: log.payload,
+    createdAt: log.createdAt,
+  };
 }

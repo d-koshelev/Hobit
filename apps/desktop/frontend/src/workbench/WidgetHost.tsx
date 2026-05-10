@@ -30,11 +30,13 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
       />
     ) : undefined;
   const frameStyle = widgetFrameStyle(instance);
+  const loadLogs = () => widgetActions.listWidgetLogs(instance.id);
 
   if (!definition) {
     return (
       <WidgetFrame
         actions={frameActions}
+        onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
         subtitle={`Definition "${instance.definitionId}" is not registered.`}
@@ -54,6 +56,7 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
     return (
       <WidgetFrame
         actions={frameActions}
+        onLoadLogs={loadLogs}
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
         subtitle={`Component "${definition.componentKey}" is not mapped.`}
@@ -74,6 +77,7 @@ export function WidgetHost({ instance, widgetActions }: WidgetHostProps) {
       frameActions={frameActions}
       frameStyle={frameStyle}
       instance={instance}
+      onLoadLogs={widgetActions.listWidgetLogs}
       onUpdateLayout={widgetActions.updateWidgetLayout}
       onUpdateState={widgetActions.updateWidgetState}
       title={instance.title || definition.defaultTitle}

@@ -3,8 +3,10 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
+  ListWidgetLogsRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
+  WidgetLogEntry,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -19,6 +21,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
+  listWidgetLogs,
 };
 
 type TauriWorkspaceSummary = {
@@ -81,6 +84,16 @@ type TauriWorkspaceEventSummary = {
   id: string;
   kind: string;
   summary: string;
+  created_at: string;
+};
+
+type TauriWidgetLogEntry = {
+  id: string;
+  widget_instance_id: string;
+  run_id: string | null;
+  level: string;
+  message: string;
+  payload: string | null;
   created_at: string;
 };
 
@@ -209,6 +222,21 @@ async function updateWidgetInstanceLayout(
   return state ? normalizeWorkspaceWorkbenchState(state) : null;
 }
 
+async function listWidgetLogs(
+  request: ListWidgetLogsRequest,
+): Promise<WidgetLogEntry[]> {
+  const logs = await invoke<TauriWidgetLogEntry[] | null>("list_widget_logs", {
+    request: {
+      workspace_id: request.workspaceId,
+      workbench_id: request.workbenchId,
+      widget_instance_id: request.widgetInstanceId,
+      limit: request.limit,
+    },
+  });
+
+  return logs ? logs.map(normalizeWidgetLogEntry) : [];
+}
+
 function normalizeWorkspaceSummary(
   workspace: TauriWorkspaceSummary,
 ): WorkspaceSummary {
@@ -275,5 +303,17 @@ function normalizeWorkspaceWorkbenchState(
       summary: event.summary,
       createdAt: event.created_at,
     })),
+  };
+}
+
+function normalizeWidgetLogEntry(log: TauriWidgetLogEntry): WidgetLogEntry {
+  return {
+    id: log.id,
+    widgetInstanceId: log.widget_instance_id,
+    runId: log.run_id,
+    level: log.level,
+    message: log.message,
+    payload: log.payload,
+    createdAt: log.created_at,
   };
 }

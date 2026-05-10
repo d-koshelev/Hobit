@@ -1,11 +1,27 @@
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Button } from "./Button";
 import { Panel } from "./Panel";
+
+export type WidgetFrameLogEntry = {
+  id: string;
+  createdAt: string;
+  level: string;
+  message: string;
+  runId?: string | null;
+};
 
 type WidgetFrameProps = {
   actions?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  onLoadLogs?: () => Promise<WidgetFrameLogEntry[]>;
   style?: CSSProperties;
   status?: ReactNode;
   subtitle: string;
@@ -16,6 +32,7 @@ export function WidgetFrame({
   actions,
   children,
   footer,
+  onLoadLogs,
   style,
   status,
   subtitle,
@@ -24,6 +41,50 @@ export function WidgetFrame({
   const logPanelId = useId();
   const logPanelTitleId = useId();
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
+  const [logEntries, setLogEntries] = useState<WidgetFrameLogEntry[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logErrorMessage, setLogErrorMessage] = useState<string | null>(null);
+  const loadLogsRef = useRef(onLoadLogs);
+
+  useEffect(() => {
+    loadLogsRef.current = onLoadLogs;
+  }, [onLoadLogs]);
+
+  useEffect(() => {
+    if (!isLogPanelOpen) {
+      return;
+    }
+
+    let shouldUpdate = true;
+
+    async function loadLogs() {
+      setIsLoadingLogs(true);
+      setLogErrorMessage(null);
+
+      try {
+        const logs = loadLogsRef.current ? await loadLogsRef.current() : [];
+
+        if (shouldUpdate) {
+          setLogEntries(logs);
+        }
+      } catch (error) {
+        if (shouldUpdate) {
+          setLogEntries([]);
+          setLogErrorMessage(errorToMessage(error));
+        }
+      } finally {
+        if (shouldUpdate) {
+          setIsLoadingLogs(false);
+        }
+      }
+    }
+
+    void loadLogs();
+
+    return () => {
+      shouldUpdate = false;
+    };
+  }, [isLogPanelOpen]);
 
   return (
     <Panel className="widget-frame" style={style}>
@@ -57,12 +118,107 @@ export function WidgetFrame({
           <h3 className="widget-log-title" id={logPanelTitleId}>
             Logs
           </h3>
-          <p className="widget-log-placeholder">
-            Widget logs will appear here when this widget emits activity.
-          </p>
+          <WidgetLogPanelBody
+            errorMessage={logErrorMessage}
+            isLoading={isLoadingLogs}
+            logs={logEntries}
+          />
         </section>
       ) : null}
       {footer ? <footer className="widget-footer">{footer}</footer> : null}
     </Panel>
   );
+}
+
+type WidgetLogPanelBodyProps = {
+  errorMessage: string | null;
+  isLoading: boolean;
+  logs: WidgetFrameLogEntry[];
+};
+
+function WidgetLogPanelBody({
+  errorMessage,
+  isLoading,
+  logs,
+}: WidgetLogPanelBodyProps) {
+  if (isLoading) {
+    return <p className="widget-log-placeholder">Loading widget logs...</p>;
+  }
+
+  if (errorMessage) {
+    return (
+      <p className="widget-log-placeholder" role="alert">
+        {errorMessage}
+      </p>
+    );
+  }
+
+  if (logs.length === 0) {
+    return <p className="widget-log-placeholder">No widget logs yet.</p>;
+  }
+
+  return (
+    <ol className="widget-log-list">
+      {logs.map((log) => (
+        <li className="widget-log-item" key={log.id}>
+          <div className="widget-log-meta">
+            <time dateTime={logDateTimeValue(log.createdAt)}>
+              {formatLogTime(log.createdAt)}
+            </time>
+            <span>{log.level}</span>
+            {log.runId ? <span>Run {log.runId}</span> : null}
+          </div>
+          <p className="widget-log-message">{log.message}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function formatLogTime(value: string) {
+  const date = parseLogDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function logDateTimeValue(value: string) {
+  return parseLogDate(value)?.toISOString() ?? value;
+}
+
+function parseLogDate(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const numericTimestamp = Number(trimmedValue);
+  const date = Number.isFinite(numericTimestamp)
+    ? new Date(numericTimestamp * 1000)
+    : new Date(trimmedValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Widget logs could not be loaded.";
 }

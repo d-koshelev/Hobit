@@ -39,6 +39,23 @@ export type UpdateWidgetInstanceLayoutRequest = {
   layout: WidgetInstanceLayoutUpdate;
 };
 
+export type ListWidgetLogsRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  limit: number;
+};
+
+export type WidgetLogEntry = {
+  id: string;
+  widgetInstanceId: string;
+  runId: string | null;
+  level: string;
+  message: string;
+  payload: string | null;
+  createdAt: string;
+};
+
 export type WorkspaceSummary = {
   id: string;
   title: string;
