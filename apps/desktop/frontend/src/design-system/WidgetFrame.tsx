@@ -108,12 +108,15 @@ export function WidgetFrame({
     onMoveStart(event.clientX, event.clientY);
   }
 
+  const frameClassName = moveEnabled
+    ? "widget-frame widget-frame-editing"
+    : "widget-frame";
   const headerClassName = moveEnabled
     ? "widget-header widget-header-movable"
     : "widget-header";
 
   return (
-    <Panel className="widget-frame" style={style}>
+    <Panel className={frameClassName} style={style}>
       <header className={headerClassName} onPointerDown={startMove}>
         <div className="widget-heading">
           <div className="widget-title-row">

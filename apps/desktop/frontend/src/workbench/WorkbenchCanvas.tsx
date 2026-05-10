@@ -913,7 +913,8 @@ function WidgetResizeHandles({ onStartResize }: WidgetResizeHandlesProps) {
 function LayoutEditingStatus() {
   return (
     <div className="layout-editing-status" role="status">
-      Layout editing enabled
+      <span className="layout-editing-status-dot" aria-hidden="true" />
+      Editing layout
     </div>
   );
 }
