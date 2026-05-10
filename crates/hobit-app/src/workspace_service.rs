@@ -1,10 +1,18 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{path::Path, path::PathBuf};
 
 use hobit_storage_sqlite::{
     NewWidgetInstance, NewWidgetLog, NewWorkspaceSession, SharedStateObjectRow, SqliteStore,
     StorageError, WidgetInstanceLayoutUpdate, WidgetInstanceRow, WidgetLogRow, WorkbenchEventRow,
     WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+};
+use hobit_tools::git::{
+    read_git_repository_status, GitBranchSummary as ToolsGitBranchSummary,
+    GitFileChange as ToolsGitFileChange, GitFileChangeArea, GitFileChangeKind,
+    GitLastCommitSummary as ToolsGitLastCommitSummary,
+    GitRepositoryStatus as ToolsGitRepositoryStatus, GitStatusError,
+    GitWorkingTreeSummary as ToolsGitWorkingTreeSummary,
 };
 
 use crate::WorkspaceServiceError;
@@ -27,6 +35,7 @@ const WIDGET_LOG_INFO_LEVEL: &str = "info";
 const WIDGET_LOG_WIDGET_ADDED: &str = "Widget added";
 const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
 const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
+const GIT_WIDGET_DEFINITION_ID: &str = "git";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -122,6 +131,49 @@ pub struct WorkbenchEventSummary {
     pub kind: String,
     pub summary: String,
     pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitRepositoryStatusSummary {
+    pub branch: Option<GitBranchStatusSummary>,
+    pub working_tree: GitWorkingTreeStatusSummary,
+    pub changed_files: Vec<GitFileChangeSummary>,
+    pub last_commit: Option<GitLastCommitSummary>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitBranchStatusSummary {
+    pub name: Option<String>,
+    pub upstream: Option<String>,
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    pub is_detached: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitWorkingTreeStatusSummary {
+    pub is_clean: bool,
+    pub is_dirty: bool,
+    pub staged_count: usize,
+    pub unstaged_count: usize,
+    pub untracked_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitFileChangeSummary {
+    pub area: String,
+    pub kind: String,
+    pub path: String,
+    pub original_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitLastCommitSummary {
+    pub hash: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub committed_at: Option<String>,
 }
 
 pub struct WorkspaceService {
@@ -504,6 +556,67 @@ impl WorkspaceService {
         ))
     }
 
+    pub fn get_git_repository_status(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        repository_root: &str,
+    ) -> Result<Option<GitRepositoryStatusSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let repository_root = required_input(repository_root, "repository root")?;
+
+        self.get_git_repository_status_with_reader(
+            workspace_id,
+            workbench_id,
+            widget_instance_id,
+            repository_root,
+            read_git_repository_status,
+        )
+    }
+
+    fn get_git_repository_status_with_reader<F>(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        repository_root: &str,
+        read_status: F,
+    ) -> Result<Option<GitRepositoryStatusSummary>, WorkspaceServiceError>
+    where
+        F: FnOnce(PathBuf) -> Result<ToolsGitRepositoryStatus, GitStatusError>,
+    {
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let Some(workbench) = self
+            .store
+            .list_workspace_workbenches(&workspace.id)?
+            .into_iter()
+            .find(|workbench| workbench.id == workbench_id)
+        else {
+            return Ok(None);
+        };
+
+        let Some(widget) = self.store.get_widget_instance(widget_instance_id)? else {
+            return Ok(None);
+        };
+
+        if widget.workspace_id != workspace.id
+            || widget.workbench_id != workbench.id
+            || widget.definition_id != GIT_WIDGET_DEFINITION_ID
+        {
+            return Ok(None);
+        }
+
+        let status = read_status(Path::new(repository_root).to_path_buf())?;
+
+        Ok(Some(GitRepositoryStatusSummary::from(status)))
+    }
+
     fn first_workbench_id(
         &self,
         workspace_id: &str,
@@ -742,6 +855,89 @@ fn workbench_event_summary(row: WorkbenchEventRow) -> WorkbenchEventSummary {
     }
 }
 
+impl From<ToolsGitRepositoryStatus> for GitRepositoryStatusSummary {
+    fn from(status: ToolsGitRepositoryStatus) -> Self {
+        Self {
+            branch: status.branch.map(GitBranchStatusSummary::from),
+            working_tree: GitWorkingTreeStatusSummary::from(status.working_tree),
+            changed_files: status
+                .changed_files
+                .into_iter()
+                .map(GitFileChangeSummary::from)
+                .collect(),
+            last_commit: status.last_commit.map(GitLastCommitSummary::from),
+            warnings: status.warnings,
+        }
+    }
+}
+
+impl From<ToolsGitBranchSummary> for GitBranchStatusSummary {
+    fn from(summary: ToolsGitBranchSummary) -> Self {
+        Self {
+            name: summary.name,
+            upstream: summary.upstream,
+            ahead: summary.ahead,
+            behind: summary.behind,
+            is_detached: summary.is_detached,
+        }
+    }
+}
+
+impl From<ToolsGitWorkingTreeSummary> for GitWorkingTreeStatusSummary {
+    fn from(summary: ToolsGitWorkingTreeSummary) -> Self {
+        Self {
+            is_clean: summary.is_clean,
+            is_dirty: !summary.is_clean,
+            staged_count: summary.staged_count,
+            unstaged_count: summary.unstaged_count,
+            untracked_count: summary.untracked_count,
+        }
+    }
+}
+
+impl From<ToolsGitFileChange> for GitFileChangeSummary {
+    fn from(change: ToolsGitFileChange) -> Self {
+        Self {
+            area: git_file_change_area(change.area).to_owned(),
+            kind: git_file_change_kind(change.kind).to_owned(),
+            path: change.path,
+            original_path: change.original_path,
+        }
+    }
+}
+
+impl From<ToolsGitLastCommitSummary> for GitLastCommitSummary {
+    fn from(summary: ToolsGitLastCommitSummary) -> Self {
+        Self {
+            hash: summary.hash,
+            title: summary.title,
+            author: summary.author,
+            committed_at: summary.committed_at,
+        }
+    }
+}
+
+fn git_file_change_area(area: GitFileChangeArea) -> &'static str {
+    match area {
+        GitFileChangeArea::Staged => "staged",
+        GitFileChangeArea::Unstaged => "unstaged",
+        GitFileChangeArea::Untracked => "untracked",
+    }
+}
+
+fn git_file_change_kind(kind: GitFileChangeKind) -> &'static str {
+    match kind {
+        GitFileChangeKind::Added => "added",
+        GitFileChangeKind::Modified => "modified",
+        GitFileChangeKind::Deleted => "deleted",
+        GitFileChangeKind::Renamed => "renamed",
+        GitFileChangeKind::Copied => "copied",
+        GitFileChangeKind::Untracked => "untracked",
+        GitFileChangeKind::Conflicted => "conflicted",
+        GitFileChangeKind::Unknown => "unknown",
+    }
+}
+
 // Placeholder ID and timestamp strategy until Hobit selects a durable ID policy.
 fn placeholder_id(prefix: &str) -> String {
     let suffix = NEXT_ID_SUFFIX.fetch_add(1, Ordering::Relaxed);
@@ -765,6 +961,8 @@ fn unix_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+
     use hobit_storage_sqlite::{NewSharedStateObject, NewWidgetInstance, NewWidgetLog};
 
     fn initialized_service() -> WorkspaceService {
@@ -1581,6 +1779,183 @@ mod tests {
     }
 
     #[test]
+    fn get_git_repository_status_for_valid_widget_reads_status_without_writes() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(&workspace.id, workbench_id, "git", "Git", "git")
+            .expect("add Git widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        let event_count = service
+            .store
+            .list_workbench_events(&workspace.id)
+            .expect("list events")
+            .len();
+        let log_count = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list logs")
+            .expect("logs")
+            .len();
+        let called_path = RefCell::new(None);
+
+        let status = service
+            .get_git_repository_status_with_reader(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                "repo-root",
+                |repository_root| {
+                    *called_path.borrow_mut() = Some(repository_root);
+                    Ok(git_status_fixture())
+                },
+            )
+            .expect("read Git status")
+            .expect("Git status");
+
+        let events_after_read = service
+            .store
+            .list_workbench_events(&workspace.id)
+            .expect("list events")
+            .len();
+        let logs_after_read = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 10)
+            .expect("list logs")
+            .expect("logs")
+            .len();
+
+        assert_eq!(called_path.into_inner(), Some(PathBuf::from("repo-root")));
+        assert_eq!(
+            status
+                .branch
+                .as_ref()
+                .and_then(|branch| branch.name.as_deref()),
+            Some("main")
+        );
+        assert_eq!(status.working_tree.staged_count, 1);
+        assert!(status.working_tree.is_dirty);
+        assert_eq!(status.changed_files[0].kind, "modified");
+        assert_eq!(events_after_read, event_count);
+        assert_eq!(logs_after_read, log_count);
+    }
+
+    #[test]
+    fn get_git_repository_status_for_other_workbench_returns_none_before_read() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        service
+            .store
+            .create_workspace_workbench("other-workbench", &workspace.id, None)
+            .expect("create other workbench");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "other-git-widget",
+                workspace_id: &workspace.id,
+                workbench_id: "other-workbench",
+                definition_id: "git",
+                title: "Git",
+                category: "git",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{}"),
+            })
+            .expect("insert other workbench Git widget");
+
+        let status = service
+            .get_git_repository_status_with_reader(
+                &workspace.id,
+                workbench_id,
+                "other-git-widget",
+                "repo-root",
+                |_| panic!("Git status reader should not be called"),
+            )
+            .expect("reject other workbench widget");
+
+        assert!(status.is_none());
+    }
+
+    #[test]
+    fn get_git_repository_status_for_non_git_widget_returns_none_before_read() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "notes",
+                "Notes",
+                "notes",
+            )
+            .expect("add Notes widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+
+        let status = service
+            .get_git_repository_status_with_reader(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                "repo-root",
+                |_| panic!("Git status reader should not be called"),
+            )
+            .expect("reject non-Git widget");
+
+        assert!(status.is_none());
+    }
+
+    #[test]
+    fn get_git_repository_status_rejects_empty_repository_root() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(&workspace.id, workbench_id, "git", "Git", "git")
+            .expect("add Git widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+
+        let error = service
+            .get_git_repository_status(&workspace.id, workbench_id, &widget_id, "  ")
+            .expect_err("reject empty repository root");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+    }
+
+    #[test]
     fn list_widget_logs_for_valid_widget_returns_logs() {
         let service = initialized_service();
         let workspace = service
@@ -1733,6 +2108,25 @@ mod tests {
             always_on_top: true,
             is_visible: true,
         }
+    }
+
+    fn git_status_fixture() -> ToolsGitRepositoryStatus {
+        ToolsGitRepositoryStatus::from_changed_files(
+            Some(ToolsGitBranchSummary {
+                name: Some("main".to_owned()),
+                upstream: Some("origin/main".to_owned()),
+                ahead: Some(1),
+                behind: None,
+                is_detached: false,
+            }),
+            vec![ToolsGitFileChange {
+                area: GitFileChangeArea::Staged,
+                kind: GitFileChangeKind::Modified,
+                path: "src/lib.rs".to_owned(),
+                original_path: None,
+            }],
+            Vec::new(),
+        )
     }
 
     fn workspace_ids(workspaces: &[WorkspaceSummary]) -> Vec<&str> {

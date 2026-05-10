@@ -1,7 +1,8 @@
 use hobit_app::{
-    SharedStateObjectSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
+    GitWorkingTreeStatusSummary, SharedStateObjectSummary, WidgetInstanceLayout,
+    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +43,14 @@ pub(crate) struct ListWidgetLogsRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub limit: usize,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct GetGitRepositoryStatusRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub repository_root: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -138,6 +147,49 @@ pub(crate) struct WorkbenchEventSummaryDto {
     pub kind: String,
     pub summary: String,
     pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct GitRepositoryStatusDto {
+    pub branch: Option<GitBranchStatusDto>,
+    pub working_tree: GitWorkingTreeStatusDto,
+    pub changed_files: Vec<GitFileChangeDto>,
+    pub last_commit: Option<GitLastCommitDto>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct GitBranchStatusDto {
+    pub name: Option<String>,
+    pub upstream: Option<String>,
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    pub is_detached: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct GitWorkingTreeStatusDto {
+    pub is_clean: bool,
+    pub is_dirty: bool,
+    pub staged_count: usize,
+    pub unstaged_count: usize,
+    pub untracked_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct GitFileChangeDto {
+    pub area: String,
+    pub kind: String,
+    pub path: String,
+    pub original_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct GitLastCommitDto {
+    pub hash: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub committed_at: Option<String>,
 }
 
 impl From<WorkspaceSummary> for WorkspaceSummaryDto {
@@ -253,6 +305,68 @@ impl From<WorkbenchEventSummary> for WorkbenchEventSummaryDto {
             kind: summary.kind,
             summary: summary.summary,
             created_at: summary.created_at,
+        }
+    }
+}
+
+impl From<GitRepositoryStatusSummary> for GitRepositoryStatusDto {
+    fn from(summary: GitRepositoryStatusSummary) -> Self {
+        Self {
+            branch: summary.branch.map(GitBranchStatusDto::from),
+            working_tree: GitWorkingTreeStatusDto::from(summary.working_tree),
+            changed_files: summary
+                .changed_files
+                .into_iter()
+                .map(GitFileChangeDto::from)
+                .collect(),
+            last_commit: summary.last_commit.map(GitLastCommitDto::from),
+            warnings: summary.warnings,
+        }
+    }
+}
+
+impl From<GitBranchStatusSummary> for GitBranchStatusDto {
+    fn from(summary: GitBranchStatusSummary) -> Self {
+        Self {
+            name: summary.name,
+            upstream: summary.upstream,
+            ahead: summary.ahead,
+            behind: summary.behind,
+            is_detached: summary.is_detached,
+        }
+    }
+}
+
+impl From<GitWorkingTreeStatusSummary> for GitWorkingTreeStatusDto {
+    fn from(summary: GitWorkingTreeStatusSummary) -> Self {
+        Self {
+            is_clean: summary.is_clean,
+            is_dirty: summary.is_dirty,
+            staged_count: summary.staged_count,
+            unstaged_count: summary.unstaged_count,
+            untracked_count: summary.untracked_count,
+        }
+    }
+}
+
+impl From<GitFileChangeSummary> for GitFileChangeDto {
+    fn from(summary: GitFileChangeSummary) -> Self {
+        Self {
+            area: summary.area,
+            kind: summary.kind,
+            path: summary.path,
+            original_path: summary.original_path,
+        }
+    }
+}
+
+impl From<GitLastCommitSummary> for GitLastCommitDto {
+    fn from(summary: GitLastCommitSummary) -> Self {
+        Self {
+            hash: summary.hash,
+            title: summary.title,
+            author: summary.author,
+            committed_at: summary.committed_at,
         }
     }
 }
@@ -430,5 +544,71 @@ mod tests {
                 created_at: "1".to_owned(),
             }
         );
+    }
+
+    #[test]
+    fn maps_git_repository_status_to_dto() {
+        let summary = GitRepositoryStatusSummary {
+            branch: Some(GitBranchStatusSummary {
+                name: Some("main".to_owned()),
+                upstream: Some("origin/main".to_owned()),
+                ahead: Some(1),
+                behind: Some(2),
+                is_detached: false,
+            }),
+            working_tree: GitWorkingTreeStatusSummary {
+                is_clean: false,
+                is_dirty: true,
+                staged_count: 1,
+                unstaged_count: 1,
+                untracked_count: 1,
+            },
+            changed_files: vec![GitFileChangeSummary {
+                area: "staged".to_owned(),
+                kind: "modified".to_owned(),
+                path: "src/lib.rs".to_owned(),
+                original_path: None,
+            }],
+            last_commit: Some(GitLastCommitSummary {
+                hash: "abc123".to_owned(),
+                title: "Initial commit".to_owned(),
+                author: Some("Hobit".to_owned()),
+                committed_at: Some("2026-05-10T00:00:00Z".to_owned()),
+            }),
+            warnings: vec!["review warning".to_owned()],
+        };
+
+        let dto = GitRepositoryStatusDto::from(summary);
+
+        assert_eq!(
+            dto.branch
+                .as_ref()
+                .and_then(|branch| branch.name.as_deref()),
+            Some("main")
+        );
+        assert_eq!(
+            dto.branch
+                .as_ref()
+                .and_then(|branch| branch.upstream.as_deref()),
+            Some("origin/main")
+        );
+        assert_eq!(dto.branch.as_ref().and_then(|branch| branch.ahead), Some(1));
+        assert_eq!(
+            dto.branch.as_ref().and_then(|branch| branch.behind),
+            Some(2)
+        );
+        assert!(dto.working_tree.is_dirty);
+        assert!(!dto.working_tree.is_clean);
+        assert_eq!(dto.working_tree.staged_count, 1);
+        assert_eq!(dto.changed_files[0].area, "staged");
+        assert_eq!(dto.changed_files[0].kind, "modified");
+        assert_eq!(dto.changed_files[0].path, "src/lib.rs");
+        assert_eq!(
+            dto.last_commit
+                .as_ref()
+                .map(|last_commit| last_commit.hash.as_str()),
+            Some("abc123")
+        );
+        assert_eq!(dto.warnings, vec!["review warning".to_owned()]);
     }
 }
