@@ -5,17 +5,15 @@ import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type {
   GitBranchStatus,
+  GitFileChange,
   GitLastCommit,
   GitRepositoryStatus,
 } from "../workspace/types";
 import type { WidgetRenderProps } from "./types";
 
+const CHANGED_FILE_DISPLAY_LIMIT = 20;
+
 const plannedReviewCards = [
-  {
-    title: "Changed files",
-    description:
-      "Planned: staged, unstaged, and untracked file groups with readable change summaries.",
-  },
   {
     title: "Validation results",
     description:
@@ -293,7 +291,110 @@ function GitStatusCard({
           </ul>
         </div>
       ) : null}
+
+      <GitChangedFilesSummary changedFiles={status.changedFiles} />
     </section>
+  );
+}
+
+function GitChangedFilesSummary({
+  changedFiles,
+}: {
+  changedFiles: GitFileChange[];
+}) {
+  const groups = gitChangedFileGroups(changedFiles);
+
+  return (
+    <section className="git-changed-files" aria-label="Changed files summary">
+      <div className="git-changed-files-header">
+        <div className="git-status-title-copy">
+          <h3 className="git-status-card-title">Changed files</h3>
+          <p className="git-status-card-subtitle">
+            Read-only grouping from the latest manual status refresh
+          </p>
+        </div>
+        <Badge variant={changedFiles.length > 0 ? "warning" : "success"}>
+          {changedFiles.length} files
+        </Badge>
+      </div>
+
+      {changedFiles.length === 0 ? (
+        <div className="git-changed-files-empty">
+          No changed files reported by Git status.
+        </div>
+      ) : (
+        <div className="git-changed-file-groups">
+          {groups
+            .filter((group) => group.files.length > 0)
+            .map((group) => (
+              <GitChangedFileGroup key={group.key} group={group} />
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GitChangedFileGroup({ group }: { group: GitChangedFileGroupView }) {
+  const visibleFiles = group.files.slice(0, CHANGED_FILE_DISPLAY_LIMIT);
+  const hiddenCount = group.files.length - visibleFiles.length;
+
+  return (
+    <section className="git-changed-file-group">
+      <div className="git-changed-file-group-header">
+        <h4 className="git-changed-file-group-title">{group.title}</h4>
+        <Badge variant={group.badgeVariant}>{group.files.length}</Badge>
+      </div>
+
+      <div className="git-changed-file-list">
+        {visibleFiles.map((file, index) => (
+          <GitChangedFileRow
+            file={file}
+            key={`${group.key}-${file.area}-${file.kind}-${file.path}-${index}`}
+            showArea={group.key === "conflicted" || group.key === "unknown"}
+          />
+        ))}
+      </div>
+
+      {hiddenCount > 0 ? (
+        <p className="git-changed-file-more">
+          {hiddenCount} more files not shown
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function GitChangedFileRow({
+  file,
+  showArea,
+}: {
+  file: GitFileChange;
+  showArea: boolean;
+}) {
+  const hints = gitFileRiskHints(file.path);
+
+  return (
+    <div className="git-changed-file-row">
+      <div className="git-changed-file-main">
+        <code className="git-changed-file-path">
+          {file.originalPath ? `${file.originalPath} -> ${file.path}` : file.path}
+        </code>
+        <div className="git-changed-file-badges">
+          <Badge variant={gitChangeKindBadgeVariant(file.kind)}>
+            {gitChangeKindLabel(file.kind)}
+          </Badge>
+          {showArea ? (
+            <Badge variant="neutral">{gitChangeAreaLabel(file.area)}</Badge>
+          ) : null}
+          {hints.map((hint) => (
+            <Badge key={hint} variant="info">
+              {hint}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -375,6 +476,186 @@ function aheadBehindLabel(branch: GitBranchStatus | null) {
   }
 
   return parts.length > 0 ? parts.join(" / ") : "Not reported";
+}
+
+type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
+
+type GitChangedFileGroupKey =
+  | "staged"
+  | "unstaged"
+  | "untracked"
+  | "conflicted"
+  | "unknown";
+
+type GitChangedFileGroupView = {
+  badgeVariant: BadgeVariant;
+  files: GitFileChange[];
+  key: GitChangedFileGroupKey;
+  title: string;
+};
+
+function gitChangedFileGroups(
+  changedFiles: GitFileChange[],
+): GitChangedFileGroupView[] {
+  const groups: GitChangedFileGroupView[] = [
+    {
+      badgeVariant: "info",
+      files: [],
+      key: "staged",
+      title: "Staged",
+    },
+    {
+      badgeVariant: "warning",
+      files: [],
+      key: "unstaged",
+      title: "Unstaged",
+    },
+    {
+      badgeVariant: "warning",
+      files: [],
+      key: "untracked",
+      title: "Untracked",
+    },
+    {
+      badgeVariant: "error",
+      files: [],
+      key: "conflicted",
+      title: "Conflicted",
+    },
+    {
+      badgeVariant: "neutral",
+      files: [],
+      key: "unknown",
+      title: "Unknown",
+    },
+  ];
+
+  for (const file of changedFiles) {
+    const group = groups.find(
+      (candidate) => candidate.key === gitChangedFileGroupKey(file),
+    );
+
+    (group ?? groups[groups.length - 1]).files.push(file);
+  }
+
+  return groups;
+}
+
+function gitChangedFileGroupKey(
+  file: GitFileChange,
+): GitChangedFileGroupKey {
+  const kind = file.kind.toLowerCase();
+  const area = file.area.toLowerCase();
+
+  if (kind === "conflicted") {
+    return "conflicted";
+  }
+
+  if (kind === "unknown") {
+    return "unknown";
+  }
+
+  if (area === "staged" || area === "unstaged" || area === "untracked") {
+    return area;
+  }
+
+  return "unknown";
+}
+
+function gitChangeKindLabel(kind: string) {
+  switch (kind.toLowerCase()) {
+    case "added":
+      return "Added";
+    case "modified":
+      return "Modified";
+    case "deleted":
+      return "Deleted";
+    case "renamed":
+      return "Renamed";
+    case "copied":
+      return "Copied";
+    case "untracked":
+      return "Untracked";
+    case "conflicted":
+      return "Conflicted";
+    default:
+      return "Unknown";
+  }
+}
+
+function gitChangeKindBadgeVariant(kind: string): BadgeVariant {
+  switch (kind.toLowerCase()) {
+    case "added":
+      return "success";
+    case "modified":
+    case "renamed":
+    case "copied":
+      return "info";
+    case "deleted":
+    case "untracked":
+    case "unknown":
+      return "warning";
+    case "conflicted":
+      return "error";
+    default:
+      return "warning";
+  }
+}
+
+function gitChangeAreaLabel(area: string) {
+  switch (area.toLowerCase()) {
+    case "staged":
+      return "Staged";
+    case "unstaged":
+      return "Unstaged";
+    case "untracked":
+      return "Untracked";
+    default:
+      return "Unknown area";
+  }
+}
+
+function gitFileRiskHints(path: string) {
+  const normalizedPath = path.split("\\").join("/").toLowerCase();
+  const pathParts = normalizedPath.split("/");
+  const fileName = pathParts[pathParts.length - 1] ?? normalizedPath;
+  const hints: string[] = [];
+
+  if (
+    pathSegmentLooksGenerated(normalizedPath, "gen") ||
+    pathSegmentLooksGenerated(normalizedPath, "dist") ||
+    pathSegmentLooksGenerated(normalizedPath, "target") ||
+    pathSegmentLooksGenerated(normalizedPath, "node_modules")
+  ) {
+    hints.push("Generated-looking");
+  }
+
+  if (
+    fileName === "package-lock.json" ||
+    fileName === "cargo.lock" ||
+    fileName === "cargo.toml"
+  ) {
+    hints.push("Dependency");
+  }
+
+  if (
+    fileName === "schema.rs" ||
+    fileName.endsWith(".sql") ||
+    normalizedPath.startsWith("migrations/") ||
+    normalizedPath.includes("/migrations/")
+  ) {
+    hints.push("Schema");
+  }
+
+  return hints;
+}
+
+function pathSegmentLooksGenerated(path: string, segment: string) {
+  return (
+    path === segment ||
+    path.startsWith(`${segment}/`) ||
+    path.includes(`/${segment}/`)
+  );
 }
 
 function shortCommitHash(hash: string) {

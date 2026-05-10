@@ -367,6 +367,99 @@
   padding-left: var(--space-lg);
 }
 
+.git-changed-files {
+  display: grid;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.git-changed-files-header,
+.git-changed-file-group-header,
+.git-changed-file-badges {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.git-changed-files-header,
+.git-changed-file-group-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.git-changed-file-badges {
+  flex-wrap: wrap;
+}
+
+.git-changed-file-groups {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.git-changed-file-group {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-changed-file-group-title,
+.git-changed-file-more {
+  margin: 0;
+}
+
+.git-changed-file-group-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-changed-file-list {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.git-changed-file-row {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.git-changed-file-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.git-changed-file-main {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.git-changed-file-path {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.git-changed-file-more,
+.git-changed-files-empty {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-changed-files-empty {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
 .git-review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
