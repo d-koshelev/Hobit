@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { isTauriRuntime } from "../workspace/tauriEnvironment";
 import type {
   GitBranchStatus,
   GitFileChange,
@@ -12,6 +13,7 @@ import type {
 import type { WidgetRenderProps } from "./types";
 
 const CHANGED_FILE_DISPLAY_LIMIT = 20;
+const ERROR_DETAIL_DISPLAY_LIMIT = 360;
 
 const plannedReviewCards = [
   {
@@ -49,21 +51,41 @@ export function GitPlaceholderWidget({
   const [statusRepositoryRoot, setStatusRepositoryRoot] = useState<
     string | null
   >(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<GitStatusErrorView | null>(
+    null,
+  );
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
+  const supportsDesktopGitReads = isTauriRuntime();
+  const canReadGitStatus =
+    supportsDesktopGitReads && Boolean(onGetGitRepositoryStatus);
   const repositoryRoot = repositoryRootDraft.trim();
   const hasRepositoryRootDraft = repositoryRoot.length > 0;
-  const canRefreshStatus = hasRepositoryRootDraft && !isRefreshingStatus;
+  const canRefreshStatus =
+    canReadGitStatus && hasRepositoryRootDraft && !isRefreshingStatus;
 
   async function refreshStatus() {
-    if (!hasRepositoryRootDraft || isRefreshingStatus) {
+    if (isRefreshingStatus) {
+      return;
+    }
+
+    if (!hasRepositoryRootDraft) {
+      setGitStatus(null);
+      setStatusRepositoryRoot(null);
+      setStatusError(gitStatusErrorViewFromCategory("not-configured"));
+      return;
+    }
+
+    if (!supportsDesktopGitReads) {
+      setGitStatus(null);
+      setStatusRepositoryRoot(null);
+      setStatusError(gitStatusErrorViewFromCategory("unsupported-browser"));
       return;
     }
 
     if (!onGetGitRepositoryStatus) {
       setGitStatus(null);
       setStatusRepositoryRoot(null);
-      setStatusError("Git status is not connected for this widget.");
+      setStatusError(gitStatusErrorViewFromCategory("unavailable"));
       return;
     }
 
@@ -82,10 +104,15 @@ export function GitPlaceholderWidget({
       setGitStatus(status);
       setStatusRepositoryRoot(repositoryRoot);
     } catch (error) {
-      setStatusError(errorMessageFromUnknown(error));
+      setStatusError(gitStatusErrorViewFromUnknown(error));
     } finally {
       setIsRefreshingStatus(false);
     }
+  }
+
+  function updateRepositoryRootDraft(value: string) {
+    setRepositoryRootDraft(value);
+    setStatusError(null);
   }
 
   return (
@@ -113,12 +140,15 @@ export function GitPlaceholderWidget({
               Repository root
             </h3>
             <p className="git-repository-root-text">
-              {hasRepositoryRootDraft
-                ? "This transient path is used only for the next manual read-only refresh."
-                : "Repository root not configured. Enter an explicit local repository path to refresh read-only status."}
+              {repositoryRootHelpText(
+                hasRepositoryRootDraft,
+                supportsDesktopGitReads,
+              )}
             </p>
           </div>
-          <Badge variant="neutral">Transient</Badge>
+          <Badge variant={supportsDesktopGitReads ? "neutral" : "info"}>
+            {supportsDesktopGitReads ? "Transient" : "Desktop required"}
+          </Badge>
         </div>
 
         <div className="git-repository-root-controls">
@@ -133,7 +163,9 @@ export function GitPlaceholderWidget({
               autoComplete="off"
               className="input"
               id={repositoryRootInputId}
-              onChange={(event) => setRepositoryRootDraft(event.target.value)}
+              onChange={(event) =>
+                updateRepositoryRootDraft(event.target.value)
+              }
               placeholder="C:\\path\\to\\repository"
               spellCheck={false}
               type="text"
@@ -145,31 +177,36 @@ export function GitPlaceholderWidget({
             onClick={refreshStatus}
             variant="primary"
           >
-            {isRefreshingStatus ? "Refreshing..." : "Refresh status"}
+            {isRefreshingStatus ? "Refreshing..." : "Refresh snapshot"}
           </Button>
         </div>
 
         <p className="git-repository-root-note">
-          The repository root and refreshed status are not persisted or watched.
-          Hobit does not auto-detect repositories, scan parent directories, or
-          run Git mutations here. Browser fallback cannot read Git.
+          Manual refresh reads a desktop-only, read-only status snapshot. The
+          repository root and status are not persisted, polled, watched, or used
+          for Git mutations.
         </p>
       </section>
 
+      {!supportsDesktopGitReads ? (
+        <GitStatusNotice
+          message="Browser/Vite fallback keeps the widget insertable, but real Git status reads require the Tauri desktop shell."
+          title="Desktop Git reads unavailable"
+          variant="info"
+        />
+      ) : null}
+
       {isRefreshingStatus ? (
-        <div aria-live="polite" className="git-status-feedback">
-          Reading Git status from the explicit repository root.
-        </div>
+        <GitStatusNotice
+          ariaLive
+          message="Reading a read-only Git status snapshot from the explicit repository root."
+          title="Refreshing snapshot"
+          variant="info"
+        />
       ) : null}
 
       {statusError ? (
-        <div
-          aria-live="polite"
-          className="git-status-feedback git-status-feedback-error"
-          role="status"
-        >
-          {statusError}
-        </div>
+        <GitStatusErrorNotice error={statusError} />
       ) : null}
 
       {gitStatus && statusRepositoryRoot ? (
@@ -179,14 +216,20 @@ export function GitPlaceholderWidget({
         />
       ) : null}
 
-      {!gitStatus && !statusError && !isRefreshingStatus ? (
-        <div className="empty-state">
-          <p className="empty-state-title">No status snapshot loaded</p>
-          <p className="empty-state-text">
-            Provide an explicit repository root and refresh manually to read the
-            current desktop Git status.
-          </p>
-        </div>
+      {supportsDesktopGitReads && !gitStatus && !statusError && !isRefreshingStatus ? (
+        <GitStatusNotice
+          message={
+            hasRepositoryRootDraft
+              ? "Ready to read one manual snapshot. Hobit will not poll, watch, persist, or mutate this repository."
+              : "Enter an explicit local repository path before reading Git status."
+          }
+          title={
+            hasRepositoryRootDraft
+              ? "No status snapshot loaded"
+              : "Repository root not configured"
+          }
+          variant="neutral"
+        />
       ) : null}
 
       <div aria-label="Planned Git review areas" className="git-review-grid">
@@ -203,16 +246,58 @@ export function GitPlaceholderWidget({
 
       <div aria-label="Planned Git actions" className="git-action-row">
         <Button disabled variant="secondary">
-          Review diff
+          Diff review planned
         </Button>
         <Button disabled variant="secondary">
-          Push
+          Push planned
         </Button>
         <Button disabled variant="secondary">
-          Create follow-up block
+          Follow-up planned
         </Button>
       </div>
     </WidgetFrame>
+  );
+}
+
+function GitStatusNotice({
+  ariaLive = false,
+  message,
+  title,
+  variant,
+}: {
+  ariaLive?: boolean;
+  message: string;
+  title: string;
+  variant: "neutral" | "info";
+}) {
+  return (
+    <div
+      aria-live={ariaLive ? "polite" : undefined}
+      className={`git-status-feedback git-status-feedback-${variant}`}
+      role={ariaLive ? "status" : undefined}
+    >
+      <p className="git-status-feedback-title">{title}</p>
+      <p className="git-status-feedback-text">{message}</p>
+    </div>
+  );
+}
+
+function GitStatusErrorNotice({ error }: { error: GitStatusErrorView }) {
+  return (
+    <div
+      aria-live="polite"
+      className="git-status-feedback git-status-feedback-error"
+      role="status"
+    >
+      <div className="git-status-feedback-heading-row">
+        <p className="git-status-feedback-title">{error.title}</p>
+        <Badge variant="error">{error.badgeLabel}</Badge>
+      </div>
+      <p className="git-status-feedback-text">{error.message}</p>
+      {error.detail ? (
+        <p className="git-status-feedback-detail">{error.detail}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -230,13 +315,16 @@ function GitStatusCard({
       ? "warning"
       : "neutral";
   const stateLabel = status.workingTree.isClean ? "Clean" : "Dirty";
+  const stateTone = status.workingTree.isClean ? "clean" : "dirty";
 
   return (
     <section aria-label="Git repository status result" className="git-status-card">
       <div className="git-status-card-header">
         <div className="git-status-title-copy">
           <h3 className="git-status-card-title">Repository status</h3>
-          <p className="git-status-card-subtitle">Manual read-only snapshot</p>
+          <p className="git-status-card-subtitle">
+            Manual read-only snapshot; not persisted or watched
+          </p>
         </div>
         <div className="git-status-badge-row">
           <Badge variant={stateBadgeVariant}>{stateLabel}</Badge>
@@ -247,6 +335,19 @@ function GitStatusCard({
       <div className="git-status-root">
         <span className="git-status-root-label">Root used</span>
         <code className="git-status-root-value">{repositoryRoot}</code>
+      </div>
+
+      <div className={`git-status-state git-status-state-${stateTone}`}>
+        <p className="git-status-state-title">
+          {status.workingTree.isClean
+            ? "Working tree clean"
+            : "Uncommitted changes detected"}
+        </p>
+        <p className="git-status-state-text">
+          {status.workingTree.isClean
+            ? "No changed files were reported in this manual snapshot."
+            : "This snapshot is read-only. Review groups below show current changes, but no Git action is available here."}
+        </p>
       </div>
 
       <div className="git-status-metric-grid">
@@ -320,7 +421,7 @@ function GitChangedFilesSummary({
 
       {changedFiles.length === 0 ? (
         <div className="git-changed-files-empty">
-          No changed files reported by Git status.
+          No changed files in this manual snapshot.
         </div>
       ) : (
         <div className="git-changed-file-groups">
@@ -425,7 +526,7 @@ function GitLastCommitSummary({ commit }: { commit: GitLastCommit }) {
 
 function gitFrameStatus(
   status: GitRepositoryStatus | null,
-  errorMessage: string | null,
+  errorMessage: GitStatusErrorView | null,
   isRefreshing: boolean,
 ) {
   if (isRefreshing) {
@@ -445,6 +546,21 @@ function gitFrameStatus(
   ) : (
     <Badge variant="warning">Dirty</Badge>
   );
+}
+
+function repositoryRootHelpText(
+  hasRepositoryRootDraft: boolean,
+  supportsDesktopGitReads: boolean,
+) {
+  if (!supportsDesktopGitReads) {
+    return "Desktop/Tauri shell is required for real Git reads. The path remains transient and local to this widget.";
+  }
+
+  if (hasRepositoryRootDraft) {
+    return "This transient path is used only for manual read-only status snapshots.";
+  }
+
+  return "Repository root not configured. Enter an explicit local repository path to enable refresh.";
 }
 
 function branchLabel(branch: GitBranchStatus | null) {
@@ -477,6 +593,28 @@ function aheadBehindLabel(branch: GitBranchStatus | null) {
 
   return parts.length > 0 ? parts.join(" / ") : "Not reported";
 }
+
+type GitStatusErrorCategory =
+  | "not-configured"
+  | "unsupported-browser"
+  | "path-not-found"
+  | "not-repository"
+  | "git-unavailable"
+  | "permission-denied"
+  | "timed-out"
+  | "output-too-large"
+  | "parse-error"
+  | "command-failed"
+  | "unavailable"
+  | "unknown";
+
+type GitStatusErrorView = {
+  badgeLabel: string;
+  category: GitStatusErrorCategory;
+  detail?: string;
+  message: string;
+  title: string;
+};
 
 type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
@@ -662,14 +800,208 @@ function shortCommitHash(hash: string) {
   return hash.length > 7 ? hash.slice(0, 7) : hash;
 }
 
-function errorMessageFromUnknown(error: unknown) {
+function gitStatusErrorViewFromUnknown(error: unknown): GitStatusErrorView {
   if (error instanceof Error) {
-    return error.message;
+    return gitStatusErrorViewFromMessage(error.message);
   }
 
   if (typeof error === "string") {
-    return error;
+    return gitStatusErrorViewFromMessage(error);
   }
 
-  return "Git status could not be refreshed.";
+  return gitStatusErrorViewFromCategory("unknown");
+}
+
+function gitStatusErrorViewFromMessage(message: string): GitStatusErrorView {
+  const normalizedMessage = message.trim();
+  const lowerMessage = normalizedMessage.toLowerCase();
+
+  if (
+    lowerMessage.includes("browser fallback") ||
+    lowerMessage.includes("tauri desktop shell") ||
+    lowerMessage.includes("not supported here")
+  ) {
+    return gitStatusErrorViewFromCategory("unsupported-browser");
+  }
+
+  if (
+    lowerMessage.includes("repository is not configured") ||
+    lowerMessage.includes("repository root must not be empty") ||
+    lowerMessage.includes("repository root is not configured")
+  ) {
+    return gitStatusErrorViewFromCategory("not-configured");
+  }
+
+  if (
+    lowerMessage.includes("path is not a git repository") ||
+    lowerMessage.includes("not a git repository")
+  ) {
+    return gitStatusErrorViewFromCategory("not-repository");
+  }
+
+  if (
+    lowerMessage.includes("repository path was not found") ||
+    lowerMessage.includes("path not found") ||
+    lowerMessage.includes("no such file or directory") ||
+    lowerMessage.includes("cannot find the path")
+  ) {
+    return gitStatusErrorViewFromCategory("path-not-found");
+  }
+
+  if (
+    lowerMessage.includes("git is not available") ||
+    lowerMessage.includes("could not start git status command")
+  ) {
+    return gitStatusErrorViewFromCategory("git-unavailable");
+  }
+
+  if (
+    lowerMessage.includes("permission denied") ||
+    lowerMessage.includes("access is denied")
+  ) {
+    return gitStatusErrorViewFromCategory("permission-denied");
+  }
+
+  if (lowerMessage.includes("timed out")) {
+    return gitStatusErrorViewFromCategory("timed-out");
+  }
+
+  if (
+    lowerMessage.includes("output is too large") ||
+    lowerMessage.includes("output too large")
+  ) {
+    return gitStatusErrorViewFromCategory("output-too-large");
+  }
+
+  if (
+    lowerMessage.includes("could not parse git status") ||
+    lowerMessage.includes("not valid utf-8")
+  ) {
+    return gitStatusErrorViewFromCategory("parse-error");
+  }
+
+  if (lowerMessage.includes("git status command failed")) {
+    return {
+      ...gitStatusErrorViewFromCategory("command-failed"),
+      detail: compactErrorDetail(normalizedMessage),
+    };
+  }
+
+  return {
+    ...gitStatusErrorViewFromCategory("unknown"),
+    detail: normalizedMessage
+      ? compactErrorDetail(normalizedMessage)
+      : undefined,
+  };
+}
+
+function compactErrorDetail(message: string) {
+  if (message.length <= ERROR_DETAIL_DISPLAY_LIMIT) {
+    return message;
+  }
+
+  return `${message.slice(0, ERROR_DETAIL_DISPLAY_LIMIT)}...`;
+}
+
+function gitStatusErrorViewFromCategory(
+  category: GitStatusErrorCategory,
+): GitStatusErrorView {
+  switch (category) {
+    case "not-configured":
+      return {
+        badgeLabel: "Not configured",
+        category,
+        message:
+          "Enter an explicit local repository root before reading Git status.",
+        title: "Repository root not configured",
+      };
+    case "unsupported-browser":
+      return {
+        badgeLabel: "Desktop required",
+        category,
+        message:
+          "Git status reads require the Tauri desktop shell. Browser/Vite fallback cannot read local repositories.",
+        title: "Git status unavailable in browser mode",
+      };
+    case "path-not-found":
+      return {
+        badgeLabel: "Path not found",
+        category,
+        message:
+          "The configured repository root could not be found. Check the local path and refresh again.",
+        title: "Repository path not found",
+      };
+    case "not-repository":
+      return {
+        badgeLabel: "Not a repo",
+        category,
+        message:
+          "The configured path exists, but Git did not identify it as a repository root.",
+        title: "Path is not a Git repository",
+      };
+    case "git-unavailable":
+      return {
+        badgeLabel: "Git unavailable",
+        category,
+        message:
+          "The desktop shell could not start Git. Confirm Git is installed and available on PATH.",
+        title: "Git executable unavailable",
+      };
+    case "permission-denied":
+      return {
+        badgeLabel: "Permission denied",
+        category,
+        message:
+          "Hobit could not read Git status for this path because the operating system denied access.",
+        title: "Permission denied",
+      };
+    case "timed-out":
+      return {
+        badgeLabel: "Timed out",
+        category,
+        message:
+          "The read-only Git status command did not finish in time. No Git mutation was attempted.",
+        title: "Git status timed out",
+      };
+    case "output-too-large":
+      return {
+        badgeLabel: "Too large",
+        category,
+        message:
+          "Git returned more status output than Hobit accepts for this read-only snapshot.",
+        title: "Git status output too large",
+      };
+    case "parse-error":
+      return {
+        badgeLabel: "Parse error",
+        category,
+        message:
+          "Git status returned output that Hobit could not convert into the visual summary.",
+        title: "Could not parse Git status",
+      };
+    case "command-failed":
+      return {
+        badgeLabel: "Command failed",
+        category,
+        message:
+          "Git returned a status failure for this root. Confirm the path is a readable repository and refresh again.",
+        title: "Git status command failed",
+      };
+    case "unavailable":
+      return {
+        badgeLabel: "Unavailable",
+        category,
+        message:
+          "This widget is not connected to the desktop Git status reader.",
+        title: "Git status reader unavailable",
+      };
+    case "unknown":
+      return {
+        badgeLabel: "Unknown",
+        category,
+        message:
+          "Git status could not be refreshed. No repository state was changed.",
+        title: "Unknown Git status failure",
+      };
+  }
 }

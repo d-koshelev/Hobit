@@ -233,6 +233,8 @@
 }
 
 .git-status-feedback {
+  display: grid;
+  gap: var(--space-xs);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
@@ -242,10 +244,56 @@
   line-height: var(--line-normal);
 }
 
+.git-status-feedback-info {
+  border-color: var(--color-info);
+  background: var(--color-info-soft);
+}
+
 .git-status-feedback-error {
   border-color: var(--color-error);
   background: var(--color-error-soft);
   color: var(--color-error);
+}
+
+.git-status-feedback-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.git-status-feedback-title,
+.git-status-feedback-text,
+.git-status-feedback-detail {
+  margin: 0;
+}
+
+.git-status-feedback-title {
+  color: var(--color-text-secondary);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-status-feedback-info .git-status-feedback-title {
+  color: var(--color-info);
+}
+
+.git-status-feedback-error .git-status-feedback-title {
+  color: var(--color-error);
+}
+
+.git-status-feedback-text {
+  color: var(--color-text-muted);
+}
+
+.git-status-feedback-error .git-status-feedback-text {
+  color: var(--color-text-secondary);
+}
+
+.git-status-feedback-detail {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 .git-status-card {
@@ -321,6 +369,51 @@
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
   font-size: var(--text-xs);
+}
+
+.git-status-state {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-status-state-clean {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.git-status-state-dirty {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.git-status-state-title,
+.git-status-state-text {
+  margin: 0;
+}
+
+.git-status-state-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-status-state-clean .git-status-state-title {
+  color: var(--color-success);
+}
+
+.git-status-state-dirty .git-status-state-title {
+  color: var(--color-warning);
+}
+
+.git-status-state-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
 }
 
 .git-status-metric-grid {
