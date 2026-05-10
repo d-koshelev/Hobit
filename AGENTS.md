@@ -187,6 +187,8 @@ Bad commit examples:
 
 ## Final report format
 
+Final responses must follow `docs/AGENT_RESPONSE_CONTRACT.md`.
+
 At the end of every task, report:
 - files changed
 - what changed
