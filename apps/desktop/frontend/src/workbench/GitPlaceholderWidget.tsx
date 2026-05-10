@@ -1,3 +1,5 @@
+import { useId, useState } from "react";
+
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
@@ -41,6 +43,11 @@ export function GitPlaceholderWidget({
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
+  const repositoryRootInputId = useId();
+  const repositoryRootTitleId = useId();
+  const [repositoryRootDraft, setRepositoryRootDraft] = useState("");
+  const hasRepositoryRootDraft = repositoryRootDraft.trim().length > 0;
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -60,6 +67,57 @@ export function GitPlaceholderWidget({
           connected yet.
         </p>
       </div>
+
+      <section
+        aria-labelledby={repositoryRootTitleId}
+        className="git-repository-root-panel"
+      >
+        <div className="git-repository-root-header">
+          <div className="git-repository-root-copy">
+            <h3
+              className="git-repository-root-title"
+              id={repositoryRootTitleId}
+            >
+              Repository root
+            </h3>
+            <p className="git-repository-root-text">
+              {hasRepositoryRootDraft
+                ? "Path is local to this mounted widget. Future read-only refresh will use this explicit path after Git reads are implemented."
+                : "Repository root not configured. Future read-only refresh will require an explicit path."}
+            </p>
+          </div>
+          <Badge variant="neutral">Transient</Badge>
+        </div>
+
+        <div className="git-repository-root-controls">
+          <div className="git-repository-root-field">
+            <label
+              className="git-repository-root-label"
+              htmlFor={repositoryRootInputId}
+            >
+              Explicit local path
+            </label>
+            <input
+              autoComplete="off"
+              className="input"
+              id={repositoryRootInputId}
+              onChange={(event) => setRepositoryRootDraft(event.target.value)}
+              placeholder="C:\\path\\to\\repository"
+              spellCheck={false}
+              type="text"
+              value={repositoryRootDraft}
+            />
+          </div>
+          <Button disabled variant="secondary">
+            Refresh status
+          </Button>
+        </div>
+
+        <p className="git-repository-root-note">
+          This placeholder does not validate, save, auto-detect, scan, or read
+          from the path. Git status is not connected yet.
+        </p>
+      </section>
 
       <div aria-label="Planned Git review areas" className="git-review-grid">
         {plannedReviewCards.map((card) => (
