@@ -6,6 +6,8 @@
 # Tauri
 /src-tauri/target/
 /src-tauri/gen/
+# Generated Tauri schema artifacts
+apps/desktop/src-tauri/gen/
 *.app
 *.dmg
 *.msi
