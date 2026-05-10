@@ -12,7 +12,7 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
 
-`GIT_WIDGET_CONTRACT.md` defines the future Git Widget / Git Plugin as a visual, approval-aware review/control surface for repository state after agent-assisted code work. A static insertable frontend placeholder exists, but no Git command execution, repository access, diff parsing, or mutating Git behavior is implemented.
+`GIT_WIDGET_CONTRACT.md` defines the future Git Widget / Git Plugin as a visual, approval-aware review/control surface for repository state after agent-assisted code work. A static insertable frontend placeholder exists, but no Git command execution, repository access, repository root selection, diff parsing, or mutating Git behavior is implemented. Future Git reads must use an explicit operator-approved repository root; hidden parent traversal, Workspace-wide repository scanning, and network fetch during read-only status collection are forbidden by that contract.
 
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape.
 
@@ -136,7 +136,7 @@ The Notes placeholder persists a minimal draft through widget state using the sh
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
-The Git placeholder is static and does not access repositories, execute Git commands, parse diffs, associate validation results, stage, commit, push, revert/reset, or watch the filesystem.
+The Git placeholder is static and does not access repositories, select or persist repository roots, execute Git commands, parse diffs, associate validation results, stage, commit, push, revert/reset, or watch the filesystem.
 
 The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This floating widget mode is not a separate OS window and is not persisted as external window geometry. There is no full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or preset editor.
 

@@ -51,7 +51,7 @@ Request Templates and Response Templates are future product assets, not only con
 
 Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
-For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output.
+For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output. Future Git reads must use an explicit operator-approved repository root; do not add hidden parent traversal, Workspace-wide repository scanning, network fetch during read-only status collection, or mutating Git behavior.
 
 ## Current product direction
 
@@ -65,7 +65,7 @@ Current foundation target:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model is not implemented yet.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
-- The Git placeholder is static and does not implement Git command execution, repository access, diff parsing, validation association, staging, commit, push, revert/reset, or background watching.
+- The Git placeholder is static and does not implement Git command execution, repository access, repository root selection or persistence, diff parsing, validation association, staging, commit, push, revert/reset, or background watching.
 - The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles, with final docked position and size persisted through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; runtime logging, streaming, and polling are not implemented.
 - Widgets are first-class entities, not just React components.

@@ -139,6 +139,111 @@ The widget may support:
 
 Follow-up requests should use Request Templates and Response Templates when that future capability is available.
 
+## Repository Root Source
+
+Before any Git status, diff, log, branch, or other Git command is executed, Hobit must have an explicit repository root selected or approved by the operator.
+
+Repository root selection is a safety boundary:
+
+- The repository root must be visible and reviewable in the Git Widget UI.
+- Hobit must not silently infer a repository by scanning parent directories.
+- Hobit must not crawl Workspace directories looking for repositories.
+- Hobit must not run Git commands against arbitrary paths selected by hidden logic.
+- Git read operations must not begin when no repository root is configured.
+
+### Initial Model
+
+The first read-only Git implementation may use an explicit Git Widget input for the repository root.
+
+Rules:
+
+- The input may be transient widget-local UI state at first.
+- The first slice should not require SQLite schema changes.
+- The UI must clearly show when no repository root is configured.
+- Browser/Vite fallback must show an unsupported or not-connected state for real Git reads.
+- The Git Widget must not present fake live repository data.
+
+### Future Workspace Model
+
+A future Workspace-level project path or repository root may be introduced later.
+
+Future rules:
+
+- A Workspace may have one or more approved repository roots.
+- The Git Widget may default to a Workspace-approved repository root when one is available.
+- Applying or changing a repository root must be operator-visible and auditable.
+- Future persistence must not silently change historical Git review context.
+- Captured Git review artifacts should preserve which repository root they used.
+
+### Repository Root Validation
+
+When implemented, repository root validation must be conservative.
+
+Rules:
+
+- The path must be explicit.
+- The path must be local unless future remote repository support is explicitly designed.
+- Symlinks, worktrees, and network paths must be handled conservatively.
+- Windows path handling must be explicit and tested.
+- The adapter must verify that the approved path is a Git repository before reading status.
+- Errors must be typed and visible to the operator.
+
+Required error categories include:
+
+- not configured
+- unsupported in browser
+- path not found
+- not a Git repository
+- permission denied
+- Git unavailable
+- timed out
+- output too large
+- parse error
+
+### Forbidden Repository Root Behavior
+
+The Git Widget and Git adapter must not implement:
+
+- hidden parent traversal
+- automatic discovery by walking up directories
+- Workspace-wide repository scanning
+- background repository watching
+- network fetch during read-only status collection
+- mutating Git commands in the read-only phase
+- automatic commit, push, stage, revert, reset, clean, or stash
+- automatic prompt injection of repository contents, file contents, secrets, or sensitive paths
+
+### Relation To Read-Only Adapter
+
+The future read-only Git adapter receives an already-approved repository root. It does not choose one.
+
+Adapter rules:
+
+- Use fixed read-only commands only.
+- If Git CLI is used, call it through `std::process::Command` with explicit arguments only.
+- Do not invoke a shell.
+- Use timeouts and output caps.
+- Do not fetch or contact remotes.
+- Return structured status data and typed errors, not raw command output as the primary contract.
+
+### Relation To UI
+
+The Git Widget should make repository root state obvious.
+
+UI rules:
+
+- Show the configured repository root when one exists.
+- Show a clear not-configured state when repository root is absent.
+- Show an unsupported state when running without desktop capabilities needed for real Git reads.
+- Provide a visible manual refresh path when read-only Git status is implemented.
+- Do not present placeholder, stale, or fixture data as live repository state.
+
+### Relation To Workspace
+
+In the first implementation slice, repository root may remain Git-widget-local and transient.
+
+Future Workspace history may link Git status snapshots, executor responses, validation results, and commits to a known repository root. If a repository root changes later, historical Git review artifacts must preserve the root they used.
+
 ## Baseline Git Operations
 
 ### Read-Only Operations
@@ -274,6 +379,8 @@ This contract does not implement:
 - React UI
 - Tauri commands
 - Workspace API changes
+- repository root handling implementation
+- repository root picker or persistence
 - background Git watcher
 - automatic commit
 - automatic push

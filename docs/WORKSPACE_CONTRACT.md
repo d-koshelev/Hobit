@@ -80,7 +80,7 @@ Implemented foundation:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
-- The Git placeholder is static. Git command execution, repository access, diff parsing, validation association, staging, commit, push, revert/reset, and background watching are not implemented.
+- The Git placeholder is static. Git command execution, repository access, repository root selection or persistence, diff parsing, validation association, staging, commit, push, revert/reset, and background watching are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
@@ -99,7 +99,7 @@ Not implemented yet:
 - custom preset editor
 - terminal execution
 - agent runtime calls
-- Git command execution, repository access, diff parsing, staging, commit, push, revert/reset, and background watching
+- Git command execution, repository access, repository root selection or persistence, diff parsing, staging, commit, push, revert/reset, and background watching
 
 ## Workspace
 
@@ -124,6 +124,7 @@ A Workspace should persist:
 - captured executor responses when future agent workflows exist
 - validation results linked to requests/responses when future agent workflows exist
 - Git commits linked to requests/responses when future Git review workflows exist
+- approved repository roots used by future Git review artifacts, preserving the root associated with each captured status, validation, or commit record
 - block/task history following the future agent operating model
 - workspace-local notes
 - decisions
@@ -277,5 +278,6 @@ The following are not implemented yet:
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling
+- repository root selection or persistence for Git review
 - multi-user sync
 - cloud sync
