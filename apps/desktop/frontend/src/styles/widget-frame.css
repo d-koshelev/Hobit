@@ -62,6 +62,15 @@
   gap: var(--space-sm);
 }
 
+.widget-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
 .widget-content {
   display: flex;
   flex: 1;

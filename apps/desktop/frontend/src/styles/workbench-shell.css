@@ -191,12 +191,22 @@
   max-height: calc(100vh - 120px);
   overflow: auto;
   transform: translateX(-50%);
+  will-change: top, left;
 }
 
 .widget-popout-layer .widget-frame {
   min-height: min(620px, calc(100vh - 120px));
   width: 100%;
   box-shadow: var(--shadow-elevated);
+}
+
+.widget-popout-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.widget-popout-dragging * {
+  user-select: none;
 }
 
 .widget-ghost {

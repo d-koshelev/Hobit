@@ -1,4 +1,8 @@
-import type { ComponentType, CSSProperties } from "react";
+import type {
+  ComponentType,
+  CSSProperties,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
@@ -24,6 +28,11 @@ type WidgetHostProps = {
   instance: WidgetInstance;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
   onPopOut: (widgetInstanceId: WidgetInstance["id"]) => void;
+  onStartPopoutDrag: (
+    widgetInstanceId: WidgetInstance["id"],
+    pointerX: number,
+    pointerY: number,
+  ) => void;
   presentationMode: WidgetPresentationMode;
   widgetActions: WorkbenchWidgetInstanceActions;
 };
@@ -32,12 +41,38 @@ export function WidgetHost({
   instance,
   onDockBack,
   onPopOut,
+  onStartPopoutDrag,
   presentationMode,
   widgetActions,
 }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
+  function startPopoutDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (
+      presentationMode !== "popped-out" ||
+      !event.isPrimary ||
+      event.button !== 0
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onStartPopoutDrag(instance.id, event.clientX, event.clientY);
+  }
+
   const frameActions = (
     <>
+      {presentationMode === "popped-out" ? (
+        <Button
+          aria-label={`Move ${instance.title || "widget"} popout`}
+          className="widget-drag-handle"
+          onPointerDown={startPopoutDrag}
+          title="Drag popout"
+          variant="ghost"
+        >
+          Move
+        </Button>
+      ) : null}
       {instance.layout.mode === "docked" ? (
         <WidgetSizePresetControls
           instance={instance}
