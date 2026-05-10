@@ -8,6 +8,7 @@ import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
+import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import type {
   WidgetInstance,
   WidgetPresentationMode,
@@ -18,10 +19,12 @@ import { WidgetSizePresetControls } from "./WidgetSizePresetControls";
 import {
   getWidgetDefinition,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
+  TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
 const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
+  [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
 };
 
 type WidgetHostProps = {

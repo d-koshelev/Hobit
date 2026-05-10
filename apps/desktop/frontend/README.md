@@ -10,9 +10,9 @@ The app starts on the Workspace Start Screen. In the Tauri desktop shell, creati
 
 In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces and Workbench states are local to the current page session and are lost on refresh.
 
-The default preset intentionally renders no widgets. New workspaces still begin with an empty Workbench, and the first concrete catalog insertion path is limited to a persisted Notes placeholder widget.
+The default preset intentionally renders no widgets. New workspaces still begin with an empty Workbench, and the current concrete catalog insertion paths are limited to persisted Notes and static Terminal placeholder widgets.
 
-The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes placeholder through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state` with the shape `{ "body": "..." }`; it is not a full Notes document model. Docked widgets expose Compact, Normal, and Wide size preset controls that persist through `update_widget_instance_layout`. Widget frames include a frontend-only Pop out action that moves the same mounted widget into an in-app overlay and leaves a ghost placeholder with Dock back in the original slot; the popped-out frame exposes Move and Dock back actions without docked size presets. This popout state is not persisted and does not use Tauri windows. Popped-out overlays can be repositioned with an in-memory Move handle. Widget frames also include a local Logs toggle that performs bounded `list_widget_logs` reads when opened and refreshes an open panel after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs, but no runtime log emission, polling, or streaming exists yet. The Workbench canvas shows a compact Recent activity surface backed by workspace-scoped events returned from `get_workspace_workbench_state`; it is not a runtime log console. All other catalog templates remain planned and display-only. No preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
+The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes and Terminal placeholders through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state` with the shape `{ "body": "..." }`; it is not a full Notes document model. The Terminal placeholder is static and does not execute commands, accept command input, or write widget state. Docked widgets expose Compact, Normal, and Wide size preset controls that persist through `update_widget_instance_layout`. Widget frames include a frontend-only Pop out action that moves the same mounted widget into an in-app overlay and leaves a ghost placeholder with Dock back in the original slot; the popped-out frame exposes Move and Dock back actions without docked size presets. This popout state is not persisted and does not use Tauri windows. Popped-out overlays can be repositioned with an in-memory Move handle. Widget frames also include a local Logs toggle that performs bounded `list_widget_logs` reads when opened and refreshes an open panel after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs, but no runtime log emission, polling, or streaming exists yet. The Workbench canvas shows a compact Recent activity surface backed by workspace-scoped events returned from `get_workspace_workbench_state`; it is not a runtime log console. All other catalog templates remain planned and display-only. No preset persistence, terminal execution, agent runtime, or widget runtime behavior is implemented yet.
 
 Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no terminal execution or agent runtime calls.
 
@@ -35,7 +35,7 @@ Current preset:
 
 - Empty Workbench: empty workbench surface
 
-`WidgetHost` maps persisted widget instances to registered frontend components. The current registry contains only the Notes placeholder renderer. The Widget Catalog template list remains separate metadata; only the Notes template is currently available for insertion.
+`WidgetHost` maps persisted widget instances to registered frontend components. The current registry contains the Notes and Terminal placeholder renderers. The Widget Catalog template list remains separate metadata; only the Notes and Terminal templates are currently available for insertion.
 
 ## Visual Direction
 
@@ -76,8 +76,8 @@ npm run tauri:build
 
 - Frontend persistence outside the Tauri workspace commands.
 - Full Notes editing or note document storage.
-- Runtime widget behavior beyond the Notes placeholder insertion and state-save path.
-- Non-Notes widget insertion.
+- Runtime widget behavior beyond placeholder insertion, the Notes state-save path, and generic frame/log/layout behavior.
+- Real capability widget insertion beyond the Notes and Terminal placeholders.
 - Tauri separate-window popouts, persisted popout geometry, and always-on-top behavior.
 - Real terminal execution.
 - Real agent calls.

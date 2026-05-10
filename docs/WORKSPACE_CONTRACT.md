@@ -76,8 +76,9 @@ Implemented foundation:
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
-- The Widget Catalog can insert the Notes placeholder as a persisted WidgetInstance; other catalog templates remain planned/display-only.
+- The Widget Catalog can insert the Notes and Terminal placeholders as persisted WidgetInstances; other catalog templates remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
+- The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - Docked widget size presets update persisted widget layout.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
@@ -87,7 +88,7 @@ Not implemented yet:
 
 - runtime restore or event replay
 - widget runtime reconstruction
-- non-Notes widget insertion from the Widget Catalog
+- real capability widget insertion beyond the Notes and Terminal placeholders
 - real Terminal, Agent CLI, or other capability widgets
 - drag-and-drop layout editing
 - resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and freeform layout editing
@@ -220,7 +221,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes placeholder insertion, Notes widget-state save, docked size preset layout updates, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Non-Notes widget insertion, drag-and-drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes and Terminal placeholder insertion, Notes widget-state save, docked size preset layout updates, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, drag-and-drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -265,7 +266,7 @@ The following are not implemented yet:
 - event replay
 - widget runtime reconstruction
 - applied request/response snapshot history
-- non-Notes widget insertion from catalog items
+- real capability widget insertion beyond the Notes and Terminal placeholders
 - real capability widgets
 - custom preset editor
 - drag-and-drop layout editor
