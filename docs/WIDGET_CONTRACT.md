@@ -182,3 +182,5 @@ Future widget types may include:
 - To-do List
 
 Notes Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`.
+
+Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface for repository state, not only raw command output.
