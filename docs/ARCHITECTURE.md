@@ -136,7 +136,7 @@ The Notes placeholder persists a minimal draft through widget state using the sh
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
-Docked widget size presets update persisted layout through `update_widget_instance_layout`. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no drag/drop layout editor, resize handle UI, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode is currently only an explicit mode indicator and does not implement drag/drop or resize handles. Existing persisted docked layout sizes still render, and `update_widget_instance_layout` remains available for future docked drag/resize. Widgets can also be popped out into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. There is no drag/drop layout editor, resize handle UI, Tauri separate-window popout behavior, persisted popout geometry, always-on-top behavior, or preset editor.
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. There is no runtime log streaming, polling, or widget execution.
 
@@ -154,7 +154,7 @@ These are pure domain contracts only. Persistence, frontend integration, and Tau
 
 It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
 
-This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes placeholder state, docked layout size presets, workspace activity events, and widget-local logs. It is not wired to agent runtime, terminal execution, chat runtime, real capability widgets beyond placeholders, runtime execution, or log streaming.
+This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes placeholder state, persisted widget layout fields, workspace activity events, and widget-local logs. It is not wired to agent runtime, terminal execution, chat runtime, real capability widgets beyond placeholders, runtime execution, or log streaming.
 
 ## Current Application Service Milestone
 

@@ -2,14 +2,18 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
-import type { WorkbenchViewState } from "./types";
+import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 
 type WorkbenchTopBarProps = {
+  layoutMode: WorkbenchLayoutMode;
+  onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
   viewState: WorkbenchViewState;
 };
 
 export function WorkbenchTopBar({
+  layoutMode,
+  onLayoutModeChange,
   onOpenWidgetCatalog,
   viewState,
 }: WorkbenchTopBarProps) {
@@ -42,6 +46,26 @@ export function WorkbenchTopBar({
       </div>
 
       <div className="topbar-right" aria-label="Workbench controls">
+        <div
+          aria-label="Workbench layout mode"
+          className="layout-mode-toggle"
+          role="group"
+        >
+          <Button
+            aria-pressed={layoutMode === "locked"}
+            onClick={() => onLayoutModeChange("locked")}
+            variant={layoutMode === "locked" ? "secondary" : "ghost"}
+          >
+            Layout locked
+          </Button>
+          <Button
+            aria-pressed={layoutMode === "editing"}
+            onClick={() => onLayoutModeChange("editing")}
+            variant={layoutMode === "editing" ? "secondary" : "ghost"}
+          >
+            Edit layout
+          </Button>
+        </div>
         <Badge variant="info">
           <StatusDot variant="info" />
           Local preview

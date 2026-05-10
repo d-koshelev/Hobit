@@ -16,7 +16,6 @@ import type {
   WidgetRenderProps,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
-import { WidgetSizePresetControls } from "./WidgetSizePresetControls";
 import {
   AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
@@ -89,12 +88,6 @@ export function WidgetHost({
         >
           Move
         </Button>
-      ) : null}
-      {presentationMode === "docked" && instance.layout.mode === "docked" ? (
-        <WidgetSizePresetControls
-          instance={instance}
-          onUpdateLayout={widgetActions.updateWidgetLayout}
-        />
       ) : null}
       {presentationAction}
     </>

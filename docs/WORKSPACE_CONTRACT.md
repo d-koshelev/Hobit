@@ -80,7 +80,7 @@ Implemented foundation:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
-- Docked widget size presets update persisted widget layout.
+- Existing persisted docked widget sizes render, and a frontend-only layout lock/edit-mode foundation is in place. Docked drag/resize editing is not implemented.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
 - SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
@@ -222,7 +222,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, pops out, or configures widgets inside the Workspace. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, docked size preset layout updates, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, drag-and-drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal placeholder, and Agent Chat placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation, frontend-only popout presentation state with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Real capability widget insertion beyond placeholders, drag-and-drop layout editing, resize handles, Tauri separate-window popouts, persisted popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -272,7 +272,7 @@ The following are not implemented yet:
 - custom preset editor
 - drag-and-drop layout editor
 - resize handles, Tauri separate-window popouts, persisted popout geometry, and always-on-top behavior
-- freeform layout persistence editing beyond docked size presets
+- docked drag/resize layout editing and freeform layout persistence editing
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling
 - multi-user sync

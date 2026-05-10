@@ -7,10 +7,12 @@ import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions
 import type {
   WidgetInstance,
   WidgetInstanceId,
+  WorkbenchLayoutMode,
   WorkbenchViewState,
 } from "./types";
 
 type WorkbenchCanvasProps = {
+  layoutMode: WorkbenchLayoutMode;
   onOpenWidgetCatalog: () => void;
   viewState: WorkbenchViewState;
   widgetActions: WorkbenchWidgetInstanceActions;
@@ -37,6 +39,7 @@ const POPOUT_MIN_VISIBLE_WIDTH = 180;
 const POPOUT_MIN_VISIBLE_HEIGHT = 96;
 
 export function WorkbenchCanvas({
+  layoutMode,
   onOpenWidgetCatalog,
   viewState,
   widgetActions,
@@ -53,6 +56,10 @@ export function WorkbenchCanvas({
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
+  const isLayoutEditing = layoutMode === "editing";
+  const canvasShellClass = isLayoutEditing
+    ? "canvas-shell canvas-shell-layout-editing"
+    : "canvas-shell";
 
   useEffect(() => {
     const visibleWidgetIds = new Set(
@@ -182,9 +189,10 @@ export function WorkbenchCanvas({
 
   if (visibleWidgets.length === 0) {
     return (
-      <section className="canvas-shell" aria-label={canvasLabel}>
+      <section className={canvasShellClass} aria-label={canvasLabel}>
         <div className="canvas-stack">
           <WorkbenchActivity events={viewState.recentEvents} />
+          {isLayoutEditing ? <LayoutEditingStatus /> : null}
           <div className="empty-workbench" aria-label="Empty workbench">
             <div className="empty-workbench-content">
               <h1 className="empty-workbench-title">Your workbench is empty</h1>
@@ -202,9 +210,10 @@ export function WorkbenchCanvas({
   }
 
   return (
-    <section className="canvas-shell" aria-label={canvasLabel}>
+    <section className={canvasShellClass} aria-label={canvasLabel}>
       <div className="canvas-stack">
         <WorkbenchActivity events={viewState.recentEvents} />
+        {isLayoutEditing ? <LayoutEditingStatus /> : null}
         <div className="widget-grid">
           {visibleWidgets.map((widget) => {
             const isPoppedOut = poppedOutWidgetIds.includes(widget.id);
@@ -246,6 +255,14 @@ export function WorkbenchCanvas({
         </div>
       </div>
     </section>
+  );
+}
+
+function LayoutEditingStatus() {
+  return (
+    <div className="layout-editing-status" role="status">
+      Layout editing enabled
+    </div>
   );
 }
 

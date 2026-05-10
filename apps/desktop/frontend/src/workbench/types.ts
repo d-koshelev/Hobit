@@ -18,6 +18,7 @@ export type WorkbenchPresetId = string;
 
 export type WidgetLayoutMode = "docked" | "popped-out" | "minimized";
 export type WidgetPresentationMode = "docked" | "popped-out";
+export type WorkbenchLayoutMode = "locked" | "editing";
 
 export type WidgetGeometry = {
   x: number;

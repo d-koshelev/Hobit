@@ -4,7 +4,7 @@ import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
-import type { WorkbenchViewState } from "./types";
+import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 
 type WorkbenchShellProps = {
   onViewStateChange: (viewState: WorkbenchViewState) => void;
@@ -16,6 +16,8 @@ export function WorkbenchShell({
   viewState,
 }: WorkbenchShellProps) {
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
+  const [layoutMode, setLayoutMode] =
+    useState<WorkbenchLayoutMode>("locked");
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);
   const closeWidgetCatalog = () => setIsWidgetCatalogOpen(false);
   const widgetActions = useWorkbenchWidgetActions({
@@ -35,6 +37,8 @@ export function WorkbenchShell({
     <main className="app-shell">
       <div className="workbench">
         <WorkbenchTopBar
+          layoutMode={layoutMode}
+          onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}
           viewState={viewState}
         />
@@ -44,6 +48,7 @@ export function WorkbenchShell({
           }`}
         >
           <WorkbenchCanvas
+            layoutMode={layoutMode}
             onOpenWidgetCatalog={openWidgetCatalog}
             viewState={viewState}
             widgetActions={widgetActions}
