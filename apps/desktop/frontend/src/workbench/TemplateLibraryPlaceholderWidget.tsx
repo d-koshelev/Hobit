@@ -73,6 +73,41 @@ const requestTemplatePreviewFields = [
   },
 ];
 
+const responseTemplatePreviewFields = [
+  {
+    label: "Header",
+    value: "Starts with the block number and title, such as Block 62.",
+  },
+  {
+    label: "Files changed",
+    value: "Lists the exact files touched by the implementation block.",
+  },
+  {
+    label: "What changed",
+    value: "Summarizes the delivered work without claiming extra behavior.",
+  },
+  {
+    label: "Validation results",
+    value: "Reports every requested command as passed, failed, or not run.",
+  },
+  {
+    label: "Warnings",
+    value: "Calls out skipped checks, failures, caveats, and residual risk.",
+  },
+  {
+    label: "Commit",
+    value: "Includes hash and message, or says plainly when commit failed.",
+  },
+  {
+    label: "Out of scope",
+    value: "Names work intentionally not implemented by the block.",
+  },
+  {
+    label: "Final git status",
+    value: "Reports final branch and working-tree state after the task.",
+  },
+];
+
 export function TemplateLibraryPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -101,7 +136,8 @@ export function TemplateLibraryPlaceholderWidget({
             <p className="template-library-summary-title">Template Library</p>
             <p className="template-library-summary-text">
               Request and Response Templates are planned. Template editing,
-              request generation, and response validation are not available yet.
+              request generation, response capture, parsing, and validation are
+              not available yet.
             </p>
           </div>
           <Badge variant="neutral">Static preview</Badge>
@@ -132,6 +168,44 @@ export function TemplateLibraryPlaceholderWidget({
 
           <dl className="template-library-preview-grid">
             {requestTemplatePreviewFields.map((field) => (
+              <div className="template-library-preview-field" key={field.label}>
+                <dt className="template-library-preview-label">
+                  {field.label}
+                </dt>
+                <dd className="template-library-preview-value">
+                  {field.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section
+          aria-label="Static Response Template preview"
+          className="template-library-section template-library-preview"
+        >
+          <div className="template-library-preview-header">
+            <div className="template-library-preview-copy">
+              <h3 className="template-library-section-title">
+                Response Template Preview
+              </h3>
+              <p className="template-library-preview-title">
+                Implementation result
+              </p>
+              <p className="template-library-preview-text">
+                Static example only. It is not editable, persisted, captured,
+                parsed, validated, or connected to executor agents. No-code audit
+                and failed/blocked results are separate planned response kinds.
+              </p>
+            </div>
+            <div className="template-library-preview-badges">
+              <Badge variant="neutral">Static</Badge>
+              <Badge variant="neutral">Planned</Badge>
+            </div>
+          </div>
+
+          <dl className="template-library-preview-grid">
+            {responseTemplatePreviewFields.map((field) => (
               <div className="template-library-preview-field" key={field.label}>
                 <dt className="template-library-preview-label">
                   {field.label}
@@ -191,10 +265,10 @@ export function TemplateLibraryPlaceholderWidget({
             New template
           </Button>
           <Button disabled variant="secondary">
-            Preview request
+            Preview request planned
           </Button>
           <Button disabled variant="secondary">
-            Validate response
+            Validate response planned
           </Button>
         </div>
       </div>
