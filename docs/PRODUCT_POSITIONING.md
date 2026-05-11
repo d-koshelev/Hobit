@@ -47,7 +47,7 @@ This positioning is a product contract and direction statement.
 
 The current repository does not yet implement real agent runtime behavior, automatic agent execution, Request Template editing, Response Template editing, response validation, or rich coordinator/executor UI.
 
-Current implemented behavior remains the Empty Workbench shell, Workspace lifecycle foundation, Widget Catalog foundation, Notes, Terminal placeholder, Agent Chat placeholder, and Git placeholder insertion paths, persisted widget state/layout foundation, widget-local Logs panel foundation, and workspace activity summaries described in `docs/ARCHITECTURE.md`.
+Current implemented behavior remains the Empty Workbench shell, Workspace lifecycle foundation, Widget Catalog foundation, Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder insertion paths, persisted widget state/layout foundation, widget-local Logs panel foundation, and workspace activity summaries described in `docs/ARCHITECTURE.md`. Template storage, editing, request generation, response validation, and agent execution are not implemented.
 
 ## Related Contracts
 

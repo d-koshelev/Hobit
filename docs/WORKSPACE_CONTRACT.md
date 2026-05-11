@@ -76,11 +76,12 @@ Implemented foundation:
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
-- The Widget Catalog can insert the Notes, Terminal placeholder, Agent Chat placeholder, and Git placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
+- The Widget Catalog can insert the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
 - The Git placeholder is static. Git command execution, repository access, repository root selection or persistence, diff parsing, validation association, staging, commit, push, revert/reset, and background watching are not implemented.
+- The Template Library placeholder is static. Template storage, template editing, request generation, response parsing, response validation, executor launch, and agent execution are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
@@ -90,7 +91,7 @@ Not implemented yet:
 
 - runtime restore or event replay
 - widget runtime reconstruction
-- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, and Git placeholder
+- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder
 - real Terminal, Agent CLI, operational agent chat, or other capability widgets
 - full drag-and-drop layout editing
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
@@ -225,7 +226,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, Agent Chat placeholder, and Git placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -270,7 +271,8 @@ The following are not implemented yet:
 - event replay
 - widget runtime reconstruction
 - applied request/response snapshot history
-- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, and Git placeholder
+- template storage, editing, request generation, response parsing, or response validation
+- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder
 - real capability widgets
 - custom preset editor
 - full drag-and-drop layout editor

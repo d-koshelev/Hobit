@@ -1,5 +1,6 @@
 export type WidgetCatalogCategory =
   | "core"
+  | "workflow"
   | "productivity"
   | "tools"
   | "data"
@@ -23,6 +24,7 @@ export const widgetCatalogCategoryLabels: Record<
   string
 > = {
   core: "Core",
+  workflow: "Workflow",
   productivity: "Productivity",
   tools: "Tools",
   data: "Data",
@@ -32,6 +34,7 @@ export const widgetCatalogCategoryLabels: Record<
 
 export const widgetCatalogCategoryOrder: WidgetCatalogCategory[] = [
   "core",
+  "workflow",
   "productivity",
   "tools",
   "data",
@@ -64,6 +67,20 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Workspace context access not implemented",
     ],
     futureWidgetDefinitionId: "agent-chat",
+  },
+  {
+    id: "template-library",
+    title: "Template Library",
+    category: "workflow",
+    description:
+      "Static placeholder for future Request and Response template management.",
+    status: "available",
+    capabilitySummary: [
+      "Request and Response template placeholder",
+      "Template storage and editing not implemented",
+      "Request generation and response validation not implemented",
+    ],
+    futureWidgetDefinitionId: "template-library",
   },
   {
     id: "notes",

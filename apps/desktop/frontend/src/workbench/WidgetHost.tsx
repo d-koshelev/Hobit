@@ -10,6 +10,7 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import { OperationalAgentChatPlaceholderWidget } from "./OperationalAgentChatPlaceholderWidget";
+import { TemplateLibraryPlaceholderWidget } from "./TemplateLibraryPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import type {
   WidgetInstance,
@@ -23,6 +24,7 @@ import {
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
+  TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
@@ -30,6 +32,8 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY]: OperationalAgentChatPlaceholderWidget,
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
+  [TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY]:
+    TemplateLibraryPlaceholderWidget,
   [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
 };
 

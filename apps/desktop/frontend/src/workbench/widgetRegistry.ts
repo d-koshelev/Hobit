@@ -6,6 +6,9 @@ export const GIT_WIDGET_DEFINITION_ID = "git";
 export const GIT_PLACEHOLDER_COMPONENT_KEY = "git-placeholder";
 export const NOTES_WIDGET_DEFINITION_ID = "notes";
 export const NOTES_PLACEHOLDER_COMPONENT_KEY = "notes-placeholder";
+export const TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID = "template-library";
+export const TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY =
+  "template-library-placeholder";
 export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
@@ -36,6 +39,16 @@ export const widgetRegistry: WidgetDefinition[] = [
     defaultTitle: "Notes",
     defaultConfig: {},
     componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
+  },
+  {
+    id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
+    title: "Template Library",
+    category: "workflow",
+    description:
+      "Static placeholder for future Request and Response template management.",
+    defaultTitle: "Template Library",
+    defaultConfig: {},
+    componentKey: TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY,
   },
   {
     id: TERMINAL_WIDGET_DEFINITION_ID,
