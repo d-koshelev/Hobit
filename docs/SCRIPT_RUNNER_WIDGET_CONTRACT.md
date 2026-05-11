@@ -6,11 +6,13 @@ This contract defines the future Script Runner Widget for Hobit.
 
 Script Runner is a configured, operator-controlled widget for running an explicit local script with reviewable configuration. It exists to make a narrow script action repeatable, visible, logged, and auditable inside the Workbench.
 
-This is a documentation and product/domain contract only. It does not implement UI, backend execution, Tauri commands, storage, process spawning, script runtime behavior, or catalog insertion.
+This is a documentation and product/domain contract only. It does not implement UI, backend execution, Tauri commands, storage, process spawning, script runtime behavior, or an insertable catalog path.
 
 ## Current Status
 
 There is no Script Runner Widget today.
+
+The frontend Widget Catalog may list Script Runner as a planned/display-only item to expose the future direction. That catalog item is not insertable and does not create a WidgetInstance, configuration UI, Run button, backend call, storage record, or script runtime behavior.
 
 The current repository has no general command or script execution runtime. The Terminal placeholder is static. Agent Chat is static. Agent Run is a static observability preview. Git has only a manual desktop-only read-only status refresh for an explicit transient repository root.
 
@@ -342,7 +344,7 @@ This contract does not implement:
 - Agent Chat runtime
 - Agent Run runtime
 - Agent Queue execution
-- widget catalog insertion
+- insertable widget catalog path
 - widget runtime behavior
 - secret management
 - unattended execution

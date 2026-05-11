@@ -137,6 +137,19 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     futureWidgetDefinitionId: "terminal",
   },
   {
+    id: "script-runner",
+    title: "Script Runner",
+    category: "tools",
+    description:
+      "Run an explicitly configured local script with predefined arguments when the operator presses Run.",
+    status: "planned",
+    capabilitySummary: [
+      "Operator-controlled script execution planned",
+      "No hidden execution",
+      "No script runtime available yet",
+    ],
+  },
+  {
     id: "database-jdbc",
     title: "Database / JDBC",
     category: "data",
