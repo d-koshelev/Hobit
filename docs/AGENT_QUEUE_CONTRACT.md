@@ -1,0 +1,441 @@
+# Agent Queue Contract
+
+## Purpose
+
+This contract defines Hobit's future Agent Queue as an operator-controlled queue of agent work blocks and a review inbox for completed agent results.
+
+The Agent Queue is a coordinator/review layer for structured agent work. It should connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
+
+This is a documentation and product/domain contract only. It does not implement storage, UI, automatic execution, executor integration, response parsing, response validation, Git mutation, Tauri commands, Workspace API changes, or runtime behavior.
+
+## Current Status
+
+Agent Queue is not implemented.
+
+The current repository has:
+
+- no Agent Queue UI
+- no queue storage
+- no queue item schema
+- no automatic agent execution
+- no background queue runner
+- no response capture, parser, or validator
+- no executor integration
+- no queue-linked Git review state
+- no queue-linked Notes/Notebook behavior
+
+Current related foundations are limited to the static Template Library placeholder, static Agent Run placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+
+## Definition
+
+Agent Queue is a Workbench capability for planning, tracking, and reviewing agent work blocks.
+
+It has two linked roles:
+
+- Queue: a coordinator-controlled list of planned or ready agent blocks.
+- Review inbox: a structured place to inspect completed or failed agent work before accepting, fixing, rerunning, following up, or archiving it.
+
+The Agent Queue must not be defined as:
+
+- a simple to-do list only
+- a raw prompt list only
+- hidden automation
+- unattended acceptance
+- auto-push or auto-merge workflow
+- a way to bypass tool approval, Git review, validation, or operator control
+
+Agent Queue may become a visible Workbench widget or Workbench surface in the future. If visible, it must follow `docs/WIDGET_CONTRACT.md`; it is optional capability surface, not the product center.
+
+## Core Purpose
+
+Agent Queue helps the operator:
+
+- plan agent blocks
+- prepare structured requests
+- review queued, running, completed, failed, and blocked work
+- inspect Result Reports, Overview Logs, and Raw Logs
+- review validation results
+- review Git state after code blocks
+- inspect produced artifacts
+- connect relevant Notes/Notebook context
+- decide accept, needs fix, rerun, follow-up, reject/archive, or push/review
+- keep Workspace history coherent
+
+The queue may later recommend an operator decision, but the operator makes the final decision.
+
+## Queue Item / Agent Block
+
+A Queue Item represents one reviewable unit of agent work. It should normally correspond to one Agent Block under `docs/AGENT_OPERATING_MODEL.md`.
+
+A future Queue Item may include:
+
+- block number
+- title
+- goal
+- status
+- priority
+- target executor, agent, tool, or manual assignee
+- Request Template reference
+- applied request snapshot
+- selected Response Template reference
+- captured executor response
+- Agent Run reference
+- validation results
+- Git review reference
+- artifacts
+- related Notes/Notebook context
+- recommended operator decision
+- operator decision state
+- created and updated timestamps
+
+The Queue Item is not the same as a reusable template. It is a concrete block instance in a Workspace or Project history.
+
+## Status Model
+
+Queue status names are conceptual for now. Future implementation may refine names, but it must preserve explicit review and acceptance.
+
+Suggested statuses:
+
+- `planned`: block exists as an idea or draft.
+- `ready`: request context and templates are prepared for execution or handoff.
+- `sent`: request was sent, copied, exported, or handed to an executor.
+- `running`: executor or run is in progress.
+- `response_received`: executor response exists but has not been reviewed.
+- `needs_review`: result, validation, Git state, or artifacts need operator review.
+- `accepted`: operator explicitly accepted the work.
+- `needs_fix`: operator decided that a fix block or correction is required.
+- `rerun_requested`: operator requested rerun of the block.
+- `follow_up_created`: follow-up block was created from the result.
+- `blocked`: work cannot proceed without input, approval, context, or environment.
+- `failed`: execution, validation, response capture, or required processing failed.
+- `archived`: item is no longer active but remains part of history when future storage supports it.
+
+Acceptance must be explicit. A successful executor response, clean Git status, or passing validation does not automatically accept a Queue Item.
+
+## Decision Model
+
+Decisions should be explicit and auditable when future storage exists.
+
+Suggested decision values:
+
+- `accepted`
+- `accepted_with_follow_up`
+- `needs_fix`
+- `rerun`
+- `rejected`
+- `deferred`
+
+Hobit may later recommend a decision based on validation, Git state, response structure, or queue policy, but recommendations must not auto-accept work or hide risk.
+
+## Operator Review Flow
+
+When the operator returns after agent work, the expected future review flow is:
+
+1. Open Agent Queue.
+2. See items grouped by review status.
+3. Select a completed, failed, or blocked item.
+4. Read the summary card.
+5. Inspect the original request and applied request snapshot.
+6. Inspect the selected Response Template expectation.
+7. Open Agent Run Overview Log for fast comprehension.
+8. Open Result Report as the main acceptance artifact.
+9. Open Raw Log for debugging or audit when needed.
+10. Inspect validation results, including failed and skipped checks.
+11. Inspect Git Widget review for code changes when relevant.
+12. Read related Notes/Notebook context.
+13. Inspect artifacts.
+14. Decide accept, needs fix, rerun, create follow-up, reject/archive, or push/review when appropriate.
+
+The review flow must make failed validation, skipped validation, dirty Git state, untracked files, and blocked execution visible.
+
+## Relation To Template Library
+
+Agent Queue works with Request Templates and Response Templates defined in `docs/TEMPLATE_CONTRACT.md`.
+
+Rules:
+
+- A Queue Item may be created from a Request Template.
+- A Queue Item should store or link to an applied request snapshot.
+- A Queue Item should reference the selected Response Template.
+- A Queue Item can link back to template ids, revisions, and variables used.
+- Template edits must not silently mutate existing Queue Item request snapshots or historical response expectations.
+- Coordinator flows may use Template Library to prepare future executor prompts.
+- Applying a template must not automatically execute a Queue Item.
+- Generated requests must remain reviewable before use.
+
+The Template Library prepares and previews template assets. Agent Queue tracks concrete block instances and review state.
+
+## Relation To Agent Run
+
+Agent Queue should link each executable Queue Item to an Agent Run or equivalent future run record when one exists.
+
+Agent Run provides:
+
+- Raw Log for exact traceability
+- Overview Log for fast operator comprehension
+- Result Report as the final acceptance artifact
+
+Rules:
+
+- Queue cards may show high-level run status and the latest Overview Log step.
+- Queue item detail should expose Overview, Result, and Raw views or links.
+- Result Report is the main review artifact, but it does not replace validation or Git review.
+- Raw Log must remain available for debugging and audit.
+- Overview Log must not invent success or hide raw failures.
+- A Queue Item must not be accepted solely because an Agent Run completed.
+
+For run observability rules, see `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
+
+## Relation To Git Widget
+
+Code-related Queue Items should link to Git review context when available.
+
+The Git Widget can show:
+
+- repository state
+- changed files
+- branch
+- clean or dirty status
+- commit hash and message when available
+- ahead/behind counts
+- push-needed state
+- validation association when future support exists
+
+A Queue Item may summarize:
+
+- clean/dirty state
+- changed file count
+- staged, unstaged, untracked, conflicted, or unknown groups
+- commit hash and message if available
+- branch ahead/behind state
+- push needed
+- linked validation status
+
+Rules:
+
+- Git Widget does not replace Result Report.
+- Agent Queue must not hide dirty Git state, untracked files, skipped validation, or failed validation.
+- Agent Queue must not perform automatic Git mutations.
+- Commit, push, restore, revert, reset, clean, stash, and other Git mutations require explicit operator approval in the relevant future Git surface.
+- Generated commit messages must remain reviewable before commit.
+
+For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
+
+## Relation To Notes / Notebook
+
+Queue Items may link to operator notes.
+
+Future Notes/Notebook use may include:
+
+- review notes
+- assumptions
+- follow-up ideas
+- decision rationale
+- context gathered before or during agent work
+- manual validation observations
+
+Rules:
+
+- Queue should not silently modify notes.
+- Promoting note content into a request, review, or follow-up must be visible to the operator.
+- Future AI-assisted note editing must remain explicit and approval-aware under the Notes/Notebook contract.
+- Notes/Notebook context may support review, but it must not replace the applied request snapshot, Result Report, validation results, or Git review.
+
+## Relation To Workspace Activity
+
+Workspace Activity is the broad timeline. Agent Queue is the dedicated review/control surface.
+
+Future Workspace Activity may record events such as:
+
+- queue item created
+- request prepared
+- executor started
+- response captured
+- validation passed
+- validation failed
+- Git review opened
+- operator accepted
+- fix requested
+- rerun requested
+- follow-up created
+- item archived
+
+Rules:
+
+- Workspace Activity may summarize lifecycle events.
+- Agent Queue should hold the actionable review state.
+- Activity summaries must not replace queue item detail, Result Report, Raw Log, validation output, or Git review.
+
+## Main View UI Direction
+
+Future Agent Queue UI should show Queue Item cards grouped by status.
+
+Suggested groups:
+
+- Needs review
+- Running
+- Failed
+- Blocked
+- Accepted
+- Planned
+
+Each card should show:
+
+- block number and title
+- status
+- priority when useful
+- validation summary
+- Git summary when relevant
+- commit and push state when relevant
+- latest run summary or Overview Log step
+- recommended operator action
+- quick open/review controls
+
+The main view should optimize for returning to a Workspace and understanding what needs operator attention first.
+
+## Queue Item Detail UI Direction
+
+Queue item detail should show linked sections:
+
+- Request
+  - Request Template reference
+  - generated prompt snapshot
+  - scope summary
+  - do-not-change summary
+- Execution
+  - Agent Run Overview Log
+  - Raw Log link or expandable view
+  - runtime status
+- Result
+  - Result Report
+  - selected Response Template
+  - response template validation when future validation exists
+- Git Review
+  - repository state
+  - changed files
+  - commit/push status
+  - validation association when available
+- Artifacts
+  - files, reports, outputs, or other produced artifacts
+- Notes
+  - operator review notes
+  - linked Notebook context when available
+- Decision
+  - accept
+  - accept with follow-up
+  - needs fix
+  - rerun
+  - create follow-up
+  - reject/archive
+  - defer
+
+Decision controls must be explicit and must explain consequences when they affect Workspace history, Git state, files, or external systems.
+
+## Unattended Execution Boundary
+
+Future Agent Queue may support unattended execution only after strict gates exist.
+
+Required gates include:
+
+- Request Templates are explicit.
+- Response Templates are selected.
+- generated requests are reviewable before use.
+- execution context is approved.
+- tool permissions and risks are visible.
+- logs are captured.
+- Result Reports are captured.
+- Result Reports are validated when future validation exists.
+- Git state is reviewable for code changes.
+- destructive or mutating actions remain approval-gated.
+- queue history is auditable.
+
+Current boundary:
+
+- no unattended execution
+- no automatic launch
+- no auto-run-next-block
+- no automatic acceptance
+- no automatic commit
+- no automatic push
+- no automatic merge
+- no hidden context injection
+
+Unattended execution, if ever implemented, must still return work to an explicit operator review and acceptance step.
+
+## Safety Principles
+
+- Operator-controlled review.
+- No hidden prompt mutation.
+- No hidden context injection.
+- No secret injection.
+- No hidden agent execution.
+- No hidden Git mutation.
+- No discarded logs.
+- Failed validation must be visible.
+- Skipped validation must be visible.
+- Dirty Git state must be visible.
+- Untracked files must be visible.
+- Generated requests must be reviewable.
+- Captured responses must be reviewable.
+- Result Reports must not hide raw failures.
+- Queue history should be auditable when implemented.
+- Recommendations must not auto-accept work.
+- Agent proposes; operator controls.
+
+## Future Data Concepts
+
+Future implementation may introduce concepts such as:
+
+- `AgentQueue`
+- `QueueItem`
+- `QueueItemStatus`
+- `QueueItemDecision`
+- `AppliedRequestSnapshot`
+- `CapturedResponse`
+- `AgentRunLink`
+- `GitReviewLink`
+- `QueueArtifact`
+- `ReviewNote`
+- `FollowUpBlock`
+
+These are conceptual only. This contract does not define Rust types, TypeScript types, API DTOs, SQLite schema, frontend state, or storage migrations.
+
+## Non-Goals
+
+This contract does not implement:
+
+- Agent Queue UI
+- storage schema or migrations
+- Rust domain types
+- TypeScript types
+- Tauri commands
+- Workspace API changes
+- automatic execution
+- executor integration
+- response capture
+- response parser
+- response validator
+- template storage or generation
+- Agent Run runtime
+- Git mutation
+- push or merge automation
+- background queue runner
+- secret or context automation
+- runtime/tool execution changes
+- current widget behavior changes
+- product behavior changes
+
+## Architecture Boundary
+
+Future implementation must preserve existing Hobit boundaries:
+
+- Workbench remains the product center.
+- Agent Queue is an optional Workbench capability, not the whole product.
+- Queue Items are concrete block instances, not reusable templates.
+- Template Library owns template browsing/preparation direction; Agent Queue owns concrete queue/review state.
+- Agent Run owns observability views; Agent Queue links and summarizes them.
+- Git Widget owns Git review/control; Agent Queue links and summarizes Git state.
+- Notes/Notebook owns operator-authored notes; Agent Queue links review context without silently mutating notes.
+- Workspace Activity owns broad event history; Agent Queue owns actionable review state.
+- Agent/runtime integration must not make queueing an implicit hidden execution path.
+- Tool and Git actions must remain explicit, visible, and approval-aware.

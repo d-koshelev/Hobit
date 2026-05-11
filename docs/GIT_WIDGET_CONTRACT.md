@@ -56,6 +56,7 @@ The widget should summarize:
 When connected to an agent block, the widget should show:
 
 - block title and number when known
+- Agent Queue item or block status when known
 - request or task id when known
 - executor final response status when known
 - response validation status when known
@@ -314,6 +315,8 @@ Expected future workflow:
 
 The Git Widget should help the coordinator decide whether to accept the block, request a fix, rerun validation, create a follow-up block, push, or revert.
 
+Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. Code-related Queue Items may link to Git Widget review state, but the queue must not hide dirty Git state, failed validation, skipped validation, untracked files, or push-needed state.
+
 ## Relation To Request And Response Templates
 
 The Git Widget may associate repository state with:
@@ -387,6 +390,7 @@ This contract does not implement:
 - PR provider integration
 - agent runtime behavior
 - current widget behavior changes
+- Agent Queue UI, storage, or automatic Git review actions
 - product behavior changes
 
 ## Current Implementation Boundary

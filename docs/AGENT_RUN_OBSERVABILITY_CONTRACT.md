@@ -18,6 +18,8 @@ The current repository has no real agent runtime, no executor integration, no Te
 
 The frontend has an insertable static Agent Run placeholder that previews future Overview Log, Result Report, and Raw Log sections. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents.
 
+`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox that may link to Agent Run observability. Agent Queue UI, storage, response capture, response validation, and executor integration are not implemented yet.
+
 Implemented observability today is limited to:
 
 - widget-local Logs panels
@@ -198,6 +200,12 @@ Expected future flow:
 7. Coordinator decides accept, fix, rerun, or next block.
 
 For coordinator/executor role rules, see `docs/AGENT_OPERATING_MODEL.md`.
+
+## Relation To Agent Queue
+
+Future Queue Items should link to Agent Run observability when a run exists. Queue cards may summarize run status or the latest Overview Log step, while Queue Item detail should expose Overview Log, Result Report, and Raw Log.
+
+The Result Report is the main acceptance artifact for a Queue Item, but it must not hide failed raw execution, skipped validation, dirty Git state, or blocked work. Queue decisions remain explicit operator decisions.
 
 ## Relation To Request And Response Templates
 

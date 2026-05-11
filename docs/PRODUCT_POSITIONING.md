@@ -58,4 +58,5 @@ Current implemented behavior remains the Empty Workbench shell, Workspace lifecy
 - `docs/GIT_WIDGET_CONTRACT.md` defines the future Git review/control widget for agent-completed code work.
 - `docs/TEMPLATE_CONTRACT.md` defines future Request Templates and Response Templates.
 - `docs/AGENT_OPERATING_MODEL.md` defines future coordinator and executor agent roles.
+- `docs/AGENT_QUEUE_CONTRACT.md` defines the future operator-controlled queue and review inbox for agent blocks.
 - `docs/AGENT_RESPONSE_CONTRACT.md` defines current project-agent final response requirements.

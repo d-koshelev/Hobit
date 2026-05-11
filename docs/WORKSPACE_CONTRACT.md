@@ -81,6 +81,7 @@ Implemented foundation:
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
 - The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log sections. Run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, and executor integration are not implemented.
+- Agent Queue is contract-only. Queue storage, queue UI, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, and executor integration are not implemented.
 - The Git widget placeholder has a transient explicit repository-root input. In the Tauri desktop path, it can manually refresh a read-only Git status snapshot for that root through `get_git_repository_status`, then render a status card and grouped changed-files summary. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. Browser/Vite fallback cannot read Git status.
 - The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
@@ -131,6 +132,7 @@ A Workspace should persist:
 - Git commits linked to requests/responses when future Git review workflows exist
 - approved repository roots used by future Git review artifacts, preserving the root associated with each captured status, validation, or commit record
 - block/task history following the future agent operating model
+- Agent Queue items and operator decisions when future Agent Queue support exists
 - workspace-local notes
 - decisions
 - current focus
@@ -276,6 +278,7 @@ The following are not implemented yet:
 - widget runtime reconstruction
 - applied request/response snapshot history
 - template storage, editing, request generation, response capture, response parsing, response validation, executor integration, or Git-response association
+- Agent Queue UI, storage, queue runner, automatic launch, automatic acceptance, response capture/parser/validator, or executor integration
 - real agent run Raw Log, Overview Log, Result Report, log parser, overview summarizer, or response validator beyond the static Agent Run placeholder preview
 - real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder
 - real capability widgets

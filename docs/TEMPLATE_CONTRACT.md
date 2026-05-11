@@ -18,6 +18,8 @@ The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defin
 
 Future agent/task run observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Response Templates define the expected Result Report structure, while Raw Log and Overview Log remain separate observability views.
 
+Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. The Agent Queue may use applied Request Snapshots and selected Response Templates for concrete reviewable blocks, but queue storage, request generation, response capture, response validation, executor launch, and automatic execution are not implemented yet.
+
 ## Definitions
 
 ### Template
@@ -176,6 +178,7 @@ Future Hobit UI may support:
 - Showing missing required sections.
 - Showing warnings, malformed sections, failed validation, and skipped validation.
 - Creating follow-up blocks from failed validation, diff review, Git review, or operator notes.
+- Creating or updating Agent Queue items from applied template snapshots when future Agent Queue support exists.
 
 Future UI rules:
 
@@ -218,6 +221,12 @@ Examples:
 - Agent-facing widgets may display the selected Response Template expectations before executor work begins.
 
 All visible template management or request-generation surfaces must follow `docs/WIDGET_CONTRACT.md` and preserve operator control.
+
+## Relation To Agent Queue
+
+Agent Queue is the future review/control surface for concrete agent blocks. Templates define reusable request and response expectations; Queue Items should preserve the applied Request Snapshot and selected Response Template revision used for one block.
+
+Template edits must not silently mutate existing Queue Item request snapshots, captured responses, or historical response expectations. Applying a template into a Queue Item must not automatically launch execution.
 
 ## Safety Principles
 

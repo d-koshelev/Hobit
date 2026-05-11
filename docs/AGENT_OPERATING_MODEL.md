@@ -14,6 +14,8 @@ The current repository has no implemented agent runtime, no automatic agent exec
 
 The frontend Template Library placeholder may show a static planned Coordinator Workflow preview, but it does not implement coordinator UI, executor thread/task integration, request generation, response capture, response validation, Git-response association, or agent execution.
 
+`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. Agent Queue UI, storage, background execution, response capture, response validation, and executor integration are not implemented yet.
+
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
 Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend has a static Agent Run placeholder previewing Raw Log, Overview Log, and Result Report sections, but real run start, runtime logs, response parsing, response validation, overview summarization, and executor integration are not implemented yet.
@@ -181,6 +183,12 @@ The coordinator uses Workspace context to generate precise executor requests. Th
 
 This does not require implementation in the current block.
 
+## Relation To Agent Queue
+
+Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`.
+
+The Agent Queue should hold concrete coordinator-created Queue Items for planned, running, completed, failed, blocked, and review-needed agent blocks. It should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
+
 ## Relation To Git Widget
 
 After executor code work, the future Git Widget can surface repository review as defined in `docs/GIT_WIDGET_CONTRACT.md`.
@@ -227,6 +235,7 @@ This contract does not implement:
 - React UI
 - Tauri commands
 - coordinator UI
+- Agent Queue UI or storage
 - template editor UI
 - response validation engine
 - automatic agent execution

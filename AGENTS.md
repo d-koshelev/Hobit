@@ -29,6 +29,7 @@ Always read:
 
 For agent/runtime work, also read:
 - docs/AGENT_OPERATING_MODEL.md
+- docs/AGENT_QUEUE_CONTRACT.md
 - docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md
 - docs/AGENT_RUNTIME_CONTRACT.md
 - docs/STATE_AND_EVENTS_CONTRACT.md
@@ -50,7 +51,7 @@ For request/response template work, also read:
 
 Request Templates and Response Templates are future product assets, not only conversation prompt conventions.
 
-Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Future agent/task execution observability should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
+Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Future Agent Queue work should follow `docs/AGENT_QUEUE_CONTRACT.md` and remain an operator-controlled queue/review inbox, not hidden automation. Future agent/task execution observability should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
 For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output. Future Git reads must use an explicit operator-approved repository root; do not add hidden parent traversal, Workspace-wide repository scanning, network fetch during read-only status collection, or mutating Git behavior.
 
@@ -67,6 +68,7 @@ Current foundation target:
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
 - The Agent Run placeholder is static and previews future Raw Log, Overview Log, and Result Report views. It does not implement run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, or executor integration.
+- Agent Queue is contract-only and is not implemented. Queue storage, queue UI, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, and executor integration are not implemented.
 - The Git widget placeholder has a transient explicit repository-root input and a manual desktop-only read-only status refresh backed by `get_git_repository_status`; it shows a visual status card and grouped changed files. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
 - The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. It does not implement template storage, template editing, request generation, response capture, response validation, response parsing, executor launch/integration, Git-response association, or agent execution.
 - The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles, with final docked position and size persisted through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
