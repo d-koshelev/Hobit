@@ -277,60 +277,103 @@
   overflow-wrap: anywhere;
 }
 
-.agent-chat-preview {
+.agent-chat-proposal-widget {
   display: grid;
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
-.agent-chat-message {
+.agent-chat-proposal-panel {
   display: grid;
-  gap: var(--space-xs);
+  gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
   padding: var(--space-md);
 }
 
-.agent-chat-message-operator {
+.agent-chat-proposal-output,
+.agent-chat-local-activity {
   background: var(--color-io-surface);
 }
 
-.agent-chat-message-label,
-.agent-chat-message-text {
+.agent-chat-proposal-empty {
+  border-style: dashed;
+}
+
+.agent-chat-proposal-header,
+.agent-chat-prompt-actions,
+.agent-chat-action-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.agent-chat-proposal-header,
+.agent-chat-action-header {
+  justify-content: space-between;
+}
+
+.agent-chat-prompt-actions {
+  flex-wrap: wrap;
+}
+
+.agent-chat-proposal-copy,
+.agent-chat-prompt-form,
+.agent-chat-proposal-section,
+.agent-chat-action-list,
+.agent-chat-action-proposal {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.agent-chat-proposal-copy {
+  gap: var(--space-xs);
+}
+
+.agent-chat-proposal-title,
+.agent-chat-proposal-text,
+.agent-chat-prompt-label,
+.agent-chat-proposal-section-title,
+.agent-chat-list,
+.agent-chat-action-title {
   margin: 0;
 }
 
-.agent-chat-message-label {
+.agent-chat-proposal-title,
+.agent-chat-prompt-label,
+.agent-chat-proposal-section-title,
+.agent-chat-action-title {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: 720;
   line-height: var(--line-tight);
 }
 
-.agent-chat-message-text,
-.agent-chat-future-list {
+.agent-chat-proposal-text,
+.agent-chat-list {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
 }
 
-.agent-chat-future-list {
+.agent-chat-prompt-textarea {
+  min-height: 96px;
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.agent-chat-proposal-section,
+.agent-chat-action-proposal {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.agent-chat-list {
   display: grid;
   gap: var(--space-xs);
-  margin: 0;
   padding-left: var(--space-lg);
-}
-
-.agent-chat-prompt-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.agent-chat-prompt-row .input {
-  flex: 1 1 220px;
-  min-width: 0;
 }
 
 .agent-run-placeholder {

@@ -341,7 +341,7 @@ This contract does not implement:
 - process spawning
 - shell execution
 - Terminal runtime
-- Agent Chat runtime
+- LLM-backed or executable Agent Chat runtime
 - Agent Run runtime
 - Agent Queue execution
 - insertable widget catalog path

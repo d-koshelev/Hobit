@@ -42,7 +42,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: AGENT_CHAT_WIDGET_DEFINITION_ID,
     title: "Agent Chat",
     category: "core",
-    description: "Static placeholder for future operational agent chat.",
+    description:
+      "Local/mock proposal preview for future operational agent chat.",
     defaultTitle: "Agent Chat",
     defaultConfig: {},
     componentKey: AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,

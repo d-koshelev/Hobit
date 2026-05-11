@@ -84,10 +84,12 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     id: AGENT_CHAT_WIDGET_DEFINITION_ID,
     title: "Agent Chat",
     category: "core",
-    description: "Static placeholder for future operational agent chat.",
+    description:
+      "Local/mock proposal-only preview for future operational agent chat.",
     status: "available",
     capabilitySummary: [
-      "Operational agent chat placeholder",
+      "Local proposal preview only",
+      "No LLM or tool execution",
       "Agent runtime not implemented",
       "Workspace context access not implemented",
     ],

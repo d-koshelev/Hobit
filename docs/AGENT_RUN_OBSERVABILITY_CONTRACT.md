@@ -14,7 +14,7 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Implementation Boundary
 
-The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results.
+The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no LLM-backed or executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has only a frontend-local/mock proposal preview that does not create runs, stream logs, execute tools, or write results.
 
 The frontend has an insertable static Agent Monitoring placeholder that previews future Overview Log, Result Report, and Raw Log sections for one selected or active execution. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
 
@@ -321,7 +321,7 @@ This contract does not implement:
 - runtime execution
 - agent execution integration
 - Terminal runtime
-- Agent Chat runtime
+- LLM-backed or executable Agent Chat runtime
 - log parser
 - overview summarizer
 - response parser

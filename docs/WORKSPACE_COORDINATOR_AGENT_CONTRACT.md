@@ -6,23 +6,31 @@ This contract defines the future Workspace-aware Coordinator Agent behavior for 
 
 The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
 
-This is a documentation and product/domain contract only. It does not implement agent runtime behavior, LLM calls, context access, action proposals, action execution, storage, UI, Tauri commands, Workspace API changes, or widget behavior changes.
+This is primarily a documentation and product/domain contract. The current Agent Chat widget has a frontend-local/mock proposal-only preview, but it does not implement agent runtime behavior, LLM calls, approved context access, executable action proposals, action execution, storage, Tauri commands, Workspace API changes, or cross-widget mutation.
 
 ## Current Status
 
-Agent Chat is currently an insertable static placeholder widget.
+Agent Chat is currently an insertable widget with a frontend-local/mock proposal-only prompt and structured preview.
+
+The current mock preview:
+
+- summarizes the operator prompt locally
+- shows proposed next steps, required context, tool/action proposal notes, and safety notes
+- marks proposed tool/actions as not executed
+- does not read Workspace, widget, file, Notes, Git, Terminal, or Queue context
+- does not persist chat messages, create Queue items, execute actions, or mutate state
 
 There is no implemented:
 
 - agent runtime
 - LLM call integration
-- chat input or streaming
+- LLM-backed chat response or streaming
 - cross-widget context access
-- action proposal engine
+- executable action proposal engine
 - cross-widget action system
 - response parser or validator
 - automatic execution
-- coordinator UI beyond static placeholder previews
+- coordinator UI beyond the local/mock proposal preview
 
 This contract describes future behavior only.
 
@@ -408,13 +416,13 @@ This contract does not implement:
 - storage schema or migrations
 - Tauri commands
 - Workspace API changes
-- Agent Chat runtime
+- LLM-backed or executable Agent Chat runtime
 - agent runtime
 - LLM calls
 - chat message persistence
 - context access implementation
 - context permission UI
-- action proposal engine
+- executable action proposal engine
 - action execution engine
 - Agent Queue item creation
 - Notebook editing
