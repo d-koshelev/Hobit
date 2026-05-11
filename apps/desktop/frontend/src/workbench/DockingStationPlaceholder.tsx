@@ -108,9 +108,9 @@ export function DockingStationPlaceholder() {
           rail="left"
         />
         <div className="docking-station-preview-core">
-          <span className="docking-station-preview-core-title">Workbench</span>
+          <span className="docking-station-preview-core-title">Canvas</span>
           <span className="docking-station-preview-core-text">
-            Canvas stays primary
+            Primary workspace area
           </span>
         </div>
         <StationRail
