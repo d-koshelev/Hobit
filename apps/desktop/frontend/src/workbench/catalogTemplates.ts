@@ -1,3 +1,14 @@
+import type { WidgetDefinitionId } from "./types";
+import {
+  AGENT_CHAT_WIDGET_DEFINITION_ID,
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
+  GIT_WIDGET_DEFINITION_ID,
+  NOTES_WIDGET_DEFINITION_ID,
+  TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
+  TERMINAL_WIDGET_DEFINITION_ID,
+} from "./widgetRegistry";
+
 export type WidgetCatalogCategory =
   | "core"
   | "workflow"
@@ -16,7 +27,7 @@ export type WidgetCatalogTemplate = {
   description: string;
   status: WidgetCatalogTemplateStatus;
   capabilitySummary: string[];
-  futureWidgetDefinitionId?: string;
+  futureWidgetDefinitionId?: WidgetDefinitionId;
 };
 
 export const widgetCatalogCategoryLabels: Record<
@@ -56,7 +67,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     ],
   },
   {
-    id: "agent-run",
+    id: AGENT_RUN_WIDGET_DEFINITION_ID,
     title: "Agent Run",
     category: "core",
     description:
@@ -67,10 +78,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Runtime and streaming not implemented",
       "Parsing and validation not implemented",
     ],
-    futureWidgetDefinitionId: "agent-run",
+    futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },
   {
-    id: "agent-chat",
+    id: AGENT_CHAT_WIDGET_DEFINITION_ID,
     title: "Agent Chat",
     category: "core",
     description: "Static placeholder for future operational agent chat.",
@@ -80,10 +91,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Agent runtime not implemented",
       "Workspace context access not implemented",
     ],
-    futureWidgetDefinitionId: "agent-chat",
+    futureWidgetDefinitionId: AGENT_CHAT_WIDGET_DEFINITION_ID,
   },
   {
-    id: "template-library",
+    id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
     title: "Template Library",
     category: "workflow",
     description:
@@ -94,10 +105,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Template storage and editing not implemented",
       "Request generation, response capture, and validation not implemented",
     ],
-    futureWidgetDefinitionId: "template-library",
+    futureWidgetDefinitionId: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
   },
   {
-    id: "agent-queue",
+    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
     title: "Agent Queue",
     category: "workflow",
     description:
@@ -108,10 +119,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Queue storage and automatic execution not implemented",
       "Response capture, validation, and Git mutation not implemented",
     ],
-    futureWidgetDefinitionId: "agent-queue",
+    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
   },
   {
-    id: "notes",
+    id: NOTES_WIDGET_DEFINITION_ID,
     title: "Notes",
     category: "productivity",
     description: "Persisted single-draft notes surface.",
@@ -121,10 +132,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Explicit Save action",
       "Notebook tabs, checklists, and todos not implemented",
     ],
-    futureWidgetDefinitionId: "notes",
+    futureWidgetDefinitionId: NOTES_WIDGET_DEFINITION_ID,
   },
   {
-    id: "terminal",
+    id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tools",
     description: "Static placeholder for the planned command execution surface.",
@@ -134,7 +145,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Widget-local logs panel",
       "Command execution not implemented",
     ],
-    futureWidgetDefinitionId: "terminal",
+    futureWidgetDefinitionId: TERMINAL_WIDGET_DEFINITION_ID,
   },
   {
     id: "script-runner",
@@ -186,7 +197,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     ],
   },
   {
-    id: "git",
+    id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
     category: "codebase",
     description:
@@ -197,7 +208,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Grouped changed files summary",
       "Git mutations, diff, log, and persistence not implemented",
     ],
-    futureWidgetDefinitionId: "git",
+    futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
   },
   {
     id: "image-edit",
