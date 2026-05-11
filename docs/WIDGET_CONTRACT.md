@@ -87,6 +87,8 @@ The widget-local console may open through a small action in the widget header/me
 
 Future agent/task execution widgets have an additional observability contract: Raw Log, Overview Log, and Result Report views. See `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The current Agent Run widget is only a static placeholder preview of those views; real run observability is not implemented by the current generic Logs panel.
 
+Future Script Runner Widget behavior is defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It is a contract for an explicit operator-controlled configured local script action only; no Script Runner widget, catalog insertion path, runtime execution, or backend behavior is implemented.
+
 ### WidgetResult
 
 A WidgetResult is structured final output. It can contain summaries, data tables, edited images, generated files, action proposals, evidence, or other artifacts.
@@ -229,6 +231,7 @@ Status examples:
 - Notes/Notebook: `Saved`, `Unsaved`, `3 tabs`
 - Template Library: `Ready`, `Static preview`, `Planned`
 - Terminal: `Idle`, `Running`, `Failed`, `Unavailable`
+- Script Runner: `Idle`, `Running`, `Failed`, `Passed`, `Needs review`
 
 ## Future Drag-And-Drop Semantics
 
@@ -349,6 +352,8 @@ The widget-local Logs panel loads persisted logs and refreshes after successful 
 
 Future Agent Chat, Terminal, Agent CLI, or Executor widgets that run agent/task execution should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views.
 
+Future Script Runner Widget behavior is further defined in `SCRIPT_RUNNER_WIDGET_CONTRACT.md`, including explicit script path, argv argument model, working directory, timeout, output caps, operator Run action, safety boundaries, and non-goals. Script Runner is not implemented and is not available for catalog insertion.
+
 ## Examples
 
 Future widget types may include:
@@ -356,6 +361,7 @@ Future widget types may include:
 - Agent CLI
 - Agent Chat
 - Terminal
+- Script Runner
 - Stages
 - Knowledge
 - Notes

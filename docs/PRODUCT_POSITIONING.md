@@ -56,6 +56,7 @@ Current implemented behavior remains the Empty Workbench shell, Workspace lifecy
 - `docs/AI_WORKBENCH_CONTRACT.md` defines Workbench and Workspace terms.
 - `docs/WORKSPACE_CONTRACT.md` defines resumable Workspace behavior, context isolation, and the multi-Workspace/multi-Workbench boundary.
 - `docs/WIDGET_CONTRACT.md` defines widgets as first-class work surfaces.
+- `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md` defines the future Script Runner Widget as an explicit operator-controlled configured local script action, not a hidden automation path or current runtime behavior.
 - `docs/GIT_WIDGET_CONTRACT.md` defines the future Git review/control widget for agent-completed code work.
 - `docs/TEMPLATE_CONTRACT.md` defines future Request Templates and Response Templates.
 - `docs/AGENT_OPERATING_MODEL.md` defines future coordinator and executor agent roles.

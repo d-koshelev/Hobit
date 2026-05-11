@@ -26,9 +26,12 @@ Dangerous actions include actions that may alter files, execute commands, change
 ## Future Examples
 
 - Terminal actions
+- Script Runner actions for explicit operator-controlled configured local scripts
 - JDBC actions
 - Git actions
 - JIRA and Confluence read actions, with operator-approved update actions only in later explicit integration work
 - Image actions
 
 These examples are future capabilities. They must follow the same approval-aware action model.
+
+Future Script Runner behavior is further defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It must use explicit script paths, argv arguments, visible working directories, output caps, timeouts, and operator Run actions, with no hidden or automatic execution.

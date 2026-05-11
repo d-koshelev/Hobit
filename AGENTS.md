@@ -10,6 +10,8 @@ Codex must not treat Hobit as a script executor, terminal wrapper, IDE clone, ru
 
 Future agent work must preserve `docs/PRODUCT_POSITIONING.md` and avoid implementing Hobit as a generic hidden automation or agent-runner system.
 
+Future Script Runner Widget work must preserve `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. Script Runner is a planned explicit operator-controlled configured local script action, not a general terminal, hidden automation path, arbitrary command prompt, or current runtime behavior.
+
 ## Mandatory contract reading
 
 Before making changes, Codex must read the relevant project contracts.
@@ -35,6 +37,9 @@ For agent/runtime work, also read:
 - docs/AGENT_RUNTIME_CONTRACT.md
 - docs/STATE_AND_EVENTS_CONTRACT.md
 - docs/TOOL_ACTION_CONTRACT.md
+
+For Script Runner widget work, also read:
+- docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md
 
 For design/frontend/widget work, always read:
 - docs/DESIGN_SYSTEM_CONTRACT.md
@@ -73,6 +78,7 @@ Current foundation target:
 - The Agent Queue placeholder is static and previews a future operator-controlled agent command queue, command history, and review inbox for agent commands or blocks. Queue storage, real queue item persistence, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, Git association, and executor integration are not implemented.
 - The Git widget placeholder has a transient explicit repository-root input and a manual desktop-only read-only status refresh backed by `get_git_repository_status`; it shows a visual status card and grouped changed files. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
 - The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. It does not implement template storage, template editing, request generation, response capture, response validation, response parsing, executor launch/integration, Git-response association, or agent execution.
+- The Script Runner Widget is contract-only future work. It is not implemented, not available for catalog insertion, and does not add script execution, backend execution, Tauri commands, storage, or runtime behavior.
 - The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles, with final docked position and size persisted through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
 - Future Docking Station and widget Full/Compact/Indicator view mode work must follow `docs/WIDGET_CONTRACT.md`. Docking Station, station rails, persisted widget presence zones, Indicator status providers, and drag-and-drop between Canvas, Docking Station, Float, and future external windows are not implemented yet.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; runtime logging, streaming, and polling are not implemented.
@@ -164,6 +170,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 
 Do not add:
 - real terminal execution
+- script execution or Script Runner runtime behavior
 - real agent calls
 - new Tauri bridge capabilities beyond existing workspace lifecycle/state loading, widget mutation/log reads, and explicit read-only Git status reads
 - database/JDBC implementation

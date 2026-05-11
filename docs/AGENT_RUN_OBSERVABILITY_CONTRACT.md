@@ -18,6 +18,8 @@ The current repository has no real agent runtime, no executor integration, no Te
 
 The frontend has an insertable static Agent Run placeholder that previews future Overview Log, Result Report, and Raw Log sections. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents.
 
+The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
+
 `docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. The frontend has a static Agent Queue placeholder preview, but queue storage, response capture, response validation, and executor integration are not implemented yet.
 
 Implemented observability today is limited to:
@@ -230,6 +232,7 @@ Agent run observability may use widget-local logs, but it is more structured tha
 Rules:
 
 - Agent Chat, Terminal, Agent CLI, and future Executor widgets should expose Raw Log, Overview Log, and Result Report views when they run agent/task execution.
+- Future Script Runner should expose Raw Log, Overview Log, and Result Report views for script task execution while remaining an explicit operator-controlled tool/widget action.
 - Raw Log, Overview Log, and Result Report are distinct from generic workspace activity.
 - Workspace activity may summarize run lifecycle events at a higher level.
 - Widget-local logs can record run lifecycle and operator-relevant events.

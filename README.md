@@ -38,6 +38,7 @@ Future Hobit capabilities may include:
 
 - Agent CLI
 - Terminal
+- Script Runner
 - Stages
 - Knowledge
 - Runbooks
