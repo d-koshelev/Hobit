@@ -107,6 +107,14 @@ Queue Items belong to one Workspace. A Queue Item may be shown in multiple Workb
 
 Different problem = different Workspace. Different surface for the same problem = additional Workbench. For the full multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
 
+## Relation To Workspace Coordinator Agent
+
+The future Workspace-aware Coordinator Agent may propose Agent Queue items from approved Notebook content, Git summaries, Agent Run reports, Template workflows, Workspace Activity, or operator chat.
+
+Agent Queue must receive those items only after a previewed proposal is approved by the operator. Coordinator-created Queue Items must not automatically launch execution, accept work, mutate Git, or hide the source context used.
+
+For the approved-context and proposal flow, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+
 ## Status Model
 
 Queue status names are conceptual for now. Future implementation may refine names, but it must preserve explicit review and acceptance.

@@ -210,6 +210,14 @@ Widgets parked in one Workspace's Docking Station must not appear in another Wor
 
 For the full Docking Station, widget view mode, presence zone, and future drag-and-drop contract, see `docs/WIDGET_CONTRACT.md`.
 
+## Workspace-Aware Coordinator Scope
+
+Future Workspace-aware Coordinator Agent behavior is scoped to the active Workspace. Coordinator context access must be explicit, visible, and approved by the operator, and it must not mix context, Queue Items, Agent Runs, notes, Git summaries, templates, logs, artifacts, or decisions across unrelated Workspaces.
+
+The Coordinator may later propose cross-widget actions, but approved actions must apply through the owning Workspace component and be recorded as auditable Workspace Activity when implemented. Agent Chat / Coordinator does not currently implement context access, action proposals, action execution, Agent Queue item creation, Notebook editing, Git follow-up, or cross-widget mutation.
+
+For the full approved-context and proposal contract, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+
 ## Context Isolation Between Workspaces
 
 Separate Workspaces must not accidentally share:
@@ -431,6 +439,7 @@ The following are not implemented yet:
 - widget runtime reconstruction
 - applied request/response snapshot history
 - template storage, editing, request generation, response capture, response parsing, response validation, executor integration, or Git-response association
+- Workspace-aware Coordinator context access, action proposal, preview/approval flow, Agent Queue item creation, Notebook editing, Git follow-up, or cross-widget mutation
 - Agent Queue behavior beyond the static command queue/history/review placeholder UI, storage, queue runner, automatic launch, automatic acceptance, response capture/parser/validator, Git association, or executor integration
 - real agent run Raw Log, Overview Log, Result Report, log parser, overview summarizer, or response validator beyond the static Agent Run placeholder preview
 - real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder

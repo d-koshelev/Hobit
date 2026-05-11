@@ -203,6 +203,8 @@ Expected future flow:
 
 For coordinator/executor role rules, see `docs/AGENT_OPERATING_MODEL.md`.
 
+Future Workspace-aware Coordinator Agent behavior may use approved Agent Run Result Report, Overview Log, or Raw Log context to propose follow-up actions. Raw trace, failed validation, and skipped validation must remain reviewable. For approved context and proposal rules, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+
 ## Relation To Agent Queue
 
 Future Queue Items should link to Agent Run observability when a run exists. Queue cards may summarize run status or the latest Overview Log step, while Queue Item detail should expose Overview Log, Result Report, and Raw Log.

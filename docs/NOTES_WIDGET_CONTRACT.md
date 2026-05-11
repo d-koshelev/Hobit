@@ -459,6 +459,8 @@ Agent interaction with notes is capability and context bound:
 - AI suggestions must be operator-approved before applying changes.
 - AI must not silently rewrite notes, use hidden context, run commands, render unsafe content, or promote content to another capability.
 
+Future Workspace-aware Coordinator Agent use of Notebook content must follow `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`: approved Notebook context may support proposed Queue Items, summaries, follow-up blocks, or Notebook edits, but reading and applying changes must remain visible and operator-approved.
+
 ## UI Direction
 
 Notebook UI should keep writing as the focus:

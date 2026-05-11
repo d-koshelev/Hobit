@@ -133,6 +133,8 @@ Templates support the coordinator/executor operating model defined in `docs/AGEN
 
 The operating model defines executor thread lifecycle, one-block-per-executor rules, and coordinator validation responsibilities; templates define the reusable request and response structures used by that flow.
 
+Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. The Coordinator may later use approved context and selected templates to propose generated requests or Queue Items, but generated requests must remain previewable and must not execute automatically.
+
 Expected future workflow:
 
 1. Coordinator chooses a Request Template.

@@ -10,6 +10,8 @@ Codex must not treat Hobit as a script executor, terminal wrapper, IDE clone, ru
 
 Future agent work must preserve `docs/PRODUCT_POSITIONING.md` and avoid implementing Hobit as a generic hidden automation or agent-runner system.
 
+Future Workspace-aware Coordinator Agent work must preserve `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read only explicitly approved context and propose previewed actions; it must not become hidden context access, direct mutation, hidden execution, or automatic queue creation.
+
 Future Script Runner Widget work must preserve `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. Script Runner is a planned explicit operator-controlled configured local script action, not a general terminal, hidden automation path, arbitrary command prompt, or current runtime behavior.
 
 ## Mandatory contract reading
@@ -32,6 +34,7 @@ Always read:
 
 For agent/runtime work, also read:
 - docs/AGENT_OPERATING_MODEL.md
+- docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md
 - docs/AGENT_QUEUE_CONTRACT.md
 - docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md
 - docs/AGENT_RUNTIME_CONTRACT.md
@@ -74,6 +77,7 @@ Current foundation target:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, Markdown rendering, Mermaid or diagram rendering, checklists/todos, snippets, review notes, formatting tools, and AI-in-Notes behavior are not implemented yet. Future Notes/Notebook work must preserve `docs/NOTES_WIDGET_CONTRACT.md`, keep source text as the source of truth, avoid hidden rendering/network/command side effects, and treat ordinary To-do List use cases as Notebook scope unless a separate structured task widget is explicitly requested.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
+- Future Workspace-aware Coordinator Agent behavior is contract-only in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; no approved context reading, proposal preview, action approval flow, Agent Queue item creation, Notebook editing, Git follow-up, or cross-widget mutation is implemented.
 - The Agent Run placeholder is static and previews future Raw Log, Overview Log, and Result Report views. It does not implement run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, or executor integration.
 - The Agent Queue placeholder is static and previews a future operator-controlled agent command queue, command history, and review inbox for agent commands or blocks. Queue storage, real queue item persistence, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, Git association, and executor integration are not implemented.
 - The Git widget placeholder has a transient explicit repository-root input and a manual desktop-only read-only status refresh backed by `get_git_repository_status`; it shows a visual status card and grouped changed files. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.

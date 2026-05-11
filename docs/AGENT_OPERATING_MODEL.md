@@ -20,6 +20,8 @@ The project workflow currently uses numbered blocks, focused executor tasks, val
 
 Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend has a static Agent Run placeholder previewing Raw Log, Overview Log, and Result Report sections, but real run start, runtime logs, response parsing, response validation, overview summarization, and executor integration are not implemented yet.
 
+Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read explicitly approved Workspace or widget context and propose previewed actions, but no context access, proposal engine, action approval flow, or cross-widget mutation is implemented yet.
+
 ## Core Rule
 
 Coordinator agents and executor agents are separate roles.
@@ -64,8 +66,10 @@ The coordinator may:
 
 The coordinator must not:
 
+- read widget or Workspace context that was not explicitly approved
 - hide material request instructions from the operator
 - silently mutate generated prompts after operator review
+- directly mutate widgets or Workspace state without a previewed and approved proposal
 - bypass approval requirements
 - treat strategic discussion as executor implementation context unless the generated block explicitly includes that context
 - treat executor output as accepted until validation and operator review allow it
@@ -182,6 +186,8 @@ Future Workspace history should be able to show:
 - coordinator accept, fix, rerun, or next-block decisions
 
 The coordinator uses Workspace context to generate precise executor requests. The executor should receive only the minimal context needed for the block.
+
+The future Workspace-aware Coordinator context and cross-widget proposal model is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 
 This does not require implementation in the current block.
 

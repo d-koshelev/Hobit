@@ -1,0 +1,438 @@
+# Workspace Coordinator Agent Contract
+
+## Purpose
+
+This contract defines the future Workspace-aware Coordinator Agent behavior for Hobit.
+
+The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
+
+This is a documentation and product/domain contract only. It does not implement agent runtime behavior, LLM calls, context access, action proposals, action execution, storage, UI, Tauri commands, Workspace API changes, or widget behavior changes.
+
+## Current Status
+
+Agent Chat is currently an insertable static placeholder widget.
+
+There is no implemented:
+
+- agent runtime
+- LLM call integration
+- chat input or streaming
+- cross-widget context access
+- action proposal engine
+- cross-widget action system
+- response parser or validator
+- automatic execution
+- coordinator UI beyond static placeholder previews
+
+This contract describes future behavior only.
+
+## Role
+
+The Workspace-aware Coordinator Agent is a future coordination surface for one active Workspace.
+
+It may eventually:
+
+- read explicitly approved Workspace and widget context
+- help the operator reason about the current work
+- transform approved context into proposed actions
+- preview those proposed actions before they are applied
+- route approved actions through the owning Hobit component
+- record auditable activity after a decision or applied change
+
+It is not:
+
+- a hidden autonomous agent
+- a direct mutation engine
+- a background runner
+- a secret or unrestricted context collector
+- a replacement for operator approval
+- a generic chatbot with unrestricted Workspace access
+- a shortcut around widget, tool, Git, queue, template, note, or execution contracts
+
+## Core Principle
+
+The Coordinator may read only explicitly allowed context.
+
+The Coordinator may propose actions.
+
+Hobit previews proposed actions.
+
+The operator approves or rejects.
+
+Only then does Hobit apply approved changes through the relevant component.
+
+Required future sequence:
+
+1. Read approved context.
+2. Generate proposal.
+3. Preview proposal.
+4. Operator approves or rejects.
+5. Apply approved action.
+6. Record audit and Workspace Activity.
+
+Rejected proposals must not mutate Workspace or widget state.
+
+## Approved Context Model
+
+Future Coordinator context access must be scoped, visible, minimal, and operator-approved.
+
+Possible approved context sources include:
+
+- Workspace metadata
+- selected Notebook tab or selected Notebook content
+- Agent Queue summary or selected queue item
+- Agent Run Result Report, Overview Log, or approved Raw Log summary
+- Git Widget status summary and changed-file summary
+- Template Library selected templates
+- Workspace Activity summary
+- widget state, results, or logs explicitly selected by the operator
+
+Rules:
+
+- No reading all widgets by default.
+- No hidden Workspace-wide context injection.
+- No secret injection.
+- No raw logs or large data sent by default.
+- Context used by the Coordinator must be visible or reviewable.
+- Context should be minimal enough to explain why it was included.
+- Context access should identify the owning Workspace and source widget when applicable.
+- Global notes, shared templates, or cross-Workspace assets must not be included unless explicitly selected or attached under their own contracts.
+
+## Widget Context Boundaries
+
+Each widget should expose only intentional context surfaces. Widgets must not become private data stores that the Coordinator reads implicitly.
+
+Examples:
+
+- Notebook may expose selected text, the active tab, or selected tab text.
+- Git Widget may expose repository status summary and changed files, not raw repository contents by default.
+- Agent Queue may expose queue item metadata, request summaries, decisions, and result summaries.
+- Agent Run may expose Result Report, Overview Log, and Raw Log only when approved. Raw Log should not be included by default.
+- Template Library may expose selected template definitions, selected previews, or applied template snapshots.
+- Terminal output may expose run summaries or selected logs only with explicit approval when a real Terminal runtime exists.
+- Script Runner output may expose configured run summaries or selected logs only with explicit approval when Script Runner exists.
+- Workspace Activity may expose high-level events, not hidden full context from every widget.
+
+Cross-widget use of context must be visible and operator-controlled. A widget may contribute context through Workbench state and events, but it must not directly couple itself to Agent Chat or another widget.
+
+## Proposed Action Model
+
+The Coordinator must not directly mutate widgets or Workspace state.
+
+It creates proposed actions. Approved proposals are later applied by the owning component, service, or widget path.
+
+Future conceptual action examples include:
+
+- `createAgentQueueItems`
+- `updateNotebookTab`
+- `appendNotebookNote`
+- `createFollowUpBlock`
+- `generateRequestFromTemplate`
+- `summarizeGitChanges`
+- `attachResultReport`
+- `linkQueueItemToGitReview`
+- `createReviewNote`
+- `markQueueItemNeedsFix`
+- `prepareScriptRunnerConfig`
+- `openWidgetOnCanvas`
+- `sendWidgetToDockingStation`
+
+These examples are conceptual only. They do not define TypeScript types, Rust types, API DTOs, database schema, or implemented behavior.
+
+## Action Proposal Requirements
+
+Every future proposed action should include:
+
+- action type
+- target widget or component
+- source context used
+- human-readable summary
+- payload preview
+- risk and safety notes
+- expected changes
+- whether the action is reversible
+- required operator approval controls
+- affected Workspace and related widgets
+
+The preview must be specific enough for the operator to understand what will change before approval.
+
+## Notebook Tasks To Agent Queue Example
+
+Example future workflow:
+
+1. Notebook contains a list of tasks.
+2. Operator asks Coordinator: "Create tasks from this list and put them in Agent Queue."
+3. Operator approves the specific Notebook tab or selected text as context.
+4. Coordinator shows it is reading that approved Notebook context.
+5. Coordinator extracts proposed queue items.
+6. Hobit previews the proposed Agent Queue additions.
+7. Operator approves or rejects.
+8. Agent Queue receives new items only after approval.
+9. Workspace Activity records the decision and applied change.
+
+The proposal preview should show:
+
+- extracted tasks
+- proposed block or queue item titles
+- request template choice if known
+- response template choice if known
+- what will be added to Agent Queue
+- source Notebook context used
+- expected result of applying the proposal
+
+Future UI may allow operator edits before approval, but editing is not required by this contract and is not implemented.
+
+## Approval Model
+
+No cross-widget mutation may occur without explicit operator approval.
+
+Rules:
+
+- Approval must be visible and intentional.
+- Rejected proposals must not mutate state.
+- Approved proposals should produce Workspace Activity entries.
+- Widget-local logs may record relevant widget-level changes.
+- Potentially destructive actions require stronger confirmation.
+- Future automation may be allowed only under explicit policy and must remain auditable.
+- Approval for reading context is separate from approval for applying a mutation.
+- Tool, Git, script, terminal, external-system, file, or database actions remain governed by their own approval contracts.
+
+## Audit And Logging
+
+Coordinator actions should be auditable.
+
+Future audit records should capture:
+
+- who or what proposed the action
+- source context used
+- proposal payload
+- operator decision
+- applied changes
+- timestamp
+- related Workspace
+- related widgets
+- related Queue Item when applicable
+- result or error
+
+Workspace Activity may record high-level events.
+
+Widget-local logs may record relevant widget-level changes.
+
+Agent Run observability may later capture Raw Log, Overview Log, and Result Report for Coordinator reasoning sessions or executor handoffs. Raw trace, failed validation, and rejected proposals must not be hidden by summaries.
+
+## Relationship To Agent Queue
+
+Agent Queue is the main future target for Coordinator-created work items.
+
+The Coordinator may propose Queue Items from:
+
+- Notebook tasks
+- Git review findings
+- failed validation
+- Result Reports
+- operator chat
+- Workspace Activity follow-ups
+- selected template workflows
+
+Queue Items remain operator-controlled. Creating a Queue Item does not launch execution, accept work, mutate Git, or apply changes automatically.
+
+No automatic execution.
+
+No automatic acceptance.
+
+No automatic push, merge, or Git mutation.
+
+For Agent Queue rules, see `docs/AGENT_QUEUE_CONTRACT.md`.
+
+## Relationship To Notebook
+
+Notebook can be a source of tasks, notes, review comments, snippets, JSON, diagrams, and follow-up ideas.
+
+The Coordinator may help transform Notebook content into proposed Queue Items, summaries, follow-up blocks, review notes, or approved Notebook edits.
+
+Rules:
+
+- Notebook content must not be read by default.
+- Selected Notebook context must be visible or reviewable.
+- Coordinator must not rewrite Notebook content without approval.
+- AI-assisted Notebook edits must be previewed and approved.
+- Notebook source text remains the source of truth.
+
+For Notes and Notebook rules, see `docs/NOTES_WIDGET_CONTRACT.md`.
+
+## Relationship To Template Library
+
+The Coordinator may use Request Templates and Response Templates to shape proposed executor blocks.
+
+It may later:
+
+- suggest a Request Template
+- suggest a Response Template
+- fill template variables
+- generate prompt previews
+- create applied Request Snapshots after approval
+
+Generated requests must be previewable before use. Template snapshots should be preserved when applied. Template use must not become hidden prompt mutation or automatic execution.
+
+For template rules, see `docs/TEMPLATE_CONTRACT.md`.
+
+## Relationship To Git Widget
+
+The Coordinator may use approved Git summaries to propose follow-up work, review notes, Queue Items, or operator decisions.
+
+Rules:
+
+- Git context must come from approved Git Widget summaries or approved Git review state.
+- Coordinator must not perform Git mutations directly.
+- Commit, push, restore, revert, reset, clean, stash, and similar actions remain separate approval-gated Git Widget actions.
+- Dirty Git state and failed validation must remain visible.
+- Generated Git review notes or commit-message suggestions must remain reviewable before use.
+
+For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
+
+## Relationship To Agent Run
+
+The Coordinator may review approved Agent Run Overview Log, Result Report, and Raw Log context.
+
+It may propose follow-up blocks based on completed, failed, blocked, or rejected runs.
+
+Rules:
+
+- Raw Log access must be explicit when raw trace is needed.
+- Result Report must not hide failed validation or skipped validation.
+- Coordinator summaries must not replace the original Raw Log, Overview Log, or Result Report.
+
+For run observability rules, see `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
+
+## Relationship To Docking Station
+
+The Coordinator may later propose presentation actions such as opening a widget on the canvas or sending a widget to Docking Station.
+
+These are UI presentation actions, not data mutations or new widget instances.
+
+Rules:
+
+- Presentation changes must be operator-visible.
+- Coordinator must not silently move, hide, park, or duplicate widgets.
+- Docking Station proposals must preserve WidgetInstance identity and Workspace ownership.
+
+For Docking Station and widget presence rules, see `docs/WIDGET_CONTRACT.md`.
+
+## Relationship To Script Runner
+
+The Coordinator may later propose a configured Script Runner action, such as preparing a script path, working directory, and argv preview.
+
+Script Runner execution must remain explicit and approval-gated.
+
+Rules:
+
+- Coordinator must not silently run scripts.
+- Coordinator must not inject hidden arguments.
+- Coordinator must not turn chat into a command prompt or shell-string execution path.
+- Script Runner configuration and output context must follow `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
+
+## Future UI Direction
+
+Future Agent Chat / Coordinator UI should show:
+
+- active context set
+- what the Coordinator can read
+- proposed actions
+- source context used for each proposal
+- payload preview before apply
+- approve and reject controls
+- risk and expected-change notes
+- audit trail
+- links to affected widgets
+
+Example UI flow:
+
+1. Operator asks Coordinator to create tasks from Notebook.
+2. Coordinator shows "Reading Notebook tab: Tasks".
+3. Coordinator shows extracted task list.
+4. Coordinator shows proposed Agent Queue items.
+5. Operator approves.
+6. Agent Queue receives items.
+7. Workspace Activity records the event.
+
+The UI must avoid making Agent Chat look like an unrestricted command channel.
+
+## Future Permission Model
+
+Future permissions may include:
+
+- read selected widget state
+- read selected Notebook tab
+- read selected Notebook text
+- read Agent Queue summary
+- read selected Queue Item
+- read Git status summary
+- read Agent Run Result Report
+- read Agent Run Overview Log
+- read approved Raw Log excerpt or summary
+- read selected Template definitions
+- propose Queue Item creation
+- propose Notebook edits
+- propose Git review follow-up
+- propose template-generated requests
+- propose presentation actions
+- apply approved action
+
+Permissions should be scoped per Workspace, session, action, or selected source where practical.
+
+Long-lived permissions must remain visible and revocable when implemented. One-time permissions should be preferred for sensitive context, raw logs, external-system data, secrets, or large source material.
+
+## Safety Principles
+
+- No hidden context access.
+- No hidden mutation.
+- No hidden execution.
+- No secret injection.
+- No automatic acceptance.
+- No automatic Git mutation.
+- No automatic script execution.
+- No silent Notebook edits.
+- No reading all widgets by default.
+- No raw logs or large data by default.
+- All proposed actions must be previewed before apply.
+- All applied actions must be auditable.
+- The operator remains the final decision maker.
+
+## Non-Goals
+
+This contract does not implement:
+
+- React UI
+- Rust domain types
+- TypeScript types
+- storage schema or migrations
+- Tauri commands
+- Workspace API changes
+- Agent Chat runtime
+- agent runtime
+- LLM calls
+- chat message persistence
+- context access implementation
+- context permission UI
+- action proposal engine
+- action execution engine
+- Agent Queue item creation
+- Notebook editing
+- Template generation
+- Git association
+- Docking Station behavior
+- Script Runner behavior
+- backend behavior
+- product behavior changes
+
+## Architecture Boundary
+
+Future implementation must preserve existing Hobit boundaries:
+
+- Workbench remains the product center.
+- Workspace remains the isolation boundary for context and history.
+- Widgets remain first-class optional capabilities.
+- Widgets communicate through Workbench state and events, not direct coupling.
+- The Coordinator proposes; the operator controls.
+- Tool actions remain explicit, visible, and approval-aware.
+- Runtime execution, Git mutation, script execution, and external-system updates remain governed by their own contracts.
