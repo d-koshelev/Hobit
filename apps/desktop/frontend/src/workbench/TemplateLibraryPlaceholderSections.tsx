@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Badge } from "../design-system/Badge";
 import {
   StaticPreviewFieldList,
@@ -10,6 +11,61 @@ import type {
   TemplateLibraryPreviewModel,
   TemplatePreviewSection,
 } from "./templateLibraryPreview";
+
+export type GeneratedRequestPreviewInputs = {
+  blockNumber: string;
+  blockTitle: string;
+  commitMessage: string;
+  extraContextNote: string;
+  goal: string;
+  scope: string;
+};
+
+export type GeneratedRequestPreviewField =
+  keyof GeneratedRequestPreviewInputs;
+
+type GeneratedRequestInputConfig = {
+  field: GeneratedRequestPreviewField;
+  label: string;
+  multiline?: boolean;
+  placeholder: string;
+};
+
+const generatedRequestInputConfigs: readonly GeneratedRequestInputConfig[] = [
+  {
+    field: "blockNumber",
+    label: "Block number",
+    placeholder: "104",
+  },
+  {
+    field: "blockTitle",
+    label: "Block title",
+    placeholder: "Generated request preview local-only",
+  },
+  {
+    field: "goal",
+    label: "Goal",
+    multiline: true,
+    placeholder: "Add a compact local generated executor request preview.",
+  },
+  {
+    field: "scope",
+    label: "Scope",
+    multiline: true,
+    placeholder: "Frontend local-only UI behavior inside Template Library.",
+  },
+  {
+    field: "commitMessage",
+    label: "Commit message",
+    placeholder: "frontend: add generated request preview",
+  },
+  {
+    field: "extraContextNote",
+    label: "Extra context note",
+    multiline: true,
+    placeholder: "Keep the preview local, transient, and non-executing.",
+  },
+];
 
 export function TemplateLibrarySummarySection({
   summary,
@@ -41,6 +97,109 @@ export function ResponseTemplatePreviewSection({
   preview: ResponseTemplatePreview;
 }) {
   return <FieldPreviewSection preview={preview} />;
+}
+
+export function TemplateLibraryGeneratedRequestPreviewSection({
+  inputs,
+  onInputChange,
+  previewText,
+  requestTemplateTitle,
+}: {
+  inputs: GeneratedRequestPreviewInputs;
+  onInputChange: (field: GeneratedRequestPreviewField, value: string) => void;
+  previewText: string;
+  requestTemplateTitle: string;
+}) {
+  const fieldIdPrefix = useId();
+
+  return (
+    <section
+      aria-label="Local generated request preview"
+      className="template-library-section template-library-preview template-library-generated-request"
+    >
+      <div className="template-library-preview-header">
+        <div className="template-library-preview-copy">
+          <h3 className="template-library-section-title">
+            Generated Request Preview
+          </h3>
+          <p className="template-library-preview-title">
+            {requestTemplateTitle}
+          </p>
+          <p className="template-library-preview-text">
+            Local preview only. Inputs are not saved, the request is not
+            copied/sent, and no executor is launched.
+          </p>
+        </div>
+        <div className="template-library-preview-badges">
+          <Badge variant="neutral">Local preview</Badge>
+          <Badge variant="neutral">Not saved</Badge>
+          <Badge variant="neutral">Not copied/sent</Badge>
+          <Badge variant="neutral">No executor launched</Badge>
+        </div>
+      </div>
+
+      <div
+        aria-label="Local generated request fields"
+        className="template-library-generated-controls"
+      >
+        {generatedRequestInputConfigs.map((fieldConfig) => {
+          const fieldId = `${fieldIdPrefix}-${fieldConfig.field}`;
+          const fieldClassName = [
+            "template-library-generated-field",
+            fieldConfig.multiline
+              ? "template-library-generated-field-wide"
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <div className={fieldClassName} key={fieldConfig.field}>
+              <label
+                className="template-library-generated-label"
+                htmlFor={fieldId}
+              >
+                {fieldConfig.label}
+              </label>
+              {fieldConfig.multiline ? (
+                <textarea
+                  className="input template-library-generated-textarea"
+                  id={fieldId}
+                  onChange={(event) =>
+                    onInputChange(fieldConfig.field, event.target.value)
+                  }
+                  placeholder={fieldConfig.placeholder}
+                  rows={3}
+                  value={inputs[fieldConfig.field]}
+                />
+              ) : (
+                <input
+                  className="input"
+                  id={fieldId}
+                  onChange={(event) =>
+                    onInputChange(fieldConfig.field, event.target.value)
+                  }
+                  placeholder={fieldConfig.placeholder}
+                  type="text"
+                  value={inputs[fieldConfig.field]}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        aria-label="Generated executor request text"
+        className="template-library-generated-output"
+      >
+        <p className="template-library-generated-output-label">
+          Executor request preview
+        </p>
+        <pre className="template-library-generated-prompt">{previewText}</pre>
+      </div>
+    </section>
+  );
 }
 
 export function CoordinatorWorkflowPreviewSection({

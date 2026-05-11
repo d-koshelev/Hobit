@@ -55,8 +55,8 @@ export const templateLibraryPreview = {
   summary: {
     title: "Template Library",
     text:
-      "Request and Response Templates are planned. Template editing, request generation, executor threads, response capture, parsing, validation, and Git association are not available yet.",
-    badgeLabel: "Static preview",
+      "Request and Response Templates are planned. A local generated request preview is available, but template editing, saved request generation, executor threads, response capture, parsing, validation, and Git association are not available yet.",
+    badgeLabel: "Local preview",
   },
   requestTemplate: {
     ariaLabel: "Static Request Template preview",
@@ -222,9 +222,8 @@ export const templateLibraryPreview = {
     },
   ],
   plannedActions: [
-    { label: "Generate request planned" },
-    { label: "Capture response planned" },
+    { label: "Copy request planned" },
+    { label: "Send to executor planned" },
     { label: "Validate response planned" },
-    { label: "Review Git planned" },
   ],
 } satisfies TemplateLibraryPreviewModel;

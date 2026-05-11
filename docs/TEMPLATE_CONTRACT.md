@@ -12,7 +12,7 @@ This is a documentation and product/domain contract only. It does not implement 
 
 Request Templates and Response Templates are not implemented yet.
 
-The frontend currently has an insertable static Template Library placeholder widget. It makes the future Request/Response Template surface visible in the Workbench and shows static Request Template, Response Template, and Coordinator Workflow preview examples, but it does not implement template storage, template editing, variable filling, request generation, copy/send behavior, response capture, response parsing, response validation, executor launch or integration, Git-response association, or agent execution.
+The frontend currently has an insertable Template Library placeholder widget. It makes the future Request/Response Template surface visible in the Workbench, shows static Request Template, Response Template, and Coordinator Workflow preview examples, and includes a local-only generated executor request preview built from transient React state and the static Codex implementation block preview data. It does not implement template storage, template editing, a template generation engine, persisted request snapshots, copy/send behavior, response capture, response parsing, response validation, executor launch or integration, Git-response association, or agent execution.
 
 The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defines the final-response format for project agents working on Hobit blocks. That document is a project agent operating contract. It is not yet a Hobit product feature, editable template asset, validation engine, or persisted Workspace object.
 
