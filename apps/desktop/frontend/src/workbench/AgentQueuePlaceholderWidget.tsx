@@ -5,6 +5,7 @@ import {
   agentQueuePreview,
   type AgentQueueDetailField,
   type AgentQueueGroup,
+  type AgentQueueOverviewMetric,
   type AgentQueueItemDetailPreview,
   type AgentQueuePlannedAction,
   type AgentQueuePreviewItem,
@@ -42,9 +43,12 @@ export function AgentQueuePlaceholderWidget({
               {agentQueuePreview.summary.text}
             </p>
           </div>
-          <Badge variant="neutral">
-            {agentQueuePreview.summary.badgeLabel}
-          </Badge>
+          <div className="agent-queue-summary-badges">
+            <Badge variant="neutral">
+              {agentQueuePreview.summary.badgeLabel}
+            </Badge>
+            <Badge variant="neutral">No execution</Badge>
+          </div>
         </section>
 
         <section
@@ -59,15 +63,14 @@ export function AgentQueuePlaceholderWidget({
               {agentQueuePreview.overview.text}
             </p>
           </div>
-          <div className="agent-queue-overview-metrics">
+          <dl className="agent-queue-overview-metrics">
             {agentQueuePreview.overview.metrics.map((metric) => (
               <QueueMetric
                 key={metric.label}
-                label={metric.label}
-                value={metric.value}
+                metric={metric}
               />
             ))}
-          </div>
+          </dl>
         </section>
 
         <div
@@ -79,55 +82,44 @@ export function AgentQueuePlaceholderWidget({
           ))}
         </div>
 
-        <QueueItemDetailPreview
-          preview={agentQueuePreview.detailPreview}
-        />
+        <QueueItemDetailPreview preview={agentQueuePreview.detailPreview} />
 
         <section
           aria-label="Future Agent Queue widget synergy"
-          className="agent-queue-synergy"
+          className="agent-queue-linked-surfaces"
         >
           <div className="agent-queue-section-header">
             <h3 className="agent-queue-section-title">Linked work surfaces</h3>
             <Badge variant="neutral">Planned</Badge>
           </div>
-          <dl className="agent-queue-synergy-list">
+          <dl className="agent-queue-linked-surface-list">
             {agentQueuePreview.linkedSurfaces.map((item) => (
-              <div className="agent-queue-synergy-item" key={item.label}>
+              <div className="agent-queue-linked-surface" key={item.label}>
                 <dt className="agent-queue-card-label">{item.label}</dt>
                 <dd className="agent-queue-card-value">{item.value}</dd>
               </div>
             ))}
           </dl>
         </section>
-
-        <div
-          aria-label="Planned Agent Queue actions"
-          className="agent-queue-action-row"
-        >
-          {agentQueuePreview.plannedActions.map((action) => (
-            <Button disabled key={action.label} variant="secondary">
-              {action.label}
-            </Button>
-          ))}
-        </div>
       </div>
     </WidgetFrame>
   );
 }
 
-function QueueMetric({ label, value }: { label: string; value: string }) {
+function QueueMetric({ metric }: { metric: AgentQueueOverviewMetric }) {
   return (
-    <div className="agent-queue-metric">
-      <span className="agent-queue-card-label">{label}</span>
-      <span className="agent-queue-card-value">{value}</span>
+    <div className={`agent-queue-metric agent-queue-metric-${metric.variant}`}>
+      <dt className="agent-queue-metric-label">{metric.label}</dt>
+      <dd className="agent-queue-metric-value">{metric.value}</dd>
     </div>
   );
 }
 
 function QueueGroup({ group }: { group: AgentQueueGroup }) {
   return (
-    <section className="agent-queue-group">
+    <section
+      className={`agent-queue-group agent-queue-group-${group.badgeVariant}`}
+    >
       <div className="agent-queue-section-header">
         <div className="agent-queue-group-copy">
           <h3 className="agent-queue-section-title">{group.title}</h3>
@@ -138,16 +130,28 @@ function QueueGroup({ group }: { group: AgentQueueGroup }) {
 
       <div className="agent-queue-card-list">
         {group.items.map((item) => (
-          <QueueItemCard item={item} key={`${item.block}-${item.title}`} />
+          <QueueItemCard
+            groupVariant={group.badgeVariant}
+            item={item}
+            key={`${item.block}-${item.title}`}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function QueueItemCard({ item }: { item: AgentQueuePreviewItem }) {
+function QueueItemCard({
+  groupVariant,
+  item,
+}: {
+  groupVariant: AgentQueueGroup["badgeVariant"];
+  item: AgentQueuePreviewItem;
+}) {
   return (
-    <article className="agent-queue-item-card">
+    <article
+      className={`agent-queue-item-card agent-queue-item-card-${groupVariant}`}
+    >
       <div className="agent-queue-item-header">
         <div className="agent-queue-item-title-copy">
           <p className="agent-queue-item-block">{item.block}</p>
@@ -156,13 +160,10 @@ function QueueItemCard({ item }: { item: AgentQueuePreviewItem }) {
         <Badge variant={item.status.variant}>{item.status.label}</Badge>
       </div>
 
-      <dl className="agent-queue-item-grid">
-        <QueueCardField label="Request" value={item.requestTemplate} />
-        <QueueCardField label="Response" value={item.responseTemplate} />
-        <QueueCardField label="Run" value={item.run} />
-        <QueueCardField label="Validation" value={item.validation} />
-        <QueueCardField label="Git" value={item.git} />
-        <QueueCardField label="Decision" value={item.decision.label} />
+      <dl className="agent-queue-card-signals">
+        <QueueCardSignal label="Validation" value={item.validation} />
+        <QueueCardSignal label="Git" value={item.git} />
+        <QueueCardSignal label="Next" value={item.decision.label} />
       </dl>
     </article>
   );
@@ -173,22 +174,21 @@ function QueueItemDetailPreview({
 }: {
   preview: AgentQueueItemDetailPreview;
 }) {
-  const sections: Array<{
+  const primarySections: Array<{
     actions?: AgentQueuePlannedAction[];
     fields: AgentQueueDetailField[];
     title: string;
   }> = [
     preview.request,
-    preview.execution,
     preview.result,
     preview.gitReview,
-    preview.artifacts,
     { ...preview.decision, actions: preview.decision.actions },
   ];
+  const secondarySections = [preview.execution, preview.artifacts];
 
   return (
-    <section aria-label={preview.ariaLabel} className="agent-queue-synergy">
-      <div className="agent-queue-section-header">
+    <section aria-label={preview.ariaLabel} className="agent-queue-detail">
+      <div className="agent-queue-detail-header">
         <div className="agent-queue-group-copy">
           <p className="agent-queue-item-block">{preview.block}</p>
           <h3 className="agent-queue-section-title">{preview.title}</h3>
@@ -203,10 +203,25 @@ function QueueItemDetailPreview({
         </div>
       </div>
 
-      <div className="agent-queue-synergy-list">
-        {sections.map((section) => (
+      <div className="agent-queue-detail-grid agent-queue-detail-grid-primary">
+        {primarySections.map((section) => (
           <QueueDetailSection
             actions={section.actions}
+            emphasis="primary"
+            fields={section.fields}
+            key={section.title}
+            title={section.title}
+          />
+        ))}
+      </div>
+
+      <div
+        aria-label="Secondary static queue detail"
+        className="agent-queue-detail-grid agent-queue-detail-grid-secondary"
+      >
+        {secondarySections.map((section) => (
+          <QueueDetailSection
+            emphasis="secondary"
             fields={section.fields}
             key={section.title}
             title={section.title}
@@ -219,15 +234,19 @@ function QueueItemDetailPreview({
 
 function QueueDetailSection({
   actions,
+  emphasis,
   fields,
   title,
 }: {
   actions?: AgentQueuePlannedAction[];
+  emphasis: "primary" | "secondary";
   fields: AgentQueueDetailField[];
   title: string;
 }) {
   return (
-    <section className="agent-queue-synergy-item">
+    <section
+      className={`agent-queue-detail-section agent-queue-detail-section-${emphasis}`}
+    >
       <h4 className="agent-queue-item-title">{title}</h4>
       <dl className="agent-queue-item-grid">
         {fields.map((field) => (
@@ -248,6 +267,15 @@ function QueueDetailSection({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function QueueCardSignal({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="agent-queue-card-signal">
+      <dt className="agent-queue-card-label">{label}</dt>
+      <dd className="agent-queue-card-value">{value}</dd>
+    </div>
   );
 }
 

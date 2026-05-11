@@ -13,6 +13,7 @@ export type AgentQueueSummary = {
 
 export type AgentQueueOverviewMetric = {
   label: string;
+  variant: AgentQueueStatusVariant;
   value: string;
 };
 
@@ -36,9 +37,6 @@ export type AgentQueuePreviewItem = {
   block: string;
   decision: AgentQueueDecisionHint;
   git: string;
-  requestTemplate: string;
-  responseTemplate: string;
-  run: string;
   status: AgentQueueItemStatus;
   title: string;
   validation: string;
@@ -116,7 +114,6 @@ export type AgentQueuePreview = {
   groups: AgentQueueGroup[];
   linkedSurfaces: AgentQueueLinkedSurface[];
   overview: AgentQueueOverview;
-  plannedActions: AgentQueuePlannedAction[];
   summary: AgentQueueSummary;
 };
 
@@ -124,36 +121,32 @@ export const agentQueuePreview = {
   summary: {
     title: "Agent Queue",
     text:
-      "Static preview of a future operator-controlled queue and review inbox for agent blocks. Queue storage, automatic execution, response capture, validation, Git association, and automatic acceptance are not implemented.",
-    badgeLabel: "Static preview",
+      "Static review-board preview for future agent blocks. It shows what needs review, what is running, what failed, and what was accepted. Queue storage, execution, response capture, validation, Git association, and automatic acceptance are not implemented.",
+    badgeLabel: "Static",
   },
   overview: {
     ariaLabel: "Queue overview",
-    title: "Queue overview",
+    title: "Review snapshot",
     text:
-      "Future queue cards are review units, not simple TODO items. Each item keeps the request, response expectation, run observability, validation state, Git review, notes, artifacts, and operator decision visible.",
+      "Future queue cards are review units: each one returns to an explicit operator decision before acceptance.",
     metrics: [
-      { label: "Needs review", value: "1 static" },
-      { label: "Running / queued", value: "1 static" },
-      { label: "Failed / blocked", value: "1 static" },
-      { label: "Accepted", value: "1 static" },
+      { label: "Needs review", variant: "warning", value: "1" },
+      { label: "Running / queued", variant: "info", value: "1" },
+      { label: "Failed / blocked", variant: "error", value: "1" },
+      { label: "Accepted", variant: "success", value: "1" },
     ],
   },
   groups: [
     {
       badgeLabel: "1",
       badgeVariant: "warning",
-      description:
-        "Completed block previews that require explicit operator review before acceptance.",
+      description: "Completed work waiting for an operator decision.",
       title: "Needs review",
       items: [
         {
           block: "Block 72",
-          decision: { label: "Review Git / Accept planned" },
+          decision: { label: "Review Git, then decide" },
           git: "3 changed files",
-          requestTemplate: "Codex implementation block",
-          responseTemplate: "Implementation result",
-          run: "Result Report planned",
           status: {
             label: "Needs review",
             variant: "warning",
@@ -166,19 +159,15 @@ export const agentQueuePreview = {
     {
       badgeLabel: "1",
       badgeVariant: "info",
-      description:
-        "Queued or running block previews. No executor is connected in this placeholder.",
+      description: "Work in flight or queued for a future executor.",
       title: "Running / queued",
       items: [
         {
           block: "Block 73",
-          decision: { label: "Open run planned" },
+          decision: { label: "Watch run status" },
           git: "Not linked",
-          requestTemplate: "Planning block",
-          responseTemplate: "Plan result",
-          run: "Overview log planned",
           status: {
-            label: "Running planned",
+            label: "Running",
             variant: "info",
           },
           title: "Notebook tabs plan",
@@ -189,42 +178,34 @@ export const agentQueuePreview = {
     {
       badgeLabel: "1",
       badgeVariant: "error",
-      description:
-        "Blocked previews keep failed validation and missing context visible.",
+      description: "Failures or missing context that need correction.",
       title: "Failed / blocked",
       items: [
         {
           block: "Block 74",
-          decision: { label: "Needs fix planned" },
-          git: "Dirty state visible planned",
-          requestTemplate: "Parser implementation block",
-          responseTemplate: "Implementation result",
-          run: "Raw Log planned",
+          decision: { label: "Create fix block" },
+          git: "Dirty state visible",
           status: {
-            label: "Blocked planned",
+            label: "Blocked",
             variant: "error",
           },
           title: "Template response parser",
-          validation: "Failed placeholder",
+          validation: "Failed",
         },
       ],
     },
     {
       badgeLabel: "1",
       badgeVariant: "success",
-      description:
-        "Accepted previews show completed review state without implying auto-acceptance.",
+      description: "Accepted work remains explicit and auditable.",
       title: "Accepted / completed",
       items: [
         {
           block: "Block 70",
-          decision: { label: "Accepted by operator planned" },
+          decision: { label: "Review archived result" },
           git: "Clean after commit",
-          requestTemplate: "Docs-only block",
-          responseTemplate: "Implementation result",
-          run: "Result Report archived planned",
           status: {
-            label: "Accepted planned",
+            label: "Accepted",
             variant: "success",
           },
           title: "Agent Queue contract",
@@ -238,7 +219,7 @@ export const agentQueuePreview = {
     block: "Block 72",
     title: "Git read-only polish",
     description:
-      "Static representative detail preview only. Queue item selection, item persistence, response capture, response validation, Git association, and working actions are not implemented.",
+      "Representative static review detail. No item selection, persistence, response capture, validation, Git association, or working actions exist.",
     badges: ["Static", "Planned"],
     request: {
       title: "Request",
@@ -253,8 +234,7 @@ export const agentQueuePreview = {
         },
         {
           label: "Prompt snapshot",
-          value:
-            "Generated prompt snapshot summary planned; no request generation exists.",
+          value: "Summary planned; no request generation exists.",
         },
         {
           label: "Scope",
@@ -277,7 +257,7 @@ export const agentQueuePreview = {
         },
         {
           label: "Overview Log",
-          value: "Static overview summary planned for quick review.",
+          value: "Step summary planned for quick review.",
         },
         {
           label: "Raw Log",
@@ -290,7 +270,7 @@ export const agentQueuePreview = {
       fields: [
         {
           label: "Result Report",
-          value: "Implementation result summary planned.",
+          value: "Implementation summary planned.",
         },
         {
           label: "Validation",
@@ -311,7 +291,7 @@ export const agentQueuePreview = {
       fields: [
         {
           label: "Repository state",
-          value: "Dirty placeholder from linked review context planned.",
+          value: "Dirty review state planned.",
         },
         {
           label: "Changed files",
@@ -332,11 +312,11 @@ export const agentQueuePreview = {
       fields: [
         {
           label: "Artifacts",
-          value: "Produced artifacts planned; no artifact storage exists.",
+          value: "Artifacts planned; no artifact storage exists.",
         },
         {
           label: "Notes / Notebook",
-          value: "Related review notes planned; notes are not linked here.",
+          value: "Review notes planned; notes are not linked here.",
         },
       ],
     },
@@ -345,7 +325,7 @@ export const agentQueuePreview = {
       fields: [
         {
           label: "Recommendation",
-          value: "Review Git / Accept planned",
+          value: "Review Git, then accept or request a fix.",
         },
         {
           label: "Operator control",
@@ -386,14 +366,5 @@ export const agentQueuePreview = {
       label: "Workspace Activity",
       value: "Records queue lifecycle events when future storage exists.",
     },
-  ],
-  plannedActions: [
-    { label: "Open request planned" },
-    { label: "Open run planned" },
-    { label: "Review Git planned" },
-    { label: "Accept planned" },
-    { label: "Needs fix planned" },
-    { label: "Rerun planned" },
-    { label: "Create follow-up planned" },
   ],
 } satisfies AgentQueuePreview;

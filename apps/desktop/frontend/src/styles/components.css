@@ -304,7 +304,8 @@
 .agent-queue-summary,
 .agent-queue-overview,
 .agent-queue-group,
-.agent-queue-synergy {
+.agent-queue-detail,
+.agent-queue-linked-surfaces {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
@@ -313,11 +314,19 @@
 
 .agent-queue-summary,
 .agent-queue-section-header,
-.agent-queue-item-header {
+.agent-queue-item-header,
+.agent-queue-detail-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
+}
+
+.agent-queue-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
 }
 
 .agent-queue-summary-copy,
@@ -326,7 +335,8 @@
 .agent-queue-group,
 .agent-queue-group-copy,
 .agent-queue-item-title-copy,
-.agent-queue-synergy {
+.agent-queue-detail,
+.agent-queue-linked-surfaces {
   display: grid;
   gap: var(--space-sm);
   min-width: 0;
@@ -334,7 +344,8 @@
 
 .agent-queue-overview-copy,
 .agent-queue-group-copy,
-.agent-queue-item-title-copy {
+.agent-queue-item-title-copy,
+.agent-queue-linked-surfaces {
   gap: var(--space-xs);
 }
 
@@ -344,6 +355,8 @@
 .agent-queue-section-text,
 .agent-queue-item-block,
 .agent-queue-item-title,
+.agent-queue-metric-label,
+.agent-queue-metric-value,
 .agent-queue-card-label,
 .agent-queue-card-value {
   margin: 0;
@@ -352,6 +365,7 @@
 .agent-queue-summary-title,
 .agent-queue-section-title,
 .agent-queue-item-title,
+.agent-queue-metric-value,
 .agent-queue-card-label {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
@@ -362,6 +376,7 @@
 .agent-queue-summary-text,
 .agent-queue-section-text,
 .agent-queue-item-block,
+.agent-queue-metric-label,
 .agent-queue-card-value {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -379,13 +394,16 @@
 .agent-queue-overview-metrics,
 .agent-queue-groups,
 .agent-queue-item-grid,
-.agent-queue-synergy-list {
+.agent-queue-card-signals,
+.agent-queue-detail-grid,
+.agent-queue-linked-surface-list {
   display: grid;
   gap: var(--space-sm);
 }
 
 .agent-queue-overview-metrics {
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  margin: 0;
 }
 
 .agent-queue-groups {
@@ -394,7 +412,8 @@
 
 .agent-queue-metric,
 .agent-queue-item-card,
-.agent-queue-synergy-item {
+.agent-queue-detail-section,
+.agent-queue-linked-surface {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
@@ -403,11 +422,55 @@
 
 .agent-queue-metric,
 .agent-queue-card-field,
+.agent-queue-card-signal,
 .agent-queue-item-card,
-.agent-queue-synergy-item {
+.agent-queue-detail-section,
+.agent-queue-linked-surface {
   display: grid;
   gap: var(--space-xs);
   min-width: 0;
+}
+
+.agent-queue-metric-warning,
+.agent-queue-group-warning,
+.agent-queue-item-card-warning {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.agent-queue-metric-info,
+.agent-queue-group-info,
+.agent-queue-item-card-info {
+  border-color: var(--color-info);
+}
+
+.agent-queue-metric-error,
+.agent-queue-group-error,
+.agent-queue-item-card-error {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.agent-queue-metric-success,
+.agent-queue-group-success,
+.agent-queue-item-card-success {
+  border-color: var(--color-success);
+}
+
+.agent-queue-metric-warning .agent-queue-metric-value {
+  color: var(--color-warning);
+}
+
+.agent-queue-metric-info .agent-queue-metric-value {
+  color: var(--color-info);
+}
+
+.agent-queue-metric-error .agent-queue-metric-value {
+  color: var(--color-error);
+}
+
+.agent-queue-metric-success .agent-queue-metric-value {
+  color: var(--color-success);
 }
 
 .agent-queue-card-list {
@@ -416,8 +479,18 @@
 }
 
 .agent-queue-item-grid {
-  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   margin: 0;
+}
+
+.agent-queue-card-signals {
+  grid-template-columns: 1fr;
+  margin: 0;
+}
+
+.agent-queue-card-signal {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
 }
 
 .agent-queue-card-field {
@@ -425,7 +498,19 @@
   padding-top: var(--space-sm);
 }
 
-.agent-queue-synergy-list {
+.agent-queue-detail-grid-primary {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.agent-queue-detail-grid-secondary {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.agent-queue-detail-section-secondary {
+  background: var(--color-io-surface);
+}
+
+.agent-queue-linked-surface-list {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin: 0;
 }
