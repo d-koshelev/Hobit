@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This contract defines Hobit's future Agent Queue as an operator-controlled queue of agent work blocks and a review inbox for completed agent results.
+This contract defines Hobit's future Agent Queue as an operator-controlled agent command queue, command history, and review inbox.
 
-The Agent Queue is a coordinator/review layer for structured agent work. It should connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
+The Agent Queue is a coordinator/review layer for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
 
 This is a documentation and product/domain contract only. It does not implement storage, UI, automatic execution, executor integration, response parsing, response validation, Git mutation, Tauri commands, Workspace API changes, or runtime behavior.
 
@@ -15,7 +15,7 @@ Agent Queue currently exists only as an insertable static frontend placeholder w
 The current repository has:
 
 - a static Agent Queue placeholder preview rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
-- a static queue overview, grouped queue cards, frontend-local static item selection, selected item detail previews, linked surface summaries, and disabled planned actions
+- a static command queue/history/review overview, grouped queue cards, frontend-local static item selection, selected item detail previews, linked surface summaries, and disabled planned actions
 - no queue storage
 - no queue item schema
 - no persisted queue item selection
@@ -32,17 +32,19 @@ The current Agent Queue card selection is local React state only. It swaps betwe
 
 ## Definition
 
-Agent Queue is a Workbench capability for planning, tracking, and reviewing agent work blocks.
+Agent Queue is a Workbench capability for planning, tracking, running-state visibility, history, and review of agent commands or work blocks.
 
-It has two linked roles:
+It has three linked roles:
 
-- Queue: a coordinator-controlled list of planned or ready agent blocks.
-- Review inbox: a structured place to inspect completed or failed agent work before accepting, fixing, rerunning, following up, or archiving it.
+- Command queue: a coordinator-controlled list of planned, ready, queued, sent, or running agent commands or blocks.
+- Command history: a durable record of completed, failed, blocked, accepted, rejected, rerun, or archived agent commands or blocks.
+- Review inbox: a structured place to inspect completed, failed, blocked, or response-received agent work before accepting, fixing, rerunning, following up, or archiving it.
 
 The Agent Queue must not be defined as:
 
 - a simple to-do list only
 - a raw prompt list only
+- command history without review state
 - hidden automation
 - unattended acceptance
 - auto-push or auto-merge workflow
@@ -55,8 +57,10 @@ Agent Queue is visible today only as a static placeholder Workbench widget. Futu
 Agent Queue helps the operator:
 
 - plan agent blocks
+- track queued commands
+- monitor running command state
 - prepare structured requests
-- review queued, running, completed, failed, and blocked work
+- review completed, failed, accepted, and blocked command history
 - inspect Result Reports, Overview Logs, and Raw Logs
 - review validation results
 - review Git state after code blocks
@@ -67,9 +71,9 @@ Agent Queue helps the operator:
 
 The queue may later recommend an operator decision, but the operator makes the final decision.
 
-## Queue Item / Agent Block
+## Queue Item / Agent Command / Agent Block
 
-A Queue Item represents one reviewable unit of agent work. It should normally correspond to one Agent Block under `docs/AGENT_OPERATING_MODEL.md`.
+A Queue Item represents one reviewable unit of agent work. It may be an agent command, handoff, generated executor request, or numbered Agent Block under `docs/AGENT_OPERATING_MODEL.md`.
 
 A future Queue Item may include:
 
@@ -79,6 +83,7 @@ A future Queue Item may include:
 - status
 - priority
 - target executor, agent, tool, or manual assignee
+- command text or command summary when relevant
 - Request Template reference
 - applied request snapshot
 - selected Response Template reference
@@ -92,7 +97,7 @@ A future Queue Item may include:
 - operator decision state
 - created and updated timestamps
 
-The Queue Item is not the same as a reusable template. It is a concrete block instance in a Workspace or Project history.
+The Queue Item is not the same as a reusable template. It is a concrete command or block instance in a Workspace or Project history.
 
 ## Workspace Scope
 
@@ -110,6 +115,7 @@ Suggested statuses:
 
 - `planned`: block exists as an idea or draft.
 - `ready`: request context and templates are prepared for execution or handoff.
+- `queued`: command or block is waiting to be sent, launched, or handed off.
 - `sent`: request was sent, copied, exported, or handed to an executor.
 - `running`: executor or run is in progress.
 - `response_received`: executor response exists but has not been reviewed.
@@ -158,7 +164,7 @@ When the operator returns after agent work, the expected future review flow is:
 13. Inspect artifacts.
 14. Decide accept, needs fix, rerun, create follow-up, reject/archive, or push/review when appropriate.
 
-The review flow must make failed validation, skipped validation, dirty Git state, untracked files, and blocked execution visible.
+The review flow must make failed validation, skipped validation, dirty Git state, untracked files, blocked execution, and already accepted history visible.
 
 ## Relation To Template Library
 
@@ -175,7 +181,7 @@ Rules:
 - Applying a template must not automatically execute a Queue Item.
 - Generated requests must remain reviewable before use.
 
-The Template Library prepares and previews template assets. Agent Queue tracks concrete block instances and review state.
+The Template Library prepares and previews template assets. Agent Queue tracks concrete command or block instances, command history, and review state.
 
 ## Relation To Agent Run
 
@@ -261,6 +267,7 @@ Future Workspace Activity may record events such as:
 
 - queue item created
 - request prepared
+- command queued
 - executor started
 - response captured
 - validation passed
@@ -286,6 +293,7 @@ Suggested groups:
 
 - Needs review
 - Running
+- Queued / Ready
 - Failed
 - Blocked
 - Accepted
@@ -400,8 +408,10 @@ Future implementation may introduce concepts such as:
 
 - `AgentQueue`
 - `QueueItem`
+- `AgentCommand`
 - `QueueItemStatus`
 - `QueueItemDecision`
+- `AgentCommandHistory`
 - `AppliedRequestSnapshot`
 - `CapturedResponse`
 - `AgentRunLink`
@@ -443,8 +453,8 @@ Future implementation must preserve existing Hobit boundaries:
 
 - Workbench remains the product center.
 - Agent Queue is an optional Workbench capability, not the whole product.
-- Queue Items are concrete block instances, not reusable templates.
-- Template Library owns template browsing/preparation direction; Agent Queue owns concrete queue/review state.
+- Queue Items are concrete command or block instances, not reusable templates.
+- Template Library owns template browsing/preparation direction; Agent Queue owns concrete command queue, command history, and review state.
 - Agent Run owns observability views; Agent Queue links and summarizes them.
 - Git Widget owns Git review/control; Agent Queue links and summarizes Git state.
 - Notes/Notebook owns operator-authored notes; Agent Queue links review context without silently mutating notes.

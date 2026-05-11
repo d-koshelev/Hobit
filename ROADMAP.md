@@ -58,6 +58,8 @@ This roadmap defines the intended foundation order for Hobit. Early phases estab
   - Runbooks
   - Git
   - Database/JDBC
+  - JIRA
+  - Confluence
   - SQL Results
   - Image Edit
   - Agent Activity

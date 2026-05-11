@@ -23,7 +23,7 @@ These outputs must be structured enough for widgets to render them without parsi
 
 The agent works with the context and capabilities available in the active Workbench Session. Available capabilities are determined by session context, widgets, presets, and tool permissions.
 
-The agent can operate in minimal mode with Terminal and Agent CLI widgets. Knowledge, Stages, Runbooks, Git, JDBC, and Image Edit are optional capabilities.
+The agent can operate in minimal mode with Terminal and Agent CLI widgets. Knowledge, Stages, Runbooks, Git, JDBC, JIRA, Confluence, and Image Edit are optional capabilities.
 
 ## Control Model
 

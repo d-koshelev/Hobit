@@ -24,7 +24,7 @@ Context is not owned by a single widget. Widgets may contribute to context or re
 
 Widgets define available views and capabilities. A widget may display state, accept input, request approval, show agent activity, trigger tool actions, or expose domain-specific controls.
 
-Examples include Terminal, Agent CLI, Stages, Knowledge, Git, Database/JDBC, SQL Results, Image Edit, Agent Activity, and Shared State.
+Examples include Terminal, Agent CLI, Stages, Knowledge, Git, Database/JDBC, JIRA, Confluence, SQL Results, Image Edit, Agent Activity, and Shared State.
 
 ## Presets
 

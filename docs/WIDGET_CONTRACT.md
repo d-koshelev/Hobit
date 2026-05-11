@@ -341,7 +341,7 @@ Widget Catalog
   -> Logs panel read/refresh
 ```
 
-The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for catalog insertion. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, autosave, and AI-in-Notes behavior are not implemented yet. The Terminal placeholder is static and does not execute commands, accept command input, stream output, or write widget state. The Agent Chat placeholder is static and does not accept chat input, call agents or LLMs, access Workspace context, stream responses, propose actions, or write widget state. The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log views; it does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or write widget state. The Agent Queue placeholder is static and previews future queue/review inbox cards, frontend-local static card selection, and selected item detail review surfaces for agent blocks; it does not persist selected items, persist queue items, launch agents, capture responses, validate responses, associate Git review, run a background queue, automatically accept work, or write widget state. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Git root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. The Template Library placeholder is static and includes static Request Template, Response Template, and Coordinator Workflow previews; it does not persist template data, edit templates, fill variables, generate requests, copy or send requests, capture responses, parse or validate responses, launch or integrate executor tasks, associate Git review with responses, call agents, or write widget state.
+The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for catalog insertion. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, autosave, checklists/todos, snippets, review notes, and AI-in-Notes behavior are not implemented yet. The Terminal placeholder is static and does not execute commands, accept command input, stream output, or write widget state. The Agent Chat placeholder is static and does not accept chat input, call agents or LLMs, access Workspace context, stream responses, propose actions, or write widget state. The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log views; it does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or write widget state. The Agent Queue placeholder is static and previews future command queue/history/review inbox cards, frontend-local static card selection, and selected item detail review surfaces for agent commands or blocks; it does not persist selected items, persist queue items, launch agents, capture responses, validate responses, associate Git review, run a background queue, automatically accept work, or write widget state. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Git root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. The Template Library placeholder is static and includes static Request Template, Response Template, and Coordinator Workflow previews; it does not persist template data, edit templates, fill variables, generate requests, copy or send requests, capture responses, parse or validate responses, launch or integrate executor tasks, associate Git review with responses, call agents, or write widget state.
 
 The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
@@ -359,20 +359,23 @@ Future widget types may include:
 - Stages
 - Knowledge
 - Notes
+- Notebook
 - Database/JDBC
 - Git
 - Template Library
 - Image Edit
+- JIRA
+- Confluence
 - Agent Activity
 - Shared State
-- Notebook
-- To-do List
 - Agent Queue
 
-Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, explicit formatting actions, and AI-editing safety rules.
+Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, checklist/todo/snippet/review-note use cases, explicit formatting actions, and AI-editing safety rules. Standalone To-do List direction is folded into Notebook unless a future block explicitly defines a separate structured task-management widget.
+
+JIRA and Confluence are future widget/integration candidates. JIRA should support work tracking and issue context; Confluence should support documentation and knowledge context. Both should start read-only when implemented, with operator-approved updates considered only in later explicit integration work.
 
 Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface for repository state, not only raw command output.
 
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
-Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`.
+Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`; it is an operator-controlled agent command queue, command history, and review inbox, not hidden automation or a generic task list.

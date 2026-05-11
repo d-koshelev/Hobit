@@ -28,6 +28,7 @@ Dangerous actions include actions that may alter files, execute commands, change
 - Terminal actions
 - JDBC actions
 - Git actions
+- JIRA and Confluence read actions, with operator-approved update actions only in later explicit integration work
 - Image actions
 
 These examples are future capabilities. They must follow the same approval-aware action model.

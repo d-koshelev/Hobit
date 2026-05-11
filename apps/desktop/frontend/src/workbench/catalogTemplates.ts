@@ -101,10 +101,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Agent Queue",
     category: "workflow",
     description:
-      "Static preview of the future operator review inbox for agent blocks.",
+      "Static preview of the future agent command queue, history, and review inbox.",
     status: "available",
     capabilitySummary: [
-      "Static queue and review inbox preview",
+      "Static command queue and review preview",
       "Queue storage and automatic execution not implemented",
       "Response capture, validation, and Git mutation not implemented",
     ],
@@ -119,21 +119,9 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     capabilitySummary: [
       "One saved body draft",
       "Explicit Save action",
-      "Notebook tabs and scopes not implemented",
+      "Notebook tabs, checklists, and todos not implemented",
     ],
     futureWidgetDefinitionId: "notes",
-  },
-  {
-    id: "todo-list",
-    title: "To-do List",
-    category: "productivity",
-    description: "Lightweight checklist for a workspace.",
-    status: "planned",
-    capabilitySummary: [
-      "Workspace checklist",
-      "Completion state",
-      "Focused task tracking",
-    ],
   },
   {
     id: "terminal",
@@ -158,6 +146,30 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Connection configuration",
       "SQL execution surface",
       "Result grid output",
+    ],
+  },
+  {
+    id: "jira",
+    title: "JIRA",
+    category: "workflow",
+    description: "Future read-only-first issue and work tracking context.",
+    status: "planned",
+    capabilitySummary: [
+      "Issue and work tracking context",
+      "Read-only first",
+      "Operator-approved updates only later",
+    ],
+  },
+  {
+    id: "confluence",
+    title: "Confluence",
+    category: "productivity",
+    description: "Future read-only-first documentation and knowledge context.",
+    status: "planned",
+    capabilitySummary: [
+      "Documentation and knowledge context",
+      "Read-only first",
+      "Operator-approved updates only later",
     ],
   },
   {

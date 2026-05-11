@@ -18,7 +18,7 @@ The current repository has no real agent runtime, no executor integration, no Te
 
 The frontend has an insertable static Agent Run placeholder that previews future Overview Log, Result Report, and Raw Log sections. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents.
 
-`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox that may link to Agent Run observability. The frontend has a static Agent Queue placeholder preview, but queue storage, response capture, response validation, and executor integration are not implemented yet.
+`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. The frontend has a static Agent Queue placeholder preview, but queue storage, response capture, response validation, and executor integration are not implemented yet.
 
 Implemented observability today is limited to:
 

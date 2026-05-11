@@ -13,7 +13,7 @@ Notes and Notebook give the operator a simple place to write, organize, transfor
 - Notes provide freeform writing inside Hobit.
 - Notebook extends Notes into a multi-document text work surface inside one widget.
 - Notes can be global or workspace-local.
-- Notes support lightweight memory, observations, snippets, manual notes, checklists, and scratch documentation.
+- Notes support lightweight memory, observations, snippets, manual notes, checklists, todos, review notes, and scratch documentation.
 - Notes are optional widgets/capabilities, not the product center.
 
 ## Current Implementation Boundary
@@ -39,6 +39,7 @@ Not implemented in the current Notes widget:
 - Markdown preview
 - autosave beyond the current explicit state-save path
 - text formatting or transformation tools
+- checklist/todo structure beyond freeform text
 - AI-assisted editing
 - note search, tags, backlinks, import/export, or sync
 
@@ -197,6 +198,8 @@ Backlinks and wiki-style links are future optional capabilities.
 ## Notebook Tabs
 
 Future Notebook should support multiple text tabs/documents inside one widget.
+
+Notebook is the default home for operator-authored checklists, todos, snippets, review notes, and scratch planning text. A separate To-do List widget is redundant unless a future contract explicitly defines distinct structured task-management behavior that Notebook should not own.
 
 Required tab operations:
 
@@ -395,7 +398,9 @@ Notes may contain instructions or checklists, but they do not define executable 
 
 ### Notes vs To-do List
 
-Notes may contain Markdown checklists, but a dedicated To-do List widget would own structured task state, filters, assignment, and completion workflows.
+Notebook absorbs normal checklist and todo use cases: Markdown checklists, lightweight task notes, follow-up lists, review checklists, snippets, and planning scratchpads belong in Notes/Notebook by default.
+
+A separate To-do List widget should remain demoted unless a future block explicitly needs structured task-management behavior such as assignment, filtering, scheduling, external synchronization, or governed completion workflows. That future widget must not duplicate Notebook's freeform text responsibility.
 
 ### Notes vs Shared State
 
@@ -412,6 +417,7 @@ Initial implementation should be simple:
 - preserve legacy `{ "body": "..." }` state
 - migrate or adapt legacy state into one tab only when explicitly implemented
 - widget-local text tabs/documents
+- checklists, todos, snippets, and review notes as Notebook content
 - compact tab UI
 - explicit formatting action menu
 - no sync

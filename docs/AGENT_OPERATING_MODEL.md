@@ -14,7 +14,7 @@ The current repository has no implemented agent runtime, no automatic agent exec
 
 The frontend Template Library placeholder may show a static planned Coordinator Workflow preview, but it does not implement coordinator UI, executor thread/task integration, request generation, response capture, response validation, Git-response association, or agent execution.
 
-`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. The frontend has a static Agent Queue placeholder preview, but queue storage, real queue item state, background execution, response capture, response validation, and executor integration are not implemented yet.
+`docs/AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend has a static Agent Queue placeholder preview, but queue storage, real queue item state, background execution, response capture, response validation, and executor integration are not implemented yet.
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
@@ -191,7 +191,7 @@ For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRA
 
 Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`.
 
-The Agent Queue should hold concrete coordinator-created Queue Items for planned, running, completed, failed, blocked, and review-needed agent blocks. It should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
+The Agent Queue should hold concrete coordinator-created Queue Items for planned, queued, running, completed, failed, blocked, accepted, and review-needed agent commands or blocks. It should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
 
 ## Relation To Git Widget
 
