@@ -273,6 +273,46 @@
   padding-top: var(--space-sm);
 }
 
+.template-library-workflow-list {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding-left: 0;
+  counter-reset: template-workflow-step;
+  list-style: none;
+}
+
+.template-library-workflow-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-sm);
+  align-items: start;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+  counter-increment: template-workflow-step;
+}
+
+.template-library-workflow-item::before {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-secondary);
+  content: counter(template-workflow-step);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.template-library-workflow-copy {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
 .template-library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -12,6 +12,8 @@ This is a documentation and product/domain contract only. It does not implement 
 
 The current repository has no implemented agent runtime, no automatic agent execution, no template editor, and no response validation engine.
 
+The frontend Template Library placeholder may show a static planned Coordinator Workflow preview, but it does not implement coordinator UI, executor thread/task integration, request generation, response capture, response validation, Git-response association, or agent execution.
+
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
 ## Core Rule

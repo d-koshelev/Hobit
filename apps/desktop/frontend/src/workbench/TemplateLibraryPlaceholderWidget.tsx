@@ -18,14 +18,6 @@ const plannedTemplateSections = [
   },
 ];
 
-const plannedCoordinatorSteps = [
-  "Select template",
-  "Fill variables",
-  "Preview executor request",
-  "Capture response",
-  "Validate response",
-];
-
 const requestTemplatePreviewFields = [
   {
     label: "Block",
@@ -108,6 +100,49 @@ const responseTemplatePreviewFields = [
   },
 ];
 
+const coordinatorWorkflowPreviewSteps = [
+  {
+    title: "Select Request Template",
+    detail:
+      "Choose the future template that will become the executor prompt for one block.",
+  },
+  {
+    title: "Fill variables",
+    detail:
+      "Provide block scope, context, exclusions, validation, and the paired Response Template.",
+  },
+  {
+    title: "Preview executor request",
+    detail:
+      "Review the generated prompt before it is copied, sent, or handed to an executor.",
+  },
+  {
+    title: "Start fresh executor thread/task",
+    detail:
+      "Run one new executor task per block so prior strategy does not become hidden scope.",
+  },
+  {
+    title: "Capture executor response",
+    detail:
+      "Record the final report that should follow the selected Response Template.",
+  },
+  {
+    title: "Validate response against Response Template",
+    detail:
+      "Check required sections, skipped validation, failed commands, warnings, and commit reporting.",
+  },
+  {
+    title: "Review Git state",
+    detail:
+      "Use the Git Widget as the post-code-block review surface for changes, validation, and commits.",
+  },
+  {
+    title: "Accept / Fix / Next block",
+    detail:
+      "Coordinator and operator decide whether to accept, request a fix, rerun, or create the next block.",
+  },
+];
+
 export function TemplateLibraryPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -127,7 +162,7 @@ export function TemplateLibraryPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Request and Response template surface"
+      subtitle="Request, Response, and workflow surface"
       title={title}
     >
       <div className="template-library-placeholder">
@@ -136,8 +171,8 @@ export function TemplateLibraryPlaceholderWidget({
             <p className="template-library-summary-title">Template Library</p>
             <p className="template-library-summary-text">
               Request and Response Templates are planned. Template editing,
-              request generation, response capture, parsing, and validation are
-              not available yet.
+              request generation, executor threads, response capture, parsing,
+              validation, and Git association are not available yet.
             </p>
           </div>
           <Badge variant="neutral">Static preview</Badge>
@@ -218,6 +253,46 @@ export function TemplateLibraryPlaceholderWidget({
           </dl>
         </section>
 
+        <section
+          aria-label="Static Coordinator Workflow preview"
+          className="template-library-section template-library-preview"
+        >
+          <div className="template-library-preview-header">
+            <div className="template-library-preview-copy">
+              <h3 className="template-library-section-title">
+                Coordinator Workflow Preview
+              </h3>
+              <p className="template-library-preview-title">
+                Future executor block flow
+              </p>
+              <p className="template-library-preview-text">
+                Static planned flow only. It does not generate requests, launch
+                executor tasks, capture responses, validate responses, or link
+                Git review state.
+              </p>
+            </div>
+            <div className="template-library-preview-badges">
+              <Badge variant="neutral">Static</Badge>
+              <Badge variant="neutral">Planned</Badge>
+            </div>
+          </div>
+
+          <ol className="template-library-workflow-list">
+            {coordinatorWorkflowPreviewSteps.map((step) => (
+              <li className="template-library-workflow-item" key={step.title}>
+                <div className="template-library-workflow-copy">
+                  <p className="template-library-preview-label">
+                    {step.title}
+                  </p>
+                  <p className="template-library-preview-value">
+                    {step.detail}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <div
           aria-label="Planned template library sections"
           className="template-library-grid"
@@ -239,22 +314,6 @@ export function TemplateLibraryPlaceholderWidget({
               </ul>
             </section>
           ))}
-
-          <section className="template-library-section">
-            <div className="template-library-section-header">
-              <h3 className="template-library-section-title">
-                Coordinator Workflow
-              </h3>
-              <Badge variant="neutral">Planned</Badge>
-            </div>
-            <ol className="template-library-list template-library-step-list">
-              {plannedCoordinatorSteps.map((step) => (
-                <li className="template-library-list-item" key={step}>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
         </div>
 
         <div
@@ -262,13 +321,16 @@ export function TemplateLibraryPlaceholderWidget({
           className="template-library-action-row"
         >
           <Button disabled variant="secondary">
-            New template
+            Generate request planned
           </Button>
           <Button disabled variant="secondary">
-            Preview request planned
+            Capture response planned
           </Button>
           <Button disabled variant="secondary">
             Validate response planned
+          </Button>
+          <Button disabled variant="secondary">
+            Review Git planned
           </Button>
         </div>
       </div>
