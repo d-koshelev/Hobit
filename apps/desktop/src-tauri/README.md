@@ -31,11 +31,21 @@ organization boundary only; command behavior is unchanged.
   - `open_workspace`
 - Workspace Workbench state command:
   - `get_workspace_workbench_state`
+- Widget foundation commands:
+  - `add_widget_instance_to_workbench`
+  - `update_widget_instance_state`
+  - `update_widget_instance_layout`
+  - `list_widget_logs`
+- Manual read-only Git status command for the Git widget placeholder:
+  - `get_git_repository_status`
+- Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
 
 ## Not Implemented Yet
 
-- Frontend persistence or workspace restore behavior.
-- Widget runtime or widget insertion.
+- Frontend persistence beyond current workspace/workbench state loading and widget mutation/log foundations.
+- Runtime restore, event replay, or widget runtime reconstruction.
+- Widget runtime beyond placeholder insertion and mutation/log foundations.
 - Terminal execution.
 - Agent runtime calls.
-- Tool execution adapters.
+- Tool execution adapters beyond the narrow read-only Git status path.
+- Git diff/log/show, repository root/status persistence, polling, watching, or Git mutations.

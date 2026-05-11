@@ -26,7 +26,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
     category: "codebase",
-    description: "Static placeholder for the future Git review surface.",
+    description:
+      "Manual read-only Git status placeholder for an explicit transient repository root.",
     defaultTitle: "Git",
     defaultConfig: {},
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
@@ -45,7 +46,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Template Library",
     category: "workflow",
     description:
-      "Static placeholder for future Request and Response template management.",
+      "Static Request, Response, and Coordinator workflow preview surface.",
     defaultTitle: "Template Library",
     defaultConfig: {},
     componentKey: TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY,

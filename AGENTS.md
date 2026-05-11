@@ -59,14 +59,14 @@ Current foundation target:
 - Empty AI Workbench shell first.
 - The default Workbench is the Empty Workbench with zero real widget instances.
 - Workspace Start Screen exists and can create or open a Workspace.
-- In the Tauri desktop shell, workspace lifecycle/state loading uses the Tauri workspace API bridge and local SQLite storage.
+- In the Tauri desktop shell, workspace lifecycle/state loading, widget mutations/log reads, and explicit Git status reads use the Tauri workspace API bridge and local SQLite storage where applicable.
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
 - Add Widget opens the Widget Catalog drawer. The Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder templates can be inserted as persisted WidgetInstances; other catalog items remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notes document model is not implemented yet.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
-- The Git placeholder is static and does not implement Git command execution, repository access, repository root selection or persistence, diff parsing, validation association, staging, commit, push, revert/reset, or background watching.
-- The Template Library placeholder is static and does not implement template storage, template editing, request generation, response validation, response parsing, executor launch, or agent execution.
+- The Git widget placeholder has a transient explicit repository-root input and a manual desktop-only read-only status refresh backed by `get_git_repository_status`; it shows a visual status card and grouped changed files. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
+- The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. It does not implement template storage, template editing, request generation, response capture, response validation, response parsing, executor launch/integration, Git-response association, or agent execution.
 - The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles, with final docked position and size persisted through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; runtime logging, streaming, and polling are not implemented.
 - Widgets are first-class entities, not just React components.
@@ -155,7 +155,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 Do not add:
 - real terminal execution
 - real agent calls
-- new Tauri bridge capabilities beyond existing workspace lifecycle/state loading
+- new Tauri bridge capabilities beyond existing workspace lifecycle/state loading, widget mutation/log reads, and explicit read-only Git status reads
 - database/JDBC implementation
 - real Git integration
 - Knowledge Catalog implementation

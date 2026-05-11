@@ -4,7 +4,7 @@
 
 This contract defines the future Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
-The Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend only has an insertable static Git placeholder widget; it does not add Git command execution, repository access, storage schema, Tauri commands, Workspace API behavior, or runtime behavior.
+The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. It does not add repository root/status persistence, diff/log/show, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
 
 ## Role
 
@@ -153,14 +153,14 @@ Repository root selection is a safety boundary:
 
 ### Initial Model
 
-The first read-only Git implementation may use an explicit Git Widget input for the repository root.
+The first read-only Git implementation uses an explicit Git Widget input for the repository root.
 
 Rules:
 
-- The input may be transient widget-local UI state at first.
-- The first slice should not require SQLite schema changes.
-- The UI must clearly show when no repository root is configured.
-- Browser/Vite fallback must show an unsupported or not-connected state for real Git reads.
+- The input is transient widget-local UI state.
+- The first slice does not require SQLite schema changes.
+- The UI clearly shows when no repository root is configured.
+- Browser/Vite fallback shows an unsupported state for real Git reads.
 - The Git Widget must not present fake live repository data.
 
 ### Future Workspace Model
@@ -215,12 +215,12 @@ The Git Widget and Git adapter must not implement:
 
 ### Relation To Read-Only Adapter
 
-The future read-only Git adapter receives an already-approved repository root. It does not choose one.
+The current read-only Git status adapter receives an explicit repository root from the widget. It does not choose one.
 
 Adapter rules:
 
 - Use fixed read-only commands only.
-- If Git CLI is used, call it through `std::process::Command` with explicit arguments only.
+- When Git CLI is used, call it through `std::process::Command` with explicit arguments only.
 - Do not invoke a shell.
 - Use timeouts and output caps.
 - Do not fetch or contact remotes.
@@ -372,15 +372,14 @@ Raw command output may be available in expandable detail sections or widget-loca
 
 This contract does not implement:
 
-- real Git command execution
+- Git mutations
+- Git diff/log/show operations
 - storage schema or migrations
-- Rust domain types
-- TypeScript types
-- React UI
-- Tauri commands
-- Workspace API changes
-- repository root handling implementation
-- repository root picker or persistence
+- full `hobit-core` Git domain model
+- full Git review React UI beyond the current placeholder/status card
+- new Tauri commands beyond the current read-only status command
+- Workspace API changes beyond the current read-only status request
+- repository root persistence or approved Workspace-level repository roots
 - background Git watcher
 - automatic commit
 - automatic push
@@ -392,15 +391,15 @@ This contract does not implement:
 
 ## Current Implementation Boundary
 
-The current repository has an insertable static Git placeholder widget in the frontend Widget Catalog. It renders a planned Git review surface through the existing `WidgetHost`/`WidgetFrame` path and uses the generic widget insertion flow.
+The current repository has an insertable Git widget placeholder in the frontend Widget Catalog. It renders through the existing `WidgetHost`/`WidgetFrame` path, has a transient explicit repository-root input, and can manually refresh a desktop-only read-only Git status snapshot through the Tauri `get_git_repository_status` command. The result is rendered as a visual status card with branch, clean/dirty state, counts, ahead/behind data when available, warnings, last commit data when available, and a grouped changed-files summary.
 
-Git runtime remains a future optional capability. The current placeholder must not be shown by default, treated as a real Git integration, or wired to execution unless explicitly requested by a future implementation block.
+The current read is intentionally narrow and read-only. The repository root and refreshed status stay in local React state only; they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. Browser/Vite fallback keeps the widget insertable but cannot read local Git status. Git review beyond this manual status snapshot remains future optional capability work.
 
 Not implemented:
 
-- Git command execution
-- repository access or repository selection
-- status, diff, branch, log, ahead/behind, or validation parsing
-- staging, commit, push, revert, reset, clean, or stash
-- background watching
-- Tauri Git commands, backend API, storage schema, or runtime behavior
+- repository root/status persistence
+- polling or background watching
+- diff/log/show operations
+- validation association or Git-response association
+- staging, unstaging, commit, push, revert, reset, clean, stash, or other Git mutations
+- storage schema changes or broader runtime behavior

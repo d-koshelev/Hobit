@@ -80,8 +80,8 @@ Implemented foundation:
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
-- The Git placeholder is static. Git command execution, repository access, repository root selection or persistence, diff parsing, validation association, staging, commit, push, revert/reset, and background watching are not implemented.
-- The Template Library placeholder is static. Template storage, template editing, request generation, response parsing, response validation, executor launch, and agent execution are not implemented.
+- The Git widget placeholder has a transient explicit repository-root input. In the Tauri desktop path, it can manually refresh a read-only Git status snapshot for that root through `get_git_repository_status`, then render a status card and grouped changed-files summary. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. Browser/Vite fallback cannot read Git status.
+- The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
@@ -100,7 +100,7 @@ Not implemented yet:
 - custom preset editor
 - terminal execution
 - agent runtime calls
-- Git command execution, repository access, repository root selection or persistence, diff parsing, staging, commit, push, revert/reset, and background watching
+- Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root; repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations
 
 ## Workspace
 
@@ -226,7 +226,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, Git manual desktop-only read-only status refresh, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -271,7 +271,7 @@ The following are not implemented yet:
 - event replay
 - widget runtime reconstruction
 - applied request/response snapshot history
-- template storage, editing, request generation, response parsing, or response validation
+- template storage, editing, request generation, response capture, response parsing, response validation, executor integration, or Git-response association
 - real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder
 - real capability widgets
 - custom preset editor
@@ -280,6 +280,6 @@ The following are not implemented yet:
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
 - full notes document storage, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling
-- repository root selection or persistence for Git review
+- repository root persistence or approved Workspace-level repository roots beyond the transient Git widget input
 - multi-user sync
 - cloud sync

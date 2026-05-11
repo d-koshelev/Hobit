@@ -86,4 +86,5 @@ npm run tauri:build
 - Repository-root persistence, status persistence, polling, background watching, diff view, raw diff parsing, validation association, staging, unstaging, commit, push, revert/reset, clean, stash, or other Git mutations.
 - Template storage, template editing, variable filling, request generation, copy/send behavior, response capture, response parsing, response validation, executor launch/integration, Git-response association, or agent execution from the Template Library placeholder.
 - Preset persistence.
-- Knowledge, Stages, Runbooks, Git, JDBC, Image Edit, or database UI.
+- Knowledge, Stages, Runbooks, JDBC, Image Edit, or database UI.
+- Full Git review/control UI beyond the current placeholder status surface.

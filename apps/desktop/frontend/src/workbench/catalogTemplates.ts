@@ -73,12 +73,12 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Template Library",
     category: "workflow",
     description:
-      "Static placeholder for future Request and Response template management.",
+      "Static previews for future Request, Response, and Coordinator workflow templates.",
     status: "available",
     capabilitySummary: [
-      "Request and Response template placeholder",
+      "Request, Response, and workflow previews",
       "Template storage and editing not implemented",
-      "Request generation and response validation not implemented",
+      "Request generation, response capture, and validation not implemented",
     ],
     futureWidgetDefinitionId: "template-library",
   },
@@ -136,12 +136,13 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     id: "git",
     title: "Git",
     category: "codebase",
-    description: "Static placeholder for future repository review and control.",
+    description:
+      "Read-only manual status snapshot for an explicit transient repository root.",
     status: "available",
     capabilitySummary: [
-      "Git review placeholder",
-      "Repository access not implemented",
-      "Git commands not implemented",
+      "Manual desktop read-only status refresh",
+      "Grouped changed files summary",
+      "Git mutations, diff, log, and persistence not implemented",
     ],
     futureWidgetDefinitionId: "git",
   },
