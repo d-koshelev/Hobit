@@ -20,6 +20,8 @@ A WidgetInstance is a configured, placed instance of a WidgetDefinition in a Wor
 
 A WidgetInstance keeps the same identity when it is moved, resized, floated, minimized, docked back into the workbench, or later moved into a true external popout window.
 
+WidgetInstances are scoped to their owning Workspace and Workbench. Moving, floating, or docking a widget changes presentation inside that Workspace; it must not leak widget state, logs, inputs, results, or layout into another Workspace. For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
+
 ## WidgetTemplate
 
 A WidgetTemplate is a reusable rule or starting configuration for creating widget instances. Templates allow Hobit to support different customers, systems, and domains without hardcoding custom product modes.

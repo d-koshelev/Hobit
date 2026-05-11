@@ -12,6 +12,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
 
+`WORKSPACE_CONTRACT.md` defines Workspace as the durable isolation boundary for distinct problems and Workbench as a surface inside a Workspace. Future multi-open Workspace UI, Workspace tabs/sidebar/windows, and multiple Workbenches per Workspace must follow the rule: different problem = different Workspace; different surface for the same problem = additional Workbench.
+
 `AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. The frontend has a static Agent Queue placeholder preview with queue groups, queue cards, one representative item detail preview, linked surface summaries, and disabled planned actions; no queue storage, real queue item state, item selection, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
 
 `AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has a static insertable Agent Run placeholder previewing those three views, but no agent execution log model, runtime log streaming, overview summarizer, result report persistence, response validation, executor integration, or real agent runtime UI is implemented yet.
@@ -182,6 +184,8 @@ This application layer is wired to the Tauri workspace bridge. It does not resto
 ## Workspace Model Boundary
 
 The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, Workbench records, widget instance summaries, widget state/layout fields, shared state summaries, widget-local logs, and Workbench event summaries.
+
+The Workspace is the context-isolation boundary. Unrelated work such as Hobit development, a Vertica incident, VICO review, and personal planning should be separate Workspaces. Multiple Workbenches inside one Workspace are future surfaces for the same problem, not a way to mix unrelated contexts.
 
 Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, full drag/drop layout editor, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, terminal execution, chat execution, Agent Queue execution/storage/real review inbox, Agent Run execution, Template Library execution, Git behavior beyond manual read-only status refresh, or agent runtime behavior.
 

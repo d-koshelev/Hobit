@@ -10,21 +10,27 @@ Hobit must let a user start a piece of work, close the application, return later
 
 ### Workspace
 
-A Workspace is a durable, persisted, user-facing container for a specific piece of work.
+A Workspace is a durable, persisted, user-facing container for a distinct problem, project, incident, review, plan, or other work context.
 
-It represents what the user is working on, why it exists, what state has accumulated, and how the Workbench should be restored when the user returns.
+It represents what the user is working on, why it exists, what state has accumulated, and how one or more Workbenches should be restored when the user returns.
+
+A Workspace owns the context, widgets, Agent Queue, Agent Runs, Notes/Notebook content, Git roots/reviews, Template snapshots, logs, activity, artifacts, and decisions for that distinct work context.
 
 ### WorkspaceSession
 
 A WorkspaceSession is the current runtime opening of a Workspace.
 
-It represents the active application runtime state while the Workspace is open. It may include transient UI state, live tool connections, live agent runs, and runtime-only window details.
+It represents the active application runtime state while the Workspace is open. It may include the active Workbench, transient UI state, view preferences, frontend-only floating widget state, live tool connections, live agent runs, and runtime-only window details.
+
+Future UI may allow multiple WorkspaceSessions to be open at once through tabs, a sidebar, a switcher, or separate app windows. Each session remains tied to exactly one Workspace.
 
 ### Workbench
 
-A Workbench is the configurable working surface inside a Workspace.
+A Workbench is a visual and operational surface inside a Workspace.
 
-It hosts widget instances, layout, presentation state, context bindings, active preset origin, and the current UI composition for that Workspace.
+It hosts widget instances, layout, presentation state, context bindings, active preset origin, and a specific UI composition for that Workspace.
+
+A Workspace may have multiple Workbenches when they represent different surfaces for the same problem. A Workbench must not be used as a substitute for a separate Workspace when the work context is unrelated.
 
 ### WorkbenchPreset / Preset
 
@@ -64,6 +70,20 @@ A user opens an existing Workspace or creates a new Workspace.
 
 Opening or creating a Workspace starts a WorkspaceSession.
 
+Core modeling rule:
+
+- Different problem = different Workspace.
+- Different surface for the same problem = additional Workbench.
+
+Examples:
+
+- Hobit development and a Vertica incident are separate Workspaces.
+- VICO review and personal planning are separate Workspaces.
+- A Hobit implementation board and a Hobit Git review board may be separate Workbenches inside the Hobit Workspace.
+- A Vertica incident investigation surface and a Vertica incident review surface may be separate Workbenches inside the Vertica incident Workspace.
+
+The boundary exists to prevent unrelated state, context, queues, notes, logs, Git roots, and agent work from mixing.
+
 ## Current Implementation Foundation
 
 The current implementation has the Workspace foundation in place, but not the full runtime restore system.
@@ -76,6 +96,7 @@ Implemented foundation:
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
+- The current product opens one selected Workspace into one rendered Workbench surface at a time. Full multi-open Workspace UI, Workspace tabs/sidebar, separate Workspace windows, and mature multiple-Workbench UI for one Workspace are not implemented.
 - The Widget Catalog can insert the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
 - The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
@@ -116,6 +137,7 @@ A Workspace should persist:
 - goal/description
 - status
 - selected or instantiated workbench preset
+- Workbench records for one or more visual/operational surfaces when multi-Workbench support exists
 - widget instances
 - widget layout
 - widget states
@@ -134,6 +156,8 @@ A Workspace should persist:
 - block/task history following the future agent operating model
 - Agent Queue items and operator decisions when future Agent Queue support exists
 - workspace-local notes
+- Git roots, Git status snapshots, Git review artifacts, and Git decisions when future Workspace-approved roots or Git review history exist
+- approved context packs and sensitive context references when future context management exists
 - decisions
 - current focus
 - docked/floating presentation state and future true external popout state
@@ -147,6 +171,121 @@ Workspace-local notes are part of Workspace resumable state and should be restor
 
 Global notes are outside a Workspace unless they are explicitly linked or attached to that Workspace.
 
+## Workspace And Workbench Boundary
+
+The Workspace is the isolation boundary for distinct work.
+
+The Workbench is a surface inside that boundary.
+
+Use a new Workspace when:
+
+- the problem, customer, system, incident, review, or personal context is different
+- the operator would not want Agent Queue items, Agent Runs, notes, Git state, artifacts, decisions, or activity to appear together
+- context sharing would be surprising, risky, or noisy
+- secrets or sensitive context belong to a different operational boundary
+
+Use another Workbench inside the same Workspace when:
+
+- the work is the same problem but needs another visual arrangement
+- the operator wants a focused surface for Git review, Agent Queue review, planning, notes, validation, or incident review
+- the same Workspace history, Queue Items, Agent Runs, artifacts, notes, and decisions should remain visible across surfaces
+
+Possible future Workbenches inside one Workspace include:
+
+- Main Workbench
+- Git Review Workbench
+- Agent Queue Workbench
+- Notes / Planning Workbench
+- Incident Review Workbench
+
+Multiple Workbenches in one Workspace may share Workspace-scoped context, Agent Queue, activity, artifacts, and decisions. They must not be used to mix unrelated problems into one Workspace.
+
+## Context Isolation Between Workspaces
+
+Separate Workspaces must not accidentally share:
+
+- Agent Queue items
+- Agent Runs
+- Raw Logs, Overview Logs, and Result Reports
+- applied Request snapshots
+- captured Responses
+- response validation results
+- Git repository roots, status snapshots, reviews, commits, push state, or recovery decisions
+- Notes/Notebook tabs or review notes
+- widget instances, state, layout, inputs, results, or widget-local logs
+- Workspace Activity
+- artifacts
+- operator decisions
+- approved context packs
+- secrets or sensitive context
+
+Cross-Workspace sharing, copying, moving, linking, or duplication must be explicit and operator-visible when implemented. Copying a Queue Item, note, request, response, artifact, or Git review into another Workspace should create or attach a new Workspace-owned record rather than silently reusing mutable work history from the original Workspace.
+
+## Allowed Shared Assets
+
+Some reusable assets may be global or shared by explicit reference:
+
+- Request Template definitions
+- Response Template definitions
+- generic WidgetDefinitions
+- WidgetTemplates
+- product/system contracts
+- reusable tool definitions
+- theme and design-system primitives
+- user-level settings
+- global notes when explicitly linked or attached
+
+Reusable definitions are not the same as applied work history.
+
+Applied Request snapshots, selected Response Template revisions for a block, captured Responses, Agent Runs, Queue Items, Git reviews, artifacts, decisions, widget state, logs, and Workspace Activity belong to the Workspace where the work happened.
+
+Template edits must not mutate historical snapshots in any Workspace.
+
+## Multiple Open Workspace Sessions
+
+Future UI may support multiple open Workspaces through:
+
+- a Workspace switcher
+- recent/open Workspace tabs
+- a sidebar of open Workspaces
+- separate app windows later
+- active Workspace indicators
+- unsaved, running, blocked, failed, or review-needed badges per Workspace
+
+The UI must make the active Workspace obvious before showing context, queue state, agent runs, Git state, notes, actions, or approvals.
+
+Rules:
+
+- actions apply to the active Workspace unless explicitly targeting another visible Workspace
+- agent requests must identify the Workspace context they use
+- Queue review, Git review, notes, and Agent Run views must show which Workspace they belong to when opened from cross-Workspace navigation
+- switching Workspaces must not merge transient session state or hidden context
+- notifications about running or review-needed work should identify the owning Workspace
+
+## Agent Queue, Agent Runs, Git, Notes, Templates, And Activity
+
+Agent Queue is Workspace-scoped.
+
+Queue Items belong to one Workspace. A Queue Item may be shown in multiple Workbenches of the same Workspace if useful. It must not appear in unrelated Workspaces unless the operator explicitly copies or duplicates it as a new item.
+
+Agent Runs belong to one Workspace and usually one Queue Item. Raw Log, Overview Log, and Result Report are scoped to that run and Workspace. Results must not be mixed across Workspaces.
+
+Git roots and Git review state are Workspace/widget-scoped unless future Workspace-approved roots are implemented. Git review state for one Workspace must not appear in another Workspace by default. Future shared repository roots across Workspaces must be explicit and operator-approved, and historical Git review artifacts must preserve the Workspace and repository root they used.
+
+Notes/Notebook content is widget/Workspace-scoped unless explicitly global. Review notes for one Workspace must not leak into another Workspace. Future copy/move/link behavior between Workspaces must be explicit.
+
+Template definitions may be global or reusable. Applied Request snapshots, selected Response Template revisions, captured Responses, and response validation results are Workspace history. Template edits must not mutate historical snapshots in any Workspace.
+
+Workspace Activity is scoped to one Workspace. Widget-local logs are scoped to widget instances within a Workspace/Workbench. Global app logs may exist separately for diagnostics, but they must not be confused with work history.
+
+## Mobile And Server Direction
+
+Future mobile or server-backed UI may list multiple Workspaces and their Agent Queue review states.
+
+Mobile should act as a remote operator console across Workspaces, not as a context mixer. Opening a Queue Item, Agent Run, Git review, note, artifact, or decision from mobile/server UI must clearly show which Workspace it belongs to.
+
+This is future product direction only. Mobile UI, server sync, multi-user operation, and remote execution are not implemented.
+
 ## WorkspaceSession
 
 A WorkspaceSession is the runtime/current opening of a Workspace.
@@ -155,8 +294,10 @@ It may contain:
 
 - opened_at
 - closed_at
+- active Workbench
 - active widget
 - transient UI state
+- view preferences
 - currently open drawer/popup
 - live tool connections
 - live agent runs
@@ -181,6 +322,8 @@ The Workbench contains:
 - current UI composition
 
 The Workbench is saved as part of the Workspace so the visible working surface can be restored. A Workspace may later support multiple workbench surfaces, but the current contract only requires one configurable Workbench per Workspace.
+
+When multiple Workbenches are implemented, each Workbench should remain a surface over the same Workspace-owned work history and context. Creating a new Workbench must not create a new Workspace, and moving between Workbenches must not change the owning Workspace.
 
 ## Presets
 
@@ -289,5 +432,10 @@ The following are not implemented yet:
 - full Notebook/Notes document storage, multi-tab state, text formatting tools, Markdown editor, autosave, and AI-in-Notes behavior
 - log streaming or polling
 - repository root persistence or approved Workspace-level repository roots beyond the transient Git widget input
+- multi-open Workspace UI, Workspace tabs/sidebar, or separate Workspace windows
+- mature multiple-Workbench UI for one Workspace
+- cross-Workspace copy/move/link behavior
+- server or mobile Workspace console
+- automatic context sharing across Workspaces
 - multi-user sync
 - cloud sync

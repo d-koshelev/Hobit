@@ -24,6 +24,7 @@ Hobit structures the work around AI agents. It does not replace the operator, hi
 - Validation and review as first-class workflow steps.
 - Observable work through activity, logs, artifacts, and history.
 - Resumable Workspaces for continuing work later.
+- Isolated Workspaces for unrelated problems, with multiple Workbenches only as surfaces for the same problem.
 - Widgets as work surfaces around agent work.
 - AI suggests or executes within bounded tasks; Hobit structures and validates the work.
 
@@ -53,7 +54,7 @@ Current implemented behavior remains the Empty Workbench shell, Workspace lifecy
 
 - `docs/PRODUCT_CONTRACT.md` defines Hobit as a modular AI Workbench.
 - `docs/AI_WORKBENCH_CONTRACT.md` defines Workbench and Workspace terms.
-- `docs/WORKSPACE_CONTRACT.md` defines resumable Workspace behavior.
+- `docs/WORKSPACE_CONTRACT.md` defines resumable Workspace behavior, context isolation, and the multi-Workspace/multi-Workbench boundary.
 - `docs/WIDGET_CONTRACT.md` defines widgets as first-class work surfaces.
 - `docs/GIT_WIDGET_CONTRACT.md` defines the future Git review/control widget for agent-completed code work.
 - `docs/TEMPLATE_CONTRACT.md` defines future Request Templates and Response Templates.

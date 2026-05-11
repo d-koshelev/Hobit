@@ -20,6 +20,7 @@ Always read:
 - ROADMAP.md
 - docs/PRODUCT_CONTRACT.md
 - docs/AI_WORKBENCH_CONTRACT.md
+- docs/WORKSPACE_CONTRACT.md
 - docs/UI_CONTRACT.md
 - docs/WIDGET_CONTRACT.md
 - docs/PRESET_CONTRACT.md
@@ -63,6 +64,7 @@ Current foundation target:
 - Workspace Start Screen exists and can create or open a Workspace.
 - In the Tauri desktop shell, workspace lifecycle/state loading, widget mutations/log reads, and explicit Git status reads use the Tauri workspace API bridge and local SQLite storage where applicable.
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
+- Different problem = different Workspace. Different surface for the same problem = additional Workbench. Future multi-open Workspace UI and multi-Workbench UI must follow `docs/WORKSPACE_CONTRACT.md` and must not mix unrelated Workspace context, queues, runs, Git roots, notes, templates, logs, artifacts, or decisions.
 - Add Widget opens the Widget Catalog drawer. The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates can be inserted as persisted WidgetInstances; other catalog items remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, formatting tools, and AI-in-Notes behavior are not implemented yet. Future Notes/Notebook work must preserve `docs/NOTES_WIDGET_CONTRACT.md`.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.

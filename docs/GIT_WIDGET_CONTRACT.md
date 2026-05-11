@@ -245,6 +245,8 @@ In the first implementation slice, repository root may remain Git-widget-local a
 
 Future Workspace history may link Git status snapshots, executor responses, validation results, and commits to a known repository root. If a repository root changes later, historical Git review artifacts must preserve the root they used.
 
+Git roots and Git review state are Workspace/widget-scoped unless future Workspace-approved roots are implemented. Git review state for one Workspace must not appear in another Workspace by default. Future shared repository roots across Workspaces must be explicit and operator-approved. For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
+
 ## Baseline Git Operations
 
 ### Read-Only Operations

@@ -92,6 +92,14 @@ A future Queue Item may include:
 
 The Queue Item is not the same as a reusable template. It is a concrete block instance in a Workspace or Project history.
 
+## Workspace Scope
+
+Agent Queue is Workspace-scoped.
+
+Queue Items belong to one Workspace. A Queue Item may be shown in multiple Workbenches of the same Workspace if useful, but it must not appear in unrelated Workspaces unless the operator explicitly copies or duplicates it as a new item.
+
+Different problem = different Workspace. Different surface for the same problem = additional Workbench. For the full multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
+
 ## Status Model
 
 Queue status names are conceptual for now. Future implementation may refine names, but it must preserve explicit review and acceptance.

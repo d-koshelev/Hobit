@@ -163,6 +163,8 @@ Overview Log and Result Report must not hide failed raw execution, skipped valid
 
 The coordinator role is associated with the durable Workspace or Project context.
 
+Workspace is the isolation boundary for agent work. Different problems must use different Workspaces; additional Workbenches are only additional surfaces for the same Workspace problem. The coordinator must not mix Queue Items, Agent Runs, request/response snapshots, Git review, notes, artifacts, decisions, or approved context across unrelated Workspaces.
+
 Future Workspace history should be able to show:
 
 - block queue
@@ -182,6 +184,8 @@ Future Workspace history should be able to show:
 The coordinator uses Workspace context to generate precise executor requests. The executor should receive only the minimal context needed for the block.
 
 This does not require implementation in the current block.
+
+For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
 
 ## Relation To Agent Queue
 

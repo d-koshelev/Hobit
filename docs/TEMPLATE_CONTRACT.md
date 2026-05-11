@@ -209,6 +209,8 @@ Reusable templates may exist across Workspaces or Projects, but applied snapshot
 
 Workspace history should link requests, executor responses, validation results, Git commits, logs, and artifacts when future storage supports those relationships.
 
+Template definitions may be global or reusable, but applied Request snapshots, selected Response Template revisions, captured Responses, and response validation results are Workspace-owned history. They must not leak into unrelated Workspaces unless the operator explicitly copies or links them. For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
+
 ## Relation To Widgets
 
 Widgets may use templates to generate structured requests, but template definitions are not owned by widget instances.
