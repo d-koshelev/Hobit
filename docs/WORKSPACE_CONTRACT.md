@@ -117,7 +117,7 @@ Not implemented yet:
 - widget runtime reconstruction
 - real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder
 - real Terminal, Agent CLI, operational agent chat, or other capability widgets
-- Docking Station, widget presence zones beyond canvas/floating, and Full/Compact/Indicator view mode behavior
+- Dock, widget presence zones beyond canvas/floating, and Full/Compact/Indicator view mode behavior
 - full drag-and-drop layout editing
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
 - log streaming or polling
@@ -141,7 +141,7 @@ A Workspace should persist:
 - Workbench records for one or more visual/operational surfaces when multi-Workbench support exists
 - widget instances
 - widget layout
-- widget presence zones and future Docking Station rail placement
+- widget presence zones and future Dock rail placement
 - widget states
 - widget inputs
 - command/action history
@@ -202,13 +202,13 @@ Possible future Workbenches inside one Workspace include:
 
 Multiple Workbenches in one Workspace may share Workspace-scoped context, Agent Queue, activity, artifacts, and decisions. They must not be used to mix unrelated problems into one Workspace.
 
-## Docking Station Scope
+## Dock Scope
 
-Future Docking Station behavior is Workspace-scoped. Station items are existing WidgetInstances parked in Workspace-local perimeter rails using Indicator view; they are not new templates or duplicate widget instances.
+Future Dock behavior is Workspace-scoped. Dock items are existing WidgetInstances parked in Workspace-local perimeter rails using Indicator view; they are not new templates or duplicate widget instances.
 
-Widgets parked in one Workspace's Docking Station must not appear in another Workspace. Shared WidgetDefinitions and WidgetTemplates do not imply shared WidgetInstances, station placement, widget state, logs, or status. Moving a widget between Canvas, Docking Station, in-app Float, and future external windows must preserve the same WidgetInstance identity and Workspace ownership.
+Widgets parked in one Workspace's Dock must not appear in another Workspace. Shared WidgetDefinitions and WidgetTemplates do not imply shared WidgetInstances, Dock placement, widget state, logs, or status. Clicking a Dock item should open Compact view; moving a widget between Canvas, Dock, in-app Float, and future external windows must preserve the same WidgetInstance identity, state, configuration, logs, results, and Workspace ownership.
 
-For the full Docking Station, widget view mode, presence zone, and future drag-and-drop contract, see `docs/WIDGET_CONTRACT.md`.
+For the full Dock, widget view mode, presence zone, and future drag-and-drop contract, see `docs/WIDGET_CONTRACT.md`.
 
 ## Workspace-Aware Coordinator Scope
 
@@ -446,7 +446,7 @@ The following are not implemented yet:
 - real capability widgets
 - custom preset editor
 - full drag-and-drop layout editor
-- Docking Station rails, widget view modes, persisted widget presence zones, and drag-and-drop between Canvas, Docking Station, Float, or future external windows
+- Dock rails, widget view modes, persisted widget presence zones, and drag-and-drop between Canvas, Dock, Float, or future external windows
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, and always-on-top behavior
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
 - full Notebook/Notes document storage, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, and AI-in-Notes behavior

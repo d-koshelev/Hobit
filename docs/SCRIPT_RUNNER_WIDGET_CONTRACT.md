@@ -268,10 +268,10 @@ Indicator view should show:
 - status badge
 - last result or running/error indicator
 
-Future Docking Station behavior:
+Future Dock behavior:
 
 - Script Runner in Indicator view should show concise status only, such as `Idle`, `Running`, `Failed`, `Passed`, or `Needs review`.
-- Station status must not trigger hidden script execution, refresh, mutation, or approval bypass.
+- Dock status must not trigger hidden script execution, refresh, mutation, or approval bypass.
 
 ## Relationship To Agent Queue
 

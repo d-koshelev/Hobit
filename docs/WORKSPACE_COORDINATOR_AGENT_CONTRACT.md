@@ -135,7 +135,7 @@ Future conceptual action examples include:
 - `markQueueItemNeedsFix`
 - `prepareScriptRunnerConfig`
 - `openWidgetOnCanvas`
-- `sendWidgetToDockingStation`
+- `sendWidgetToDock`
 
 These examples are conceptual only. They do not define TypeScript types, Rust types, API DTOs, database schema, or implemented behavior.
 
@@ -304,9 +304,9 @@ Rules:
 
 For run observability rules, see `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
-## Relationship To Docking Station
+## Relationship To Dock
 
-The Coordinator may later propose presentation actions such as opening a widget on the canvas or sending a widget to Docking Station.
+The Coordinator may later propose presentation actions such as opening a widget on the Canvas or sending a widget to Dock.
 
 These are UI presentation actions, not data mutations or new widget instances.
 
@@ -314,9 +314,9 @@ Rules:
 
 - Presentation changes must be operator-visible.
 - Coordinator must not silently move, hide, park, or duplicate widgets.
-- Docking Station proposals must preserve WidgetInstance identity and Workspace ownership.
+- Dock proposals must preserve WidgetInstance identity and Workspace ownership.
 
-For Docking Station and widget presence rules, see `docs/WIDGET_CONTRACT.md`.
+For Dock and widget presence rules, see `docs/WIDGET_CONTRACT.md`.
 
 ## Relationship To Script Runner
 
@@ -420,7 +420,7 @@ This contract does not implement:
 - Notebook editing
 - Template generation
 - Git association
-- Docking Station behavior
+- Dock behavior
 - Script Runner behavior
 - backend behavior
 - product behavior changes

@@ -60,7 +60,7 @@ export function DockingStationPlaceholder() {
               className="docking-station-placeholder-title"
               id="docking-station-placeholder-title"
             >
-              Docking Station
+              Dock
             </h2>
             <Badge variant="info">Placeholder</Badge>
             <Badge variant="neutral">Static indicators</Badge>
@@ -72,7 +72,7 @@ export function DockingStationPlaceholder() {
         </div>
 
         <fieldset
-          aria-label="Docking Station preview rail controls"
+          aria-label="Dock preview rail controls"
           className="docking-station-rail-controls"
         >
           <legend className="docking-station-rail-controls-label">
@@ -94,7 +94,7 @@ export function DockingStationPlaceholder() {
       </div>
 
       <div
-        aria-label="Static Docking Station perimeter rail preview"
+        aria-label="Static Dock perimeter rail preview"
         className="docking-station-preview-grid"
       >
         <StationRail

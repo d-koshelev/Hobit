@@ -32,9 +32,9 @@ A configured and placed instance of a widget inside a Workspace Workbench. Its i
 
 The set of available widget definitions and templates that can be instantiated in a workbench.
 
-## Docking Station
+## Dock
 
-A future compact, Workspace-local perimeter station for already-created WidgetInstances. Docking Station shows parked widgets in Indicator view so they remain visible and quickly accessible without occupying the main canvas.
+A future compact, Workspace-local perimeter surface for already-created WidgetInstances. Dock shows parked widgets in Indicator view so they remain visible and quickly accessible without occupying the main canvas. Clicking a Dock item should open Compact view, and moving it to Canvas should open Full view while preserving the same WidgetInstance.
 
 ## Widget View Mode
 
@@ -42,7 +42,7 @@ The rendered density of an existing WidgetInstance. Future modes are Full, Compa
 
 ## Widget Presence Zone
 
-The presentation/location of an existing WidgetInstance, such as canvas, future station, current in-app floating, or future external window. Widget Catalog is not a presence zone because it creates instances from templates.
+The presentation/location of an existing WidgetInstance, such as canvas, future Dock, current in-app floating, or future external window. Widget Catalog is not a presence zone because it creates instances from templates.
 
 ## Widget Console
 

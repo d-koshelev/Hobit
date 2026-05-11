@@ -115,15 +115,16 @@ Widget view mode is the rendered density of an existing WidgetInstance.
 
 Suggested view modes:
 
-- `Full`: the complete standard widget view with all primary functionality. Canvas normally uses Full view. In-app floating mode and future external popout/window mode normally use Full view.
-- `Compact`: a reduced widget view with key status and limited controls. Compact is a future optional intermediate mode for constrained layouts, previews, or side surfaces.
-- `Indicator`: a minimal status/access view with only title or icon, compact widget-specific status, badge/counter/warning marker, and open/focus affordance. Docking Station uses Indicator view.
+- `Full`: the complete standard widget view with all primary functionality. Canvas normally uses Full view. Dragging or pulling a widget from Dock to Canvas should open that same WidgetInstance in Full view. In-app floating mode and future external popout/window mode normally use Full view.
+- `Compact`: a medium quick-preview/action view with key status and limited controls. Compact is a future optional intermediate mode for constrained layouts, previews, or side surfaces. Clicking a Dock item should open Compact view without creating a new WidgetInstance.
+- `Indicator`: a minimal status/access view with only title or icon, compact widget-specific status, badge/counter/warning marker, and open/focus affordance. Dock uses Indicator view.
 
 Rules:
 
 - Changing view mode must not create a new widget instance.
 - Changing view mode must preserve widget identity, state, configuration, inputs, logs, results, and Workspace scope.
 - Full view owns detailed interaction and primary functionality.
+- Compact view may expose quick preview and limited actions, but must not replace the Full working view.
 - Indicator view must not hide material risk or failure state, but detailed inspection belongs in Full view.
 - Indicator view must not trigger hidden execution, refreshes, mutations, agent work, or tool actions.
 - Compact and Indicator views are presentation contracts, not separate widget definitions or templates.
@@ -135,19 +136,19 @@ Widget presence zone is the presentation/location of an existing WidgetInstance.
 Suggested conceptual zones:
 
 - `canvas`: the active Workbench surface for Full widget views.
-- `station`: a future Docking Station rail using Indicator widget views.
+- `dock`: a future Dock perimeter rail using Indicator widget views.
 - `floating`: the current in-app floating overlay or future equivalent temporary presentation.
 - `external_window_future`: a future true separate Tauri/OS window.
 
 Catalog is not a presence zone. The Widget Catalog is the source of templates and creates new WidgetInstances. Presence zones only describe where an existing WidgetInstance is shown.
 
-Presence-zone changes should be operator-visible and may be persisted by future implementation when needed. The current implementation only has canvas rendering and frontend-only in-app floating presentation. Docking Station and true external windows are future work.
+Presence-zone changes should be operator-visible and may be persisted by future implementation when needed. The current implementation only has canvas rendering, a frontend-only in-app floating presentation, and a static Dock placeholder preview. Real Dock behavior and true external windows are future work.
 
-## Docking Station
+## Dock
 
-Docking Station is a future compact, Workspace-local, perimeter-based station for already-created WidgetInstances that should remain visible and quickly accessible without permanently occupying the main Workbench canvas.
+Dock is a future compact, Workspace-local, perimeter-based surface for already-created WidgetInstances that should remain visible and quickly accessible without permanently occupying the main Workbench canvas.
 
-Docking Station is for:
+Dock is for:
 
 - configured utility widgets
 - monitoring or status widgets
@@ -155,7 +156,7 @@ Docking Station is for:
 - quick access to existing WidgetInstances
 - reducing main canvas clutter while keeping important state visible
 
-Docking Station is not:
+Dock is not:
 
 - Widget Catalog
 - a source of new widget templates
@@ -164,9 +165,23 @@ Docking Station is not:
 - a dumping ground for every widget
 - a way to bypass widget identity, state, logs, results, Workspace scope, or approval rules
 
+### View-Mode Flow
+
+Dock uses the same WidgetInstance across all view modes and presence zones.
+
+Intended flow:
+
+- A widget parked in Dock appears as an Indicator item on a perimeter rail.
+- Clicking a Dock item opens Compact view for quick preview and limited actions.
+- Dragging or pulling a Dock item onto Canvas opens the same widget instance in Full view.
+- Dragging a Canvas widget into Dock parks the same widget instance as an Indicator item.
+- Future Float and external window flows may also move the same widget instance without changing ownership or state.
+
+Moving between Dock, Canvas, Compact preview, Float, and future external windows must preserve `widgetInstanceId`, state, configuration, inputs, logs, results, and Workspace ownership. It must not create duplicate widget instances or behave like a hidden archive.
+
 ### Perimeter Rails
 
-Docking Station is not limited to one side. It may have independently enabled perimeter rails:
+Dock is not limited to one side. It may have independently enabled perimeter rails:
 
 - top
 - right
@@ -186,21 +201,21 @@ Future settings may include:
 Example configuration:
 
 ```text
-Docking Station:
+Dock:
   Top enabled
   Left enabled
   Right disabled
   Bottom enabled
 ```
 
-### Station Items
+### Dock Items
 
-Each Docking Station item represents one existing WidgetInstance.
+Each Dock item represents one existing WidgetInstance.
 
 Future conceptual fields may include:
 
 - `widgetInstanceId`
-- `stationEdge`: `top`, `right`, `bottom`, or `left`
+- `dockEdge`: `top`, `right`, `bottom`, or `left`
 - `viewMode`: `indicator`
 - `order`
 - `lastKnownCanvasLayout`
@@ -209,9 +224,9 @@ Future conceptual fields may include:
 
 These fields are conceptual only. They do not define a storage schema, API DTO, Rust type, TypeScript type, or current behavior.
 
-### Station Status
+### Dock Status
 
-Docking Station items must show clear, compact, widget-specific status.
+Dock items must show clear, compact, widget-specific status.
 
 Status requirements:
 
@@ -237,13 +252,13 @@ Status examples:
 
 Future drag-and-drop may move existing WidgetInstances between presentation zones:
 
-- Canvas to Docking Station rail
-- Docking Station rail to Canvas
+- Canvas to Dock rail
+- Dock rail to Canvas
 - Canvas to Float
-- Docking Station rail to Float
+- Dock rail to Float
 - Float to Canvas
-- Float to Docking Station rail
-- Future external popout/window to Canvas or Docking Station
+- Float to Dock rail
+- Future external popout/window to Canvas or Dock
 
 Rules:
 
@@ -255,27 +270,27 @@ Rules:
 - Drag-and-drop must not start from text inputs, buttons, logs, or interactive widget body controls.
 - Keyboard and accessibility alternatives should be designed before production use.
 
-Current implementation has no drag-and-drop between Canvas, Docking Station, Float, or future external windows. Current docked widget move/resize remains Canvas behavior inside Edit layout mode. Current in-app Float is a frontend-only overlay, not an external OS/Tauri popout.
+Current implementation has no drag-and-drop between Canvas, Dock, Float, or future external windows. Current docked widget move/resize remains Canvas behavior inside Edit layout mode. Current in-app Float is a frontend-only overlay, not an external OS/Tauri popout.
 
 ## Future Implementation Path
 
 Likely safe implementation slices:
 
 1. Add this contract only.
-2. Add a static Docking Station placeholder rail with no storage behavior.
-3. Add local frontend presentation state for send-to-station and open-on-canvas behavior.
+2. Add a static Dock placeholder surface with no storage behavior.
+3. Add local frontend presentation state for Indicator, Compact, and Full view-mode transitions.
 4. Add persisted presence mode only after the product model is proven.
-5. Add drag-and-drop between presentation zones.
+5. Add drag-and-drop between Dock and Canvas that moves existing WidgetInstances.
 6. Add per-widget Indicator status providers.
 
 Each slice must preserve widget identity and avoid hidden execution or mutation.
 
-## Docking Station Non-Goals
+## Dock Non-Goals
 
 This contract does not implement:
 
-- Docking Station UI
-- station rails
+- real Dock UI
+- Dock rails
 - view-mode rendering
 - widget status providers
 - drag-and-drop
@@ -286,7 +301,7 @@ This contract does not implement:
 - external OS/Tauri popout windows
 - widget behavior changes
 - runtime execution
-- hidden refresh, execution, mutation, or automation from station status
+- hidden refresh, execution, mutation, or automation from Dock status
 
 ## Ghost Placeholder
 
@@ -348,7 +363,7 @@ Widget Catalog
 
 The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for catalog insertion. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, checklists/todos, snippets, review notes, and AI-in-Notes behavior are not implemented yet. The Terminal placeholder is static and does not execute commands, accept command input, stream output, or write widget state. The Agent Chat placeholder is static and does not accept chat input, call agents or LLMs, access Workspace context, stream responses, propose actions, or write widget state. The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log views; it does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or write widget state. The Agent Queue placeholder is static and previews future command queue/history/review inbox cards, frontend-local static card selection, and selected item detail review surfaces for agent commands or blocks; it does not persist selected items, persist queue items, launch agents, capture responses, validate responses, associate Git review, run a background queue, automatically accept work, or write widget state. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Git root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. The Template Library placeholder is static and includes static Request Template, Response Template, and Coordinator Workflow previews; it does not persist template data, edit templates, fill variables, generate requests, copy or send requests, capture responses, parse or validate responses, launch or integrate executor tasks, associate Git review with responses, call agents, or write widget state. Future Workspace-aware Coordinator Agent behavior is contract-only in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; Agent Chat / Coordinator does not currently read widget context, preview proposed actions, mutate other widgets, create Queue Items, edit Notebook content, or apply presentation changes.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window. The current Dock surface is a static frontend-only placeholder preview; it does not park widgets, render Compact views, move widgets between Dock and Canvas, persist presence zones, or provide per-widget Indicator status.
 
 The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions when already open. Existing widget add/state/layout mutations emit basic logs. Runtime execution, runtime log emission, streaming, and polling are not implemented yet.
 
