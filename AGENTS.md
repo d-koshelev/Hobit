@@ -30,6 +30,7 @@ Always read:
 - docs/PRESET_CONTRACT.md
 - docs/DESIGN_SYSTEM_CONTRACT.md
 - docs/ARCHITECTURE.md
+- docs/CODE_ORGANIZATION_CONTRACT.md
 - docs/GLOSSARY.md
 
 For agent/runtime work, also read:
@@ -63,6 +64,23 @@ Request Templates and Response Templates are future product assets, not only con
 Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Future Agent Queue work should follow `docs/AGENT_QUEUE_CONTRACT.md` and remain an operator-controlled agent command queue, command history, and review inbox, not hidden automation. Future agent/task execution observability should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
 For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output. Future Git reads must use an explicit operator-approved repository root; do not add hidden parent traversal, Workspace-wide repository scanning, network fetch during read-only status collection, or mutating Git behavior.
+
+## Hobit Toolbelt
+
+Hobit has a repo-local Toolbelt under `scripts/hobit/` for deterministic repository inspection and validation tasks.
+
+Codex and other agents must check `scripts/hobit/` before writing ad-hoc helper scripts for repeated inspection work. Prefer the Toolbelt for validation, file-size checks, module maps, and changed-file summaries.
+
+Current Toolbelt entry points:
+- `scripts/hobit/validate.ps1`
+- `scripts/hobit/validate.sh`
+- `scripts/hobit/check-file-sizes.py`
+- `scripts/hobit/module-map.py`
+- `scripts/hobit/changed-files-summary.py`
+
+If a repeated inspection need is missing, propose a small deterministic Toolbelt script instead of leaving temporary Python, Bash, or PowerShell helpers in the repository.
+
+Code organization work must follow `docs/CODE_ORGANIZATION_CONTRACT.md`.
 
 ## Current product direction
 
