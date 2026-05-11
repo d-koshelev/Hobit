@@ -7,6 +7,7 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
@@ -22,6 +23,7 @@ import type {
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import {
   AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
+  AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
@@ -32,6 +34,7 @@ import {
 
 const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY]: OperationalAgentChatPlaceholderWidget,
+  [AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]: AgentQueuePlaceholderWidget,
   [AGENT_RUN_PLACEHOLDER_COMPONENT_KEY]: AgentRunPlaceholderWidget,
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,

@@ -390,7 +390,7 @@ This contract does not implement:
 - PR provider integration
 - agent runtime behavior
 - current widget behavior changes
-- Agent Queue UI, storage, or automatic Git review actions
+- Agent Queue behavior beyond static placeholder previews, storage, or automatic Git review actions
 - product behavior changes
 
 ## Current Implementation Boundary

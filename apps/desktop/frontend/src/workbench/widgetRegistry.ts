@@ -1,5 +1,8 @@
 import type { WidgetDefinition, WidgetDefinitionId } from "./types";
 
+export const AGENT_QUEUE_WIDGET_DEFINITION_ID = "agent-queue";
+export const AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY =
+  "agent-queue-placeholder";
 export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
 export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
 export const AGENT_CHAT_WIDGET_DEFINITION_ID = "agent-chat";
@@ -15,6 +18,16 @@ export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
 export const widgetRegistry: WidgetDefinition[] = [
+  {
+    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    title: "Agent Queue",
+    category: "workflow",
+    description:
+      "Static placeholder for the future operator queue and review inbox.",
+    defaultTitle: "Agent Queue",
+    defaultConfig: {},
+    componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
+  },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
     title: "Agent Run",

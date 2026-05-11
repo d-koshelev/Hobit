@@ -10,11 +10,11 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Status
 
-Agent Queue is not implemented.
+Agent Queue currently exists only as an insertable static frontend placeholder widget and this product/domain contract.
 
 The current repository has:
 
-- no Agent Queue UI
+- a static Agent Queue placeholder preview rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
 - no queue storage
 - no queue item schema
 - no automatic agent execution
@@ -24,7 +24,7 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the static Template Library placeholder, static Agent Run placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Run placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 ## Definition
 
@@ -44,7 +44,7 @@ The Agent Queue must not be defined as:
 - auto-push or auto-merge workflow
 - a way to bypass tool approval, Git review, validation, or operator control
 
-Agent Queue may become a visible Workbench widget or Workbench surface in the future. If visible, it must follow `docs/WIDGET_CONTRACT.md`; it is optional capability surface, not the product center.
+Agent Queue is visible today only as a static placeholder Workbench widget. Future functional Agent Queue behavior must follow `docs/WIDGET_CONTRACT.md`; it is optional capability surface, not the product center.
 
 ## Core Purpose
 
@@ -404,7 +404,7 @@ These are conceptual only. This contract does not define Rust types, TypeScript 
 
 This contract does not implement:
 
-- Agent Queue UI
+- Agent Queue behavior beyond the static placeholder UI
 - storage schema or migrations
 - Rust domain types
 - TypeScript types

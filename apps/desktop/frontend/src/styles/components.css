@@ -296,6 +296,146 @@
   flex-wrap: wrap;
 }
 
+.agent-queue-placeholder {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.agent-queue-summary,
+.agent-queue-overview,
+.agent-queue-group,
+.agent-queue-synergy {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.agent-queue-summary,
+.agent-queue-section-header,
+.agent-queue-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.agent-queue-summary-copy,
+.agent-queue-overview,
+.agent-queue-overview-copy,
+.agent-queue-group,
+.agent-queue-group-copy,
+.agent-queue-item-title-copy,
+.agent-queue-synergy {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.agent-queue-overview-copy,
+.agent-queue-group-copy,
+.agent-queue-item-title-copy {
+  gap: var(--space-xs);
+}
+
+.agent-queue-summary-title,
+.agent-queue-summary-text,
+.agent-queue-section-title,
+.agent-queue-section-text,
+.agent-queue-item-block,
+.agent-queue-item-title,
+.agent-queue-card-label,
+.agent-queue-card-value {
+  margin: 0;
+}
+
+.agent-queue-summary-title,
+.agent-queue-section-title,
+.agent-queue-item-title,
+.agent-queue-card-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.agent-queue-summary-text,
+.agent-queue-section-text,
+.agent-queue-item-block,
+.agent-queue-card-value {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-item-title {
+  color: var(--color-text-primary);
+}
+
+.agent-queue-overview {
+  background: var(--color-io-surface);
+}
+
+.agent-queue-overview-metrics,
+.agent-queue-groups,
+.agent-queue-item-grid,
+.agent-queue-synergy-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.agent-queue-overview-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.agent-queue-groups {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.agent-queue-metric,
+.agent-queue-item-card,
+.agent-queue-synergy-item {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.agent-queue-metric,
+.agent-queue-card-field,
+.agent-queue-item-card,
+.agent-queue-synergy-item {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.agent-queue-card-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.agent-queue-item-grid {
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  margin: 0;
+}
+
+.agent-queue-card-field {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.agent-queue-synergy-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 0;
+}
+
+.agent-queue-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .template-library-placeholder {
   display: grid;
   gap: var(--space-md);

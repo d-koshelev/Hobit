@@ -97,6 +97,20 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     futureWidgetDefinitionId: "template-library",
   },
   {
+    id: "agent-queue",
+    title: "Agent Queue",
+    category: "workflow",
+    description:
+      "Static preview of the future operator review inbox for agent blocks.",
+    status: "available",
+    capabilitySummary: [
+      "Static queue and review inbox preview",
+      "Queue storage and automatic execution not implemented",
+      "Response capture, validation, and Git mutation not implemented",
+    ],
+    futureWidgetDefinitionId: "agent-queue",
+  },
+  {
     id: "notes",
     title: "Notes",
     category: "productivity",

@@ -2,7 +2,7 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. Persisted Notes, static Terminal placeholder, static Agent Chat placeholder, static Agent Run placeholder, Git placeholder, and static Template Library placeholder widgets exist as catalog insertion paths. The Git placeholder has a narrow manual desktop-only read-only status refresh path; no agent runtime, terminal execution, Agent CLI runtime, chat execution, Agent Run runtime, Template Library runtime, Git mutations/diff/log/show, or broad tool execution exists yet.
+The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. Persisted Notes, static Terminal placeholder, static Agent Chat placeholder, static Agent Run placeholder, static Agent Queue placeholder, Git placeholder, and static Template Library placeholder widgets exist as catalog insertion paths. The Git placeholder has a narrow manual desktop-only read-only status refresh path; no agent runtime, terminal execution, Agent CLI runtime, chat execution, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git mutations/diff/log/show, or broad tool execution exists yet.
 
 ## Documentation Contracts
 
@@ -12,7 +12,7 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
 
-`AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. It is a contract only; no Agent Queue UI, storage, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
+`AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. The frontend has a static Agent Queue placeholder preview; no queue storage, real queue item state, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
 
 `AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has a static insertable Agent Run placeholder previewing those three views, but no agent execution log model, runtime log streaming, overview summarizer, result report persistence, response validation, executor integration, or real agent runtime UI is implemented yet.
 
@@ -65,9 +65,9 @@ In plain browser/Vite development, the frontend uses an in-memory workspace API 
 
 The Empty Workbench shell intentionally renders no concrete widgets by default. New Workspaces still start with zero widget instances.
 
-The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder templates can be inserted through the workspace API as persisted WidgetInstances and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
+The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates can be inserted through the workspace API as persisted WidgetInstances and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, chat execution, Agent Queue UI/storage/runner/review inbox, real agent run Raw Log/Overview Log/Result Report behavior beyond the static Agent Run placeholder preview, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notebook/Notes document model yet.
+There is no terminal execution, agent runtime, chat execution, Agent Queue behavior beyond the static placeholder preview, Agent Queue storage/runner/real review inbox, real agent run Raw Log/Overview Log/Result Report behavior beyond the static Agent Run placeholder preview, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notebook/Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -98,7 +98,7 @@ The shell exposes WorkspaceService lifecycle and widget foundation commands over
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, and command DTO mapping in `workspace_dto.rs`.
 
-The React frontend calls these commands through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation; browser fallback throws a visible unsupported state for real Git status reads. There is no widget runtime behavior, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder, terminal execution, agent call, chat runtime, Agent Run runtime, Template Library runtime, Git runtime beyond the narrow read-only status path, workspace restore runtime, log streaming/polling, or settings UI in this milestone.
+The React frontend calls these commands through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation; browser fallback throws a visible unsupported state for real Git status reads. There is no widget runtime behavior, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, terminal execution, agent call, chat runtime, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git runtime beyond the narrow read-only status path, workspace restore runtime, log streaming/polling, or settings UI in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -127,7 +127,7 @@ The browser/Vite flow keeps the same frontend boundary but uses in-memory Worksp
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime reconstruction, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder, or persisted browser fallback state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime reconstruction, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 
@@ -135,15 +135,17 @@ The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `Workbenc
 
 The Empty Workbench is rendered from preset data and new Workspaces currently start with no visible widget instances.
 
-`WidgetHost` remains the mapping layer from persisted widget instances to React components. The current frontend registry contains the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder renderers.
+`WidgetHost` remains the mapping layer from persisted widget instances to React components. The current frontend registry contains the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder renderers.
 
-The Widget Catalog has frontend-local template metadata for future capabilities. Only the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder templates are currently available for insertion; all other catalog templates remain planned/display-only. There is no runtime widget loading or real capability widget insertion beyond those placeholders through the Tauri bridge yet.
+The Widget Catalog has frontend-local template metadata for future capabilities. Only the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for insertion; all other catalog templates remain planned/display-only. There is no runtime widget loading or real capability widget insertion beyond those placeholders through the Tauri bridge yet.
 
 The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notebook/Notes document model, multi-tab state, Markdown editor, text formatting tool surface, autosave flow, folder system, or AI-in-Notes implementation.
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
 The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log sections from `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. It does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, call agents, execute terminal commands, or write widget state.
+
+The Agent Queue placeholder is static and previews future queue/review inbox groups, queue item cards, linked template/run/Git/notes context, and disabled planned operator actions. It does not persist queue items, launch agents, run a background queue, capture responses, parse or validate responses, associate Git review, automatically accept work, or write widget state.
 
 The Git placeholder has a transient explicit repository-root input. In the Tauri desktop path, it manually refreshes a read-only status snapshot through `get_git_repository_status`, backed by `hobit-tools`, and renders branch/clean-dirty/count/ahead-behind/warning/last-commit data plus grouped changed files. The repository root and refreshed status are local React state only. Browser/Vite fallback cannot read Git status. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
 
@@ -167,7 +169,7 @@ These are pure domain contracts only. Persistence, frontend integration, and Tau
 
 It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
 
-This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder insertion, Notes placeholder state, persisted widget layout fields, workspace activity events, and widget-local logs. Git status refresh is read-only and does not write repository root/status into storage. The storage layer is not wired to agent runtime, terminal execution, chat runtime, Agent Run runtime, Template Library runtime, Git runtime beyond the narrow status read path, real capability widgets beyond placeholders, runtime execution, log streaming, or agent run observability storage.
+This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder insertion, Notes placeholder state, persisted widget layout fields, workspace activity events, and widget-local logs. Git status refresh is read-only and does not write repository root/status into storage. The storage layer is not wired to agent runtime, terminal execution, chat runtime, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git runtime beyond the narrow status read path, real capability widgets beyond placeholders, runtime execution, log streaming, or agent run observability storage.
 
 ## Current Application Service Milestone
 
@@ -181,13 +183,13 @@ This application layer is wired to the Tauri workspace bridge. It does not resto
 
 The current Workspace model foundation supports persisted Workspace records, WorkspaceSession records, Workbench records, widget instance summaries, widget state/layout fields, shared state summaries, widget-local logs, and Workbench event summaries.
 
-Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, full drag/drop layout editor, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder, terminal execution, chat execution, Agent Queue execution/review inbox, Agent Run execution, Template Library execution, Git behavior beyond manual read-only status refresh, or agent runtime behavior.
+Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, full drag/drop layout editor, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, terminal execution, chat execution, Agent Queue execution/storage/real review inbox, Agent Run execution, Template Library execution, Git behavior beyond manual read-only status refresh, or agent runtime behavior.
 
 ## Planned Notes Model
 
 Future notes work will support Markdown documents organized in folders with global and workspace-local scopes.
 
-The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder widgets. The Agent Run and Template Library placeholders only show static previews, and the Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Agent Run runtime, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
+The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder widgets. The Agent Run, Agent Queue, and Template Library placeholders only show static previews, and the Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Agent Run runtime, Agent Queue storage/execution/response capture/validation, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
 
 ## Intended Repository Layout
 
@@ -233,6 +235,6 @@ crates/
 
 ## Current Boundary
 
-The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget Catalog with persisted Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Git placeholder, and Template Library placeholder insertion paths, a minimal Tauri desktop host, SQLite-backed workspace/workbench state, widget state/layout, workspace event, widget-local log foundations in desktop mode, and a narrow manual desktop-only read-only Git status path for the Git placeholder. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
+The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget Catalog with persisted Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder insertion paths, a minimal Tauri desktop host, SQLite-backed workspace/workbench state, widget state/layout, workspace event, widget-local log foundations in desktop mode, and a narrow manual desktop-only read-only Git status path for the Git placeholder. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
 
 Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.
