@@ -1,5 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { GitRepositoryStatus } from "../workspace/types";
+import type {
+  GitRepositoryStatus,
+  RunTerminalCommandRequest,
+  RunTerminalCommandResponse,
+} from "../workspace/types";
 
 export type WidgetCategory =
   | "core"
@@ -184,5 +188,12 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  onRunTerminalCommand?: (
+    widgetInstanceId: WidgetInstanceId,
+    command: Omit<
+      RunTerminalCommandRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<RunTerminalCommandResponse | null>;
   title: string;
 };

@@ -97,9 +97,9 @@ Implemented foundation:
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
 - The current product opens one selected Workspace into one rendered Workbench surface at a time. Full multi-open Workspace UI, Workspace tabs/sidebar, separate Workspace windows, and mature multiple-Workbench UI for one Workspace are not implemented.
-- The Widget Catalog can insert the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
+- The Widget Catalog can insert the Notes, Terminal, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
-- The Terminal placeholder is static. Terminal execution, command input, process lifecycle, stdout/stderr streaming, and terminal runtime behavior are not implemented.
+- The Terminal widget has a minimal desktop-only one-shot local command form for persisted Terminal widget instances only. It uses explicit program + argv + working directory, writes widget run/log/result records, and renders the final stdout/stderr result. Shell mode, interactive stdin, stdout/stderr streaming, PTY, cancellation, command history, Agent-triggered execution, and Script Runner behavior are not implemented.
 - The Agent Chat placeholder is static. Chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, and chat message persistence are not implemented.
 - The Agent Monitoring placeholder is static and previews future Overview Log, Result Report, and Raw Log sections for one selected or active execution. It keeps the existing `agent-run` definition id for persistence compatibility. Run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, and executor integration are not implemented.
 - The Agent Queue placeholder is static and previews future command queue/history/review inbox cards with frontend-local static card selection and selected item detail review surfaces. Persisted queue item selection, queue storage, real queue item persistence, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, Git association, and executor integration are not implemented.
@@ -115,15 +115,15 @@ Not implemented yet:
 
 - runtime restore or event replay
 - widget runtime reconstruction
-- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder
-- real Terminal, Agent CLI, operational agent chat, or other capability widgets
+- real capability widget insertion beyond the Notes, Terminal one-shot command widget, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder
+- interactive Terminal, Agent CLI, operational agent chat, or other capability widgets
 - Dock, widget presence zones beyond canvas/floating, and Full/Compact/Indicator view mode behavior
 - full drag-and-drop layout editing
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
 - log streaming or polling
 - full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, or AI-in-Notes behavior
 - custom preset editor
-- terminal execution
+- shell or interactive terminal execution
 - agent runtime calls
 - real agent run Raw Log, Overview Log, and Result Report views beyond the static Agent Monitoring placeholder preview
 - Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root; repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations
@@ -393,7 +393,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, Git manual desktop-only read-only status refresh, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal one-shot command widget, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, Git manual desktop-only read-only status refresh, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond existing available widgets/placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -442,7 +442,7 @@ The following are not implemented yet:
 - Workspace-aware Coordinator context access, action proposal, preview/approval flow, Agent Queue item creation, Notebook editing, Git follow-up, or cross-widget mutation
 - Agent Queue behavior beyond the static command queue/history/review placeholder UI, storage, queue runner, automatic launch, automatic acceptance, response capture/parser/validator, Git association, or executor integration
 - real agent run Raw Log, Overview Log, Result Report, log parser, overview summarizer, or response validator beyond the static Agent Monitoring placeholder preview
-- real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder
+- real capability widget insertion beyond the Notes, Terminal one-shot command widget, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder
 - real capability widgets
 - custom preset editor
 - full drag-and-drop layout editor

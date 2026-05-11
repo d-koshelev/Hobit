@@ -161,6 +161,10 @@ export function WidgetHost({
 
   const Component = widgetComponents[definition.componentKey];
   const title = displayWidgetTitle(instance, definition);
+  const runTerminalCommand =
+    definition.componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.runTerminalCommand
+      : undefined;
 
   if (!Component) {
     return (
@@ -194,6 +198,7 @@ export function WidgetHost({
       logRefreshToken={logRefreshToken}
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onLoadLogs={widgetActions.listWidgetLogs}
+      onRunTerminalCommand={runTerminalCommand}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}
       onUpdateState={widgetActions.updateWidgetState}

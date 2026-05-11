@@ -5,6 +5,8 @@ import type {
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
+  RunTerminalCommandRequest,
+  RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -31,6 +33,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   listWidgetLogs,
   getGitRepositoryStatus,
+  runTerminalCommand,
 };
 
 async function createWorkspace(
@@ -248,6 +251,14 @@ async function getGitRepositoryStatus(
 ): Promise<GitRepositoryStatus | null> {
   throw new Error(
     "Git status is only available in the Tauri desktop shell. Browser fallback cannot read Git repositories.",
+  );
+}
+
+async function runTerminalCommand(
+  _request: RunTerminalCommandRequest,
+): Promise<RunTerminalCommandResponse | null> {
+  throw new Error(
+    "Terminal command execution is only available in the Tauri desktop shell. Browser fallback cannot run local processes.",
   );
 }
 

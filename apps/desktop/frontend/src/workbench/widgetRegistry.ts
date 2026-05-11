@@ -80,7 +80,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tool",
-    description: "Static placeholder for the future terminal runtime.",
+    description: "One-shot local command widget for the desktop shell.",
     defaultTitle: "Terminal",
     defaultConfig: {},
     componentKey: TERMINAL_PLACEHOLDER_COMPONENT_KEY,

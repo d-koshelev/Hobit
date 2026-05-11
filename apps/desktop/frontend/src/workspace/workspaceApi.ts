@@ -7,6 +7,8 @@ import type {
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
+  RunTerminalCommandRequest,
+  RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -44,6 +46,9 @@ export type WorkspaceApi = {
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
+  runTerminalCommand: (
+    request: RunTerminalCommandRequest,
+  ) => Promise<RunTerminalCommandResponse | null>;
 };
 
 export function getWorkspaceApi(): WorkspaceApi {
@@ -108,6 +113,12 @@ export function getGitRepositoryStatus(
   request: GetGitRepositoryStatusRequest,
 ): Promise<GitRepositoryStatus | null> {
   return getWorkspaceApi().getGitRepositoryStatus(request);
+}
+
+export function runTerminalCommand(
+  request: RunTerminalCommandRequest,
+): Promise<RunTerminalCommandResponse | null> {
+  return getWorkspaceApi().runTerminalCommand(request);
 }
 
 function normalizeCreateWorkspaceRequest(

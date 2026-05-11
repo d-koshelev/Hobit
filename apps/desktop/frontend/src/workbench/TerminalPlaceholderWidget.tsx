@@ -1,6 +1,14 @@
+import { useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
+import { Button } from "../design-system/Button";
+import { Input } from "../design-system/Input";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import type { RunTerminalCommandResponse } from "../workspace/types";
 import type { WidgetRenderProps } from "./types";
+
+const DEFAULT_TIMEOUT_MS = "30000";
+const DEFAULT_STDOUT_CAP_BYTES = "65536";
+const DEFAULT_STDERR_CAP_BYTES = "65536";
 
 export function TerminalPlaceholderWidget({
   frameActions,
@@ -9,9 +17,85 @@ export function TerminalPlaceholderWidget({
   instance,
   logRefreshToken,
   onLoadLogs,
+  onRunTerminalCommand,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
+  const programInputId = useId();
+  const argsTextareaId = useId();
+  const workingDirectoryInputId = useId();
+  const timeoutInputId = useId();
+  const stdoutCapInputId = useId();
+  const stderrCapInputId = useId();
+  const commandPanelTitleId = useId();
+  const [programDraft, setProgramDraft] = useState("");
+  const [argsDraft, setArgsDraft] = useState("");
+  const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState("");
+  const [timeoutMsDraft, setTimeoutMsDraft] = useState(DEFAULT_TIMEOUT_MS);
+  const [stdoutCapBytesDraft, setStdoutCapBytesDraft] = useState(
+    DEFAULT_STDOUT_CAP_BYTES,
+  );
+  const [stderrCapBytesDraft, setStderrCapBytesDraft] = useState(
+    DEFAULT_STDERR_CAP_BYTES,
+  );
+  const [isRunning, setIsRunning] = useState(false);
+  const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
+  const [runResult, setRunResult] =
+    useState<RunTerminalCommandResponse | null>(null);
+
+  const program = programDraft.trim();
+  const workingDirectory = workingDirectoryDraft.trim();
+  const canRun =
+    Boolean(onRunTerminalCommand) &&
+    program.length > 0 &&
+    workingDirectory.length > 0 &&
+    !isRunning;
+
+  async function runCommand() {
+    if (!onRunTerminalCommand || isRunning) {
+      return;
+    }
+
+    setRunErrorMessage(null);
+    setRunResult(null);
+    setIsRunning(true);
+
+    try {
+      const timeoutMs = parsePositiveIntegerInput(
+        timeoutMsDraft,
+        "timeout_ms",
+      );
+      const stdoutCapBytes = parsePositiveIntegerInput(
+        stdoutCapBytesDraft,
+        "stdout_cap_bytes",
+      );
+      const stderrCapBytes = parsePositiveIntegerInput(
+        stderrCapBytesDraft,
+        "stderr_cap_bytes",
+      );
+      const response = await onRunTerminalCommand(instance.id, {
+        program,
+        args: parseArgsLines(argsDraft),
+        workingDirectory,
+        timeoutMs,
+        stdoutCapBytes,
+        stderrCapBytes,
+      });
+
+      if (!response) {
+        throw new Error(
+          "Terminal command was not accepted for this widget instance.",
+        );
+      }
+
+      setRunResult(response);
+    } catch (error) {
+      setRunErrorMessage(errorToMessage(error));
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -20,21 +104,385 @@ export function TerminalPlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="neutral">Placeholder</Badge>}
+      status={terminalFrameStatus(runResult, runErrorMessage, isRunning)}
       title={title}
     >
-      <div className="empty-state">
-        <p className="empty-state-title">Terminal runtime planned</p>
-        <p className="empty-state-text">
-          Terminal runtime is planned. Command execution is not available yet.
-        </p>
-      </div>
-      <pre
-        aria-label="Static terminal preview"
-        className="terminal-placeholder-output"
+      <section
+        aria-labelledby={commandPanelTitleId}
+        className="terminal-command-panel"
       >
-        <code>$ command execution planned</code>
-      </pre>
+        <div className="terminal-command-header">
+          <div className="terminal-command-copy">
+            <h3 className="terminal-command-title" id={commandPanelTitleId}>
+              One-shot local command
+            </h3>
+            <p className="terminal-command-text">
+              Program and arguments are passed directly through the desktop
+              backend. This is not an interactive terminal, not a shell, has no
+              stdin, no streaming, and no command history. Browser fallback
+              cannot run local processes.
+            </p>
+          </div>
+          <Badge variant="info">No shell</Badge>
+        </div>
+
+        <div className="terminal-command-controls">
+          <div className="terminal-command-field">
+            <label className="terminal-command-label" htmlFor={programInputId}>
+              Program
+            </label>
+            <Input
+              autoComplete="off"
+              id={programInputId}
+              onChange={(event) => setProgramDraft(event.target.value)}
+              placeholder="python"
+              spellCheck={false}
+              type="text"
+              value={programDraft}
+            />
+          </div>
+
+          <div className="terminal-command-field">
+            <label
+              className="terminal-command-label"
+              htmlFor={workingDirectoryInputId}
+            >
+              Working directory
+            </label>
+            <Input
+              autoComplete="off"
+              id={workingDirectoryInputId}
+              onChange={(event) =>
+                setWorkingDirectoryDraft(event.target.value)
+              }
+              placeholder="C:\\path\\to\\workspace"
+              spellCheck={false}
+              type="text"
+              value={workingDirectoryDraft}
+            />
+          </div>
+
+          <div className="terminal-command-field terminal-command-field-wide">
+            <label
+              className="terminal-command-label"
+              htmlFor={argsTextareaId}
+            >
+              Args
+            </label>
+            <textarea
+              className="input terminal-command-args-textarea"
+              id={argsTextareaId}
+              onChange={(event) => setArgsDraft(event.target.value)}
+              placeholder={"--version\n--help"}
+              spellCheck={false}
+              value={argsDraft}
+            />
+            <p className="terminal-command-note">
+              One argument per non-empty line. Shell quoting is not parsed and
+              lines are not joined into a command string.
+            </p>
+          </div>
+
+          <TerminalNumberField
+            id={timeoutInputId}
+            label="Timeout ms"
+            onChange={setTimeoutMsDraft}
+            value={timeoutMsDraft}
+          />
+          <TerminalNumberField
+            id={stdoutCapInputId}
+            label="Stdout cap bytes"
+            onChange={setStdoutCapBytesDraft}
+            value={stdoutCapBytesDraft}
+          />
+          <TerminalNumberField
+            id={stderrCapInputId}
+            label="Stderr cap bytes"
+            onChange={setStderrCapBytesDraft}
+            value={stderrCapBytesDraft}
+          />
+        </div>
+
+        <div className="terminal-command-action-row">
+          <Button disabled={!canRun} onClick={runCommand} variant="primary">
+            {isRunning ? "Running..." : "Run command"}
+          </Button>
+          <p className="terminal-command-note">
+            Run creates a widget run, lifecycle logs, and one structured result
+            for this Terminal widget only.
+          </p>
+        </div>
+      </section>
+
+      {isRunning ? (
+        <TerminalNotice
+          message="The one-shot command is running through the desktop backend."
+          title="Running..."
+          variant="info"
+        />
+      ) : null}
+
+      {runErrorMessage ? (
+        <TerminalNotice
+          message={runErrorMessage}
+          title="Command request failed"
+          variant="error"
+        />
+      ) : null}
+
+      {runResult ? <TerminalResultCard result={runResult} /> : null}
     </WidgetFrame>
   );
+}
+
+function TerminalNumberField({
+  id,
+  label,
+  onChange,
+  value,
+}: {
+  id: string;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <div className="terminal-command-field">
+      <label className="terminal-command-label" htmlFor={id}>
+        {label}
+      </label>
+      <Input
+        id={id}
+        min={1}
+        onChange={(event) => onChange(event.target.value)}
+        step={1}
+        type="number"
+        value={value}
+      />
+    </div>
+  );
+}
+
+function TerminalNotice({
+  message,
+  title,
+  variant,
+}: {
+  message: string;
+  title: string;
+  variant: "info" | "error";
+}) {
+  return (
+    <div
+      aria-live="polite"
+      className={`terminal-run-notice terminal-run-notice-${variant}`}
+      role="status"
+    >
+      <p className="terminal-run-notice-title">{title}</p>
+      <p className="terminal-run-notice-text">{message}</p>
+    </div>
+  );
+}
+
+function TerminalResultCard({
+  result,
+}: {
+  result: RunTerminalCommandResponse;
+}) {
+  const statusView = terminalResultStatusView(result);
+
+  return (
+    <section
+      aria-label="Terminal command result"
+      className={`terminal-result-card terminal-result-card-${statusView.tone}`}
+    >
+      <div className="terminal-result-header">
+        <div className="terminal-result-copy">
+          <h3 className="terminal-result-title">{statusView.title}</h3>
+          <p className="terminal-result-text">
+            Last one-shot result for this Terminal widget.
+          </p>
+        </div>
+        <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>
+      </div>
+
+      <dl className="terminal-result-grid">
+        <TerminalResultField label="Run id" value={result.runId} />
+        <TerminalResultField label="Status" value={result.status} />
+        <TerminalResultField
+          label="Exit code"
+          value={result.exitCode === null ? "None" : String(result.exitCode)}
+        />
+        <TerminalResultField
+          label="Duration"
+          value={`${result.durationMs} ms`}
+        />
+        <TerminalResultField
+          label="Stdout truncated"
+          value={result.stdoutTruncated ? "Yes" : "No"}
+        />
+        <TerminalResultField
+          label="Stderr truncated"
+          value={result.stderrTruncated ? "Yes" : "No"}
+        />
+      </dl>
+
+      {result.errorMessage ? (
+        <div className="terminal-result-error">
+          <span className="terminal-result-label">Error message</span>
+          <span className="terminal-result-value">{result.errorMessage}</span>
+        </div>
+      ) : null}
+
+      <TerminalOutputPreview
+        label="stdout preview"
+        output={result.stdout}
+        truncated={result.stdoutTruncated}
+      />
+      <TerminalOutputPreview
+        label="stderr preview"
+        output={result.stderr}
+        truncated={result.stderrTruncated}
+      />
+    </section>
+  );
+}
+
+function TerminalResultField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="terminal-result-field">
+      <dt className="terminal-result-label">{label}</dt>
+      <dd className="terminal-result-value">{value}</dd>
+    </div>
+  );
+}
+
+function TerminalOutputPreview({
+  label,
+  output,
+  truncated,
+}: {
+  label: string;
+  output: string;
+  truncated: boolean;
+}) {
+  return (
+    <div className="terminal-output-preview">
+      <div className="terminal-output-header">
+        <span className="terminal-result-label">{label}</span>
+        {truncated ? <Badge variant="warning">Truncated</Badge> : null}
+      </div>
+      <pre aria-label={label} className="terminal-placeholder-output">
+        <code>{output || "No output captured."}</code>
+      </pre>
+    </div>
+  );
+}
+
+function terminalFrameStatus(
+  result: RunTerminalCommandResponse | null,
+  errorMessage: string | null,
+  isRunning: boolean,
+) {
+  if (isRunning) {
+    return <Badge variant="info">Running</Badge>;
+  }
+
+  if (errorMessage) {
+    return <Badge variant="error">Request failed</Badge>;
+  }
+
+  if (!result) {
+    return <Badge variant="neutral">Ready</Badge>;
+  }
+
+  const statusView = terminalResultStatusView(result);
+
+  return <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>;
+}
+
+function terminalResultStatusView(result: RunTerminalCommandResponse): {
+  badgeLabel: string;
+  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
+  title: string;
+  tone: "neutral" | "success" | "warning" | "error";
+} {
+  if (result.status === "completed" && result.exitCode === 0) {
+    return {
+      badgeLabel: "Completed",
+      badgeVariant: "success",
+      title: "Completed successfully",
+      tone: "success",
+    };
+  }
+
+  if (result.status === "completed") {
+    return {
+      badgeLabel: "Completed",
+      badgeVariant: "warning",
+      title: "Completed with nonzero exit",
+      tone: "warning",
+    };
+  }
+
+  if (result.status === "timed_out") {
+    return {
+      badgeLabel: "Timed out",
+      badgeVariant: "warning",
+      title: "Command timed out",
+      tone: "warning",
+    };
+  }
+
+  if (result.status === "failed" || result.status === "failed_to_start") {
+    return {
+      badgeLabel: "Failed",
+      badgeVariant: "error",
+      title: "Command failed to start",
+      tone: "error",
+    };
+  }
+
+  return {
+    badgeLabel: result.status,
+    badgeVariant: "neutral",
+    title: "Command result",
+    tone: "neutral",
+  };
+}
+
+function parseArgsLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+}
+
+function parsePositiveIntegerInput(value: string, label: string): number | null {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue);
+
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(`${label} must be a positive integer.`);
+  }
+
+  return parsedValue;
+}
+
+function errorToMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unable to run terminal command.";
 }

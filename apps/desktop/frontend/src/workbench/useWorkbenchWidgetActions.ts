@@ -3,11 +3,14 @@ import {
   addWidgetInstanceToWorkbench,
   getGitRepositoryStatus,
   listWidgetLogs,
+  runTerminalCommand,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
   GitRepositoryStatus,
+  RunTerminalCommandRequest,
+  RunTerminalCommandResponse,
   WidgetLogEntry as WorkspaceWidgetLogEntry,
   WorkspaceWorkbenchState,
 } from "../workspace/types";
@@ -36,6 +39,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
+  runTerminalCommand: (
+    widgetInstanceId: WidgetInstanceId,
+    command: TerminalCommandRunRequest,
+  ) => Promise<RunTerminalCommandResponse | null>;
   updateWidgetLayout: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,
@@ -51,8 +58,14 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "listWidgetLogs"
   | "logRefreshTokens"
   | "getGitRepositoryStatus"
+  | "runTerminalCommand"
   | "updateWidgetLayout"
   | "updateWidgetState"
+>;
+
+type TerminalCommandRunRequest = Omit<
+  RunTerminalCommandRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
 export function useWorkbenchWidgetActions({
@@ -218,11 +231,42 @@ export function useWorkbenchWidgetActions({
     });
   }
 
+  async function runTerminalWidgetCommand(
+    widgetInstanceId: WidgetInstanceId,
+    command: TerminalCommandRunRequest,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to run a Terminal command.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Terminal command could not be run for this widget.");
+    }
+
+    const response = await runTerminalCommand({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      ...command,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   return {
     addWidgetTemplate,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
+    runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,
     updateWidgetState,
   };
