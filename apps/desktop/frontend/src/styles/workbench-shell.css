@@ -7,7 +7,7 @@
 }
 
 .workbench-content {
-  --widget-catalog-width: min(460px, 100%);
+  --widget-catalog-width: clamp(460px, 52vw, 640px);
 
   position: relative;
   display: flex;
