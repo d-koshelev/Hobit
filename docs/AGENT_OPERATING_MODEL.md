@@ -18,7 +18,7 @@ The frontend Template Library placeholder may show a static planned Coordinator 
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
-Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend has a static Agent Run placeholder previewing Raw Log, Overview Log, and Result Report sections, but real run start, runtime logs, response parsing, response validation, overview summarization, and executor integration are not implemented yet.
+Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend has a static Agent Monitoring placeholder previewing Raw Log, Overview Log, and Result Report sections, but real run start, runtime logs, response parsing, response validation, overview summarization, and executor integration are not implemented yet.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read explicitly approved Workspace or widget context and propose previewed actions, but no context access, proposal engine, action approval flow, or cross-widget mutation is implemented yet.
 

@@ -66,16 +66,22 @@ export function WidgetFrame({
   const headerClassName = moveEnabled
     ? "widget-header widget-header-movable"
     : "widget-header";
+  const titleHint = subtitle ? `${title} - ${subtitle}` : title;
 
   return (
     <Panel className={frameClassName} style={style}>
       <header className={headerClassName} onPointerDown={startMove}>
         <div className="widget-heading">
           <div className="widget-title-row">
-            <h2 className="widget-title">{title}</h2>
+            <h2
+              aria-label={subtitle ? `${title}. ${subtitle}` : undefined}
+              className="widget-title"
+              title={titleHint}
+            >
+              {title}
+            </h2>
             {status ? <div className="widget-status">{status}</div> : null}
           </div>
-          {subtitle ? <p className="widget-subtitle">{subtitle}</p> : null}
         </div>
         <div className="widget-actions">
           {actions}

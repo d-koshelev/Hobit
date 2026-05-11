@@ -94,12 +94,6 @@
   white-space: nowrap;
 }
 
-.widget-subtitle {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-}
-
 .widget-actions {
   display: flex;
   flex: 0 1 auto;

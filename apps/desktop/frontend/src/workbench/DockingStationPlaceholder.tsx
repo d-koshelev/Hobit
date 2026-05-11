@@ -34,7 +34,7 @@ const STATION_PREVIEW_ITEMS: StationPreviewItem[] = [
   { rail: "right", status: "2 review", title: "Queue", variant: "warning" },
   { rail: "bottom", status: "Idle", title: "Terminal", variant: "neutral" },
   { rail: "bottom", status: "Unsaved", title: "Notes", variant: "warning" },
-  { rail: "left", status: "Idle", title: "Agent Run", variant: "neutral" },
+  { rail: "left", status: "Idle", title: "Monitoring", variant: "neutral" },
 ];
 
 export function DockingStationPlaceholder() {

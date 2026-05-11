@@ -30,11 +30,11 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Run",
+    title: "Agent Monitoring",
     category: "core",
     description:
-      "Static placeholder for future Raw Log, Overview Log, and Result Report views.",
-    defaultTitle: "Agent Run",
+      "Static placeholder for future Overview Log, Result Report, and Raw trace views.",
+    defaultTitle: "Agent Monitoring",
     defaultConfig: {},
     componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   },

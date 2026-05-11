@@ -123,7 +123,7 @@ export type AgentQueuePreview = {
 
 const plannedDecisionActions: AgentQueuePlannedAction[] = [
   { label: "Open request planned" },
-  { label: "Open run planned" },
+  { label: "Open monitoring planned" },
   { label: "Review Git planned" },
   { label: "Accept planned" },
   { label: "Needs fix planned" },
@@ -180,7 +180,7 @@ export const agentQueuePreview: AgentQueuePreview = {
       items: [
         {
           block: "Block 73",
-          decision: { label: "Watch run status" },
+          decision: { label: "Watch monitoring status" },
           git: "Not linked",
           id: "block-73-notebook-tabs-plan",
           status: {
@@ -273,7 +273,7 @@ export const agentQueuePreview: AgentQueuePreview = {
         title: "Execution",
         fields: [
           {
-            label: "Agent Run status",
+            label: "Agent Monitoring status",
             value: "Result Report planned",
           },
           {
@@ -394,7 +394,7 @@ export const agentQueuePreview: AgentQueuePreview = {
         title: "Execution",
         fields: [
           {
-            label: "Agent Run status",
+            label: "Agent Monitoring status",
             value: "Running preview only; no executor is connected.",
           },
           {
@@ -467,7 +467,8 @@ export const agentQueuePreview: AgentQueuePreview = {
         fields: [
           {
             label: "Recommendation",
-            value: "Watch run status; no transition occurs in this placeholder.",
+            value:
+              "Watch monitoring status; no transition occurs in this placeholder.",
           },
           {
             label: "Operator control",
@@ -515,7 +516,7 @@ export const agentQueuePreview: AgentQueuePreview = {
         title: "Execution",
         fields: [
           {
-            label: "Agent Run status",
+            label: "Agent Monitoring status",
             value: "Blocked preview only; no executor is connected.",
           },
           {
@@ -636,7 +637,7 @@ export const agentQueuePreview: AgentQueuePreview = {
         title: "Execution",
         fields: [
           {
-            label: "Agent Run status",
+            label: "Agent Monitoring status",
             value: "Completed preview only; no run record exists.",
           },
           {
@@ -727,7 +728,7 @@ export const agentQueuePreview: AgentQueuePreview = {
       value: "Provides Request and Response Template references.",
     },
     {
-      label: "Agent Run",
+      label: "Agent Monitoring",
       value: "Provides Overview Log, Result Report, and Raw Log views.",
     },
     {

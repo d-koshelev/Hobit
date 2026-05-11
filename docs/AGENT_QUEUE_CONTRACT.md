@@ -26,7 +26,7 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Run placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Monitoring placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue card selection is local React state only. It swaps between static preview records, writes no widget state, calls no backend API, and does not create real queue behavior.
 
@@ -163,7 +163,7 @@ When the operator returns after agent work, the expected future review flow is:
 4. Read the summary card.
 5. Inspect the original request and applied request snapshot.
 6. Inspect the selected Response Template expectation.
-7. Open Agent Run Overview Log for fast comprehension.
+7. Open Agent Monitoring Overview Log for fast comprehension.
 8. Open Result Report as the main acceptance artifact.
 9. Open Raw Log for debugging or audit when needed.
 10. Inspect validation results, including failed and skipped checks.
@@ -191,11 +191,11 @@ Rules:
 
 The Template Library prepares and previews template assets. Agent Queue tracks concrete command or block instances, command history, and review state.
 
-## Relation To Agent Run
+## Relation To Agent Run / Agent Monitoring
 
-Agent Queue should link each executable Queue Item to an Agent Run or equivalent future run record when one exists.
+Agent Queue should link each executable Queue Item to an Agent Run or equivalent future run record when one exists. Agent Monitoring is the user-facing surface for observing that run.
 
-Agent Run provides:
+Agent Monitoring provides:
 
 - Raw Log for exact traceability
 - Overview Log for fast operator comprehension
@@ -331,7 +331,7 @@ Queue item detail should show linked sections:
   - scope summary
   - do-not-change summary
 - Execution
-  - Agent Run Overview Log
+  - Agent Monitoring Overview Log
   - Raw Log link or expandable view
   - runtime status
 - Result
@@ -463,7 +463,7 @@ Future implementation must preserve existing Hobit boundaries:
 - Agent Queue is an optional Workbench capability, not the whole product.
 - Queue Items are concrete command or block instances, not reusable templates.
 - Template Library owns template browsing/preparation direction; Agent Queue owns concrete command queue, command history, and review state.
-- Agent Run owns observability views; Agent Queue links and summarizes them.
+- Agent Monitoring owns the user-facing observability views; Agent Queue links and summarizes the underlying Agent Run state.
 - Git Widget owns Git review/control; Agent Queue links and summarizes Git state.
 - Notes/Notebook owns operator-authored notes; Agent Queue links review context without silently mutating notes.
 - Workspace Activity owns broad event history; Agent Queue owns actionable review state.

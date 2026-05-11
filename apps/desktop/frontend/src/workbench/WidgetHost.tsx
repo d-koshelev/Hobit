@@ -16,6 +16,7 @@ import { TemplateLibraryPlaceholderWidget } from "./TemplateLibraryPlaceholderWi
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import type {
   WidgetInstance,
+  WidgetDefinition,
   WidgetPresentationMode,
   WidgetRenderProps,
   WorkbenchLayoutMode,
@@ -24,6 +25,7 @@ import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions
 import {
   AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
@@ -158,6 +160,7 @@ export function WidgetHost({
   }
 
   const Component = widgetComponents[definition.componentKey];
+  const title = displayWidgetTitle(instance, definition);
 
   if (!Component) {
     return (
@@ -170,7 +173,7 @@ export function WidgetHost({
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
         subtitle={`Component "${definition.componentKey}" is not mapped.`}
-        title={instance.title || definition.defaultTitle}
+        title={title}
       >
         <EmptyState
           text="This widget definition exists, but the frontend host does not know which React component should render it."
@@ -194,9 +197,23 @@ export function WidgetHost({
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}
       onUpdateState={widgetActions.updateWidgetState}
-      title={instance.title || definition.defaultTitle}
+      title={title}
     />
   );
+}
+
+function displayWidgetTitle(
+  instance: WidgetInstance,
+  definition: WidgetDefinition,
+) {
+  if (
+    definition.id === AGENT_RUN_WIDGET_DEFINITION_ID &&
+    instance.title === "Agent Run"
+  ) {
+    return definition.defaultTitle;
+  }
+
+  return instance.title || definition.defaultTitle;
 }
 
 function widgetFrameStyle(

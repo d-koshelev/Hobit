@@ -147,7 +147,7 @@ function buildGeneratedRequestPreview(inputs: GeneratedRequestPreviewInputs) {
     "",
     "Do not change:",
     "- Rust backend, Tauri commands, SQLite schema, Workspace API, storage, package dependencies, or runtime execution behavior.",
-    "- Template storage, template editor behavior, response capture, response parsing, response validation, copy/send behavior, Agent Queue behavior, Agent Run behavior, Git behavior, Notes behavior, Terminal behavior, Dock behavior, layout move/resize, or floating behavior.",
+    "- Template storage, template editor behavior, response capture, response parsing, response validation, copy/send behavior, Agent Queue behavior, Agent Monitoring behavior, Git behavior, Notes behavior, Terminal behavior, Dock behavior, layout move/resize, or floating behavior.",
     "",
     "Implementation requirements:",
     "1. Inspect current code and relevant contracts before editing.",

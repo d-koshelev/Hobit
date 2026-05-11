@@ -105,7 +105,7 @@ export function AgentRunPlannedActions({
   return (
     <StaticPreviewPlannedActions
       actions={actions}
-      aria-label="Planned Agent Run actions"
+      aria-label="Planned Agent Monitoring actions"
       className="agent-run-actions"
     />
   );

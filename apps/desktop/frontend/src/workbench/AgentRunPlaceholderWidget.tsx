@@ -10,16 +10,16 @@ import {
 import type { WidgetRenderProps } from "./types";
 
 const agentRunSummary = {
-  title: "Agent Run",
+  title: "Agent Monitoring",
   text:
-    "Static planned surface for future agent/task execution observability. Runs cannot be started, logs do not stream, responses are not captured, results are not validated, and no agent runtime is connected.",
+    "Static planned surface for monitoring one selected or active agent/task execution. Overview, result, and raw trace are previews only; logs do not stream, responses are not captured, results are not validated, and no agent runtime is connected.",
   badgeLabel: "Static preview",
 };
 
 const overviewLogSteps = [
   "Inspecting current code",
-  "Adding file src/workbench/AgentRunPlaceholderWidget.tsx",
-  "Implementing component AgentRunPlaceholderWidget",
+  "Adding placeholder observability UI",
+  "Implementing monitoring preview sections",
   "Running validation",
   "Fixing validation error",
   "Creating commit",
@@ -28,7 +28,7 @@ const overviewLogSteps = [
 const resultReportFields = [
   {
     label: "Block title",
-    value: "Block 67 - Agent Run placeholder surface",
+    value: "Block 67 - Agent Monitoring placeholder surface",
   },
   {
     label: "Files changed",
@@ -57,10 +57,10 @@ const resultReportFields = [
 ];
 
 const plannedAgentRunActions = [
-  { label: "Start run planned" },
-  { label: "Capture response planned" },
+  { label: "Select execution planned" },
+  { label: "Capture result planned" },
   { label: "Validate result planned" },
-  { label: "Open raw log planned" },
+  { label: "Open raw trace planned" },
 ];
 
 const rawLogPreview = {
@@ -98,7 +98,7 @@ export function AgentRunPlaceholderWidget({
         />
 
         <div
-          aria-label="Static Agent Run observability previews"
+          aria-label="Static Agent Monitoring observability previews"
           className="agent-run-view-grid"
         >
           <AgentRunOverviewPreview steps={overviewLogSteps} />

@@ -73,12 +73,12 @@ Current foundation target:
 - In the Tauri desktop shell, workspace lifecycle/state loading, widget mutations/log reads, and explicit Git status reads use the Tauri workspace API bridge and local SQLite storage where applicable.
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
 - Different problem = different Workspace. Different surface for the same problem = additional Workbench. Future multi-open Workspace UI and multi-Workbench UI must follow `docs/WORKSPACE_CONTRACT.md` and must not mix unrelated Workspace context, queues, runs, Git roots, notes, templates, logs, artifacts, or decisions.
-- Add Widget opens the Widget Catalog drawer. The Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates can be inserted as persisted WidgetInstances; other catalog items remain planned/display-only.
+- Add Widget opens the Widget Catalog drawer. The Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates can be inserted as persisted WidgetInstances; other catalog items remain planned/display-only.
 - The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, Markdown rendering, Mermaid or diagram rendering, checklists/todos, snippets, review notes, formatting tools, and AI-in-Notes behavior are not implemented yet. Future Notes/Notebook work must preserve `docs/NOTES_WIDGET_CONTRACT.md`, keep source text as the source of truth, avoid hidden rendering/network/command side effects, and treat ordinary To-do List use cases as Notebook scope unless a separate structured task widget is explicitly requested.
 - The Terminal placeholder is static and does not implement command execution, command input, process lifecycle, stdout/stderr streaming, or terminal runtime behavior.
 - The Agent Chat placeholder is static and does not implement chat input, agent execution, LLM calls, workspace-context access, action proposals, streaming, or chat message persistence.
 - Future Workspace-aware Coordinator Agent behavior is contract-only in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; no approved context reading, proposal preview, action approval flow, Agent Queue item creation, Notebook editing, Git follow-up, or cross-widget mutation is implemented.
-- The Agent Run placeholder is static and previews future Raw Log, Overview Log, and Result Report views. It does not implement run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, or executor integration.
+- The Agent Monitoring placeholder is static and previews future Raw Log, Overview Log, and Result Report views for one selected or active execution. It uses the existing `agent-run` definition id for persistence compatibility. It does not implement run start, agent execution, terminal execution, streaming, run storage, response parsing, response validation, overview summarization, or executor integration.
 - The Agent Queue placeholder is static and previews a future operator-controlled agent command queue, command history, and review inbox for agent commands or blocks. Queue storage, real queue item persistence, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, Git association, and executor integration are not implemented.
 - The Git widget placeholder has a transient explicit repository-root input and a manual desktop-only read-only status refresh backed by `get_git_repository_status`; it shows a visual status card and grouped changed files. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
 - The Template Library placeholder is static and shows Request Template, Response Template, and Coordinator Workflow previews. It does not implement template storage, template editing, request generation, response capture, response validation, response parsing, executor launch/integration, Git-response association, or agent execution.
@@ -156,7 +156,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 - Preserve WidgetHost as the mapping layer from widget instance to React component.
 - Do not hardcode widget components directly into WorkbenchCanvas.
 - Do not add new real widgets unless explicitly requested.
-- Do not add widget insertion behavior beyond the existing Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder catalog paths unless explicitly requested.
+- Do not add widget insertion behavior beyond the existing Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder catalog paths unless explicitly requested.
 - Do not add UI frameworks or icon libraries unless explicitly requested.
 - Do not add drag-and-drop until explicitly requested.
 - Do not add real Dock UI, widget view mode behavior, presence-zone persistence, drag-and-drop, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, preset editing, or new persistence flows unless explicitly requested.
@@ -185,7 +185,7 @@ Do not add:
 - Runbook engine
 - Image Edit implementation
 - real widget implementation
-- additional widget insertion behavior beyond the existing Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder paths
+- additional widget insertion behavior beyond the existing Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder paths
 - full drag-and-drop layout editor
 - real Dock UI, widget view mode behavior, presence-zone persistence, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, or preset editor behavior
 - unplanned SQLite schema changes

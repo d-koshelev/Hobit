@@ -68,10 +68,10 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
   },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Run",
+    title: "Agent Monitoring",
     category: "core",
     description:
-      "Static preview of future Raw Log, Overview Log, and Result Report views.",
+      "Static preview of future Overview Log, Result Report, and Raw trace views for one execution.",
     status: "available",
     capabilitySummary: [
       "Static observability preview",

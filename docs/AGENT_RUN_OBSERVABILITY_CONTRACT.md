@@ -16,7 +16,7 @@ This is a documentation and product/domain contract only. It does not implement 
 
 The current repository has no real agent runtime, no executor integration, no Terminal runtime, no Agent Chat runtime, no response parser, and no agent execution log model.
 
-The frontend has an insertable static Agent Run placeholder that previews future Overview Log, Result Report, and Raw Log sections. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents.
+The frontend has an insertable static Agent Monitoring placeholder that previews future Overview Log, Result Report, and Raw Log sections for one selected or active execution. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
 
 The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
@@ -315,7 +315,7 @@ This contract does not implement:
 - storage schema or migrations
 - Rust domain types
 - TypeScript types
-- real run UI beyond the static Agent Run placeholder preview
+- real run UI beyond the static Agent Monitoring placeholder preview
 - Tauri commands
 - Workspace API changes
 - runtime execution
