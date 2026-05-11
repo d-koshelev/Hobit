@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
+import { useCurrentSessionActivity } from "./useCurrentSessionActivity";
 import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
@@ -18,9 +19,11 @@ export function WorkbenchShell({
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
   const [layoutMode, setLayoutMode] =
     useState<WorkbenchLayoutMode>("locked");
+  const currentSessionActivity = useCurrentSessionActivity();
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);
   const closeWidgetCatalog = () => setIsWidgetCatalogOpen(false);
   const widgetActions = useWorkbenchWidgetActions({
+    currentSessionActivity: currentSessionActivity.events,
     onViewStateChange,
     viewState,
   });
@@ -37,6 +40,7 @@ export function WorkbenchShell({
     <main className="app-shell">
       <div className="workbench">
         <WorkbenchTopBar
+          activityStatus={currentSessionActivity.status}
           layoutMode={layoutMode}
           onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}

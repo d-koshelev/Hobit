@@ -2,9 +2,14 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
+import {
+  GlobalActivityIndicator,
+  type GlobalActivityStatus,
+} from "./GlobalActivityIndicator";
 import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 
 type WorkbenchTopBarProps = {
+  activityStatus: GlobalActivityStatus;
   layoutMode: WorkbenchLayoutMode;
   onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
@@ -12,6 +17,7 @@ type WorkbenchTopBarProps = {
 };
 
 export function WorkbenchTopBar({
+  activityStatus,
   layoutMode,
   onLayoutModeChange,
   onOpenWidgetCatalog,
@@ -46,6 +52,7 @@ export function WorkbenchTopBar({
       </div>
 
       <div className="topbar-right" aria-label="Workbench controls">
+        <GlobalActivityIndicator status={activityStatus} />
         <div
           aria-label="Workbench layout mode"
           className="layout-mode-toggle"

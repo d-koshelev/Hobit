@@ -22,9 +22,11 @@ import type {
   WidgetState,
   WorkbenchViewState,
 } from "./types";
+import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 
 type UseWorkbenchWidgetActionsOptions = {
+  currentSessionActivity?: CurrentSessionActivityEvents;
   onViewStateChange: (viewState: WorkbenchViewState) => void;
   viewState: WorkbenchViewState;
 };
@@ -69,6 +71,7 @@ type TerminalCommandRunRequest = Omit<
 >;
 
 export function useWorkbenchWidgetActions({
+  currentSessionActivity,
   onViewStateChange,
   viewState,
 }: UseWorkbenchWidgetActionsOptions): WorkbenchWidgetActions {
@@ -247,18 +250,29 @@ export function useWorkbenchWidgetActions({
       throw new Error("Terminal command could not be run for this widget.");
     }
 
-    const response = await runTerminalCommand({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      ...command,
-    });
+    currentSessionActivity?.markTerminalRunStarted(widgetInstanceId);
 
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
+    try {
+      const response = await runTerminalCommand({
+        workspaceId: viewState.workspace.id,
+        workbenchId: viewState.workbench.id,
+        widgetInstanceId,
+        ...command,
+      });
+
+      if (response) {
+        bumpWidgetLogRefreshToken(widgetInstanceId);
+      }
+
+      currentSessionActivity?.markTerminalRunFinished(
+        widgetInstanceId,
+        response,
+      );
+      return response;
+    } catch (error) {
+      currentSessionActivity?.markTerminalRunFailed(widgetInstanceId, error);
+      throw error;
     }
-
-    return response;
   }
 
   return {

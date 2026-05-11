@@ -91,6 +91,24 @@
   text-overflow: ellipsis;
 }
 
+.global-activity-indicator.badge {
+  max-width: 280px;
+  min-height: 30px;
+  overflow: hidden;
+}
+
+.global-activity-label,
+.global-activity-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.global-activity-detail,
+.global-activity-separator {
+  color: var(--color-text-muted);
+}
+
 .brand {
   display: inline-flex;
   flex: 0 0 auto;
