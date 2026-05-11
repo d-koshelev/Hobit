@@ -6,11 +6,11 @@ This contract defines the future Workspace-aware Coordinator Agent behavior for 
 
 The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
 
-This is primarily a documentation and product/domain contract. The current Agent Chat widget has a frontend-local/mock proposal-only preview with explicit current-session approved context selection for safe current-view metadata, but it does not implement agent runtime behavior, LLM calls, persisted approved context snapshots, executable action proposals, action execution, storage, Tauri commands, Workspace API changes, or cross-widget mutation.
+This is primarily a documentation and product/domain contract. The current Agent Chat widget has a frontend-local/mock proposal-only preview with explicit current-session approved context selection for safe current-view metadata and a desktop persistence path for proposal-only widget run/result artifacts, but it does not implement agent runtime behavior, LLM calls, persisted approved context models outside the proposal result snapshot, executable action proposals, action execution, Agent Queue creation, or cross-widget mutation.
 
 ## Current Status
 
-Agent Chat is currently an insertable widget with a frontend-local/mock proposal-only prompt, explicit current-session approved context selection, and structured preview.
+Agent Chat is currently an insertable widget with a frontend-local/mock proposal-only prompt, explicit current-session approved context selection, structured preview, and desktop proposal-only run/log/result persistence.
 
 The current mock preview:
 
@@ -19,14 +19,15 @@ The current mock preview:
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context
-- does not persist chat messages, persist context snapshots, create Queue items, execute actions, or mutate state
+- can persist the generated proposal as a structured proposal-only widget run/log/result artifact in the desktop shell
+- does not persist chat messages, persist reusable context snapshots, create Queue items, execute actions, or mutate Workspace content
 
 There is no implemented:
 
 - agent runtime
 - LLM call integration
 - LLM-backed chat response or streaming
-- persisted approved context snapshots
+- persisted approved context models outside the proposal result snapshot
 - cross-widget context access beyond selected current-view metadata
 - executable action proposal engine
 - cross-widget action system

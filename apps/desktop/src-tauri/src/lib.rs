@@ -24,6 +24,7 @@ pub fn run() {
             workspace_commands::update_widget_instance_layout,
             workspace_commands::list_widget_logs,
             workspace_commands::run_terminal_command,
+            workspace_commands::persist_agent_chat_proposal,
             workspace_commands::get_git_repository_status
         ])
         .run(tauri::generate_context!())

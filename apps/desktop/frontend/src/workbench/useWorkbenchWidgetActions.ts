@@ -3,12 +3,15 @@ import {
   addWidgetInstanceToWorkbench,
   getGitRepositoryStatus,
   listWidgetLogs,
+  persistAgentChatProposal,
   runTerminalCommand,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
   GitRepositoryStatus,
+  PersistAgentChatProposalRequest,
+  PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   WidgetLogEntry as WorkspaceWidgetLogEntry,
@@ -41,6 +44,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
+  persistAgentChatProposal: (
+    widgetInstanceId: WidgetInstanceId,
+    proposal: AgentChatProposalRunRequest,
+  ) => Promise<PersistAgentChatProposalResponse | null>;
   runTerminalCommand: (
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
@@ -60,6 +67,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "listWidgetLogs"
   | "logRefreshTokens"
   | "getGitRepositoryStatus"
+  | "persistAgentChatProposal"
   | "runTerminalCommand"
   | "updateWidgetLayout"
   | "updateWidgetState"
@@ -67,6 +75,11 @@ export type WorkbenchWidgetInstanceActions = Pick<
 
 type TerminalCommandRunRequest = Omit<
   RunTerminalCommandRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
+type AgentChatProposalRunRequest = Omit<
+  PersistAgentChatProposalRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
@@ -275,11 +288,42 @@ export function useWorkbenchWidgetActions({
     }
   }
 
+  async function persistAgentChatWidgetProposal(
+    widgetInstanceId: WidgetInstanceId,
+    proposal: AgentChatProposalRunRequest,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to persist an Agent Chat proposal.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Agent Chat proposal could not be persisted for this widget.");
+    }
+
+    const response = await persistAgentChatProposal({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      ...proposal,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   return {
     addWidgetTemplate,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
+    persistAgentChatProposal: persistAgentChatWidgetProposal,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,
     updateWidgetState,

@@ -5,6 +5,8 @@ import type {
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
+  PersistAgentChatProposalRequest,
+  PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
@@ -33,6 +35,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   listWidgetLogs,
   getGitRepositoryStatus,
+  persistAgentChatProposal,
   runTerminalCommand,
 };
 
@@ -259,6 +262,14 @@ async function runTerminalCommand(
 ): Promise<RunTerminalCommandResponse | null> {
   throw new Error(
     "Terminal command execution is only available in the Tauri desktop shell. Browser fallback cannot run local processes.",
+  );
+}
+
+async function persistAgentChatProposal(
+  _request: PersistAgentChatProposalRequest,
+): Promise<PersistAgentChatProposalResponse | null> {
+  throw new Error(
+    "Agent Chat proposal persistence is only available in the Tauri desktop shell. Browser fallback keeps the proposal preview local and does not persist run artifacts.",
   );
 }
 

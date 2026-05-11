@@ -43,7 +43,7 @@ export function createAgentChatMockProposal(
       },
       {
         description:
-          "Any future action would need a visible preview and explicit operator approval before it could mutate workspace state.",
+          "Any future action would need a visible preview and explicit operator approval before it could mutate workspace content.",
         status: "not-executed",
         title: "Approval gate required",
       },
@@ -63,14 +63,14 @@ export function createAgentChatMockProposal(
         ? "Review the operator-approved current-view metadata included in this mock proposal."
         : "Proceed from the operator prompt only; no workspace context has been approved.",
       "Identify which visible widgets or future tool actions may support the request.",
-      "Prepare an operator-reviewed action preview before any tool execution or workspace mutation.",
+      "Prepare an operator-reviewed action preview before any tool execution or workspace content mutation.",
     ],
     requestSummary: `Local mock interpreted request: "${summaryPrompt}"`,
     runtimeNotes: [
       "Local/mock proposal preview only.",
       "No LLM is connected.",
       "No tools were executed.",
-      "No workspace mutation was performed.",
+      "No workspace content mutation was performed.",
       hasApprovedContext
         ? "Approved context is a current-session frontend snapshot only."
         : "No workspace context was included.",

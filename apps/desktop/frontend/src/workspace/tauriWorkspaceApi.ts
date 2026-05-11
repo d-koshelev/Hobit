@@ -6,6 +6,8 @@ import type {
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
+  PersistAgentChatProposalRequest,
+  PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
@@ -27,6 +29,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   listWidgetLogs,
   getGitRepositoryStatus,
+  persistAgentChatProposal,
   runTerminalCommand,
 };
 
@@ -151,6 +154,14 @@ type TauriRunTerminalCommandResponse = {
   stderr_truncated: boolean;
   duration_ms: number;
   error_message: string | null;
+};
+
+type TauriPersistAgentChatProposalResponse = {
+  run_id: string;
+  status: string;
+  result_id: string;
+  result_type: string;
+  summary: string;
 };
 
 async function createWorkspace(
@@ -334,6 +345,37 @@ async function runTerminalCommand(
   return response ? normalizeRunTerminalCommandResponse(response) : null;
 }
 
+async function persistAgentChatProposal(
+  request: PersistAgentChatProposalRequest,
+): Promise<PersistAgentChatProposalResponse | null> {
+  const response = await invoke<TauriPersistAgentChatProposalResponse | null>(
+    "persist_agent_chat_proposal",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        widget_instance_id: request.widgetInstanceId,
+        operator_prompt: request.operatorPrompt,
+        approved_context_snapshot_json: request.approvedContextSnapshotJson,
+        proposal: {
+          id: request.proposal.id,
+          request_summary: request.proposal.requestSummary,
+          proposed_plan: request.proposal.proposedPlan,
+          context_needed: request.proposal.contextNeeded,
+          action_proposals: request.proposal.actionProposals.map((action) => ({
+            title: action.title,
+            description: action.description,
+          })),
+          safety_notes: request.proposal.safetyNotes,
+          runtime_notes: request.proposal.runtimeNotes,
+        },
+      },
+    },
+  );
+
+  return response ? normalizePersistAgentChatProposalResponse(response) : null;
+}
+
 function normalizeWorkspaceSummary(
   workspace: TauriWorkspaceSummary,
 ): WorkspaceSummary {
@@ -466,5 +508,17 @@ function normalizeRunTerminalCommandResponse(
     stderrTruncated: response.stderr_truncated,
     durationMs: response.duration_ms,
     errorMessage: response.error_message,
+  };
+}
+
+function normalizePersistAgentChatProposalResponse(
+  response: TauriPersistAgentChatProposalResponse,
+): PersistAgentChatProposalResponse {
+  return {
+    runId: response.run_id,
+    status: response.status,
+    resultId: response.result_id,
+    resultType: response.result_type,
+    summary: response.summary,
   };
 }

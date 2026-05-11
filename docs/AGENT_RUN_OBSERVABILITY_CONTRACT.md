@@ -14,9 +14,9 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Implementation Boundary
 
-The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no LLM-backed or executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has only a frontend-local/mock proposal preview with explicit current-session approved context selection for safe current-view metadata; it does not create runs, stream logs, execute tools, read Terminal output, or write results.
+The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no LLM-backed or executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has a frontend-local/mock proposal preview with explicit current-session approved context selection for safe current-view metadata and, in the desktop shell, can persist the generated proposal as a proposal-only widget run/log/result artifact. It does not stream logs, execute tools, read Terminal output, call an LLM, create Queue items, or mutate Workspace content.
 
-The frontend has an insertable static Agent Monitoring placeholder that previews future Overview Log, Result Report, and Raw Log sections for one selected or active execution. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
+The frontend has an insertable static Agent Monitoring placeholder that previews future Overview Log, Result Report, and Raw Log sections for one selected or active execution. That placeholder is not an executable run surface and does not start runs, stream logs, read stored Agent Chat proposal artifacts, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
 
 The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
@@ -26,9 +26,11 @@ Implemented observability today is limited to:
 
 - widget-local Logs panels
 - persisted widget logs for widget add/state/layout mutations
+- Terminal one-shot command run/result artifacts
+- Agent Chat proposal-only mock run/result artifacts
 - workspace-scoped Recent activity summaries
 
-Those foundations are not agent run observability yet.
+Those foundations are not full agent run observability yet.
 
 ## Core Model
 

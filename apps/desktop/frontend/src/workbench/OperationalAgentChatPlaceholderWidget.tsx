@@ -2,6 +2,7 @@ import { useId, useMemo, useState, type FormEvent } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import type { PersistAgentChatProposalResponse } from "../workspace/types";
 import { AgentChatApprovedContextSection } from "./AgentChatApprovedContextSection";
 import {
   createAgentChatApprovedContextSnapshot,
@@ -31,6 +32,7 @@ export function OperationalAgentChatPlaceholderWidget({
   instance,
   logRefreshToken,
   onLoadLogs,
+  onPersistAgentChatProposal,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
@@ -38,12 +40,17 @@ export function OperationalAgentChatPlaceholderWidget({
   const availableContext = useAgentChatAvailableContext();
   const [prompt, setPrompt] = useState("");
   const [proposal, setProposal] = useState<AgentChatMockProposal | null>(null);
+  const [persistenceState, setPersistenceState] =
+    useState<ProposalPersistenceState>({
+      status: "idle",
+    });
   const [contextSelection, setContextSelection] =
     useState<AgentChatApprovedContextSelection>(
       emptyAgentChatApprovedContextSelection,
     );
   const trimmedPrompt = prompt.trim();
-  const canGenerateProposal = trimmedPrompt.length > 0;
+  const isPersistingProposal = persistenceState.status === "persisting";
+  const canGenerateProposal = trimmedPrompt.length > 0 && !isPersistingProposal;
   const approvedContextPreview = useMemo(
     () =>
       createAgentChatApprovedContextSnapshot(
@@ -59,7 +66,8 @@ export function OperationalAgentChatPlaceholderWidget({
         proposal.approvedContextSnapshot.status === "approved"
           ? "Selected current-view context snapshot included."
           : "No context approved; prompt-only proposal generated.",
-        "No tools executed and no workspace mutation performed.",
+        persistenceActivityLine(persistenceState),
+        "No tools executed and no workspace content mutation performed.",
       ]
     : idleActivity;
 
@@ -73,7 +81,7 @@ export function OperationalAgentChatPlaceholderWidget({
     }));
   }
 
-  function generateProposal(event: FormEvent<HTMLFormElement>) {
+  async function generateProposal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!canGenerateProposal) {
@@ -81,13 +89,57 @@ export function OperationalAgentChatPlaceholderWidget({
     }
 
     const nextSequence = proposal ? proposal.sequence + 1 : 1;
-    setProposal(
-      createAgentChatMockProposal(
-        prompt,
-        nextSequence,
-        approvedContextPreview,
-      ),
+    const nextProposal = createAgentChatMockProposal(
+      prompt,
+      nextSequence,
+      approvedContextPreview,
     );
+    setProposal(nextProposal);
+    await persistProposal(nextProposal);
+  }
+
+  async function persistProposal(nextProposal: AgentChatMockProposal) {
+    if (!onPersistAgentChatProposal) {
+      setPersistenceState({
+        message:
+          "Proposal preview generated locally. Persistence is unavailable in this runtime.",
+        status: "unsupported",
+      });
+      return;
+    }
+
+    setPersistenceState({ status: "persisting" });
+
+    try {
+      const response = await onPersistAgentChatProposal(instance.id, {
+        approvedContextSnapshotJson: JSON.stringify(
+          nextProposal.approvedContextSnapshot,
+        ),
+        operatorPrompt: nextProposal.prompt,
+        proposal: agentChatProposalPersistPayload(nextProposal),
+      });
+
+      if (!response) {
+        setPersistenceState({
+          message:
+            "Proposal persistence was not accepted for this Agent Chat widget instance.",
+          status: "failed",
+        });
+        return;
+      }
+
+      setPersistenceState({
+        response,
+        status: "persisted",
+      });
+    } catch (error) {
+      setPersistenceState({
+        message: errorToMessage(error),
+        status: isUnsupportedPersistenceError(error)
+          ? "unsupported"
+          : "failed",
+      });
+    }
   }
 
   return (
@@ -113,8 +165,8 @@ export function OperationalAgentChatPlaceholderWidget({
               </p>
               <p className="agent-chat-proposal-text">
                 Type an operator request to generate a structured proposal
-                preview. No LLM is connected, no tools run, and no workspace
-                state is mutated.
+                preview. No LLM is connected, no tools run, and only
+                proposal-only run/result artifacts may be persisted.
               </p>
             </div>
             <Badge variant="neutral">No execution</Badge>
@@ -137,7 +189,7 @@ export function OperationalAgentChatPlaceholderWidget({
                 type="submit"
                 variant="primary"
               >
-                Generate proposal
+                {isPersistingProposal ? "Persisting..." : "Generate proposal"}
               </Button>
               <Button disabled variant="secondary">
                 Apply proposal planned
@@ -154,7 +206,10 @@ export function OperationalAgentChatPlaceholderWidget({
         />
 
         {proposal ? (
-          <AgentChatProposalPreview proposal={proposal} />
+          <AgentChatProposalPreview
+            persistenceState={persistenceState}
+            proposal={proposal}
+          />
         ) : (
           <section
             aria-label="Empty Agent Chat proposal preview"
@@ -164,8 +219,8 @@ export function OperationalAgentChatPlaceholderWidget({
             <p className="agent-chat-proposal-text">
               The next submission will create a local structured preview only.
               It will not read hidden context, create Queue items, execute
-              Terminal commands, or change Notes, Git, Workspace state, or
-              files.
+              Terminal commands, or change Notes, Git, Workspace content, or
+              files. Desktop mode may store a proposal-only run/result artifact.
             </p>
           </section>
         )}
@@ -178,10 +233,10 @@ export function OperationalAgentChatPlaceholderWidget({
             <div className="agent-chat-proposal-copy">
               <p className="agent-chat-proposal-title">Local mock activity</p>
               <p className="agent-chat-proposal-text">
-                Frontend-only status for this widget instance.
+                Widget-local proposal status and persistence outcome.
               </p>
             </div>
-            <Badge variant="neutral">Not persisted</Badge>
+            {persistenceBadge(persistenceState)}
           </div>
           <ul className="agent-chat-list">
             {localActivity.map((item) => (
@@ -194,9 +249,24 @@ export function OperationalAgentChatPlaceholderWidget({
   );
 }
 
+type ProposalPersistenceState =
+  | {
+      status: "idle" | "persisting";
+    }
+  | {
+      message: string;
+      status: "failed" | "unsupported";
+    }
+  | {
+      response: PersistAgentChatProposalResponse;
+      status: "persisted";
+    };
+
 function AgentChatProposalPreview({
+  persistenceState,
   proposal,
 }: {
+  persistenceState: ProposalPersistenceState;
   proposal: AgentChatMockProposal;
 }) {
   return (
@@ -228,6 +298,7 @@ function AgentChatProposalPreview({
         title="Risks and approval notes"
       />
       <ProposalSection items={proposal.runtimeNotes} title="Runtime status" />
+      <PersistenceStatusSection persistenceState={persistenceState} />
     </section>
   );
 }
@@ -310,4 +381,129 @@ function ActionProposalSection({
 
 function formatActionStatus(status: AgentChatProposalAction["status"]) {
   return status === "not-executed" ? "Not executed" : status;
+}
+
+function PersistenceStatusSection({
+  persistenceState,
+}: {
+  persistenceState: ProposalPersistenceState;
+}) {
+  if (persistenceState.status === "idle") {
+    return null;
+  }
+
+  if (persistenceState.status === "persisting") {
+    return (
+      <div className="agent-chat-proposal-section">
+        <p className="agent-chat-proposal-section-title">Persisted result</p>
+        <p className="agent-chat-proposal-text">
+          Persisting proposal-only widget run/result artifact...
+        </p>
+      </div>
+    );
+  }
+
+  if (persistenceState.status === "persisted") {
+    return (
+      <div className="agent-chat-proposal-section">
+        <p className="agent-chat-proposal-section-title">Persisted result</p>
+        <dl className="agent-chat-persistence-grid">
+          <div>
+            <dt>Run id</dt>
+            <dd>{persistenceState.response.runId}</dd>
+          </div>
+          <div>
+            <dt>Result id</dt>
+            <dd>{persistenceState.response.resultId}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{persistenceState.response.status}</dd>
+          </div>
+          <div>
+            <dt>Result type</dt>
+            <dd>{persistenceState.response.resultType}</dd>
+          </div>
+        </dl>
+        <p className="agent-chat-proposal-text">
+          {persistenceState.response.summary}
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    persistenceState.status === "failed" ||
+    persistenceState.status === "unsupported"
+  ) {
+    return (
+      <div className="agent-chat-proposal-section">
+        <p className="agent-chat-proposal-section-title">
+          {persistenceState.status === "unsupported"
+            ? "Persistence unavailable"
+            : "Persistence failed"}
+        </p>
+        <p className="agent-chat-proposal-text">{persistenceState.message}</p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function agentChatProposalPersistPayload(proposal: AgentChatMockProposal) {
+  return {
+    actionProposals: proposal.actionProposals.map((action) => ({
+      description: action.description,
+      title: action.title,
+    })),
+    contextNeeded: [...proposal.contextNeeded],
+    id: proposal.id,
+    proposedPlan: [...proposal.proposedPlan],
+    requestSummary: proposal.requestSummary,
+    runtimeNotes: [...proposal.runtimeNotes],
+    safetyNotes: [...proposal.safetyNotes],
+  };
+}
+
+function persistenceActivityLine(state: ProposalPersistenceState) {
+  switch (state.status) {
+    case "persisted":
+      return `Proposal persisted as widget run ${state.response.runId}.`;
+    case "persisting":
+      return "Proposal persistence is in progress.";
+    case "unsupported":
+      return "Persistence unavailable in this runtime; preview remains local.";
+    case "failed":
+      return "Proposal persistence failed; preview remains local.";
+    case "idle":
+      return "Proposal persistence has not started.";
+  }
+}
+
+function persistenceBadge(state: ProposalPersistenceState) {
+  switch (state.status) {
+    case "persisted":
+      return <Badge variant="success">Persisted</Badge>;
+    case "persisting":
+      return <Badge variant="info">Persisting</Badge>;
+    case "unsupported":
+      return <Badge variant="warning">Local only</Badge>;
+    case "failed":
+      return <Badge variant="error">Persist failed</Badge>;
+    case "idle":
+      return <Badge variant="neutral">Not persisted</Badge>;
+  }
+}
+
+function isUnsupportedPersistenceError(error: unknown) {
+  return errorToMessage(error).includes("Browser fallback");
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unable to persist Agent Chat proposal result.";
 }

@@ -7,6 +7,8 @@ import type {
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
+  PersistAgentChatProposalRequest,
+  PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
@@ -46,6 +48,9 @@ export type WorkspaceApi = {
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
+  persistAgentChatProposal: (
+    request: PersistAgentChatProposalRequest,
+  ) => Promise<PersistAgentChatProposalResponse | null>;
   runTerminalCommand: (
     request: RunTerminalCommandRequest,
   ) => Promise<RunTerminalCommandResponse | null>;
@@ -113,6 +118,12 @@ export function getGitRepositoryStatus(
   request: GetGitRepositoryStatusRequest,
 ): Promise<GitRepositoryStatus | null> {
   return getWorkspaceApi().getGitRepositoryStatus(request);
+}
+
+export function persistAgentChatProposal(
+  request: PersistAgentChatProposalRequest,
+): Promise<PersistAgentChatProposalResponse | null> {
+  return getWorkspaceApi().persistAgentChatProposal(request);
 }
 
 export function runTerminalCommand(

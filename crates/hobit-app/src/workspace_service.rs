@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::SqliteStore;
 
+mod agent_proposals;
 mod git;
 mod logs;
 mod mapping;
@@ -16,17 +17,20 @@ mod workbenches;
 mod workspaces;
 
 #[cfg(test)]
+mod agent_proposal_tests;
+#[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]
 mod tests;
 
 pub use types::{
+    AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, RunTerminalCommandInput, SharedStateObjectSummary,
-    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
-    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
-    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary,
-    WorkspaceSummary, WorkspaceWorkbenchState,
+    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
+    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
+    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
+    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
@@ -48,6 +52,7 @@ const WIDGET_LOG_WIDGET_ADDED: &str = "Widget added";
 const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
 const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
 const WIDGET_RUN_STARTED_STATUS: WidgetRunStatus = WidgetRunStatus::Running;
+const AGENT_CHAT_WIDGET_DEFINITION_ID: &str = "agent-chat";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 

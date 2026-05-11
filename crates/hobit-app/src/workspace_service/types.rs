@@ -142,6 +142,42 @@ pub struct WorkbenchEventSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PersistAgentChatProposalInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub operator_prompt: String,
+    pub approved_context_snapshot_json: String,
+    pub proposal: AgentChatProposalInput,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentChatProposalInput {
+    pub id: String,
+    pub request_summary: String,
+    pub proposed_plan: Vec<String>,
+    pub context_needed: Vec<String>,
+    pub action_proposals: Vec<AgentChatProposalActionInput>,
+    pub safety_notes: Vec<String>,
+    pub runtime_notes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentChatProposalActionInput {
+    pub title: String,
+    pub description: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentChatProposalRunSummary {
+    pub run_id: String,
+    pub status: String,
+    pub result_id: String,
+    pub result_type: String,
+    pub summary: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GitRepositoryStatusSummary {
     pub branch: Option<GitBranchStatusSummary>,
     pub working_tree: GitWorkingTreeStatusSummary,

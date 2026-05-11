@@ -1,9 +1,10 @@
 use hobit_app::{
+    AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, RunTerminalCommandInput, SharedStateObjectSummary,
-    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
+    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
+    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -66,6 +67,33 @@ pub(crate) struct RunTerminalCommandRequest {
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct PersistAgentChatProposalRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub operator_prompt: String,
+    pub approved_context_snapshot_json: String,
+    pub proposal: AgentChatProposalRequest,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct AgentChatProposalRequest {
+    pub id: String,
+    pub request_summary: String,
+    pub proposed_plan: Vec<String>,
+    pub context_needed: Vec<String>,
+    pub action_proposals: Vec<AgentChatProposalActionRequest>,
+    pub safety_notes: Vec<String>,
+    pub runtime_notes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct AgentChatProposalActionRequest {
+    pub title: String,
+    pub description: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -218,6 +246,15 @@ pub(crate) struct RunTerminalCommandResponseDto {
     pub stderr_truncated: bool,
     pub duration_ms: u128,
     pub error_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct PersistAgentChatProposalResponseDto {
+    pub run_id: String,
+    pub status: String,
+    pub result_id: String,
+    pub result_type: String,
+    pub summary: String,
 }
 
 impl From<WorkspaceSummary> for WorkspaceSummaryDto {
@@ -427,6 +464,58 @@ impl From<TerminalCommandRunSummary> for RunTerminalCommandResponseDto {
             stderr_truncated: summary.stderr_truncated,
             duration_ms: summary.duration_ms,
             error_message: summary.error_message,
+        }
+    }
+}
+
+impl From<PersistAgentChatProposalRequest> for PersistAgentChatProposalInput {
+    fn from(request: PersistAgentChatProposalRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            operator_prompt: request.operator_prompt,
+            approved_context_snapshot_json: request.approved_context_snapshot_json,
+            proposal: AgentChatProposalInput::from(request.proposal),
+        }
+    }
+}
+
+impl From<AgentChatProposalRequest> for AgentChatProposalInput {
+    fn from(proposal: AgentChatProposalRequest) -> Self {
+        Self {
+            id: proposal.id,
+            request_summary: proposal.request_summary,
+            proposed_plan: proposal.proposed_plan,
+            context_needed: proposal.context_needed,
+            action_proposals: proposal
+                .action_proposals
+                .into_iter()
+                .map(AgentChatProposalActionInput::from)
+                .collect(),
+            safety_notes: proposal.safety_notes,
+            runtime_notes: proposal.runtime_notes,
+        }
+    }
+}
+
+impl From<AgentChatProposalActionRequest> for AgentChatProposalActionInput {
+    fn from(action: AgentChatProposalActionRequest) -> Self {
+        Self {
+            title: action.title,
+            description: action.description,
+        }
+    }
+}
+
+impl From<AgentChatProposalRunSummary> for PersistAgentChatProposalResponseDto {
+    fn from(summary: AgentChatProposalRunSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            status: summary.status,
+            result_id: summary.result_id,
+            result_type: summary.result_type,
+            summary: summary.summary,
         }
     }
 }

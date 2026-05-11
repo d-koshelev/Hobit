@@ -1,18 +1,17 @@
 # Desktop App
 
-This directory is reserved for the future Hobit desktop application.
+This directory contains the current Hobit desktop shell and frontend.
 
 ## Belongs Here
 
 - Desktop application shell.
 - Frontend application entry point.
-- Future Tauri integration.
+- Current Tauri integration.
 - Packaging metadata when the desktop app is implemented.
 
 ## Does Not Belong Here Yet
 
-- Real Tauri commands.
-- Terminal execution.
+- Interactive Terminal execution.
 - Agent runtime implementation.
-- Widget implementations.
+- Agent Queue/runtime execution.
 - Database schema or storage logic.

@@ -26,7 +26,7 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Monitoring placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Monitoring placeholder, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue card selection is local React state only. It swaps between static preview records, writes no widget state, calls no backend API, and does not create real queue behavior.
 

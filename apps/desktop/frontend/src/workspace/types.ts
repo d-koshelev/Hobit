@@ -65,6 +65,30 @@ export type RunTerminalCommandRequest = {
   stderrCapBytes?: number | null;
 };
 
+export type PersistAgentChatProposalRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  operatorPrompt: string;
+  approvedContextSnapshotJson: string;
+  proposal: AgentChatProposalPersistPayload;
+};
+
+export type AgentChatProposalPersistPayload = {
+  actionProposals: AgentChatProposalActionPersistPayload[];
+  contextNeeded: string[];
+  id: string;
+  proposedPlan: string[];
+  requestSummary: string;
+  runtimeNotes: string[];
+  safetyNotes: string[];
+};
+
+export type AgentChatProposalActionPersistPayload = {
+  description: string;
+  title: string;
+};
+
 export type RunTerminalCommandResponse = {
   runId: string;
   status: string;
@@ -75,6 +99,14 @@ export type RunTerminalCommandResponse = {
   stderrTruncated: boolean;
   durationMs: number;
   errorMessage: string | null;
+};
+
+export type PersistAgentChatProposalResponse = {
+  runId: string;
+  status: string;
+  resultId: string;
+  resultType: string;
+  summary: string;
 };
 
 export type WidgetLogEntry = {

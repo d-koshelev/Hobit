@@ -7,10 +7,10 @@ use tauri::State;
 use crate::app_state::AppState;
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, GetGitRepositoryStatusRequest,
-    GitRepositoryStatusDto, ListWidgetLogsRequest, RunTerminalCommandRequest,
-    RunTerminalCommandResponseDto, UpdateWidgetInstanceLayoutRequest,
-    UpdateWidgetInstanceStateRequest, WidgetLogDto, WorkspaceSessionSummaryDto,
-    WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
+    GitRepositoryStatusDto, ListWidgetLogsRequest, PersistAgentChatProposalRequest,
+    PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
+    UpdateWidgetInstanceLayoutRequest, UpdateWidgetInstanceStateRequest, WidgetLogDto,
+    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[tauri::command]
@@ -155,6 +155,18 @@ pub(crate) fn run_terminal_command(
     service
         .run_terminal_command(request.into())
         .map(|summary| summary.map(RunTerminalCommandResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn persist_agent_chat_proposal(
+    request: PersistAgentChatProposalRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<PersistAgentChatProposalResponseDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .persist_agent_chat_proposal(request.into())
+        .map(|summary| summary.map(PersistAgentChatProposalResponseDto::from))
         .map_err(command_error)
 }
 

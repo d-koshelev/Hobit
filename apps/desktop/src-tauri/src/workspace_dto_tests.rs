@@ -1,14 +1,17 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, RunTerminalCommandInput, SharedStateObjectSummary,
+    AgentChatProposalRunSummary, GitBranchStatusSummary, GitFileChangeSummary,
+    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
+    PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
     TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
     WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 use crate::workspace_dto::{
-    GitRepositoryStatusDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto, WidgetLogDto,
+    AgentChatProposalActionRequest, AgentChatProposalRequest, GitRepositoryStatusDto,
+    PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
+    RunTerminalCommandRequest, RunTerminalCommandResponseDto, WidgetLogDto,
     WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
@@ -283,4 +286,67 @@ fn maps_terminal_command_response_to_dto() {
     assert!(dto.stderr_truncated);
     assert_eq!(dto.duration_ms, 7);
     assert_eq!(dto.error_message, None);
+}
+
+#[test]
+fn maps_agent_chat_proposal_request_to_app_input() {
+    let request = PersistAgentChatProposalRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        operator_prompt: "Plan".to_owned(),
+        approved_context_snapshot_json: "{\"status\":\"none\"}".to_owned(),
+        proposal: AgentChatProposalRequest {
+            id: "proposal-1".to_owned(),
+            request_summary: "Request summary".to_owned(),
+            proposed_plan: vec!["Step".to_owned()],
+            context_needed: vec!["None".to_owned()],
+            action_proposals: vec![AgentChatProposalActionRequest {
+                title: "No tool action executed".to_owned(),
+                description: "No tool was executed.".to_owned(),
+            }],
+            safety_notes: vec!["Proposal only.".to_owned()],
+            runtime_notes: vec!["No LLM connected.".to_owned()],
+        },
+    };
+
+    let input = PersistAgentChatProposalInput::from(request);
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.workbench_id, "wb_1");
+    assert_eq!(input.widget_instance_id, "wid_1");
+    assert_eq!(input.operator_prompt, "Plan");
+    assert_eq!(
+        input.approved_context_snapshot_json,
+        "{\"status\":\"none\"}"
+    );
+    assert_eq!(input.proposal.id, "proposal-1");
+    assert_eq!(input.proposal.proposed_plan, vec!["Step"]);
+    assert_eq!(input.proposal.context_needed, vec!["None"]);
+    assert_eq!(
+        input.proposal.action_proposals[0].title,
+        "No tool action executed"
+    );
+}
+
+#[test]
+fn maps_agent_chat_proposal_response_to_dto() {
+    let summary = AgentChatProposalRunSummary {
+        run_id: "run_1".to_owned(),
+        status: "completed".to_owned(),
+        result_id: "result_1".to_owned(),
+        result_type: "agent_chat_mock_proposal_result".to_owned(),
+        summary: "Agent Chat proposal-only mock result persisted".to_owned(),
+    };
+
+    let dto = PersistAgentChatProposalResponseDto::from(summary);
+
+    assert_eq!(dto.run_id, "run_1");
+    assert_eq!(dto.status, "completed");
+    assert_eq!(dto.result_id, "result_1");
+    assert_eq!(dto.result_type, "agent_chat_mock_proposal_result");
+    assert_eq!(
+        dto.summary,
+        "Agent Chat proposal-only mock result persisted"
+    );
 }

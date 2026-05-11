@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
   GitRepositoryStatus,
+  PersistAgentChatProposalRequest,
+  PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
 } from "../workspace/types";
@@ -184,6 +186,13 @@ export type WidgetRenderProps = {
     state: WidgetState,
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
+  onPersistAgentChatProposal?: (
+    widgetInstanceId: WidgetInstanceId,
+    proposal: Omit<
+      PersistAgentChatProposalRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<PersistAgentChatProposalResponse | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

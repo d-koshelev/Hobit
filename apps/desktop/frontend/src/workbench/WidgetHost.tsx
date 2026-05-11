@@ -165,6 +165,10 @@ export function WidgetHost({
     definition.componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runTerminalCommand
       : undefined;
+  const persistAgentChatProposal =
+    definition.componentKey === AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.persistAgentChatProposal
+      : undefined;
 
   if (!Component) {
     return (
@@ -198,6 +202,7 @@ export function WidgetHost({
       logRefreshToken={logRefreshToken}
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onLoadLogs={widgetActions.listWidgetLogs}
+      onPersistAgentChatProposal={persistAgentChatProposal}
       onRunTerminalCommand={runTerminalCommand}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}
