@@ -1,17 +1,13 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
-import { Panel } from "../design-system/Panel";
 import { DockingStationPlaceholder } from "./DockingStationPlaceholder";
 import { WorkbenchActivity } from "./WorkbenchActivity";
+import { WorkbenchEditStatus } from "./WorkbenchEditStatus";
+import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
+import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type {
-  WidgetInstance,
   WidgetInstanceId,
   WidgetLayout,
   WorkbenchLayoutMode,
@@ -33,7 +29,6 @@ import {
   visibleWidgetIdSet,
   widgetDockedPosition,
   widgetDockedSize,
-  widgetGhostStyle,
   widgetLayoutItemStyle,
   widgetLayoutSurfaceStyle,
   widgetPopoutLayerStyle,
@@ -124,7 +119,7 @@ export function WorkbenchCanvas({
     <>
       <WorkbenchActivity events={viewState.recentEvents} />
       <DockingStationPlaceholder />
-      {isLayoutEditing ? <LayoutEditingStatus /> : null}
+      {isLayoutEditing ? <WorkbenchEditStatus /> : null}
     </>
   );
 
@@ -631,7 +626,7 @@ export function WorkbenchCanvas({
               >
                 {isPoppedOut ? (
                   <>
-                    <WidgetGhostPlaceholder
+                    <WorkbenchWidgetGhost
                       instance={widget}
                       onDockBack={dockBackWidget}
                     />
@@ -669,7 +664,7 @@ export function WorkbenchCanvas({
                       widgetActions={widgetActions}
                     />
                     {isLayoutEditing && widget.layout.mode === "docked" ? (
-                      <WidgetResizeHandles
+                      <WorkbenchResizeHandles
                         onStartResize={(direction, pointerX, pointerY) =>
                           startDockedResize(
                             widget.id,
@@ -688,92 +683,5 @@ export function WorkbenchCanvas({
         </div>
       </div>
     </section>
-  );
-}
-
-type WidgetResizeHandlesProps = {
-  onStartResize: (
-    direction: ResizeDirection,
-    pointerX: number,
-    pointerY: number,
-  ) => void;
-};
-
-function WidgetResizeHandles({ onStartResize }: WidgetResizeHandlesProps) {
-  function startResize(
-    direction: ResizeDirection,
-    event: ReactPointerEvent<HTMLButtonElement>,
-  ) {
-    if (!event.isPrimary || event.button !== 0) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    onStartResize(direction, event.clientX, event.clientY);
-  }
-
-  return (
-    <>
-      <button
-        aria-label="Resize widget width"
-        className="widget-resize-handle widget-resize-handle-right"
-        data-widget-header-drag-ignore
-        onPointerDown={(event) => startResize("right", event)}
-        title="Resize width"
-        type="button"
-      />
-      <button
-        aria-label="Resize widget height"
-        className="widget-resize-handle widget-resize-handle-bottom"
-        data-widget-header-drag-ignore
-        onPointerDown={(event) => startResize("bottom", event)}
-        title="Resize height"
-        type="button"
-      />
-      <button
-        aria-label="Resize widget"
-        className="widget-resize-handle widget-resize-handle-bottom-right"
-        data-widget-header-drag-ignore
-        onPointerDown={(event) => startResize("bottom-right", event)}
-        title="Resize"
-        type="button"
-      />
-    </>
-  );
-}
-
-function LayoutEditingStatus() {
-  return (
-    <div className="layout-editing-status" role="status">
-      <span className="layout-editing-status-dot" aria-hidden="true" />
-      Editing layout
-    </div>
-  );
-}
-
-type WidgetGhostPlaceholderProps = {
-  instance: WidgetInstance;
-  onDockBack: (widgetInstanceId: WidgetInstanceId) => void;
-};
-
-function WidgetGhostPlaceholder({
-  instance,
-  onDockBack,
-}: WidgetGhostPlaceholderProps) {
-  return (
-    <Panel
-      aria-label={`${instance.title} floating widget placeholder`}
-      className="widget-ghost"
-      style={widgetGhostStyle(instance)}
-    >
-      <div className="widget-ghost-copy">
-        <h2 className="widget-ghost-title">{instance.title}</h2>
-        <p className="widget-ghost-status">Floating in workspace</p>
-      </div>
-      <Button onClick={() => onDockBack(instance.id)} variant="secondary">
-        Dock back
-      </Button>
-    </Panel>
   );
 }
