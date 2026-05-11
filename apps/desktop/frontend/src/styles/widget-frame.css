@@ -127,12 +127,17 @@
 .widget-content {
   display: flex;
   flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: var(--space-md);
+  overflow: auto;
   padding: var(--space-sm) var(--space-lg) var(--space-lg);
 }
 
 .widget-log-panel {
+  flex: 0 0 auto;
+  max-height: min(220px, 45%);
+  overflow: auto;
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-io-surface);
   padding: var(--space-md) var(--space-lg);
