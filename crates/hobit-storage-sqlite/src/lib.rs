@@ -17,7 +17,7 @@ mod time;
 
 pub use inputs::{
     NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceSession, WidgetInstanceLayoutUpdate,
+    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
 };
 pub use rows::{
     SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,

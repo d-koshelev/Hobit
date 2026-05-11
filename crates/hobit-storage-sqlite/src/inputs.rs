@@ -63,6 +63,13 @@ pub struct NewWidgetRun<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetRunFinishUpdate<'a> {
+    pub status: &'a str,
+    pub finished_at: Option<&'a str>,
+    pub summary: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWidgetLog<'a> {
     pub id: &'a str,
     pub widget_instance_id: &'a str,

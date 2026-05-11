@@ -238,6 +238,7 @@ pub enum WidgetRunStatus {
     ResultReady,
     Completed,
     Failed,
+    TimedOut,
     Cancelled,
 }
 

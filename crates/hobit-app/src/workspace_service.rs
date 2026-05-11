@@ -2,9 +2,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{path::Path, path::PathBuf};
 
+use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::{
-    NewWidgetInstance, NewWidgetLog, NewWorkspaceSession, SharedStateObjectRow, SqliteStore,
-    StorageError, WidgetInstanceLayoutUpdate, WidgetInstanceRow, WidgetLogRow, WorkbenchEventRow,
+    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceSession,
+    SharedStateObjectRow, SqliteStore, StorageError, WidgetInstanceLayoutUpdate, WidgetInstanceRow,
+    WidgetLogRow, WidgetResultRow, WidgetRunFinishUpdate, WidgetRunRow, WorkbenchEventRow,
     WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use hobit_tools::git::{
@@ -35,6 +37,7 @@ const WIDGET_LOG_INFO_LEVEL: &str = "info";
 const WIDGET_LOG_WIDGET_ADDED: &str = "Widget added";
 const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
 const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
+const WIDGET_RUN_STARTED_STATUS: WidgetRunStatus = WidgetRunStatus::Running;
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -115,6 +118,51 @@ pub struct WidgetLogSummary {
     pub message: String,
     pub payload: Option<String>,
     pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetRunCommandInput {
+    pub command_kind: Option<String>,
+    pub command_payload: Option<String>,
+    pub summary: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetRunResultInput {
+    pub result_type: Option<String>,
+    pub summary: Option<String>,
+    pub content: Option<String>,
+    pub payload: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetRunSummary {
+    pub id: String,
+    pub widget_instance_id: String,
+    pub status: String,
+    pub command_kind: Option<String>,
+    pub command_payload: Option<String>,
+    pub started_at: String,
+    pub finished_at: Option<String>,
+    pub summary: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetResultSummary {
+    pub id: String,
+    pub run_id: String,
+    pub status: String,
+    pub result_type: String,
+    pub summary: Option<String>,
+    pub content: Option<String>,
+    pub payload: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WidgetRunWithResultsSummary {
+    pub run: WidgetRunSummary,
+    pub results: Vec<WidgetResultSummary>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -556,6 +604,204 @@ impl WorkspaceService {
         ))
     }
 
+    pub fn create_widget_run(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        command: WidgetRunCommandInput,
+    ) -> Result<Option<WidgetRunSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let command_kind = optional_trimmed(command.command_kind);
+        let command_payload = optional_trimmed(command.command_payload);
+        let summary = optional_trimmed(command.summary);
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some((workspace, _workbench, widget)) = validate_widget_ownership(
+                    store,
+                    workspace_id,
+                    workbench_id,
+                    widget_instance_id,
+                )?
+                else {
+                    return Ok(None);
+                };
+
+                let run_id = placeholder_id("wrun_");
+                let run = store.insert_widget_run(NewWidgetRun {
+                    id: &run_id,
+                    widget_instance_id: &widget.id,
+                    status: widget_run_status_value(&WIDGET_RUN_STARTED_STATUS),
+                    command_kind: command_kind.as_deref(),
+                    command_payload: command_payload.as_deref(),
+                    started_at: None,
+                    finished_at: None,
+                    summary: summary.as_deref(),
+                })?;
+                store.touch_workspace(&workspace.id)?;
+
+                Ok(Some(widget_run_summary(run)))
+            })
+            .map_err(WorkspaceServiceError::from)
+    }
+
+    pub fn append_widget_run_log(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        run_id: &str,
+        level: &str,
+        message: &str,
+        details: Option<String>,
+    ) -> Result<Option<WidgetLogSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let run_id = required_input(run_id, "widget run id")?;
+        let level = required_input(level, "widget log level")?;
+        let message = required_input(message, "widget log message")?;
+        let details = optional_trimmed(details);
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some((workspace, _workbench, widget, run)) = validate_widget_run_ownership(
+                    store,
+                    workspace_id,
+                    workbench_id,
+                    widget_instance_id,
+                    run_id,
+                )?
+                else {
+                    return Ok(None);
+                };
+
+                let log_id = placeholder_id("wlog_");
+                let log = store.append_widget_log(NewWidgetLog {
+                    id: &log_id,
+                    widget_instance_id: &widget.id,
+                    run_id: Some(&run.id),
+                    level,
+                    message,
+                    created_at: None,
+                    details: details.as_deref(),
+                })?;
+                store.touch_workspace(&workspace.id)?;
+
+                Ok(Some(widget_log_summary(log)))
+            })
+            .map_err(WorkspaceServiceError::from)
+    }
+
+    pub fn finish_widget_run(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        run_id: &str,
+        final_status: WidgetRunStatus,
+        summary: Option<String>,
+        result: Option<WidgetRunResultInput>,
+    ) -> Result<Option<WidgetRunWithResultsSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let run_id = required_input(run_id, "widget run id")?;
+        validate_final_widget_run_status(&final_status)?;
+        let final_status = widget_run_status_value(&final_status);
+        let summary = optional_trimmed(summary);
+        let result = result.map(trim_widget_run_result_input);
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some((workspace, _workbench, _widget, run)) = validate_widget_run_ownership(
+                    store,
+                    workspace_id,
+                    workbench_id,
+                    widget_instance_id,
+                    run_id,
+                )?
+                else {
+                    return Ok(None);
+                };
+
+                let run = store.finish_widget_run(
+                    &run.id,
+                    WidgetRunFinishUpdate {
+                        status: final_status,
+                        finished_at: None,
+                        summary: summary.as_deref(),
+                    },
+                )?;
+
+                if let Some(result) = result {
+                    let result_id = placeholder_id("wres_");
+                    store.insert_widget_result(NewWidgetResult {
+                        id: &result_id,
+                        run_id: &run.id,
+                        status: final_status,
+                        result_type: result.result_type.as_deref(),
+                        summary: result.summary.as_deref(),
+                        content: result.content.as_deref(),
+                        payload: result.payload.as_deref(),
+                        created_at: None,
+                    })?;
+                }
+
+                let results = store
+                    .list_widget_results(&run.id)?
+                    .into_iter()
+                    .map(widget_result_summary)
+                    .collect();
+                store.touch_workspace(&workspace.id)?;
+
+                Ok(Some(WidgetRunWithResultsSummary {
+                    run: widget_run_summary(run),
+                    results,
+                }))
+            })
+            .map_err(WorkspaceServiceError::from)
+    }
+
+    pub fn get_widget_run(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        run_id: &str,
+    ) -> Result<Option<WidgetRunWithResultsSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+        let run_id = required_input(run_id, "widget run id")?;
+
+        let Some((_workspace, _workbench, _widget, run)) = validate_widget_run_ownership(
+            &self.store,
+            workspace_id,
+            workbench_id,
+            widget_instance_id,
+            run_id,
+        )?
+        else {
+            return Ok(None);
+        };
+
+        let results = self
+            .store
+            .list_widget_results(&run.id)?
+            .into_iter()
+            .map(widget_result_summary)
+            .collect();
+
+        Ok(Some(WidgetRunWithResultsSummary {
+            run: widget_run_summary(run),
+            results,
+        }))
+    }
+
     pub fn get_git_repository_status(
         &self,
         workspace_id: &str,
@@ -753,6 +999,108 @@ fn clamp_widget_log_limit(limit: usize) -> usize {
     limit.min(MAX_WIDGET_LOG_LIMIT)
 }
 
+fn validate_widget_ownership(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    widget_instance_id: &str,
+) -> Result<Option<(WorkspaceRow, WorkspaceWorkbenchRow, WidgetInstanceRow)>, StorageError> {
+    let Some(workspace) = store.get_workspace(workspace_id)? else {
+        return Ok(None);
+    };
+
+    let Some(workbench) = store
+        .list_workspace_workbenches(&workspace.id)?
+        .into_iter()
+        .find(|workbench| workbench.id == workbench_id)
+    else {
+        return Ok(None);
+    };
+
+    let Some(widget) = store.get_widget_instance(widget_instance_id)? else {
+        return Ok(None);
+    };
+
+    if widget.workspace_id != workspace.id || widget.workbench_id != workbench.id {
+        return Ok(None);
+    }
+
+    Ok(Some((workspace, workbench, widget)))
+}
+
+fn validate_widget_run_ownership(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    widget_instance_id: &str,
+    run_id: &str,
+) -> Result<
+    Option<(
+        WorkspaceRow,
+        WorkspaceWorkbenchRow,
+        WidgetInstanceRow,
+        WidgetRunRow,
+    )>,
+    StorageError,
+> {
+    let Some((workspace, workbench, widget)) =
+        validate_widget_ownership(store, workspace_id, workbench_id, widget_instance_id)?
+    else {
+        return Ok(None);
+    };
+
+    let Some(run) = store.get_widget_run(run_id)? else {
+        return Ok(None);
+    };
+
+    if run.widget_instance_id != widget.id {
+        return Ok(None);
+    }
+
+    Ok(Some((workspace, workbench, widget, run)))
+}
+
+fn optional_trimmed(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+fn trim_widget_run_result_input(mut input: WidgetRunResultInput) -> WidgetRunResultInput {
+    input.result_type = optional_trimmed(input.result_type);
+    input.summary = optional_trimmed(input.summary);
+    input.content = optional_trimmed(input.content);
+    input.payload = optional_trimmed(input.payload);
+    input
+}
+
+fn validate_final_widget_run_status(status: &WidgetRunStatus) -> Result<(), WorkspaceServiceError> {
+    match status {
+        WidgetRunStatus::Completed
+        | WidgetRunStatus::Failed
+        | WidgetRunStatus::TimedOut
+        | WidgetRunStatus::Cancelled => Ok(()),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported final widget run status: {}",
+            widget_run_status_value(status)
+        ))),
+    }
+}
+
+fn widget_run_status_value(status: &WidgetRunStatus) -> &'static str {
+    match status {
+        WidgetRunStatus::Idle => "idle",
+        WidgetRunStatus::InputReady => "input_ready",
+        WidgetRunStatus::WaitingForApproval => "waiting_for_approval",
+        WidgetRunStatus::Running => "running",
+        WidgetRunStatus::ResultReady => "result_ready",
+        WidgetRunStatus::Completed => "completed",
+        WidgetRunStatus::Failed => "failed",
+        WidgetRunStatus::TimedOut => "timed_out",
+        WidgetRunStatus::Cancelled => "cancelled",
+    }
+}
+
 fn append_widget_info_log(
     store: &SqliteStore,
     widget_instance_id: &str,
@@ -833,6 +1181,32 @@ fn widget_log_summary(row: WidgetLogRow) -> WidgetLogSummary {
         level: row.level,
         message: row.message,
         payload: row.details,
+        created_at: row.created_at,
+    }
+}
+
+fn widget_run_summary(row: WidgetRunRow) -> WidgetRunSummary {
+    WidgetRunSummary {
+        id: row.id,
+        widget_instance_id: row.widget_instance_id,
+        status: row.status,
+        command_kind: row.command_kind,
+        command_payload: row.command_payload,
+        started_at: row.started_at,
+        finished_at: row.finished_at,
+        summary: row.summary,
+    }
+}
+
+fn widget_result_summary(row: WidgetResultRow) -> WidgetResultSummary {
+    WidgetResultSummary {
+        id: row.id,
+        run_id: row.run_id,
+        status: row.status,
+        result_type: row.result_type,
+        summary: row.summary,
+        content: row.content,
+        payload: row.payload,
         created_at: row.created_at,
     }
 }
@@ -2076,6 +2450,398 @@ mod tests {
             .expect("list widget logs");
 
         assert!(logs.is_none());
+    }
+
+    #[test]
+    fn create_widget_run_for_owned_widget_persists_running_run() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "terminal",
+                "Terminal",
+                "tool",
+            )
+            .expect("add widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+
+        let run = service
+            .create_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                WidgetRunCommandInput {
+                    command_kind: Some("preview".to_owned()),
+                    command_payload: Some("{\"kind\":\"dry\"}".to_owned()),
+                    summary: Some("Preview lifecycle only".to_owned()),
+                },
+            )
+            .expect("create widget run")
+            .expect("widget run");
+        let stored_runs = service
+            .store
+            .list_widget_runs_for_widget(&widget_id)
+            .expect("list widget runs");
+
+        assert!(run.id.starts_with("wrun_"));
+        assert_eq!(run.widget_instance_id, widget_id);
+        assert_eq!(run.status, "running");
+        assert_eq!(run.command_kind.as_deref(), Some("preview"));
+        assert_eq!(run.command_payload.as_deref(), Some("{\"kind\":\"dry\"}"));
+        assert_eq!(run.summary.as_deref(), Some("Preview lifecycle only"));
+        assert_eq!(run.finished_at, None);
+        assert_eq!(stored_runs.len(), 1);
+        assert_eq!(stored_runs[0].id, run.id);
+    }
+
+    #[test]
+    fn widget_run_lifecycle_rejects_unowned_widget_or_run_without_mutation() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "terminal",
+                "Terminal",
+                "tool",
+            )
+            .expect("add widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        service
+            .store
+            .create_workspace_workbench("other-workbench", &workspace.id, None)
+            .expect("create other workbench");
+        service
+            .store
+            .insert_widget_instance(NewWidgetInstance {
+                id: "other-widget",
+                workspace_id: &workspace.id,
+                workbench_id: "other-workbench",
+                definition_id: "terminal",
+                title: "Other Terminal",
+                category: "tool",
+                layout_mode: "docked",
+                dock_x: Some(0),
+                dock_y: Some(0),
+                dock_width: Some(360),
+                dock_height: Some(240),
+                popout_x: None,
+                popout_y: None,
+                popout_width: None,
+                popout_height: None,
+                always_on_top: false,
+                is_visible: true,
+                config: Some("{}"),
+                state: Some("{}"),
+            })
+            .expect("insert other widget");
+        let other_run = service
+            .create_widget_run(
+                &workspace.id,
+                "other-workbench",
+                "other-widget",
+                WidgetRunCommandInput {
+                    command_kind: Some("preview".to_owned()),
+                    command_payload: None,
+                    summary: None,
+                },
+            )
+            .expect("create other run")
+            .expect("other run");
+
+        let invalid_create = service
+            .create_widget_run(
+                &workspace.id,
+                workbench_id,
+                "other-widget",
+                WidgetRunCommandInput {
+                    command_kind: Some("preview".to_owned()),
+                    command_payload: None,
+                    summary: None,
+                },
+            )
+            .expect("reject create");
+        let invalid_log = service
+            .append_widget_run_log(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                &other_run.id,
+                "info",
+                "Should not leak",
+                Some("{\"leak\":true}".to_owned()),
+            )
+            .expect("reject append log");
+        let invalid_finish = service
+            .finish_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                &other_run.id,
+                WidgetRunStatus::Completed,
+                Some("Should not finish".to_owned()),
+                Some(WidgetRunResultInput {
+                    result_type: Some("test".to_owned()),
+                    summary: Some("Leaked result".to_owned()),
+                    content: None,
+                    payload: None,
+                }),
+            )
+            .expect("reject finish");
+        let other_runs = service
+            .store
+            .list_widget_runs_for_widget("other-widget")
+            .expect("list other runs");
+        let widget_logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 20)
+            .expect("list widget logs")
+            .expect("widget logs");
+        let other_logs = service
+            .list_widget_logs(&workspace.id, "other-workbench", "other-widget", 20)
+            .expect("list other logs")
+            .expect("other logs");
+        let other_results = service
+            .store
+            .list_widget_results(&other_run.id)
+            .expect("list other results");
+        let stored_other_run = service
+            .store
+            .get_widget_run(&other_run.id)
+            .expect("get other run")
+            .expect("other run row");
+
+        assert!(invalid_create.is_none());
+        assert!(invalid_log.is_none());
+        assert!(invalid_finish.is_none());
+        assert_eq!(other_runs.len(), 1);
+        assert_eq!(other_runs[0].id, other_run.id);
+        assert_eq!(
+            widget_log_messages(&widget_logs),
+            vec![WIDGET_LOG_WIDGET_ADDED]
+        );
+        assert!(other_logs.is_empty());
+        assert!(other_results.is_empty());
+        assert_eq!(stored_other_run.status, "running");
+        assert_eq!(stored_other_run.finished_at, None);
+    }
+
+    #[test]
+    fn append_widget_run_log_persists_run_scoped_widget_log() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "terminal",
+                "Terminal",
+                "tool",
+            )
+            .expect("add widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        let run = service
+            .create_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                WidgetRunCommandInput {
+                    command_kind: Some("preview".to_owned()),
+                    command_payload: None,
+                    summary: None,
+                },
+            )
+            .expect("create run")
+            .expect("run");
+
+        let log = service
+            .append_widget_run_log(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                &run.id,
+                "info",
+                "Run lifecycle recorded",
+                Some("{\"phase\":\"running\"}".to_owned()),
+            )
+            .expect("append run log")
+            .expect("run log");
+        let logs = service
+            .list_widget_logs(&workspace.id, workbench_id, &widget_id, 20)
+            .expect("list logs")
+            .expect("logs");
+
+        assert!(log.id.starts_with("wlog_"));
+        assert_eq!(log.widget_instance_id, widget_id);
+        assert_eq!(log.run_id.as_deref(), Some(run.id.as_str()));
+        assert_eq!(log.level, "info");
+        assert_eq!(log.message, "Run lifecycle recorded");
+        assert_eq!(log.payload.as_deref(), Some("{\"phase\":\"running\"}"));
+        assert!(logs.iter().any(|saved| saved.id == log.id));
+    }
+
+    #[test]
+    fn finish_widget_run_persists_final_status_and_structured_result() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "agent-run",
+                "Agent Monitoring",
+                "agent",
+            )
+            .expect("add widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        let run = service
+            .create_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                WidgetRunCommandInput {
+                    command_kind: Some("executor_preview".to_owned()),
+                    command_payload: Some("{\"block\":108}".to_owned()),
+                    summary: None,
+                },
+            )
+            .expect("create run")
+            .expect("run");
+
+        let finished = service
+            .finish_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                &run.id,
+                WidgetRunStatus::Completed,
+                Some("Lifecycle completed".to_owned()),
+                Some(WidgetRunResultInput {
+                    result_type: Some("result_report".to_owned()),
+                    summary: Some("Result ready".to_owned()),
+                    content: Some("No runtime was executed.".to_owned()),
+                    payload: Some("{\"ok\":true}".to_owned()),
+                }),
+            )
+            .expect("finish run")
+            .expect("finished run");
+        let read_back = service
+            .get_widget_run(&workspace.id, workbench_id, &widget_id, &run.id)
+            .expect("read run")
+            .expect("run read model");
+
+        assert_eq!(finished.run.id, run.id);
+        assert_eq!(finished.run.status, "completed");
+        assert!(finished.run.finished_at.is_some());
+        assert_eq!(finished.run.summary.as_deref(), Some("Lifecycle completed"));
+        assert_eq!(finished.results.len(), 1);
+        assert!(finished.results[0].id.starts_with("wres_"));
+        assert_eq!(finished.results[0].run_id, run.id);
+        assert_eq!(finished.results[0].status, "completed");
+        assert_eq!(finished.results[0].result_type, "result_report");
+        assert_eq!(finished.results[0].summary.as_deref(), Some("Result ready"));
+        assert_eq!(
+            finished.results[0].content.as_deref(),
+            Some("No runtime was executed.")
+        );
+        assert_eq!(read_back, finished);
+    }
+
+    #[test]
+    fn finish_widget_run_rejects_non_final_status_without_result() {
+        let service = initialized_service();
+        let workspace = service
+            .create_empty_workspace("Incident", None)
+            .expect("create workspace");
+        let workbench_id = workspace
+            .workbench_id
+            .as_deref()
+            .expect("created workbench id");
+        let state_after_add = service
+            .add_widget_instance_to_workbench(
+                &workspace.id,
+                workbench_id,
+                "agent-run",
+                "Agent Monitoring",
+                "agent",
+            )
+            .expect("add widget")
+            .expect("state after add");
+        let widget_id = state_after_add.widget_instances[0].id.clone();
+        let run = service
+            .create_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                WidgetRunCommandInput {
+                    command_kind: Some("executor_preview".to_owned()),
+                    command_payload: None,
+                    summary: None,
+                },
+            )
+            .expect("create run")
+            .expect("run");
+
+        let error = service
+            .finish_widget_run(
+                &workspace.id,
+                workbench_id,
+                &widget_id,
+                &run.id,
+                WidgetRunStatus::Running,
+                Some("Should not finish".to_owned()),
+                Some(WidgetRunResultInput {
+                    result_type: Some("result_report".to_owned()),
+                    summary: Some("Should not persist".to_owned()),
+                    content: None,
+                    payload: None,
+                }),
+            )
+            .expect_err("reject non-final status");
+        let stored_run = service
+            .store
+            .get_widget_run(&run.id)
+            .expect("get run")
+            .expect("run row");
+        let results = service
+            .store
+            .list_widget_results(&run.id)
+            .expect("list results");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+        assert_eq!(stored_run.status, "running");
+        assert_eq!(stored_run.finished_at, None);
+        assert!(results.is_empty());
     }
 
     fn docked_layout() -> WidgetInstanceLayout {

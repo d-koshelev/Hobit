@@ -10,7 +10,7 @@ use rusqlite::{params, Connection, OptionalExtension, Result};
 
 pub use crate::inputs::{
     NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceSession, WidgetInstanceLayoutUpdate,
+    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
 };
 use crate::mappers::{
     bool_to_i64, shared_state_object_row, widget_instance_row, widget_log_row, widget_result_row,
@@ -548,6 +548,50 @@ impl SqliteStore {
                 widget_run_row,
             )
             .optional()
+    }
+
+    pub fn list_widget_runs_for_widget(
+        &self,
+        widget_instance_id: &str,
+    ) -> Result<Vec<WidgetRunRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT
+                id, widget_instance_id, status, command_kind, command_payload,
+                started_at, finished_at, summary
+             FROM widget_runs
+             WHERE widget_instance_id = ?1
+             ORDER BY started_at, id",
+        )?;
+
+        let rows = statement.query_map(params![widget_instance_id], widget_run_row)?;
+        rows.collect()
+    }
+
+    pub fn finish_widget_run(
+        &self,
+        run_id: &str,
+        update: WidgetRunFinishUpdate<'_>,
+    ) -> Result<WidgetRunRow> {
+        let finished_at = update
+            .finished_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_timestamp);
+
+        let affected_rows = self.connection.execute(
+            "UPDATE widget_runs
+             SET status = ?1,
+                 finished_at = ?2,
+                 summary = COALESCE(?3, summary)
+             WHERE id = ?4",
+            params![update.status, finished_at, update.summary, run_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        self.get_widget_run(run_id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
     }
 
     pub fn append_widget_log(&self, input: NewWidgetLog<'_>) -> Result<WidgetLogRow> {
@@ -1424,6 +1468,34 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn finish_widget_run_updates_status_and_preserves_existing_summary_when_absent() {
+        let store = initialized_store();
+        create_workspace_and_workbench(&store);
+        insert_widget(&store);
+        insert_widget_run(&store);
+
+        let run = store
+            .finish_widget_run(
+                "run-1",
+                WidgetRunFinishUpdate {
+                    status: "failed",
+                    finished_at: Some("3"),
+                    summary: None,
+                },
+            )
+            .expect("finish run");
+        let runs = store
+            .list_widget_runs_for_widget("widget-1")
+            .expect("list widget runs");
+
+        assert_eq!(run.status, "failed");
+        assert_eq!(run.finished_at.as_deref(), Some("3"));
+        assert_eq!(run.summary.as_deref(), Some("Saved note"));
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].id, "run-1");
     }
 
     #[test]

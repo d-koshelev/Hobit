@@ -10,9 +10,12 @@ mod error;
 mod workspace_service;
 
 pub use error::WorkspaceServiceError;
+pub use hobit_core::widgets::WidgetRunStatus;
 pub use workspace_service::{
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
     GitWorkingTreeStatusSummary, SharedStateObjectSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
+    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
