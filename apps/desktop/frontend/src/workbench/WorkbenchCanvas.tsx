@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Button } from "../design-system/Button";
@@ -18,27 +17,40 @@ import type {
   WorkbenchLayoutMode,
   WorkbenchViewState,
 } from "./types";
+import {
+  clampDockedPosition,
+  clampDockedSize,
+  clampPopoutPosition,
+  defaultPopoutPosition,
+  nextDockedDragPosition as nextDockedDragPositionFromGeometry,
+  nextDockedResizeSize as nextDockedResizeSizeFromGeometry,
+  removeSettledDockedDragPositions,
+  removeSettledDockedResizeSizes,
+  removeStalePopoutPositions,
+  removeStaleWidgetIds,
+  removeWidgetPosition,
+  removeWidgetSize,
+  visibleWidgetIdSet,
+  widgetDockedPosition,
+  widgetDockedSize,
+  widgetGhostStyle,
+  widgetLayoutItemStyle,
+  widgetLayoutSurfaceStyle,
+  widgetPopoutLayerStyle,
+  type DockedPosition,
+  type DockedPositionMap,
+  type DockedSize,
+  type DockedSizeMap,
+  type PopoutPosition,
+  type PopoutPositionMap,
+  type ResizeDirection,
+} from "./workbenchLayoutGeometry";
 
 type WorkbenchCanvasProps = {
   layoutMode: WorkbenchLayoutMode;
   onOpenWidgetCatalog: () => void;
   viewState: WorkbenchViewState;
   widgetActions: WorkbenchWidgetInstanceActions;
-};
-
-type PopoutPosition = {
-  x: number;
-  y: number;
-};
-
-type DockedPosition = {
-  x: number;
-  y: number;
-};
-
-type DockedSize = {
-  height: number;
-  width: number;
 };
 
 type ActivePopoutDrag = {
@@ -57,8 +69,6 @@ type ActiveDockedDrag = {
   width: number;
 };
 
-type ResizeDirection = "right" | "bottom" | "bottom-right";
-
 type ActiveDockedResize = {
   direction: ResizeDirection;
   layout: WidgetLayout;
@@ -68,20 +78,6 @@ type ActiveDockedResize = {
   position: DockedPosition;
   widgetInstanceId: WidgetInstanceId;
 };
-
-const DEFAULT_POPOUT_TOP = 96;
-const DEFAULT_NARROW_POPOUT_TOP = 80;
-const DOCKED_LAYOUT_MIN_HEIGHT = 520;
-const DOCKED_LAYOUT_BOTTOM_PADDING = 240;
-const DOCKED_WIDGET_MAX_DIMENSION = 16_384;
-const DOCKED_WIDGET_MIN_HEIGHT = 240;
-const DOCKED_WIDGET_MIN_WIDTH = 320;
-const POPOUT_DESKTOP_MARGIN = 48;
-const POPOUT_NARROW_MARGIN = 32;
-const POPOUT_EDGE_MARGIN = 16;
-const POPOUT_MAX_WIDTH = 760;
-const POPOUT_MIN_VISIBLE_WIDTH = 180;
-const POPOUT_MIN_VISIBLE_HEIGHT = 96;
 
 export function WorkbenchCanvas({
   layoutMode,
@@ -93,13 +89,13 @@ export function WorkbenchCanvas({
     WidgetInstanceId[]
   >([]);
   const [dockedDragPositions, setDockedDragPositions] = useState<
-    Partial<Record<WidgetInstanceId, DockedPosition>>
+    DockedPositionMap
   >({});
   const [dockedResizeSizes, setDockedResizeSizes] = useState<
-    Partial<Record<WidgetInstanceId, DockedSize>>
+    DockedSizeMap
   >({});
   const [popoutPositions, setPopoutPositions] = useState<
-    Partial<Record<WidgetInstanceId, PopoutPosition>>
+    PopoutPositionMap
   >({});
   const [activeDockedDrag, setActiveDockedDrag] =
     useState<ActiveDockedDrag | null>(null);
@@ -145,65 +141,20 @@ export function WorkbenchCanvas({
   }, [widgetActions]);
 
   useEffect(() => {
-    const visibleWidgetIds = new Set(
-      viewState.widgets
-        .filter((widget) => widget.visible)
-        .map((widget) => widget.id),
-    );
+    const visibleWidgetIds = visibleWidgetIdSet(viewState.widgets);
 
     setPoppedOutWidgetIds((currentIds) =>
-      currentIds.filter((widgetId) => visibleWidgetIds.has(widgetId)),
+      removeStaleWidgetIds(currentIds, visibleWidgetIds),
     );
     setPopoutPositions((currentPositions) =>
-      Object.fromEntries(
-        Object.entries(currentPositions).filter(([widgetId]) =>
-          visibleWidgetIds.has(widgetId),
-        ),
-      ),
+      removeStalePopoutPositions(currentPositions, visibleWidgetIds),
     );
-    setDockedDragPositions((currentPositions) => {
-      const visibleWidgetById = new Map(
-        viewState.widgets
-          .filter((widget) => widget.visible)
-          .map((widget) => [widget.id, widget]),
-      );
-
-      return Object.fromEntries(
-        Object.entries(currentPositions).filter(([widgetId, position]) => {
-          const widget = visibleWidgetById.get(widgetId);
-
-          if (!widget || !position) {
-            return false;
-          }
-
-          return (
-            widget.layout.x !== position.x || widget.layout.y !== position.y
-          );
-        }),
-      );
-    });
-    setDockedResizeSizes((currentSizes) => {
-      const visibleWidgetById = new Map(
-        viewState.widgets
-          .filter((widget) => widget.visible)
-          .map((widget) => [widget.id, widget]),
-      );
-
-      return Object.fromEntries(
-        Object.entries(currentSizes).filter(([widgetId, size]) => {
-          const widget = visibleWidgetById.get(widgetId);
-
-          if (!widget || !size) {
-            return false;
-          }
-
-          return (
-            widget.layout.width !== size.width ||
-            widget.layout.height !== size.height
-          );
-        }),
-      );
-    });
+    setDockedDragPositions((currentPositions) =>
+      removeSettledDockedDragPositions(currentPositions, viewState.widgets),
+    );
+    setDockedResizeSizes((currentSizes) =>
+      removeSettledDockedResizeSizes(currentSizes, viewState.widgets),
+    );
   }, [viewState.widgets]);
 
   useEffect(() => {
@@ -426,15 +377,15 @@ export function WorkbenchCanvas({
       return drag.originalPosition;
     }
 
-    return clampDockedPosition(
-      {
-        x: event.clientX - surfaceRect.left - drag.offsetX,
-        y: event.clientY - surfaceRect.top - drag.offsetY,
-      },
+    return nextDockedDragPositionFromGeometry({
+      height: drag.height,
+      offsetX: drag.offsetX,
+      offsetY: drag.offsetY,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
       surfaceRect,
-      drag.width,
-      drag.height,
-    );
+      width: drag.width,
+    });
   }
 
   async function persistDockedWidgetPosition(
@@ -525,22 +476,16 @@ export function WorkbenchCanvas({
       return resize.originalSize;
     }
 
-    const deltaX = event.clientX - resize.pointerX;
-    const deltaY = event.clientY - resize.pointerY;
-    const nextSize = {
-      height: resize.originalSize.height,
-      width: resize.originalSize.width,
-    };
-
-    if (resize.direction === "right" || resize.direction === "bottom-right") {
-      nextSize.width += deltaX;
-    }
-
-    if (resize.direction === "bottom" || resize.direction === "bottom-right") {
-      nextSize.height += deltaY;
-    }
-
-    return clampDockedSize(nextSize, surfaceRect, resize.position);
+    return nextDockedResizeSizeFromGeometry({
+      direction: resize.direction,
+      originalSize: resize.originalSize,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      position: resize.position,
+      resizePointerX: resize.pointerX,
+      resizePointerY: resize.pointerY,
+      surfaceRect,
+    });
   }
 
   async function persistDockedWidgetSize(
@@ -746,124 +691,6 @@ export function WorkbenchCanvas({
   );
 }
 
-function widgetLayoutSurfaceStyle(
-  widgets: WidgetInstance[],
-  dockedDragPositions: Partial<Record<WidgetInstanceId, DockedPosition>>,
-  dockedResizeSizes: Partial<Record<WidgetInstanceId, DockedSize>>,
-): CSSProperties {
-  const maxWidgetBottom = widgets.reduce((maxBottom, widget) => {
-    if (widget.layout.mode !== "docked") {
-      return maxBottom;
-    }
-
-    const position =
-      dockedDragPositions[widget.id] ?? widgetDockedPosition(widget);
-    const size = dockedResizeSizes[widget.id] ?? widgetDockedSize(widget);
-
-    return Math.max(maxBottom, position.y + size.height);
-  }, 0);
-
-  return {
-    minHeight: `${Math.max(
-      DOCKED_LAYOUT_MIN_HEIGHT,
-      maxWidgetBottom + DOCKED_LAYOUT_BOTTOM_PADDING,
-    )}px`,
-  };
-}
-
-function widgetLayoutItemStyle(
-  widget: WidgetInstance,
-  dockedDragPositions: Partial<Record<WidgetInstanceId, DockedPosition>>,
-  dockedResizeSizes: Partial<Record<WidgetInstanceId, DockedSize>>,
-): CSSProperties {
-  const position = dockedDragPositions[widget.id] ?? widgetDockedPosition(widget);
-  const size = dockedResizeSizes[widget.id] ?? widgetDockedSize(widget);
-
-  return {
-    height: `${size.height}px`,
-    left: `${position.x}px`,
-    top: `${position.y}px`,
-    width: `min(100%, ${size.width}px)`,
-  };
-}
-
-function widgetDockedPosition(widget: WidgetInstance): DockedPosition {
-  return {
-    x: widget.layout.x,
-    y: widget.layout.y,
-  };
-}
-
-function widgetDockedSize(widget: WidgetInstance): DockedSize {
-  return {
-    height: widget.layout.height,
-    width: widget.layout.width,
-  };
-}
-
-function clampDockedPosition(
-  position: DockedPosition,
-  surfaceRect: DOMRect,
-  widgetWidth: number,
-  widgetHeight: number,
-): DockedPosition {
-  const maxX = Math.max(
-    0,
-    surfaceRect.width - Math.min(widgetWidth, surfaceRect.width),
-  );
-  const maxY = Math.max(
-    0,
-    surfaceRect.height - Math.min(widgetHeight, surfaceRect.height),
-  );
-
-  return {
-    x: clamp(Math.round(position.x), 0, maxX),
-    y: clamp(Math.round(position.y), 0, maxY),
-  };
-}
-
-function clampDockedSize(
-  size: DockedSize,
-  surfaceRect: DOMRect,
-  position: DockedPosition,
-): DockedSize {
-  const maxWidth = Math.max(
-    DOCKED_WIDGET_MIN_WIDTH,
-    Math.min(DOCKED_WIDGET_MAX_DIMENSION, surfaceRect.width - position.x),
-  );
-  const maxHeight = Math.max(
-    DOCKED_WIDGET_MIN_HEIGHT,
-    Math.min(DOCKED_WIDGET_MAX_DIMENSION, surfaceRect.height - position.y),
-  );
-
-  return {
-    height: clamp(Math.round(size.height), DOCKED_WIDGET_MIN_HEIGHT, maxHeight),
-    width: clamp(Math.round(size.width), DOCKED_WIDGET_MIN_WIDTH, maxWidth),
-  };
-}
-
-function removeWidgetPosition(
-  positions: Partial<Record<WidgetInstanceId, DockedPosition>>,
-  widgetInstanceId: WidgetInstanceId,
-) {
-  const nextPositions = { ...positions };
-
-  delete nextPositions[widgetInstanceId];
-
-  return nextPositions;
-}
-
-function removeWidgetSize(
-  sizes: Partial<Record<WidgetInstanceId, DockedSize>>,
-  widgetInstanceId: WidgetInstanceId,
-) {
-  const nextSizes = { ...sizes };
-
-  delete nextSizes[widgetInstanceId];
-
-  return nextSizes;
-}
-
 type WidgetResizeHandlesProps = {
   onStartResize: (
     direction: ResizeDirection,
@@ -949,80 +776,4 @@ function WidgetGhostPlaceholder({
       </Button>
     </Panel>
   );
-}
-
-function widgetPopoutLayerStyle(
-  position: PopoutPosition | undefined,
-): CSSProperties | undefined {
-  if (!position) {
-    return undefined;
-  }
-
-  return {
-    left: `${position.x}px`,
-    top: `${position.y}px`,
-    transform: "none",
-  };
-}
-
-function widgetGhostStyle(instance: WidgetInstance): CSSProperties | undefined {
-  if (instance.layout.mode !== "docked") {
-    return undefined;
-  }
-
-  return {
-    height: `${instance.layout.height}px`,
-    minHeight: `${instance.layout.height}px`,
-    width: `min(100%, ${instance.layout.width}px)`,
-  };
-}
-
-function defaultPopoutPosition(): PopoutPosition {
-  if (typeof window === "undefined") {
-    return {
-      x: POPOUT_EDGE_MARGIN,
-      y: DEFAULT_POPOUT_TOP,
-    };
-  }
-
-  const width = Math.min(
-    POPOUT_MAX_WIDTH,
-    Math.max(0, window.innerWidth - popoutViewportMargin()),
-  );
-
-  return clampPopoutPosition({
-    x: (window.innerWidth - width) / 2,
-    y:
-      window.innerWidth <= 720
-        ? DEFAULT_NARROW_POPOUT_TOP
-        : DEFAULT_POPOUT_TOP,
-  });
-}
-
-function clampPopoutPosition(position: PopoutPosition): PopoutPosition {
-  if (typeof window === "undefined") {
-    return position;
-  }
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const minX = Math.min(POPOUT_EDGE_MARGIN, viewportWidth);
-  const maxX = Math.max(minX, viewportWidth - POPOUT_MIN_VISIBLE_WIDTH);
-  const minY = Math.min(POPOUT_EDGE_MARGIN, viewportHeight);
-  const maxY = Math.max(minY, viewportHeight - POPOUT_MIN_VISIBLE_HEIGHT);
-
-  return {
-    x: clamp(position.x, minX, maxX),
-    y: clamp(position.y, minY, maxY),
-  };
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function popoutViewportMargin() {
-  return window.innerWidth <= 720
-    ? POPOUT_NARROW_MARGIN
-    : POPOUT_DESKTOP_MARGIN;
 }
