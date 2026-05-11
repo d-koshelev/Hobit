@@ -26,6 +26,53 @@ const plannedCoordinatorSteps = [
   "Validate response",
 ];
 
+const requestTemplatePreviewFields = [
+  {
+    label: "Block",
+    value: "Numbered executor block with a short implementation title.",
+  },
+  {
+    label: "Goal",
+    value: "Concrete outcome the executor must deliver.",
+  },
+  {
+    label: "Context",
+    value: "Relevant product boundary, contracts, and current implementation notes.",
+  },
+  {
+    label: "Scope",
+    value: "Focused work area and explicit placeholder-only limits.",
+  },
+  {
+    label: "Likely files",
+    value: "Expected files or modules to inspect before editing.",
+  },
+  {
+    label: "Do not change",
+    value: "Protected systems, runtime behavior, storage, and dependencies.",
+  },
+  {
+    label: "Implementation requirements",
+    value: "Ordered requirements the executor must satisfy.",
+  },
+  {
+    label: "Safety rules",
+    value: "Stop conditions and forbidden scope expansion.",
+  },
+  {
+    label: "Validation",
+    value: "Required automated checks and manual check reporting.",
+  },
+  {
+    label: "Commit",
+    value: "One focused commit message suggestion.",
+  },
+  {
+    label: "Final response",
+    value: "Files changed, validation, warnings, commit, and final git status.",
+  },
+];
+
 export function TemplateLibraryPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -58,6 +105,43 @@ export function TemplateLibraryPlaceholderWidget({
             </p>
           </div>
           <Badge variant="neutral">Static preview</Badge>
+        </section>
+
+        <section
+          aria-label="Static Request Template preview"
+          className="template-library-section template-library-preview"
+        >
+          <div className="template-library-preview-header">
+            <div className="template-library-preview-copy">
+              <h3 className="template-library-section-title">
+                Request Template Preview
+              </h3>
+              <p className="template-library-preview-title">
+                Codex implementation block
+              </p>
+              <p className="template-library-preview-text">
+                Static example only. It is not editable, persisted, generated,
+                copied, sent to an executor, or connected to variables.
+              </p>
+            </div>
+            <div className="template-library-preview-badges">
+              <Badge variant="neutral">Static</Badge>
+              <Badge variant="neutral">Planned</Badge>
+            </div>
+          </div>
+
+          <dl className="template-library-preview-grid">
+            {requestTemplatePreviewFields.map((field) => (
+              <div className="template-library-preview-field" key={field.label}>
+                <dt className="template-library-preview-label">
+                  {field.label}
+                </dt>
+                <dd className="template-library-preview-value">
+                  {field.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <div
