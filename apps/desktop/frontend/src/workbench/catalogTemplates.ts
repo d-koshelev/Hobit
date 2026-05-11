@@ -56,6 +56,20 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     ],
   },
   {
+    id: "agent-run",
+    title: "Agent Run",
+    category: "core",
+    description:
+      "Static preview of future Raw Log, Overview Log, and Result Report views.",
+    status: "available",
+    capabilitySummary: [
+      "Static observability preview",
+      "Runtime and streaming not implemented",
+      "Parsing and validation not implemented",
+    ],
+    futureWidgetDefinitionId: "agent-run",
+  },
+  {
     id: "agent-chat",
     title: "Agent Chat",
     category: "core",

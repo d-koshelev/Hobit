@@ -10,11 +10,13 @@ Hobit must not expose future agent work only as raw terminal or agent output. Ev
 - Overview Log
 - Result Report
 
-This is a documentation and product/domain contract only. It does not implement storage, runtime execution, log parsing, UI, response validation, Tauri commands, Workspace API changes, or agent integration.
+This is a documentation and product/domain contract only. It does not implement storage, runtime execution, log parsing, response validation, Tauri commands, Workspace API changes, or agent integration.
 
 ## Current Implementation Boundary
 
 The current repository has no real agent runtime, no executor integration, no Terminal runtime, no Agent Chat runtime, no response parser, and no agent execution log model.
+
+The frontend has an insertable static Agent Run placeholder that previews future Overview Log, Result Report, and Raw Log sections. That placeholder is not an executable run surface and does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, or call agents.
 
 Implemented observability today is limited to:
 
@@ -300,7 +302,7 @@ This contract does not implement:
 - storage schema or migrations
 - Rust domain types
 - TypeScript types
-- React UI
+- real run UI beyond the static Agent Run placeholder preview
 - Tauri commands
 - Workspace API changes
 - runtime execution
@@ -312,6 +314,6 @@ This contract does not implement:
 - response parser
 - response validator
 - Git association
-- new widgets
+- executable agent run widgets
 - current widget behavior changes
 - product behavior changes

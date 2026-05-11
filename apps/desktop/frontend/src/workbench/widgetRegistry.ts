@@ -1,5 +1,7 @@
 import type { WidgetDefinition, WidgetDefinitionId } from "./types";
 
+export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
+export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
 export const AGENT_CHAT_WIDGET_DEFINITION_ID = "agent-chat";
 export const AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY = "agent-chat-placeholder";
 export const GIT_WIDGET_DEFINITION_ID = "git";
@@ -13,6 +15,16 @@ export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
 export const widgetRegistry: WidgetDefinition[] = [
+  {
+    id: AGENT_RUN_WIDGET_DEFINITION_ID,
+    title: "Agent Run",
+    category: "core",
+    description:
+      "Static placeholder for future Raw Log, Overview Log, and Result Report views.",
+    defaultTitle: "Agent Run",
+    defaultConfig: {},
+    componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  },
   {
     id: AGENT_CHAT_WIDGET_DEFINITION_ID,
     title: "Agent Chat",
