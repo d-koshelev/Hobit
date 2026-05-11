@@ -30,7 +30,6 @@ export function AgentQueuePlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Static queue and review inbox preview"
       title={title}
     >
       <div className="agent-queue-placeholder">

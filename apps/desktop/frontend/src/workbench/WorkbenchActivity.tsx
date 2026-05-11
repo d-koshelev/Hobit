@@ -1,28 +1,42 @@
+import { useState } from "react";
+
+import { Button } from "../design-system/Button";
 import type { WorkbenchEventView } from "./types";
 
 const RECENT_ACTIVITY_LIMIT = 5;
+const COLLAPSED_ACTIVITY_LIMIT = 2;
 
 type WorkbenchActivityProps = {
   events: WorkbenchEventView[];
 };
 
 export function WorkbenchActivity({ events }: WorkbenchActivityProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const recentEvents = events.slice(-RECENT_ACTIVITY_LIMIT).reverse();
+  const visibleEvents = isExpanded
+    ? recentEvents
+    : recentEvents.slice(0, COLLAPSED_ACTIVITY_LIMIT);
+  const hasExpandableActivity = recentEvents.length > COLLAPSED_ACTIVITY_LIMIT;
+  const activityClassName = isExpanded
+    ? "workbench-activity workbench-activity-expanded"
+    : "workbench-activity";
 
   return (
     <aside
       aria-labelledby="workbench-activity-title"
-      className="workbench-activity"
+      className={activityClassName}
     >
       <div className="workbench-activity-header">
         <h2 className="workbench-activity-title" id="workbench-activity-title">
           Recent activity
         </h2>
-        <p className="workbench-activity-context">Workspace history</p>
+        <span className="workbench-activity-count">
+          {recentEvents.length > 0 ? `${recentEvents.length} latest` : "Empty"}
+        </span>
       </div>
-      {recentEvents.length > 0 ? (
+      {visibleEvents.length > 0 ? (
         <ol className="workbench-activity-list">
-          {recentEvents.map((event, index) => {
+          {visibleEvents.map((event, index) => {
             const createdAt =
               typeof event.createdAt === "string" ? event.createdAt : "";
 
@@ -49,6 +63,16 @@ export function WorkbenchActivity({ events }: WorkbenchActivityProps) {
       ) : (
         <p className="workbench-activity-empty">No recent activity yet.</p>
       )}
+      {hasExpandableActivity ? (
+        <Button
+          aria-expanded={isExpanded}
+          className="workbench-activity-toggle"
+          onClick={() => setIsExpanded((current) => !current)}
+          variant="ghost"
+        >
+          {isExpanded ? "Show less" : "Show all"}
+        </Button>
+      ) : null}
     </aside>
   );
 }

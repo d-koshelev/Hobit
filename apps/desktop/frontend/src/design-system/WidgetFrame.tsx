@@ -28,7 +28,7 @@ type WidgetFrameProps = {
   onLoadLogs?: () => Promise<WidgetFrameLogEntry[]>;
   style?: CSSProperties;
   status?: ReactNode;
-  subtitle: string;
+  subtitle?: string;
   title: string;
 };
 
@@ -123,7 +123,7 @@ export function WidgetFrame({
             <h2 className="widget-title">{title}</h2>
             {status ? <div className="widget-status">{status}</div> : null}
           </div>
-          <p className="widget-subtitle">{subtitle}</p>
+          {subtitle ? <p className="widget-subtitle">{subtitle}</p> : null}
         </div>
         <div className="widget-actions">
           {actions}

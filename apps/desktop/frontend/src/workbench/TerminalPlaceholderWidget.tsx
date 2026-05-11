@@ -21,7 +21,6 @@ export function TerminalPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Terminal runtime placeholder"
       title={title}
     >
       <div className="empty-state">

@@ -62,7 +62,6 @@ export function AgentRunPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Static agent run observability preview"
       title={title}
     >
       <div className="agent-run-placeholder">

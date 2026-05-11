@@ -22,7 +22,6 @@ export function OperationalAgentChatPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Operational agent chat placeholder"
       title={title}
     >
       <div aria-label="Static agent chat preview" className="agent-chat-preview">

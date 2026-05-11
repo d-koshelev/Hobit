@@ -28,7 +28,6 @@ export function TemplateLibraryPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Request, Response, and workflow surface"
       title={title}
     >
       <div className="template-library-placeholder">

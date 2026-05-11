@@ -28,8 +28,8 @@
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-md);
-  padding: var(--space-lg) var(--space-lg) var(--space-sm);
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) var(--space-xs);
 }
 
 .widget-header-movable {
@@ -47,7 +47,7 @@
 
 .widget-header-movable::before {
   position: absolute;
-  top: var(--space-sm);
+  top: var(--space-xs);
   left: var(--space-lg);
   width: 28px;
   height: 2px;

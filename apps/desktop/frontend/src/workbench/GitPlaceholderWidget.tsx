@@ -124,7 +124,6 @@ export function GitPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={gitFrameStatus(gitStatus, statusError, isRefreshingStatus)}
-      subtitle="Git repository status"
       title={title}
     >
       <section

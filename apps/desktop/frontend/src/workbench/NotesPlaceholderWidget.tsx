@@ -67,7 +67,6 @@ export function NotesPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="neutral">Placeholder</Badge>}
-      subtitle="Workspace note draft"
       title={title}
     >
       <textarea
