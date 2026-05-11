@@ -15,8 +15,10 @@ Agent Queue currently exists only as an insertable static frontend placeholder w
 The current repository has:
 
 - a static Agent Queue placeholder preview rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
+- a static queue overview, grouped queue cards, one representative item detail preview, linked surface summaries, and disabled planned actions
 - no queue storage
 - no queue item schema
+- no queue item selection
 - no automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator

@@ -12,7 +12,7 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no agent runtime, automatic execution, or response validation engine is implemented yet.
 
-`AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. The frontend has a static Agent Queue placeholder preview; no queue storage, real queue item state, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
+`AGENT_QUEUE_CONTRACT.md` defines the future Agent Queue as an operator-controlled queue and review inbox for agent blocks. The frontend has a static Agent Queue placeholder preview with queue groups, queue cards, one representative item detail preview, linked surface summaries, and disabled planned actions; no queue storage, real queue item state, item selection, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
 
 `AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has a static insertable Agent Run placeholder previewing those three views, but no agent execution log model, runtime log streaming, overview summarizer, result report persistence, response validation, executor integration, or real agent runtime UI is implemented yet.
 
@@ -145,7 +145,7 @@ The Agent Chat placeholder is static and does not accept chat input, execute age
 
 The Agent Run placeholder is static and previews future Overview Log, Result Report, and Raw Log sections from `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. It does not start runs, stream logs, persist run state, parse responses, validate results, summarize runtime events, integrate executor tasks, call agents, execute terminal commands, or write widget state.
 
-The Agent Queue placeholder is static and previews future queue/review inbox groups, queue item cards, linked template/run/Git/notes context, and disabled planned operator actions. It does not persist queue items, launch agents, run a background queue, capture responses, parse or validate responses, associate Git review, automatically accept work, or write widget state.
+The Agent Queue placeholder is static and previews future queue/review inbox groups, queue item cards, one representative item detail review surface, linked template/run/Git/notes context, and disabled planned operator actions. It does not select or persist queue items, launch agents, run a background queue, capture responses, parse or validate responses, associate Git review, automatically accept work, or write widget state.
 
 The Git placeholder has a transient explicit repository-root input. In the Tauri desktop path, it manually refreshes a read-only status snapshot through `get_git_repository_status`, backed by `hobit-tools`, and renders branch/clean-dirty/count/ahead-behind/warning/last-commit data plus grouped changed files. The repository root and refreshed status are local React state only. Browser/Vite fallback cannot read Git status. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented.
 
