@@ -1,0 +1,124 @@
+use hobit_storage_sqlite::NewWorkspaceSession;
+
+use crate::WorkspaceServiceError;
+
+use super::{
+    mapping::{workspace_summary, workspace_summary_row},
+    placeholder_id, placeholder_timestamp, WorkspaceService, WorkspaceSessionSummary,
+    WorkspaceSummary,
+};
+
+impl WorkspaceService {
+    pub fn create_empty_workspace(
+        &self,
+        title: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<WorkspaceSummary, WorkspaceServiceError> {
+        let title = title.into();
+        let title = title.trim();
+
+        if title.is_empty() {
+            return Err(WorkspaceServiceError::InvalidInput(
+                "workspace title must not be empty".to_owned(),
+            ));
+        }
+
+        let workspace_id = placeholder_id("ws_");
+        let workbench_id = placeholder_id("wb_");
+
+        let (workspace, workbench) = self.store.with_immediate_transaction(|store| {
+            let workspace =
+                store.create_workspace(&workspace_id, title, description.as_deref(), "active")?;
+            let workbench = store.create_workspace_workbench(&workbench_id, &workspace.id, None)?;
+
+            let event_payload = format!("workbench_id={}", workbench.id);
+            store.append_workbench_event(
+                &placeholder_id("evt_"),
+                &workspace.id,
+                "workspace_created",
+                "Workspace created",
+                Some(&event_payload),
+            )?;
+
+            Ok((workspace, workbench))
+        })?;
+
+        Ok(workspace_summary(&workspace, Some(workbench.id)))
+    }
+
+    pub fn get_workspace_summary(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<WorkspaceSummary>, WorkspaceServiceError> {
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let workbench_id = self.first_workbench_id(&workspace.id)?;
+        Ok(Some(workspace_summary(&workspace, workbench_id)))
+    }
+
+    pub fn list_workspaces(&self) -> Result<Vec<WorkspaceSummary>, WorkspaceServiceError> {
+        Ok(self
+            .store
+            .list_workspace_summaries_with_workbench()?
+            .into_iter()
+            .map(workspace_summary_row)
+            .collect())
+    }
+
+    pub fn open_workspace(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<WorkspaceSessionSummary>, WorkspaceServiceError> {
+        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
+            return Ok(None);
+        };
+
+        let session_id = placeholder_id("wss_");
+        let opened_at = placeholder_timestamp();
+        let session = self.store.with_immediate_transaction(|store| {
+            let session = store.create_workspace_session(NewWorkspaceSession {
+                id: &session_id,
+                workspace_id: &workspace.id,
+                status: "open",
+                opened_at: Some(&opened_at),
+                closed_at: None,
+                active_widget_id: None,
+                current_focus_kind: None,
+                current_focus_ref: None,
+            })?;
+            store.touch_workspace(&workspace.id)?;
+
+            let event_payload = format!("session_id={}", session.id);
+            store.append_workbench_event(
+                &placeholder_id("evt_"),
+                &workspace.id,
+                "workspace_opened",
+                "Workspace opened",
+                Some(&event_payload),
+            )?;
+
+            Ok(session)
+        })?;
+
+        Ok(Some(WorkspaceSessionSummary {
+            id: session.id,
+            workspace_id: session.workspace_id,
+            status: session.status,
+            active_widget_id: session.active_widget_id,
+        }))
+    }
+
+    fn first_workbench_id(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<String>, WorkspaceServiceError> {
+        Ok(self
+            .store
+            .list_workspace_workbenches(workspace_id)?
+            .into_iter()
+            .next()
+            .map(|workbench| workbench.id))
+    }
+}
