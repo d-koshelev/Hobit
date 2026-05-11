@@ -22,7 +22,7 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape. The frontend has a static insertable Template Library placeholder with Request Template, Response Template, and Coordinator Workflow previews, but no template storage, editing, request generation, response capture, response parsing, response validation, executor integration, Git-response association, or agent execution behavior is implemented.
 
-`NOTES_WIDGET_CONTRACT.md` defines the future Notebook/Notes widget direction: legacy single-body Notes compatibility, multiple text tabs/documents inside one widget, explicit user-triggered text formatting actions, and operator-approved AI-assisted editing. The current frontend still only persists the minimal `{ "body": "..." }` Notes draft state.
+`NOTES_WIDGET_CONTRACT.md` defines the future Notebook/Notes widget direction: legacy single-body Notes compatibility, multiple text tabs/documents inside one widget, Markdown source text, rendered Markdown and Mermaid fenced-block preview direction, explicit user-triggered text formatting actions, and operator-approved AI-assisted editing. The current frontend still only persists the minimal `{ "body": "..." }` Notes draft state.
 
 `WIDGET_CONTRACT.md` defines future Docking Station and widget view mode rules. Docking Station is a Workspace-local perimeter station for existing WidgetInstances in Indicator view, while Canvas and Float normally use Full view. Docking Station, Full/Compact/Indicator rendering behavior, persisted widget presence zones, and drag-and-drop between Canvas, Docking Station, Float, and future external windows are not implemented yet.
 
@@ -143,7 +143,7 @@ The Empty Workbench is rendered from preset data and new Workspaces currently st
 
 The Widget Catalog has frontend-local template metadata for future capabilities. Only the Notes, Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for insertion; all other catalog templates remain planned/display-only. There is no runtime widget loading or real capability widget insertion beyond those placeholders through the Tauri bridge yet.
 
-The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notebook/Notes document model, multi-tab state, Markdown editor, text formatting tool surface, autosave flow, folder system, or AI-in-Notes implementation.
+The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notebook/Notes document model, multi-tab state, Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block preview system, text formatting tool surface, autosave flow, folder system, or AI-in-Notes implementation.
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
@@ -193,9 +193,9 @@ Full runtime restore is not implemented yet. There is no event replay, widget ru
 
 ## Planned Notes Model
 
-Future notes work will support Markdown documents organized in folders with global and workspace-local scopes.
+Future notes work will support Markdown documents organized in folders with global and workspace-local scopes. Future Notebook may also render Markdown-adjacent fenced blocks such as Mermaid diagrams, but source text remains the source of truth and rendering must not execute commands, load remote assets by default, or mutate note content.
 
-The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder widgets. The Agent Run, Agent Queue, and Template Library placeholders only show static previews, and the Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Agent Run runtime, Agent Queue storage/execution/response capture/validation, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
+The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Agent Run placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder widgets. The Agent Run, Agent Queue, and Template Library placeholders only show static previews, and the Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block preview system, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Agent Run runtime, Agent Queue storage/execution/response capture/validation, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
 
 ## Intended Repository Layout
 

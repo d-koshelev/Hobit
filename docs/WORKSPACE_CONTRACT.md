@@ -121,7 +121,7 @@ Not implemented yet:
 - full drag-and-drop layout editing
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
 - log streaming or polling
-- full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, autosave, or AI-in-Notes behavior
+- full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, or AI-in-Notes behavior
 - custom preset editor
 - terminal execution
 - agent runtime calls
@@ -440,7 +440,7 @@ The following are not implemented yet:
 - Docking Station rails, widget view modes, persisted widget presence zones, and drag-and-drop between Canvas, Docking Station, Float, or future external windows
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, and always-on-top behavior
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
-- full Notebook/Notes document storage, multi-tab state, text formatting tools, Markdown editor, autosave, and AI-in-Notes behavior
+- full Notebook/Notes document storage, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, and AI-in-Notes behavior
 - log streaming or polling
 - repository root persistence or approved Workspace-level repository roots beyond the transient Git widget input
 - multi-open Workspace UI, Workspace tabs/sidebar, or separate Workspace windows
