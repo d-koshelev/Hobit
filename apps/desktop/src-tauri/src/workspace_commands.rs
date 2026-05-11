@@ -7,7 +7,8 @@ use tauri::State;
 use crate::app_state::AppState;
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, GetGitRepositoryStatusRequest,
-    GitRepositoryStatusDto, ListWidgetLogsRequest, UpdateWidgetInstanceLayoutRequest,
+    GitRepositoryStatusDto, ListWidgetLogsRequest, RunTerminalCommandRequest,
+    RunTerminalCommandResponseDto, UpdateWidgetInstanceLayoutRequest,
     UpdateWidgetInstanceStateRequest, WidgetLogDto, WorkspaceSessionSummaryDto,
     WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
@@ -142,6 +143,18 @@ pub(crate) fn list_widget_logs(
             request.limit,
         )
         .map(|logs| logs.map(|logs| logs.into_iter().map(WidgetLogDto::from).collect()))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn run_terminal_command(
+    request: RunTerminalCommandRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<RunTerminalCommandResponseDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .run_terminal_command(request.into())
+        .map(|summary| summary.map(RunTerminalCommandResponseDto::from))
         .map_err(command_error)
 }
 

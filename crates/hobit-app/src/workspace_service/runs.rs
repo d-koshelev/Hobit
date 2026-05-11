@@ -238,7 +238,7 @@ fn validate_final_widget_run_status(status: &WidgetRunStatus) -> Result<(), Work
     }
 }
 
-fn widget_run_status_value(status: &WidgetRunStatus) -> &'static str {
+pub(super) fn widget_run_status_value(status: &WidgetRunStatus) -> &'static str {
     match status {
         WidgetRunStatus::Idle => "idle",
         WidgetRunStatus::InputReady => "input_ready",

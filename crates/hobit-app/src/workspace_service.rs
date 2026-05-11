@@ -8,6 +8,7 @@ mod git;
 mod logs;
 mod mapping;
 mod runs;
+mod terminal;
 mod types;
 mod validation;
 mod widgets;
@@ -15,14 +16,17 @@ mod workbenches;
 mod workspaces;
 
 #[cfg(test)]
+mod terminal_tests;
+#[cfg(test)]
 mod tests;
 
 pub use types::{
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, SharedStateObjectSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
-    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    GitWorkingTreeStatusSummary, RunTerminalCommandInput, SharedStateObjectSummary,
+    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
+    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
@@ -45,6 +49,7 @@ const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
 const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
 const WIDGET_RUN_STARTED_STATUS: WidgetRunStatus = WidgetRunStatus::Running;
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
+const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 
 pub struct WorkspaceService {
     store: SqliteStore,

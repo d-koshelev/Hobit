@@ -1,6 +1,8 @@
 mod app_state;
 mod workspace_commands;
 mod workspace_dto;
+#[cfg(test)]
+mod workspace_dto_tests;
 
 use app_state::initialize_app_state;
 use tauri::Manager;
@@ -21,6 +23,7 @@ pub fn run() {
             workspace_commands::update_widget_instance_state,
             workspace_commands::update_widget_instance_layout,
             workspace_commands::list_widget_logs,
+            workspace_commands::run_terminal_command,
             workspace_commands::get_git_repository_status
         ])
         .run(tauri::generate_context!())

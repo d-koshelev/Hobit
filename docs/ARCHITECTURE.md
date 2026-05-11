@@ -2,7 +2,7 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. Persisted Notes, static Terminal placeholder, static Agent Chat placeholder, static Agent Monitoring placeholder, static Agent Queue placeholder, Git placeholder, and static Template Library placeholder widgets exist as catalog insertion paths. The Git placeholder has a narrow manual desktop-only read-only status refresh path; no agent runtime, terminal execution, Agent CLI runtime, chat execution, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git mutations/diff/log/show, or broad tool execution exists yet.
+The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. Persisted Notes, static Terminal placeholder, static Agent Chat placeholder, static Agent Monitoring placeholder, static Agent Queue placeholder, Git placeholder, and static Template Library placeholder widgets exist as catalog insertion paths. The Git placeholder has a narrow manual desktop-only read-only status refresh path. The desktop backend has a bounded one-shot command path for persisted Terminal widget instances, but there is no Terminal UI, shell mode, streaming, PTY, cancellation, agent runtime, Agent CLI runtime, chat execution, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git mutations/diff/log/show, or broad tool execution yet.
 
 ## Documentation Contracts
 
@@ -102,11 +102,12 @@ The shell exposes WorkspaceService lifecycle and widget foundation commands over
 - `update_widget_instance_state`
 - `update_widget_instance_layout`
 - `list_widget_logs`
+- `run_terminal_command`
 - `get_git_repository_status`
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, and command DTO mapping in `workspace_dto.rs`.
 
-The React frontend calls these commands through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation; browser fallback throws a visible unsupported state for real Git status reads. There is no widget runtime behavior, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, terminal execution, agent call, chat runtime, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git runtime beyond the narrow read-only status path, workspace restore runtime, log streaming/polling, or settings UI in this milestone.
+The React frontend calls the workspace lifecycle, widget mutation/log read, and Git status commands through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation; browser fallback throws a visible unsupported state for real Git status reads. The `run_terminal_command` Tauri command is backend-only in the current UI and is not called from the frontend. There is no widget runtime UI behavior, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring placeholder, Agent Queue placeholder, Git placeholder, and Template Library placeholder, Terminal command input, shell mode, streaming, PTY, cancellation, agent call, chat runtime, Agent Run runtime, Agent Queue runtime/storage, Template Library runtime, Git runtime beyond the narrow read-only status path, workspace restore runtime, log streaming/polling, or settings UI in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -185,7 +186,7 @@ This storage layer is foundational only. It is wired through `hobit-app` and the
 
 The service creates empty Workspaces with one associated empty Workbench, opens Workspaces by creating WorkspaceSession rows, appends basic Workbench events, returns simple Workspace and WorkspaceSession summaries, and supports the current widget foundation mutations for adding a WidgetInstance, updating widget state, updating widget layout, and listing widget-local logs.
 
-This application layer is wired to the Tauri workspace bridge. It does not restore runtime state, execute widgets, run agents, execute terminal commands, stream logs, or add UI behavior.
+This application layer is wired to the Tauri workspace bridge. It includes a bounded one-shot Terminal command orchestration path for persisted Terminal widget instances only, creating widget run/log/result records around the shared process adapter. It does not restore runtime state, execute non-Terminal widgets, run agents, provide Terminal UI, stream logs, or add UI behavior.
 
 ## Workspace Model Boundary
 

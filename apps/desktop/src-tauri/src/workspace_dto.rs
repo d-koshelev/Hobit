@@ -1,10 +1,12 @@
 use hobit_app::{
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, SharedStateObjectSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    GitWorkingTreeStatusSummary, RunTerminalCommandInput, SharedStateObjectSummary,
+    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CreateWorkspaceRequest {
@@ -51,6 +53,19 @@ pub(crate) struct GetGitRepositoryStatusRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub repository_root: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct RunTerminalCommandRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub working_directory: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -190,6 +205,19 @@ pub(crate) struct GitLastCommitDto {
     pub title: String,
     pub author: Option<String>,
     pub committed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct RunTerminalCommandResponseDto {
+    pub run_id: String,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
 }
 
 impl From<WorkspaceSummary> for WorkspaceSummaryDto {
@@ -371,6 +399,38 @@ impl From<GitLastCommitSummary> for GitLastCommitDto {
     }
 }
 
+impl From<RunTerminalCommandRequest> for RunTerminalCommandInput {
+    fn from(request: RunTerminalCommandRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            program: request.program,
+            args: request.args,
+            working_directory: PathBuf::from(request.working_directory),
+            timeout_ms: request.timeout_ms,
+            stdout_cap_bytes: request.stdout_cap_bytes,
+            stderr_cap_bytes: request.stderr_cap_bytes,
+        }
+    }
+}
+
+impl From<TerminalCommandRunSummary> for RunTerminalCommandResponseDto {
+    fn from(summary: TerminalCommandRunSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            status: summary.status,
+            exit_code: summary.exit_code,
+            stdout: summary.stdout,
+            stderr: summary.stderr,
+            stdout_truncated: summary.stdout_truncated,
+            stderr_truncated: summary.stderr_truncated,
+            duration_ms: summary.duration_ms,
+            error_message: summary.error_message,
+        }
+    }
+}
+
 impl From<WidgetInstanceLayoutDto> for WidgetInstanceLayout {
     fn from(layout: WidgetInstanceLayoutDto) -> Self {
         Self {
@@ -386,229 +446,5 @@ impl From<WidgetInstanceLayoutDto> for WidgetInstanceLayout {
             always_on_top: layout.always_on_top,
             is_visible: layout.is_visible,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn maps_workspace_summary_to_dto() {
-        let summary = WorkspaceSummary {
-            id: "ws_1".to_owned(),
-            title: "Incident".to_owned(),
-            description: Some("Investigate".to_owned()),
-            status: "active".to_owned(),
-            workbench_id: Some("wb_1".to_owned()),
-        };
-
-        let dto = WorkspaceSummaryDto::from(summary);
-
-        assert_eq!(
-            dto,
-            WorkspaceSummaryDto {
-                id: "ws_1".to_owned(),
-                title: "Incident".to_owned(),
-                description: Some("Investigate".to_owned()),
-                status: "active".to_owned(),
-                workbench_id: Some("wb_1".to_owned()),
-            }
-        );
-    }
-
-    #[test]
-    fn maps_workspace_session_summary_to_dto() {
-        let summary = WorkspaceSessionSummary {
-            id: "wss_1".to_owned(),
-            workspace_id: "ws_1".to_owned(),
-            status: "open".to_owned(),
-            active_widget_id: None,
-        };
-
-        let dto = WorkspaceSessionSummaryDto::from(summary);
-
-        assert_eq!(
-            dto,
-            WorkspaceSessionSummaryDto {
-                id: "wss_1".to_owned(),
-                workspace_id: "ws_1".to_owned(),
-                status: "open".to_owned(),
-                active_widget_id: None,
-            }
-        );
-    }
-
-    #[test]
-    fn maps_workspace_workbench_state_to_dto() {
-        let state = WorkspaceWorkbenchState {
-            workspace: WorkspaceSummary {
-                id: "ws_1".to_owned(),
-                title: "Incident".to_owned(),
-                description: None,
-                status: "active".to_owned(),
-                workbench_id: Some("wb_1".to_owned()),
-            },
-            workbench: Some(WorkbenchSummary {
-                id: "wb_1".to_owned(),
-                workspace_id: "ws_1".to_owned(),
-                preset_origin_id: None,
-            }),
-            widget_instances: vec![WidgetInstanceSummary {
-                id: "widget-1".to_owned(),
-                definition_id: "notes".to_owned(),
-                title: "Notes".to_owned(),
-                category: "notes".to_owned(),
-                layout_mode: "docked".to_owned(),
-                dock_x: Some(12),
-                dock_y: Some(24),
-                dock_width: Some(480),
-                dock_height: Some(320),
-                popout_x: Some(120),
-                popout_y: Some(140),
-                popout_width: Some(640),
-                popout_height: Some(480),
-                always_on_top: true,
-                is_visible: true,
-                config: Some("{\"scope\":\"workspace\"}".to_owned()),
-                state: Some("{\"dirty\":false}".to_owned()),
-            }],
-            shared_state_objects: vec![SharedStateObjectSummary {
-                id: "shared-1".to_owned(),
-                key: "current_goal".to_owned(),
-                value: "Investigate".to_owned(),
-                value_kind: "text".to_owned(),
-            }],
-            recent_events: vec![WorkbenchEventSummary {
-                id: "event-1".to_owned(),
-                kind: "workspace_created".to_owned(),
-                summary: "Workspace created".to_owned(),
-                created_at: "1".to_owned(),
-            }],
-        };
-
-        let dto = WorkspaceWorkbenchStateDto::from(state);
-
-        assert_eq!(dto.workspace.id, "ws_1");
-        assert_eq!(
-            dto.workbench
-                .as_ref()
-                .map(|workbench| workbench.id.as_str()),
-            Some("wb_1")
-        );
-        assert_eq!(dto.widget_instances[0].definition_id, "notes");
-        assert_eq!(dto.widget_instances[0].dock_x, Some(12));
-        assert_eq!(dto.widget_instances[0].dock_y, Some(24));
-        assert_eq!(dto.widget_instances[0].dock_width, Some(480));
-        assert_eq!(dto.widget_instances[0].dock_height, Some(320));
-        assert_eq!(dto.widget_instances[0].popout_x, Some(120));
-        assert_eq!(dto.widget_instances[0].popout_y, Some(140));
-        assert_eq!(dto.widget_instances[0].popout_width, Some(640));
-        assert_eq!(dto.widget_instances[0].popout_height, Some(480));
-        assert!(dto.widget_instances[0].always_on_top);
-        assert_eq!(
-            dto.widget_instances[0].config.as_deref(),
-            Some("{\"scope\":\"workspace\"}")
-        );
-        assert_eq!(
-            dto.widget_instances[0].state.as_deref(),
-            Some("{\"dirty\":false}")
-        );
-        assert_eq!(dto.shared_state_objects[0].key, "current_goal");
-        assert_eq!(dto.recent_events[0].kind, "workspace_created");
-    }
-
-    #[test]
-    fn maps_widget_log_to_dto() {
-        let summary = WidgetLogSummary {
-            id: "log-1".to_owned(),
-            widget_instance_id: "widget-1".to_owned(),
-            run_id: Some("run-1".to_owned()),
-            level: "info".to_owned(),
-            message: "Saved note".to_owned(),
-            payload: Some("{\"source\":\"test\"}".to_owned()),
-            created_at: "1".to_owned(),
-        };
-
-        let dto = WidgetLogDto::from(summary);
-
-        assert_eq!(
-            dto,
-            WidgetLogDto {
-                id: "log-1".to_owned(),
-                widget_instance_id: "widget-1".to_owned(),
-                run_id: Some("run-1".to_owned()),
-                level: "info".to_owned(),
-                message: "Saved note".to_owned(),
-                payload: Some("{\"source\":\"test\"}".to_owned()),
-                created_at: "1".to_owned(),
-            }
-        );
-    }
-
-    #[test]
-    fn maps_git_repository_status_to_dto() {
-        let summary = GitRepositoryStatusSummary {
-            branch: Some(GitBranchStatusSummary {
-                name: Some("main".to_owned()),
-                upstream: Some("origin/main".to_owned()),
-                ahead: Some(1),
-                behind: Some(2),
-                is_detached: false,
-            }),
-            working_tree: GitWorkingTreeStatusSummary {
-                is_clean: false,
-                is_dirty: true,
-                staged_count: 1,
-                unstaged_count: 1,
-                untracked_count: 1,
-            },
-            changed_files: vec![GitFileChangeSummary {
-                area: "staged".to_owned(),
-                kind: "modified".to_owned(),
-                path: "src/lib.rs".to_owned(),
-                original_path: None,
-            }],
-            last_commit: Some(GitLastCommitSummary {
-                hash: "abc123".to_owned(),
-                title: "Initial commit".to_owned(),
-                author: Some("Hobit".to_owned()),
-                committed_at: Some("2026-05-10T00:00:00Z".to_owned()),
-            }),
-            warnings: vec!["review warning".to_owned()],
-        };
-
-        let dto = GitRepositoryStatusDto::from(summary);
-
-        assert_eq!(
-            dto.branch
-                .as_ref()
-                .and_then(|branch| branch.name.as_deref()),
-            Some("main")
-        );
-        assert_eq!(
-            dto.branch
-                .as_ref()
-                .and_then(|branch| branch.upstream.as_deref()),
-            Some("origin/main")
-        );
-        assert_eq!(dto.branch.as_ref().and_then(|branch| branch.ahead), Some(1));
-        assert_eq!(
-            dto.branch.as_ref().and_then(|branch| branch.behind),
-            Some(2)
-        );
-        assert!(dto.working_tree.is_dirty);
-        assert!(!dto.working_tree.is_clean);
-        assert_eq!(dto.working_tree.staged_count, 1);
-        assert_eq!(dto.changed_files[0].area, "staged");
-        assert_eq!(dto.changed_files[0].kind, "modified");
-        assert_eq!(dto.changed_files[0].path, "src/lib.rs");
-        assert_eq!(
-            dto.last_commit
-                .as_ref()
-                .map(|last_commit| last_commit.hash.as_str()),
-            Some("abc123")
-        );
-        assert_eq!(dto.warnings, vec!["review warning".to_owned()]);
     }
 }

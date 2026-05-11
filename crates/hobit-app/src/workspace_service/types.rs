@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
     pub id: String,
@@ -180,4 +182,30 @@ pub struct GitLastCommitSummary {
     pub title: String,
     pub author: Option<String>,
     pub committed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunTerminalCommandInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub working_directory: PathBuf,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TerminalCommandRunSummary {
+    pub run_id: String,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
 }
