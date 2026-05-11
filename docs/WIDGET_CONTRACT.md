@@ -83,6 +83,8 @@ This console is not only for Terminal. Any widget may emit logs/activity during 
 
 The widget-local console may open through a small action in the widget header/meta zone, an inline drawer, a popover, or an expanded console mode. The UI mechanism can vary, but the capability is part of the base widget contract.
 
+Future agent/task execution widgets have an additional observability contract: Raw Log, Overview Log, and Result Report views. See `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Those views are not implemented by the current generic Logs panel.
+
 ### WidgetResult
 
 A WidgetResult is structured final output. It can contain summaries, data tables, edited images, generated files, action proposals, evidence, or other artifacts.
@@ -165,6 +167,8 @@ The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fi
 
 The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions when already open. Existing widget add/state/layout mutations emit basic logs. Runtime execution, runtime log emission, streaming, and polling are not implemented yet.
 
+Future Agent Chat, Terminal, Agent CLI, or Executor widgets that run agent/task execution should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views.
+
 ## Examples
 
 Future widget types may include:
@@ -187,3 +191,5 @@ Future widget types may include:
 Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, explicit formatting actions, and AI-editing safety rules.
 
 Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface for repository state, not only raw command output.
+
+Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.

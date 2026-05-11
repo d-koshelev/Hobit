@@ -16,6 +16,8 @@ The frontend Template Library placeholder may show a static planned Coordinator 
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
+Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. It requires Raw Log, Overview Log, and Result Report views, but those views are not implemented yet.
+
 ## Core Rule
 
 Coordinator agents and executor agents are separate roles.
@@ -142,6 +144,19 @@ The executor receives the concrete Request Snapshot, not an evolving template. E
 
 For template asset rules, see `docs/TEMPLATE_CONTRACT.md`.
 
+## Relation To Agent Run Observability
+
+Future executor runs should expose observability as defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
+
+Expected mapping:
+
+- executor runtime events and tool output feed Raw Log
+- operator-readable execution progress feeds Overview Log
+- executor final response feeds Result Report
+- coordinator response validation checks the Result Report against the selected Response Template
+
+Overview Log and Result Report must not hide failed raw execution, skipped validation, or blocked states.
+
 ## Relation To Workspaces
 
 The coordinator role is associated with the durable Workspace or Project context.
@@ -191,6 +206,7 @@ Future Hobit UI may support:
 - accept, fix, rerun, and next-block controls
 - Git review companion after code blocks
 - task history that links applied templates, requests, responses, validations, commits, logs, artifacts, and decisions
+- Raw Log, Overview Log, and Result Report views for agent/task runs
 
 Future UI rules:
 

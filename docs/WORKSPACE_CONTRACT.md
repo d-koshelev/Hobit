@@ -85,6 +85,7 @@ Implemented foundation:
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs.
+- Agent run observability views defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` are not implemented.
 - SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
 
 Not implemented yet:
@@ -100,6 +101,7 @@ Not implemented yet:
 - custom preset editor
 - terminal execution
 - agent runtime calls
+- agent run Raw Log, Overview Log, and Result Report views
 - Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root; repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations
 
 ## Workspace
@@ -123,6 +125,7 @@ A Workspace should persist:
 - applied request snapshots when future template workflows exist
 - selected response template references when future template workflows exist
 - captured executor responses when future agent workflows exist
+- agent run Raw Logs, Overview Logs, and Result Reports when future agent workflows exist
 - validation results linked to requests/responses when future agent workflows exist
 - Git commits linked to requests/responses when future Git review workflows exist
 - approved repository roots used by future Git review artifacts, preserving the root associated with each captured status, validation, or commit record
@@ -272,6 +275,7 @@ The following are not implemented yet:
 - widget runtime reconstruction
 - applied request/response snapshot history
 - template storage, editing, request generation, response capture, response parsing, response validation, executor integration, or Git-response association
+- agent run Raw Log, Overview Log, Result Report, log parser, overview summarizer, or response validator
 - real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder
 - real capability widgets
 - custom preset editor

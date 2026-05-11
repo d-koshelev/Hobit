@@ -16,6 +16,8 @@ The frontend currently has an insertable static Template Library placeholder wid
 
 The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defines the final-response format for project agents working on Hobit blocks. That document is a project agent operating contract. It is not yet a Hobit product feature, editable template asset, validation engine, or persisted Workspace object.
 
+Future agent/task run observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Response Templates define the expected Result Report structure, while Raw Log and Overview Log remain separate observability views.
+
 ## Definitions
 
 ### Template
@@ -144,6 +146,18 @@ Expected future workflow:
 
 Strategic planning belongs in the coordinator flow unless a Request Template explicitly defines a plan-only block.
 
+## Relation To Agent Run Observability
+
+Request Templates define requested work and required validation. Response Templates define the expected Result Report shape.
+
+`docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines the surrounding run views:
+
+- Raw Log preserves exact runtime trace.
+- Overview Log summarizes live progress.
+- Result Report captures the final response checked against the selected Response Template.
+
+Template validation must not hide Raw Log failures, skipped validation, or blocked execution states.
+
 ## Future UI / Product Behavior
 
 Future Hobit UI may support:
@@ -180,6 +194,9 @@ Future Workspaces may store:
 - captured executor responses
 - response validation results
 - validation command results
+- raw agent/tool/runtime logs when future agent runs exist
+- overview run logs when future agent runs exist
+- result reports tied to selected Response Templates
 - Git commit hashes and messages
 - widget logs and activity associated with the block
 - artifacts created by the block
