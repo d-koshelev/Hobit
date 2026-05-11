@@ -744,3 +744,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 560px) {
+  .docking-station-preview-grid {
+    grid-template-areas:
+      "top"
+      "left"
+      "core"
+      "right"
+      "bottom";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .docking-station-rail-left,
+  .docking-station-rail-right {
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
