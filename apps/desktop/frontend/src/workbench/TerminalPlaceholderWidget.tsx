@@ -45,10 +45,22 @@ export function TerminalPlaceholderWidget({
 
   const program = programDraft.trim();
   const workingDirectory = workingDirectoryDraft.trim();
+  const timeoutMsError = positiveIntegerInputError(timeoutMsDraft, "Timeout ms");
+  const stdoutCapBytesError = positiveIntegerInputError(
+    stdoutCapBytesDraft,
+    "Stdout cap bytes",
+  );
+  const stderrCapBytesError = positiveIntegerInputError(
+    stderrCapBytesDraft,
+    "Stderr cap bytes",
+  );
+  const numericInputError =
+    timeoutMsError ?? stdoutCapBytesError ?? stderrCapBytesError;
   const canRun =
     Boolean(onRunTerminalCommand) &&
     program.length > 0 &&
     workingDirectory.length > 0 &&
+    !numericInputError &&
     !isRunning;
 
   async function runCommand() {
@@ -58,20 +70,26 @@ export function TerminalPlaceholderWidget({
 
     setRunErrorMessage(null);
     setRunResult(null);
+
+    if (numericInputError) {
+      setRunErrorMessage(numericInputError);
+      return;
+    }
+
     setIsRunning(true);
 
     try {
       const timeoutMs = parsePositiveIntegerInput(
         timeoutMsDraft,
-        "timeout_ms",
+        "Timeout ms",
       );
       const stdoutCapBytes = parsePositiveIntegerInput(
         stdoutCapBytesDraft,
-        "stdout_cap_bytes",
+        "Stdout cap bytes",
       );
       const stderrCapBytes = parsePositiveIntegerInput(
         stderrCapBytesDraft,
-        "stderr_cap_bytes",
+        "Stderr cap bytes",
       );
       const response = await onRunTerminalCommand(instance.id, {
         program,
@@ -118,12 +136,13 @@ export function TerminalPlaceholderWidget({
             </h3>
             <p className="terminal-command-text">
               Program and arguments are passed directly through the desktop
-              backend. This is not an interactive terminal, not a shell, has no
-              stdin, no streaming, and no command history. Browser fallback
-              cannot run local processes.
+              backend as program + argv. This is a one-shot local command path
+              with no shell mode, no interactive stdin, no PTY, no streaming,
+              and no command history. Browser fallback cannot run local
+              processes.
             </p>
           </div>
-          <Badge variant="info">No shell</Badge>
+          <Badge variant="info">No shell mode</Badge>
         </div>
 
         <div className="terminal-command-controls">
@@ -184,23 +203,31 @@ export function TerminalPlaceholderWidget({
           </div>
 
           <TerminalNumberField
+            error={timeoutMsError}
             id={timeoutInputId}
             label="Timeout ms"
             onChange={setTimeoutMsDraft}
             value={timeoutMsDraft}
           />
           <TerminalNumberField
+            error={stdoutCapBytesError}
             id={stdoutCapInputId}
             label="Stdout cap bytes"
             onChange={setStdoutCapBytesDraft}
             value={stdoutCapBytesDraft}
           />
           <TerminalNumberField
+            error={stderrCapBytesError}
             id={stderrCapInputId}
             label="Stderr cap bytes"
             onChange={setStderrCapBytesDraft}
             value={stderrCapBytesDraft}
           />
+          {numericInputError ? (
+            <p className="terminal-command-validation" role="alert">
+              {numericInputError}
+            </p>
+          ) : null}
         </div>
 
         <div className="terminal-command-action-row">
@@ -236,11 +263,13 @@ export function TerminalPlaceholderWidget({
 }
 
 function TerminalNumberField({
+  error,
   id,
   label,
   onChange,
   value,
 }: {
+  error?: string | null;
   id: string;
   label: string;
   onChange: (value: string) => void;
@@ -252,6 +281,7 @@ function TerminalNumberField({
         {label}
       </label>
       <Input
+        aria-invalid={error ? true : undefined}
         id={id}
         min={1}
         onChange={(event) => onChange(event.target.value)}
@@ -470,13 +500,29 @@ function parsePositiveIntegerInput(value: string, label: string): number | null 
     return null;
   }
 
+  const errorMessage = positiveIntegerInputError(value, label);
+
+  if (errorMessage) {
+    throw new Error(errorMessage);
+  }
+
+  return Number(trimmedValue);
+}
+
+function positiveIntegerInputError(value: string, label: string): string | null {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
   const parsedValue = Number(trimmedValue);
 
   if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
-    throw new Error(`${label} must be a positive integer.`);
+    return `${label} must be a positive integer.`;
   }
 
-  return parsedValue;
+  return null;
 }
 
 function errorToMessage(error: unknown): string {

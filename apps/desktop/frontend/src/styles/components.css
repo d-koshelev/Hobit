@@ -159,6 +159,7 @@
 .terminal-command-title,
 .terminal-command-text,
 .terminal-command-note,
+.terminal-command-validation,
 .terminal-result-title,
 .terminal-result-text,
 .terminal-result-label,
@@ -185,6 +186,7 @@
 
 .terminal-command-text,
 .terminal-command-note,
+.terminal-command-validation,
 .terminal-result-text,
 .terminal-result-value,
 .terminal-run-notice-text {
@@ -202,6 +204,11 @@
 
 .terminal-command-field-wide {
   grid-column: 1 / -1;
+}
+
+.terminal-command-validation {
+  grid-column: 1 / -1;
+  color: var(--color-error);
 }
 
 .terminal-command-args-textarea {
