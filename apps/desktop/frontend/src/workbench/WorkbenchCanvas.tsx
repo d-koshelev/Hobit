@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Button } from "../design-system/Button";
 import { Panel } from "../design-system/Panel";
+import { DockingStationPlaceholder } from "./DockingStationPlaceholder";
 import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WidgetHost } from "./WidgetHost";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
@@ -122,6 +123,13 @@ export function WorkbenchCanvas({
     visibleWidgets,
     dockedDragPositions,
     dockedResizeSizes,
+  );
+  const canvasTopSurfaces = (
+    <>
+      <WorkbenchActivity events={viewState.recentEvents} />
+      <DockingStationPlaceholder />
+      {isLayoutEditing ? <LayoutEditingStatus /> : null}
+    </>
   );
 
   useEffect(() => {
@@ -627,8 +635,7 @@ export function WorkbenchCanvas({
     return (
       <section className={canvasShellClass} aria-label={canvasLabel}>
         <div className="canvas-stack">
-          <WorkbenchActivity events={viewState.recentEvents} />
-          {isLayoutEditing ? <LayoutEditingStatus /> : null}
+          {canvasTopSurfaces}
           <div className="empty-workbench" aria-label="Empty workbench">
             <div className="empty-workbench-content">
               <h1 className="empty-workbench-title">Your workbench is empty</h1>
@@ -648,8 +655,7 @@ export function WorkbenchCanvas({
   return (
     <section className={canvasShellClass} aria-label={canvasLabel}>
       <div className="canvas-stack">
-        <WorkbenchActivity events={viewState.recentEvents} />
-        {isLayoutEditing ? <LayoutEditingStatus /> : null}
+        {canvasTopSurfaces}
         <div
           className="widget-layout-surface"
           ref={layoutSurfaceRef}
