@@ -6,13 +6,13 @@ This contract defines Hobit's agent operating model for coordinated project work
 
 Hobit remains operator-controlled. Agents may help coordinate, implement, audit, validate, and report work, but they must do so through explicit roles, scoped requests, visible outputs, and approval-aware actions.
 
-This is a documentation and product/domain contract only. The current Agent Chat widget includes a frontend-local/mock proposal-only preview, but this contract does not implement agent runtime behavior, storage, template editing, or automatic execution.
+This is a documentation and product/domain contract only. The current Agent Chat widget includes a frontend-local/mock proposal-only preview with explicit current-session approved context selection, but this contract does not implement agent runtime behavior, storage, template editing, or automatic execution.
 
 ## Current Status
 
 The current repository has no implemented agent runtime, no automatic agent execution, no template editor, and no response validation engine.
 
-Agent Chat can generate a frontend-local/mock structured proposal preview from an operator prompt. It does not call an LLM, read approved Workspace or widget context, execute tools, create Agent Queue items, persist chat messages, or mutate Workspace state.
+Agent Chat can generate a frontend-local/mock structured proposal preview from an operator prompt and can include explicitly selected safe current-view metadata: Workspace/workbench identity, widget inventory metadata, and current global activity status. It does not call an LLM, read hidden Workspace or widget context, read Notes body, read Git status, read Terminal output, read logs, read files, execute tools, create Agent Queue items, persist chat messages, persist approved context snapshots, or mutate Workspace state.
 
 The frontend Template Library placeholder may show a static planned Coordinator Workflow preview, but it does not implement coordinator UI, executor thread/task integration, request generation, response capture, response validation, Git-response association, or agent execution.
 
@@ -22,7 +22,7 @@ The project workflow currently uses numbered blocks, focused executor tasks, val
 
 Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend has a static Agent Monitoring placeholder previewing Raw Log, Overview Log, and Result Report sections, but real run start, runtime logs, response parsing, response validation, overview summarization, and executor integration are not implemented yet.
 
-Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read explicitly approved Workspace or widget context and propose executable previewed actions, but approved context access, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
+Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context snapshots, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
 ## Core Rule
 

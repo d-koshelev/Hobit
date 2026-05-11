@@ -1,3 +1,5 @@
+import type { AgentChatApprovedContextSnapshot } from "./agentChatApprovedContext";
+
 export type AgentChatProposalStatus = "proposal-only";
 
 export type AgentChatProposalAction = {
@@ -8,6 +10,7 @@ export type AgentChatProposalAction = {
 
 export type AgentChatMockProposal = {
   actionProposals: readonly AgentChatProposalAction[];
+  approvedContextSnapshot: AgentChatApprovedContextSnapshot;
   contextNeeded: readonly string[];
   id: string;
   prompt: string;
@@ -24,9 +27,11 @@ const MAX_SUMMARY_LENGTH = 180;
 export function createAgentChatMockProposal(
   prompt: string,
   sequence: number,
+  approvedContextSnapshot: AgentChatApprovedContextSnapshot,
 ): AgentChatMockProposal {
   const compactPrompt = compactWhitespace(prompt);
   const summaryPrompt = truncateForSummary(compactPrompt);
+  const hasApprovedContext = approvedContextSnapshot.status === "approved";
 
   return {
     actionProposals: [
@@ -43,15 +48,20 @@ export function createAgentChatMockProposal(
         title: "Approval gate required",
       },
     ],
+    approvedContextSnapshot,
     contextNeeded: [
-      "No approved context selected yet.",
-      "This preview does not read Notes, Git status, Terminal results, Agent Queue items, widget state, or files.",
-      "Future context selection must be explicit and operator-approved.",
+      hasApprovedContext
+        ? "This proposal used only the current-view metadata explicitly selected in Approved context."
+        : "No approved context selected; the proposal used the operator prompt only.",
+      "This preview does not read Notes body, Git status, Terminal results, widget logs, Agent Queue details, environment, secrets, or files.",
+      "Future persistent context snapshots must remain explicit and operator-approved.",
     ],
     id: `agent-chat-mock-proposal-${sequence}`,
     prompt: compactPrompt,
     proposedPlan: [
-      "Review only operator-approved workspace context; none has been selected in this mock runtime.",
+      hasApprovedContext
+        ? "Review the operator-approved current-view metadata included in this mock proposal."
+        : "Proceed from the operator prompt only; no workspace context has been approved.",
       "Identify which visible widgets or future tool actions may support the request.",
       "Prepare an operator-reviewed action preview before any tool execution or workspace mutation.",
     ],
@@ -61,6 +71,9 @@ export function createAgentChatMockProposal(
       "No LLM is connected.",
       "No tools were executed.",
       "No workspace mutation was performed.",
+      hasApprovedContext
+        ? "Approved context is a current-session frontend snapshot only."
+        : "No workspace context was included.",
     ],
     safetyNotes: [
       "Proposal only. This does not approve, queue, apply, or execute anything.",

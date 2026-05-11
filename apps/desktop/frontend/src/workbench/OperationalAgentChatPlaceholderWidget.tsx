@@ -1,7 +1,16 @@
-import { useId, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { AgentChatApprovedContextSection } from "./AgentChatApprovedContextSection";
+import {
+  createAgentChatApprovedContextSnapshot,
+  emptyAgentChatApprovedContextSelection,
+  type AgentChatApprovedContextSelection,
+  type AgentChatApprovedContextSnapshot,
+  type AgentChatContextSourceId,
+} from "./agentChatApprovedContext";
+import { useAgentChatAvailableContext } from "./AgentChatContextProvider";
 import {
   createAgentChatMockProposal,
   type AgentChatMockProposal,
@@ -26,17 +35,43 @@ export function OperationalAgentChatPlaceholderWidget({
   title,
 }: WidgetRenderProps) {
   const promptId = useId();
+  const availableContext = useAgentChatAvailableContext();
   const [prompt, setPrompt] = useState("");
   const [proposal, setProposal] = useState<AgentChatMockProposal | null>(null);
+  const [contextSelection, setContextSelection] =
+    useState<AgentChatApprovedContextSelection>(
+      emptyAgentChatApprovedContextSelection,
+    );
   const trimmedPrompt = prompt.trim();
   const canGenerateProposal = trimmedPrompt.length > 0;
+  const approvedContextPreview = useMemo(
+    () =>
+      createAgentChatApprovedContextSnapshot(
+        availableContext,
+        contextSelection,
+      ),
+    [availableContext, contextSelection],
+  );
   const localActivity = proposal
     ? [
         "Prompt received by local mock runtime.",
         "Mock proposal generated.",
+        proposal.approvedContextSnapshot.status === "approved"
+          ? "Selected current-view context snapshot included."
+          : "No context approved; prompt-only proposal generated.",
         "No tools executed and no workspace mutation performed.",
       ]
     : idleActivity;
+
+  function updateContextSelection(
+    sourceId: AgentChatContextSourceId,
+    isSelected: boolean,
+  ) {
+    setContextSelection((currentSelection) => ({
+      ...currentSelection,
+      [sourceId]: isSelected,
+    }));
+  }
 
   function generateProposal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +81,13 @@ export function OperationalAgentChatPlaceholderWidget({
     }
 
     const nextSequence = proposal ? proposal.sequence + 1 : 1;
-    setProposal(createAgentChatMockProposal(prompt, nextSequence));
+    setProposal(
+      createAgentChatMockProposal(
+        prompt,
+        nextSequence,
+        approvedContextPreview,
+      ),
+    );
   }
 
   return (
@@ -104,6 +145,13 @@ export function OperationalAgentChatPlaceholderWidget({
             </div>
           </form>
         </section>
+
+        <AgentChatApprovedContextSection
+          isContextAvailable={Boolean(availableContext)}
+          onSelectionChange={updateContextSelection}
+          selection={contextSelection}
+          snapshot={approvedContextPreview}
+        />
 
         {proposal ? (
           <AgentChatProposalPreview proposal={proposal} />
@@ -174,6 +222,7 @@ function AgentChatProposalPreview({
         title="Required context"
       />
       <ActionProposalSection actions={proposal.actionProposals} />
+      <ContextUsedSection snapshot={proposal.approvedContextSnapshot} />
       <ProposalSection
         items={proposal.safetyNotes}
         title="Risks and approval notes"
@@ -198,6 +247,36 @@ function ProposalSection({
           <li key={item}>{item}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function ContextUsedSection({
+  snapshot,
+}: {
+  snapshot: AgentChatApprovedContextSnapshot;
+}) {
+  return (
+    <div className="agent-chat-proposal-section">
+      <p className="agent-chat-proposal-section-title">Context used</p>
+      <p className="agent-chat-proposal-text">{snapshot.summary}</p>
+      {snapshot.items.length > 0 ? (
+        <div className="agent-chat-context-preview-groups">
+          {snapshot.items.map((item) => (
+            <div
+              className="agent-chat-context-preview-group"
+              key={item.sourceId}
+            >
+              <p className="agent-chat-context-preview-title">{item.title}</p>
+              <ul className="agent-chat-list">
+                {item.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
