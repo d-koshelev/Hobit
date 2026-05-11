@@ -15,8 +15,8 @@ Toolbelt script instead of leaving temporary helper scripts in the repository.
 - Scripts avoid external Python dependencies.
 - Scripts ignore generated, vendor, and local archive artifacts such as `.git`,
   `target`, `node_modules`, `dist`, `apps/desktop/src-tauri/gen`, and `*.zip`.
-- Inspection scripts are read-only. `validate.ps1` and `validate.sh` run the
-  mandated validation sequence, including `cargo fmt --all`.
+- Inspection scripts are read-only. `validate.ps1` and `validate.sh` run
+  validation profiles. The `full` profile includes `cargo fmt --all`.
 
 ## Scripts
 
@@ -26,11 +26,15 @@ Windows/PowerShell validation wrapper:
 
 ```powershell
 scripts/hobit/validate.ps1
+scripts/hobit/validate.ps1 -Profile fast
+scripts/hobit/validate.ps1 -Profile changed
+scripts/hobit/validate.ps1 -Profile full
 scripts/hobit/validate.ps1 --help
 ```
 
-Runs frontend typecheck/build, Rust formatting/check/tests, file-size checks,
-Git whitespace checks, and final Git status. It stops on the first failure.
+Runs the selected validation profile and prints per-step timings plus a final
+timing summary. It stops on the first failure. The default profile is `full`, so
+calling `scripts/hobit/validate.ps1` preserves the full validation path.
 On Windows machines where `python.exe` is only the Microsoft Store alias, set
 `HOBIT_PYTHON` to a real Python executable if auto-detection cannot find one.
 
@@ -40,11 +44,65 @@ Unix/Linux validation wrapper:
 
 ```sh
 scripts/hobit/validate.sh
+scripts/hobit/validate.sh --profile fast
+scripts/hobit/validate.sh --profile changed
+scripts/hobit/validate.sh --profile full
 scripts/hobit/validate.sh --help
 ```
 
-Uses `npm` instead of `npm.cmd` and runs the same sequence as the PowerShell
-wrapper.
+Uses `npm` instead of `npm.cmd` and supports the same profiles as the
+PowerShell wrapper.
+
+## Validation Profiles
+
+### `fast`
+
+Quick local iteration check. Target runtime is approximately one minute when
+caches are warm.
+
+Runs:
+
+- frontend typecheck
+- `cargo check --workspace`
+- changed-only file-size check
+- `git diff --check`
+
+Does not run frontend production build, Rust tests, `cargo fmt --all`, or a full
+file-size scan. Use this while iterating, not as final acceptance for a block.
+
+### `changed`
+
+Git-changed-file based validation for focused edits.
+
+Behavior:
+
+- frontend changes run typecheck
+- frontend source/config changes also run production build
+- Rust changes run `cargo check --workspace`
+- a single inferred Rust package runs `cargo test -p <package>`
+- multiple Rust packages, Cargo manifest changes, or `Cargo.lock` changes run
+  `cargo test --workspace`
+- docs/scripts-only changes run the relevant Toolbelt checks without Rust tests
+- always runs changed-only file-size check and `git diff --check`
+
+### `full`
+
+Commit/high-risk validation profile and the default when no profile is passed.
+
+Runs:
+
+- frontend typecheck
+- frontend production build
+- `cargo fmt --all`
+- `cargo check --workspace`
+- `cargo test --workspace`
+- full file-size check
+- `git diff --check`
+- `git status --short --branch`
+
+Codex and other agents should use `fast` during iteration, `changed` after
+focused edits, and `full` before commits unless a prompt explicitly says
+otherwise. The `fast` profile is not final acceptance.
 
 ### `check-file-sizes.py`
 

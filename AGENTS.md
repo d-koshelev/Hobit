@@ -212,6 +212,14 @@ Do not add:
 
 ## Validation
 
+Use Hobit Toolbelt validation profiles when possible:
+
+- `scripts/hobit/validate.ps1 -Profile fast` during iteration.
+- `scripts/hobit/validate.ps1 -Profile changed` after focused edits.
+- `scripts/hobit/validate.ps1 -Profile full` before commits/final acceptance unless a prompt explicitly says otherwise.
+
+The default Toolbelt validation profile is `full`; do not silently weaken final validation.
+
 For most changes, run:
 
 - cargo fmt --all
