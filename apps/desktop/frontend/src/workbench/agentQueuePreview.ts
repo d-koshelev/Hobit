@@ -61,7 +61,58 @@ export type AgentQueuePlannedAction = {
   label: string;
 };
 
+export type AgentQueueDetailField = {
+  label: string;
+  value: string;
+};
+
+export type AgentQueueRequestPreview = {
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueExecutionPreview = {
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueResultPreview = {
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueGitReviewPreview = {
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueArtifactPreview = {
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueDecisionPreview = {
+  actions: AgentQueuePlannedAction[];
+  fields: AgentQueueDetailField[];
+  title: string;
+};
+
+export type AgentQueueItemDetailPreview = {
+  ariaLabel: string;
+  badges: string[];
+  block: string;
+  description: string;
+  execution: AgentQueueExecutionPreview;
+  gitReview: AgentQueueGitReviewPreview;
+  artifacts: AgentQueueArtifactPreview;
+  request: AgentQueueRequestPreview;
+  result: AgentQueueResultPreview;
+  decision: AgentQueueDecisionPreview;
+  title: string;
+};
+
 export type AgentQueuePreview = {
+  detailPreview: AgentQueueItemDetailPreview;
   groups: AgentQueueGroup[];
   linkedSurfaces: AgentQueueLinkedSurface[];
   overview: AgentQueueOverview;
@@ -182,6 +233,138 @@ export const agentQueuePreview = {
       ],
     },
   ],
+  detailPreview: {
+    ariaLabel: "Static Agent Queue item detail preview",
+    block: "Block 72",
+    title: "Git read-only polish",
+    description:
+      "Static representative detail preview only. Queue item selection, item persistence, response capture, response validation, Git association, and working actions are not implemented.",
+    badges: ["Static", "Planned"],
+    request: {
+      title: "Request",
+      fields: [
+        {
+          label: "Request Template",
+          value: "Codex implementation block",
+        },
+        {
+          label: "Response Template",
+          value: "Implementation result",
+        },
+        {
+          label: "Prompt snapshot",
+          value:
+            "Generated prompt snapshot summary planned; no request generation exists.",
+        },
+        {
+          label: "Scope",
+          value:
+            "Read-only Git polish block with explicit do-not-change boundaries.",
+        },
+        {
+          label: "Do not change",
+          value:
+            "No Git mutations, storage, queue execution, or runtime behavior.",
+        },
+      ],
+    },
+    execution: {
+      title: "Execution",
+      fields: [
+        {
+          label: "Agent Run status",
+          value: "Result Report planned",
+        },
+        {
+          label: "Overview Log",
+          value: "Static overview summary planned for quick review.",
+        },
+        {
+          label: "Raw Log",
+          value: "Raw Log link planned; no run log storage exists.",
+        },
+      ],
+    },
+    result: {
+      title: "Result",
+      fields: [
+        {
+          label: "Result Report",
+          value: "Implementation result summary planned.",
+        },
+        {
+          label: "Validation",
+          value: "Passed placeholder; no response validator exists.",
+        },
+        {
+          label: "Warnings",
+          value: "None shown in this static preview.",
+        },
+        {
+          label: "Commit",
+          value: "Commit/status summary planned when linked data exists.",
+        },
+      ],
+    },
+    gitReview: {
+      title: "Git Review",
+      fields: [
+        {
+          label: "Repository state",
+          value: "Dirty placeholder from linked review context planned.",
+        },
+        {
+          label: "Changed files",
+          value: "3 changed files",
+        },
+        {
+          label: "Branch / commit / push",
+          value: "Branch, commit, and push summary planned.",
+        },
+        {
+          label: "Action",
+          value: "Review Git planned",
+        },
+      ],
+    },
+    artifacts: {
+      title: "Artifacts / Notes",
+      fields: [
+        {
+          label: "Artifacts",
+          value: "Produced artifacts planned; no artifact storage exists.",
+        },
+        {
+          label: "Notes / Notebook",
+          value: "Related review notes planned; notes are not linked here.",
+        },
+      ],
+    },
+    decision: {
+      title: "Decision",
+      fields: [
+        {
+          label: "Recommendation",
+          value: "Review Git / Accept planned",
+        },
+        {
+          label: "Operator control",
+          value:
+            "Operator decision remains explicit; no automatic acceptance exists.",
+        },
+      ],
+      actions: [
+        { label: "Open request planned" },
+        { label: "Open run planned" },
+        { label: "Review Git planned" },
+        { label: "Accept planned" },
+        { label: "Needs fix planned" },
+        { label: "Rerun planned" },
+        { label: "Create follow-up planned" },
+        { label: "Archive planned" },
+      ],
+    },
+  },
   linkedSurfaces: [
     {
       label: "Template Library",
