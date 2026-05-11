@@ -3,8 +3,11 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import {
+  StaticPreviewFieldList,
+  StaticPreviewPlannedActions,
+} from "./StaticPreviewPrimitives";
 import {
   agentQueuePreview,
   type AgentQueueDetailField,
@@ -108,14 +111,13 @@ export function AgentQueuePlaceholderWidget({
             <h3 className="agent-queue-section-title">Linked work surfaces</h3>
             <Badge variant="neutral">Planned</Badge>
           </div>
-          <dl className="agent-queue-linked-surface-list">
-            {agentQueuePreview.linkedSurfaces.map((item) => (
-              <div className="agent-queue-linked-surface" key={item.label}>
-                <dt className="agent-queue-card-label">{item.label}</dt>
-                <dd className="agent-queue-card-value">{item.value}</dd>
-              </div>
-            ))}
-          </dl>
+          <StaticPreviewFieldList
+            className="agent-queue-linked-surface-list"
+            fieldClassName="agent-queue-linked-surface"
+            fields={agentQueuePreview.linkedSurfaces}
+            labelClassName="agent-queue-card-label"
+            valueClassName="agent-queue-card-value"
+          />
         </section>
       </div>
     </WidgetFrame>
@@ -213,11 +215,17 @@ function QueueItemCard({
         <Badge variant={item.status.variant}>{item.status.label}</Badge>
       </div>
 
-      <dl className="agent-queue-card-signals">
-        <QueueCardSignal label="Validation" value={item.validation} />
-        <QueueCardSignal label="Git" value={item.git} />
-        <QueueCardSignal label="Next" value={item.decision.label} />
-      </dl>
+      <StaticPreviewFieldList
+        className="agent-queue-card-signals"
+        fieldClassName="agent-queue-card-signal"
+        fields={[
+          { label: "Validation", value: item.validation },
+          { label: "Git", value: item.git },
+          { label: "Next", value: item.decision.label },
+        ]}
+        labelClassName="agent-queue-card-label"
+        valueClassName="agent-queue-card-value"
+      />
     </article>
   );
 }
@@ -301,42 +309,19 @@ function QueueDetailSection({
       className={`agent-queue-detail-section agent-queue-detail-section-${emphasis}`}
     >
       <h4 className="agent-queue-item-title">{title}</h4>
-      <dl className="agent-queue-item-grid">
-        {fields.map((field) => (
-          <QueueCardField
-            key={field.label}
-            label={field.label}
-            value={field.value}
-          />
-        ))}
-      </dl>
+      <StaticPreviewFieldList
+        className="agent-queue-item-grid"
+        fieldClassName="agent-queue-card-field"
+        fields={fields}
+        labelClassName="agent-queue-card-label"
+        valueClassName="agent-queue-card-value"
+      />
       {actions ? (
-        <div className="agent-queue-action-row">
-          {actions.map((action) => (
-            <Button disabled key={action.label} variant="secondary">
-              {action.label}
-            </Button>
-          ))}
-        </div>
+        <StaticPreviewPlannedActions
+          actions={actions}
+          className="agent-queue-action-row"
+        />
       ) : null}
     </section>
-  );
-}
-
-function QueueCardSignal({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="agent-queue-card-signal">
-      <dt className="agent-queue-card-label">{label}</dt>
-      <dd className="agent-queue-card-value">{value}</dd>
-    </div>
-  );
-}
-
-function QueueCardField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="agent-queue-card-field">
-      <dt className="agent-queue-card-label">{label}</dt>
-      <dd className="agent-queue-card-value">{value}</dd>
-    </div>
   );
 }

@@ -9,6 +9,7 @@ import type {
   GitLastCommit,
   GitRepositoryStatus,
 } from "../workspace/types";
+import { StaticPreviewPlannedActions } from "./StaticPreviewPrimitives";
 import {
   aheadBehindLabel,
   branchLabel,
@@ -23,6 +24,7 @@ import {
   gitStatusErrorViewFromCategory,
   gitStatusErrorViewFromUnknown,
   gitStatusSummary,
+  plannedGitActions,
   plannedGitReviewCards,
   repositoryRootHelpText,
   shortCommitHash,
@@ -241,17 +243,11 @@ export function GitPlaceholderWidget({
         ))}
       </div>
 
-      <div aria-label="Planned Git actions" className="git-action-row">
-        <Button disabled variant="secondary">
-          Diff review planned
-        </Button>
-        <Button disabled variant="secondary">
-          Push planned
-        </Button>
-        <Button disabled variant="secondary">
-          Follow-up planned
-        </Button>
-      </div>
+      <StaticPreviewPlannedActions
+        actions={plannedGitActions}
+        aria-label="Planned Git actions"
+        className="git-action-row"
+      />
     </WidgetFrame>
   );
 }

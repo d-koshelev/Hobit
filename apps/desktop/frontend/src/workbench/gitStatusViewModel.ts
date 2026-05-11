@@ -86,6 +86,12 @@ export const plannedGitReviewCards: PlannedGitReviewCardView[] = [
   },
 ];
 
+export const plannedGitActions = [
+  { label: "Diff review planned" },
+  { label: "Push planned" },
+  { label: "Follow-up planned" },
+];
+
 export function gitFrameStatusView(
   status: GitRepositoryStatus | null,
   errorMessage: GitStatusErrorView | null,

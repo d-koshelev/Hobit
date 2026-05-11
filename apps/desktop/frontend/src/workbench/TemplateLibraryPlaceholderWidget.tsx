@@ -1,6 +1,9 @@
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import {
+  StaticPreviewFieldList,
+  StaticPreviewPlannedActions,
+} from "./StaticPreviewPrimitives";
 import {
   templateLibraryPreview,
   type CoordinatorWorkflowPreview,
@@ -78,16 +81,11 @@ export function TemplateLibraryPlaceholderWidget({
           ))}
         </div>
 
-        <div
+        <StaticPreviewPlannedActions
+          actions={templateLibraryPreview.plannedActions}
           aria-label="Planned template actions"
           className="template-library-action-row"
-        >
-          {templateLibraryPreview.plannedActions.map((action) => (
-            <Button disabled key={action.label} variant="secondary">
-              {action.label}
-            </Button>
-          ))}
-        </div>
+        />
       </div>
     </WidgetFrame>
   );
@@ -105,14 +103,13 @@ function FieldPreviewSection({ preview }: FieldPreviewSectionProps) {
     >
       <TemplatePreviewHeader preview={preview} />
 
-      <dl className="template-library-preview-grid">
-        {preview.fields.map((field) => (
-          <div className="template-library-preview-field" key={field.label}>
-            <dt className="template-library-preview-label">{field.label}</dt>
-            <dd className="template-library-preview-value">{field.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <StaticPreviewFieldList
+        className="template-library-preview-grid"
+        fieldClassName="template-library-preview-field"
+        fields={preview.fields}
+        labelClassName="template-library-preview-label"
+        valueClassName="template-library-preview-value"
+      />
     </section>
   );
 }

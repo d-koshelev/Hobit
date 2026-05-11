@@ -1,6 +1,9 @@
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import {
+  StaticPreviewFieldList,
+  StaticPreviewPlannedActions,
+} from "./StaticPreviewPrimitives";
 import type { WidgetRenderProps } from "./types";
 
 const overviewLogSteps = [
@@ -41,6 +44,13 @@ const resultReportFields = [
     label: "Final git status",
     value: "Reports final branch and working tree state honestly.",
   },
+];
+
+const plannedAgentRunActions = [
+  { label: "Start run planned" },
+  { label: "Capture response planned" },
+  { label: "Validate result planned" },
+  { label: "Open raw log planned" },
 ];
 
 export function AgentRunPlaceholderWidget({
@@ -112,14 +122,13 @@ export function AgentRunPlaceholderWidget({
               </div>
               <Badge variant="neutral">Planned</Badge>
             </div>
-            <dl className="agent-run-result-grid">
-              {resultReportFields.map((field) => (
-                <div className="agent-run-result-field" key={field.label}>
-                  <dt className="agent-run-result-label">{field.label}</dt>
-                  <dd className="agent-run-result-value">{field.value}</dd>
-                </div>
-              ))}
-            </dl>
+            <StaticPreviewFieldList
+              className="agent-run-result-grid"
+              fieldClassName="agent-run-result-field"
+              fields={resultReportFields}
+              labelClassName="agent-run-result-label"
+              valueClassName="agent-run-result-value"
+            />
           </section>
 
           <section className="agent-run-view agent-run-raw">
@@ -132,7 +141,10 @@ export function AgentRunPlaceholderWidget({
               </div>
               <Badge variant="neutral">Planned</Badge>
             </div>
-            <div className="agent-run-raw-log" aria-label="Static Raw Log preview">
+            <div
+              className="agent-run-raw-log"
+              aria-label="Static Raw Log preview"
+            >
               <p className="agent-run-raw-placeholder">
                 Raw agent/tool/runtime output will appear here when a future
                 runtime exists.
@@ -144,20 +156,11 @@ export function AgentRunPlaceholderWidget({
           </section>
         </div>
 
-        <div aria-label="Planned Agent Run actions" className="agent-run-actions">
-          <Button disabled variant="secondary">
-            Start run planned
-          </Button>
-          <Button disabled variant="secondary">
-            Capture response planned
-          </Button>
-          <Button disabled variant="secondary">
-            Validate result planned
-          </Button>
-          <Button disabled variant="secondary">
-            Open raw log planned
-          </Button>
-        </div>
+        <StaticPreviewPlannedActions
+          actions={plannedAgentRunActions}
+          aria-label="Planned Agent Run actions"
+          className="agent-run-actions"
+        />
       </div>
     </WidgetFrame>
   );
