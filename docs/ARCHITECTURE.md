@@ -16,6 +16,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape. The frontend has a static insertable Template Library placeholder with Request Template, Response Template, and Coordinator Workflow previews, but no template storage, editing, request generation, response capture, response parsing, response validation, executor integration, Git-response association, or agent execution behavior is implemented.
 
+`NOTES_WIDGET_CONTRACT.md` defines the future Notebook/Notes widget direction: legacy single-body Notes compatibility, multiple text tabs/documents inside one widget, explicit user-triggered text formatting actions, and operator-approved AI-assisted editing. The current frontend still only persists the minimal `{ "body": "..." }` Notes draft state.
+
 ## Current Repository Skeleton
 
 The implemented skeleton is:
@@ -61,7 +63,7 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls. The Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder templates can be inserted through the workspace API as persisted WidgetInstances and rendered through `WidgetHost`. Other catalog templates remain planned/display-only metadata and are not registered widget definitions.
 
-There is no terminal execution, agent runtime, chat execution, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notes document model yet.
+There is no terminal execution, agent runtime, chat execution, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notebook/Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -133,7 +135,7 @@ The Empty Workbench is rendered from preset data and new Workspaces currently st
 
 The Widget Catalog has frontend-local template metadata for future capabilities. Only the Notes, Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder templates are currently available for insertion; all other catalog templates remain planned/display-only. There is no runtime widget loading or real capability widget insertion beyond those placeholders through the Tauri bridge yet.
 
-The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notes document model, Markdown editor, autosave flow, folder system, or AI-in-Notes implementation.
+The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. This is not the full Notebook/Notes document model, multi-tab state, Markdown editor, text formatting tool surface, autosave flow, folder system, or AI-in-Notes implementation.
 
 The Agent Chat placeholder is static and does not accept chat input, execute agents, call LLMs, access Workspace context, propose actions, stream responses, or write widget state.
 
@@ -179,7 +181,7 @@ Full runtime restore is not implemented yet. There is no event replay, widget ru
 
 Future notes work will support Markdown documents organized in folders with global and workspace-local scopes.
 
-The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder widgets. The Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root, and the Template Library placeholder only shows static previews. There is no notes document storage, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
+The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus static Terminal placeholder, Agent Chat placeholder, Git placeholder, and Template Library placeholder widgets. The Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root, and the Template Library placeholder only shows static previews. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, terminal execution, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or agent chat runtime in the current repository.
 
 ## Intended Repository Layout
 

@@ -1,17 +1,54 @@
-# Hobit Notes Widget Contract
+# Hobit Notebook / Notes Widget Contract
 
 ## Purpose
 
-Notes is a first-class widget/capability for Markdown-based operator notes inside Hobit.
+Notes is the current first-class widget/capability for operator text inside Hobit.
 
-Notes gives the operator a simple place to write, organize, and resume freeform text without turning that text into structured Knowledge, Evidence, Runbooks, or agent memory by default.
+The future Notebook is the planned evolution of Notes into a practical text workbench surface with multiple text tabs/documents, explicit text formatting tools, and optional AI-assisted editing that remains operator-approved.
+
+Notes and Notebook give the operator a simple place to write, organize, transform, and resume freeform text without turning that text into structured Knowledge, Evidence, Runbooks, or agent memory by default.
 
 ## Product Role
 
 - Notes provide freeform writing inside Hobit.
+- Notebook extends Notes into a multi-document text work surface inside one widget.
 - Notes can be global or workspace-local.
 - Notes support lightweight memory, observations, snippets, manual notes, checklists, and scratch documentation.
 - Notes are optional widgets/capabilities, not the product center.
+
+## Current Implementation Boundary
+
+The current implemented Notes widget is intentionally minimal:
+
+- Notes is insertable from the Widget Catalog.
+- Notes persists one widget-local draft body through `widget_instances.state`.
+- The current state shape is:
+
+```json
+{ "body": "..." }
+```
+
+- Save and restore use the generic widget state path.
+- Widget logs, layout editing, floating mode, and workspace activity are provided by the shared widget foundation.
+
+Not implemented in the current Notes widget:
+
+- multiple tabs or multiple documents inside one widget
+- full Notebook data model
+- folder or document storage
+- Markdown preview
+- autosave beyond the current explicit state-save path
+- text formatting or transformation tools
+- AI-assisted editing
+- note search, tags, backlinks, import/export, or sync
+
+This document is a future contract. It must not be read as implemented behavior.
+
+## Naming
+
+`Notes` is the current widget name and existing contract name. `Notebook` is the future product direction for the richer text work surface.
+
+Future implementation may keep the visible widget name `Notes`, rename it to `Notebook`, or expose both through templates, but the state migration rules in this contract still apply to existing saved Notes widgets.
 
 ## Non-Goals
 
@@ -52,7 +89,50 @@ The same Notes Widget definition can be instantiated with different scope config
 
 ## Data Model
 
-Conceptual note model:
+### Current State
+
+The current persisted widget state is the legacy single-body shape:
+
+```json
+{ "body": "..." }
+```
+
+This shape must remain readable by future Notebook implementations.
+
+### Future Widget-Local Notebook State
+
+The near-term Notebook model should support multiple text tabs/documents inside one widget instance.
+
+Illustrative state shape, not implemented yet:
+
+```json
+{
+  "activeTabId": "tab-1",
+  "tabs": [
+    {
+      "id": "tab-1",
+      "title": "Notes",
+      "body": "..."
+    }
+  ]
+}
+```
+
+Future fields may include:
+
+- `version`
+- tab ordering
+- tab `createdAt` and `updatedAt`
+- tab metadata
+- dirty state
+- editor selection or cursor state
+- per-tab language or content hints
+
+The first Notebook implementation should keep state small and explicit. It should not introduce shared document storage or schema changes unless that block explicitly asks for them.
+
+### Long-Term Note Model
+
+Conceptual note model for future global/workspace document storage:
 
 - `NoteFolder`: an organizational folder in a note tree.
 - `NoteDocument`: a Markdown text document.
@@ -77,6 +157,20 @@ Conceptual fields:
 - `tags` optional
 - `linked_workspace_objects` optional
 
+The long-term folder/document model is separate from the near-term widget-local tab model. A future implementation must explicitly define when tab content becomes a shared `NoteDocument` instead of widget-local state.
+
+## Legacy Compatibility
+
+Future Notebook implementations must safely handle existing Notes state:
+
+- `{ "body": "..." }` must remain readable.
+- Existing saved Notes content must not be lost.
+- A future migration may adapt legacy state to one tab, for example `tabs[0].body = body`.
+- Migration must be explicit, tested, and reversible enough to diagnose failures.
+- Unknown state fields must not be silently discarded.
+- Invalid or unexpected state must fail conservatively, preserve the original stored value where possible, and show an understandable error or fallback.
+- A migration must not rewrite all saved Notes merely because a widget was opened unless that behavior is explicitly designed and tested.
+
 ## Folder System
 
 Notes support hierarchical folders.
@@ -100,6 +194,89 @@ Embedded files/images are not required initially.
 
 Backlinks and wiki-style links are future optional capabilities.
 
+## Notebook Tabs
+
+Future Notebook should support multiple text tabs/documents inside one widget.
+
+Required tab operations:
+
+- add text tab/document
+- delete tab with confirmation or safe recovery behavior
+- rename tab
+- switch active tab
+- preserve each tab's content independently
+
+Future optional tab operations:
+
+- duplicate tab
+- reorder tabs
+- pin or mark important tabs
+- move a tab into a future global/workspace note document
+
+Tab behavior rules:
+
+- Switching tabs must not lose unsaved text.
+- Deleting the active tab must choose a predictable next active tab.
+- Empty-title tabs should receive a clear fallback title.
+- The active tab should be persisted as `activeTabId` or equivalent state.
+- Tab identity must be stable across renames.
+- Tab content should remain plain text or Markdown unless a future content-type contract is added.
+
+## Text Formatting And Transformation Actions
+
+Notebook may provide explicit user-triggered formatting and transformation actions.
+
+Initial candidate actions:
+
+- JSON prettify / format
+- JSON minify later if useful
+- list prettify / normalize
+- bullet list cleanup
+- numbered list cleanup
+- trim trailing spaces
+- normalize indentation
+- sort lines
+- remove duplicate lines
+- wrap or unwrap lines later if useful
+
+Formatting rules:
+
+- No hidden automatic formatting.
+- No formatting on save unless the operator explicitly invokes it.
+- Actions apply to the active tab or selected text, depending on the future UI.
+- The target scope must be visible before the action runs.
+- Transformations must preserve content meaning.
+- Formatting failures must preserve the original text.
+- Destructive or ambiguous transformations should be conservative, previewed, or undoable.
+- Widget-local logs may record that a formatting action ran, but logs must not become the primary undo mechanism.
+
+### JSON Prettify
+
+JSON prettify must be an explicit action selected by the operator.
+
+Behavior:
+
+- Apply to selected text when a selection exists, otherwise to the active tab body.
+- Parse JSON before replacing text.
+- If parsing fails, show an error and preserve the original text.
+- Do not partially rewrite invalid JSON.
+- Do not claim success when parsing or formatting failed.
+- Do not automatically format JSON on paste or save.
+- Prefer deterministic indentation and stable output.
+- Reversibility should come through normal editor undo/local draft behavior when that exists.
+
+### List Prettify
+
+List prettify must be an explicit action selected by the operator.
+
+Behavior:
+
+- Normalize pasted lists into readable bullets, numbers, or line breaks.
+- Preserve item text and meaning.
+- Avoid aggressive guessing across prose paragraphs.
+- Avoid destructive transformations such as dropping repeated content unless the operator selected a duplicate-removal action.
+- Ambiguous transformations should be previewed, constrained to selected text, or skipped with an explanation.
+
 ## Widget Behavior
 
 Notes Widget must follow the base widget contract:
@@ -115,7 +292,7 @@ Notes Widget must follow the base widget contract:
 
 ## Actions
 
-Future note actions may include:
+Future note/notebook actions may include:
 
 - create folder
 - rename folder
@@ -131,6 +308,11 @@ Future note actions may include:
 - link note to Workspace object
 - promote note fragment to Knowledge candidate
 - attach note excerpt as Evidence candidate
+- add tab
+- delete tab
+- rename tab
+- switch active tab
+- run explicit text formatting action
 
 Promoting note content to Knowledge or Evidence must be an explicit operator action.
 
@@ -145,6 +327,47 @@ Agent interaction with notes is capability and context bound:
 - Workspace notes are not automatically sent to agent unless included in context or exposed through widget/capability rules.
 - Agent may propose note edits or summaries, but operator controls saving.
 - Agent may propose "promote this note to Knowledge candidate" but must not do it silently.
+- Notebook may later support `Ask Agent` or `Work with AI` actions inside the widget.
+- AI may use the active tab, selected text, or explicitly allowed Workspace context only when that context is visible or reviewable.
+- AI suggestions must be operator-approved before applying changes.
+- AI must not silently rewrite notes, run commands, or promote content to another capability.
+
+## UI Direction
+
+Notebook UI should keep writing as the focus:
+
+- Tabs should be lightweight and compact.
+- The active writing area should remain the primary surface.
+- Formatting tools should not clutter the main writing surface.
+- Tools may live in a small action menu, compact toolbar, or command menu.
+- Destructive actions such as delete tab must require confirmation or a recovery path.
+- Disabled or unavailable tools must not imply hidden automatic behavior.
+- Notebook must remain inside the shared `WidgetFrame` and keep widget Logs, layout edit, floating mode, and future true popout behavior.
+
+## Workspace And Widget Relationship
+
+Notebook is a widget-local text work surface unless a future design explicitly introduces shared documents.
+
+Rules:
+
+- Notebook state remains widget state by default.
+- Notebook must follow the base widget contract for persisted state, widget-local logs, layout editing, floating mode, ghost placeholder, and future true popout behavior.
+- Notebook may later interact with Request Templates, Agent Chat, Git review, Knowledge, or Evidence through explicit user actions.
+- Notebook must not directly couple to other widgets.
+- Notebook must not silently share content across widget boundaries.
+- Cross-widget use of Notebook content must be visible and operator-controlled.
+
+## Safety Principles
+
+- No hidden formatting.
+- No hidden AI rewriting.
+- No hidden context use.
+- No automatic command execution from Notebook.
+- No destructive tab or document delete without confirmation or a recovery plan.
+- Formatting failures must preserve the original text.
+- Existing Notes data must remain readable.
+- Transformations must be explicit and operator-controlled.
+- Unknown state must not be silently discarded.
 
 ## Persistence And Resume
 
@@ -154,7 +377,7 @@ Workspace notes persist with Workspace.
 
 Workspace notes must be restored when Workspace is reopened.
 
-Current open note, selected folder, editor dirty state, and cursor/selection may be persisted as widget state if useful.
+Current active tab, selected folder, editor dirty state, and cursor/selection may be persisted as widget state if useful.
 
 ## Relationship To Other Concepts
 
@@ -186,13 +409,16 @@ Notes are operator-authored text. Event Log is the structured history of Workspa
 
 Initial implementation should be simple:
 
-- Markdown documents
-- folders
-- global/workspace scope
+- preserve legacy `{ "body": "..." }` state
+- migrate or adapt legacy state into one tab only when explicitly implemented
+- widget-local text tabs/documents
+- compact tab UI
+- explicit formatting action menu
 - no sync
 - no collaborative editing
 - no rich embedded media
 - no automatic Knowledge ingestion
+- no hidden AI rewriting
 - no complex graph/backlinks
 
 ## Future Extensions
@@ -204,5 +430,21 @@ Initial implementation should be simple:
 - templates
 - note-to-knowledge review flow
 - note-to-evidence attachment
+- global/workspace folder storage
 - export/import
 - sync
+
+## Non-Goals For The Current Repository
+
+This contract does not implement:
+
+- Notebook tabs
+- Notebook state migration
+- Notebook UI changes
+- schema changes
+- formatting engine
+- JSON or list transformation code
+- AI-assisted editing
+- shared document storage
+- copy/send behavior
+- cross-widget automation
