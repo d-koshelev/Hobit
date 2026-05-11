@@ -1,3 +1,7 @@
+import {
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
@@ -9,6 +13,7 @@ import {
   type AgentQueueItemDetailPreview,
   type AgentQueuePlannedAction,
   type AgentQueuePreviewItem,
+  type AgentQueuePreviewItemId,
 } from "./agentQueuePreview";
 import type { WidgetRenderProps } from "./types";
 
@@ -22,6 +27,12 @@ export function AgentQueuePlaceholderWidget({
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
+  const [selectedItemId, setSelectedItemId] =
+    useState<AgentQueuePreviewItemId>(agentQueuePreview.defaultSelectedItemId);
+  const selectedDetailPreview =
+    agentQueuePreview.detailPreviews[selectedItemId] ??
+    agentQueuePreview.detailPreviews[agentQueuePreview.defaultSelectedItemId];
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -78,11 +89,16 @@ export function AgentQueuePlaceholderWidget({
           className="agent-queue-groups"
         >
           {agentQueuePreview.groups.map((group) => (
-            <QueueGroup group={group} key={group.title} />
+            <QueueGroup
+              group={group}
+              key={group.title}
+              onSelectItem={setSelectedItemId}
+              selectedItemId={selectedItemId}
+            />
           ))}
         </div>
 
-        <QueueItemDetailPreview preview={agentQueuePreview.detailPreview} />
+        <QueueItemDetailPreview preview={selectedDetailPreview} />
 
         <section
           aria-label="Future Agent Queue widget synergy"
@@ -115,7 +131,15 @@ function QueueMetric({ metric }: { metric: AgentQueueOverviewMetric }) {
   );
 }
 
-function QueueGroup({ group }: { group: AgentQueueGroup }) {
+function QueueGroup({
+  group,
+  onSelectItem,
+  selectedItemId,
+}: {
+  group: AgentQueueGroup;
+  onSelectItem: (itemId: AgentQueuePreviewItemId) => void;
+  selectedItemId: AgentQueuePreviewItemId;
+}) {
   return (
     <section
       className={`agent-queue-group agent-queue-group-${group.badgeVariant}`}
@@ -132,8 +156,10 @@ function QueueGroup({ group }: { group: AgentQueueGroup }) {
         {group.items.map((item) => (
           <QueueItemCard
             groupVariant={group.badgeVariant}
+            isSelected={item.id === selectedItemId}
             item={item}
-            key={`${item.block}-${item.title}`}
+            key={item.id}
+            onSelectItem={onSelectItem}
           />
         ))}
       </div>
@@ -143,14 +169,41 @@ function QueueGroup({ group }: { group: AgentQueueGroup }) {
 
 function QueueItemCard({
   groupVariant,
+  isSelected,
   item,
+  onSelectItem,
 }: {
   groupVariant: AgentQueueGroup["badgeVariant"];
+  isSelected: boolean;
   item: AgentQueuePreviewItem;
+  onSelectItem: (itemId: AgentQueuePreviewItemId) => void;
 }) {
+  const cardClassName = `agent-queue-item-card agent-queue-item-card-${groupVariant}${
+    isSelected ? " agent-queue-item-card-selected" : ""
+  }`;
+
+  function selectItem() {
+    onSelectItem(item.id);
+  }
+
+  function selectItemWithKeyboard(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    selectItem();
+  }
+
   return (
     <article
-      className={`agent-queue-item-card agent-queue-item-card-${groupVariant}`}
+      aria-label={`Show static detail for ${item.block}: ${item.title}`}
+      aria-pressed={isSelected}
+      className={cardClassName}
+      onClick={selectItem}
+      onKeyDown={selectItemWithKeyboard}
+      role="button"
+      tabIndex={0}
     >
       <div className="agent-queue-item-header">
         <div className="agent-queue-item-title-copy">

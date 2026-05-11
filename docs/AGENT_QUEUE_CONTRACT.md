@@ -15,10 +15,10 @@ Agent Queue currently exists only as an insertable static frontend placeholder w
 The current repository has:
 
 - a static Agent Queue placeholder preview rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
-- a static queue overview, grouped queue cards, one representative item detail preview, linked surface summaries, and disabled planned actions
+- a static queue overview, grouped queue cards, frontend-local static item selection, selected item detail previews, linked surface summaries, and disabled planned actions
 - no queue storage
 - no queue item schema
-- no queue item selection
+- no persisted queue item selection
 - no automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator
@@ -27,6 +27,8 @@ The current repository has:
 - no queue-linked Notes/Notebook behavior
 
 Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, static Agent Run placeholder, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+
+The current Agent Queue card selection is local React state only. It swaps between static preview records, writes no widget state, calls no backend API, and does not create real queue behavior.
 
 ## Definition
 
