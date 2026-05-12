@@ -7,6 +7,7 @@ import type {
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
 } from "./types";
+import { unknownErrorToOptionalMessage } from "./errorDetails";
 
 const DIRECT_WORK_STREAM_EVENT_NAME = "direct-work://event";
 
@@ -56,7 +57,7 @@ type TauriDirectWorkStreamEvent = {
 export async function runCodexDirectWork(
   request: RunCodexDirectWorkRequest,
 ): Promise<RunCodexDirectWorkResponse | null> {
-  const response = await invoke<TauriRunCodexDirectWorkResponse | null>(
+  const response = await invokeDirectWork<TauriRunCodexDirectWorkResponse | null>(
     "run_codex_direct_work",
     {
       request: {
@@ -82,7 +83,7 @@ export async function startCodexDirectWorkStream(
   request: StartCodexDirectWorkStreamRequest,
 ): Promise<StartCodexDirectWorkStreamResponse | null> {
   const response =
-    await invoke<TauriStartCodexDirectWorkStreamResponse | null>(
+    await invokeDirectWork<TauriStartCodexDirectWorkStreamResponse | null>(
       "start_codex_direct_work_stream",
       {
         request: {
@@ -117,7 +118,12 @@ export function listenToDirectWorkStreamEvents(
     (event) => {
       onEvent(normalizeDirectWorkStreamEvent(event.payload));
     },
-  );
+  ).catch((error) => {
+    throw directWorkApiError(
+      "Direct Work stream subscription failed",
+      error,
+    );
+  });
 }
 
 function normalizeRunCodexDirectWorkResponse(
@@ -164,4 +170,20 @@ function normalizeDirectWorkStreamEvent(
     elapsedMs: event.elapsed_ms,
     isFinal: event.is_final,
   };
+}
+
+async function invokeDirectWork<T>(
+  command: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  try {
+    return await invoke<T>(command, args);
+  } catch (error) {
+    throw directWorkApiError(`Tauri command ${command} failed`, error);
+  }
+}
+
+function directWorkApiError(context: string, error: unknown): Error {
+  const message = unknownErrorToOptionalMessage(error);
+  return new Error(message ? `${context}: ${message}` : context);
 }

@@ -7,6 +7,12 @@ import type {
 } from "../workspace/types";
 import { CodexDirectWorkForm } from "./CodexDirectWorkForm";
 import {
+  codexDirectWorkErrorToMessage,
+  streamingFallbackFailureMessage,
+  streamingFallbackSuccessMessage,
+  streamingNoFallbackMessage,
+} from "./CodexDirectWorkErrors";
+import {
   CodexDirectWorkLiveLog,
   cappedLiveLogEntries,
   isFinalStatus,
@@ -14,6 +20,7 @@ import {
   liveRunFromEvent,
   syntheticStartedLogEntry,
   type CodexDirectWorkLiveLogEntry,
+  type CodexDirectWorkLiveLogEntryKind,
   type CodexDirectWorkLiveRun,
 } from "./CodexDirectWorkLiveLog";
 import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
@@ -45,14 +52,22 @@ export function CodexDirectWorkPanel({
   const panelTitleId = useId();
   const [isRunning, setIsRunning] = useState(false);
   const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
+  const [runInfoNotice, setRunInfoNotice] = useState<{
+    message: string;
+    title: string;
+  } | null>(null);
   const [runResult, setRunResult] =
     useState<RunCodexDirectWorkResponse | null>(null);
   const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
   const [liveLogEntries, setLiveLogEntries] = useState<
     CodexDirectWorkLiveLogEntry[]
   >([]);
+  const localLogEntrySequenceRef = useRef(0);
+  const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
-  const canRunBackend = Boolean(onStartCodexDirectWorkStream || onRunCodexDirectWork);
+  const canRunBackend = Boolean(
+    onStartCodexDirectWorkStream || onRunCodexDirectWork,
+  );
 
   useEffect(() => () => stopActiveStreamListening(), []);
 
@@ -62,17 +77,94 @@ export function CodexDirectWorkPanel({
     }
 
     clearRunState();
+    runStartedAtRef.current = Date.now();
     setIsRunning(true);
 
     try {
       if (onStartCodexDirectWorkStream) {
-        await runStreamingDirectWork(request);
+        await runStreamingDirectWorkWithFallback(request);
         return;
       }
 
       await runOneShotDirectWork(request);
     } catch (error) {
-      setRunErrorMessage(errorToMessage(error));
+      setRunErrorMessage(codexDirectWorkErrorToMessage(error));
+      setIsRunning(false);
+    }
+  }
+
+  async function runStreamingDirectWorkWithFallback(
+    request: CodexDirectWorkRequestDraft,
+  ) {
+    appendLocalLiveLogEntry(
+      "stream_starting",
+      "Starting streaming run...",
+      "neutral",
+      "",
+      "starting",
+    );
+
+    let streamingErrorMessage =
+      "Streaming start failed without error details.";
+
+    try {
+      await runStreamingDirectWork(request);
+      return;
+    } catch (error) {
+      streamingErrorMessage = codexDirectWorkErrorToMessage(error);
+      appendLocalLiveLogEntry(
+        "stream_start_failed",
+        "Streaming start failed...",
+        "error",
+        streamingErrorMessage,
+        "failed",
+      );
+    }
+
+    if (!onRunCodexDirectWork) {
+      setRunErrorMessage(streamingNoFallbackMessage(streamingErrorMessage));
+      setIsRunning(false);
+      return;
+    }
+
+    appendLocalLiveLogEntry(
+      "fallback_starting",
+      "Falling back to one-shot run...",
+      "neutral",
+      "Streaming failed before a run id was returned.",
+      "running",
+    );
+
+    try {
+      const response = await runOneShotDirectWork(request);
+      appendLocalLiveLogEntry(
+        "fallback_completed",
+        "One-shot fallback completed.",
+        "success",
+        `Run id: ${response.runId}`,
+        "completed",
+        response.runId,
+      );
+      setRunInfoNotice({
+        message: streamingFallbackSuccessMessage(streamingErrorMessage),
+        title: "Live streaming unavailable; ran one-shot fallback.",
+      });
+    } catch (fallbackError) {
+      const fallbackErrorMessage =
+        codexDirectWorkErrorToMessage(fallbackError);
+      appendLocalLiveLogEntry(
+        "fallback_failed",
+        "One-shot fallback failed.",
+        "error",
+        fallbackErrorMessage,
+        "failed",
+      );
+      setRunErrorMessage(
+        streamingFallbackFailureMessage(
+          streamingErrorMessage,
+          fallbackErrorMessage,
+        ),
+      );
       setIsRunning(false);
     }
   }
@@ -124,7 +216,9 @@ export function CodexDirectWorkPanel({
     });
   }
 
-  async function runOneShotDirectWork(request: CodexDirectWorkRequestDraft) {
+  async function runOneShotDirectWork(
+    request: CodexDirectWorkRequestDraft,
+  ): Promise<RunCodexDirectWorkResponse> {
     if (!onRunCodexDirectWork) {
       throw new Error("Codex Direct Work is unavailable in this runtime.");
     }
@@ -139,6 +233,7 @@ export function CodexDirectWorkPanel({
 
     setRunResult(response);
     setIsRunning(false);
+    return response;
   }
 
   function handleValidationError(message: string) {
@@ -158,11 +253,42 @@ export function CodexDirectWorkPanel({
     }
   }
 
+  function appendLocalLiveLogEntry(
+    kind: CodexDirectWorkLiveLogEntryKind,
+    text: string,
+    tone: CodexDirectWorkLiveLogEntry["tone"],
+    detail = "",
+    status: string | null = null,
+    runId = "pending",
+  ) {
+    const startedAt = runStartedAtRef.current;
+    const elapsedMs = startedAt === null ? 0 : Date.now() - startedAt;
+    const id = `local-${++localLogEntrySequenceRef.current}-${kind}`;
+
+    setLiveLogEntries((currentEntries) =>
+      cappedLiveLogEntries([
+        ...currentEntries,
+        {
+          detail,
+          elapsedMs,
+          id,
+          kind,
+          runId,
+          status,
+          text,
+          tone,
+        },
+      ]),
+    );
+  }
+
   function clearRunState() {
     setRunErrorMessage(null);
+    setRunInfoNotice(null);
     setRunResult(null);
     setLiveRun(null);
     setLiveLogEntries([]);
+    runStartedAtRef.current = null;
     stopActiveStreamListening();
   }
 
@@ -199,8 +325,10 @@ export function CodexDirectWorkPanel({
       {isRunning ? (
         <CodexDirectWorkNotice
           message={
-            onStartCodexDirectWorkStream
-              ? "The desktop backend started Codex streaming. Live events appear below."
+            isOneShotFallbackRunning(liveLogEntries)
+              ? "Live streaming was unavailable; the desktop backend is running the one-shot fallback."
+              : onStartCodexDirectWorkStream
+                ? "Starting or running Codex streaming. Live events appear below."
               : "The desktop backend is running the existing Codex Direct Work command."
           }
           title="Running Codex Direct Work"
@@ -220,15 +348,19 @@ export function CodexDirectWorkPanel({
         />
       ) : null}
 
+      {runInfoNotice ? (
+        <CodexDirectWorkNotice
+          message={runInfoNotice.message}
+          title={runInfoNotice.title}
+          variant="info"
+        />
+      ) : null}
+
       {runResult ? <CodexDirectWorkResultSummary result={runResult} /> : null}
     </section>
   );
 }
 
-function errorToMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unable to run Codex Direct Work.";
+function isOneShotFallbackRunning(entries: CodexDirectWorkLiveLogEntry[]) {
+  return entries[entries.length - 1]?.kind === "fallback_starting";
 }

@@ -14,11 +14,19 @@ export type CodexDirectWorkLiveRun = {
   stdoutPreview: string;
 };
 
+export type CodexDirectWorkLiveLogEntryKind =
+  | DirectWorkStreamEvent["eventKind"]
+  | "stream_starting"
+  | "stream_start_failed"
+  | "fallback_starting"
+  | "fallback_completed"
+  | "fallback_failed";
+
 export type CodexDirectWorkLiveLogEntry = {
   detail: string;
   elapsedMs: number;
   id: string;
-  kind: DirectWorkStreamEvent["eventKind"];
+  kind: CodexDirectWorkLiveLogEntryKind;
   runId: string;
   status: string | null;
   text: string;
@@ -34,15 +42,11 @@ export function CodexDirectWorkLiveLog({
 }) {
   const statusView = liveRun
     ? liveRunStatusView(liveRun.status)
-    : {
-        badgeLabel: "Waiting",
-        badgeVariant: "neutral" as const,
-        title: "Live log",
-      };
+    : localLogStatusView(entries);
 
   return (
     <section
-      aria-label="Direct Work live Codex events"
+      aria-label="Direct Work live status entries"
       aria-live="polite"
       className="codex-direct-work-live-log"
     >
@@ -50,7 +54,7 @@ export function CodexDirectWorkLiveLog({
         <div className="codex-direct-work-copy">
           <h3 className="codex-direct-work-title">{statusView.title}</h3>
           <p className="codex-direct-work-text">
-            Live Codex events from this current run.
+            Current Direct Work status entries.
           </p>
         </div>
         <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>
@@ -318,6 +322,60 @@ function liveRunStatusView(status: string): {
     badgeLabel: "Running",
     badgeVariant: "info",
     title: "Live log running",
+  };
+}
+
+function localLogStatusView(entries: CodexDirectWorkLiveLogEntry[]): {
+  badgeLabel: string;
+  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
+  title: string;
+} {
+  const latestEntry = entries[entries.length - 1];
+
+  if (!latestEntry) {
+    return {
+      badgeLabel: "Waiting",
+      badgeVariant: "neutral",
+      title: "Live log",
+    };
+  }
+
+  if (latestEntry.kind === "fallback_completed") {
+    return {
+      badgeLabel: "Completed",
+      badgeVariant: "success",
+      title: "One-shot fallback completed",
+    };
+  }
+
+  if (latestEntry.kind === "fallback_failed") {
+    return {
+      badgeLabel: "Failed",
+      badgeVariant: "error",
+      title: "One-shot fallback failed",
+    };
+  }
+
+  if (latestEntry.kind === "stream_start_failed") {
+    return {
+      badgeLabel: "Unavailable",
+      badgeVariant: "warning",
+      title: "Streaming start failed",
+    };
+  }
+
+  if (latestEntry.kind === "fallback_starting") {
+    return {
+      badgeLabel: "Running",
+      badgeVariant: "info",
+      title: "One-shot fallback running",
+    };
+  }
+
+  return {
+    badgeLabel: "Starting",
+    badgeVariant: "info",
+    title: "Starting streaming run",
   };
 }
 
