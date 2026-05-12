@@ -27,6 +27,7 @@ Always read:
 - docs/WORKSPACE_CONTRACT.md
 - docs/UI_CONTRACT.md
 - docs/WIDGET_CONTRACT.md
+- docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md
 - docs/PRESET_CONTRACT.md
 - docs/DESIGN_SYSTEM_CONTRACT.md
 - docs/ARCHITECTURE.md
@@ -50,6 +51,7 @@ For design/frontend/widget work, always read:
 - docs/DESIGN_SYSTEM_CONTRACT.md
 - docs/UI_CONTRACT.md
 - docs/WIDGET_CONTRACT.md
+- docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md
 - docs/PRESET_CONTRACT.md
 
 For architectural decisions, inspect:
@@ -84,6 +86,8 @@ If a repeated inspection need is missing, propose a small deterministic Toolbelt
 Code organization work must follow `docs/CODE_ORGANIZATION_CONTRACT.md`.
 
 Agent work efficiency must follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`: use small focused blocks, name expected changed layers, use fast/changed/full validation profiles appropriately, and stop with a split plan when a block becomes broad or conflicts with contracts.
+
+Widget work must follow `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: declare the target display level, usually start with Minimal, avoid adding Full / Expert UI during Minimal blocks, and split or simplify when one widget surface starts mixing Minimal, Operational, and Full / Expert complexity.
 
 ## Current product direction
 

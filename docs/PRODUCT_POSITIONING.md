@@ -21,6 +21,7 @@ Hobit structures the work around AI agents. It does not replace the operator, hi
 - Structured requests, not ad-hoc prompts.
 - Focused executor tasks, not endless agent threads.
 - Small efficient blocks, not over-broad multi-layer tasks by default.
+- Progressive widget disclosure: Minimal first, Operational when useful, Full / Expert only when intentionally expanded.
 - Reusable Request Templates and Response Templates as product direction.
 - Validation and review as first-class workflow steps.
 - Observable work through activity, logs, artifacts, and history.
@@ -57,6 +58,7 @@ Current implemented behavior remains the Empty Workbench shell, Workspace lifecy
 - `docs/AI_WORKBENCH_CONTRACT.md` defines Workbench and Workspace terms.
 - `docs/WORKSPACE_CONTRACT.md` defines resumable Workspace behavior, context isolation, and the multi-Workspace/multi-Workbench boundary.
 - `docs/WIDGET_CONTRACT.md` defines widgets as first-class work surfaces.
+- `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` defines Minimal, Operational, and Full / Expert widget display levels.
 - `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md` defines the future Script Runner Widget as an explicit operator-controlled configured local script action, not a hidden automation path or current runtime behavior.
 - `docs/GIT_WIDGET_CONTRACT.md` defines the future Git review/control widget for agent-completed code work.
 - `docs/TEMPLATE_CONTRACT.md` defines future Request Templates and Response Templates.

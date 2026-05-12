@@ -32,6 +32,12 @@ It hosts widget instances, layout, presentation state, context bindings, active 
 
 A Workspace may have multiple Workbenches when they represent different surfaces for the same problem. A Workbench must not be used as a substitute for a separate Workspace when the work context is unrelated.
 
+Workbench surfaces should stay calm by default. Widget complexity should follow
+`docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: default and demo surfaces
+should prefer Minimal or Operational widget views, while Full / Expert detail,
+raw payloads, large histories, debug state, and advanced controls should usually
+require explicit expansion or a focused Workbench surface.
+
 ### WorkbenchPreset / Preset
 
 A WorkbenchPreset, or Preset, is a reusable saved Workbench layout and configuration.

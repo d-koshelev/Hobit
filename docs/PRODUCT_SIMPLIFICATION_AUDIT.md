@@ -278,6 +278,12 @@ execution, or Terminal shell behavior exists.
 
 ## Recommended Next Blocks
 
+Follow-up simplification blocks should apply
+`docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: decide whether each widget
+surface is Minimal, Operational, or Full / Expert before changing UI, and keep
+the next demo focused on Minimal or Operational surfaces unless deeper
+inspection is explicitly needed.
+
 1. Manual desktop smoke first:
    Verify the Terminal one-shot path and the Agent proposal -> Monitoring ->
    Queue path in a real Tauri desktop window. Fix only concrete smoke failures.
@@ -326,4 +332,3 @@ The next milestone should prepare and run a real manual desktop demo/smoke of
 the two existing flows. After that, apply small UI/copy simplification blocks
 that reduce planned surfaces and make Terminal plus Agent proposal review the
 obvious product story.
-

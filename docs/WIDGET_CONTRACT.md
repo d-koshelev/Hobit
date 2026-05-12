@@ -109,6 +109,27 @@ A widget can be:
 
 Changing size, position, or presentation mode must not create a new widget instance. It only changes layout/presentation state.
 
+## Progressive Disclosure
+
+Widget complexity should follow `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`.
+
+Hobit widget surfaces have three product display levels:
+
+- Minimal: the smallest useful surface with one primary action or status.
+- Operational: the practical working surface with normal controls, status, and
+  decision context.
+- Full / Expert: complete detail, raw payloads, logs, history, debugging state,
+  and advanced controls where appropriate.
+
+New widgets should normally start with Minimal. Operational and Full / Expert
+surfaces should be added in later focused blocks. Full complexity, raw/debug
+payloads, large histories, and many disabled planned controls must not be the
+default first experience for complex widgets.
+
+Future widget implementation prompts should declare the target level and avoid
+mixing all three levels in one block. If a widget surface starts mixing Minimal,
+Operational, and Full / Expert behavior, split or simplify before adding more.
+
 ## Widget View Modes
 
 Widget view mode is the rendered density of an existing WidgetInstance.
