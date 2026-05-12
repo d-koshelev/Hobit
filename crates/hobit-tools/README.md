@@ -12,15 +12,26 @@ It also includes a Codex CLI availability/version probe. The probe runs only
 adapter. The probe does not run `codex exec`, pass prompts, pass repository
 paths, edit files, or provide Direct Work execution.
 
-The crate now also includes a backend/tooling-only Codex Direct Work runner
-foundation. The runner validates an explicit repository root and operator
-prompt, builds `codex exec` with program + argv only, passes
+The crate now also includes backend/tooling-only Codex Direct Work runner
+foundations. The one-shot runner validates an explicit repository root and
+operator prompt, builds `codex exec` with program + argv only, passes
 `--cd <repo_root>`, `--sandbox <read-only|workspace-write>`,
 `--ask-for-approval <never|on-request|untrusted>`, and
 `--output-last-message <path>`, then captures stdout, stderr, final message,
 exit status, truncation flags, duration, and a safe command summary. Non-zero
-Codex exits are returned as failed structured results. The runner does not
-support `danger-full-access`.
+Codex exits are returned as failed structured results.
+
+A streaming runner foundation is also available for `codex exec --json`. It
+uses the same explicit repository root, executable resolution, sandbox and
+approval mapping, timeout, output caps, no-shell argv construction, prompt
+redaction in command summaries, and final-message file capture. It reads stdout
+and stderr line-by-line while the process is running and emits caller callback
+events for start, stdout/stderr lines, lightweight validated JSON stdout lines,
+final message, completion, failure, and timeout. Tauri events, frontend live log
+UI, storage persistence, Agent Monitoring integration, Git integration, stdin,
+PTY, and interactive sessions are not implemented here.
+
+The Direct Work runners do not support `danger-full-access`.
 
 ## Belongs Here
 

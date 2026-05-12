@@ -18,12 +18,13 @@ bounded work while preserving Hobit's core rule:
 
 This contract defines the product and runtime boundary for Direct Mode. The
 repository now includes backend/tooling-only Codex CLI foundations in
-`hobit-tools`: an availability/version probe and a one-shot Direct Work runner.
-That runner is now wired through the app/Tauri boundary as a one-shot
-`run_codex_direct_work` command that persists widget run/log/result artifacts
-for an allowed Agent Monitoring (`agent-run`) widget instance. It still does
-not implement Agent Monitoring Direct Work display, storage/schema changes,
-queue execution, Git mutations, commits, pushes, an embedded PTY, or
+`hobit-tools`: an availability/version probe, a one-shot Direct Work runner,
+and a streaming runner foundation for `codex exec --json`.
+The one-shot runner is now wired through the app/Tauri boundary as the
+one-shot `run_codex_direct_work` command that persists widget run/log/result
+artifacts for an allowed Agent Monitoring (`agent-run`) widget instance. It
+still does not implement Agent Monitoring Direct Work display, storage/schema
+changes, queue execution, Git mutations, commits, pushes, an embedded PTY, or
 interactive agent sessions. The current frontend surfaces Direct Work / Codex
 as a Ready catalog item that reuses the `agent-run` widget identity.
 
@@ -68,10 +69,19 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   file when available, applies output caps and timeout, and returns a structured
   result. On Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and
   `codex.bat` from PATH.
+- a streaming Direct Work runner foundation that validates the same explicit
+  inputs, resolves the same executable candidates, builds `codex exec --json`
+  with global args before `exec` and exec args after it, reads stdout/stderr
+  line-by-line while the process is running, emits caller callback events,
+  captures the final `--output-last-message` file, applies output caps and
+  timeout, kills the child on timeout, and returns a structured final output.
+  This foundation is not wired to Tauri events, frontend live logs, storage,
+  Agent Monitoring, Git Widget, Queue execution, stdin, PTY, or interactive
+  sessions.
 
-These foundations are wired to app/Tauri storage-backed run artifacts only.
-They are not wired to Agent Monitoring Direct Work display, Agent Queue, or Git
-Widget.
+Only the one-shot runner is wired to app/Tauri storage-backed run artifacts.
+The streaming runner remains a tooling foundation and is not wired to Agent
+Monitoring Direct Work display, Agent Queue, Git Widget, or frontend live UI.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
@@ -213,10 +223,12 @@ Codex CLI availability detection and version smoke checks have a
 backend/tooling-only foundation in `hobit-tools`. Direct Work command
 construction and one-shot process execution also have a backend/tooling
 foundation there, now exposed through a narrow app/Tauri command that stores
-Direct Work widget run/log/result artifacts. Frontend UI, Agent Monitoring
-Direct Work display, Git review wiring, changed-file capture, validation
-capture, commit/push flows, and interactive execution all require later
-implementation blocks.
+Direct Work widget run/log/result artifacts. A separate tooling-only streaming
+foundation for `codex exec --json` can emit line and JSON events to a
+caller-provided callback, but Tauri/UI live streaming is not implemented yet.
+Frontend UI, Agent Monitoring Direct Work display, Git review wiring,
+changed-file capture, validation capture, commit/push flows, and interactive
+execution all require later implementation blocks.
 
 ## Widget Integration
 

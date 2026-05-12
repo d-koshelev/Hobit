@@ -1,0 +1,70 @@
+use std::path::Path;
+
+use super::{CodexApprovalPolicy, CodexSandboxMode};
+
+pub(super) fn validate_repo_root(repo_root: &Path) -> Option<String> {
+    if repo_root.as_os_str().is_empty() {
+        return Some("repo_root must be explicit".to_owned());
+    }
+
+    if !repo_root.exists() {
+        return Some(format!(
+            "repo_root must exist and be a directory: {}",
+            repo_root.display()
+        ));
+    }
+
+    if !repo_root.is_dir() {
+        return Some(format!(
+            "repo_root must be a directory: {}",
+            repo_root.display()
+        ));
+    }
+
+    None
+}
+
+pub(super) fn build_codex_exec_json_args(
+    repo_root: &Path,
+    sandbox: CodexSandboxMode,
+    approval_policy: CodexApprovalPolicy,
+    output_last_message_path: &Path,
+    prompt: &str,
+) -> Vec<String> {
+    vec![
+        "--cd".to_owned(),
+        repo_root.to_string_lossy().into_owned(),
+        "--sandbox".to_owned(),
+        sandbox.as_cli_arg().to_owned(),
+        "--ask-for-approval".to_owned(),
+        approval_policy.as_cli_arg().to_owned(),
+        "exec".to_owned(),
+        "--json".to_owned(),
+        "--output-last-message".to_owned(),
+        output_last_message_path.to_string_lossy().into_owned(),
+        prompt.to_owned(),
+    ]
+}
+
+pub(super) fn safe_command_summary(
+    program: &str,
+    repo_root: &Path,
+    sandbox: CodexSandboxMode,
+    approval_policy: CodexApprovalPolicy,
+    output_last_message_path: &Path,
+) -> Vec<String> {
+    vec![
+        program.to_owned(),
+        "--cd".to_owned(),
+        repo_root.to_string_lossy().into_owned(),
+        "--sandbox".to_owned(),
+        sandbox.as_cli_arg().to_owned(),
+        "--ask-for-approval".to_owned(),
+        approval_policy.as_cli_arg().to_owned(),
+        "exec".to_owned(),
+        "--json".to_owned(),
+        "--output-last-message".to_owned(),
+        output_last_message_path.to_string_lossy().into_owned(),
+        "<operator-prompt>".to_owned(),
+    ]
+}

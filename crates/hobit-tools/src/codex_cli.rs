@@ -1,9 +1,9 @@
 //! Safe Codex CLI tool foundations.
 //!
 //! The probe checks whether a local Codex CLI-like executable responds to
-//! `--version`. The Direct Work runner builds a bounded one-shot `codex exec`
-//! process request for an explicit repository root and operator prompt. Neither
-//! path exposes frontend UI, Tauri commands, storage persistence, Git mutation,
+//! `--version`. The Direct Work runners build bounded `codex exec` process
+//! requests for an explicit repository root and operator prompt. Neither path
+//! exposes frontend UI, Tauri commands, storage persistence, Git mutation,
 //! queue execution, an embedded PTY, or an interactive Codex session.
 
 use std::time::Instant;
@@ -11,12 +11,17 @@ use std::time::Instant;
 use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 
 pub mod direct_run;
+pub mod direct_stream;
 mod executable;
 
 pub use direct_run::{
     run_codex_direct_work, CodexApprovalPolicy, CodexDirectRunOutput, CodexDirectRunRequest,
     CodexDirectRunStatus, CodexSandboxMode, DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES,
     DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
+};
+pub use direct_stream::{
+    run_codex_direct_work_streaming, CodexDirectStreamEvent, CodexDirectStreamEventKind,
+    CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus,
 };
 pub(crate) use executable::resolve_codex_executable;
 
