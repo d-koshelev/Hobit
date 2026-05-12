@@ -6,5 +6,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod codex_cli;
 pub mod git;
 pub mod process;

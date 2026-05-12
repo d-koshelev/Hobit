@@ -41,6 +41,13 @@ Hobit does not currently run Codex CLI, run executor agents, execute Queue
 items, perform file-changing agent work, persist Direct Work run artifacts, or
 provide Direct Work UI.
 
+The repository now includes a backend/tooling-only Codex CLI
+availability/version probe in `hobit-tools`. That probe runs only
+`codex --version` or `<explicit-program> --version`, captures stdout, stderr,
+duration, version text when available, and a structured availability result. It
+is not wired to frontend UI, Tauri commands, storage, Agent Monitoring, Agent
+Queue, Git Widget, or Direct Work execution.
+
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
 agent-agnostic so future executors can be added later.
@@ -177,8 +184,11 @@ Rules:
 - Codex execution must not imply automatic commit, push, queue item acceptance,
   or Git mutation.
 
-Codex CLI availability detection, version smoke checks, command construction,
-process execution, and output capture all require later implementation blocks.
+Codex CLI availability detection and version smoke checks have a
+backend/tooling-only foundation in `hobit-tools`. Command construction for
+Direct Work, process execution for tasks, output capture as run artifacts,
+frontend UI, Tauri exposure, storage, Agent Monitoring integration, and Git
+review wiring all require later implementation blocks.
 
 ## Widget Integration
 
