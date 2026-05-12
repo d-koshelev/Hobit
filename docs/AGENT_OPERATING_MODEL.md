@@ -30,6 +30,14 @@ proposal-only, uses explicitly approved context, persists an observable
 response artifact, and keeps `allowed_tools: []` with no tool execution or
 mutations.
 
+Direct Mode is the next planned executor path for small approved coding tasks.
+It is defined in `docs/DIRECT_MODE_AGENT_CONTRACT.md`: the model is
+agent-agnostic, Codex CLI is the first planned executor kind, and Direct Work
+must require an explicit repository root, operator prompt, sandbox/mode,
+visible run status, captured raw log/final response, changed-file review, and
+no auto-commit, auto-push, hidden background execution, or Queue execution in
+the MVP. This contract does not implement Direct Mode runtime behavior.
+
 ## Core Rule
 
 Coordinator agents and executor agents are separate roles.
@@ -171,6 +179,29 @@ Expected mapping:
 
 Overview Log and Result Report must not hide failed raw execution, skipped validation, or blocked states.
 
+Direct Work runs under `docs/DIRECT_MODE_AGENT_CONTRACT.md` should use the same
+mapping. Codex CLI output and validation output feed Raw Log, operator-readable
+progress feeds Overview Log, and the executor final response feeds Result
+Report.
+
+## Relation To Direct Mode
+
+Direct Mode is the future one-shot executor path for focused approved work
+inside an explicit repository root. It keeps the coordinator/executor split:
+the Coordinator or operator prepares the request, and the Direct Work executor
+performs only the approved block.
+
+Rules:
+
+- Direct Mode must be explicitly chosen by the operator.
+- The run must record executor kind, with `codex_cli` as the first planned
+  value.
+- Direct Work must not inherit hidden Workspace context.
+- Direct Work must not bypass Tool Action, Git Widget, Agent Queue, or run
+  observability contracts.
+- Direct Work does not imply automatic commit, push, acceptance, or follow-up
+  Queue execution.
+
 ## Relation To Workspaces
 
 The coordinator role is associated with the durable Workspace or Project context.
@@ -255,6 +286,7 @@ Future UI rules:
 This contract does not implement:
 
 - agent runtime behavior
+- Direct Mode runtime behavior
 - storage schema or migrations
 - Rust domain types
 - TypeScript types

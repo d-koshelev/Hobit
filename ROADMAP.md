@@ -2,6 +2,19 @@
 
 This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure, and current implementation work continues to exercise those contracts through the Workbench shell.
 
+## Near-Term Direction: Direct Mode With Codex CLI
+
+After the proposal-only AI provider slice, the near-term executor direction is
+Direct Mode with Codex CLI as the first planned executor kind. Direct Mode is
+the controlled path for small approved work where the operator explicitly
+chooses the repository root, prompt, sandbox/mode, and review flow.
+
+Direct Mode must remain agent-agnostic for future executors and must follow
+`docs/DIRECT_MODE_AGENT_CONTRACT.md`. It is not implemented yet: no Codex
+execution, backend/Tauri command, UI, storage/schema, queue execution, Git
+mutation, auto-commit, auto-push, embedded PTY, or hidden background execution
+is part of the current roadmap slice.
+
 ## Phase 0: Contracts And Repository Foundation
 
 - Define the AI Workbench product contract.

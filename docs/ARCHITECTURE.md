@@ -18,6 +18,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AI_INTEGRATION_READINESS_CONTRACT.md` defines the final pre-AI readiness gate and first real AI slice boundary: proposal-only Agent Chat, explicitly approved context, backend/provider boundary, persisted observable artifacts, and `allowed_tools: []`.
 
+`DIRECT_MODE_AGENT_CONTRACT.md` defines the future Direct Mode executor path for small approved work. It keeps the model agent-agnostic, names Codex CLI as the first planned executor kind, and requires explicit repository root, prompt, sandbox/mode, visible run status, raw log/final response capture, changed-file review, no hidden background execution, no queue execution in the MVP, and no auto-commit or auto-push. It is contract-only; no Direct Mode runtime, Tauri command, UI, storage/schema, Codex execution, Git mutation, or queue execution is implemented yet.
+
 `DEMO_FLOW_CHECKLIST.md` defines the manual pre-AI demo verification scope for the Terminal one-shot path, Agent Chat proposal artifacts, Agent Monitoring details, and the optional Agent Queue review inbox.
 
 `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines the future Workspace-aware Coordinator Agent model for explicitly approved context reading and previewed cross-widget action proposals. It is contract-first; Agent Chat currently supports only selected current-view metadata snapshots plus proposal-only result persistence and does not read hidden Workspace context, propose executable actions, mutate widgets, edit Notebook content, or execute actions. The only current queue write path is Agent Monitoring's explicit review-item creation from a valid stored local mock proposal result.

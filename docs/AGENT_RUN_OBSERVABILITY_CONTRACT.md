@@ -40,6 +40,13 @@ visible run/result artifact when persistence is available, Agent Monitoring
 should expose Overview / Result / Raw inspection, and raw provider data must not
 expose secrets or unsafe metadata.
 
+Future Direct Work runs must follow `docs/DIRECT_MODE_AGENT_CONTRACT.md`.
+Agent Monitoring is the primary run monitor for Direct Mode and should show
+executor kind, mode, status, duration, final response, validation summary,
+changed files, warnings, and Raw / Overview / Result views. Codex CLI is the
+first planned executor kind, but the observability model must remain
+executor-agnostic. This contract does not implement Direct Work runtime or UI.
+
 ## Core Model
 
 A future `AgentRun` or `ExecutorRun` should expose three linked views:
@@ -272,6 +279,25 @@ Rules:
 
 For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
 
+## Relation To Direct Mode
+
+Direct Work runs are future executor/task runs and must be observable here.
+
+Expected Direct Work mapping:
+
+- executor command, raw Codex CLI output, stderr/stdout where applicable, and
+  validation command output feed Raw Log
+- started, inspecting, editing, validating, blocked, failed, and completed
+  steps feed Overview Log when available
+- final Codex response and required block report feed Result Report
+- changed files and validation summaries remain visible and link to Git Widget
+  review when available
+
+Direct Work observability must not hide failed validation, skipped validation,
+dirty Git state, blocked execution, or warnings. Proposal-only artifacts and
+Direct Work artifacts must be visually distinguishable when shown together in
+Agent Monitoring.
+
 ## Future Event And Data Concepts
 
 Future implementation may introduce concepts such as:
@@ -329,6 +355,7 @@ This contract does not implement:
 - Tauri commands
 - Workspace API changes
 - runtime execution
+- Direct Work runtime execution
 - agent execution integration
 - Terminal runtime
 - executable Agent Chat runtime

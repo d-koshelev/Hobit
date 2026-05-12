@@ -319,6 +319,25 @@ The Git Widget should help the coordinator decide whether to accept the block, r
 
 Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. Code-related Queue Items may link to Git Widget review state, but the queue must not hide dirty Git state, failed validation, skipped validation, untracked files, or push-needed state.
 
+## Relation To Direct Mode
+
+Direct Mode is defined in `docs/DIRECT_MODE_AGENT_CONTRACT.md`. After a Direct
+Work run, the Git Widget is the read-only review surface for repository status,
+changed files, and later diff/validation association when those capabilities
+exist.
+
+MVP rules:
+
+- Direct Work may prompt the operator to refresh Git status after the run.
+- A post-run refresh must use an explicit approved repository root.
+- The Git Widget must show changed files and dirty state without treating the
+  run as accepted.
+- No automatic stage, commit, push, restore, revert, reset, clean, stash, or
+  discard behavior may be added for Direct Work MVP.
+- Generated commit messages, if supported later, must remain reviewable before
+  commit.
+- Failed or skipped validation must remain visible next to repository state.
+
 ## Relation To Request And Response Templates
 
 The Git Widget may associate repository state with:

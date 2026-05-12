@@ -26,6 +26,7 @@ Dangerous actions include actions that may alter files, execute commands, change
 ## Future Examples
 
 - Terminal actions
+- Codex Direct Work executor actions
 - Script Runner actions for explicit operator-controlled configured local scripts
 - JDBC actions
 - Git actions
@@ -42,3 +43,24 @@ The first real AI integration slice is proposal-only under
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must use `allowed_tools: []`.
 AI may propose, but it cannot execute Terminal, Git, Notes, File, Script Runner,
 Agent Queue, or external-system actions directly.
+
+## Relation To Direct Mode
+
+Codex Direct Work is a future explicit high-power tool/executor mode defined in
+`docs/DIRECT_MODE_AGENT_CONTRACT.md`.
+
+Because Direct Work may edit files and run validation commands, it must require:
+
+- explicit operator choice of Direct Work
+- explicit approved repository root
+- explicit operator prompt
+- explicit executor kind, starting with `codex_cli`
+- explicit sandbox/mode, normally `workspace-write`
+- explicit approval policy
+- logged command and argv
+- visible run status, raw log, final response, changed files, and validation
+  summary
+
+Direct Work must not be launched silently, run in the background without visible
+state, auto-commit, auto-push, mutate Git, execute Queue items, or use
+`danger-full-access` as a default or MVP behavior.
