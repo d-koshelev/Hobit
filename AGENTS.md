@@ -36,6 +36,7 @@ Always read:
 
 For agent/runtime work, also read:
 - docs/AGENT_OPERATING_MODEL.md
+- docs/AI_INTEGRATION_READINESS_CONTRACT.md
 - docs/AGENT_WORK_EFFICIENCY_CONTRACT.md
 - docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md
 - docs/AGENT_QUEUE_CONTRACT.md
@@ -86,6 +87,8 @@ If a repeated inspection need is missing, propose a small deterministic Toolbelt
 Code organization work must follow `docs/CODE_ORGANIZATION_CONTRACT.md`.
 
 Agent work efficiency must follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`: use small focused blocks, name expected changed layers, use fast/changed/full validation profiles appropriately, and stop with a split plan when a block becomes broad or conflicts with contracts.
+
+First real AI/provider work must follow `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: start with a proposal-only Agent Chat slice, use only explicitly approved context, persist visible artifacts, keep `allowed_tools: []`, and do not add hidden execution, mutations, frontend-direct provider calls, or Agent Queue execution.
 
 Widget work must follow `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: declare the target display level, usually start with Minimal, avoid adding Full / Expert UI during Minimal blocks, and split or simplify when one widget surface starts mixing Minimal, Operational, and Full / Expert complexity.
 

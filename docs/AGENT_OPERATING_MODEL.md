@@ -24,6 +24,12 @@ Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVAB
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
+First real AI/provider work must also follow
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`: the initial AI slice is
+proposal-only, uses explicitly approved context, persists an observable
+response artifact, and keeps `allowed_tools: []` with no tool execution or
+mutations.
+
 ## Core Rule
 
 Coordinator agents and executor agents are separate roles.

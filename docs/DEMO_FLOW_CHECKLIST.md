@@ -5,6 +5,9 @@
 This checklist defines the manual verification scope for the current Hobit
 pre-AI milestone before first real AI integration.
 
+It gates the first real AI/provider implementation described in
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`.
+
 It is a current-state and demo-readiness checklist only. It does not implement
 runtime behavior, frontend UI, backend commands, storage, Agent execution, LLM
 integration, tool execution, Terminal behavior, Queue behavior, or approval and
@@ -122,4 +125,3 @@ Hobit is ready for first AI proposal-only integration when:
 - Agent Monitoring empty-state fix.
 - Catalog copy fix.
 - Queue optional-review copy fix.
-

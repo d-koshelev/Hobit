@@ -34,6 +34,12 @@ Implemented observability today is limited to:
 
 Those foundations are not full agent run observability yet.
 
+First real AI/provider calls must follow
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`: every call should produce a
+visible run/result artifact when persistence is available, Agent Monitoring
+should expose Overview / Result / Raw inspection, and raw provider data must not
+expose secrets or unsafe metadata.
+
 ## Core Model
 
 A future `AgentRun` or `ExecutorRun` should expose three linked views:

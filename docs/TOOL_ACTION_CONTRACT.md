@@ -37,3 +37,8 @@ These examples are future capabilities. They must follow the same approval-aware
 Future Script Runner behavior is further defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It must use explicit script paths, argv arguments, visible working directories, output caps, timeouts, and operator Run actions, with no hidden or automatic execution.
 
 Future Workspace-aware Coordinator Agent proposals are not tool execution by themselves. When an approved Coordinator proposal becomes a tool action, it must still follow this approval-aware Tool Action contract and the approved-context proposal rules in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+
+The first real AI integration slice is proposal-only under
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must use `allowed_tools: []`.
+AI may propose, but it cannot execute Terminal, Git, Notes, File, Script Runner,
+Agent Queue, or external-system actions directly.

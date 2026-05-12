@@ -39,6 +39,12 @@ The only current Agent Queue write path is outside Agent Chat: Agent Monitoring 
 
 This contract describes future behavior only.
 
+The first real AI/provider slice is further bounded by
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`. That contract defines the
+proposal-only request artifact, approved context snapshot, relevant contract
+pack, response artifact, provider boundary, and `allowed_tools: []` rule for the
+first AI integration.
+
 ## Role
 
 The Workspace-aware Coordinator Agent is a future coordination surface for one active Workspace.
