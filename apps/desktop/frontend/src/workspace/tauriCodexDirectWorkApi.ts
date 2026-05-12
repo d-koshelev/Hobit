@@ -52,6 +52,11 @@ type TauriDirectWorkStreamEvent = {
   status: string | null;
   elapsed_ms: number;
   is_final: boolean;
+  error_message?: string | null;
+  stderr_preview?: string | null;
+  exit_code?: number | null;
+  final_status?: string | null;
+  failed_stage?: string | null;
 };
 
 export async function runCodexDirectWork(
@@ -169,6 +174,11 @@ function normalizeDirectWorkStreamEvent(
     status: event.status,
     elapsedMs: event.elapsed_ms,
     isFinal: event.is_final,
+    errorMessage: event.error_message ?? null,
+    stderrPreview: event.stderr_preview ?? null,
+    exitCode: event.exit_code ?? null,
+    finalStatus: event.final_status ?? null,
+    failedStage: event.failed_stage ?? null,
   };
 }
 

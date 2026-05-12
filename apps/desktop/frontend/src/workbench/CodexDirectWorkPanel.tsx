@@ -205,9 +205,18 @@ export function CodexDirectWorkPanel({
       }
 
       return {
-        durationMs: currentRun?.runId === session.runId ? currentRun.durationMs : null,
+        durationMs:
+          currentRun?.runId === session.runId ? currentRun.durationMs : null,
+        errorMessage:
+          currentRun?.runId === session.runId ? currentRun.errorMessage : null,
+        exitCode:
+          currentRun?.runId === session.runId ? currentRun.exitCode : null,
+        failedStage:
+          currentRun?.runId === session.runId ? currentRun.failedStage : null,
         finalMessage:
           currentRun?.runId === session.runId ? currentRun.finalMessage : null,
+        finalStatus:
+          currentRun?.runId === session.runId ? currentRun.finalStatus : null,
         runId: session.runId,
         status: session.status === "started" ? "running" : session.status,
         stderrPreview:

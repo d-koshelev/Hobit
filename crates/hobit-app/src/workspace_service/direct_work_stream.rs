@@ -307,6 +307,11 @@ fn direct_work_stream_event_summary(
         status: stream_event_status(event.kind).map(ToOwned::to_owned),
         elapsed_ms: event.elapsed_ms,
         is_final: is_final_stream_event(event.kind),
+        error_message: event.error_message.clone(),
+        stderr_preview: event.stderr_preview.clone(),
+        exit_code: event.exit_code,
+        final_status: event.final_status.clone(),
+        failed_stage: event.failed_stage.clone(),
     }
 }
 
@@ -336,6 +341,10 @@ fn direct_work_stream_log_record(
             "text": &event.text,
             "parsed_codex_event_type": parsed_codex_event_type(event.parsed_json.as_deref()),
             "error_message": &event.error_message,
+            "stderr_preview": &event.stderr_preview,
+            "exit_code": event.exit_code,
+            "final_status": &event.final_status,
+            "failed_stage": &event.failed_stage,
             "is_final": is_final_stream_event(event.kind),
         })
         .to_string(),
@@ -397,6 +406,7 @@ fn direct_work_stream_completion_log_payload(
         "final_message_present": output.final_message.is_some(),
         "event_count": output.event_count,
         "error_message": &output.error_message,
+        "failed_stage": direct_work_stream_failed_stage(output.status),
     })
     .to_string()
 }
@@ -446,6 +456,7 @@ fn direct_work_stream_result_payload(
         "final_message": &output.final_message,
         "duration_ms": capped_duration_ms(output.duration_ms),
         "error_message": &output.error_message,
+        "failed_stage": direct_work_stream_failed_stage(output.status),
         "event_count": output.event_count,
         "no_auto_commit": true,
         "no_auto_push": true,
@@ -478,4 +489,13 @@ fn is_final_stream_event(kind: CodexDirectStreamEventKind) -> bool {
             | CodexDirectStreamEventKind::Failed
             | CodexDirectStreamEventKind::TimedOut
     )
+}
+
+fn direct_work_stream_failed_stage(status: CodexDirectStreamStatus) -> Option<&'static str> {
+    match status {
+        CodexDirectStreamStatus::Completed => None,
+        CodexDirectStreamStatus::FailedToStart => Some("process_start"),
+        CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
+        CodexDirectStreamStatus::Failed => Some("codex_exit"),
+    }
 }

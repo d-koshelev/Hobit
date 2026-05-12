@@ -429,6 +429,11 @@ pub struct CodexDirectWorkStreamEventSummary {
     pub status: Option<String>,
     pub elapsed_ms: u128,
     pub is_final: bool,
+    pub error_message: Option<String>,
+    pub stderr_preview: Option<String>,
+    pub exit_code: Option<i32>,
+    pub final_status: Option<String>,
+    pub failed_stage: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

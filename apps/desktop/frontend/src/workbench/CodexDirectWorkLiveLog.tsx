@@ -4,16 +4,23 @@ import {
   directWorkGitReviewHint,
   directWorkGitWidgetAvailability,
 } from "./CodexDirectWorkReviewHint";
+import {
+  codexJsonEventLabel,
+  codexJsonEventText,
+} from "./CodexDirectWorkLiveLogCodexEvents";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 const LIVE_LOG_ENTRY_LIMIT = 200;
 const RAW_EVENT_PREVIEW_LIMIT = 180;
-const AGENT_MESSAGE_PREVIEW_LIMIT = 500;
 
 export type CodexDirectWorkLiveRun = {
   durationMs: number | null;
+  errorMessage: string | null;
+  exitCode: number | null;
+  failedStage: string | null;
   finalMessage: string | null;
+  finalStatus: string | null;
   runId: string;
   status: string;
   stderrPreview: string;
@@ -91,19 +98,23 @@ export function CodexDirectWorkLiveLog({
           className="codex-direct-work-result-grid"
           fieldClassName="codex-direct-work-result-field"
           fields={[
-            { label: "Run id", value: liveRun.runId },
-            { label: "Status", value: liveRun.status },
-            {
-              label: "Duration",
-              value:
-                liveRun.durationMs === null
-                  ? "Running"
-                  : `${liveRun.durationMs} ms`,
-            },
+            ...liveRunStatusFields(liveRun),
           ]}
           labelClassName="codex-direct-work-result-label"
           valueClassName="codex-direct-work-result-value"
         />
+      ) : null}
+
+      {liveRun && isFailureStatus(liveRun.status) ? (
+        <div className="codex-direct-work-error-message">
+          <span className="codex-direct-work-result-label">Failure reason</span>
+          <span className="codex-direct-work-result-value">
+            {liveRun.errorMessage ?? "No failure detail was reported."}
+          </span>
+          <p className="codex-direct-work-review-note">
+            More lifecycle details may be available in Logs.
+          </p>
+        </div>
       ) : null}
 
       <div className="codex-direct-work-live-log-list" role="list">
@@ -198,7 +209,11 @@ export function liveRunFromEvent(
       ? currentRun
       : {
           durationMs: null,
+          errorMessage: null,
+          exitCode: null,
+          failedStage: null,
           finalMessage: null,
+          finalStatus: null,
           runId: event.runId,
           status: "running",
           stderrPreview: "",
@@ -208,15 +223,16 @@ export function liveRunFromEvent(
   return {
     ...base,
     durationMs: event.isFinal ? event.elapsedMs : base.durationMs,
+    errorMessage: event.errorMessage ?? base.errorMessage,
+    exitCode: event.exitCode ?? base.exitCode,
+    failedStage: event.failedStage ?? base.failedStage,
     finalMessage:
       event.eventKind === "final_message" && event.text
         ? event.text
         : base.finalMessage,
+    finalStatus: event.finalStatus ?? base.finalStatus,
     status: liveStatusFromEvent(base.status, event),
-    stderrPreview:
-      event.eventKind === "stderr_line" && event.line
-        ? appendOutputPreview(base.stderrPreview, event.line)
-        : base.stderrPreview,
+    stderrPreview: liveStderrPreviewFromEvent(base.stderrPreview, event),
     stdoutPreview:
       event.eventKind === "stdout_line" && event.line
         ? appendOutputPreview(base.stdoutPreview, event.line)
@@ -288,6 +304,12 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
     return "Final message received.";
   }
 
+  if (event.isFinal && isFailureEvent(event)) {
+    return shortEventDetail(
+      event.errorMessage ?? `Run ${event.status ?? event.eventKind}.`,
+    );
+  }
+
   if (event.isFinal) {
     return `Run ${event.status ?? event.eventKind}.`;
   }
@@ -310,6 +332,10 @@ function liveLogEventDetail(event: DirectWorkStreamEvent) {
 
   if (event.eventKind === "final_message") {
     return shortEventDetail(event.text ?? "");
+  }
+
+  if (event.isFinal && isFailureEvent(event)) {
+    return failureEventDetail(event);
   }
 
   if (event.eventKind === "stdout_line" || event.eventKind === "stderr_line") {
@@ -359,7 +385,11 @@ function liveLogRawPreview(event: DirectWorkStreamEvent) {
 
 function liveLogEventIdSuffix(event: DirectWorkStreamEvent) {
   return shortEventDetail(
-    event.parsedCodexEventType ?? event.text ?? event.line ?? "",
+    event.parsedCodexEventType ??
+      event.errorMessage ??
+      event.text ??
+      event.line ??
+      "",
     60,
   );
 }
@@ -524,6 +554,70 @@ function appendOutputPreview(currentValue: string, line: string) {
     : nextValue.slice(nextValue.length - OUTPUT_PREVIEW_LIMIT);
 }
 
+function liveStderrPreviewFromEvent(
+  currentValue: string,
+  event: DirectWorkStreamEvent,
+) {
+  if (event.stderrPreview) {
+    return event.stderrPreview;
+  }
+
+  if (event.eventKind === "stderr_line" && event.line) {
+    return appendOutputPreview(currentValue, event.line);
+  }
+
+  return currentValue;
+}
+
+function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
+  return [
+    { label: "Run id", value: liveRun.runId },
+    { label: "Status", value: liveRun.status },
+    liveRun.finalStatus
+      ? { label: "Final status", value: liveRun.finalStatus }
+      : null,
+    liveRun.exitCode !== null
+      ? { label: "Exit code", value: String(liveRun.exitCode) }
+      : null,
+    liveRun.failedStage
+      ? { label: "Failed stage", value: liveRun.failedStage }
+      : null,
+    {
+      label: "Duration",
+      value:
+        liveRun.durationMs === null ? "Running" : `${liveRun.durationMs} ms`,
+    },
+  ].filter(
+    (
+      field,
+    ): field is {
+      label: string;
+      value: string;
+    } => Boolean(field),
+  );
+}
+
+function isFailureStatus(status: string) {
+  return status === "failed" || status === "timed_out";
+}
+
+function isFailureEvent(event: DirectWorkStreamEvent) {
+  return event.eventKind === "failed" || event.eventKind === "timed_out";
+}
+
+function failureEventDetail(event: DirectWorkStreamEvent) {
+  const details = [
+    event.finalStatus ? `final status: ${event.finalStatus}` : null,
+    event.failedStage ? `stage: ${event.failedStage}` : null,
+    event.exitCode !== null ? `exit code: ${event.exitCode}` : null,
+    event.stderrPreview
+      ? `stderr: ${shortEventDetail(event.stderrPreview, 300)}`
+      : null,
+  ].filter((detail): detail is string => Boolean(detail));
+
+  return details.join("; ");
+}
+
 function previewLiveOutput(value: string) {
   if (value.length <= OUTPUT_PREVIEW_LIMIT) {
     return value;
@@ -544,150 +638,4 @@ function shortEventDetail(value: string, limit = 220) {
 
 function isInformationalStderrLine(line: string | null) {
   return line?.trim() === "Reading additional input from stdin...";
-}
-
-function codexJsonEventText(event: DirectWorkStreamEvent) {
-  const payload = parseJsonRecord(event.line);
-  const eventType = codexJsonEventType(event, payload);
-
-  if (eventType === "item.completed" && codexItemType(payload) === "agent_message") {
-    return (
-      shortEventDetail(
-        extractAgentMessageText(payload) ?? "Agent message completed.",
-        AGENT_MESSAGE_PREVIEW_LIMIT,
-      ) || "Agent message completed."
-    );
-  }
-
-  if (eventType === "thread.started") {
-    return "Thread started.";
-  }
-
-  if (eventType === "turn.started") {
-    return "Turn started.";
-  }
-
-  if (eventType === "turn.completed") {
-    const usageSummary = compactUsageSummary(payload);
-    return usageSummary ? `Turn completed. ${usageSummary}.` : "Turn completed.";
-  }
-
-  return eventType ? `Codex event: ${eventType}` : "Codex event";
-}
-
-function codexJsonEventLabel(event: DirectWorkStreamEvent) {
-  const payload = parseJsonRecord(event.line);
-  const eventType = codexJsonEventType(event, payload);
-
-  if (eventType === "thread.started") {
-    return "Thread started";
-  }
-
-  if (eventType === "turn.started") {
-    return "Turn started";
-  }
-
-  if (eventType === "item.completed" && codexItemType(payload) === "agent_message") {
-    return "Agent message";
-  }
-
-  if (eventType === "turn.completed") {
-    return "Turn completed";
-  }
-
-  return eventType ? `Codex event: ${eventType}` : "Codex event";
-}
-
-function codexJsonEventType(event: DirectWorkStreamEvent, payload: JsonRecord | null) {
-  return event.parsedCodexEventType ?? stringValue(payload?.type);
-}
-
-function codexItemType(payload: JsonRecord | null) {
-  return stringValue(recordValue(payload?.item)?.type);
-}
-
-function extractAgentMessageText(payload: JsonRecord | null) {
-  const item = recordValue(payload?.item);
-
-  return firstMessageText(item?.text, item?.message, item?.content, item?.parts);
-}
-
-function messageTextFromValue(value: unknown): string | null {
-  if (typeof value === "string") {
-    return value.trim() || null;
-  }
-
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => messageTextFromValue(item))
-      .filter((item): item is string => Boolean(item));
-    return parts.length > 0 ? parts.join("\n") : null;
-  }
-
-  const record = recordValue(value);
-  return record ? firstMessageText(record.text, record.content) : null;
-}
-
-function firstMessageText(...values: unknown[]) {
-  for (const value of values) {
-    const text = messageTextFromValue(value);
-    if (text) {
-      return text;
-    }
-  }
-
-  return null;
-}
-
-function compactUsageSummary(payload: JsonRecord | null) {
-  const usage = recordValue(payload?.usage);
-  if (!usage) {
-    return null;
-  }
-
-  const parts = [
-    usagePart(usage, "input_tokens", "input"),
-    usagePart(usage, "output_tokens", "output"),
-    usagePart(usage, "total_tokens", "total"),
-  ].filter((part): part is string => Boolean(part));
-
-  const summary = parts.length > 0 ? `Usage: ${parts.join(", ")}` : "";
-  return summary && summary.length <= 100 ? summary : null;
-}
-
-function usagePart(usage: JsonRecord, key: string, label: string) {
-  const value = numberValue(usage[key]);
-  return value === null ? null : `${formatCount(value)} ${label}`;
-}
-
-function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-type JsonRecord = Record<string, unknown>;
-
-function parseJsonRecord(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return recordValue(JSON.parse(value));
-  } catch {
-    return null;
-  }
-}
-
-function recordValue(value: unknown): JsonRecord | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" && value ? value : null;
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

@@ -23,13 +23,14 @@ use super::direct_run::{
 };
 use command::{build_codex_exec_json_args, safe_command_summary, validate_repo_root};
 use json::parse_lightweight_json_line;
-use status::{direct_stream_error_message, direct_stream_status};
+use status::{
+    direct_stream_error_message, direct_stream_status, failed_stage, final_stderr_preview,
+};
 use stream_io::{
     join_line_reader, spawn_line_reader, stream_event_line, CappedOutput, ReaderMessage, StreamKind,
 };
 
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
-
 mod command;
 mod json;
 mod status;
@@ -118,6 +119,10 @@ pub struct CodexDirectStreamEvent {
     pub text: Option<String>,
     pub parsed_json: Option<String>,
     pub error_message: Option<String>,
+    pub stderr_preview: Option<String>,
+    pub exit_code: Option<i32>,
+    pub final_status: Option<String>,
+    pub failed_stage: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -335,6 +340,10 @@ where
             text: None,
             parsed_json: None,
             error_message: None,
+            stderr_preview: None,
+            exit_code: None,
+            final_status: None,
+            failed_stage: None,
         },
     );
 
@@ -422,6 +431,10 @@ where
                 text: Some(message.to_owned()),
                 parsed_json: None,
                 error_message: None,
+                stderr_preview: None,
+                exit_code: None,
+                final_status: None,
+                failed_stage: None,
             },
         );
     }
@@ -434,10 +447,13 @@ where
         stderr_reader_error,
         final_message_error,
     ]);
+    let stderr_preview = final_stderr_preview(status, &stderr_collected);
 
     emit_final_status_event(
         status,
         error_message.as_deref(),
+        stderr_preview.as_deref(),
+        exit_code,
         started_at,
         &mut on_event,
         &mut event_count,
@@ -491,6 +507,10 @@ fn handle_reader_message<F>(
                             text: None,
                             parsed_json: Some(parsed_json),
                             error_message: None,
+                            stderr_preview: None,
+                            exit_code: None,
+                            final_status: None,
+                            failed_stage: None,
                         },
                     );
                 } else {
@@ -504,6 +524,10 @@ fn handle_reader_message<F>(
                             text: None,
                             parsed_json: None,
                             error_message: None,
+                            stderr_preview: None,
+                            exit_code: None,
+                            final_status: None,
+                            failed_stage: None,
                         },
                     );
                 }
@@ -520,6 +544,10 @@ fn handle_reader_message<F>(
                         text: None,
                         parsed_json: None,
                         error_message: None,
+                        stderr_preview: None,
+                        exit_code: None,
+                        final_status: None,
+                        failed_stage: None,
                     },
                 );
             }
@@ -582,6 +610,11 @@ where
             text: None,
             parsed_json: None,
             error_message: Some(message.clone()),
+            stderr_preview: None,
+            exit_code: None,
+            final_status: Some(CodexDirectStreamStatus::FailedToStart.as_str().to_owned()),
+            failed_stage: failed_stage(CodexDirectStreamStatus::FailedToStart)
+                .map(ToOwned::to_owned),
         },
     );
 
@@ -603,6 +636,8 @@ where
 fn emit_final_status_event<F>(
     status: CodexDirectStreamStatus,
     error_message: Option<&str>,
+    stderr_preview: Option<&str>,
+    exit_code: Option<i32>,
     started_at: Instant,
     on_event: &mut F,
     event_count: &mut usize,
@@ -627,6 +662,10 @@ fn emit_final_status_event<F>(
             text: None,
             parsed_json: None,
             error_message: error_message.map(ToOwned::to_owned),
+            stderr_preview: stderr_preview.map(ToOwned::to_owned),
+            exit_code,
+            final_status: Some(status.as_str().to_owned()),
+            failed_stage: failed_stage(status).map(ToOwned::to_owned),
         },
     );
 }

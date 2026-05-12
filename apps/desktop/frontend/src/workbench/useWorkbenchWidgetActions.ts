@@ -620,16 +620,16 @@ function directWorkResultFromStreamEvent(
     approvalPolicy: "never",
     commandSummary: [],
     status: event.status ?? event.eventKind,
-    exitCode: null,
+    exitCode: event.exitCode,
     stdout: "",
-    stderr: "",
+    stderr: event.stderrPreview ?? "",
     stdoutTruncated: false,
     stderrTruncated: false,
     finalMessage: null,
     durationMs: event.elapsedMs,
     errorMessage:
       event.eventKind === "failed" || event.eventKind === "timed_out"
-        ? (event.text ?? event.line ?? event.status)
+        ? (event.errorMessage ?? event.text ?? event.line ?? event.status)
         : null,
     noAutoCommit: true,
     noAutoPush: true,

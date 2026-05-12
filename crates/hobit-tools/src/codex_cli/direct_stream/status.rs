@@ -1,5 +1,7 @@
 use super::CodexDirectStreamStatus;
 
+const FINAL_STDERR_EVENT_PREVIEW_LIMIT: usize = 2_000;
+
 pub(super) fn direct_stream_status(
     timed_out: bool,
     wait_error: Option<&str>,
@@ -53,6 +55,26 @@ pub(super) fn direct_stream_error_message(
     }
 }
 
+pub(super) fn final_stderr_preview(
+    status: CodexDirectStreamStatus,
+    stderr: &str,
+) -> Option<String> {
+    if status == CodexDirectStreamStatus::Completed || stderr.trim().is_empty() {
+        return None;
+    }
+
+    Some(tail_preview(stderr, FINAL_STDERR_EVENT_PREVIEW_LIMIT))
+}
+
+pub(super) fn failed_stage(status: CodexDirectStreamStatus) -> Option<&'static str> {
+    match status {
+        CodexDirectStreamStatus::Completed => None,
+        CodexDirectStreamStatus::FailedToStart => Some("process_start"),
+        CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
+        CodexDirectStreamStatus::Failed => Some("codex_exit"),
+    }
+}
+
 fn compact_output_detail(output: &str) -> Option<String> {
     let detail = output
         .lines()
@@ -67,4 +89,23 @@ fn compact_output_detail(output: &str) -> Option<String> {
     } else {
         Some(detail)
     }
+}
+
+fn tail_preview(value: &str, limit: usize) -> String {
+    let char_count = value.chars().count();
+
+    if char_count <= limit {
+        return value.to_owned();
+    }
+
+    let tail = value
+        .chars()
+        .rev()
+        .take(limit)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>();
+
+    format!("[stderr preview truncated]\n{tail}")
 }

@@ -374,6 +374,7 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
         .start_codex_direct_work_stream(input.clone())
         .expect("start stream")
         .expect("stream start summary");
+    let emitted_events = RefCell::new(Vec::new());
 
     let summary = service
         .run_codex_direct_work_stream_with_runner(
@@ -391,10 +392,14 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
                     text: None,
                     parsed_json: None,
                     error_message: Some("stream stopped".to_owned()),
+                    stderr_preview: Some("stream stderr detail".to_owned()),
+                    exit_code: Some(22),
+                    final_status: Some(status.as_str().to_owned()),
+                    failed_stage: direct_work_stream_failed_stage(status).map(ToOwned::to_owned),
                 });
                 stream_output(&request, status, 1)
             },
-            |_| {},
+            |event| emitted_events.borrow_mut().push(event),
         )
         .expect("run direct work stream")
         .expect("direct work stream summary");
@@ -409,6 +414,26 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
     assert_eq!(run.status, expected_run_status);
     assert_eq!(payload["status"], expected_run_status);
     assert_eq!(payload["codex_status"], status.as_str());
+    assert_eq!(
+        payload["failed_stage"].as_str(),
+        direct_work_stream_failed_stage(status)
+    );
+    let events = emitted_events.borrow();
+    let final_event = events
+        .iter()
+        .find(|event| event.is_final)
+        .expect("final failure event");
+    assert_eq!(final_event.error_message.as_deref(), Some("stream stopped"));
+    assert_eq!(
+        final_event.stderr_preview.as_deref(),
+        Some("stream stderr detail")
+    );
+    assert_eq!(final_event.exit_code, Some(22));
+    assert_eq!(final_event.final_status.as_deref(), Some(status.as_str()));
+    assert_eq!(
+        final_event.failed_stage.as_deref(),
+        direct_work_stream_failed_stage(status)
+    );
 }
 
 fn add_direct_work_widget(service: &WorkspaceService) -> (String, String, String) {
@@ -467,6 +492,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: None,
         parsed_json: None,
         error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
     });
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::StdoutLine,
@@ -475,6 +504,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: None,
         parsed_json: None,
         error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
     });
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::StderrLine,
@@ -483,6 +516,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: None,
         parsed_json: None,
         error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
     });
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::CodexJsonEvent,
@@ -491,6 +528,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: None,
         parsed_json: Some(r#"{"type":"thread.started"}"#.to_owned()),
         error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
     });
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::FinalMessage,
@@ -499,6 +540,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: Some("Final response".to_owned()),
         parsed_json: None,
         error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
     });
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::Completed,
@@ -507,6 +552,10 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
         text: None,
         parsed_json: None,
         error_message: None,
+        stderr_preview: None,
+        exit_code: Some(0),
+        final_status: Some("completed".to_owned()),
+        failed_stage: None,
     });
 }
 
@@ -578,4 +627,13 @@ fn current_repo_root() -> PathBuf {
 
 fn widget_log_messages(logs: &[WidgetLogSummary]) -> Vec<&str> {
     logs.iter().map(|log| log.message.as_str()).collect()
+}
+
+fn direct_work_stream_failed_stage(status: CodexDirectStreamStatus) -> Option<&'static str> {
+    match status {
+        CodexDirectStreamStatus::Completed => None,
+        CodexDirectStreamStatus::FailedToStart => Some("process_start"),
+        CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
+        CodexDirectStreamStatus::Failed => Some("codex_exit"),
+    }
 }

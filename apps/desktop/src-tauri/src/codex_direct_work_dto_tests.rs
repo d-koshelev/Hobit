@@ -142,13 +142,18 @@ fn maps_direct_work_stream_event_to_tauri_payload() {
         workbench_id: "wb_1".to_owned(),
         widget_instance_id: "wid_1".to_owned(),
         run_id: "run_1".to_owned(),
-        event_kind: "codex_json_event".to_owned(),
-        line: Some(r#"{"type":"thread.started"}"#.to_owned()),
+        event_kind: "failed".to_owned(),
+        line: None,
         text: None,
-        parsed_codex_event_type: Some("thread.started".to_owned()),
-        status: None,
+        parsed_codex_event_type: None,
+        status: Some("failed".to_owned()),
         elapsed_ms: 12,
-        is_final: false,
+        is_final: true,
+        error_message: Some("codex stream failed".to_owned()),
+        stderr_preview: Some("stderr tail".to_owned()),
+        exit_code: Some(2),
+        final_status: Some("failed".to_owned()),
+        failed_stage: Some("codex_exit".to_owned()),
     });
 
     assert_eq!(DIRECT_WORK_STREAM_EVENT_NAME, "direct-work://event");
@@ -156,11 +161,14 @@ fn maps_direct_work_stream_event_to_tauri_payload() {
     assert_eq!(dto.workbench_id, "wb_1");
     assert_eq!(dto.widget_instance_id, "wid_1");
     assert_eq!(dto.run_id, "run_1");
-    assert_eq!(dto.event_kind, "codex_json_event");
-    assert_eq!(
-        dto.parsed_codex_event_type.as_deref(),
-        Some("thread.started")
-    );
+    assert_eq!(dto.event_kind, "failed");
+    assert_eq!(dto.status.as_deref(), Some("failed"));
+    assert_eq!(dto.parsed_codex_event_type, None);
     assert_eq!(dto.elapsed_ms, 12);
-    assert!(!dto.is_final);
+    assert!(dto.is_final);
+    assert_eq!(dto.error_message.as_deref(), Some("codex stream failed"));
+    assert_eq!(dto.stderr_preview.as_deref(), Some("stderr tail"));
+    assert_eq!(dto.exit_code, Some(2));
+    assert_eq!(dto.final_status.as_deref(), Some("failed"));
+    assert_eq!(dto.failed_stage.as_deref(), Some("codex_exit"));
 }

@@ -124,6 +124,11 @@ export type DirectWorkStreamEvent = {
   status: string | null;
   elapsedMs: number;
   isFinal: boolean;
+  errorMessage: string | null;
+  stderrPreview: string | null;
+  exitCode: number | null;
+  finalStatus: string | null;
+  failedStage: string | null;
 };
 
 export type StartCodexDirectWorkStreamResponse = {

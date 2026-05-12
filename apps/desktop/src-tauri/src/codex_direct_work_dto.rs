@@ -82,6 +82,11 @@ pub(crate) struct DirectWorkStreamEventDto {
     pub status: Option<String>,
     pub elapsed_ms: u128,
     pub is_final: bool,
+    pub error_message: Option<String>,
+    pub stderr_preview: Option<String>,
+    pub exit_code: Option<i32>,
+    pub final_status: Option<String>,
+    pub failed_stage: Option<String>,
 }
 
 impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
@@ -171,6 +176,11 @@ impl From<CodexDirectWorkStreamEventSummary> for DirectWorkStreamEventDto {
             status: event.status,
             elapsed_ms: event.elapsed_ms,
             is_final: event.is_final,
+            error_message: event.error_message,
+            stderr_preview: event.stderr_preview,
+            exit_code: event.exit_code,
+            final_status: event.final_status,
+            failed_stage: event.failed_stage,
         }
     }
 }

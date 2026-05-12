@@ -124,6 +124,21 @@ fn timeout_emits_timed_out_status_and_kills_process() {
     assert!(events
         .iter()
         .any(|event| event.kind == CodexDirectStreamEventKind::TimedOut));
+    let timed_out_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::TimedOut)
+        .expect("timed out event should be emitted");
+    assert_eq!(timed_out_event.exit_code, None);
+    assert_eq!(timed_out_event.final_status.as_deref(), Some("timed_out"));
+    assert_eq!(
+        timed_out_event.failed_stage.as_deref(),
+        Some("codex_stream")
+    );
+    assert!(timed_out_event
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("timed out"));
 }
 
 #[test]
@@ -143,9 +158,10 @@ fn stdout_and_stderr_caps_are_applied() {
 
 #[test]
 fn nonzero_exit_returns_failed_with_stderr_preserved() {
+    let mut events = Vec::new();
     let output = run_codex_direct_work_streaming(
         request_with_program(temp_repo("nonzero"), "nonzero", direct_stream_helper()),
-        |_| {},
+        |event| events.push(event),
     );
 
     assert_eq!(output.status, CodexDirectStreamStatus::Failed);
@@ -154,6 +170,45 @@ fn nonzero_exit_returns_failed_with_stderr_preserved() {
     let error_message = output.error_message.as_deref().unwrap_or_default();
     assert!(error_message.contains("code 17"));
     assert!(error_message.contains("helper stderr failure"));
+    let failed_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::Failed)
+        .expect("failed event should be emitted");
+    assert_eq!(failed_event.error_message.as_deref(), Some(error_message));
+    assert_eq!(
+        failed_event.stderr_preview.as_deref(),
+        Some("helper stderr failure\n")
+    );
+    assert_eq!(failed_event.exit_code, Some(17));
+    assert_eq!(failed_event.final_status.as_deref(), Some("failed"));
+    assert_eq!(failed_event.failed_stage.as_deref(), Some("codex_exit"));
+}
+
+#[test]
+fn missing_executable_failed_event_includes_process_start_stage() {
+    let mut events = Vec::new();
+    let output = run_codex_direct_work_streaming(
+        request_with_program(
+            temp_repo("missing-executable"),
+            "missing-executable",
+            format!("hobit-missing-codex-{}", unique_suffix()),
+        ),
+        |event| events.push(event),
+    );
+
+    assert_eq!(output.status, CodexDirectStreamStatus::FailedToStart);
+    let failed_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::Failed)
+        .expect("failed event should be emitted");
+    assert!(failed_event.error_message.is_some());
+    assert_eq!(failed_event.stderr_preview, None);
+    assert_eq!(failed_event.exit_code, None);
+    assert_eq!(
+        failed_event.final_status.as_deref(),
+        Some("failed_to_start")
+    );
+    assert_eq!(failed_event.failed_stage.as_deref(), Some("process_start"));
 }
 
 #[test]
