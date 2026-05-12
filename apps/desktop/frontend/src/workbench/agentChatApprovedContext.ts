@@ -38,11 +38,6 @@ export type AgentChatAvailableContext = {
 };
 
 export type AgentChatVisibleWidgetContext = {
-  componentKey: string;
-  definitionId: string;
-  definitionTitle: string;
-  id: string;
-  layoutMode: string;
   order: number;
   title: string;
   visible: boolean;
@@ -64,22 +59,19 @@ export type AgentChatApprovedContextSnapshotItem = {
 export const agentChatContextSourceOptions: readonly AgentChatContextSourceOption[] =
   [
     {
-      description:
-        "Workspace title, id, status, and active Workbench/preset identity only.",
+      description: "Current Workspace name only.",
       id: "workspaceIdentity",
-      label: "Include workspace identity",
+      label: "Use current workspace",
     },
     {
-      description:
-        "Widget ids, titles, definitions, component keys, layout modes, and visibility only.",
+      description: "Names of widgets open in this Workbench.",
       id: "widgetInventory",
-      label: "Include widget inventory",
+      label: "Use open widgets",
     },
     {
-      description:
-        "Current-session global activity label and detail only.",
+      description: "Current-session activity label only.",
       id: "activityStatus",
-      label: "Include current activity status",
+      label: "Use activity status",
     },
   ];
 
@@ -105,11 +97,6 @@ export function createAgentChatAvailableContext(
         const definition = getWidgetDefinition(widget.definitionId);
 
         return {
-          componentKey: definition?.componentKey ?? "unregistered",
-          definitionId: widget.definitionId,
-          definitionTitle: definition?.title ?? widget.definitionId,
-          id: widget.id,
-          layoutMode: widget.layout.mode,
           order: widget.layout.order,
           title:
             widget.title ||
@@ -139,7 +126,7 @@ export function createAgentChatApprovedContextSnapshot(
 ): AgentChatApprovedContextSnapshot {
   if (!availableContext) {
     return emptyContextSnapshot(
-      "Operator prompt only. Current-view context metadata is unavailable.",
+      "Operator prompt only. Approved context is unavailable.",
     );
   }
 
@@ -147,13 +134,9 @@ export function createAgentChatApprovedContextSnapshot(
 
   if (selection.workspaceIdentity) {
     items.push({
-      lines: [
-        `Workspace: ${availableContext.workspace.title} (${availableContext.workspace.id})`,
-        `Workspace status: ${availableContext.workspace.status}`,
-        `Workbench: ${availableContext.workbench.presetTitle} (${availableContext.workbench.id ?? "no persisted workbench id"})`,
-      ],
+      lines: [`Workspace: ${workspaceTitle(availableContext.workspace.title)}`],
       sourceId: "workspaceIdentity",
-      title: "Workspace identity",
+      title: "Current workspace",
     });
   }
 
@@ -161,25 +144,20 @@ export function createAgentChatApprovedContextSnapshot(
     items.push({
       lines: widgetInventoryLines(availableContext.widgetInventory),
       sourceId: "widgetInventory",
-      title: "Widget inventory",
+      title: "Open widgets",
     });
   }
 
   if (selection.activityStatus) {
     items.push({
-      lines: [
-        `Activity: ${availableContext.activityStatus.label} - ${availableContext.activityStatus.detail}`,
-        `Activity kind: ${availableContext.activityStatus.kind}`,
-      ],
+      lines: [`Activity: ${availableContext.activityStatus.label}`],
       sourceId: "activityStatus",
-      title: "Current activity status",
+      title: "Activity status",
     });
   }
 
   if (items.length === 0) {
-    return emptyContextSnapshot(
-      "Operator prompt only. No workspace context approved.",
-    );
+    return emptyContextSnapshot("Operator prompt only. No context selected.");
   }
 
   const sourceLabels = items.map((item) => item.title);
@@ -188,7 +166,7 @@ export function createAgentChatApprovedContextSnapshot(
     items,
     sourceLabels,
     status: "approved",
-    summary: `Approved current-view context: ${sourceLabels.join(", ")}.`,
+    summary: `Approved context: ${sourceLabels.join(", ")}.`,
   };
 }
 
@@ -211,20 +189,17 @@ function emptyContextSnapshot(summary: string): AgentChatApprovedContextSnapshot
 function widgetInventoryLines(
   widgetInventory: readonly AgentChatVisibleWidgetContext[],
 ) {
-  if (widgetInventory.length === 0) {
-    return ["No widget instances are currently present in this Workbench."];
+  const openWidgetTitles = widgetInventory
+    .filter((widget) => widget.visible)
+    .map((widget) => widget.title);
+
+  if (openWidgetTitles.length === 0) {
+    return ["Open widgets: none"];
   }
 
-  return [
-    `${widgetInventory.length} widget instance(s) in the current Workbench.`,
-    ...widgetInventory.map((widget) =>
-      [
-        `${widget.title} (${widget.id})`,
-        `type ${widget.definitionTitle}`,
-        `component ${widget.componentKey}`,
-        `layout ${widget.layoutMode}`,
-        widget.visible ? "visible" : "hidden",
-      ].join("; "),
-    ),
-  ];
+  return [`Open widgets: ${openWidgetTitles.join(", ")}`];
+}
+
+function workspaceTitle(title: string) {
+  return title.trim() || "Untitled Workspace";
 }

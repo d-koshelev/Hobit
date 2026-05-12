@@ -64,7 +64,7 @@ export function OperationalAgentChatPlaceholderWidget({
         "Prompt received by local mock runtime.",
         "Mock proposal generated.",
         proposal.approvedContextSnapshot.status === "approved"
-          ? "Selected current-view context snapshot included."
+          ? "Selected context included."
           : "No context approved; prompt-only proposal generated.",
         persistenceActivityLine(persistenceState),
         "No tools executed and no workspace content mutation performed.",

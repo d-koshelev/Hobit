@@ -21,15 +21,13 @@ export function TerminalPlaceholderWidget({
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
-  const programInputId = useId();
-  const argsTextareaId = useId();
+  const commandInputId = useId();
   const workingDirectoryInputId = useId();
   const timeoutInputId = useId();
   const stdoutCapInputId = useId();
   const stderrCapInputId = useId();
   const commandPanelTitleId = useId();
-  const [programDraft, setProgramDraft] = useState("");
-  const [argsDraft, setArgsDraft] = useState("");
+  const [commandDraft, setCommandDraft] = useState("");
   const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState("");
   const [timeoutMsDraft, setTimeoutMsDraft] = useState(DEFAULT_TIMEOUT_MS);
   const [stdoutCapBytesDraft, setStdoutCapBytesDraft] = useState(
@@ -43,7 +41,10 @@ export function TerminalPlaceholderWidget({
   const [runResult, setRunResult] =
     useState<RunTerminalCommandResponse | null>(null);
 
-  const program = programDraft.trim();
+  const parsedCommand = splitCommandLine(commandDraft);
+  const commandInputError = commandDraft.trim() ? parsedCommand.error : null;
+  const program = parsedCommand.program;
+  const args = parsedCommand.args;
   const workingDirectory = workingDirectoryDraft.trim();
   const timeoutMsError = positiveIntegerInputError(timeoutMsDraft, "Timeout ms");
   const stdoutCapBytesError = positiveIntegerInputError(
@@ -60,6 +61,7 @@ export function TerminalPlaceholderWidget({
     Boolean(onRunTerminalCommand) &&
     program.length > 0 &&
     workingDirectory.length > 0 &&
+    !commandInputError &&
     !numericInputError &&
     !isRunning;
 
@@ -70,6 +72,11 @@ export function TerminalPlaceholderWidget({
 
     setRunErrorMessage(null);
     setRunResult(null);
+
+    if (commandInputError) {
+      setRunErrorMessage(commandInputError);
+      return;
+    }
 
     if (numericInputError) {
       setRunErrorMessage(numericInputError);
@@ -93,7 +100,7 @@ export function TerminalPlaceholderWidget({
       );
       const response = await onRunTerminalCommand(instance.id, {
         program,
-        args: parseArgsLines(argsDraft),
+        args,
         workingDirectory,
         timeoutMs,
         stdoutCapBytes,
@@ -121,8 +128,8 @@ export function TerminalPlaceholderWidget({
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
-      style={frameStyle}
       status={terminalFrameStatus(runResult, runErrorMessage, isRunning)}
+      style={frameStyle}
       title={title}
     >
       <section
@@ -132,35 +139,16 @@ export function TerminalPlaceholderWidget({
         <div className="terminal-command-header">
           <div className="terminal-command-copy">
             <h3 className="terminal-command-title" id={commandPanelTitleId}>
-              One-shot local command
+              Terminal command
             </h3>
             <p className="terminal-command-text">
-              Program and arguments are passed directly through the desktop
-              backend as program + argv. This is a one-shot local command path
-              with no shell mode, no interactive stdin, no PTY, no streaming,
-              and no command history. Browser fallback cannot run local
-              processes.
+              Run one local command. Not interactive yet.
             </p>
           </div>
-          <Badge variant="info">No shell mode</Badge>
+          <Badge variant="info">One-shot</Badge>
         </div>
 
         <div className="terminal-command-controls">
-          <div className="terminal-command-field">
-            <label className="terminal-command-label" htmlFor={programInputId}>
-              Program
-            </label>
-            <Input
-              autoComplete="off"
-              id={programInputId}
-              onChange={(event) => setProgramDraft(event.target.value)}
-              placeholder="python"
-              spellCheck={false}
-              type="text"
-              value={programDraft}
-            />
-          </div>
-
           <div className="terminal-command-field">
             <label
               className="terminal-command-label"
@@ -184,45 +172,74 @@ export function TerminalPlaceholderWidget({
           <div className="terminal-command-field terminal-command-field-wide">
             <label
               className="terminal-command-label"
-              htmlFor={argsTextareaId}
+              htmlFor={commandInputId}
             >
-              Args
+              Command
             </label>
-            <textarea
-              className="input terminal-command-args-textarea"
-              id={argsTextareaId}
-              onChange={(event) => setArgsDraft(event.target.value)}
-              placeholder={"--version\n--help"}
+            <Input
+              aria-invalid={commandInputError ? true : undefined}
+              autoComplete="off"
+              id={commandInputId}
+              onChange={(event) => setCommandDraft(event.target.value)}
+              placeholder="git status"
               spellCheck={false}
-              value={argsDraft}
+              type="text"
+              value={commandDraft}
             />
-            <p className="terminal-command-note">
-              One argument per non-empty line. Shell quoting is not parsed and
-              lines are not joined into a command string.
-            </p>
           </div>
 
-          <TerminalNumberField
-            error={timeoutMsError}
-            id={timeoutInputId}
-            label="Timeout ms"
-            onChange={setTimeoutMsDraft}
-            value={timeoutMsDraft}
-          />
-          <TerminalNumberField
-            error={stdoutCapBytesError}
-            id={stdoutCapInputId}
-            label="Stdout cap bytes"
-            onChange={setStdoutCapBytesDraft}
-            value={stdoutCapBytesDraft}
-          />
-          <TerminalNumberField
-            error={stderrCapBytesError}
-            id={stderrCapInputId}
-            label="Stderr cap bytes"
-            onChange={setStderrCapBytesDraft}
-            value={stderrCapBytesDraft}
-          />
+          {commandInputError ? (
+            <p className="terminal-command-validation" role="alert">
+              {commandInputError}
+            </p>
+          ) : null}
+
+          <details className="terminal-command-advanced">
+            <summary className="terminal-command-advanced-summary">
+              Advanced
+            </summary>
+            <div className="terminal-command-advanced-body">
+              <p className="terminal-command-note">
+                The command is split into a program and arguments for the
+                existing one-shot backend. Quotes group spaces; shell features
+                are not expanded.
+              </p>
+              <dl className="terminal-command-parsed-grid">
+                <TerminalResultField
+                  label="Program"
+                  value={program || "No command entered"}
+                />
+                <TerminalResultField
+                  label="Arguments"
+                  value={args.length > 0 ? args.join(" ") : "None"}
+                />
+              </dl>
+              <div className="terminal-command-controls">
+                <TerminalNumberField
+                  error={timeoutMsError}
+                  id={timeoutInputId}
+                  label="Timeout ms"
+                  onChange={setTimeoutMsDraft}
+                  value={timeoutMsDraft}
+                />
+                <TerminalNumberField
+                  error={stdoutCapBytesError}
+                  id={stdoutCapInputId}
+                  label="Stdout cap bytes"
+                  onChange={setStdoutCapBytesDraft}
+                  value={stdoutCapBytesDraft}
+                />
+                <TerminalNumberField
+                  error={stderrCapBytesError}
+                  id={stderrCapInputId}
+                  label="Stderr cap bytes"
+                  onChange={setStderrCapBytesDraft}
+                  value={stderrCapBytesDraft}
+                />
+              </div>
+            </div>
+          </details>
+
           {numericInputError ? (
             <p className="terminal-command-validation" role="alert">
               {numericInputError}
@@ -232,11 +249,10 @@ export function TerminalPlaceholderWidget({
 
         <div className="terminal-command-action-row">
           <Button disabled={!canRun} onClick={runCommand} variant="primary">
-            {isRunning ? "Running..." : "Run command"}
+            {isRunning ? "Running..." : "Run"}
           </Button>
           <p className="terminal-command-note">
-            Run creates a widget run, lifecycle logs, and one structured result
-            for this Terminal widget only.
+            Creates one Terminal widget run, logs, and final result.
           </p>
         </div>
       </section>
@@ -257,8 +273,31 @@ export function TerminalPlaceholderWidget({
         />
       ) : null}
 
-      {runResult ? <TerminalResultCard result={runResult} /> : null}
+      {runResult ? (
+        <TerminalResultCard result={runResult} />
+      ) : (
+        <TerminalEmptyConsole />
+      )}
     </WidgetFrame>
+  );
+}
+
+function TerminalEmptyConsole() {
+  return (
+    <section aria-label="Terminal output" className="terminal-result-card">
+      <div className="terminal-result-header">
+        <div className="terminal-result-copy">
+          <h3 className="terminal-result-title">Output</h3>
+          <p className="terminal-result-text">
+            No command has run in this Terminal widget yet.
+          </p>
+        </div>
+        <Badge variant="neutral">Idle</Badge>
+      </div>
+      <pre aria-label="Terminal output" className="terminal-placeholder-output">
+        <code>Ready.</code>
+      </pre>
+    </section>
   );
 }
 
@@ -365,12 +404,12 @@ function TerminalResultCard({
       ) : null}
 
       <TerminalOutputPreview
-        label="stdout preview"
+        label="stdout"
         output={result.stdout}
         truncated={result.stdoutTruncated}
       />
       <TerminalOutputPreview
-        label="stderr preview"
+        label="stderr"
         output={result.stderr}
         truncated={result.stderrTruncated}
       />
@@ -487,10 +526,63 @@ function terminalResultStatusView(result: RunTerminalCommandResponse): {
   };
 }
 
-function parseArgsLines(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0);
+function splitCommandLine(value: string): {
+  args: string[];
+  error: string | null;
+  program: string;
+} {
+  const tokens: string[] = [];
+  let currentToken = "";
+  let activeQuote: '"' | "'" | null = null;
+  let tokenStarted = false;
+
+  for (const character of value.trim()) {
+    if (character === '"' || character === "'") {
+      tokenStarted = true;
+
+      if (activeQuote === character) {
+        activeQuote = null;
+        continue;
+      }
+
+      if (!activeQuote) {
+        activeQuote = character;
+        continue;
+      }
+    }
+
+    if (!activeQuote && /\s/.test(character)) {
+      if (tokenStarted) {
+        tokens.push(currentToken);
+        currentToken = "";
+        tokenStarted = false;
+      }
+      continue;
+    }
+
+    currentToken += character;
+    tokenStarted = true;
+  }
+
+  if (activeQuote) {
+    return {
+      args: [],
+      error: "Command has an unclosed quote.",
+      program: "",
+    };
+  }
+
+  if (tokenStarted) {
+    tokens.push(currentToken);
+  }
+
+  const [nextProgram = "", ...nextArgs] = tokens;
+
+  return {
+    args: nextArgs,
+    error: null,
+    program: nextProgram,
+  };
 }
 
 function parsePositiveIntegerInput(value: string, label: string): number | null {

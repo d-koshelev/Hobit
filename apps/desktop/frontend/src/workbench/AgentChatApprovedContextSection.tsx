@@ -32,9 +32,8 @@ export function AgentChatApprovedContextSection({
         <div className="agent-chat-proposal-copy">
           <p className="agent-chat-proposal-title">Approved context</p>
           <p className="agent-chat-proposal-text">
-            Only selected current-view metadata is included in the mock
-            proposal. No hidden workspace, file, Git, Notes, logs, Queue, or
-            Terminal output is read.
+            No files, Git, Notes, Terminal output, logs, or hidden context are
+            included.
           </p>
         </div>
         <Badge variant="neutral">Current session</Badge>
