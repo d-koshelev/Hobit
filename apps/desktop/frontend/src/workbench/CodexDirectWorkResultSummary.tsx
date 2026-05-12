@@ -1,5 +1,6 @@
 import { Badge } from "../design-system/Badge";
 import type { RunCodexDirectWorkResponse } from "../workspace/types";
+import { CodexDirectWorkChangedFilesSummary } from "./CodexDirectWorkChangedFilesSummary";
 import {
   directWorkGitReviewHint,
   directWorkGitWidgetAvailability,
@@ -115,6 +116,11 @@ export function CodexDirectWorkResultSummary({
           </code>
         </pre>
       </div>
+
+      <CodexDirectWorkChangedFilesSummary
+        gitReviewStatus={gitReviewStatus}
+        hasGitWidget={hasGitWidget}
+      />
 
       <details className="codex-direct-work-output-details">
         <summary className="codex-direct-work-output-summary">

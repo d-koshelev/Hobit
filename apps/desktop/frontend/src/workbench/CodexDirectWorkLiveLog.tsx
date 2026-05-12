@@ -1,5 +1,6 @@
 import { Badge } from "../design-system/Badge";
 import type { DirectWorkStreamEvent } from "../workspace/types";
+import { CodexDirectWorkChangedFilesSummary } from "./CodexDirectWorkChangedFilesSummary";
 import {
   directWorkGitReviewHint,
   directWorkGitWidgetAvailability,
@@ -179,6 +180,10 @@ export function CodexDirectWorkLiveLog({
             <code>{previewLiveOutput(liveRun.finalMessage)}</code>
           </pre>
         </div>
+      ) : null}
+
+      {liveRun && isFinalStatus(liveRun.status) ? (
+        <CodexDirectWorkChangedFilesSummary gitReviewStatus={gitReviewStatus} hasGitWidget={hasGitWidget} />
       ) : null}
 
       {liveRun?.stdoutPreview ? (
@@ -617,12 +622,8 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
     { label: "Run id", value: liveRun.runId },
     { label: "Executor", value: "Codex CLI" },
     { label: "Status", value: liveRun.status },
-    liveRun.startedAtMs !== null
-      ? { label: "Started at", value: formatDirectWorkClockTime(liveRun.startedAtMs) }
-      : null,
-    liveRun.completedAtMs !== null
-      ? { label: "Completed at", value: formatDirectWorkClockTime(liveRun.completedAtMs) }
-      : null,
+    liveRun.startedAtMs !== null ? { label: "Started at", value: formatDirectWorkClockTime(liveRun.startedAtMs) } : null,
+    liveRun.completedAtMs !== null ? { label: "Completed at", value: formatDirectWorkClockTime(liveRun.completedAtMs) } : null,
     liveRun.finalStatus
       ? { label: "Final status", value: liveRun.finalStatus }
       : null,
@@ -637,9 +638,7 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
 }
 
 function liveRunDurationLabel(liveRun: CodexDirectWorkLiveRun) {
-  return liveRun.durationMs === null
-    ? "Running"
-    : formatDirectWorkDuration(liveRun.durationMs);
+  return liveRun.durationMs === null ? "Running" : formatDirectWorkDuration(liveRun.durationMs);
 }
 
 function isFailureStatus(status: string) {

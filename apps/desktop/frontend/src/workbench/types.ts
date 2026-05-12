@@ -190,6 +190,8 @@ export type DirectWorkGitReviewRequestInput = {
 
 export type DirectWorkGitReviewStatus = {
   errorMessage?: string;
+  repositoryRoot?: string;
+  repositoryStatus?: GitRepositoryStatus | null;
   requestId: number;
   sourceWidgetInstanceId: WidgetInstanceId;
   state: "pending" | "completed" | "failed";

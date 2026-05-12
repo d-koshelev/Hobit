@@ -88,6 +88,7 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "failed",
+        requestedRepositoryRoot,
         "Git status is already refreshing",
       );
       return;
@@ -103,6 +104,7 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "failed",
+        nextRepositoryRoot,
         "Repository root is not configured",
       );
       return;
@@ -116,6 +118,7 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "failed",
+        nextRepositoryRoot,
         "Desktop/Tauri shell is required for real Git reads",
       );
       return;
@@ -129,6 +132,7 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "failed",
+        nextRepositoryRoot,
         "Git status reader is unavailable",
       );
       return;
@@ -155,6 +159,9 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "completed",
+        nextRepositoryRoot,
+        undefined,
+        status,
       );
     } catch (error) {
       const errorView = gitStatusErrorViewFromUnknown(error);
@@ -163,6 +170,7 @@ export function GitPlaceholderWidget({
         directWorkRequestId,
         sourceWidgetInstanceId,
         "failed",
+        nextRepositoryRoot,
         `${errorView.title}: ${errorView.message}`,
       );
     } finally {
@@ -179,7 +187,9 @@ export function GitPlaceholderWidget({
     requestId: number | undefined,
     sourceWidgetInstanceId: string | undefined,
     state: "completed" | "failed",
+    repositoryRoot?: string,
     errorMessage?: string,
+    repositoryStatus?: GitRepositoryStatus,
   ) {
     if (requestId === undefined || !sourceWidgetInstanceId) {
       return;
@@ -187,6 +197,8 @@ export function GitPlaceholderWidget({
 
     onDirectWorkGitReviewStatusChange?.({
       errorMessage,
+      repositoryRoot,
+      repositoryStatus: repositoryStatus ?? null,
       requestId,
       sourceWidgetInstanceId,
       state,

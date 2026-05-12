@@ -39,6 +39,8 @@ export function useDirectWorkGitReviewHandoff(
 
     setRequest(nextRequest);
     setStatus({
+      repositoryRoot: nextRequest.repositoryRoot,
+      repositoryStatus: null,
       requestId: nextRequest.id,
       sourceWidgetInstanceId: nextRequest.sourceWidgetInstanceId,
       state: "pending",
