@@ -33,6 +33,16 @@ PTY, and interactive sessions are not implemented here.
 
 The Direct Work runners do not support `danger-full-access`.
 
+The crate also includes a Toolbelt validation runner foundation. It can run the
+repository-local validation profiles (`fast`, `changed`, `full`) through the
+bounded process adapter for an explicit repository root. On Windows it maps to
+PowerShell with `-NoProfile`, `-ExecutionPolicy Bypass`, `-File
+scripts/hobit/validate.ps1`, and `-Profile <profile>`. On non-Windows it maps
+to `bash scripts/hobit/validate.sh --profile <profile>`. It captures stdout,
+stderr, exit status, timeout, truncation flags, duration, and a safe command
+summary. It is not wired to Direct Work UI, Tauri commands, storage, or
+automatic post-run validation.
+
 ## Belongs Here
 
 - Tool action boundaries.
@@ -40,6 +50,7 @@ The Direct Work runners do not support `danger-full-access`.
 - Safe local CLI availability/version probes.
 - Approval-aware execution interfaces once the contracts are ready.
 - Read-only Git status data shaped for visual review surfaces.
+- Repository-local Toolbelt validation runner foundations.
 
 The app/Tauri layer may wrap this runner and persist run artifacts; this crate
 remains the tool adapter boundary.
