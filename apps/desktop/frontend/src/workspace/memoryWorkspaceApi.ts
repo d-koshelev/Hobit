@@ -6,6 +6,7 @@ import type {
   AgentQueueSnapshot,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GetAgentMonitoringSnapshotRequest,
@@ -19,6 +20,8 @@ import type {
   RunCodexDirectWorkResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  StartCodexDirectWorkStreamRequest,
+  StartCodexDirectWorkStreamResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -52,6 +55,8 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   generateAgentChatAiProposal,
   runTerminalCommand,
   runCodexDirectWork,
+  startCodexDirectWorkStream,
+  listenToDirectWorkStreamEvents,
 };
 
 async function createWorkspace(
@@ -309,6 +314,22 @@ async function runCodexDirectWork(
 ): Promise<RunCodexDirectWorkResponse | null> {
   throw new Error(
     "Codex Direct Work is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or persist Direct Work artifacts.",
+  );
+}
+
+async function startCodexDirectWorkStream(
+  _request: StartCodexDirectWorkStreamRequest,
+): Promise<StartCodexDirectWorkStreamResponse | null> {
+  throw new Error(
+    "Codex Direct Work streaming is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or stream Direct Work events.",
+  );
+}
+
+async function listenToDirectWorkStreamEvents(
+  _onEvent: (event: DirectWorkStreamEvent) => void,
+): Promise<() => void> {
+  throw new Error(
+    "Codex Direct Work streaming is only available in the Tauri desktop shell. Browser fallback cannot subscribe to Direct Work events.",
   );
 }
 

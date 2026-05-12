@@ -48,6 +48,7 @@ export function AgentRunPlaceholderWidget({
   onGetAgentMonitoringSnapshot,
   onLoadLogs,
   onRunCodexDirectWork,
+  onStartCodexDirectWorkStream,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
@@ -198,6 +199,7 @@ export function AgentRunPlaceholderWidget({
 
         <CodexDirectWorkPanel
           onRunCodexDirectWork={onRunCodexDirectWork}
+          onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}
           widgetInstanceId={instance.id}
         />
 

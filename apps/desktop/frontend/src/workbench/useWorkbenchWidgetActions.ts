@@ -6,9 +6,11 @@ import {
   getAgentMonitoringSnapshot,
   getGitRepositoryStatus,
   generateAgentChatAiProposal,
+  listenToDirectWorkStreamEvents,
   listWidgetLogs,
   persistAgentChatProposal,
   runCodexDirectWork,
+  startCodexDirectWorkStream,
   runTerminalCommand,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
@@ -17,6 +19,7 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  DirectWorkStreamEvent,
   GitRepositoryStatus,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -24,6 +27,7 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   WidgetLogEntry as WorkspaceWidgetLogEntry,
@@ -74,6 +78,11 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  startCodexDirectWorkStream: (
+    widgetInstanceId: WidgetInstanceId,
+    request: CodexDirectWorkRunRequest,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<CodexDirectWorkStreamSession | null>;
   runTerminalCommand: (
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
@@ -99,6 +108,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "generateAgentChatAiProposal"
   | "persistAgentChatProposal"
   | "runCodexDirectWork"
+  | "startCodexDirectWorkStream"
   | "runTerminalCommand"
   | "updateWidgetLayout"
   | "updateWidgetState"
@@ -113,6 +123,10 @@ type CodexDirectWorkRunRequest = Omit<
   RunCodexDirectWorkRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
+
+type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & {
+  stopListening: () => void;
+};
 
 type AgentChatProposalRunRequest = Omit<
   PersistAgentChatProposalRequest,
@@ -408,6 +422,112 @@ export function useWorkbenchWidgetActions({
     }
   }
 
+  async function startCodexDirectWorkStreamForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    request: CodexDirectWorkRunRequest,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ): Promise<CodexDirectWorkStreamSession | null> {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to run Codex Direct Work.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Codex Direct Work could not be run for this widget.");
+    }
+
+    const workspaceId = viewState.workspace.id;
+    const workbenchId = viewState.workbench.id;
+    let activeRunId: string | null = null;
+    const queuedEvents: DirectWorkStreamEvent[] = [];
+    let finalEventSeen = false;
+
+    const unsubscribe = await listenToDirectWorkStreamEvents((event) => {
+      if (
+        event.workspaceId !== workspaceId ||
+        event.workbenchId !== workbenchId ||
+        event.widgetInstanceId !== widgetInstanceId
+      ) {
+        return;
+      }
+
+      if (!activeRunId) {
+        queuedEvents.push(event);
+        return;
+      }
+
+      if (event.runId !== activeRunId) {
+        return;
+      }
+
+      onEvent(event);
+
+      if (event.isFinal) {
+        finalEventSeen = true;
+        bumpWidgetLogRefreshToken(widgetInstanceId);
+        currentSessionActivity?.markDirectWorkRunFinished(
+          widgetInstanceId,
+          directWorkResultFromStreamEvent(event),
+        );
+        unsubscribe();
+      }
+    });
+
+    currentSessionActivity?.markDirectWorkRunStarted(widgetInstanceId);
+
+    try {
+      const response = await startCodexDirectWorkStream({
+        workspaceId,
+        workbenchId,
+        widgetInstanceId,
+        ...request,
+      });
+
+      if (!response) {
+        unsubscribe();
+        currentSessionActivity?.markDirectWorkRunFinished(
+          widgetInstanceId,
+          null,
+        );
+        return null;
+      }
+
+      activeRunId = response.runId;
+      queuedEvents
+        .filter((event) => event.runId === activeRunId)
+        .forEach((event) => {
+          onEvent(event);
+
+          if (event.isFinal) {
+            finalEventSeen = true;
+            bumpWidgetLogRefreshToken(widgetInstanceId);
+            currentSessionActivity?.markDirectWorkRunFinished(
+              widgetInstanceId,
+              directWorkResultFromStreamEvent(event),
+            );
+            unsubscribe();
+          }
+        });
+
+      return {
+        ...response,
+        stopListening: () => {
+          unsubscribe();
+          if (!finalEventSeen) {
+            bumpWidgetLogRefreshToken(widgetInstanceId);
+          }
+        },
+      };
+    } catch (error) {
+      unsubscribe();
+      currentSessionActivity?.markDirectWorkRunFailed(widgetInstanceId, error);
+      throw error;
+    }
+  }
+
   async function persistAgentChatWidgetProposal(
     widgetInstanceId: WidgetInstanceId,
     proposal: AgentChatProposalRunRequest,
@@ -479,9 +599,41 @@ export function useWorkbenchWidgetActions({
     generateAgentChatAiProposal: generateAgentChatWidgetAiProposal,
     persistAgentChatProposal: persistAgentChatWidgetProposal,
     runCodexDirectWork: runCodexDirectWorkForWidget,
+    startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,
     updateWidgetState,
+  };
+}
+
+function directWorkResultFromStreamEvent(
+  event: DirectWorkStreamEvent,
+): RunCodexDirectWorkResponse {
+  return {
+    runId: event.runId,
+    resultId: "",
+    resultType: "codex_direct_work_result",
+    executorKind: "codex_cli",
+    mode: "direct_work",
+    repoRoot: "",
+    sandbox: "read_only",
+    approvalPolicy: "never",
+    commandSummary: [],
+    status: event.status ?? event.eventKind,
+    exitCode: null,
+    stdout: "",
+    stderr: "",
+    stdoutTruncated: false,
+    stderrTruncated: false,
+    finalMessage: null,
+    durationMs: event.elapsedMs,
+    errorMessage:
+      event.eventKind === "failed" || event.eventKind === "timed_out"
+        ? (event.text ?? event.line ?? event.status)
+        : null,
+    noAutoCommit: true,
+    noAutoPush: true,
+    gitMutationsPerformedByHobit: false,
   };
 }
 

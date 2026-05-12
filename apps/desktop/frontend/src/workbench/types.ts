@@ -3,6 +3,7 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GitRepositoryStatus,
@@ -10,6 +11,7 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
 } from "../workspace/types";
@@ -224,6 +226,19 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  onStartCodexDirectWorkStream?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      RunCodexDirectWorkRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<
+    | (StartCodexDirectWorkStreamResponse & {
+        stopListening: () => void;
+      })
+    | null
+  >;
   onRunTerminalCommand?: (
     widgetInstanceId: WidgetInstanceId,
     command: Omit<

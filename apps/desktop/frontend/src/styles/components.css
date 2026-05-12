@@ -481,7 +481,8 @@
 }
 
 .codex-direct-work-panel,
-.codex-direct-work-result {
+.codex-direct-work-result,
+.codex-direct-work-live-log {
   display: grid;
   gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
@@ -492,6 +493,7 @@
 
 .codex-direct-work-header,
 .codex-direct-work-result-header,
+.codex-direct-work-live-log-header,
 .codex-direct-work-action-row,
 .codex-direct-work-output-header,
 .codex-direct-work-output-summary {
@@ -510,6 +512,7 @@
 .codex-direct-work-copy,
 .codex-direct-work-field,
 .codex-direct-work-final-message,
+.codex-direct-work-live-log-list,
 .codex-direct-work-result-field,
 .codex-direct-work-error-message,
 .codex-direct-work-output-details {
@@ -527,6 +530,8 @@
 .codex-direct-work-safety-copy,
 .codex-direct-work-notice-title,
 .codex-direct-work-notice-text,
+.codex-direct-work-live-log-text,
+.codex-direct-work-live-log-detail,
 .codex-direct-work-result-label,
 .codex-direct-work-result-value,
 .codex-direct-work-review-note {
@@ -552,6 +557,8 @@
 .codex-direct-work-note,
 .codex-direct-work-safety-copy,
 .codex-direct-work-notice-text,
+.codex-direct-work-live-log-text,
+.codex-direct-work-live-log-detail,
 .codex-direct-work-result-value,
 .codex-direct-work-review-note {
   color: var(--color-text-muted);
@@ -681,6 +688,67 @@
   line-height: var(--line-normal);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.codex-direct-work-live-log {
+  background: var(--color-surface);
+}
+
+.codex-direct-work-live-log-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.codex-direct-work-live-log-entry {
+  display: grid;
+  gap: var(--space-xs);
+  border-left: 3px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.codex-direct-work-live-log-entry-stdout {
+  border-left-color: var(--color-info);
+}
+
+.codex-direct-work-live-log-entry-stderr,
+.codex-direct-work-live-log-entry-error {
+  border-left-color: var(--color-error);
+}
+
+.codex-direct-work-live-log-entry-json {
+  border-left-color: var(--color-primary);
+}
+
+.codex-direct-work-live-log-entry-success {
+  border-left-color: var(--color-success);
+}
+
+.codex-direct-work-live-log-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.codex-direct-work-live-log-kind,
+.codex-direct-work-live-log-time {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.codex-direct-work-live-log-time,
+.codex-direct-work-live-log-detail {
+  color: var(--color-text-muted);
+}
+
+.codex-direct-work-live-log-text,
+.codex-direct-work-live-log-detail {
+  overflow-wrap: anywhere;
 }
 
 .agent-run-placeholder {

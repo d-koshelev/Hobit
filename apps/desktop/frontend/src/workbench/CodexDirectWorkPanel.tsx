@@ -1,13 +1,25 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import type {
+  DirectWorkStreamEvent,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  StartCodexDirectWorkStreamResponse,
 } from "../workspace/types";
+import {
+  CodexDirectWorkLiveLog,
+  cappedLiveLogEntries,
+  isFinalStatus,
+  liveLogEntryFromEvent,
+  liveRunFromEvent,
+  syntheticStartedLogEntry,
+  type CodexDirectWorkLiveLogEntry,
+  type CodexDirectWorkLiveRun,
+} from "./CodexDirectWorkLiveLog";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetInstanceId } from "./types";
 
@@ -16,19 +28,31 @@ const DEFAULT_CODEX_EXECUTABLE = "codex";
 const DEFAULT_CODEX_DIRECT_WORK_TIMEOUT_MS = "600000";
 const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
 
+type CodexDirectWorkRequestDraft = Omit<
+  RunCodexDirectWorkRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
+type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & {
+  stopListening: () => void;
+};
+
 type CodexDirectWorkPanelProps = {
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
-    request: Omit<
-      RunCodexDirectWorkRequest,
-      "workspaceId" | "workbenchId" | "widgetInstanceId"
-    >,
+    request: CodexDirectWorkRequestDraft,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  onStartCodexDirectWorkStream?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: CodexDirectWorkRequestDraft,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<CodexDirectWorkStreamSession | null>;
   widgetInstanceId: WidgetInstanceId;
 };
 
 export function CodexDirectWorkPanel({
   onRunCodexDirectWork,
+  onStartCodexDirectWorkStream,
   widgetInstanceId,
 }: CodexDirectWorkPanelProps) {
   const repoRootInputId = useId();
@@ -55,6 +79,11 @@ export function CodexDirectWorkPanel({
   const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
   const [runResult, setRunResult] =
     useState<RunCodexDirectWorkResponse | null>(null);
+  const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
+  const [liveLogEntries, setLiveLogEntries] = useState<
+    CodexDirectWorkLiveLogEntry[]
+  >([]);
+  const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const codexExecutable = codexExecutableDraft.trim();
   const repoRoot = repoRootDraft.trim();
   const operatorPrompt = operatorPromptDraft.trim();
@@ -71,20 +100,25 @@ export function CodexDirectWorkPanel({
   const numericInputError =
     timeoutMsError ?? stdoutCapBytesError ?? stderrCapBytesError;
   const canRun =
-    Boolean(onRunCodexDirectWork) &&
+    Boolean(onStartCodexDirectWorkStream || onRunCodexDirectWork) &&
     codexExecutable.length > 0 &&
     repoRoot.length > 0 &&
     operatorPrompt.length > 0 &&
     !numericInputError &&
     !isRunning;
 
+  useEffect(() => () => stopActiveStreamListening(), []);
+
   async function runDirectWork() {
-    if (!onRunCodexDirectWork || isRunning) {
+    if (isRunning || (!onStartCodexDirectWorkStream && !onRunCodexDirectWork)) {
       return;
     }
 
     setRunErrorMessage(null);
     setRunResult(null);
+    setLiveRun(null);
+    setLiveLogEntries([]);
+    stopActiveStreamListening();
 
     if (!codexExecutable || !repoRoot || !operatorPrompt) {
       setRunErrorMessage(
@@ -101,7 +135,7 @@ export function CodexDirectWorkPanel({
     setIsRunning(true);
 
     try {
-      const response = await onRunCodexDirectWork(widgetInstanceId, {
+      const request = {
         approvalPolicy,
         codexExecutable,
         operatorPrompt,
@@ -116,20 +150,101 @@ export function CodexDirectWorkPanel({
           "Stdout cap bytes",
         ),
         timeoutMs: parsePositiveIntegerInput(timeoutMsDraft, "Timeout ms"),
-      });
+      };
 
-      if (!response) {
-        throw new Error(
-          "Codex Direct Work was not accepted for this widget instance.",
-        );
+      if (onStartCodexDirectWorkStream) {
+        await runStreamingDirectWork(request);
+        return;
       }
 
-      setRunResult(response);
+      await runOneShotDirectWork(request);
     } catch (error) {
       setRunErrorMessage(errorToMessage(error));
-    } finally {
       setIsRunning(false);
     }
+  }
+
+  async function runStreamingDirectWork(request: CodexDirectWorkRequestDraft) {
+    if (!onStartCodexDirectWorkStream) {
+      throw new Error("Codex Direct Work streaming is unavailable.");
+    }
+
+    const session = await onStartCodexDirectWorkStream(
+      widgetInstanceId,
+      request,
+      recordStreamEvent,
+    );
+
+    if (!session) {
+      throw new Error(
+        "Codex Direct Work streaming was not accepted for this widget instance.",
+      );
+    }
+
+    stopStreamListeningRef.current = session.stopListening;
+    setLiveLogEntries((currentEntries) =>
+      currentEntries.some(
+        (entry) => entry.runId === session.runId && entry.kind === "started",
+      )
+        ? currentEntries
+        : cappedLiveLogEntries([
+            ...currentEntries,
+            syntheticStartedLogEntry(session.runId),
+          ]),
+    );
+    setLiveRun((currentRun) => {
+      if (currentRun?.runId === session.runId && isFinalStatus(currentRun.status)) {
+        return currentRun;
+      }
+
+      return {
+        durationMs: currentRun?.runId === session.runId ? currentRun.durationMs : null,
+        finalMessage:
+          currentRun?.runId === session.runId ? currentRun.finalMessage : null,
+        runId: session.runId,
+        status: session.status === "started" ? "running" : session.status,
+        stderrPreview:
+          currentRun?.runId === session.runId ? currentRun.stderrPreview : "",
+        stdoutPreview:
+          currentRun?.runId === session.runId ? currentRun.stdoutPreview : "",
+      };
+    });
+  }
+
+  async function runOneShotDirectWork(request: CodexDirectWorkRequestDraft) {
+    if (!onRunCodexDirectWork) {
+      throw new Error("Codex Direct Work is unavailable in this runtime.");
+    }
+
+    const response = await onRunCodexDirectWork(widgetInstanceId, request);
+
+    if (!response) {
+      throw new Error(
+        "Codex Direct Work was not accepted for this widget instance.",
+      );
+    }
+
+    setRunResult(response);
+    setIsRunning(false);
+  }
+
+  function recordStreamEvent(event: DirectWorkStreamEvent) {
+    setLiveLogEntries((currentEntries) =>
+      cappedLiveLogEntries([...currentEntries, liveLogEntryFromEvent(event)]),
+    );
+    setLiveRun((currentRun) =>
+      liveRunFromEvent(currentRun, event),
+    );
+
+    if (event.isFinal) {
+      setIsRunning(false);
+      stopActiveStreamListening();
+    }
+  }
+
+  function stopActiveStreamListening() {
+    stopStreamListeningRef.current?.();
+    stopStreamListeningRef.current = null;
   }
 
   return (
@@ -319,9 +434,20 @@ export function CodexDirectWorkPanel({
 
       {isRunning ? (
         <CodexDirectWorkNotice
-          message="The desktop backend is running the existing Codex Direct Work command."
+          message={
+            onStartCodexDirectWorkStream
+              ? "The desktop backend started Codex streaming. Live events appear below."
+              : "The desktop backend is running the existing Codex Direct Work command."
+          }
           title="Running Codex Direct Work"
           variant="info"
+        />
+      ) : null}
+
+      {liveRun || liveLogEntries.length > 0 ? (
+        <CodexDirectWorkLiveLog
+          entries={liveLogEntries}
+          liveRun={liveRun}
         />
       ) : null}
 

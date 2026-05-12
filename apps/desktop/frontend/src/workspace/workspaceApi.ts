@@ -8,6 +8,7 @@ import type {
   AgentQueueSnapshot,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GetAgentMonitoringSnapshotRequest,
@@ -21,6 +22,8 @@ import type {
   RunCodexDirectWorkResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  StartCodexDirectWorkStreamRequest,
+  StartCodexDirectWorkStreamResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -79,6 +82,12 @@ export type WorkspaceApi = {
   runCodexDirectWork: (
     request: RunCodexDirectWorkRequest,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  startCodexDirectWorkStream: (
+    request: StartCodexDirectWorkStreamRequest,
+  ) => Promise<StartCodexDirectWorkStreamResponse | null>;
+  listenToDirectWorkStreamEvents: (
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<() => void>;
 };
 
 export function getWorkspaceApi(): WorkspaceApi {
@@ -185,6 +194,18 @@ export function runCodexDirectWork(
   request: RunCodexDirectWorkRequest,
 ): Promise<RunCodexDirectWorkResponse | null> {
   return getWorkspaceApi().runCodexDirectWork(request);
+}
+
+export function startCodexDirectWorkStream(
+  request: StartCodexDirectWorkStreamRequest,
+): Promise<StartCodexDirectWorkStreamResponse | null> {
+  return getWorkspaceApi().startCodexDirectWorkStream(request);
+}
+
+export function listenToDirectWorkStreamEvents(
+  onEvent: (event: DirectWorkStreamEvent) => void,
+): Promise<() => void> {
+  return getWorkspaceApi().listenToDirectWorkStreamEvents(onEvent);
 }
 
 function normalizeCreateWorkspaceRequest(

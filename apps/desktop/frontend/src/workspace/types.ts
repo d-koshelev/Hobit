@@ -100,6 +100,37 @@ export type RunCodexDirectWorkRequest = {
   stderrCapBytes?: number | null;
 };
 
+export type StartCodexDirectWorkStreamRequest = RunCodexDirectWorkRequest;
+
+export type DirectWorkStreamEventKind =
+  | "started"
+  | "stdout_line"
+  | "stderr_line"
+  | "codex_json_event"
+  | "final_message"
+  | "completed"
+  | "failed"
+  | "timed_out";
+
+export type DirectWorkStreamEvent = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  runId: string;
+  eventKind: DirectWorkStreamEventKind;
+  line: string | null;
+  text: string | null;
+  parsedCodexEventType: string | null;
+  status: string | null;
+  elapsedMs: number;
+  isFinal: boolean;
+};
+
+export type StartCodexDirectWorkStreamResponse = {
+  runId: string;
+  status: string;
+};
+
 export type PersistAgentChatProposalRequest = {
   workspaceId: string;
   workbenchId: string;

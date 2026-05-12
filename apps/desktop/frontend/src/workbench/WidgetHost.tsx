@@ -185,6 +185,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runCodexDirectWork
       : undefined;
+  const startCodexDirectWorkStream =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.startCodexDirectWorkStream
+      : undefined;
   const getAgentQueueSnapshot =
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentQueueSnapshot
@@ -228,6 +232,7 @@ export function WidgetHost({
       onLoadLogs={widgetActions.listWidgetLogs}
       onPersistAgentChatProposal={persistAgentChatProposal}
       onRunCodexDirectWork={runCodexDirectWork}
+      onStartCodexDirectWorkStream={startCodexDirectWorkStream}
       onRunTerminalCommand={runTerminalCommand}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}

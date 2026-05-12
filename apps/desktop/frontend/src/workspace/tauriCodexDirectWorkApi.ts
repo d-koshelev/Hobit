@@ -1,8 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type {
+  DirectWorkStreamEvent,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  StartCodexDirectWorkStreamRequest,
+  StartCodexDirectWorkStreamResponse,
 } from "./types";
+
+const DIRECT_WORK_STREAM_EVENT_NAME = "direct-work://event";
 
 type TauriRunCodexDirectWorkResponse = {
   run_id: string;
@@ -26,6 +32,25 @@ type TauriRunCodexDirectWorkResponse = {
   no_auto_commit: boolean;
   no_auto_push: boolean;
   git_mutations_performed_by_hobit: boolean;
+};
+
+type TauriStartCodexDirectWorkStreamResponse = {
+  run_id: string;
+  status: string;
+};
+
+type TauriDirectWorkStreamEvent = {
+  workspace_id: string;
+  workbench_id: string;
+  widget_instance_id: string;
+  run_id: string;
+  event_kind: DirectWorkStreamEvent["eventKind"];
+  line: string | null;
+  text: string | null;
+  parsed_codex_event_type: string | null;
+  status: string | null;
+  elapsed_ms: number;
+  is_final: boolean;
 };
 
 export async function runCodexDirectWork(
@@ -53,6 +78,48 @@ export async function runCodexDirectWork(
   return response ? normalizeRunCodexDirectWorkResponse(response) : null;
 }
 
+export async function startCodexDirectWorkStream(
+  request: StartCodexDirectWorkStreamRequest,
+): Promise<StartCodexDirectWorkStreamResponse | null> {
+  const response =
+    await invoke<TauriStartCodexDirectWorkStreamResponse | null>(
+      "start_codex_direct_work_stream",
+      {
+        request: {
+          workspace_id: request.workspaceId,
+          workbench_id: request.workbenchId,
+          widget_instance_id: request.widgetInstanceId,
+          codex_executable: request.codexExecutable,
+          repo_root: request.repoRoot,
+          operator_prompt: request.operatorPrompt,
+          sandbox: request.sandbox,
+          approval_policy: request.approvalPolicy,
+          timeout_ms: request.timeoutMs ?? null,
+          stdout_cap_bytes: request.stdoutCapBytes ?? null,
+          stderr_cap_bytes: request.stderrCapBytes ?? null,
+        },
+      },
+    );
+
+  return response
+    ? {
+        runId: response.run_id,
+        status: response.status,
+      }
+    : null;
+}
+
+export function listenToDirectWorkStreamEvents(
+  onEvent: (event: DirectWorkStreamEvent) => void,
+): Promise<() => void> {
+  return listen<TauriDirectWorkStreamEvent>(
+    DIRECT_WORK_STREAM_EVENT_NAME,
+    (event) => {
+      onEvent(normalizeDirectWorkStreamEvent(event.payload));
+    },
+  );
+}
+
 function normalizeRunCodexDirectWorkResponse(
   response: TauriRunCodexDirectWorkResponse,
 ): RunCodexDirectWorkResponse {
@@ -78,5 +145,23 @@ function normalizeRunCodexDirectWorkResponse(
     noAutoCommit: response.no_auto_commit,
     noAutoPush: response.no_auto_push,
     gitMutationsPerformedByHobit: response.git_mutations_performed_by_hobit,
+  };
+}
+
+function normalizeDirectWorkStreamEvent(
+  event: TauriDirectWorkStreamEvent,
+): DirectWorkStreamEvent {
+  return {
+    workspaceId: event.workspace_id,
+    workbenchId: event.workbench_id,
+    widgetInstanceId: event.widget_instance_id,
+    runId: event.run_id,
+    eventKind: event.event_kind,
+    line: event.line,
+    text: event.text,
+    parsedCodexEventType: event.parsed_codex_event_type,
+    status: event.status,
+    elapsedMs: event.elapsed_ms,
+    isFinal: event.is_final,
   };
 }
