@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
@@ -169,11 +169,21 @@ pub(crate) fn run_terminal_command(
 }
 
 #[tauri::command]
-pub(crate) fn run_codex_direct_work(
+pub(crate) async fn run_codex_direct_work(
     request: RunCodexDirectWorkRequest,
     state: State<'_, AppState>,
 ) -> Result<Option<RunCodexDirectWorkResponseDto>, String> {
-    let service = workspace_service(state.db_path())?;
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || run_codex_direct_work_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn run_codex_direct_work_blocking(
+    request: RunCodexDirectWorkRequest,
+    db_path: PathBuf,
+) -> Result<Option<RunCodexDirectWorkResponseDto>, String> {
+    let service = workspace_service(&db_path)?;
     service
         .run_codex_direct_work(request.into())
         .map(|summary| summary.map(RunCodexDirectWorkResponseDto::from))
@@ -266,4 +276,58 @@ fn workspace_service(db_path: &Path) -> Result<WorkspaceService, String> {
 
 fn command_error(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn run_codex_direct_work_blocking_rejects_missing_workspace_without_process_run() {
+        let db_path = unique_test_db_path();
+        let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        drop(store);
+
+        let response = run_codex_direct_work_blocking(
+            RunCodexDirectWorkRequest {
+                workspace_id: "missing-workspace".to_owned(),
+                workbench_id: "missing-workbench".to_owned(),
+                widget_instance_id: "missing-widget".to_owned(),
+                codex_executable: "codex".to_owned(),
+                repo_root: ".".to_owned(),
+                operator_prompt: "Return exactly: test".to_owned(),
+                sandbox: "read_only".to_owned(),
+                approval_policy: "never".to_owned(),
+                timeout_ms: Some(1),
+                stdout_cap_bytes: Some(1),
+                stderr_cap_bytes: Some(1),
+            },
+            db_path.clone(),
+        )
+        .expect("direct work command helper should return cleanly");
+
+        assert!(response.is_none());
+        remove_test_db_files(&db_path);
+    }
+
+    fn unique_test_db_path() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time after unix epoch")
+            .as_nanos();
+
+        std::env::temp_dir().join(format!(
+            "hobit-workspace-command-test-{}-{nanos}.sqlite3",
+            std::process::id()
+        ))
+    }
+
+    fn remove_test_db_files(db_path: &Path) {
+        let _ = std::fs::remove_file(db_path);
+        let _ = std::fs::remove_file(db_path.with_extension("sqlite3-shm"));
+        let _ = std::fs::remove_file(db_path.with_extension("sqlite3-wal"));
+    }
 }

@@ -13,6 +13,7 @@ import type { WidgetInstanceId } from "./types";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 const DEFAULT_CODEX_EXECUTABLE = "codex";
+const DEFAULT_CODEX_DIRECT_WORK_TIMEOUT_MS = "600000";
 const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
 
 type CodexDirectWorkPanelProps = {
@@ -46,7 +47,7 @@ export function CodexDirectWorkPanel({
   const [operatorPromptDraft, setOperatorPromptDraft] = useState("");
   const [sandbox, setSandbox] = useState<DirectWorkSandbox>("read_only");
   const [approvalPolicy, setApprovalPolicy] =
-    useState<DirectWorkApprovalPolicy>("on_request");
+    useState<DirectWorkApprovalPolicy>("never");
   const [timeoutMsDraft, setTimeoutMsDraft] = useState("");
   const [stdoutCapBytesDraft, setStdoutCapBytesDraft] = useState("");
   const [stderrCapBytesDraft, setStderrCapBytesDraft] = useState("");
@@ -57,6 +58,7 @@ export function CodexDirectWorkPanel({
   const codexExecutable = codexExecutableDraft.trim();
   const repoRoot = repoRootDraft.trim();
   const operatorPrompt = operatorPromptDraft.trim();
+  const promptWarningMessage = directWorkPromptWarning(operatorPromptDraft);
   const timeoutMsError = positiveIntegerInputError(timeoutMsDraft, "Timeout ms");
   const stdoutCapBytesError = positiveIntegerInputError(
     stdoutCapBytesDraft,
@@ -177,6 +179,16 @@ export function CodexDirectWorkPanel({
             spellCheck={true}
             value={operatorPromptDraft}
           />
+          <p className="codex-direct-work-note">
+            Codex works in the selected repo. It cannot click or inspect Hobit
+            UI widgets. To review changes, ask Codex to inspect git status/diff,
+            or refresh the Git widget manually after the run.
+          </p>
+          {promptWarningMessage ? (
+            <p className="codex-direct-work-warning" role="status">
+              {promptWarningMessage}
+            </p>
+          ) : null}
         </div>
 
         <div className="codex-direct-work-field">
@@ -211,10 +223,15 @@ export function CodexDirectWorkPanel({
             }
             value={approvalPolicy}
           >
-            <option value="on_request">on_request</option>
-            <option value="never">never</option>
+            <option value="never">never (recommended)</option>
+            <option value="on_request">
+              on_request (advanced, interactive-sensitive)
+            </option>
             <option value="untrusted">untrusted</option>
           </select>
+          <p className="codex-direct-work-note">
+            For one-shot non-interactive runs, never is recommended.
+          </p>
         </div>
 
         {sandbox === "workspace_write" ? (
@@ -231,6 +248,8 @@ export function CodexDirectWorkPanel({
           <div className="codex-direct-work-advanced-body">
             <p className="codex-direct-work-note">
               Leave timeout and output caps blank to use backend defaults.
+              Backend default timeout is {DEFAULT_CODEX_DIRECT_WORK_TIMEOUT_MS}{" "}
+              ms.
             </p>
             <div className="codex-direct-work-controls">
               <div className="codex-direct-work-field codex-direct-work-field-wide">
@@ -476,10 +495,18 @@ function CodexDirectWorkResultCard({
       </details>
 
       <p className="codex-direct-work-review-note">
-        Review changed files in Git Widget after refresh.
+        Manual next step: refresh the Git widget to review changed files.
       </p>
     </section>
   );
+}
+
+function directWorkPromptWarning(prompt: string): string | null {
+  if (/(git\s+widget|agent\s+monitoring|hobit\s+ui)/i.test(prompt)) {
+    return "Codex cannot operate Hobit UI widgets. Use repository-oriented prompts instead.";
+  }
+
+  return null;
 }
 
 function codexResultStatusView(result: RunCodexDirectWorkResponse): {
