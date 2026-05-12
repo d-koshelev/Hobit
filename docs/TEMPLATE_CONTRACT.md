@@ -18,7 +18,7 @@ The repository currently includes `docs/AGENT_RESPONSE_CONTRACT.md`, which defin
 
 Future agent/task run observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Response Templates define the expected Result Report structure, while Raw Log and Overview Log remain separate observability views.
 
-Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. The Agent Queue may later use applied Request Snapshots and selected Response Templates for concrete reviewable blocks. Today it only stores explicit review items from persisted Agent Chat proposal mock results; request generation, response capture, response validation, executor launch, and automatic execution are not implemented yet.
+Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. The Agent Queue may later use applied Request Snapshots and selected Response Templates for concrete reviewable blocks. Today it only stores explicit review items from persisted Agent Chat local mock proposal results; request generation, response capture, response validation, executor launch, and automatic execution are not implemented yet.
 
 ## Definitions
 

@@ -176,8 +176,8 @@ export function AgentRunPlaceholderWidget({
             <p className="agent-run-summary-text">
               Read-only details for saved Agent Chat proposal artifacts.
               Overview, Result, and Raw inspect stored data only; no execution,
-              apply behavior, LLM, tools, Terminal commands, or Queue execution
-              runs here.
+              apply behavior, tools, Terminal commands, Git/Notes/File
+              mutation, or Queue execution runs here.
             </p>
           </div>
           <div className="agent-run-summary-actions">
@@ -251,7 +251,7 @@ function RecentProposalRuns({
         <div className="agent-run-view-copy">
           <h3 className="agent-run-view-title">Recent proposal runs</h3>
           <p className="agent-run-view-text">
-            Read-only list of persisted Agent Chat proposal mock artifacts.
+            Read-only list of persisted Agent Chat proposal artifacts.
           </p>
         </div>
         <Badge variant="neutral">{results.length} stored</Badge>
@@ -299,6 +299,12 @@ function AgentMonitoringOverview({
           { label: "Started", value: formatTimestamp(result.runStartedAt) },
           { label: "Finished", value: formatTimestamp(result.runFinishedAt) },
           { label: "Runtime status", value: result.runtimeStatus },
+          { label: "Provider status", value: result.providerStatus },
+          { label: "Provider used", value: formatBoolean(result.providerUsed) },
+          {
+            label: "Provider response",
+            value: formatBoolean(result.providerResponseReceived),
+          },
           { label: "No LLM called", value: formatBoolean(result.noLlmCalled) },
           {
             label: "No tools executed",
@@ -307,6 +313,10 @@ function AgentMonitoringOverview({
           {
             label: "No mutations performed",
             value: formatBoolean(result.noMutationsPerformed),
+          },
+          {
+            label: "Context approved",
+            value: formatBoolean(result.contextWasApproved),
           },
         ]}
         labelClassName="agent-run-result-label"
@@ -328,6 +338,8 @@ function AgentMonitoringResult({
   const createdForSelectedResult =
     queueCreateState.status === "created" &&
     queueCreateState.sourceResultId === result.resultId;
+  const canCreateReviewItem =
+    result.resultType === "agent_chat_mock_proposal_result";
 
   return (
     <section className="agent-run-view agent-run-result">
@@ -338,11 +350,17 @@ function AgentMonitoringResult({
       />
       <div className="agent-run-actions">
         <Button
-          disabled={queueCreateState.status === "creating" || createdForSelectedResult}
+          disabled={
+            queueCreateState.status === "creating" ||
+            createdForSelectedResult ||
+            !canCreateReviewItem
+          }
           onClick={onCreateReviewItem}
           variant="secondary"
         >
-          {queueCreateState.status === "creating"
+          {!canCreateReviewItem
+            ? "Review item unavailable"
+            : queueCreateState.status === "creating"
             ? "Creating..."
             : createdForSelectedResult
               ? "Review item created"

@@ -8,6 +8,8 @@ import type {
   AgentQueueSnapshot,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  GenerateAgentChatAiProposalRequest,
+  GenerateAgentChatAiProposalResponse,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
@@ -66,6 +68,9 @@ export type WorkspaceApi = {
   persistAgentChatProposal: (
     request: PersistAgentChatProposalRequest,
   ) => Promise<PersistAgentChatProposalResponse | null>;
+  generateAgentChatAiProposal: (
+    request: GenerateAgentChatAiProposalRequest,
+  ) => Promise<GenerateAgentChatAiProposalResponse | null>;
   runTerminalCommand: (
     request: RunTerminalCommandRequest,
   ) => Promise<RunTerminalCommandResponse | null>;
@@ -157,6 +162,12 @@ export function persistAgentChatProposal(
   request: PersistAgentChatProposalRequest,
 ): Promise<PersistAgentChatProposalResponse | null> {
   return getWorkspaceApi().persistAgentChatProposal(request);
+}
+
+export function generateAgentChatAiProposal(
+  request: GenerateAgentChatAiProposalRequest,
+): Promise<GenerateAgentChatAiProposalResponse | null> {
+  return getWorkspaceApi().generateAgentChatAiProposal(request);
 }
 
 export function runTerminalCommand(

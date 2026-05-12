@@ -1,6 +1,11 @@
 import type { AgentChatApprovedContextSnapshot } from "./agentChatApprovedContext";
+import type { GenerateAgentChatAiProposalResponse } from "../workspace/types";
 
 export type AgentChatProposalStatus = "proposal-only";
+export type AgentChatProposalSource =
+  | "ai-generated"
+  | "local-mock"
+  | "provider-fallback";
 
 export type AgentChatProposalAction = {
   description: string;
@@ -19,6 +24,10 @@ export type AgentChatMockProposal = {
   runtimeNotes: readonly string[];
   safetyNotes: readonly string[];
   sequence: number;
+  source: AgentChatProposalSource;
+  providerStatus: string;
+  providerUsed: boolean;
+  runtimeStatus: string;
   status: AgentChatProposalStatus;
 };
 
@@ -80,6 +89,47 @@ export function createAgentChatMockProposal(
       "No response parser, response validator, provider configuration, or secrets handling is connected.",
     ],
     sequence,
+    source: "local-mock",
+    providerStatus: "local_mock",
+    providerUsed: false,
+    runtimeStatus: "proposal_only_mock",
+    status: "proposal-only",
+  };
+}
+
+export function createAgentChatAiProposalFromResponse(
+  prompt: string,
+  sequence: number,
+  approvedContextSnapshot: AgentChatApprovedContextSnapshot,
+  response: GenerateAgentChatAiProposalResponse,
+): AgentChatMockProposal {
+  return {
+    actionProposals: response.proposal.actionProposals.map((action) => ({
+      description: action.description,
+      status: "not-executed",
+      title: action.title,
+    })),
+    approvedContextSnapshot,
+    contextNeeded: response.proposal.contextNeeded,
+    id: response.proposal.id,
+    prompt: compactWhitespace(prompt),
+    proposedPlan: response.proposal.proposedPlan,
+    requestSummary: response.proposal.requestSummary,
+    runtimeNotes: response.proposal.runtimeNotes,
+    safetyNotes: [
+      ...response.proposal.safetyNotes,
+      ...response.normalizationWarnings.map(
+        (warning) => `Normalization warning: ${warning}`,
+      ),
+    ],
+    sequence,
+    source:
+      response.providerUsed && response.providerStatus === "completed"
+        ? "ai-generated"
+        : "provider-fallback",
+    providerStatus: response.providerStatus,
+    providerUsed: response.providerUsed,
+    runtimeStatus: response.runtimeStatus,
     status: "proposal-only",
   };
 }

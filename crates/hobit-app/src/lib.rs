@@ -12,15 +12,16 @@ mod workspace_service;
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
 pub use workspace_service::{
-    AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
-    AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
-    AgentMonitoringSnapshot, AgentQueueItemSummary, AgentQueueProposalActionSummary,
-    AgentQueueSnapshot, CreateAgentQueueItemFromProposalInput, GitBranchStatusSummary,
-    GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
-    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
+    AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
+    AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
+    AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
+    AgentQueueProposalActionSummary, AgentQueueSnapshot, CreateAgentQueueItemFromProposalInput,
+    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,
+    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
+    PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
+    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
+    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceService,
+    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };

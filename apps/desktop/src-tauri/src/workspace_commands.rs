@@ -4,6 +4,10 @@ use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
+use crate::agent_chat_ai_dto::{
+    GenerateAgentChatAiProposalRequest, GenerateAgentChatAiProposalResponseDto,
+};
+use crate::agent_chat_ai_provider::EnvHttpAgentChatAiProvider;
 use crate::agent_queue_dto::{
     AgentQueueItemDto, AgentQueueSnapshotDto, CreateAgentQueueItemFromProposalRequest,
     GetAgentQueueSnapshotRequest,
@@ -172,6 +176,19 @@ pub(crate) fn persist_agent_chat_proposal(
     service
         .persist_agent_chat_proposal(request.into())
         .map(|summary| summary.map(PersistAgentChatProposalResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn generate_agent_chat_ai_proposal(
+    request: GenerateAgentChatAiProposalRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<GenerateAgentChatAiProposalResponseDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    let provider = EnvHttpAgentChatAiProvider::from_env();
+    service
+        .generate_agent_chat_ai_proposal(request.into(), &provider)
+        .map(|summary| summary.map(GenerateAgentChatAiProposalResponseDto::from))
         .map_err(command_error)
 }
 

@@ -6,17 +6,17 @@ This contract defines Hobit's future Agent Queue as an operator-controlled agent
 
 The Agent Queue is a coordinator/review layer for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
 
-This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
+This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat local mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
 
 ## Current Status
 
-Agent Queue currently exists as an insertable Workbench widget with a narrow persisted review-item path for Agent Chat proposal-only mock results.
+Agent Queue currently exists as an insertable Workbench widget with a narrow persisted review-item path for Agent Chat local mock proposal results.
 
 The current repository has:
 
 - an Agent Queue widget rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
 - a static command queue/history/review overview used only as clearly labeled empty/demo copy when no persisted review items exist
-- SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat proposal-only mock results
+- SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat local mock proposal results
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted queue item listing and read-only detail preview scoped to the current Workspace Workbench
 - no automatic agent execution
@@ -456,7 +456,7 @@ These are conceptual except for the current narrow proposal-review item slice. T
 
 This contract does not implement:
 
-- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat proposal mock results
+- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results
 - broad executor queue storage or migrations
 - general Rust domain types beyond the current proposal-review DTO/service models
 - general TypeScript types beyond the current proposal-review API types

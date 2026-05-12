@@ -152,6 +152,59 @@ pub struct PersistAgentChatProposalInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GenerateAgentChatAiProposalInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub operator_prompt: String,
+    pub approved_context_snapshot_json: String,
+}
+
+pub trait AgentChatAiProposalProvider {
+    fn request_agent_chat_ai_proposal(
+        &self,
+        artifact: &AgentChatAiRequestArtifact,
+    ) -> AgentChatAiProviderOutcome;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AgentChatAiRequestArtifact {
+    pub request_id: String,
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub source_widget_instance_id: String,
+    pub operator_prompt: String,
+    pub approved_context_snapshot: serde_json::Value,
+    pub contract_pack_summary: Vec<String>,
+    pub allowed_tools: Vec<String>,
+    pub safety_constraints: Vec<String>,
+    pub expected_response_format: Vec<String>,
+    pub validation_plan: Vec<String>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AgentChatAiProviderOutcome {
+    NotConfigured { message: String },
+    RequestFailed { message: String },
+    Response { raw_response: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentChatAiProposalRunSummary {
+    pub run: AgentChatProposalRunSummary,
+    pub proposal: AgentChatProposalInput,
+    pub runtime_status: String,
+    pub provider_status: String,
+    pub provider_used: bool,
+    pub provider_response_received: bool,
+    pub no_tools_executed: bool,
+    pub no_mutations_performed: bool,
+    pub context_was_approved: bool,
+    pub normalization_warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentChatProposalInput {
     pub id: String,
     pub request_summary: String,
@@ -198,9 +251,13 @@ pub struct AgentMonitoringProposalResultSummary {
     pub source_widget_id: String,
     pub source_widget_title: String,
     pub runtime_status: String,
+    pub provider_status: String,
+    pub provider_used: bool,
+    pub provider_response_received: bool,
     pub no_llm_called: bool,
     pub no_tools_executed: bool,
     pub no_mutations_performed: bool,
+    pub context_was_approved: bool,
     pub operator_prompt: String,
     pub proposal_summary: String,
     pub proposed_plan: Vec<String>,

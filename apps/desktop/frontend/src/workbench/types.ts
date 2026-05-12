@@ -3,6 +3,8 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  GenerateAgentChatAiProposalRequest,
+  GenerateAgentChatAiProposalResponse,
   GitRepositoryStatus,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -202,6 +204,13 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<PersistAgentChatProposalResponse | null>;
+  onGenerateAgentChatAiProposal?: (
+    widgetInstanceId: WidgetInstanceId,
+    proposal: Omit<
+      GenerateAgentChatAiProposalRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<GenerateAgentChatAiProposalResponse | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

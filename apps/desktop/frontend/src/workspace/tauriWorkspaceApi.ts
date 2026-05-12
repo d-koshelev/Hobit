@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
 import {
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
@@ -39,6 +40,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
   persistAgentChatProposal,
+  generateAgentChatAiProposal,
   runTerminalCommand,
 };
 
@@ -134,9 +136,13 @@ type TauriAgentMonitoringProposalResult = {
   source_widget_id: string;
   source_widget_title: string;
   runtime_status: string;
+  provider_status: string;
+  provider_used: boolean;
+  provider_response_received: boolean;
   no_llm_called: boolean;
   no_tools_executed: boolean;
   no_mutations_performed: boolean;
+  context_was_approved: boolean;
   operator_prompt: string;
   proposal_summary: string;
   proposed_plan: string[];
@@ -551,9 +557,13 @@ function normalizeAgentMonitoringProposalResult(
     sourceWidgetId: result.source_widget_id,
     sourceWidgetTitle: result.source_widget_title,
     runtimeStatus: result.runtime_status,
+    providerStatus: result.provider_status,
+    providerUsed: result.provider_used,
+    providerResponseReceived: result.provider_response_received,
     noLlmCalled: result.no_llm_called,
     noToolsExecuted: result.no_tools_executed,
     noMutationsPerformed: result.no_mutations_performed,
+    contextWasApproved: result.context_was_approved,
     operatorPrompt: result.operator_prompt,
     proposalSummary: result.proposal_summary,
     proposedPlan: result.proposed_plan,

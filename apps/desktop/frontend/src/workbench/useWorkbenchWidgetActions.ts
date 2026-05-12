@@ -5,6 +5,7 @@ import {
   getAgentQueueSnapshot,
   getAgentMonitoringSnapshot,
   getGitRepositoryStatus,
+  generateAgentChatAiProposal,
   listWidgetLogs,
   persistAgentChatProposal,
   runTerminalCommand,
@@ -16,6 +17,8 @@ import type {
   AgentQueueItem,
   AgentQueueSnapshot,
   GitRepositoryStatus,
+  GenerateAgentChatAiProposalRequest,
+  GenerateAgentChatAiProposalResponse,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
   RunTerminalCommandRequest,
@@ -60,6 +63,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     proposal: AgentChatProposalRunRequest,
   ) => Promise<PersistAgentChatProposalResponse | null>;
+  generateAgentChatAiProposal: (
+    widgetInstanceId: WidgetInstanceId,
+    proposal: AgentChatAiProposalRequest,
+  ) => Promise<GenerateAgentChatAiProposalResponse | null>;
   runTerminalCommand: (
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
@@ -82,6 +89,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "getAgentMonitoringSnapshot"
   | "getAgentQueueSnapshot"
   | "getGitRepositoryStatus"
+  | "generateAgentChatAiProposal"
   | "persistAgentChatProposal"
   | "runTerminalCommand"
   | "updateWidgetLayout"
@@ -95,6 +103,11 @@ type TerminalCommandRunRequest = Omit<
 
 type AgentChatProposalRunRequest = Omit<
   PersistAgentChatProposalRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
+type AgentChatAiProposalRequest = Omit<
+  GenerateAgentChatAiProposalRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
@@ -371,6 +384,36 @@ export function useWorkbenchWidgetActions({
     return response;
   }
 
+  async function generateAgentChatWidgetAiProposal(
+    widgetInstanceId: WidgetInstanceId,
+    proposal: AgentChatAiProposalRequest,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to generate an Agent Chat AI proposal.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Agent Chat AI proposal could not be generated for this widget.");
+    }
+
+    const response = await generateAgentChatAiProposal({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      ...proposal,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   return {
     addWidgetTemplate,
     createAgentQueueItemFromProposal: createQueueItemFromProposal,
@@ -379,6 +422,7 @@ export function useWorkbenchWidgetActions({
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
+    generateAgentChatAiProposal: generateAgentChatWidgetAiProposal,
     persistAgentChatProposal: persistAgentChatWidgetProposal,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,

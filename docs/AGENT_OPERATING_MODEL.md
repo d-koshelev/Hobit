@@ -6,21 +6,21 @@ This contract defines Hobit's agent operating model for coordinated project work
 
 Hobit remains operator-controlled. Agents may help coordinate, implement, audit, validate, and report work, but they must do so through explicit roles, scoped requests, visible outputs, and approval-aware actions.
 
-This is primarily a product/domain contract. The current Agent Chat widget includes a frontend-local/mock proposal-only preview with explicit current-session approved context selection and desktop proposal-only run/result persistence, and Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted proposal result. This contract does not implement agent runtime behavior, template editing, response validation, or automatic execution.
+This is primarily a product/domain contract. The current Agent Chat widget includes a proposal-only preview with explicit current-session approved context selection, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and desktop proposal-only run/result persistence. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. This contract does not implement agent runtime behavior, template editing, response validation, or automatic execution.
 
 ## Current Status
 
 The current repository has no implemented agent runtime, no automatic agent execution, no template editor, and no response validation engine.
 
-Agent Chat can generate a frontend-local/mock structured proposal preview from an operator prompt and can include explicitly selected safe current-view metadata: Workspace/workbench identity, widget inventory metadata, and current global activity status. In the desktop shell, the generated proposal is persisted as a structured widget run/log/result artifact containing the prompt, approved context snapshot used for that proposal, proposal sections, and safety flags. Browser fallback keeps the preview local and reports proposal persistence as unsupported. Agent Chat does not call an LLM, read hidden Workspace or widget context, read Notes body, read Git status, read Terminal output, read logs, read files, execute tools, create Agent Queue items by itself, persist chat messages, persist reusable approved context snapshots, or mutate Workspace content.
+Agent Chat can generate a structured proposal preview from an operator prompt and can include explicitly selected safe current-view metadata: Workspace/workbench identity, widget inventory metadata, and current global activity status. In the desktop shell, Agent Chat can use the backend AI proposal boundary when an explicit HTTP provider is configured, or fall back to the local/mock proposal path. The generated proposal is persisted as a structured widget run/log/result artifact containing the prompt, approved context snapshot used for that proposal, proposal sections, provider status when applicable, and safety flags. Browser fallback keeps the preview local, does not call providers directly, and reports proposal persistence as unsupported. Agent Chat does not read hidden Workspace or widget context, read Notes body, read Git status, read Terminal output, read logs, read files, execute tools, create Agent Queue items by itself, persist chat messages, persist reusable approved context snapshots, or mutate Workspace content.
 
 The frontend Template Library placeholder may show a static planned Coordinator Workflow preview, but it does not implement coordinator UI, executor thread/task integration, request generation, response capture, response validation, Git-response association, or agent execution.
 
-`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend has a narrow persisted review inbox for proposal-only Agent Chat mock results, but queue execution, background execution, response capture, response validation, and executor integration are not implemented yet.
+`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend has a narrow persisted review inbox for proposal-only Agent Chat local mock proposal results, but queue execution, background execution, response capture, response validation, and executor integration are not implemented yet.
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
-Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Agent Monitoring widget can read stored Agent Chat proposal-only mock artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid proposal result. This is not a real Agent Run runtime: run start, streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and executor integration are not implemented yet.
+Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Agent Monitoring widget can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This is not a real Agent Run runtime: run start, streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and executor integration are not implemented yet.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
@@ -261,7 +261,7 @@ This contract does not implement:
 - React UI
 - Tauri commands
 - coordinator UI
-- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat proposal mock results
+- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results
 - Agent Queue execution or response capture
 - persisted efficiency metadata
 - template editor UI

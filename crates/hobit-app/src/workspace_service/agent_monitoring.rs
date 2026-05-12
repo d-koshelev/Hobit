@@ -6,8 +6,8 @@ use crate::WorkspaceServiceError;
 use super::{
     validation::required_input, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, WorkspaceService,
-    AGENT_CHAT_PROPOSAL_RESULT_TYPE, AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
-    AGENT_CHAT_WIDGET_DEFINITION_ID,
+    AGENT_CHAT_AI_PROPOSAL_RESULT_TYPE, AGENT_CHAT_PROPOSAL_RESULT_TYPE,
+    AGENT_CHAT_PROPOSAL_RUNTIME_STATUS, AGENT_CHAT_WIDGET_DEFINITION_ID,
 };
 
 impl WorkspaceService {
@@ -71,22 +71,32 @@ pub(super) fn proposal_result_summary(
     run: &WidgetRunRow,
     result: WidgetResultRow,
 ) -> Option<AgentMonitoringProposalResultSummary> {
-    if result.result_type != AGENT_CHAT_PROPOSAL_RESULT_TYPE {
+    let is_mock_result = result.result_type == AGENT_CHAT_PROPOSAL_RESULT_TYPE;
+    let is_ai_result = result.result_type == AGENT_CHAT_AI_PROPOSAL_RESULT_TYPE;
+
+    if !is_mock_result && !is_ai_result {
         return None;
     }
 
     let raw_payload = result.payload.clone()?;
     let payload = serde_json::from_str::<Value>(&raw_payload).ok()?;
 
-    if string_field(&payload, &["runtime_status"])? != AGENT_CHAT_PROPOSAL_RUNTIME_STATUS {
+    let runtime_status = string_field(&payload, &["runtime_status"])?;
+    if is_mock_result && runtime_status != AGENT_CHAT_PROPOSAL_RUNTIME_STATUS {
         return None;
     }
 
-    let no_llm_called = bool_field(&payload, &["no_llm_called"])?;
+    let no_llm_called = bool_field(&payload, &["no_llm_called"]).unwrap_or(is_mock_result);
     let no_tools_executed = bool_field(&payload, &["no_tools_executed"])?;
     let no_mutations_performed = bool_field(&payload, &["no_mutations_performed"])?;
+    let context_was_approved =
+        bool_field(&payload, &["context_was_approved"]).unwrap_or(is_mock_result);
 
-    if !no_llm_called || !no_tools_executed || !no_mutations_performed {
+    if is_mock_result && !no_llm_called {
+        return None;
+    }
+
+    if !no_tools_executed || !no_mutations_performed || !context_was_approved {
         return None;
     }
 
@@ -105,10 +115,16 @@ pub(super) fn proposal_result_summary(
         result_created_at: result.created_at,
         source_widget_id: widget.id.clone(),
         source_widget_title: widget.title.clone(),
-        runtime_status: AGENT_CHAT_PROPOSAL_RUNTIME_STATUS.to_owned(),
+        runtime_status,
+        provider_status: string_field(&payload, &["provider_status"])
+            .unwrap_or_else(|| "local_mock".to_owned()),
+        provider_used: bool_field(&payload, &["provider_used"]).unwrap_or(false),
+        provider_response_received: bool_field(&payload, &["provider_response_received"])
+            .unwrap_or(false),
         no_llm_called,
         no_tools_executed,
         no_mutations_performed,
+        context_was_approved,
         operator_prompt: string_field(&payload, &["operator_prompt"])?,
         proposal_summary: string_field(proposal, &["request_summary"])?,
         proposed_plan: string_array_field(proposal, &["proposed_plan"])?,

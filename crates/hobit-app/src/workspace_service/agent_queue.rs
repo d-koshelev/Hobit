@@ -6,9 +6,9 @@ use crate::WorkspaceServiceError;
 use super::{
     agent_monitoring::proposal_result_summary, placeholder_id, validation::required_input,
     AgentQueueItemSummary, AgentQueueProposalActionSummary, AgentQueueSnapshot,
-    CreateAgentQueueItemFromProposalInput, WorkspaceService, AGENT_CHAT_WIDGET_DEFINITION_ID,
-    AGENT_QUEUE_DECISION_PENDING_REVIEW, AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND,
-    AGENT_QUEUE_STATUS_NEEDS_REVIEW,
+    CreateAgentQueueItemFromProposalInput, WorkspaceService, AGENT_CHAT_PROPOSAL_RESULT_TYPE,
+    AGENT_CHAT_WIDGET_DEFINITION_ID, AGENT_QUEUE_DECISION_PENDING_REVIEW,
+    AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND, AGENT_QUEUE_STATUS_NEEDS_REVIEW,
 };
 
 impl WorkspaceService {
@@ -44,6 +44,7 @@ impl WorkspaceService {
                     || widget.workspace_id != workspace.id
                     || widget.workbench_id != workbench.id
                     || widget.definition_id != AGENT_CHAT_WIDGET_DEFINITION_ID
+                    || result.result_type != AGENT_CHAT_PROPOSAL_RESULT_TYPE
                 {
                     return Ok(None);
                 }

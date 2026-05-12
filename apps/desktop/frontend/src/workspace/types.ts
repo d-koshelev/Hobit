@@ -91,6 +91,14 @@ export type PersistAgentChatProposalRequest = {
   proposal: AgentChatProposalPersistPayload;
 };
 
+export type GenerateAgentChatAiProposalRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  operatorPrompt: string;
+  approvedContextSnapshotJson: string;
+};
+
 export type AgentChatProposalPersistPayload = {
   actionProposals: AgentChatProposalActionPersistPayload[];
   contextNeeded: string[];
@@ -126,6 +134,19 @@ export type PersistAgentChatProposalResponse = {
   summary: string;
 };
 
+export type GenerateAgentChatAiProposalResponse = {
+  run: PersistAgentChatProposalResponse;
+  proposal: AgentChatProposalPersistPayload;
+  runtimeStatus: string;
+  providerStatus: string;
+  providerUsed: boolean;
+  providerResponseReceived: boolean;
+  noToolsExecuted: boolean;
+  noMutationsPerformed: boolean;
+  contextWasApproved: boolean;
+  normalizationWarnings: string[];
+};
+
 export type AgentMonitoringSnapshot = {
   workspaceId: string;
   workbenchId: string;
@@ -145,9 +166,13 @@ export type AgentMonitoringProposalResult = {
   sourceWidgetId: string;
   sourceWidgetTitle: string;
   runtimeStatus: string;
+  providerStatus: string;
+  providerUsed: boolean;
+  providerResponseReceived: boolean;
   noLlmCalled: boolean;
   noToolsExecuted: boolean;
   noMutationsPerformed: boolean;
+  contextWasApproved: boolean;
   operatorPrompt: string;
   proposalSummary: string;
   proposedPlan: string[];

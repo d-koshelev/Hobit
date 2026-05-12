@@ -6,6 +6,8 @@ import type {
   AgentQueueSnapshot,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  GenerateAgentChatAiProposalRequest,
+  GenerateAgentChatAiProposalResponse,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
@@ -45,6 +47,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
   persistAgentChatProposal,
+  generateAgentChatAiProposal,
   runTerminalCommand,
 };
 
@@ -303,6 +306,14 @@ async function persistAgentChatProposal(
 ): Promise<PersistAgentChatProposalResponse | null> {
   throw new Error(
     "Agent Chat proposal persistence is only available in the Tauri desktop shell. Browser fallback keeps the proposal preview local and does not persist run artifacts.",
+  );
+}
+
+async function generateAgentChatAiProposal(
+  _request: GenerateAgentChatAiProposalRequest,
+): Promise<GenerateAgentChatAiProposalResponse | null> {
+  throw new Error(
+    "Agent Chat AI provider calls are only available through the Tauri desktop backend. Browser fallback does not call AI providers directly.",
   );
 }
 

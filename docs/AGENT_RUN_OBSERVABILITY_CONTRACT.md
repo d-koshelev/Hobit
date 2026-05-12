@@ -14,13 +14,13 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Implementation Boundary
 
-The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no LLM-backed or executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has a frontend-local/mock proposal preview with explicit current-session approved context selection for safe current-view metadata and, in the desktop shell, can persist the generated proposal as a proposal-only widget run/log/result artifact. It does not stream logs, execute tools, read Terminal output, call an LLM, create Queue items by itself, or mutate Workspace content.
+The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has a proposal-only preview with explicit current-session approved context selection for safe current-view metadata and, in the desktop shell, can request a backend AI proposal when an explicit HTTP provider is configured or use local/mock fallback. The generated proposal is persisted as a proposal-only widget run/log/result artifact. It does not stream logs, execute tools, read Terminal output, create Queue items by itself, or mutate Workspace content.
 
-The frontend has an insertable Agent Monitoring widget that can read persisted Agent Chat proposal-only mock result artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for the selected stored proposal artifact, and explicitly create a review-only Agent Queue item from the selected valid proposal result. This viewer is not an executable run surface and does not start runs, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, summarize runtime events, integrate executor tasks, execute Queue items, apply proposals, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
+The frontend has an insertable Agent Monitoring widget that can read persisted Agent Chat proposal-only result artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for the selected stored proposal artifact, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This viewer is not an executable run surface and does not start runs, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, summarize runtime events, integrate executor tasks, execute Queue items, apply proposals, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
 
 The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
-`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. The frontend now has a narrow persisted review inbox for proposal-only Agent Chat mock results, but queue execution, response capture, response validation, and executor integration are not implemented yet.
+`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. The frontend now has a narrow persisted review inbox for proposal-only Agent Chat local mock proposal results, but queue execution, response capture, response validation, and executor integration are not implemented yet.
 
 Implemented observability today is limited to:
 
@@ -331,7 +331,7 @@ This contract does not implement:
 - runtime execution
 - agent execution integration
 - Terminal runtime
-- LLM-backed or executable Agent Chat runtime
+- executable Agent Chat runtime
 - log parser
 - overview summarizer
 - response parser

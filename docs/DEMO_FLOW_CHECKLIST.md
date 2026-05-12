@@ -21,6 +21,8 @@ apply workflows.
 - Widget-local logs, widget runs, and structured widget results.
 - Global idle/running/attention indicator for current-session local runs.
 - Agent Chat proposal-only mock.
+- Agent Chat backend AI proposal-only provider boundary when explicitly
+  configured with environment variables.
 - Approved context selector for safe current-view metadata.
 - Proposal result persistence in the desktop shell.
 - Agent Monitoring read-only proposal/details viewer.
@@ -30,8 +32,8 @@ apply workflows.
 
 ## Not Implemented / Must Not Be Claimed
 
-- No real LLM yet.
-- No provider configuration.
+- No provider settings UI or secrets UI.
+- No provider call from the frontend.
 - No tool execution by Agent.
 - No Terminal execution from Agent.
 - No Queue execution.
@@ -70,12 +72,17 @@ apply workflows.
 
 - [ ] Open or add Agent Chat.
 - [ ] Confirm the primary action is asking for or generating a proposal.
-- [ ] Confirm the UI does not claim LLM, tool execution, or mutation behavior.
+- [ ] Confirm the UI does not claim tool execution, approval/apply, or mutation
+  behavior.
 - [ ] Confirm the approved context selector defaults to no context.
 - [ ] Select allowed current-view metadata.
-- [ ] Generate a proposal.
+- [ ] Generate a proposal without provider configuration and confirm the
+  provider-unavailable/local fallback status is visible.
+- [ ] If a local HTTP provider is configured for manual testing, generate a
+  proposal and confirm the result is marked AI proposal-only.
 - [ ] Confirm the proposal shows which context was used.
 - [ ] Confirm proposed actions are marked not executed.
+- [ ] Confirm provider status is visible when an AI proposal path is attempted.
 - [ ] Confirm the proposal persistence run id/result is visible in the desktop
   shell when persistence succeeds.
 - [ ] Open Agent Monitoring/details.

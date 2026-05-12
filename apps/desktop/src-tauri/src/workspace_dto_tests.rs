@@ -373,9 +373,13 @@ fn maps_agent_monitoring_snapshot_to_dto() {
             source_widget_id: "wid_1".to_owned(),
             source_widget_title: "Agent Chat".to_owned(),
             runtime_status: "proposal_only_mock".to_owned(),
+            provider_status: "local_mock".to_owned(),
+            provider_used: false,
+            provider_response_received: false,
             no_llm_called: true,
             no_tools_executed: true,
             no_mutations_performed: true,
+            context_was_approved: true,
             operator_prompt: "Plan".to_owned(),
             proposal_summary: "Proposal summary".to_owned(),
             proposed_plan: vec!["Step".to_owned()],
@@ -402,6 +406,9 @@ fn maps_agent_monitoring_snapshot_to_dto() {
     assert_eq!(dto.proposal_results[0].run_id, "run_1");
     assert_eq!(dto.proposal_results[0].source_widget_title, "Agent Chat");
     assert_eq!(dto.proposal_results[0].operator_prompt, "Plan");
+    assert_eq!(dto.proposal_results[0].provider_status, "local_mock");
+    assert!(!dto.proposal_results[0].provider_used);
+    assert!(dto.proposal_results[0].context_was_approved);
     assert_eq!(dto.proposal_results[0].proposed_plan, vec!["Step"]);
     assert_eq!(
         dto.proposal_results[0].proposed_actions[0].status,

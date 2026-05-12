@@ -10,10 +10,14 @@ proposal-only AI response, and can inspect the stored artifact. It must not turn
 Agent Chat into hidden automation, a tool executor, a Terminal launcher, a file
 reader, or an approval/apply path.
 
-This is a documentation and product/domain contract only. It does not implement
-LLM calls, provider configuration, runtime behavior, frontend UI, backend or
-Tauri commands, storage/schema, tool execution, Terminal behavior, Agent Queue
-behavior, file/Git/Notes mutations, or approval/apply workflows.
+This started as a documentation and product/domain contract. The current
+implementation now includes the first proposal-only Agent Chat AI slice:
+Agent Chat can request a backend-generated proposal through the Tauri boundary
+when an explicit HTTP provider endpoint is configured, normalize the provider
+response, and persist the proposal artifact for Agent Monitoring. The slice
+still does not implement tool execution, Terminal execution from AI, schema
+changes, Agent Queue execution, file/Git/Notes mutations, approval/apply
+workflows, provider settings UI, secrets UI, or frontend-direct provider calls.
 
 ## First AI Slice Summary
 
@@ -31,6 +35,13 @@ Agent Chat
 The AI response may summarize, reason, and propose next steps. It must not
 execute actions or mutate Hobit state beyond the explicit persisted run/result
 artifact for observability.
+
+Current implementation note: real provider calls are available only through the
+desktop backend command and require `HOBIT_AI_PROVIDER_ENDPOINT` plus
+`HOBIT_AI_PROVIDER_MODEL`. `HOBIT_AI_PROVIDER_API_KEY` is optional and is never
+stored in proposal artifacts or logs. The current adapter is intentionally
+minimal and supports explicit `http://` JSON chat-compatible provider endpoints;
+HTTPS provider support and provider configuration UI are future work.
 
 Agent Queue remains optional for this milestone. Creating review items from
 proposal artifacts is not part of the required first AI path.
@@ -239,13 +250,13 @@ before adding provider calls.
 
 ## First Implementation Block Outline
 
-Next planned implementation block:
+Implemented first integration block:
 
 ```text
-Block 131 - First AI proposal-only integration
+Block 133 - First AI proposal-only integration
 ```
 
-Expected scope:
+Implemented scope:
 
 - Add a backend provider boundary or mockable provider interface.
 - Agent Chat calls AI instead of the deterministic mock only where configured.
@@ -258,23 +269,21 @@ Expected scope:
   external systems.
 - Do not add Queue execution.
 
-This outline is plan-only. It does not authorize implementation in this block.
+The local/mock proposal fallback remains available when provider configuration
+or the desktop backend path is unavailable.
 
 ## Non-Goals
 
-This contract does not implement:
+This contract and current first slice do not implement:
 
-- LLM calls.
-- OpenAI/API/provider code.
-- Provider configuration.
-- Secrets or environment handling.
-- Frontend UI changes.
-- Backend or Tauri commands.
-- Storage/schema.
-- Agent Queue changes.
-- Terminal changes.
 - Tool execution.
+- Multiple providers.
+- Provider settings UI.
+- Secrets UI.
+- HTTPS provider adapter.
+- Storage/schema changes.
+- Agent Queue execution or approval/apply changes.
+- Terminal changes.
 - Approval/apply workflow.
 - File, Git, Notes, Queue, Workspace, or external-system mutations.
 - Broad runtime architecture.
-

@@ -13,6 +13,7 @@ import {
 } from "./agentChatApprovedContext";
 import { useAgentChatAvailableContext } from "./AgentChatContextProvider";
 import {
+  createAgentChatAiProposalFromResponse,
   createAgentChatMockProposal,
   type AgentChatMockProposal,
   type AgentChatProposalAction,
@@ -31,6 +32,7 @@ export function OperationalAgentChatPlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  onGenerateAgentChatAiProposal,
   onLoadLogs,
   onPersistAgentChatProposal,
   onStartFrameMove,
@@ -49,7 +51,9 @@ export function OperationalAgentChatPlaceholderWidget({
       emptyAgentChatApprovedContextSelection,
     );
   const trimmedPrompt = prompt.trim();
-  const isPersistingProposal = persistenceState.status === "persisting";
+  const isPersistingProposal =
+    persistenceState.status === "generating" ||
+    persistenceState.status === "persisting";
   const canGenerateProposal = trimmedPrompt.length > 0 && !isPersistingProposal;
   const approvedContextPreview = useMemo(
     () =>
@@ -61,8 +65,7 @@ export function OperationalAgentChatPlaceholderWidget({
   );
   const localActivity = proposal
     ? [
-        "Prompt received by local mock runtime.",
-        "Mock proposal generated.",
+        proposalActivityLine(proposal),
         proposal.approvedContextSnapshot.status === "approved"
           ? "Selected context included."
           : "No context approved; prompt-only proposal generated.",
@@ -89,6 +92,40 @@ export function OperationalAgentChatPlaceholderWidget({
     }
 
     const nextSequence = proposal ? proposal.sequence + 1 : 1;
+    if (onGenerateAgentChatAiProposal) {
+      setPersistenceState({ status: "generating" });
+
+      try {
+        const response = await onGenerateAgentChatAiProposal(instance.id, {
+          approvedContextSnapshotJson: JSON.stringify(approvedContextPreview),
+          operatorPrompt: prompt,
+        });
+
+        if (response) {
+          setProposal(
+            createAgentChatAiProposalFromResponse(
+              prompt,
+              nextSequence,
+              approvedContextPreview,
+              response,
+            ),
+          );
+          setPersistenceState({
+            response: response.run,
+            status: "persisted",
+          });
+          return;
+        }
+      } catch (error) {
+        if (!isUnsupportedAiProviderError(error)) {
+          setPersistenceState({
+            message: errorToMessage(error),
+            status: "failed",
+          });
+        }
+      }
+    }
+
     const nextProposal = createAgentChatMockProposal(
       prompt,
       nextSequence,
@@ -163,10 +200,10 @@ export function OperationalAgentChatPlaceholderWidget({
               <p className="agent-chat-proposal-title">
                 Ask for a proposal
               </p>
-              <p className="agent-chat-proposal-text">
-                Generate a local proposal from your prompt and approved
-                context. No LLM is connected yet; no tools run and nothing
-                mutates.
+          <p className="agent-chat-proposal-text">
+                Generate a proposal from your prompt and approved context.
+                Desktop mode can use a configured backend provider; browser
+                fallback stays local. No tools run and nothing mutates.
               </p>
             </div>
             <Badge variant="neutral">No execution</Badge>
@@ -189,7 +226,7 @@ export function OperationalAgentChatPlaceholderWidget({
                 type="submit"
                 variant="primary"
               >
-                {isPersistingProposal ? "Persisting..." : "Generate proposal"}
+                {isPersistingProposal ? "Generating..." : "Generate proposal"}
               </Button>
             </div>
           </form>
@@ -214,9 +251,8 @@ export function OperationalAgentChatPlaceholderWidget({
           >
             <p className="agent-chat-proposal-title">No proposal generated</p>
             <p className="agent-chat-proposal-text">
-              Submit a prompt to create a local proposal preview. Desktop mode
-              saves a proposal artifact that can be inspected in Agent
-              Monitoring.
+              Submit a prompt to create a proposal preview. Desktop mode saves
+              a proposal artifact that can be inspected in Agent Monitoring.
             </p>
           </section>
         )}
@@ -229,7 +265,7 @@ export function OperationalAgentChatPlaceholderWidget({
             <div className="agent-chat-proposal-copy">
               <p className="agent-chat-proposal-title">Proposal status</p>
               <p className="agent-chat-proposal-text">
-                Local generation and saved artifact status.
+                Backend provider, local fallback, and saved artifact status.
               </p>
             </div>
             {persistenceBadge(persistenceState)}
@@ -247,7 +283,7 @@ export function OperationalAgentChatPlaceholderWidget({
 
 type ProposalPersistenceState =
   | {
-      status: "idle" | "persisting";
+      status: "generating" | "idle" | "persisting";
     }
   | {
       message: string;
@@ -276,7 +312,9 @@ function AgentChatProposalPreview({
           <p className="agent-chat-proposal-title">Structured proposal preview</p>
           <p className="agent-chat-proposal-text">{proposal.requestSummary}</p>
         </div>
-        <Badge variant="info">Proposal only</Badge>
+        <Badge variant={proposal.source === "provider-fallback" ? "warning" : "info"}>
+          {proposalSourceLabel(proposal)}
+        </Badge>
       </div>
 
       <ProposalSection
@@ -388,6 +426,18 @@ function PersistenceStatusSection({
     return null;
   }
 
+  if (persistenceState.status === "generating") {
+    return (
+      <div className="agent-chat-proposal-section">
+        <p className="agent-chat-proposal-section-title">Backend provider</p>
+        <p className="agent-chat-proposal-text">
+          Requesting a proposal through the desktop backend. The request uses
+          only the approved context snapshot and allowed_tools is empty.
+        </p>
+      </div>
+    );
+  }
+
   if (persistenceState.status === "persisting") {
     return (
       <div className="agent-chat-proposal-section">
@@ -467,6 +517,8 @@ function persistenceActivityLine(state: ProposalPersistenceState) {
   switch (state.status) {
     case "persisted":
       return `Proposal persisted as widget run ${state.response.runId}.`;
+    case "generating":
+      return "Backend proposal request is in progress.";
     case "persisting":
       return "Proposal persistence is in progress.";
     case "unsupported":
@@ -482,6 +534,8 @@ function persistenceBadge(state: ProposalPersistenceState) {
   switch (state.status) {
     case "persisted":
       return <Badge variant="success">Persisted</Badge>;
+    case "generating":
+      return <Badge variant="info">Generating</Badge>;
     case "persisting":
       return <Badge variant="info">Persisting</Badge>;
     case "unsupported":
@@ -495,6 +549,32 @@ function persistenceBadge(state: ProposalPersistenceState) {
 
 function isUnsupportedPersistenceError(error: unknown) {
   return errorToMessage(error).includes("Browser fallback");
+}
+
+function isUnsupportedAiProviderError(error: unknown) {
+  return errorToMessage(error).includes("Browser fallback");
+}
+
+function proposalActivityLine(proposal: AgentChatMockProposal) {
+  switch (proposal.source) {
+    case "ai-generated":
+      return "AI-generated proposal-only response persisted by backend.";
+    case "provider-fallback":
+      return `Provider fallback proposal persisted (${proposal.providerStatus}).`;
+    case "local-mock":
+      return "Local/mock proposal generated.";
+  }
+}
+
+function proposalSourceLabel(proposal: AgentChatMockProposal) {
+  switch (proposal.source) {
+    case "ai-generated":
+      return "AI proposal";
+    case "provider-fallback":
+      return "Provider fallback";
+    case "local-mock":
+      return "Local mock";
+  }
 }
 
 function errorToMessage(error: unknown) {

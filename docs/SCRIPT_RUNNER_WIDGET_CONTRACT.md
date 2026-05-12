@@ -14,7 +14,7 @@ There is no Script Runner Widget today.
 
 The frontend Widget Catalog may list Script Runner as a planned/display-only item to expose the future direction. That catalog item is not insertable and does not create a WidgetInstance, configuration UI, Run button, backend call, storage record, or script runtime behavior.
 
-The current repository has no general command or script execution runtime. The Terminal widget has a bounded desktop-only one-shot command form for persisted Terminal widget instances, but no shell mode, interactive terminal, streaming, PTY, cancellation, command history, or Script Runner behavior. Agent Chat is a frontend-local/mock proposal-only surface with explicit current-session approved context selection for safe current-view metadata only and desktop proposal-only run/result persistence; it does not execute tools or scripts. Agent Monitoring can read stored Agent Chat proposal-only mock artifacts and display read-only Overview, Result, and Raw sections, but it does not execute, stream, monitor Terminal results, or summarize real Agent Runs. Git has only a manual desktop-only read-only status refresh for an explicit transient repository root.
+The current repository has no general command or script execution runtime. The Terminal widget has a bounded desktop-only one-shot command form for persisted Terminal widget instances, but no shell mode, interactive terminal, streaming, PTY, cancellation, command history, or Script Runner behavior. Agent Chat is a proposal-only surface with explicit current-session approved context selection for safe current-view metadata, a desktop backend AI provider boundary when explicitly configured, local/mock fallback, and desktop proposal-only run/result persistence; it does not execute tools or scripts. Agent Monitoring can read stored Agent Chat proposal-only artifacts and display read-only Overview, Result, and Raw sections, but it does not execute, stream, monitor Terminal results, or summarize real Agent Runs. Git has only a manual desktop-only read-only status refresh for an explicit transient repository root.
 
 Any future Script Runner implementation must preserve Hobit's rule that tools and actions are explicit, visible, and approval-aware. Script Runner must not make Hobit a script executor as a product category.
 
@@ -341,7 +341,7 @@ This contract does not implement:
 - process spawning
 - shell execution
 - Terminal runtime
-- LLM-backed or executable Agent Chat runtime
+- executable Agent Chat runtime
 - Agent Run runtime
 - Agent Queue execution
 - insertable widget catalog path

@@ -34,9 +34,10 @@ The two real demo flows now present in the product are:
    proposal -> view persisted artifact in Agent Monitoring -> create review
    item -> view item in Agent Queue.
 
-The Agent flow remains proposal-only. It does not call an LLM, execute tools,
-run Terminal commands, read hidden context, create Queue items from Agent Chat
-directly, or execute Queue items.
+The Agent flow remains proposal-only. It can call only the explicit backend AI
+provider boundary when configured, or use local/mock fallback. It does not
+execute tools, run Terminal commands, read hidden context, create Queue items
+from Agent Chat directly, or execute Queue items.
 
 ## What Is Working Well
 
@@ -45,8 +46,9 @@ directly, or execute Queue items.
   streaming, no stdin, and no command history.
 - The global activity indicator is compact and correctly scoped to
   current-session frontend-known local Terminal runs.
-- Agent Chat is honest that it is a local/mock proposal preview with no LLM,
-  tools, mutations, hidden context, or Queue creation by itself.
+- Agent Chat is honest that it is a proposal-only preview with explicit provider
+  configuration or local/mock fallback, no tools, mutations, hidden context, or
+  Queue creation by itself.
 - Approved context selection is explicit and limited to visible current-view
   metadata.
 - Agent Monitoring's Overview / Result / Raw structure is the right read-only
@@ -205,7 +207,8 @@ is specifically about Git.
   explanation of the sequence so operators understand why three Agent-labeled
   widgets exist.
 - Agent Chat should reduce repeated safety copy while preserving the key
-  boundary: no LLM, no tools, no hidden context, no mutations.
+  boundary: proposal-only provider call when explicitly configured, no tools,
+  no hidden context, no mutations.
 - Agent Queue empty state should say what to do next: generate a proposal in
   Agent Chat, view it in Agent Monitoring, then create a review item.
 - Terminal could move timeout and output caps behind an advanced/details area in
@@ -265,9 +268,9 @@ Recommended simplification:
 ## Docs And Current-State Consistency
 
 The major current-state docs are broadly honest about the implementation and
-non-goals. They correctly state that there is no LLM, no tool execution, no
-Queue execution, no hidden context access, and no Terminal shell/runtime beyond
-one-shot commands.
+non-goals. They correctly state that the AI path is proposal-only and
+explicitly configured, with no tool execution, no Queue execution, no hidden
+context access, and no Terminal shell/runtime beyond one-shot commands.
 
 The main consistency gap is UI copy, not contracts: some catalog and placeholder
 labels still describe Agent Monitoring and Agent Queue as static previews even
@@ -308,7 +311,8 @@ inspection is explicitly needed.
 
 ## Explicit Non-Goals For The Next Milestone
 
-- No LLM integration.
+- No executable Agent Chat runtime beyond the explicit proposal-only provider
+  boundary.
 - No Agent execution.
 - No Queue execution.
 - No Terminal shell mode, PTY, streaming, stdin, cancellation, or command

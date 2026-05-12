@@ -169,6 +169,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.persistAgentChatProposal
       : undefined;
+  const generateAgentChatAiProposal =
+    definition.componentKey === AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.generateAgentChatAiProposal
+      : undefined;
   const getAgentMonitoringSnapshot =
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentMonitoringSnapshot
@@ -216,6 +220,7 @@ export function WidgetHost({
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onGetAgentMonitoringSnapshot={getAgentMonitoringSnapshot}
       onGetAgentQueueSnapshot={getAgentQueueSnapshot}
+      onGenerateAgentChatAiProposal={generateAgentChatAiProposal}
       onLoadLogs={widgetActions.listWidgetLogs}
       onPersistAgentChatProposal={persistAgentChatProposal}
       onRunTerminalCommand={runTerminalCommand}

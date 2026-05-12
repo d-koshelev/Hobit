@@ -144,9 +144,10 @@ blocks.
 Current level: Minimal / Operational proposal-only mock.
 
 Current Agent Chat behavior accepts an operator prompt, lets the operator
-explicitly select safe current-view metadata, generates a local/mock structured
-proposal preview, and can persist a proposal-only run/result artifact in
-desktop mode.
+explicitly select safe current-view metadata, generates a structured proposal
+preview through the backend AI proposal boundary when an explicit provider is
+configured, falls back to local/mock proposal generation when unavailable, and
+can persist a proposal-only run/result artifact in desktop mode.
 
 Future direction:
 
@@ -185,7 +186,9 @@ monitoring, or Queue execution.
 Current level: Operational review inbox.
 
 Current Agent Queue lists persisted review-only items created explicitly from
-Agent Chat proposal mock results and shows read-only details.
+Agent Chat local mock proposal results and shows read-only details. AI proposal
+artifacts remain visible in Agent Monitoring but do not add Queue execution or
+approval/apply behavior.
 
 Future direction:
 
@@ -351,4 +354,3 @@ Progressive disclosure must preserve:
 - no hidden execution
 - no hidden mutation
 - calm defaults with deeper detail available only when intentionally added
-
