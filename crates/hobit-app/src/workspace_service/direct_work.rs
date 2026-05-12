@@ -19,11 +19,11 @@ use super::{
     AGENT_RUN_WIDGET_DEFINITION_ID, WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
 };
 
-const CODEX_DIRECT_WORK_COMMAND_KIND: &str = "codex_direct_work";
-const CODEX_DIRECT_WORK_RESULT_TYPE: &str = "codex_direct_work_result";
-const CODEX_DIRECT_WORK_EXECUTOR_KIND: &str = "codex_cli";
-const CODEX_DIRECT_WORK_MODE: &str = "direct_work";
-const WIDGET_LOG_ERROR_LEVEL: &str = "error";
+pub(super) const CODEX_DIRECT_WORK_COMMAND_KIND: &str = "codex_direct_work";
+pub(super) const CODEX_DIRECT_WORK_RESULT_TYPE: &str = "codex_direct_work_result";
+pub(super) const CODEX_DIRECT_WORK_EXECUTOR_KIND: &str = "codex_cli";
+pub(super) const CODEX_DIRECT_WORK_MODE: &str = "direct_work";
+pub(super) const WIDGET_LOG_ERROR_LEVEL: &str = "error";
 
 impl WorkspaceService {
     pub fn run_codex_direct_work(
@@ -216,21 +216,21 @@ impl WorkspaceService {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct NormalizedDirectWorkInput {
-    workspace_id: String,
-    workbench_id: String,
-    widget_instance_id: String,
-    codex_executable: String,
-    repo_root: std::path::PathBuf,
-    operator_prompt: String,
-    sandbox: CodexSandboxMode,
-    approval_policy: CodexApprovalPolicy,
-    timeout_ms: u64,
-    stdout_cap_bytes: usize,
-    stderr_cap_bytes: usize,
+pub(super) struct NormalizedDirectWorkInput {
+    pub(super) workspace_id: String,
+    pub(super) workbench_id: String,
+    pub(super) widget_instance_id: String,
+    pub(super) codex_executable: String,
+    pub(super) repo_root: std::path::PathBuf,
+    pub(super) operator_prompt: String,
+    pub(super) sandbox: CodexSandboxMode,
+    pub(super) approval_policy: CodexApprovalPolicy,
+    pub(super) timeout_ms: u64,
+    pub(super) stdout_cap_bytes: usize,
+    pub(super) stderr_cap_bytes: usize,
 }
 
-fn normalize_direct_work_input(
+pub(super) fn normalize_direct_work_input(
     input: RunCodexDirectWorkInput,
 ) -> Result<NormalizedDirectWorkInput, WorkspaceServiceError> {
     if input.repo_root.as_os_str().is_empty() {
@@ -284,11 +284,11 @@ fn parse_direct_work_approval_policy(
     }
 }
 
-fn can_initiate_direct_work(definition_id: &str) -> bool {
+pub(super) fn can_initiate_direct_work(definition_id: &str) -> bool {
     definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
 }
 
-fn append_direct_work_log(
+pub(super) fn append_direct_work_log(
     store: &SqliteStore,
     widget_instance_id: &str,
     run_id: Option<&str>,
@@ -309,7 +309,7 @@ fn append_direct_work_log(
     Ok(())
 }
 
-fn direct_work_final_status(status: CodexDirectRunStatus) -> WidgetRunStatus {
+pub(super) fn direct_work_final_status(status: CodexDirectRunStatus) -> WidgetRunStatus {
     match status {
         CodexDirectRunStatus::Completed => WidgetRunStatus::Completed,
         CodexDirectRunStatus::Failed | CodexDirectRunStatus::FailedToStart => {
@@ -347,14 +347,16 @@ fn direct_work_completion_log_level(status: CodexDirectRunStatus) -> &'static st
     }
 }
 
-fn direct_work_sandbox_value(sandbox: CodexSandboxMode) -> &'static str {
+pub(super) fn direct_work_sandbox_value(sandbox: CodexSandboxMode) -> &'static str {
     match sandbox {
         CodexSandboxMode::ReadOnly => "read_only",
         CodexSandboxMode::WorkspaceWrite => "workspace_write",
     }
 }
 
-fn direct_work_approval_policy_value(approval_policy: CodexApprovalPolicy) -> &'static str {
+pub(super) fn direct_work_approval_policy_value(
+    approval_policy: CodexApprovalPolicy,
+) -> &'static str {
     match approval_policy {
         CodexApprovalPolicy::Never => "never",
         CodexApprovalPolicy::OnRequest => "on_request",
@@ -381,7 +383,7 @@ fn direct_work_command_payload(input: &NormalizedDirectWorkInput) -> String {
     .to_string()
 }
 
-fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInput) -> String {
+pub(super) fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInput) -> String {
     json!({
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
         "mode": CODEX_DIRECT_WORK_MODE,
@@ -396,7 +398,7 @@ fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInput) -> Strin
     .to_string()
 }
 
-fn direct_work_started_log_payload(run_id: &str) -> String {
+pub(super) fn direct_work_started_log_payload(run_id: &str) -> String {
     json!({
         "run_id": run_id,
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
@@ -419,7 +421,7 @@ fn direct_work_completion_log_payload(output: &CodexDirectRunOutput, final_statu
     .to_string()
 }
 
-fn direct_work_no_git_mutation_log_payload() -> String {
+pub(super) fn direct_work_no_git_mutation_log_payload() -> String {
     json!({
         "no_auto_commit": true,
         "no_auto_push": true,
@@ -459,6 +461,6 @@ fn direct_work_result_payload(
     .to_string()
 }
 
-fn capped_duration_ms(duration_ms: u128) -> u64 {
+pub(super) fn capped_duration_ms(duration_ms: u128) -> u64 {
     duration_ms.min(u64::MAX as u128) as u64
 }

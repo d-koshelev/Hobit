@@ -17,6 +17,7 @@ pub use workspace_service::{
     AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
+    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, GenerateAgentChatAiProposalInput,
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
     GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,

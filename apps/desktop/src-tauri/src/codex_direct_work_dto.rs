@@ -1,10 +1,30 @@
 use std::path::PathBuf;
 
-use hobit_app::{CodexDirectWorkRunSummary, RunCodexDirectWorkInput};
+use hobit_app::{
+    CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
+    CodexDirectWorkStreamStartSummary, RunCodexDirectWorkInput,
+};
 use serde::{Deserialize, Serialize};
+
+pub(crate) const DIRECT_WORK_STREAM_EVENT_NAME: &str = "direct-work://event";
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct RunCodexDirectWorkRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub codex_executable: String,
+    pub repo_root: String,
+    pub operator_prompt: String,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct StartCodexDirectWorkStreamRequest {
     pub workspace_id: String,
     pub workbench_id: String,
     pub widget_instance_id: String,
@@ -43,8 +63,47 @@ pub(crate) struct RunCodexDirectWorkResponseDto {
     pub git_mutations_performed_by_hobit: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct StartCodexDirectWorkStreamResponseDto {
+    pub run_id: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct DirectWorkStreamEventDto {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub run_id: String,
+    pub event_kind: String,
+    pub line: Option<String>,
+    pub text: Option<String>,
+    pub parsed_codex_event_type: Option<String>,
+    pub status: Option<String>,
+    pub elapsed_ms: u128,
+    pub is_final: bool,
+}
+
 impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
     fn from(request: RunCodexDirectWorkRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            codex_executable: request.codex_executable,
+            repo_root: PathBuf::from(request.repo_root),
+            operator_prompt: request.operator_prompt,
+            sandbox: request.sandbox,
+            approval_policy: request.approval_policy,
+            timeout_ms: request.timeout_ms,
+            stdout_cap_bytes: request.stdout_cap_bytes,
+            stderr_cap_bytes: request.stderr_cap_bytes,
+        }
+    }
+}
+
+impl From<StartCodexDirectWorkStreamRequest> for RunCodexDirectWorkInput {
+    fn from(request: StartCodexDirectWorkStreamRequest) -> Self {
         Self {
             workspace_id: request.workspace_id,
             workbench_id: request.workbench_id,
@@ -85,6 +144,33 @@ impl From<CodexDirectWorkRunSummary> for RunCodexDirectWorkResponseDto {
             no_auto_commit: summary.no_auto_commit,
             no_auto_push: summary.no_auto_push,
             git_mutations_performed_by_hobit: summary.git_mutations_performed_by_hobit,
+        }
+    }
+}
+
+impl From<CodexDirectWorkStreamStartSummary> for StartCodexDirectWorkStreamResponseDto {
+    fn from(summary: CodexDirectWorkStreamStartSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            status: summary.status,
+        }
+    }
+}
+
+impl From<CodexDirectWorkStreamEventSummary> for DirectWorkStreamEventDto {
+    fn from(event: CodexDirectWorkStreamEventSummary) -> Self {
+        Self {
+            workspace_id: event.workspace_id,
+            workbench_id: event.workbench_id,
+            widget_instance_id: event.widget_instance_id,
+            run_id: event.run_id,
+            event_kind: event.event_kind,
+            line: event.line,
+            text: event.text,
+            parsed_codex_event_type: event.parsed_codex_event_type,
+            status: event.status,
+            elapsed_ms: event.elapsed_ms,
+            is_final: event.is_final,
         }
     }
 }

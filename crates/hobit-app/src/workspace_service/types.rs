@@ -411,6 +411,27 @@ pub struct CodexDirectWorkRunSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CodexDirectWorkStreamStartSummary {
+    pub run_id: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CodexDirectWorkStreamEventSummary {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub run_id: String,
+    pub event_kind: String,
+    pub line: Option<String>,
+    pub text: Option<String>,
+    pub parsed_codex_event_type: Option<String>,
+    pub status: Option<String>,
+    pub elapsed_ms: u128,
+    pub is_final: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunTerminalCommandInput {
     pub workspace_id: String,
     pub workbench_id: String,

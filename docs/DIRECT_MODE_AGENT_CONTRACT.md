@@ -22,11 +22,14 @@ repository now includes backend/tooling-only Codex CLI foundations in
 and a streaming runner foundation for `codex exec --json`.
 The one-shot runner is now wired through the app/Tauri boundary as the
 one-shot `run_codex_direct_work` command that persists widget run/log/result
-artifacts for an allowed Agent Monitoring (`agent-run`) widget instance. It
-still does not implement Agent Monitoring Direct Work display, storage/schema
-changes, queue execution, Git mutations, commits, pushes, an embedded PTY, or
-interactive agent sessions. The current frontend surfaces Direct Work / Codex
-as a Ready catalog item that reuses the `agent-run` widget identity.
+artifacts for an allowed Agent Monitoring (`agent-run`) widget instance. A
+streaming app/Tauri bridge can start the `hobit-tools` streaming runner, emit
+Tauri stream events, append widget logs during the run, and finish the same
+widget run/result artifact shape. It still does not implement Agent Monitoring
+Direct Work display, frontend live log UI, storage/schema changes, queue
+execution, Git mutations, commits, pushes, an embedded PTY, or interactive
+agent sessions. The current frontend surfaces Direct Work / Codex as a Ready
+catalog item that reuses the `agent-run` widget identity.
 
 ## Current Status
 
@@ -53,8 +56,13 @@ artifacts, creates a widget run before execution, runs the existing
 `hobit-tools` Codex runner outside the storage transaction, and persists
 lifecycle logs plus a structured Direct Work result artifact. The Widget
 Catalog now presents this `agent-run` surface primarily as Direct Work / Codex.
-Hobit still does not expose Agent Monitoring Direct Work display, Agent Queue,
-or Git Widget integration for these runs. It does not execute Queue items.
+Hobit also exposes a backend/Tauri streaming start path for Direct Work that
+creates the widget run immediately, streams Codex events through a stable Tauri
+event payload, appends persisted widget logs during the run, and stores a final
+structured result when the stream completes, fails, or times out. Hobit still
+does not expose Agent Monitoring Direct Work display, a frontend live log
+viewer, Agent Queue, or Git Widget integration for these runs. It does not
+execute Queue items.
 
 The repository now includes backend/tooling-only Codex CLI foundations in
 `hobit-tools`:
@@ -75,12 +83,13 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   line-by-line while the process is running, emits caller callback events,
   captures the final `--output-last-message` file, applies output caps and
   timeout, kills the child on timeout, and returns a structured final output.
-  This foundation is not wired to Tauri events, frontend live logs, storage,
-  Agent Monitoring, Git Widget, Queue execution, stdin, PTY, or interactive
-  sessions.
+  This foundation is wired to a backend/Tauri stream event bridge, persisted
+  widget logs, and final widget run/result storage. It is not wired to
+  frontend live logs, Agent Monitoring Direct Work display, Git Widget, Queue
+  execution, stdin, PTY, or interactive sessions.
 
-Only the one-shot runner is wired to app/Tauri storage-backed run artifacts.
-The streaming runner remains a tooling foundation and is not wired to Agent
+The one-shot runner and the streaming runner bridge are wired to app/Tauri
+storage-backed run artifacts. The streaming bridge is not wired to Agent
 Monitoring Direct Work display, Agent Queue, Git Widget, or frontend live UI.
 
 The near-term direction is to make Codex CLI the first practical executor for
@@ -225,10 +234,11 @@ construction and one-shot process execution also have a backend/tooling
 foundation there, now exposed through a narrow app/Tauri command that stores
 Direct Work widget run/log/result artifacts. A separate tooling-only streaming
 foundation for `codex exec --json` can emit line and JSON events to a
-caller-provided callback, but Tauri/UI live streaming is not implemented yet.
-Frontend UI, Agent Monitoring Direct Work display, Git review wiring,
-changed-file capture, validation capture, commit/push flows, and interactive
-execution all require later implementation blocks.
+caller-provided callback and is now exposed through a backend/Tauri streaming
+event bridge that persists logs and final run/result artifacts. Frontend live
+log UI, Agent Monitoring Direct Work display, Git review wiring, changed-file
+capture, validation capture, commit/push flows, and interactive execution all
+require later implementation blocks.
 
 ## Widget Integration
 

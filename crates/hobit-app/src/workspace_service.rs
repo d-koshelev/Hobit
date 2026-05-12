@@ -9,6 +9,7 @@ mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
 mod direct_work;
+mod direct_work_stream;
 mod git;
 mod logs;
 mod mapping;
@@ -29,6 +30,8 @@ mod agent_proposal_tests;
 #[cfg(test)]
 mod agent_queue_tests;
 #[cfg(test)]
+mod direct_work_stream_tests;
+#[cfg(test)]
 mod direct_work_tests;
 #[cfg(test)]
 mod terminal_tests;
@@ -41,6 +44,7 @@ pub use types::{
     AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
+    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, GenerateAgentChatAiProposalInput,
     GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
     GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,

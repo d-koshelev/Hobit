@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::agent_chat_ai_dto::{
     GenerateAgentChatAiProposalRequest, GenerateAgentChatAiProposalResponseDto,
@@ -13,7 +13,11 @@ use crate::agent_queue_dto::{
     GetAgentQueueSnapshotRequest,
 };
 use crate::app_state::AppState;
-use crate::codex_direct_work_dto::{RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto};
+use crate::codex_direct_work_dto::{
+    DirectWorkStreamEventDto, RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto,
+    StartCodexDirectWorkStreamRequest, StartCodexDirectWorkStreamResponseDto,
+    DIRECT_WORK_STREAM_EVENT_NAME,
+};
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
     GetAgentMonitoringSnapshotRequest, GetGitRepositoryStatusRequest, GitRepositoryStatusDto,
@@ -191,6 +195,63 @@ fn run_codex_direct_work_blocking(
 }
 
 #[tauri::command]
+pub(crate) async fn start_codex_direct_work_stream(
+    request: StartCodexDirectWorkStreamRequest,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<StartCodexDirectWorkStreamResponseDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    let input: hobit_app::RunCodexDirectWorkInput = request.into();
+    let start = tauri::async_runtime::spawn_blocking({
+        let db_path = db_path.clone();
+        let input = input.clone();
+        move || start_codex_direct_work_stream_blocking(input, db_path)
+    })
+    .await
+    .map_err(command_error)??;
+
+    if let Some(start_summary) = start.clone() {
+        let run_id = start_summary.run_id.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(error) = run_codex_direct_work_stream_background(input, run_id, db_path, app)
+            {
+                eprintln!("Direct Work stream background task failed: {error}");
+            }
+        });
+    }
+
+    Ok(start.map(StartCodexDirectWorkStreamResponseDto::from))
+}
+
+fn start_codex_direct_work_stream_blocking(
+    input: hobit_app::RunCodexDirectWorkInput,
+    db_path: PathBuf,
+) -> Result<Option<hobit_app::CodexDirectWorkStreamStartSummary>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .start_codex_direct_work_stream(input)
+        .map_err(command_error)
+}
+
+fn run_codex_direct_work_stream_background(
+    input: hobit_app::RunCodexDirectWorkInput,
+    run_id: String,
+    db_path: PathBuf,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .run_codex_direct_work_stream(input, &run_id, |event| {
+            let _ = app.emit(
+                DIRECT_WORK_STREAM_EVENT_NAME,
+                DirectWorkStreamEventDto::from(event),
+            );
+        })
+        .map(|_| ())
+        .map_err(command_error)
+}
+
+#[tauri::command]
 pub(crate) fn persist_agent_chat_proposal(
     request: PersistAgentChatProposalRequest,
     state: State<'_, AppState>,
@@ -308,6 +369,35 @@ mod tests {
             db_path.clone(),
         )
         .expect("direct work command helper should return cleanly");
+
+        assert!(response.is_none());
+        remove_test_db_files(&db_path);
+    }
+
+    #[test]
+    fn start_codex_direct_work_stream_blocking_rejects_missing_workspace_without_process_run() {
+        let db_path = unique_test_db_path();
+        let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        drop(store);
+
+        let response = start_codex_direct_work_stream_blocking(
+            hobit_app::RunCodexDirectWorkInput {
+                workspace_id: "missing-workspace".to_owned(),
+                workbench_id: "missing-workbench".to_owned(),
+                widget_instance_id: "missing-widget".to_owned(),
+                codex_executable: "codex".to_owned(),
+                repo_root: ".".into(),
+                operator_prompt: "Return exactly: test".to_owned(),
+                sandbox: "read_only".to_owned(),
+                approval_policy: "never".to_owned(),
+                timeout_ms: Some(1),
+                stdout_cap_bytes: Some(1),
+                stderr_cap_bytes: Some(1),
+            },
+            db_path.clone(),
+        )
+        .expect("direct work stream command helper should return cleanly");
 
         assert!(response.is_none());
         remove_test_db_files(&db_path);
