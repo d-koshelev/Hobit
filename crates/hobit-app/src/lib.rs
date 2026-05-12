@@ -11,12 +11,14 @@ mod workspace_service;
 
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
+pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;
 pub use workspace_service::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
     AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
-    AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
+    AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
+    CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, DirectWorkValidationRunSummary,
     GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,

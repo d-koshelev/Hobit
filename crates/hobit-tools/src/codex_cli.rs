@@ -20,7 +20,8 @@ pub use direct_run::{
     DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
 };
 pub use direct_stream::{
-    run_codex_direct_work_streaming, CodexDirectStreamEvent, CodexDirectStreamEventKind,
+    run_codex_direct_work_streaming, run_codex_direct_work_streaming_with_cancellation,
+    CodexDirectStreamCancellationToken, CodexDirectStreamEvent, CodexDirectStreamEventKind,
     CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus,
 };
 pub(crate) use executable::resolve_codex_executable;

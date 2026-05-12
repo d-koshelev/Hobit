@@ -66,6 +66,11 @@ structured result when the stream completes, fails, or times out. Hobit still
 does not expose Agent Monitoring Direct Work display, a frontend live log
 viewer, Agent Queue, or Git Widget integration for these runs. It does not
 execute Queue items.
+The backend/Tauri foundation can now request cancellation of an active
+streaming Direct Work run, signal the underlying Codex process, and persist a
+cancelled final run/result state. A frontend Stop button is still pending.
+Cancellation does not add Git mutation, commit, push, PTY, or an interactive
+session.
 
 The repository now includes backend/tooling-only Codex CLI foundations in
 `hobit-tools`:

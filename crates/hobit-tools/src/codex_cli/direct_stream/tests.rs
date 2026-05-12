@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::codex_cli::{CodexApprovalPolicy, CodexSandboxMode};
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -139,6 +141,36 @@ fn timeout_emits_timed_out_status_and_kills_process() {
         .as_deref()
         .unwrap_or_default()
         .contains("timed out"));
+}
+
+#[test]
+fn cancellation_token_emits_cancelled_status_and_kills_process() {
+    let request = request_with_program(temp_repo("cancelled"), "sleep", direct_stream_helper());
+    let token = CodexDirectStreamCancellationToken::new();
+    let cancellation = token.clone();
+    let mut events = Vec::new();
+
+    let output = run_codex_direct_work_streaming_with_cancellation(request, token, |event| {
+        if event.kind == CodexDirectStreamEventKind::Started {
+            cancellation.request_cancellation();
+        }
+        events.push(event);
+    });
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Cancelled);
+    assert_eq!(output.exit_code, None);
+    assert!(output
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("cancelled"));
+    let cancelled_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::Cancelled)
+        .expect("cancelled event should be emitted");
+    assert!(cancelled_event.is_final_status_event());
+    assert_eq!(cancelled_event.final_status.as_deref(), Some("cancelled"));
+    assert_eq!(cancelled_event.failed_stage, None);
 }
 
 #[test]
@@ -364,8 +396,12 @@ exit /b 0
     fs::create_dir_all(&final_message_directory).unwrap();
     request.output_last_message_path = Some(final_message_directory.join("last.txt"));
 
-    let output =
-        run_codex_direct_work_streaming_inner(request, |_| {}, Some(directory.as_os_str()));
+    let output = run_codex_direct_work_streaming_inner(
+        request,
+        |_| {},
+        Some(directory.as_os_str()),
+        CodexDirectStreamCancellationToken::new(),
+    );
 
     assert_eq!(output.status, CodexDirectStreamStatus::Completed);
     assert_eq!(
@@ -381,6 +417,22 @@ fn event_index(events: &[CodexDirectStreamEvent], kind: CodexDirectStreamEventKi
         .iter()
         .position(|event| event.kind == kind)
         .unwrap_or_else(|| panic!("missing event kind: {kind}"))
+}
+
+trait FinalStatusEvent {
+    fn is_final_status_event(&self) -> bool;
+}
+
+impl FinalStatusEvent for CodexDirectStreamEvent {
+    fn is_final_status_event(&self) -> bool {
+        matches!(
+            self.kind,
+            CodexDirectStreamEventKind::Completed
+                | CodexDirectStreamEventKind::Failed
+                | CodexDirectStreamEventKind::TimedOut
+                | CodexDirectStreamEventKind::Cancelled
+        )
+    }
 }
 
 fn arg_index(args: &[String], arg: &str) -> usize {

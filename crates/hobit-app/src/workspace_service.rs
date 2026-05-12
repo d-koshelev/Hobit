@@ -9,6 +9,7 @@ mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
 mod direct_work;
+mod direct_work_cancellation;
 mod direct_work_stream;
 mod direct_work_validation;
 mod git;
@@ -31,6 +32,8 @@ mod agent_proposal_tests;
 #[cfg(test)]
 mod agent_queue_tests;
 #[cfg(test)]
+mod direct_work_cancellation_tests;
+#[cfg(test)]
 mod direct_work_stream_tests;
 #[cfg(test)]
 mod direct_work_tests;
@@ -46,7 +49,8 @@ pub use types::{
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
     AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
-    AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
+    AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
+    CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, DirectWorkValidationRunSummary,
     GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,

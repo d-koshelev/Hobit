@@ -4,7 +4,6 @@
 //! boundaries, and caller-provided stdout/stderr event streaming.
 
 use std::ffi::OsStr;
-use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -14,8 +13,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::codex_cli::{resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM};
 
 use super::direct_run::{
-    CodexApprovalPolicy, CodexSandboxMode, DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES,
-    DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
+    DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES,
+    DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
 };
 use command::{build_codex_exec_json_args, safe_command_summary, validate_repo_root};
 use json::parse_lightweight_json_line;
@@ -32,128 +31,12 @@ mod command;
 mod json;
 mod status;
 mod stream_io;
+mod types;
 
-/// Direct Work request for streaming a one-shot `codex exec --json` invocation.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CodexDirectStreamRequest {
-    pub program: Option<String>,
-    pub repo_root: PathBuf,
-    pub prompt: String,
-    pub sandbox: CodexSandboxMode,
-    pub approval_policy: CodexApprovalPolicy,
-    pub timeout_ms: Option<u64>,
-    pub stdout_cap_bytes: Option<usize>,
-    pub stderr_cap_bytes: Option<usize>,
-    pub output_last_message_path: Option<PathBuf>,
-}
-
-impl CodexDirectStreamRequest {
-    pub fn new(
-        repo_root: impl Into<PathBuf>,
-        prompt: impl Into<String>,
-        sandbox: CodexSandboxMode,
-        approval_policy: CodexApprovalPolicy,
-    ) -> Self {
-        Self {
-            program: None,
-            repo_root: repo_root.into(),
-            prompt: prompt.into(),
-            sandbox,
-            approval_policy,
-            timeout_ms: None,
-            stdout_cap_bytes: None,
-            stderr_cap_bytes: None,
-            output_last_message_path: None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CodexDirectStreamOutput {
-    pub status: CodexDirectStreamStatus,
-    pub exit_code: Option<i32>,
-    pub final_message: Option<String>,
-    pub stdout_collected: String,
-    pub stderr_collected: String,
-    pub stdout_truncated: bool,
-    pub stderr_truncated: bool,
-    pub duration_ms: u128,
-    pub error_message: Option<String>,
-    pub command_summary: Vec<String>,
-    pub event_count: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CodexDirectStreamStatus {
-    Completed,
-    FailedToStart,
-    TimedOut,
-    Failed,
-}
-
-impl CodexDirectStreamStatus {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Completed => "completed",
-            Self::FailedToStart => "failed_to_start",
-            Self::TimedOut => "timed_out",
-            Self::Failed => "failed",
-        }
-    }
-}
-
-impl fmt::Display for CodexDirectStreamStatus {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CodexDirectStreamEvent {
-    pub kind: CodexDirectStreamEventKind,
-    pub elapsed_ms: u128,
-    pub line: Option<String>,
-    pub text: Option<String>,
-    pub parsed_json: Option<String>,
-    pub error_message: Option<String>,
-    pub stderr_preview: Option<String>,
-    pub exit_code: Option<i32>,
-    pub final_status: Option<String>,
-    pub failed_stage: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CodexDirectStreamEventKind {
-    Started,
-    StdoutLine,
-    StderrLine,
-    CodexJsonEvent,
-    FinalMessage,
-    Completed,
-    Failed,
-    TimedOut,
-}
-
-impl CodexDirectStreamEventKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Started => "started",
-            Self::StdoutLine => "stdout_line",
-            Self::StderrLine => "stderr_line",
-            Self::CodexJsonEvent => "codex_json_event",
-            Self::FinalMessage => "final_message",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::TimedOut => "timed_out",
-        }
-    }
-}
-
-impl fmt::Display for CodexDirectStreamEventKind {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
+pub use types::{
+    CodexDirectStreamCancellationToken, CodexDirectStreamEvent, CodexDirectStreamEventKind,
+    CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus,
+};
 
 /// Run one bounded `codex exec --json` Direct Work process and stream line
 /// events to `on_event`.
@@ -167,13 +50,30 @@ pub fn run_codex_direct_work_streaming<F>(
 where
     F: FnMut(CodexDirectStreamEvent),
 {
-    run_codex_direct_work_streaming_inner(request, on_event, None)
+    run_codex_direct_work_streaming_inner(
+        request,
+        on_event,
+        None,
+        CodexDirectStreamCancellationToken::new(),
+    )
+}
+
+pub fn run_codex_direct_work_streaming_with_cancellation<F>(
+    request: CodexDirectStreamRequest,
+    cancellation_token: CodexDirectStreamCancellationToken,
+    on_event: F,
+) -> CodexDirectStreamOutput
+where
+    F: FnMut(CodexDirectStreamEvent),
+{
+    run_codex_direct_work_streaming_inner(request, on_event, None, cancellation_token)
 }
 
 fn run_codex_direct_work_streaming_inner<F>(
     request: CodexDirectStreamRequest,
     mut on_event: F,
     path_env_override: Option<&OsStr>,
+    cancellation_token: CodexDirectStreamCancellationToken,
 ) -> CodexDirectStreamOutput
 where
     F: FnMut(CodexDirectStreamEvent),
@@ -360,6 +260,7 @@ where
     let mut stderr_reader_error = None;
     let mut child_finished = false;
     let mut timed_out = false;
+    let mut cancelled = false;
     let mut wait_error = None;
     let mut exit_code = None;
 
@@ -393,7 +294,12 @@ where
                     child_finished = true;
                 }
                 Ok(None) => {
-                    if started_at.elapsed() >= timeout {
+                    if cancellation_token.is_cancellation_requested() {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        cancelled = true;
+                        child_finished = true;
+                    } else if started_at.elapsed() >= timeout {
                         let _ = child.kill();
                         let _ = child.wait();
                         timed_out = true;
@@ -419,7 +325,11 @@ where
 
     let (stdout_collected, stdout_truncated) = stdout_collected.into_parts();
     let (stderr_collected, stderr_truncated) = stderr_collected.into_parts();
-    let (final_message, final_message_error) = read_final_message(&output_last_message_path);
+    let (final_message, final_message_error) = if cancelled {
+        (None, None)
+    } else {
+        read_final_message(&output_last_message_path)
+    };
 
     if cleanup_output_file {
         let _ = fs::remove_file(&output_last_message_path);
@@ -444,7 +354,7 @@ where
         );
     }
 
-    let status = direct_stream_status(timed_out, wait_error.as_deref(), exit_code);
+    let status = direct_stream_status(cancelled, timed_out, wait_error.as_deref(), exit_code);
     let error_message = combine_optional_messages([
         direct_stream_error_message(status, exit_code, &stderr_collected, &stdout_collected),
         wait_error,
@@ -655,6 +565,7 @@ fn emit_final_status_event<F>(
             CodexDirectStreamEventKind::Failed
         }
         CodexDirectStreamStatus::TimedOut => CodexDirectStreamEventKind::TimedOut,
+        CodexDirectStreamStatus::Cancelled => CodexDirectStreamEventKind::Cancelled,
     };
 
     emit_event(

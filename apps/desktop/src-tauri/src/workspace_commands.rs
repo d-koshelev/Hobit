@@ -12,12 +12,12 @@ use crate::agent_queue_dto::{
     AgentQueueItemDto, AgentQueueSnapshotDto, CreateAgentQueueItemFromProposalRequest,
     GetAgentQueueSnapshotRequest,
 };
-use crate::app_state::AppState;
+use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
 use crate::codex_direct_work_dto::{
-    DirectWorkStreamEventDto, RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto,
-    RunDirectWorkValidationRequest, RunDirectWorkValidationResponseDto,
-    StartCodexDirectWorkStreamRequest, StartCodexDirectWorkStreamResponseDto,
-    DIRECT_WORK_STREAM_EVENT_NAME,
+    CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
+    RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto, RunDirectWorkValidationRequest,
+    RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
+    StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
 };
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
@@ -226,6 +226,7 @@ pub(crate) async fn start_codex_direct_work_stream(
     state: State<'_, AppState>,
 ) -> Result<Option<StartCodexDirectWorkStreamResponseDto>, String> {
     let db_path = state.db_path().to_path_buf();
+    let active_runs = state.direct_work_active_runs();
     let input: hobit_app::RunCodexDirectWorkInput = request.into();
     let start = tauri::async_runtime::spawn_blocking({
         let db_path = db_path.clone();
@@ -237,9 +238,24 @@ pub(crate) async fn start_codex_direct_work_stream(
 
     if let Some(start_summary) = start.clone() {
         let run_id = start_summary.run_id.clone();
+        let cancellation_token = hobit_app::CodexDirectStreamCancellationToken::new();
+        active_runs.register(DirectWorkActiveRun::new(
+            run_id.clone(),
+            input.workspace_id.clone(),
+            input.workbench_id.clone(),
+            input.widget_instance_id.clone(),
+            cancellation_token.clone(),
+        ));
         tauri::async_runtime::spawn_blocking(move || {
-            if let Err(error) = run_codex_direct_work_stream_background(input, run_id, db_path, app)
-            {
+            let result = run_codex_direct_work_stream_background(
+                input,
+                run_id.clone(),
+                db_path,
+                app,
+                cancellation_token,
+            );
+            active_runs.unregister(&run_id);
+            if let Err(error) = result {
                 eprintln!("Direct Work stream background task failed: {error}");
             }
         });
@@ -263,16 +279,78 @@ fn run_codex_direct_work_stream_background(
     run_id: String,
     db_path: PathBuf,
     app: tauri::AppHandle,
+    cancellation_token: hobit_app::CodexDirectStreamCancellationToken,
 ) -> Result<(), String> {
     let service = workspace_service(&db_path)?;
     service
-        .run_codex_direct_work_stream(input, &run_id, |event| {
-            let _ = app.emit(
-                DIRECT_WORK_STREAM_EVENT_NAME,
-                DirectWorkStreamEventDto::from(event),
-            );
-        })
+        .run_codex_direct_work_stream_with_cancellation(
+            input,
+            &run_id,
+            cancellation_token,
+            |event| {
+                let _ = app.emit(
+                    DIRECT_WORK_STREAM_EVENT_NAME,
+                    DirectWorkStreamEventDto::from(event),
+                );
+            },
+        )
         .map(|_| ())
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn cancel_codex_direct_work_run(
+    request: CancelCodexDirectWorkRunRequest,
+    state: State<'_, AppState>,
+) -> Result<CancelCodexDirectWorkRunResponseDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    let active_runs = state.direct_work_active_runs();
+    tauri::async_runtime::spawn_blocking(move || {
+        cancel_codex_direct_work_run_blocking(request, db_path, active_runs)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn cancel_codex_direct_work_run_blocking(
+    request: CancelCodexDirectWorkRunRequest,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> Result<CancelCodexDirectWorkRunResponseDto, String> {
+    let input: hobit_app::CancelCodexDirectWorkRunInput = request.into();
+    let service = workspace_service(&db_path)?;
+    let inspection = service
+        .inspect_codex_direct_work_cancellation(input.clone())
+        .map_err(command_error)?;
+
+    if inspection.status != "active" {
+        return Ok(CancelCodexDirectWorkRunResponseDto::from(inspection));
+    }
+
+    if !active_runs.request_cancellation(
+        &input.workspace_id,
+        &input.workbench_id,
+        &input.widget_instance_id,
+        &input.run_id,
+    ) {
+        let refreshed = service
+            .inspect_codex_direct_work_cancellation(input.clone())
+            .map_err(command_error)?;
+        if refreshed.status != "active" {
+            return Ok(CancelCodexDirectWorkRunResponseDto::from(refreshed));
+        }
+
+        return Ok(CancelCodexDirectWorkRunResponseDto {
+            run_id: input.run_id,
+            status: "not_active".to_owned(),
+            message: "Direct Work run is not active in this app session".to_owned(),
+            cancellation_requested: false,
+        });
+    }
+
+    service
+        .record_codex_direct_work_cancellation_requested(input)
+        .map(CancelCodexDirectWorkRunResponseDto::from)
         .map_err(command_error)
 }
 
@@ -451,6 +529,30 @@ mod tests {
         .expect("direct work validation command helper should return cleanly");
 
         assert!(response.is_none());
+        remove_test_db_files(&db_path);
+    }
+
+    #[test]
+    fn cancel_codex_direct_work_run_blocking_returns_not_found_for_missing_workspace() {
+        let db_path = unique_test_db_path();
+        let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        drop(store);
+
+        let response = cancel_codex_direct_work_run_blocking(
+            CancelCodexDirectWorkRunRequest {
+                workspace_id: "missing-workspace".to_owned(),
+                workbench_id: "missing-workbench".to_owned(),
+                widget_instance_id: "missing-widget".to_owned(),
+                run_id: "missing-run".to_owned(),
+            },
+            db_path.clone(),
+            DirectWorkActiveRunRegistry::default(),
+        )
+        .expect("direct work cancellation helper should return cleanly");
+
+        assert_eq!(response.status, "not_found");
+        assert!(!response.cancellation_requested);
         remove_test_db_files(&db_path);
     }
 

@@ -356,6 +356,7 @@ fn codex_direct_work_stream_failed_and_timed_out_outputs_map_final_run_statuses(
     assert_stream_status_mapping(CodexDirectStreamStatus::Failed, "failed");
     assert_stream_status_mapping(CodexDirectStreamStatus::FailedToStart, "failed");
     assert_stream_status_mapping(CodexDirectStreamStatus::TimedOut, "timed_out");
+    assert_stream_status_mapping(CodexDirectStreamStatus::Cancelled, "cancelled");
 }
 
 fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_status: &str) {
@@ -383,6 +384,7 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
             |request, on_event| {
                 let event_kind = match status {
                     CodexDirectStreamStatus::TimedOut => CodexDirectStreamEventKind::TimedOut,
+                    CodexDirectStreamStatus::Cancelled => CodexDirectStreamEventKind::Cancelled,
                     _ => CodexDirectStreamEventKind::Failed,
                 };
                 on_event(CodexDirectStreamEvent {
@@ -393,7 +395,11 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
                     parsed_json: None,
                     error_message: Some("stream stopped".to_owned()),
                     stderr_preview: Some("stream stderr detail".to_owned()),
-                    exit_code: Some(22),
+                    exit_code: if status == CodexDirectStreamStatus::Cancelled {
+                        None
+                    } else {
+                        Some(22)
+                    },
                     final_status: Some(status.as_str().to_owned()),
                     failed_stage: direct_work_stream_failed_stage(status).map(ToOwned::to_owned),
                 });
@@ -428,7 +434,14 @@ fn assert_stream_status_mapping(status: CodexDirectStreamStatus, expected_run_st
         final_event.stderr_preview.as_deref(),
         Some("stream stderr detail")
     );
-    assert_eq!(final_event.exit_code, Some(22));
+    assert_eq!(
+        final_event.exit_code,
+        if status == CodexDirectStreamStatus::Cancelled {
+            None
+        } else {
+            Some(22)
+        }
+    );
     assert_eq!(final_event.final_status.as_deref(), Some(status.as_str()));
     assert_eq!(
         final_event.failed_stage.as_deref(),
@@ -573,10 +586,10 @@ fn stream_output(
 ) -> CodexDirectStreamOutput {
     CodexDirectStreamOutput {
         status,
-        exit_code: if status == CodexDirectStreamStatus::Completed {
-            Some(0)
-        } else {
-            Some(1)
+        exit_code: match status {
+            CodexDirectStreamStatus::Completed => Some(0),
+            CodexDirectStreamStatus::Cancelled => None,
+            _ => Some(1),
         },
         final_message: if status == CodexDirectStreamStatus::Completed {
             Some("Final response".to_owned())
@@ -593,6 +606,7 @@ fn stream_output(
             CodexDirectStreamStatus::FailedToStart => Some("could not start codex exec".to_owned()),
             CodexDirectStreamStatus::TimedOut => Some("codex exec timed out".to_owned()),
             CodexDirectStreamStatus::Failed => Some("codex exec failed".to_owned()),
+            CodexDirectStreamStatus::Cancelled => Some("codex exec cancelled".to_owned()),
         },
         command_summary: vec![
             "codex".to_owned(),
@@ -635,5 +649,6 @@ fn direct_work_stream_failed_stage(status: CodexDirectStreamStatus) -> Option<&'
         CodexDirectStreamStatus::FailedToStart => Some("process_start"),
         CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
         CodexDirectStreamStatus::Failed => Some("codex_exit"),
+        CodexDirectStreamStatus::Cancelled => None,
     }
 }

@@ -1,16 +1,16 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
-    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary, RunCodexDirectWorkInput,
-    RunDirectWorkValidationInput,
+    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
+    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
+    DirectWorkValidationRunSummary, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
 };
 
 use crate::codex_direct_work_dto::{
-    DirectWorkStreamEventDto, RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto,
-    RunDirectWorkValidationRequest, RunDirectWorkValidationResponseDto,
-    StartCodexDirectWorkStreamRequest, StartCodexDirectWorkStreamResponseDto,
-    DIRECT_WORK_STREAM_EVENT_NAME,
+    CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
+    RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto, RunDirectWorkValidationRequest,
+    RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
+    StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
 };
 
 #[test]
@@ -163,6 +163,23 @@ fn maps_run_direct_work_validation_request_to_app_input() {
 }
 
 #[test]
+fn maps_cancel_codex_direct_work_run_request_to_app_input() {
+    let request = CancelCodexDirectWorkRunRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        run_id: "run_1".to_owned(),
+    };
+
+    let input = CancelCodexDirectWorkRunInput::from(request);
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.workbench_id, "wb_1");
+    assert_eq!(input.widget_instance_id, "wid_1");
+    assert_eq!(input.run_id, "run_1");
+}
+
+#[test]
 fn maps_run_direct_work_validation_response_to_dto() {
     let summary = DirectWorkValidationRunSummary {
         run_id: "run_1".to_owned(),
@@ -208,6 +225,21 @@ fn maps_run_direct_work_validation_response_to_dto() {
 }
 
 #[test]
+fn maps_cancel_codex_direct_work_run_response_to_dto() {
+    let dto = CancelCodexDirectWorkRunResponseDto::from(CodexDirectWorkCancellationSummary {
+        run_id: "run_1".to_owned(),
+        status: "cancellation_requested".to_owned(),
+        message: "Direct Work cancellation requested".to_owned(),
+        cancellation_requested: true,
+    });
+
+    assert_eq!(dto.run_id, "run_1");
+    assert_eq!(dto.status, "cancellation_requested");
+    assert_eq!(dto.message, "Direct Work cancellation requested");
+    assert!(dto.cancellation_requested);
+}
+
+#[test]
 fn maps_direct_work_stream_event_to_tauri_payload() {
     let dto = DirectWorkStreamEventDto::from(CodexDirectWorkStreamEventSummary {
         workspace_id: "ws_1".to_owned(),
@@ -243,4 +275,32 @@ fn maps_direct_work_stream_event_to_tauri_payload() {
     assert_eq!(dto.exit_code, Some(2));
     assert_eq!(dto.final_status.as_deref(), Some("failed"));
     assert_eq!(dto.failed_stage.as_deref(), Some("codex_exit"));
+}
+
+#[test]
+fn maps_cancelled_direct_work_stream_event_to_tauri_payload() {
+    let dto = DirectWorkStreamEventDto::from(CodexDirectWorkStreamEventSummary {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        run_id: "run_1".to_owned(),
+        event_kind: "cancelled".to_owned(),
+        line: None,
+        text: None,
+        parsed_codex_event_type: None,
+        status: Some("cancelled".to_owned()),
+        elapsed_ms: 14,
+        is_final: true,
+        error_message: Some("codex exec --json cancelled by operator request".to_owned()),
+        stderr_preview: None,
+        exit_code: None,
+        final_status: Some("cancelled".to_owned()),
+        failed_stage: None,
+    });
+
+    assert_eq!(dto.event_kind, "cancelled");
+    assert_eq!(dto.status.as_deref(), Some("cancelled"));
+    assert!(dto.is_final);
+    assert_eq!(dto.final_status.as_deref(), Some("cancelled"));
+    assert_eq!(dto.failed_stage, None);
 }

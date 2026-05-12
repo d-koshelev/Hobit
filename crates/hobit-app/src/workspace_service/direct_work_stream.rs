@@ -1,7 +1,8 @@
 use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::{NewWidgetResult, NewWidgetRun, WidgetRunFinishUpdate};
 use hobit_tools::codex_cli::{
-    run_codex_direct_work_streaming, CodexDirectStreamEvent, CodexDirectStreamEventKind,
+    run_codex_direct_work_streaming, run_codex_direct_work_streaming_with_cancellation,
+    CodexDirectStreamCancellationToken, CodexDirectStreamEvent, CodexDirectStreamEventKind,
     CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus,
 };
 use serde_json::{json, Value};
@@ -100,6 +101,30 @@ impl WorkspaceService {
             input,
             run_id,
             |request, on_event| run_codex_direct_work_streaming(request, on_event),
+            emit_event,
+        )
+    }
+
+    pub fn run_codex_direct_work_stream_with_cancellation<E>(
+        &self,
+        input: RunCodexDirectWorkInput,
+        run_id: &str,
+        cancellation_token: CodexDirectStreamCancellationToken,
+        emit_event: E,
+    ) -> Result<Option<CodexDirectWorkRunSummary>, WorkspaceServiceError>
+    where
+        E: FnMut(CodexDirectWorkStreamEventSummary),
+    {
+        self.run_codex_direct_work_stream_with_runner(
+            input,
+            run_id,
+            |request, on_event| {
+                run_codex_direct_work_streaming_with_cancellation(
+                    request,
+                    cancellation_token,
+                    on_event,
+                )
+            },
             emit_event,
         )
     }
@@ -329,6 +354,7 @@ fn direct_work_stream_log_record(
         CodexDirectStreamEventKind::Completed => (WIDGET_LOG_INFO_LEVEL, "Codex stream completed"),
         CodexDirectStreamEventKind::Failed => (WIDGET_LOG_ERROR_LEVEL, "Codex stream failed"),
         CodexDirectStreamEventKind::TimedOut => (WIDGET_LOG_ERROR_LEVEL, "Codex stream timed_out"),
+        CodexDirectStreamEventKind::Cancelled => (WIDGET_LOG_INFO_LEVEL, "Codex stream cancelled"),
     };
 
     Some((
@@ -358,6 +384,7 @@ fn direct_work_stream_final_status(status: CodexDirectStreamStatus) -> WidgetRun
             WidgetRunStatus::Failed
         }
         CodexDirectStreamStatus::TimedOut => WidgetRunStatus::TimedOut,
+        CodexDirectStreamStatus::Cancelled => WidgetRunStatus::Cancelled,
     }
 }
 
@@ -369,6 +396,7 @@ fn direct_work_stream_result_summary(output: &CodexDirectStreamOutput) -> String
             "Codex Direct Work stream failed to start".to_owned()
         }
         CodexDirectStreamStatus::TimedOut => "Codex Direct Work stream timed out".to_owned(),
+        CodexDirectStreamStatus::Cancelled => "Codex Direct Work stream cancelled".to_owned(),
     }
 }
 
@@ -379,6 +407,7 @@ fn direct_work_stream_completion_log_message(status: CodexDirectStreamStatus) ->
             "Codex process failed"
         }
         CodexDirectStreamStatus::TimedOut => "Codex process timed_out",
+        CodexDirectStreamStatus::Cancelled => "Codex process cancelled",
     }
 }
 
@@ -388,6 +417,7 @@ fn direct_work_stream_completion_log_level(status: CodexDirectStreamStatus) -> &
         CodexDirectStreamStatus::Failed
         | CodexDirectStreamStatus::FailedToStart
         | CodexDirectStreamStatus::TimedOut => WIDGET_LOG_ERROR_LEVEL,
+        CodexDirectStreamStatus::Cancelled => WIDGET_LOG_INFO_LEVEL,
     }
 }
 
@@ -407,6 +437,7 @@ fn direct_work_stream_completion_log_payload(
         "event_count": output.event_count,
         "error_message": &output.error_message,
         "failed_stage": direct_work_stream_failed_stage(output.status),
+        "cancellation_requested": output.status == CodexDirectStreamStatus::Cancelled,
     })
     .to_string()
 }
@@ -457,6 +488,7 @@ fn direct_work_stream_result_payload(
         "duration_ms": capped_duration_ms(output.duration_ms),
         "error_message": &output.error_message,
         "failed_stage": direct_work_stream_failed_stage(output.status),
+        "cancellation_requested": output.status == CodexDirectStreamStatus::Cancelled,
         "event_count": output.event_count,
         "no_auto_commit": true,
         "no_auto_push": true,
@@ -478,6 +510,7 @@ fn stream_event_status(kind: CodexDirectStreamEventKind) -> Option<&'static str>
         CodexDirectStreamEventKind::Completed => Some("completed"),
         CodexDirectStreamEventKind::Failed => Some("failed"),
         CodexDirectStreamEventKind::TimedOut => Some("timed_out"),
+        CodexDirectStreamEventKind::Cancelled => Some("cancelled"),
         _ => None,
     }
 }
@@ -488,6 +521,7 @@ fn is_final_stream_event(kind: CodexDirectStreamEventKind) -> bool {
         CodexDirectStreamEventKind::Completed
             | CodexDirectStreamEventKind::Failed
             | CodexDirectStreamEventKind::TimedOut
+            | CodexDirectStreamEventKind::Cancelled
     )
 }
 
@@ -497,5 +531,6 @@ fn direct_work_stream_failed_stage(status: CodexDirectStreamStatus) -> Option<&'
         CodexDirectStreamStatus::FailedToStart => Some("process_start"),
         CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
         CodexDirectStreamStatus::Failed => Some("codex_exit"),
+        CodexDirectStreamStatus::Cancelled => None,
     }
 }

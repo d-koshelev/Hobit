@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{CodexApprovalPolicy, CodexSandboxMode};
+use super::super::direct_run::{CodexApprovalPolicy, CodexSandboxMode};
 
 pub(super) fn validate_repo_root(repo_root: &Path) -> Option<String> {
     if repo_root.as_os_str().is_empty() {

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
-    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary, RunCodexDirectWorkInput,
-    RunDirectWorkValidationInput,
+    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
+    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
+    DirectWorkValidationRunSummary, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,14 @@ pub(crate) struct RunDirectWorkValidationRequest {
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct CancelCodexDirectWorkRunRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub run_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -124,6 +132,14 @@ pub(crate) struct RunDirectWorkValidationResponseDto {
     pub git_mutations_performed_by_hobit: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct CancelCodexDirectWorkRunResponseDto {
+    pub run_id: String,
+    pub status: String,
+    pub message: String,
+    pub cancellation_requested: bool,
+}
+
 impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
     fn from(request: RunCodexDirectWorkRequest) -> Self {
         Self {
@@ -171,6 +187,17 @@ impl From<RunDirectWorkValidationRequest> for RunDirectWorkValidationInput {
             timeout_ms: request.timeout_ms,
             stdout_cap_bytes: request.stdout_cap_bytes,
             stderr_cap_bytes: request.stderr_cap_bytes,
+        }
+    }
+}
+
+impl From<CancelCodexDirectWorkRunRequest> for CancelCodexDirectWorkRunInput {
+    fn from(request: CancelCodexDirectWorkRunRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            run_id: request.run_id,
         }
     }
 }
@@ -224,6 +251,17 @@ impl From<DirectWorkValidationRunSummary> for RunDirectWorkValidationResponseDto
             no_git_mutations: summary.no_git_mutations,
             no_commit_push: summary.no_commit_push,
             git_mutations_performed_by_hobit: summary.git_mutations_performed_by_hobit,
+        }
+    }
+}
+
+impl From<CodexDirectWorkCancellationSummary> for CancelCodexDirectWorkRunResponseDto {
+    fn from(summary: CodexDirectWorkCancellationSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            status: summary.status,
+            message: summary.message,
+            cancellation_requested: summary.cancellation_requested,
         }
     }
 }

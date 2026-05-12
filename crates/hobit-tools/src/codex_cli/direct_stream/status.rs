@@ -3,10 +3,15 @@ use super::CodexDirectStreamStatus;
 const FINAL_STDERR_EVENT_PREVIEW_LIMIT: usize = 2_000;
 
 pub(super) fn direct_stream_status(
+    cancelled: bool,
     timed_out: bool,
     wait_error: Option<&str>,
     exit_code: Option<i32>,
 ) -> CodexDirectStreamStatus {
+    if cancelled {
+        return CodexDirectStreamStatus::Cancelled;
+    }
+
     if timed_out {
         return CodexDirectStreamStatus::TimedOut;
     }
@@ -52,6 +57,9 @@ pub(super) fn direct_stream_error_message(
         CodexDirectStreamStatus::TimedOut => {
             Some("codex exec --json timed out and was killed".to_owned())
         }
+        CodexDirectStreamStatus::Cancelled => {
+            Some("codex exec --json cancelled by operator request".to_owned())
+        }
     }
 }
 
@@ -59,7 +67,11 @@ pub(super) fn final_stderr_preview(
     status: CodexDirectStreamStatus,
     stderr: &str,
 ) -> Option<String> {
-    if status == CodexDirectStreamStatus::Completed || stderr.trim().is_empty() {
+    if matches!(
+        status,
+        CodexDirectStreamStatus::Completed | CodexDirectStreamStatus::Cancelled
+    ) || stderr.trim().is_empty()
+    {
         return None;
     }
 
@@ -72,6 +84,7 @@ pub(super) fn failed_stage(status: CodexDirectStreamStatus) -> Option<&'static s
         CodexDirectStreamStatus::FailedToStart => Some("process_start"),
         CodexDirectStreamStatus::TimedOut => Some("codex_stream"),
         CodexDirectStreamStatus::Failed => Some("codex_exit"),
+        CodexDirectStreamStatus::Cancelled => None,
     }
 }
 
