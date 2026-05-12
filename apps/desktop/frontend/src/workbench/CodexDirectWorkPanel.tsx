@@ -1,15 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
+
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
-import { Input } from "../design-system/Input";
 import type {
   DirectWorkStreamEvent,
-  DirectWorkApprovalPolicy,
-  DirectWorkSandbox,
-  RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
-  StartCodexDirectWorkStreamResponse,
 } from "../workspace/types";
+import { CodexDirectWorkForm } from "./CodexDirectWorkForm";
 import {
   CodexDirectWorkLiveLog,
   cappedLiveLogEntries,
@@ -20,22 +16,13 @@ import {
   type CodexDirectWorkLiveLogEntry,
   type CodexDirectWorkLiveRun,
 } from "./CodexDirectWorkLiveLog";
-import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
+import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
+import { CodexDirectWorkResultSummary } from "./CodexDirectWorkResultSummary";
+import type {
+  CodexDirectWorkRequestDraft,
+  CodexDirectWorkStreamSession,
+} from "./CodexDirectWorkTypes";
 import type { WidgetInstanceId } from "./types";
-
-const OUTPUT_PREVIEW_LIMIT = 4000;
-const DEFAULT_CODEX_EXECUTABLE = "codex";
-const DEFAULT_CODEX_DIRECT_WORK_TIMEOUT_MS = "600000";
-const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
-
-type CodexDirectWorkRequestDraft = Omit<
-  RunCodexDirectWorkRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
->;
-
-type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & {
-  stopListening: () => void;
-};
 
 type CodexDirectWorkPanelProps = {
   onRunCodexDirectWork?: (
@@ -55,26 +42,7 @@ export function CodexDirectWorkPanel({
   onStartCodexDirectWorkStream,
   widgetInstanceId,
 }: CodexDirectWorkPanelProps) {
-  const repoRootInputId = useId();
-  const promptInputId = useId();
-  const sandboxInputId = useId();
-  const approvalPolicyInputId = useId();
-  const codexExecutableInputId = useId();
-  const timeoutInputId = useId();
-  const stdoutCapInputId = useId();
-  const stderrCapInputId = useId();
   const panelTitleId = useId();
-  const [codexExecutableDraft, setCodexExecutableDraft] = useState(
-    defaultCodexExecutable,
-  );
-  const [repoRootDraft, setRepoRootDraft] = useState("");
-  const [operatorPromptDraft, setOperatorPromptDraft] = useState("");
-  const [sandbox, setSandbox] = useState<DirectWorkSandbox>("read_only");
-  const [approvalPolicy, setApprovalPolicy] =
-    useState<DirectWorkApprovalPolicy>("never");
-  const [timeoutMsDraft, setTimeoutMsDraft] = useState("");
-  const [stdoutCapBytesDraft, setStdoutCapBytesDraft] = useState("");
-  const [stderrCapBytesDraft, setStderrCapBytesDraft] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
   const [runResult, setRunResult] =
@@ -84,74 +52,19 @@ export function CodexDirectWorkPanel({
     CodexDirectWorkLiveLogEntry[]
   >([]);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
-  const codexExecutable = codexExecutableDraft.trim();
-  const repoRoot = repoRootDraft.trim();
-  const operatorPrompt = operatorPromptDraft.trim();
-  const promptWarningMessage = directWorkPromptWarning(operatorPromptDraft);
-  const timeoutMsError = positiveIntegerInputError(timeoutMsDraft, "Timeout ms");
-  const stdoutCapBytesError = positiveIntegerInputError(
-    stdoutCapBytesDraft,
-    "Stdout cap bytes",
-  );
-  const stderrCapBytesError = positiveIntegerInputError(
-    stderrCapBytesDraft,
-    "Stderr cap bytes",
-  );
-  const numericInputError =
-    timeoutMsError ?? stdoutCapBytesError ?? stderrCapBytesError;
-  const canRun =
-    Boolean(onStartCodexDirectWorkStream || onRunCodexDirectWork) &&
-    codexExecutable.length > 0 &&
-    repoRoot.length > 0 &&
-    operatorPrompt.length > 0 &&
-    !numericInputError &&
-    !isRunning;
+  const canRunBackend = Boolean(onStartCodexDirectWorkStream || onRunCodexDirectWork);
 
   useEffect(() => () => stopActiveStreamListening(), []);
 
-  async function runDirectWork() {
+  async function runDirectWork(request: CodexDirectWorkRequestDraft) {
     if (isRunning || (!onStartCodexDirectWorkStream && !onRunCodexDirectWork)) {
       return;
     }
 
-    setRunErrorMessage(null);
-    setRunResult(null);
-    setLiveRun(null);
-    setLiveLogEntries([]);
-    stopActiveStreamListening();
-
-    if (!codexExecutable || !repoRoot || !operatorPrompt) {
-      setRunErrorMessage(
-        "Codex executable, repository root, and operator prompt are required.",
-      );
-      return;
-    }
-
-    if (numericInputError) {
-      setRunErrorMessage(numericInputError);
-      return;
-    }
-
+    clearRunState();
     setIsRunning(true);
 
     try {
-      const request = {
-        approvalPolicy,
-        codexExecutable,
-        operatorPrompt,
-        repoRoot,
-        sandbox,
-        stderrCapBytes: parsePositiveIntegerInput(
-          stderrCapBytesDraft,
-          "Stderr cap bytes",
-        ),
-        stdoutCapBytes: parsePositiveIntegerInput(
-          stdoutCapBytesDraft,
-          "Stdout cap bytes",
-        ),
-        timeoutMs: parsePositiveIntegerInput(timeoutMsDraft, "Timeout ms"),
-      };
-
       if (onStartCodexDirectWorkStream) {
         await runStreamingDirectWork(request);
         return;
@@ -228,18 +141,29 @@ export function CodexDirectWorkPanel({
     setIsRunning(false);
   }
 
+  function handleValidationError(message: string) {
+    clearRunState();
+    setRunErrorMessage(message);
+  }
+
   function recordStreamEvent(event: DirectWorkStreamEvent) {
     setLiveLogEntries((currentEntries) =>
       cappedLiveLogEntries([...currentEntries, liveLogEntryFromEvent(event)]),
     );
-    setLiveRun((currentRun) =>
-      liveRunFromEvent(currentRun, event),
-    );
+    setLiveRun((currentRun) => liveRunFromEvent(currentRun, event));
 
     if (event.isFinal) {
       setIsRunning(false);
       stopActiveStreamListening();
     }
+  }
+
+  function clearRunState() {
+    setRunErrorMessage(null);
+    setRunResult(null);
+    setLiveRun(null);
+    setLiveLogEntries([]);
+    stopActiveStreamListening();
   }
 
   function stopActiveStreamListening() {
@@ -248,10 +172,7 @@ export function CodexDirectWorkPanel({
   }
 
   return (
-    <section
-      aria-labelledby={panelTitleId}
-      className="codex-direct-work-panel"
-    >
+    <section aria-labelledby={panelTitleId} className="codex-direct-work-panel">
       <div className="codex-direct-work-header">
         <div className="codex-direct-work-copy">
           <h3 className="codex-direct-work-title" id={panelTitleId}>
@@ -266,171 +187,14 @@ export function CodexDirectWorkPanel({
         <Badge variant="info">One-shot</Badge>
       </div>
 
-      <div className="codex-direct-work-controls">
-        <div className="codex-direct-work-field codex-direct-work-field-wide">
-          <label className="codex-direct-work-label" htmlFor={repoRootInputId}>
-            Repo root
-          </label>
-          <Input
-            autoComplete="off"
-            id={repoRootInputId}
-            onChange={(event) => setRepoRootDraft(event.target.value)}
-            placeholder="C:\\path\\to\\repo"
-            spellCheck={false}
-            type="text"
-            value={repoRootDraft}
-          />
-        </div>
-
-        <div className="codex-direct-work-field codex-direct-work-field-wide">
-          <label className="codex-direct-work-label" htmlFor={promptInputId}>
-            Operator prompt
-          </label>
-          <textarea
-            className="input codex-direct-work-prompt"
-            id={promptInputId}
-            onChange={(event) => setOperatorPromptDraft(event.target.value)}
-            placeholder="Describe the focused task for Codex."
-            spellCheck={true}
-            value={operatorPromptDraft}
-          />
-          <p className="codex-direct-work-note">
-            Codex works in the selected repo. It cannot click or inspect Hobit
-            UI widgets. To review changes, ask Codex to inspect git status/diff,
-            or refresh the Git widget manually after the run.
-          </p>
-          {promptWarningMessage ? (
-            <p className="codex-direct-work-warning" role="status">
-              {promptWarningMessage}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="codex-direct-work-field">
-          <label className="codex-direct-work-label" htmlFor={sandboxInputId}>
-            Sandbox
-          </label>
-          <select
-            className="input"
-            id={sandboxInputId}
-            onChange={(event) =>
-              setSandbox(event.target.value as DirectWorkSandbox)
-            }
-            value={sandbox}
-          >
-            <option value="read_only">read_only</option>
-            <option value="workspace_write">workspace_write</option>
-          </select>
-        </div>
-
-        <div className="codex-direct-work-field">
-          <label
-            className="codex-direct-work-label"
-            htmlFor={approvalPolicyInputId}
-          >
-            Approval policy
-          </label>
-          <select
-            className="input"
-            id={approvalPolicyInputId}
-            onChange={(event) =>
-              setApprovalPolicy(event.target.value as DirectWorkApprovalPolicy)
-            }
-            value={approvalPolicy}
-          >
-            <option value="never">never (recommended)</option>
-            <option value="on_request">
-              on_request (advanced, interactive-sensitive)
-            </option>
-            <option value="untrusted">untrusted</option>
-          </select>
-          <p className="codex-direct-work-note">
-            For one-shot non-interactive runs, never is recommended.
-          </p>
-        </div>
-
-        {sandbox === "workspace_write" ? (
-          <p className="codex-direct-work-warning" role="status">
-            workspace_write allows Codex to edit files inside the selected
-            repository boundary.
-          </p>
-        ) : null}
-
-        <details className="codex-direct-work-advanced">
-          <summary className="codex-direct-work-advanced-summary">
-            Advanced
-          </summary>
-          <div className="codex-direct-work-advanced-body">
-            <p className="codex-direct-work-note">
-              Leave timeout and output caps blank to use backend defaults.
-              Backend default timeout is {DEFAULT_CODEX_DIRECT_WORK_TIMEOUT_MS}{" "}
-              ms.
-            </p>
-            <div className="codex-direct-work-controls">
-              <div className="codex-direct-work-field codex-direct-work-field-wide">
-                <label
-                  className="codex-direct-work-label"
-                  htmlFor={codexExecutableInputId}
-                >
-                  Codex executable
-                </label>
-                <Input
-                  autoComplete="off"
-                  id={codexExecutableInputId}
-                  onChange={(event) =>
-                    setCodexExecutableDraft(event.target.value)
-                  }
-                  spellCheck={false}
-                  type="text"
-                  value={codexExecutableDraft}
-                />
-                <p className="codex-direct-work-note">
-                  Windows default uses codex.cmd. Full path is allowed if
-                  needed.
-                </p>
-              </div>
-              <CodexDirectWorkNumberField
-                error={timeoutMsError}
-                id={timeoutInputId}
-                label="Timeout ms"
-                onChange={setTimeoutMsDraft}
-                value={timeoutMsDraft}
-              />
-              <CodexDirectWorkNumberField
-                error={stdoutCapBytesError}
-                id={stdoutCapInputId}
-                label="Stdout cap bytes"
-                onChange={setStdoutCapBytesDraft}
-                value={stdoutCapBytesDraft}
-              />
-              <CodexDirectWorkNumberField
-                error={stderrCapBytesError}
-                id={stderrCapInputId}
-                label="Stderr cap bytes"
-                onChange={setStderrCapBytesDraft}
-                value={stderrCapBytesDraft}
-              />
-            </div>
-          </div>
-        </details>
-
-        {numericInputError ? (
-          <p className="codex-direct-work-validation" role="alert">
-            {numericInputError}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="codex-direct-work-action-row">
-        <Button disabled={!canRun} onClick={runDirectWork} variant="primary">
-          {isRunning ? "Running..." : "Run Codex"}
-        </Button>
-        <p className="codex-direct-work-safety-copy">
-          Direct Work can edit files when workspace-write is selected. No commit
-          or push is created automatically. Review changes afterwards. This is
-          one-shot, not an interactive terminal.
-        </p>
-      </div>
+      <CodexDirectWorkForm
+        canRunBackend={canRunBackend}
+        isRunning={isRunning}
+        onSubmit={(request) => {
+          void runDirectWork(request);
+        }}
+        onValidationError={handleValidationError}
+      />
 
       {isRunning ? (
         <CodexDirectWorkNotice
@@ -445,10 +209,7 @@ export function CodexDirectWorkPanel({
       ) : null}
 
       {liveRun || liveLogEntries.length > 0 ? (
-        <CodexDirectWorkLiveLog
-          entries={liveLogEntries}
-          liveRun={liveRun}
-        />
+        <CodexDirectWorkLiveLog entries={liveLogEntries} liveRun={liveRun} />
       ) : null}
 
       {runErrorMessage ? (
@@ -459,288 +220,9 @@ export function CodexDirectWorkPanel({
         />
       ) : null}
 
-      {runResult ? <CodexDirectWorkResultCard result={runResult} /> : null}
+      {runResult ? <CodexDirectWorkResultSummary result={runResult} /> : null}
     </section>
   );
-}
-
-function CodexDirectWorkNumberField({
-  error,
-  id,
-  label,
-  onChange,
-  value,
-}: {
-  error?: string | null;
-  id: string;
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <div className="codex-direct-work-field">
-      <label className="codex-direct-work-label" htmlFor={id}>
-        {label}
-      </label>
-      <Input
-        aria-invalid={error ? true : undefined}
-        id={id}
-        min={1}
-        onChange={(event) => onChange(event.target.value)}
-        step={1}
-        type="number"
-        value={value}
-      />
-    </div>
-  );
-}
-
-function CodexDirectWorkNotice({
-  message,
-  title,
-  variant,
-}: {
-  message: string;
-  title: string;
-  variant: "info" | "error";
-}) {
-  return (
-    <div
-      aria-live="polite"
-      className={`codex-direct-work-notice codex-direct-work-notice-${variant}`}
-      role="status"
-    >
-      <p className="codex-direct-work-notice-title">{title}</p>
-      <p className="codex-direct-work-notice-text">{message}</p>
-    </div>
-  );
-}
-
-function CodexDirectWorkResultCard({
-  result,
-}: {
-  result: RunCodexDirectWorkResponse;
-}) {
-  const statusView = codexResultStatusView(result);
-
-  return (
-    <section
-      aria-label="Codex Direct Work result"
-      className={`codex-direct-work-result codex-direct-work-result-${statusView.tone}`}
-    >
-      <div className="codex-direct-work-result-header">
-        <div className="codex-direct-work-copy">
-          <h3 className="codex-direct-work-title">{statusView.title}</h3>
-          <p className="codex-direct-work-text">
-            Immediate result from the one-shot Direct Work command.
-          </p>
-        </div>
-        <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>
-      </div>
-
-      <StaticPreviewFieldList
-        className="codex-direct-work-result-grid"
-        fieldClassName="codex-direct-work-result-field"
-        fields={[
-          { label: "Run id", value: result.runId },
-          { label: "Result id", value: result.resultId },
-          { label: "Status", value: result.status },
-          {
-            label: "Exit code",
-            value: result.exitCode === null ? "None" : String(result.exitCode),
-          },
-          { label: "Duration", value: `${result.durationMs} ms` },
-          { label: "Sandbox", value: result.sandbox },
-          { label: "Approval policy", value: result.approvalPolicy },
-          { label: "Auto commit", value: yesNo(!result.noAutoCommit) },
-          { label: "Auto push", value: yesNo(!result.noAutoPush) },
-          {
-            label: "Git mutations by Hobit",
-            value: yesNo(result.gitMutationsPerformedByHobit),
-          },
-        ]}
-        labelClassName="codex-direct-work-result-label"
-        valueClassName="codex-direct-work-result-value"
-      />
-
-      {result.errorMessage ? (
-        <div className="codex-direct-work-error-message">
-          <span className="codex-direct-work-result-label">Error message</span>
-          <span className="codex-direct-work-result-value">
-            {result.errorMessage}
-          </span>
-        </div>
-      ) : null}
-
-      <div className="codex-direct-work-final-message">
-        <div className="codex-direct-work-output-header">
-          <span className="codex-direct-work-result-label">
-            Final response preview
-          </span>
-        </div>
-        <pre className="codex-direct-work-output">
-          <code>
-            {previewOutput(
-              result.finalMessage ?? "No final response captured.",
-            )}
-          </code>
-        </pre>
-      </div>
-
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
-          stdout preview
-          {result.stdoutTruncated ? (
-            <Badge variant="warning">Backend truncated</Badge>
-          ) : null}
-        </summary>
-        <pre className="codex-direct-work-output">
-          <code>{previewOutput(result.stdout || "No stdout captured.")}</code>
-        </pre>
-      </details>
-
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
-          stderr preview
-          {result.stderrTruncated ? (
-            <Badge variant="warning">Backend truncated</Badge>
-          ) : null}
-        </summary>
-        <pre className="codex-direct-work-output">
-          <code>{previewOutput(result.stderr || "No stderr captured.")}</code>
-        </pre>
-      </details>
-
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
-          Command summary
-        </summary>
-        <pre className="codex-direct-work-output">
-          <code>{result.commandSummary.join("\n") || "No command summary."}</code>
-        </pre>
-      </details>
-
-      <p className="codex-direct-work-review-note">
-        Manual next step: refresh the Git widget to review changed files.
-      </p>
-    </section>
-  );
-}
-
-function directWorkPromptWarning(prompt: string): string | null {
-  if (/(git\s+widget|agent\s+monitoring|hobit\s+ui)/i.test(prompt)) {
-    return "Codex cannot operate Hobit UI widgets. Use repository-oriented prompts instead.";
-  }
-
-  return null;
-}
-
-function codexResultStatusView(result: RunCodexDirectWorkResponse): {
-  badgeLabel: string;
-  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
-  title: string;
-  tone: "neutral" | "success" | "warning" | "error";
-} {
-  if (result.status === "completed" && result.exitCode === 0) {
-    return {
-      badgeLabel: "Completed",
-      badgeVariant: "success",
-      title: "Completed successfully",
-      tone: "success",
-    };
-  }
-
-  if (result.status === "completed") {
-    return {
-      badgeLabel: "Completed",
-      badgeVariant: "warning",
-      title: "Completed with nonzero exit",
-      tone: "warning",
-    };
-  }
-
-  if (result.status === "timed_out") {
-    return {
-      badgeLabel: "Timed out",
-      badgeVariant: "warning",
-      title: "Direct Work timed out",
-      tone: "warning",
-    };
-  }
-
-  if (result.status === "failed") {
-    return {
-      badgeLabel: "Failed",
-      badgeVariant: "error",
-      title: "Direct Work failed",
-      tone: "error",
-    };
-  }
-
-  return {
-    badgeLabel: result.status,
-    badgeVariant: "neutral",
-    title: "Direct Work result",
-    tone: "neutral",
-  };
-}
-
-function parsePositiveIntegerInput(value: string, label: string): number | null {
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return null;
-  }
-
-  const errorMessage = positiveIntegerInputError(value, label);
-
-  if (errorMessage) {
-    throw new Error(errorMessage);
-  }
-
-  return Number(trimmedValue);
-}
-
-function positiveIntegerInputError(value: string, label: string): string | null {
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return null;
-  }
-
-  const parsedValue = Number(trimmedValue);
-
-  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
-    return `${label} must be a positive integer.`;
-  }
-
-  return null;
-}
-
-function previewOutput(value: string) {
-  if (value.length <= OUTPUT_PREVIEW_LIMIT) {
-    return value;
-  }
-
-  return `${value.slice(
-    0,
-    OUTPUT_PREVIEW_LIMIT,
-  )}\n[Preview truncated in UI.]`;
-}
-
-function yesNo(value: boolean) {
-  return value ? "Yes" : "No";
-}
-
-function defaultCodexExecutable() {
-  if (typeof navigator === "undefined") {
-    return DEFAULT_CODEX_EXECUTABLE;
-  }
-
-  const platformText = `${navigator.userAgent} ${navigator.platform}`;
-  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
-    ? WINDOWS_CODEX_EXECUTABLE
-    : DEFAULT_CODEX_EXECUTABLE;
 }
 
 function errorToMessage(error: unknown): string {
