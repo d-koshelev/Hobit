@@ -1,7 +1,9 @@
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
+  AgentMonitoringSnapshot,
   CreateWorkspaceRequest,
+  GetAgentMonitoringSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
@@ -34,6 +36,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
   listWidgetLogs,
+  getAgentMonitoringSnapshot,
   getGitRepositoryStatus,
   persistAgentChatProposal,
   runTerminalCommand,
@@ -247,6 +250,14 @@ async function listWidgetLogs(
   _request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return [];
+}
+
+async function getAgentMonitoringSnapshot(
+  _request: GetAgentMonitoringSnapshotRequest,
+): Promise<AgentMonitoringSnapshot | null> {
+  throw new Error(
+    "Agent Monitoring proposal result reads are only available in the Tauri desktop shell. Browser fallback has no persisted proposal run artifacts to display.",
+  );
 }
 
 async function getGitRepositoryStatus(

@@ -479,6 +479,18 @@
   justify-content: space-between;
 }
 
+.agent-run-summary-actions,
+.agent-monitoring-action-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.agent-run-summary-actions {
+  justify-content: flex-end;
+}
+
 .agent-run-summary-copy,
 .agent-run-view,
 .agent-run-view-copy {
@@ -569,11 +581,45 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+  margin: 0;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .agent-run-actions {
   flex-wrap: wrap;
+}
+
+.agent-monitoring-run-list {
+  background: var(--color-nested-surface);
+}
+
+.agent-monitoring-run-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.agent-monitoring-run-button-selected {
+  font-weight: 720;
+}
+
+.agent-monitoring-result-body,
+.agent-monitoring-action-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.agent-monitoring-result-section,
+.agent-monitoring-action {
+  display: grid;
+  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.agent-monitoring-action-header {
+  justify-content: space-between;
 }
 
 .agent-queue-placeholder {

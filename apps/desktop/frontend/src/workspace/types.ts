@@ -46,6 +46,11 @@ export type ListWidgetLogsRequest = {
   limit: number;
 };
 
+export type GetAgentMonitoringSnapshotRequest = {
+  workspaceId: string;
+  workbenchId: string;
+};
+
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -107,6 +112,47 @@ export type PersistAgentChatProposalResponse = {
   resultId: string;
   resultType: string;
   summary: string;
+};
+
+export type AgentMonitoringSnapshot = {
+  workspaceId: string;
+  workbenchId: string;
+  proposalResults: AgentMonitoringProposalResult[];
+};
+
+export type AgentMonitoringProposalResult = {
+  runId: string;
+  resultId: string;
+  status: string;
+  resultType: string;
+  resultSummary: string | null;
+  resultContent: string | null;
+  runStartedAt: string;
+  runFinishedAt: string | null;
+  resultCreatedAt: string;
+  sourceWidgetId: string;
+  sourceWidgetTitle: string;
+  runtimeStatus: string;
+  noLlmCalled: boolean;
+  noToolsExecuted: boolean;
+  noMutationsPerformed: boolean;
+  operatorPrompt: string;
+  proposalSummary: string;
+  proposedPlan: string[];
+  contextNeeded: string[];
+  approvedContextSummary: string;
+  approvedContextStatus: string;
+  approvedContextSourceLabels: string[];
+  proposedActions: AgentMonitoringProposalAction[];
+  safetyNotes: string[];
+  rawPayload: string;
+};
+
+export type AgentMonitoringProposalAction = {
+  title: string;
+  description: string;
+  status: string;
+  executed: boolean;
 };
 
 export type WidgetLogEntry = {

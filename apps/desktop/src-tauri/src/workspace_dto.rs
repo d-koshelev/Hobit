@@ -1,10 +1,11 @@
 use hobit_app::{
     AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
-    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
+    AgentMonitoringSnapshot, GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary,
+    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -46,6 +47,12 @@ pub(crate) struct ListWidgetLogsRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub limit: usize,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct GetAgentMonitoringSnapshotRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -255,6 +262,50 @@ pub(crate) struct PersistAgentChatProposalResponseDto {
     pub result_id: String,
     pub result_type: String,
     pub summary: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentMonitoringSnapshotDto {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub proposal_results: Vec<AgentMonitoringProposalResultDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentMonitoringProposalResultDto {
+    pub run_id: String,
+    pub result_id: String,
+    pub status: String,
+    pub result_type: String,
+    pub result_summary: Option<String>,
+    pub result_content: Option<String>,
+    pub run_started_at: String,
+    pub run_finished_at: Option<String>,
+    pub result_created_at: String,
+    pub source_widget_id: String,
+    pub source_widget_title: String,
+    pub runtime_status: String,
+    pub no_llm_called: bool,
+    pub no_tools_executed: bool,
+    pub no_mutations_performed: bool,
+    pub operator_prompt: String,
+    pub proposal_summary: String,
+    pub proposed_plan: Vec<String>,
+    pub context_needed: Vec<String>,
+    pub approved_context_summary: String,
+    pub approved_context_status: String,
+    pub approved_context_source_labels: Vec<String>,
+    pub proposed_actions: Vec<AgentMonitoringProposalActionDto>,
+    pub safety_notes: Vec<String>,
+    pub raw_payload: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentMonitoringProposalActionDto {
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub executed: bool,
 }
 
 impl From<WorkspaceSummary> for WorkspaceSummaryDto {
@@ -516,6 +567,67 @@ impl From<AgentChatProposalRunSummary> for PersistAgentChatProposalResponseDto {
             result_id: summary.result_id,
             result_type: summary.result_type,
             summary: summary.summary,
+        }
+    }
+}
+
+impl From<AgentMonitoringSnapshot> for AgentMonitoringSnapshotDto {
+    fn from(snapshot: AgentMonitoringSnapshot) -> Self {
+        Self {
+            workspace_id: snapshot.workspace_id,
+            workbench_id: snapshot.workbench_id,
+            proposal_results: snapshot
+                .proposal_results
+                .into_iter()
+                .map(AgentMonitoringProposalResultDto::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<AgentMonitoringProposalResultSummary> for AgentMonitoringProposalResultDto {
+    fn from(summary: AgentMonitoringProposalResultSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            result_id: summary.result_id,
+            status: summary.status,
+            result_type: summary.result_type,
+            result_summary: summary.result_summary,
+            result_content: summary.result_content,
+            run_started_at: summary.run_started_at,
+            run_finished_at: summary.run_finished_at,
+            result_created_at: summary.result_created_at,
+            source_widget_id: summary.source_widget_id,
+            source_widget_title: summary.source_widget_title,
+            runtime_status: summary.runtime_status,
+            no_llm_called: summary.no_llm_called,
+            no_tools_executed: summary.no_tools_executed,
+            no_mutations_performed: summary.no_mutations_performed,
+            operator_prompt: summary.operator_prompt,
+            proposal_summary: summary.proposal_summary,
+            proposed_plan: summary.proposed_plan,
+            context_needed: summary.context_needed,
+            approved_context_summary: summary.approved_context_summary,
+            approved_context_status: summary.approved_context_status,
+            approved_context_source_labels: summary.approved_context_source_labels,
+            proposed_actions: summary
+                .proposed_actions
+                .into_iter()
+                .map(AgentMonitoringProposalActionDto::from)
+                .collect(),
+            safety_notes: summary.safety_notes,
+            raw_payload: summary.raw_payload,
+        }
+    }
+}
+
+impl From<AgentMonitoringProposalActionSummary> for AgentMonitoringProposalActionDto {
+    fn from(action: AgentMonitoringProposalActionSummary) -> Self {
+        Self {
+            title: action.title,
+            description: action.description,
+            status: action.status,
+            executed: action.executed,
         }
     }
 }

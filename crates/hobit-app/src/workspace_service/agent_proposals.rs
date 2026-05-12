@@ -9,12 +9,11 @@ use super::{
     runs::widget_run_status_value,
     validation::{required_input, validate_widget_ownership},
     AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
-    PersistAgentChatProposalInput, WorkspaceService, AGENT_CHAT_WIDGET_DEFINITION_ID,
-    WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
+    PersistAgentChatProposalInput, WorkspaceService, AGENT_CHAT_PROPOSAL_COMMAND_KIND,
+    AGENT_CHAT_PROPOSAL_RESULT_TYPE, AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
+    AGENT_CHAT_WIDGET_DEFINITION_ID, WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
 };
 
-const AGENT_CHAT_PROPOSAL_COMMAND_KIND: &str = "agent_chat_mock_proposal";
-const AGENT_CHAT_PROPOSAL_RESULT_TYPE: &str = "agent_chat_mock_proposal_result";
 const AGENT_CHAT_PROPOSAL_RESULT_SUMMARY: &str = "Agent Chat proposal-only mock result persisted";
 const AGENT_CHAT_PROPOSAL_RESULT_CONTENT: &str =
     "Proposal-only mock. No LLM called, no tools executed, and no mutations performed.";
@@ -234,7 +233,7 @@ fn agent_chat_proposal_command_payload(input: &NormalizedAgentChatProposalInput)
         "operator_prompt": &input.operator_prompt,
         "approved_context_snapshot": &input.approved_context_snapshot,
         "proposal_id": &input.proposal.id,
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "no_llm_called": true,
         "no_tools_executed": true,
         "no_mutations_performed": true,
@@ -255,7 +254,7 @@ fn agent_chat_proposal_result_payload(input: &NormalizedAgentChatProposalInput) 
             "safety_notes": &input.proposal.safety_notes,
             "runtime_notes": &input.proposal.runtime_notes,
         },
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "no_llm_called": true,
         "no_tools_executed": true,
         "no_mutations_performed": true,
@@ -279,7 +278,7 @@ fn action_proposal_payloads(actions: &[NormalizedAgentChatProposalAction]) -> Ve
 
 fn prompt_received_log_payload(input: &NormalizedAgentChatProposalInput) -> String {
     json!({
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "prompt_length": input.operator_prompt.chars().count(),
     })
     .to_string()
@@ -287,7 +286,7 @@ fn prompt_received_log_payload(input: &NormalizedAgentChatProposalInput) -> Stri
 
 fn context_snapshot_log_payload(input: &NormalizedAgentChatProposalInput) -> String {
     json!({
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "context_status": input
             .approved_context_snapshot
             .get("status")
@@ -303,7 +302,7 @@ fn context_snapshot_log_payload(input: &NormalizedAgentChatProposalInput) -> Str
 
 fn proposal_generated_log_payload(input: &NormalizedAgentChatProposalInput) -> String {
     json!({
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "proposal_id": &input.proposal.id,
         "proposed_plan_count": input.proposal.proposed_plan.len(),
         "action_proposal_count": input.proposal.action_proposals.len(),
@@ -314,7 +313,7 @@ fn proposal_generated_log_payload(input: &NormalizedAgentChatProposalInput) -> S
 
 fn proposal_persisted_log_payload(run_id: &str, result_id: &str) -> String {
     json!({
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "run_id": run_id,
         "result_id": result_id,
     })
@@ -323,7 +322,7 @@ fn proposal_persisted_log_payload(run_id: &str, result_id: &str) -> String {
 
 fn no_tools_executed_log_payload() -> String {
     json!({
-        "runtime_status": "proposal_only_mock",
+        "runtime_status": AGENT_CHAT_PROPOSAL_RUNTIME_STATUS,
         "no_tools_executed": true,
         "no_mutations_performed": true,
         "no_llm_called": true,

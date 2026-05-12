@@ -178,6 +178,50 @@ pub struct AgentChatProposalRunSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentMonitoringSnapshot {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub proposal_results: Vec<AgentMonitoringProposalResultSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentMonitoringProposalResultSummary {
+    pub run_id: String,
+    pub result_id: String,
+    pub status: String,
+    pub result_type: String,
+    pub result_summary: Option<String>,
+    pub result_content: Option<String>,
+    pub run_started_at: String,
+    pub run_finished_at: Option<String>,
+    pub result_created_at: String,
+    pub source_widget_id: String,
+    pub source_widget_title: String,
+    pub runtime_status: String,
+    pub no_llm_called: bool,
+    pub no_tools_executed: bool,
+    pub no_mutations_performed: bool,
+    pub operator_prompt: String,
+    pub proposal_summary: String,
+    pub proposed_plan: Vec<String>,
+    pub context_needed: Vec<String>,
+    pub approved_context_summary: String,
+    pub approved_context_status: String,
+    pub approved_context_source_labels: Vec<String>,
+    pub proposed_actions: Vec<AgentMonitoringProposalActionSummary>,
+    pub safety_notes: Vec<String>,
+    pub raw_payload: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentMonitoringProposalActionSummary {
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub executed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GitRepositoryStatusSummary {
     pub branch: Option<GitBranchStatusSummary>,
     pub working_tree: GitWorkingTreeStatusSummary,

@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::SqliteStore;
 
+mod agent_monitoring;
 mod agent_proposals;
 mod git;
 mod logs;
@@ -17,6 +18,8 @@ mod workbenches;
 mod workspaces;
 
 #[cfg(test)]
+mod agent_monitoring_tests;
+#[cfg(test)]
 mod agent_proposal_tests;
 #[cfg(test)]
 mod terminal_tests;
@@ -25,12 +28,14 @@ mod tests;
 
 pub use types::{
     AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
-    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
-    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
+    AgentMonitoringSnapshot, GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary,
+    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
+    WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
@@ -53,6 +58,9 @@ const WIDGET_LOG_STATE_SAVED: &str = "Widget state saved";
 const WIDGET_LOG_LAYOUT_UPDATED: &str = "Widget layout updated";
 const WIDGET_RUN_STARTED_STATUS: WidgetRunStatus = WidgetRunStatus::Running;
 const AGENT_CHAT_WIDGET_DEFINITION_ID: &str = "agent-chat";
+const AGENT_CHAT_PROPOSAL_COMMAND_KIND: &str = "agent_chat_mock_proposal";
+const AGENT_CHAT_PROPOSAL_RESULT_TYPE: &str = "agent_chat_mock_proposal_result";
+const AGENT_CHAT_PROPOSAL_RUNTIME_STATUS: &str = "proposal_only_mock";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 

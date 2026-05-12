@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
+  AgentMonitoringSnapshot,
   GitRepositoryStatus,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -186,6 +187,7 @@ export type WidgetRenderProps = {
     state: WidgetState,
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
+  onGetAgentMonitoringSnapshot?: () => Promise<AgentMonitoringSnapshot | null>;
   onPersistAgentChatProposal?: (
     widgetInstanceId: WidgetInstanceId,
     proposal: Omit<

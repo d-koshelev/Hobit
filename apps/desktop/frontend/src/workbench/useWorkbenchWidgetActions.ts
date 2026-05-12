@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
+  getAgentMonitoringSnapshot,
   getGitRepositoryStatus,
   listWidgetLogs,
   persistAgentChatProposal,
@@ -9,6 +10,7 @@ import {
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
+  AgentMonitoringSnapshot,
   GitRepositoryStatus,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -40,6 +42,7 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  getAgentMonitoringSnapshot: () => Promise<AgentMonitoringSnapshot | null>;
   listWidgetLogs: (
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
@@ -66,6 +69,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   WorkbenchWidgetActions,
   | "listWidgetLogs"
   | "logRefreshTokens"
+  | "getAgentMonitoringSnapshot"
   | "getGitRepositoryStatus"
   | "persistAgentChatProposal"
   | "runTerminalCommand"
@@ -223,6 +227,17 @@ export function useWorkbenchWidgetActions({
     return logs.map(widgetLogEntryFromApi);
   }
 
+  async function loadAgentMonitoringSnapshot() {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to read Agent Monitoring results.");
+    }
+
+    return getAgentMonitoringSnapshot({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+    });
+  }
+
   async function loadGitRepositoryStatus(
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
@@ -320,6 +335,7 @@ export function useWorkbenchWidgetActions({
 
   return {
     addWidgetTemplate,
+    getAgentMonitoringSnapshot: loadAgentMonitoringSnapshot,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,

@@ -13,11 +13,12 @@ pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
 pub use workspace_service::{
     AgentChatProposalActionInput, AgentChatProposalInput, AgentChatProposalRunSummary,
-    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceLayout,
-    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
-    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
+    AgentMonitoringSnapshot, GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary,
+    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
+    WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };

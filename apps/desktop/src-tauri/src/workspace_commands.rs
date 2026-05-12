@@ -6,11 +6,12 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::workspace_dto::{
-    AddWidgetInstanceToWorkbenchRequest, CreateWorkspaceRequest, GetGitRepositoryStatusRequest,
-    GitRepositoryStatusDto, ListWidgetLogsRequest, PersistAgentChatProposalRequest,
-    PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
-    UpdateWidgetInstanceLayoutRequest, UpdateWidgetInstanceStateRequest, WidgetLogDto,
-    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
+    AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
+    GetAgentMonitoringSnapshotRequest, GetGitRepositoryStatusRequest, GitRepositoryStatusDto,
+    ListWidgetLogsRequest, PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
+    RunTerminalCommandRequest, RunTerminalCommandResponseDto, UpdateWidgetInstanceLayoutRequest,
+    UpdateWidgetInstanceStateRequest, WidgetLogDto, WorkspaceSessionSummaryDto,
+    WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[tauri::command]
@@ -167,6 +168,18 @@ pub(crate) fn persist_agent_chat_proposal(
     service
         .persist_agent_chat_proposal(request.into())
         .map(|summary| summary.map(PersistAgentChatProposalResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn get_agent_monitoring_snapshot(
+    request: GetAgentMonitoringSnapshotRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentMonitoringSnapshotDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .get_agent_monitoring_snapshot(&request.workspace_id, &request.workbench_id)
+        .map(|snapshot| snapshot.map(AgentMonitoringSnapshotDto::from))
         .map_err(command_error)
 }
 

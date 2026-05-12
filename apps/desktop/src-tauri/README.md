@@ -39,6 +39,8 @@ SQLite initialization, `workspace_commands.rs` owns command handlers, and
   - `run_terminal_command`
 - Agent Chat proposal-only persistence for persisted Agent Chat widgets:
   - `persist_agent_chat_proposal`
+- Agent Monitoring read-only proposal artifact snapshot:
+  - `get_agent_monitoring_snapshot`
 - Manual read-only Git status command for the Git widget placeholder:
   - `get_git_repository_status`
 - Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
@@ -47,9 +49,9 @@ SQLite initialization, `workspace_commands.rs` owns command handlers, and
 
 - Frontend persistence beyond current workspace/workbench state loading and widget mutation/log foundations.
 - Runtime restore, event replay, or widget runtime reconstruction.
-- Widget runtime beyond placeholder insertion, mutation/log foundations, Terminal one-shot command runs, and Agent Chat proposal-only result persistence.
+- Widget runtime beyond placeholder insertion, mutation/log foundations, Terminal one-shot command runs, Agent Chat proposal-only result persistence, and Agent Monitoring read-only proposal artifact viewing.
 - Interactive Terminal execution.
 - Agent runtime calls.
 - Tool execution adapters beyond Terminal one-shot command execution and the narrow read-only Git status path.
-- Agent Monitoring read surfaces for stored Agent Chat proposal artifacts.
+- Agent Monitoring runtime execution, streaming, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, or executor integration.
 - Git diff/log/show, repository root/status persistence, polling, watching, or Git mutations.

@@ -7,12 +7,16 @@ use hobit_app::{
     TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
     WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
+use hobit_app::{
+    AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
+    AgentMonitoringSnapshot,
+};
 
 use crate::workspace_dto::{
-    AgentChatProposalActionRequest, AgentChatProposalRequest, GitRepositoryStatusDto,
-    PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
-    RunTerminalCommandRequest, RunTerminalCommandResponseDto, WidgetLogDto,
-    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
+    AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
+    GetAgentMonitoringSnapshotRequest, GitRepositoryStatusDto, PersistAgentChatProposalRequest,
+    PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
+    WidgetLogDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[test]
@@ -349,4 +353,70 @@ fn maps_agent_chat_proposal_response_to_dto() {
         dto.summary,
         "Agent Chat proposal-only mock result persisted"
     );
+}
+
+#[test]
+fn maps_agent_monitoring_snapshot_to_dto() {
+    let summary = AgentMonitoringSnapshot {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        proposal_results: vec![AgentMonitoringProposalResultSummary {
+            run_id: "run_1".to_owned(),
+            result_id: "result_1".to_owned(),
+            status: "completed".to_owned(),
+            result_type: "agent_chat_mock_proposal_result".to_owned(),
+            result_summary: Some("Summary".to_owned()),
+            result_content: Some("Content".to_owned()),
+            run_started_at: "1".to_owned(),
+            run_finished_at: Some("2".to_owned()),
+            result_created_at: "3".to_owned(),
+            source_widget_id: "wid_1".to_owned(),
+            source_widget_title: "Agent Chat".to_owned(),
+            runtime_status: "proposal_only_mock".to_owned(),
+            no_llm_called: true,
+            no_tools_executed: true,
+            no_mutations_performed: true,
+            operator_prompt: "Plan".to_owned(),
+            proposal_summary: "Proposal summary".to_owned(),
+            proposed_plan: vec!["Step".to_owned()],
+            context_needed: vec!["None".to_owned()],
+            approved_context_summary: "Prompt only".to_owned(),
+            approved_context_status: "none".to_owned(),
+            approved_context_source_labels: vec!["Workspace identity".to_owned()],
+            proposed_actions: vec![AgentMonitoringProposalActionSummary {
+                title: "No tool action executed".to_owned(),
+                description: "No tool was executed.".to_owned(),
+                status: "not_executed".to_owned(),
+                executed: false,
+            }],
+            safety_notes: vec!["Proposal only.".to_owned()],
+            raw_payload: "{\"runtime_status\":\"proposal_only_mock\"}".to_owned(),
+        }],
+    };
+
+    let dto = AgentMonitoringSnapshotDto::from(summary);
+
+    assert_eq!(dto.workspace_id, "ws_1");
+    assert_eq!(dto.workbench_id, "wb_1");
+    assert_eq!(dto.proposal_results.len(), 1);
+    assert_eq!(dto.proposal_results[0].run_id, "run_1");
+    assert_eq!(dto.proposal_results[0].source_widget_title, "Agent Chat");
+    assert_eq!(dto.proposal_results[0].operator_prompt, "Plan");
+    assert_eq!(dto.proposal_results[0].proposed_plan, vec!["Step"]);
+    assert_eq!(
+        dto.proposal_results[0].proposed_actions[0].status,
+        "not_executed"
+    );
+    assert!(!dto.proposal_results[0].proposed_actions[0].executed);
+}
+
+#[test]
+fn accepts_agent_monitoring_snapshot_request_shape() {
+    let request = GetAgentMonitoringSnapshotRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+    };
+
+    assert_eq!(request.workspace_id, "ws_1");
+    assert_eq!(request.workbench_id, "wb_1");
 }
