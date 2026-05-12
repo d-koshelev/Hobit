@@ -31,6 +31,9 @@ execution, Git mutations, commits, pushes, an embedded PTY, or interactive
 agent sessions. The current frontend surfaces Direct Work / Codex as a Ready
 catalog item that reuses the `agent-run` widget identity.
 
+For the current Direct Mode MVP manual audit and smoke checklist, see
+`docs/DIRECT_MODE_MVP_CHECKLIST.md`.
+
 ## Current Status
 
 Hobit currently has:
