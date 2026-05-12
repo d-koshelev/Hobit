@@ -79,7 +79,6 @@ fn built_args_put_global_options_before_exec_and_exec_options_after() {
         CodexSandboxMode::ReadOnly,
         CodexApprovalPolicy::OnRequest,
         &output_last_message_path,
-        prompt,
     );
 
     assert_eq!(
@@ -94,14 +93,15 @@ fn built_args_put_global_options_before_exec_and_exec_options_after() {
             "exec".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
-            prompt.to_owned(),
+            "-".to_owned(),
         ]
     );
     assert!(arg_index(&args, "--ask-for-approval") < arg_index(&args, "exec"));
     assert!(arg_index(&args, "--sandbox") < arg_index(&args, "exec"));
     assert!(arg_index(&args, "--cd") < arg_index(&args, "exec"));
     assert!(arg_index(&args, "--output-last-message") > arg_index(&args, "exec"));
-    assert_eq!(args.last().map(String::as_str), Some(prompt));
+    assert!(!args.iter().any(|part| part == prompt));
+    assert_eq!(args.last().map(String::as_str), Some("-"));
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
             "exec".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
-            "<operator-prompt>".to_owned(),
+            "<operator-prompt-stdin>".to_owned(),
         ]
     );
     assert!(arg_index(&summary, "--ask-for-approval") < arg_index(&summary, "exec"));
@@ -143,7 +143,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
     assert!(!summary.iter().any(|part| part == prompt));
     assert_eq!(
         summary.last().map(String::as_str),
-        Some("<operator-prompt>")
+        Some("<operator-prompt-stdin>")
     );
 }
 
@@ -160,12 +160,29 @@ fn args_are_passed_without_shell_concatenation() {
     let final_message = output.final_message.unwrap();
     assert!(final_message.contains("--ask-for-approval\non-request\nexec\n"));
     assert!(final_message.contains("exec\n--output-last-message\n"));
+    assert!(final_message.contains("\n-\nstdin:\n"));
     assert!(final_message.ends_with(&prompt));
     assert!(!output.command_summary.iter().any(|part| part == &prompt));
     assert!(output
         .command_summary
         .iter()
-        .any(|part| part == "<operator-prompt>"));
+        .any(|part| part == "<operator-prompt-stdin>"));
+}
+
+#[test]
+fn multiline_prompt_is_written_to_stdin() {
+    let prompt = "first line\nsecond line\nDo not commit.";
+    let output = run_codex_direct_work(request_with_program(
+        temp_repo("multiline-stdin"),
+        prompt,
+        direct_run_helper(),
+    ));
+
+    assert_eq!(output.status, CodexDirectRunStatus::Completed);
+    let final_message = output.final_message.unwrap();
+    assert!(final_message.contains("\n-\nstdin:\n"));
+    assert!(final_message.ends_with(prompt));
+    assert!(!output.command_summary.iter().any(|part| part == prompt));
 }
 
 #[cfg(windows)]
@@ -460,6 +477,8 @@ fn unique_suffix() -> String {
 }
 
 const DIRECT_RUN_HELPER_SOURCE: &str = r#"
+use std::io::Read;
+
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let output_path = args
@@ -467,7 +486,8 @@ fn main() {
         .find(|window| window[0] == "--output-last-message")
         .map(|window| window[1].clone())
         .expect("missing --output-last-message");
-    let prompt = args.last().cloned().unwrap_or_default();
+    let mut prompt = String::new();
+    std::io::stdin().read_to_string(&mut prompt).unwrap();
 
     if prompt == "sleep" {
         std::thread::sleep(std::time::Duration::from_secs(5));
@@ -477,7 +497,7 @@ fn main() {
     if prompt == "spam" {
         print!("{}", "o".repeat(100));
         eprint!("{}", "e".repeat(100));
-        std::fs::write(output_path, args.join("\n")).unwrap();
+        std::fs::write(output_path, format!("args:\n{}\nstdin:\n{}", args.join("\n"), prompt)).unwrap();
         return;
     }
 
@@ -491,7 +511,7 @@ fn main() {
     eprintln!("helper stderr");
 
     if prompt != "no-final" {
-        std::fs::write(output_path, args.join("\n")).unwrap();
+        std::fs::write(output_path, format!("args:\n{}\nstdin:\n{}", args.join("\n"), prompt)).unwrap();
     }
 
     if prompt == "nonzero" {

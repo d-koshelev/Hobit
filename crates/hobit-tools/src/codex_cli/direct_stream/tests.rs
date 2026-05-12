@@ -224,7 +224,6 @@ fn built_args_put_global_options_before_exec_and_json_exec_options_after() {
         CodexSandboxMode::ReadOnly,
         CodexApprovalPolicy::Never,
         &output_last_message_path,
-        prompt,
     );
 
     assert_eq!(
@@ -240,7 +239,7 @@ fn built_args_put_global_options_before_exec_and_json_exec_options_after() {
             "--json".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
-            prompt.to_owned(),
+            "-".to_owned(),
         ]
     );
     assert!(arg_index(&args, "--ask-for-approval") < arg_index(&args, "exec"));
@@ -249,7 +248,8 @@ fn built_args_put_global_options_before_exec_and_json_exec_options_after() {
     assert!(arg_index(&args, "--json") > arg_index(&args, "exec"));
     assert!(arg_index(&args, "--output-last-message") > arg_index(&args, "exec"));
     assert!(arg_index(&args, "--json") < arg_index(&args, "--output-last-message"));
-    assert_eq!(args.last().map(String::as_str), Some(prompt));
+    assert!(!args.iter().any(|part| part == prompt));
+    assert_eq!(args.last().map(String::as_str), Some("-"));
 }
 
 #[test]
@@ -282,7 +282,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
             "--json".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
-            "<operator-prompt>".to_owned(),
+            "<operator-prompt-stdin>".to_owned(),
         ]
     );
     assert!(arg_index(&summary, "--ask-for-approval") < arg_index(&summary, "exec"));
@@ -293,7 +293,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
     assert!(!summary.iter().any(|part| part == prompt));
     assert_eq!(
         summary.last().map(String::as_str),
-        Some("<operator-prompt>")
+        Some("<operator-prompt-stdin>")
     );
 }
 
@@ -309,12 +309,28 @@ fn args_are_passed_without_shell_concatenation() {
     let final_message = output.final_message.unwrap();
     assert!(final_message.contains("--ask-for-approval\non-request\nexec\n--json\n"));
     assert!(final_message.contains("exec\n--json\n--output-last-message\n"));
+    assert!(final_message.contains("\n-\nstdin:\n"));
     assert!(final_message.ends_with(&prompt));
     assert!(!output.command_summary.iter().any(|part| part == &prompt));
     assert!(output
         .command_summary
         .iter()
-        .any(|part| part == "<operator-prompt>"));
+        .any(|part| part == "<operator-prompt-stdin>"));
+}
+
+#[test]
+fn multiline_prompt_is_written_to_stdin() {
+    let prompt = "first line\nsecond line\nDo not commit.";
+    let output = run_codex_direct_work_streaming(
+        request_with_program(temp_repo("multiline-stdin"), prompt, direct_stream_helper()),
+        |_| {},
+    );
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    let final_message = output.final_message.unwrap();
+    assert!(final_message.contains("\n-\nstdin:\n"));
+    assert!(final_message.ends_with(prompt));
+    assert!(!output.command_summary.iter().any(|part| part == prompt));
 }
 
 #[cfg(windows)]
@@ -442,7 +458,7 @@ fn unique_suffix() -> String {
 }
 
 const DIRECT_STREAM_HELPER_SOURCE: &str = r##"
-use std::io::Write;
+use std::io::{Read, Write};
 
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -451,7 +467,8 @@ fn main() {
         .find(|window| window[0] == "--output-last-message")
         .map(|window| window[1].clone())
         .expect("missing --output-last-message");
-    let prompt = args.last().cloned().unwrap_or_default();
+    let mut prompt = String::new();
+    std::io::stdin().read_to_string(&mut prompt).unwrap();
 
     if prompt == "sleep" {
         std::thread::sleep(std::time::Duration::from_secs(5));
@@ -505,6 +522,6 @@ fn main() {
 
     println!("helper stdout");
     eprintln!("helper stderr");
-    std::fs::write(output_path, args.join("\n")).unwrap();
+    std::fs::write(output_path, format!("args:\n{}\nstdin:\n{}", args.join("\n"), prompt)).unwrap();
 }
 "##;

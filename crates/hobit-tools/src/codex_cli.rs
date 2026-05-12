@@ -98,6 +98,7 @@ pub fn probe_codex_cli(request: CodexCliProbeRequest) -> CodexCliProbeOutput {
     let output = run_process_once(ProcessRunRequest {
         program: resolution.program.clone(),
         args: vec!["--version".to_owned()],
+        stdin: None,
         working_directory: std::env::temp_dir(),
         timeout_ms: request
             .timeout_ms

@@ -29,7 +29,6 @@ pub(super) fn build_codex_exec_json_args(
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     output_last_message_path: &Path,
-    prompt: &str,
 ) -> Vec<String> {
     vec![
         "--cd".to_owned(),
@@ -42,7 +41,7 @@ pub(super) fn build_codex_exec_json_args(
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        prompt.to_owned(),
+        "-".to_owned(),
     ]
 }
 
@@ -65,6 +64,6 @@ pub(super) fn safe_command_summary(
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "<operator-prompt>".to_owned(),
+        "<operator-prompt-stdin>".to_owned(),
     ]
 }

@@ -146,8 +146,8 @@ impl fmt::Display for CodexDirectRunStatus {
 ///
 /// Non-zero Codex exits are returned as `CodexDirectRunStatus::Failed`, while a
 /// zero exit is `Completed`. Process spawn failures and timeouts are separate
-/// infrastructure statuses. The prompt is passed to the process as one argv
-/// item and is intentionally not copied into `command_summary`.
+/// infrastructure statuses. The prompt is passed to the process over stdin and
+/// is intentionally not copied into `command_summary`.
 pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOutput {
     run_codex_direct_work_inner(request, None)
 }
@@ -199,7 +199,6 @@ fn run_codex_direct_work_inner(
         request.sandbox,
         request.approval_policy,
         &output_last_message_path,
-        &request.prompt,
     );
     let command_summary = safe_command_summary(
         &resolution.program,
@@ -212,6 +211,7 @@ fn run_codex_direct_work_inner(
     let process_output = run_process_once(ProcessRunRequest {
         program: resolution.program,
         args,
+        stdin: Some(request.prompt.clone()),
         working_directory: request.repo_root.clone(),
         timeout_ms: request
             .timeout_ms
@@ -285,7 +285,6 @@ fn build_codex_exec_args(
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     output_last_message_path: &Path,
-    prompt: &str,
 ) -> Vec<String> {
     vec![
         "--cd".to_owned(),
@@ -297,7 +296,7 @@ fn build_codex_exec_args(
         "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        prompt.to_owned(),
+        "-".to_owned(),
     ]
 }
 
@@ -319,7 +318,7 @@ fn safe_command_summary(
         "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "<operator-prompt>".to_owned(),
+        "<operator-prompt-stdin>".to_owned(),
     ]
 }
 

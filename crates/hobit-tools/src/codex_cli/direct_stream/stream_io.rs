@@ -1,4 +1,5 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::process::Child;
 use std::sync::mpsc::Sender;
 use std::thread::{self, JoinHandle};
 
@@ -99,4 +100,14 @@ impl CappedOutput {
 pub(super) fn stream_event_line(line: &str) -> String {
     line.trim_end_matches(|character| character == '\r' || character == '\n')
         .to_owned()
+}
+
+pub(super) fn write_child_stdin(child: &mut Child, input: &str) -> Result<(), String> {
+    let Some(mut stdin) = child.stdin.take() else {
+        return Err("could not capture process stdin".to_owned());
+    };
+
+    stdin
+        .write_all(input.as_bytes())
+        .map_err(|error| error.to_string())
 }

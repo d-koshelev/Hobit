@@ -1,11 +1,7 @@
 //! Streaming Codex CLI Direct Work runner foundation.
 //!
-//! This module runs `codex exec --json` with explicit argv, an explicit
-//! repository root, an explicit sandbox, and an explicit approval policy while
-//! streaming stdout/stderr lines to a caller-provided callback. It remains a
-//! tooling-layer foundation only: no UI, Tauri commands, storage persistence,
-//! Git inspection or mutation, queue execution, stdin, PTY, or interactive
-//! Codex session is added here.
+//! This module runs `codex exec --json` with explicit argv, explicit runtime
+//! boundaries, and caller-provided stdout/stderr event streaming.
 
 use std::ffi::OsStr;
 use std::fmt;
@@ -27,7 +23,8 @@ use status::{
     direct_stream_error_message, direct_stream_status, failed_stage, final_stderr_preview,
 };
 use stream_io::{
-    join_line_reader, spawn_line_reader, stream_event_line, CappedOutput, ReaderMessage, StreamKind,
+    join_line_reader, spawn_line_reader, stream_event_line, write_child_stdin, CappedOutput,
+    ReaderMessage, StreamKind,
 };
 
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -161,10 +158,8 @@ impl fmt::Display for CodexDirectStreamEventKind {
 /// Run one bounded `codex exec --json` Direct Work process and stream line
 /// events to `on_event`.
 ///
-/// Non-zero Codex exits are returned as `CodexDirectStreamStatus::Failed`,
-/// while a zero exit is `Completed`. Process spawn failures and timeouts are
-/// separate infrastructure statuses. The prompt is passed as one argv item and
-/// is intentionally not copied into `command_summary`.
+/// Non-zero Codex exits return `Failed`; zero exits return `Completed`. The
+/// prompt is passed over stdin and is not copied into `command_summary`.
 pub fn run_codex_direct_work_streaming<F>(
     request: CodexDirectStreamRequest,
     on_event: F,
@@ -254,7 +249,6 @@ where
         request.sandbox,
         request.approval_policy,
         &output_last_message_path,
-        &request.prompt,
     );
     let command_summary = safe_command_summary(
         &resolution.program,
@@ -278,7 +272,7 @@ where
     let mut child = match Command::new(&resolution.program)
         .args(&args)
         .current_dir(&request.repo_root)
-        .stdin(Stdio::null())
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -323,6 +317,17 @@ where
             );
         }
     };
+    if let Err(message) = write_child_stdin(&mut child, &request.prompt) {
+        let _ = child.kill();
+        let _ = child.wait();
+        return rejected_request(
+            started_at,
+            request,
+            command_summary,
+            format!("could not write operator prompt to codex stdin: {message}"),
+            &mut on_event,
+        );
+    }
 
     let (sender, receiver) = mpsc::channel();
     let stdout_reader = spawn_line_reader(StreamKind::Stdout, stdout, sender.clone());

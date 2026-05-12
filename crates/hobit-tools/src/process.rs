@@ -5,7 +5,7 @@
 //! command, WorkspaceService wiring, widget runtime behavior, or agent runtime.
 
 use std::fmt;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -21,6 +21,7 @@ const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
 pub struct ProcessRunRequest {
     pub program: String,
     pub args: Vec<String>,
+    pub stdin: Option<String>,
     pub working_directory: PathBuf,
     pub timeout_ms: u64,
     pub stdout_cap_bytes: usize,
@@ -32,6 +33,7 @@ impl ProcessRunRequest {
         Self {
             program: program.into(),
             args: Vec::new(),
+            stdin: None,
             working_directory: working_directory.into(),
             timeout_ms: DEFAULT_PROCESS_TIMEOUT_MS,
             stdout_cap_bytes: DEFAULT_STDOUT_CAP_BYTES,
@@ -112,7 +114,11 @@ pub fn run_process_once(request: ProcessRunRequest) -> ProcessRunOutput {
     let mut child = match Command::new(&request.program)
         .args(&request.args)
         .current_dir(&request.working_directory)
-        .stdin(Stdio::null())
+        .stdin(if request.stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -138,6 +144,27 @@ pub fn run_process_once(request: ProcessRunRequest) -> ProcessRunOutput {
     let stdout_reader = spawn_capped_reader(stdout, request.stdout_cap_bytes);
     let stderr_reader = spawn_capped_reader(stderr, request.stderr_cap_bytes);
     let timeout = Duration::from_millis(request.timeout_ms);
+
+    if let Some(stdin) = request.stdin.as_deref() {
+        if let Err(message) = write_child_stdin(&mut child, stdin) {
+            let _ = child.kill();
+            let _ = child.wait();
+
+            let stdout = join_capped_reader(stdout_reader);
+            let stderr = join_capped_reader(stderr_reader);
+
+            return ProcessRunOutput {
+                status: ProcessRunStatus::FailedToStart,
+                exit_code: None,
+                stdout: stdout.text,
+                stderr: stderr.text,
+                stdout_truncated: stdout.truncated,
+                stderr_truncated: stderr.truncated,
+                duration_ms: started_at.elapsed().as_millis(),
+                error_message: Some(format!("could not write process stdin: {message}")),
+            };
+        }
+    }
 
     loop {
         match child.try_wait() {
@@ -201,6 +228,16 @@ pub fn run_process_once(request: ProcessRunRequest) -> ProcessRunOutput {
             }
         }
     }
+}
+
+fn write_child_stdin(child: &mut std::process::Child, input: &str) -> Result<(), String> {
+    let Some(mut stdin) = child.stdin.take() else {
+        return Err("could not capture process stdin".to_owned());
+    };
+
+    stdin
+        .write_all(input.as_bytes())
+        .map_err(|error| error.to_string())
 }
 
 fn failed_to_start(started_at: Instant, message: impl Into<String>) -> ProcessRunOutput {
@@ -309,6 +346,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: String::new(),
             args: Vec::new(),
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 1_000,
             stdout_cap_bytes: 1024,
@@ -324,6 +362,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: current_test_exe(),
             args: vec!["--help".to_owned()],
+            stdin: None,
             working_directory: missing_test_directory(),
             timeout_ms: 1_000,
             stdout_cap_bytes: 1024,
@@ -339,6 +378,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: current_test_exe(),
             args: vec!["--help".to_owned()],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 2_000,
             stdout_cap_bytes: 16 * 1024,
@@ -356,6 +396,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: current_test_exe(),
             args: vec!["--bad-hobit-test-flag".to_owned()],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 2_000,
             stdout_cap_bytes: 1024,
@@ -372,6 +413,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: format!("hobit-missing-process-{}", unique_test_suffix()),
             args: Vec::new(),
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 1_000,
             stdout_cap_bytes: 1024,
@@ -391,6 +433,7 @@ mod tests {
                 "process::tests::timeout_helper_sleeps".to_owned(),
                 "--nocapture".to_owned(),
             ],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 20,
             stdout_cap_bytes: 1024,
@@ -407,6 +450,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: current_test_exe(),
             args: vec!["--help".to_owned()],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 2_000,
             stdout_cap_bytes: 8,
@@ -423,6 +467,7 @@ mod tests {
         let output = run_process_once(ProcessRunRequest {
             program: current_test_exe(),
             args: vec!["--bad-hobit-test-flag".to_owned()],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 2_000,
             stdout_cap_bytes: 1024,
@@ -443,6 +488,7 @@ mod tests {
                 "&&".to_owned(),
                 format!("hobit-missing-process-{}", unique_test_suffix()),
             ],
+            stdin: None,
             working_directory: env::current_dir().unwrap(),
             timeout_ms: 2_000,
             stdout_cap_bytes: 16 * 1024,

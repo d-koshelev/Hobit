@@ -47,6 +47,7 @@ impl WorkspaceService {
         let process_output = runner(ProcessRunRequest {
             program: input.program.clone(),
             args: input.args.clone(),
+            stdin: None,
             working_directory: input.working_directory.clone(),
             timeout_ms: input.timeout_ms,
             stdout_cap_bytes: input.stdout_cap_bytes,
