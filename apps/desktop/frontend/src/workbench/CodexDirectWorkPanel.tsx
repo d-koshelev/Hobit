@@ -12,6 +12,8 @@ import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetInstanceId } from "./types";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
+const DEFAULT_CODEX_EXECUTABLE = "codex";
+const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
 
 type CodexDirectWorkPanelProps = {
   onRunCodexDirectWork?: (
@@ -37,7 +39,9 @@ export function CodexDirectWorkPanel({
   const stdoutCapInputId = useId();
   const stderrCapInputId = useId();
   const panelTitleId = useId();
-  const [codexExecutableDraft, setCodexExecutableDraft] = useState("codex");
+  const [codexExecutableDraft, setCodexExecutableDraft] = useState(
+    defaultCodexExecutable,
+  );
   const [repoRootDraft, setRepoRootDraft] = useState("");
   const [operatorPromptDraft, setOperatorPromptDraft] = useState("");
   const [sandbox, setSandbox] = useState<DirectWorkSandbox>("read_only");
@@ -226,7 +230,7 @@ export function CodexDirectWorkPanel({
           </summary>
           <div className="codex-direct-work-advanced-body">
             <p className="codex-direct-work-note">
-              Leave these blank to use backend defaults.
+              Leave timeout and output caps blank to use backend defaults.
             </p>
             <div className="codex-direct-work-controls">
               <div className="codex-direct-work-field codex-direct-work-field-wide">
@@ -247,8 +251,8 @@ export function CodexDirectWorkPanel({
                   value={codexExecutableDraft}
                 />
                 <p className="codex-direct-work-note">
-                  On Windows, Hobit will also try codex.exe, codex.cmd, and
-                  codex.bat from PATH when resolving `codex`.
+                  Windows default uses codex.cmd. Full path is allowed if
+                  needed.
                 </p>
               </div>
               <CodexDirectWorkNumberField
@@ -403,8 +407,8 @@ function CodexDirectWorkResultCard({
           { label: "Duration", value: `${result.durationMs} ms` },
           { label: "Sandbox", value: result.sandbox },
           { label: "Approval policy", value: result.approvalPolicy },
-          { label: "No auto commit", value: yesNo(result.noAutoCommit) },
-          { label: "No auto push", value: yesNo(result.noAutoPush) },
+          { label: "Auto commit", value: yesNo(!result.noAutoCommit) },
+          { label: "Auto push", value: yesNo(!result.noAutoPush) },
           {
             label: "Git mutations by Hobit",
             value: yesNo(result.gitMutationsPerformedByHobit),
@@ -573,6 +577,17 @@ function previewOutput(value: string) {
 
 function yesNo(value: boolean) {
   return value ? "Yes" : "No";
+}
+
+function defaultCodexExecutable() {
+  if (typeof navigator === "undefined") {
+    return DEFAULT_CODEX_EXECUTABLE;
+  }
+
+  const platformText = `${navigator.userAgent} ${navigator.platform}`;
+  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
+    ? WINDOWS_CODEX_EXECUTABLE
+    : DEFAULT_CODEX_EXECUTABLE;
 }
 
 function errorToMessage(error: unknown): string {

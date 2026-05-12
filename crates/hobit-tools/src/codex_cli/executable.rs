@@ -28,12 +28,25 @@ pub(crate) fn resolve_codex_executable(
     requested_program: &str,
 ) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
     let path_env = env::var_os("PATH");
-    resolve_codex_executable_with_path(requested_program, path_env.as_deref())
+    let appdata_env = env::var_os("APPDATA");
+    resolve_codex_executable_with_env(
+        requested_program,
+        path_env.as_deref(),
+        appdata_env.as_deref(),
+    )
 }
 
 pub(crate) fn resolve_codex_executable_with_path(
     requested_program: &str,
     path_env: Option<&OsStr>,
+) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
+    resolve_codex_executable_with_env(requested_program, path_env, None)
+}
+
+fn resolve_codex_executable_with_env(
+    requested_program: &str,
+    path_env: Option<&OsStr>,
+    appdata_env: Option<&OsStr>,
 ) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
     let requested_program = requested_program.trim().to_owned();
 
@@ -48,7 +61,7 @@ pub(crate) fn resolve_codex_executable_with_path(
     let mut candidates_tried = Vec::new();
     let mut seen_candidates = HashSet::new();
 
-    for candidate in codex_executable_candidates(&requested_program) {
+    for candidate in codex_executable_candidates(&requested_program, appdata_env) {
         if !seen_candidates.insert(candidate.clone()) {
             continue;
         }
@@ -71,17 +84,50 @@ pub(crate) fn resolve_codex_executable_with_path(
     })
 }
 
-fn codex_executable_candidates(requested_program: &str) -> Vec<String> {
-    if cfg!(windows) && Path::new(requested_program).extension().is_none() {
-        return vec![
+fn codex_executable_candidates(
+    requested_program: &str,
+    appdata_env: Option<&OsStr>,
+) -> Vec<String> {
+    let mut candidates = if cfg!(windows) && Path::new(requested_program).extension().is_none() {
+        vec![
             requested_program.to_owned(),
             format!("{requested_program}.exe"),
             format!("{requested_program}.cmd"),
             format!("{requested_program}.bat"),
-        ];
+        ]
+    } else {
+        vec![requested_program.to_owned()]
+    };
+
+    if let Some(candidate) = windows_npm_codex_cmd_candidate(requested_program, appdata_env) {
+        candidates.push(candidate);
     }
 
-    vec![requested_program.to_owned()]
+    candidates
+}
+
+fn windows_npm_codex_cmd_candidate(
+    requested_program: &str,
+    appdata_env: Option<&OsStr>,
+) -> Option<String> {
+    if !cfg!(windows) || contains_path_separator(requested_program) {
+        return None;
+    }
+
+    let program_name = Path::new(requested_program).file_name()?.to_str()?;
+    if !program_name.eq_ignore_ascii_case("codex")
+        && !program_name.eq_ignore_ascii_case("codex.cmd")
+    {
+        return None;
+    }
+
+    Some(
+        PathBuf::from(appdata_env?)
+            .join("npm")
+            .join("codex.cmd")
+            .to_string_lossy()
+            .into_owned(),
+    )
 }
 
 fn resolve_candidate(candidate: &str, path_env: Option<&OsStr>) -> Option<PathBuf> {
@@ -158,6 +204,45 @@ mod tests {
             resolution.candidates_tried,
             vec!["codex", "codex.exe", "codex.cmd"]
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn resolving_windows_codex_requests_check_appdata_npm_fallback() {
+        let appdata = temp_directory("windows-appdata");
+        let npm_directory = appdata.join("npm");
+        fs::create_dir_all(&npm_directory).unwrap();
+        let helper = npm_directory.join("codex.cmd");
+        fs::write(&helper, "@echo off\r\necho codex-cli 0.0.0\r\n").unwrap();
+        let helper_candidate = helper.to_string_lossy().into_owned();
+
+        for (requested_program, expected_candidates) in [
+            (
+                "codex",
+                vec![
+                    "codex".to_owned(),
+                    "codex.exe".to_owned(),
+                    "codex.cmd".to_owned(),
+                    "codex.bat".to_owned(),
+                    helper_candidate.clone(),
+                ],
+            ),
+            (
+                "codex.cmd",
+                vec!["codex.cmd".to_owned(), helper_candidate.clone()],
+            ),
+        ] {
+            let resolution = resolve_codex_executable_with_env(
+                requested_program,
+                None,
+                Some(appdata.as_os_str()),
+            )
+            .expect("resolve codex.cmd from APPDATA npm fallback");
+
+            assert_eq!(resolution.requested_program, requested_program);
+            assert_eq!(resolution.program, helper_candidate);
+            assert_eq!(resolution.candidates_tried, expected_candidates);
+        }
     }
 
     #[test]
