@@ -16,6 +16,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `AGENT_WORK_EFFICIENCY_CONTRACT.md` defines small focused blocks, execution budgets, validation profile plans, and stop/split rules for efficient agent work. It is docs-only and does not implement runtime behavior, UI, storage, Tauri commands, queue execution, or validation script behavior.
 
+`DEMO_FLOW_CHECKLIST.md` defines the manual pre-AI demo verification scope for the Terminal one-shot path, Agent Chat proposal artifacts, Agent Monitoring details, and the optional Agent Queue review inbox.
+
 `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines the future Workspace-aware Coordinator Agent model for explicitly approved context reading and previewed cross-widget action proposals. It is contract-first; Agent Chat currently supports only selected current-view metadata snapshots plus proposal-only result persistence and does not read hidden Workspace context, propose executable actions, mutate widgets, edit Notebook content, or execute actions. The only current queue write path is Agent Monitoring's explicit review-item creation from a valid stored proposal mock result.
 
 `WORKSPACE_CONTRACT.md` defines Workspace as the durable isolation boundary for distinct problems and Workbench as a surface inside a Workspace. Future multi-open Workspace UI, Workspace tabs/sidebar/windows, and multiple Workbenches per Workspace must follow the rule: different problem = different Workspace; different surface for the same problem = additional Workbench.
