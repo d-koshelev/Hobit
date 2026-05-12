@@ -20,7 +20,7 @@ import {
 import type { WidgetRenderProps } from "./types";
 
 const idleActivity = [
-  "Idle: no prompt submitted in this local mock runtime.",
+  "Idle: no proposal requested yet.",
   "No approved context selected.",
   "No tools executed.",
 ];
@@ -161,12 +161,12 @@ export function OperationalAgentChatPlaceholderWidget({
           <div className="agent-chat-proposal-header">
             <div className="agent-chat-proposal-copy">
               <p className="agent-chat-proposal-title">
-                Local/mock coordinator proposal
+                Ask for a proposal
               </p>
               <p className="agent-chat-proposal-text">
-                Type an operator request to generate a structured proposal
-                preview. No LLM is connected, no tools run, and only
-                proposal-only run/result artifacts may be persisted.
+                Generate a local proposal from your prompt and approved
+                context. No LLM is connected yet; no tools run and nothing
+                mutates.
               </p>
             </div>
             <Badge variant="neutral">No execution</Badge>
@@ -191,9 +191,6 @@ export function OperationalAgentChatPlaceholderWidget({
               >
                 {isPersistingProposal ? "Persisting..." : "Generate proposal"}
               </Button>
-              <Button disabled variant="secondary">
-                Apply proposal planned
-              </Button>
             </div>
           </form>
         </section>
@@ -217,10 +214,9 @@ export function OperationalAgentChatPlaceholderWidget({
           >
             <p className="agent-chat-proposal-title">No proposal generated</p>
             <p className="agent-chat-proposal-text">
-              The next submission will create a local structured preview only.
-              It will not read hidden context, create Queue items, execute
-              Terminal commands, or change Notes, Git, Workspace content, or
-              files. Desktop mode may store a proposal-only run/result artifact.
+              Submit a prompt to create a local proposal preview. Desktop mode
+              saves a proposal artifact that can be inspected in Agent
+              Monitoring.
             </p>
           </section>
         )}
@@ -231,9 +227,9 @@ export function OperationalAgentChatPlaceholderWidget({
         >
           <div className="agent-chat-proposal-header">
             <div className="agent-chat-proposal-copy">
-              <p className="agent-chat-proposal-title">Local mock activity</p>
+              <p className="agent-chat-proposal-title">Proposal status</p>
               <p className="agent-chat-proposal-text">
-                Widget-local proposal status and persistence outcome.
+                Local generation and saved artifact status.
               </p>
             </div>
             {persistenceBadge(persistenceState)}
@@ -426,7 +422,8 @@ function PersistenceStatusSection({
           </div>
         </dl>
         <p className="agent-chat-proposal-text">
-          {persistenceState.response.summary}
+          Saved proposal artifact for read-only inspection in Agent Monitoring.
+          {` ${persistenceState.response.summary}`}
         </p>
       </div>
     );

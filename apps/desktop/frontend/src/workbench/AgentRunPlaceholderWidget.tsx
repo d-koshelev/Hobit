@@ -174,14 +174,14 @@ export function AgentRunPlaceholderWidget({
           <div className="agent-run-summary-copy">
             <p className="agent-run-summary-title">Agent Monitoring</p>
             <p className="agent-run-summary-text">
-              Read-only viewer for persisted Agent Chat proposal-only mock
-              results. Creating a review item only persists queue inbox
-              metadata; no LLM, tools, Terminal commands, Queue execution, or
-              proposal actions run from this surface.
+              Read-only details for saved Agent Chat proposal artifacts.
+              Overview, Result, and Raw inspect stored data only; no execution,
+              apply behavior, LLM, tools, Terminal commands, or Queue execution
+              runs here.
             </p>
           </div>
           <div className="agent-run-summary-actions">
-            <Badge variant="neutral">Proposal artifacts</Badge>
+            <Badge variant="neutral">Saved proposals</Badge>
             <Button
               disabled={loadState.status === "loading"}
               onClick={() => void refreshSnapshot()}
@@ -225,8 +225,8 @@ export function AgentRunPlaceholderWidget({
             }
             text={
               loadState.status === "loading"
-                ? "Reading persisted Agent Chat proposal-only results for this Workbench."
-                : "No persisted Agent Chat proposal-only mock results exist in this Workspace Workbench yet."
+                ? "Reading saved Agent Chat proposal artifacts for this Workbench."
+                : "Generate and save a proposal in Agent Chat, then refresh here to inspect its saved artifact."
             }
             title="No proposal result selected"
           />
@@ -285,7 +285,7 @@ function AgentMonitoringOverview({
     <section className="agent-run-view agent-run-overview">
       <AgentMonitoringViewHeader
         badgeLabel="Read-only"
-        text="Stored run/result metadata and proposal-only safety flags."
+        text="Saved run/result metadata and proposal-only safety flags."
         title="Overview"
       />
       <StaticPreviewFieldList
@@ -333,7 +333,7 @@ function AgentMonitoringResult({
     <section className="agent-run-view agent-run-result">
       <AgentMonitoringViewHeader
         badgeLabel="Proposal only"
-        text="Structured mock proposal result. Actions are not executable here."
+        text="Saved proposal result. Actions are not executable; sending it to the review inbox is optional."
         title="Result"
       />
       <div className="agent-run-actions">
@@ -346,9 +346,9 @@ function AgentMonitoringResult({
             ? "Creating..."
             : createdForSelectedResult
               ? "Review item created"
-              : "Create review item"}
+              : "Create optional review item"}
         </Button>
-        <Badge variant="neutral">Review-only queue item</Badge>
+        <Badge variant="neutral">Optional review inbox</Badge>
       </div>
       <AgentQueueCreateStatus state={queueCreateState} />
       <div className="agent-monitoring-result-body">
@@ -384,8 +384,8 @@ function AgentQueueCreateStatus({ state }: { state: QueueCreateState }) {
   if (state.status === "created") {
     return (
       <p className="agent-run-view-text">
-        Created persisted Agent Queue review item {shortId(state.itemId)}.
-        It is marked needs_review and cannot execute from this surface.
+        Created optional Agent Queue review item {shortId(state.itemId)}.
+        It is marked needs_review and cannot execute.
       </p>
     );
   }

@@ -3,17 +3,6 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueItem, AgentQueueSnapshot } from "../workspace/types";
-import {
-  AgentQueueGroupList,
-  AgentQueueItemDetail,
-  AgentQueueLinkedSurfaces,
-  AgentQueueOverviewSection,
-  AgentQueueSummarySection,
-} from "./AgentQueuePlaceholderSections";
-import {
-  agentQueuePreview,
-  type AgentQueuePreviewItemId,
-} from "./agentQueuePreview";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetRenderProps } from "./types";
 
@@ -41,8 +30,6 @@ export function AgentQueuePlaceholderWidget({
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
-  const [selectedItemId, setSelectedItemId] =
-    useState<AgentQueuePreviewItemId>(agentQueuePreview.defaultSelectedItemId);
   const [selectedQueueItemId, setSelectedQueueItemId] = useState<string | null>(
     null,
   );
@@ -58,14 +45,12 @@ export function AgentQueuePlaceholderWidget({
       null,
     [persistedItems, selectedQueueItemId],
   );
-  const selectedDetailPreview =
-    agentQueuePreview.detailPreviews[selectedItemId] ??
-    agentQueuePreview.detailPreviews[agentQueuePreview.defaultSelectedItemId];
 
   async function refreshQueueSnapshot() {
     if (!onGetAgentQueueSnapshot) {
       setLoadState({
-        message: "Agent Queue persisted review items are unavailable in this runtime.",
+        message:
+          "Agent Queue persisted review items are unavailable in this runtime.",
         status: "failed",
       });
       return;
@@ -115,7 +100,7 @@ export function AgentQueuePlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="warning">Review inbox</Badge>}
+      status={<Badge variant="warning">Optional inbox</Badge>}
       title={title}
     >
       <div className="agent-queue-placeholder">
@@ -123,14 +108,14 @@ export function AgentQueuePlaceholderWidget({
           <div className="agent-queue-summary-copy">
             <p className="agent-queue-summary-title">Agent Queue</p>
             <p className="agent-queue-summary-text">
-              Persisted review inbox for Agent Chat proposal-only mock results.
-              Items are needs_review records only; no executor, tools, Terminal
-              commands, approvals, or apply actions run from this widget.
+              Optional review inbox for saved Agent Chat proposal artifacts.
+              It is not required for the first proposal flow; use Agent
+              Monitoring to inspect saved proposal details.
             </p>
           </div>
           <div className="agent-queue-summary-badges">
             <Badge variant="warning">{persistedItems.length} review</Badge>
-            <Badge variant="neutral">No execution</Badge>
+            <Badge variant="neutral">Review-only</Badge>
             <Button
               disabled={loadState.status === "loading"}
               onClick={() => void refreshQueueSnapshot()}
@@ -157,42 +142,16 @@ export function AgentQueuePlaceholderWidget({
             <PersistedQueueItemDetail item={selectedQueueItem} />
           </>
         ) : (
-          <>
-            <AgentQueueEmptyState
-              badgeLabel={
-                loadState.status === "loading" ? "Loading" : "No items"
-              }
-              text={
-                loadState.status === "loading"
-                  ? "Reading persisted Agent Queue review items for this Workbench."
-                  : "No persisted proposal review items exist in this Workspace Workbench yet."
-              }
-              title="No persisted review items"
-            />
-            <section className="agent-queue-group">
-              <div className="agent-queue-section-header">
-                <div className="agent-queue-group-copy">
-                  <h3 className="agent-queue-section-title">Static preview</h3>
-                  <p className="agent-queue-section-text">
-                    Demo-only planned queue copy remains separate from real
-                    persisted review items.
-                  </p>
-                </div>
-                <Badge variant="neutral">Demo</Badge>
-              </div>
-            </section>
-            <AgentQueueSummarySection summary={agentQueuePreview.summary} />
-            <AgentQueueOverviewSection overview={agentQueuePreview.overview} />
-            <AgentQueueGroupList
-              groups={agentQueuePreview.groups}
-              onSelectItem={setSelectedItemId}
-              selectedItemId={selectedItemId}
-            />
-            <AgentQueueItemDetail preview={selectedDetailPreview} />
-            <AgentQueueLinkedSurfaces
-              linkedSurfaces={agentQueuePreview.linkedSurfaces}
-            />
-          </>
+          <AgentQueueEmptyState
+            badgeLabel={loadState.status === "loading" ? "Loading" : "No items"}
+            text={
+              loadState.status === "loading"
+                ? "Reading optional Agent Queue review items for this Workbench."
+                : "No optional review items exist yet. The first AI path can stop at Agent Monitoring; " +
+                  "create a review item there only when you want an inbox entry."
+            }
+            title="No optional review items"
+          />
         )}
       </div>
     </WidgetFrame>
@@ -214,7 +173,7 @@ function PersistedQueueItems({
         <div className="agent-queue-group-copy">
           <h3 className="agent-queue-section-title">Persisted review items</h3>
           <p className="agent-queue-section-text">
-            Real Agent Queue items created explicitly from persisted Agent Chat
+            Optional inbox entries created explicitly from saved Agent Chat
             proposal artifacts.
           </p>
         </div>
@@ -271,8 +230,9 @@ function PersistedQueueItemDetail({ item }: { item: AgentQueueItem }) {
           <p className="agent-queue-item-block">{shortId(item.id)}</p>
           <h3 className="agent-queue-section-title">{item.title}</h3>
           <p className="agent-queue-section-text">
-            Review-only queue item created from an Agent Chat proposal-only mock
-            result. No approval, apply, executor, or tool path is available.
+            Optional review-only item created from a saved Agent Chat proposal.
+            No approval, apply, executor, queue execution, or tool path is
+            available.
           </p>
         </div>
         <div className="agent-queue-action-row">

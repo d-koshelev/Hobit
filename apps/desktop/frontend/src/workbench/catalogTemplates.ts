@@ -99,20 +99,6 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     futureWidgetDefinitionId: AGENT_CHAT_WIDGET_DEFINITION_ID,
   },
   {
-    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    title: "Agent Queue",
-    category: "workflow",
-    description: "Persisted review inbox for proposal-only Agent Chat results.",
-    section: "ready",
-    status: "available",
-    capabilitySummary: [
-      "Needs-review items",
-      "Read-only proposal details",
-      "No execution, approval, or apply flow",
-    ],
-    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  },
-  {
     id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
     category: "codebase",
@@ -137,10 +123,25 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     status: "available",
     capabilitySummary: [
       "Overview, Result, and Raw sections",
-      "Creates review-only queue items",
+      "Optional review item creation",
       "Secondary detail surface, no runtime",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    title: "Agent Queue",
+    category: "workflow",
+    description:
+      "Optional review inbox for saved proposal-only Agent Chat results.",
+    section: "preview",
+    status: "available",
+    capabilitySummary: [
+      "Optional needs-review items",
+      "Read-only proposal details",
+      "No queue execution, approval, or apply flow",
+    ],
+    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
   },
   {
     id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
