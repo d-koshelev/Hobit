@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allow the main Hobit window to subscribe to Tauri events.",
+  "windows": ["main"],
+  "permissions": ["core:event:default", "core:event:allow-listen"]
+}
