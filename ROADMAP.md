@@ -10,10 +10,13 @@ the controlled path for small approved work where the operator explicitly
 chooses the repository root, prompt, sandbox/mode, and review flow.
 
 Direct Mode must remain agent-agnostic for future executors and must follow
-`docs/DIRECT_MODE_AGENT_CONTRACT.md`. It is not implemented yet: no Codex
-execution, backend/Tauri command, UI, storage/schema, queue execution, Git
-mutation, auto-commit, auto-push, embedded PTY, or hidden background execution
-is part of the current roadmap slice.
+`docs/DIRECT_MODE_AGENT_CONTRACT.md`. Backend/tooling-only Codex CLI
+foundations now exist in `hobit-tools`: availability/version probing and a
+one-shot Direct Work runner for an explicit repository root and operator
+prompt. Direct Mode product integration is still not implemented: no Tauri
+command, UI, storage/schema persistence, queue execution, Git mutation,
+auto-commit, auto-push, embedded PTY, interactive session, or hidden background
+execution is part of the current roadmap slice.
 
 ## Phase 0: Contracts And Repository Foundation
 

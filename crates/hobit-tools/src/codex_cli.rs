@@ -1,14 +1,23 @@
-//! Safe Codex CLI availability/version probe.
+//! Safe Codex CLI tool foundations.
 //!
-//! This module only checks whether a local Codex CLI-like executable responds
-//! to `--version`. It does not run `codex exec`, pass prompts, pass repository
-//! paths, create temporary prompts, request network access, or expose Direct
-//! Work execution.
+//! The probe checks whether a local Codex CLI-like executable responds to
+//! `--version`. The Direct Work runner builds a bounded one-shot `codex exec`
+//! process request for an explicit repository root and operator prompt. Neither
+//! path exposes frontend UI, Tauri commands, storage persistence, Git mutation,
+//! queue execution, an embedded PTY, or an interactive Codex session.
 
 use std::env;
 use std::time::Instant;
 
 use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
+
+pub mod direct_run;
+
+pub use direct_run::{
+    run_codex_direct_work, CodexApprovalPolicy, CodexDirectRunOutput, CodexDirectRunRequest,
+    CodexDirectRunStatus, CodexSandboxMode, DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES,
+    DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
+};
 
 pub const DEFAULT_CODEX_CLI_PROGRAM: &str = "codex";
 pub const DEFAULT_CODEX_CLI_PROBE_TIMEOUT_MS: u64 = 2_000;

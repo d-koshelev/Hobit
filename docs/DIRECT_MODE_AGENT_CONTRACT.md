@@ -16,9 +16,11 @@ bounded work while preserving Hobit's core rule:
 - Operator chooses the mode, prompt, repository root, sandbox, and review.
 - Hobit makes the work visible, logged, observable, and reviewable.
 
-This is a documentation and product/domain contract only. It does not implement
-runtime behavior, frontend UI, Tauri commands, storage/schema changes, Codex
-execution, queue execution, Git mutations, commits, pushes, an embedded PTY, or
+This contract defines the product and runtime boundary for Direct Mode. The
+repository now includes backend/tooling-only Codex CLI foundations in
+`hobit-tools`: an availability/version probe and a one-shot Direct Work runner.
+It still does not implement frontend UI, Tauri commands, storage/schema
+changes, queue execution, Git mutations, commits, pushes, an embedded PTY, or
 interactive agent sessions.
 
 ## Current Status
@@ -37,16 +39,25 @@ Hobit currently has:
 - Git widget placeholder support for manual read-only status refresh from an
   explicit transient repository root
 
-Hobit does not currently run Codex CLI, run executor agents, execute Queue
-items, perform file-changing agent work, persist Direct Work run artifacts, or
-provide Direct Work UI.
+Hobit does not currently expose Codex CLI through frontend UI, Tauri commands,
+storage-backed run artifacts, Agent Monitoring, Agent Queue, or Git Widget
+integration. It does not run executor agents from product surfaces, execute
+Queue items, persist Direct Work run artifacts, or provide Direct Work UI.
 
-The repository now includes a backend/tooling-only Codex CLI
-availability/version probe in `hobit-tools`. That probe runs only
-`codex --version` or `<explicit-program> --version`, captures stdout, stderr,
-duration, version text when available, and a structured availability result. It
-is not wired to frontend UI, Tauri commands, storage, Agent Monitoring, Agent
-Queue, Git Widget, or Direct Work execution.
+The repository now includes backend/tooling-only Codex CLI foundations in
+`hobit-tools`:
+
+- an availability/version probe that runs only `codex --version` or
+  `<explicit-program> --version`, captures stdout, stderr, duration, version
+  text when available, and returns a structured availability result
+- a one-shot Direct Work runner that validates an explicit repository root and
+  operator prompt, builds `codex exec` with fixed argv, passes the selected
+  sandbox and approval policy, captures stdout/stderr, reads the
+  `--output-last-message` file when available, applies output caps and timeout,
+  and returns a structured result
+
+These foundations are not wired to frontend UI, Tauri commands, storage, Agent
+Monitoring, Agent Queue, or Git Widget.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
@@ -185,10 +196,12 @@ Rules:
   or Git mutation.
 
 Codex CLI availability detection and version smoke checks have a
-backend/tooling-only foundation in `hobit-tools`. Command construction for
-Direct Work, process execution for tasks, output capture as run artifacts,
-frontend UI, Tauri exposure, storage, Agent Monitoring integration, and Git
-review wiring all require later implementation blocks.
+backend/tooling-only foundation in `hobit-tools`. Direct Work command
+construction and one-shot process execution also have a backend/tooling-only
+foundation there. Frontend UI, Tauri exposure, storage/run artifacts, Agent
+Monitoring integration, Git review wiring, changed-file capture, validation
+capture, commit/push flows, and interactive execution all require later
+implementation blocks.
 
 ## Widget Integration
 
@@ -375,6 +388,8 @@ Follow-up blocks should stay small and focused:
      repository root, sandbox, and approval policy.
    - Capture raw output and final status.
    - Do not add UI, queue execution, commits, pushes, or Git mutations.
+   - Current status: implemented in `hobit-tools` only; not exposed through UI,
+     Tauri, storage, Monitoring, Queue, or Git surfaces.
 
 3. Direct Work minimal UI.
    - Add the smallest useful operator surface for prompt, repo root, mode,
@@ -403,10 +418,8 @@ Follow-up blocks should stay small and focused:
 
 ## Non-Goals
 
-This contract does not implement:
+This contract and current foundation do not implement:
 
-- Codex execution
-- CLI detection implementation
 - frontend UI
 - backend/Tauri commands
 - storage/schema changes
