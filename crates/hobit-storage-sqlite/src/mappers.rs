@@ -3,8 +3,8 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 
@@ -115,6 +115,22 @@ pub(crate) fn widget_result_row(row: &rusqlite::Row<'_>) -> Result<WidgetResultR
         content: row.get(5)?,
         payload: row.get(6)?,
         created_at: row.get(7)?,
+    })
+}
+
+pub(crate) fn agent_queue_item_row(row: &rusqlite::Row<'_>) -> Result<AgentQueueItemRow> {
+    Ok(AgentQueueItemRow {
+        id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        workbench_id: row.get(2)?,
+        source_run_id: row.get(3)?,
+        source_result_id: row.get(4)?,
+        source_widget_instance_id: row.get(5)?,
+        title: row.get(6)?,
+        status: row.get(7)?,
+        payload_json: row.get(8)?,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
     })
 }
 

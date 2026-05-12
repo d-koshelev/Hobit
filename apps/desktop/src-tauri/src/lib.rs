@@ -1,3 +1,6 @@
+mod agent_queue_dto;
+#[cfg(test)]
+mod agent_queue_dto_tests;
 mod app_state;
 mod workspace_commands;
 mod workspace_dto;
@@ -26,6 +29,8 @@ pub fn run() {
             workspace_commands::run_terminal_command,
             workspace_commands::persist_agent_chat_proposal,
             workspace_commands::get_agent_monitoring_snapshot,
+            workspace_commands::create_agent_queue_item_from_proposal,
+            workspace_commands::get_agent_queue_snapshot,
             workspace_commands::get_git_repository_status
         ])
         .run(tauri::generate_context!())

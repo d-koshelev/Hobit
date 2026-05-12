@@ -10,6 +10,7 @@ It supports storage primitives for:
 - Workspace Workbenches and Workbench Presets.
 - Widget instances and widget layout/presentation state.
 - Widget runs, widget-local logs, and widget results.
+- Agent Queue proposal-review items.
 - Shared State objects.
 - Workbench event history.
 
@@ -17,7 +18,7 @@ It supports storage primitives for:
 
 - Persistence abstractions that depend on `hobit-core`.
 - SQLite schema initialization.
-- Local storage boundaries for Workspace, Widget, Shared State, and Event rows.
+- Local storage boundaries for Workspace, Widget, Agent Queue review item, Shared State, and Event rows.
 - Small row-level CRUD/append helpers.
 
 ## Does Not Belong Here

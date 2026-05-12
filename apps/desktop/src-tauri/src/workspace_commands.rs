@@ -4,6 +4,10 @@ use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
+use crate::agent_queue_dto::{
+    AgentQueueItemDto, AgentQueueSnapshotDto, CreateAgentQueueItemFromProposalRequest,
+    GetAgentQueueSnapshotRequest,
+};
 use crate::app_state::AppState;
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
@@ -180,6 +184,30 @@ pub(crate) fn get_agent_monitoring_snapshot(
     service
         .get_agent_monitoring_snapshot(&request.workspace_id, &request.workbench_id)
         .map(|snapshot| snapshot.map(AgentMonitoringSnapshotDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn create_agent_queue_item_from_proposal(
+    request: CreateAgentQueueItemFromProposalRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentQueueItemDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .create_agent_queue_item_from_proposal(request.into())
+        .map(|item| item.map(AgentQueueItemDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn get_agent_queue_snapshot(
+    request: GetAgentQueueSnapshotRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentQueueSnapshotDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .get_agent_queue_snapshot(&request.workspace_id, &request.workbench_id)
+        .map(|snapshot| snapshot.map(AgentQueueSnapshotDto::from))
         .map_err(command_error)
 }
 

@@ -6,7 +6,7 @@ This contract defines the future Workspace-aware Coordinator Agent behavior for 
 
 The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
 
-This is primarily a documentation and product/domain contract. The current Agent Chat widget has a frontend-local/mock proposal-only preview with explicit current-session approved context selection for safe current-view metadata and a desktop persistence path for proposal-only widget run/result artifacts, but it does not implement agent runtime behavior, LLM calls, persisted approved context models outside the proposal result snapshot, executable action proposals, action execution, Agent Queue creation, or cross-widget mutation.
+This is primarily a documentation and product/domain contract. The current Agent Chat widget has a frontend-local/mock proposal-only preview with explicit current-session approved context selection for safe current-view metadata and a desktop persistence path for proposal-only widget run/result artifacts, and Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted proposal result. It does not implement agent runtime behavior, LLM calls, persisted approved context models outside the proposal result snapshot, executable action proposals, action execution, proposal approval/apply behavior, or cross-widget mutation.
 
 ## Current Status
 
@@ -20,7 +20,7 @@ The current mock preview:
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context
 - can persist the generated proposal as a structured proposal-only widget run/log/result artifact in the desktop shell
-- does not persist chat messages, persist reusable context snapshots, create Queue items, execute actions, or mutate Workspace content
+- does not persist chat messages, persist reusable context snapshots, create Queue items by itself, execute actions, or mutate Workspace content
 
 There is no implemented:
 
@@ -34,6 +34,8 @@ There is no implemented:
 - response parser or validator
 - automatic execution
 - coordinator UI beyond the local/mock proposal preview
+
+The only current Agent Queue write path is outside Agent Chat: Agent Monitoring can create a persisted `needs_review` / `pending_review` item from an already stored proposal-only mock result after the operator explicitly requests it. That item is review-only and does not approve, apply, execute, or mutate the source proposal.
 
 This contract describes future behavior only.
 
@@ -427,7 +429,7 @@ This contract does not implement:
 - context permission UI
 - executable action proposal engine
 - action execution engine
-- Agent Queue item creation
+- Coordinator-driven Agent Queue item creation beyond the explicit review-only item path from persisted proposal mock results
 - Notebook editing
 - Template generation
 - Git association

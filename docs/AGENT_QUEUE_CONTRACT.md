@@ -6,19 +6,19 @@ This contract defines Hobit's future Agent Queue as an operator-controlled agent
 
 The Agent Queue is a coordinator/review layer for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
 
-This is a documentation and product/domain contract only. It does not implement storage, UI, automatic execution, executor integration, response parsing, response validation, Git mutation, Tauri commands, Workspace API changes, or runtime behavior.
+This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
 
 ## Current Status
 
-Agent Queue currently exists only as an insertable static frontend placeholder widget and this product/domain contract.
+Agent Queue currently exists as an insertable Workbench widget with a narrow persisted review-item path for Agent Chat proposal-only mock results.
 
 The current repository has:
 
-- a static Agent Queue placeholder preview rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
-- a static command queue/history/review overview, grouped queue cards, frontend-local static item selection, selected item detail previews, linked surface summaries, and disabled planned actions
-- no queue storage
-- no queue item schema
-- no persisted queue item selection
+- an Agent Queue widget rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
+- a static command queue/history/review overview used only as clearly labeled empty/demo copy when no persisted review items exist
+- SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat proposal-only mock results
+- explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
+- persisted queue item listing and read-only detail preview scoped to the current Workspace Workbench
 - no automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator
@@ -26,9 +26,9 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the static Agent Queue placeholder, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the persisted proposal review item path, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
-The current Agent Queue card selection is local React state only. It swaps between static preview records, writes no widget state, calls no backend API, and does not create real queue behavior.
+The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 
 ## Definition
 
@@ -50,7 +50,7 @@ The Agent Queue must not be defined as:
 - auto-push or auto-merge workflow
 - a way to bypass tool approval, Git review, validation, or operator control
 
-Agent Queue is visible today only as a static placeholder Workbench widget. Future functional Agent Queue behavior must follow `docs/WIDGET_CONTRACT.md`; it is optional capability surface, not the product center.
+Agent Queue is visible today as an insertable Workbench widget with a narrow proposal-review inbox slice. Future broader Agent Queue behavior must follow `docs/WIDGET_CONTRACT.md`; it is optional capability surface, not the product center.
 
 ## Core Purpose
 
@@ -428,18 +428,18 @@ Future implementation may introduce concepts such as:
 - `ReviewNote`
 - `FollowUpBlock`
 
-These are conceptual only. This contract does not define Rust types, TypeScript types, API DTOs, SQLite schema, frontend state, or storage migrations.
+These are conceptual except for the current narrow proposal-review item slice. This contract does not define broader executor queue types, response-capture APIs, Git review links, notes links, or runtime storage.
 
 ## Non-Goals
 
 This contract does not implement:
 
-- Agent Queue behavior beyond the static placeholder UI
-- storage schema or migrations
-- Rust domain types
-- TypeScript types
-- Tauri commands
-- Workspace API changes
+- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat proposal mock results
+- broad executor queue storage or migrations
+- general Rust domain types beyond the current proposal-review DTO/service models
+- general TypeScript types beyond the current proposal-review API types
+- Tauri commands beyond proposal-review item create/read
+- Workspace API changes beyond proposal-review item create/read
 - automatic execution
 - executor integration
 - response capture
@@ -452,7 +452,7 @@ This contract does not implement:
 - background queue runner
 - secret or context automation
 - runtime/tool execution changes
-- current widget behavior changes
+- widget behavior changes beyond the Agent Monitoring create-review action and Agent Queue read-only proposal-review inbox
 - product behavior changes
 
 ## Architecture Boundary

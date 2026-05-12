@@ -23,12 +23,27 @@ type MonitoringLoadState =
       status: "ready";
     };
 
+type QueueCreateState =
+  | {
+      status: "idle" | "creating";
+    }
+  | {
+      itemId: string;
+      sourceResultId: string;
+      status: "created";
+    }
+  | {
+      message: string;
+      status: "failed";
+    };
+
 export function AgentRunPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
   frameStyle,
   instance,
   logRefreshToken,
+  onCreateAgentQueueItemFromProposal,
   onGetAgentMonitoringSnapshot,
   onLoadLogs,
   onStartFrameMove,
@@ -38,6 +53,9 @@ export function AgentRunPlaceholderWidget({
     status: "idle",
   });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [queueCreateState, setQueueCreateState] = useState<QueueCreateState>({
+    status: "idle",
+  });
   const proposalResults =
     loadState.status === "ready"
       ? (loadState.snapshot?.proposalResults ?? [])
@@ -76,6 +94,46 @@ export function AgentRunPlaceholderWidget({
     }
   }
 
+  async function createReviewItem(result: AgentMonitoringProposalResult) {
+    if (!onCreateAgentQueueItemFromProposal) {
+      setQueueCreateState({
+        message:
+          "Agent Queue review item persistence is unavailable in this runtime.",
+        status: "failed",
+      });
+      return;
+    }
+
+    setQueueCreateState({ status: "creating" });
+
+    try {
+      const item = await onCreateAgentQueueItemFromProposal(
+        result.runId,
+        result.resultId,
+      );
+
+      if (!item) {
+        setQueueCreateState({
+          message:
+            "This proposal result could not be added to the review queue.",
+          status: "failed",
+        });
+        return;
+      }
+
+      setQueueCreateState({
+        itemId: item.id,
+        sourceResultId: result.resultId,
+        status: "created",
+      });
+    } catch (error) {
+      setQueueCreateState({
+        message: errorToMessage(error),
+        status: "failed",
+      });
+    }
+  }
+
   useEffect(() => {
     void refreshSnapshot();
   }, [onGetAgentMonitoringSnapshot]);
@@ -96,6 +154,10 @@ export function AgentRunPlaceholderWidget({
     }
   }, [proposalResults, selectedRunId]);
 
+  useEffect(() => {
+    setQueueCreateState({ status: "idle" });
+  }, [selectedResult?.resultId]);
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -113,7 +175,8 @@ export function AgentRunPlaceholderWidget({
             <p className="agent-run-summary-title">Agent Monitoring</p>
             <p className="agent-run-summary-text">
               Read-only viewer for persisted Agent Chat proposal-only mock
-              results. No LLM, tools, Terminal commands, Queue actions, or
+              results. Creating a review item only persists queue inbox
+              metadata; no LLM, tools, Terminal commands, Queue execution, or
               proposal actions run from this surface.
             </p>
           </div>
@@ -147,7 +210,11 @@ export function AgentRunPlaceholderWidget({
               className="agent-run-view-grid"
             >
               <AgentMonitoringOverview result={selectedResult} />
-              <AgentMonitoringResult result={selectedResult} />
+              <AgentMonitoringResult
+                onCreateReviewItem={() => void createReviewItem(selectedResult)}
+                queueCreateState={queueCreateState}
+                result={selectedResult}
+              />
               <AgentMonitoringRaw result={selectedResult} />
             </div>
           </>
@@ -250,10 +317,18 @@ function AgentMonitoringOverview({
 }
 
 function AgentMonitoringResult({
+  onCreateReviewItem,
+  queueCreateState,
   result,
 }: {
+  onCreateReviewItem: () => void;
+  queueCreateState: QueueCreateState;
   result: AgentMonitoringProposalResult;
 }) {
+  const createdForSelectedResult =
+    queueCreateState.status === "created" &&
+    queueCreateState.sourceResultId === result.resultId;
+
   return (
     <section className="agent-run-view agent-run-result">
       <AgentMonitoringViewHeader
@@ -261,6 +336,21 @@ function AgentMonitoringResult({
         text="Structured mock proposal result. Actions are not executable here."
         title="Result"
       />
+      <div className="agent-run-actions">
+        <Button
+          disabled={queueCreateState.status === "creating" || createdForSelectedResult}
+          onClick={onCreateReviewItem}
+          variant="secondary"
+        >
+          {queueCreateState.status === "creating"
+            ? "Creating..."
+            : createdForSelectedResult
+              ? "Review item created"
+              : "Create review item"}
+        </Button>
+        <Badge variant="neutral">Review-only queue item</Badge>
+      </div>
+      <AgentQueueCreateStatus state={queueCreateState} />
       <div className="agent-monitoring-result-body">
         <AgentMonitoringTextBlock
           label="Operator prompt"
@@ -284,6 +374,27 @@ function AgentMonitoringResult({
       </div>
     </section>
   );
+}
+
+function AgentQueueCreateStatus({ state }: { state: QueueCreateState }) {
+  if (state.status === "idle" || state.status === "creating") {
+    return null;
+  }
+
+  if (state.status === "created") {
+    return (
+      <p className="agent-run-view-text">
+        Created persisted Agent Queue review item {shortId(state.itemId)}.
+        It is marked needs_review and cannot execute from this surface.
+      </p>
+    );
+  }
+
+  if (state.status === "failed") {
+    return <p className="agent-run-view-text">{state.message}</p>;
+  }
+
+  return null;
 }
 
 function AgentMonitoringRaw({

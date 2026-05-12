@@ -13,5 +13,5 @@ This directory contains the current Hobit desktop shell and frontend.
 
 - Interactive Terminal execution.
 - Agent runtime implementation.
-- Agent Queue/runtime execution.
+- Agent Queue execution/runtime beyond review-only proposal items.
 - Database schema or storage logic.

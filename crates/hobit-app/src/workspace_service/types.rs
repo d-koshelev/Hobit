@@ -222,6 +222,55 @@ pub struct AgentMonitoringProposalActionSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateAgentQueueItemFromProposalInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub source_run_id: String,
+    pub source_result_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueSnapshot {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub items: Vec<AgentQueueItemSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueItemSummary {
+    pub id: String,
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub source_run_id: String,
+    pub source_result_id: String,
+    pub source_widget_instance_id: String,
+    pub source_widget_title: String,
+    pub title: String,
+    pub status: String,
+    pub decision_status: String,
+    pub prompt_summary: String,
+    pub proposal_summary: String,
+    pub approved_context_summary: String,
+    pub proposed_plan: Vec<String>,
+    pub proposed_actions: Vec<AgentQueueProposalActionSummary>,
+    pub proposal_only_mock: bool,
+    pub no_llm_called: bool,
+    pub no_tools_executed: bool,
+    pub no_mutations_performed: bool,
+    pub created_at: String,
+    pub updated_at: String,
+    pub payload_json: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueProposalActionSummary {
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub executed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GitRepositoryStatusSummary {
     pub branch: Option<GitBranchStatusSummary>,
     pub working_tree: GitWorkingTreeStatusSummary,

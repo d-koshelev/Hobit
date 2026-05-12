@@ -4,8 +4,12 @@ import { isTauriRuntime } from "./tauriEnvironment";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentMonitoringSnapshot,
+  AgentQueueItem,
+  AgentQueueSnapshot,
   CreateWorkspaceRequest,
+  CreateAgentQueueItemFromProposalRequest,
   GetAgentMonitoringSnapshotRequest,
+  GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
@@ -50,6 +54,12 @@ export type WorkspaceApi = {
   getAgentMonitoringSnapshot: (
     request: GetAgentMonitoringSnapshotRequest,
   ) => Promise<AgentMonitoringSnapshot | null>;
+  createAgentQueueItemFromProposal: (
+    request: CreateAgentQueueItemFromProposalRequest,
+  ) => Promise<AgentQueueItem | null>;
+  getAgentQueueSnapshot: (
+    request: GetAgentQueueSnapshotRequest,
+  ) => Promise<AgentQueueSnapshot | null>;
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
@@ -123,6 +133,18 @@ export function getAgentMonitoringSnapshot(
   request: GetAgentMonitoringSnapshotRequest,
 ): Promise<AgentMonitoringSnapshot | null> {
   return getWorkspaceApi().getAgentMonitoringSnapshot(request);
+}
+
+export function createAgentQueueItemFromProposal(
+  request: CreateAgentQueueItemFromProposalRequest,
+): Promise<AgentQueueItem | null> {
+  return getWorkspaceApi().createAgentQueueItemFromProposal(request);
+}
+
+export function getAgentQueueSnapshot(
+  request: GetAgentQueueSnapshotRequest,
+): Promise<AgentQueueSnapshot | null> {
+  return getWorkspaceApi().getAgentQueueSnapshot(request);
 }
 
 export function getGitRepositoryStatus(

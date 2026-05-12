@@ -627,6 +627,53 @@ fn insert_widget_run_log_and_result() {
 }
 
 #[test]
+fn insert_and_list_agent_queue_items() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+    insert_widget_run(&store);
+    store
+        .insert_widget_result(NewWidgetResult {
+            id: "result-1",
+            run_id: "run-1",
+            status: "completed",
+            result_type: Some("agent_chat_mock_proposal_result"),
+            summary: Some("Proposal"),
+            content: Some("Proposal content"),
+            payload: Some("{\"runtime_status\":\"proposal_only_mock\"}"),
+            created_at: Some("2"),
+        })
+        .expect("insert source result");
+
+    let item = store
+        .insert_agent_queue_item(NewAgentQueueItem {
+            id: "queue-item-1",
+            workspace_id: "workspace-1",
+            workbench_id: "workbench-1",
+            source_run_id: "run-1",
+            source_result_id: "result-1",
+            source_widget_instance_id: "widget-1",
+            title: "Review proposal",
+            status: "needs_review",
+            payload_json: "{\"decision_status\":\"pending_review\"}",
+            created_at: Some("3"),
+            updated_at: Some("3"),
+        })
+        .expect("insert queue item");
+    let listed = store
+        .list_agent_queue_items("workspace-1", "workbench-1")
+        .expect("list queue items");
+    let other_workbench_items = store
+        .list_agent_queue_items("workspace-1", "missing-workbench")
+        .expect("list other workbench items");
+
+    assert_eq!(item.status, "needs_review");
+    assert_eq!(item.source_result_id, "result-1");
+    assert_eq!(listed, vec![item]);
+    assert!(other_workbench_items.is_empty());
+}
+
+#[test]
 fn finish_widget_run_updates_status_and_preserves_existing_summary_when_absent() {
     let store = initialized_store();
     create_workspace_and_workbench(&store);

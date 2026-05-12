@@ -2,8 +2,12 @@ import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentMonitoringSnapshot,
+  AgentQueueItem,
+  AgentQueueSnapshot,
   CreateWorkspaceRequest,
+  CreateAgentQueueItemFromProposalRequest,
   GetAgentMonitoringSnapshotRequest,
+  GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
   ListWidgetLogsRequest,
@@ -37,6 +41,8 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   listWidgetLogs,
   getAgentMonitoringSnapshot,
+  createAgentQueueItemFromProposal,
+  getAgentQueueSnapshot,
   getGitRepositoryStatus,
   persistAgentChatProposal,
   runTerminalCommand,
@@ -257,6 +263,22 @@ async function getAgentMonitoringSnapshot(
 ): Promise<AgentMonitoringSnapshot | null> {
   throw new Error(
     "Agent Monitoring proposal result reads are only available in the Tauri desktop shell. Browser fallback has no persisted proposal run artifacts to display.",
+  );
+}
+
+async function createAgentQueueItemFromProposal(
+  _request: CreateAgentQueueItemFromProposalRequest,
+): Promise<AgentQueueItem | null> {
+  throw new Error(
+    "Agent Queue review item persistence is only available in the Tauri desktop shell. Browser fallback cannot create persisted queue items from proposal artifacts.",
+  );
+}
+
+async function getAgentQueueSnapshot(
+  _request: GetAgentQueueSnapshotRequest,
+): Promise<AgentQueueSnapshot | null> {
+  throw new Error(
+    "Agent Queue persisted review items are only available in the Tauri desktop shell. Browser fallback has no persisted queue inbox to display.",
   );
 }
 

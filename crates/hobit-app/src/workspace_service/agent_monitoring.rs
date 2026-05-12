@@ -66,7 +66,7 @@ impl WorkspaceService {
     }
 }
 
-fn proposal_result_summary(
+pub(super) fn proposal_result_summary(
     widget: &WidgetInstanceRow,
     run: &WidgetRunRow,
     result: WidgetResultRow,

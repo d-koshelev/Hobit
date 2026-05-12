@@ -96,6 +96,20 @@ CREATE TABLE IF NOT EXISTS widget_results (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_items (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    workbench_id TEXT NOT NULL REFERENCES workspace_workbenches(id),
+    source_run_id TEXT NOT NULL REFERENCES widget_runs(id),
+    source_result_id TEXT NOT NULL REFERENCES widget_results(id),
+    source_widget_instance_id TEXT NOT NULL REFERENCES widget_instances(id),
+    title TEXT NOT NULL,
+    status TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS shared_state_objects (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -132,6 +146,15 @@ CREATE INDEX IF NOT EXISTS idx_widget_runs_widget_instance_id
 
 CREATE INDEX IF NOT EXISTS idx_widget_results_run_id
     ON widget_results(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_items_workspace_id
+    ON agent_queue_items(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_items_workbench_id
+    ON agent_queue_items(workbench_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_items_source_result_id
+    ON agent_queue_items(source_result_id);
 
 CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
     ON shared_state_objects(workspace_id);

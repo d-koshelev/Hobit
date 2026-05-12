@@ -103,6 +103,21 @@ pub struct WidgetResultRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueItemRow {
+    pub id: String,
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub source_run_id: String,
+    pub source_result_id: String,
+    pub source_widget_instance_id: String,
+    pub title: String,
+    pub status: String,
+    pub payload_json: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SharedStateObjectRow {
     pub id: String,
     pub workspace_id: String,

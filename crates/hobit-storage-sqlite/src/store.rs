@@ -9,17 +9,18 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    NewAgentQueueItem, NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult,
+    NewWidgetRun, NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
+mod agent_queue_items;
 mod events;
 mod sessions;
 mod shared_state;

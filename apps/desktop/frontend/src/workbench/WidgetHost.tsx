@@ -173,6 +173,14 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentMonitoringSnapshot
       : undefined;
+  const createAgentQueueItemFromProposal =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.createAgentQueueItemFromProposal
+      : undefined;
+  const getAgentQueueSnapshot =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.getAgentQueueSnapshot
+      : undefined;
 
   if (!Component) {
     return (
@@ -204,8 +212,10 @@ export function WidgetHost({
       frameStyle={frameStyle}
       instance={instance}
       logRefreshToken={logRefreshToken}
+      onCreateAgentQueueItemFromProposal={createAgentQueueItemFromProposal}
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onGetAgentMonitoringSnapshot={getAgentMonitoringSnapshot}
+      onGetAgentQueueSnapshot={getAgentQueueSnapshot}
       onLoadLogs={widgetActions.listWidgetLogs}
       onPersistAgentChatProposal={persistAgentChatProposal}
       onRunTerminalCommand={runTerminalCommand}

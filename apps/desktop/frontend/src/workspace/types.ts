@@ -51,6 +51,18 @@ export type GetAgentMonitoringSnapshotRequest = {
   workbenchId: string;
 };
 
+export type CreateAgentQueueItemFromProposalRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  sourceRunId: string;
+  sourceResultId: string;
+};
+
+export type GetAgentQueueSnapshotRequest = {
+  workspaceId: string;
+  workbenchId: string;
+};
+
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -149,6 +161,44 @@ export type AgentMonitoringProposalResult = {
 };
 
 export type AgentMonitoringProposalAction = {
+  title: string;
+  description: string;
+  status: string;
+  executed: boolean;
+};
+
+export type AgentQueueSnapshot = {
+  workspaceId: string;
+  workbenchId: string;
+  items: AgentQueueItem[];
+};
+
+export type AgentQueueItem = {
+  id: string;
+  workspaceId: string;
+  workbenchId: string;
+  sourceRunId: string;
+  sourceResultId: string;
+  sourceWidgetInstanceId: string;
+  sourceWidgetTitle: string;
+  title: string;
+  status: string;
+  decisionStatus: string;
+  promptSummary: string;
+  proposalSummary: string;
+  approvedContextSummary: string;
+  proposedPlan: string[];
+  proposedActions: AgentQueueProposalAction[];
+  proposalOnlyMock: boolean;
+  noLlmCalled: boolean;
+  noToolsExecuted: boolean;
+  noMutationsPerformed: boolean;
+  createdAt: string;
+  updatedAt: string;
+  payloadJson: string;
+};
+
+export type AgentQueueProposalAction = {
   title: string;
   description: string;
   status: string;

@@ -1,4 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  createAgentQueueItemFromProposal,
+  getAgentQueueSnapshot,
+} from "./tauriAgentQueueApi";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
@@ -31,6 +35,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   listWidgetLogs,
   getAgentMonitoringSnapshot,
+  createAgentQueueItemFromProposal,
+  getAgentQueueSnapshot,
   getGitRepositoryStatus,
   persistAgentChatProposal,
   runTerminalCommand,

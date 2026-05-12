@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
   AgentMonitoringSnapshot,
+  AgentQueueItem,
+  AgentQueueSnapshot,
   GitRepositoryStatus,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -188,6 +190,11 @@ export type WidgetRenderProps = {
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   onGetAgentMonitoringSnapshot?: () => Promise<AgentMonitoringSnapshot | null>;
+  onCreateAgentQueueItemFromProposal?: (
+    sourceRunId: string,
+    sourceResultId: string,
+  ) => Promise<AgentQueueItem | null>;
+  onGetAgentQueueSnapshot?: () => Promise<AgentQueueSnapshot | null>;
   onPersistAgentChatProposal?: (
     widgetInstanceId: WidgetInstanceId,
     proposal: Omit<

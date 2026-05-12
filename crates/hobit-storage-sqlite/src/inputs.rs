@@ -93,6 +93,21 @@ pub struct NewWidgetResult<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueItem<'a> {
+    pub id: &'a str,
+    pub workspace_id: &'a str,
+    pub workbench_id: &'a str,
+    pub source_run_id: &'a str,
+    pub source_result_id: &'a str,
+    pub source_widget_instance_id: &'a str,
+    pub title: &'a str,
+    pub status: &'a str,
+    pub payload_json: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewSharedStateObject<'a> {
     pub id: &'a str,
     pub workspace_id: &'a str,
