@@ -83,6 +83,10 @@ A future Queue Item may include:
 - status
 - priority
 - target executor, agent, tool, or manual assignee
+- task size and execution budget
+- expected changed layers
+- validation profile plan
+- stop/split rule
 - command text or command summary when relevant
 - Request Template reference
 - applied request snapshot
@@ -98,6 +102,24 @@ A future Queue Item may include:
 - created and updated timestamps
 
 The Queue Item is not the same as a reusable template. It is a concrete command or block instance in a Workspace or Project history.
+
+## Work Efficiency Metadata
+
+Future Queue Items should follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`.
+
+Each implementation or audit item should carry enough metadata to keep work small and reviewable:
+
+- task size: small, medium, or split-required
+- scope summary and non-goals
+- expected changed layers
+- execution budget
+- validation profile plan
+- stop/split rule
+- reviewer note about whether scope and budget were respected
+
+Over-broad queue items should be split before execution. A Queue Item that would touch schema, app service, Tauri/API, and frontend UI together should normally become multiple smaller items unless the operator explicitly approves a high-risk integration block.
+
+Agent Queue must not turn one broad item into hidden multi-layer automation.
 
 ## Workspace Scope
 

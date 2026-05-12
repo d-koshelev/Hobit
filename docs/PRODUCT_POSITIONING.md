@@ -20,6 +20,7 @@ Hobit structures the work around AI agents. It does not replace the operator, hi
 - Operator-controlled, not hidden automation.
 - Structured requests, not ad-hoc prompts.
 - Focused executor tasks, not endless agent threads.
+- Small efficient blocks, not over-broad multi-layer tasks by default.
 - Reusable Request Templates and Response Templates as product direction.
 - Validation and review as first-class workflow steps.
 - Observable work through activity, logs, artifacts, and history.
@@ -60,6 +61,7 @@ Current implemented behavior remains the Empty Workbench shell, Workspace lifecy
 - `docs/GIT_WIDGET_CONTRACT.md` defines the future Git review/control widget for agent-completed code work.
 - `docs/TEMPLATE_CONTRACT.md` defines future Request Templates and Response Templates.
 - `docs/AGENT_OPERATING_MODEL.md` defines future coordinator and executor agent roles.
+- `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md` defines small-block execution budgets, validation profiles, and stop/split rules.
 - `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines future approved-context Coordinator behavior and controlled cross-widget action proposals.
 - `docs/AGENT_QUEUE_CONTRACT.md` defines the future operator-controlled agent command queue, command history, and review inbox.
 - `docs/AGENT_RESPONSE_CONTRACT.md` defines current project-agent final response requirements.

@@ -7,6 +7,10 @@ Codex and other agents should check `scripts/hobit/` before writing one-off
 inspection scripts. If a repeated inspection need is missing, propose a reusable
 Toolbelt script instead of leaving temporary helper scripts in the repository.
 
+The Toolbelt supports `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md` by making fast
+iteration checks, changed-file validation, full acceptance validation, file-size
+inspection, and changed-file summaries cheap and repeatable.
+
 ## Rules
 
 - Run scripts from the repository root.
@@ -103,6 +107,10 @@ Runs:
 Codex and other agents should use `fast` during iteration, `changed` after
 focused edits, and `full` before commits unless a prompt explicitly says
 otherwise. The `fast` profile is not final acceptance.
+
+Avoid duplicating the full profile with repeated individual npm/cargo commands
+when `full` already covers them, unless a prompt explicitly asks for the
+duplicates or a failure needs focused diagnosis.
 
 ### `check-file-sizes.py`
 

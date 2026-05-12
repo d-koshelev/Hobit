@@ -64,11 +64,16 @@ A Request Template should model:
 - `variables`: named placeholders with labels, descriptions, default values, required flags, and allowed values when constrained.
 - `required_context_sections`: named context blocks that must be supplied before use.
 - `scope_section`: explicit boundaries for what the request includes.
+- `task_size_section`: expected size such as small, medium, or split-required.
+- `execution_budget_section`: expected time budget and what to do when it is exceeded.
+- `expected_changed_layers_section`: layers the task is expected to touch.
 - `likely_files_section`: expected files or areas that may be relevant.
 - `do_not_change_section`: explicit exclusions and protected files, systems, behavior, or contracts.
 - `implementation_requirements_section`: concrete requirements the assignee must satisfy.
 - `safety_stopping_rules`: conditions that require stopping, asking, or refusing to proceed.
+- `stop_split_rule`: conditions that require splitting the task before continuing.
 - `validation_commands`: requested commands or checks with ordering, optionality, and expected reporting.
+- `validation_profile_plan`: intended use of fast, changed, and full Toolbelt profiles.
 - `manual_check_section`: operator-performed checks that cannot be automated.
 - `commit_message_suggestion`: optional suggested commit message.
 - `linked_response_template_id`: optional default Response Template to use for final reporting.
@@ -80,6 +85,7 @@ A Request Template should model:
 Rules:
 
 - A Request Template must make scope and exclusions explicit.
+- A Request Template should make budget, expected changed layers, validation profile plan, and stop/split behavior explicit.
 - A Request Template must not hide material instructions from the operator.
 - A Request Template must not inject secrets or credentials.
 - A Request Template must not bypass approval requirements for tools, actions, file edits, Git operations, commits, or runtime execution.
@@ -97,6 +103,7 @@ A Response Template should model:
 - `required_header_format`: expected first line or header pattern.
 - `required_sections`: ordered sections that must appear in the response.
 - `validation_reporting_rules`: rules for listing requested commands, pass/fail/not-run status, warnings, and failure details.
+- `scope_and_budget_reporting_rules`: rules for reporting whether scope, changed layers, budget, and stop/split expectations were respected.
 - `warnings_section`: section for environmental warnings, caveats, skipped checks, and residual risk.
 - `out_of_scope_section`: section for intentionally excluded work.
 - `commit_section`: section for commit hash and commit message when a commit is required or created.
@@ -113,6 +120,7 @@ Rules:
 - Response validation must report missing required sections as warnings or errors according to future validation policy.
 - Response validation must distinguish failed commands from commands that were not run.
 - Response validation must not hide failed or skipped validation.
+- Response validation should flag missing budget/scope reporting when the selected Request Template requires it.
 - Response validation must not rewrite the executor's report invisibly.
 - Response Templates may be reused across many Request Templates.
 
@@ -132,6 +140,8 @@ Rules:
 Templates support the coordinator/executor operating model defined in `docs/AGENT_OPERATING_MODEL.md`.
 
 The operating model defines executor thread lifecycle, one-block-per-executor rules, and coordinator validation responsibilities; templates define the reusable request and response structures used by that flow.
+
+Templates should also follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`. Request Templates should include task size, scope, non-goals, execution budget, expected changed layers, validation profile plan, and stop/split rules. Response Templates should require the executor to report whether scope and budget were respected and whether a split was needed.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. The Coordinator may later use approved context and selected templates to propose generated requests or Queue Items, but generated requests must remain previewable and must not execute automatically.
 

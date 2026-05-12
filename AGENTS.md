@@ -35,6 +35,7 @@ Always read:
 
 For agent/runtime work, also read:
 - docs/AGENT_OPERATING_MODEL.md
+- docs/AGENT_WORK_EFFICIENCY_CONTRACT.md
 - docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md
 - docs/AGENT_QUEUE_CONTRACT.md
 - docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md
@@ -61,7 +62,7 @@ For request/response template work, also read:
 
 Request Templates and Response Templates are future product assets, not only conversation prompt conventions.
 
-Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md`; each new executor block should start from a fresh thread/task. Future Agent Queue work should follow `docs/AGENT_QUEUE_CONTRACT.md` and remain an operator-controlled agent command queue, command history, and review inbox, not hidden automation. Future agent/task execution observability should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
+Agent/executor work should follow `docs/AGENT_OPERATING_MODEL.md` and `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`; each new executor block should start from a fresh thread/task, remain small and focused, and stop/split when scope grows beyond the prompt or budget. Future Agent Queue work should follow `docs/AGENT_QUEUE_CONTRACT.md` and remain an operator-controlled agent command queue, command history, and review inbox, not hidden automation. Future agent/task execution observability should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. Final responses should follow `docs/AGENT_RESPONSE_CONTRACT.md`.
 
 For Git widget/plugin work, also read `docs/GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface, not only raw command output. Future Git reads must use an explicit operator-approved repository root; do not add hidden parent traversal, Workspace-wide repository scanning, network fetch during read-only status collection, or mutating Git behavior.
 
@@ -81,6 +82,8 @@ Current Toolbelt entry points:
 If a repeated inspection need is missing, propose a small deterministic Toolbelt script instead of leaving temporary Python, Bash, or PowerShell helpers in the repository.
 
 Code organization work must follow `docs/CODE_ORGANIZATION_CONTRACT.md`.
+
+Agent work efficiency must follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`: use small focused blocks, name expected changed layers, use fast/changed/full validation profiles appropriately, and stop with a split plan when a block becomes broad or conflicts with contracts.
 
 ## Current product direction
 

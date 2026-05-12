@@ -47,6 +47,8 @@ It may eventually:
 
 - read explicitly approved Workspace and widget context
 - help the operator reason about the current work
+- decompose broad requests into small efficient blocks
+- assign task size, expected changed layers, execution budget, validation plan, and stop/split rules
 - transform approved context into proposed actions
 - preview those proposed actions before they are applied
 - route approved actions through the owning Hobit component
@@ -249,6 +251,8 @@ The Coordinator may propose Queue Items from:
 
 Queue Items remain operator-controlled. Creating a Queue Item does not launch execution, accept work, mutate Git, or apply changes automatically.
 
+Coordinator-created Queue Items should follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`. The Coordinator should split broad requests before execution, mark over-broad items as split-required, and include scope, non-goals, expected changed layers, execution budget, validation profile plan, and stop/split rules in generated work items.
+
 No automatic execution.
 
 No automatic acceptance.
@@ -286,6 +290,8 @@ It may later:
 - create applied Request Snapshots after approval
 
 Generated requests must be previewable before use. Template snapshots should be preserved when applied. Template use must not become hidden prompt mutation or automatic execution.
+
+Request generation should include efficiency fields defined in `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`, especially budget, expected changed layers, validation profile plan, and stop/split behavior. The Coordinator should recommend splitting a generated request when those fields reveal a large or high-risk block.
 
 For template rules, see `docs/TEMPLATE_CONTRACT.md`.
 

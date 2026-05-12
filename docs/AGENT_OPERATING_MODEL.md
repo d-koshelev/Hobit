@@ -201,6 +201,14 @@ Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`.
 
 The Agent Queue should hold concrete coordinator-created Queue Items for planned, queued, running, completed, failed, blocked, accepted, and review-needed agent commands or blocks. It should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
 
+## Relation To Agent Work Efficiency
+
+Agent work efficiency is defined in `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`.
+
+The Coordinator should decompose broad work into small focused blocks before execution. Executor requests should include scope, non-goals, execution budget, expected changed layers, validation profile plan, and stop/split rules.
+
+An executor should stop and report a split plan when a block expands across too many layers, exceeds its budget, needs unrequested runtime behavior, worsens file-size pressure, or conflicts with project contracts. This preserves reviewable commits and keeps validation fast during iteration.
+
 ## Relation To Git Widget
 
 After executor code work, the future Git Widget can surface repository review as defined in `docs/GIT_WIDGET_CONTRACT.md`.
@@ -249,6 +257,7 @@ This contract does not implement:
 - coordinator UI
 - Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat proposal mock results
 - Agent Queue execution or response capture
+- persisted efficiency metadata
 - template editor UI
 - response validation engine
 - automatic agent execution
