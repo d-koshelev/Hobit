@@ -3,7 +3,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import type {
   DirectWorkStreamEvent,
+  DirectWorkValidationProfile,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationResponse,
 } from "../workspace/types";
 import { CodexDirectWorkForm } from "./CodexDirectWorkForm";
 import {
@@ -25,6 +27,7 @@ import {
 } from "./CodexDirectWorkLiveLog";
 import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
 import { CodexDirectWorkResultSummary } from "./CodexDirectWorkResultSummary";
+import { CodexDirectWorkValidationPanel } from "./CodexDirectWorkValidationPanel";
 import type {
   CodexDirectWorkRequestDraft,
   CodexDirectWorkStreamSession,
@@ -45,6 +48,13 @@ type CodexDirectWorkPanelProps = {
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  onRunDirectWorkValidation?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: {
+      repoRoot: string;
+      validationProfile: DirectWorkValidationProfile;
+    },
+  ) => Promise<RunDirectWorkValidationResponse | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
@@ -58,6 +68,7 @@ export function CodexDirectWorkPanel({
   hasGitWidget,
   onDirectWorkGitReviewRequested,
   onRunCodexDirectWork,
+  onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
   widgetInstanceId,
 }: CodexDirectWorkPanelProps) {
@@ -75,6 +86,8 @@ export function CodexDirectWorkPanel({
     startedAtMs: number;
   } | null>(null);
   const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
+  const [validationRepositoryRoot, setValidationRepositoryRoot] =
+    useState<string | null>(null);
   const [liveLogEntries, setLiveLogEntries] = useState<
     CodexDirectWorkLiveLogEntry[]
   >([]);
@@ -275,6 +288,7 @@ export function CodexDirectWorkPanel({
       startedAtMs:
         runStartedAtRef.current ?? completedAtMs - response.durationMs,
     });
+    setValidationRepositoryRoot(response.repoRoot || request.repoRoot);
     setIsRunning(false);
     requestGitReviewForRepositoryRoot(response.repoRoot || request.repoRoot);
     activeRequestRef.current = null;
@@ -300,7 +314,9 @@ export function CodexDirectWorkPanel({
     if (event.isFinal) {
       setIsRunning(false);
       stopActiveStreamListening();
-      requestGitReviewForRepositoryRoot(activeRequestRef.current?.repoRoot);
+      const repositoryRoot = activeRequestRef.current?.repoRoot ?? null;
+      setValidationRepositoryRoot(repositoryRoot);
+      requestGitReviewForRepositoryRoot(repositoryRoot);
       activeRequestRef.current = null;
     }
   }
@@ -343,6 +359,7 @@ export function CodexDirectWorkPanel({
     setRunResult(null);
     setRunResultTiming(null);
     setLiveRun(null);
+    setValidationRepositoryRoot(null);
     setLiveLogEntries([]);
     activeRequestRef.current = null;
     runStartedAtRef.current = null;
@@ -437,6 +454,14 @@ export function CodexDirectWorkPanel({
           hasGitWidget={hasGitWidget}
           result={runResult}
           timing={runResultTiming}
+        />
+      ) : null}
+
+      {validationRepositoryRoot ? (
+        <CodexDirectWorkValidationPanel
+          onRunDirectWorkValidation={onRunDirectWorkValidation}
+          repositoryRoot={validationRepositoryRoot}
+          widgetInstanceId={widgetInstanceId}
         />
       ) : null}
     </section>

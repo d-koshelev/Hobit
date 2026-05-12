@@ -10,6 +10,7 @@ import {
   listWidgetLogs,
   persistAgentChatProposal,
   runCodexDirectWork,
+  runDirectWorkValidation,
   startCodexDirectWorkStream,
   runTerminalCommand,
   updateWidgetInstanceLayout,
@@ -27,6 +28,8 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationRequest,
+  RunDirectWorkValidationResponse,
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
@@ -78,6 +81,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  runDirectWorkValidation: (
+    widgetInstanceId: WidgetInstanceId,
+    request: DirectWorkValidationRunRequest,
+  ) => Promise<RunDirectWorkValidationResponse | null>;
   startCodexDirectWorkStream: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -108,6 +115,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "generateAgentChatAiProposal"
   | "persistAgentChatProposal"
   | "runCodexDirectWork"
+  | "runDirectWorkValidation"
   | "startCodexDirectWorkStream"
   | "runTerminalCommand"
   | "updateWidgetLayout"
@@ -121,6 +129,11 @@ type TerminalCommandRunRequest = Omit<
 
 type CodexDirectWorkRunRequest = Omit<
   RunCodexDirectWorkRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
+type DirectWorkValidationRunRequest = Omit<
+  RunDirectWorkValidationRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
@@ -422,6 +435,36 @@ export function useWorkbenchWidgetActions({
     }
   }
 
+  async function runDirectWorkValidationForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    request: DirectWorkValidationRunRequest,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to run Direct Work validation.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Direct Work validation could not be run for this widget.");
+    }
+
+    const response = await runDirectWorkValidation({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      ...request,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   async function startCodexDirectWorkStreamForWidget(
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -599,6 +642,7 @@ export function useWorkbenchWidgetActions({
     generateAgentChatAiProposal: generateAgentChatWidgetAiProposal,
     persistAgentChatProposal: persistAgentChatWidgetProposal,
     runCodexDirectWork: runCodexDirectWorkForWidget,
+    runDirectWorkValidation: runDirectWorkValidationForWidget,
     startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,

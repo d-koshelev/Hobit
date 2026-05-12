@@ -51,6 +51,7 @@ export function AgentRunPlaceholderWidget({
   onGetAgentMonitoringSnapshot,
   onLoadLogs,
   onRunCodexDirectWork,
+  onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
   onStartFrameMove,
   title,
@@ -209,6 +210,7 @@ export function AgentRunPlaceholderWidget({
           hasGitWidget={hasGitWidget}
           onDirectWorkGitReviewRequested={onDirectWorkGitReviewRequested}
           onRunCodexDirectWork={onRunCodexDirectWork}
+          onRunDirectWorkValidation={onRunDirectWorkValidation}
           onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}
           widgetInstanceId={instance.id}
         />

@@ -11,6 +11,8 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationRequest,
+  RunDirectWorkValidationResponse,
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
@@ -255,6 +257,13 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  onRunDirectWorkValidation?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      RunDirectWorkValidationRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<RunDirectWorkValidationResponse | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

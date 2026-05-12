@@ -573,6 +573,12 @@
   gap: var(--space-sm);
 }
 
+.codex-direct-work-validation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .codex-direct-work-field-wide,
 .codex-direct-work-advanced,
 .codex-direct-work-warning,
