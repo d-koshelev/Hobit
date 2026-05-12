@@ -67,6 +67,87 @@ fn empty_prompt_is_rejected() {
 }
 
 #[test]
+fn built_args_put_global_options_before_exec_and_exec_options_after() {
+    let repo_root = temp_path("argv-order");
+    let output_last_message_path = temp_path("argv-order-last").join("last.txt");
+    let prompt = "do the focused task";
+    let repo_root_arg = repo_root.to_string_lossy().into_owned();
+    let output_last_message_arg = output_last_message_path.to_string_lossy().into_owned();
+
+    let args = build_codex_exec_args(
+        &repo_root,
+        CodexSandboxMode::ReadOnly,
+        CodexApprovalPolicy::OnRequest,
+        &output_last_message_path,
+        prompt,
+    );
+
+    assert_eq!(
+        args,
+        vec![
+            "--cd".to_owned(),
+            repo_root_arg,
+            "--sandbox".to_owned(),
+            "read-only".to_owned(),
+            "--ask-for-approval".to_owned(),
+            "on-request".to_owned(),
+            "exec".to_owned(),
+            "--output-last-message".to_owned(),
+            output_last_message_arg,
+            prompt.to_owned(),
+        ]
+    );
+    assert!(arg_index(&args, "--ask-for-approval") < arg_index(&args, "exec"));
+    assert!(arg_index(&args, "--sandbox") < arg_index(&args, "exec"));
+    assert!(arg_index(&args, "--cd") < arg_index(&args, "exec"));
+    assert!(arg_index(&args, "--output-last-message") > arg_index(&args, "exec"));
+    assert_eq!(args.last().map(String::as_str), Some(prompt));
+}
+
+#[test]
+fn command_summary_matches_argv_order_and_redacts_prompt() {
+    let repo_root = temp_path("summary-order");
+    let output_last_message_path = temp_path("summary-order-last").join("last.txt");
+    let prompt = "secret operator prompt";
+    let repo_root_arg = repo_root.to_string_lossy().into_owned();
+    let output_last_message_arg = output_last_message_path.to_string_lossy().into_owned();
+
+    let summary = safe_command_summary(
+        "codex",
+        &repo_root,
+        CodexSandboxMode::WorkspaceWrite,
+        CodexApprovalPolicy::OnRequest,
+        &output_last_message_path,
+    );
+
+    assert_eq!(
+        summary,
+        vec![
+            "codex".to_owned(),
+            "--cd".to_owned(),
+            repo_root_arg,
+            "--sandbox".to_owned(),
+            "workspace-write".to_owned(),
+            "--ask-for-approval".to_owned(),
+            "on-request".to_owned(),
+            "exec".to_owned(),
+            "--output-last-message".to_owned(),
+            output_last_message_arg,
+            "<operator-prompt>".to_owned(),
+        ]
+    );
+    assert!(arg_index(&summary, "--ask-for-approval") < arg_index(&summary, "exec"));
+    assert!(arg_index(&summary, "--sandbox") < arg_index(&summary, "exec"));
+    assert!(arg_index(&summary, "--cd") < arg_index(&summary, "exec"));
+    assert!(arg_index(&summary, "--output-last-message") > arg_index(&summary, "exec"));
+    assert!(!summary.iter().any(|part| part == prompt));
+    assert_eq!(
+        summary.last().map(String::as_str),
+        Some("<operator-prompt>")
+    );
+}
+
+#[test]
 fn args_are_passed_without_shell_concatenation() {
     let prompt = format!("safe prompt && hobit-missing-{}", unique_suffix());
     let output = run_codex_direct_work(request_with_program(
@@ -77,7 +158,8 @@ fn args_are_passed_without_shell_concatenation() {
 
     assert_eq!(output.status, CodexDirectRunStatus::Completed);
     let final_message = output.final_message.unwrap();
-    assert!(final_message.contains("exec\n--cd\n"));
+    assert!(final_message.contains("--ask-for-approval\non-request\nexec\n"));
+    assert!(final_message.contains("exec\n--output-last-message\n"));
     assert!(final_message.ends_with(&prompt));
     assert!(!output.command_summary.iter().any(|part| part == &prompt));
     assert!(output
@@ -158,11 +240,43 @@ fn nonzero_helper_run_returns_failed_status() {
 
     assert_eq!(output.status, CodexDirectRunStatus::Failed);
     assert_eq!(output.exit_code, Some(17));
+    assert!(output.stderr.contains("helper stderr"));
     assert!(output
         .error_message
         .as_deref()
         .unwrap_or_default()
         .contains("code 17"));
+    assert!(output
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("stderr:"));
+    assert!(output
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("helper stderr"));
+}
+
+#[test]
+fn argument_parse_failure_mentions_codex_cli_argument_mismatch() {
+    let output = run_codex_direct_work(request_with_program(
+        temp_repo("arg-error"),
+        "arg-error",
+        direct_run_helper(),
+    ));
+
+    assert_eq!(output.status, CodexDirectRunStatus::Failed);
+    assert_eq!(output.exit_code, Some(2));
+    assert!(output.stderr.contains("unexpected argument"));
+    assert!(output.stderr.contains("Usage: codex exec"));
+
+    let error_message = output.error_message.as_deref().unwrap_or_default();
+    assert!(error_message.contains("code 2"));
+    assert!(error_message.contains("stderr:"));
+    assert!(error_message.contains("unexpected argument"));
+    assert!(error_message.contains("Usage: codex exec"));
+    assert!(error_message.contains("Codex CLI argument mismatch/version"));
 }
 
 #[test]
@@ -270,6 +384,12 @@ fn assert_approval_policy_arg(policy: CodexApprovalPolicy, expected: &str) {
         .contains(&format!("--ask-for-approval\n{expected}\n")));
 }
 
+fn arg_index(args: &[String], arg: &str) -> usize {
+    args.iter()
+        .position(|item| item == arg)
+        .unwrap_or_else(|| panic!("missing arg: {arg}"))
+}
+
 fn request_with_program(
     repo_root: PathBuf,
     prompt: impl Into<String>,
@@ -359,6 +479,12 @@ fn main() {
         eprint!("{}", "e".repeat(100));
         std::fs::write(output_path, args.join("\n")).unwrap();
         return;
+    }
+
+    if prompt == "arg-error" {
+        eprintln!("unexpected argument '--ask-for-approval' found");
+        eprintln!("Usage: codex exec [OPTIONS] [PROMPT]");
+        std::process::exit(2);
     }
 
     println!("helper stdout");

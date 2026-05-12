@@ -288,13 +288,13 @@ fn build_codex_exec_args(
     prompt: &str,
 ) -> Vec<String> {
     vec![
-        "exec".to_owned(),
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+        "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         prompt.to_owned(),
@@ -310,13 +310,13 @@ fn safe_command_summary(
 ) -> Vec<String> {
     vec![
         program.to_owned(),
-        "exec".to_owned(),
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+        "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "<operator-prompt>".to_owned(),
@@ -347,11 +347,21 @@ fn direct_run_error_message(output: &crate::process::ProcessRunOutput) -> Option
                 None => "codex exec exited without an exit code".to_owned(),
             };
 
-            if let Some(detail) = compact_output_detail(&output.stderr)
-                .or_else(|| compact_output_detail(&output.stdout))
-            {
-                message.push_str(": ");
-                message.push_str(&detail);
+            let stderr_detail = compact_output_detail(&output.stderr);
+            let stdout_detail = compact_output_detail(&output.stdout);
+
+            if let Some(detail) = stderr_detail.as_deref() {
+                message.push_str(": stderr: ");
+                message.push_str(detail);
+            } else if let Some(detail) = stdout_detail.as_deref() {
+                message.push_str(": stdout: ");
+                message.push_str(detail);
+            }
+
+            if is_codex_argument_mismatch(&output.stderr) {
+                message.push_str(
+                    ". Codex CLI argument mismatch/version suspected; verify the installed Codex CLI version and argv ordering.",
+                );
             }
 
             Some(message)
@@ -359,6 +369,10 @@ fn direct_run_error_message(output: &crate::process::ProcessRunOutput) -> Option
         ProcessRunStatus::FailedToStart => Some("could not start codex exec".to_owned()),
         ProcessRunStatus::TimedOut => Some("codex exec timed out".to_owned()),
     }
+}
+
+fn is_codex_argument_mismatch(stderr: &str) -> bool {
+    stderr.contains("unexpected argument") || stderr.contains("Usage: codex exec")
 }
 
 fn compact_output_detail(output: &str) -> Option<String> {
