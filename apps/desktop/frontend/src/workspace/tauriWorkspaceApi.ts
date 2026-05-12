@@ -7,6 +7,7 @@ import {
 import {
   listenToDirectWorkStreamEvents,
   runCodexDirectWork,
+  runDirectWorkValidation,
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
 import type { WorkspaceApi } from "./workspaceApi";
@@ -48,6 +49,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   generateAgentChatAiProposal,
   runTerminalCommand,
   runCodexDirectWork,
+  runDirectWorkValidation,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };

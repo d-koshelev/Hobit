@@ -91,8 +91,10 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   frontend live logs, Agent Monitoring Direct Work display, Git Widget, Queue
   execution, stdin, PTY, or interactive sessions.
 
-The one-shot runner and the streaming runner bridge are wired to app/Tauri
-storage-backed run artifacts. The streaming bridge is not wired to Agent
+The one-shot runner, streaming runner bridge, and explicit Toolbelt validation
+capture command are wired to app/Tauri storage-backed run artifacts. Validation
+capture is API-only for now; Direct Work validation UI and automatic post-run
+validation are not implemented. The streaming bridge is not wired to Agent
 Monitoring Direct Work display, Agent Queue, Git Widget, or frontend live UI.
 
 The near-term direction is to make Codex CLI the first practical executor for
@@ -238,10 +240,12 @@ foundation there, now exposed through a narrow app/Tauri command that stores
 Direct Work widget run/log/result artifacts. A separate tooling-only streaming
 foundation for `codex exec --json` can emit line and JSON events to a
 caller-provided callback and is now exposed through a backend/Tauri streaming
-event bridge that persists logs and final run/result artifacts. Frontend live
-log UI, Agent Monitoring Direct Work display, Git review wiring, changed-file
-capture, validation capture, commit/push flows, and interactive execution all
-require later implementation blocks.
+event bridge that persists logs and final run/result artifacts. An explicit
+Toolbelt validation capture API can store requested validation output as Direct
+Work-owned run/result artifacts, but it has no frontend launch UI and is not run
+automatically after Direct Work. Agent Monitoring Direct Work display, further
+Git review wiring, diff capture, validation UI, commit/push flows, and
+interactive execution all require later implementation blocks.
 
 ## Widget Integration
 
@@ -448,8 +452,8 @@ Follow-up blocks should stay small and focused:
      Direct Work run.
    - Do not stage, commit, push, reset, clean, restore, or stash.
 
-6. Validation capture.
-   - Capture requested validation commands and pass/fail/skipped state.
+6. Validation capture UI.
+   - Surface requested validation commands and pass/fail/skipped state.
    - Keep raw validation output available without making it the primary view.
 
 7. Hardening.

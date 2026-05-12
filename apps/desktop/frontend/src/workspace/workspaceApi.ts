@@ -20,6 +20,8 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationRequest,
+  RunDirectWorkValidationResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   StartCodexDirectWorkStreamRequest,
@@ -82,6 +84,9 @@ export type WorkspaceApi = {
   runCodexDirectWork: (
     request: RunCodexDirectWorkRequest,
   ) => Promise<RunCodexDirectWorkResponse | null>;
+  runDirectWorkValidation: (
+    request: RunDirectWorkValidationRequest,
+  ) => Promise<RunDirectWorkValidationResponse | null>;
   startCodexDirectWorkStream: (
     request: StartCodexDirectWorkStreamRequest,
   ) => Promise<StartCodexDirectWorkStreamResponse | null>;
@@ -194,6 +199,12 @@ export function runCodexDirectWork(
   request: RunCodexDirectWorkRequest,
 ): Promise<RunCodexDirectWorkResponse | null> {
   return getWorkspaceApi().runCodexDirectWork(request);
+}
+
+export function runDirectWorkValidation(
+  request: RunDirectWorkValidationRequest,
+): Promise<RunDirectWorkValidationResponse | null> {
+  return getWorkspaceApi().runDirectWorkValidation(request);
 }
 
 export function startCodexDirectWorkStream(

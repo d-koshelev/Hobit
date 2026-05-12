@@ -35,6 +35,7 @@ pub fn run() {
             workspace_commands::list_widget_logs,
             workspace_commands::run_terminal_command,
             workspace_commands::run_codex_direct_work,
+            workspace_commands::run_direct_work_validation,
             workspace_commands::start_codex_direct_work_stream,
             workspace_commands::generate_agent_chat_ai_proposal,
             workspace_commands::persist_agent_chat_proposal,

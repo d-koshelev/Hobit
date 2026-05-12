@@ -2,11 +2,13 @@ use std::path::PathBuf;
 
 use hobit_app::{
     CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
-    CodexDirectWorkStreamStartSummary, RunCodexDirectWorkInput,
+    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary, RunCodexDirectWorkInput,
+    RunDirectWorkValidationInput,
 };
 
 use crate::codex_direct_work_dto::{
     DirectWorkStreamEventDto, RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto,
+    RunDirectWorkValidationRequest, RunDirectWorkValidationResponseDto,
     StartCodexDirectWorkStreamRequest, StartCodexDirectWorkStreamResponseDto,
     DIRECT_WORK_STREAM_EVENT_NAME,
 };
@@ -133,6 +135,76 @@ fn maps_start_codex_direct_work_stream_response_to_dto() {
 
     assert_eq!(dto.run_id, "run_1");
     assert_eq!(dto.status, "started");
+}
+
+#[test]
+fn maps_run_direct_work_validation_request_to_app_input() {
+    let request = RunDirectWorkValidationRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        repo_root: "C:/work/repo".to_owned(),
+        validation_profile: "changed".to_owned(),
+        timeout_ms: Some(30),
+        stdout_cap_bytes: Some(31),
+        stderr_cap_bytes: Some(32),
+    };
+
+    let input = RunDirectWorkValidationInput::from(request);
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.workbench_id, "wb_1");
+    assert_eq!(input.widget_instance_id, "wid_1");
+    assert_eq!(input.repo_root, PathBuf::from("C:/work/repo"));
+    assert_eq!(input.validation_profile, "changed");
+    assert_eq!(input.timeout_ms, Some(30));
+    assert_eq!(input.stdout_cap_bytes, Some(31));
+    assert_eq!(input.stderr_cap_bytes, Some(32));
+}
+
+#[test]
+fn maps_run_direct_work_validation_response_to_dto() {
+    let summary = DirectWorkValidationRunSummary {
+        run_id: "run_1".to_owned(),
+        result_id: "result_1".to_owned(),
+        result_type: "direct_work_validation_result".to_owned(),
+        profile: "full".to_owned(),
+        status: "failed".to_owned(),
+        run_status: "completed".to_owned(),
+        exit_code: Some(17),
+        stdout: "out".to_owned(),
+        stderr: "err".to_owned(),
+        stdout_truncated: false,
+        stderr_truncated: true,
+        duration_ms: 8,
+        error_message: Some("validation failed".to_owned()),
+        command_summary: vec!["powershell".to_owned(), "-File".to_owned()],
+        repo_root: "C:/work/repo".to_owned(),
+        no_git_mutations: true,
+        no_commit_push: true,
+        git_mutations_performed_by_hobit: false,
+    };
+
+    let dto = RunDirectWorkValidationResponseDto::from(summary);
+
+    assert_eq!(dto.run_id, "run_1");
+    assert_eq!(dto.result_id, "result_1");
+    assert_eq!(dto.result_type, "direct_work_validation_result");
+    assert_eq!(dto.profile, "full");
+    assert_eq!(dto.status, "failed");
+    assert_eq!(dto.run_status, "completed");
+    assert_eq!(dto.exit_code, Some(17));
+    assert_eq!(dto.stdout, "out");
+    assert_eq!(dto.stderr, "err");
+    assert!(!dto.stdout_truncated);
+    assert!(dto.stderr_truncated);
+    assert_eq!(dto.duration_ms, 8);
+    assert_eq!(dto.error_message.as_deref(), Some("validation failed"));
+    assert_eq!(dto.command_summary, vec!["powershell", "-File"]);
+    assert_eq!(dto.repo_root, "C:/work/repo");
+    assert!(dto.no_git_mutations);
+    assert!(dto.no_commit_push);
+    assert!(!dto.git_mutations_performed_by_hobit);
 }
 
 #[test]

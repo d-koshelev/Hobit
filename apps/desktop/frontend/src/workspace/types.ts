@@ -100,6 +100,19 @@ export type RunCodexDirectWorkRequest = {
   stderrCapBytes?: number | null;
 };
 
+export type DirectWorkValidationProfile = "fast" | "changed" | "full";
+
+export type RunDirectWorkValidationRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repoRoot: string;
+  validationProfile: DirectWorkValidationProfile;
+  timeoutMs?: number | null;
+  stdoutCapBytes?: number | null;
+  stderrCapBytes?: number | null;
+};
+
 export type StartCodexDirectWorkStreamRequest = RunCodexDirectWorkRequest;
 
 export type DirectWorkStreamEventKind =
@@ -201,6 +214,27 @@ export type RunCodexDirectWorkResponse = {
   errorMessage: string | null;
   noAutoCommit: boolean;
   noAutoPush: boolean;
+  gitMutationsPerformedByHobit: boolean;
+};
+
+export type RunDirectWorkValidationResponse = {
+  runId: string;
+  resultId: string;
+  resultType: string;
+  profile: DirectWorkValidationProfile;
+  status: string;
+  runStatus: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  durationMs: number;
+  errorMessage: string | null;
+  commandSummary: string[];
+  repoRoot: string;
+  noGitMutations: boolean;
+  noCommitPush: boolean;
   gitMutationsPerformedByHobit: boolean;
 };
 

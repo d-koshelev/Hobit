@@ -4,6 +4,8 @@ import type {
   DirectWorkStreamEvent,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationRequest,
+  RunDirectWorkValidationResponse,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
 } from "./types";
@@ -38,6 +40,27 @@ type TauriRunCodexDirectWorkResponse = {
 type TauriStartCodexDirectWorkStreamResponse = {
   run_id: string;
   status: string;
+};
+
+type TauriRunDirectWorkValidationResponse = {
+  run_id: string;
+  result_id: string;
+  result_type: string;
+  profile: "fast" | "changed" | "full";
+  status: string;
+  run_status: string;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  stdout_truncated: boolean;
+  stderr_truncated: boolean;
+  duration_ms: number;
+  error_message: string | null;
+  command_summary: string[];
+  repo_root: string;
+  no_git_mutations: boolean;
+  no_commit_push: boolean;
+  git_mutations_performed_by_hobit: boolean;
 };
 
 type TauriDirectWorkStreamEvent = {
@@ -82,6 +105,29 @@ export async function runCodexDirectWork(
   );
 
   return response ? normalizeRunCodexDirectWorkResponse(response) : null;
+}
+
+export async function runDirectWorkValidation(
+  request: RunDirectWorkValidationRequest,
+): Promise<RunDirectWorkValidationResponse | null> {
+  const response =
+    await invokeDirectWork<TauriRunDirectWorkValidationResponse | null>(
+      "run_direct_work_validation",
+      {
+        request: {
+          workspace_id: request.workspaceId,
+          workbench_id: request.workbenchId,
+          widget_instance_id: request.widgetInstanceId,
+          repo_root: request.repoRoot,
+          validation_profile: request.validationProfile,
+          timeout_ms: request.timeoutMs ?? null,
+          stdout_cap_bytes: request.stdoutCapBytes ?? null,
+          stderr_cap_bytes: request.stderrCapBytes ?? null,
+        },
+      },
+    );
+
+  return response ? normalizeRunDirectWorkValidationResponse(response) : null;
 }
 
 export async function startCodexDirectWorkStream(
@@ -155,6 +201,31 @@ function normalizeRunCodexDirectWorkResponse(
     errorMessage: response.error_message,
     noAutoCommit: response.no_auto_commit,
     noAutoPush: response.no_auto_push,
+    gitMutationsPerformedByHobit: response.git_mutations_performed_by_hobit,
+  };
+}
+
+function normalizeRunDirectWorkValidationResponse(
+  response: TauriRunDirectWorkValidationResponse,
+): RunDirectWorkValidationResponse {
+  return {
+    runId: response.run_id,
+    resultId: response.result_id,
+    resultType: response.result_type,
+    profile: response.profile,
+    status: response.status,
+    runStatus: response.run_status,
+    exitCode: response.exit_code,
+    stdout: response.stdout,
+    stderr: response.stderr,
+    stdoutTruncated: response.stdout_truncated,
+    stderrTruncated: response.stderr_truncated,
+    durationMs: response.duration_ms,
+    errorMessage: response.error_message,
+    commandSummary: response.command_summary,
+    repoRoot: response.repo_root,
+    noGitMutations: response.no_git_mutations,
+    noCommitPush: response.no_commit_push,
     gitMutationsPerformedByHobit: response.git_mutations_performed_by_hobit,
   };
 }

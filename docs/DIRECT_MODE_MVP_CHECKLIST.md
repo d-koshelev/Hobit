@@ -3,13 +3,13 @@
 ## Purpose
 
 This checklist validates the current Direct Mode MVP before adding higher-risk
-features such as diff summaries, validation capture, cancellation, commit
+features such as diff summaries, validation capture UI, cancellation, commit
 support, or interactive sessions.
 
 It is an audit and manual validation checklist only. It does not implement new
 runtime behavior, frontend UI, backend commands, storage, schema, Git
-mutation, diff capture, validation capture, queue execution, cancellation, PTY,
-or interactive execution.
+mutation, diff capture, validation UI, queue execution, cancellation, PTY, or
+interactive execution.
 
 ## Current Direct Mode MVP Summary
 
@@ -27,6 +27,8 @@ Implemented Direct Mode surfaces:
 - Timing display.
 - Changed-files summary from read-only Git status.
 - Git Widget auto repo-root handoff and read-only refresh.
+- Backend/Tauri validation capture API for explicit Toolbelt profile runs; no
+  Direct Work validation UI is implemented yet.
 - No auto-commit.
 - No auto-push.
 - No Git mutation by Hobit.
@@ -37,7 +39,7 @@ Implemented Direct Mode surfaces:
 - No Git mutation.
 - No diff capture.
 - No semantic code analysis.
-- No validation capture.
+- No validation capture UI or automatic validation after Direct Work.
 - No cancellation or stop-run control.
 - No queue execution.
 - No approval/apply workflow.
@@ -146,7 +148,7 @@ Direct Mode MVP is ready for demo when:
 
 Future options after the MVP smoke passes:
 
-- Validation capture.
+- Validation capture UI.
 - Diff summary.
 - Cancellation / stop run.
 - Direct Work run history.
@@ -156,8 +158,8 @@ Future options after the MVP smoke passes:
 
 ## Current Recommendation
 
-Pause and perform the manual MVP smoke flows before adding validation capture,
-diff summary, cancellation, commit support, or interactive sessions.
+Pause and perform the manual MVP smoke flows before adding validation capture
+UI, diff summary, cancellation, commit support, or interactive sessions.
 
-Proceed to validation capture or diff summary only after the read-only,
+Proceed to validation capture UI or diff summary only after the read-only,
 workspace-write, and failure-observability smoke checks pass.

@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use hobit_app::{
     CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
-    CodexDirectWorkStreamStartSummary, RunCodexDirectWorkInput,
+    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary, RunCodexDirectWorkInput,
+    RunDirectWorkValidationInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +34,18 @@ pub(crate) struct StartCodexDirectWorkStreamRequest {
     pub operator_prompt: String,
     pub sandbox: String,
     pub approval_policy: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct RunDirectWorkValidationRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub repo_root: String,
+    pub validation_profile: String,
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
@@ -89,6 +102,28 @@ pub(crate) struct DirectWorkStreamEventDto {
     pub failed_stage: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct RunDirectWorkValidationResponseDto {
+    pub run_id: String,
+    pub result_id: String,
+    pub result_type: String,
+    pub profile: String,
+    pub status: String,
+    pub run_status: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<String>,
+    pub repo_root: String,
+    pub no_git_mutations: bool,
+    pub no_commit_push: bool,
+    pub git_mutations_performed_by_hobit: bool,
+}
+
 impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
     fn from(request: RunCodexDirectWorkRequest) -> Self {
         Self {
@@ -125,6 +160,21 @@ impl From<StartCodexDirectWorkStreamRequest> for RunCodexDirectWorkInput {
     }
 }
 
+impl From<RunDirectWorkValidationRequest> for RunDirectWorkValidationInput {
+    fn from(request: RunDirectWorkValidationRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            repo_root: PathBuf::from(request.repo_root),
+            validation_profile: request.validation_profile,
+            timeout_ms: request.timeout_ms,
+            stdout_cap_bytes: request.stdout_cap_bytes,
+            stderr_cap_bytes: request.stderr_cap_bytes,
+        }
+    }
+}
+
 impl From<CodexDirectWorkRunSummary> for RunCodexDirectWorkResponseDto {
     fn from(summary: CodexDirectWorkRunSummary) -> Self {
         Self {
@@ -148,6 +198,31 @@ impl From<CodexDirectWorkRunSummary> for RunCodexDirectWorkResponseDto {
             error_message: summary.error_message,
             no_auto_commit: summary.no_auto_commit,
             no_auto_push: summary.no_auto_push,
+            git_mutations_performed_by_hobit: summary.git_mutations_performed_by_hobit,
+        }
+    }
+}
+
+impl From<DirectWorkValidationRunSummary> for RunDirectWorkValidationResponseDto {
+    fn from(summary: DirectWorkValidationRunSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            result_id: summary.result_id,
+            result_type: summary.result_type,
+            profile: summary.profile,
+            status: summary.status,
+            run_status: summary.run_status,
+            exit_code: summary.exit_code,
+            stdout: summary.stdout,
+            stderr: summary.stderr,
+            stdout_truncated: summary.stdout_truncated,
+            stderr_truncated: summary.stderr_truncated,
+            duration_ms: summary.duration_ms,
+            error_message: summary.error_message,
+            command_summary: summary.command_summary,
+            repo_root: summary.repo_root,
+            no_git_mutations: summary.no_git_mutations,
+            no_commit_push: summary.no_commit_push,
             git_mutations_performed_by_hobit: summary.git_mutations_performed_by_hobit,
         }
     }

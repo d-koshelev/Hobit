@@ -18,6 +18,8 @@ import type {
   PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
+  RunDirectWorkValidationRequest,
+  RunDirectWorkValidationResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   StartCodexDirectWorkStreamRequest,
@@ -55,6 +57,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   generateAgentChatAiProposal,
   runTerminalCommand,
   runCodexDirectWork,
+  runDirectWorkValidation,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };
@@ -314,6 +317,14 @@ async function runCodexDirectWork(
 ): Promise<RunCodexDirectWorkResponse | null> {
   throw new Error(
     "Codex Direct Work is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or persist Direct Work artifacts.",
+  );
+}
+
+async function runDirectWorkValidation(
+  _request: RunDirectWorkValidationRequest,
+): Promise<RunDirectWorkValidationResponse | null> {
+  throw new Error(
+    "Direct Work validation capture is only available in the Tauri desktop shell. Browser fallback cannot run Toolbelt validation or persist Direct Work validation artifacts.",
   );
 }
 

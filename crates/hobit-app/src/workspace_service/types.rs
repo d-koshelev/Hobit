@@ -386,6 +386,18 @@ pub struct RunCodexDirectWorkInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunDirectWorkValidationInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub repo_root: PathBuf,
+    pub validation_profile: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CodexDirectWorkRunSummary {
     pub run_id: String,
     pub result_id: String,
@@ -407,6 +419,28 @@ pub struct CodexDirectWorkRunSummary {
     pub error_message: Option<String>,
     pub no_auto_commit: bool,
     pub no_auto_push: bool,
+    pub git_mutations_performed_by_hobit: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DirectWorkValidationRunSummary {
+    pub run_id: String,
+    pub result_id: String,
+    pub result_type: String,
+    pub profile: String,
+    pub status: String,
+    pub run_status: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<String>,
+    pub repo_root: String,
+    pub no_git_mutations: bool,
+    pub no_commit_push: bool,
     pub git_mutations_performed_by_hobit: bool,
 }
 

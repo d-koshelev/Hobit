@@ -15,6 +15,7 @@ use crate::agent_queue_dto::{
 use crate::app_state::AppState;
 use crate::codex_direct_work_dto::{
     DirectWorkStreamEventDto, RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto,
+    RunDirectWorkValidationRequest, RunDirectWorkValidationResponseDto,
     StartCodexDirectWorkStreamRequest, StartCodexDirectWorkStreamResponseDto,
     DIRECT_WORK_STREAM_EVENT_NAME,
 };
@@ -191,6 +192,30 @@ fn run_codex_direct_work_blocking(
     service
         .run_codex_direct_work(request.into())
         .map(|summary| summary.map(RunCodexDirectWorkResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn run_direct_work_validation(
+    request: RunDirectWorkValidationRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<RunDirectWorkValidationResponseDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        run_direct_work_validation_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn run_direct_work_validation_blocking(
+    request: RunDirectWorkValidationRequest,
+    db_path: PathBuf,
+) -> Result<Option<RunDirectWorkValidationResponseDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .run_direct_work_validation(request.into())
+        .map(|summary| summary.map(RunDirectWorkValidationResponseDto::from))
         .map_err(command_error)
 }
 
@@ -398,6 +423,32 @@ mod tests {
             db_path.clone(),
         )
         .expect("direct work stream command helper should return cleanly");
+
+        assert!(response.is_none());
+        remove_test_db_files(&db_path);
+    }
+
+    #[test]
+    fn run_direct_work_validation_blocking_rejects_missing_workspace_without_process_run() {
+        let db_path = unique_test_db_path();
+        let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        drop(store);
+
+        let response = run_direct_work_validation_blocking(
+            RunDirectWorkValidationRequest {
+                workspace_id: "missing-workspace".to_owned(),
+                workbench_id: "missing-workbench".to_owned(),
+                widget_instance_id: "missing-widget".to_owned(),
+                repo_root: ".".to_owned(),
+                validation_profile: "fast".to_owned(),
+                timeout_ms: Some(1),
+                stdout_cap_bytes: Some(1),
+                stderr_cap_bytes: Some(1),
+            },
+            db_path.clone(),
+        )
+        .expect("direct work validation command helper should return cleanly");
 
         assert!(response.is_none());
         remove_test_db_files(&db_path);

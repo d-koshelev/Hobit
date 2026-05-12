@@ -10,6 +10,7 @@ mod agent_proposals;
 mod agent_queue;
 mod direct_work;
 mod direct_work_stream;
+mod direct_work_validation;
 mod git;
 mod logs;
 mod mapping;
@@ -34,6 +35,8 @@ mod direct_work_stream_tests;
 #[cfg(test)]
 mod direct_work_tests;
 #[cfg(test)]
+mod direct_work_validation_tests;
+#[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]
 mod tests;
@@ -45,9 +48,10 @@ pub use types::{
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    CreateAgentQueueItemFromProposalInput, GenerateAgentChatAiProposalInput,
-    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,
+    CreateAgentQueueItemFromProposalInput, DirectWorkValidationRunSummary,
+    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,
+    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
+    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
     RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
     WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
     WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
