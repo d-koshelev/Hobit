@@ -8,6 +8,8 @@ import type {
   GitRepositoryStatus,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
+  RunCodexDirectWorkRequest,
+  RunCodexDirectWorkResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
 } from "../workspace/types";
@@ -215,6 +217,13 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  onRunCodexDirectWork?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      RunCodexDirectWorkRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<RunCodexDirectWorkResponse | null>;
   onRunTerminalCommand?: (
     widgetInstanceId: WidgetInstanceId,
     command: Omit<

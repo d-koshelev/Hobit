@@ -181,6 +181,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.createAgentQueueItemFromProposal
       : undefined;
+  const runCodexDirectWork =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.runCodexDirectWork
+      : undefined;
   const getAgentQueueSnapshot =
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentQueueSnapshot
@@ -223,6 +227,7 @@ export function WidgetHost({
       onGenerateAgentChatAiProposal={generateAgentChatAiProposal}
       onLoadLogs={widgetActions.listWidgetLogs}
       onPersistAgentChatProposal={persistAgentChatProposal}
+      onRunCodexDirectWork={runCodexDirectWork}
       onRunTerminalCommand={runTerminalCommand}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}

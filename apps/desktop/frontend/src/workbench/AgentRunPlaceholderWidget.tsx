@@ -7,6 +7,7 @@ import type {
   AgentMonitoringProposalResult,
   AgentMonitoringSnapshot,
 } from "../workspace/types";
+import { CodexDirectWorkPanel } from "./CodexDirectWorkPanel";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetRenderProps } from "./types";
 
@@ -46,6 +47,7 @@ export function AgentRunPlaceholderWidget({
   onCreateAgentQueueItemFromProposal,
   onGetAgentMonitoringSnapshot,
   onLoadLogs,
+  onRunCodexDirectWork,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
@@ -166,7 +168,7 @@ export function AgentRunPlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="info">Read-only</Badge>}
+      status={<Badge variant="info">Direct Work</Badge>}
       title={title}
     >
       <div className="agent-run-placeholder">
@@ -174,10 +176,11 @@ export function AgentRunPlaceholderWidget({
           <div className="agent-run-summary-copy">
             <p className="agent-run-summary-title">Agent Monitoring</p>
             <p className="agent-run-summary-text">
-              Read-only details for saved Agent Chat proposal artifacts.
-              Overview, Result, and Raw inspect stored data only; no execution,
-              apply behavior, tools, Terminal commands, Git/Notes/File
-              mutation, or Queue execution runs here.
+              Launch one explicit Codex Direct Work run from this widget and
+              inspect saved Agent Chat proposal artifacts. Proposal Overview,
+              Result, and Raw sections remain read-only; there is still no
+              apply behavior, Terminal command launch, Git/Notes/File mutation,
+              or Queue execution here.
             </p>
           </div>
           <div className="agent-run-summary-actions">
@@ -191,6 +194,11 @@ export function AgentRunPlaceholderWidget({
             </Button>
           </div>
         </section>
+
+        <CodexDirectWorkPanel
+          onRunCodexDirectWork={onRunCodexDirectWork}
+          widgetInstanceId={instance.id}
+        />
 
         {loadState.status === "failed" ? (
           <AgentMonitoringEmptyState

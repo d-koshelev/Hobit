@@ -1,9 +1,21 @@
 import { useMemo, useState } from "react";
-import type { RunTerminalCommandResponse } from "../workspace/types";
+import type {
+  RunCodexDirectWorkResponse,
+  RunTerminalCommandResponse,
+} from "../workspace/types";
 import type { GlobalActivityStatus } from "./GlobalActivityIndicator";
 import type { WidgetInstanceId } from "./types";
 
 export type CurrentSessionActivityEvents = {
+  markDirectWorkRunFailed: (
+    widgetInstanceId: WidgetInstanceId,
+    error: unknown,
+  ) => void;
+  markDirectWorkRunFinished: (
+    widgetInstanceId: WidgetInstanceId,
+    result: RunCodexDirectWorkResponse | null,
+  ) => void;
+  markDirectWorkRunStarted: (widgetInstanceId: WidgetInstanceId) => void;
   markTerminalRunFailed: (
     widgetInstanceId: WidgetInstanceId,
     error: unknown,
@@ -23,17 +35,83 @@ export function useCurrentSessionActivity(): {
   events: CurrentSessionActivityEvents;
   status: GlobalActivityStatus;
 } {
+  const [activeDirectWorkRunIds, setActiveDirectWorkRunIds] = useState<
+    WidgetInstanceId[]
+  >([]);
   const [activeTerminalRunIds, setActiveTerminalRunIds] = useState<
     WidgetInstanceId[]
   >([]);
   const [attentionState, setAttentionState] =
     useState<AttentionState | null>(null);
+  const activeDirectWorkRunCount = activeDirectWorkRunIds.length;
   const activeTerminalRunCount = activeTerminalRunIds.length;
 
   const status = useMemo(
-    () => globalActivityStatus(activeTerminalRunCount, attentionState),
-    [activeTerminalRunCount, attentionState],
+    () =>
+      globalActivityStatus(
+        activeTerminalRunCount,
+        activeDirectWorkRunCount,
+        attentionState,
+      ),
+    [activeDirectWorkRunCount, activeTerminalRunCount, attentionState],
   );
+
+  function markDirectWorkRunStarted(widgetInstanceId: WidgetInstanceId) {
+    setAttentionState(null);
+    setActiveDirectWorkRunIds((currentIds) =>
+      currentIds.includes(widgetInstanceId)
+        ? currentIds
+        : [...currentIds, widgetInstanceId],
+    );
+  }
+
+  function markDirectWorkRunFinished(
+    widgetInstanceId: WidgetInstanceId,
+    result: RunCodexDirectWorkResponse | null,
+  ) {
+    removeActiveDirectWorkRun(widgetInstanceId);
+
+    if (!result) {
+      setAttentionState({
+        detail: "Codex Direct Work returned no result",
+      });
+      return;
+    }
+
+    if (result.status === "timed_out") {
+      setAttentionState({
+        detail: "Codex Direct Work timed out",
+      });
+      return;
+    }
+
+    if (result.status === "failed") {
+      setAttentionState({
+        detail: "Codex Direct Work failed",
+      });
+      return;
+    }
+
+    if (
+      result.status === "completed" &&
+      result.exitCode !== null &&
+      result.exitCode !== 0
+    ) {
+      setAttentionState({
+        detail: "Codex Direct Work completed with nonzero exit",
+      });
+    }
+  }
+
+  function markDirectWorkRunFailed(
+    widgetInstanceId: WidgetInstanceId,
+    _error: unknown,
+  ) {
+    removeActiveDirectWorkRun(widgetInstanceId);
+    setAttentionState({
+      detail: "Codex Direct Work request failed",
+    });
+  }
 
   function markTerminalRunStarted(widgetInstanceId: WidgetInstanceId) {
     setAttentionState(null);
@@ -87,8 +165,17 @@ export function useCurrentSessionActivity(): {
     );
   }
 
+  function removeActiveDirectWorkRun(widgetInstanceId: WidgetInstanceId) {
+    setActiveDirectWorkRunIds((currentIds) =>
+      currentIds.filter((currentId) => currentId !== widgetInstanceId),
+    );
+  }
+
   return {
     events: {
+      markDirectWorkRunFailed,
+      markDirectWorkRunFinished,
+      markDirectWorkRunStarted,
       markTerminalRunFailed,
       markTerminalRunFinished,
       markTerminalRunStarted,
@@ -99,18 +186,35 @@ export function useCurrentSessionActivity(): {
 
 function globalActivityStatus(
   activeTerminalRunCount: number,
+  activeDirectWorkRunCount: number,
   attentionState: AttentionState | null,
 ): GlobalActivityStatus {
-  if (activeTerminalRunCount > 0) {
+  const activeRunCount = activeTerminalRunCount + activeDirectWorkRunCount;
+
+  if (activeRunCount > 0) {
+    const detailParts = [
+      activeTerminalRunCount > 0
+        ? activeTerminalRunCount === 1
+          ? "Terminal command"
+          : `${activeTerminalRunCount} Terminal commands`
+        : null,
+      activeDirectWorkRunCount > 0
+        ? activeDirectWorkRunCount === 1
+          ? "Codex Direct Work"
+          : `${activeDirectWorkRunCount} Codex Direct Work runs`
+        : null,
+    ].filter(Boolean);
+
     return {
       assistiveText:
-        activeTerminalRunCount === 1
-          ? "Running: one current-session local Terminal command is active."
-          : `Running: ${activeTerminalRunCount} current-session local Terminal commands are active.`,
-      detail:
-        activeTerminalRunCount === 1
-          ? "Terminal command"
-          : `${activeTerminalRunCount} active local runs`,
+        activeRunCount === 1
+          ? `Running: one current-session local run is active (${detailParts.join(
+              ", ",
+            )}).`
+          : `Running: ${activeRunCount} current-session local runs are active (${detailParts.join(
+              ", ",
+            )}).`,
+      detail: detailParts.join(", "),
       kind: "running",
       label: "Running",
     };
