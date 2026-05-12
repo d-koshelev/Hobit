@@ -130,7 +130,7 @@ export function CodexDirectWorkLiveLog({
       <div className="codex-direct-work-live-log-list" role="list">
         {entries.length === 0 ? (
           <p className="codex-direct-work-note">
-            Waiting for Codex stream events.
+            Waiting for live stream events.
           </p>
         ) : (
           entries.map((entry) => (
@@ -289,7 +289,7 @@ export function syntheticStartedLogEntry(
     receivedAtMs,
     runId,
     status: null,
-    text: "Codex stream started",
+    text: "Started a Direct Work run.",
     tone: "neutral",
   };
 }
@@ -325,7 +325,7 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
   }
 
   if (event.eventKind === "final_message") {
-    return "Final message received.";
+    return "Final response received.";
   }
 
   if (event.isFinal && isFailureEvent(event)) {
@@ -339,14 +339,16 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
   }
 
   if (event.eventKind === "stdout_line") {
-    return event.line || "stdout";
+    return event.line || "Runtime output.";
   }
 
   if (event.eventKind === "stderr_line") {
-    return event.line || "stderr";
+    return event.line || (isInformationalStderrLine(event.line)
+      ? "Runtime note."
+      : "Error output.");
   }
 
-  return "Codex stream started";
+  return "Started a Direct Work run.";
 }
 
 function liveLogEventDetail(event: DirectWorkStreamEvent) {
@@ -375,30 +377,34 @@ function liveLogEventLabel(event: DirectWorkStreamEvent) {
   }
 
   if (event.eventKind === "stdout_line") {
-    return "stdout";
+    return "Runtime output";
   }
 
   if (event.eventKind === "stderr_line") {
-    return isInformationalStderrLine(event.line) ? "stderr info" : "stderr";
+    return isInformationalStderrLine(event.line) ? "Runtime note" : "Error output";
   }
 
   if (event.eventKind === "final_message") {
-    return "Final response";
+    return "Final response received";
   }
 
   if (event.eventKind === "completed") {
-    return "Completed";
+    return "Run completed";
   }
 
   if (event.eventKind === "failed") {
-    return "Failed";
+    return "Run failed";
   }
 
   if (event.eventKind === "timed_out") {
-    return "Timed out";
+    return "Run timed out";
   }
 
-  return "Stream";
+  if (event.eventKind === "started") {
+    return "Run started";
+  }
+
+  return "Runtime event";
 }
 
 function liveLogRawPreview(event: DirectWorkStreamEvent) {
@@ -458,7 +464,7 @@ const LOCAL_LOG_LABELS: Partial<
   fallback_completed: "Fallback completed",
   fallback_failed: "Fallback failed",
   fallback_starting: "Fallback",
-  started: "Stream",
+  started: "Run started",
   stream_start_failed: "Streaming failed",
   stream_starting: "Starting",
 };
@@ -609,6 +615,7 @@ function liveStderrPreviewFromEvent(
 function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
   return [
     { label: "Run id", value: liveRun.runId },
+    { label: "Executor", value: "Codex CLI" },
     { label: "Status", value: liveRun.status },
     liveRun.startedAtMs !== null
       ? { label: "Started at", value: formatDirectWorkClockTime(liveRun.startedAtMs) }
@@ -625,21 +632,14 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
     liveRun.failedStage
       ? { label: "Failed stage", value: liveRun.failedStage }
       : null,
-    {
-      label: "Total duration",
-      value:
-        liveRun.durationMs === null
-          ? "Running"
-          : formatDirectWorkDuration(liveRun.durationMs),
-    },
-  ].filter(
-    (
-      field,
-    ): field is {
-      label: string;
-      value: string;
-    } => Boolean(field),
-  );
+    { label: "Total duration", value: liveRunDurationLabel(liveRun) },
+  ].filter((field): field is { label: string; value: string } => Boolean(field));
+}
+
+function liveRunDurationLabel(liveRun: CodexDirectWorkLiveRun) {
+  return liveRun.durationMs === null
+    ? "Running"
+    : formatDirectWorkDuration(liveRun.durationMs);
 }
 
 function isFailureStatus(status: string) {
