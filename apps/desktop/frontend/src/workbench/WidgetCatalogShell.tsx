@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
-  plannedWidgetCatalogTemplates,
-  widgetCatalogCategoryLabels,
-  widgetCatalogCategoryOrder,
+  widgetCatalogSectionDescriptions,
+  widgetCatalogSectionLabels,
+  widgetCatalogSectionOrder,
+  widgetCatalogTemplates,
   type WidgetCatalogTemplate,
-  type WidgetCatalogTemplateStatus,
+  type WidgetCatalogSection,
 } from "./catalogTemplates";
 
 type WidgetCatalogShellProps = {
@@ -19,15 +21,17 @@ export function WidgetCatalogShell({
   onAddTemplate,
   onClose,
 }: WidgetCatalogShellProps) {
+  const [showPlanned, setShowPlanned] = useState(false);
+
   if (!isOpen) {
     return null;
   }
 
-  const templateGroups = widgetCatalogCategoryOrder
-    .map((category) => ({
-      category,
-      templates: plannedWidgetCatalogTemplates.filter(
-        (template) => template.category === category,
+  const templateGroups = widgetCatalogSectionOrder
+    .map((section) => ({
+      section,
+      templates: widgetCatalogTemplates.filter(
+        (template) => template.section === section,
       ),
     }))
     .filter((group) => group.templates.length > 0);
@@ -45,7 +49,7 @@ export function WidgetCatalogShell({
               Widget Catalog
             </h2>
             <p className="widget-catalog-subtitle">
-              Add widgets to compose your AI workspace.
+              Choose a current workbench surface. Future widgets are collapsed below.
             </p>
           </div>
           <Button onClick={onClose} variant="ghost">
@@ -55,19 +59,51 @@ export function WidgetCatalogShell({
 
         <div className="widget-catalog-body">
           {templateGroups.map((group) => (
-            <section className="catalog-template-group" key={group.category}>
-              <h3 className="catalog-template-group-title">
-                {widgetCatalogCategoryLabels[group.category]}
-              </h3>
-              <div className="catalog-template-list">
-                {group.templates.map((template) => (
-                  <CatalogTemplateCard
-                    key={template.id}
-                    onAddTemplate={onAddTemplate}
-                    template={template}
-                  />
-                ))}
+            <section
+              className={[
+                "catalog-template-group",
+                `catalog-template-group-${group.section}`,
+              ].join(" ")}
+              key={group.section}
+            >
+              <div className="catalog-template-group-header">
+                <div className="catalog-template-group-heading">
+                  <h3 className="catalog-template-group-title">
+                    {widgetCatalogSectionLabels[group.section]}
+                  </h3>
+                  <p className="catalog-template-group-description">
+                    {widgetCatalogSectionDescriptions[group.section]}
+                  </p>
+                </div>
+                {group.section === "planned" ? (
+                  <Button
+                    onClick={() => {
+                      setShowPlanned((currentValue) => !currentValue);
+                    }}
+                    variant="ghost"
+                  >
+                    {showPlanned
+                      ? "Hide planned"
+                      : `Show planned (${group.templates.length})`}
+                  </Button>
+                ) : null}
               </div>
+              {group.section === "planned" && !showPlanned ? (
+                <p className="catalog-template-group-note">
+                  Planned widgets stay out of the default catalog path until
+                  their Minimal or Operational surface is implemented.
+                </p>
+              ) : (
+                <div className="catalog-template-list">
+                  {group.templates.map((template) => (
+                    <CatalogTemplateCard
+                      key={template.id}
+                      onAddTemplate={onAddTemplate}
+                      template={template}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           ))}
         </div>
@@ -93,8 +129,8 @@ function CatalogTemplateCard({
       <div className="catalog-template-card-main">
         <div className="catalog-template-card-header">
           <h4 className="catalog-template-title">{template.title}</h4>
-          <Badge variant={statusBadgeVariant(template.status)}>
-            {statusLabel(template.status)}
+          <Badge variant={sectionBadgeVariant(template.section)}>
+            {sectionLabel(template.section)}
           </Badge>
         </div>
         <p className="catalog-template-description">{template.description}</p>
@@ -113,16 +149,24 @@ function CatalogTemplateCard({
         }}
         variant="secondary"
       >
-        {template.status === "available" ? "Add widget" : "Not available yet"}
+        {template.status === "available" ? "Add widget" : "Not available"}
       </Button>
     </article>
   );
 }
 
-function statusLabel(status: WidgetCatalogTemplateStatus) {
-  return status === "available" ? "Available" : "Planned";
+function sectionLabel(section: WidgetCatalogSection) {
+  return widgetCatalogSectionLabels[section];
 }
 
-function statusBadgeVariant(status: WidgetCatalogTemplateStatus) {
-  return status === "available" ? "success" : "neutral";
+function sectionBadgeVariant(section: WidgetCatalogSection) {
+  if (section === "ready") {
+    return "success";
+  }
+
+  if (section === "preview") {
+    return "info";
+  }
+
+  return "neutral";
 }

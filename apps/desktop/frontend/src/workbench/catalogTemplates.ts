@@ -19,115 +19,48 @@ export type WidgetCatalogCategory =
   | "design";
 
 export type WidgetCatalogTemplateStatus = "planned" | "available";
+export type WidgetCatalogSection = "ready" | "preview" | "planned";
 
 export type WidgetCatalogTemplate = {
   id: string;
   title: string;
   category: WidgetCatalogCategory;
   description: string;
+  section: WidgetCatalogSection;
   status: WidgetCatalogTemplateStatus;
   capabilitySummary: string[];
   futureWidgetDefinitionId?: WidgetDefinitionId;
 };
 
-export const widgetCatalogCategoryLabels: Record<
-  WidgetCatalogCategory,
+export const widgetCatalogSectionLabels: Record<WidgetCatalogSection, string> =
+  {
+    ready: "Ready",
+    preview: "Preview",
+    planned: "Planned",
+  };
+
+export const widgetCatalogSectionDescriptions: Record<
+  WidgetCatalogSection,
   string
 > = {
-  core: "Core",
-  workflow: "Workflow",
-  productivity: "Productivity",
-  tools: "Tools",
-  data: "Data",
-  codebase: "Codebase",
-  design: "Design",
+  ready: "Current demo-ready workbench surfaces.",
+  preview: "Useful secondary surfaces for proposal review and product direction.",
+  planned: "Future widgets are collapsed by default and not part of the current demo.",
 };
 
-export const widgetCatalogCategoryOrder: WidgetCatalogCategory[] = [
-  "core",
-  "workflow",
-  "productivity",
-  "tools",
-  "data",
-  "codebase",
-  "design",
+export const widgetCatalogSectionOrder: WidgetCatalogSection[] = [
+  "ready",
+  "preview",
+  "planned",
 ];
 
-export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
-  {
-    id: "agent-cli",
-    title: "Agent CLI",
-    category: "core",
-    description: "Direct prompt surface for agent interaction.",
-    status: "planned",
-    capabilitySummary: [
-      "Operator prompt surface",
-      "Agent activity context",
-      "Approval-aware proposals",
-    ],
-  },
-  {
-    id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Monitoring",
-    category: "core",
-    description:
-      "Static preview of future Overview Log, Result Report, and Raw trace views for one execution.",
-    status: "available",
-    capabilitySummary: [
-      "Static observability preview",
-      "Runtime and streaming not implemented",
-      "Parsing and validation not implemented",
-    ],
-    futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: AGENT_CHAT_WIDGET_DEFINITION_ID,
-    title: "Agent Chat",
-    category: "core",
-    description:
-      "Local/mock proposal-only preview for future operational agent chat.",
-    status: "available",
-    capabilitySummary: [
-      "Local proposal preview only",
-      "No LLM or tool execution",
-      "Agent runtime not implemented",
-      "Workspace context access not implemented",
-    ],
-    futureWidgetDefinitionId: AGENT_CHAT_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
-    title: "Template Library",
-    category: "workflow",
-    description:
-      "Static previews for future Request, Response, and Coordinator workflow templates.",
-    status: "available",
-    capabilitySummary: [
-      "Request, Response, and workflow previews",
-      "Template storage and editing not implemented",
-      "Request generation, response capture, and validation not implemented",
-    ],
-    futureWidgetDefinitionId: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    title: "Agent Queue",
-    category: "workflow",
-    description:
-      "Static preview of the future agent command queue, history, and review inbox.",
-    status: "available",
-    capabilitySummary: [
-      "Static command queue and review preview",
-      "Queue storage and automatic execution not implemented",
-      "Response capture, validation, and Git mutation not implemented",
-    ],
-    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  },
+export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
   {
     id: NOTES_WIDGET_DEFINITION_ID,
     title: "Notes",
     category: "productivity",
     description: "Persisted single-draft notes surface.",
+    section: "ready",
     status: "available",
     capabilitySummary: [
       "One saved body draft",
@@ -140,14 +73,102 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tools",
-    description: "One-shot local command surface for the desktop shell.",
+    description: "Desktop one-shot local command runner, not an interactive shell.",
+    section: "ready",
     status: "available",
     capabilitySummary: [
       "Explicit program plus argv",
-      "Widget-local logs panel",
+      "Final stdout/stderr result",
       "No shell, PTY, streaming, or command history",
     ],
     futureWidgetDefinitionId: TERMINAL_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: AGENT_CHAT_WIDGET_DEFINITION_ID,
+    title: "Agent Chat",
+    category: "core",
+    description:
+      "Proposal-only mock with explicit approved current-view context.",
+    section: "ready",
+    status: "available",
+    capabilitySummary: [
+      "Local structured proposal preview",
+      "Approved metadata only",
+      "No LLM, tools, or mutations",
+    ],
+    futureWidgetDefinitionId: AGENT_CHAT_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    title: "Agent Queue",
+    category: "workflow",
+    description: "Persisted review inbox for proposal-only Agent Chat results.",
+    section: "ready",
+    status: "available",
+    capabilitySummary: [
+      "Needs-review items",
+      "Read-only proposal details",
+      "No execution, approval, or apply flow",
+    ],
+    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: GIT_WIDGET_DEFINITION_ID,
+    title: "Git",
+    category: "codebase",
+    description:
+      "Manual read-only status snapshot for an explicit transient repository root.",
+    section: "ready",
+    status: "available",
+    capabilitySummary: [
+      "Desktop read-only refresh",
+      "Grouped changed files summary",
+      "No Git mutations, diff, log, or persistence",
+    ],
+    futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: AGENT_RUN_WIDGET_DEFINITION_ID,
+    title: "Agent Monitoring",
+    category: "core",
+    description:
+      "Read-only proposal artifact viewer for persisted Agent Chat results.",
+    section: "preview",
+    status: "available",
+    capabilitySummary: [
+      "Overview, Result, and Raw sections",
+      "Creates review-only queue items",
+      "Secondary detail surface, no runtime",
+    ],
+    futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
+    title: "Template Library",
+    category: "workflow",
+    description:
+      "Static preview for future request and response template workflows.",
+    section: "preview",
+    status: "available",
+    capabilitySummary: [
+      "Template direction preview",
+      "Local generated request preview",
+      "No storage, send, executor, or validation",
+    ],
+    futureWidgetDefinitionId: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: "agent-cli",
+    title: "Agent CLI",
+    category: "core",
+    description: "Future prompt surface for agent interaction.",
+    section: "planned",
+    status: "planned",
+    capabilitySummary: [
+      "Future operator prompt surface",
+      "Future agent activity context",
+      "Not available in this demo",
+    ],
   },
   {
     id: "script-runner",
@@ -155,6 +176,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     category: "tools",
     description:
       "Run an explicitly configured local script with predefined arguments when the operator presses Run.",
+    section: "planned",
     status: "planned",
     capabilitySummary: [
       "Operator-controlled script execution planned",
@@ -167,11 +189,12 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Database / JDBC",
     category: "data",
     description: "Database connection, SQL runner, and result grid.",
+    section: "planned",
     status: "planned",
     capabilitySummary: [
-      "Connection configuration",
-      "SQL execution surface",
-      "Result grid output",
+      "Future connection configuration",
+      "Future SQL execution surface",
+      "Not available in this demo",
     ],
   },
   {
@@ -179,6 +202,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "JIRA",
     category: "workflow",
     description: "Future read-only-first issue and work tracking context.",
+    section: "planned",
     status: "planned",
     capabilitySummary: [
       "Issue and work tracking context",
@@ -191,6 +215,7 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Confluence",
     category: "productivity",
     description: "Future read-only-first documentation and knowledge context.",
+    section: "planned",
     status: "planned",
     capabilitySummary: [
       "Documentation and knowledge context",
@@ -199,30 +224,17 @@ export const plannedWidgetCatalogTemplates: WidgetCatalogTemplate[] = [
     ],
   },
   {
-    id: GIT_WIDGET_DEFINITION_ID,
-    title: "Git",
-    category: "codebase",
-    description:
-      "Read-only manual status snapshot for an explicit transient repository root.",
-    status: "available",
-    capabilitySummary: [
-      "Manual desktop read-only status refresh",
-      "Grouped changed files summary",
-      "Git mutations, diff, log, and persistence not implemented",
-    ],
-    futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
-  },
-  {
     id: "image-edit",
     title: "Image Edit",
     category: "design",
     description:
       "Image selection, prompt-based edit request, and generated results.",
+    section: "planned",
     status: "planned",
     capabilitySummary: [
-      "Image selection",
-      "Prompted edit request",
-      "Generated result variants",
+      "Future image selection",
+      "Future prompted edit request",
+      "Not available in this demo",
     ],
   },
 ];
