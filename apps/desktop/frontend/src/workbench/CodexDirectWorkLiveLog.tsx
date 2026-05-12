@@ -4,6 +4,8 @@ import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 const LIVE_LOG_ENTRY_LIMIT = 200;
+const RAW_EVENT_PREVIEW_LIMIT = 180;
+const AGENT_MESSAGE_PREVIEW_LIMIT = 500;
 
 export type CodexDirectWorkLiveRun = {
   durationMs: number | null;
@@ -22,15 +24,26 @@ export type CodexDirectWorkLiveLogEntryKind =
   | "fallback_completed"
   | "fallback_failed";
 
+export type CodexDirectWorkLiveLogEntryTone =
+  | "neutral"
+  | "info"
+  | "stdout"
+  | "stderr"
+  | "json"
+  | "success"
+  | "error";
+
 export type CodexDirectWorkLiveLogEntry = {
   detail: string;
   elapsedMs: number;
   id: string;
   kind: CodexDirectWorkLiveLogEntryKind;
+  label?: string;
+  rawPreview?: string;
   runId: string;
   status: string | null;
   text: string;
-  tone: "neutral" | "stdout" | "stderr" | "json" | "success" | "error";
+  tone: CodexDirectWorkLiveLogEntryTone;
 };
 
 export function CodexDirectWorkLiveLog({
@@ -94,7 +107,7 @@ export function CodexDirectWorkLiveLog({
             >
               <div className="codex-direct-work-live-log-entry-meta">
                 <span className="codex-direct-work-live-log-kind">
-                  {entry.kind}
+                  {entry.label ?? liveLogEntryLabel(entry)}
                 </span>
                 <span className="codex-direct-work-live-log-time">
                   {entry.elapsedMs} ms
@@ -105,6 +118,16 @@ export function CodexDirectWorkLiveLog({
                 <p className="codex-direct-work-live-log-detail">
                   {entry.detail}
                 </p>
+              ) : null}
+              {entry.rawPreview ? (
+                <details className="codex-direct-work-live-log-raw">
+                  <summary className="codex-direct-work-live-log-detail">
+                    Raw event
+                  </summary>
+                  <p className="codex-direct-work-live-log-detail">
+                    {entry.rawPreview}
+                  </p>
+                </details>
               ) : null}
             </div>
           ))
@@ -188,10 +211,12 @@ export function liveLogEntryFromEvent(
   event: DirectWorkStreamEvent,
 ): CodexDirectWorkLiveLogEntry {
   return {
-    detail: shortEventDetail(event.text ?? event.line ?? ""),
+    detail: liveLogEventDetail(event),
     elapsedMs: event.elapsedMs,
-    id: `${event.runId}-${event.elapsedMs}-${event.eventKind}-${event.line ?? event.text ?? ""}`,
+    id: `${event.runId}-${event.elapsedMs}-${event.eventKind}-${liveLogEventIdSuffix(event)}`,
     kind: event.eventKind,
+    label: liveLogEventLabel(event),
+    rawPreview: liveLogRawPreview(event),
     runId: event.runId,
     status: event.status,
     text: liveLogEventText(event),
@@ -209,13 +234,13 @@ export function syntheticStartedLogEntry(
     kind: "started",
     runId,
     status: null,
-    text: "Codex stream started.",
+    text: "Codex stream started",
     tone: "neutral",
   };
 }
 
 export function cappedLiveLogEntries(entries: CodexDirectWorkLiveLogEntry[]) {
-  return entries.slice(-LIVE_LOG_ENTRY_LIMIT);
+  return deduplicateStartedEntries(entries).slice(-LIVE_LOG_ENTRY_LIMIT);
 }
 
 export function isFinalStatus(status: string) {
@@ -239,9 +264,7 @@ function liveStatusFromEvent(
 
 function liveLogEventText(event: DirectWorkStreamEvent) {
   if (event.eventKind === "codex_json_event") {
-    return event.parsedCodexEventType
-      ? `Codex event: ${event.parsedCodexEventType}`
-      : "Codex JSON event";
+    return codexJsonEventText(event);
   }
 
   if (event.eventKind === "final_message") {
@@ -253,14 +276,75 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
   }
 
   if (event.eventKind === "stdout_line") {
+    return event.line || "stdout";
+  }
+
+  if (event.eventKind === "stderr_line") {
+    return event.line || "stderr";
+  }
+
+  return "Codex stream started";
+}
+
+function liveLogEventDetail(event: DirectWorkStreamEvent) {
+  if (event.eventKind === "codex_json_event") {
+    return "";
+  }
+
+  if (event.eventKind === "final_message") {
+    return shortEventDetail(event.text ?? "");
+  }
+
+  if (event.eventKind === "stdout_line" || event.eventKind === "stderr_line") {
+    return "";
+  }
+
+  return shortEventDetail(event.text ?? event.line ?? "");
+}
+
+function liveLogEventLabel(event: DirectWorkStreamEvent) {
+  if (event.eventKind === "codex_json_event") {
+    return codexJsonEventLabel(event);
+  }
+
+  if (event.eventKind === "stdout_line") {
     return "stdout";
   }
 
   if (event.eventKind === "stderr_line") {
-    return "stderr";
+    return isInformationalStderrLine(event.line) ? "stderr info" : "stderr";
   }
 
-  return "Codex stream started.";
+  if (event.eventKind === "final_message") {
+    return "Final response";
+  }
+
+  if (event.eventKind === "completed") {
+    return "Completed";
+  }
+
+  if (event.eventKind === "failed") {
+    return "Failed";
+  }
+
+  if (event.eventKind === "timed_out") {
+    return "Timed out";
+  }
+
+  return "Stream";
+}
+
+function liveLogRawPreview(event: DirectWorkStreamEvent) {
+  return event.eventKind === "codex_json_event" && event.line
+    ? shortEventDetail(event.line, RAW_EVENT_PREVIEW_LIMIT)
+    : undefined;
+}
+
+function liveLogEventIdSuffix(event: DirectWorkStreamEvent) {
+  return shortEventDetail(
+    event.parsedCodexEventType ?? event.text ?? event.line ?? "",
+    60,
+  );
 }
 
 function liveLogTone(
@@ -271,6 +355,10 @@ function liveLogTone(
   }
 
   if (event.eventKind === "stderr_line") {
+    if (isInformationalStderrLine(event.line)) {
+      return "info";
+    }
+
     return "stderr";
   }
 
@@ -287,6 +375,38 @@ function liveLogTone(
   }
 
   return "neutral";
+}
+
+function liveLogEntryLabel(entry: CodexDirectWorkLiveLogEntry) {
+  return LOCAL_LOG_LABELS[entry.kind] ?? entry.kind;
+}
+
+const LOCAL_LOG_LABELS: Partial<
+  Record<CodexDirectWorkLiveLogEntryKind, string>
+> = {
+  fallback_completed: "Fallback completed",
+  fallback_failed: "Fallback failed",
+  fallback_starting: "Fallback",
+  started: "Stream",
+  stream_start_failed: "Streaming failed",
+  stream_starting: "Starting",
+};
+
+function deduplicateStartedEntries(entries: CodexDirectWorkLiveLogEntry[]) {
+  const startedRunIds = new Set<string>();
+
+  return entries.filter((entry) => {
+    if (entry.kind !== "started") {
+      return true;
+    }
+
+    if (startedRunIds.has(entry.runId)) {
+      return false;
+    }
+
+    startedRunIds.add(entry.runId);
+    return true;
+  });
 }
 
 function liveRunStatusView(status: string): {
@@ -392,18 +512,165 @@ function previewLiveOutput(value: string) {
     return value;
   }
 
-  return `${value.slice(
-    0,
-    OUTPUT_PREVIEW_LIMIT,
-  )}\n[Preview truncated in UI.]`;
+  return `${value.slice(0, OUTPUT_PREVIEW_LIMIT)}\n[Preview truncated in UI.]`;
 }
 
-function shortEventDetail(value: string) {
+function shortEventDetail(value: string, limit = 220) {
   const compactValue = value.replace(/\s+/g, " ").trim();
 
-  if (compactValue.length <= 220) {
+  if (compactValue.length <= limit) {
     return compactValue;
   }
 
-  return `${compactValue.slice(0, 220)}...`;
+  return `${compactValue.slice(0, limit)}...`;
+}
+
+function isInformationalStderrLine(line: string | null) {
+  return line?.trim() === "Reading additional input from stdin...";
+}
+
+function codexJsonEventText(event: DirectWorkStreamEvent) {
+  const payload = parseJsonRecord(event.line);
+  const eventType = codexJsonEventType(event, payload);
+
+  if (eventType === "item.completed" && codexItemType(payload) === "agent_message") {
+    return (
+      shortEventDetail(
+        extractAgentMessageText(payload) ?? "Agent message completed.",
+        AGENT_MESSAGE_PREVIEW_LIMIT,
+      ) || "Agent message completed."
+    );
+  }
+
+  if (eventType === "thread.started") {
+    return "Thread started.";
+  }
+
+  if (eventType === "turn.started") {
+    return "Turn started.";
+  }
+
+  if (eventType === "turn.completed") {
+    const usageSummary = compactUsageSummary(payload);
+    return usageSummary ? `Turn completed. ${usageSummary}.` : "Turn completed.";
+  }
+
+  return eventType ? `Codex event: ${eventType}` : "Codex event";
+}
+
+function codexJsonEventLabel(event: DirectWorkStreamEvent) {
+  const payload = parseJsonRecord(event.line);
+  const eventType = codexJsonEventType(event, payload);
+
+  if (eventType === "thread.started") {
+    return "Thread started";
+  }
+
+  if (eventType === "turn.started") {
+    return "Turn started";
+  }
+
+  if (eventType === "item.completed" && codexItemType(payload) === "agent_message") {
+    return "Agent message";
+  }
+
+  if (eventType === "turn.completed") {
+    return "Turn completed";
+  }
+
+  return eventType ? `Codex event: ${eventType}` : "Codex event";
+}
+
+function codexJsonEventType(event: DirectWorkStreamEvent, payload: JsonRecord | null) {
+  return event.parsedCodexEventType ?? stringValue(payload?.type);
+}
+
+function codexItemType(payload: JsonRecord | null) {
+  return stringValue(recordValue(payload?.item)?.type);
+}
+
+function extractAgentMessageText(payload: JsonRecord | null) {
+  const item = recordValue(payload?.item);
+
+  return firstMessageText(item?.text, item?.message, item?.content, item?.parts);
+}
+
+function messageTextFromValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => messageTextFromValue(item))
+      .filter((item): item is string => Boolean(item));
+    return parts.length > 0 ? parts.join("\n") : null;
+  }
+
+  const record = recordValue(value);
+  return record ? firstMessageText(record.text, record.content) : null;
+}
+
+function firstMessageText(...values: unknown[]) {
+  for (const value of values) {
+    const text = messageTextFromValue(value);
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function compactUsageSummary(payload: JsonRecord | null) {
+  const usage = recordValue(payload?.usage);
+  if (!usage) {
+    return null;
+  }
+
+  const parts = [
+    usagePart(usage, "input_tokens", "input"),
+    usagePart(usage, "output_tokens", "output"),
+    usagePart(usage, "total_tokens", "total"),
+  ].filter((part): part is string => Boolean(part));
+
+  const summary = parts.length > 0 ? `Usage: ${parts.join(", ")}` : "";
+  return summary && summary.length <= 100 ? summary : null;
+}
+
+function usagePart(usage: JsonRecord, key: string, label: string) {
+  const value = numberValue(usage[key]);
+  return value === null ? null : `${formatCount(value)} ${label}`;
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+type JsonRecord = Record<string, unknown>;
+
+function parseJsonRecord(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return recordValue(JSON.parse(value));
+  } catch {
+    return null;
+  }
+}
+
+function recordValue(value: unknown): JsonRecord | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value ? value : null;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

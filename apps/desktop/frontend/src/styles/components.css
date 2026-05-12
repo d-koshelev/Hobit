@@ -712,6 +712,10 @@
   border-left-color: var(--color-info);
 }
 
+.codex-direct-work-live-log-entry-info {
+  border-left-color: var(--color-info);
+}
+
 .codex-direct-work-live-log-entry-stderr,
 .codex-direct-work-live-log-entry-error {
   border-left-color: var(--color-error);
@@ -749,6 +753,15 @@
 .codex-direct-work-live-log-text,
 .codex-direct-work-live-log-detail {
   overflow-wrap: anywhere;
+}
+
+.codex-direct-work-live-log-raw {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.codex-direct-work-live-log-raw summary {
+  cursor: pointer;
 }
 
 .agent-run-placeholder {
