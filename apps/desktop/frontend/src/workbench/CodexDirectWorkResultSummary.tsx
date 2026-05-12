@@ -4,23 +4,36 @@ import {
   directWorkGitReviewHint,
   directWorkGitWidgetAvailability,
 } from "./CodexDirectWorkReviewHint";
+import {
+  formatDirectWorkClockTime,
+  formatDirectWorkDuration,
+} from "./CodexDirectWorkTiming";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
+import type { DirectWorkGitReviewStatus } from "./types";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 
 type CodexDirectWorkResultSummaryProps = {
+  gitReviewStatus?: DirectWorkGitReviewStatus | null;
   hasGitWidget?: boolean;
   result: RunCodexDirectWorkResponse;
+  timing?: {
+    completedAtMs: number;
+    startedAtMs: number;
+  } | null;
 };
 
 export function CodexDirectWorkResultSummary({
+  gitReviewStatus,
   hasGitWidget,
   result,
+  timing,
 }: CodexDirectWorkResultSummaryProps) {
   const statusView = codexResultStatusView(result);
   const reviewHint = directWorkGitReviewHint(
     result.status,
     directWorkGitWidgetAvailability(hasGitWidget),
+    gitReviewStatus,
   );
 
   return (
@@ -45,11 +58,26 @@ export function CodexDirectWorkResultSummary({
           { label: "Run id", value: result.runId },
           { label: "Result id", value: result.resultId },
           { label: "Status", value: result.status },
+          timing
+            ? {
+                label: "Started at",
+                value: formatDirectWorkClockTime(timing.startedAtMs),
+              }
+            : null,
+          timing
+            ? {
+                label: "Completed at",
+                value: formatDirectWorkClockTime(timing.completedAtMs),
+              }
+            : null,
           {
             label: "Exit code",
             value: result.exitCode === null ? "None" : String(result.exitCode),
           },
-          { label: "Duration", value: `${result.durationMs} ms` },
+          {
+            label: "Total duration",
+            value: formatDirectWorkDuration(result.durationMs),
+          },
           { label: "Sandbox", value: result.sandbox },
           { label: "Approval policy", value: result.approvalPolicy },
           { label: "Auto commit", value: yesNo(!result.noAutoCommit) },
@@ -58,7 +86,14 @@ export function CodexDirectWorkResultSummary({
             label: "Git mutations by Hobit",
             value: yesNo(result.gitMutationsPerformedByHobit),
           },
-        ]}
+        ].filter(
+          (
+            field,
+          ): field is {
+            label: string;
+            value: string;
+          } => Boolean(field),
+        )}
         labelClassName="codex-direct-work-result-label"
         valueClassName="codex-direct-work-result-value"
       />

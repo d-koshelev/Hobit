@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { WidgetFrame } from "../design-system/WidgetFrame";
@@ -23,11 +23,13 @@ import {
 import type { WidgetRenderProps } from "./types";
 
 export function GitPlaceholderWidget({
+  directWorkGitReviewRequest,
   frameActions,
   frameMoveEnabled,
   frameStyle,
   instance,
   logRefreshToken,
+  onDirectWorkGitReviewStatusChange,
   onGetGitRepositoryStatus,
   onLoadLogs,
   onStartFrameMove,
@@ -44,6 +46,7 @@ export function GitPlaceholderWidget({
     null,
   );
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
+  const handledDirectWorkGitReviewRequestIdRef = useRef<number | null>(null);
   const supportsDesktopGitReads = isTauriRuntime();
   const canReadGitStatus =
     supportsDesktopGitReads && Boolean(onGetGitRepositoryStatus);
@@ -52,15 +55,56 @@ export function GitPlaceholderWidget({
   const canRefreshStatus =
     canReadGitStatus && hasRepositoryRootDraft && !isRefreshingStatus;
 
-  async function refreshStatus() {
-    if (isRefreshingStatus) {
+  useEffect(() => {
+    if (
+      !directWorkGitReviewRequest ||
+      handledDirectWorkGitReviewRequestIdRef.current ===
+        directWorkGitReviewRequest.id
+    ) {
       return;
     }
 
-    if (!hasRepositoryRootDraft) {
+    handledDirectWorkGitReviewRequestIdRef.current =
+      directWorkGitReviewRequest.id;
+    setRepositoryRootDraft(directWorkGitReviewRequest.repositoryRoot);
+    void refreshStatusForRoot(
+      directWorkGitReviewRequest.repositoryRoot,
+      directWorkGitReviewRequest.id,
+      directWorkGitReviewRequest.sourceWidgetInstanceId,
+    );
+  }, [directWorkGitReviewRequest]);
+
+  async function refreshStatus() {
+    await refreshStatusForRoot(repositoryRoot);
+  }
+
+  async function refreshStatusForRoot(
+    requestedRepositoryRoot: string,
+    directWorkRequestId?: number,
+    sourceWidgetInstanceId?: string,
+  ) {
+    if (isRefreshingStatus) {
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "failed",
+        "Git status is already refreshing",
+      );
+      return;
+    }
+
+    const nextRepositoryRoot = requestedRepositoryRoot.trim();
+
+    if (!nextRepositoryRoot) {
       setGitStatus(null);
       setStatusRepositoryRoot(null);
       setStatusError(gitStatusErrorViewFromCategory("not-configured"));
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "failed",
+        "Repository root is not configured",
+      );
       return;
     }
 
@@ -68,6 +112,12 @@ export function GitPlaceholderWidget({
       setGitStatus(null);
       setStatusRepositoryRoot(null);
       setStatusError(gitStatusErrorViewFromCategory("unsupported-browser"));
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "failed",
+        "Desktop/Tauri shell is required for real Git reads",
+      );
       return;
     }
 
@@ -75,6 +125,12 @@ export function GitPlaceholderWidget({
       setGitStatus(null);
       setStatusRepositoryRoot(null);
       setStatusError(gitStatusErrorViewFromCategory("unavailable"));
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "failed",
+        "Git status reader is unavailable",
+      );
       return;
     }
 
@@ -84,16 +140,31 @@ export function GitPlaceholderWidget({
     setStatusRepositoryRoot(null);
 
     try {
-      const status = await onGetGitRepositoryStatus(instance.id, repositoryRoot);
+      const status = await onGetGitRepositoryStatus(
+        instance.id,
+        nextRepositoryRoot,
+      );
 
       if (!status) {
         throw new Error("Git status was not returned for this widget.");
       }
 
       setGitStatus(status);
-      setStatusRepositoryRoot(repositoryRoot);
+      setStatusRepositoryRoot(nextRepositoryRoot);
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "completed",
+      );
     } catch (error) {
-      setStatusError(gitStatusErrorViewFromUnknown(error));
+      const errorView = gitStatusErrorViewFromUnknown(error);
+      setStatusError(errorView);
+      reportDirectWorkGitReviewStatus(
+        directWorkRequestId,
+        sourceWidgetInstanceId,
+        "failed",
+        `${errorView.title}: ${errorView.message}`,
+      );
     } finally {
       setIsRefreshingStatus(false);
     }
@@ -102,6 +173,24 @@ export function GitPlaceholderWidget({
   function updateRepositoryRootDraft(value: string) {
     setRepositoryRootDraft(value);
     setStatusError(null);
+  }
+
+  function reportDirectWorkGitReviewStatus(
+    requestId: number | undefined,
+    sourceWidgetInstanceId: string | undefined,
+    state: "completed" | "failed",
+    errorMessage?: string,
+  ) {
+    if (requestId === undefined || !sourceWidgetInstanceId) {
+      return;
+    }
+
+    onDirectWorkGitReviewStatusChange?.({
+      errorMessage,
+      requestId,
+      sourceWidgetInstanceId,
+      state,
+    });
   }
 
   return (

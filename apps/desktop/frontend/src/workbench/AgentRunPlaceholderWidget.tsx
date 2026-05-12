@@ -42,10 +42,12 @@ export function AgentRunPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
   frameStyle,
+  directWorkGitReviewStatus,
   hasGitWidget,
   instance,
   logRefreshToken,
   onCreateAgentQueueItemFromProposal,
+  onDirectWorkGitReviewRequested,
   onGetAgentMonitoringSnapshot,
   onLoadLogs,
   onRunCodexDirectWork,
@@ -199,7 +201,13 @@ export function AgentRunPlaceholderWidget({
         </section>
 
         <CodexDirectWorkPanel
+          gitReviewStatus={
+            directWorkGitReviewStatus?.sourceWidgetInstanceId === instance.id
+              ? directWorkGitReviewStatus
+              : null
+          }
           hasGitWidget={hasGitWidget}
+          onDirectWorkGitReviewRequested={onDirectWorkGitReviewRequested}
           onRunCodexDirectWork={onRunCodexDirectWork}
           onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}
           widgetInstanceId={instance.id}

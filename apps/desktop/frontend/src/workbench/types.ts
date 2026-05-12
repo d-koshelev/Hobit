@@ -177,12 +177,32 @@ export type WidgetResult = {
   payload: Record<string, unknown> | null;
 };
 
+export type DirectWorkGitReviewRequest = {
+  id: number;
+  repositoryRoot: string;
+  sourceWidgetInstanceId: WidgetInstanceId;
+};
+
+export type DirectWorkGitReviewRequestInput = {
+  repositoryRoot: string;
+  sourceWidgetInstanceId: WidgetInstanceId;
+};
+
+export type DirectWorkGitReviewStatus = {
+  errorMessage?: string;
+  requestId: number;
+  sourceWidgetInstanceId: WidgetInstanceId;
+  state: "pending" | "completed" | "failed";
+};
+
 export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
+  directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
+  directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   hasGitWidget?: boolean;
   instance: WidgetInstance;
   logRefreshToken?: number;
@@ -220,6 +240,12 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  onDirectWorkGitReviewRequested?: (
+    request: DirectWorkGitReviewRequestInput,
+  ) => void;
+  onDirectWorkGitReviewStatusChange?: (
+    status: DirectWorkGitReviewStatus,
+  ) => void;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

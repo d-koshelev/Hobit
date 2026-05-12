@@ -8,13 +8,19 @@ import {
   codexJsonEventLabel,
   codexJsonEventText,
 } from "./CodexDirectWorkLiveLogCodexEvents";
+import {
+  formatDirectWorkClockTime,
+  formatDirectWorkDuration,
+} from "./CodexDirectWorkTiming";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
+import type { DirectWorkGitReviewStatus } from "./types";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 const LIVE_LOG_ENTRY_LIMIT = 200;
 const RAW_EVENT_PREVIEW_LIMIT = 180;
 
 export type CodexDirectWorkLiveRun = {
+  completedAtMs: number | null;
   durationMs: number | null;
   errorMessage: string | null;
   exitCode: number | null;
@@ -22,6 +28,7 @@ export type CodexDirectWorkLiveRun = {
   finalMessage: string | null;
   finalStatus: string | null;
   runId: string;
+  startedAtMs: number | null;
   status: string;
   stderrPreview: string;
   stdoutPreview: string;
@@ -45,12 +52,14 @@ export type CodexDirectWorkLiveLogEntryTone =
   | "error";
 
 export type CodexDirectWorkLiveLogEntry = {
+  deltaMs: number | null;
   detail: string;
   elapsedMs: number;
   id: string;
   kind: CodexDirectWorkLiveLogEntryKind;
   label?: string;
   rawPreview?: string;
+  receivedAtMs: number;
   runId: string;
   status: string | null;
   text: string;
@@ -59,10 +68,12 @@ export type CodexDirectWorkLiveLogEntry = {
 
 export function CodexDirectWorkLiveLog({
   entries,
+  gitReviewStatus,
   hasGitWidget,
   liveRun,
 }: {
   entries: CodexDirectWorkLiveLogEntry[];
+  gitReviewStatus?: DirectWorkGitReviewStatus | null;
   hasGitWidget?: boolean;
   liveRun: CodexDirectWorkLiveRun | null;
 }) {
@@ -74,6 +85,7 @@ export function CodexDirectWorkLiveLog({
       ? directWorkGitReviewHint(
           liveRun.status,
           directWorkGitWidgetAvailability(hasGitWidget),
+          gitReviewStatus,
         )
       : null;
 
@@ -97,9 +109,7 @@ export function CodexDirectWorkLiveLog({
         <StaticPreviewFieldList
           className="codex-direct-work-result-grid"
           fieldClassName="codex-direct-work-result-field"
-          fields={[
-            ...liveRunStatusFields(liveRun),
-          ]}
+          fields={liveRunStatusFields(liveRun)}
           labelClassName="codex-direct-work-result-label"
           valueClassName="codex-direct-work-result-value"
         />
@@ -134,7 +144,7 @@ export function CodexDirectWorkLiveLog({
                   {entry.label ?? liveLogEntryLabel(entry)}
                 </span>
                 <span className="codex-direct-work-live-log-time">
-                  {entry.elapsedMs} ms
+                  {formatEntryTiming(entry)}
                 </span>
               </div>
               <p className="codex-direct-work-live-log-text">{entry.text}</p>
@@ -203,11 +213,14 @@ export function CodexDirectWorkLiveLog({
 export function liveRunFromEvent(
   currentRun: CodexDirectWorkLiveRun | null,
   event: DirectWorkStreamEvent,
+  receivedAtMs = Date.now(),
 ): CodexDirectWorkLiveRun {
+  const startedAtMs = Math.max(0, receivedAtMs - event.elapsedMs);
   const base =
     currentRun?.runId === event.runId
       ? currentRun
       : {
+          completedAtMs: null,
           durationMs: null,
           errorMessage: null,
           exitCode: null,
@@ -215,6 +228,7 @@ export function liveRunFromEvent(
           finalMessage: null,
           finalStatus: null,
           runId: event.runId,
+          startedAtMs,
           status: "running",
           stderrPreview: "",
           stdoutPreview: "",
@@ -222,6 +236,7 @@ export function liveRunFromEvent(
 
   return {
     ...base,
+    completedAtMs: event.isFinal ? receivedAtMs : base.completedAtMs,
     durationMs: event.isFinal ? event.elapsedMs : base.durationMs,
     errorMessage: event.errorMessage ?? base.errorMessage,
     exitCode: event.exitCode ?? base.exitCode,
@@ -231,6 +246,7 @@ export function liveRunFromEvent(
         ? event.text
         : base.finalMessage,
     finalStatus: event.finalStatus ?? base.finalStatus,
+    startedAtMs: base.startedAtMs ?? startedAtMs,
     status: liveStatusFromEvent(base.status, event),
     stderrPreview: liveStderrPreviewFromEvent(base.stderrPreview, event),
     stdoutPreview:
@@ -242,14 +258,17 @@ export function liveRunFromEvent(
 
 export function liveLogEntryFromEvent(
   event: DirectWorkStreamEvent,
+  receivedAtMs = Date.now(),
 ): CodexDirectWorkLiveLogEntry {
   return {
+    deltaMs: null,
     detail: liveLogEventDetail(event),
     elapsedMs: event.elapsedMs,
     id: `${event.runId}-${event.elapsedMs}-${event.eventKind}-${liveLogEventIdSuffix(event)}`,
     kind: event.eventKind,
     label: liveLogEventLabel(event),
     rawPreview: liveLogRawPreview(event),
+    receivedAtMs,
     runId: event.runId,
     status: event.status,
     text: liveLogEventText(event),
@@ -259,12 +278,15 @@ export function liveLogEntryFromEvent(
 
 export function syntheticStartedLogEntry(
   runId: string,
+  receivedAtMs = Date.now(),
 ): CodexDirectWorkLiveLogEntry {
   return {
+    deltaMs: null,
     detail: "",
     elapsedMs: 0,
     id: `${runId}-synthetic-started`,
     kind: "started",
+    receivedAtMs,
     runId,
     status: null,
     text: "Codex stream started",
@@ -273,7 +295,9 @@ export function syntheticStartedLogEntry(
 }
 
 export function cappedLiveLogEntries(entries: CodexDirectWorkLiveLogEntry[]) {
-  return deduplicateStartedEntries(entries).slice(-LIVE_LOG_ENTRY_LIMIT);
+  return withVisibleEntryDeltas(
+    deduplicateStartedEntries(entries).slice(-LIVE_LOG_ENTRY_LIMIT),
+  );
 }
 
 export function isFinalStatus(status: string) {
@@ -456,6 +480,19 @@ function deduplicateStartedEntries(entries: CodexDirectWorkLiveLogEntry[]) {
   });
 }
 
+function withVisibleEntryDeltas(entries: CodexDirectWorkLiveLogEntry[]) {
+  return entries.map((entry, index) => {
+    const previousEntry = index > 0 ? entries[index - 1] : null;
+
+    return {
+      ...entry,
+      deltaMs: previousEntry
+        ? Math.max(0, entry.elapsedMs - previousEntry.elapsedMs)
+        : null,
+    };
+  });
+}
+
 function liveRunStatusView(status: string): {
   badgeLabel: string;
   badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
@@ -573,6 +610,12 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
   return [
     { label: "Run id", value: liveRun.runId },
     { label: "Status", value: liveRun.status },
+    liveRun.startedAtMs !== null
+      ? { label: "Started at", value: formatDirectWorkClockTime(liveRun.startedAtMs) }
+      : null,
+    liveRun.completedAtMs !== null
+      ? { label: "Completed at", value: formatDirectWorkClockTime(liveRun.completedAtMs) }
+      : null,
     liveRun.finalStatus
       ? { label: "Final status", value: liveRun.finalStatus }
       : null,
@@ -583,9 +626,11 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
       ? { label: "Failed stage", value: liveRun.failedStage }
       : null,
     {
-      label: "Duration",
+      label: "Total duration",
       value:
-        liveRun.durationMs === null ? "Running" : `${liveRun.durationMs} ms`,
+        liveRun.durationMs === null
+          ? "Running"
+          : formatDirectWorkDuration(liveRun.durationMs),
     },
   ].filter(
     (
@@ -599,6 +644,19 @@ function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
 
 function isFailureStatus(status: string) {
   return status === "failed" || status === "timed_out";
+}
+
+function formatEntryTiming(entry: CodexDirectWorkLiveLogEntry) {
+  const parts = [
+    formatDirectWorkClockTime(entry.receivedAtMs),
+    `+${formatDirectWorkDuration(entry.elapsedMs)}`,
+  ];
+
+  if (entry.deltaMs !== null) {
+    parts.push(`Delta ${formatDirectWorkDuration(entry.deltaMs)}`);
+  }
+
+  return parts.join("  ");
 }
 
 function isFailureEvent(event: DirectWorkStreamEvent) {

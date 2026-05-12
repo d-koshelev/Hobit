@@ -14,6 +14,7 @@ import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import { OperationalAgentChatPlaceholderWidget } from "./OperationalAgentChatPlaceholderWidget";
 import { TemplateLibraryPlaceholderWidget } from "./TemplateLibraryPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
+import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type {
   WidgetInstance,
   WidgetDefinition,
@@ -46,6 +47,7 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 };
 
 type WidgetHostProps = {
+  directWorkGitReview: DirectWorkGitReviewHandoff;
   dockedSize?: {
     height: number;
     width: number;
@@ -70,6 +72,7 @@ type WidgetHostProps = {
 };
 
 export function WidgetHost({
+  directWorkGitReview,
   dockedSize,
   hasGitWidget,
   instance,
@@ -221,6 +224,16 @@ export function WidgetHost({
     <Component
       config={{ ...definition.defaultConfig, ...instance.config }}
       definition={definition}
+      directWorkGitReviewRequest={
+        definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkGitReview.request
+          : undefined
+      }
+      directWorkGitReviewStatus={
+        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkGitReview.status
+          : undefined
+      }
       frameActions={frameActions}
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
@@ -228,6 +241,16 @@ export function WidgetHost({
       instance={instance}
       logRefreshToken={logRefreshToken}
       onCreateAgentQueueItemFromProposal={createAgentQueueItemFromProposal}
+      onDirectWorkGitReviewRequested={
+        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkGitReview.requestReview
+          : undefined
+      }
+      onDirectWorkGitReviewStatusChange={
+        definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkGitReview.updateStatus
+          : undefined
+      }
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onGetAgentMonitoringSnapshot={getAgentMonitoringSnapshot}
       onGetAgentQueueSnapshot={getAgentQueueSnapshot}

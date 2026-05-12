@@ -29,10 +29,18 @@ import type {
   CodexDirectWorkRequestDraft,
   CodexDirectWorkStreamSession,
 } from "./CodexDirectWorkTypes";
-import type { WidgetInstanceId } from "./types";
+import type {
+  DirectWorkGitReviewRequestInput,
+  DirectWorkGitReviewStatus,
+  WidgetInstanceId,
+} from "./types";
 
 type CodexDirectWorkPanelProps = {
+  gitReviewStatus?: DirectWorkGitReviewStatus | null;
   hasGitWidget?: boolean;
+  onDirectWorkGitReviewRequested?: (
+    request: DirectWorkGitReviewRequestInput,
+  ) => void;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
@@ -46,7 +54,9 @@ type CodexDirectWorkPanelProps = {
 };
 
 export function CodexDirectWorkPanel({
+  gitReviewStatus,
   hasGitWidget,
+  onDirectWorkGitReviewRequested,
   onRunCodexDirectWork,
   onStartCodexDirectWorkStream,
   widgetInstanceId,
@@ -60,11 +70,16 @@ export function CodexDirectWorkPanel({
   } | null>(null);
   const [runResult, setRunResult] =
     useState<RunCodexDirectWorkResponse | null>(null);
+  const [runResultTiming, setRunResultTiming] = useState<{
+    completedAtMs: number;
+    startedAtMs: number;
+  } | null>(null);
   const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
   const [liveLogEntries, setLiveLogEntries] = useState<
     CodexDirectWorkLiveLogEntry[]
   >([]);
   const localLogEntrySequenceRef = useRef(0);
+  const activeRequestRef = useRef<CodexDirectWorkRequestDraft | null>(null);
   const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const canRunBackend = Boolean(
@@ -79,6 +94,7 @@ export function CodexDirectWorkPanel({
     }
 
     clearRunState();
+    activeRequestRef.current = request;
     runStartedAtRef.current = Date.now();
     setIsRunning(true);
 
@@ -91,6 +107,7 @@ export function CodexDirectWorkPanel({
       await runOneShotDirectWork(request);
     } catch (error) {
       setRunErrorMessage(codexDirectWorkErrorToMessage(error));
+      activeRequestRef.current = null;
       setIsRunning(false);
     }
   }
@@ -196,7 +213,7 @@ export function CodexDirectWorkPanel({
         ? currentEntries
         : cappedLiveLogEntries([
             ...currentEntries,
-            syntheticStartedLogEntry(session.runId),
+            syntheticStartedLogEntry(session.runId, Date.now()),
           ]),
     );
     setLiveRun((currentRun) => {
@@ -207,6 +224,10 @@ export function CodexDirectWorkPanel({
       return {
         durationMs:
           currentRun?.runId === session.runId ? currentRun.durationMs : null,
+        completedAtMs:
+          currentRun?.runId === session.runId
+            ? currentRun.completedAtMs
+            : null,
         errorMessage:
           currentRun?.runId === session.runId ? currentRun.errorMessage : null,
         exitCode:
@@ -218,6 +239,11 @@ export function CodexDirectWorkPanel({
         finalStatus:
           currentRun?.runId === session.runId ? currentRun.finalStatus : null,
         runId: session.runId,
+        startedAtMs:
+          currentRun?.runId === session.runId &&
+          currentRun.startedAtMs !== null
+            ? currentRun.startedAtMs
+            : Date.now(),
         status: session.status === "started" ? "running" : session.status,
         stderrPreview:
           currentRun?.runId === session.runId ? currentRun.stderrPreview : "",
@@ -243,7 +269,15 @@ export function CodexDirectWorkPanel({
     }
 
     setRunResult(response);
+    const completedAtMs = Date.now();
+    setRunResultTiming({
+      completedAtMs,
+      startedAtMs:
+        runStartedAtRef.current ?? completedAtMs - response.durationMs,
+    });
     setIsRunning(false);
+    requestGitReviewForRepositoryRoot(response.repoRoot || request.repoRoot);
+    activeRequestRef.current = null;
     return response;
   }
 
@@ -253,14 +287,21 @@ export function CodexDirectWorkPanel({
   }
 
   function recordStreamEvent(event: DirectWorkStreamEvent) {
+    const receivedAtMs = Date.now();
+
     setLiveLogEntries((currentEntries) =>
-      cappedLiveLogEntries([...currentEntries, liveLogEntryFromEvent(event)]),
+      cappedLiveLogEntries([
+        ...currentEntries,
+        liveLogEntryFromEvent(event, receivedAtMs),
+      ]),
     );
-    setLiveRun((currentRun) => liveRunFromEvent(currentRun, event));
+    setLiveRun((currentRun) => liveRunFromEvent(currentRun, event, receivedAtMs));
 
     if (event.isFinal) {
       setIsRunning(false);
       stopActiveStreamListening();
+      requestGitReviewForRepositoryRoot(activeRequestRef.current?.repoRoot);
+      activeRequestRef.current = null;
     }
   }
 
@@ -273,17 +314,20 @@ export function CodexDirectWorkPanel({
     runId = "pending",
   ) {
     const startedAt = runStartedAtRef.current;
-    const elapsedMs = startedAt === null ? 0 : Date.now() - startedAt;
+    const receivedAtMs = Date.now();
+    const elapsedMs = startedAt === null ? 0 : receivedAtMs - startedAt;
     const id = `local-${++localLogEntrySequenceRef.current}-${kind}`;
 
     setLiveLogEntries((currentEntries) =>
       cappedLiveLogEntries([
         ...currentEntries,
         {
+          deltaMs: null,
           detail,
           elapsedMs,
           id,
           kind,
+          receivedAtMs,
           runId,
           status,
           text,
@@ -297,10 +341,25 @@ export function CodexDirectWorkPanel({
     setRunErrorMessage(null);
     setRunInfoNotice(null);
     setRunResult(null);
+    setRunResultTiming(null);
     setLiveRun(null);
     setLiveLogEntries([]);
+    activeRequestRef.current = null;
     runStartedAtRef.current = null;
     stopActiveStreamListening();
+  }
+
+  function requestGitReviewForRepositoryRoot(repositoryRoot?: string | null) {
+    const trimmedRepositoryRoot = repositoryRoot?.trim();
+
+    if (!trimmedRepositoryRoot) {
+      return;
+    }
+
+    onDirectWorkGitReviewRequested?.({
+      repositoryRoot: trimmedRepositoryRoot,
+      sourceWidgetInstanceId: widgetInstanceId,
+    });
   }
 
   function stopActiveStreamListening() {
@@ -350,6 +409,7 @@ export function CodexDirectWorkPanel({
       {liveRun || liveLogEntries.length > 0 ? (
         <CodexDirectWorkLiveLog
           entries={liveLogEntries}
+          gitReviewStatus={gitReviewStatus}
           hasGitWidget={hasGitWidget}
           liveRun={liveRun}
         />
@@ -373,8 +433,10 @@ export function CodexDirectWorkPanel({
 
       {runResult ? (
         <CodexDirectWorkResultSummary
+          gitReviewStatus={gitReviewStatus}
           hasGitWidget={hasGitWidget}
           result={runResult}
+          timing={runResultTiming}
         />
       ) : null}
     </section>
