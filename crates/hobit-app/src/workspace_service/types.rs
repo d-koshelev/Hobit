@@ -375,6 +375,7 @@ pub struct RunCodexDirectWorkInput {
     pub workspace_id: String,
     pub workbench_id: String,
     pub widget_instance_id: String,
+    pub codex_executable: String,
     pub repo_root: PathBuf,
     pub operator_prompt: String,
     pub sandbox: String,

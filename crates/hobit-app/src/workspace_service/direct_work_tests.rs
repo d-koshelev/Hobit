@@ -34,7 +34,7 @@ fn codex_direct_work_for_valid_widget_creates_run_logs_result_and_response() {
                 "on_request",
             ),
             |request| {
-                assert_eq!(request.program, None);
+                assert_eq!(request.program.as_deref(), Some("codex"));
                 assert_eq!(request.prompt, "Implement the focused block.");
                 assert_eq!(request.sandbox, CodexSandboxMode::WorkspaceWrite);
                 assert_eq!(request.approval_policy, CodexApprovalPolicy::OnRequest);
@@ -448,6 +448,7 @@ fn direct_work_input(
         workspace_id: workspace_id.to_owned(),
         workbench_id: workbench_id.to_owned(),
         widget_instance_id: widget_id.to_owned(),
+        codex_executable: "codex".to_owned(),
         repo_root,
         operator_prompt: operator_prompt.to_owned(),
         sandbox: sandbox.to_owned(),

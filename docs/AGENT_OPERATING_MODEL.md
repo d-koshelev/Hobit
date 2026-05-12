@@ -6,11 +6,11 @@ This contract defines Hobit's agent operating model for coordinated project work
 
 Hobit remains operator-controlled. Agents may help coordinate, implement, audit, validate, and report work, but they must do so through explicit roles, scoped requests, visible outputs, and approval-aware actions.
 
-This is primarily a product/domain contract. The current Agent Chat widget includes a proposal-only preview with explicit current-session approved context selection, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and desktop proposal-only run/result persistence. The current backend/Tauri Direct Work foundation can persist Codex Direct Work run/log/result artifacts for an allowed Agent Monitoring widget owner, but it has no frontend UI or Agent Monitoring display yet. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. This contract does not implement template editing, response validation, or automatic execution.
+This is primarily a product/domain contract. The current Agent Chat widget includes a proposal-only preview with explicit current-session approved context selection, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and desktop proposal-only run/result persistence. The current frontend surfaces Direct Work / Codex as a Ready catalog item that reuses the existing `agent-run` widget identity, and the backend/Tauri Direct Work foundation can persist Codex Direct Work run/log/result artifacts for that owner. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. This contract does not implement template editing, response validation, or automatic execution.
 
 ## Current Status
 
-The current repository has a narrow backend/Tauri Codex Direct Work one-shot command but no frontend Direct Work UI, no automatic agent execution, no template editor, and no response validation engine.
+The current repository has a narrow frontend/backend Codex Direct Work one-shot path but no automatic agent execution, no template editor, and no response validation engine.
 
 Agent Chat can generate a structured proposal preview from an operator prompt and can include explicitly selected safe current-view metadata: Workspace/workbench identity, widget inventory metadata, and current global activity status. In the desktop shell, Agent Chat can use the backend AI proposal boundary when an explicit HTTP provider is configured, or fall back to the local/mock proposal path. The generated proposal is persisted as a structured widget run/log/result artifact containing the prompt, approved context snapshot used for that proposal, proposal sections, provider status when applicable, and safety flags. Browser fallback keeps the preview local, does not call providers directly, and reports proposal persistence as unsupported. Agent Chat does not read hidden Workspace or widget context, read Notes body, read Git status, read Terminal output, read logs, read files, execute tools, create Agent Queue items by itself, persist chat messages, persist reusable approved context snapshots, or mutate Workspace content.
 
@@ -20,7 +20,7 @@ The frontend Template Library placeholder may show a static planned Coordinator 
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
-Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Agent Monitoring widget can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. Direct Work artifacts can be persisted at the backend boundary but are not displayed there yet. This is not a full Agent Run runtime: run start UI, streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and broader executor integration are not implemented yet.
+Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Direct Work / Codex surface can run one explicit Codex Direct Work request and its secondary Agent Monitoring details can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. Persisted Direct Work artifacts are not displayed there yet. This is not a full Agent Run runtime: streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and broader executor integration are not implemented yet.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
@@ -36,8 +36,8 @@ agent-agnostic, Codex CLI is the first planned executor kind, and Direct Work
 must require an explicit repository root, operator prompt, sandbox/mode,
 visible run status, captured raw log/final response, changed-file review, and
 no auto-commit, auto-push, hidden background execution, or Queue execution in
-the MVP. The current implementation is limited to backend/Tauri run artifact
-persistence and does not add Direct Work UI.
+the MVP. The current implementation is limited to a minimal frontend launch
+surface plus backend/Tauri run artifact persistence.
 
 ## Core Rule
 
@@ -287,7 +287,7 @@ Future UI rules:
 This contract does not implement:
 
 - agent runtime behavior
-- Direct Work UI
+- additional Direct Work UI beyond the current minimal launch surface
 - storage schema or migrations
 - Rust domain types
 - TypeScript types

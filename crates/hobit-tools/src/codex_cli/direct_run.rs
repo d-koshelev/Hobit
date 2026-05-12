@@ -6,12 +6,13 @@
 //! Git inspection or mutation, queue execution, background execution, an
 //! embedded PTY, or an interactive Codex session.
 
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::codex_cli::DEFAULT_CODEX_CLI_PROGRAM;
+use crate::codex_cli::{resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM};
 use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 
 pub const DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS: u64 = 10 * 60 * 1_000;
@@ -148,6 +149,13 @@ impl fmt::Display for CodexDirectRunStatus {
 /// infrastructure statuses. The prompt is passed to the process as one argv
 /// item and is intentionally not copied into `command_summary`.
 pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOutput {
+    run_codex_direct_work_inner(request, None)
+}
+
+fn run_codex_direct_work_inner(
+    request: CodexDirectRunRequest,
+    path_env_override: Option<&OsStr>,
+) -> CodexDirectRunOutput {
     let started_at = Instant::now();
     let program = request
         .program
@@ -168,6 +176,19 @@ pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOu
         return rejected_request(started_at, request, Vec::new(), "prompt must not be empty");
     }
 
+    let resolution = match path_env_override {
+        Some(path_env) => {
+            super::executable::resolve_codex_executable_with_path(&program, Some(path_env))
+        }
+        None => resolve_codex_executable(&program),
+    };
+    let resolution = match resolution {
+        Ok(resolution) => resolution,
+        Err(error) => {
+            return rejected_request(started_at, request, Vec::new(), error.message);
+        }
+    };
+
     let output_last_message_path = request
         .output_last_message_path
         .clone()
@@ -181,7 +202,7 @@ pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOu
         &request.prompt,
     );
     let command_summary = safe_command_summary(
-        &program,
+        &resolution.program,
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
@@ -189,7 +210,7 @@ pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOu
     );
 
     let process_output = run_process_once(ProcessRunRequest {
-        program,
+        program: resolution.program,
         args,
         working_directory: request.repo_root.clone(),
         timeout_ms: request

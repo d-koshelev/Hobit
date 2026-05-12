@@ -6,18 +6,19 @@
 //! path exposes frontend UI, Tauri commands, storage persistence, Git mutation,
 //! queue execution, an embedded PTY, or an interactive Codex session.
 
-use std::env;
 use std::time::Instant;
 
 use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 
 pub mod direct_run;
+mod executable;
 
 pub use direct_run::{
     run_codex_direct_work, CodexApprovalPolicy, CodexDirectRunOutput, CodexDirectRunRequest,
     CodexDirectRunStatus, CodexSandboxMode, DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES,
     DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
 };
+pub(crate) use executable::resolve_codex_executable;
 
 pub const DEFAULT_CODEX_CLI_PROGRAM: &str = "codex";
 pub const DEFAULT_CODEX_CLI_PROBE_TIMEOUT_MS: u64 = 2_000;
@@ -74,10 +75,25 @@ pub fn probe_codex_cli(request: CodexCliProbeRequest) -> CodexCliProbeOutput {
         };
     }
 
+    let resolution = match resolve_codex_executable(&program) {
+        Ok(resolution) => resolution,
+        Err(error) => {
+            return CodexCliProbeOutput {
+                available: false,
+                program,
+                version: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                error_message: Some(error.message),
+                duration_ms: started_at.elapsed().as_millis(),
+            };
+        }
+    };
+
     let output = run_process_once(ProcessRunRequest {
-        program: program.clone(),
+        program: resolution.program.clone(),
         args: vec!["--version".to_owned()],
-        working_directory: env::temp_dir(),
+        working_directory: std::env::temp_dir(),
         timeout_ms: request
             .timeout_ms
             .unwrap_or(DEFAULT_CODEX_CLI_PROBE_TIMEOUT_MS),
@@ -101,7 +117,7 @@ pub fn probe_codex_cli(request: CodexCliProbeRequest) -> CodexCliProbeOutput {
 
     CodexCliProbeOutput {
         available,
-        program,
+        program: resolution.program,
         version,
         stdout: output.stdout,
         stderr: output.stderr,
@@ -165,6 +181,7 @@ fn compact_output_detail(output: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::fs;
     use std::path::PathBuf;
     use std::process::Command;
@@ -183,7 +200,7 @@ mod tests {
             .error_message
             .as_deref()
             .unwrap_or_default()
-            .contains("could not start"));
+            .contains("could not resolve Codex executable"));
     }
 
     #[test]

@@ -115,16 +115,17 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
   },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Monitoring",
+    title: "Direct Work / Codex",
     category: "core",
     description:
-      "Read-only proposal artifact viewer for persisted Agent Chat results.",
-    section: "preview",
+      "Run Codex on a focused task from Hobit with explicit repo and sandbox inputs.",
+    section: "ready",
     status: "available",
     capabilitySummary: [
-      "Overview, Result, and Raw sections",
-      "Optional review item creation",
-      "Secondary detail surface, no runtime",
+      "Run Codex on a focused task from Hobit",
+      "Paste prompt and repo root",
+      "Supports read-only and workspace-write sandbox",
+      "No auto-commit or push",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },

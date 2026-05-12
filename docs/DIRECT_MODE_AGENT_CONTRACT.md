@@ -22,9 +22,10 @@ repository now includes backend/tooling-only Codex CLI foundations in
 That runner is now wired through the app/Tauri boundary as a one-shot
 `run_codex_direct_work` command that persists widget run/log/result artifacts
 for an allowed Agent Monitoring (`agent-run`) widget instance. It still does
-not implement frontend UI, Agent Monitoring Direct Work display, storage/schema
-changes, queue execution, Git mutations, commits, pushes, an embedded PTY, or
-interactive agent sessions.
+not implement Agent Monitoring Direct Work display, storage/schema changes,
+queue execution, Git mutations, commits, pushes, an embedded PTY, or
+interactive agent sessions. The current frontend surfaces Direct Work / Codex
+as a Ready catalog item that reuses the `agent-run` widget identity.
 
 ## Current Status
 
@@ -44,14 +45,15 @@ Hobit currently has:
 
 Hobit exposes a backend/Tauri one-shot Codex Direct Work command for explicit
 Workspace, Workbench, owning widget instance, repository root, operator prompt,
-sandbox, approval policy, timeout, and output caps. The command validates
-Workspace/Workbench/widget ownership, currently allows only the existing Agent
-Monitoring (`agent-run`) widget definition to own these artifacts, creates a
-widget run before execution, runs the existing `hobit-tools` Codex runner
-outside the storage transaction, and persists lifecycle logs plus a structured
-Direct Work result artifact. Hobit still does not expose Direct Work through
-frontend UI, Agent Monitoring Direct Work display, Agent Queue, or Git Widget
-integration. It does not execute Queue items or provide Direct Work UI.
+sandbox, approval policy, timeout, output caps, and Codex executable. The
+command validates Workspace/Workbench/widget ownership, currently allows only
+the existing Agent Monitoring (`agent-run`) widget definition to own these
+artifacts, creates a widget run before execution, runs the existing
+`hobit-tools` Codex runner outside the storage transaction, and persists
+lifecycle logs plus a structured Direct Work result artifact. The Widget
+Catalog now presents this `agent-run` surface primarily as Direct Work / Codex.
+Hobit still does not expose Agent Monitoring Direct Work display, Agent Queue,
+or Git Widget integration for these runs. It does not execute Queue items.
 
 The repository now includes backend/tooling-only Codex CLI foundations in
 `hobit-tools`:
@@ -60,14 +62,16 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   `<explicit-program> --version`, captures stdout, stderr, duration, version
   text when available, and returns a structured availability result
 - a one-shot Direct Work runner that validates an explicit repository root and
-  operator prompt, builds `codex exec` with fixed argv, passes the selected
-  sandbox and approval policy, captures stdout/stderr, reads the
-  `--output-last-message` file when available, applies output caps and timeout,
-  and returns a structured result
+  operator prompt, resolves the requested Codex executable without shell
+  invocation, builds `codex exec` with fixed argv, passes the selected sandbox
+  and approval policy, captures stdout/stderr, reads the `--output-last-message`
+  file when available, applies output caps and timeout, and returns a structured
+  result. On Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and
+  `codex.bat` from PATH.
 
 These foundations are wired to app/Tauri storage-backed run artifacts only.
-They are not wired to frontend UI, Agent Monitoring Direct Work display, Agent
-Queue, or Git Widget.
+They are not wired to Agent Monitoring Direct Work display, Agent Queue, or Git
+Widget.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
@@ -432,7 +436,8 @@ Follow-up blocks should stay small and focused:
 
 This contract and current foundation do not implement:
 
-- frontend UI
+- additional frontend UI beyond the current minimal Direct Work / Codex launch
+  surface
 - Agent Monitoring Direct Work UI/display
 - storage/schema changes
 - queue execution

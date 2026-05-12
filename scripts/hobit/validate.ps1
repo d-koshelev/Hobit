@@ -176,6 +176,17 @@ function Invoke-Step {
     }
 }
 
+function Invoke-FrontendNpmScript {
+    param([string]$ScriptName)
+
+    Push-Location apps/desktop/frontend
+    try {
+        npm.cmd run $ScriptName
+    } finally {
+        Pop-Location
+    }
+}
+
 function Normalize-RepoPath {
     param([string]$Path)
     return ($Path -replace "\\", "/").Trim('"')
@@ -293,7 +304,7 @@ function Get-RustPackageForPath {
 }
 
 function Invoke-FastProfile {
-    Invoke-Step "npm typecheck" { npm.cmd run typecheck --prefix apps/desktop/frontend }
+    Invoke-Step "npm typecheck" { Invoke-FrontendNpmScript "typecheck" }
     Invoke-Step "cargo check" { cargo check --workspace }
     Invoke-Step "check-file-sizes changed-only" { & $PythonCommand scripts/hobit/check-file-sizes.py --changed-only }
     Invoke-Step "git diff --check" { git diff --check }
@@ -333,10 +344,10 @@ function Invoke-ChangedProfile {
     $rustPackages = @($rustPackages | Sort-Object -Unique)
 
     if ($frontendChanged) {
-        Invoke-Step "npm typecheck" { npm.cmd run typecheck --prefix apps/desktop/frontend }
+        Invoke-Step "npm typecheck" { Invoke-FrontendNpmScript "typecheck" }
     }
     if ($frontendSourceOrConfigChanged) {
-        Invoke-Step "npm build" { npm.cmd run build --prefix apps/desktop/frontend }
+        Invoke-Step "npm build" { Invoke-FrontendNpmScript "build" }
     }
 
     if ($rustChanged) {
@@ -354,8 +365,8 @@ function Invoke-ChangedProfile {
 }
 
 function Invoke-FullProfile {
-    Invoke-Step "npm typecheck" { npm.cmd run typecheck --prefix apps/desktop/frontend }
-    Invoke-Step "npm build" { npm.cmd run build --prefix apps/desktop/frontend }
+    Invoke-Step "npm typecheck" { Invoke-FrontendNpmScript "typecheck" }
+    Invoke-Step "npm build" { Invoke-FrontendNpmScript "build" }
     Invoke-Step "cargo fmt" { cargo fmt --all }
     Invoke-Step "cargo check" { cargo check --workspace }
     Invoke-Step "cargo test workspace" { cargo test --workspace }

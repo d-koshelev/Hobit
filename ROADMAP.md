@@ -16,10 +16,15 @@ one-shot Direct Work runner for an explicit repository root and operator
 prompt. The app/Tauri boundary now exposes a focused one-shot
 `run_codex_direct_work` command that persists Direct Work widget run/log/result
 artifacts for an allowed Agent Monitoring (`agent-run`) widget instance.
-Direct Mode product integration is still intentionally narrow: no UI, Agent
-Monitoring Direct Work display, storage/schema change, queue execution, Git
-mutation, auto-commit, auto-push, embedded PTY, interactive session, or hidden
-background execution is part of the current roadmap slice.
+Direct Work / Codex is now surfaced as a Ready Widget Catalog surface while
+reusing the existing `agent-run` widget identity. The frontend lets the
+operator paste a prompt, repository root, and Codex executable in Advanced; on
+Windows the backend resolver tries `codex`, `codex.exe`, `codex.cmd`, and
+`codex.bat` from PATH without invoking a shell. Direct Mode product integration
+is still intentionally narrow: no Agent Monitoring persisted Direct Work
+reader, storage/schema change, queue execution, Git mutation, auto-commit,
+auto-push, embedded PTY, interactive session, or hidden background execution is
+part of the current roadmap slice.
 
 ## Phase 0: Contracts And Repository Foundation
 

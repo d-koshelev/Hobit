@@ -38,6 +38,7 @@ export async function runCodexDirectWork(
         workspace_id: request.workspaceId,
         workbench_id: request.workbenchId,
         widget_instance_id: request.widgetInstanceId,
+        codex_executable: request.codexExecutable,
         repo_root: request.repoRoot,
         operator_prompt: request.operatorPrompt,
         sandbox: request.sandbox,

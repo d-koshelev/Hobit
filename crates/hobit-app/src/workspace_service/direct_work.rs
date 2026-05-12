@@ -48,7 +48,7 @@ impl WorkspaceService {
         };
 
         let output = runner(CodexDirectRunRequest {
-            program: None,
+            program: Some(input.codex_executable.clone()),
             repo_root: input.repo_root.clone(),
             prompt: input.operator_prompt.clone(),
             sandbox: input.sandbox,
@@ -220,6 +220,7 @@ struct NormalizedDirectWorkInput {
     workspace_id: String,
     workbench_id: String,
     widget_instance_id: String,
+    codex_executable: String,
     repo_root: std::path::PathBuf,
     operator_prompt: String,
     sandbox: CodexSandboxMode,
@@ -243,6 +244,7 @@ fn normalize_direct_work_input(
         workbench_id: required_input(&input.workbench_id, "workbench id")?.to_owned(),
         widget_instance_id: required_input(&input.widget_instance_id, "widget instance id")?
             .to_owned(),
+        codex_executable: required_input(&input.codex_executable, "codex executable")?.to_owned(),
         repo_root: input.repo_root,
         operator_prompt: required_input(&input.operator_prompt, "operator prompt")?.to_owned(),
         sandbox: parse_direct_work_sandbox(&input.sandbox)?,
@@ -365,6 +367,7 @@ fn direct_work_command_payload(input: &NormalizedDirectWorkInput) -> String {
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
         "mode": CODEX_DIRECT_WORK_MODE,
         "repo_root": input.repo_root.display().to_string(),
+        "codex_executable": &input.codex_executable,
         "operator_prompt": &input.operator_prompt,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
@@ -383,6 +386,7 @@ fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInput) -> Strin
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
         "mode": CODEX_DIRECT_WORK_MODE,
         "repo_root": input.repo_root.display().to_string(),
+        "codex_executable": &input.codex_executable,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "timeout_ms": input.timeout_ms,
@@ -433,6 +437,7 @@ fn direct_work_result_payload(
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
         "mode": CODEX_DIRECT_WORK_MODE,
         "repo_root": input.repo_root.display().to_string(),
+        "codex_executable": &input.codex_executable,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "operator_prompt": &input.operator_prompt,

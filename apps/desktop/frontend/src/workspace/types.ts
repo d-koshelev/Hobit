@@ -90,6 +90,7 @@ export type RunCodexDirectWorkRequest = {
   workspaceId: string;
   workbenchId: string;
   widgetInstanceId: string;
+  codexExecutable: string;
   repoRoot: string;
   operatorPrompt: string;
   sandbox: DirectWorkSandbox;

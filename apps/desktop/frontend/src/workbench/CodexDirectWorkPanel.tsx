@@ -32,10 +32,12 @@ export function CodexDirectWorkPanel({
   const promptInputId = useId();
   const sandboxInputId = useId();
   const approvalPolicyInputId = useId();
+  const codexExecutableInputId = useId();
   const timeoutInputId = useId();
   const stdoutCapInputId = useId();
   const stderrCapInputId = useId();
   const panelTitleId = useId();
+  const [codexExecutableDraft, setCodexExecutableDraft] = useState("codex");
   const [repoRootDraft, setRepoRootDraft] = useState("");
   const [operatorPromptDraft, setOperatorPromptDraft] = useState("");
   const [sandbox, setSandbox] = useState<DirectWorkSandbox>("read_only");
@@ -48,6 +50,7 @@ export function CodexDirectWorkPanel({
   const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
   const [runResult, setRunResult] =
     useState<RunCodexDirectWorkResponse | null>(null);
+  const codexExecutable = codexExecutableDraft.trim();
   const repoRoot = repoRootDraft.trim();
   const operatorPrompt = operatorPromptDraft.trim();
   const timeoutMsError = positiveIntegerInputError(timeoutMsDraft, "Timeout ms");
@@ -63,6 +66,7 @@ export function CodexDirectWorkPanel({
     timeoutMsError ?? stdoutCapBytesError ?? stderrCapBytesError;
   const canRun =
     Boolean(onRunCodexDirectWork) &&
+    codexExecutable.length > 0 &&
     repoRoot.length > 0 &&
     operatorPrompt.length > 0 &&
     !numericInputError &&
@@ -76,8 +80,10 @@ export function CodexDirectWorkPanel({
     setRunErrorMessage(null);
     setRunResult(null);
 
-    if (!repoRoot || !operatorPrompt) {
-      setRunErrorMessage("Repository root and operator prompt are required.");
+    if (!codexExecutable || !repoRoot || !operatorPrompt) {
+      setRunErrorMessage(
+        "Codex executable, repository root, and operator prompt are required.",
+      );
       return;
     }
 
@@ -91,6 +97,7 @@ export function CodexDirectWorkPanel({
     try {
       const response = await onRunCodexDirectWork(widgetInstanceId, {
         approvalPolicy,
+        codexExecutable,
         operatorPrompt,
         repoRoot,
         sandbox,
@@ -222,6 +229,28 @@ export function CodexDirectWorkPanel({
               Leave these blank to use backend defaults.
             </p>
             <div className="codex-direct-work-controls">
+              <div className="codex-direct-work-field codex-direct-work-field-wide">
+                <label
+                  className="codex-direct-work-label"
+                  htmlFor={codexExecutableInputId}
+                >
+                  Codex executable
+                </label>
+                <Input
+                  autoComplete="off"
+                  id={codexExecutableInputId}
+                  onChange={(event) =>
+                    setCodexExecutableDraft(event.target.value)
+                  }
+                  spellCheck={false}
+                  type="text"
+                  value={codexExecutableDraft}
+                />
+                <p className="codex-direct-work-note">
+                  On Windows, Hobit will also try codex.exe, codex.cmd, and
+                  codex.bat from PATH when resolving `codex`.
+                </p>
+              </div>
               <CodexDirectWorkNumberField
                 error={timeoutMsError}
                 id={timeoutInputId}

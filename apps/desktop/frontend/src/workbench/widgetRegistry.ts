@@ -30,11 +30,11 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Monitoring",
+    title: "Direct Work / Codex",
     category: "core",
     description:
-      "Static placeholder for future Overview Log, Result Report, and Raw trace views.",
-    defaultTitle: "Agent Monitoring",
+      "Launch one explicit Codex Direct Work run and keep proposal artifact details available.",
+    defaultTitle: "Direct Work / Codex",
     defaultConfig: {},
     componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   },

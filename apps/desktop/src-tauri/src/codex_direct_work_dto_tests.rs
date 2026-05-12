@@ -10,6 +10,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
         workspace_id: "ws_1".to_owned(),
         workbench_id: "wb_1".to_owned(),
         widget_instance_id: "wid_1".to_owned(),
+        codex_executable: "codex".to_owned(),
         repo_root: "C:/work/repo".to_owned(),
         operator_prompt: "Implement block.".to_owned(),
         sandbox: "workspace_write".to_owned(),
@@ -24,6 +25,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
     assert_eq!(input.workspace_id, "ws_1");
     assert_eq!(input.workbench_id, "wb_1");
     assert_eq!(input.widget_instance_id, "wid_1");
+    assert_eq!(input.codex_executable, "codex");
     assert_eq!(input.repo_root, PathBuf::from("C:/work/repo"));
     assert_eq!(input.operator_prompt, "Implement block.");
     assert_eq!(input.sandbox, "workspace_write");

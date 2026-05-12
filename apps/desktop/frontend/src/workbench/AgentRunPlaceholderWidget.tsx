@@ -51,6 +51,8 @@ export function AgentRunPlaceholderWidget({
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
+  const frameTitle =
+    title === "Agent Monitoring" ? "Direct Work / Codex" : title;
   const [loadState, setLoadState] = useState<MonitoringLoadState>({
     status: "idle",
   });
@@ -169,18 +171,17 @@ export function AgentRunPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={<Badge variant="info">Direct Work</Badge>}
-      title={title}
+      title={frameTitle}
     >
       <div className="agent-run-placeholder">
         <section className="agent-run-summary">
           <div className="agent-run-summary-copy">
-            <p className="agent-run-summary-title">Agent Monitoring</p>
+            <p className="agent-run-summary-title">Direct Work / Codex</p>
             <p className="agent-run-summary-text">
-              Launch one explicit Codex Direct Work run from this widget and
-              inspect saved Agent Chat proposal artifacts. Proposal Overview,
-              Result, and Raw sections remain read-only; there is still no
-              apply behavior, Terminal command launch, Git/Notes/File mutation,
-              or Queue execution here.
+              Run Codex on a focused task from Hobit by pasting a prompt and
+              repo root. The same surface keeps secondary read-only Agent Chat
+              proposal artifacts available; there is still no auto-commit,
+              push, Git/Notes/File mutation by Hobit, or Queue execution here.
             </p>
           </div>
           <div className="agent-run-summary-actions">

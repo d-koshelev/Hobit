@@ -86,6 +86,48 @@ fn args_are_passed_without_shell_concatenation() {
         .any(|part| part == "<operator-prompt>"));
 }
 
+#[cfg(windows)]
+#[test]
+fn direct_run_uses_resolved_codex_cmd_from_path() {
+    let directory = temp_path("codex-cmd-path");
+    fs::create_dir_all(&directory).unwrap();
+    let helper = directory.join("codex.cmd");
+    fs::write(
+        &helper,
+        r#"@echo off
+set "last="
+:loop
+if "%~1"=="" goto done
+if "%~1"=="--output-last-message" (
+  shift
+  set "last=%~1"
+)
+shift
+goto loop
+:done
+echo helper stdout
+echo helper stderr 1>&2
+if not "%last%"=="" echo resolved codex.cmd>"%last%"
+exit /b 0
+"#,
+    )
+    .unwrap();
+    let mut request = request_with_program(temp_repo("codex-cmd-run"), "success", "codex");
+    let final_message_directory = temp_path("codex-cmd-final");
+    fs::create_dir_all(&final_message_directory).unwrap();
+    request.output_last_message_path = Some(final_message_directory.join("last.txt"));
+
+    let output = run_codex_direct_work_inner(request, Some(directory.as_os_str()));
+
+    assert_eq!(output.status, CodexDirectRunStatus::Completed);
+    assert_eq!(
+        output.command_summary[0],
+        helper.to_string_lossy().into_owned()
+    );
+    assert!(output.stdout.contains("helper stdout"));
+    assert!(output.stderr.contains("helper stderr"));
+}
+
 #[test]
 fn successful_helper_run_returns_completed_and_final_message() {
     let output = run_codex_direct_work(request_with_program(
