@@ -1,15 +1,27 @@
 import { Badge } from "../design-system/Badge";
 import type { RunCodexDirectWorkResponse } from "../workspace/types";
+import {
+  directWorkGitReviewHint,
+  directWorkGitWidgetAvailability,
+} from "./CodexDirectWorkReviewHint";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
 
 type CodexDirectWorkResultSummaryProps = {
+  hasGitWidget?: boolean;
   result: RunCodexDirectWorkResponse;
 };
 
-export function CodexDirectWorkResultSummary({ result }: CodexDirectWorkResultSummaryProps) {
+export function CodexDirectWorkResultSummary({
+  hasGitWidget,
+  result,
+}: CodexDirectWorkResultSummaryProps) {
   const statusView = codexResultStatusView(result);
+  const reviewHint = directWorkGitReviewHint(
+    result.status,
+    directWorkGitWidgetAvailability(hasGitWidget),
+  );
 
   return (
     <section
@@ -101,7 +113,7 @@ export function CodexDirectWorkResultSummary({ result }: CodexDirectWorkResultSu
       </details>
 
       <p className="codex-direct-work-review-note">
-        Manual next step: refresh the Git widget to review changed files.
+        {reviewHint}
       </p>
     </section>
   );

@@ -50,6 +50,7 @@ type WidgetHostProps = {
     height: number;
     width: number;
   };
+  hasGitWidget: boolean;
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
@@ -70,6 +71,7 @@ type WidgetHostProps = {
 
 export function WidgetHost({
   dockedSize,
+  hasGitWidget,
   instance,
   layoutMode,
   onDockBack,
@@ -222,6 +224,7 @@ export function WidgetHost({
       frameActions={frameActions}
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
+      hasGitWidget={hasGitWidget}
       instance={instance}
       logRefreshToken={logRefreshToken}
       onCreateAgentQueueItemFromProposal={createAgentQueueItemFromProposal}

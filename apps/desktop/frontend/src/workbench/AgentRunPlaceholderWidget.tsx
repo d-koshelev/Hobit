@@ -42,6 +42,7 @@ export function AgentRunPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
   frameStyle,
+  hasGitWidget,
   instance,
   logRefreshToken,
   onCreateAgentQueueItemFromProposal,
@@ -198,6 +199,7 @@ export function AgentRunPlaceholderWidget({
         </section>
 
         <CodexDirectWorkPanel
+          hasGitWidget={hasGitWidget}
           onRunCodexDirectWork={onRunCodexDirectWork}
           onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}
           widgetInstanceId={instance.id}

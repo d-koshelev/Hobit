@@ -183,6 +183,7 @@ export type WidgetRenderProps = {
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
+  hasGitWidget?: boolean;
   instance: WidgetInstance;
   logRefreshToken?: number;
   onStartFrameMove?: (pointerX: number, pointerY: number) => void;

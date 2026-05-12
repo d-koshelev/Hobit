@@ -1,5 +1,9 @@
 import { Badge } from "../design-system/Badge";
 import type { DirectWorkStreamEvent } from "../workspace/types";
+import {
+  directWorkGitReviewHint,
+  directWorkGitWidgetAvailability,
+} from "./CodexDirectWorkReviewHint";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 
 const OUTPUT_PREVIEW_LIMIT = 4000;
@@ -48,14 +52,23 @@ export type CodexDirectWorkLiveLogEntry = {
 
 export function CodexDirectWorkLiveLog({
   entries,
+  hasGitWidget,
   liveRun,
 }: {
   entries: CodexDirectWorkLiveLogEntry[];
+  hasGitWidget?: boolean;
   liveRun: CodexDirectWorkLiveRun | null;
 }) {
   const statusView = liveRun
     ? liveRunStatusView(liveRun.status)
     : localLogStatusView(entries);
+  const reviewHint =
+    liveRun && isFinalStatus(liveRun.status)
+      ? directWorkGitReviewHint(
+          liveRun.status,
+          directWorkGitWidgetAvailability(hasGitWidget),
+        )
+      : null;
 
   return (
     <section
@@ -167,6 +180,10 @@ export function CodexDirectWorkLiveLog({
             <code>{previewLiveOutput(liveRun.stderrPreview)}</code>
           </pre>
         </details>
+      ) : null}
+
+      {reviewHint ? (
+        <p className="codex-direct-work-review-note">{reviewHint}</p>
       ) : null}
     </section>
   );

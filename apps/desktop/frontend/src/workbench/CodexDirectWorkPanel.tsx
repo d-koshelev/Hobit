@@ -32,6 +32,7 @@ import type {
 import type { WidgetInstanceId } from "./types";
 
 type CodexDirectWorkPanelProps = {
+  hasGitWidget?: boolean;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
@@ -45,6 +46,7 @@ type CodexDirectWorkPanelProps = {
 };
 
 export function CodexDirectWorkPanel({
+  hasGitWidget,
   onRunCodexDirectWork,
   onStartCodexDirectWorkStream,
   widgetInstanceId,
@@ -337,7 +339,11 @@ export function CodexDirectWorkPanel({
       ) : null}
 
       {liveRun || liveLogEntries.length > 0 ? (
-        <CodexDirectWorkLiveLog entries={liveLogEntries} liveRun={liveRun} />
+        <CodexDirectWorkLiveLog
+          entries={liveLogEntries}
+          hasGitWidget={hasGitWidget}
+          liveRun={liveRun}
+        />
       ) : null}
 
       {runErrorMessage ? (
@@ -356,7 +362,12 @@ export function CodexDirectWorkPanel({
         />
       ) : null}
 
-      {runResult ? <CodexDirectWorkResultSummary result={runResult} /> : null}
+      {runResult ? (
+        <CodexDirectWorkResultSummary
+          hasGitWidget={hasGitWidget}
+          result={runResult}
+        />
+      ) : null}
     </section>
   );
 }

@@ -6,6 +6,7 @@ import { WorkbenchEditStatus } from "./WorkbenchEditStatus";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
+import { GIT_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type {
   WidgetInstanceId,
@@ -105,6 +106,9 @@ export function WorkbenchCanvas({
   const visibleWidgets = viewState.widgets
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
+  const hasGitWidget = viewState.widgets.some(
+    (widget) => widget.definitionId === GIT_WIDGET_DEFINITION_ID,
+  );
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
   const canvasShellClass = isLayoutEditing
@@ -639,6 +643,7 @@ export function WorkbenchCanvas({
                       )}
                     >
                       <WidgetHost
+                        hasGitWidget={hasGitWidget}
                         instance={widget}
                         layoutMode={layoutMode}
                         onDockBack={dockBackWidget}
@@ -654,6 +659,7 @@ export function WorkbenchCanvas({
                   <div className="widget-docked-surface">
                     <WidgetHost
                       dockedSize={dockedSize}
+                      hasGitWidget={hasGitWidget}
                       instance={widget}
                       layoutMode={layoutMode}
                       onDockBack={dockBackWidget}
