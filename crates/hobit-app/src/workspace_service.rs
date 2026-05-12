@@ -8,6 +8,7 @@ mod agent_ai_proposals;
 mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
+mod direct_work;
 mod git;
 mod logs;
 mod mapping;
@@ -28,6 +29,8 @@ mod agent_proposal_tests;
 #[cfg(test)]
 mod agent_queue_tests;
 #[cfg(test)]
+mod direct_work_tests;
+#[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]
 mod tests;
@@ -37,14 +40,15 @@ pub use types::{
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
     AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
-    AgentQueueProposalActionSummary, AgentQueueSnapshot, CreateAgentQueueItemFromProposalInput,
-    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,
-    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
-    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
-    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
-    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary,
-    WorkspaceSummary, WorkspaceWorkbenchState,
+    AgentQueueProposalActionSummary, AgentQueueSnapshot, CodexDirectWorkRunSummary,
+    CreateAgentQueueItemFromProposalInput, GenerateAgentChatAiProposalInput,
+    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
+    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
+    WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
@@ -75,6 +79,9 @@ const AGENT_CHAT_PROPOSAL_RUNTIME_STATUS: &str = "proposal_only_mock";
 const AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND: &str = "agent_queue_proposal_review";
 const AGENT_QUEUE_STATUS_NEEDS_REVIEW: &str = "needs_review";
 const AGENT_QUEUE_DECISION_PENDING_REVIEW: &str = "pending_review";
+// Direct Work has no dedicated widget yet; Agent Monitoring is the existing
+// run artifact owner until a future Direct Work launch surface is added.
+const AGENT_RUN_WIDGET_DEFINITION_ID: &str = "agent-run";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 

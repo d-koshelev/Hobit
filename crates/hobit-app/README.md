@@ -7,10 +7,11 @@ over SQLite storage. It creates empty Workspaces, creates WorkspaceSessions
 when Workspaces are opened, lists or loads simple Workspace summaries, returns
 a canonical Workspace Workbench state summary for frontend rendering, supports
 the current widget add/state/layout/log foundation, and exposes the narrow
-read-only Git status read for Git widget instances. It also coordinates
-proposal-only Agent Chat result persistence, Agent Monitoring proposal reads,
-and explicit review-only Agent Queue items created from valid proposal mock
-results.
+read-only Git status read for Git widget instances. It also coordinates Codex
+Direct Work one-shot run/log/result artifact persistence for an allowed Agent
+Monitoring widget instance, proposal-only Agent Chat result persistence, Agent
+Monitoring proposal reads, and explicit review-only Agent Queue items created
+from valid proposal mock results.
 
 ## Belongs Here
 
@@ -23,11 +24,11 @@ results.
 
 - Tauri commands.
 - Frontend integration.
-- Runtime or widget execution beyond current placeholder mutations, read-only Git status reads, Terminal one-shot runs, Agent Chat proposal persistence, and Agent Queue proposal-review item persistence.
+- Runtime or widget execution beyond current placeholder mutations, read-only Git status reads, Terminal one-shot runs, Codex Direct Work one-shot runs, Agent Chat proposal persistence, and Agent Queue proposal-review item persistence.
 - Product feature implementation.
 - Terminal execution.
 - Agent provider calls.
-- Queue item execution, proposal approval/apply behavior, response capture, or executor integration.
+- Direct Work UI, Agent Monitoring Direct Work display, Queue item execution, proposal approval/apply behavior, response capture, or broader executor integration.
 - Git mutations, diff/log/show, polling, watching, or repository root/status persistence.
 - Database schemas.
 - Widget UI.

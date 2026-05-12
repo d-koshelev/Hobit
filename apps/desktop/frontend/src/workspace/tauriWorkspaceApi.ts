@@ -4,6 +4,7 @@ import {
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
 } from "./tauriAgentQueueApi";
+import { runCodexDirectWork } from "./tauriCodexDirectWorkApi";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
@@ -42,6 +43,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   runTerminalCommand,
+  runCodexDirectWork,
 };
 
 type TauriWorkspaceSummary = {

@@ -13,7 +13,7 @@ at `hobit.sqlite3` inside that app data directory.
 
 The Tauri source is split by responsibility: `app_state.rs` owns app data and
 SQLite initialization, `workspace_commands.rs` owns command handlers, and
-`workspace_dto.rs` owns bridge request/response DTO mapping.
+focused DTO modules own bridge request/response mapping.
 
 ## Current Scope
 
@@ -37,6 +37,8 @@ SQLite initialization, `workspace_commands.rs` owns command handlers, and
   - `list_widget_logs`
 - Terminal one-shot command for persisted Terminal widgets:
   - `run_terminal_command`
+- Codex Direct Work one-shot command for an allowed Agent Monitoring widget owner:
+  - `run_codex_direct_work`
 - Agent Chat proposal-only persistence for persisted Agent Chat widgets:
   - `persist_agent_chat_proposal`
 - Agent Monitoring read-only proposal artifact snapshot:
@@ -52,9 +54,9 @@ SQLite initialization, `workspace_commands.rs` owns command handlers, and
 
 - Frontend persistence beyond current workspace/workbench state loading and widget mutation/log foundations.
 - Runtime restore, event replay, or widget runtime reconstruction.
-- Widget runtime beyond placeholder insertion, mutation/log foundations, Terminal one-shot command runs, Agent Chat proposal-only result persistence, Agent Monitoring read-only proposal artifact viewing, and explicit Agent Queue review-item creation from valid proposal results.
+- Widget runtime beyond placeholder insertion, mutation/log foundations, Terminal one-shot command runs, Codex Direct Work run/result persistence, Agent Chat proposal-only result persistence, Agent Monitoring read-only proposal artifact viewing, and explicit Agent Queue review-item creation from valid proposal results.
 - Interactive Terminal execution.
 - Agent runtime calls.
-- Tool execution adapters beyond Terminal one-shot command execution and the narrow read-only Git status path.
-- Agent Monitoring runtime execution, streaming, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, proposal approval/apply behavior, queue execution, or executor integration.
+- Tool execution adapters beyond Terminal one-shot command execution, Codex Direct Work one-shot execution, and the narrow read-only Git status path.
+- Agent Monitoring Direct Work display, runtime execution controls, streaming, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, proposal approval/apply behavior, queue execution, or broader executor integration.
 - Git diff/log/show, repository root/status persistence, polling, watching, or Git mutations.

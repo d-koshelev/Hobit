@@ -46,8 +46,11 @@ Agent Queue, or external-system actions directly.
 
 ## Relation To Direct Mode
 
-Codex Direct Work is a future explicit high-power tool/executor mode defined in
-`docs/DIRECT_MODE_AGENT_CONTRACT.md`.
+Codex Direct Work is an explicit high-power tool/executor mode defined in
+`docs/DIRECT_MODE_AGENT_CONTRACT.md`. The current implementation has a
+backend/Tauri one-shot run artifact foundation only; frontend launch UI,
+Agent Monitoring display, Git review wiring, and Queue execution are future
+work.
 
 Because Direct Work may edit files and run validation commands, it must require:
 

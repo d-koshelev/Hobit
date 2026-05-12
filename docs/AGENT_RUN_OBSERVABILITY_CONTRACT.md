@@ -14,9 +14,9 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Implementation Boundary
 
-The current repository has no real agent runtime, no executor integration, no interactive Terminal runtime, no executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has a proposal-only preview with explicit current-session approved context selection for safe current-view metadata and, in the desktop shell, can request a backend AI proposal when an explicit HTTP provider is configured or use local/mock fallback. The generated proposal is persisted as a proposal-only widget run/log/result artifact. It does not stream logs, execute tools, read Terminal output, create Queue items by itself, or mutate Workspace content.
+The current repository has a narrow backend/Tauri Codex Direct Work run artifact foundation, but no full agent runtime, no interactive Terminal runtime, no executable Agent Chat runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Agent Chat has a proposal-only preview with explicit current-session approved context selection for safe current-view metadata and, in the desktop shell, can request a backend AI proposal when an explicit HTTP provider is configured or use local/mock fallback. The generated proposal is persisted as a proposal-only widget run/log/result artifact. It does not stream logs, execute tools, read Terminal output, create Queue items by itself, or mutate Workspace content.
 
-The frontend has an insertable Agent Monitoring widget that can read persisted Agent Chat proposal-only result artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for the selected stored proposal artifact, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This viewer is not an executable run surface and does not start runs, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, summarize runtime events, integrate executor tasks, execute Queue items, apply proposals, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
+The frontend has an insertable Agent Monitoring widget that can read persisted Agent Chat proposal-only result artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for the selected stored proposal artifact, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This viewer is not an executable run surface and does not start runs, display Direct Work artifacts, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, summarize runtime events, execute Queue items, apply proposals, or call agents. It keeps the existing `agent-run` definition id for persistence compatibility.
 
 The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
@@ -27,6 +27,7 @@ Implemented observability today is limited to:
 - widget-local Logs panels
 - persisted widget logs for widget add/state/layout mutations
 - Terminal one-shot command run/result artifacts
+- Codex Direct Work run/result artifacts stored for an allowed Agent Monitoring widget owner
 - Agent Chat proposal-only mock run/result artifacts
 - Agent Monitoring read-only Overview/Result/Raw display for those Agent Chat proposal artifacts
 - explicit Agent Queue review items created from those proposal artifacts
@@ -40,12 +41,15 @@ visible run/result artifact when persistence is available, Agent Monitoring
 should expose Overview / Result / Raw inspection, and raw provider data must not
 expose secrets or unsafe metadata.
 
-Future Direct Work runs must follow `docs/DIRECT_MODE_AGENT_CONTRACT.md`.
-Agent Monitoring is the primary run monitor for Direct Mode and should show
-executor kind, mode, status, duration, final response, validation summary,
-changed files, warnings, and Raw / Overview / Result views. Codex CLI is the
-first planned executor kind, but the observability model must remain
-executor-agnostic. This contract does not implement Direct Work runtime or UI.
+Direct Work runs must follow `docs/DIRECT_MODE_AGENT_CONTRACT.md`. The current
+backend/Tauri foundation can persist Codex Direct Work widget run/log/result
+artifacts for an allowed Agent Monitoring (`agent-run`) widget instance, but
+Agent Monitoring does not display Direct Work runs yet. Agent Monitoring is the
+primary future run monitor for Direct Mode and should show executor kind, mode,
+status, duration, final response, validation summary, changed files, warnings,
+and Raw / Overview / Result views. Codex CLI is the first planned executor kind,
+but the observability model must remain executor-agnostic. This contract does
+not implement Direct Work UI.
 
 ## Core Model
 
@@ -281,7 +285,11 @@ For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
 
 ## Relation To Direct Mode
 
-Direct Work runs are future executor/task runs and must be observable here.
+Direct Work runs are executor/task runs and must be observable here. Current
+implementation persists the raw stdout/stderr, final message, command summary,
+status, duration, and no-auto-commit/no-auto-push flags as widget result JSON,
+with lifecycle widget logs. A dedicated Agent Monitoring Direct Work view is
+future work.
 
 Expected Direct Work mapping:
 
@@ -353,9 +361,7 @@ This contract does not implement:
 - TypeScript types
 - real run UI beyond the read-only Agent Chat proposal artifact viewer in Agent Monitoring
 - Tauri commands
-- Workspace API changes
-- runtime execution
-- Direct Work runtime execution
+- Agent Monitoring Direct Work UI/display
 - agent execution integration
 - Terminal runtime
 - executable Agent Chat runtime

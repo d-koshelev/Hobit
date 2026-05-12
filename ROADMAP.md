@@ -13,10 +13,13 @@ Direct Mode must remain agent-agnostic for future executors and must follow
 `docs/DIRECT_MODE_AGENT_CONTRACT.md`. Backend/tooling-only Codex CLI
 foundations now exist in `hobit-tools`: availability/version probing and a
 one-shot Direct Work runner for an explicit repository root and operator
-prompt. Direct Mode product integration is still not implemented: no Tauri
-command, UI, storage/schema persistence, queue execution, Git mutation,
-auto-commit, auto-push, embedded PTY, interactive session, or hidden background
-execution is part of the current roadmap slice.
+prompt. The app/Tauri boundary now exposes a focused one-shot
+`run_codex_direct_work` command that persists Direct Work widget run/log/result
+artifacts for an allowed Agent Monitoring (`agent-run`) widget instance.
+Direct Mode product integration is still intentionally narrow: no UI, Agent
+Monitoring Direct Work display, storage/schema change, queue execution, Git
+mutation, auto-commit, auto-push, embedded PTY, interactive session, or hidden
+background execution is part of the current roadmap slice.
 
 ## Phase 0: Contracts And Repository Foundation
 

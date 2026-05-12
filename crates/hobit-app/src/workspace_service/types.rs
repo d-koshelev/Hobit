@@ -371,6 +371,45 @@ pub struct GitLastCommitSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunCodexDirectWorkInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub repo_root: PathBuf,
+    pub operator_prompt: String,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CodexDirectWorkRunSummary {
+    pub run_id: String,
+    pub result_id: String,
+    pub result_type: String,
+    pub executor_kind: String,
+    pub mode: String,
+    pub repo_root: String,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub command_summary: Vec<String>,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub final_message: Option<String>,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub no_auto_commit: bool,
+    pub no_auto_push: bool,
+    pub git_mutations_performed_by_hobit: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunTerminalCommandInput {
     pub workspace_id: String,
     pub workbench_id: String,

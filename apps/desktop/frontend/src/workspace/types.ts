@@ -82,6 +82,23 @@ export type RunTerminalCommandRequest = {
   stderrCapBytes?: number | null;
 };
 
+export type DirectWorkSandbox = "read_only" | "workspace_write";
+
+export type DirectWorkApprovalPolicy = "never" | "on_request" | "untrusted";
+
+export type RunCodexDirectWorkRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repoRoot: string;
+  operatorPrompt: string;
+  sandbox: DirectWorkSandbox;
+  approvalPolicy: DirectWorkApprovalPolicy;
+  timeoutMs?: number | null;
+  stdoutCapBytes?: number | null;
+  stderrCapBytes?: number | null;
+};
+
 export type PersistAgentChatProposalRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -124,6 +141,30 @@ export type RunTerminalCommandResponse = {
   stderrTruncated: boolean;
   durationMs: number;
   errorMessage: string | null;
+};
+
+export type RunCodexDirectWorkResponse = {
+  runId: string;
+  resultId: string;
+  resultType: string;
+  executorKind: string;
+  mode: string;
+  repoRoot: string;
+  sandbox: DirectWorkSandbox;
+  approvalPolicy: DirectWorkApprovalPolicy;
+  commandSummary: string[];
+  status: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  finalMessage: string | null;
+  durationMs: number;
+  errorMessage: string | null;
+  noAutoCommit: boolean;
+  noAutoPush: boolean;
+  gitMutationsPerformedByHobit: boolean;
 };
 
 export type PersistAgentChatProposalResponse = {

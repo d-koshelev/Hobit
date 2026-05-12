@@ -13,6 +13,7 @@ use crate::agent_queue_dto::{
     GetAgentQueueSnapshotRequest,
 };
 use crate::app_state::AppState;
+use crate::codex_direct_work_dto::{RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto};
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
     GetAgentMonitoringSnapshotRequest, GetGitRepositoryStatusRequest, GitRepositoryStatusDto,
@@ -164,6 +165,18 @@ pub(crate) fn run_terminal_command(
     service
         .run_terminal_command(request.into())
         .map(|summary| summary.map(RunTerminalCommandResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn run_codex_direct_work(
+    request: RunCodexDirectWorkRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<RunCodexDirectWorkResponseDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .run_codex_direct_work(request.into())
+        .map(|summary| summary.map(RunCodexDirectWorkResponseDto::from))
         .map_err(command_error)
 }
 

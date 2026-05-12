@@ -17,6 +17,8 @@ import type {
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
+  RunCodexDirectWorkRequest,
+  RunCodexDirectWorkResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
@@ -74,6 +76,9 @@ export type WorkspaceApi = {
   runTerminalCommand: (
     request: RunTerminalCommandRequest,
   ) => Promise<RunTerminalCommandResponse | null>;
+  runCodexDirectWork: (
+    request: RunCodexDirectWorkRequest,
+  ) => Promise<RunCodexDirectWorkResponse | null>;
 };
 
 export function getWorkspaceApi(): WorkspaceApi {
@@ -174,6 +179,12 @@ export function runTerminalCommand(
   request: RunTerminalCommandRequest,
 ): Promise<RunTerminalCommandResponse | null> {
   return getWorkspaceApi().runTerminalCommand(request);
+}
+
+export function runCodexDirectWork(
+  request: RunCodexDirectWorkRequest,
+): Promise<RunCodexDirectWorkResponse | null> {
+  return getWorkspaceApi().runCodexDirectWork(request);
 }
 
 function normalizeCreateWorkspaceRequest(

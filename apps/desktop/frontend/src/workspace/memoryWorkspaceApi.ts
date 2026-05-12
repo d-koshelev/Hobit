@@ -15,6 +15,8 @@ import type {
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
+  RunCodexDirectWorkRequest,
+  RunCodexDirectWorkResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
@@ -49,6 +51,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   runTerminalCommand,
+  runCodexDirectWork,
 };
 
 async function createWorkspace(
@@ -298,6 +301,14 @@ async function runTerminalCommand(
 ): Promise<RunTerminalCommandResponse | null> {
   throw new Error(
     "Terminal command execution is only available in the Tauri desktop shell. Browser fallback cannot run local processes.",
+  );
+}
+
+async function runCodexDirectWork(
+  _request: RunCodexDirectWorkRequest,
+): Promise<RunCodexDirectWorkResponse | null> {
+  throw new Error(
+    "Codex Direct Work is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or persist Direct Work artifacts.",
   );
 }
 

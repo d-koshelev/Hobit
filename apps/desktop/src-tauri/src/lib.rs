@@ -6,6 +6,9 @@ mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
 mod app_state;
+mod codex_direct_work_dto;
+#[cfg(test)]
+mod codex_direct_work_dto_tests;
 mod workspace_commands;
 mod workspace_dto;
 #[cfg(test)]
@@ -31,6 +34,7 @@ pub fn run() {
             workspace_commands::update_widget_instance_layout,
             workspace_commands::list_widget_logs,
             workspace_commands::run_terminal_command,
+            workspace_commands::run_codex_direct_work,
             workspace_commands::generate_agent_chat_ai_proposal,
             workspace_commands::persist_agent_chat_proposal,
             workspace_commands::get_agent_monitoring_snapshot,

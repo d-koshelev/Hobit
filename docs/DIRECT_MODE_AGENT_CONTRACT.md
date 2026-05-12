@@ -19,7 +19,10 @@ bounded work while preserving Hobit's core rule:
 This contract defines the product and runtime boundary for Direct Mode. The
 repository now includes backend/tooling-only Codex CLI foundations in
 `hobit-tools`: an availability/version probe and a one-shot Direct Work runner.
-It still does not implement frontend UI, Tauri commands, storage/schema
+That runner is now wired through the app/Tauri boundary as a one-shot
+`run_codex_direct_work` command that persists widget run/log/result artifacts
+for an allowed Agent Monitoring (`agent-run`) widget instance. It still does
+not implement frontend UI, Agent Monitoring Direct Work display, storage/schema
 changes, queue execution, Git mutations, commits, pushes, an embedded PTY, or
 interactive agent sessions.
 
@@ -39,10 +42,16 @@ Hobit currently has:
 - Git widget placeholder support for manual read-only status refresh from an
   explicit transient repository root
 
-Hobit does not currently expose Codex CLI through frontend UI, Tauri commands,
-storage-backed run artifacts, Agent Monitoring, Agent Queue, or Git Widget
-integration. It does not run executor agents from product surfaces, execute
-Queue items, persist Direct Work run artifacts, or provide Direct Work UI.
+Hobit exposes a backend/Tauri one-shot Codex Direct Work command for explicit
+Workspace, Workbench, owning widget instance, repository root, operator prompt,
+sandbox, approval policy, timeout, and output caps. The command validates
+Workspace/Workbench/widget ownership, currently allows only the existing Agent
+Monitoring (`agent-run`) widget definition to own these artifacts, creates a
+widget run before execution, runs the existing `hobit-tools` Codex runner
+outside the storage transaction, and persists lifecycle logs plus a structured
+Direct Work result artifact. Hobit still does not expose Direct Work through
+frontend UI, Agent Monitoring Direct Work display, Agent Queue, or Git Widget
+integration. It does not execute Queue items or provide Direct Work UI.
 
 The repository now includes backend/tooling-only Codex CLI foundations in
 `hobit-tools`:
@@ -56,8 +65,9 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   `--output-last-message` file when available, applies output caps and timeout,
   and returns a structured result
 
-These foundations are not wired to frontend UI, Tauri commands, storage, Agent
-Monitoring, Agent Queue, or Git Widget.
+These foundations are wired to app/Tauri storage-backed run artifacts only.
+They are not wired to frontend UI, Agent Monitoring Direct Work display, Agent
+Queue, or Git Widget.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
@@ -197,9 +207,10 @@ Rules:
 
 Codex CLI availability detection and version smoke checks have a
 backend/tooling-only foundation in `hobit-tools`. Direct Work command
-construction and one-shot process execution also have a backend/tooling-only
-foundation there. Frontend UI, Tauri exposure, storage/run artifacts, Agent
-Monitoring integration, Git review wiring, changed-file capture, validation
+construction and one-shot process execution also have a backend/tooling
+foundation there, now exposed through a narrow app/Tauri command that stores
+Direct Work widget run/log/result artifacts. Frontend UI, Agent Monitoring
+Direct Work display, Git review wiring, changed-file capture, validation
 capture, commit/push flows, and interactive execution all require later
 implementation blocks.
 
@@ -388,8 +399,9 @@ Follow-up blocks should stay small and focused:
      repository root, sandbox, and approval policy.
    - Capture raw output and final status.
    - Do not add UI, queue execution, commits, pushes, or Git mutations.
-   - Current status: implemented in `hobit-tools` only; not exposed through UI,
-     Tauri, storage, Monitoring, Queue, or Git surfaces.
+   - Current status: implemented in `hobit-tools` and wired through app/Tauri
+     with persisted widget run/log/result artifacts; not exposed through UI,
+     Agent Monitoring Direct Work display, Queue, or Git surfaces.
 
 3. Direct Work minimal UI.
    - Add the smallest useful operator surface for prompt, repo root, mode,
@@ -421,7 +433,7 @@ Follow-up blocks should stay small and focused:
 This contract and current foundation do not implement:
 
 - frontend UI
-- backend/Tauri commands
+- Agent Monitoring Direct Work UI/display
 - storage/schema changes
 - queue execution
 - commit or push behavior

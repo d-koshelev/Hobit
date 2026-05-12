@@ -30,11 +30,14 @@ support `danger-full-access`.
 - Approval-aware execution interfaces once the contracts are ready.
 - Read-only Git status data shaped for visual review surfaces.
 
+The app/Tauri layer may wrap this runner and persist run artifacts; this crate
+remains the tool adapter boundary.
+
 ## Does Not Belong Here Yet
 
 - Real terminal execution.
-- Codex Direct Work UI, Tauri command exposure, storage persistence, Agent
-  Monitoring integration, Agent Queue execution, or Git Widget integration.
+- Codex Direct Work UI, storage persistence, Agent Monitoring display, Agent
+  Queue execution, or Git Widget integration.
 - Git mutations, diff/log/show, staging, commit, push, revert/reset, clean, or stash.
 - Real JDBC or database access.
 - Real image editing.
