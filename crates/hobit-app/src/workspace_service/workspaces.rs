@@ -4,8 +4,9 @@ use crate::WorkspaceServiceError;
 
 use super::{
     mapping::{workspace_summary, workspace_summary_row},
-    placeholder_id, placeholder_timestamp, WorkspaceService, WorkspaceSessionSummary,
-    WorkspaceSummary,
+    placeholder_id, placeholder_timestamp,
+    validation::required_input,
+    WorkspaceDeletionSummary, WorkspaceService, WorkspaceSessionSummary, WorkspaceSummary,
 };
 
 impl WorkspaceService {
@@ -65,6 +66,45 @@ impl WorkspaceService {
             .into_iter()
             .map(workspace_summary_row)
             .collect())
+    }
+
+    pub fn delete_workspace(
+        &self,
+        workspace_id: &str,
+    ) -> Result<WorkspaceDeletionSummary, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let deleted_workspace_id = workspace_id.to_owned();
+        let remaining_workspaces = self
+            .store
+            .with_immediate_transaction(|store| {
+                if store.get_workspace(workspace_id)?.is_none() {
+                    return Err(hobit_storage_sqlite::StorageError::QueryReturnedNoRows);
+                }
+
+                store.delete_workspace_and_local_data(workspace_id)?;
+                store.list_workspace_summaries_with_workbench()
+            })
+            .map_err(|error| {
+                if matches!(
+                    error,
+                    hobit_storage_sqlite::StorageError::QueryReturnedNoRows
+                ) {
+                    WorkspaceServiceError::InvalidInput(format!(
+                        "workspace not found: {workspace_id}"
+                    ))
+                } else {
+                    WorkspaceServiceError::from(error)
+                }
+            })?
+            .into_iter()
+            .map(workspace_summary_row)
+            .collect();
+
+        Ok(WorkspaceDeletionSummary {
+            deleted_workspace_id,
+            deleted: true,
+            remaining_workspaces,
+        })
     }
 
     pub fn open_workspace(

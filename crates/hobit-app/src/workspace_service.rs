@@ -45,6 +45,8 @@ mod terminal_tests;
 mod tests;
 #[cfg(test)]
 mod widget_deletion_tests;
+#[cfg(test)]
+mod workspace_deletion_tests;
 
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
@@ -61,8 +63,8 @@ pub use types::{
     RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
     WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
     WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);

@@ -3,6 +3,16 @@ export type CreateWorkspaceRequest = {
   description?: string | null;
 };
 
+export type DeleteWorkspaceRequest = {
+  workspaceId: string;
+};
+
+export type DeleteWorkspaceResponse = {
+  deletedWorkspaceId: string;
+  deleted: boolean;
+  remainingWorkspaces: WorkspaceSummary[];
+};
+
 export type AddWidgetInstanceToWorkbenchRequest = {
   workspaceId: string;
   workbenchId: string;

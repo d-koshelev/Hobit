@@ -5,7 +5,8 @@ use hobit_app::{
     GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
     RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
     WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -14,6 +15,11 @@ use std::path::PathBuf;
 pub(crate) struct CreateWorkspaceRequest {
     pub title: String,
     pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DeleteWorkspaceRequest {
+    pub workspace_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -132,6 +138,13 @@ pub(crate) struct WorkspaceSummaryDto {
     pub description: Option<String>,
     pub status: String,
     pub workbench_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct WorkspaceDeletionResponseDto {
+    pub deleted_workspace_id: String,
+    pub deleted: bool,
+    pub remaining_workspaces: Vec<WorkspaceSummaryDto>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -327,6 +340,20 @@ impl From<WorkspaceSummary> for WorkspaceSummaryDto {
             description: summary.description,
             status: summary.status,
             workbench_id: summary.workbench_id,
+        }
+    }
+}
+
+impl From<WorkspaceDeletionSummary> for WorkspaceDeletionResponseDto {
+    fn from(summary: WorkspaceDeletionSummary) -> Self {
+        Self {
+            deleted_workspace_id: summary.deleted_workspace_id,
+            deleted: summary.deleted,
+            remaining_workspaces: summary
+                .remaining_workspaces
+                .into_iter()
+                .map(WorkspaceSummaryDto::from)
+                .collect(),
         }
     }
 }

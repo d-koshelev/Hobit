@@ -11,6 +11,8 @@ import type {
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
+  DeleteWorkspaceRequest,
+  DeleteWorkspaceResponse,
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -42,6 +44,9 @@ export type WorkspaceApi = {
     request: CreateWorkspaceRequest,
   ) => Promise<WorkspaceSummary>;
   listWorkspaces: () => Promise<WorkspaceSummary[]>;
+  deleteWorkspace: (
+    request: DeleteWorkspaceRequest,
+  ) => Promise<DeleteWorkspaceResponse>;
   getWorkspaceSummary: (
     workspaceId: string,
   ) => Promise<WorkspaceSummary | null>;
@@ -118,6 +123,12 @@ export function createWorkspace(
 
 export function listWorkspaces(): Promise<WorkspaceSummary[]> {
   return getWorkspaceApi().listWorkspaces();
+}
+
+export function deleteWorkspace(
+  request: DeleteWorkspaceRequest,
+): Promise<DeleteWorkspaceResponse> {
+  return getWorkspaceApi().deleteWorkspace(request);
 }
 
 export function getWorkspaceSummary(

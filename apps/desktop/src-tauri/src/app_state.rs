@@ -84,6 +84,14 @@ impl DirectWorkActiveRunRegistry {
             })
     }
 
+    pub(crate) fn has_active_workspace_run(&self, workspace_id: &str) -> bool {
+        self.runs
+            .lock()
+            .expect("direct work active run registry lock")
+            .values()
+            .any(|run| run.workspace_id == workspace_id)
+    }
+
     pub(crate) fn unregister(&self, run_id: &str) {
         self.runs
             .lock()
@@ -172,5 +180,7 @@ mod tests {
 
         assert!(registry.has_active_widget_run("ws_1", "wb_1", "wid_1"));
         assert!(!registry.has_active_widget_run("ws_1", "other", "wid_1"));
+        assert!(registry.has_active_workspace_run("ws_1"));
+        assert!(!registry.has_active_workspace_run("other"));
     }
 }

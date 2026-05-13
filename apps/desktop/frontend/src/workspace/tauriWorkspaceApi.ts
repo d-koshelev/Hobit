@@ -4,6 +4,7 @@ import {
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
 } from "./tauriAgentQueueApi";
+import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
 import {
   cancelCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
@@ -36,6 +37,7 @@ import type {
 export const tauriWorkspaceApi: WorkspaceApi = {
   createWorkspace,
   listWorkspaces,
+  deleteWorkspace,
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,

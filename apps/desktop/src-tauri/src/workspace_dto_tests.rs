@@ -5,7 +5,8 @@ use hobit_app::{
     GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
     PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
     TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
@@ -14,10 +15,11 @@ use hobit_app::{
 
 use crate::workspace_dto::{
     AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
-    DeleteWidgetInstanceFromWorkbenchRequest, GetAgentMonitoringSnapshotRequest,
-    GitRepositoryStatusDto, PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
-    RunTerminalCommandRequest, RunTerminalCommandResponseDto, WidgetLogDto,
-    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
+    DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
+    GetAgentMonitoringSnapshotRequest, GitRepositoryStatusDto, PersistAgentChatProposalRequest,
+    PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
+    WidgetLogDto, WorkspaceDeletionResponseDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
+    WorkspaceWorkbenchStateDto,
 };
 
 #[test]
@@ -184,6 +186,41 @@ fn accepts_delete_widget_instance_request_shape() {
     assert_eq!(request.workspace_id, "ws_1");
     assert_eq!(request.workbench_id, "wb_1");
     assert_eq!(request.widget_instance_id, "wid_1");
+}
+
+#[test]
+fn accepts_delete_workspace_request_shape() {
+    let request = DeleteWorkspaceRequest {
+        workspace_id: "ws_1".to_owned(),
+    };
+
+    assert_eq!(request.workspace_id, "ws_1");
+}
+
+#[test]
+fn maps_workspace_deletion_summary_to_dto() {
+    let summary = WorkspaceDeletionSummary {
+        deleted_workspace_id: "ws_deleted".to_owned(),
+        deleted: true,
+        remaining_workspaces: vec![WorkspaceSummary {
+            id: "ws_keep".to_owned(),
+            title: "Keep".to_owned(),
+            description: None,
+            status: "active".to_owned(),
+            workbench_id: Some("wb_keep".to_owned()),
+        }],
+    };
+
+    let dto = WorkspaceDeletionResponseDto::from(summary);
+
+    assert_eq!(dto.deleted_workspace_id, "ws_deleted");
+    assert!(dto.deleted);
+    assert_eq!(dto.remaining_workspaces.len(), 1);
+    assert_eq!(dto.remaining_workspaces[0].id, "ws_keep");
+    assert_eq!(
+        dto.remaining_workspaces[0].workbench_id.as_deref(),
+        Some("wb_keep")
+    );
 }
 
 #[test]

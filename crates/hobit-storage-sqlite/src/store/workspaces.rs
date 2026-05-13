@@ -83,4 +83,77 @@ impl SqliteStore {
         )?;
         Ok(())
     }
+
+    pub fn delete_workspace_and_local_data(&self, workspace_id: &str) -> Result<()> {
+        self.connection.execute(
+            "DELETE FROM agent_queue_items
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_results
+             WHERE run_id IN (
+                SELECT widget_runs.id
+                FROM widget_runs
+                INNER JOIN widget_instances
+                    ON widget_instances.id = widget_runs.widget_instance_id
+                WHERE widget_instances.workspace_id = ?1
+             )",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_logs
+             WHERE widget_instance_id IN (
+                SELECT id
+                FROM widget_instances
+                WHERE workspace_id = ?1
+             )",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_runs
+             WHERE widget_instance_id IN (
+                SELECT id
+                FROM widget_instances
+                WHERE workspace_id = ?1
+             )",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_instances
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM shared_state_objects
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM workbench_events
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM workspace_sessions
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM workspace_workbenches
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        let affected_rows = self.connection.execute(
+            "DELETE FROM workspaces
+             WHERE id = ?1",
+            params![workspace_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Ok(())
+    }
 }

@@ -10,6 +10,13 @@ pub struct WorkspaceSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceDeletionSummary {
+    pub deleted_workspace_id: String,
+    pub deleted: bool,
+    pub remaining_workspaces: Vec<WorkspaceSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSessionSummary {
     pub id: String,
     pub workspace_id: String,

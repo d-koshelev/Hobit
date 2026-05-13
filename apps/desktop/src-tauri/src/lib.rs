@@ -26,6 +26,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace_commands::create_workspace,
             workspace_commands::list_workspaces,
+            workspace_commands::delete_workspace,
             workspace_commands::get_workspace_summary,
             workspace_commands::open_workspace,
             workspace_commands::get_workspace_workbench_state,

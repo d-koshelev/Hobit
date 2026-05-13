@@ -98,6 +98,7 @@ Implemented foundation:
 
 - The Workspace Start Screen lets the user create a Workspace or open an existing Workspace.
 - In the Tauri desktop shell, Workspace lifecycle and Workbench state loading use Tauri commands backed by `hobit-app` and `hobit-storage-sqlite`.
+- The desktop backend/API can delete one Workspace and its Hobit-persisted Workspace-local records from SQLite. The deletion path does not delete filesystem files, repository roots, Git repositories, global app configuration, or provider configuration, and the Tauri command rejects deletion while a Direct Work run is active for that Workspace. Frontend delete UI and confirmation are not implemented yet.
 - In browser/Vite development, the same frontend workspace API boundary uses an in-memory fallback. Browser fallback state is not persisted.
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
@@ -123,6 +124,7 @@ Not implemented yet:
 
 - runtime restore or event replay
 - widget runtime reconstruction
+- frontend Workspace deletion UI, confirmation, undo/restore, or bulk deletion
 - real capability widget insertion beyond the Notes, Terminal one-shot command widget, Agent Chat proposal-only mock placeholder, Direct Work / Codex, Agent Queue placeholder, Git placeholder, and Template Library placeholder
 - interactive Terminal, Agent CLI, executable operational agent chat, or other capability widgets
 - Dock, widget presence zones beyond canvas/floating, and Full/Compact/Indicator view mode behavior

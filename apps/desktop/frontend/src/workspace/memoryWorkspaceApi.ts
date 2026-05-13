@@ -9,6 +9,8 @@ import type {
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
+  DeleteWorkspaceRequest,
+  DeleteWorkspaceResponse,
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -45,6 +47,7 @@ let fallbackId = 1;
 export const memoryWorkspaceApi: WorkspaceApi = {
   createWorkspace,
   listWorkspaces,
+  deleteWorkspace,
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,
@@ -107,6 +110,14 @@ async function createWorkspace(
 
 async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   return fallbackWorkspaces.map(cloneWorkspaceSummary);
+}
+
+async function deleteWorkspace(
+  _request: DeleteWorkspaceRequest,
+): Promise<DeleteWorkspaceResponse> {
+  throw new Error(
+    "Workspace deletion is only available in the Tauri desktop shell. Browser fallback cannot delete persisted workspaces.",
+  );
 }
 
 async function getWorkspaceSummary(

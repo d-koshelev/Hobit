@@ -27,6 +27,6 @@ pub use workspace_service::{
     RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
     WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
     WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceService, WorkspaceSessionSummary,
-    WorkspaceSummary, WorkspaceWorkbenchState,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceService,
+    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
