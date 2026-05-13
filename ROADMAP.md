@@ -14,6 +14,11 @@ The model keeps four surfaces separate:
 - Interactive Agent: manually chat/work with an agent.
 - Runbook: follow and manage procedural steps.
 
+Interactive Agent future work must follow
+`docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`: it is a manual long-chat widget,
+not Queue execution, Agent Executor dispatch, Runbook execution, Coordinator
+behavior, or a hidden mutation path.
+
 Coordinator is deferred. It should not be required for Agent Executor, Agent
 Queue, Interactive Agent, or Runbook work until a later block explicitly
 reintroduces it.

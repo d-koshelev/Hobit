@@ -83,6 +83,8 @@ Near-term simplification:
 ### Interactive Agent
 
 Interactive Agent is a manual long-running chat or work session with an agent.
+The widget contract is defined in
+`docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`.
 
 Role:
 
@@ -100,6 +102,7 @@ MVP direction:
 - no monitoring integration
 - no executor history recording
 - no Runbook integration
+- no tool execution, file mutation, Git mutation, or Terminal execution in v1
 
 Reason:
 
@@ -210,6 +213,8 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Add Interactive Agent contract.
+- Add Interactive Agent minimal UI.
+- Add Interactive Agent session persistence later.
+- Add Interactive Agent provider/Codex integration later.
 - Add Runbook contract.
 - Keep Coordinator deferred.
