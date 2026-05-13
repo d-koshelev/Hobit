@@ -4,6 +4,8 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  CancelCodexDirectWorkRunRequest,
+  CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
   DirectWorkStreamEvent,
@@ -58,6 +60,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   runTerminalCommand,
   runCodexDirectWork,
   runDirectWorkValidation,
+  cancelCodexDirectWorkRun,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };
@@ -325,6 +328,14 @@ async function runDirectWorkValidation(
 ): Promise<RunDirectWorkValidationResponse | null> {
   throw new Error(
     "Direct Work validation capture is only available in the Tauri desktop shell. Browser fallback cannot run Toolbelt validation or persist Direct Work validation artifacts.",
+  );
+}
+
+async function cancelCodexDirectWorkRun(
+  _request: CancelCodexDirectWorkRunRequest,
+): Promise<CancelCodexDirectWorkRunResponse | null> {
+  throw new Error(
+    "Codex Direct Work cancellation is only available in the Tauri desktop shell. Browser fallback cannot stop local executor processes.",
   );
 }
 

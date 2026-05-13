@@ -10,9 +10,11 @@ import {
   codexJsonEventText,
 } from "./CodexDirectWorkLiveLogCodexEvents";
 import {
-  formatDirectWorkClockTime,
-  formatDirectWorkDuration,
-} from "./CodexDirectWorkTiming";
+  formatEntryTiming,
+  liveRunStatusFields,
+  liveRunStatusView,
+  localLogStatusView,
+} from "./CodexDirectWorkLiveLogStatus";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { DirectWorkGitReviewStatus } from "./types";
 
@@ -39,6 +41,10 @@ export type CodexDirectWorkLiveLogEntryKind =
   | DirectWorkStreamEvent["eventKind"]
   | "stream_starting"
   | "stream_start_failed"
+  | "stop_requested"
+  | "stop_acknowledged"
+  | "stop_not_active"
+  | "stop_failed"
   | "fallback_starting"
   | "fallback_completed"
   | "fallback_failed";
@@ -306,7 +312,12 @@ export function cappedLiveLogEntries(entries: CodexDirectWorkLiveLogEntry[]) {
 }
 
 export function isFinalStatus(status: string) {
-  return status === "completed" || status === "failed" || status === "timed_out";
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "timed_out" ||
+    status === "cancelled"
+  );
 }
 
 function liveStatusFromEvent(
@@ -339,6 +350,12 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
     );
   }
 
+  if (event.eventKind === "cancelled") {
+    return shortEventDetail(
+      event.errorMessage ?? "Run cancelled by operator request.",
+    );
+  }
+
   if (event.isFinal) {
     return `Run ${event.status ?? event.eventKind}.`;
   }
@@ -367,6 +384,10 @@ function liveLogEventDetail(event: DirectWorkStreamEvent) {
 
   if (event.isFinal && isFailureEvent(event)) {
     return failureEventDetail(event);
+  }
+
+  if (event.eventKind === "cancelled") {
+    return cancellationEventDetail(event);
   }
 
   if (event.eventKind === "stdout_line" || event.eventKind === "stderr_line") {
@@ -403,6 +424,10 @@ function liveLogEventLabel(event: DirectWorkStreamEvent) {
 
   if (event.eventKind === "timed_out") {
     return "Run timed out";
+  }
+
+  if (event.eventKind === "cancelled") {
+    return "Run cancelled";
   }
 
   if (event.eventKind === "started") {
@@ -456,6 +481,10 @@ function liveLogTone(
     return "error";
   }
 
+  if (event.eventKind === "cancelled") {
+    return "info";
+  }
+
   return "neutral";
 }
 
@@ -470,6 +499,10 @@ const LOCAL_LOG_LABELS: Partial<
   fallback_failed: "Fallback failed",
   fallback_starting: "Fallback",
   started: "Run started",
+  stop_acknowledged: "Stop requested",
+  stop_failed: "Stop failed",
+  stop_not_active: "Stop unavailable",
+  stop_requested: "Stop requested",
   stream_start_failed: "Streaming failed",
   stream_starting: "Starting",
 };
@@ -504,96 +537,6 @@ function withVisibleEntryDeltas(entries: CodexDirectWorkLiveLogEntry[]) {
   });
 }
 
-function liveRunStatusView(status: string): {
-  badgeLabel: string;
-  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
-  title: string;
-} {
-  if (status === "completed") {
-    return {
-      badgeLabel: "Completed",
-      badgeVariant: "success",
-      title: "Live log completed",
-    };
-  }
-
-  if (status === "failed") {
-    return {
-      badgeLabel: "Failed",
-      badgeVariant: "error",
-      title: "Live log failed",
-    };
-  }
-
-  if (status === "timed_out") {
-    return {
-      badgeLabel: "Timed out",
-      badgeVariant: "warning",
-      title: "Live log timed out",
-    };
-  }
-
-  return {
-    badgeLabel: "Running",
-    badgeVariant: "info",
-    title: "Live log running",
-  };
-}
-
-function localLogStatusView(entries: CodexDirectWorkLiveLogEntry[]): {
-  badgeLabel: string;
-  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
-  title: string;
-} {
-  const latestEntry = entries[entries.length - 1];
-
-  if (!latestEntry) {
-    return {
-      badgeLabel: "Waiting",
-      badgeVariant: "neutral",
-      title: "Live log",
-    };
-  }
-
-  if (latestEntry.kind === "fallback_completed") {
-    return {
-      badgeLabel: "Completed",
-      badgeVariant: "success",
-      title: "One-shot fallback completed",
-    };
-  }
-
-  if (latestEntry.kind === "fallback_failed") {
-    return {
-      badgeLabel: "Failed",
-      badgeVariant: "error",
-      title: "One-shot fallback failed",
-    };
-  }
-
-  if (latestEntry.kind === "stream_start_failed") {
-    return {
-      badgeLabel: "Unavailable",
-      badgeVariant: "warning",
-      title: "Streaming start failed",
-    };
-  }
-
-  if (latestEntry.kind === "fallback_starting") {
-    return {
-      badgeLabel: "Running",
-      badgeVariant: "info",
-      title: "One-shot fallback running",
-    };
-  }
-
-  return {
-    badgeLabel: "Starting",
-    badgeVariant: "info",
-    title: "Starting streaming run",
-  };
-}
-
 function appendOutputPreview(currentValue: string, line: string) {
   const nextValue = currentValue ? `${currentValue}\n${line}` : line;
 
@@ -617,49 +560,24 @@ function liveStderrPreviewFromEvent(
   return currentValue;
 }
 
-function liveRunStatusFields(liveRun: CodexDirectWorkLiveRun) {
-  return [
-    { label: "Run id", value: liveRun.runId },
-    { label: "Executor", value: "Codex CLI" },
-    { label: "Status", value: liveRun.status },
-    liveRun.startedAtMs !== null ? { label: "Started at", value: formatDirectWorkClockTime(liveRun.startedAtMs) } : null,
-    liveRun.completedAtMs !== null ? { label: "Completed at", value: formatDirectWorkClockTime(liveRun.completedAtMs) } : null,
-    liveRun.finalStatus
-      ? { label: "Final status", value: liveRun.finalStatus }
-      : null,
-    liveRun.exitCode !== null
-      ? { label: "Exit code", value: String(liveRun.exitCode) }
-      : null,
-    liveRun.failedStage
-      ? { label: "Failed stage", value: liveRun.failedStage }
-      : null,
-    { label: "Total duration", value: liveRunDurationLabel(liveRun) },
-  ].filter((field): field is { label: string; value: string } => Boolean(field));
-}
-
-function liveRunDurationLabel(liveRun: CodexDirectWorkLiveRun) {
-  return liveRun.durationMs === null ? "Running" : formatDirectWorkDuration(liveRun.durationMs);
-}
-
 function isFailureStatus(status: string) {
   return status === "failed" || status === "timed_out";
 }
 
-function formatEntryTiming(entry: CodexDirectWorkLiveLogEntry) {
-  const parts = [
-    formatDirectWorkClockTime(entry.receivedAtMs),
-    `+${formatDirectWorkDuration(entry.elapsedMs)}`,
-  ];
-
-  if (entry.deltaMs !== null) {
-    parts.push(`Delta ${formatDirectWorkDuration(entry.deltaMs)}`);
-  }
-
-  return parts.join("  ");
-}
-
 function isFailureEvent(event: DirectWorkStreamEvent) {
   return event.eventKind === "failed" || event.eventKind === "timed_out";
+}
+
+function cancellationEventDetail(event: DirectWorkStreamEvent) {
+  const details = [
+    event.finalStatus ? `final status: ${event.finalStatus}` : null,
+    event.exitCode !== null ? `exit code: ${event.exitCode}` : null,
+    event.stderrPreview
+      ? `stderr: ${shortEventDetail(event.stderrPreview, 300)}`
+      : null,
+  ].filter((detail): detail is string => Boolean(detail));
+
+  return details.join("; ");
 }
 
 function failureEventDetail(event: DirectWorkStreamEvent) {

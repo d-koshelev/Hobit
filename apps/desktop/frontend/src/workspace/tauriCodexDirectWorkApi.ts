@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
+  CancelCodexDirectWorkRunRequest,
+  CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
@@ -61,6 +63,13 @@ type TauriRunDirectWorkValidationResponse = {
   no_git_mutations: boolean;
   no_commit_push: boolean;
   git_mutations_performed_by_hobit: boolean;
+};
+
+type TauriCancelCodexDirectWorkRunResponse = {
+  run_id: string;
+  status: string;
+  message: string;
+  cancellation_requested: boolean;
 };
 
 type TauriDirectWorkStreamEvent = {
@@ -128,6 +137,25 @@ export async function runDirectWorkValidation(
     );
 
   return response ? normalizeRunDirectWorkValidationResponse(response) : null;
+}
+
+export async function cancelCodexDirectWorkRun(
+  request: CancelCodexDirectWorkRunRequest,
+): Promise<CancelCodexDirectWorkRunResponse | null> {
+  const response =
+    await invokeDirectWork<TauriCancelCodexDirectWorkRunResponse | null>(
+      "cancel_codex_direct_work_run",
+      {
+        request: {
+          workspace_id: request.workspaceId,
+          workbench_id: request.workbenchId,
+          widget_instance_id: request.widgetInstanceId,
+          run_id: request.runId,
+        },
+      },
+    );
+
+  return response ? normalizeCancelCodexDirectWorkRunResponse(response) : null;
 }
 
 export async function startCodexDirectWorkStream(
@@ -227,6 +255,17 @@ function normalizeRunDirectWorkValidationResponse(
     noGitMutations: response.no_git_mutations,
     noCommitPush: response.no_commit_push,
     gitMutationsPerformedByHobit: response.git_mutations_performed_by_hobit,
+  };
+}
+
+function normalizeCancelCodexDirectWorkRunResponse(
+  response: TauriCancelCodexDirectWorkRunResponse,
+): CancelCodexDirectWorkRunResponse {
+  return {
+    runId: response.run_id,
+    status: response.status,
+    message: response.message,
+    cancellationRequested: response.cancellation_requested,
   };
 }
 

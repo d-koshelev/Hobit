@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
+import { Button } from "../design-system/Button";
 import type {
+  CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   DirectWorkValidationProfile,
   RunCodexDirectWorkResponse,
@@ -55,6 +57,10 @@ type CodexDirectWorkPanelProps = {
       validationProfile: DirectWorkValidationProfile;
     },
   ) => Promise<RunDirectWorkValidationResponse | null>;
+  onCancelCodexDirectWorkRun?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<CancelCodexDirectWorkRunResponse | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
@@ -67,6 +73,7 @@ export function CodexDirectWorkPanel({
   gitReviewStatus,
   hasGitWidget,
   onDirectWorkGitReviewRequested,
+  onCancelCodexDirectWorkRun,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
@@ -79,6 +86,11 @@ export function CodexDirectWorkPanel({
     message: string;
     title: string;
   } | null>(null);
+  const [stopNotice, setStopNotice] = useState<{
+    message: string;
+    title: string;
+    variant: "info" | "error";
+  } | null>(null);
   const [runResult, setRunResult] =
     useState<RunCodexDirectWorkResponse | null>(null);
   const [runResultTiming, setRunResultTiming] = useState<{
@@ -86,6 +98,9 @@ export function CodexDirectWorkPanel({
     startedAtMs: number;
   } | null>(null);
   const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
+  const [activeStreamingRunId, setActiveStreamingRunId] =
+    useState<string | null>(null);
+  const [isStopRequesting, setIsStopRequesting] = useState(false);
   const [validationRepositoryRoot, setValidationRepositoryRoot] =
     useState<string | null>(null);
   const [liveLogEntries, setLiveLogEntries] = useState<
@@ -97,6 +112,14 @@ export function CodexDirectWorkPanel({
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const canRunBackend = Boolean(
     onStartCodexDirectWorkStream || onRunCodexDirectWork,
+  );
+  const canStopActiveStreamingRun = Boolean(
+    onCancelCodexDirectWorkRun &&
+      activeStreamingRunId &&
+      isRunning &&
+      liveRun !== null &&
+      liveRun.runId === activeStreamingRunId &&
+      !isFinalStatus(liveRun.status),
   );
 
   useEffect(() => () => stopActiveStreamListening(), []);
@@ -219,6 +242,7 @@ export function CodexDirectWorkPanel({
     }
 
     stopStreamListeningRef.current = session.stopListening;
+    setActiveStreamingRunId(session.runId);
     setLiveLogEntries((currentEntries) =>
       currentEntries.some(
         (entry) => entry.runId === session.runId && entry.kind === "started",
@@ -290,6 +314,7 @@ export function CodexDirectWorkPanel({
     });
     setValidationRepositoryRoot(response.repoRoot || request.repoRoot);
     setIsRunning(false);
+    setActiveStreamingRunId(null);
     requestGitReviewForRepositoryRoot(response.repoRoot || request.repoRoot);
     activeRequestRef.current = null;
     return response;
@@ -313,7 +338,19 @@ export function CodexDirectWorkPanel({
 
     if (event.isFinal) {
       setIsRunning(false);
+      setIsStopRequesting(false);
+      setActiveStreamingRunId((currentRunId) =>
+        currentRunId === event.runId ? null : currentRunId,
+      );
       stopActiveStreamListening();
+      if ((event.status ?? event.eventKind) === "cancelled") {
+        setStopNotice({
+          message:
+            "The active Codex process reported cancelled. This does not reset files or undo changes already written.",
+          title: "Run cancelled",
+          variant: "info",
+        });
+      }
       const repositoryRoot = activeRequestRef.current?.repoRoot ?? null;
       setValidationRepositoryRoot(repositoryRoot);
       requestGitReviewForRepositoryRoot(repositoryRoot);
@@ -353,12 +390,144 @@ export function CodexDirectWorkPanel({
     );
   }
 
+  async function stopStreamingRun() {
+    const runId = activeStreamingRunId;
+
+    if (!runId || !onCancelCodexDirectWorkRun || isStopRequesting) {
+      return;
+    }
+
+    setIsStopRequesting(true);
+    setStopNotice({
+      message:
+        "Stop run attempts to stop the active Codex process. It does not reset files or undo changes already written.",
+      title: "Stop requested",
+      variant: "info",
+    });
+    appendLocalLiveLogEntry(
+      "stop_requested",
+      "Stop requested.",
+      "info",
+      "Waiting for the Direct Work stream to report a final cancelled state.",
+      "stopping",
+      runId,
+    );
+
+    try {
+      const response = await onCancelCodexDirectWorkRun(
+        widgetInstanceId,
+        runId,
+      );
+
+      if (!response) {
+        throw new Error("Cancellation command returned no response.");
+      }
+
+      recordCancellationResponse(response);
+    } catch (error) {
+      const message = codexDirectWorkErrorToMessage(error);
+      appendLocalLiveLogEntry(
+        "stop_failed",
+        "Stop request failed.",
+        "error",
+        message,
+        "failed",
+        runId,
+      );
+      setStopNotice({
+        message,
+        title: "Stop request failed",
+        variant: "error",
+      });
+    } finally {
+      setIsStopRequesting(false);
+    }
+  }
+
+  function recordCancellationResponse(
+    response: CancelCodexDirectWorkRunResponse,
+  ) {
+    const message = response.message || cancellationStatusMessage(response.status);
+
+    if (response.cancellationRequested || response.status === "cancellation_requested") {
+      appendLocalLiveLogEntry(
+        "stop_acknowledged",
+        "Stop request accepted.",
+        "info",
+        "Waiting for the Direct Work stream to finish cancellation.",
+        response.status,
+        response.runId,
+      );
+      setStopNotice({
+        message:
+          "Stop requested; waiting for the run to finish cancellation. Review Git status after cancellation if files may have changed.",
+        title: "Stop requested",
+        variant: "info",
+      });
+      return;
+    }
+
+    if (response.status === "already_finished") {
+      appendLocalLiveLogEntry(
+        "stop_not_active",
+        "Run already finished.",
+        "neutral",
+        message,
+        response.status,
+        response.runId,
+      );
+      setStopNotice({
+        message,
+        title: "Run already finished",
+        variant: "info",
+      });
+      return;
+    }
+
+    if (response.status === "not_found" || response.status === "not_active") {
+      appendLocalLiveLogEntry(
+        "stop_not_active",
+        "No active run to stop.",
+        "neutral",
+        message,
+        response.status,
+        response.runId,
+      );
+      setStopNotice({
+        message,
+        title:
+          response.status === "not_active"
+            ? "Run is not active"
+            : "Run was not found",
+        variant: "info",
+      });
+      return;
+    }
+
+    appendLocalLiveLogEntry(
+      "stop_not_active",
+      "Stop request returned a status.",
+      "neutral",
+      message,
+      response.status,
+      response.runId,
+    );
+    setStopNotice({
+      message,
+      title: "Stop request status",
+      variant: "info",
+    });
+  }
+
   function clearRunState() {
     setRunErrorMessage(null);
     setRunInfoNotice(null);
+    setStopNotice(null);
     setRunResult(null);
     setRunResultTiming(null);
     setLiveRun(null);
+    setActiveStreamingRunId(null);
+    setIsStopRequesting(false);
     setValidationRepositoryRoot(null);
     setLiveLogEntries([]);
     activeRequestRef.current = null;
@@ -423,6 +592,36 @@ export function CodexDirectWorkPanel({
         />
       ) : null}
 
+      {canStopActiveStreamingRun ? (
+        <div className="codex-direct-work-stop-panel">
+          <div className="codex-direct-work-copy">
+            <p className="codex-direct-work-title">Active streaming run</p>
+            <p className="codex-direct-work-text">
+              Stop run attempts to stop the active Codex process. It does not
+              reset files or undo changes already written.
+            </p>
+            <p className="codex-direct-work-review-note">
+              Review Git status after cancellation if files may have changed.
+            </p>
+          </div>
+          <Button
+            disabled={isStopRequesting}
+            onClick={() => void stopStreamingRun()}
+            variant="secondary"
+          >
+            {isStopRequesting ? "Stopping..." : "Stop run"}
+          </Button>
+        </div>
+      ) : null}
+
+      {stopNotice ? (
+        <CodexDirectWorkNotice
+          message={stopNotice.message}
+          title={stopNotice.title}
+          variant={stopNotice.variant}
+        />
+      ) : null}
+
       {liveRun || liveLogEntries.length > 0 ? (
         <CodexDirectWorkLiveLog
           entries={liveLogEntries}
@@ -470,4 +669,20 @@ export function CodexDirectWorkPanel({
 
 function isOneShotFallbackRunning(entries: CodexDirectWorkLiveLogEntry[]) {
   return entries[entries.length - 1]?.kind === "fallback_starting";
+}
+
+function cancellationStatusMessage(status: string) {
+  if (status === "already_finished") {
+    return "This Direct Work run has already finished.";
+  }
+
+  if (status === "not_active") {
+    return "This Direct Work run is no longer active.";
+  }
+
+  if (status === "not_found") {
+    return "No matching active Direct Work run was found.";
+  }
+
+  return `Cancellation command returned status: ${status}.`;
 }

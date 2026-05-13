@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
+  cancelCodexDirectWorkRun,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
   getAgentMonitoringSnapshot,
@@ -20,6 +21,7 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   GitRepositoryStatus,
   GenerateAgentChatAiProposalRequest,
@@ -33,10 +35,10 @@ import type {
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
-  WidgetLogEntry as WorkspaceWidgetLogEntry,
   WorkspaceWorkbenchState,
 } from "../workspace/types";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
+import { directWorkResultFromStreamEvent } from "./directWorkStreamActivity";
 import type {
   WidgetInstanceId,
   WidgetLogEntry,
@@ -46,6 +48,7 @@ import type {
 } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
+import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
 
 type UseWorkbenchWidgetActionsOptions = {
   currentSessionActivity?: CurrentSessionActivityEvents;
@@ -85,6 +88,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     request: DirectWorkValidationRunRequest,
   ) => Promise<RunDirectWorkValidationResponse | null>;
+  cancelCodexDirectWorkRun: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<CancelCodexDirectWorkRunResponse | null>;
   startCodexDirectWorkStream: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -116,6 +123,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "persistAgentChatProposal"
   | "runCodexDirectWork"
   | "runDirectWorkValidation"
+  | "cancelCodexDirectWorkRun"
   | "startCodexDirectWorkStream"
   | "runTerminalCommand"
   | "updateWidgetLayout"
@@ -465,6 +473,36 @@ export function useWorkbenchWidgetActions({
     return response;
   }
 
+  async function cancelCodexDirectWorkRunForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to stop Codex Direct Work.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Codex Direct Work could not be stopped for this widget.");
+    }
+
+    const response = await cancelCodexDirectWorkRun({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      runId,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   async function startCodexDirectWorkStreamForWidget(
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -643,6 +681,7 @@ export function useWorkbenchWidgetActions({
     persistAgentChatProposal: persistAgentChatWidgetProposal,
     runCodexDirectWork: runCodexDirectWorkForWidget,
     runDirectWorkValidation: runDirectWorkValidationForWidget,
+    cancelCodexDirectWorkRun: cancelCodexDirectWorkRunForWidget,
     startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,
@@ -650,49 +689,6 @@ export function useWorkbenchWidgetActions({
   };
 }
 
-function directWorkResultFromStreamEvent(
-  event: DirectWorkStreamEvent,
-): RunCodexDirectWorkResponse {
-  return {
-    runId: event.runId,
-    resultId: "",
-    resultType: "codex_direct_work_result",
-    executorKind: "codex_cli",
-    mode: "direct_work",
-    repoRoot: "",
-    sandbox: "read_only",
-    approvalPolicy: "never",
-    commandSummary: [],
-    status: event.status ?? event.eventKind,
-    exitCode: event.exitCode,
-    stdout: "",
-    stderr: event.stderrPreview ?? "",
-    stdoutTruncated: false,
-    stderrTruncated: false,
-    finalMessage: null,
-    durationMs: event.elapsedMs,
-    errorMessage:
-      event.eventKind === "failed" || event.eventKind === "timed_out"
-        ? (event.errorMessage ?? event.text ?? event.line ?? event.status)
-        : null,
-    noAutoCommit: true,
-    noAutoPush: true,
-    gitMutationsPerformedByHobit: false,
-  };
-}
-
 function persistedLayoutMode(mode: WidgetLayout["mode"]) {
   return mode === "popped-out" ? "popped_out" : mode;
-}
-
-function widgetLogEntryFromApi(log: WorkspaceWidgetLogEntry): WidgetLogEntry {
-  return {
-    id: log.id,
-    widgetInstanceId: log.widgetInstanceId,
-    runId: log.runId,
-    level: log.level,
-    message: log.message,
-    payload: log.payload,
-    createdAt: log.createdAt,
-  };
 }

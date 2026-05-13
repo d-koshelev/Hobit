@@ -3,6 +3,7 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -264,6 +265,10 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<RunDirectWorkValidationResponse | null>;
+  onCancelCodexDirectWorkRun?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<CancelCodexDirectWorkRunResponse | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

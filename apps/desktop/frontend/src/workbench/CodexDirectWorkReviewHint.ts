@@ -7,7 +7,8 @@ export function directWorkGitReviewHint(
   gitWidgetAvailability: DirectWorkGitWidgetAvailability,
   gitReviewStatus?: DirectWorkGitReviewStatus | null,
 ) {
-  const needsLogReview = status === "failed" || status === "timed_out";
+  const needsLogReview =
+    status === "failed" || status === "timed_out" || status === "cancelled";
 
   if (gitReviewStatus?.state === "completed") {
     return "Git widget is available; refreshed read-only status for this repo root.";

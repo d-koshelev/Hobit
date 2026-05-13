@@ -6,6 +6,8 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  CancelCodexDirectWorkRunRequest,
+  CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
   DirectWorkStreamEvent,
@@ -87,6 +89,9 @@ export type WorkspaceApi = {
   runDirectWorkValidation: (
     request: RunDirectWorkValidationRequest,
   ) => Promise<RunDirectWorkValidationResponse | null>;
+  cancelCodexDirectWorkRun: (
+    request: CancelCodexDirectWorkRunRequest,
+  ) => Promise<CancelCodexDirectWorkRunResponse | null>;
   startCodexDirectWorkStream: (
     request: StartCodexDirectWorkStreamRequest,
   ) => Promise<StartCodexDirectWorkStreamResponse | null>;
@@ -205,6 +210,12 @@ export function runDirectWorkValidation(
   request: RunDirectWorkValidationRequest,
 ): Promise<RunDirectWorkValidationResponse | null> {
   return getWorkspaceApi().runDirectWorkValidation(request);
+}
+
+export function cancelCodexDirectWorkRun(
+  request: CancelCodexDirectWorkRunRequest,
+): Promise<CancelCodexDirectWorkRunResponse | null> {
+  return getWorkspaceApi().cancelCodexDirectWorkRun(request);
 }
 
 export function startCodexDirectWorkStream(

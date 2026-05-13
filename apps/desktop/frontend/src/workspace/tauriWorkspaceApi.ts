@@ -5,6 +5,7 @@ import {
   getAgentQueueSnapshot,
 } from "./tauriAgentQueueApi";
 import {
+  cancelCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
   runCodexDirectWork,
   runDirectWorkValidation,
@@ -50,6 +51,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   runTerminalCommand,
   runCodexDirectWork,
   runDirectWorkValidation,
+  cancelCodexDirectWorkRun,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };

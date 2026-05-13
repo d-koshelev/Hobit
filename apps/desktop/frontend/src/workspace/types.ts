@@ -113,6 +113,20 @@ export type RunDirectWorkValidationRequest = {
   stderrCapBytes?: number | null;
 };
 
+export type CancelCodexDirectWorkRunRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  runId: string;
+};
+
+export type CancelCodexDirectWorkRunResponse = {
+  runId: string;
+  status: string;
+  message: string;
+  cancellationRequested: boolean;
+};
+
 export type StartCodexDirectWorkStreamRequest = RunCodexDirectWorkRequest;
 
 export type DirectWorkStreamEventKind =
@@ -123,7 +137,8 @@ export type DirectWorkStreamEventKind =
   | "final_message"
   | "completed"
   | "failed"
-  | "timed_out";
+  | "timed_out"
+  | "cancelled";
 
 export type DirectWorkStreamEvent = {
   workspaceId: string;
