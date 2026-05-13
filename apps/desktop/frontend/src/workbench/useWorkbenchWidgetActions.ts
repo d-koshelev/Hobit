@@ -2,14 +2,10 @@ import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
   cancelCodexDirectWorkRun,
-  createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
-  getAgentMonitoringSnapshot,
   getGitRepositoryStatus,
-  generateAgentChatAiProposal,
   listenToDirectWorkStreamEvents,
   listWidgetLogs,
-  persistAgentChatProposal,
   runCodexDirectWork,
   runDirectWorkValidation,
   startCodexDirectWorkStream,
@@ -18,16 +14,10 @@ import {
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
-  AgentMonitoringSnapshot,
-  AgentQueueItem,
   AgentQueueSnapshot,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   GitRepositoryStatus,
-  GenerateAgentChatAiProposalRequest,
-  GenerateAgentChatAiProposalResponse,
-  PersistAgentChatProposalRequest,
-  PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
@@ -63,23 +53,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
-  getAgentMonitoringSnapshot: () => Promise<AgentMonitoringSnapshot | null>;
-  createAgentQueueItemFromProposal: (
-    sourceRunId: string,
-    sourceResultId: string,
-  ) => Promise<AgentQueueItem | null>;
   getAgentQueueSnapshot: () => Promise<AgentQueueSnapshot | null>;
   listWidgetLogs: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
   removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
-  persistAgentChatProposal: (
-    widgetInstanceId: WidgetInstanceId,
-    proposal: AgentChatProposalRunRequest,
-  ) => Promise<PersistAgentChatProposalResponse | null>;
-  generateAgentChatAiProposal: (
-    widgetInstanceId: WidgetInstanceId,
-    proposal: AgentChatAiProposalRequest,
-  ) => Promise<GenerateAgentChatAiProposalResponse | null>;
   runCodexDirectWork: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -110,12 +87,8 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "listWidgetLogs"
   | "logRefreshTokens"
   | "removeWidgetInstance"
-  | "createAgentQueueItemFromProposal"
-  | "getAgentMonitoringSnapshot"
   | "getAgentQueueSnapshot"
   | "getGitRepositoryStatus"
-  | "generateAgentChatAiProposal"
-  | "persistAgentChatProposal"
   | "runCodexDirectWork"
   | "runDirectWorkValidation"
   | "cancelCodexDirectWorkRun"
@@ -141,16 +114,6 @@ type DirectWorkValidationRunRequest = Omit<
 >;
 
 type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & { stopListening: () => void };
-
-type AgentChatProposalRunRequest = Omit<
-  PersistAgentChatProposalRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
->;
-
-type AgentChatAiProposalRequest = Omit<
-  GenerateAgentChatAiProposalRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
->;
 
 export function useWorkbenchWidgetActions({
   currentSessionActivity,
@@ -298,33 +261,6 @@ export function useWorkbenchWidgetActions({
     });
 
     return logs.map(widgetLogEntryFromApi);
-  }
-
-  async function loadAgentMonitoringSnapshot() {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to read Agent Monitoring results.");
-    }
-
-    return getAgentMonitoringSnapshot({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-    });
-  }
-
-  async function createQueueItemFromProposal(
-    sourceRunId: string,
-    sourceResultId: string,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to create an Agent Queue review item.");
-    }
-
-    return createAgentQueueItemFromProposal({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      sourceRunId,
-      sourceResultId,
-    });
   }
 
   async function loadAgentQueueSnapshot() {
@@ -610,77 +546,13 @@ export function useWorkbenchWidgetActions({
     }
   }
 
-  async function persistAgentChatWidgetProposal(
-    widgetInstanceId: WidgetInstanceId,
-    proposal: AgentChatProposalRunRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to persist an Agent Chat proposal.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Agent Chat proposal could not be persisted for this widget.");
-    }
-
-    const response = await persistAgentChatProposal({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      ...proposal,
-    });
-
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
-    }
-
-    return response;
-  }
-
-  async function generateAgentChatWidgetAiProposal(
-    widgetInstanceId: WidgetInstanceId,
-    proposal: AgentChatAiProposalRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to generate an Agent Chat AI proposal.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Agent Chat AI proposal could not be generated for this widget.");
-    }
-
-    const response = await generateAgentChatAiProposal({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      ...proposal,
-    });
-
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
-    }
-
-    return response;
-  }
-
   return {
     addWidgetTemplate,
-    createAgentQueueItemFromProposal: createQueueItemFromProposal,
     getAgentQueueSnapshot: loadAgentQueueSnapshot,
-    getAgentMonitoringSnapshot: loadAgentMonitoringSnapshot,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
     removeWidgetInstance,
-    generateAgentChatAiProposal: generateAgentChatWidgetAiProposal,
-    persistAgentChatProposal: persistAgentChatWidgetProposal,
     runCodexDirectWork: runCodexDirectWorkForWidget,
     runDirectWorkValidation: runDirectWorkValidationForWidget,
     cancelCodexDirectWorkRun: cancelCodexDirectWorkRunForWidget,

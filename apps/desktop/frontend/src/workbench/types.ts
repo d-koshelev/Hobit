@@ -1,15 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
-  AgentMonitoringSnapshot,
-  AgentQueueItem,
   AgentQueueSnapshot,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
-  GenerateAgentChatAiProposalRequest,
-  GenerateAgentChatAiProposalResponse,
   GitRepositoryStatus,
-  PersistAgentChatProposalRequest,
-  PersistAgentChatProposalResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
@@ -221,26 +215,7 @@ export type WidgetRenderProps = {
     state: WidgetState,
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
-  onGetAgentMonitoringSnapshot?: () => Promise<AgentMonitoringSnapshot | null>;
-  onCreateAgentQueueItemFromProposal?: (
-    sourceRunId: string,
-    sourceResultId: string,
-  ) => Promise<AgentQueueItem | null>;
   onGetAgentQueueSnapshot?: () => Promise<AgentQueueSnapshot | null>;
-  onPersistAgentChatProposal?: (
-    widgetInstanceId: WidgetInstanceId,
-    proposal: Omit<
-      PersistAgentChatProposalRequest,
-      "workspaceId" | "workbenchId" | "widgetInstanceId"
-    >,
-  ) => Promise<PersistAgentChatProposalResponse | null>;
-  onGenerateAgentChatAiProposal?: (
-    widgetInstanceId: WidgetInstanceId,
-    proposal: Omit<
-      GenerateAgentChatAiProposalRequest,
-      "workspaceId" | "workbenchId" | "widgetInstanceId"
-    >,
-  ) => Promise<GenerateAgentChatAiProposalResponse | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
