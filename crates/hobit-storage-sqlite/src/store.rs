@@ -33,6 +33,8 @@ mod workspaces;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod widget_delete_tests;
 
 /// SQLite store for local Hobit persistence primitives.
 pub struct SqliteStore {

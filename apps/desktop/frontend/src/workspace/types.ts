@@ -39,6 +39,12 @@ export type UpdateWidgetInstanceLayoutRequest = {
   layout: WidgetInstanceLayoutUpdate;
 };
 
+export type DeleteWidgetInstanceFromWorkbenchRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+};
+
 export type ListWidgetLogsRequest = {
   workspaceId: string;
   workbenchId: string;

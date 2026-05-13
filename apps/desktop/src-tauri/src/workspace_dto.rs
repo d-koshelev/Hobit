@@ -42,6 +42,13 @@ pub(crate) struct UpdateWidgetInstanceLayoutRequest {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DeleteWidgetInstanceFromWorkbenchRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ListWidgetLogsRequest {
     pub workspace_id: String,
     pub workbench_id: String,

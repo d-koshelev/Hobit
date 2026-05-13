@@ -16,6 +16,7 @@ import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentMonitoringSnapshot,
   CreateWorkspaceRequest,
+  DeleteWidgetInstanceFromWorkbenchRequest,
   GetAgentMonitoringSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
@@ -41,6 +42,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
+  deleteWidgetInstanceFromWorkbench,
   listWidgetLogs,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
@@ -350,6 +352,23 @@ async function updateWidgetInstanceLayout(
           always_on_top: request.layout.alwaysOnTop,
           is_visible: request.layout.isVisible,
         },
+      },
+    },
+  );
+
+  return state ? normalizeWorkspaceWorkbenchState(state) : null;
+}
+
+async function deleteWidgetInstanceFromWorkbench(
+  request: DeleteWidgetInstanceFromWorkbenchRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  const state = await invoke<TauriWorkspaceWorkbenchState | null>(
+    "delete_widget_instance_from_workbench",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        widget_instance_id: request.widgetInstanceId,
       },
     },
   );

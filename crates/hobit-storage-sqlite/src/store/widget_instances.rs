@@ -134,6 +134,42 @@ impl SqliteStore {
         Ok(())
     }
 
+    pub fn delete_widget_instance_and_local_artifacts(
+        &self,
+        widget_instance_id: &str,
+    ) -> Result<()> {
+        self.connection.execute(
+            "DELETE FROM widget_results
+             WHERE run_id IN (
+                SELECT id
+                FROM widget_runs
+                WHERE widget_instance_id = ?1
+             )",
+            params![widget_instance_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_logs
+             WHERE widget_instance_id = ?1",
+            params![widget_instance_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM widget_runs
+             WHERE widget_instance_id = ?1",
+            params![widget_instance_id],
+        )?;
+        let affected_rows = self.connection.execute(
+            "DELETE FROM widget_instances
+             WHERE id = ?1",
+            params![widget_instance_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        Ok(())
+    }
+
     pub fn list_widget_instances(&self, workspace_id: &str) -> Result<Vec<WidgetInstanceRow>> {
         let mut statement = self.connection.prepare(
             "SELECT

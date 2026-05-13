@@ -67,6 +67,23 @@ impl DirectWorkActiveRunRegistry {
         true
     }
 
+    pub(crate) fn has_active_widget_run(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+    ) -> bool {
+        self.runs
+            .lock()
+            .expect("direct work active run registry lock")
+            .values()
+            .any(|run| {
+                run.workspace_id == workspace_id
+                    && run.workbench_id == workbench_id
+                    && run.widget_instance_id == widget_instance_id
+            })
+    }
+
     pub(crate) fn unregister(&self, run_id: &str) {
         self.runs
             .lock()
@@ -139,5 +156,21 @@ mod tests {
         registry.unregister("run_1");
 
         assert!(!registry.request_cancellation("ws_1", "wb_1", "wid_1", "run_1"));
+        assert!(!registry.has_active_widget_run("ws_1", "wb_1", "wid_1"));
+    }
+
+    #[test]
+    fn active_run_registry_reports_matching_widget_activity() {
+        let registry = DirectWorkActiveRunRegistry::default();
+        registry.register(DirectWorkActiveRun::new(
+            "run_1".to_owned(),
+            "ws_1".to_owned(),
+            "wb_1".to_owned(),
+            "wid_1".to_owned(),
+            CodexDirectStreamCancellationToken::new(),
+        ));
+
+        assert!(registry.has_active_widget_run("ws_1", "wb_1", "wid_1"));
+        assert!(!registry.has_active_widget_run("ws_1", "other", "wid_1"));
     }
 }

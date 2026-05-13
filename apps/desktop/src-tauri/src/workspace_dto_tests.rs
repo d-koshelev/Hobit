@@ -14,9 +14,10 @@ use hobit_app::{
 
 use crate::workspace_dto::{
     AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
-    GetAgentMonitoringSnapshotRequest, GitRepositoryStatusDto, PersistAgentChatProposalRequest,
-    PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
-    WidgetLogDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
+    DeleteWidgetInstanceFromWorkbenchRequest, GetAgentMonitoringSnapshotRequest,
+    GitRepositoryStatusDto, PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
+    RunTerminalCommandRequest, RunTerminalCommandResponseDto, WidgetLogDto,
+    WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 #[test]
@@ -170,6 +171,19 @@ fn maps_widget_log_to_dto() {
             created_at: "1".to_owned(),
         }
     );
+}
+
+#[test]
+fn accepts_delete_widget_instance_request_shape() {
+    let request = DeleteWidgetInstanceFromWorkbenchRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+    };
+
+    assert_eq!(request.workspace_id, "ws_1");
+    assert_eq!(request.workbench_id, "wb_1");
+    assert_eq!(request.widget_instance_id, "wid_1");
 }
 
 #[test]

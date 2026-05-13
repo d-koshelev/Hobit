@@ -21,8 +21,9 @@ use crate::codex_direct_work_dto::{
 };
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
-    GetAgentMonitoringSnapshotRequest, GetGitRepositoryStatusRequest, GitRepositoryStatusDto,
-    ListWidgetLogsRequest, PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
+    DeleteWidgetInstanceFromWorkbenchRequest, GetAgentMonitoringSnapshotRequest,
+    GetGitRepositoryStatusRequest, GitRepositoryStatusDto, ListWidgetLogsRequest,
+    PersistAgentChatProposalRequest, PersistAgentChatProposalResponseDto,
     RunTerminalCommandRequest, RunTerminalCommandResponseDto, UpdateWidgetInstanceLayoutRequest,
     UpdateWidgetInstanceStateRequest, WidgetLogDto, WorkspaceSessionSummaryDto,
     WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
@@ -139,6 +140,44 @@ pub(crate) fn update_widget_instance_layout(
             &request.workbench_id,
             &request.widget_instance_id,
             request.layout.into(),
+        )
+        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn delete_widget_instance_from_workbench(
+    request: DeleteWidgetInstanceFromWorkbenchRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
+    delete_widget_instance_from_workbench_blocking(
+        request,
+        state.db_path().to_path_buf(),
+        state.direct_work_active_runs(),
+    )
+}
+
+fn delete_widget_instance_from_workbench_blocking(
+    request: DeleteWidgetInstanceFromWorkbenchRequest,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
+    if active_runs.has_active_widget_run(
+        &request.workspace_id,
+        &request.workbench_id,
+        &request.widget_instance_id,
+    ) {
+        return Err(
+            "cannot delete widget instance while Direct Work run is active; stop the active run before deleting the widget".to_owned(),
+        );
+    }
+
+    let service = workspace_service(&db_path)?;
+    service
+        .delete_widget_instance_from_workbench(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
         )
         .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
         .map_err(command_error)
@@ -554,6 +593,87 @@ mod tests {
         assert_eq!(response.status, "not_found");
         assert!(!response.cancellation_requested);
         remove_test_db_files(&db_path);
+    }
+
+    #[test]
+    fn delete_widget_instance_from_workbench_blocking_returns_refreshed_state() {
+        let db_path = unique_test_db_path();
+        let (workspace_id, workbench_id, widget_id) = create_widget_in_test_db(&db_path);
+
+        let response = delete_widget_instance_from_workbench_blocking(
+            DeleteWidgetInstanceFromWorkbenchRequest {
+                workspace_id,
+                workbench_id,
+                widget_instance_id: widget_id.clone(),
+            },
+            db_path.clone(),
+            DirectWorkActiveRunRegistry::default(),
+        )
+        .expect("delete widget command helper")
+        .expect("refreshed state");
+
+        assert!(!response
+            .widget_instances
+            .iter()
+            .any(|widget| widget.id == widget_id));
+        assert!(response
+            .recent_events
+            .iter()
+            .any(|event| event.kind == "widget_instance_deleted"));
+        remove_test_db_files(&db_path);
+    }
+
+    #[test]
+    fn delete_widget_instance_from_workbench_blocking_rejects_active_direct_work_widget() {
+        let db_path = unique_test_db_path();
+        let (workspace_id, workbench_id, widget_id) = create_widget_in_test_db(&db_path);
+        let active_runs = DirectWorkActiveRunRegistry::default();
+        active_runs.register(DirectWorkActiveRun::new(
+            "run_1".to_owned(),
+            workspace_id.clone(),
+            workbench_id.clone(),
+            widget_id.clone(),
+            hobit_app::CodexDirectStreamCancellationToken::new(),
+        ));
+
+        let error = delete_widget_instance_from_workbench_blocking(
+            DeleteWidgetInstanceFromWorkbenchRequest {
+                workspace_id,
+                workbench_id,
+                widget_instance_id: widget_id,
+            },
+            db_path.clone(),
+            active_runs,
+        )
+        .expect_err("active run blocks delete");
+
+        assert!(error.contains("Direct Work run is active"));
+        remove_test_db_files(&db_path);
+    }
+
+    fn create_widget_in_test_db(db_path: &Path) -> (String, String, String) {
+        let store = SqliteStore::open(db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        let service = WorkspaceService::new(store);
+        let workspace = service
+            .create_empty_workspace("Delete widget test", None)
+            .expect("create workspace");
+        let workspace_id = workspace.id;
+        let workbench_id = workspace.workbench_id.expect("workbench id");
+        let state = service
+            .add_widget_instance_to_workbench(
+                &workspace_id,
+                &workbench_id,
+                "agent-run",
+                "Direct Work / Codex",
+                "workflow",
+            )
+            .expect("add widget")
+            .expect("updated state");
+        let widget_id = state.widget_instances[0].id.clone();
+        drop(service);
+
+        (workspace_id, workbench_id, widget_id)
     }
 
     fn unique_test_db_path() -> PathBuf {

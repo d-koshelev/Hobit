@@ -8,6 +8,7 @@ import type {
   CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  DeleteWidgetInstanceFromWorkbenchRequest,
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -50,6 +51,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
+  deleteWidgetInstanceFromWorkbench,
   listWidgetLogs,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
@@ -267,6 +269,14 @@ async function updateWidgetInstanceLayout(
   appendRecentEvent(state, "widget_layout_updated", "Widget layout updated");
 
   return cloneWorkspaceWorkbenchState(state);
+}
+
+async function deleteWidgetInstanceFromWorkbench(
+  _request: DeleteWidgetInstanceFromWorkbenchRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  throw new Error(
+    "Widget deletion is only available in the Tauri desktop shell. Browser fallback cannot delete persisted widget instances.",
+  );
 }
 
 async function listWidgetLogs(

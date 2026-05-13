@@ -10,6 +10,7 @@ import type {
   CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
   CreateAgentQueueItemFromProposalRequest,
+  DeleteWidgetInstanceFromWorkbenchRequest,
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
@@ -58,6 +59,9 @@ export type WorkspaceApi = {
   ) => Promise<WorkspaceWorkbenchState | null>;
   updateWidgetInstanceLayout: (
     request: UpdateWidgetInstanceLayoutRequest,
+  ) => Promise<WorkspaceWorkbenchState | null>;
+  deleteWidgetInstanceFromWorkbench: (
+    request: DeleteWidgetInstanceFromWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;
   listWidgetLogs: (
     request: ListWidgetLogsRequest,
@@ -150,6 +154,12 @@ export function updateWidgetInstanceLayout(
   request: UpdateWidgetInstanceLayoutRequest,
 ): Promise<WorkspaceWorkbenchState | null> {
   return getWorkspaceApi().updateWidgetInstanceLayout(request);
+}
+
+export function deleteWidgetInstanceFromWorkbench(
+  request: DeleteWidgetInstanceFromWorkbenchRequest,
+): Promise<WorkspaceWorkbenchState | null> {
+  return getWorkspaceApi().deleteWidgetInstanceFromWorkbench(request);
 }
 
 export function listWidgetLogs(

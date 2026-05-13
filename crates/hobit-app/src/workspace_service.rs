@@ -43,6 +43,8 @@ mod direct_work_validation_tests;
 mod terminal_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod widget_deletion_tests;
 
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,

@@ -5,7 +5,10 @@ use crate::WorkspaceServiceError;
 use super::{
     logs::append_widget_info_log,
     placeholder_id,
-    validation::{required_input, validate_json_state, validate_widget_instance_layout},
+    validation::{
+        required_input, validate_json_state, validate_widget_instance_layout,
+        validate_widget_ownership,
+    },
     workbenches::workspace_workbench_state_from_store,
     WidgetInstanceLayout, WorkspaceService, WorkspaceWorkbenchState, PLACEHOLDER_WIDGET_CONFIG,
     PLACEHOLDER_WIDGET_DOCK_GAP, PLACEHOLDER_WIDGET_DOCK_HEIGHT, PLACEHOLDER_WIDGET_DOCK_WIDTH,
@@ -88,6 +91,62 @@ impl WorkspaceService {
                 Ok(Some(state))
             })
             .map_err(WorkspaceServiceError::from)
+    }
+
+    pub fn delete_widget_instance_from_workbench(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+    ) -> Result<Option<WorkspaceWorkbenchState>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let workbench_id = required_input(workbench_id, "workbench id")?;
+        let widget_instance_id = required_input(widget_instance_id, "widget instance id")?;
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some((workspace, workbench, widget)) =
+                    validate_widget_ownership(store, workspace_id, workbench_id, widget_instance_id)?
+                else {
+                    return Ok(None);
+                };
+
+                if store
+                    .list_agent_queue_items(&workspace.id, &workbench.id)?
+                    .into_iter()
+                    .any(|item| item.source_widget_instance_id == widget.id)
+                {
+                    return Err(hobit_storage_sqlite::StorageError::InvalidQuery);
+                }
+
+                let event_payload = format!(
+                    "workbench_id={};widget_instance_id={};definition_id={}",
+                    workbench.id, widget.id, widget.definition_id
+                );
+
+                store.delete_widget_instance_and_local_artifacts(&widget.id)?;
+                store.append_workbench_event(
+                    &placeholder_id("evt_"),
+                    &workspace.id,
+                    "widget_instance_deleted",
+                    "Widget instance deleted",
+                    Some(&event_payload),
+                )?;
+                store.touch_workspace(&workspace.id)?;
+
+                let state =
+                    workspace_workbench_state_from_store(store, workspace, Some(workbench))?;
+                Ok(Some(state))
+            })
+            .map_err(|error| {
+                if matches!(error, hobit_storage_sqlite::StorageError::InvalidQuery) {
+                    WorkspaceServiceError::InvalidInput(
+                        "widget instance has Agent Queue review items; deleting it would remove referenced run artifacts".to_owned(),
+                    )
+                } else {
+                    WorkspaceServiceError::from(error)
+                }
+            })
     }
 
     pub fn update_widget_instance_state(
