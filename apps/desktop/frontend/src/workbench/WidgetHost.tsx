@@ -14,6 +14,7 @@ import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import { OperationalAgentChatPlaceholderWidget } from "./OperationalAgentChatPlaceholderWidget";
 import { TemplateLibraryPlaceholderWidget } from "./TemplateLibraryPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
+import { WidgetRemoveAction } from "./WidgetRemoveAction";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type {
   WidgetInstance,
@@ -137,6 +138,10 @@ export function WidgetHost({
         </Button>
       ) : null}
       {presentationAction}
+      <WidgetRemoveAction
+        onRemove={() => widgetActions.removeWidgetInstance(instance.id)}
+        widgetTitle={instance.title || "widget"}
+      />
     </>
   );
   const frameStyle = widgetFrameStyle(instance, presentationMode, dockedSize);

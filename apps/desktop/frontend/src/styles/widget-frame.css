@@ -109,6 +109,73 @@
   padding: 0 var(--space-sm);
 }
 
+.widget-remove-action {
+  display: grid;
+  gap: var(--space-xs);
+  justify-items: end;
+}
+
+.widget-actions .button.widget-remove-button {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.widget-actions .button.widget-remove-button:not(:disabled):hover {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.widget-remove-confirmation {
+  display: grid;
+  width: min(280px, 100%);
+  gap: var(--space-xs);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-soft);
+  padding: var(--space-sm);
+}
+
+.widget-remove-title,
+.widget-remove-text,
+.widget-remove-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.widget-remove-title {
+  color: var(--color-text-primary);
+  font-weight: 720;
+}
+
+.widget-remove-text {
+  color: var(--color-text-secondary);
+}
+
+.widget-remove-error {
+  color: var(--color-error);
+  overflow-wrap: anywhere;
+}
+
+.widget-remove-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.widget-actions .button.widget-remove-confirm-button {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.widget-actions .button.widget-remove-confirm-button:not(:disabled):hover {
+  border-color: var(--color-error);
+  background: var(--color-overlay-surface);
+}
+
 .widget-drag-handle {
   cursor: grab;
   touch-action: none;

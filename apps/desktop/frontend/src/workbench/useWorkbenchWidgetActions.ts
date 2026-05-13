@@ -48,6 +48,7 @@ import type {
 } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
+import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
 
 type UseWorkbenchWidgetActionsOptions = {
@@ -68,10 +69,9 @@ export type WorkbenchWidgetActions = {
     sourceResultId: string,
   ) => Promise<AgentQueueItem | null>;
   getAgentQueueSnapshot: () => Promise<AgentQueueSnapshot | null>;
-  listWidgetLogs: (
-    widgetInstanceId: WidgetInstanceId,
-  ) => Promise<WidgetLogEntry[]>;
+  listWidgetLogs: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
+  removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
   persistAgentChatProposal: (
     widgetInstanceId: WidgetInstanceId,
     proposal: AgentChatProposalRunRequest,
@@ -101,20 +101,15 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
   ) => Promise<RunTerminalCommandResponse | null>;
-  updateWidgetLayout: (
-    widgetInstanceId: WidgetInstanceId,
-    layout: WidgetLayout,
-  ) => Promise<void>;
-  updateWidgetState: (
-    widgetInstanceId: WidgetInstanceId,
-    state: WidgetState,
-  ) => Promise<void>;
+  updateWidgetLayout: (widgetInstanceId: WidgetInstanceId, layout: WidgetLayout) => Promise<void>;
+  updateWidgetState: (widgetInstanceId: WidgetInstanceId, state: WidgetState) => Promise<void>;
 };
 
 export type WorkbenchWidgetInstanceActions = Pick<
   WorkbenchWidgetActions,
   | "listWidgetLogs"
   | "logRefreshTokens"
+  | "removeWidgetInstance"
   | "createAgentQueueItemFromProposal"
   | "getAgentMonitoringSnapshot"
   | "getAgentQueueSnapshot"
@@ -145,9 +140,7 @@ type DirectWorkValidationRunRequest = Omit<
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
-type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & {
-  stopListening: () => void;
-};
+type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & { stopListening: () => void };
 
 type AgentChatProposalRunRequest = Omit<
   PersistAgentChatProposalRequest,
@@ -274,6 +267,14 @@ export function useWorkbenchWidgetActions({
 
     applyWorkbenchState(workbenchState);
     bumpWidgetLogRefreshToken(widgetInstanceId);
+  }
+
+  async function removeWidgetInstance(widgetInstanceId: WidgetInstanceId) {
+    const workbenchState = await removeWidgetInstanceFromWorkbenchView(
+      viewState,
+      widgetInstanceId,
+    );
+    applyWorkbenchState(workbenchState);
   }
 
   async function loadWidgetLogs(widgetInstanceId: WidgetInstanceId) {
@@ -677,6 +678,7 @@ export function useWorkbenchWidgetActions({
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
+    removeWidgetInstance,
     generateAgentChatAiProposal: generateAgentChatWidgetAiProposal,
     persistAgentChatProposal: persistAgentChatWidgetProposal,
     runCodexDirectWork: runCodexDirectWorkForWidget,
