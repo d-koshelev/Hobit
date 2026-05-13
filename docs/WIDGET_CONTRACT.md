@@ -84,15 +84,15 @@ Every widget has a widget-local console/log view as a base property.
 This console is not only for Terminal. Any widget may emit logs/activity during a run:
 
 - Terminal: stdout, stderr, exit events
-- Database: connecting, validating query, executing, fetching rows
-- Image Edit: loading image, applying selection, generating variants
-- Agent CLI: reading context, planning, proposing actions
+- Agent Executor: live execution, validation, changed files, final result
+- Git: read-only repository status refresh details
+- Runbook: future step state changes and evidence notes
 
 The widget-local console may open through a small action in the widget header/meta zone, an inline drawer, a popover, or an expanded console mode. The UI mechanism can vary, but the capability is part of the base widget contract.
 
-Future agent/task execution widgets have an additional observability contract: Raw Log, Overview Log, and Result Report views. See `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The current Agent Monitoring widget is limited to a read-only viewer for persisted Agent Chat proposal-only artifacts with Overview, Result, and Raw sections; Direct Work artifacts can be persisted at the service boundary but are not displayed there yet. Full run observability is not implemented by the current generic Logs panel.
+Future agent/task execution widgets have an additional observability contract: Raw Log, Overview Log, and Result Report views. See `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The current Agent Executor surface shows the Codex Direct Work operator panel and widget-local logs, while full run observability remains future work.
 
-Future Script Runner Widget behavior is defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It is a contract for an explicit operator-controlled configured local script action only. Script Runner may appear as planned/display-only catalog metadata, but no Script Runner widget, insertable catalog path, runtime execution, or backend behavior is implemented.
+Future Script Runner Widget behavior is defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It is a contract for an explicit operator-controlled configured local script action only. Script Runner is not part of the current user-facing widget set, and no Script Runner widget, insertable catalog path, runtime execution, or backend behavior is implemented.
 
 ### WidgetResult
 
@@ -168,7 +168,7 @@ Suggested conceptual zones:
 
 Catalog is not a presence zone. The Widget Catalog is the source of templates and creates new WidgetInstances. Presence zones only describe where an existing WidgetInstance is shown.
 
-Presence-zone changes should be operator-visible and may be persisted by future implementation when needed. The current implementation only has canvas rendering, a frontend-only in-app floating presentation, and a static Dock placeholder preview. Real Dock behavior and true external windows are future work.
+Presence-zone changes should be operator-visible and may be persisted by future implementation when needed. The current implementation only has canvas rendering and a frontend-only in-app floating presentation. Real Dock behavior and true external windows are future work.
 
 ## Dock
 
@@ -264,15 +264,14 @@ Status requirements:
 - detailed status and controls stay inside the Full widget view
 - badges, counters, warning markers, ok/error dots, or short labels may be used
 
-Status examples:
+Future status examples:
 
 - Git: `Clean`, `Dirty 3`, `Not configured`, `Error`
 - Agent Queue: `2 review`, `1 failed`, `All clear`
-- Agent Monitoring: `Running`, `Completed`, `Failed`, `Blocked`
+- Agent Executor: `Running`, `Completed`, `Failed`, `Blocked`
 - Notes/Notebook: `Saved`, `Unsaved`, `3 tabs`
-- Template Library: `Ready`, `Static preview`, `Planned`
 - Terminal: `Idle`, `Running`, `Failed`, `Unavailable`
-- Script Runner: `Idle`, `Running`, `Failed`, `Passed`, `Needs review`
+- Runbook: `2 blocked`, `5 done`, `Running`
 
 ## Future Drag-And-Drop Semantics
 
@@ -392,37 +391,27 @@ owning Workbench and remove widget-local runs, results, logs, state, and layout
 for that instance. Frontend delete controls, workspace deletion, undo/restore,
 and bulk deletion are not implemented.
 
-The Notes, Terminal, Agent Chat placeholder, Direct Work / Codex, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for catalog insertion. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, checklists/todos, snippets, review notes, and AI-in-Notes behavior are not implemented yet. The Terminal widget has a minimal desktop-only one-shot command form. It passes an explicit program, argv array, working directory, timeout, and stdout/stderr caps to the Tauri backend, stores widget run/log/result records, and renders the final stdout/stderr result. It does not implement shell mode, interactive stdin, streaming, PTY, cancellation, command history, environment/secrets support, Agent-triggered execution, Script Runner behavior, or widget-state persistence for command drafts. Direct Work / Codex reuses the existing `agent-run` widget identity and has a frontend launch panel plus a backend/Tauri one-shot command that accepts explicit Workspace, Workbench, owning widget instance, Codex executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. The Agent Chat placeholder accepts an operator prompt, lets the operator explicitly select safe current-session context metadata, generates a structured proposal preview, and in the desktop shell persists the generated proposal as a proposal-only widget run/log/result artifact. When `HOBIT_AI_PROVIDER_ENDPOINT` and `HOBIT_AI_PROVIDER_MODEL` configure an explicit `http://` JSON chat-compatible provider endpoint, Agent Chat can request a backend AI proposal; otherwise local/mock fallback remains available. Selectable context is limited to Workspace/workbench identity, widget inventory metadata, and current global activity status. It does not call agents, read Notes body, read Git status, read Terminal output, read widget logs, read files, execute tools, run Terminal commands, create Queue items by itself, stream responses, persist chat messages, persist reusable context snapshots, expose provider settings or secrets UI, or write widget state or Workspace content. Browser fallback keeps the preview local, does not call providers directly, and reports persistence as unsupported. The secondary Agent Monitoring details are read-only and can display persisted Agent Chat proposal-only result artifacts for the current Workspace Workbench with Overview, Result, and Raw sections; it can explicitly create a review-only Agent Queue item from the selected valid local mock proposal result, keeps the existing `agent-run` definition id for persistence compatibility, and does not display persisted Direct Work artifacts, stream logs, monitor Terminal results, read arbitrary widget results, validate results, summarize runtime events, execute Queue items, apply proposals, or write widget state. Browser fallback reports monitoring reads and queue item creation as unsupported. The Agent Queue placeholder now has a narrow persisted review inbox for Agent Chat local mock proposal results; it lists `needs_review` / `pending_review` items and shows read-only details while keeping static preview content only as empty/demo copy when no persisted items exist. It does not execute queue items, approve or apply proposals, launch agents, capture responses, validate responses, associate Git review, run a background queue, automatically accept work, mutate Notes/Git/files, or write widget state. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Git root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. The Template Library placeholder includes static Request Template, Response Template, and Coordinator Workflow previews plus a local-only generated executor request preview; it does not persist template data, edit templates, fill real template variables, provide a template generation engine, copy or send requests, capture responses, parse or validate responses, launch or integrate executor tasks, associate Git review with responses, call agents, or write widget state. Future Workspace-aware Coordinator Agent behavior is contract-first in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; Agent Chat / Coordinator does not currently read hidden widget context, preview executable actions, mutate other widgets, approve or apply proposals, edit Notebook content, or apply presentation changes.
+The current user-facing widget set is Agent Executor, Agent Queue, Interactive Agent, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing `agent-run` widget identity for persistence compatibility and keeps the current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget instance, executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. It persists widget run/log/result artifacts and safety flags without auto-commit, push, Queue execution, or Git mutation. Agent Queue is a preview review/history foundation only and does not execute or dispatch queued work. Interactive Agent and Runbook are minimal placeholders only; they do not call agents, execute tools, integrate with Queue, or mutate workspace content. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget has a minimal desktop-only one-shot command form. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, and Coordinator preview surfaces are not part of the current user-facing catalog or workbench surface.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window. The current Dock surface is a static frontend-only placeholder preview; it does not park widgets, render Compact views, move widgets between Dock and Canvas, persist presence zones, or provide per-widget Indicator status.
+The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, preset editing, and real Dock behavior are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
-The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions, Terminal one-shot command responses, and Agent Chat proposal persistence when already open. Existing widget add/state/layout mutations emit basic logs. Terminal one-shot command runs, Codex Direct Work runs, and Agent Chat proposal persistence emit lifecycle logs and structured results. Runtime streaming, polling, interactive terminal output, and full agent run observability are not implemented yet.
+The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions and Terminal one-shot command responses when already open. Existing widget add/state/layout mutations emit basic logs. Terminal one-shot command runs and Codex Direct Work runs emit lifecycle logs and structured results. Runtime streaming UI, polling, interactive terminal output, and full agent run observability are not implemented yet.
 
-Future Agent Chat, Terminal, Agent CLI, or Executor widgets that run agent/task execution should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views.
+Future Agent Executor, Interactive Agent, Terminal, or other task execution widgets should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views when they run agent/task execution.
 
-Future Script Runner Widget behavior is further defined in `SCRIPT_RUNNER_WIDGET_CONTRACT.md`, including explicit script path, argv argument model, working directory, timeout, output caps, operator Run action, safety boundaries, and non-goals. Script Runner is not implemented, is listed only as planned/display-only catalog metadata, and is not available for widget insertion.
+Future Script Runner Widget behavior is further defined in `SCRIPT_RUNNER_WIDGET_CONTRACT.md`, including explicit script path, argv argument model, working directory, timeout, output caps, operator Run action, safety boundaries, and non-goals. Script Runner is not implemented and is not available for widget insertion.
 
 ## Examples
 
-Future widget types may include:
+Current user-facing widget types are:
 
-- Agent CLI
-- Agent Chat
-- Terminal
-- Script Runner
-- Stages
-- Knowledge
-- Notes
-- Notebook
-- Database/JDBC
-- Git
-- Template Library
-- Image Edit
-- JIRA
-- Confluence
-- Agent Activity
-- Shared State
+- Agent Executor
 - Agent Queue
+- Interactive Agent
+- Runbook
+- Git
+- Terminal
+- Notes
 
 Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, Markdown and rendered-block preview direction, Mermaid fenced-block diagram rules, checklist/todo/snippet/review-note use cases, explicit formatting actions, and AI-editing safety rules. Standalone To-do List direction is folded into Notebook unless a future block explicitly defines a separate structured task-management widget.
 

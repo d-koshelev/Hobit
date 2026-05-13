@@ -10,9 +10,9 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
+import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
-import { OperationalAgentChatPlaceholderWidget } from "./OperationalAgentChatPlaceholderWidget";
-import { TemplateLibraryPlaceholderWidget } from "./TemplateLibraryPlaceholderWidget";
+import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import { WidgetRemoveAction } from "./WidgetRemoveAction";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
@@ -25,25 +25,25 @@ import type {
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import {
-  AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
-  AGENT_RUN_WIDGET_DEFINITION_ID,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
+  INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
-  TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY,
+  RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
 const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
-  [AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY]: OperationalAgentChatPlaceholderWidget,
   [AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]: AgentQueuePlaceholderWidget,
   [AGENT_RUN_PLACEHOLDER_COMPONENT_KEY]: AgentRunPlaceholderWidget,
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
+  [INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY]:
+    InteractiveAgentPlaceholderWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
-  [TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY]:
-    TemplateLibraryPlaceholderWidget,
+  [RUNBOOK_PLACEHOLDER_COMPONENT_KEY]: RunbookPlaceholderWidget,
   [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
 };
 
@@ -86,6 +86,9 @@ export function WidgetHost({
   widgetActions,
 }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
+  const frameTitle = definition
+    ? displayWidgetTitle(instance, definition)
+    : instance.title || "widget";
   const canMoveDockedWidget =
     layoutMode === "editing" &&
     presentationMode === "docked" &&
@@ -128,7 +131,7 @@ export function WidgetHost({
     <>
       {presentationMode === "popped-out" ? (
         <Button
-          aria-label={`Move ${instance.title || "widget"} floating widget`}
+          aria-label={`Move ${frameTitle} floating widget`}
           className="widget-drag-handle"
           onPointerDown={startPopoutDrag}
           title="Drag floating widget"
@@ -140,7 +143,7 @@ export function WidgetHost({
       {presentationAction}
       <WidgetRemoveAction
         onRemove={() => widgetActions.removeWidgetInstance(instance.id)}
-        widgetTitle={instance.title || "widget"}
+        widgetTitle={frameTitle}
       />
     </>
   );
@@ -159,7 +162,7 @@ export function WidgetHost({
         style={frameStyle}
         status={<Badge variant="warning">Missing</Badge>}
         subtitle={`Definition "${instance.definitionId}" is not registered.`}
-        title={instance.title || "Unknown Widget"}
+        title={frameTitle}
       >
         <EmptyState
           text="This widget instance cannot render until its definition is available in the frontend registry."
@@ -170,26 +173,10 @@ export function WidgetHost({
   }
 
   const Component = widgetComponents[definition.componentKey];
-  const title = displayWidgetTitle(instance, definition);
+  const title = frameTitle;
   const runTerminalCommand =
     definition.componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runTerminalCommand
-      : undefined;
-  const persistAgentChatProposal =
-    definition.componentKey === AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.persistAgentChatProposal
-      : undefined;
-  const generateAgentChatAiProposal =
-    definition.componentKey === AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.generateAgentChatAiProposal
-      : undefined;
-  const getAgentMonitoringSnapshot =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getAgentMonitoringSnapshot
-      : undefined;
-  const createAgentQueueItemFromProposal =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.createAgentQueueItemFromProposal
       : undefined;
   const runCodexDirectWork =
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
@@ -253,7 +240,6 @@ export function WidgetHost({
       hasGitWidget={hasGitWidget}
       instance={instance}
       logRefreshToken={logRefreshToken}
-      onCreateAgentQueueItemFromProposal={createAgentQueueItemFromProposal}
       onDirectWorkGitReviewRequested={
         definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
           ? directWorkGitReview.requestReview
@@ -265,11 +251,8 @@ export function WidgetHost({
           : undefined
       }
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
-      onGetAgentMonitoringSnapshot={getAgentMonitoringSnapshot}
       onGetAgentQueueSnapshot={getAgentQueueSnapshot}
-      onGenerateAgentChatAiProposal={generateAgentChatAiProposal}
       onLoadLogs={widgetActions.listWidgetLogs}
-      onPersistAgentChatProposal={persistAgentChatProposal}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}
       onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}
@@ -289,12 +272,20 @@ function displayWidgetTitle(
 ) {
   if (
     definition.id === AGENT_RUN_WIDGET_DEFINITION_ID &&
-    instance.title === "Agent Run"
+    isLegacyAgentRunTitle(instance.title)
   ) {
     return definition.defaultTitle;
   }
 
   return instance.title || definition.defaultTitle;
+}
+
+function isLegacyAgentRunTitle(title: string) {
+  return (
+    title === "Agent Run" ||
+    title === "Agent Monitoring" ||
+    title === "Direct Work / Codex"
+  );
 }
 
 function widgetFrameStyle(

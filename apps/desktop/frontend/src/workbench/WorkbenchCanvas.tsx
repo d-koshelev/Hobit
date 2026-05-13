@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
-import { DockingStationPlaceholder } from "./DockingStationPlaceholder";
 import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WorkbenchEditStatus } from "./WorkbenchEditStatus";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
-import { GIT_WIDGET_DEFINITION_ID } from "./widgetRegistry";
+import { GIT_WIDGET_DEFINITION_ID, isUserFacingWidgetDefinition } from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type {
   WidgetInstanceId,
@@ -104,10 +103,13 @@ export function WorkbenchCanvas({
   const dockedResizeSizesRef = useRef(dockedResizeSizes);
   const layoutSurfaceRef = useRef<HTMLDivElement | null>(null);
   const widgetActionsRef = useRef(widgetActions);
-  const visibleWidgets = viewState.widgets
+  const userFacingWidgets = viewState.widgets.filter((widget) =>
+    isUserFacingWidgetDefinition(widget.definitionId),
+  );
+  const visibleWidgets = userFacingWidgets
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
-  const hasGitWidget = viewState.widgets.some(
+  const hasGitWidget = userFacingWidgets.some(
     (widget) => widget.definitionId === GIT_WIDGET_DEFINITION_ID,
   );
   const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
@@ -124,7 +126,6 @@ export function WorkbenchCanvas({
   const canvasTopSurfaces = (
     <>
       <WorkbenchActivity events={viewState.recentEvents} />
-      <DockingStationPlaceholder />
       {isLayoutEditing ? <WorkbenchEditStatus /> : null}
     </>
   );
@@ -142,7 +143,7 @@ export function WorkbenchCanvas({
   }, [widgetActions]);
 
   useEffect(() => {
-    const visibleWidgetIds = visibleWidgetIdSet(viewState.widgets);
+    const visibleWidgetIds = visibleWidgetIdSet(visibleWidgets);
 
     setPoppedOutWidgetIds((currentIds) =>
       removeStaleWidgetIds(currentIds, visibleWidgetIds),
@@ -151,10 +152,10 @@ export function WorkbenchCanvas({
       removeStalePopoutPositions(currentPositions, visibleWidgetIds),
     );
     setDockedDragPositions((currentPositions) =>
-      removeSettledDockedDragPositions(currentPositions, viewState.widgets),
+      removeSettledDockedDragPositions(currentPositions, visibleWidgets),
     );
     setDockedResizeSizes((currentSizes) =>
-      removeSettledDockedResizeSizes(currentSizes, viewState.widgets),
+      removeSettledDockedResizeSizes(currentSizes, visibleWidgets),
     );
   }, [viewState.widgets]);
 

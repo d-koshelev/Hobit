@@ -5,48 +5,58 @@ export const AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY =
   "agent-queue-placeholder";
 export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
 export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
-export const AGENT_CHAT_WIDGET_DEFINITION_ID = "agent-chat";
-export const AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY = "agent-chat-placeholder";
 export const GIT_WIDGET_DEFINITION_ID = "git";
 export const GIT_PLACEHOLDER_COMPONENT_KEY = "git-placeholder";
+export const INTERACTIVE_AGENT_WIDGET_DEFINITION_ID = "interactive-agent";
+export const INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY =
+  "interactive-agent-placeholder";
 export const NOTES_WIDGET_DEFINITION_ID = "notes";
 export const NOTES_PLACEHOLDER_COMPONENT_KEY = "notes-placeholder";
-export const TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID = "template-library";
-export const TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY =
-  "template-library-placeholder";
+export const RUNBOOK_WIDGET_DEFINITION_ID = "runbook";
+export const RUNBOOK_PLACEHOLDER_COMPONENT_KEY = "runbook-placeholder";
 export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
 export const widgetRegistry: WidgetDefinition[] = [
   {
+    id: AGENT_RUN_WIDGET_DEFINITION_ID,
+    title: "Agent Executor",
+    category: "core",
+    description:
+      "Runs one explicit task and shows execution, logs, result, changed files, and validation.",
+    defaultTitle: "Agent Executor",
+    defaultConfig: {},
+    componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  },
+  {
     id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
     title: "Agent Queue",
     category: "workflow",
     description:
-      "Static placeholder for the future operator queue and review inbox.",
+      "Preview surface for queued tasks and executor history; dispatch is not implemented.",
     defaultTitle: "Agent Queue",
     defaultConfig: {},
     componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   },
   {
-    id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Direct Work / Codex",
+    id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+    title: "Interactive Agent",
     category: "core",
     description:
-      "Launch one explicit Codex Direct Work run and keep proposal artifact details available.",
-    defaultTitle: "Direct Work / Codex",
+      "Preview surface for manual long-running agent chat/work with no Queue integration.",
+    defaultTitle: "Interactive Agent",
     defaultConfig: {},
-    componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+    componentKey: INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   },
   {
-    id: AGENT_CHAT_WIDGET_DEFINITION_ID,
-    title: "Agent Chat",
-    category: "core",
+    id: RUNBOOK_WIDGET_DEFINITION_ID,
+    title: "Runbook",
+    category: "workflow",
     description:
-      "Local/mock proposal preview for future operational agent chat.",
-    defaultTitle: "Agent Chat",
+      "Preview surface for procedural steps with explicit operator-managed state.",
+    defaultTitle: "Runbook",
     defaultConfig: {},
-    componentKey: AGENT_CHAT_PLACEHOLDER_COMPONENT_KEY,
+    componentKey: RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   },
   {
     id: GIT_WIDGET_DEFINITION_ID,
@@ -59,25 +69,6 @@ export const widgetRegistry: WidgetDefinition[] = [
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
   },
   {
-    id: NOTES_WIDGET_DEFINITION_ID,
-    title: "Notes",
-    category: "notes",
-    description: "Persisted placeholder for future workspace notes.",
-    defaultTitle: "Notes",
-    defaultConfig: {},
-    componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
-  },
-  {
-    id: TEMPLATE_LIBRARY_WIDGET_DEFINITION_ID,
-    title: "Template Library",
-    category: "workflow",
-    description:
-      "Static Request, Response, and Coordinator workflow preview surface.",
-    defaultTitle: "Template Library",
-    defaultConfig: {},
-    componentKey: TEMPLATE_LIBRARY_PLACEHOLDER_COMPONENT_KEY,
-  },
-  {
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tool",
@@ -86,8 +77,25 @@ export const widgetRegistry: WidgetDefinition[] = [
     defaultConfig: {},
     componentKey: TERMINAL_PLACEHOLDER_COMPONENT_KEY,
   },
+  {
+    id: NOTES_WIDGET_DEFINITION_ID,
+    title: "Notes",
+    category: "notes",
+    description: "Persisted placeholder for future workspace notes.",
+    defaultTitle: "Notes",
+    defaultConfig: {},
+    componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
+  },
 ];
+
+export const userFacingWidgetDefinitionIds = new Set<WidgetDefinitionId>(
+  widgetRegistry.map((definition) => definition.id),
+);
 
 export function getWidgetDefinition(id: WidgetDefinitionId) {
   return widgetRegistry.find((definition) => definition.id === id);
+}
+
+export function isUserFacingWidgetDefinition(id: WidgetDefinitionId) {
+  return userFacingWidgetDefinitionIds.has(id);
 }

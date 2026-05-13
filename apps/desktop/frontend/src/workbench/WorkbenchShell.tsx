@@ -1,6 +1,4 @@
-import { useMemo, useState } from "react";
-import { createAgentChatAvailableContext } from "./agentChatApprovedContext";
-import { AgentChatAvailableContextProvider } from "./AgentChatContextProvider";
+import { useState } from "react";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import { useCurrentSessionActivity } from "./useCurrentSessionActivity";
 import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
@@ -22,11 +20,6 @@ export function WorkbenchShell({
   const [layoutMode, setLayoutMode] =
     useState<WorkbenchLayoutMode>("locked");
   const currentSessionActivity = useCurrentSessionActivity();
-  const agentChatAvailableContext = useMemo(
-    () =>
-      createAgentChatAvailableContext(viewState, currentSessionActivity.status),
-    [currentSessionActivity.status, viewState],
-  );
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);
   const closeWidgetCatalog = () => setIsWidgetCatalogOpen(false);
   const widgetActions = useWorkbenchWidgetActions({
@@ -58,14 +51,12 @@ export function WorkbenchShell({
             isWidgetCatalogOpen ? " workbench-content-catalog-open" : ""
           }`}
         >
-          <AgentChatAvailableContextProvider value={agentChatAvailableContext}>
-            <WorkbenchCanvas
-              layoutMode={layoutMode}
-              onOpenWidgetCatalog={openWidgetCatalog}
-              viewState={viewState}
-              widgetActions={widgetActions}
-            />
-          </AgentChatAvailableContextProvider>
+          <WorkbenchCanvas
+            layoutMode={layoutMode}
+            onOpenWidgetCatalog={openWidgetCatalog}
+            viewState={viewState}
+            widgetActions={widgetActions}
+          />
           <WidgetCatalogShell
             isOpen={isWidgetCatalogOpen}
             onAddTemplate={addTemplateToWorkbench}

@@ -28,8 +28,8 @@ Role:
 
 Current implementation direction:
 
-- Direct Work / Codex is the current implemented Agent Executor direction.
-- The UI name has not been changed yet.
+- Agent Executor is the current user-facing name.
+- The implementation still uses the Codex CLI Direct Work path internally.
 - The current implementation still reuses the existing `agent-run` identity for
   persistence compatibility.
 
@@ -197,6 +197,8 @@ Future binding direction:
 
 ## One-Sentence Widget Roles
 
+The current user-facing workbench widget set is:
+
 - Agent Executor: run one task and show execution.
 - Agent Queue: organize tasks and executor history.
 - Interactive Agent: manually chat/work with an agent.
@@ -207,11 +209,7 @@ Future binding direction:
 
 ## Recommended Next Blocks
 
-- Rename/reposition Direct Work as Agent Executor in UI.
 - Add Agent Queue singleton guard later.
 - Add Interactive Agent contract.
-- Add Interactive Agent minimal UI.
 - Add Runbook contract.
-- Add Runbook minimal UI.
 - Keep Coordinator deferred.
-

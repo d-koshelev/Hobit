@@ -942,6 +942,64 @@
   justify-content: space-between;
 }
 
+.agent-surface-placeholder {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.agent-surface-card {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.agent-surface-card-header,
+.agent-surface-state-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.agent-surface-card-header {
+  justify-content: space-between;
+}
+
+.agent-surface-copy {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.agent-surface-title,
+.agent-surface-text,
+.agent-surface-list {
+  margin: 0;
+}
+
+.agent-surface-title,
+.agent-surface-list {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.agent-surface-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-surface-list {
+  display: grid;
+  gap: var(--space-sm);
+  padding-left: var(--space-lg);
+}
+
 .agent-queue-placeholder {
   display: grid;
   gap: var(--space-md);

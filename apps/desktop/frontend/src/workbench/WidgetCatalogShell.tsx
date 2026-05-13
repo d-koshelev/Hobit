@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
@@ -21,8 +20,6 @@ export function WidgetCatalogShell({
   onAddTemplate,
   onClose,
 }: WidgetCatalogShellProps) {
-  const [showPlanned, setShowPlanned] = useState(false);
-
   if (!isOpen) {
     return null;
   }
@@ -49,7 +46,7 @@ export function WidgetCatalogShell({
               Widget Catalog
             </h2>
             <p className="widget-catalog-subtitle">
-              Choose a current workbench surface. Future widgets are collapsed below.
+              Choose from the current kept workbench surfaces.
             </p>
           </div>
           <Button onClick={onClose} variant="ghost">
@@ -75,35 +72,16 @@ export function WidgetCatalogShell({
                     {widgetCatalogSectionDescriptions[group.section]}
                   </p>
                 </div>
-                {group.section === "planned" ? (
-                  <Button
-                    onClick={() => {
-                      setShowPlanned((currentValue) => !currentValue);
-                    }}
-                    variant="ghost"
-                  >
-                    {showPlanned
-                      ? "Hide planned"
-                      : `Show planned (${group.templates.length})`}
-                  </Button>
-                ) : null}
               </div>
-              {group.section === "planned" && !showPlanned ? (
-                <p className="catalog-template-group-note">
-                  Planned widgets stay out of the default catalog path until
-                  their Minimal or Operational surface is implemented.
-                </p>
-              ) : (
-                <div className="catalog-template-list">
-                  {group.templates.map((template) => (
-                    <CatalogTemplateCard
-                      key={template.id}
-                      onAddTemplate={onAddTemplate}
-                      template={template}
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="catalog-template-list">
+                {group.templates.map((template) => (
+                  <CatalogTemplateCard
+                    key={template.id}
+                    onAddTemplate={onAddTemplate}
+                    template={template}
+                  />
+                ))}
+              </div>
             </section>
           ))}
         </div>

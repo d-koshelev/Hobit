@@ -100,7 +100,7 @@ export function AgentQueuePlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="warning">Optional inbox</Badge>}
+      status={<Badge variant="info">Preview</Badge>}
       title={title}
     >
       <div className="agent-queue-placeholder">
@@ -108,14 +108,15 @@ export function AgentQueuePlaceholderWidget({
           <div className="agent-queue-summary-copy">
             <p className="agent-queue-summary-title">Agent Queue</p>
             <p className="agent-queue-summary-text">
-              Optional review inbox for saved Agent Chat proposal artifacts.
-              It is not required for the first proposal flow; use Agent
-              Monitoring to inspect saved proposal details.
+              Organizes tasks and executor history. Execution dispatch is not
+              implemented yet; this remains a review/history foundation only
+              for now.
             </p>
           </div>
           <div className="agent-queue-summary-badges">
-            <Badge variant="warning">{persistedItems.length} review</Badge>
+            <Badge variant="neutral">{persistedItems.length} review</Badge>
             <Badge variant="neutral">Review-only</Badge>
+            <Badge variant="neutral">No dispatch</Badge>
             <Button
               disabled={loadState.status === "loading"}
               onClick={() => void refreshQueueSnapshot()}
@@ -146,11 +147,10 @@ export function AgentQueuePlaceholderWidget({
             badgeLabel={loadState.status === "loading" ? "Loading" : "No items"}
             text={
               loadState.status === "loading"
-                ? "Reading optional Agent Queue review items for this Workbench."
-                : "No optional review items exist yet. The first AI path can stop at Agent Monitoring; " +
-                  "create a review item there only when you want an inbox entry."
+                ? "Reading Agent Queue review/history items for this Workbench."
+                : "No review/history items exist yet. Queue execution and executor dispatch are not implemented."
             }
-            title="No optional review items"
+            title="No review/history items"
           />
         )}
       </div>
@@ -173,8 +173,8 @@ function PersistedQueueItems({
         <div className="agent-queue-group-copy">
           <h3 className="agent-queue-section-title">Persisted review items</h3>
           <p className="agent-queue-section-text">
-            Optional inbox entries created explicitly from saved Agent Chat
-            proposal artifacts.
+            Review/history entries created explicitly from saved proposal
+            artifacts. They cannot dispatch executor work.
           </p>
         </div>
         <Badge variant="warning">{items.length} needs review</Badge>
@@ -230,8 +230,8 @@ function PersistedQueueItemDetail({ item }: { item: AgentQueueItem }) {
           <p className="agent-queue-item-block">{shortId(item.id)}</p>
           <h3 className="agent-queue-section-title">{item.title}</h3>
           <p className="agent-queue-section-text">
-            Optional review-only item created from a saved Agent Chat proposal.
-            No approval, apply, executor, queue execution, or tool path is
+            Review-only item created from a saved proposal artifact. No
+            approval, apply, executor dispatch, queue execution, or tool path is
             available.
           </p>
         </div>
@@ -246,7 +246,6 @@ function PersistedQueueItemDetail({ item }: { item: AgentQueueItem }) {
           fields={[
             { label: "Source run", value: item.sourceRunId },
             { label: "Source result", value: item.sourceResultId },
-            { label: "Source widget", value: item.sourceWidgetTitle },
           ]}
           title="Source"
         />
