@@ -10,6 +10,11 @@ Widgets are optional capabilities that can be added, removed, configured, floate
 
 Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md`. Widgets should normally use the shared WidgetFrame anatomy and the unified widget surface rule.
 
+Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`.
+Agent Executor, Agent Queue, Interactive Agent, and Runbook should remain
+separate widget responsibilities. Coordinator is deferred and must not become a
+dependency for basic agent, queue, interactive, or runbook work.
+
 ## WidgetDefinition
 
 A WidgetDefinition describes a widget type. It defines the widget's purpose, supported configuration, input contract, command/action contract, output/result contract, events, capabilities, and rendering contract.
@@ -427,6 +432,8 @@ Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRA
 
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
+Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: Agent Executor runs one task and shows execution, Agent Queue organizes tasks and executor history, Interactive Agent manually chats/works with an agent, and Runbook follows procedural steps.
+
 Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`; it is an operator-controlled agent command queue, command history, and review inbox, not hidden automation or a generic task list.
 
-Future Workspace-aware Coordinator Agent behavior is further defined in `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; it is an approved-context, preview-before-apply proposal model, not unrestricted chat access or direct widget mutation.
+Future Workspace-aware Coordinator Agent behavior is deferred and further defined in `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; it is an approved-context, preview-before-apply proposal model, not unrestricted chat access or direct widget mutation.

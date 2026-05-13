@@ -4,9 +4,11 @@
 
 This contract defines Hobit's future Agent Queue as an operator-controlled agent command queue, command history, and review inbox.
 
-The Agent Queue is a coordinator/review layer for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
+The Agent Queue is a queue/review/history surface for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
 
 This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat local mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
+
+Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace when broader behavior is implemented, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
 ## Current Status
 
@@ -36,7 +38,7 @@ Agent Queue is a Workbench capability for planning, tracking, running-state visi
 
 It has three linked roles:
 
-- Command queue: a coordinator-controlled list of planned, ready, queued, sent, or running agent commands or blocks.
+- Command queue: an operator-controlled list of planned, ready, queued, sent, or running agent commands or blocks.
 - Command history: a durable record of completed, failed, blocked, accepted, rejected, rerun, or archived agent commands or blocks.
 - Review inbox: a structured place to inspect completed, failed, blocked, or response-received agent work before accepting, fixing, rerunning, following up, or archiving it.
 
@@ -129,11 +131,13 @@ Queue Items belong to one Workspace. A Queue Item may be shown in multiple Workb
 
 Different problem = different Workspace. Different surface for the same problem = additional Workbench. For the full multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRACT.md`.
 
-## Relation To Workspace Coordinator Agent
+## Deferred Coordinator Relationship
 
-The future Workspace-aware Coordinator Agent may propose Agent Queue items from approved Notebook content, Git summaries, Agent Run reports, Template workflows, Workspace Activity, or operator chat.
+The Workspace-aware Coordinator Agent is deferred from the near-term surface model.
 
-Agent Queue must receive those items only after a previewed proposal is approved by the operator. Coordinator-created Queue Items must not automatically launch execution, accept work, mutate Git, or hide the source context used.
+Coordinator may later propose Agent Queue items from approved Notebook content, Git summaries, Agent Run reports, Template workflows, Workspace Activity, or operator chat. Agent Queue must receive those items only after a previewed proposal is approved by the operator. Coordinator-created Queue Items must not automatically launch execution, accept work, mutate Git, or hide the source context used.
+
+Basic Agent Queue behavior must not depend on Coordinator.
 
 For the approved-context and proposal flow, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 

@@ -2,10 +2,27 @@
 
 This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure, and current implementation work continues to exercise those contracts through the Workbench shell.
 
+## Near-Term Agent Surface Model
+
+The near-term agent/work surface model is defined in
+`docs/AGENT_SURFACE_MODEL.md`.
+
+The model keeps four surfaces separate:
+
+- Agent Executor: run one task and show execution.
+- Agent Queue: organize tasks and executor history.
+- Interactive Agent: manually chat/work with an agent.
+- Runbook: follow and manage procedural steps.
+
+Coordinator is deferred. It should not be required for Agent Executor, Agent
+Queue, Interactive Agent, or Runbook work until a later block explicitly
+reintroduces it.
+
 ## Near-Term Direction: Direct Mode With Codex CLI
 
 After the proposal-only AI provider slice, the near-term executor direction is
 Direct Mode with Codex CLI as the first planned executor kind. Direct Mode is
+the current Agent Executor implementation direction and is
 the controlled path for small approved work where the operator explicitly
 chooses the repository root, prompt, sandbox/mode, and review flow.
 

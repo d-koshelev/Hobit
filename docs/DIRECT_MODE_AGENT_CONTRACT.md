@@ -31,6 +31,11 @@ execution, Git mutations, commits, pushes, an embedded PTY, or interactive
 agent sessions. The current frontend surfaces Direct Work / Codex as a Ready
 catalog item that reuses the `agent-run` widget identity.
 
+In the near-term surface model defined by `docs/AGENT_SURFACE_MODEL.md`, Direct
+Work / Codex is the current Agent Executor implementation direction. This
+contract defines the Direct Mode execution boundary; it does not define Agent
+Queue scheduling, Interactive Agent, Runbook, or Coordinator behavior.
+
 For the current Direct Mode MVP manual audit and smoke checklist, see
 `docs/DIRECT_MODE_MVP_CHECKLIST.md`.
 
@@ -254,9 +259,12 @@ interactive execution all require later implementation blocks.
 
 ## Widget Integration
 
-### Agent Monitoring
+### Agent Executor / Agent Monitoring
 
-Agent Monitoring is the primary run monitor for Direct Mode.
+In the near-term surface model, Agent Executor is the primary surface for
+running one task and showing execution. Agent Monitoring may remain a secondary
+or future inspection surface for stored artifacts, but Direct Work / Codex
+should be positioned as the Agent Executor direction.
 
 Future Direct Work runs should appear with:
 
@@ -315,6 +323,8 @@ to Agent Monitoring and Direct Mode observability.
 ### Agent Queue
 
 Agent Queue may become an optional future source of approved Direct Work tasks.
+Under `docs/AGENT_SURFACE_MODEL.md`, it should remain queue/review/history until
+explicit queue execution work is implemented.
 
 MVP rules:
 

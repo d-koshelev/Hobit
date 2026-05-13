@@ -8,6 +8,8 @@ Hobit remains operator-controlled. Agents may help coordinate, implement, audit,
 
 This is primarily a product/domain contract. The current Agent Chat widget includes a proposal-only preview with explicit current-session approved context selection, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and desktop proposal-only run/result persistence. The current frontend surfaces Direct Work / Codex as a Ready catalog item that reuses the existing `agent-run` widget identity, and the backend/Tauri Direct Work foundation can persist Codex Direct Work run/log/result artifacts for that owner. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. This contract does not implement template editing, response validation, or automatic execution.
 
+Near-term product-facing agent surfaces are defined in `docs/AGENT_SURFACE_MODEL.md`. That model keeps Agent Executor, Agent Queue, Interactive Agent, and Runbook separate, positions Direct Work / Codex as the current Agent Executor implementation direction, and defers Coordinator as a required product surface.
+
 ## Current Status
 
 The current repository has a narrow frontend/backend Codex Direct Work one-shot path but no automatic agent execution, no template editor, and no response validation engine.
@@ -23,6 +25,8 @@ The project workflow currently uses numbered blocks, focused executor tasks, val
 Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Direct Work / Codex surface can run one explicit Codex Direct Work request and its secondary Agent Monitoring details can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. Persisted Direct Work artifacts are not displayed there yet. This is not a full Agent Run runtime: streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and broader executor integration are not implemented yet.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
+
+Coordinator is deferred in the near-term surface model. Future Coordinator language in this contract describes a possible planning role for later and must not be treated as a prerequisite for Agent Executor, Agent Queue, Interactive Agent, or Runbook work.
 
 First real AI/provider work must also follow
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: the initial AI slice is
@@ -42,6 +46,8 @@ surface plus backend/Tauri run artifact persistence.
 ## Core Rule
 
 Coordinator agents and executor agents are separate roles.
+
+Near-term product note: this rule describes project-agent workflow and future coordination architecture. It does not require a Coordinator widget or Coordinator-driven product flow before the simpler surfaces in `docs/AGENT_SURFACE_MODEL.md` are proven.
 
 The coordinator may be long-lived and context-rich. Executor agents must be short-lived and scoped to one concrete block.
 
@@ -63,6 +69,8 @@ Strict workflow:
 ## Coordinator Agent
 
 A Coordinator Agent is the long-lived coordination role for a Workspace or Project.
+
+Near-term product note: Coordinator is deferred as a required Hobit surface. Do not make Agent Queue, Agent Executor, Interactive Agent, or Runbook depend on Coordinator before a later block explicitly reintroduces it.
 
 The coordinator may:
 
@@ -237,7 +245,7 @@ For the multi-Workspace and multi-Workbench boundary, see `docs/WORKSPACE_CONTRA
 
 Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`.
 
-The Agent Queue should hold concrete coordinator-created Queue Items for planned, queued, running, completed, failed, blocked, accepted, and review-needed agent commands or blocks. It should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
+The Agent Queue should hold concrete Queue Items for planned, queued, running, completed, failed, blocked, accepted, and review-needed agent commands or blocks. Later Coordinator-created Queue Items may be added after Coordinator is reintroduced, but basic queue/review/history behavior must not depend on Coordinator. Queue Items should link applied request snapshots, selected Response Templates, Agent Run observability, validation results, Git review state, artifacts, Notes/Notebook context, and operator decisions without automatically accepting or mutating work.
 
 ## Relation To Agent Work Efficiency
 
