@@ -3,6 +3,7 @@ import { emptyWorkbenchPreset } from "../workbench/presets";
 import { createWorkbenchViewStateFromWorkspaceState } from "../workbench/viewState";
 import {
   createWorkspace as createWorkspaceCommand,
+  deleteWorkspace as deleteWorkspaceCommand,
   getWorkspaceWorkbenchState,
   listWorkspaces,
   openWorkspace as openWorkspaceCommand,
@@ -26,6 +27,9 @@ export function useWorkspaceFlow({
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [openingWorkspaceId, setOpeningWorkspaceId] = useState<string | null>(
+    null,
+  );
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState<string | null>(
     null,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -132,6 +136,25 @@ export function useWorkspaceFlow({
     }
   }
 
+  async function deleteRecentWorkspace(workspace: WorkspaceSummary) {
+    setDeletingWorkspaceId(workspace.id);
+    setErrorMessage(null);
+
+    try {
+      const response = await deleteWorkspaceCommand({
+        workspaceId: workspace.id,
+      });
+
+      if (!response.deleted) {
+        throw new Error("Workspace deletion did not complete.");
+      }
+
+      setRecentWorkspaces(response.remainingWorkspaces);
+    } finally {
+      setDeletingWorkspaceId(null);
+    }
+  }
+
   function clearError() {
     setErrorMessage(null);
   }
@@ -139,6 +162,8 @@ export function useWorkspaceFlow({
   return {
     clearError,
     createWorkspace,
+    deleteRecentWorkspace,
+    deletingWorkspaceId,
     errorMessage,
     isCreatingWorkspace,
     isLoadingWorkspaces,

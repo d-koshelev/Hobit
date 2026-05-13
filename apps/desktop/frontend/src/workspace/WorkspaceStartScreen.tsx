@@ -5,6 +5,7 @@ import { Input } from "../design-system/Input";
 import { StatusDot } from "../design-system/StatusDot";
 import type { WorkspaceStartSelection } from "./selection";
 import { useWorkspaceFlow } from "./useWorkspaceFlow";
+import { WorkspaceRecentItem } from "./WorkspaceRecentItem";
 
 type WorkspaceStartScreenProps = {
   onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
@@ -15,6 +16,8 @@ export function WorkspaceStartScreen({
 }: WorkspaceStartScreenProps) {
   const {
     createWorkspace,
+    deleteRecentWorkspace,
+    deletingWorkspaceId,
     errorMessage,
     isCreatingWorkspace,
     isLoadingWorkspaces,
@@ -136,28 +139,17 @@ export function WorkspaceStartScreen({
             ) : recentWorkspaces.length > 0 ? (
               <div className="workspace-recent-list">
                 {recentWorkspaces.map((workspace) => (
-                  <button
-                    aria-label={`Open ${workspace.title}`}
-                    className="workspace-recent-item"
-                    disabled={
-                      isCreatingWorkspace || openingWorkspaceId === workspace.id
-                    }
+                  <WorkspaceRecentItem
+                    isDeleting={deletingWorkspaceId === workspace.id}
+                    isDisabled={isCreatingWorkspace}
+                    isOpening={openingWorkspaceId === workspace.id}
                     key={workspace.id}
-                    onClick={() => void openRecentWorkspace(workspace)}
-                    type="button"
-                  >
-                    <span className="workspace-recent-item-copy">
-                      <span className="workspace-recent-item-title">
-                        {workspace.title}
-                      </span>
-                      {workspace.description ? (
-                        <span className="workspace-recent-item-text">
-                          {workspace.description}
-                        </span>
-                      ) : null}
-                    </span>
-                    <Badge variant="neutral">{workspace.status}</Badge>
-                  </button>
+                    onDeleteWorkspace={deleteRecentWorkspace}
+                    onOpenWorkspace={(workspace) =>
+                      void openRecentWorkspace(workspace)
+                    }
+                    workspace={workspace}
+                  />
                 ))}
               </div>
             ) : (

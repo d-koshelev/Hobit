@@ -98,6 +98,14 @@
     flex-direction: column;
   }
 
+  .workspace-recent-row {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-delete-trigger {
+    min-height: 36px;
+  }
+
   .workbench-topbar {
     padding: var(--space-lg) var(--space-lg) var(--space-sm);
   }
