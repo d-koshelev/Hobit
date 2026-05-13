@@ -2,8 +2,10 @@ import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
   cancelCodexDirectWorkRun,
+  getAgentExecutorRunDetail,
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
+  listAgentExecutorRuns,
   listenToDirectWorkStreamEvents,
   listWidgetLogs,
   runCodexDirectWork,
@@ -15,6 +17,8 @@ import {
 } from "../workspace/workspaceApi";
 import type {
   AgentQueueSnapshot,
+  AgentExecutorRunDetail,
+  AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   GitRepositoryStatus,
@@ -54,6 +58,14 @@ export type WorkbenchWidgetActions = {
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
   getAgentQueueSnapshot: () => Promise<AgentQueueSnapshot | null>;
+  listAgentExecutorRuns: (
+    widgetInstanceId: WidgetInstanceId,
+    limit?: number,
+  ) => Promise<AgentExecutorRunHistory | null>;
+  getAgentExecutorRunDetail: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<AgentExecutorRunDetail | null>;
   listWidgetLogs: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
   removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
@@ -87,6 +99,8 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "listWidgetLogs"
   | "logRefreshTokens"
   | "removeWidgetInstance"
+  | "listAgentExecutorRuns"
+  | "getAgentExecutorRunDetail"
   | "getAgentQueueSnapshot"
   | "getGitRepositoryStatus"
   | "runCodexDirectWork"
@@ -271,6 +285,54 @@ export function useWorkbenchWidgetActions({
     return getAgentQueueSnapshot({
       workspaceId: viewState.workspace.id,
       workbenchId: viewState.workbench.id,
+    });
+  }
+
+  async function loadAgentExecutorRuns(
+    widgetInstanceId: WidgetInstanceId,
+    limit = 20,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to read Agent Executor history.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Agent Executor history could not be read for this widget.");
+    }
+
+    return listAgentExecutorRuns({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      limit,
+    });
+  }
+
+  async function loadAgentExecutorRunDetail(
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to read Agent Executor run detail.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Agent Executor run detail could not be read for this widget.");
+    }
+
+    return getAgentExecutorRunDetail({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      runId,
     });
   }
 
@@ -549,6 +611,8 @@ export function useWorkbenchWidgetActions({
   return {
     addWidgetTemplate,
     getAgentQueueSnapshot: loadAgentQueueSnapshot,
+    listAgentExecutorRuns: loadAgentExecutorRuns,
+    getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,

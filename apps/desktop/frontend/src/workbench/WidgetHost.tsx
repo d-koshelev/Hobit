@@ -182,6 +182,14 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runCodexDirectWork
       : undefined;
+  const listAgentExecutorRuns =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.listAgentExecutorRuns
+      : undefined;
+  const getAgentExecutorRunDetail =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.getAgentExecutorRunDetail
+      : undefined;
   const runDirectWorkValidation =
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runDirectWorkValidation
@@ -252,6 +260,8 @@ export function WidgetHost({
       }
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
       onGetAgentQueueSnapshot={getAgentQueueSnapshot}
+      onListAgentExecutorRuns={listAgentExecutorRuns}
+      onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onLoadLogs={widgetActions.listWidgetLogs}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}

@@ -306,7 +306,9 @@
 
 .codex-direct-work-panel,
 .codex-direct-work-result,
-.codex-direct-work-live-log {
+.codex-direct-work-live-log,
+.agent-executor-history,
+.agent-executor-history-detail {
   display: grid;
   gap: var(--space-md);
   border: 1px solid var(--color-border-subtle);
@@ -318,6 +320,8 @@
 .codex-direct-work-header,
 .codex-direct-work-result-header,
 .codex-direct-work-live-log-header,
+.agent-executor-history-header,
+.agent-executor-history-detail-header,
 .codex-direct-work-action-row,
 .codex-direct-work-stop-panel,
 .codex-direct-work-output-header,
@@ -331,7 +335,10 @@
 .codex-direct-work-action-row,
 .codex-direct-work-stop-panel,
 .codex-direct-work-output-header,
-.codex-direct-work-output-summary {
+.codex-direct-work-output-summary,
+.agent-executor-history-actions,
+.agent-executor-history-item-head,
+.agent-executor-history-log-meta {
   align-items: center;
 }
 
@@ -339,6 +346,10 @@
 .codex-direct-work-field,
 .codex-direct-work-final-message,
 .codex-direct-work-live-log-list,
+.agent-executor-history-layout,
+.agent-executor-history-list,
+.agent-executor-history-log-list,
+.agent-executor-history-log,
 .codex-direct-work-result-field,
 .codex-direct-work-error-message,
 .codex-direct-work-output-details {
@@ -360,7 +371,8 @@
 .codex-direct-work-live-log-detail,
 .codex-direct-work-result-label,
 .codex-direct-work-result-value,
-.codex-direct-work-review-note {
+.codex-direct-work-review-note,
+.agent-executor-history-item {
   margin: 0;
 }
 
@@ -595,6 +607,64 @@
 
 .codex-direct-work-live-log-raw summary {
   cursor: pointer;
+}
+
+.agent-executor-history {
+  background: var(--color-surface);
+}
+
+.agent-executor-history-actions,
+.agent-executor-history-item-head,
+.agent-executor-history-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.agent-executor-history-layout {
+  grid-template-columns: minmax(180px, 0.9fr) minmax(240px, 1.4fr);
+  align-items: start;
+}
+
+.agent-executor-history-list {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.agent-executor-history-item {
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  color: inherit;
+  padding: var(--space-sm);
+  text-align: left;
+}
+
+.agent-executor-history-item:hover,
+.agent-executor-history-item:focus-visible,
+.agent-executor-history-item-selected {
+  border-color: var(--color-primary);
+}
+
+.agent-executor-history-detail {
+  background: var(--color-nested-surface);
+}
+
+.agent-executor-history-log {
+  border-left: 3px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+@media (max-width: 860px) {
+  .agent-executor-history-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .agent-run-placeholder {

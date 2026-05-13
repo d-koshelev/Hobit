@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
   AgentQueueSnapshot,
+  AgentExecutorRunDetail,
+  AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
   GitRepositoryStatus,
@@ -216,6 +218,14 @@ export type WidgetRenderProps = {
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   onGetAgentQueueSnapshot?: () => Promise<AgentQueueSnapshot | null>;
+  onListAgentExecutorRuns?: (
+    widgetInstanceId: WidgetInstanceId,
+    limit?: number,
+  ) => Promise<AgentExecutorRunHistory | null>;
+  onGetAgentExecutorRunDetail?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<AgentExecutorRunDetail | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

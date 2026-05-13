@@ -48,9 +48,10 @@ Direct Work / Codex launch surface can persist Codex Direct Work widget
 run/log/result artifacts for an allowed Agent Monitoring (`agent-run`) widget
 instance. A read-only Agent Executor history API can list recent stored Direct
 Work and Direct Work validation artifacts for that owning widget and fetch
-their stored result/log summaries. A frontend history UI and full Raw /
-Overview / Result views remain future work. Codex CLI is the first planned
-executor kind, but the observability model must remain executor-agnostic.
+their stored result/log summaries. The Agent Executor frontend has a compact
+read-only history/detail panel for those artifacts. Full Raw / Overview /
+Result views remain future work. Codex CLI is the first planned executor kind,
+but the observability model must remain executor-agnostic.
 
 ## Core Model
 

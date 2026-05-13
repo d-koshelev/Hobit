@@ -34,11 +34,21 @@ import type {
   CodexDirectWorkRequestDraft,
   CodexDirectWorkStreamSession,
 } from "./CodexDirectWorkTypes";
+import {
+  cancellationStatusMessage,
+  isOneShotFallbackRunning,
+} from "./CodexDirectWorkStatusText";
 import type {
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
   WidgetInstanceId,
 } from "./types";
+import {
+  AgentExecutorRunHistoryPanel,
+  type GetAgentExecutorRunDetailHandler,
+  type ListAgentExecutorRunsHandler,
+} from "./AgentExecutorRunHistoryPanel";
+import { useAgentExecutorRunHistoryRefresh } from "./useAgentExecutorRunHistoryRefresh";
 
 type CodexDirectWorkPanelProps = {
   gitReviewStatus?: DirectWorkGitReviewStatus | null;
@@ -46,6 +56,8 @@ type CodexDirectWorkPanelProps = {
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;
+  onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
+  onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
@@ -74,6 +86,8 @@ export function CodexDirectWorkPanel({
   hasGitWidget,
   onDirectWorkGitReviewRequested,
   onCancelCodexDirectWorkRun,
+  onGetAgentExecutorRunDetail,
+  onListAgentExecutorRuns,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
@@ -121,6 +135,11 @@ export function CodexDirectWorkPanel({
       liveRun.runId === activeStreamingRunId &&
       !isFinalStatus(liveRun.status),
   );
+  const {
+    historyRefreshToken,
+    refreshRunHistory,
+    runDirectWorkValidationAndRefresh,
+  } = useAgentExecutorRunHistoryRefresh(onRunDirectWorkValidation);
 
   useEffect(() => () => stopActiveStreamListening(), []);
 
@@ -317,6 +336,7 @@ export function CodexDirectWorkPanel({
     setActiveStreamingRunId(null);
     requestGitReviewForRepositoryRoot(response.repoRoot || request.repoRoot);
     activeRequestRef.current = null;
+    refreshRunHistory();
     return response;
   }
 
@@ -355,6 +375,7 @@ export function CodexDirectWorkPanel({
       setValidationRepositoryRoot(repositoryRoot);
       requestGitReviewForRepositoryRoot(repositoryRoot);
       activeRequestRef.current = null;
+      refreshRunHistory();
     }
   }
 
@@ -658,31 +679,18 @@ export function CodexDirectWorkPanel({
 
       {validationRepositoryRoot ? (
         <CodexDirectWorkValidationPanel
-          onRunDirectWorkValidation={onRunDirectWorkValidation}
+          onRunDirectWorkValidation={runDirectWorkValidationAndRefresh}
           repositoryRoot={validationRepositoryRoot}
           widgetInstanceId={widgetInstanceId}
         />
       ) : null}
+
+      <AgentExecutorRunHistoryPanel
+        onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
+        onListAgentExecutorRuns={onListAgentExecutorRuns}
+        refreshToken={historyRefreshToken}
+        widgetInstanceId={widgetInstanceId}
+      />
     </section>
   );
-}
-
-function isOneShotFallbackRunning(entries: CodexDirectWorkLiveLogEntry[]) {
-  return entries[entries.length - 1]?.kind === "fallback_starting";
-}
-
-function cancellationStatusMessage(status: string) {
-  if (status === "already_finished") {
-    return "This Direct Work run has already finished.";
-  }
-
-  if (status === "not_active") {
-    return "This Direct Work run is no longer active.";
-  }
-
-  if (status === "not_found") {
-    return "No matching active Direct Work run was found.";
-  }
-
-  return `Cancellation command returned status: ${status}.`;
 }

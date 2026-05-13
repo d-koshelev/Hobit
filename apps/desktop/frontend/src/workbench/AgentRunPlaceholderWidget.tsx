@@ -18,7 +18,9 @@ export function AgentRunPlaceholderWidget({
   instance,
   logRefreshToken,
   onDirectWorkGitReviewRequested,
+  onGetAgentExecutorRunDetail,
   onLoadLogs,
+  onListAgentExecutorRuns,
   onCancelCodexDirectWorkRun,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
@@ -66,6 +68,8 @@ export function AgentRunPlaceholderWidget({
           }
           hasGitWidget={hasGitWidget}
           onDirectWorkGitReviewRequested={onDirectWorkGitReviewRequested}
+          onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
+          onListAgentExecutorRuns={onListAgentExecutorRuns}
           onCancelCodexDirectWorkRun={onCancelCodexDirectWorkRun}
           onRunCodexDirectWork={onRunCodexDirectWork}
           onRunDirectWorkValidation={onRunDirectWorkValidation}
