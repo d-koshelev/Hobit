@@ -32,6 +32,8 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` defines Interactive Agent as a separate manual long-chat work surface for exploratory agent conversation. It is not Agent Queue, Agent Executor, Runbook, Coordinator, queue dispatch, approval/apply behavior, or a hidden mutation path.
 
+`RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Interactive Agent, Coordinator, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.
+
 `AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has an insertable Agent Executor surface backed by Codex Direct Work artifacts. Full frontend runtime log viewing, Terminal result monitoring, arbitrary widget result monitoring, overview summarizers, response validation, broader executor integration, and real agent runtime UI are not implemented yet.
 
 `SCRIPT_RUNNER_WIDGET_CONTRACT.md` defines the future Script Runner Widget as an explicit operator-controlled configured local script action with visible script path, argv arguments, working directory, timeout, output caps, logs, results, and safety boundaries. Script Runner is not part of the current Widget Catalog, and no Script Runner UI, widget insertion, backend execution, Tauri command, storage, or runtime behavior is implemented.

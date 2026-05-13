@@ -113,6 +113,7 @@ Reason:
 ### Runbook
 
 Runbook follows and manages procedural steps.
+The widget contract is defined in `docs/RUNBOOK_WIDGET_CONTRACT.md`.
 
 Role:
 
@@ -213,8 +214,7 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Add Interactive Agent minimal UI.
+- Add Runbook minimal UI.
 - Add Interactive Agent session persistence later.
 - Add Interactive Agent provider/Codex integration later.
-- Add Runbook contract.
 - Keep Coordinator deferred.

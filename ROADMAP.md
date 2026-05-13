@@ -19,6 +19,11 @@ Interactive Agent future work must follow
 not Queue execution, Agent Executor dispatch, Runbook execution, Coordinator
 behavior, or a hidden mutation path.
 
+Runbook future work must follow `docs/RUNBOOK_WIDGET_CONTRACT.md`: it is a
+step-based procedural widget, not Queue execution, Agent Executor dispatch,
+Interactive Agent chat, Coordinator behavior, Terminal automation, Git
+mutation, or a hidden tool runner.
+
 Coordinator is deferred. It should not be required for Agent Executor, Agent
 Queue, Interactive Agent, or Runbook work until a later block explicitly
 reintroduces it.

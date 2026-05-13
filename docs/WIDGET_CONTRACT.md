@@ -425,6 +425,8 @@ Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: A
 
 Interactive Agent Widget behavior is further defined in `INTERACTIVE_AGENT_WIDGET_CONTRACT.md`; it is a manual long-chat work surface, separate from Agent Queue, Agent Executor, Runbook, and Coordinator.
 
+Runbook Widget behavior is further defined in `RUNBOOK_WIDGET_CONTRACT.md`; it is a step-based procedural work surface, separate from Agent Queue, Agent Executor, Interactive Agent, and Coordinator.
+
 Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`; it is an operator-controlled agent command queue, command history, and review inbox, not hidden automation or a generic task list.
 
 Future Workspace-aware Coordinator Agent behavior is deferred and further defined in `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; it is an approved-context, preview-before-apply proposal model, not unrestricted chat access or direct widget mutation.
