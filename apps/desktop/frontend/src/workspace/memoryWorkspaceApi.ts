@@ -1,6 +1,8 @@
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
+  AgentExecutorRunDetail,
+  AgentExecutorRunHistory,
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
@@ -14,10 +16,12 @@ import type {
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
+  GetAgentExecutorRunDetailRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
+  ListAgentExecutorRunsRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -59,6 +63,8 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   deleteWidgetInstanceFromWorkbench,
   listWidgetLogs,
+  listAgentExecutorRuns,
+  getAgentExecutorRunDetail,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
@@ -307,6 +313,22 @@ async function listWidgetLogs(
   _request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return [];
+}
+
+async function listAgentExecutorRuns(
+  _request: ListAgentExecutorRunsRequest,
+): Promise<AgentExecutorRunHistory | null> {
+  throw new Error(
+    "Agent Executor run history is only available in the Tauri desktop shell. Browser fallback cannot read persisted Direct Work artifacts.",
+  );
+}
+
+async function getAgentExecutorRunDetail(
+  _request: GetAgentExecutorRunDetailRequest,
+): Promise<AgentExecutorRunDetail | null> {
+  throw new Error(
+    "Agent Executor run detail is only available in the Tauri desktop shell. Browser fallback cannot read persisted Direct Work artifacts.",
+  );
 }
 
 async function getAgentMonitoringSnapshot(

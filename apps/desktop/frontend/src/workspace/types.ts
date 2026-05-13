@@ -136,6 +136,61 @@ export type CancelCodexDirectWorkRunRequest = {
   runId: string;
 };
 
+export type ListAgentExecutorRunsRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  limit?: number | null;
+};
+
+export type GetAgentExecutorRunDetailRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  runId: string;
+};
+
+export type AgentExecutorRunHistory = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  runs: AgentExecutorRunSummary[];
+};
+
+export type AgentExecutorRunSummary = {
+  runId: string;
+  status: string;
+  commandKind: string | null;
+  resultType: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  title: string;
+  repoRoot: string | null;
+  mode: string | null;
+  validationProfile: string | null;
+  validationStatus: string | null;
+  hasResult: boolean;
+  logCount: number | null;
+};
+
+export type AgentExecutorRunDetail = {
+  summary: AgentExecutorRunSummary;
+  resultId: string | null;
+  resultStatus: string | null;
+  resultSummary: string | null;
+  resultContent: string | null;
+  resultPayload: string | null;
+  finalMessage: string | null;
+  stdoutPreview: string | null;
+  stderrPreview: string | null;
+  errorMessage: string | null;
+  validationProfile: string | null;
+  validationStatus: string | null;
+  changedFilesSummary: string | null;
+  logs: WidgetLogEntry[];
+};
+
 export type CancelCodexDirectWorkRunResponse = {
   runId: string;
   status: string;

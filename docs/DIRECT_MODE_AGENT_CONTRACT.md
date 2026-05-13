@@ -106,6 +106,11 @@ capture command are wired to app/Tauri storage-backed run artifacts. Validation
 capture is API-only for now; Direct Work validation UI and automatic post-run
 validation are not implemented. The streaming bridge is not wired to Agent
 Monitoring Direct Work display, Agent Queue, Git Widget, or frontend live UI.
+Agent Executor now also has a read-only app/Tauri run history API for listing
+recent Direct Work and Direct Work validation artifacts owned by a specific
+`agent-run` widget instance and reading their stored result/log summaries. The
+history UI, rerun, deletion, diff capture, queue execution, and Git mutations
+remain future work.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain

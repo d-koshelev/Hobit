@@ -3,6 +3,8 @@ import { tauriWorkspaceApi } from "./tauriWorkspaceApi";
 import { isTauriRuntime } from "./tauriEnvironment";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
+  AgentExecutorRunDetail,
+  AgentExecutorRunHistory,
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
@@ -16,10 +18,12 @@ import type {
   DirectWorkStreamEvent,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
+  GetAgentExecutorRunDetailRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
   GitRepositoryStatus,
+  ListAgentExecutorRunsRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -71,6 +75,12 @@ export type WorkspaceApi = {
   listWidgetLogs: (
     request: ListWidgetLogsRequest,
   ) => Promise<WidgetLogEntry[]>;
+  listAgentExecutorRuns: (
+    request: ListAgentExecutorRunsRequest,
+  ) => Promise<AgentExecutorRunHistory | null>;
+  getAgentExecutorRunDetail: (
+    request: GetAgentExecutorRunDetailRequest,
+  ) => Promise<AgentExecutorRunDetail | null>;
   getAgentMonitoringSnapshot: (
     request: GetAgentMonitoringSnapshotRequest,
   ) => Promise<AgentMonitoringSnapshot | null>;
@@ -177,6 +187,18 @@ export function listWidgetLogs(
   request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return getWorkspaceApi().listWidgetLogs(request);
+}
+
+export function listAgentExecutorRuns(
+  request: ListAgentExecutorRunsRequest,
+): Promise<AgentExecutorRunHistory | null> {
+  return getWorkspaceApi().listAgentExecutorRuns(request);
+}
+
+export function getAgentExecutorRunDetail(
+  request: GetAgentExecutorRunDetailRequest,
+): Promise<AgentExecutorRunDetail | null> {
+  return getWorkspaceApi().getAgentExecutorRunDetail(request);
 }
 
 export function getAgentMonitoringSnapshot(

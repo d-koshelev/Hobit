@@ -6,6 +6,10 @@ import {
 } from "./tauriAgentQueueApi";
 import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
 import {
+  getAgentExecutorRunDetail,
+  listAgentExecutorRuns,
+} from "./tauriAgentExecutorHistoryApi";
+import {
   cancelCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
   runCodexDirectWork,
@@ -46,6 +50,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   updateWidgetInstanceLayout,
   deleteWidgetInstanceFromWorkbench,
   listWidgetLogs,
+  listAgentExecutorRuns,
+  getAgentExecutorRunDetail,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,

@@ -468,6 +468,50 @@ pub struct DirectWorkValidationRunSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorRunHistory {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub runs: Vec<AgentExecutorRunSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorRunSummary {
+    pub run_id: String,
+    pub status: String,
+    pub command_kind: Option<String>,
+    pub result_type: Option<String>,
+    pub started_at: String,
+    pub finished_at: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub title: String,
+    pub repo_root: Option<String>,
+    pub mode: Option<String>,
+    pub validation_profile: Option<String>,
+    pub validation_status: Option<String>,
+    pub has_result: bool,
+    pub log_count: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorRunDetail {
+    pub summary: AgentExecutorRunSummary,
+    pub result_id: Option<String>,
+    pub result_status: Option<String>,
+    pub result_summary: Option<String>,
+    pub result_content: Option<String>,
+    pub result_payload: Option<String>,
+    pub final_message: Option<String>,
+    pub stdout_preview: Option<String>,
+    pub stderr_preview: Option<String>,
+    pub error_message: Option<String>,
+    pub validation_profile: Option<String>,
+    pub validation_status: Option<String>,
+    pub changed_files_summary: Option<String>,
+    pub logs: Vec<WidgetLogSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CodexDirectWorkStreamStartSummary {
     pub run_id: String,
     pub status: String,

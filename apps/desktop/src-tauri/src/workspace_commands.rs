@@ -8,6 +8,10 @@ use crate::agent_chat_ai_dto::{
     GenerateAgentChatAiProposalRequest, GenerateAgentChatAiProposalResponseDto,
 };
 use crate::agent_chat_ai_provider::EnvHttpAgentChatAiProvider;
+use crate::agent_executor_history_dto::{
+    AgentExecutorRunDetailDto, AgentExecutorRunHistoryDto, GetAgentExecutorRunDetailRequest,
+    ListAgentExecutorRunsRequest,
+};
 use crate::agent_queue_dto::{
     AgentQueueItemDto, AgentQueueSnapshotDto, CreateAgentQueueItemFromProposalRequest,
     GetAgentQueueSnapshotRequest,
@@ -228,6 +232,40 @@ pub(crate) fn list_widget_logs(
             request.limit,
         )
         .map(|logs| logs.map(|logs| logs.into_iter().map(WidgetLogDto::from).collect()))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn list_agent_executor_runs(
+    request: ListAgentExecutorRunsRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentExecutorRunHistoryDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .list_agent_executor_runs(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            request.limit,
+        )
+        .map(|history| history.map(AgentExecutorRunHistoryDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn get_agent_executor_run_detail(
+    request: GetAgentExecutorRunDetailRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentExecutorRunDetailDto>, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .get_agent_executor_run_detail(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            &request.run_id,
+        )
+        .map(|detail| detail.map(AgentExecutorRunDetailDto::from))
         .map_err(command_error)
 }
 

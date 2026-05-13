@@ -805,6 +805,54 @@ fn list_widget_logs_for_widget_respects_limit_and_chronological_order() {
     assert_eq!(log_ids(&logs), vec!["log-a", "log-c"]);
 }
 
+#[test]
+fn list_recent_widget_logs_for_run_respects_run_scope_limit_and_order() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+    insert_widget_run(&store);
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: "run-2",
+            widget_instance_id: "widget-1",
+            status: "completed",
+            command_kind: Some("save_note"),
+            command_payload: None,
+            started_at: Some("2"),
+            finished_at: Some("3"),
+            summary: Some("Saved other note"),
+        })
+        .expect("insert second run");
+
+    for (id, run_id, created_at) in [
+        ("log-1", "run-1", "1"),
+        ("log-c", "run-1", "2"),
+        ("log-a", "run-1", "2"),
+        ("other-run-log", "run-2", "3"),
+    ] {
+        store
+            .append_widget_log(NewWidgetLog {
+                id,
+                widget_instance_id: "widget-1",
+                run_id: Some(run_id),
+                level: "info",
+                message: "Run activity",
+                created_at: Some(created_at),
+                details: None,
+            })
+            .expect("append run log");
+    }
+
+    let logs = store
+        .list_recent_widget_logs_for_run("run-1", 2)
+        .expect("list recent run logs");
+
+    assert_eq!(log_ids(&logs), vec!["log-a", "log-c"]);
+    assert!(logs
+        .iter()
+        .all(|log| log.run_id.as_deref() == Some("run-1")));
+}
+
 fn event_ids(events: &[WorkbenchEventRow]) -> Vec<&str> {
     events.iter().map(|event| event.id.as_str()).collect()
 }

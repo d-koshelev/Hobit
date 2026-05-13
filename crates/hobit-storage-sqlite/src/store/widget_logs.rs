@@ -57,6 +57,26 @@ impl SqliteStore {
         rows.collect()
     }
 
+    pub fn list_recent_widget_logs_for_run(
+        &self,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<WidgetLogRow>> {
+        let limit = limit.min(i64::MAX as usize) as i64;
+        let mut statement = self.connection.prepare(
+            "SELECT id, widget_instance_id, run_id, level, message, created_at, details
+             FROM widget_logs
+             WHERE run_id = ?1
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?2",
+        )?;
+
+        let rows = statement.query_map(params![run_id, limit], widget_log_row)?;
+        let mut logs: Vec<_> = rows.collect::<Result<Vec<_>>>()?;
+        logs.reverse();
+        Ok(logs)
+    }
+
     pub fn list_widget_logs_for_widget(
         &self,
         widget_instance_id: &str,

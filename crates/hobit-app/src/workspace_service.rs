@@ -5,6 +5,7 @@ use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::SqliteStore;
 
 mod agent_ai_proposals;
+mod agent_executor_history;
 mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
@@ -25,6 +26,8 @@ mod workspaces;
 
 #[cfg(test)]
 mod agent_ai_proposal_tests;
+#[cfg(test)]
+mod agent_executor_history_tests;
 #[cfg(test)]
 mod agent_monitoring_tests;
 #[cfg(test)]
@@ -53,7 +56,8 @@ mod workspace_deletion_tests;
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
-    AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
+    AgentChatProposalRunSummary, AgentExecutorRunDetail, AgentExecutorRunHistory,
+    AgentExecutorRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
@@ -97,8 +101,7 @@ const AGENT_CHAT_PROPOSAL_RUNTIME_STATUS: &str = "proposal_only_mock";
 const AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND: &str = "agent_queue_proposal_review";
 const AGENT_QUEUE_STATUS_NEEDS_REVIEW: &str = "needs_review";
 const AGENT_QUEUE_DECISION_PENDING_REVIEW: &str = "pending_review";
-// Direct Work has no dedicated widget yet; Agent Monitoring is the existing
-// run artifact owner until a future Direct Work launch surface is added.
+// Agent Executor reuses the internal agent-run id for persisted compatibility.
 const AGENT_RUN_WIDGET_DEFINITION_ID: &str = "agent-run";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";

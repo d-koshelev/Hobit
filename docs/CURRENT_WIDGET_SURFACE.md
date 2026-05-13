@@ -33,6 +33,8 @@ Preview:
 - Reuses the internal `agent-run` widget id for persistence compatibility.
 - Shows run state, live logs, stop run, result output, changed-files summary,
   Git read-only handoff, and validation capture.
+- Provides a read-only backend/Tauri API for stored Direct Work and Direct Work
+  validation run history; frontend history UI is pending.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
   hidden background scheduler.
 
@@ -114,7 +116,7 @@ current Workbench surface:
 
 ## Recommended Next Blocks
 
-- Agent Executor run history.
+- Agent Executor run history UI.
 - Direct Work diff summary.
 - Validation presentation polish.
 - Interactive Agent session persistence later.

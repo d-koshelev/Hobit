@@ -28,6 +28,8 @@ Implemented observability today is limited to:
 - persisted widget logs for widget add/state/layout mutations
 - Terminal one-shot command run/result artifacts
 - Codex Direct Work run/result artifacts stored for an allowed `agent-run` widget owner
+- a read-only Agent Executor run history API for stored Direct Work and Direct
+  Work validation run/result/log summaries
 - Agent Chat proposal-only mock run/result artifacts
 - Agent Monitoring read-only Overview/Result/Raw display for those Agent Chat proposal artifacts
 - explicit Agent Queue review items created from those proposal artifacts
@@ -44,13 +46,11 @@ expose secrets or unsafe metadata.
 Direct Work runs must follow `docs/DIRECT_MODE_AGENT_CONTRACT.md`. The current
 Direct Work / Codex launch surface can persist Codex Direct Work widget
 run/log/result artifacts for an allowed Agent Monitoring (`agent-run`) widget
-instance, but Agent Monitoring does not display persisted Direct Work runs yet.
-Agent Monitoring is the primary future run monitor for Direct Mode and should
-show executor kind, mode, status, duration, final response, validation summary,
-changed files, warnings, and Raw / Overview / Result views. Codex CLI is the
-first planned executor kind, but the observability model must remain
-executor-agnostic. This contract does not implement Agent Monitoring Direct
-Work display.
+instance. A read-only Agent Executor history API can list recent stored Direct
+Work and Direct Work validation artifacts for that owning widget and fetch
+their stored result/log summaries. A frontend history UI and full Raw /
+Overview / Result views remain future work. Codex CLI is the first planned
+executor kind, but the observability model must remain executor-agnostic.
 
 ## Core Model
 

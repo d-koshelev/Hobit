@@ -20,9 +20,9 @@ use super::{
     WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
 };
 
-const DIRECT_WORK_VALIDATION_COMMAND_KIND: &str = "direct_work_validation";
-const DIRECT_WORK_VALIDATION_RESULT_TYPE: &str = "direct_work_validation_result";
-const DIRECT_WORK_VALIDATION_MODE: &str = "direct_work_validation";
+pub(super) const DIRECT_WORK_VALIDATION_COMMAND_KIND: &str = "direct_work_validation";
+pub(super) const DIRECT_WORK_VALIDATION_RESULT_TYPE: &str = "direct_work_validation_result";
+pub(super) const DIRECT_WORK_VALIDATION_MODE: &str = "direct_work_validation";
 
 impl WorkspaceService {
     pub fn run_direct_work_validation(

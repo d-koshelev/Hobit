@@ -15,7 +15,8 @@ pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;
 pub use workspace_service::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
-    AgentChatProposalRunSummary, AgentMonitoringProposalActionSummary,
+    AgentChatProposalRunSummary, AgentExecutorRunDetail, AgentExecutorRunHistory,
+    AgentExecutorRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,

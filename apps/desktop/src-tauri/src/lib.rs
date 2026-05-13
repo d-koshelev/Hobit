@@ -2,6 +2,9 @@ mod agent_chat_ai_dto;
 #[cfg(test)]
 mod agent_chat_ai_dto_tests;
 mod agent_chat_ai_provider;
+mod agent_executor_history_dto;
+#[cfg(test)]
+mod agent_executor_history_dto_tests;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
@@ -35,6 +38,8 @@ pub fn run() {
             workspace_commands::update_widget_instance_layout,
             workspace_commands::delete_widget_instance_from_workbench,
             workspace_commands::list_widget_logs,
+            workspace_commands::list_agent_executor_runs,
+            workspace_commands::get_agent_executor_run_detail,
             workspace_commands::run_terminal_command,
             workspace_commands::run_codex_direct_work,
             workspace_commands::run_direct_work_validation,
