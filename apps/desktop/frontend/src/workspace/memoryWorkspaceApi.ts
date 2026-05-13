@@ -39,6 +39,9 @@ import type {
 
 const fallbackWorkspaces: WorkspaceSummary[] = [];
 const fallbackWorkbenchStates = new Map<string, WorkspaceWorkbenchState>();
+const AGENT_QUEUE_WIDGET_DEFINITION_ID = "agent-queue";
+const AGENT_QUEUE_ALREADY_EXISTS_MESSAGE =
+  "Agent Queue already exists in this workspace.";
 const PLACEHOLDER_WIDGET_DOCK_HEIGHT = 240;
 const PLACEHOLDER_WIDGET_DOCK_GAP = 16;
 const RECENT_EVENT_LIMIT = 100;
@@ -182,6 +185,16 @@ async function addWidgetInstanceToWorkbench(
   );
   const title = requiredValue(request.title, "widget title");
   const category = requiredValue(request.category, "widget category");
+
+  if (
+    definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID &&
+    state.widgetInstances.some(
+      (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    )
+  ) {
+    throw new Error(AGENT_QUEUE_ALREADY_EXISTS_MESSAGE);
+  }
+
   const existingWidgetCount = state.widgetInstances.length;
 
   state.widgetInstances = [

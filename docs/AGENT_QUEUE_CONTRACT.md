@@ -8,7 +8,7 @@ The Agent Queue is a queue/review/history surface for structured agent work. It 
 
 This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat local mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
 
-Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace when broader behavior is implemented, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
+Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
 ## Current Status
 
@@ -17,6 +17,7 @@ Agent Queue currently exists as an insertable Workbench widget with a narrow per
 The current repository has:
 
 - an Agent Queue widget rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
+- a singleton insertion guard that prevents adding a new Agent Queue widget when one already exists in the Workspace
 - a static command queue/history/review overview used only as clearly labeled empty/demo copy when no persisted review items exist
 - SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat local mock proposal results
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
@@ -31,6 +32,8 @@ The current repository has:
 Current related foundations are limited to the persisted proposal review item path, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
+
+The singleton guard prevents new duplicate Agent Queue widgets. Existing persisted duplicates are not automatically removed, migrated, or altered.
 
 ## Definition
 
@@ -126,6 +129,8 @@ Agent Queue must not turn one broad item into hidden multi-layer automation.
 ## Workspace Scope
 
 Agent Queue is Workspace-scoped.
+
+Agent Queue is a singleton per Workspace. The add-widget path must reject a new Agent Queue widget when the Workspace already has one, even if future multiple Workbenches exist. Existing persisted duplicates are preserved as-is and are not a migration target for the current guard.
 
 Queue Items belong to one Workspace. A Queue Item may be shown in multiple Workbenches of the same Workspace if useful, but it must not appear in unrelated Workspaces unless the operator explicitly copies or duplicates it as a new item.
 
@@ -461,6 +466,7 @@ These are conceptual except for the current narrow proposal-review item slice. T
 This contract does not implement:
 
 - Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results
+- migration, deletion, or cleanup of existing duplicate Agent Queue widgets
 - broad executor queue storage or migrations
 - general Rust domain types beyond the current proposal-review DTO/service models
 - general TypeScript types beyond the current proposal-review API types

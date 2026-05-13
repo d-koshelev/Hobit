@@ -46,6 +46,8 @@ mod tests;
 #[cfg(test)]
 mod widget_deletion_tests;
 #[cfg(test)]
+mod widget_singleton_tests;
+#[cfg(test)]
 mod workspace_deletion_tests;
 
 pub use types::{

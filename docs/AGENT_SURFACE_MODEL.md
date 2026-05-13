@@ -61,8 +61,7 @@ Role:
 - hold queued tasks
 - eventually dispatch tasks to available Agent Executors
 - keep executor run history
-- remain one Agent Queue per Workspace when broader queue behavior is
-  implemented
+- remain one Agent Queue per Workspace
 
 Later Agent Queue may include:
 
@@ -75,6 +74,8 @@ Later Agent Queue may include:
 Near-term simplification:
 
 - keep Agent Queue as queue, review, and history
+- prevent adding new duplicate Agent Queue widgets in one Workspace while
+  preserving any existing persisted duplicates
 - do not make it a universal workflow engine yet
 - do not execute queue items until queue execution is explicitly implemented in
   a later block
@@ -209,7 +210,6 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Add Agent Queue singleton guard later.
 - Add Interactive Agent contract.
 - Add Runbook contract.
 - Keep Coordinator deferred.

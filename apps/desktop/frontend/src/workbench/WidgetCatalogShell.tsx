@@ -13,12 +13,16 @@ type WidgetCatalogShellProps = {
   isOpen: boolean;
   onAddTemplate?: (template: WidgetCatalogTemplate) => void | Promise<void>;
   onClose: () => void;
+  unavailableTemplateMessages?: Partial<
+    Record<string, CatalogTemplateUnavailableMessage>
+  >;
 };
 
 export function WidgetCatalogShell({
   isOpen,
   onAddTemplate,
   onClose,
+  unavailableTemplateMessages,
 }: WidgetCatalogShellProps) {
   if (!isOpen) {
     return null;
@@ -79,6 +83,11 @@ export function WidgetCatalogShell({
                     key={template.id}
                     onAddTemplate={onAddTemplate}
                     template={template}
+                    unavailableMessage={
+                      unavailableTemplateMessages?.[
+                        template.futureWidgetDefinitionId ?? template.id
+                      ]
+                    }
                   />
                 ))}
               </div>
@@ -93,17 +102,25 @@ export function WidgetCatalogShell({
 type CatalogTemplateCardProps = {
   onAddTemplate?: (template: WidgetCatalogTemplate) => void | Promise<void>;
   template: WidgetCatalogTemplate;
+  unavailableMessage?: CatalogTemplateUnavailableMessage;
 };
 
 function CatalogTemplateCard({
   onAddTemplate,
   template,
+  unavailableMessage,
 }: CatalogTemplateCardProps) {
   const canAddTemplate =
-    template.status === "available" && onAddTemplate !== undefined;
+    template.status === "available" &&
+    unavailableMessage === undefined &&
+    onAddTemplate !== undefined;
 
   return (
-    <article className="catalog-template-card">
+    <article
+      className={`catalog-template-card${
+        unavailableMessage ? " catalog-template-card-unavailable" : ""
+      }`}
+    >
       <div className="catalog-template-card-main">
         <div className="catalog-template-card-header">
           <h4 className="catalog-template-title">{template.title}</h4>
@@ -119,6 +136,11 @@ function CatalogTemplateCard({
             </li>
           ))}
         </ul>
+        {unavailableMessage ? (
+          <p className="catalog-template-unavailable-reason">
+            {unavailableMessage.reason}
+          </p>
+        ) : null}
       </div>
       <Button
         disabled={!canAddTemplate}
@@ -127,11 +149,17 @@ function CatalogTemplateCard({
         }}
         variant="secondary"
       >
-        {template.status === "available" ? "Add widget" : "Not available"}
+        {unavailableMessage?.actionLabel ??
+          (template.status === "available" ? "Add widget" : "Not available")}
       </Button>
     </article>
   );
 }
+
+type CatalogTemplateUnavailableMessage = {
+  actionLabel: string;
+  reason: string;
+};
 
 function sectionLabel(section: WidgetCatalogSection) {
   return widgetCatalogSectionLabels[section];

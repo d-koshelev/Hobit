@@ -16,6 +16,9 @@ use super::{
     WIDGET_LOG_LAYOUT_UPDATED, WIDGET_LOG_STATE_SAVED, WIDGET_LOG_WIDGET_ADDED,
 };
 
+const AGENT_QUEUE_WIDGET_DEFINITION_ID: &str = "agent-queue";
+const AGENT_QUEUE_ALREADY_EXISTS_MESSAGE: &str = "Agent Queue already exists in this workspace.";
+
 impl WorkspaceService {
     pub fn add_widget_instance_to_workbench(
         &self,
@@ -44,6 +47,17 @@ impl WorkspaceService {
                 else {
                     return Ok(None);
                 };
+
+                if definition_id == AGENT_QUEUE_WIDGET_DEFINITION_ID
+                    && store
+                        .list_widget_instances(&workspace.id)?
+                        .iter()
+                        .any(|widget| widget.definition_id == AGENT_QUEUE_WIDGET_DEFINITION_ID)
+                {
+                    return Err(hobit_storage_sqlite::StorageError::InvalidParameterName(
+                        AGENT_QUEUE_ALREADY_EXISTS_MESSAGE.to_owned(),
+                    ));
+                }
 
                 let existing_widget_count = store
                     .list_widget_instances_for_workbench(&workbench.id)?
@@ -90,7 +104,15 @@ impl WorkspaceService {
                     workspace_workbench_state_from_store(store, workspace, Some(workbench))?;
                 Ok(Some(state))
             })
-            .map_err(WorkspaceServiceError::from)
+            .map_err(|error| {
+                if let hobit_storage_sqlite::StorageError::InvalidParameterName(message) = &error {
+                    if message == AGENT_QUEUE_ALREADY_EXISTS_MESSAGE {
+                        return WorkspaceServiceError::InvalidInput(message.clone());
+                    }
+                }
+
+                WorkspaceServiceError::from(error)
+            })
     }
 
     pub fn delete_widget_instance_from_workbench(

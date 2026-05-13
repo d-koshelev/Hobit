@@ -6,6 +6,7 @@ import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
 import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
+import { AGENT_QUEUE_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
 type WorkbenchShellProps = {
   onViewStateChange: (viewState: WorkbenchViewState) => void;
@@ -27,6 +28,9 @@ export function WorkbenchShell({
     onViewStateChange,
     viewState,
   });
+  const hasAgentQueueWidget = viewState.widgets.some(
+    (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  );
 
   async function addTemplateToWorkbench(template: WidgetCatalogTemplate) {
     const didAddWidget = await widgetActions.addWidgetTemplate(template);
@@ -58,6 +62,16 @@ export function WorkbenchShell({
             widgetActions={widgetActions}
           />
           <WidgetCatalogShell
+            unavailableTemplateMessages={
+              hasAgentQueueWidget
+                ? {
+                    [AGENT_QUEUE_WIDGET_DEFINITION_ID]: {
+                      actionLabel: "Already added",
+                      reason: "One Agent Queue per workspace",
+                    },
+                  }
+                : undefined
+            }
             isOpen={isWidgetCatalogOpen}
             onAddTemplate={addTemplateToWorkbench}
             onClose={closeWidgetCatalog}
