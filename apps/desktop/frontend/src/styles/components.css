@@ -719,6 +719,96 @@
   padding-left: var(--space-lg);
 }
 
+.interactive-agent-chat {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.interactive-agent-status,
+.interactive-agent-message,
+.interactive-agent-composer {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.interactive-agent-status,
+.interactive-agent-action-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.interactive-agent-status-copy,
+.interactive-agent-message-list,
+.interactive-agent-message,
+.interactive-agent-composer {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.interactive-agent-message-list {
+  max-height: 280px;
+  overflow: auto;
+  padding-right: var(--space-xs);
+}
+
+.interactive-agent-title,
+.interactive-agent-text,
+.interactive-agent-message-role,
+.interactive-agent-message-body,
+.interactive-agent-label,
+.interactive-agent-note {
+  margin: 0;
+}
+
+.interactive-agent-title,
+.interactive-agent-message-role,
+.interactive-agent-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.interactive-agent-text,
+.interactive-agent-message-body,
+.interactive-agent-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.interactive-agent-message {
+  background: var(--color-widget-surface-raised);
+}
+
+.interactive-agent-message-operator {
+  border-color: var(--color-border);
+}
+
+.interactive-agent-message-assistant {
+  border-color: var(--color-primary-hairline);
+}
+
+.interactive-agent-message-body {
+  overflow-wrap: anywhere;
+}
+
+.interactive-agent-input {
+  min-height: 88px;
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.interactive-agent-action-row {
+  align-items: center;
+}
+
 .agent-queue-placeholder {
   display: grid;
   gap: var(--space-md);
