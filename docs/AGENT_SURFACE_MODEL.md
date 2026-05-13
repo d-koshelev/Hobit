@@ -214,7 +214,9 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Add Runbook minimal UI.
-- Add Interactive Agent session persistence later.
-- Add Interactive Agent provider/Codex integration later.
+- Agent Executor run history.
+- Agent Queue task model later.
+- Interactive Agent session persistence later.
+- Interactive Agent provider/Codex integration later.
+- Runbook persistence and edit mode later.
 - Keep Coordinator deferred.
