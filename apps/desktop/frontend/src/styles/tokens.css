@@ -49,6 +49,12 @@
   --space-xl: 24px;
   --space-2xl: 32px;
 
+  --workbench-grid-step: 24px;
+  --workbench-grid-dot:
+    color-mix(in srgb, var(--color-border-strong) 44%, transparent);
+  --workbench-canvas-padding-x: var(--space-md);
+  --workbench-canvas-padding-y: var(--space-sm);
+
   --radius-xs: 3px;
   --radius-sm: 5px;
   --radius-md: 7px;

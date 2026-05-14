@@ -25,7 +25,7 @@
   .workbench-topbar {
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: var(--space-lg);
+    gap: var(--space-sm);
   }
 
   .topbar-left,
@@ -53,7 +53,8 @@
   }
 
   .canvas-shell {
-    padding: var(--space-sm) var(--space-lg) var(--space-lg);
+    --workbench-canvas-padding-x: var(--space-sm);
+    --workbench-canvas-padding-y: var(--space-xs);
   }
 
   .workbench-content {
@@ -107,7 +108,7 @@
   }
 
   .workbench-topbar {
-    padding: var(--space-lg) var(--space-lg) var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
   }
 
   .brand-copy {
