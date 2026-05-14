@@ -318,6 +318,7 @@
 }
 
 .codex-direct-work-header,
+.codex-direct-work-diff-header,
 .codex-direct-work-result-header,
 .codex-direct-work-live-log-header,
 .agent-executor-history-header,
@@ -325,7 +326,8 @@
 .codex-direct-work-action-row,
 .codex-direct-work-stop-panel,
 .codex-direct-work-output-header,
-.codex-direct-work-output-summary {
+.codex-direct-work-output-summary,
+.codex-direct-work-diff-group-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -333,6 +335,8 @@
 }
 
 .codex-direct-work-action-row,
+.codex-direct-work-diff-actions,
+.codex-direct-work-diff-group-header,
 .codex-direct-work-stop-panel,
 .codex-direct-work-output-header,
 .codex-direct-work-output-summary,
@@ -345,6 +349,11 @@
 .codex-direct-work-copy,
 .codex-direct-work-field,
 .codex-direct-work-final-message,
+.codex-direct-work-diff-groups,
+.codex-direct-work-diff-group,
+.codex-direct-work-diff-file-list,
+.codex-direct-work-diff-file,
+.codex-direct-work-diff-file-main,
 .codex-direct-work-live-log-list,
 .agent-executor-history-layout,
 .agent-executor-history-list,
@@ -614,12 +623,34 @@
 }
 
 .agent-executor-history-actions,
+.codex-direct-work-diff-actions,
 .agent-executor-history-item-head,
 .agent-executor-history-log-meta {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-xs);
+}
+
+.codex-direct-work-diff-group {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.codex-direct-work-diff-file {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.codex-direct-work-diff-file:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.codex-direct-work-diff-patch {
+  max-height: 180px;
 }
 
 .agent-executor-history-layout {

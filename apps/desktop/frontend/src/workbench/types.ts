@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
+  AgentExecutorDiffSummary,
   AgentQueueSnapshot,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
@@ -226,6 +227,10 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<AgentExecutorRunDetail | null>;
+  onGetAgentExecutorDiffSummary?: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<AgentExecutorDiffSummary | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

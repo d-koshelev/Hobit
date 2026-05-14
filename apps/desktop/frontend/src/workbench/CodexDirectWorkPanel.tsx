@@ -28,8 +28,9 @@ import {
   type CodexDirectWorkLiveRun,
 } from "./CodexDirectWorkLiveLog";
 import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
+import type { GetAgentExecutorDiffSummaryHandler } from "./CodexDirectWorkDiffSummary";
+import { CodexDirectWorkPostRunReview } from "./CodexDirectWorkPostRunReview";
 import { CodexDirectWorkResultSummary } from "./CodexDirectWorkResultSummary";
-import { CodexDirectWorkValidationPanel } from "./CodexDirectWorkValidationPanel";
 import type {
   CodexDirectWorkRequestDraft,
   CodexDirectWorkStreamSession,
@@ -56,6 +57,7 @@ type CodexDirectWorkPanelProps = {
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;
+  onGetAgentExecutorDiffSummary?: GetAgentExecutorDiffSummaryHandler;
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
   onRunCodexDirectWork?: (
@@ -86,6 +88,7 @@ export function CodexDirectWorkPanel({
   hasGitWidget,
   onDirectWorkGitReviewRequested,
   onCancelCodexDirectWorkRun,
+  onGetAgentExecutorDiffSummary,
   onGetAgentExecutorRunDetail,
   onListAgentExecutorRuns,
   onRunCodexDirectWork,
@@ -678,7 +681,8 @@ export function CodexDirectWorkPanel({
       ) : null}
 
       {validationRepositoryRoot ? (
-        <CodexDirectWorkValidationPanel
+        <CodexDirectWorkPostRunReview
+          onGetAgentExecutorDiffSummary={onGetAgentExecutorDiffSummary}
           onRunDirectWorkValidation={runDirectWorkValidationAndRefresh}
           repositoryRoot={validationRepositoryRoot}
           widgetInstanceId={widgetInstanceId}

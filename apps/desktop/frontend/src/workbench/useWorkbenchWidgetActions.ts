@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
   cancelCodexDirectWorkRun,
+  getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
@@ -16,6 +17,7 @@ import {
   updateWidgetInstanceState,
 } from "../workspace/workspaceApi";
 import type {
+  AgentExecutorDiffSummary,
   AgentQueueSnapshot,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
@@ -66,6 +68,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<AgentExecutorRunDetail | null>;
+  getAgentExecutorDiffSummary: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<AgentExecutorDiffSummary | null>;
   listWidgetLogs: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
   removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
@@ -101,6 +107,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "removeWidgetInstance"
   | "listAgentExecutorRuns"
   | "getAgentExecutorRunDetail"
+  | "getAgentExecutorDiffSummary"
   | "getAgentQueueSnapshot"
   | "getGitRepositoryStatus"
   | "runCodexDirectWork"
@@ -333,6 +340,31 @@ export function useWorkbenchWidgetActions({
       workbenchId: viewState.workbench.id,
       widgetInstanceId,
       runId,
+    });
+  }
+
+  async function loadAgentExecutorDiffSummary(
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to read Agent Executor diff summary.");
+    }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Agent Executor diff summary could not be read for this widget.");
+    }
+
+    return getAgentExecutorDiffSummary({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      repoRoot: repositoryRoot,
+      includePatchPreview: true,
     });
   }
 
@@ -613,6 +645,7 @@ export function useWorkbenchWidgetActions({
     getAgentQueueSnapshot: loadAgentQueueSnapshot,
     listAgentExecutorRuns: loadAgentExecutorRuns,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
+    getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,

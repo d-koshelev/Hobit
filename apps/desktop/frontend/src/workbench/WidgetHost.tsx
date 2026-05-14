@@ -190,6 +190,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentExecutorRunDetail
       : undefined;
+  const getAgentExecutorDiffSummary =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.getAgentExecutorDiffSummary
+      : undefined;
   const runDirectWorkValidation =
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.runDirectWorkValidation
@@ -262,6 +266,7 @@ export function WidgetHost({
       onGetAgentQueueSnapshot={getAgentQueueSnapshot}
       onListAgentExecutorRuns={listAgentExecutorRuns}
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
+      onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}
       onLoadLogs={widgetActions.listWidgetLogs}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}
