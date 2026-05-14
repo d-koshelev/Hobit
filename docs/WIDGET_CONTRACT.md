@@ -427,7 +427,7 @@ Current user-facing widget types are:
 - Terminal
 - Notes
 
-Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, Markdown and rendered-block preview direction, Mermaid fenced-block diagram rules, checklist/todo/snippet/review-note use cases, explicit formatting actions, and AI-editing safety rules. Standalone To-do List direction is folded into Notebook unless a future block explicitly defines a separate structured task-management widget.
+Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`, including the current legacy `{ "body": "..." }` state boundary, future multi-tab Notebook direction, Markdown and rendered-block preview direction, Mermaid fenced-block diagram rules, checklist/todo/snippet/review-note use cases, explicit formatting actions, and AI-editing safety rules. The near-term multi-note product and storage/API direction is defined in `NOTES_WIDGET_PRODUCT_CONTRACT.md`. Standalone To-do List direction is folded into Notebook unless a future block explicitly defines a separate structured task-management widget.
 
 JIRA and Confluence are future widget/integration candidates. JIRA should support work tracking and issue context; Confluence should support documentation and knowledge context. Both should start read-only when implemented, with operator-approved updates considered only in later explicit integration work.
 

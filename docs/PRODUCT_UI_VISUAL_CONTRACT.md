@@ -354,6 +354,9 @@ Rules:
 
 Notes target direction is a multi-note writing surface.
 
+Future multi-note behavior is contract-gated by
+`docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
+
 Target direction:
 
 - Multi-note list.
@@ -480,9 +483,9 @@ Recommended follow-up blocks:
 - Block 181  Agent Executor product layout pass.
 - Block 182  Git Widget product layout pass.
 - Block 183  Terminal PTY contract.
-- Block 184  Terminal PTY backend foundation.
-- Block 185  Terminal tabs UI MVP.
-- Block 187  Notes product contract.
+- Block 184  Notes product contract.
+- Block 185  Notes storage/API foundation.
+- Block 186  Notes product UI.
 - Block 190  Agent Queue product model contract.
 
 Each block should remain focused. If implementation pressure crosses into

@@ -68,6 +68,11 @@ Future Terminal PTY work is contract-gated by
 one-shot command runner until a later PTY/session implementation block adds an
 interactive shell foundation.
 
+Future multi-note Notes work is contract-gated by
+`docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`. The first implementation should be a
+workspace-local storage/API foundation before showing a note list, search,
+pinning, autosave, or other multi-note UI.
+
 ## Phase 0: Contracts And Repository Foundation
 
 - Define the AI Workbench product contract.

@@ -57,6 +57,11 @@ are not implemented.
 
 `NOTES_WIDGET_CONTRACT.md` defines the future Notebook/Notes widget direction: legacy single-body Notes compatibility, multiple text tabs/documents inside one widget, Markdown source text, rendered Markdown and Mermaid fenced-block preview direction, explicit user-triggered text formatting actions, and operator-approved AI-assisted editing. The current frontend still only persists the minimal `{ "body": "..." }` Notes draft state.
 
+`NOTES_WIDGET_PRODUCT_CONTRACT.md` defines the near-term product direction for
+evolving Notes into a workspace-local multi-note widget with storage/API first,
+then note list, search, selected note editor, pinning, and save/autosave state
+when implemented.
+
 `WIDGET_CONTRACT.md` defines future Dock and widget view mode rules. Dock is a Workspace-local perimeter surface for existing WidgetInstances in Indicator view. Clicking a Dock item should open future Compact view, while moving it to Canvas should open Full view. Real Dock behavior, Full/Compact/Indicator rendering behavior, persisted widget presence zones, and drag-and-drop between Canvas, Dock, Float, and future external windows are not implemented yet.
 
 ## Current Repository Skeleton
@@ -236,7 +241,13 @@ Full runtime restore is not implemented yet. There is no event replay, widget ru
 
 ## Planned Notes Model
 
-Future notes work will support Markdown documents organized in folders with global and workspace-local scopes. Future Notebook may also render Markdown-adjacent fenced blocks such as Mermaid diagrams, but source text remains the source of truth and rendering must not execute commands, load remote assets by default, or mutate note content.
+Future notes work will support a workspace-local multi-note Notes product slice
+before visual overclaims: storage/API foundation first, then note list, selected
+note editor, search, pinning, and save/autosave state. Future Notebook may also
+support Markdown documents organized in folders with global and workspace-local
+scopes and render Markdown-adjacent fenced blocks such as Mermaid diagrams, but
+source text remains the source of truth and rendering must not execute commands,
+load remote assets by default, or mutate note content.
 
 The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus Agent Executor, Agent Queue, Interactive Agent, Runbook, Git, and Terminal widgets. Agent Executor keeps backend/Tauri Codex Direct Work run/result persistence for the existing `agent-run` owner. Agent Queue is a review/history foundation only. Interactive Agent has local current-session chat state only, and Runbook has local current-session step state plus notes/evidence only. The Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. Terminal supports only an explicit desktop one-shot command form, not shell mode or interactive terminal behavior. There is no notes document storage, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block preview system, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, Agent Queue execution/response capture/validation, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or executable agent chat runtime in the current repository.
 
