@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   addWidgetInstanceToWorkbench,
   cancelCodexDirectWorkRun,
+  createGitCommit,
   getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
   getAgentQueueSnapshot,
@@ -22,7 +23,9 @@ import type {
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
+  CreateGitCommitRequest,
   DirectWorkStreamEvent,
+  GitCommitResponse,
   GitRepositoryStatus,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
@@ -59,6 +62,10 @@ export type WorkbenchWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  createGitCommit: (
+    widgetInstanceId: WidgetInstanceId,
+    request: GitCommitCreateRequest,
+  ) => Promise<GitCommitResponse | null>;
   getAgentQueueSnapshot: () => Promise<AgentQueueSnapshot | null>;
   listAgentExecutorRuns: (
     widgetInstanceId: WidgetInstanceId,
@@ -109,6 +116,7 @@ export type WorkbenchWidgetInstanceActions = Pick<
   | "getAgentExecutorRunDetail"
   | "getAgentExecutorDiffSummary"
   | "getAgentQueueSnapshot"
+  | "createGitCommit"
   | "getGitRepositoryStatus"
   | "runCodexDirectWork"
   | "runDirectWorkValidation"
@@ -133,6 +141,8 @@ type DirectWorkValidationRunRequest = Omit<
   RunDirectWorkValidationRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
+
+type GitCommitCreateRequest = Omit<CreateGitCommitRequest, "workspaceId" | "workbenchId" | "widgetInstanceId">;
 
 type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & { stopListening: () => void };
 
@@ -392,6 +402,28 @@ export function useWorkbenchWidgetActions({
     });
   }
 
+  async function createGitCommitForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    request: GitCommitCreateRequest,
+  ) {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to create a Git commit.");
+    }
+    if (!viewState.widgets.some((candidate) => candidate.id === widgetInstanceId)) {
+      throw new Error("Git commit could not be created for this widget.");
+    }
+    const response = await createGitCommit({
+      workspaceId: viewState.workspace.id,
+      workbenchId: viewState.workbench.id,
+      widgetInstanceId,
+      ...request,
+    });
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+    return response;
+  }
+
   async function runTerminalWidgetCommand(
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
@@ -646,6 +678,7 @@ export function useWorkbenchWidgetActions({
     listAgentExecutorRuns: loadAgentExecutorRuns,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,
+    createGitCommit: createGitCommitForWidget,
     getGitRepositoryStatus: loadGitRepositoryStatus,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,

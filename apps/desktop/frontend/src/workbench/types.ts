@@ -6,7 +6,9 @@ import type {
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
+  GitCommitResponse,
   GitRepositoryStatus,
+  CreateGitCommitRequest,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
@@ -235,6 +237,13 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  onCreateGitCommit?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      CreateGitCommitRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<GitCommitResponse | null>;
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;

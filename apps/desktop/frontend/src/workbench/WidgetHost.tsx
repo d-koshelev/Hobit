@@ -210,6 +210,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.getAgentQueueSnapshot
       : undefined;
+  const createGitCommit =
+    definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.createGitCommit
+      : undefined;
 
   if (!Component) {
     return (
@@ -268,6 +272,7 @@ export function WidgetHost({
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}
       onLoadLogs={widgetActions.listWidgetLogs}
+      onCreateGitCommit={createGitCommit}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}
       onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}

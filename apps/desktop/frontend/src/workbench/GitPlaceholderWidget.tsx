@@ -12,6 +12,7 @@ import {
   GitStatusErrorNotice,
   GitStatusNotice,
 } from "./GitPlaceholderSections";
+import { GitWidgetCommitPanel } from "./GitWidgetCommitPanel";
 import {
   gitFrameStatusView,
   gitStatusErrorViewFromCategory,
@@ -30,6 +31,7 @@ export function GitPlaceholderWidget({
   instance,
   logRefreshToken,
   onDirectWorkGitReviewStatusChange,
+  onCreateGitCommit,
   onGetGitRepositoryStatus,
   onLoadLogs,
   onStartFrameMove,
@@ -76,6 +78,24 @@ export function GitPlaceholderWidget({
 
   async function refreshStatus() {
     await refreshStatusForRoot(repositoryRoot);
+  }
+
+  async function refreshStatusAfterCommit() {
+    if (statusRepositoryRoot) {
+      await refreshStatusForRoot(statusRepositoryRoot);
+    }
+  }
+
+  async function createGitCommit(request: {
+    commitMessage: string;
+    includedFiles: string[];
+    repoRoot: string;
+  }) {
+    if (!onCreateGitCommit) {
+      throw new Error("Git commit creation is unavailable in this runtime.");
+    }
+
+    return onCreateGitCommit(instance.id, request);
   }
 
   async function refreshStatusForRoot(
@@ -255,6 +275,14 @@ export function GitPlaceholderWidget({
           status={gitStatus}
         />
       ) : null}
+
+      <GitWidgetCommitPanel
+        isRefreshingStatus={isRefreshingStatus}
+        onCreateGitCommit={createGitCommit}
+        onRefreshStatusAfterCommit={refreshStatusAfterCommit}
+        repositoryRoot={statusRepositoryRoot}
+        status={gitStatus}
+      />
 
       {supportsDesktopGitReads && !gitStatus && !statusError && !isRefreshingStatus ? (
         <GitStatusNotice

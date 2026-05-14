@@ -102,9 +102,9 @@ export function GitRepositoryRootPanel({
       </div>
 
       <p className="git-repository-root-note">
-        Manual refresh reads a desktop-only, read-only status snapshot. The
-        repository root and status are not persisted, polled, watched, or used
-        for Git mutations.
+        Manual refresh reads a desktop-only status snapshot. The repository
+        root and status are not persisted, polled, or watched. Commit creation
+        requires separate explicit confirmation.
       </p>
     </section>
   );

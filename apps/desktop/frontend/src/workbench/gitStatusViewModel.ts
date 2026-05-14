@@ -75,9 +75,9 @@ export const plannedGitReviewCards: PlannedGitReviewCardView[] = [
       "Planned: passed, failed, skipped, and warning states linked to the current block.",
   },
   {
-    title: "Commit / push state",
+    title: "Push state",
     description:
-      "Planned: reviewed commit message, commit hash when available, and push-needed state.",
+      "Planned: push-needed state and remote review after a local commit.",
   },
   {
     title: "Recovery actions",
@@ -138,10 +138,10 @@ export function repositoryRootHelpText(
   }
 
   if (hasRepositoryRootDraft) {
-    return "This transient path is used only for manual read-only status snapshots.";
+    return "This transient path is used for manual status snapshots and explicit local commits from this widget.";
   }
 
-  return "Repository root not configured. Enter an explicit local repository path to enable refresh.";
+  return "Repository root not configured. Enter an explicit local repository path to enable refresh and commit review.";
 }
 
 export function gitStatusSummary(
@@ -158,7 +158,7 @@ export function gitStatusSummary(
     stateLabel: isClean ? "Clean" : "Dirty",
     stateText: isClean
       ? "No changed files were reported in this manual snapshot."
-      : "This snapshot is read-only. Review groups below show current changes, but no Git action is available here.",
+      : "This snapshot is read-only. Commit controls below require explicit file selection and confirmation.",
     stateTitle: isClean
       ? "Working tree clean"
       : "Uncommitted changes detected",

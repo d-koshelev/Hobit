@@ -1697,6 +1697,222 @@
   padding: var(--space-sm);
 }
 
+.git-commit-panel {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
+.git-commit-header,
+.git-commit-selection-header,
+.git-commit-confirmation-header,
+.git-commit-result-header,
+.git-commit-action-row,
+.git-commit-selection-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.git-commit-header,
+.git-commit-selection-header,
+.git-commit-confirmation-header,
+.git-commit-result-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.git-commit-action-row,
+.git-commit-selection-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.git-commit-safety-copy,
+.git-commit-review-note,
+.git-commit-field-error,
+.git-commit-result-title,
+.git-commit-result-text,
+.git-commit-result-label,
+.git-commit-result-value,
+.git-commit-warning-list {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.git-commit-safety-copy {
+  color: var(--color-text-secondary);
+}
+
+.git-commit-review-note {
+  color: var(--color-text-muted);
+}
+
+.git-commit-notice {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-commit-field,
+.git-commit-confirmation-field,
+.git-commit-file-main {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.git-commit-field-label,
+.git-commit-result-title,
+.git-commit-result-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-commit-message-input {
+  min-height: 86px;
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.git-commit-field-error {
+  color: var(--color-error);
+}
+
+.git-commit-file-list,
+.git-commit-confirmation-file-list {
+  display: grid;
+  gap: var(--space-xs);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.git-commit-file-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-commit-file-checkbox {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.git-commit-confirmation {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  padding: var(--space-sm);
+}
+
+.git-commit-message-preview,
+.git-commit-output {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  color: var(--color-text-secondary);
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.git-commit-warning-list {
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--color-text-secondary);
+  padding-left: var(--space-lg);
+}
+
+.git-commit-result {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-commit-result-success {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.git-commit-result-error {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.git-commit-result-title {
+  color: var(--color-text-secondary);
+}
+
+.git-commit-result-success .git-commit-result-title {
+  color: var(--color-success);
+}
+
+.git-commit-result-error .git-commit-result-title {
+  color: var(--color-error);
+}
+
+.git-commit-result-text,
+.git-commit-result-value {
+  color: var(--color-text-muted);
+}
+
+.git-commit-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: var(--space-sm);
+}
+
+.git-commit-result-field {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.git-commit-result-value {
+  overflow-wrap: anywhere;
+}
+
+.git-commit-output-details {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.git-commit-output-summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
 .git-review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
