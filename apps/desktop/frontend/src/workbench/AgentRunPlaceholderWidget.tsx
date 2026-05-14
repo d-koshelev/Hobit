@@ -45,22 +45,6 @@ export function AgentRunPlaceholderWidget({
       title={frameTitle}
     >
       <div className="agent-run-placeholder">
-        <section className="agent-run-summary">
-          <div className="agent-run-summary-copy">
-            <p className="agent-run-summary-title">Agent Executor</p>
-            <p className="agent-run-summary-text">
-              Runs one task and shows live execution, logs, result, changed
-              files, and validation. The current executor provider is Codex CLI;
-              Hobit still does not auto-commit, push, mutate Git, or execute
-              queued work from here.
-            </p>
-          </div>
-          <div className="agent-run-summary-actions">
-            <Badge variant="neutral">Codex CLI</Badge>
-            <Badge variant="neutral">One task</Badge>
-          </div>
-        </section>
-
         <CodexDirectWorkPanel
           gitReviewStatus={
             directWorkGitReviewStatus?.sourceWidgetInstanceId === instance.id

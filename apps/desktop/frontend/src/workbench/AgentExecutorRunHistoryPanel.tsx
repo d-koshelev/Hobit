@@ -374,12 +374,10 @@ function RunHistoryDetailContent({
         className="codex-direct-work-result-grid"
         fieldClassName="codex-direct-work-result-field"
         fields={[
-          { label: "Run id", value: summary.runId },
           { label: "Started", value: formatTimestamp(summary.startedAt) },
           { label: "Completed", value: formatTimestamp(summary.finishedAt) },
           { label: "Duration", value: formatRunDuration(summary) },
           { label: "Result type", value: valueOrNone(summary.resultType) },
-          { label: "Result id", value: valueOrNone(detail.resultId) },
           { label: "Result status", value: valueOrNone(detail.resultStatus) },
           { label: "Repo root", value: valueOrNone(summary.repoRoot) },
           {
@@ -401,6 +399,22 @@ function RunHistoryDetailContent({
         labelClassName="codex-direct-work-result-label"
         valueClassName="codex-direct-work-result-value"
       />
+
+      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
+        <summary className="codex-direct-work-output-summary">
+          Run artifact ids
+        </summary>
+        <StaticPreviewFieldList
+          className="codex-direct-work-result-grid"
+          fieldClassName="codex-direct-work-result-field"
+          fields={[
+            { label: "Run id", value: summary.runId },
+            { label: "Result id", value: valueOrNone(detail.resultId) },
+          ]}
+          labelClassName="codex-direct-work-result-label"
+          valueClassName="codex-direct-work-result-value"
+        />
+      </details>
 
       {detail.errorMessage ? (
         <div className="codex-direct-work-error-message">

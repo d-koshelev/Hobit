@@ -1,3 +1,4 @@
+import { Badge } from "../design-system/Badge";
 import type {
   DirectWorkValidationProfile,
   RunDirectWorkValidationResponse,
@@ -27,7 +28,21 @@ export function CodexDirectWorkPostRunReview({
   widgetInstanceId,
 }: CodexDirectWorkPostRunReviewProps) {
   return (
-    <>
+    <section
+      aria-label="Direct Work post-run review"
+      className="codex-direct-work-review-stack"
+    >
+      <div className="codex-direct-work-section-header">
+        <div className="codex-direct-work-copy">
+          <h3 className="codex-direct-work-title">Post-run review</h3>
+          <p className="codex-direct-work-text">
+            Inspect repository changes, load a read-only diff summary, and run
+            validation without staging, committing, or pushing.
+          </p>
+        </div>
+        <Badge variant="warning">Review</Badge>
+      </div>
+
       <CodexDirectWorkDiffSummary
         onGetAgentExecutorDiffSummary={onGetAgentExecutorDiffSummary}
         repositoryRoot={repositoryRoot}
@@ -39,6 +54,6 @@ export function CodexDirectWorkPostRunReview({
         repositoryRoot={repositoryRoot}
         widgetInstanceId={widgetInstanceId}
       />
-    </>
+    </section>
   );
 }

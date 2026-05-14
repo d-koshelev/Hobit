@@ -56,8 +56,6 @@ export function CodexDirectWorkResultSummary({
         className="codex-direct-work-result-grid"
         fieldClassName="codex-direct-work-result-field"
         fields={[
-          { label: "Run id", value: result.runId },
-          { label: "Result id", value: result.resultId },
           { label: "Status", value: result.status },
           timing
             ? {
@@ -81,12 +79,6 @@ export function CodexDirectWorkResultSummary({
           },
           { label: "Sandbox", value: result.sandbox },
           { label: "Approval policy", value: result.approvalPolicy },
-          { label: "Auto commit", value: yesNo(!result.noAutoCommit) },
-          { label: "Auto push", value: yesNo(!result.noAutoPush) },
-          {
-            label: "Git mutations by Hobit",
-            value: yesNo(result.gitMutationsPerformedByHobit),
-          },
         ].filter(
           (
             field,
@@ -98,6 +90,42 @@ export function CodexDirectWorkResultSummary({
         labelClassName="codex-direct-work-result-label"
         valueClassName="codex-direct-work-result-value"
       />
+
+      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
+        <summary className="codex-direct-work-output-summary">
+          Run artifact ids
+        </summary>
+        <StaticPreviewFieldList
+          className="codex-direct-work-result-grid"
+          fieldClassName="codex-direct-work-result-field"
+          fields={[
+            { label: "Run id", value: result.runId },
+            { label: "Result id", value: result.resultId },
+          ]}
+          labelClassName="codex-direct-work-result-label"
+          valueClassName="codex-direct-work-result-value"
+        />
+      </details>
+
+      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
+        <summary className="codex-direct-work-output-summary">
+          Execution safety flags
+        </summary>
+        <StaticPreviewFieldList
+          className="codex-direct-work-result-grid"
+          fieldClassName="codex-direct-work-result-field"
+          fields={[
+            { label: "Auto commit", value: yesNo(!result.noAutoCommit) },
+            { label: "Auto push", value: yesNo(!result.noAutoPush) },
+            {
+              label: "Git mutations by Hobit",
+              value: yesNo(result.gitMutationsPerformedByHobit),
+            },
+          ]}
+          labelClassName="codex-direct-work-result-label"
+          valueClassName="codex-direct-work-result-value"
+        />
+      </details>
 
       {result.errorMessage ? (
         <div className="codex-direct-work-error-message">

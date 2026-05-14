@@ -1,6 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import type {
   CancelCodexDirectWorkRunResponse,
@@ -39,6 +38,7 @@ import {
   cancellationStatusMessage,
   isOneShotFallbackRunning,
 } from "./CodexDirectWorkStatusText";
+import { CodexDirectWorkPanelOverview } from "./CodexDirectWorkPanelOverview";
 import type {
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
@@ -96,7 +96,6 @@ export function CodexDirectWorkPanel({
   onStartCodexDirectWorkStream,
   widgetInstanceId,
 }: CodexDirectWorkPanelProps) {
-  const panelTitleId = useId();
   const [isRunning, setIsRunning] = useState(false);
   const [runErrorMessage, setRunErrorMessage] = useState<string | null>(null);
   const [runInfoNotice, setRunInfoNotice] = useState<{
@@ -578,20 +577,17 @@ export function CodexDirectWorkPanel({
   }
 
   return (
-    <section aria-labelledby={panelTitleId} className="codex-direct-work-panel">
-      <div className="codex-direct-work-header">
-        <div className="codex-direct-work-copy">
-          <h3 className="codex-direct-work-title" id={panelTitleId}>
-            Codex Direct Work
-          </h3>
-          <p className="codex-direct-work-text">
-            Run Codex on a focused task. Codex may edit files when
-            workspace-write is selected. No commit or push will be created
-            automatically.
-          </p>
-        </div>
-        <Badge variant="info">One-shot</Badge>
-      </div>
+    <section
+      aria-label="Agent Executor Direct Work"
+      className="codex-direct-work-panel"
+    >
+      <CodexDirectWorkPanelOverview
+        canRunBackend={canRunBackend}
+        isRunning={isRunning}
+        liveRun={liveRun}
+        runErrorMessage={runErrorMessage}
+        runResult={runResult}
+      />
 
       <CodexDirectWorkForm
         canRunBackend={canRunBackend}

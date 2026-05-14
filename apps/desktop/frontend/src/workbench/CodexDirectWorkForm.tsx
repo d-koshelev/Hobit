@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 
+import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import type {
@@ -102,7 +103,21 @@ export function CodexDirectWorkForm({
   }
 
   return (
-    <>
+    <section
+      aria-label="Direct Work run setup"
+      className="codex-direct-work-run-setup"
+    >
+      <div className="codex-direct-work-section-header">
+        <div className="codex-direct-work-copy">
+          <h3 className="codex-direct-work-title">Run setup</h3>
+          <p className="codex-direct-work-text">
+            Provide the approved repository root, prompt, sandbox, and approval
+            policy before launching Codex.
+          </p>
+        </div>
+        <Badge variant="neutral">Direct Work</Badge>
+      </div>
+
       <div className="codex-direct-work-controls">
         <div className="codex-direct-work-field codex-direct-work-field-wide">
           <label className="codex-direct-work-label" htmlFor={repoInputId}>
@@ -203,7 +218,7 @@ export function CodexDirectWorkForm({
         </Button>
         <CodexDirectWorkActionSafetyCopy />
       </div>
-    </>
+    </section>
   );
 }
 
