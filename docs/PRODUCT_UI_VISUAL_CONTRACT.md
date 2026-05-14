@@ -341,6 +341,8 @@ Terminal target direction is a full shell with tabs and split panes.
 
 Rules:
 
+- Future PTY behavior is contract-gated by
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - PTY/session behavior must be contract-gated before implementation.
 - Do not show full shell UI until PTY/session support exists.
 - Current one-shot command behavior must remain visually honest.

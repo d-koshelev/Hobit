@@ -66,6 +66,8 @@ future widget capability.
 - Uses explicit program, argv, working directory, timeout, and output caps.
 - Is not a shell, PTY, interactive terminal, stdin session, streaming console,
   command history, or Script Runner runtime.
+- Future interactive shell behavior is governed by
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` and remains unimplemented.
 
 ### Notes
 
@@ -131,6 +133,7 @@ current Workbench surface:
 ## Recommended Next Blocks
 
 - Git commit UI with confirmation after the backend/API foundation.
+- Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.

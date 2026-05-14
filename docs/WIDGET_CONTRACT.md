@@ -96,6 +96,12 @@ Future agent/task execution widgets have an additional observability contract: R
 
 Future Script Runner Widget behavior is defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It is a contract for an explicit operator-controlled configured local script action only. Script Runner is not part of the current user-facing widget set, and no Script Runner widget, insertable catalog path, runtime execution, or backend behavior is implemented.
 
+Future Terminal PTY Widget behavior is defined in
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. It is the contract for turning the
+current one-shot Terminal into a manual operator-controlled interactive shell
+surface later. PTY sessions, tabs, split panes, streaming stdin/stdout, and
+Agent/Queue-controlled Terminal execution are not implemented.
+
 ### WidgetResult
 
 A WidgetResult is structured final output. It can contain summaries, data tables, edited images, generated files, action proposals, evidence, or other artifacts.
@@ -426,6 +432,11 @@ Notes/Notebook Widget behavior is further defined in `NOTES_WIDGET_CONTRACT.md`,
 JIRA and Confluence are future widget/integration candidates. JIRA should support work tracking and issue context; Confluence should support documentation and knowledge context. Both should start read-only when implemented, with operator-approved updates considered only in later explicit integration work.
 
 Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface for repository state, not only raw command output.
+
+Future Terminal PTY Widget behavior is further defined in
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal remains a
+desktop-only one-shot command runner until a later PTY/session implementation
+block.
 
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 

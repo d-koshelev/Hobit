@@ -59,9 +59,14 @@ Future explicit local commit support is contract-gated by
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must remain an
 operator-confirmed Git review action with a visible change set and
 operator-approved message; push requires a later separate contract. A narrow
-backend/Tauri/frontend API foundation now exists for Git Widget-owned local
-commit creation, but frontend commit UI, auto-commit, push, reset, and clean
-remain out of scope.
+backend/Tauri/frontend API foundation and confirmation-gated frontend UI now
+exist for Git Widget-owned local commit creation, but auto-commit, push,
+reset, and clean remain out of scope.
+
+Future Terminal PTY work is contract-gated by
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal remains a bounded
+one-shot command runner until a later PTY/session implementation block adds an
+interactive shell foundation.
 
 ## Phase 0: Contracts And Repository Foundation
 
