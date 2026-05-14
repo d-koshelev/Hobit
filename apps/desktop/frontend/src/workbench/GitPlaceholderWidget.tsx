@@ -5,8 +5,6 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import { isTauriRuntime } from "../workspace/tauriEnvironment";
 import type { GitRepositoryStatus } from "../workspace/types";
 import {
-  GitPlannedReviewActions,
-  GitPlannedReviewAreas,
   GitRepositoryRootPanel,
   GitStatusCard,
   GitStatusErrorNotice,
@@ -17,8 +15,6 @@ import {
   gitFrameStatusView,
   gitStatusErrorViewFromCategory,
   gitStatusErrorViewFromUnknown,
-  plannedGitActions,
-  plannedGitReviewCards,
   type GitStatusErrorView,
 } from "./gitStatusViewModel";
 import type { WidgetRenderProps } from "./types";
@@ -245,6 +241,9 @@ export function GitPlaceholderWidget({
         repositoryRootDraft={repositoryRootDraft}
         repositoryRootInputId={repositoryRootInputId}
         repositoryRootTitleId={repositoryRootTitleId}
+        status={gitStatus}
+        statusError={statusError}
+        statusRepositoryRoot={statusRepositoryRoot}
         supportsDesktopGitReads={supportsDesktopGitReads}
       />
 
@@ -300,9 +299,6 @@ export function GitPlaceholderWidget({
         />
       ) : null}
 
-      <GitPlannedReviewAreas cards={plannedGitReviewCards} />
-
-      <GitPlannedReviewActions actions={plannedGitActions} />
     </WidgetFrame>
   );
 }

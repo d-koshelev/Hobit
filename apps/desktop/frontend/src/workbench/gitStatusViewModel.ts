@@ -63,35 +63,6 @@ export type GitChangedFileDisplayView = {
   visibleFiles: GitFileChange[];
 };
 
-export type PlannedGitReviewCardView = {
-  description: string;
-  title: string;
-};
-
-export const plannedGitReviewCards: PlannedGitReviewCardView[] = [
-  {
-    title: "Validation results",
-    description:
-      "Planned: passed, failed, skipped, and warning states linked to the current block.",
-  },
-  {
-    title: "Push state",
-    description:
-      "Planned: push-needed state and remote review after a local commit.",
-  },
-  {
-    title: "Recovery actions",
-    description:
-      "Planned: explicit operator-controlled restore, revert, stash, reset, and clean flows.",
-  },
-];
-
-export const plannedGitActions = [
-  { label: "Diff review planned" },
-  { label: "Push planned" },
-  { label: "Follow-up planned" },
-];
-
 export function gitFrameStatusView(
   status: GitRepositoryStatus | null,
   errorMessage: GitStatusErrorView | null,

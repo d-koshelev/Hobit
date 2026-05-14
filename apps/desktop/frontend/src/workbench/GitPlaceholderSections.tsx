@@ -5,7 +5,6 @@ import type {
   GitLastCommit,
   GitRepositoryStatus,
 } from "../workspace/types";
-import { StaticPreviewPlannedActions } from "./StaticPreviewPrimitives";
 import {
   aheadBehindLabel,
   branchLabel,
@@ -21,12 +20,7 @@ import {
   shortCommitHash,
   type GitChangedFileGroupView,
   type GitStatusErrorView,
-  type PlannedGitReviewCardView,
 } from "./gitStatusViewModel";
-
-type PlannedGitAction = {
-  label: string;
-};
 
 export function GitRepositoryRootPanel({
   canRefreshStatus,
@@ -37,6 +31,9 @@ export function GitRepositoryRootPanel({
   repositoryRootDraft,
   repositoryRootInputId,
   repositoryRootTitleId,
+  status,
+  statusError,
+  statusRepositoryRoot,
   supportsDesktopGitReads,
 }: {
   canRefreshStatus: boolean;
@@ -47,8 +44,19 @@ export function GitRepositoryRootPanel({
   repositoryRootDraft: string;
   repositoryRootInputId: string;
   repositoryRootTitleId: string;
+  status: GitRepositoryStatus | null;
+  statusError: GitStatusErrorView | null;
+  statusRepositoryRoot: string | null;
   supportsDesktopGitReads: boolean;
 }) {
+  const overviewFields = gitRepositoryOverviewFields({
+    isRefreshingStatus,
+    repositoryRootDraft,
+    status,
+    statusError,
+    statusRepositoryRoot,
+  });
+
   return (
     <section
       aria-labelledby={repositoryRootTitleId}
@@ -106,8 +114,72 @@ export function GitRepositoryRootPanel({
         root and status are not persisted, polled, or watched. Commit creation
         requires separate explicit confirmation.
       </p>
+
+      <div
+        aria-label="Repository snapshot overview"
+        className="git-repository-overview-grid"
+      >
+        {overviewFields.map((field) => (
+          <div className="git-repository-overview-field" key={field.label}>
+            <span className="git-repository-overview-label">
+              {field.label}
+            </span>
+            <span className="git-repository-overview-value">
+              {field.value}
+            </span>
+          </div>
+        ))}
+      </div>
     </section>
   );
+}
+
+function gitRepositoryOverviewFields({
+  isRefreshingStatus,
+  repositoryRootDraft,
+  status,
+  statusError,
+  statusRepositoryRoot,
+}: {
+  isRefreshingStatus: boolean;
+  repositoryRootDraft: string;
+  status: GitRepositoryStatus | null;
+  statusError: GitStatusErrorView | null;
+  statusRepositoryRoot: string | null;
+}) {
+  const loadedStatus = status ? gitStatusSummary(status) : null;
+  const repositoryRoot = statusRepositoryRoot ?? repositoryRootDraft.trim();
+
+  return [
+    {
+      label: "Repo root",
+      value: repositoryRoot || "Not configured",
+    },
+    {
+      label: "Status",
+      value: isRefreshingStatus
+        ? "Reading"
+        : loadedStatus
+          ? loadedStatus.stateLabel
+          : statusError
+            ? statusError.badgeLabel
+            : "Not loaded",
+    },
+    {
+      label: "Branch",
+      value: status ? branchLabel(status.branch) : "Not reported",
+    },
+    {
+      label: "Last refresh",
+      value: isRefreshingStatus
+        ? "Refreshing"
+        : statusError
+          ? "Failed"
+          : status
+            ? "Loaded"
+            : "Not loaded",
+    },
+  ];
 }
 
 export function GitStatusNotice({
@@ -166,12 +238,15 @@ export function GitStatusCard({
   const statusSummary = gitStatusSummary(status);
 
   return (
-    <section aria-label="Git repository status result" className="git-status-card">
+    <section
+      aria-label="Git repository status result"
+      className="git-status-card"
+    >
       <div className="git-status-card-header">
         <div className="git-status-title-copy">
-          <h3 className="git-status-card-title">Repository status</h3>
+          <h3 className="git-status-card-title">Repository</h3>
           <p className="git-status-card-subtitle">
-            Manual read-only snapshot; not persisted or watched
+            Latest manual read-only snapshot
           </p>
         </div>
         <div className="git-status-badge-row">
@@ -242,40 +317,6 @@ export function GitStatusCard({
   );
 }
 
-export function GitPlannedReviewAreas({
-  cards,
-}: {
-  cards: readonly PlannedGitReviewCardView[];
-}) {
-  return (
-    <div aria-label="Planned Git review areas" className="git-review-grid">
-      {cards.map((card) => (
-        <section className="git-review-card" key={card.title}>
-          <div className="git-review-card-header">
-            <h3 className="git-review-card-title">{card.title}</h3>
-            <Badge variant="neutral">Planned</Badge>
-          </div>
-          <p className="git-review-card-text">{card.description}</p>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-export function GitPlannedReviewActions({
-  actions,
-}: {
-  actions: readonly PlannedGitAction[];
-}) {
-  return (
-    <StaticPreviewPlannedActions
-      actions={actions}
-      aria-label="Planned Git actions"
-      className="git-action-row"
-    />
-  );
-}
-
 function GitChangedFilesSummary({
   changedFiles,
 }: {
@@ -287,9 +328,9 @@ function GitChangedFilesSummary({
     <section className="git-changed-files" aria-label="Changed files summary">
       <div className="git-changed-files-header">
         <div className="git-status-title-copy">
-          <h3 className="git-status-card-title">Changed files</h3>
+          <h3 className="git-status-card-title">Changes</h3>
           <p className="git-status-card-subtitle">
-            Read-only grouping from the latest manual status refresh
+            Grouped files from the latest manual status refresh
           </p>
         </div>
         <Badge variant={changedFiles.length > 0 ? "warning" : "success"}>
@@ -316,9 +357,12 @@ function GitChangedFilesSummary({
 
 function GitChangedFileGroup({ group }: { group: GitChangedFileGroupView }) {
   const { hiddenCount, visibleFiles } = gitChangedFileDisplayView(group.files);
+  const hiddenFiles = group.files.slice(visibleFiles.length);
 
   return (
-    <section className="git-changed-file-group">
+    <section
+      className={`git-changed-file-group git-changed-file-group-${group.key}`}
+    >
       <div className="git-changed-file-group-header">
         <h4 className="git-changed-file-group-title">{group.title}</h4>
         <Badge variant={group.badgeVariant}>{group.files.length}</Badge>
@@ -335,9 +379,20 @@ function GitChangedFileGroup({ group }: { group: GitChangedFileGroupView }) {
       </div>
 
       {hiddenCount > 0 ? (
-        <p className="git-changed-file-more">
-          {hiddenCount} more files not shown
-        </p>
+        <details className="git-changed-file-more">
+          <summary>{hiddenCount} more files</summary>
+          <div className="git-changed-file-list">
+            {hiddenFiles.map((file, index) => (
+              <GitChangedFileRow
+                file={file}
+                key={`${group.key}-hidden-${file.area}-${file.kind}-${file.path}-${index}`}
+                showArea={
+                  group.key === "conflicted" || group.key === "unknown"
+                }
+              />
+            ))}
+          </div>
+        </details>
       ) : null}
     </section>
   );

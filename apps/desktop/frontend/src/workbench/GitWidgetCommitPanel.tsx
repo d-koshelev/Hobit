@@ -198,12 +198,12 @@ export function GitWidgetCommitPanel({
     <section aria-label="Create local Git commit" className="git-commit-panel">
       <div className="git-commit-header">
         <div className="git-status-title-copy">
-          <h3 className="git-status-card-title">Local commit</h3>
+          <h3 className="git-status-card-title">Commit</h3>
           <p className="git-status-card-subtitle">
             Explicit operator-approved commit for the selected files
           </p>
         </div>
-        <Badge variant="warning">Confirmation required</Badge>
+        <Badge variant="warning">Local only</Badge>
       </div>
 
       <p className="git-commit-safety-copy">
@@ -371,7 +371,11 @@ function GitCommitFileRow({
   onToggle: (path: string) => void;
 }) {
   return (
-    <label className="git-commit-file-row">
+    <label
+      className={`git-commit-file-row${
+        checked ? " git-commit-file-row-selected" : ""
+      }`}
+    >
       <input
         checked={checked}
         className="git-commit-file-checkbox"
