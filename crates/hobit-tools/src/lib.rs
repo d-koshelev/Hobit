@@ -8,6 +8,10 @@
 
 pub mod codex_cli;
 pub mod git;
+pub mod git_commit;
 pub mod git_diff;
 pub mod process;
 pub mod toolbelt;
+
+#[cfg(test)]
+mod git_commit_tests;

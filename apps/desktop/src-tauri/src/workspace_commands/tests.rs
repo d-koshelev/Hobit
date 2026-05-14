@@ -112,6 +112,30 @@ fn get_agent_executor_diff_summary_blocking_rejects_missing_workspace_without_gi
 }
 
 #[test]
+fn create_git_commit_blocking_rejects_missing_workspace_without_git_mutation() {
+    let db_path = unique_test_db_path();
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    drop(store);
+
+    let response = create_git_commit_blocking(
+        CreateGitCommitRequest {
+            workspace_id: "missing-workspace".to_owned(),
+            workbench_id: "missing-workbench".to_owned(),
+            widget_instance_id: "missing-widget".to_owned(),
+            repo_root: ".".to_owned(),
+            commit_message: "Commit message".to_owned(),
+            included_files: vec!["src/lib.rs".to_owned()],
+        },
+        db_path.clone(),
+    )
+    .expect("commit command helper should return cleanly");
+
+    assert!(response.is_none());
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn cancel_codex_direct_work_run_blocking_returns_not_found_for_missing_workspace() {
     let db_path = unique_test_db_path();
     let store = SqliteStore::open(&db_path).expect("open sqlite test store");

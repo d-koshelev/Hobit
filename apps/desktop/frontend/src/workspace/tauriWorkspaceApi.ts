@@ -17,6 +17,7 @@ import {
   runDirectWorkValidation,
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
+import { createGitCommit } from "./tauriGitCommitApi";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
@@ -58,6 +59,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
+  createGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   runTerminalCommand,

@@ -378,6 +378,44 @@ pub struct GitLastCommitSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateGitCommitInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub repo_root: PathBuf,
+    pub commit_message: String,
+    pub included_files: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitCommitRunSummary {
+    pub status: String,
+    pub commit_hash: Option<String>,
+    pub branch: Option<String>,
+    pub repo_root: String,
+    pub included_files: Vec<String>,
+    pub commit_message: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<GitCommitCommandSummary>,
+    pub push_performed: bool,
+    pub force_push_performed: bool,
+    pub reset_performed: bool,
+    pub clean_performed: bool,
+    pub auto_commit: bool,
+    pub operator_confirmed_required: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitCommitCommandSummary {
+    pub program: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunCodexDirectWorkInput {
     pub workspace_id: String,
     pub workbench_id: String,

@@ -12,6 +12,7 @@ import type {
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
+  CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
@@ -24,6 +25,7 @@ import type {
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
+  GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
   ListWidgetLogsRequest,
@@ -98,6 +100,9 @@ export type WorkspaceApi = {
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
+  createGitCommit: (
+    request: CreateGitCommitRequest,
+  ) => Promise<GitCommitResponse | null>;
   persistAgentChatProposal: (
     request: PersistAgentChatProposalRequest,
   ) => Promise<PersistAgentChatProposalResponse | null>;
@@ -234,6 +239,12 @@ export function getGitRepositoryStatus(
   request: GetGitRepositoryStatusRequest,
 ): Promise<GitRepositoryStatus | null> {
   return getWorkspaceApi().getGitRepositoryStatus(request);
+}
+
+export function createGitCommit(
+  request: CreateGitCommitRequest,
+): Promise<GitCommitResponse | null> {
+  return getWorkspaceApi().createGitCommit(request);
 }
 
 export function persistAgentChatProposal(

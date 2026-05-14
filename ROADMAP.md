@@ -58,7 +58,10 @@ execution is part of the current roadmap slice.
 Future explicit local commit support is contract-gated by
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must remain an
 operator-confirmed Git review action with a visible change set and
-operator-approved message; push requires a later separate contract.
+operator-approved message; push requires a later separate contract. A narrow
+backend/Tauri/frontend API foundation now exists for Git Widget-owned local
+commit creation, but frontend commit UI, auto-commit, push, reset, and clean
+remain out of scope.
 
 ## Phase 0: Contracts And Repository Foundation
 

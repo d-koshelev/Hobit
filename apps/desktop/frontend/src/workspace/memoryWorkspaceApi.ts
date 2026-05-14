@@ -10,6 +10,7 @@ import type {
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
   CreateWorkspaceRequest,
+  CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
@@ -22,6 +23,7 @@ import type {
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
+  GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
   ListWidgetLogsRequest,
@@ -72,6 +74,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
   getGitRepositoryStatus,
+  createGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   runTerminalCommand,
@@ -371,6 +374,14 @@ async function getGitRepositoryStatus(
 ): Promise<GitRepositoryStatus | null> {
   throw new Error(
     "Git status is only available in the Tauri desktop shell. Browser fallback cannot read Git repositories.",
+  );
+}
+
+async function createGitCommit(
+  _request: CreateGitCommitRequest,
+): Promise<GitCommitResponse | null> {
+  throw new Error(
+    "Git commit creation is only available in the Tauri desktop shell. Browser fallback cannot mutate Git repositories.",
   );
 }
 

@@ -44,10 +44,14 @@ Preview:
 
 - Read-only repository status surface for an explicit transient repository
   root.
-- Does not stage, commit, push, reset, clean, stash, fetch, poll, watch, or
-  mutate repositories.
-- Future explicit local commit support is contract-gated by
-  `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
+- Visible Git Widget UI does not stage, commit, push, reset, clean, stash,
+  fetch, poll, watch, or mutate repositories.
+- Backend/Tauri/frontend API foundation exists for explicit local commit
+  creation owned by Git Widget, with selected files and an operator-provided
+  message only. Frontend commit UI is pending.
+- Explicit local commit support is governed by
+  `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`; push, reset, clean, auto-commit, and
+  Agent Executor auto-commit are not implemented.
 
 ### Terminal
 
@@ -120,7 +124,7 @@ current Workbench surface:
 
 ## Recommended Next Blocks
 
-- Git commit backend/API foundation after the explicit commit contract.
+- Git commit UI with confirmation after the backend/API foundation.
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.

@@ -86,6 +86,15 @@ export type GetGitRepositoryStatusRequest = {
   repositoryRoot: string;
 };
 
+export type CreateGitCommitRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repoRoot: string;
+  commitMessage: string;
+  includedFiles: string[];
+};
+
 export type RunTerminalCommandRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -234,6 +243,32 @@ export type AgentExecutorDiffTotals = {
 };
 
 export type GitDiffCommandSummary = {
+  program: string;
+  args: string[];
+};
+
+export type GitCommitResponse = {
+  status: string;
+  commitHash: string | null;
+  branch: string | null;
+  repoRoot: string;
+  includedFiles: string[];
+  commitMessage: string;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  errorMessage: string | null;
+  commandSummary: GitCommitCommandSummary[];
+  pushPerformed: boolean;
+  forcePushPerformed: boolean;
+  resetPerformed: boolean;
+  cleanPerformed: boolean;
+  autoCommit: boolean;
+  operatorConfirmedRequired: boolean;
+};
+
+export type GitCommitCommandSummary = {
   program: string;
   args: string[];
 };

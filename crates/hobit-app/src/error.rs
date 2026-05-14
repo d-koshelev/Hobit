@@ -3,11 +3,13 @@ use std::fmt;
 
 use hobit_storage_sqlite::StorageError;
 use hobit_tools::git::GitStatusError;
+use hobit_tools::git_commit::GitCommitError;
 use hobit_tools::git_diff::GitDiffError;
 
 #[derive(Debug)]
 pub enum WorkspaceServiceError {
     Storage(StorageError),
+    GitCommit(GitCommitError),
     GitDiff(GitDiffError),
     GitStatus(GitStatusError),
     InvalidInput(String),
@@ -17,6 +19,7 @@ impl fmt::Display for WorkspaceServiceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Storage(error) => write!(formatter, "storage error: {error}"),
+            Self::GitCommit(error) => write!(formatter, "Git commit error: {error}"),
             Self::GitDiff(error) => write!(formatter, "Git diff error: {error}"),
             Self::GitStatus(error) => write!(formatter, "Git status error: {error}"),
             Self::InvalidInput(message) => write!(formatter, "invalid input: {message}"),
@@ -28,6 +31,7 @@ impl Error for WorkspaceServiceError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Storage(error) => Some(error),
+            Self::GitCommit(error) => Some(error),
             Self::GitDiff(error) => Some(error),
             Self::GitStatus(error) => Some(error),
             Self::InvalidInput(_) => None,
@@ -44,6 +48,12 @@ impl From<StorageError> for WorkspaceServiceError {
 impl From<GitDiffError> for WorkspaceServiceError {
     fn from(error: GitDiffError) -> Self {
         Self::GitDiff(error)
+    }
+}
+
+impl From<GitCommitError> for WorkspaceServiceError {
+    fn from(error: GitCommitError) -> Self {
+        Self::GitCommit(error)
     }
 }
 

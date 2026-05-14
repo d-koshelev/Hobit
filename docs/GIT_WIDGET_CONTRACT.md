@@ -4,7 +4,7 @@
 
 This contract defines the future Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
-The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. Agent Executor also has a read-only backend/Tauri diff summary API and compact frontend diff summary UI for an explicit repository root, but no Git Widget diff UI yet. These foundations do not add repository root/status persistence, log/show operations, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
+The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. Agent Executor also has a read-only backend/Tauri diff summary API and compact frontend diff summary UI for an explicit repository root, but no Git Widget diff UI yet. Hobit now has a backend/Tauri/frontend API foundation for explicit local commit creation owned by Git Widget, but no frontend commit controls. These foundations do not add repository root/status persistence, log/show operations, validation association, Git-response association, storage schema changes, polling, watching, push, reset, clean, checkout, restore, rebase, merge, patch apply, auto-commit, or broader runtime behavior.
 
 Future explicit local commit support must also follow `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
 
@@ -283,7 +283,9 @@ The widget must show purpose, expected effect, affected files or commits, and ri
 Commit creation has a dedicated safety contract in
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must be explicit only,
 must show the included change set and operator-approved message, and must not
-include push in the first commit slice.
+include push in the first commit slice. The current backend/API foundation can
+create a local commit for an explicit selected file set, but Git Widget commit
+UI and confirmation controls remain future work.
 
 ### High-Risk Operations Requiring Stronger Confirmation
 
@@ -407,13 +409,10 @@ Raw command output may be available in expandable detail sections or widget-loca
 
 This contract does not implement:
 
-- Git mutations
 - Git diff/log/show operations
 - storage schema or migrations
 - full `hobit-core` Git domain model
 - full Git review React UI beyond the current placeholder/status card
-- new Tauri commands beyond the current read-only status command
-- Workspace API changes beyond the current read-only status request
 - repository root persistence or approved Workspace-level repository roots
 - background Git watcher
 - automatic commit
@@ -429,7 +428,14 @@ This contract does not implement:
 
 The current repository has an insertable Git widget placeholder in the frontend Widget Catalog. It renders through the existing `WidgetHost`/`WidgetFrame` path, has a transient explicit repository-root input, and can manually refresh a desktop-only read-only Git status snapshot through the Tauri `get_git_repository_status` command. The result is rendered as a visual status card with branch, clean/dirty state, counts, ahead/behind data when available, warnings, last commit data when available, and a grouped changed-files summary.
 
-The current read is intentionally narrow and read-only. The repository root and refreshed status stay in local React state only; they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. Browser/Vite fallback keeps the widget insertable but cannot read local Git status. Agent Executor has a read-only API-only diff summary foundation for future UI; untracked file patch previews are not included in that MVP. Git review beyond these manual read-only snapshots remains future optional capability work.
+The visible Git Widget surface is still read-only. The repository root and refreshed status stay in local React state only; they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. Browser/Vite fallback keeps the widget insertable but cannot read local Git status. Agent Executor has a read-only API-only diff summary foundation for future UI; untracked file patch previews are not included in that MVP. Git review beyond these manual read-only snapshots remains future optional capability work.
+
+The backend/Tauri/frontend API now also includes an explicit local commit
+foundation for Git Widget ownership. It requires explicit selected files and an
+operator-provided message, stages only that set, rejects unrelated staged files,
+returns structured command output and safety flags, and performs no push,
+reset, clean, checkout, restore, rebase, merge, or patch apply. No frontend
+commit UI exists yet.
 
 Not implemented:
 
@@ -437,5 +443,5 @@ Not implemented:
 - polling or background watching
 - Git Widget diff/log/show UI
 - validation association or Git-response association
-- staging, unstaging, commit, push, revert, reset, clean, stash, or other Git mutations
+- staging UI, unstaging UI, commit UI, push, revert, reset, clean, stash, or other Git controls
 - storage schema changes or broader runtime behavior

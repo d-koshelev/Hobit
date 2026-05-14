@@ -26,6 +26,7 @@ use crate::codex_direct_work_dto::{
     RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
     StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
 };
+use crate::git_commit_dto::{CreateGitCommitRequest, GitCommitResponseDto};
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
     DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
@@ -572,6 +573,28 @@ pub(crate) fn get_git_repository_status(
             &request.repository_root,
         )
         .map(|status| status.map(GitRepositoryStatusDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn create_git_commit(
+    request: CreateGitCommitRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<GitCommitResponseDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || create_git_commit_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn create_git_commit_blocking(
+    request: CreateGitCommitRequest,
+    db_path: PathBuf,
+) -> Result<Option<GitCommitResponseDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .create_git_commit(request.into())
+        .map(|summary| summary.map(GitCommitResponseDto::from))
         .map_err(command_error)
 }
 

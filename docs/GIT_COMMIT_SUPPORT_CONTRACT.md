@@ -5,9 +5,31 @@
 This contract defines how Hobit may support Git commit creation in the future
 while preserving operator control.
 
-It is a product and safety contract only. It does not implement commit UI,
-backend commands, Tauri commands, storage, schema, Git mutations, staging,
-push, reset, clean, queue execution, PTY, or interactive sessions.
+It is the product and safety contract for explicit commit support. The current
+backend/API foundation implements a narrow explicit local commit path for Git
+Widget ownership only. It does not implement commit UI, push, reset, clean,
+queue execution, PTY, or interactive sessions.
+
+## Current Implementation Boundary
+
+Hobit has a backend/Tauri/frontend API foundation for explicit local Git commit
+creation. It is owned by Git Widget, validates workspace/workbench/widget
+ownership, requires an explicit repo root, requires an operator-provided commit
+message, and requires an explicit non-empty included file list.
+
+The current foundation:
+
+- stages only the selected included files with fixed `git add --` arguments
+- rejects pre-existing staged files outside the selected commit set
+- re-reads staged files after add and rejects if anything outside the selected
+  set would be committed
+- runs `git commit -m` with the supplied message
+- reads the commit hash with `git rev-parse HEAD` after success
+- returns structured stdout, stderr, exit code, duration, command summary,
+  commit hash, branch, included files, message, status, and safety flags
+
+It does not persist a Git action artifact yet and does not add frontend commit
+controls. Git Widget UI remains read-only until a later confirmation UI block.
 
 ## One-Sentence Rule
 
@@ -233,7 +255,6 @@ The recorded result must distinguish:
 
 Recommended follow-up blocks:
 
-- Git commit backend/API foundation
 - Git commit UI with confirmation
 - Commit smoke and hardening
 - Optional commit message suggestion
@@ -258,4 +279,3 @@ The next implementation block should not add:
 
 The first implementation block should create the smallest safe explicit local
 commit path and stop before remote or destructive Git behavior.
-
