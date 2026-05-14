@@ -592,7 +592,7 @@
 }
 
 .codex-direct-work-live-log {
-  background: var(--color-surface);
+  background: var(--color-nested-surface);
 }
 
 .codex-direct-work-live-log-list {
@@ -666,7 +666,7 @@
 }
 
 .agent-executor-history {
-  background: var(--color-surface);
+  background: var(--color-nested-surface);
 }
 
 .agent-executor-history-actions,
@@ -735,7 +735,7 @@
 .agent-executor-history-log {
   border-left: 3px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: var(--color-io-surface);
   padding: var(--space-xs) var(--space-sm);
 }
 
@@ -1961,45 +1961,49 @@
 
 .badge {
   display: inline-flex;
-  min-height: 24px;
+  max-width: 100%;
+  min-height: 22px;
   align-items: center;
   gap: var(--space-xs);
   border: 1px solid var(--color-border-subtle);
   border-radius: 999px;
+  overflow: hidden;
   padding: 0 var(--space-sm);
   font-size: var(--text-xs);
   font-weight: 720;
   letter-spacing: 0;
+  line-height: var(--line-tight);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .badge-neutral {
   border-color: var(--color-border-subtle);
-  background: var(--color-neutral-soft);
+  background: color-mix(in srgb, var(--color-neutral-soft) 78%, transparent);
   color: var(--color-text-secondary);
 }
 
 .badge-info {
   border-color: var(--color-info);
-  background: var(--color-info-soft);
+  background: color-mix(in srgb, var(--color-info-soft) 78%, transparent);
   color: var(--color-info);
 }
 
 .badge-success {
   border-color: var(--color-success);
-  background: var(--color-success-soft);
+  background: color-mix(in srgb, var(--color-success-soft) 78%, transparent);
   color: var(--color-success);
 }
 
 .badge-warning {
   border-color: var(--color-warning);
-  background: var(--color-warning-soft);
+  background: color-mix(in srgb, var(--color-warning-soft) 78%, transparent);
   color: var(--color-warning);
 }
 
 .badge-error {
   border-color: var(--color-error);
-  background: var(--color-error-soft);
+  background: color-mix(in srgb, var(--color-error-soft) 78%, transparent);
   color: var(--color-error);
 }
 
@@ -2037,21 +2041,29 @@
 }
 
 .empty-state {
-  border: 1px dashed var(--color-border);
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: var(--color-nested-surface);
+  background: color-mix(in srgb, var(--color-io-surface) 86%, transparent);
   padding: var(--space-md);
 }
 
 .empty-state-title {
-  margin: 0 0 var(--space-xs);
+  margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   font-weight: 720;
+  line-height: var(--line-tight);
 }
 
 .empty-state-text {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.empty-state-text[role="alert"] {
+  color: var(--color-error);
 }
