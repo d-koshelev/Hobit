@@ -108,6 +108,26 @@ pub struct NewAgentQueueItem<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewWorkspaceNote<'a> {
+    pub note_id: &'a str,
+    pub workspace_id: &'a str,
+    pub title: &'a str,
+    pub body: &'a str,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceNoteUpdate<'a> {
+    pub title: &'a str,
+    pub body: &'a str,
+    pub pinned: bool,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewSharedStateObject<'a> {
     pub id: &'a str,
     pub workspace_id: &'a str,

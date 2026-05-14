@@ -12,6 +12,7 @@ import type {
   CreateWorkspaceRequest,
   CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
+  CreateWorkspaceNoteRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
@@ -23,9 +24,11 @@ import type {
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
+  GetWorkspaceNoteRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
+  ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -39,7 +42,9 @@ import type {
   StartCodexDirectWorkStreamResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
+  UpdateWorkspaceNoteRequest,
   WidgetLogEntry,
+  WorkspaceNote,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -62,6 +67,10 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,
+  createWorkspaceNote,
+  listWorkspaceNotes,
+  getWorkspaceNote,
+  updateWorkspaceNote,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
@@ -180,6 +189,38 @@ async function getWorkspaceWorkbenchState(
   }
 
   return cloneWorkspaceWorkbenchState(state);
+}
+
+async function createWorkspaceNote(
+  _request: CreateWorkspaceNoteRequest,
+): Promise<WorkspaceNote> {
+  throw new Error(
+    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot persist workspace notes.",
+  );
+}
+
+async function listWorkspaceNotes(
+  _request: ListWorkspaceNotesRequest,
+): Promise<WorkspaceNote[]> {
+  throw new Error(
+    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot read workspace notes.",
+  );
+}
+
+async function getWorkspaceNote(
+  _request: GetWorkspaceNoteRequest,
+): Promise<WorkspaceNote | null> {
+  throw new Error(
+    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot read workspace notes.",
+  );
+}
+
+async function updateWorkspaceNote(
+  _request: UpdateWorkspaceNoteRequest,
+): Promise<WorkspaceNote | null> {
+  throw new Error(
+    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot update workspace notes.",
+  );
 }
 
 async function addWidgetInstanceToWorkbench(

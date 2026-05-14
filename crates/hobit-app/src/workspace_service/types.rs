@@ -327,6 +327,35 @@ pub struct AgentQueueItemSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateWorkspaceNoteInput {
+    pub workspace_id: String,
+    pub title: String,
+    pub body: String,
+    pub pinned: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpdateWorkspaceNoteInput {
+    pub workspace_id: String,
+    pub note_id: String,
+    pub title: String,
+    pub body: String,
+    pub pinned: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceNoteSummary {
+    pub note_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub body: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueProposalActionSummary {
     pub title: String,
     pub description: String,

@@ -98,14 +98,14 @@ Implemented foundation:
 
 - The Workspace Start Screen lets the user create a Workspace or open an existing Workspace.
 - In the Tauri desktop shell, Workspace lifecycle and Workbench state loading use Tauri commands backed by `hobit-app` and `hobit-storage-sqlite`.
-- The desktop path can delete one Workspace and its Hobit-persisted Workspace-local records from SQLite through a confirmation-gated Workspace Start Screen action. The deletion path does not delete filesystem files, repository roots, Git repositories, global app configuration, or provider configuration, and the Tauri command rejects deletion while a Direct Work run is active for that Workspace.
+- The desktop path can delete one Workspace and its Hobit-persisted Workspace-local records from SQLite, including workspace-local notes, through a confirmation-gated Workspace Start Screen action. The deletion path does not delete filesystem files, repository roots, Git repositories, global app configuration, or provider configuration, and the Tauri command rejects deletion while a Direct Work run is active for that Workspace.
 - In browser/Vite development, the same frontend workspace API boundary uses an in-memory fallback. Browser fallback state is not persisted.
 - Creating or opening a Workspace starts a WorkspaceSession.
 - The frontend loads `get_workspace_workbench_state`, adapts the returned summary into `WorkbenchViewState`, and renders the Empty Workbench.
 - The current default Workbench has zero real widget instances.
 - The current product opens one selected Workspace into one rendered Workbench surface at a time. Full multi-open Workspace UI, Workspace tabs/sidebar, separate Workspace windows, and mature multiple-Workbench UI for one Workspace are not implemented.
 - The Widget Catalog can insert the Notes, Terminal, Agent Chat placeholder, Direct Work / Codex, Agent Queue placeholder, Git placeholder, and Template Library placeholder as persisted WidgetInstances; other catalog templates remain planned/display-only.
-- The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Full notes document storage is not implemented.
+- The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Workspace-local notes storage/API foundation exists for create/list/read/update notes, but the full Notes product UI/document model is not implemented.
 - The Terminal widget has a minimal desktop-only one-shot local command form for persisted Terminal widget instances only. It uses explicit program + argv + working directory, writes widget run/log/result records, and renders the final stdout/stderr result. Shell mode, interactive stdin, stdout/stderr streaming, PTY, cancellation, command history, Agent-triggered execution, and Script Runner behavior are not implemented.
 - Direct Work / Codex has a minimal frontend launch panel and a backend/Tauri one-shot command for explicit Workspace, Workbench, owning widget instance, Codex executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps. It currently allows the existing `agent-run` widget definition to own the persisted Direct Work run/log/result artifacts. On Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell.
 - The Workbench top bar includes a compact global activity/idle indicator. Current implementation is frontend/current-session only: it shows no active local runs by default, reflects Terminal one-shot commands and Direct Work runs started from the current UI session while they are running, and can show an attention state after a failed or timed-out current-session request. It does not poll persisted runs, observe background work, monitor external processes, or imply Agent Queue/Agent runtime execution exists.
@@ -118,7 +118,7 @@ Implemented foundation:
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs. Terminal one-shot commands and Agent Chat proposal persistence emit bounded lifecycle logs.
 - Agent run observability views defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` currently exist only as the Agent Monitoring read-only viewer for Agent Chat proposal-only artifacts; Direct Work artifacts can be persisted but are not displayed in Agent Monitoring yet.
-- SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent.
+- SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, WorkbenchEvent, and workspace-local Notes.
 
 Not implemented yet:
 
@@ -403,7 +403,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Notes, Terminal one-shot command widget, Agent Chat proposal-only mock placeholder with proposal-only run/result persistence, Agent Monitoring read-only proposal artifact viewer with explicit review-item creation, Agent Queue persisted proposal-review inbox, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, Git manual desktop-only read-only status refresh, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond existing available widgets/placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Notes, Terminal one-shot command widget, Agent Chat proposal-only mock placeholder with proposal-only run/result persistence, Agent Monitoring read-only proposal artifact viewer with explicit review-item creation, Agent Queue persisted proposal-review inbox, Git placeholder, and Template Library placeholder insertion, Notes widget-state save, workspace-local notes create/list/read/update API, Git manual desktop-only read-only status refresh, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond existing available widgets/placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 
@@ -459,7 +459,7 @@ The following are not implemented yet:
 - Dock rails, widget view modes, persisted widget presence zones, and drag-and-drop between Canvas, Dock, Float, or future external windows
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, and always-on-top behavior
 - snapping, collision detection, auto-reflow, and freeform layout persistence editing
-- full Notebook/Notes document storage, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, and AI-in-Notes behavior
+- full Notebook/Notes product UI, multi-tab state, text formatting tools, Markdown editor, Markdown rendering, Mermaid or diagram rendering, rendered block previews, autosave, and AI-in-Notes behavior
 - log streaming or polling
 - repository root persistence or approved Workspace-level repository roots beyond the transient Git widget input
 - multi-open Workspace UI, Workspace tabs/sidebar, or separate Workspace windows

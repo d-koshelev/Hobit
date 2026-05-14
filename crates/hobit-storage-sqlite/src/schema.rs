@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS agent_queue_items (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS notes (
+    note_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    pinned INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS shared_state_objects (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -155,6 +166,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_items_workbench_id
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_items_source_result_id
     ON agent_queue_items(source_result_id);
+
+CREATE INDEX IF NOT EXISTS idx_notes_workspace_id
+    ON notes(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_notes_workspace_ordering
+    ON notes(workspace_id, archived, pinned, updated_at, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
     ON shared_state_objects(workspace_id);

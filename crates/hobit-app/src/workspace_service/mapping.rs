@@ -1,11 +1,12 @@
 use hobit_storage_sqlite::{
     SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
     SharedStateObjectSummary, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
-    WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceSummary,
+    WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary,
+    WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -96,6 +97,19 @@ pub(super) fn widget_result_summary(row: WidgetResultRow) -> WidgetResultSummary
         content: row.content,
         payload: row.payload,
         created_at: row.created_at,
+    }
+}
+
+pub(super) fn workspace_note_summary(row: WorkspaceNoteRow) -> WorkspaceNoteSummary {
+    WorkspaceNoteSummary {
+        note_id: row.note_id,
+        workspace_id: row.workspace_id,
+        title: row.title,
+        body: row.body,
+        pinned: row.pinned,
+        archived: row.archived,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
     }
 }
 

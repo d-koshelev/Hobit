@@ -34,8 +34,27 @@ Current Notes is intentionally minimal:
 - It has no Runbook integration.
 - It has no Git integration.
 
-Current Notes behavior must not be described as multi-note behavior until the
-storage/API and UI exist.
+Current Notes widget UI behavior must not be described as multi-note behavior
+until the product UI exists.
+
+## Current Implementation Foundation
+
+The backend/storage/API foundation now exists for workspace-local notes:
+
+- SQLite stores `notes` records with `note_id`, `workspace_id`, `title`, `body`,
+  `pinned`, `archived`, `created_at`, and `updated_at`.
+- `hobit-app` exposes create, list, read, and update methods scoped to a
+  Workspace.
+- Tauri commands and frontend Workspace API methods expose those same
+  create/list/read/update operations for future UI work.
+- Lists return non-archived notes with pinned notes first, then most recently
+  updated notes.
+- Deleting a Workspace deletes its workspace-local notes.
+
+This foundation does not change the current Notes widget UI. The current widget
+still saves one `{ "body": "..." }` draft with explicit Save. Multi-note UI,
+search, autosave, note deletion/archive commands, tags, linked context, and
+Agent/Queue/Runbook/Git integrations remain unimplemented.
 
 ## Target One-Sentence Role
 
@@ -104,7 +123,7 @@ Rules:
 
 ## MVP Implementation Direction
 
-The first implementation after this contract should be a backend/storage/API
+The first implementation after this contract is a backend/storage/API
 foundation, not a visual-only multi-note UI.
 
 Recommended MVP storage/API capabilities:
@@ -113,8 +132,8 @@ Recommended MVP storage/API capabilities:
 - list notes
 - read note
 - update note
-- delete or archive note only if scoped and safe
-- pin note only if scoped and safe
+- pin note through the scoped create/update payload
+- delete or archive note later only if scoped and safe
 
 Tags should not be implemented in the first slice unless a later prompt
 explicitly scopes them and the data model remains small.
@@ -208,9 +227,9 @@ Rules:
 
 Future UI must stay honest:
 
-- Do not show multi-note UI until storage/API exists.
+- Do not show multi-note UI until the product UI is implemented.
 - Do not show search until search works.
-- Do not show pinned notes until pinned state exists.
+- Do not show pinned note controls until they work end to end.
 - Do not show autosave until autosave exists.
 - Do not show tags until tags exist.
 - Do not show Agent, Queue, Runbook, or Git note actions until those actions are
@@ -218,7 +237,6 @@ Future UI must stay honest:
 
 ## Recommended Follow-Up Blocks
 
-- Block 185  Notes storage/API foundation.
 - Block 186  Notes product UI.
 - Later  Notes autosave polish.
 - Later  Notes search/pin/archive polish.
@@ -227,15 +245,13 @@ Future UI must stay honest:
 
 ## Non-Goals
 
-This contract does not implement:
+This contract and the current foundation still do not implement:
 
 - frontend UI changes
-- backend or Tauri commands
-- storage/schema changes
 - note list
 - note search
 - autosave
-- pin/archive/delete behavior
+- archive/delete behavior
 - tags
 - Agent Executor integration
 - Agent Queue integration

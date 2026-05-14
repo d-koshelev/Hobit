@@ -17,12 +17,13 @@ mod time;
 
 pub use inputs::{
     NewAgentQueueItem, NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult,
-    NewWidgetRun, NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, WidgetInstanceLayoutUpdate,
+    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 pub use rows::{
     AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;
 pub use store::SqliteStore;

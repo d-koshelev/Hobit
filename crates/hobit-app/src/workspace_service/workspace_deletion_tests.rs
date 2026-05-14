@@ -101,6 +101,22 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
         "Direct Work / Codex",
     );
     insert_widget_artifacts(&service, &deleted_widget_id, "delete");
+    let deleted_note = service
+        .create_workspace_note(CreateWorkspaceNoteInput {
+            workspace_id: deleted_workspace_id.clone(),
+            title: "Deleted note".to_owned(),
+            body: "Workspace-local note".to_owned(),
+            pinned: false,
+        })
+        .expect("create deleted note");
+    let kept_note = service
+        .create_workspace_note(CreateWorkspaceNoteInput {
+            workspace_id: kept_workspace_id.clone(),
+            title: "Kept note".to_owned(),
+            body: "Workspace-local note".to_owned(),
+            pinned: false,
+        })
+        .expect("create kept note");
     service
         .store
         .insert_agent_queue_item(NewAgentQueueItem {
@@ -157,6 +173,16 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
         .get_agent_queue_item("queue-delete")
         .expect("get deleted queue item")
         .is_none());
+    assert!(service
+        .store
+        .get_note_by_id(&deleted_note.note_id)
+        .expect("get deleted note")
+        .is_none());
+    assert!(service
+        .store
+        .get_note_by_id(&kept_note.note_id)
+        .expect("get kept note")
+        .is_some());
 }
 
 #[test]

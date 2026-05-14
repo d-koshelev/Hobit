@@ -4,8 +4,8 @@ use rusqlite::Result;
 
 use crate::rows::{
     AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -131,6 +131,19 @@ pub(crate) fn agent_queue_item_row(row: &rusqlite::Row<'_>) -> Result<AgentQueue
         payload_json: row.get(8)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
+    })
+}
+
+pub(crate) fn workspace_note_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceNoteRow> {
+    Ok(WorkspaceNoteRow {
+        note_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        title: row.get(2)?,
+        body: row.get(3)?,
+        pinned: i64_to_bool(row.get(4)?),
+        archived: i64_to_bool(row.get(5)?),
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
     })
 }
 

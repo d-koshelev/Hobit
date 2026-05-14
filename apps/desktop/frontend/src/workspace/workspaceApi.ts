@@ -14,6 +14,7 @@ import type {
   CreateWorkspaceRequest,
   CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
+  CreateWorkspaceNoteRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
@@ -25,9 +26,11 @@ import type {
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
+  GetWorkspaceNoteRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
+  ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -41,7 +44,9 @@ import type {
   StartCodexDirectWorkStreamResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
+  UpdateWorkspaceNoteRequest,
   WidgetLogEntry,
+  WorkspaceNote,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -64,6 +69,18 @@ export type WorkspaceApi = {
   getWorkspaceWorkbenchState: (
     workspaceId: string,
   ) => Promise<WorkspaceWorkbenchState | null>;
+  createWorkspaceNote: (
+    request: CreateWorkspaceNoteRequest,
+  ) => Promise<WorkspaceNote>;
+  listWorkspaceNotes: (
+    request: ListWorkspaceNotesRequest,
+  ) => Promise<WorkspaceNote[]>;
+  getWorkspaceNote: (
+    request: GetWorkspaceNoteRequest,
+  ) => Promise<WorkspaceNote | null>;
+  updateWorkspaceNote: (
+    request: UpdateWorkspaceNoteRequest,
+  ) => Promise<WorkspaceNote | null>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;
@@ -167,6 +184,30 @@ export function getWorkspaceWorkbenchState(
   workspaceId: string,
 ): Promise<WorkspaceWorkbenchState | null> {
   return getWorkspaceApi().getWorkspaceWorkbenchState(workspaceId);
+}
+
+export function createWorkspaceNote(
+  request: CreateWorkspaceNoteRequest,
+): Promise<WorkspaceNote> {
+  return getWorkspaceApi().createWorkspaceNote(request);
+}
+
+export function listWorkspaceNotes(
+  request: ListWorkspaceNotesRequest,
+): Promise<WorkspaceNote[]> {
+  return getWorkspaceApi().listWorkspaceNotes(request);
+}
+
+export function getWorkspaceNote(
+  request: GetWorkspaceNoteRequest,
+): Promise<WorkspaceNote | null> {
+  return getWorkspaceApi().getWorkspaceNote(request);
+}
+
+export function updateWorkspaceNote(
+  request: UpdateWorkspaceNoteRequest,
+): Promise<WorkspaceNote | null> {
+  return getWorkspaceApi().updateWorkspaceNote(request);
 }
 
 export function addWidgetInstanceToWorkbench(

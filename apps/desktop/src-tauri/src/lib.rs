@@ -18,6 +18,10 @@ mod codex_direct_work_dto_tests;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
+mod notes_commands;
+mod notes_dto;
+#[cfg(test)]
+mod notes_dto_tests;
 mod workspace_commands;
 mod workspace_dto;
 #[cfg(test)]
@@ -58,7 +62,11 @@ pub fn run() {
             workspace_commands::create_agent_queue_item_from_proposal,
             workspace_commands::get_agent_queue_snapshot,
             workspace_commands::get_git_repository_status,
-            workspace_commands::create_git_commit
+            workspace_commands::create_git_commit,
+            notes_commands::create_workspace_note,
+            notes_commands::list_workspace_notes,
+            notes_commands::get_workspace_note,
+            notes_commands::update_workspace_note
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");

@@ -17,6 +17,7 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
     let event_id = format!("event-{suffix}");
     let session_id = format!("session-{suffix}");
     let queue_id = format!("queue-{suffix}");
+    let note_id = format!("note-{suffix}");
 
     store
         .create_workspace(workspace_id, "Workspace", None, "active")
@@ -138,6 +139,18 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
             updated_at: Some("5"),
         })
         .expect("insert queue item");
+    store
+        .create_note(NewWorkspaceNote {
+            note_id: &note_id,
+            workspace_id,
+            title: "Workspace note",
+            body: "Workspace-local note",
+            pinned: false,
+            archived: false,
+            created_at: Some("6"),
+            updated_at: Some("6"),
+        })
+        .expect("create note");
 }
 
 #[test]
@@ -195,6 +208,10 @@ fn deleting_workspace_removes_workspace_and_local_children() {
         .get_agent_queue_item("queue-delete")
         .expect("get deleted queue item")
         .is_none());
+    assert!(store
+        .get_note_by_id("note-delete")
+        .expect("get deleted note")
+        .is_none());
 }
 
 #[test]
@@ -232,6 +249,10 @@ fn deleting_one_workspace_preserves_other_workspace_graph() {
     assert!(store
         .get_agent_queue_item("queue-keep")
         .expect("get kept queue item")
+        .is_some());
+    assert!(store
+        .get_note_by_id("note-keep")
+        .expect("get kept note")
         .is_some());
 }
 

@@ -75,9 +75,11 @@ future widget capability.
 - Uses explicit save.
 - Future multi-note product direction is governed by
   `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
+- Backend/storage/Tauri/frontend API foundation exists for workspace-local
+  create/list/read/update notes, but no product UI consumes it yet.
 - Does not implement the full Notebook model, tabs, Markdown rendering,
   diagrams, checklists, snippets, review notes, formatting tools, note list,
-  search, pinned notes, autosave, or AI-in-Notes.
+  search UI, autosave, archive/delete UI, tags, or AI-in-Notes.
 
 ### Agent Queue
 
@@ -137,7 +139,7 @@ current Workbench surface:
 
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
-- Notes storage/API foundation after `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
+- Notes product UI after the storage/API foundation.
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.

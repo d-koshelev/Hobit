@@ -91,6 +91,11 @@ impl SqliteStore {
             params![workspace_id],
         )?;
         self.connection.execute(
+            "DELETE FROM notes
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
             "DELETE FROM widget_results
              WHERE run_id IN (
                 SELECT widget_runs.id

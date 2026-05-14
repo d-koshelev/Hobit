@@ -18,6 +18,7 @@ import {
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
 import { createGitCommit } from "./tauriGitCommitApi";
+import { createWorkspaceNote, getWorkspaceNote, listWorkspaceNotes, updateWorkspaceNote } from "./tauriWorkspaceNotesApi";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
@@ -47,6 +48,10 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,
+  createWorkspaceNote,
+  listWorkspaceNotes,
+  getWorkspaceNote,
+  updateWorkspaceNote,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

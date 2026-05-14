@@ -118,6 +118,18 @@ pub struct AgentQueueItemRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkspaceNoteRow {
+    pub note_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub body: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SharedStateObjectRow {
     pub id: String,
     pub workspace_id: String,

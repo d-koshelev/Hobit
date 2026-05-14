@@ -10,18 +10,20 @@ use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
     NewAgentQueueItem, NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult,
-    NewWidgetRun, NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, WidgetInstanceLayoutUpdate,
+    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
 mod agent_queue_items;
 mod events;
+mod notes;
 mod sessions;
 mod shared_state;
 mod widget_instances;
@@ -31,6 +33,8 @@ mod widget_runs;
 mod workbenches;
 mod workspaces;
 
+#[cfg(test)]
+mod notes_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
