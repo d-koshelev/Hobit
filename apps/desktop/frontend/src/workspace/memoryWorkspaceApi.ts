@@ -1,6 +1,7 @@
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
+  AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   AgentMonitoringSnapshot,
@@ -17,6 +18,7 @@ import type {
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GetAgentExecutorRunDetailRequest,
+  GetAgentExecutorDiffSummaryRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
@@ -65,6 +67,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   listWidgetLogs,
   listAgentExecutorRuns,
   getAgentExecutorRunDetail,
+  getAgentExecutorDiffSummary,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
@@ -328,6 +331,14 @@ async function getAgentExecutorRunDetail(
 ): Promise<AgentExecutorRunDetail | null> {
   throw new Error(
     "Agent Executor run detail is only available in the Tauri desktop shell. Browser fallback cannot read persisted Direct Work artifacts.",
+  );
+}
+
+async function getAgentExecutorDiffSummary(
+  _request: GetAgentExecutorDiffSummaryRequest,
+): Promise<AgentExecutorDiffSummary | null> {
+  throw new Error(
+    "Agent Executor diff summary is only available in the Tauri desktop shell. Browser fallback cannot read local Git diffs.",
   );
 }
 

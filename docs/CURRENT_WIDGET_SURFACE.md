@@ -35,6 +35,8 @@ Preview:
   Git read-only handoff, and validation capture.
 - Provides a read-only backend/Tauri API for stored Direct Work and Direct Work
   validation run history, with a compact read-only frontend history/detail UI.
+- Provides a read-only backend/Tauri diff summary API for an explicit repository
+  root; the frontend diff UI is pending.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
   hidden background scheduler.
 
@@ -116,7 +118,7 @@ current Workbench surface:
 
 ## Recommended Next Blocks
 
-- Direct Work diff summary.
+- Agent Executor diff summary UI.
 - Validation presentation polish.
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.

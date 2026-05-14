@@ -3,6 +3,7 @@ import { tauriWorkspaceApi } from "./tauriWorkspaceApi";
 import { isTauriRuntime } from "./tauriEnvironment";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
+  AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   AgentMonitoringSnapshot,
@@ -19,6 +20,7 @@ import type {
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GetAgentExecutorRunDetailRequest,
+  GetAgentExecutorDiffSummaryRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
   GetGitRepositoryStatusRequest,
@@ -81,6 +83,9 @@ export type WorkspaceApi = {
   getAgentExecutorRunDetail: (
     request: GetAgentExecutorRunDetailRequest,
   ) => Promise<AgentExecutorRunDetail | null>;
+  getAgentExecutorDiffSummary: (
+    request: GetAgentExecutorDiffSummaryRequest,
+  ) => Promise<AgentExecutorDiffSummary | null>;
   getAgentMonitoringSnapshot: (
     request: GetAgentMonitoringSnapshotRequest,
   ) => Promise<AgentMonitoringSnapshot | null>;
@@ -199,6 +204,12 @@ export function getAgentExecutorRunDetail(
   request: GetAgentExecutorRunDetailRequest,
 ): Promise<AgentExecutorRunDetail | null> {
   return getWorkspaceApi().getAgentExecutorRunDetail(request);
+}
+
+export function getAgentExecutorDiffSummary(
+  request: GetAgentExecutorDiffSummaryRequest,
+): Promise<AgentExecutorDiffSummary | null> {
+  return getWorkspaceApi().getAgentExecutorDiffSummary(request);
 }
 
 export function getAgentMonitoringSnapshot(

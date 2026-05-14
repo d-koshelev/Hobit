@@ -4,7 +4,7 @@
 
 This contract defines the future Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
-The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. It does not add repository root/status persistence, diff/log/show, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
+The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. Agent Executor also has a read-only backend/Tauri diff summary API for an explicit repository root, but no Git Widget diff UI yet. These foundations do not add repository root/status persistence, log/show operations, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
 
 ## Role
 
@@ -216,7 +216,7 @@ The Git Widget and Git adapter must not implement:
 
 ### Relation To Read-Only Adapter
 
-The current read-only Git status adapter receives an explicit repository root from the widget. It does not choose one.
+The current read-only Git status adapter receives an explicit repository root from the widget. It does not choose one. The Agent Executor diff summary adapter follows the same explicit-root rule and returns bounded status, numstat, and optional capped patch previews without mutating Git.
 
 Adapter rules:
 
@@ -418,13 +418,13 @@ This contract does not implement:
 
 The current repository has an insertable Git widget placeholder in the frontend Widget Catalog. It renders through the existing `WidgetHost`/`WidgetFrame` path, has a transient explicit repository-root input, and can manually refresh a desktop-only read-only Git status snapshot through the Tauri `get_git_repository_status` command. The result is rendered as a visual status card with branch, clean/dirty state, counts, ahead/behind data when available, warnings, last commit data when available, and a grouped changed-files summary.
 
-The current read is intentionally narrow and read-only. The repository root and refreshed status stay in local React state only; they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. Browser/Vite fallback keeps the widget insertable but cannot read local Git status. Git review beyond this manual status snapshot remains future optional capability work.
+The current read is intentionally narrow and read-only. The repository root and refreshed status stay in local React state only; they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. Browser/Vite fallback keeps the widget insertable but cannot read local Git status. Agent Executor has a read-only API-only diff summary foundation for future UI; untracked file patch previews are not included in that MVP. Git review beyond these manual read-only snapshots remains future optional capability work.
 
 Not implemented:
 
 - repository root/status persistence
 - polling or background watching
-- diff/log/show operations
+- Git Widget diff/log/show UI
 - validation association or Git-response association
 - staging, unstaging, commit, push, revert, reset, clean, stash, or other Git mutations
 - storage schema changes or broader runtime behavior

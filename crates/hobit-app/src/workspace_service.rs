@@ -5,6 +5,7 @@ use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::SqliteStore;
 
 mod agent_ai_proposals;
+mod agent_executor_diff;
 mod agent_executor_history;
 mod agent_monitoring;
 mod agent_proposals;
@@ -26,6 +27,8 @@ mod workspaces;
 
 #[cfg(test)]
 mod agent_ai_proposal_tests;
+#[cfg(test)]
+mod agent_executor_diff_tests;
 #[cfg(test)]
 mod agent_executor_history_tests;
 #[cfg(test)]
@@ -56,21 +59,22 @@ mod workspace_deletion_tests;
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
-    AgentChatProposalRunSummary, AgentExecutorRunDetail, AgentExecutorRunHistory,
+    AgentChatProposalRunSummary, AgentExecutorDiffFileSummary, AgentExecutorDiffSummary,
+    AgentExecutorDiffTotals, AgentExecutorRunDetail, AgentExecutorRunHistory,
     AgentExecutorRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, DirectWorkValidationRunSummary,
-    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitFileChangeSummary,
-    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
-    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
-    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
-    WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary,
-    WorkspaceSummary, WorkspaceWorkbenchState,
+    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitDiffCommandSummary,
+    GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
+    GitWorkingTreeStatusSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,
+    RunDirectWorkValidationInput, RunTerminalCommandInput, SharedStateObjectSummary,
+    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
+    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary,
+    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);

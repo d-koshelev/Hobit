@@ -30,6 +30,8 @@ Implemented observability today is limited to:
 - Codex Direct Work run/result artifacts stored for an allowed `agent-run` widget owner
 - a read-only Agent Executor run history API for stored Direct Work and Direct
   Work validation run/result/log summaries
+- a read-only Agent Executor diff summary API for explicit repository roots,
+  with bounded changed-file, numstat, and optional capped patch-preview data
 - Agent Chat proposal-only mock run/result artifacts
 - Agent Monitoring read-only Overview/Result/Raw display for those Agent Chat proposal artifacts
 - explicit Agent Queue review items created from those proposal artifacts
@@ -49,9 +51,11 @@ run/log/result artifacts for an allowed Agent Monitoring (`agent-run`) widget
 instance. A read-only Agent Executor history API can list recent stored Direct
 Work and Direct Work validation artifacts for that owning widget and fetch
 their stored result/log summaries. The Agent Executor frontend has a compact
-read-only history/detail panel for those artifacts. Full Raw / Overview /
-Result views remain future work. Codex CLI is the first planned executor kind,
-but the observability model must remain executor-agnostic.
+read-only history/detail panel for those artifacts. A separate read-only Agent
+Executor diff summary API can summarize explicit-root Git changes for future
+UI without creating runs, results, queue items, or Git mutations. Full Raw /
+Overview / Result views remain future work. Codex CLI is the first planned
+executor kind, but the observability model must remain executor-agnostic.
 
 ## Core Model
 

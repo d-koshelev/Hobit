@@ -8,6 +8,9 @@ use crate::agent_chat_ai_dto::{
     GenerateAgentChatAiProposalRequest, GenerateAgentChatAiProposalResponseDto,
 };
 use crate::agent_chat_ai_provider::EnvHttpAgentChatAiProvider;
+use crate::agent_executor_diff_dto::{
+    AgentExecutorDiffSummaryDto, GetAgentExecutorDiffSummaryRequest,
+};
 use crate::agent_executor_history_dto::{
     AgentExecutorRunDetailDto, AgentExecutorRunHistoryDto, GetAgentExecutorRunDetailRequest,
     ListAgentExecutorRunsRequest,
@@ -266,6 +269,38 @@ pub(crate) fn get_agent_executor_run_detail(
             &request.run_id,
         )
         .map(|detail| detail.map(AgentExecutorRunDetailDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_agent_executor_diff_summary(
+    request: GetAgentExecutorDiffSummaryRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentExecutorDiffSummaryDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        get_agent_executor_diff_summary_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn get_agent_executor_diff_summary_blocking(
+    request: GetAgentExecutorDiffSummaryRequest,
+    db_path: PathBuf,
+) -> Result<Option<AgentExecutorDiffSummaryDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_agent_executor_diff_summary(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            &request.repo_root,
+            request.max_files,
+            request.max_patch_bytes_per_file,
+            request.include_patch_preview,
+        )
+        .map(|summary| summary.map(AgentExecutorDiffSummaryDto::from))
         .map_err(command_error)
 }
 

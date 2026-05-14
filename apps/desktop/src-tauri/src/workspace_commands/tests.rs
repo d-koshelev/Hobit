@@ -87,6 +87,31 @@ fn run_direct_work_validation_blocking_rejects_missing_workspace_without_process
 }
 
 #[test]
+fn get_agent_executor_diff_summary_blocking_rejects_missing_workspace_without_git_read() {
+    let db_path = unique_test_db_path();
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    drop(store);
+
+    let response = get_agent_executor_diff_summary_blocking(
+        GetAgentExecutorDiffSummaryRequest {
+            workspace_id: "missing-workspace".to_owned(),
+            workbench_id: "missing-workbench".to_owned(),
+            widget_instance_id: "missing-widget".to_owned(),
+            repo_root: ".".to_owned(),
+            max_files: Some(10),
+            max_patch_bytes_per_file: Some(100),
+            include_patch_preview: Some(false),
+        },
+        db_path.clone(),
+    )
+    .expect("diff summary command helper should return cleanly");
+
+    assert!(response.is_none());
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn cancel_codex_direct_work_run_blocking_returns_not_found_for_missing_workspace() {
     let db_path = unique_test_db_path();
     let store = SqliteStore::open(&db_path).expect("open sqlite test store");

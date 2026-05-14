@@ -110,8 +110,11 @@ Agent Executor now also has a read-only app/Tauri run history API for listing
 recent Direct Work and Direct Work validation artifacts owned by a specific
 `agent-run` widget instance and reading their stored result/log summaries. The
 frontend shows those artifacts in a compact read-only history/detail panel.
-Rerun, deletion, diff capture, queue execution, and Git mutations remain future
-work.
+Agent Executor also has a read-only app/Tauri diff summary API for an explicit
+repository root. It returns bounded changed-file, numstat, and optional capped
+patch-preview data for future UI without staging, committing, pushing,
+resetting, cleaning, or writing artifacts. Rerun, deletion, frontend diff UI,
+queue execution, and Git mutations remain future work.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain

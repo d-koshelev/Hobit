@@ -512,6 +512,47 @@ pub struct AgentExecutorRunDetail {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorDiffSummary {
+    pub repo_root: String,
+    pub status: String,
+    pub files: Vec<AgentExecutorDiffFileSummary>,
+    pub summary: AgentExecutorDiffTotals,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<GitDiffCommandSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorDiffFileSummary {
+    pub path: String,
+    pub status: String,
+    pub staged: bool,
+    pub unstaged: bool,
+    pub untracked: bool,
+    pub conflicted: bool,
+    pub additions: Option<u64>,
+    pub deletions: Option<u64>,
+    pub patch_preview: Option<String>,
+    pub patch_truncated: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentExecutorDiffTotals {
+    pub total_files: usize,
+    pub staged_count: usize,
+    pub unstaged_count: usize,
+    pub untracked_count: usize,
+    pub conflicted_count: usize,
+    pub total_additions: Option<u64>,
+    pub total_deletions: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitDiffCommandSummary {
+    pub program: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CodexDirectWorkStreamStartSummary {
     pub run_id: String,
     pub status: String,

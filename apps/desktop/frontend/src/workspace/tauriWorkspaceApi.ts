@@ -5,6 +5,7 @@ import {
   getAgentQueueSnapshot,
 } from "./tauriAgentQueueApi";
 import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
+import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
 import {
   getAgentExecutorRunDetail,
   listAgentExecutorRuns,
@@ -52,6 +53,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listWidgetLogs,
   listAgentExecutorRuns,
   getAgentExecutorRunDetail,
+  getAgentExecutorDiffSummary,
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,

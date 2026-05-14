@@ -150,6 +150,16 @@ export type GetAgentExecutorRunDetailRequest = {
   runId: string;
 };
 
+export type GetAgentExecutorDiffSummaryRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repoRoot: string;
+  maxFiles?: number | null;
+  maxPatchBytesPerFile?: number | null;
+  includePatchPreview?: boolean | null;
+};
+
 export type AgentExecutorRunHistory = {
   workspaceId: string;
   workbenchId: string;
@@ -189,6 +199,43 @@ export type AgentExecutorRunDetail = {
   validationStatus: string | null;
   changedFilesSummary: string | null;
   logs: WidgetLogEntry[];
+};
+
+export type AgentExecutorDiffSummary = {
+  repoRoot: string;
+  status: string;
+  files: AgentExecutorDiffFileSummary[];
+  summary: AgentExecutorDiffTotals;
+  errorMessage: string | null;
+  commandSummary: GitDiffCommandSummary[];
+};
+
+export type AgentExecutorDiffFileSummary = {
+  path: string;
+  status: string;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
+  conflicted: boolean;
+  additions: number | null;
+  deletions: number | null;
+  patchPreview: string | null;
+  patchTruncated: boolean;
+};
+
+export type AgentExecutorDiffTotals = {
+  totalFiles: number;
+  stagedCount: number;
+  unstagedCount: number;
+  untrackedCount: number;
+  conflictedCount: number;
+  totalAdditions: number | null;
+  totalDeletions: number | null;
+};
+
+export type GitDiffCommandSummary = {
+  program: string;
+  args: string[];
 };
 
 export type CancelCodexDirectWorkRunResponse = {
