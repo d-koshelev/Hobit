@@ -10,6 +10,11 @@ The current repository contains a root Rust workspace that includes the core cra
 
 `DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.
 
+`PRODUCT_UI_VISUAL_CONTRACT.md` defines the target product visual direction for
+UI polish blocks: dark dotted canvas, grid-aware widget geometry direction,
+thin top bar, shared dark/glass widget cards, compact controls, status chips,
+clean tables, preview honesty, and prohibited UI overclaims.
+
 `WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` defines Minimal, Operational, and Full / Expert widget display levels. Future widget architecture and UI blocks should start from the smallest useful surface, avoid raw/debug defaults, and add deeper complexity only through explicit later slices.
 
 `CURRENT_WIDGET_SURFACE.md` captures the current post-cleanup user-facing widget inventory and implementation boundaries.

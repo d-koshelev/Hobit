@@ -8,7 +8,9 @@ A widget is a first-class workbench entity, not only a React component. It has i
 
 Widgets are optional capabilities that can be added, removed, configured, floated in the workspace, resized, repositioned, and composed into workbench presets. A future true popout means a separate Tauri/OS window, not the current in-app floating overlay.
 
-Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md`. Widgets should normally use the shared WidgetFrame anatomy and the unified widget surface rule.
+Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md` and
+`docs/PRODUCT_UI_VISUAL_CONTRACT.md`. Widgets should normally use the shared
+WidgetFrame anatomy and the unified widget surface rule.
 
 Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`.
 Agent Executor, Agent Queue, Interactive Agent, and Runbook should remain
@@ -113,6 +115,12 @@ A widget can be:
 - returned/docked back to its original or selected workbench slot
 
 Changing size, position, or presentation mode must not create a new widget instance. It only changes layout/presentation state.
+
+Future canvas layout polish should align widget outer geometry to the product
+grid direction in `docs/PRODUCT_UI_VISUAL_CONTRACT.md`: x/y position, width,
+height, resize increments, and minimum sizes should use one shared grid step
+when that behavior is explicitly implemented. Current snapping, collision
+detection, and auto-reflow remain unimplemented.
 
 ## Progressive Disclosure
 

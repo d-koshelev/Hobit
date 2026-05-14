@@ -78,6 +78,9 @@ remain out of scope.
 ## Phase 2: Design System
 
 - Define the visual and interaction rules for workbench UI.
+- Use `docs/PRODUCT_UI_VISUAL_CONTRACT.md` as the product visual target for
+  canvas, grid, top bar, widget cards, controls, chips, tables, logs, preview
+  widgets, and prohibited UI overclaims.
 - Create reusable components for panels, toolbars, approvals, activity, and widget containers.
 - Keep UI simple, readable, and non-duplicative.
 

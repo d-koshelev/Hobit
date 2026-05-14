@@ -24,6 +24,12 @@ Preview:
 - Interactive Agent
 - Runbook
 
+Future product polish for these surfaces should follow
+`docs/PRODUCT_UI_VISUAL_CONTRACT.md`: dark dotted Workbench canvas, grid-aware
+widget placement direction, thin top bar, shared dark/glass widget card
+language, compact controls, semantic status chips, and no overclaiming of
+future widget capability.
+
 ## Current Widget Status
 
 ### Agent Executor
