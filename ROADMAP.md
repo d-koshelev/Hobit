@@ -55,6 +55,11 @@ Direct Work reader, storage/schema change, queue execution, Git mutation,
 auto-commit, auto-push, embedded PTY, interactive session, or hidden background
 execution is part of the current roadmap slice.
 
+Future explicit local commit support is contract-gated by
+`docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must remain an
+operator-confirmed Git review action with a visible change set and
+operator-approved message; push requires a later separate contract.
+
 ## Phase 0: Contracts And Repository Foundation
 
 - Define the AI Workbench product contract.

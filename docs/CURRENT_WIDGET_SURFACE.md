@@ -36,7 +36,7 @@ Preview:
 - Provides a read-only backend/Tauri API for stored Direct Work and Direct Work
   validation run history, with a compact read-only frontend history/detail UI.
 - Provides a read-only backend/Tauri diff summary API for an explicit repository
-  root; the frontend diff UI is pending.
+  root, with a compact read-only frontend diff summary UI.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
   hidden background scheduler.
 
@@ -46,6 +46,8 @@ Preview:
   root.
 - Does not stage, commit, push, reset, clean, stash, fetch, poll, watch, or
   mutate repositories.
+- Future explicit local commit support is contract-gated by
+  `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
 
 ### Terminal
 
@@ -118,8 +120,7 @@ current Workbench surface:
 
 ## Recommended Next Blocks
 
-- Agent Executor diff summary UI.
-- Validation presentation polish.
+- Git commit backend/API foundation after the explicit commit contract.
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.

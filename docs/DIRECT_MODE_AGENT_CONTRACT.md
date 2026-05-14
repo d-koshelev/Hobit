@@ -310,6 +310,10 @@ MVP rules:
 Diff review, commit, push, and recovery controls remain future explicit
 approval-gated Git work.
 
+Future explicit local commit support must follow
+`docs/GIT_COMMIT_SUPPORT_CONTRACT.md`: Agent Executor may produce changes or
+suggest a commit message later, but it must not auto-commit.
+
 ### Global Activity
 
 Global Activity should show Direct Work running, idle, and attention states when

@@ -35,6 +35,11 @@ Dangerous actions include actions that may alter files, execute commands, change
 
 These examples are future capabilities. They must follow the same approval-aware action model.
 
+Future Git commit actions are high-power mutating Tool Actions and must also
+follow `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`: visible change set,
+operator-approved message, explicit confirmation, and no push in the first
+commit slice.
+
 Future Script Runner behavior is further defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It must use explicit script paths, argv arguments, visible working directories, output caps, timeouts, and operator Run actions, with no hidden or automatic execution.
 
 Future Workspace-aware Coordinator Agent proposals are not tool execution by themselves. When an approved Coordinator proposal becomes a tool action, it must still follow this approval-aware Tool Action contract and the approved-context proposal rules in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.

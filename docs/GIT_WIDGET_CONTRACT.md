@@ -4,7 +4,9 @@
 
 This contract defines the future Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
-The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. Agent Executor also has a read-only backend/Tauri diff summary API for an explicit repository root, but no Git Widget diff UI yet. These foundations do not add repository root/status persistence, log/show operations, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
+The full Git Widget runtime is not implemented yet. This document is a product/domain contract. The current frontend has an insertable Git widget placeholder with a transient explicit repository-root input and a manual desktop-only read-only status refresh through `get_git_repository_status`, backed by the narrow `hobit-tools` status adapter. Agent Executor also has a read-only backend/Tauri diff summary API and compact frontend diff summary UI for an explicit repository root, but no Git Widget diff UI yet. These foundations do not add repository root/status persistence, log/show operations, validation association, Git-response association, storage schema changes, polling, watching, mutating Git behavior, or broader runtime behavior.
+
+Future explicit local commit support must also follow `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
 
 ## Role
 
@@ -278,6 +280,11 @@ These operations require explicit operator approval:
 
 The widget must show purpose, expected effect, affected files or commits, and risk before executing these actions.
 
+Commit creation has a dedicated safety contract in
+`docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must be explicit only,
+must show the included change set and operator-approved message, and must not
+include push in the first commit slice.
+
 ### High-Risk Operations Requiring Stronger Confirmation
 
 These operations require stronger confirmation than normal mutating actions:
@@ -337,6 +344,10 @@ MVP rules:
 - Generated commit messages, if supported later, must remain reviewable before
   commit.
 - Failed or skipped validation must remain visible next to repository state.
+
+Future explicit commit controls after Direct Work must follow
+`docs/GIT_COMMIT_SUPPORT_CONTRACT.md`; Agent Executor completion must not imply
+auto-commit.
 
 ## Relation To Request And Response Templates
 

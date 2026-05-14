@@ -289,6 +289,11 @@ Rules:
 
 For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
 
+Future explicit commit actions should follow
+`docs/GIT_COMMIT_SUPPORT_CONTRACT.md` and record enough result detail for the
+operator to distinguish run success, validation status, commit success, and
+remaining Git review state.
+
 ## Relation To Direct Mode
 
 Direct Work runs are executor/task runs and must be observable here. Current
