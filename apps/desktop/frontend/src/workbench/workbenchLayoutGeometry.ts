@@ -30,13 +30,16 @@ export type PopoutPositionMap = Partial<
 
 type LayoutSurfaceRect = Pick<DOMRect, "height" | "left" | "top" | "width">;
 
+// Keep this in sync with --workbench-grid-step in styles/tokens.css.
+export const WORKBENCH_GRID_STEP = 24;
+
 const DEFAULT_POPOUT_TOP = 96;
 const DEFAULT_NARROW_POPOUT_TOP = 80;
-const DOCKED_LAYOUT_MIN_HEIGHT = 520;
-const DOCKED_LAYOUT_BOTTOM_PADDING = 240;
+const DOCKED_LAYOUT_MIN_HEIGHT = WORKBENCH_GRID_STEP * 22;
+const DOCKED_LAYOUT_BOTTOM_PADDING = WORKBENCH_GRID_STEP * 10;
 const DOCKED_WIDGET_MAX_DIMENSION = 16_384;
-const DOCKED_WIDGET_MIN_HEIGHT = 240;
-const DOCKED_WIDGET_MIN_WIDTH = 320;
+const DOCKED_WIDGET_MIN_HEIGHT = WORKBENCH_GRID_STEP * 10;
+const DOCKED_WIDGET_MIN_WIDTH = WORKBENCH_GRID_STEP * 14;
 const POPOUT_DESKTOP_MARGIN = 48;
 const POPOUT_NARROW_MARGIN = 32;
 const POPOUT_EDGE_MARGIN = 16;
@@ -115,8 +118,16 @@ export function clampDockedPosition(
   );
 
   return {
-    x: clamp(Math.round(position.x), 0, maxX),
-    y: clamp(Math.round(position.y), 0, maxY),
+    x: clamp(
+      snapToWorkbenchGrid(position.x),
+      0,
+      snapMaximumToWorkbenchGrid(maxX, 0),
+    ),
+    y: clamp(
+      snapToWorkbenchGrid(position.y),
+      0,
+      snapMaximumToWorkbenchGrid(maxY, 0),
+    ),
   };
 }
 
@@ -135,9 +146,21 @@ export function clampDockedSize(
   );
 
   return {
-    height: clamp(Math.round(size.height), DOCKED_WIDGET_MIN_HEIGHT, maxHeight),
-    width: clamp(Math.round(size.width), DOCKED_WIDGET_MIN_WIDTH, maxWidth),
+    height: clamp(
+      snapToWorkbenchGrid(size.height),
+      DOCKED_WIDGET_MIN_HEIGHT,
+      snapMaximumToWorkbenchGrid(maxHeight, DOCKED_WIDGET_MIN_HEIGHT),
+    ),
+    width: clamp(
+      snapToWorkbenchGrid(size.width),
+      DOCKED_WIDGET_MIN_WIDTH,
+      snapMaximumToWorkbenchGrid(maxWidth, DOCKED_WIDGET_MIN_WIDTH),
+    ),
   };
+}
+
+export function snapToWorkbenchGrid(value: number) {
+  return Math.round(value / WORKBENCH_GRID_STEP) * WORKBENCH_GRID_STEP;
 }
 
 export function nextDockedDragPosition({
@@ -370,6 +393,13 @@ function visibleWidgetMap(widgets: WidgetInstance[]) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function snapMaximumToWorkbenchGrid(value: number, minimum: number) {
+  return Math.max(
+    minimum,
+    Math.floor(value / WORKBENCH_GRID_STEP) * WORKBENCH_GRID_STEP,
+  );
 }
 
 function popoutViewportMargin() {
