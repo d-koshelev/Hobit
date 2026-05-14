@@ -6,10 +6,14 @@ import type {
   RunDirectWorkValidationResponse,
 } from "../workspace/types";
 import { formatDirectWorkDuration } from "./CodexDirectWorkTiming";
+import {
+  validationFailurePreview,
+  validationOutputPreview,
+  validationResultStatusView,
+} from "./CodexDirectWorkValidationFormatting";
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetInstanceId } from "./types";
 
-const OUTPUT_PREVIEW_LIMIT = 3000;
 const VALIDATION_PROFILES: readonly DirectWorkValidationProfile[] = [
   "fast",
   "changed",
@@ -142,7 +146,7 @@ export function CodexDirectWorkValidationPanel({
 
       {validationState.status === "running" ? (
         <p className="codex-direct-work-review-note">
-          Running {validationState.profile} validation...
+          Validation running... Profile: {validationState.profile}
         </p>
       ) : null}
 
@@ -170,17 +174,25 @@ function ValidationResult({
   result: RunDirectWorkValidationResponse;
 }) {
   const statusView = validationResultStatusView(result.status);
+  const failurePreview = validationFailurePreview(result);
 
   return (
     <>
+      <div
+        className={`codex-direct-work-validation-summary codex-direct-work-validation-summary-${statusView.tone}`}
+      >
+        <p className="codex-direct-work-validation-title">
+          {statusView.title}
+        </p>
+        <p className="codex-direct-work-text">{statusView.description}</p>
+      </div>
+
       <StaticPreviewFieldList
         className="codex-direct-work-result-grid"
         fieldClassName="codex-direct-work-result-field"
         fields={[
           { label: "Profile", value: result.profile },
           { label: "Status", value: statusView.title },
-          { label: "Run id", value: result.runId },
-          { label: "Result id", value: result.resultId },
           {
             label: "Duration",
             value: formatDirectWorkDuration(result.durationMs),
@@ -188,23 +200,71 @@ function ValidationResult({
           {
             label: "Exit code",
             value:
-              result.exitCode === null ? "None" : String(result.exitCode),
+              result.exitCode === null
+                ? "Not available"
+                : String(result.exitCode),
           },
-          {
-            label: "Git mutations",
-            value: result.gitMutationsPerformedByHobit ? "Yes" : "No",
-          },
-          { label: "Commit/push", value: result.noCommitPush ? "No" : "Yes" },
         ]}
         labelClassName="codex-direct-work-result-label"
         valueClassName="codex-direct-work-result-value"
       />
 
-      {result.errorMessage ? (
-        <div className="codex-direct-work-error-message">
-          <span className="codex-direct-work-result-label">Error message</span>
+      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
+        <summary className="codex-direct-work-output-summary">
+          Run artifact ids
+        </summary>
+        <StaticPreviewFieldList
+          className="codex-direct-work-result-grid"
+          fieldClassName="codex-direct-work-result-field"
+          fields={[
+            { label: "Run id", value: result.runId },
+            { label: "Result id", value: result.resultId },
+            { label: "Run status", value: result.runStatus },
+            { label: "Result type", value: result.resultType },
+          ]}
+          labelClassName="codex-direct-work-result-label"
+          valueClassName="codex-direct-work-result-value"
+        />
+      </details>
+
+      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
+        <summary className="codex-direct-work-output-summary">
+          Validation safety flags
+        </summary>
+        <StaticPreviewFieldList
+          className="codex-direct-work-result-grid"
+          fieldClassName="codex-direct-work-result-field"
+          fields={[
+            {
+              label: "No Git mutations",
+              value: result.noGitMutations ? "Yes" : "No",
+            },
+            {
+              label: "Git mutations by Hobit",
+              value: result.gitMutationsPerformedByHobit ? "Yes" : "No",
+            },
+            {
+              label: "Commit/push",
+              value: result.noCommitPush ? "No" : "Yes",
+            },
+          ]}
+          labelClassName="codex-direct-work-result-label"
+          valueClassName="codex-direct-work-result-value"
+        />
+      </details>
+
+      {failurePreview ? (
+        <div
+          className={`codex-direct-work-validation-failure-preview codex-direct-work-validation-failure-preview-${statusView.tone}`}
+        >
+          <span className="codex-direct-work-result-label">
+            Failure preview
+          </span>
           <span className="codex-direct-work-result-value">
-            {result.errorMessage}
+            {failurePreview.text}
+          </span>
+          <span className="codex-direct-work-result-hint">
+            {failurePreview.sourceLabel}
           </span>
         </div>
       ) : null}
@@ -213,11 +273,11 @@ function ValidationResult({
         <summary className="codex-direct-work-output-summary">
           stdout preview
           {result.stdoutTruncated ? (
-            <Badge variant="warning">Backend truncated</Badge>
+            <Badge variant="warning">Output truncated</Badge>
           ) : null}
         </summary>
         <pre className="codex-direct-work-output">
-          <code>{previewOutput(result.stdout || "No stdout captured.")}</code>
+          <code>{validationOutputPreview(result.stdout || "No stdout captured.")}</code>
         </pre>
       </details>
 
@@ -225,11 +285,11 @@ function ValidationResult({
         <summary className="codex-direct-work-output-summary">
           stderr preview
           {result.stderrTruncated ? (
-            <Badge variant="warning">Backend truncated</Badge>
+            <Badge variant="warning">stderr truncated</Badge>
           ) : null}
         </summary>
         <pre className="codex-direct-work-output">
-          <code>{previewOutput(result.stderr || "No stderr captured.")}</code>
+          <code>{validationOutputPreview(result.stderr || "No stderr captured.")}</code>
         </pre>
       </details>
     </>
@@ -272,64 +332,6 @@ function validationStatusView(state: ValidationState): {
     badgeVariant: "neutral",
     tone: "neutral",
   };
-}
-
-function validationResultStatusView(status: string): {
-  badgeLabel: string;
-  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
-  title: string;
-  tone: "neutral" | "success" | "warning" | "error";
-} {
-  if (status === "passed") {
-    return {
-      badgeLabel: "Passed",
-      badgeVariant: "success",
-      title: "Validation passed",
-      tone: "success",
-    };
-  }
-
-  if (status === "failed") {
-    return {
-      badgeLabel: "Failed",
-      badgeVariant: "warning",
-      title: "Validation failed",
-      tone: "warning",
-    };
-  }
-
-  if (status === "timed_out") {
-    return {
-      badgeLabel: "Timed out",
-      badgeVariant: "warning",
-      title: "Validation timed out",
-      tone: "warning",
-    };
-  }
-
-  if (status === "failed_to_start") {
-    return {
-      badgeLabel: "Could not start",
-      badgeVariant: "error",
-      title: "Validation could not start",
-      tone: "error",
-    };
-  }
-
-  return {
-    badgeLabel: status,
-    badgeVariant: "neutral",
-    title: status,
-    tone: "neutral",
-  };
-}
-
-function previewOutput(output: string): string {
-  if (output.length <= OUTPUT_PREVIEW_LIMIT) {
-    return output;
-  }
-
-  return `${output.slice(0, OUTPUT_PREVIEW_LIMIT)}\n[Preview truncated in UI.]`;
 }
 
 function errorToMessage(error: unknown) {
