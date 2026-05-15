@@ -11,6 +11,8 @@ import type {
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   ListAgentQueueTasksRequest,
+  StartAssignedAgentQueueTaskRequest,
+  StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
 } from "./types";
 
@@ -63,6 +65,15 @@ type TauriAgentQueueTask = {
   assigned_executor_widget_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type TauriStartAssignedAgentQueueTaskResponse = {
+  workspace_id: string;
+  queue_item_id: string;
+  workbench_id: string;
+  executor_widget_instance_id: string;
+  run_id: string;
+  status: string;
 };
 
 export async function createAgentQueueItemFromProposal(
@@ -198,6 +209,29 @@ export async function clearAgentQueueTaskAssignment(
   return normalizeAgentQueueTask(task);
 }
 
+export async function startAssignedAgentQueueTask(
+  request: StartAssignedAgentQueueTaskRequest,
+): Promise<StartAssignedAgentQueueTaskResponse> {
+  const response = await invoke<TauriStartAssignedAgentQueueTaskResponse>(
+    "start_assigned_agent_queue_task",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+        codex_executable: request.codexExecutable,
+        repo_root: request.repoRoot,
+        sandbox: request.sandbox,
+        approval_policy: request.approvalPolicy,
+        timeout_ms: request.timeoutMs ?? null,
+        stdout_cap_bytes: request.stdoutCapBytes ?? null,
+        stderr_cap_bytes: request.stderrCapBytes ?? null,
+      },
+    },
+  );
+
+  return normalizeStartAssignedAgentQueueTaskResponse(response);
+}
+
 function normalizeAgentQueueSnapshot(
   snapshot: TauriAgentQueueSnapshot,
 ): AgentQueueSnapshot {
@@ -252,5 +286,18 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     assignedExecutorWidgetId: task.assigned_executor_widget_id,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
+  };
+}
+
+function normalizeStartAssignedAgentQueueTaskResponse(
+  response: TauriStartAssignedAgentQueueTaskResponse,
+): StartAssignedAgentQueueTaskResponse {
+  return {
+    workspaceId: response.workspace_id,
+    queueItemId: response.queue_item_id,
+    workbenchId: response.workbench_id,
+    executorWidgetInstanceId: response.executor_widget_instance_id,
+    runId: response.run_id,
+    status: response.status,
   };
 }

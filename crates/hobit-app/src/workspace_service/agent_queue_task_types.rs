@@ -33,6 +33,48 @@ pub struct ClearAgentQueueTaskAssignmentInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StartAssignedAgentQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub codex_executable: String,
+    pub repo_root: std::path::PathBuf,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FinishAssignedAgentQueueTaskRunInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub executor_widget_instance_id: String,
+    pub run_id: String,
+    pub direct_work_status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssignedAgentQueueTaskRunPlan {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub workbench_id: String,
+    pub executor_widget_instance_id: String,
+    pub direct_work_input: super::RunCodexDirectWorkInput,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssignedAgentQueueTaskStartSummary {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub workbench_id: String,
+    pub executor_widget_instance_id: String,
+    pub run_id: String,
+    pub status: String,
+    pub direct_work_input: super::RunCodexDirectWorkInput,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueTaskSummary {
     pub queue_item_id: String,
     pub workspace_id: String,

@@ -279,6 +279,36 @@ fn list_agent_queue_tasks_orders_priority_first_then_recently_updated() {
 }
 
 #[test]
+fn update_agent_queue_task_status_updates_status_and_updated_at() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    let task = store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-1",
+            workspace_id: "workspace-1",
+            title: "Task",
+            description: "Description",
+            prompt: "Prompt",
+            status: "queued",
+            priority: 1,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+
+    let updated = store
+        .update_agent_queue_task_status("workspace-1", "task-1", "running", Some("9"))
+        .expect("update task status")
+        .expect("updated task");
+
+    assert_eq!(updated.status, "running");
+    assert_eq!(updated.title, task.title);
+    assert_eq!(updated.prompt, task.prompt);
+    assert_eq!(updated.priority, task.priority);
+    assert_eq!(updated.updated_at, "9");
+}
+
+#[test]
 fn assign_agent_queue_task_to_executor_updates_assignment_and_updated_at() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");

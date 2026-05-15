@@ -123,6 +123,30 @@ impl SqliteStore {
         self.get_agent_queue_task(workspace_id, queue_item_id)
     }
 
+    pub fn update_agent_queue_task_status(
+        &self,
+        workspace_id: &str,
+        queue_item_id: &str,
+        status: &str,
+        updated_at: Option<&str>,
+    ) -> Result<Option<AgentQueueTaskRow>> {
+        let updated_at = updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_tasks
+             SET status = ?1, updated_at = ?2
+             WHERE workspace_id = ?3 AND queue_item_id = ?4",
+            params![status, updated_at, workspace_id, queue_item_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_task(workspace_id, queue_item_id)
+    }
+
     pub fn assign_agent_queue_task_to_executor(
         &self,
         workspace_id: &str,

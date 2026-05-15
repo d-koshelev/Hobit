@@ -29,14 +29,17 @@ The current repository has:
   assignment and assignment clearing
 - frontend controls for manually assigning or clearing a visible Agent Executor
   slot on the selected task
+- backend/Tauri/frontend API foundation for manually starting an assigned task
+  in its assigned Agent Executor with an explicit repository root
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted proposal-review item compatibility paths scoped to the current
   Workspace Workbench
-- no automatic agent execution
+- no frontend run button or automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator
-- no executor runtime integration
-- no run-from-assignment behavior
+- no frontend run-from-assignment UI
+- no automatic executor runtime integration beyond the manual assigned-task
+  start API
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 

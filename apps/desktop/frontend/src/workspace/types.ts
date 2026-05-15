@@ -90,9 +90,7 @@ export type CreateAgentQueueTaskRequest = {
 };
 
 export type ListAgentQueueTasksRequest = { workspaceId: string };
-
 export type GetAgentQueueTaskRequest = { workspaceId: string; queueItemId: string };
-
 export type UpdateAgentQueueTaskRequest = {
   workspaceId: string;
   queueItemId: string;
@@ -108,6 +106,8 @@ export type AssignAgentQueueTaskToExecutorRequest = GetAgentQueueTaskRequest & {
 };
 
 export type ClearAgentQueueTaskAssignmentRequest = GetAgentQueueTaskRequest;
+export type StartAssignedAgentQueueTaskRequest = Omit<RunCodexDirectWorkRequest, "workbenchId" | "widgetInstanceId" | "operatorPrompt"> & { queueItemId: string };
+export type StartAssignedAgentQueueTaskResponse = { workspaceId: string; queueItemId: string; workbenchId: string; executorWidgetInstanceId: string; runId: string; status: string };
 
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;

@@ -11,6 +11,15 @@ execution implementation, Agent Executor runtime behavior, scheduler behavior,
 automatic dispatch, dependencies, Git mutation, Terminal launch, PTY behavior,
 or interactive session behavior.
 
+Current implementation foundation: Hobit now exposes a backend/Tauri/frontend
+API method for manually starting an assigned Queue task in its assigned Agent
+Executor. It requires an explicit repository root, starts the normal Direct
+Work streaming path, marks the task `running` after the run starts, and updates
+the task to `completed`, `failed`, or `cancelled` when the Direct Work run
+finishes. No frontend run button, automatic dispatch, scheduler, dependency
+behavior, Terminal launch, Git mutation, validation auto-run, auto-commit, or
+auto-push is implemented.
+
 ## One-Sentence Rule
 
 Manual run only.
@@ -115,9 +124,9 @@ Recommended future transitions:
 - `running` to `failed` when the Agent Executor run fails
 - `running` to `cancelled` when the operator cancels the run
 
-The persisted task status model supports `running` as data before queue item
-execution exists. A later queue execution implementation may use that status
-for visible lifecycle transitions.
+The persisted task status model supports `running`. The manual backend/API
+foundation uses that status for visible lifecycle transitions, while UI
+controls and richer history linkage remain future work.
 
 The first queue execution implementation must not add automatic dependency
 status transitions.
@@ -158,6 +167,10 @@ Recommended future Queue task linkage fields:
 
 If this is too broad for the first implementation, it may update only task
 status and leave richer run linkage for a later block.
+
+Current implementation returns the Direct Work `run_id` in the start response
+and does not add persisted `last_run_id`, `result_summary`, `started_at`, or
+`completed_at` fields.
 
 ## Queue UI Direction
 

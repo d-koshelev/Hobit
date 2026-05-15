@@ -11,14 +11,14 @@ use super::{
     WorkspaceService, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
-const AGENT_QUEUE_TASK_STATUS_DRAFT: &str = "draft";
-const AGENT_QUEUE_TASK_STATUS_QUEUED: &str = "queued";
-const AGENT_QUEUE_TASK_STATUS_READY: &str = "ready";
-const AGENT_QUEUE_TASK_STATUS_RUNNING: &str = "running";
-const AGENT_QUEUE_TASK_STATUS_COMPLETED: &str = "completed";
-const AGENT_QUEUE_TASK_STATUS_FAILED: &str = "failed";
-const AGENT_QUEUE_TASK_STATUS_CANCELLED: &str = "cancelled";
-const AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED: &str = "review_needed";
+pub(super) const AGENT_QUEUE_TASK_STATUS_DRAFT: &str = "draft";
+pub(super) const AGENT_QUEUE_TASK_STATUS_QUEUED: &str = "queued";
+pub(super) const AGENT_QUEUE_TASK_STATUS_READY: &str = "ready";
+pub(super) const AGENT_QUEUE_TASK_STATUS_RUNNING: &str = "running";
+pub(super) const AGENT_QUEUE_TASK_STATUS_COMPLETED: &str = "completed";
+pub(super) const AGENT_QUEUE_TASK_STATUS_FAILED: &str = "failed";
+pub(super) const AGENT_QUEUE_TASK_STATUS_CANCELLED: &str = "cancelled";
+pub(super) const AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED: &str = "review_needed";
 const MIN_AGENT_QUEUE_TASK_PRIORITY: i64 = 0;
 const MAX_AGENT_QUEUE_TASK_PRIORITY: i64 = 5;
 
@@ -342,7 +342,7 @@ fn required_owned(value: String, label: &str) -> Result<String, WorkspaceService
     required_input(&value, label).map(str::to_owned)
 }
 
-fn load_agent_queue_task(
+pub(super) fn load_agent_queue_task(
     store: &hobit_storage_sqlite::SqliteStore,
     workspace_id: &str,
     queue_item_id: &str,
@@ -401,7 +401,7 @@ fn load_assignable_agent_queue_task(
     Ok(task)
 }
 
-fn load_agent_executor_widget(
+pub(super) fn load_agent_executor_widget(
     store: &hobit_storage_sqlite::SqliteStore,
     workspace_id: &str,
     executor_widget_instance_id: &str,
@@ -437,11 +437,11 @@ fn is_assignable_agent_queue_task_status(status: &str) -> bool {
     )
 }
 
-fn storage_invalid_input(message: String) -> hobit_storage_sqlite::StorageError {
+pub(super) fn storage_invalid_input(message: String) -> hobit_storage_sqlite::StorageError {
     hobit_storage_sqlite::StorageError::InvalidParameterName(message)
 }
 
-fn map_storage_agent_queue_task_error(
+pub(super) fn map_storage_agent_queue_task_error(
     error: hobit_storage_sqlite::StorageError,
 ) -> WorkspaceServiceError {
     match error {

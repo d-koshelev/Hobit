@@ -46,6 +46,8 @@ import type {
   RunTerminalCommandResponse,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
+  StartAssignedAgentQueueTaskRequest,
+  StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
@@ -95,6 +97,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateAgentQueueTask,
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
+  startAssignedAgentQueueTask,
   getGitRepositoryStatus,
   createGitCommit,
   persistAgentChatProposal,
@@ -468,6 +471,14 @@ async function clearAgentQueueTaskAssignment(
 ): Promise<AgentQueueTask> {
   throw new Error(
     "Agent Queue assignment persistence is only available in the Tauri desktop shell. Browser fallback cannot clear queue task assignments.",
+  );
+}
+
+async function startAssignedAgentQueueTask(
+  _request: StartAssignedAgentQueueTaskRequest,
+): Promise<StartAssignedAgentQueueTaskResponse> {
+  throw new Error(
+    "Agent Queue execution is only available in the Tauri desktop shell. Browser fallback cannot start assigned queue tasks.",
   );
 }
 

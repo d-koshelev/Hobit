@@ -38,7 +38,7 @@ Current Agent Queue is still a preview/foundation surface.
 
 Agent Queue does not yet provide:
 
-- execution in the current MVP
+- frontend execution UI in the current MVP
 - automatic dispatch
 - a scheduler
 - dependency execution
@@ -179,7 +179,8 @@ Manual assignment is the bridge between a task backlog and future execution.
 Detailed manual Queue-to-Executor assignment rules are defined in
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 Manual run-from-assignment rules are defined in
-`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; execution remains future work.
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; a backend/API foundation now exists,
+while frontend run controls remain future work.
 It should be visible, reversible when safe, and understandable from Agent
 Queue.
 
@@ -301,16 +302,18 @@ Current Agent Queue remains:
   priority, explicit save, and visible executor assignment
 - backed by an assignment API foundation for manually assigning or clearing an
   Agent Executor widget slot
-- supports `running` as task status data before queue execution exists
-- non-executing
+- supports `running` as task status data for manual queue-start lifecycle
+- backed by a manual backend/API foundation for starting an assigned task in
+  its assigned Agent Executor
+- without frontend run controls
 - non-dispatching
 - without dependency management
 
 The task and assignment foundation stores Workspace-scoped task records only. It
-does not add queue execution, scheduler behavior, dependency execution, Agent
-Executor launch, or automatic status transitions.
-Manual run of an assigned task is contract-gated by
-`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains unimplemented.
+does not add scheduler behavior, dependency execution, automatic dispatch, or
+automatic status transitions outside the explicit manual start API.
+Manual run of an assigned task is governed by
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; UI remains pending.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.

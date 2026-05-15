@@ -94,6 +94,9 @@ future widget capability.
   create, list, read, and update.
 - Manual Queue-to-Executor assignment backend/storage/Tauri/frontend API
   foundation exists for assigning and clearing an Agent Executor slot.
+- Manual Queue-to-Executor execution backend/Tauri/frontend API foundation
+  exists for starting an assigned task in its assigned Agent Executor with an
+  explicit repository root.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
   It supports `running` as task status data and can also manually assign or
@@ -102,10 +105,11 @@ future widget capability.
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
   slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
   Manual run of an assigned task is governed by
-  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains future work.
-- Does not execute, dispatch, schedule, approve/apply, run assigned tasks,
-  capture responses, validate responses, mutate files, mutate Notes, or mutate
-  Git.
+  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; frontend run controls remain future
+  work.
+- Does not dispatch, schedule, approve/apply, automatically run assigned tasks,
+  capture responses outside normal Direct Work artifacts, validate responses,
+  mutate Notes, launch Terminal, or mutate Git.
 
 ### Interactive Agent
 

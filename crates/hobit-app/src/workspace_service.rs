@@ -10,6 +10,7 @@ mod agent_executor_history;
 mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
+mod agent_queue_execution;
 mod agent_queue_task_types;
 mod agent_queue_tasks;
 mod direct_work;
@@ -40,6 +41,8 @@ mod agent_monitoring_tests;
 #[cfg(test)]
 mod agent_proposal_tests;
 #[cfg(test)]
+mod agent_queue_execution_tests;
+#[cfg(test)]
 mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_tests;
@@ -67,8 +70,10 @@ mod widget_singleton_tests;
 mod workspace_deletion_tests;
 
 pub use agent_queue_task_types::{
-    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, AssignedAgentQueueTaskRunPlan,
+    AssignedAgentQueueTaskStartSummary, ClearAgentQueueTaskAssignmentInput,
+    CreateAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
+    StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,

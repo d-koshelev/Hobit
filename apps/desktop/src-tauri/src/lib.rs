@@ -11,6 +11,10 @@ mod agent_executor_history_dto_tests;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
+mod agent_queue_execution_commands;
+mod agent_queue_execution_dto;
+#[cfg(test)]
+mod agent_queue_execution_dto_tests;
 mod agent_queue_task_commands;
 mod agent_queue_task_dto;
 #[cfg(test)]
@@ -76,7 +80,8 @@ pub fn run() {
             agent_queue_task_commands::get_agent_queue_task,
             agent_queue_task_commands::update_agent_queue_task,
             agent_queue_task_commands::assign_agent_queue_task_to_executor,
-            agent_queue_task_commands::clear_agent_queue_task_assignment
+            agent_queue_task_commands::clear_agent_queue_task_assignment,
+            agent_queue_execution_commands::start_assigned_agent_queue_task
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");

@@ -1,5 +1,5 @@
 use hobit_core::widgets::WidgetRunStatus;
-use hobit_storage_sqlite::{NewWidgetResult, NewWidgetRun, WidgetRunFinishUpdate};
+use hobit_storage_sqlite::{NewWidgetResult, NewWidgetRun, SqliteStore, WidgetRunFinishUpdate};
 use hobit_tools::codex_cli::{
     run_codex_direct_work_streaming, run_codex_direct_work_streaming_with_cancellation,
     CodexDirectStreamCancellationToken, CodexDirectStreamEvent, CodexDirectStreamEventKind,
@@ -32,58 +32,10 @@ impl WorkspaceService {
         input: RunCodexDirectWorkInput,
     ) -> Result<Option<CodexDirectWorkStreamStartSummary>, WorkspaceServiceError> {
         let input = normalize_direct_work_input(input)?;
-        let command_payload = direct_work_stream_command_payload(&input);
 
         self.store
             .with_immediate_transaction(|store| {
-                let Some((workspace, _workbench, widget)) = validate_widget_ownership(
-                    store,
-                    &input.workspace_id,
-                    &input.workbench_id,
-                    &input.widget_instance_id,
-                )?
-                else {
-                    return Ok(None);
-                };
-
-                if !can_initiate_direct_work(&widget.definition_id) {
-                    return Ok(None);
-                }
-
-                let run_id = placeholder_id("wrun_");
-                let run = store.insert_widget_run(NewWidgetRun {
-                    id: &run_id,
-                    widget_instance_id: &widget.id,
-                    status: widget_run_status_value(&WIDGET_RUN_STARTED_STATUS),
-                    command_kind: Some(CODEX_DIRECT_WORK_COMMAND_KIND),
-                    command_payload: Some(&command_payload),
-                    started_at: None,
-                    finished_at: None,
-                    summary: Some("Codex Direct Work stream running"),
-                })?;
-
-                append_direct_work_log(
-                    store,
-                    &widget.id,
-                    Some(&run.id),
-                    WIDGET_LOG_INFO_LEVEL,
-                    "Direct Work stream requested",
-                    Some(&direct_work_requested_log_payload(&input)),
-                )?;
-                append_direct_work_log(
-                    store,
-                    &widget.id,
-                    Some(&run.id),
-                    WIDGET_LOG_INFO_LEVEL,
-                    "Codex process starting",
-                    Some(&direct_work_started_log_payload(&run.id)),
-                )?;
-                store.touch_workspace(&workspace.id)?;
-
-                Ok(Some(CodexDirectWorkStreamStartSummary {
-                    run_id: run.id,
-                    status: "started".to_owned(),
-                }))
+                insert_codex_direct_work_stream_start(store, &input)
             })
             .map_err(WorkspaceServiceError::from)
     }
@@ -313,6 +265,61 @@ impl WorkspaceService {
             })
             .map_err(WorkspaceServiceError::from)
     }
+}
+
+pub(super) fn insert_codex_direct_work_stream_start(
+    store: &SqliteStore,
+    input: &NormalizedDirectWorkInput,
+) -> Result<Option<CodexDirectWorkStreamStartSummary>, hobit_storage_sqlite::StorageError> {
+    let command_payload = direct_work_stream_command_payload(input);
+    let Some((workspace, _workbench, widget)) = validate_widget_ownership(
+        store,
+        &input.workspace_id,
+        &input.workbench_id,
+        &input.widget_instance_id,
+    )?
+    else {
+        return Ok(None);
+    };
+
+    if !can_initiate_direct_work(&widget.definition_id) {
+        return Ok(None);
+    }
+
+    let run_id = placeholder_id("wrun_");
+    let run = store.insert_widget_run(NewWidgetRun {
+        id: &run_id,
+        widget_instance_id: &widget.id,
+        status: widget_run_status_value(&WIDGET_RUN_STARTED_STATUS),
+        command_kind: Some(CODEX_DIRECT_WORK_COMMAND_KIND),
+        command_payload: Some(&command_payload),
+        started_at: None,
+        finished_at: None,
+        summary: Some("Codex Direct Work stream running"),
+    })?;
+
+    append_direct_work_log(
+        store,
+        &widget.id,
+        Some(&run.id),
+        WIDGET_LOG_INFO_LEVEL,
+        "Direct Work stream requested",
+        Some(&direct_work_requested_log_payload(input)),
+    )?;
+    append_direct_work_log(
+        store,
+        &widget.id,
+        Some(&run.id),
+        WIDGET_LOG_INFO_LEVEL,
+        "Codex process starting",
+        Some(&direct_work_started_log_payload(&run.id)),
+    )?;
+    store.touch_workspace(&workspace.id)?;
+
+    Ok(Some(CodexDirectWorkStreamStartSummary {
+        run_id: run.id,
+        status: "started".to_owned(),
+    }))
 }
 
 fn direct_work_stream_event_summary(
