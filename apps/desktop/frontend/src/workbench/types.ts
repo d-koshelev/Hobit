@@ -5,6 +5,7 @@ import type {
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
+  CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
   GitCommitResponse,
   GitRepositoryStatus,
@@ -16,6 +17,8 @@ import type {
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  UpdateWorkspaceNoteRequest,
+  WorkspaceNote,
 } from "../workspace/types";
 
 export type WidgetCategory =
@@ -244,6 +247,14 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<GitCommitResponse | null>;
+  onCreateWorkspaceNote?: (
+    request: Omit<CreateWorkspaceNoteRequest, "workspaceId">,
+  ) => Promise<WorkspaceNote>;
+  onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
+  onGetWorkspaceNote?: (noteId: string) => Promise<WorkspaceNote | null>;
+  onUpdateWorkspaceNote?: (
+    request: Omit<UpdateWorkspaceNoteRequest, "workspaceId">,
+  ) => Promise<WorkspaceNote | null>;
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;

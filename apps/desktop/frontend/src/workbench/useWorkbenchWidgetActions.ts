@@ -47,6 +47,7 @@ import type {
 } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
+import { createWorkspaceNoteActions, type WorkspaceNoteWidgetActions } from "./workspaceNoteWidgetActions";
 import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
 
@@ -56,7 +57,7 @@ type UseWorkbenchWidgetActionsOptions = {
   viewState: WorkbenchViewState;
 };
 
-export type WorkbenchWidgetActions = {
+export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
   getGitRepositoryStatus: (
     widgetInstanceId: WidgetInstanceId,
@@ -107,7 +108,7 @@ export type WorkbenchWidgetActions = {
   updateWidgetState: (widgetInstanceId: WidgetInstanceId, state: WidgetState) => Promise<void>;
 };
 
-export type WorkbenchWidgetInstanceActions = Pick<
+export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions & Pick<
   WorkbenchWidgetActions,
   | "listWidgetLogs"
   | "logRefreshTokens"
@@ -674,6 +675,7 @@ export function useWorkbenchWidgetActions({
 
   return {
     addWidgetTemplate,
+    ...createWorkspaceNoteActions(viewState),
     getAgentQueueSnapshot: loadAgentQueueSnapshot,
     listAgentExecutorRuns: loadAgentExecutorRuns,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,

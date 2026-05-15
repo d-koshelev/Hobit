@@ -214,6 +214,22 @@ export function WidgetHost({
     definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.createGitCommit
       : undefined;
+  const createWorkspaceNote =
+    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.createWorkspaceNote
+      : undefined;
+  const listWorkspaceNotes =
+    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.listWorkspaceNotes
+      : undefined;
+  const getWorkspaceNote =
+    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.getWorkspaceNote
+      : undefined;
+  const updateWorkspaceNote =
+    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.updateWorkspaceNote
+      : undefined;
 
   if (!Component) {
     return (
@@ -273,6 +289,10 @@ export function WidgetHost({
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}
       onLoadLogs={widgetActions.listWidgetLogs}
       onCreateGitCommit={createGitCommit}
+      onCreateWorkspaceNote={createWorkspaceNote}
+      onListWorkspaceNotes={listWorkspaceNotes}
+      onGetWorkspaceNote={getWorkspaceNote}
+      onUpdateWorkspaceNote={updateWorkspaceNote}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}
       onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}

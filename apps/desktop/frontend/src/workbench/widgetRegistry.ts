@@ -81,7 +81,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: NOTES_WIDGET_DEFINITION_ID,
     title: "Notes",
     category: "notes",
-    description: "Persisted placeholder for future workspace notes.",
+    description: "Workspace-local notes list and editor.",
     defaultTitle: "Notes",
     defaultConfig: {},
     componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
