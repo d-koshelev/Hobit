@@ -587,6 +587,7 @@ export function CodexDirectWorkPanel({
         liveRun={liveRun}
         runErrorMessage={runErrorMessage}
         runResult={runResult}
+        widgetInstanceId={widgetInstanceId}
       />
 
       <CodexDirectWorkForm

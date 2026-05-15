@@ -1,6 +1,7 @@
 import { Badge } from "../design-system/Badge";
 import type { RunCodexDirectWorkResponse } from "../workspace/types";
 import type { CodexDirectWorkLiveRun } from "./CodexDirectWorkLiveLog";
+import type { WidgetInstanceId } from "./types";
 
 type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
@@ -10,6 +11,7 @@ type CodexDirectWorkPanelOverviewProps = {
   liveRun: CodexDirectWorkLiveRun | null;
   runErrorMessage: string | null;
   runResult: RunCodexDirectWorkResponse | null;
+  widgetInstanceId: WidgetInstanceId;
 };
 
 export function CodexDirectWorkPanelOverview({
@@ -18,6 +20,7 @@ export function CodexDirectWorkPanelOverview({
   liveRun,
   runErrorMessage,
   runResult,
+  widgetInstanceId,
 }: CodexDirectWorkPanelOverviewProps) {
   const statusView = directWorkPanelStatusView({
     canRunBackend,
@@ -25,7 +28,9 @@ export function CodexDirectWorkPanelOverview({
     liveRun,
     runErrorMessage,
     runResult,
+    widgetInstanceId,
   });
+  const slotIdentity = `Agent Executor ${shortWidgetInstanceId(widgetInstanceId)}`;
 
   return (
     <section
@@ -37,6 +42,8 @@ export function CodexDirectWorkPanelOverview({
           <h3 className="codex-direct-work-title">Agent Executor</h3>
           <p className="codex-direct-work-text">
             Runs one operator-approved task through the local executor boundary.
+            This widget is an execution slot; future Queue assignment can target
+            this slot.
           </p>
         </div>
         <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>
@@ -46,7 +53,8 @@ export function CodexDirectWorkPanelOverview({
         <OverviewField label="Role" value="Execution surface" />
         <OverviewField label="Provider" value="Codex CLI" />
         <OverviewField label="Mode" value="Direct Work" />
-        <OverviewField label="Run status" value={statusView.description} />
+        <OverviewField label="Current status" value={statusView.description} />
+        <OverviewField label="Slot" value={slotIdentity} />
       </dl>
     </section>
   );
@@ -74,7 +82,7 @@ function directWorkPanelStatusView({
 } {
   if (!canRunBackend) {
     return {
-      badgeLabel: "Unsupported",
+      badgeLabel: "Status unknown",
       badgeVariant: "neutral",
       description: "Backend execution is unavailable in this runtime.",
     };
@@ -93,7 +101,7 @@ function directWorkPanelStatusView({
 
   if (finalStatus === "completed") {
     return {
-      badgeLabel: "Completed",
+      badgeLabel: exitCode === 0 ? "Completed" : "Attention needed",
       badgeVariant: exitCode === 0 ? "success" : "warning",
       description:
         exitCode === 0
@@ -112,7 +120,7 @@ function directWorkPanelStatusView({
 
   if (finalStatus === "timed_out") {
     return {
-      badgeLabel: "Timed out",
+      badgeLabel: "Attention needed",
       badgeVariant: "warning",
       description: "Last run timed out.",
     };
@@ -131,4 +139,10 @@ function directWorkPanelStatusView({
     badgeVariant: "neutral",
     description: "Ready for one explicit Direct Work task.",
   };
+}
+
+function shortWidgetInstanceId(widgetInstanceId: WidgetInstanceId) {
+  const compactId = widgetInstanceId.replace(/[^a-z0-9]/gi, "");
+
+  return compactId.slice(-6) || widgetInstanceId.slice(-6) || "unknown";
 }

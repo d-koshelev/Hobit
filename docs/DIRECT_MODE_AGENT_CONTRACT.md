@@ -275,6 +275,12 @@ running one task and showing execution. Agent Monitoring may remain a secondary
 or future inspection surface for stored artifacts, but Direct Work / Codex
 should be positioned as the Agent Executor direction.
 
+Each Agent Executor widget instance is also the future execution slot identity
+for Queue assignment. The current UI shows a compact slot label based on the
+stable widget instance id while preserving the internal `agent-run` persistence
+identity. No new persistent executor id, Queue assignment, dispatch, or runtime
+behavior is added by the slot label.
+
 Future Direct Work runs should appear with:
 
 - Overview

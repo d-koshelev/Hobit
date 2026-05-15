@@ -148,6 +148,9 @@ for `t1` and `t3` waits for `t2`.
 
 Agent Executor widgets are future execution slots for queued work.
 
+Current Agent Executor UI shows a compact slot identity derived from the stable
+widget instance id. No separate persistent executor id exists yet.
+
 Capacity rules:
 
 - Zero Agent Executor widgets means no queued execution.
@@ -157,7 +160,8 @@ Capacity rules:
   dispatch UI exists.
 
 Current Agent Executor manual execution remains valid and does not require
-Agent Queue.
+Agent Queue. Agent Queue assignment and dispatch to these slots remain future
+work.
 
 ## Assignment Model
 

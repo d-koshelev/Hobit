@@ -32,6 +32,8 @@ Current implementation direction:
 - The implementation still uses the Codex CLI Direct Work path internally.
 - The current implementation still reuses the existing `agent-run` identity for
   persistence compatibility.
+- Each Agent Executor widget instance is a visible execution slot. The current
+  UI uses the stable widget instance id as the technical slot identity.
 
 Agent Executor should include:
 
@@ -179,6 +181,8 @@ The number of Agent Executor widgets determines available execution slots.
 - 0 Agent Executors means queued work cannot run.
 - 1 Agent Executor means one task can run at a time.
 - N Agent Executors means up to N tasks may run concurrently.
+- Current Agent Executor widgets show a compact slot identity. Queue assignment
+  to a slot remains future work.
 
 Automatic scheduling is future work. Manual execution from an Agent Executor
 remains valid.

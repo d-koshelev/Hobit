@@ -37,6 +37,8 @@ future widget capability.
 - Implemented Direct Work execution surface.
 - Uses the Codex CLI Direct Work path.
 - Reuses the internal `agent-run` widget id for persistence compatibility.
+- Each Agent Executor widget instance is shown as an execution slot using a
+  compact label derived from its stable widget instance id.
 - Shows run state, live logs, stop run, result output, changed-files summary,
   Git read-only handoff, and validation capture.
 - Provides a read-only backend/Tauri API for stored Direct Work and Direct Work
@@ -44,7 +46,8 @@ future widget capability.
 - Provides a read-only backend/Tauri diff summary API for an explicit repository
   root, with a compact read-only frontend diff summary UI.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
-  hidden background scheduler.
+  hidden background scheduler. Queue assignment to Executor slots remains
+  future work.
 
 ### Git
 
