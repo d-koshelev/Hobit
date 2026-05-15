@@ -22,6 +22,7 @@ import type {
   WidgetPresentationMode,
   WidgetRenderProps,
   WorkbenchLayoutMode,
+  AgentExecutorSlot,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import {
@@ -54,6 +55,7 @@ type WidgetHostProps = {
     width: number;
   };
   hasGitWidget: boolean;
+  agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
@@ -76,6 +78,7 @@ export function WidgetHost({
   directWorkGitReview,
   dockedSize,
   hasGitWidget,
+  agentExecutorSlots,
   instance,
   layoutMode,
   onDockBack,
@@ -222,6 +225,14 @@ export function WidgetHost({
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.updateAgentQueueTask
       : undefined;
+  const assignAgentQueueTaskToExecutor =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.assignAgentQueueTaskToExecutor
+      : undefined;
+  const clearAgentQueueTaskAssignment =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.clearAgentQueueTaskAssignment
+      : undefined;
   const createGitCommit =
     definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.createGitCommit
@@ -282,6 +293,7 @@ export function WidgetHost({
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
       hasGitWidget={hasGitWidget}
+      agentExecutorSlots={agentExecutorSlots}
       instance={instance}
       logRefreshToken={logRefreshToken}
       onDirectWorkGitReviewRequested={
@@ -299,6 +311,8 @@ export function WidgetHost({
       onListAgentQueueTasks={listAgentQueueTasks}
       onGetAgentQueueTask={getAgentQueueTask}
       onUpdateAgentQueueTask={updateAgentQueueTask}
+      onAssignAgentQueueTaskToExecutor={assignAgentQueueTaskToExecutor}
+      onClearAgentQueueTaskAssignment={clearAgentQueueTaskAssignment}
       onListAgentExecutorRuns={listAgentExecutorRuns}
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}

@@ -182,9 +182,9 @@ The number of Agent Executor widgets determines available execution slots.
 - 0 Agent Executors means queued work cannot run.
 - 1 Agent Executor means one task can run at a time.
 - N Agent Executors means up to N tasks may run concurrently.
-- Current Agent Executor widgets show a compact slot identity. Queue assignment
-  to a slot remains future work governed by
-  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+- Current Agent Executor widgets show a compact slot identity. Agent Queue can
+  manually assign tasks to those slots, but execution from assignment remains
+  future work governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 
 Automatic scheduling is future work. Manual execution from an Agent Executor
 remains valid.

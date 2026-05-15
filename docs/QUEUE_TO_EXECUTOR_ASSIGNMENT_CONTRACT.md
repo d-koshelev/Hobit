@@ -6,10 +6,11 @@ This contract defines how Agent Queue tasks may be manually assigned to visible
 Agent Executor slots before any automatic dispatch, scheduler, dependency
 execution, or run-from-queue behavior exists.
 
-It is a product and safety contract. The current implementation foundation is
-limited to storage, app service, Tauri, and frontend API assignment methods. It
-does not add frontend UI, queue execution, Agent Executor runtime behavior,
-dependencies, Git mutation, Terminal launch, or background work.
+It is a product and safety contract. The current implementation foundation
+includes storage, app service, Tauri, frontend API assignment methods, and a
+compact Agent Queue assignment UI. It does not add queue execution, Agent
+Executor runtime behavior, dependencies, Git mutation, Terminal launch, or
+background work.
 
 ## One-Sentence Rule
 
@@ -76,10 +77,10 @@ Implemented behavior:
   cross-Workspace widgets, unknown tasks, cross-Workspace tasks, and final task
   statuses
 
-This foundation does not add assignment UI, run-from-queue behavior, queue
-dispatch, scheduler behavior, dependency behavior, Codex launch, Terminal
-launch, Direct Work run creation, widget run creation, execution logs, Git
-mutation, or automatic task status transitions.
+This foundation does not add run-from-queue behavior, queue dispatch, scheduler
+behavior, dependency behavior, Codex launch, Terminal launch, Direct Work run
+creation, widget run creation, execution logs, Git mutation, or automatic task
+status transitions.
 
 ## Executor Identity
 
@@ -216,7 +217,6 @@ Manual assignment must preserve these boundaries:
 
 ## Recommended Implementation Blocks
 
-- Block 193  Manual Queue to Executor assignment UI.
 - Block 194  Run assigned queue item in selected Agent Executor.
 - Block 195  Queue dependencies MVP.
 - Block 196  Queue ready/blocked view.
@@ -227,7 +227,6 @@ Manual assignment must preserve these boundaries:
 
 This contract and current foundation do not implement:
 
-- frontend UI
 - run-from-queue behavior
 - queue execution
 - automatic dispatch

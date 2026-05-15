@@ -4,7 +4,9 @@ import type {
   AgentQueueTask,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
+  AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunResponse,
+  ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
@@ -133,6 +135,11 @@ export type WorkbenchViewState = {
   recentEvents: WorkbenchEventView[];
 };
 
+export type AgentExecutorSlot = {
+  label: string;
+  widgetInstanceId: WidgetInstanceId;
+};
+
 export type WidgetInput = {
   data: Record<string, unknown>;
   context: Record<string, unknown>;
@@ -235,6 +242,13 @@ export type WidgetRenderProps = {
   onUpdateAgentQueueTask?: (
     request: Omit<UpdateAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<AgentQueueTask | null>;
+  onAssignAgentQueueTaskToExecutor?: (
+    request: Omit<AssignAgentQueueTaskToExecutorRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  onClearAgentQueueTaskAssignment?: (
+    request: Omit<ClearAgentQueueTaskAssignmentRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  agentExecutorSlots?: AgentExecutorSlot[];
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
     limit?: number,

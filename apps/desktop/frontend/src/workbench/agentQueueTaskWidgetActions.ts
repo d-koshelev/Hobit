@@ -1,4 +1,6 @@
 import {
+  assignAgentQueueTaskToExecutor,
+  clearAgentQueueTaskAssignment,
   createAgentQueueTask,
   getAgentQueueTask,
   listAgentQueueTasks,
@@ -6,6 +8,8 @@ import {
 } from "../workspace/workspaceApi";
 import type {
   AgentQueueTask,
+  AssignAgentQueueTaskToExecutorRequest,
+  ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   UpdateAgentQueueTaskRequest,
 } from "../workspace/types";
@@ -21,6 +25,16 @@ export type AgentQueueTaskUpdateRequest = Omit<
   "workspaceId"
 >;
 
+export type AgentQueueTaskAssignRequest = Omit<
+  AssignAgentQueueTaskToExecutorRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueTaskClearAssignmentRequest = Omit<
+  ClearAgentQueueTaskAssignmentRequest,
+  "workspaceId"
+>;
+
 export type AgentQueueTaskWidgetActions = {
   createAgentQueueTask: (
     request: AgentQueueTaskCreateRequest,
@@ -30,6 +44,12 @@ export type AgentQueueTaskWidgetActions = {
   updateAgentQueueTask: (
     request: AgentQueueTaskUpdateRequest,
   ) => Promise<AgentQueueTask | null>;
+  assignAgentQueueTaskToExecutor: (
+    request: AgentQueueTaskAssignRequest,
+  ) => Promise<AgentQueueTask>;
+  clearAgentQueueTaskAssignment: (
+    request: AgentQueueTaskClearAssignmentRequest,
+  ) => Promise<AgentQueueTask>;
 };
 
 export function createAgentQueueTaskActions(
@@ -59,6 +79,20 @@ export function createAgentQueueTaskActions(
     updateAgentQueueTask: (request) => {
       requireOpenWorkbench(viewState, "update Agent Queue tasks");
       return updateAgentQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    assignAgentQueueTaskToExecutor: (request) => {
+      requireOpenWorkbench(viewState, "assign Agent Queue tasks");
+      return assignAgentQueueTaskToExecutor({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    clearAgentQueueTaskAssignment: (request) => {
+      requireOpenWorkbench(viewState, "clear Agent Queue task assignment");
+      return clearAgentQueueTaskAssignment({
         workspaceId: viewState.workspace.id,
         ...request,
       });

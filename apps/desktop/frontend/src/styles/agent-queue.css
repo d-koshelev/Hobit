@@ -266,6 +266,64 @@
   gap: var(--space-sm);
 }
 
+.agent-queue-assignment-section {
+  display: grid;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.agent-queue-assignment-header,
+.agent-queue-assignment-controls,
+.agent-queue-assignment-buttons {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.agent-queue-assignment-header {
+  justify-content: space-between;
+}
+
+.agent-queue-assignment-controls {
+  align-items: flex-end;
+}
+
+.agent-queue-assignment-buttons {
+  flex-wrap: wrap;
+}
+
+.agent-queue-assignment-field {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.agent-queue-assignment-select {
+  min-height: 36px;
+}
+
+.agent-queue-assignment-title,
+.agent-queue-assignment-copy,
+.agent-queue-assignment-note {
+  margin: 0;
+}
+
+.agent-queue-assignment-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.agent-queue-assignment-copy,
+.agent-queue-assignment-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
 .agent-queue-message {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -287,6 +345,12 @@
   color: var(--color-error);
 }
 
+.agent-queue-message-success {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
 .agent-queue-boundary-note {
   border-top: 1px solid var(--color-border-subtle);
   padding-top: var(--space-sm);
@@ -294,7 +358,9 @@
 
 @media (max-width: 860px) {
   .agent-queue-product-summary,
-  .agent-queue-editor-actions {
+  .agent-queue-editor-actions,
+  .agent-queue-assignment-controls,
+  .agent-queue-assignment-header {
     align-items: flex-start;
     flex-direction: column;
   }

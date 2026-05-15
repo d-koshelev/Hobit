@@ -3,26 +3,9 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
-import {
-  clamp,
-  DEFAULT_TASK_TITLE,
-  displayTaskTitle,
-  emptyDraft,
-  errorToMessage,
-  FILTERS,
-  formatUpdatedTimestamp,
-  isQueueTaskStatus,
-  MAX_PRIORITY,
-  MIN_PRIORITY,
-  normalizeTaskStatus,
-  statusBadgeVariant,
-  statusLabel,
-  STATUS_OPTIONS,
-  taskPreview,
-  type QueueFilter,
-  type TaskDraft,
-  validateDraft,
-} from "./agentQueueTaskUiModel";
+import { AgentQueueTaskAssignmentPanel } from "./AgentQueueTaskAssignmentPanel";
+import { AgentQueueTaskList } from "./AgentQueueTaskList";
+import { clamp, DEFAULT_TASK_TITLE, emptyDraft, errorToMessage, formatUpdatedTimestamp, isQueueTaskStatus, MAX_PRIORITY, MIN_PRIORITY, normalizeTaskStatus, statusBadgeVariant, statusLabel, STATUS_OPTIONS, type QueueFilter, type TaskDraft, validateDraft } from "./agentQueueTaskUiModel";
 import type { WidgetRenderProps } from "./types";
 
 export function AgentQueuePlaceholderWidget({
@@ -31,6 +14,9 @@ export function AgentQueuePlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  agentExecutorSlots = [],
+  onAssignAgentQueueTaskToExecutor,
+  onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
   onGetAgentQueueTask,
   onListAgentQueueTasks,
@@ -44,11 +30,15 @@ export function AgentQueuePlaceholderWidget({
   const promptInputId = useId();
   const statusInputId = useId();
   const priorityInputId = useId();
+  const assignmentInputId = useId();
   const apiAvailable = Boolean(
     onCreateAgentQueueTask &&
       onGetAgentQueueTask &&
       onListAgentQueueTasks &&
       onUpdateAgentQueueTask,
+  );
+  const assignmentApiAvailable = Boolean(
+    onAssignAgentQueueTaskToExecutor && onClearAgentQueueTaskAssignment,
   );
   const [tasks, setTasks] = useState<AgentQueueTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<AgentQueueTask | null>(null);
@@ -58,8 +48,15 @@ export function AgentQueuePlaceholderWidget({
   const [isCreating, setIsCreating] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignmentMessage, setAssignmentMessage] = useState<string | null>(
+    null,
+  );
+  const [selectedExecutorWidgetId, setSelectedExecutorWidgetId] =
+    useState("");
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
@@ -102,6 +99,7 @@ export function AgentQueuePlaceholderWidget({
       setIsLoading(true);
       setLoadError(null);
       setEditorError(null);
+      setAssignmentError(null);
       setValidationMessage(null);
 
       try {
@@ -150,6 +148,34 @@ export function AgentQueuePlaceholderWidget({
     void loadTasks(null);
   }, [loadTasks]);
 
+  useEffect(() => {
+    if (!selectedTask) {
+      setSelectedExecutorWidgetId("");
+      return;
+    }
+
+    setSelectedExecutorWidgetId((currentSelection) => {
+      if (selectedTask.assignedExecutorWidgetId) {
+        return selectedTask.assignedExecutorWidgetId;
+      }
+
+      if (
+        currentSelection &&
+        agentExecutorSlots.some(
+          (slot) => slot.widgetInstanceId === currentSelection,
+        )
+      ) {
+        return currentSelection;
+      }
+
+      return agentExecutorSlots[0]?.widgetInstanceId ?? "";
+    });
+  }, [
+    agentExecutorSlots,
+    selectedTask?.assignedExecutorWidgetId,
+    selectedTask?.queueItemId,
+  ]);
+
   async function createTask() {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
       return;
@@ -163,6 +189,8 @@ export function AgentQueuePlaceholderWidget({
     setIsCreating(true);
     setLoadError(null);
     setEditorError(null);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
     setValidationMessage(null);
 
     try {
@@ -206,6 +234,8 @@ export function AgentQueuePlaceholderWidget({
 
     setIsSelecting(true);
     setEditorError(null);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
     setValidationMessage(null);
 
     try {
@@ -244,6 +274,8 @@ export function AgentQueuePlaceholderWidget({
 
     setIsSaving(true);
     setEditorError(null);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
     setValidationMessage(null);
     setSaveStateText("Saving");
 
@@ -278,6 +310,7 @@ export function AgentQueuePlaceholderWidget({
       ...currentDraft,
       ...nextDraft,
     }));
+    setAssignmentMessage(null);
     setValidationMessage(null);
   }
 
@@ -288,6 +321,64 @@ export function AgentQueuePlaceholderWidget({
       : MIN_PRIORITY;
 
     updateDraft({ priority });
+  }
+
+  async function assignSelectedTask() {
+    if (
+      !selectedTask ||
+      !onAssignAgentQueueTaskToExecutor ||
+      !selectedExecutorWidgetId ||
+      isAssigning ||
+      isDirty
+    ) {
+      return;
+    }
+
+    setIsAssigning(true);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
+
+    try {
+      const updatedTask = await onAssignAgentQueueTaskToExecutor({
+        executorWidgetInstanceId: selectedExecutorWidgetId,
+        queueItemId: selectedTask.queueItemId,
+      });
+      await loadTasks(updatedTask.queueItemId);
+      setAssignmentMessage("Assignment saved.");
+    } catch (error) {
+      setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
+  async function clearSelectedTaskAssignment() {
+    if (
+      !selectedTask ||
+      !onClearAgentQueueTaskAssignment ||
+      isAssigning ||
+      isDirty
+    ) {
+      return;
+    }
+
+    setIsAssigning(true);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
+
+    try {
+      const updatedTask = await onClearAgentQueueTaskAssignment({
+        queueItemId: selectedTask.queueItemId,
+      });
+      await loadTasks(updatedTask.queueItemId);
+      setAssignmentMessage("Assignment cleared.");
+    } catch (error) {
+      setAssignmentError(
+        errorToMessage(error, "Unable to clear queue task assignment."),
+      );
+    } finally {
+      setIsAssigning(false);
+    }
   }
 
   function setSelectedDraft(task: AgentQueueTask) {
@@ -353,8 +444,8 @@ export function AgentQueuePlaceholderWidget({
           <div className="agent-queue-product-summary-copy">
             <p className="agent-queue-product-eyebrow">Workspace task queue</p>
             <p className="agent-queue-product-summary-text">
-              Manual task planning and history prep. Execution and executor
-              assignment are future work.
+              Manual task planning and visible executor assignment. Execution
+              and dispatch are future work.
             </p>
           </div>
           <div className="agent-queue-product-summary-badges">
@@ -367,100 +458,20 @@ export function AgentQueuePlaceholderWidget({
         </section>
 
         <div className="agent-queue-product-layout">
-          <aside
-            aria-label="Agent Queue tasks"
-            className="agent-queue-task-list-pane"
-          >
-            <div className="agent-queue-pane-header">
-              <div>
-                <p className="agent-queue-pane-title">Tasks</p>
-                <p className="agent-queue-pane-subtitle">
-                  Priority first, then latest update.
-                </p>
-              </div>
-            </div>
-
-            <div className="agent-queue-filter-row" aria-label="Task filters">
-              {FILTERS.map((filter) => (
-                <button
-                  aria-pressed={statusFilter === filter.value}
-                  className={
-                    statusFilter === filter.value
-                      ? "agent-queue-filter-button agent-queue-filter-button-active"
-                      : "agent-queue-filter-button"
-                  }
-                  key={filter.value}
-                  onClick={() => setStatusFilter(filter.value)}
-                  type="button"
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="agent-queue-task-list" role="list">
-              {isLoading ? (
-                <p className="empty-state-text">Loading queue tasks.</p>
-              ) : loadError ? (
-                <p className="empty-state-text" role="alert">
-                  {loadError}
-                </p>
-              ) : tasks.length === 0 ? (
-                <div className="agent-queue-empty-state">
-                  <p className="empty-state-title">No tasks yet.</p>
-                  <p className="empty-state-text">
-                    Create the first workspace queue task.
-                  </p>
-                  <Button
-                    disabled={isCreating || !apiAvailable}
-                    onClick={() => void createTask()}
-                    variant="primary"
-                  >
-                    New task
-                  </Button>
-                </div>
-              ) : filteredTasks.length === 0 ? (
-                <p className="empty-state-text">No tasks match this status.</p>
-              ) : (
-                filteredTasks.map((task) => (
-                  <button
-                    aria-current={
-                      selectedTask?.queueItemId === task.queueItemId
-                        ? "true"
-                        : undefined
-                    }
-                    className={
-                      selectedTask?.queueItemId === task.queueItemId
-                        ? "agent-queue-task-row agent-queue-task-row-selected"
-                        : "agent-queue-task-row"
-                    }
-                    disabled={isSelecting}
-                    key={task.queueItemId}
-                    onClick={() => void selectTask(task.queueItemId)}
-                    type="button"
-                  >
-                    <span className="agent-queue-task-row-main">
-                      <span className="agent-queue-task-row-title">
-                        {displayTaskTitle(task)}
-                      </span>
-                      <Badge variant={statusBadgeVariant(task.status)}>
-                        {statusLabel(task.status)}
-                      </Badge>
-                    </span>
-                    <span className="agent-queue-task-row-preview">
-                      {taskPreview(task)}
-                    </span>
-                    <span className="agent-queue-task-row-meta">
-                      <span>Priority {task.priority.toString()}</span>
-                      <time dateTime={task.updatedAt}>
-                        {formatUpdatedTimestamp(task.updatedAt)}
-                      </time>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </aside>
+          <AgentQueueTaskList
+            apiAvailable={apiAvailable}
+            filteredTasks={filteredTasks}
+            isCreating={isCreating}
+            isLoading={isLoading}
+            isSelecting={isSelecting}
+            loadError={loadError}
+            onCreateTask={() => void createTask()}
+            onSelectTask={(queueItemId) => void selectTask(queueItemId)}
+            onStatusFilterChange={setStatusFilter}
+            selectedTask={selectedTask}
+            statusFilter={statusFilter}
+            tasks={tasks}
+          />
 
           <section
             aria-label="Selected Agent Queue task"
@@ -564,6 +575,25 @@ export function AgentQueuePlaceholderWidget({
                   </div>
                 </div>
 
+                <AgentQueueTaskAssignmentPanel
+                  apiAvailable={assignmentApiAvailable}
+                  assignmentError={assignmentError}
+                  assignmentMessage={assignmentMessage}
+                  currentSelection={selectedExecutorWidgetId}
+                  executorSlots={agentExecutorSlots}
+                  inputId={assignmentInputId}
+                  isAssigning={isAssigning}
+                  isDirty={isDirty}
+                  onAssign={() => void assignSelectedTask()}
+                  onClear={() => void clearSelectedTaskAssignment()}
+                  onSelectionChange={(executorWidgetInstanceId) => {
+                    setSelectedExecutorWidgetId(executorWidgetInstanceId);
+                    setAssignmentError(null);
+                    setAssignmentMessage(null);
+                  }}
+                  selectedTask={selectedTask}
+                />
+
                 <div className="agent-queue-editor-actions">
                   <div className="agent-queue-editor-status">
                     <Badge variant={statusBadgeVariant(draft.status)}>
@@ -600,7 +630,7 @@ export function AgentQueuePlaceholderWidget({
                 ) : null}
                 <p className="agent-queue-boundary-note">
                   Queue tasks are workspace-local records. This UI does not run
-                  agents, launch Terminal commands, assign executors, or mutate
+                  agents, launch Terminal commands, dispatch work, or mutate
                   Git.
                 </p>
               </div>

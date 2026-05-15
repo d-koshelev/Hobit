@@ -1,4 +1,6 @@
 import type { AgentQueueTask } from "../workspace/types";
+import type { AgentExecutorSlot, WidgetInstance } from "./types";
+import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
 type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
@@ -116,6 +118,41 @@ export function taskPreview(task: AgentQueueTask) {
   const preview = (task.description || task.prompt).replace(/\s+/g, " ").trim();
 
   return preview || "No description or prompt yet.";
+}
+
+export function isFinalQueueTaskStatus(status: string) {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+export function shortWidgetInstanceId(widgetInstanceId: string) {
+  const compactId = widgetInstanceId.replace(/[^a-z0-9]/gi, "");
+
+  return compactId.slice(-6) || widgetInstanceId.slice(-6) || "unknown";
+}
+
+export function agentExecutorSlotLabel(widgetInstanceId: string) {
+  return `Agent Executor ${shortWidgetInstanceId(widgetInstanceId)}`;
+}
+
+export function agentExecutorSlotsFromWidgets(
+  widgets: WidgetInstance[],
+): AgentExecutorSlot[] {
+  return widgets
+    .filter(
+      (widget) =>
+        widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
+    )
+    .sort((first, second) => first.layout.order - second.layout.order)
+    .map((widget) => ({
+      label: agentExecutorSlotLabel(widget.id),
+      widgetInstanceId: widget.id,
+    }));
+}
+
+export function assignmentLabel(assignedExecutorWidgetId: string | null) {
+  return assignedExecutorWidgetId
+    ? agentExecutorSlotLabel(assignedExecutorWidgetId)
+    : "Unassigned";
 }
 
 export function formatUpdatedTimestamp(value: string) {

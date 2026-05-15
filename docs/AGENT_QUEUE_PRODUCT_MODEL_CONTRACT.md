@@ -160,8 +160,8 @@ Capacity rules:
   dispatch UI exists.
 
 Current Agent Executor manual execution remains valid and does not require
-Agent Queue. A non-executing assignment API foundation exists, but assignment
-UI and dispatch to these slots remain future work.
+Agent Queue. A non-executing assignment API and UI foundation exists, but
+dispatch to these slots remains future work.
 
 ## Assignment Model
 
@@ -296,13 +296,12 @@ Current Agent Queue remains:
 - backed by a manual task storage/API foundation for create, list, read, and
   update operations
 - surfaced through a manual product UI for create, list, select, edit, status,
-  priority, and explicit save
+  priority, explicit save, and visible executor assignment
 - backed by an assignment API foundation for manually assigning or clearing an
   Agent Executor widget slot
 - non-executing
 - non-dispatching
 - without dependency management
-- without executor assignment UI
 
 The task and assignment foundation stores Workspace-scoped task records only. It
 does not add queue execution, scheduler behavior, dependency execution, Agent
@@ -315,7 +314,6 @@ scheduler, or hidden execution path.
 
 - Block 188A  Agent Queue task model backend foundation.
 - Block 189  Agent Queue product UI.
-- Block 193  Manual Queue to Executor assignment UI.
 - Block 194  Run assigned queue item in selected Agent Executor.
 - Block 195  Queue dependencies MVP.
 - Block 196  Queue ready and blocked view.

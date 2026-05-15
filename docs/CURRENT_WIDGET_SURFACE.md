@@ -46,8 +46,9 @@ future widget capability.
 - Provides a read-only backend/Tauri diff summary API for an explicit repository
   root, with a compact read-only frontend diff summary UI.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
-  hidden background scheduler. Queue assignment to Executor slots remains
-  future work governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+  hidden background scheduler. Queue assignment can target Executor slots, but
+  execution from Queue remains future work governed by
+  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 
 ### Git
 
@@ -95,12 +96,13 @@ future widget capability.
   foundation exists for assigning and clearing an Agent Executor slot.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
+  It can also manually assign or clear a visible Agent Executor slot.
 - Future task, dependency, and executor capacity model is governed by
-  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Future manual assignment to
-  Executor slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
-- Does not execute, dispatch, schedule, approve/apply, show assignment UI, run
-  assigned tasks, capture responses, validate responses, mutate files, mutate
-  Notes, or mutate Git.
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
+  slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+- Does not execute, dispatch, schedule, approve/apply, run assigned tasks,
+  capture responses, validate responses, mutate files, mutate Notes, or mutate
+  Git.
 
 ### Interactive Agent
 
@@ -155,6 +157,5 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Manual Queue to Executor assignment UI after
-  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+- Run assigned queue item in selected Agent Executor later.
 - Agent Queue dependency blocks later.

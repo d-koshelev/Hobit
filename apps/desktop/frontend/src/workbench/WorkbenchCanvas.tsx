@@ -1,19 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WorkbenchEditStatus } from "./WorkbenchEditStatus";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
+import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { GIT_WIDGET_DEFINITION_ID, isUserFacingWidgetDefinition } from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
-import type {
-  WidgetInstanceId,
-  WidgetLayout,
-  WorkbenchLayoutMode,
-  WorkbenchViewState,
-} from "./types";
+import type { WidgetInstanceId, WidgetLayout, WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 import {
   clampDockedPosition,
   clampDockedSize,
@@ -112,6 +108,7 @@ export function WorkbenchCanvas({
   const hasGitWidget = userFacingWidgets.some(
     (widget) => widget.definitionId === GIT_WIDGET_DEFINITION_ID,
   );
+  const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
@@ -646,6 +643,7 @@ export function WorkbenchCanvas({
                       )}
                     >
                       <WidgetHost
+                        agentExecutorSlots={agentExecutorSlots}
                         directWorkGitReview={directWorkGitReview}
                         hasGitWidget={hasGitWidget}
                         instance={widget}
@@ -662,6 +660,7 @@ export function WorkbenchCanvas({
                 ) : (
                   <div className="widget-docked-surface">
                     <WidgetHost
+                      agentExecutorSlots={agentExecutorSlots}
                       dockedSize={dockedSize}
                       directWorkGitReview={directWorkGitReview}
                       hasGitWidget={hasGitWidget}
