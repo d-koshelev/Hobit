@@ -35,6 +35,10 @@ Future Agent Queue task work is contract-gated by
 task and history surface with future dependencies, executor capacity, and
 manual assignment, but no execution, dispatch, scheduler, Coordinator
 dependency, Runbook dependency, or Git mutation in the current model.
+Manual Queue-to-Executor assignment is contract-gated by
+`docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`; assignment is visible operator
+routing only and must remain separate from execution, dispatch, scheduling,
+Terminal launch, and Git mutation.
 
 ## Near-Term Direction: Direct Mode With Codex CLI
 

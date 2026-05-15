@@ -276,10 +276,11 @@ or future inspection surface for stored artifacts, but Direct Work / Codex
 should be positioned as the Agent Executor direction.
 
 Each Agent Executor widget instance is also the future execution slot identity
-for Queue assignment. The current UI shows a compact slot label based on the
-stable widget instance id while preserving the internal `agent-run` persistence
-identity. No new persistent executor id, Queue assignment, dispatch, or runtime
-behavior is added by the slot label.
+for Queue assignment. Manual assignment rules are defined in
+`docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. The current UI shows a compact
+slot label based on the stable widget instance id while preserving the internal
+`agent-run` persistence identity. No new persistent executor id, Queue
+assignment, dispatch, or runtime behavior is added by the slot label.
 
 Future Direct Work runs should appear with:
 
@@ -344,6 +345,9 @@ to Agent Monitoring and Direct Mode observability.
 Agent Queue may become an optional future source of approved Direct Work tasks.
 Under `docs/AGENT_SURFACE_MODEL.md`, it should remain queue/review/history until
 explicit queue execution work is implemented.
+Manual Queue-to-Executor assignment is governed by
+`docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` and must remain separate from
+execution.
 
 MVP rules:
 

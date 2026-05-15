@@ -51,6 +51,11 @@ frontend consumes it through a manual task product UI; queue execution,
 scheduler behavior, dependencies, assignment, and Agent Executor runtime
 changes are not implemented.
 
+`QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` defines the future manual assignment
+boundary between Agent Queue tasks and visible Agent Executor slots. Assignment
+is not execution, dispatch, scheduling, dependency resolution, Terminal launch,
+Git mutation, or Agent Executor auto-start.
+
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` defines Interactive Agent as a separate manual long-chat work surface for exploratory agent conversation. It is not Agent Queue, Agent Executor, Runbook, Coordinator, queue dispatch, approval/apply behavior, or a hidden mutation path.
 
 `RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Interactive Agent, Coordinator, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.

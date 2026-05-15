@@ -10,7 +10,7 @@ This is primarily a product/domain contract. The current implementation includes
 
 Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
-The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. That contract is model-only and does not add queue execution, dispatch, scheduler behavior, schema changes, or Agent Executor runtime changes.
+The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. Those contracts are model-only and do not add queue execution, dispatch, scheduler behavior, schema changes, or Agent Executor runtime changes.
 
 ## Current Status
 
@@ -32,6 +32,7 @@ The current repository has:
 - no background queue runner
 - no response capture, parser, or validator
 - no executor integration
+- no Queue-to-Executor assignment API
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
@@ -474,6 +475,7 @@ This contract does not implement:
 - Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results and manual stored task records
 - migration, deletion, or cleanup of existing duplicate Agent Queue widgets
 - executor dispatch storage or migrations
+- Queue-to-Executor assignment API
 - runtime Rust domain types beyond the current proposal-review and manual task DTO/service models
 - runtime TypeScript types beyond the current proposal-review and manual task API types
 - Tauri commands beyond proposal-review item create/read and manual task create/list/read/update

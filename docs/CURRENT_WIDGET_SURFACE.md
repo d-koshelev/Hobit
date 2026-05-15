@@ -47,7 +47,7 @@ future widget capability.
   root, with a compact read-only frontend diff summary UI.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
   hidden background scheduler. Queue assignment to Executor slots remains
-  future work.
+  future work governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 
 ### Git
 
@@ -93,8 +93,9 @@ future widget capability.
   create, list, read, and update.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
-- Future task, dependency, executor capacity, and assignment model is governed
-  by `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
+- Future task, dependency, and executor capacity model is governed by
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Future manual assignment to
+  Executor slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 - Does not execute, dispatch, schedule, approve/apply, assign executors,
   capture responses, validate responses, mutate files, mutate Notes, or mutate
   Git.
@@ -152,4 +153,6 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Agent Queue executor assignment and dependency blocks later.
+- Manual Queue to Executor assignment backend/API after
+  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+- Agent Queue dependency blocks later.

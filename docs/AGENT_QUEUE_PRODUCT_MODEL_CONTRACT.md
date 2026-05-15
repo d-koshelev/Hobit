@@ -176,6 +176,8 @@ Rules:
 - Assignment must not start an Agent Executor run silently.
 
 Manual assignment is the bridge between a task backlog and future execution.
+Detailed manual Queue-to-Executor assignment rules are defined in
+`docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 It should be visible, reversible when safe, and understandable from Agent
 Queue.
 
@@ -309,13 +311,17 @@ scheduler, or hidden execution path.
 
 ## Recommended Follow-Up Blocks
 
-- Block 188  Agent Queue task model backend foundation.
+- Block 188A  Agent Queue task model backend foundation.
+- Block 189  Agent Queue product UI.
 - Block 190  Agent Executor identity and slot model.
 - Block 191  Manual Queue to Executor assignment contract.
-- Block 192  Manual Queue to Executor assignment MVP.
-- Block 193  Queue dependencies MVP.
-- Block 194  Queue ready and blocked view polish.
-- Block 195  Parallel executor planner contract.
+- Block 192  Manual Queue to Executor assignment backend/API.
+- Block 193  Manual Queue to Executor assignment UI.
+- Block 194  Run assigned queue item in selected Agent Executor.
+- Block 195  Queue dependencies MVP.
+- Block 196  Queue ready and blocked view.
+- Block 197  Parallel executor planner contract.
+- Block 198  Auto-dispatch contract later.
 
 ## Non-Goals
 
