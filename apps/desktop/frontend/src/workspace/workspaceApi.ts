@@ -9,8 +9,10 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  AgentQueueTask,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
+  CreateAgentQueueTaskRequest,
   CreateWorkspaceRequest,
   CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
@@ -25,11 +27,13 @@ import type {
   GetAgentExecutorDiffSummaryRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
+  GetAgentQueueTaskRequest,
   GetGitRepositoryStatusRequest,
   GetWorkspaceNoteRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
+  ListAgentQueueTasksRequest,
   ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
@@ -44,6 +48,7 @@ import type {
   StartCodexDirectWorkStreamResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
+  UpdateAgentQueueTaskRequest,
   UpdateWorkspaceNoteRequest,
   WidgetLogEntry,
   WorkspaceNote,
@@ -114,6 +119,18 @@ export type WorkspaceApi = {
   getAgentQueueSnapshot: (
     request: GetAgentQueueSnapshotRequest,
   ) => Promise<AgentQueueSnapshot | null>;
+  createAgentQueueTask: (
+    request: CreateAgentQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+  listAgentQueueTasks: (
+    request: ListAgentQueueTasksRequest,
+  ) => Promise<AgentQueueTask[]>;
+  getAgentQueueTask: (
+    request: GetAgentQueueTaskRequest,
+  ) => Promise<AgentQueueTask | null>;
+  updateAgentQueueTask: (
+    request: UpdateAgentQueueTaskRequest,
+  ) => Promise<AgentQueueTask | null>;
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
@@ -274,6 +291,30 @@ export function getAgentQueueSnapshot(
   request: GetAgentQueueSnapshotRequest,
 ): Promise<AgentQueueSnapshot | null> {
   return getWorkspaceApi().getAgentQueueSnapshot(request);
+}
+
+export function createAgentQueueTask(
+  request: CreateAgentQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().createAgentQueueTask(request);
+}
+
+export function listAgentQueueTasks(
+  request: ListAgentQueueTasksRequest,
+): Promise<AgentQueueTask[]> {
+  return getWorkspaceApi().listAgentQueueTasks(request);
+}
+
+export function getAgentQueueTask(
+  request: GetAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  return getWorkspaceApi().getAgentQueueTask(request);
+}
+
+export function updateAgentQueueTask(
+  request: UpdateAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  return getWorkspaceApi().updateAgentQueueTask(request);
 }
 
 export function getGitRepositoryStatus(

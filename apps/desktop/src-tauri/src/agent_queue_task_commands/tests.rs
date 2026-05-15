@@ -1,0 +1,158 @@
+use super::*;
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[test]
+fn agent_queue_task_command_helpers_create_list_get_and_update() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+
+    let created = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Queue task".to_owned(),
+            description: "Description".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 3,
+        },
+        db_path.clone(),
+    )
+    .expect("create queue task");
+
+    assert_eq!(created.workspace_id, workspace_id);
+    assert_eq!(created.title, "Queue task");
+    assert_eq!(created.description, "Description");
+    assert_eq!(created.prompt, "Prompt");
+    assert_eq!(created.status, "queued");
+    assert_eq!(created.priority, 3);
+
+    let listed = list_agent_queue_tasks_blocking(
+        ListAgentQueueTasksRequest {
+            workspace_id: workspace_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("list queue tasks");
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].queue_item_id, created.queue_item_id);
+
+    let fetched = get_agent_queue_task_blocking(
+        GetAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: created.queue_item_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("get queue task")
+    .expect("queue task");
+    assert_eq!(fetched, created);
+
+    let updated = update_agent_queue_task_blocking(
+        UpdateAgentQueueTaskRequest {
+            workspace_id,
+            queue_item_id: created.queue_item_id,
+            title: "Updated".to_owned(),
+            description: "Updated description".to_owned(),
+            prompt: "Updated prompt".to_owned(),
+            status: "completed".to_owned(),
+            priority: 4,
+        },
+        db_path.clone(),
+    )
+    .expect("update queue task")
+    .expect("updated queue task");
+
+    assert_eq!(updated.title, "Updated");
+    assert_eq!(updated.description, "Updated description");
+    assert_eq!(updated.prompt, "Updated prompt");
+    assert_eq!(updated.status, "completed");
+    assert_eq!(updated.priority, 4);
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn create_agent_queue_task_command_helper_rejects_unknown_workspace() {
+    let db_path = unique_test_db_path();
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    drop(store);
+
+    let error = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: "missing-workspace".to_owned(),
+            title: "Task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect_err("unknown workspace rejected");
+
+    assert!(error.contains("workspace not found: missing-workspace"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn get_agent_queue_task_command_helper_rejects_cross_workspace_access() {
+    let db_path = unique_test_db_path();
+    let first_workspace_id = create_workspace_in_test_db(&db_path);
+    let second_workspace_id = create_workspace_in_test_db(&db_path);
+    let created = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: first_workspace_id,
+            title: "Task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect("create queue task");
+
+    let error = get_agent_queue_task_blocking(
+        GetAgentQueueTaskRequest {
+            workspace_id: second_workspace_id,
+            queue_item_id: created.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect_err("cross-workspace access rejected");
+
+    assert!(error.contains("queue task does not belong"));
+    remove_test_db_files(&db_path);
+}
+
+fn create_workspace_in_test_db(db_path: &Path) -> String {
+    let store = SqliteStore::open(db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    let service = WorkspaceService::new(store);
+    let workspace = service
+        .create_empty_workspace("Queue command test", None)
+        .expect("create workspace");
+    let workspace_id = workspace.id;
+    drop(service);
+
+    workspace_id
+}
+
+fn unique_test_db_path() -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time after unix epoch")
+        .as_nanos();
+
+    std::env::temp_dir().join(format!(
+        "hobit-agent-queue-task-command-test-{}-{nanos}.sqlite3",
+        std::process::id()
+    ))
+}
+
+fn remove_test_db_files(db_path: &Path) {
+    let _ = std::fs::remove_file(db_path);
+    let _ = std::fs::remove_file(db_path.with_extension("sqlite3-shm"));
+    let _ = std::fs::remove_file(db_path.with_extension("sqlite3-wal"));
+}

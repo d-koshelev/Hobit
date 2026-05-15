@@ -11,6 +11,10 @@ mod agent_executor_history_dto_tests;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
+mod agent_queue_task_commands;
+mod agent_queue_task_dto;
+#[cfg(test)]
+mod agent_queue_task_dto_tests;
 mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
@@ -66,7 +70,11 @@ pub fn run() {
             notes_commands::create_workspace_note,
             notes_commands::list_workspace_notes,
             notes_commands::get_workspace_note,
-            notes_commands::update_workspace_note
+            notes_commands::update_workspace_note,
+            agent_queue_task_commands::create_agent_queue_task,
+            agent_queue_task_commands::list_agent_queue_tasks,
+            agent_queue_task_commands::get_agent_queue_task,
+            agent_queue_task_commands::update_agent_queue_task
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");

@@ -22,8 +22,11 @@ The current repository has:
 - a singleton insertion guard that prevents adding a new Agent Queue widget when one already exists in the Workspace
 - a static command queue/history/review overview used only as clearly labeled empty/demo copy when no persisted review items exist
 - SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat local mock proposal results
+- SQLite storage plus app/Tauri/frontend API methods for manual Workspace-scoped
+  queue task create/list/read/update operations
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted queue item listing and read-only detail preview scoped to the current Workspace Workbench
+- no Agent Queue product UI for the manual task model yet
 - no automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator
@@ -31,7 +34,7 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the persisted proposal review item path, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 
@@ -461,19 +464,19 @@ Future implementation may introduce concepts such as:
 - `ReviewNote`
 - `FollowUpBlock`
 
-These are conceptual except for the current narrow proposal-review item slice. This contract does not define broader executor queue types, response-capture APIs, Git review links, notes links, or runtime storage.
+These are conceptual except for the current narrow proposal-review item slice and manual task storage/API foundation. This contract does not define queue execution, response-capture APIs, Git review links, notes links, or runtime dispatch.
 
 ## Non-Goals
 
 This contract does not implement:
 
-- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results
+- Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results and manual stored task records
 - migration, deletion, or cleanup of existing duplicate Agent Queue widgets
-- broad executor queue storage or migrations
-- general Rust domain types beyond the current proposal-review DTO/service models
-- general TypeScript types beyond the current proposal-review API types
-- Tauri commands beyond proposal-review item create/read
-- Workspace API changes beyond proposal-review item create/read
+- executor dispatch storage or migrations
+- runtime Rust domain types beyond the current proposal-review and manual task DTO/service models
+- runtime TypeScript types beyond the current proposal-review and manual task API types
+- Tauri commands beyond proposal-review item create/read and manual task create/list/read/update
+- Workspace API changes beyond proposal-review item create/read and manual task create/list/read/update
 - automatic execution
 - executor integration
 - response capture

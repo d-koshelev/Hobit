@@ -287,10 +287,16 @@ Current Agent Queue remains:
 
 - Preview
 - singleton per Workspace
+- backed by a manual task storage/API foundation for create, list, read, and
+  update operations
 - non-executing
 - non-dispatching
 - without dependency management
 - without executor assignment
+
+The task foundation stores Workspace-scoped task records only. It does not add
+product UI, scheduler behavior, dependency execution, Agent Executor launch, or
+automatic status transitions.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.
@@ -308,12 +314,12 @@ scheduler, or hidden execution path.
 
 ## Non-Goals
 
-This contract does not implement:
+This contract does not define or require:
 
 - frontend UI
-- backend implementation
-- Tauri commands
-- storage/schema changes
+- backend behavior beyond the manual task storage/API foundation noted above
+- Tauri commands beyond manual task create/list/read/update
+- storage/schema behavior beyond Workspace-scoped manual task records
 - queue execution
 - task dispatch
 - scheduler

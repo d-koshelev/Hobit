@@ -9,19 +9,20 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    NewAgentQueueItem, NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult,
-    NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, WidgetInstanceLayoutUpdate,
-    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueTaskUpdate, NewAgentQueueItem, NewAgentQueueTask, NewSharedStateObject,
+    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueItemRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow,
-    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueItemRow, AgentQueueTaskRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
 mod agent_queue_items;
+mod agent_queue_tasks;
 mod events;
 mod notes;
 mod sessions;
@@ -33,6 +34,8 @@ mod widget_runs;
 mod workbenches;
 mod workspaces;
 
+#[cfg(test)]
+mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod notes_tests;
 #[cfg(test)]

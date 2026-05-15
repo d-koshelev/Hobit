@@ -117,6 +117,26 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
             pinned: false,
         })
         .expect("create kept note");
+    let deleted_task = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: deleted_workspace_id.clone(),
+            title: "Deleted task".to_owned(),
+            description: "Workspace-local queue task".to_owned(),
+            prompt: "Review deleted workspace".to_owned(),
+            status: "queued".to_owned(),
+            priority: 2,
+        })
+        .expect("create deleted queue task");
+    let kept_task = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: kept_workspace_id.clone(),
+            title: "Kept task".to_owned(),
+            description: "Workspace-local queue task".to_owned(),
+            prompt: "Review kept workspace".to_owned(),
+            status: "queued".to_owned(),
+            priority: 2,
+        })
+        .expect("create kept queue task");
     service
         .store
         .insert_agent_queue_item(NewAgentQueueItem {
@@ -173,6 +193,16 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
         .get_agent_queue_item("queue-delete")
         .expect("get deleted queue item")
         .is_none());
+    assert!(service
+        .store
+        .get_agent_queue_task_by_id(&deleted_task.queue_item_id)
+        .expect("get deleted queue task")
+        .is_none());
+    assert!(service
+        .store
+        .get_agent_queue_task_by_id(&kept_task.queue_item_id)
+        .expect("get kept queue task")
+        .is_some());
     assert!(service
         .store
         .get_note_by_id(&deleted_note.note_id)

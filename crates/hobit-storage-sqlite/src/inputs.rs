@@ -108,6 +108,29 @@ pub struct NewAgentQueueItem<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueTask<'a> {
+    pub queue_item_id: &'a str,
+    pub workspace_id: &'a str,
+    pub title: &'a str,
+    pub description: &'a str,
+    pub prompt: &'a str,
+    pub status: &'a str,
+    pub priority: i64,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTaskUpdate<'a> {
+    pub title: &'a str,
+    pub description: &'a str,
+    pub prompt: &'a str,
+    pub status: &'a str,
+    pub priority: i64,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWorkspaceNote<'a> {
     pub note_id: &'a str,
     pub workspace_id: &'a str,

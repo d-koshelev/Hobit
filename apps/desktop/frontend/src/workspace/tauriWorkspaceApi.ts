@@ -1,9 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
-import {
-  createAgentQueueItemFromProposal,
-  getAgentQueueSnapshot,
-} from "./tauriAgentQueueApi";
+import { createAgentQueueItemFromProposal, createAgentQueueTask, getAgentQueueSnapshot, getAgentQueueTask, listAgentQueueTasks, updateAgentQueueTask } from "./tauriAgentQueueApi";
 import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
 import {
@@ -63,6 +60,10 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
+  createAgentQueueTask,
+  listAgentQueueTasks,
+  getAgentQueueTask,
+  updateAgentQueueTask,
   getGitRepositoryStatus,
   createGitCommit,
   persistAgentChatProposal,

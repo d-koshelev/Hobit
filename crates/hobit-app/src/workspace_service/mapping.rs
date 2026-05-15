@@ -1,12 +1,13 @@
 use hobit_storage_sqlite::{
-    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueTaskRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
+    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 
 use super::{
-    SharedStateObjectSummary, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
-    WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary,
-    WorkspaceSummary,
+    AgentQueueTaskSummary, SharedStateObjectSummary, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -108,6 +109,20 @@ pub(super) fn workspace_note_summary(row: WorkspaceNoteRow) -> WorkspaceNoteSumm
         body: row.body,
         pinned: row.pinned,
         archived: row.archived,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn agent_queue_task_summary(row: AgentQueueTaskRow) -> AgentQueueTaskSummary {
+    AgentQueueTaskSummary {
+        queue_item_id: row.queue_item_id,
+        workspace_id: row.workspace_id,
+        title: row.title,
+        description: row.description,
+        prompt: row.prompt,
+        status: row.status,
+        priority: row.priority,
         created_at: row.created_at,
         updated_at: row.updated_at,
     }

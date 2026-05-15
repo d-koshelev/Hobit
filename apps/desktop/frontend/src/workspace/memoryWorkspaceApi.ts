@@ -7,8 +7,10 @@ import type {
   AgentMonitoringSnapshot,
   AgentQueueItem,
   AgentQueueSnapshot,
+  AgentQueueTask,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
+  CreateAgentQueueTaskRequest,
   CreateWorkspaceRequest,
   CreateGitCommitRequest,
   CreateAgentQueueItemFromProposalRequest,
@@ -23,11 +25,13 @@ import type {
   GetAgentExecutorDiffSummaryRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
+  GetAgentQueueTaskRequest,
   GetGitRepositoryStatusRequest,
   GetWorkspaceNoteRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
+  ListAgentQueueTasksRequest,
   ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
@@ -40,6 +44,7 @@ import type {
   RunTerminalCommandResponse,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
+  UpdateAgentQueueTaskRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   UpdateWorkspaceNoteRequest,
@@ -82,6 +87,10 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getAgentMonitoringSnapshot,
   createAgentQueueItemFromProposal,
   getAgentQueueSnapshot,
+  createAgentQueueTask,
+  listAgentQueueTasks,
+  getAgentQueueTask,
+  updateAgentQueueTask,
   getGitRepositoryStatus,
   createGitCommit,
   persistAgentChatProposal,
@@ -407,6 +416,38 @@ async function getAgentQueueSnapshot(
 ): Promise<AgentQueueSnapshot | null> {
   throw new Error(
     "Agent Queue persisted review items are only available in the Tauri desktop shell. Browser fallback has no persisted queue inbox to display.",
+  );
+}
+
+async function createAgentQueueTask(
+  _request: CreateAgentQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  throw new Error(
+    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot create persisted queue tasks.",
+  );
+}
+
+async function listAgentQueueTasks(
+  _request: ListAgentQueueTasksRequest,
+): Promise<AgentQueueTask[]> {
+  throw new Error(
+    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot read persisted queue tasks.",
+  );
+}
+
+async function getAgentQueueTask(
+  _request: GetAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  throw new Error(
+    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot read persisted queue tasks.",
+  );
+}
+
+async function updateAgentQueueTask(
+  _request: UpdateAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  throw new Error(
+    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot update persisted queue tasks.",
   );
 }
 

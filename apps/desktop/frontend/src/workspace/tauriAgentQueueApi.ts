@@ -2,8 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentQueueItem,
   AgentQueueSnapshot,
+  AgentQueueTask,
   CreateAgentQueueItemFromProposalRequest,
+  CreateAgentQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
+  GetAgentQueueTaskRequest,
+  ListAgentQueueTasksRequest,
+  UpdateAgentQueueTaskRequest,
 } from "./types";
 
 type TauriAgentQueueSnapshot = {
@@ -44,6 +49,18 @@ type TauriAgentQueueProposalAction = {
   executed: boolean;
 };
 
+type TauriAgentQueueTask = {
+  queue_item_id: string;
+  workspace_id: string;
+  title: string;
+  description: string;
+  prompt: string;
+  status: string;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function createAgentQueueItemFromProposal(
   request: CreateAgentQueueItemFromProposalRequest,
 ): Promise<AgentQueueItem | null> {
@@ -76,6 +93,72 @@ export async function getAgentQueueSnapshot(
   );
 
   return snapshot ? normalizeAgentQueueSnapshot(snapshot) : null;
+}
+
+export async function createAgentQueueTask(
+  request: CreateAgentQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  const task = await invoke<TauriAgentQueueTask>("create_agent_queue_task", {
+    request: {
+      workspace_id: request.workspaceId,
+      title: request.title,
+      description: request.description,
+      prompt: request.prompt,
+      status: request.status,
+      priority: request.priority,
+    },
+  });
+
+  return normalizeAgentQueueTask(task);
+}
+
+export async function listAgentQueueTasks(
+  request: ListAgentQueueTasksRequest,
+): Promise<AgentQueueTask[]> {
+  const tasks = await invoke<TauriAgentQueueTask[]>("list_agent_queue_tasks", {
+    request: {
+      workspace_id: request.workspaceId,
+    },
+  });
+
+  return tasks.map(normalizeAgentQueueTask);
+}
+
+export async function getAgentQueueTask(
+  request: GetAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  const task = await invoke<TauriAgentQueueTask | null>(
+    "get_agent_queue_task",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+      },
+    },
+  );
+
+  return task ? normalizeAgentQueueTask(task) : null;
+}
+
+export async function updateAgentQueueTask(
+  request: UpdateAgentQueueTaskRequest,
+): Promise<AgentQueueTask | null> {
+  const task = await invoke<TauriAgentQueueTask | null>(
+    "update_agent_queue_task",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+        title: request.title,
+        description: request.description,
+        prompt: request.prompt,
+        status: request.status,
+        priority: request.priority,
+      },
+    },
+  );
+
+  return task ? normalizeAgentQueueTask(task) : null;
 }
 
 function normalizeAgentQueueSnapshot(
@@ -117,5 +200,19 @@ function normalizeAgentQueueItem(item: TauriAgentQueueItem): AgentQueueItem {
     createdAt: item.created_at,
     updatedAt: item.updated_at,
     payloadJson: item.payload_json,
+  };
+}
+
+function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
+  return {
+    queueItemId: task.queue_item_id,
+    workspaceId: task.workspace_id,
+    title: task.title,
+    description: task.description,
+    prompt: task.prompt,
+    status: task.status,
+    priority: task.priority,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
   };
 }

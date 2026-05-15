@@ -79,6 +79,34 @@ export type GetAgentQueueSnapshotRequest = {
   workbenchId: string;
 };
 
+export type CreateAgentQueueTaskRequest = {
+  workspaceId: string;
+  title: string;
+  description: string;
+  prompt: string;
+  status: string;
+  priority: number;
+};
+
+export type ListAgentQueueTasksRequest = {
+  workspaceId: string;
+};
+
+export type GetAgentQueueTaskRequest = {
+  workspaceId: string;
+  queueItemId: string;
+};
+
+export type UpdateAgentQueueTaskRequest = {
+  workspaceId: string;
+  queueItemId: string;
+  title: string;
+  description: string;
+  prompt: string;
+  status: string;
+  priority: number;
+};
+
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -543,6 +571,18 @@ export type AgentQueueProposalAction = {
   description: string;
   status: string;
   executed: boolean;
+};
+
+export type AgentQueueTask = {
+  queueItemId: string;
+  workspaceId: string;
+  title: string;
+  description: string;
+  prompt: string;
+  status: string;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WidgetLogEntry = {

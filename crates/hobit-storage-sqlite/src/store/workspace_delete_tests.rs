@@ -17,6 +17,7 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
     let event_id = format!("event-{suffix}");
     let session_id = format!("session-{suffix}");
     let queue_id = format!("queue-{suffix}");
+    let queue_task_id = format!("queue-task-{suffix}");
     let note_id = format!("note-{suffix}");
 
     store
@@ -140,6 +141,19 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
         })
         .expect("insert queue item");
     store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: &queue_task_id,
+            workspace_id,
+            title: "Manual queue task",
+            description: "Stored task only",
+            prompt: "Review the workspace",
+            status: "queued",
+            priority: 2,
+            created_at: Some("5"),
+            updated_at: Some("5"),
+        })
+        .expect("insert queue task");
+    store
         .create_note(NewWorkspaceNote {
             note_id: &note_id,
             workspace_id,
@@ -209,6 +223,10 @@ fn deleting_workspace_removes_workspace_and_local_children() {
         .expect("get deleted queue item")
         .is_none());
     assert!(store
+        .get_agent_queue_task_by_id("queue-task-delete")
+        .expect("get deleted queue task")
+        .is_none());
+    assert!(store
         .get_note_by_id("note-delete")
         .expect("get deleted note")
         .is_none());
@@ -249,6 +267,10 @@ fn deleting_one_workspace_preserves_other_workspace_graph() {
     assert!(store
         .get_agent_queue_item("queue-keep")
         .expect("get kept queue item")
+        .is_some());
+    assert!(store
+        .get_agent_queue_task_by_id("queue-task-keep")
+        .expect("get kept queue task")
         .is_some());
     assert!(store
         .get_note_by_id("note-keep")

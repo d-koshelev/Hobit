@@ -86,6 +86,11 @@ impl SqliteStore {
 
     pub fn delete_workspace_and_local_data(&self, workspace_id: &str) -> Result<()> {
         self.connection.execute(
+            "DELETE FROM agent_queue_tasks
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
             "DELETE FROM agent_queue_items
              WHERE workspace_id = ?1",
             params![workspace_id],
