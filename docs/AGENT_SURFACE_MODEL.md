@@ -71,6 +71,10 @@ Later Agent Queue may include:
 - executor assignment
 - history of executor runs
 
+The future Queue Item model, dependency model, executor capacity model, and
+manual assignment direction are defined in
+`docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
+
 Near-term simplification:
 
 - keep Agent Queue as queue, review, and history
@@ -215,7 +219,8 @@ The current user-facing workbench widget set is:
 ## Recommended Next Blocks
 
 - Agent Executor run history.
-- Agent Queue task model later.
+- Agent Queue task model backend foundation after
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
 - Interactive Agent session persistence later.
 - Interactive Agent provider/Codex integration later.
 - Runbook persistence and edit mode later.

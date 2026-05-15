@@ -43,6 +43,12 @@ are not implemented.
 
 `AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend currently exposes Agent Queue as a review/history foundation only; no queue execution, dispatch, approval/apply behavior, background execution, response capture/parser/validator, executor integration, or automatic acceptance is implemented yet.
 
+`AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` defines the future Agent Queue task
+model: workspace singleton queue items, statuses, dependencies, Agent Executor
+capacity slots, and manual assignment direction. It is contract-only and does
+not add queue execution, scheduler behavior, schema changes, or Agent Executor
+runtime changes.
+
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` defines Interactive Agent as a separate manual long-chat work surface for exploratory agent conversation. It is not Agent Queue, Agent Executor, Runbook, Coordinator, queue dispatch, approval/apply behavior, or a hidden mutation path.
 
 `RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Interactive Agent, Coordinator, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.

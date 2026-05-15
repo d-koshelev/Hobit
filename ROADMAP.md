@@ -30,6 +30,12 @@ Coordinator is deferred. It should not be required for Agent Executor, Agent
 Queue, Interactive Agent, or Runbook work until a later block explicitly
 reintroduces it.
 
+Future Agent Queue task work is contract-gated by
+`docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`: Agent Queue is a Workspace-level
+task and history surface with future dependencies, executor capacity, and
+manual assignment, but no execution, dispatch, scheduler, Coordinator
+dependency, Runbook dependency, or Git mutation in the current model.
+
 ## Near-Term Direction: Direct Mode With Codex CLI
 
 After the proposal-only AI provider slice, the near-term executor direction is

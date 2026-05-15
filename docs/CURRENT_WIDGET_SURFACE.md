@@ -86,6 +86,8 @@ future widget capability.
 - Preview review/history foundation.
 - Singleton per Workspace for new Agent Queue widget insertion.
 - Existing persisted duplicates are not deleted or migrated.
+- Future task, dependency, executor capacity, and assignment model is governed
+  by `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
 - Does not execute, dispatch, schedule, approve/apply, assign executors,
   capture responses, validate responses, mutate files, mutate Notes, or mutate
   Git.
@@ -143,4 +145,5 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Agent Queue task model later.
+- Agent Queue task model backend foundation after
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.

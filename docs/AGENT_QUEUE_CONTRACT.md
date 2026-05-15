@@ -10,6 +10,8 @@ This is primarily a product/domain contract. The current implementation includes
 
 Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
+The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. That contract is model-only and does not add queue execution, dispatch, scheduler behavior, schema changes, or Agent Executor runtime changes.
+
 ## Current Status
 
 Agent Queue currently exists as an insertable Workbench widget with a narrow persisted review-item path for Agent Chat local mock proposal results.
