@@ -348,6 +348,8 @@ explicit queue execution work is implemented.
 Manual Queue-to-Executor assignment is governed by
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` and must remain separate from
 execution.
+Manual execution of an assigned Queue task through Agent Executor is governed
+by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains unimplemented.
 
 MVP rules:
 

@@ -58,6 +58,13 @@ storage/app/Tauri/frontend API foundation can persist and clear
 scheduling, dependency resolution, Terminal launch, Git mutation, or Agent
 Executor auto-start.
 
+`QUEUE_ITEM_EXECUTION_CONTRACT.md` defines the future manual run boundary for
+starting an assigned Agent Queue task in its assigned Agent Executor. It
+requires explicit operator start, visible repository root handling, normal
+Agent Executor Direct Work ownership, and no automatic dispatch, scheduler,
+Terminal launch, auto-commit, push, or hidden execution. No implementation is
+added by that contract.
+
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` defines Interactive Agent as a separate manual long-chat work surface for exploratory agent conversation. It is not Agent Queue, Agent Executor, Runbook, Coordinator, queue dispatch, approval/apply behavior, or a hidden mutation path.
 
 `RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Interactive Agent, Coordinator, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.

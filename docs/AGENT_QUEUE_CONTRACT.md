@@ -10,7 +10,7 @@ This is primarily a product/domain contract. The current implementation includes
 
 Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
-The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. The current task and assignment foundations add storage/API state and compact assignment UI only; they do not add queue execution, dispatch, scheduler behavior, or Agent Executor runtime changes.
+The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. Manual execution of an assigned Queue task through Agent Executor is governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`. The current task and assignment foundations add storage/API state and compact assignment UI only; they do not add queue execution, dispatch, scheduler behavior, or Agent Executor runtime changes.
 
 ## Current Status
 

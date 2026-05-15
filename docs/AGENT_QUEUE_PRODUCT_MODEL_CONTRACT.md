@@ -178,6 +178,8 @@ Rules:
 Manual assignment is the bridge between a task backlog and future execution.
 Detailed manual Queue-to-Executor assignment rules are defined in
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+Manual run-from-assignment rules are defined in
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; execution remains future work.
 It should be visible, reversible when safe, and understandable from Agent
 Queue.
 
@@ -306,6 +308,8 @@ Current Agent Queue remains:
 The task and assignment foundation stores Workspace-scoped task records only. It
 does not add queue execution, scheduler behavior, dependency execution, Agent
 Executor launch, or automatic status transitions.
+Manual run of an assigned task is contract-gated by
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains unimplemented.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.
@@ -314,11 +318,13 @@ scheduler, or hidden execution path.
 
 - Block 188A  Agent Queue task model backend foundation.
 - Block 189  Agent Queue product UI.
-- Block 194  Run assigned queue item in selected Agent Executor.
-- Block 195  Queue dependencies MVP.
-- Block 196  Queue ready and blocked view.
-- Block 197  Parallel executor planner contract.
-- Block 198  Auto-dispatch contract later.
+- Block 195  Queue item execution backend/API foundation.
+- Block 196  Queue item execution UI.
+- Block 197  Queue item execution smoke and hardening.
+- Block 198  Queue dependencies MVP.
+- Block 199  Queue ready and blocked view.
+- Block 200  Parallel executor planner contract.
+- Block 201  Auto-dispatch contract later.
 
 ## Non-Goals
 

@@ -154,6 +154,10 @@ Future intended flow:
 The current assignment foundation does not implement that flow. It only stores
 and clears assignment state before execution exists.
 
+Manual run-from-assignment behavior is defined in
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`. That contract must gate any future
+Queue action that starts an Agent Executor run.
+
 ## Capacity Model
 
 Agent Queue should later show Agent Executor capacity:
@@ -217,11 +221,13 @@ Manual assignment must preserve these boundaries:
 
 ## Recommended Implementation Blocks
 
-- Block 194  Run assigned queue item in selected Agent Executor.
-- Block 195  Queue dependencies MVP.
-- Block 196  Queue ready/blocked view.
-- Block 197  Parallel executor planner contract.
-- Block 198  Auto-dispatch contract later.
+- Block 195  Queue item execution backend/API foundation.
+- Block 196  Queue item execution UI.
+- Block 197  Queue item execution smoke and hardening.
+- Block 198  Queue dependencies MVP.
+- Block 199  Queue ready and blocked view.
+- Block 200  Parallel executor planner contract.
+- Block 201  Auto-dispatch contract later.
 
 ## Non-Goals
 

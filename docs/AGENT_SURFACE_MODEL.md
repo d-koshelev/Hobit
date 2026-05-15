@@ -77,6 +77,8 @@ The future Queue Item model, dependency model, and executor capacity model are
 defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual
 Queue-to-Executor assignment rules are defined in
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+Manual run of an assigned Queue task is defined in
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains future work.
 
 Near-term simplification:
 
@@ -184,7 +186,7 @@ The number of Agent Executor widgets determines available execution slots.
 - N Agent Executors means up to N tasks may run concurrently.
 - Current Agent Executor widgets show a compact slot identity. Agent Queue can
   manually assign tasks to those slots, but execution from assignment remains
-  future work governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+  future work governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 Automatic scheduling is future work. Manual execution from an Agent Executor
 remains valid.
@@ -224,8 +226,8 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Manual Queue to Executor assignment backend/API after
-  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+- Queue item execution backend/API after
+  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 - Interactive Agent session persistence later.
 - Interactive Agent provider/Codex integration later.
 - Runbook persistence and edit mode later.

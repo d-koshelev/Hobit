@@ -39,6 +39,10 @@ Manual Queue-to-Executor assignment is contract-gated by
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`; assignment is visible operator
 routing only and must remain separate from execution, dispatch, scheduling,
 Terminal launch, and Git mutation.
+Manual run of an assigned Queue task is contract-gated by
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; it requires an explicit operator start
+in the assigned Agent Executor and must not become auto-dispatch, scheduler
+behavior, Terminal launch, auto-commit, push, or hidden execution.
 
 ## Near-Term Direction: Direct Mode With Codex CLI
 

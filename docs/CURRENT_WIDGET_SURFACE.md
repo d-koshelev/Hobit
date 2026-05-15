@@ -48,7 +48,7 @@ future widget capability.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
   hidden background scheduler. Queue assignment can target Executor slots, but
   execution from Queue remains future work governed by
-  `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 ### Git
 
@@ -100,6 +100,8 @@ future widget capability.
 - Future task, dependency, and executor capacity model is governed by
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
   slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
+  Manual run of an assigned task is governed by
+  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains future work.
 - Does not execute, dispatch, schedule, approve/apply, run assigned tasks,
   capture responses, validate responses, mutate files, mutate Notes, or mutate
   Git.
@@ -157,5 +159,6 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Run assigned queue item in selected Agent Executor later.
+- Queue item execution backend/API foundation later.
+- Queue item execution UI later.
 - Agent Queue dependency blocks later.
