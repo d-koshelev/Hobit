@@ -5,7 +5,6 @@ import {
   createGitCommit,
   getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
-  getAgentQueueSnapshot,
   getGitRepositoryStatus,
   listAgentExecutorRuns,
   listenToDirectWorkStreamEvents,
@@ -19,7 +18,6 @@ import {
 } from "../workspace/workspaceApi";
 import type {
   AgentExecutorDiffSummary,
-  AgentQueueSnapshot,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
@@ -46,6 +44,7 @@ import type {
   WorkbenchViewState,
 } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
+import { createAgentQueueTaskActions, type AgentQueueTaskWidgetActions } from "./agentQueueTaskWidgetActions";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 import { createWorkspaceNoteActions, type WorkspaceNoteWidgetActions } from "./workspaceNoteWidgetActions";
 import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
@@ -57,7 +56,7 @@ type UseWorkbenchWidgetActionsOptions = {
   viewState: WorkbenchViewState;
 };
 
-export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & {
+export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & AgentQueueTaskWidgetActions & {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
   getGitRepositoryStatus: (
     widgetInstanceId: WidgetInstanceId,
@@ -67,7 +66,6 @@ export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & {
     widgetInstanceId: WidgetInstanceId,
     request: GitCommitCreateRequest,
   ) => Promise<GitCommitResponse | null>;
-  getAgentQueueSnapshot: () => Promise<AgentQueueSnapshot | null>;
   listAgentExecutorRuns: (
     widgetInstanceId: WidgetInstanceId,
     limit?: number,
@@ -116,7 +114,6 @@ export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions & Pick<
   | "listAgentExecutorRuns"
   | "getAgentExecutorRunDetail"
   | "getAgentExecutorDiffSummary"
-  | "getAgentQueueSnapshot"
   | "createGitCommit"
   | "getGitRepositoryStatus"
   | "runCodexDirectWork"
@@ -126,7 +123,8 @@ export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions & Pick<
   | "runTerminalCommand"
   | "updateWidgetLayout"
   | "updateWidgetState"
->;
+> &
+  AgentQueueTaskWidgetActions;
 
 type TerminalCommandRunRequest = Omit<
   RunTerminalCommandRequest,
@@ -293,17 +291,6 @@ export function useWorkbenchWidgetActions({
     });
 
     return logs.map(widgetLogEntryFromApi);
-  }
-
-  async function loadAgentQueueSnapshot() {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to read Agent Queue review items.");
-    }
-
-    return getAgentQueueSnapshot({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-    });
   }
 
   async function loadAgentExecutorRuns(
@@ -676,7 +663,7 @@ export function useWorkbenchWidgetActions({
   return {
     addWidgetTemplate,
     ...createWorkspaceNoteActions(viewState),
-    getAgentQueueSnapshot: loadAgentQueueSnapshot,
+    ...createAgentQueueTaskActions(viewState),
     listAgentExecutorRuns: loadAgentExecutorRuns,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,

@@ -289,14 +289,16 @@ Current Agent Queue remains:
 - singleton per Workspace
 - backed by a manual task storage/API foundation for create, list, read, and
   update operations
+- surfaced through a manual product UI for create, list, select, edit, status,
+  priority, and explicit save
 - non-executing
 - non-dispatching
 - without dependency management
 - without executor assignment
 
 The task foundation stores Workspace-scoped task records only. It does not add
-product UI, scheduler behavior, dependency execution, Agent Executor launch, or
-automatic status transitions.
+queue execution, scheduler behavior, dependency execution, Agent Executor
+launch, or automatic status transitions.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.
@@ -304,7 +306,6 @@ scheduler, or hidden execution path.
 ## Recommended Follow-Up Blocks
 
 - Block 188  Agent Queue task model backend foundation.
-- Block 189  Agent Queue product UI.
 - Block 190  Agent Executor identity and slot model.
 - Block 191  Manual Queue to Executor assignment contract.
 - Block 192  Manual Queue to Executor assignment MVP.

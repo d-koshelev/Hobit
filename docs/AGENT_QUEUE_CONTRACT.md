@@ -20,13 +20,14 @@ The current repository has:
 
 - an Agent Queue widget rendered through the Widget Catalog, WidgetHost, and WidgetFrame path
 - a singleton insertion guard that prevents adding a new Agent Queue widget when one already exists in the Workspace
-- a static command queue/history/review overview used only as clearly labeled empty/demo copy when no persisted review items exist
 - SQLite storage for narrow `agent_queue_items` review records created from valid Agent Chat local mock proposal results
 - SQLite storage plus app/Tauri/frontend API methods for manual Workspace-scoped
   queue task create/list/read/update operations
+- a frontend product UI for manual queue task create, list, select, edit,
+  status, priority, and explicit save
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
-- persisted queue item listing and read-only detail preview scoped to the current Workspace Workbench
-- no Agent Queue product UI for the manual task model yet
+- persisted proposal-review item compatibility paths scoped to the current
+  Workspace Workbench
 - no automatic agent execution
 - no background queue runner
 - no response capture, parser, or validator
@@ -34,7 +35,7 @@ The current repository has:
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API and product UI foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 
@@ -489,7 +490,8 @@ This contract does not implement:
 - background queue runner
 - secret or context automation
 - runtime/tool execution changes
-- widget behavior changes beyond the Agent Monitoring create-review action and Agent Queue read-only proposal-review inbox
+- widget behavior changes beyond the Agent Monitoring create-review action,
+  retained proposal-review compatibility paths, and manual Queue task UI
 - product behavior changes
 
 ## Architecture Boundary

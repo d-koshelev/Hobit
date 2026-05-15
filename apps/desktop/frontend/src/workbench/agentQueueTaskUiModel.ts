@@ -1,0 +1,154 @@
+import type { AgentQueueTask } from "../workspace/types";
+
+type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
+
+export const DEFAULT_TASK_TITLE = "New task";
+export const MIN_PRIORITY = 0;
+export const MAX_PRIORITY = 5;
+
+const TASK_STATUSES = [
+  "draft",
+  "queued",
+  "ready",
+  "completed",
+  "failed",
+  "cancelled",
+  "review_needed",
+] as const;
+
+export type QueueTaskStatus = (typeof TASK_STATUSES)[number];
+export type QueueFilter = "all" | QueueTaskStatus;
+
+export type TaskDraft = {
+  description: string;
+  priority: number;
+  prompt: string;
+  status: QueueTaskStatus;
+  title: string;
+};
+
+export const STATUS_OPTIONS: Array<{
+  label: string;
+  value: QueueTaskStatus;
+}> = [
+  { label: "Draft", value: "draft" },
+  { label: "Queued", value: "queued" },
+  { label: "Ready", value: "ready" },
+  { label: "Completed", value: "completed" },
+  { label: "Failed", value: "failed" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Review needed", value: "review_needed" },
+];
+
+export const FILTERS: Array<{ label: string; value: QueueFilter }> = [
+  { label: "All", value: "all" },
+  ...STATUS_OPTIONS,
+];
+
+export function emptyDraft(): TaskDraft {
+  return {
+    description: "",
+    priority: 0,
+    prompt: "",
+    status: "draft",
+    title: "",
+  };
+}
+
+export function validateDraft(draft: TaskDraft): string | null {
+  if (!draft.title.trim()) {
+    return "Title is required before saving.";
+  }
+
+  if (draft.priority < MIN_PRIORITY || draft.priority > MAX_PRIORITY) {
+    return "Priority must be between 0 and 5.";
+  }
+
+  if (!isQueueTaskStatus(draft.status)) {
+    return "Status is not supported.";
+  }
+
+  if (draft.status !== "draft" && !draft.prompt.trim()) {
+    return "Prompt is required unless the task is a draft.";
+  }
+
+  return null;
+}
+
+export function isQueueTaskStatus(status: string): status is QueueTaskStatus {
+  return TASK_STATUSES.includes(status as QueueTaskStatus);
+}
+
+export function normalizeTaskStatus(status: string): QueueTaskStatus {
+  return isQueueTaskStatus(status) ? status : "draft";
+}
+
+export function statusLabel(status: string) {
+  return (
+    STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+    formatStatus(status)
+  );
+}
+
+export function statusBadgeVariant(status: string): BadgeVariant {
+  switch (status) {
+    case "ready":
+    case "completed":
+      return "success";
+    case "queued":
+      return "info";
+    case "failed":
+      return "error";
+    case "review_needed":
+      return "warning";
+    case "cancelled":
+    case "draft":
+    default:
+      return "neutral";
+  }
+}
+
+export function displayTaskTitle(task: AgentQueueTask) {
+  return task.title.trim() || DEFAULT_TASK_TITLE;
+}
+
+export function taskPreview(task: AgentQueueTask) {
+  const preview = (task.description || task.prompt).replace(/\s+/g, " ").trim();
+
+  return preview || "No description or prompt yet.";
+}
+
+export function formatUpdatedTimestamp(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Updated time unavailable";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  }).format(date);
+}
+
+export function errorToMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+export function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatStatus(status: string) {
+  return status
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}

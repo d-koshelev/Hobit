@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
   AgentExecutorDiffSummary,
-  AgentQueueSnapshot,
+  AgentQueueTask,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
+  CreateAgentQueueTaskRequest,
   CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
   GitCommitResponse,
@@ -17,6 +18,7 @@ import type {
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  UpdateAgentQueueTaskRequest,
   UpdateWorkspaceNoteRequest,
   WorkspaceNote,
 } from "../workspace/types";
@@ -223,7 +225,16 @@ export type WidgetRenderProps = {
     state: WidgetState,
   ) => Promise<void>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
-  onGetAgentQueueSnapshot?: () => Promise<AgentQueueSnapshot | null>;
+  onCreateAgentQueueTask?: (
+    request: Omit<CreateAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  onListAgentQueueTasks?: () => Promise<AgentQueueTask[]>;
+  onGetAgentQueueTask?: (
+    queueItemId: string,
+  ) => Promise<AgentQueueTask | null>;
+  onUpdateAgentQueueTask?: (
+    request: Omit<UpdateAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask | null>;
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
     limit?: number,

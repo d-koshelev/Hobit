@@ -206,9 +206,21 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.startCodexDirectWorkStream
       : undefined;
-  const getAgentQueueSnapshot =
+  const createAgentQueueTask =
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getAgentQueueSnapshot
+      ? widgetActions.createAgentQueueTask
+      : undefined;
+  const listAgentQueueTasks =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.listAgentQueueTasks
+      : undefined;
+  const getAgentQueueTask =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.getAgentQueueTask
+      : undefined;
+  const updateAgentQueueTask =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.updateAgentQueueTask
       : undefined;
   const createGitCommit =
     definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
@@ -283,7 +295,10 @@ export function WidgetHost({
           : undefined
       }
       onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
-      onGetAgentQueueSnapshot={getAgentQueueSnapshot}
+      onCreateAgentQueueTask={createAgentQueueTask}
+      onListAgentQueueTasks={listAgentQueueTasks}
+      onGetAgentQueueTask={getAgentQueueTask}
+      onUpdateAgentQueueTask={updateAgentQueueTask}
       onListAgentExecutorRuns={listAgentExecutorRuns}
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}

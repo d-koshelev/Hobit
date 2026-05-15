@@ -83,11 +83,13 @@ future widget capability.
 
 ### Agent Queue
 
-- Preview review/history foundation.
+- Preview manual task queue surface.
 - Singleton per Workspace for new Agent Queue widget insertion.
 - Existing persisted duplicates are not deleted or migrated.
 - Manual queue task backend/storage/Tauri/frontend API foundation exists for
-  create, list, read, and update; no product UI consumes it yet.
+  create, list, read, and update.
+- Frontend product UI can create, list, select, edit, and explicitly save
+  workspace queue tasks with title, description, prompt, status, and priority.
 - Future task, dependency, executor capacity, and assignment model is governed
   by `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
 - Does not execute, dispatch, schedule, approve/apply, assign executors,
@@ -147,4 +149,4 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Agent Queue product UI after the task model backend/API foundation.
+- Agent Queue executor assignment and dependency blocks later.
