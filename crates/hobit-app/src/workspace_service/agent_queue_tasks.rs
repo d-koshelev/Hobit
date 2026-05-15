@@ -1,11 +1,14 @@
-use hobit_storage_sqlite::{AgentQueueTaskUpdate, NewAgentQueueTask};
+use hobit_storage_sqlite::{
+    AgentQueueTaskRow, AgentQueueTaskUpdate, NewAgentQueueTask, WidgetInstanceRow,
+};
 
 use crate::WorkspaceServiceError;
 
 use super::{
     mapping::agent_queue_task_summary, placeholder_id, placeholder_timestamp,
-    validation::required_input, AgentQueueTaskSummary, CreateAgentQueueTaskInput,
-    UpdateAgentQueueTaskInput, WorkspaceService,
+    validation::required_input, AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput,
+    ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    WorkspaceService, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
 const AGENT_QUEUE_TASK_STATUS_DRAFT: &str = "draft";
@@ -120,6 +123,66 @@ impl WorkspaceService {
         Ok(task.map(agent_queue_task_summary))
     }
 
+    pub fn assign_agent_queue_task_to_executor(
+        &self,
+        input: AssignAgentQueueTaskToExecutorInput,
+    ) -> Result<AgentQueueTaskSummary, WorkspaceServiceError> {
+        let input = normalize_assign_agent_queue_task_input(input)?;
+        let updated_at = placeholder_timestamp();
+        let task = self
+            .store
+            .with_immediate_transaction(|store| {
+                let task = load_assignable_agent_queue_task(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                )?;
+                let executor = load_agent_executor_widget(
+                    store,
+                    &input.workspace_id,
+                    &input.executor_widget_instance_id,
+                )?;
+                let task = store
+                    .assign_agent_queue_task_to_executor(
+                        &input.workspace_id,
+                        &task.queue_item_id,
+                        &executor.id,
+                        Some(&updated_at),
+                    )?
+                    .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                store.touch_workspace(&input.workspace_id)?;
+                Ok(task)
+            })
+            .map_err(map_storage_agent_queue_task_error)?;
+
+        Ok(agent_queue_task_summary(task))
+    }
+
+    pub fn clear_agent_queue_task_assignment(
+        &self,
+        input: ClearAgentQueueTaskAssignmentInput,
+    ) -> Result<AgentQueueTaskSummary, WorkspaceServiceError> {
+        let input = normalize_clear_agent_queue_task_assignment_input(input)?;
+        let updated_at = placeholder_timestamp();
+        let task = self
+            .store
+            .with_immediate_transaction(|store| {
+                let task = load_agent_queue_task(store, &input.workspace_id, &input.queue_item_id)?;
+                let task = store
+                    .clear_agent_queue_task_assignment(
+                        &input.workspace_id,
+                        &task.queue_item_id,
+                        Some(&updated_at),
+                    )?
+                    .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                store.touch_workspace(&input.workspace_id)?;
+                Ok(task)
+            })
+            .map_err(map_storage_agent_queue_task_error)?;
+
+        Ok(agent_queue_task_summary(task))
+    }
+
     fn validate_agent_queue_task_workspace_access(
         &self,
         workspace_id: &str,
@@ -166,6 +229,19 @@ struct NormalizedUpdateAgentQueueTaskInput {
     priority: i64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct NormalizedAssignAgentQueueTaskInput {
+    workspace_id: String,
+    queue_item_id: String,
+    executor_widget_instance_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct NormalizedClearAgentQueueTaskAssignmentInput {
+    workspace_id: String,
+    queue_item_id: String,
+}
+
 fn normalize_create_agent_queue_task_input(
     input: CreateAgentQueueTaskInput,
 ) -> Result<NormalizedCreateAgentQueueTaskInput, WorkspaceServiceError> {
@@ -194,6 +270,28 @@ fn normalize_update_agent_queue_task_input(
         prompt,
         status,
         priority: normalize_priority(input.priority)?,
+    })
+}
+
+fn normalize_assign_agent_queue_task_input(
+    input: AssignAgentQueueTaskToExecutorInput,
+) -> Result<NormalizedAssignAgentQueueTaskInput, WorkspaceServiceError> {
+    Ok(NormalizedAssignAgentQueueTaskInput {
+        workspace_id: required_owned(input.workspace_id, "workspace id")?,
+        queue_item_id: required_owned(input.queue_item_id, "queue item id")?,
+        executor_widget_instance_id: required_owned(
+            input.executor_widget_instance_id,
+            "executor widget instance id",
+        )?,
+    })
+}
+
+fn normalize_clear_agent_queue_task_assignment_input(
+    input: ClearAgentQueueTaskAssignmentInput,
+) -> Result<NormalizedClearAgentQueueTaskAssignmentInput, WorkspaceServiceError> {
+    Ok(NormalizedClearAgentQueueTaskAssignmentInput {
+        workspace_id: required_owned(input.workspace_id, "workspace id")?,
+        queue_item_id: required_owned(input.queue_item_id, "queue item id")?,
     })
 }
 
@@ -236,6 +334,89 @@ fn normalize_priority(priority: i64) -> Result<i64, WorkspaceServiceError> {
 
 fn required_owned(value: String, label: &str) -> Result<String, WorkspaceServiceError> {
     required_input(&value, label).map(str::to_owned)
+}
+
+fn load_agent_queue_task(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Result<AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
+    if store.get_workspace(workspace_id)?.is_none() {
+        return Err(storage_invalid_input(format!(
+            "workspace not found: {workspace_id}"
+        )));
+    }
+
+    let Some(task) = store.get_agent_queue_task_by_id(queue_item_id)? else {
+        return Err(storage_invalid_input(format!(
+            "queue task not found: {queue_item_id}"
+        )));
+    };
+
+    if task.workspace_id != workspace_id {
+        return Err(storage_invalid_input(format!(
+            "queue task does not belong to workspace: {queue_item_id}"
+        )));
+    }
+
+    Ok(task)
+}
+
+fn load_assignable_agent_queue_task(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Result<AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
+    let task = load_agent_queue_task(store, workspace_id, queue_item_id)?;
+
+    if !is_assignable_agent_queue_task_status(&task.status) {
+        return Err(storage_invalid_input(format!(
+            "queue task status cannot be assigned: {}",
+            task.status
+        )));
+    }
+
+    Ok(task)
+}
+
+fn load_agent_executor_widget(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    executor_widget_instance_id: &str,
+) -> Result<WidgetInstanceRow, hobit_storage_sqlite::StorageError> {
+    let Some(widget) = store.get_widget_instance(executor_widget_instance_id)? else {
+        return Err(storage_invalid_input(format!(
+            "executor widget not found: {executor_widget_instance_id}"
+        )));
+    };
+
+    if widget.workspace_id != workspace_id {
+        return Err(storage_invalid_input(format!(
+            "executor widget does not belong to workspace: {executor_widget_instance_id}"
+        )));
+    }
+
+    if widget.definition_id != AGENT_RUN_WIDGET_DEFINITION_ID {
+        return Err(storage_invalid_input(format!(
+            "assigned widget is not an Agent Executor: {executor_widget_instance_id}"
+        )));
+    }
+
+    Ok(widget)
+}
+
+fn is_assignable_agent_queue_task_status(status: &str) -> bool {
+    matches!(
+        status,
+        AGENT_QUEUE_TASK_STATUS_DRAFT
+            | AGENT_QUEUE_TASK_STATUS_QUEUED
+            | AGENT_QUEUE_TASK_STATUS_READY
+            | AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED
+    )
+}
+
+fn storage_invalid_input(message: String) -> hobit_storage_sqlite::StorageError {
+    hobit_storage_sqlite::StorageError::InvalidParameterName(message)
 }
 
 fn map_storage_agent_queue_task_error(

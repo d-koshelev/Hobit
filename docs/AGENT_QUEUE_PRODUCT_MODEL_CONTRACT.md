@@ -160,8 +160,8 @@ Capacity rules:
   dispatch UI exists.
 
 Current Agent Executor manual execution remains valid and does not require
-Agent Queue. Agent Queue assignment and dispatch to these slots remain future
-work.
+Agent Queue. A non-executing assignment API foundation exists, but assignment
+UI and dispatch to these slots remain future work.
 
 ## Assignment Model
 
@@ -297,14 +297,16 @@ Current Agent Queue remains:
   update operations
 - surfaced through a manual product UI for create, list, select, edit, status,
   priority, and explicit save
+- backed by an assignment API foundation for manually assigning or clearing an
+  Agent Executor widget slot
 - non-executing
 - non-dispatching
 - without dependency management
-- without executor assignment
+- without executor assignment UI
 
-The task foundation stores Workspace-scoped task records only. It does not add
-queue execution, scheduler behavior, dependency execution, Agent Executor
-launch, or automatic status transitions.
+The task and assignment foundation stores Workspace-scoped task records only. It
+does not add queue execution, scheduler behavior, dependency execution, Agent
+Executor launch, or automatic status transitions.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.
@@ -313,9 +315,6 @@ scheduler, or hidden execution path.
 
 - Block 188A  Agent Queue task model backend foundation.
 - Block 189  Agent Queue product UI.
-- Block 190  Agent Executor identity and slot model.
-- Block 191  Manual Queue to Executor assignment contract.
-- Block 192  Manual Queue to Executor assignment backend/API.
 - Block 193  Manual Queue to Executor assignment UI.
 - Block 194  Run assigned queue item in selected Agent Executor.
 - Block 195  Queue dependencies MVP.
@@ -328,9 +327,11 @@ scheduler, or hidden execution path.
 This contract does not define or require:
 
 - frontend UI
-- backend behavior beyond the manual task storage/API foundation noted above
-- Tauri commands beyond manual task create/list/read/update
-- storage/schema behavior beyond Workspace-scoped manual task records
+- backend behavior beyond the manual task and assignment storage/API foundation
+  noted above
+- Tauri commands beyond manual task create/list/read/update/assign/clear
+- storage/schema behavior beyond Workspace-scoped manual task records and
+  nullable assignment state
 - queue execution
 - task dispatch
 - scheduler

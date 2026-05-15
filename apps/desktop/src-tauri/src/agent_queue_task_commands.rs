@@ -5,8 +5,9 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
 use crate::agent_queue_task_dto::{
-    AgentQueueTaskDto, CreateAgentQueueTaskRequest, GetAgentQueueTaskRequest,
-    ListAgentQueueTasksRequest, UpdateAgentQueueTaskRequest,
+    AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, ClearAgentQueueTaskAssignmentRequest,
+    CreateAgentQueueTaskRequest, GetAgentQueueTaskRequest, ListAgentQueueTasksRequest,
+    UpdateAgentQueueTaskRequest,
 };
 use crate::app_state::AppState;
 
@@ -83,6 +84,44 @@ fn update_agent_queue_task_blocking(
     service
         .update_agent_queue_task(request.into())
         .map(|task| task.map(AgentQueueTaskDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn assign_agent_queue_task_to_executor(
+    request: AssignAgentQueueTaskToExecutorRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    assign_agent_queue_task_to_executor_blocking(request, state.db_path().to_path_buf())
+}
+
+fn assign_agent_queue_task_to_executor_blocking(
+    request: AssignAgentQueueTaskToExecutorRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .assign_agent_queue_task_to_executor(request.into())
+        .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn clear_agent_queue_task_assignment(
+    request: ClearAgentQueueTaskAssignmentRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    clear_agent_queue_task_assignment_blocking(request, state.db_path().to_path_buf())
+}
+
+fn clear_agent_queue_task_assignment_blocking(
+    request: ClearAgentQueueTaskAssignmentRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .clear_agent_queue_task_assignment(request.into())
+        .map(AgentQueueTaskDto::from)
         .map_err(command_error)
 }
 

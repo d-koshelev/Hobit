@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS agent_queue_tasks (
     prompt TEXT NOT NULL,
     status TEXT NOT NULL,
     priority INTEGER NOT NULL,
+    assigned_executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -210,4 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_widget_logs_run_id
 
 CREATE INDEX IF NOT EXISTS idx_widget_logs_widget_instance_created_at
     ON widget_logs(widget_instance_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_tasks_assigned_executor_widget_id
+    ON agent_queue_tasks(assigned_executor_widget_id);
 "#;

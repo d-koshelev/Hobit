@@ -10,8 +10,10 @@ import type {
   AgentQueueItem,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
+  ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateWorkspaceRequest,
   CreateGitCommitRequest,
@@ -131,6 +133,12 @@ export type WorkspaceApi = {
   updateAgentQueueTask: (
     request: UpdateAgentQueueTaskRequest,
   ) => Promise<AgentQueueTask | null>;
+  assignAgentQueueTaskToExecutor: (
+    request: AssignAgentQueueTaskToExecutorRequest,
+  ) => Promise<AgentQueueTask>;
+  clearAgentQueueTaskAssignment: (
+    request: ClearAgentQueueTaskAssignmentRequest,
+  ) => Promise<AgentQueueTask>;
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
@@ -315,6 +323,18 @@ export function updateAgentQueueTask(
   request: UpdateAgentQueueTaskRequest,
 ): Promise<AgentQueueTask | null> {
   return getWorkspaceApi().updateAgentQueueTask(request);
+}
+
+export function assignAgentQueueTaskToExecutor(
+  request: AssignAgentQueueTaskToExecutorRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().assignAgentQueueTaskToExecutor(request);
+}
+
+export function clearAgentQueueTaskAssignment(
+  request: ClearAgentQueueTaskAssignmentRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().clearAgentQueueTaskAssignment(request);
 }
 
 export function getGitRepositoryStatus(

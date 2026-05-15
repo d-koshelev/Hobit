@@ -123,6 +123,7 @@ pub(super) fn agent_queue_task_summary(row: AgentQueueTaskRow) -> AgentQueueTask
         prompt: row.prompt,
         status: row.status,
         priority: row.priority,
+        assigned_executor_widget_id: row.assigned_executor_widget_id,
         created_at: row.created_at,
         updated_at: row.updated_at,
     }

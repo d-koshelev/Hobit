@@ -31,6 +31,29 @@ fn create_task(
         .expect("create queue task")
 }
 
+fn add_widget(
+    service: &WorkspaceService,
+    workspace: &WorkspaceSummary,
+    definition_id: &str,
+    title: &str,
+) -> String {
+    service
+        .add_widget_instance_to_workbench(
+            &workspace.id,
+            workspace.workbench_id.as_deref().expect("workbench id"),
+            definition_id,
+            title,
+            "agent",
+        )
+        .expect("add widget")
+        .expect("updated state")
+        .widget_instances
+        .into_iter()
+        .find(|widget| widget.title == title)
+        .expect("added widget")
+        .id
+}
+
 #[test]
 fn create_list_get_and_update_agent_queue_task() {
     let service = initialized_service();
@@ -44,6 +67,7 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(task.prompt, "Prompt");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.assigned_executor_widget_id, None);
     assert!(!task.created_at.is_empty());
     assert_eq!(task.created_at, task.updated_at);
 
@@ -78,6 +102,7 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(updated.prompt, "Updated prompt");
     assert_eq!(updated.status, "completed");
     assert_eq!(updated.priority, 4);
+    assert_eq!(updated.assigned_executor_widget_id, None);
     assert_ne!(updated.updated_at, task.updated_at);
 }
 
@@ -232,4 +257,196 @@ fn non_draft_agent_queue_task_rejects_empty_prompt() {
     assert!(error
         .to_string()
         .contains("queue task prompt must not be empty unless status is draft"));
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_validates_slot_and_keeps_task_non_running() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id, "Assignable", "queued", 2);
+    let executor_id = add_widget(
+        &service,
+        &workspace,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Executor",
+    );
+    let logs_before = service
+        .store
+        .list_widget_logs_for_widget(&executor_id, 100)
+        .expect("list logs before assignment");
+
+    std::thread::sleep(std::time::Duration::from_millis(1));
+
+    let assigned = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            executor_widget_instance_id: executor_id.clone(),
+        })
+        .expect("assign queue task");
+
+    assert_eq!(
+        assigned.assigned_executor_widget_id.as_deref(),
+        Some(executor_id.as_str())
+    );
+    assert_eq!(assigned.status, "queued");
+    assert_ne!(assigned.updated_at, task.updated_at);
+    assert!(service
+        .store
+        .list_widget_runs_for_widget(&executor_id)
+        .expect("list executor runs")
+        .is_empty());
+    assert_eq!(
+        service
+            .store
+            .list_widget_logs_for_widget(&executor_id, 100)
+            .expect("list logs after assignment"),
+        logs_before
+    );
+}
+
+#[test]
+fn clear_agent_queue_task_assignment_clears_slot_without_status_change() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id, "Assignable", "review_needed", 2);
+    let executor_id = add_widget(
+        &service,
+        &workspace,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Executor",
+    );
+    let assigned = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            executor_widget_instance_id: executor_id,
+        })
+        .expect("assign queue task");
+
+    let cleared = service
+        .clear_agent_queue_task_assignment(ClearAgentQueueTaskAssignmentInput {
+            workspace_id: workspace.id,
+            queue_item_id: task.queue_item_id,
+        })
+        .expect("clear assignment");
+
+    assert!(assigned.assigned_executor_widget_id.is_some());
+    assert_eq!(cleared.assigned_executor_widget_id, None);
+    assert_eq!(cleared.status, "review_needed");
+    assert_ne!(cleared.updated_at, assigned.updated_at);
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_rejects_non_executor_and_unknown_widget() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id, "Assignable", "queued", 2);
+    let notes_widget_id = add_widget(&service, &workspace, "notes", "Notes");
+
+    let non_executor = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            executor_widget_instance_id: notes_widget_id,
+        })
+        .expect_err("non-executor rejected");
+    assert!(non_executor
+        .to_string()
+        .contains("assigned widget is not an Agent Executor"));
+
+    let unknown_executor = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id,
+            queue_item_id: task.queue_item_id,
+            executor_widget_instance_id: "missing-widget".to_owned(),
+        })
+        .expect_err("unknown executor rejected");
+    assert!(unknown_executor
+        .to_string()
+        .contains("executor widget not found: missing-widget"));
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_rejects_cross_workspace_target() {
+    let service = initialized_service();
+    let first = create_workspace(&service, "First workspace");
+    let second = create_workspace(&service, "Second workspace");
+    let task = create_task(&service, &first.id, "Assignable", "ready", 2);
+    let other_executor_id = add_widget(
+        &service,
+        &second,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Other Executor",
+    );
+
+    let error = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: first.id,
+            queue_item_id: task.queue_item_id,
+            executor_widget_instance_id: other_executor_id,
+        })
+        .expect_err("cross-workspace executor rejected");
+
+    assert!(error
+        .to_string()
+        .contains("executor widget does not belong to workspace"));
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_rejects_unknown_task_and_cross_workspace_task() {
+    let service = initialized_service();
+    let first = create_workspace(&service, "First workspace");
+    let second = create_workspace(&service, "Second workspace");
+    let task = create_task(&service, &first.id, "Assignable", "draft", 2);
+    let executor_id = add_widget(&service, &first, AGENT_RUN_WIDGET_DEFINITION_ID, "Executor");
+
+    let unknown_task = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: first.id.clone(),
+            queue_item_id: "missing-task".to_owned(),
+            executor_widget_instance_id: executor_id.clone(),
+        })
+        .expect_err("unknown task rejected");
+    assert!(unknown_task
+        .to_string()
+        .contains("queue task not found: missing-task"));
+
+    let cross_workspace_task = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: second.id,
+            queue_item_id: task.queue_item_id,
+            executor_widget_instance_id: executor_id,
+        })
+        .expect_err("cross-workspace task rejected");
+    assert!(cross_workspace_task
+        .to_string()
+        .contains("queue task does not belong to workspace"));
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_rejects_final_statuses() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let executor_id = add_widget(
+        &service,
+        &workspace,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Executor",
+    );
+
+    for status in ["completed", "failed", "cancelled"] {
+        let task = create_task(&service, &workspace.id, status, status, 1);
+        let error = service
+            .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+                workspace_id: workspace.id.clone(),
+                queue_item_id: task.queue_item_id,
+                executor_widget_instance_id: executor_id.clone(),
+            })
+            .expect_err("final status rejected");
+
+        assert!(error
+            .to_string()
+            .contains(&format!("queue task status cannot be assigned: {status}")));
+    }
 }

@@ -88,14 +88,9 @@ export type CreateAgentQueueTaskRequest = {
   priority: number;
 };
 
-export type ListAgentQueueTasksRequest = {
-  workspaceId: string;
-};
+export type ListAgentQueueTasksRequest = { workspaceId: string };
 
-export type GetAgentQueueTaskRequest = {
-  workspaceId: string;
-  queueItemId: string;
-};
+export type GetAgentQueueTaskRequest = { workspaceId: string; queueItemId: string };
 
 export type UpdateAgentQueueTaskRequest = {
   workspaceId: string;
@@ -106,6 +101,12 @@ export type UpdateAgentQueueTaskRequest = {
   status: string;
   priority: number;
 };
+
+export type AssignAgentQueueTaskToExecutorRequest = GetAgentQueueTaskRequest & {
+  executorWidgetInstanceId: string;
+};
+
+export type ClearAgentQueueTaskAssignmentRequest = GetAgentQueueTaskRequest;
 
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
@@ -581,6 +582,7 @@ export type AgentQueueTask = {
   prompt: string;
   status: string;
   priority: number;
+  assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;
 };

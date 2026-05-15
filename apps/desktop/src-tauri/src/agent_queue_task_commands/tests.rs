@@ -26,6 +26,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(created.prompt, "Prompt");
     assert_eq!(created.status, "queued");
     assert_eq!(created.priority, 3);
+    assert_eq!(created.assigned_executor_widget_id, None);
 
     let listed = list_agent_queue_tasks_blocking(
         ListAgentQueueTasksRequest {
@@ -68,6 +69,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(updated.prompt, "Updated prompt");
     assert_eq!(updated.status, "completed");
     assert_eq!(updated.priority, 4);
+    assert_eq!(updated.assigned_executor_widget_id, None);
     remove_test_db_files(&db_path);
 }
 
@@ -126,6 +128,87 @@ fn get_agent_queue_task_command_helper_rejects_cross_workspace_access() {
     remove_test_db_files(&db_path);
 }
 
+#[test]
+fn assignment_command_helpers_assign_and_clear_executor() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+    let executor_widget_id =
+        add_widget_in_test_db(&db_path, &workspace_id, "agent-run", "Agent Executor");
+    let created = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect("create queue task");
+
+    let assigned = assign_agent_queue_task_to_executor_blocking(
+        AssignAgentQueueTaskToExecutorRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: created.queue_item_id.clone(),
+            executor_widget_instance_id: executor_widget_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("assign executor");
+
+    assert_eq!(
+        assigned.assigned_executor_widget_id.as_deref(),
+        Some(executor_widget_id.as_str())
+    );
+    assert_eq!(assigned.status, "queued");
+
+    let cleared = clear_agent_queue_task_assignment_blocking(
+        ClearAgentQueueTaskAssignmentRequest {
+            workspace_id,
+            queue_item_id: created.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect("clear assignment");
+
+    assert_eq!(cleared.assigned_executor_widget_id, None);
+    assert_eq!(cleared.status, "queued");
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn assignment_command_helper_rejects_non_executor_widget() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+    let notes_widget_id = add_widget_in_test_db(&db_path, &workspace_id, "notes", "Notes");
+    let created = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect("create queue task");
+
+    let error = assign_agent_queue_task_to_executor_blocking(
+        AssignAgentQueueTaskToExecutorRequest {
+            workspace_id,
+            queue_item_id: created.queue_item_id,
+            executor_widget_instance_id: notes_widget_id,
+        },
+        db_path.clone(),
+    )
+    .expect_err("non-executor rejected");
+
+    assert!(error.contains("assigned widget is not an Agent Executor"));
+    remove_test_db_files(&db_path);
+}
+
 fn create_workspace_in_test_db(db_path: &Path) -> String {
     let store = SqliteStore::open(db_path).expect("open sqlite test store");
     store.init_schema().expect("initialize schema");
@@ -137,6 +220,41 @@ fn create_workspace_in_test_db(db_path: &Path) -> String {
     drop(service);
 
     workspace_id
+}
+
+fn add_widget_in_test_db(
+    db_path: &Path,
+    workspace_id: &str,
+    definition_id: &str,
+    title: &str,
+) -> String {
+    let store = SqliteStore::open(db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    let service = WorkspaceService::new(store);
+    let workbench_id = service
+        .get_workspace_summary(workspace_id)
+        .expect("get workspace summary")
+        .expect("workspace summary")
+        .workbench_id
+        .expect("workbench id");
+    let widget_id = service
+        .add_widget_instance_to_workbench(
+            workspace_id,
+            &workbench_id,
+            definition_id,
+            title,
+            "agent",
+        )
+        .expect("add widget")
+        .expect("updated state")
+        .widget_instances
+        .into_iter()
+        .find(|widget| widget.title == title)
+        .expect("added widget")
+        .id;
+    drop(service);
+
+    widget_id
 }
 
 fn unique_test_db_path() -> PathBuf {

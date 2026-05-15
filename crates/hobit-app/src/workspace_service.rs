@@ -67,7 +67,8 @@ mod widget_singleton_tests;
 mod workspace_deletion_tests;
 
 pub use agent_queue_task_types::{
-    AgentQueueTaskSummary, CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
+    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,

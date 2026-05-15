@@ -74,7 +74,9 @@ pub fn run() {
             agent_queue_task_commands::create_agent_queue_task,
             agent_queue_task_commands::list_agent_queue_tasks,
             agent_queue_task_commands::get_agent_queue_task,
-            agent_queue_task_commands::update_agent_queue_task
+            agent_queue_task_commands::update_agent_queue_task,
+            agent_queue_task_commands::assign_agent_queue_task_to_executor,
+            agent_queue_task_commands::clear_agent_queue_task_assignment
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");

@@ -46,7 +46,7 @@ impl SqliteStore {
     pub fn list_agent_queue_tasks(&self, workspace_id: &str) -> Result<Vec<AgentQueueTaskRow>> {
         let mut statement = self.connection.prepare(
             "SELECT queue_item_id, workspace_id, title, description, prompt, status,
-                priority, created_at, updated_at
+                priority, assigned_executor_widget_id, created_at, updated_at
              FROM agent_queue_tasks
              WHERE workspace_id = ?1
              ORDER BY priority DESC, updated_at DESC, created_at DESC, queue_item_id DESC",
@@ -64,7 +64,7 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, created_at, updated_at
+                    status, priority, assigned_executor_widget_id, created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE workspace_id = ?1 AND queue_item_id = ?2",
                 params![workspace_id, queue_item_id],
@@ -80,7 +80,7 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, created_at, updated_at
+                    status, priority, assigned_executor_widget_id, created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE queue_item_id = ?1",
                 params![queue_item_id],
@@ -114,6 +114,58 @@ impl SqliteStore {
                 workspace_id,
                 queue_item_id,
             ],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_task(workspace_id, queue_item_id)
+    }
+
+    pub fn assign_agent_queue_task_to_executor(
+        &self,
+        workspace_id: &str,
+        queue_item_id: &str,
+        executor_widget_instance_id: &str,
+        updated_at: Option<&str>,
+    ) -> Result<Option<AgentQueueTaskRow>> {
+        let updated_at = updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_tasks
+             SET assigned_executor_widget_id = ?1, updated_at = ?2
+             WHERE workspace_id = ?3 AND queue_item_id = ?4",
+            params![
+                executor_widget_instance_id,
+                updated_at,
+                workspace_id,
+                queue_item_id,
+            ],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_task(workspace_id, queue_item_id)
+    }
+
+    pub fn clear_agent_queue_task_assignment(
+        &self,
+        workspace_id: &str,
+        queue_item_id: &str,
+        updated_at: Option<&str>,
+    ) -> Result<Option<AgentQueueTaskRow>> {
+        let updated_at = updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_tasks
+             SET assigned_executor_widget_id = NULL, updated_at = ?1
+             WHERE workspace_id = ?2 AND queue_item_id = ?3",
+            params![updated_at, workspace_id, queue_item_id],
         )?;
 
         if affected_rows == 0 {

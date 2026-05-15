@@ -3,6 +3,8 @@ import type {
   AgentQueueItem,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AssignAgentQueueTaskToExecutorRequest,
+  ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
@@ -57,6 +59,7 @@ type TauriAgentQueueTask = {
   prompt: string;
   status: string;
   priority: number;
+  assigned_executor_widget_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -161,6 +164,39 @@ export async function updateAgentQueueTask(
   return task ? normalizeAgentQueueTask(task) : null;
 }
 
+export async function assignAgentQueueTaskToExecutor(
+  request: AssignAgentQueueTaskToExecutorRequest,
+): Promise<AgentQueueTask> {
+  const task = await invoke<TauriAgentQueueTask>(
+    "assign_agent_queue_task_to_executor",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+        executor_widget_instance_id: request.executorWidgetInstanceId,
+      },
+    },
+  );
+
+  return normalizeAgentQueueTask(task);
+}
+
+export async function clearAgentQueueTaskAssignment(
+  request: ClearAgentQueueTaskAssignmentRequest,
+): Promise<AgentQueueTask> {
+  const task = await invoke<TauriAgentQueueTask>(
+    "clear_agent_queue_task_assignment",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+      },
+    },
+  );
+
+  return normalizeAgentQueueTask(task);
+}
+
 function normalizeAgentQueueSnapshot(
   snapshot: TauriAgentQueueSnapshot,
 ): AgentQueueSnapshot {
@@ -212,6 +248,7 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     prompt: task.prompt,
     status: task.status,
     priority: task.priority,
+    assignedExecutorWidgetId: task.assigned_executor_widget_id,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };

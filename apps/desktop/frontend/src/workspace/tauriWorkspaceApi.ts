@@ -1,12 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
-import { createAgentQueueItemFromProposal, createAgentQueueTask, getAgentQueueSnapshot, getAgentQueueTask, listAgentQueueTasks, updateAgentQueueTask } from "./tauriAgentQueueApi";
+import { assignAgentQueueTaskToExecutor, clearAgentQueueTaskAssignment, createAgentQueueItemFromProposal, createAgentQueueTask, getAgentQueueSnapshot, getAgentQueueTask, listAgentQueueTasks, updateAgentQueueTask } from "./tauriAgentQueueApi";
 import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
-import {
-  getAgentExecutorRunDetail,
-  listAgentExecutorRuns,
-} from "./tauriAgentExecutorHistoryApi";
+import { getAgentExecutorRunDetail, listAgentExecutorRuns } from "./tauriAgentExecutorHistoryApi";
 import {
   cancelCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
@@ -64,6 +61,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listAgentQueueTasks,
   getAgentQueueTask,
   updateAgentQueueTask,
+  assignAgentQueueTaskToExecutor,
+  clearAgentQueueTaskAssignment,
   getGitRepositoryStatus,
   createGitCommit,
   persistAgentChatProposal,

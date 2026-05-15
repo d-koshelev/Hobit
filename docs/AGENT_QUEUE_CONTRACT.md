@@ -10,7 +10,7 @@ This is primarily a product/domain contract. The current implementation includes
 
 Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
-The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. Those contracts are model-only and do not add queue execution, dispatch, scheduler behavior, schema changes, or Agent Executor runtime changes.
+The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. The current task and assignment foundations add storage/API state only; they do not add queue execution, dispatch, scheduler behavior, or Agent Executor runtime changes.
 
 ## Current Status
 
@@ -25,6 +25,8 @@ The current repository has:
   queue task create/list/read/update operations
 - a frontend product UI for manual queue task create, list, select, edit,
   status, priority, and explicit save
+- backend/storage/Tauri/frontend API methods for manual Queue-to-Executor
+  assignment and assignment clearing
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted proposal-review item compatibility paths scoped to the current
   Workspace Workbench
@@ -32,11 +34,11 @@ The current repository has:
 - no background queue runner
 - no response capture, parser, or validator
 - no executor integration
-- no Queue-to-Executor assignment API
+- no Queue-to-Executor assignment UI or run-from-assignment behavior
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API and product UI foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API and product UI foundation, manual Queue-to-Executor assignment API foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 
@@ -475,11 +477,11 @@ This contract does not implement:
 - Agent Queue behavior beyond explicit review-only items created from persisted Agent Chat local mock proposal results and manual stored task records
 - migration, deletion, or cleanup of existing duplicate Agent Queue widgets
 - executor dispatch storage or migrations
-- Queue-to-Executor assignment API
+- Queue-to-Executor assignment UI or run-from-assignment behavior
 - runtime Rust domain types beyond the current proposal-review and manual task DTO/service models
 - runtime TypeScript types beyond the current proposal-review and manual task API types
-- Tauri commands beyond proposal-review item create/read and manual task create/list/read/update
-- Workspace API changes beyond proposal-review item create/read and manual task create/list/read/update
+- Tauri commands beyond proposal-review item create/read and manual task create/list/read/update/assign/clear
+- Workspace API changes beyond proposal-review item create/read and manual task create/list/read/update/assign/clear
 - automatic execution
 - executor integration
 - response capture

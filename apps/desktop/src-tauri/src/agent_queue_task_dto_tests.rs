@@ -1,7 +1,8 @@
 use hobit_app::AgentQueueTaskSummary;
 
 use crate::agent_queue_task_dto::{
-    AgentQueueTaskDto, CreateAgentQueueTaskRequest, UpdateAgentQueueTaskRequest,
+    AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, ClearAgentQueueTaskAssignmentRequest,
+    CreateAgentQueueTaskRequest, UpdateAgentQueueTaskRequest,
 };
 
 #[test]
@@ -49,6 +50,34 @@ fn maps_update_agent_queue_task_request_to_app_input() {
 }
 
 #[test]
+fn maps_assign_agent_queue_task_to_executor_request_to_app_input() {
+    let request = AssignAgentQueueTaskToExecutorRequest {
+        workspace_id: "ws_1".to_owned(),
+        queue_item_id: "task_1".to_owned(),
+        executor_widget_instance_id: "executor_1".to_owned(),
+    };
+
+    let input: hobit_app::AssignAgentQueueTaskToExecutorInput = request.into();
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.queue_item_id, "task_1");
+    assert_eq!(input.executor_widget_instance_id, "executor_1");
+}
+
+#[test]
+fn maps_clear_agent_queue_task_assignment_request_to_app_input() {
+    let request = ClearAgentQueueTaskAssignmentRequest {
+        workspace_id: "ws_1".to_owned(),
+        queue_item_id: "task_1".to_owned(),
+    };
+
+    let input: hobit_app::ClearAgentQueueTaskAssignmentInput = request.into();
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.queue_item_id, "task_1");
+}
+
+#[test]
 fn maps_agent_queue_task_summary_to_dto() {
     let summary = AgentQueueTaskSummary {
         queue_item_id: "task_1".to_owned(),
@@ -58,6 +87,7 @@ fn maps_agent_queue_task_summary_to_dto() {
         prompt: "Prompt".to_owned(),
         status: "queued".to_owned(),
         priority: 3,
+        assigned_executor_widget_id: Some("executor_1".to_owned()),
         created_at: "1".to_owned(),
         updated_at: "2".to_owned(),
     };
@@ -71,6 +101,10 @@ fn maps_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.prompt, "Prompt");
     assert_eq!(dto.status, "queued");
     assert_eq!(dto.priority, 3);
+    assert_eq!(
+        dto.assigned_executor_widget_id.as_deref(),
+        Some("executor_1")
+    );
     assert_eq!(dto.created_at, "1");
     assert_eq!(dto.updated_at, "2");
 }

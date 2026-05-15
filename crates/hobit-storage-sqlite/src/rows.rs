@@ -126,6 +126,7 @@ pub struct AgentQueueTaskRow {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

@@ -1,4 +1,7 @@
-use hobit_app::{AgentQueueTaskSummary, CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput};
+use hobit_app::{
+    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
+    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -33,6 +36,19 @@ pub(crate) struct UpdateAgentQueueTaskRequest {
     pub priority: i64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AssignAgentQueueTaskToExecutorRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub executor_widget_instance_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ClearAgentQueueTaskAssignmentRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct AgentQueueTaskDto {
     pub queue_item_id: String,
@@ -42,6 +58,7 @@ pub(crate) struct AgentQueueTaskDto {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -73,6 +90,25 @@ impl From<UpdateAgentQueueTaskRequest> for UpdateAgentQueueTaskInput {
     }
 }
 
+impl From<AssignAgentQueueTaskToExecutorRequest> for AssignAgentQueueTaskToExecutorInput {
+    fn from(request: AssignAgentQueueTaskToExecutorRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            executor_widget_instance_id: request.executor_widget_instance_id,
+        }
+    }
+}
+
+impl From<ClearAgentQueueTaskAssignmentRequest> for ClearAgentQueueTaskAssignmentInput {
+    fn from(request: ClearAgentQueueTaskAssignmentRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+        }
+    }
+}
+
 impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
     fn from(summary: AgentQueueTaskSummary) -> Self {
         Self {
@@ -83,6 +119,7 @@ impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
             prompt: summary.prompt,
             status: summary.status,
             priority: summary.priority,
+            assigned_executor_widget_id: summary.assigned_executor_widget_id,
             created_at: summary.created_at,
             updated_at: summary.updated_at,
         }

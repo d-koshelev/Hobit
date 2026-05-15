@@ -169,6 +169,61 @@ fn init_schema_upgrades_widget_log_and_result_columns() {
 }
 
 #[test]
+fn init_schema_upgrades_agent_queue_task_assignment_column() {
+    let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
+    store
+        .connection
+        .execute_batch(
+            r#"
+                CREATE TABLE workspaces (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE agent_queue_tasks (
+                    queue_item_id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    priority INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                INSERT INTO workspaces (
+                    id, title, description, status, created_at, updated_at
+                ) VALUES (
+                    'workspace-1', 'Workspace', NULL, 'active', '1', '1'
+                );
+
+                INSERT INTO agent_queue_tasks (
+                    queue_item_id, workspace_id, title, description, prompt,
+                    status, priority, created_at, updated_at
+                ) VALUES (
+                    'task-1', 'workspace-1', 'Task', 'Description', 'Prompt',
+                    'queued', 1, '1', '1'
+                );
+                "#,
+        )
+        .expect("create legacy agent queue task table");
+
+    store.init_schema().expect("upgrade schema");
+
+    let task = store
+        .get_agent_queue_task("workspace-1", "task-1")
+        .expect("get upgraded queue task")
+        .expect("upgraded queue task");
+
+    assert_eq!(task.assigned_executor_widget_id, None);
+}
+
+#[test]
 fn create_and_load_workspace() {
     let store = initialized_store();
 

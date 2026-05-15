@@ -107,6 +107,11 @@ impl SqliteStore {
             "result_type TEXT NOT NULL DEFAULT 'generic'",
         )?;
         self.ensure_column("widget_results", "content", "content TEXT NULL")?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "assigned_executor_widget_id",
+            "assigned_executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL",
+        )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
         Ok(())
     }

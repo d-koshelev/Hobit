@@ -6,8 +6,9 @@ This contract defines how Agent Queue tasks may be manually assigned to visible
 Agent Executor slots before any automatic dispatch, scheduler, dependency
 execution, or run-from-queue behavior exists.
 
-It is a product and safety contract only. It does not add storage, Tauri
-commands, frontend UI, queue execution, Agent Executor runtime behavior,
+It is a product and safety contract. The current implementation foundation is
+limited to storage, app service, Tauri, and frontend API assignment methods. It
+does not add frontend UI, queue execution, Agent Executor runtime behavior,
 dependencies, Git mutation, Terminal launch, or background work.
 
 ## One-Sentence Rule
@@ -58,6 +59,27 @@ Future Queue task assignment should use:
 - `assignment_status`, if assignment needs a richer lifecycle later
 
 For the near-term implementation, `assigned_executor_widget_id` is enough.
+
+## Current Implementation Foundation
+
+The backend/API foundation now persists `assigned_executor_widget_id` on
+Workspace-scoped Agent Queue tasks.
+
+Implemented behavior:
+
+- assign a Queue task to an existing Agent Executor widget instance
+- clear a Queue task assignment
+- return assignment state from create, list, read, update, assign, and clear
+  task APIs
+- update the task `updated_at` timestamp on assignment changes
+- reject assignment to non-Agent Executor widgets, unknown widgets,
+  cross-Workspace widgets, unknown tasks, cross-Workspace tasks, and final task
+  statuses
+
+This foundation does not add assignment UI, run-from-queue behavior, queue
+dispatch, scheduler behavior, dependency behavior, Codex launch, Terminal
+launch, Direct Work run creation, widget run creation, execution logs, Git
+mutation, or automatic task status transitions.
 
 ## Executor Identity
 
@@ -128,8 +150,8 @@ Future intended flow:
 5. Agent Executor runs the task.
 6. Agent Queue status updates from the visible run result.
 
-This contract does not implement that flow. It only defines the boundary for
-manual assignment before execution exists.
+The current assignment foundation does not implement that flow. It only stores
+and clears assignment state before execution exists.
 
 ## Capacity Model
 
@@ -151,8 +173,8 @@ Dependencies are future work.
 Assignment must not imply dependency scheduling. Once dependencies exist, a
 blocked task should not be runnable until its dependencies are satisfied.
 
-This contract does not implement dependencies, ready/blocked computation, or
-dependency-driven execution.
+The current assignment foundation does not implement dependencies,
+ready/blocked computation, or dependency-driven execution.
 
 ## Queue UI Direction
 
@@ -194,7 +216,6 @@ Manual assignment must preserve these boundaries:
 
 ## Recommended Implementation Blocks
 
-- Block 192  Manual Queue to Executor assignment backend/API.
 - Block 193  Manual Queue to Executor assignment UI.
 - Block 194  Run assigned queue item in selected Agent Executor.
 - Block 195  Queue dependencies MVP.
@@ -204,13 +225,9 @@ Manual assignment must preserve these boundaries:
 
 ## Non-Goals
 
-This contract does not implement:
+This contract and current foundation do not implement:
 
 - frontend UI
-- backend services
-- Tauri commands
-- storage or schema changes
-- assignment API
 - run-from-queue behavior
 - queue execution
 - automatic dispatch

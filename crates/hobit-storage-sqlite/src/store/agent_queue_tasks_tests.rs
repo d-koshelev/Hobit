@@ -35,6 +35,40 @@ fn create_task(
         .expect("create queue task");
 }
 
+fn create_workbench_and_widget(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    widget_id: &str,
+) {
+    store
+        .create_workspace_workbench(workbench_id, workspace_id, None)
+        .expect("create workbench");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: widget_id,
+            workspace_id,
+            workbench_id,
+            definition_id: "agent-run",
+            title: "Agent Executor",
+            category: "agent",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert widget");
+}
+
 #[test]
 fn create_agent_queue_task_stores_workspace_scoped_task() {
     let store = initialized_store();
@@ -61,6 +95,7 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
     assert_eq!(task.prompt, "Check the patch for regressions");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.assigned_executor_widget_id, None);
     assert_eq!(task.created_at, "1");
     assert_eq!(task.updated_at, "2");
 }
@@ -121,6 +156,7 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
     assert_eq!(task.prompt, "Updated prompt");
     assert_eq!(task.status, "completed");
     assert_eq!(task.priority, 4);
+    assert_eq!(task.assigned_executor_widget_id, None);
     assert_eq!(task.updated_at, "2");
 }
 
@@ -191,4 +227,58 @@ fn list_agent_queue_tasks_orders_priority_first_then_recently_updated() {
         .map(|task| task.queue_item_id)
         .collect::<Vec<_>>();
     assert_eq!(ids, vec!["task-high-new", "task-high-old", "task-low"]);
+}
+
+#[test]
+fn assign_agent_queue_task_to_executor_updates_assignment_and_updated_at() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_task(&store, "workspace-1", "task-1", "Task", 1, "1");
+    create_workbench_and_widget(&store, "workspace-1", "workbench-1", "executor-1");
+
+    let assigned = store
+        .assign_agent_queue_task_to_executor("workspace-1", "task-1", "executor-1", Some("2"))
+        .expect("assign executor")
+        .expect("assigned task");
+
+    assert_eq!(
+        assigned.assigned_executor_widget_id.as_deref(),
+        Some("executor-1")
+    );
+    assert_eq!(assigned.updated_at, "2");
+    let fetched = store
+        .get_agent_queue_task("workspace-1", "task-1")
+        .expect("get assigned task")
+        .expect("assigned task");
+    let listed = store
+        .list_agent_queue_tasks("workspace-1")
+        .expect("list assigned task");
+
+    assert_eq!(
+        fetched.assigned_executor_widget_id.as_deref(),
+        Some("executor-1")
+    );
+    assert_eq!(
+        listed[0].assigned_executor_widget_id.as_deref(),
+        Some("executor-1")
+    );
+}
+
+#[test]
+fn clear_agent_queue_task_assignment_removes_assignment() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_task(&store, "workspace-1", "task-1", "Task", 1, "1");
+    create_workbench_and_widget(&store, "workspace-1", "workbench-1", "executor-1");
+    store
+        .assign_agent_queue_task_to_executor("workspace-1", "task-1", "executor-1", Some("2"))
+        .expect("assign executor");
+
+    let cleared = store
+        .clear_agent_queue_task_assignment("workspace-1", "task-1", Some("3"))
+        .expect("clear assignment")
+        .expect("cleared task");
+
+    assert_eq!(cleared.assigned_executor_widget_id, None);
+    assert_eq!(cleared.updated_at, "3");
 }

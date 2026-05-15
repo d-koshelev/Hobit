@@ -143,8 +143,9 @@ pub(crate) fn agent_queue_task_row(row: &rusqlite::Row<'_>) -> Result<AgentQueue
         prompt: row.get(4)?,
         status: row.get(5)?,
         priority: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        assigned_executor_widget_id: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 

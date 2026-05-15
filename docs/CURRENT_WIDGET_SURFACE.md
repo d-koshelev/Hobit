@@ -91,14 +91,16 @@ future widget capability.
 - Existing persisted duplicates are not deleted or migrated.
 - Manual queue task backend/storage/Tauri/frontend API foundation exists for
   create, list, read, and update.
+- Manual Queue-to-Executor assignment backend/storage/Tauri/frontend API
+  foundation exists for assigning and clearing an Agent Executor slot.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
 - Future task, dependency, and executor capacity model is governed by
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Future manual assignment to
   Executor slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
-- Does not execute, dispatch, schedule, approve/apply, assign executors,
-  capture responses, validate responses, mutate files, mutate Notes, or mutate
-  Git.
+- Does not execute, dispatch, schedule, approve/apply, show assignment UI, run
+  assigned tasks, capture responses, validate responses, mutate files, mutate
+  Notes, or mutate Git.
 
 ### Interactive Agent
 
@@ -153,6 +155,6 @@ current Workbench surface:
 - Interactive Agent session persistence later.
 - Interactive Agent provider integration later.
 - Runbook persistence and edit mode later.
-- Manual Queue to Executor assignment backend/API after
+- Manual Queue to Executor assignment UI after
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 - Agent Queue dependency blocks later.
