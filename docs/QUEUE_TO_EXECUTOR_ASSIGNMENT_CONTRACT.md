@@ -74,8 +74,9 @@ Implemented behavior:
   task APIs
 - update the task `updated_at` timestamp on assignment changes
 - reject assignment to non-Agent Executor widgets, unknown widgets,
-  cross-Workspace widgets, unknown tasks, cross-Workspace tasks, and final task
-  statuses
+  cross-Workspace widgets, unknown tasks, cross-Workspace tasks, final task
+  statuses, and `running` tasks
+- reject clearing assignment while a task is `running`
 
 This foundation does not add run-from-queue behavior, queue dispatch, scheduler
 behavior, dependency behavior, Codex launch, Terminal launch, Direct Work run

@@ -14,6 +14,7 @@ use super::{
 const AGENT_QUEUE_TASK_STATUS_DRAFT: &str = "draft";
 const AGENT_QUEUE_TASK_STATUS_QUEUED: &str = "queued";
 const AGENT_QUEUE_TASK_STATUS_READY: &str = "ready";
+const AGENT_QUEUE_TASK_STATUS_RUNNING: &str = "running";
 const AGENT_QUEUE_TASK_STATUS_COMPLETED: &str = "completed";
 const AGENT_QUEUE_TASK_STATUS_FAILED: &str = "failed";
 const AGENT_QUEUE_TASK_STATUS_CANCELLED: &str = "cancelled";
@@ -167,7 +168,11 @@ impl WorkspaceService {
         let task = self
             .store
             .with_immediate_transaction(|store| {
-                let task = load_agent_queue_task(store, &input.workspace_id, &input.queue_item_id)?;
+                let task = load_clearable_agent_queue_task(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                )?;
                 let task = store
                     .clear_agent_queue_task_assignment(
                         &input.workspace_id,
@@ -301,6 +306,7 @@ fn normalize_status(status: String) -> Result<String, WorkspaceServiceError> {
         AGENT_QUEUE_TASK_STATUS_DRAFT
         | AGENT_QUEUE_TASK_STATUS_QUEUED
         | AGENT_QUEUE_TASK_STATUS_READY
+        | AGENT_QUEUE_TASK_STATUS_RUNNING
         | AGENT_QUEUE_TASK_STATUS_COMPLETED
         | AGENT_QUEUE_TASK_STATUS_FAILED
         | AGENT_QUEUE_TASK_STATUS_CANCELLED
@@ -357,6 +363,22 @@ fn load_agent_queue_task(
         return Err(storage_invalid_input(format!(
             "queue task does not belong to workspace: {queue_item_id}"
         )));
+    }
+
+    Ok(task)
+}
+
+fn load_clearable_agent_queue_task(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Result<AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
+    let task = load_agent_queue_task(store, workspace_id, queue_item_id)?;
+
+    if task.status == AGENT_QUEUE_TASK_STATUS_RUNNING {
+        return Err(storage_invalid_input(
+            "queue task assignment cannot be cleared while status is running".to_owned(),
+        ));
     }
 
     Ok(task)

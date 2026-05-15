@@ -12,6 +12,7 @@ const TASK_STATUSES = [
   "draft",
   "queued",
   "ready",
+  "running",
   "completed",
   "failed",
   "cancelled",
@@ -36,6 +37,7 @@ export const STATUS_OPTIONS: Array<{
   { label: "Draft", value: "draft" },
   { label: "Queued", value: "queued" },
   { label: "Ready", value: "ready" },
+  { label: "Running", value: "running" },
   { label: "Completed", value: "completed" },
   { label: "Failed", value: "failed" },
   { label: "Cancelled", value: "cancelled" },
@@ -97,6 +99,7 @@ export function statusBadgeVariant(status: string): BadgeVariant {
     case "ready":
     case "completed":
       return "success";
+    case "running":
     case "queued":
       return "info";
     case "failed":
@@ -122,6 +125,10 @@ export function taskPreview(task: AgentQueueTask) {
 
 export function isFinalQueueTaskStatus(status: string) {
   return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+export function isAssignmentLockedQueueTaskStatus(status: string) {
+  return isFinalQueueTaskStatus(status) || status === "running";
 }
 
 export function shortWidgetInstanceId(widgetInstanceId: string) {

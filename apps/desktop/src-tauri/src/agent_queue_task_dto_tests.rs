@@ -34,7 +34,7 @@ fn maps_update_agent_queue_task_request_to_app_input() {
         title: "Updated".to_owned(),
         description: "Updated description".to_owned(),
         prompt: "Updated prompt".to_owned(),
-        status: "completed".to_owned(),
+        status: "running".to_owned(),
         priority: 4,
     };
 
@@ -45,7 +45,7 @@ fn maps_update_agent_queue_task_request_to_app_input() {
     assert_eq!(input.title, "Updated");
     assert_eq!(input.description, "Updated description");
     assert_eq!(input.prompt, "Updated prompt");
-    assert_eq!(input.status, "completed");
+    assert_eq!(input.status, "running");
     assert_eq!(input.priority, 4);
 }
 
@@ -85,7 +85,7 @@ fn maps_agent_queue_task_summary_to_dto() {
         title: "Task".to_owned(),
         description: "Description".to_owned(),
         prompt: "Prompt".to_owned(),
-        status: "queued".to_owned(),
+        status: "running".to_owned(),
         priority: 3,
         assigned_executor_widget_id: Some("executor_1".to_owned()),
         created_at: "1".to_owned(),
@@ -99,7 +99,7 @@ fn maps_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.title, "Task");
     assert_eq!(dto.description, "Description");
     assert_eq!(dto.prompt, "Prompt");
-    assert_eq!(dto.status, "queued");
+    assert_eq!(dto.status, "running");
     assert_eq!(dto.priority, 3);
     assert_eq!(
         dto.assigned_executor_widget_id.as_deref(),

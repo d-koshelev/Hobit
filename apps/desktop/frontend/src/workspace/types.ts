@@ -79,12 +79,13 @@ export type GetAgentQueueSnapshotRequest = {
   workbenchId: string;
 };
 
+export type AgentQueueTaskStatus = "draft" | "queued" | "ready" | "running" | "completed" | "failed" | "cancelled" | "review_needed";
 export type CreateAgentQueueTaskRequest = {
   workspaceId: string;
   title: string;
   description: string;
   prompt: string;
-  status: string;
+  status: AgentQueueTaskStatus;
   priority: number;
 };
 
@@ -98,7 +99,7 @@ export type UpdateAgentQueueTaskRequest = {
   title: string;
   description: string;
   prompt: string;
-  status: string;
+  status: AgentQueueTaskStatus;
   priority: number;
 };
 
@@ -580,7 +581,7 @@ export type AgentQueueTask = {
   title: string;
   description: string;
   prompt: string;
-  status: string;
+  status: AgentQueueTaskStatus;
   priority: number;
   assignedExecutorWidgetId: string | null;
   createdAt: string;

@@ -3,6 +3,7 @@ import type {
   AgentQueueItem,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AgentQueueTaskStatus,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
@@ -57,7 +58,7 @@ type TauriAgentQueueTask = {
   title: string;
   description: string;
   prompt: string;
-  status: string;
+  status: AgentQueueTaskStatus;
   priority: number;
   assigned_executor_widget_id: string | null;
   created_at: string;

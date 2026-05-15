@@ -3,6 +3,7 @@ import { Button } from "../design-system/Button";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   assignmentLabel,
+  isAssignmentLockedQueueTaskStatus,
   isFinalQueueTaskStatus,
 } from "./agentQueueTaskUiModel";
 import type { AgentExecutorSlot } from "./types";
@@ -38,12 +39,16 @@ export function AgentQueueTaskAssignmentPanel({
 }: AgentQueueTaskAssignmentPanelProps) {
   const hasAssignedExecutor = Boolean(selectedTask.assignedExecutorWidgetId);
   const isFinalStatus = isFinalQueueTaskStatus(selectedTask.status);
+  const isAssignmentLockedStatus = isAssignmentLockedQueueTaskStatus(
+    selectedTask.status,
+  );
   const hasExecutorSlots = executorSlots.length > 0;
   const assignmentDisabledReason = assignmentControlMessage({
     apiAvailable,
     hasExecutorSlots,
     isDirty,
     isFinalStatus,
+    isRunningStatus: selectedTask.status === "running",
   });
   const assignDisabled = Boolean(
     assignmentDisabledReason ||
@@ -104,7 +109,9 @@ export function AgentQueueTaskAssignmentPanel({
             </label>
             <select
               className="input agent-queue-assignment-select"
-              disabled={!apiAvailable || isDirty || isFinalStatus || isAssigning}
+              disabled={
+                !apiAvailable || isDirty || isAssignmentLockedStatus || isAssigning
+              }
               id={inputId}
               onChange={(event) =>
                 onSelectionChange(event.currentTarget.value)
@@ -161,11 +168,13 @@ function assignmentControlMessage({
   apiAvailable,
   isDirty,
   isFinalStatus,
+  isRunningStatus,
 }: {
   apiAvailable: boolean;
   hasExecutorSlots: boolean;
   isDirty: boolean;
   isFinalStatus: boolean;
+  isRunningStatus: boolean;
 }) {
   if (!apiAvailable) {
     return "Assignment persistence is not available in this runtime.";
@@ -177,6 +186,10 @@ function assignmentControlMessage({
 
   if (isFinalStatus) {
     return "Assignment is locked for final-status tasks.";
+  }
+
+  if (isRunningStatus) {
+    return "Assignment is locked while the task is running.";
   }
 
   if (!hasExecutorSlots) {

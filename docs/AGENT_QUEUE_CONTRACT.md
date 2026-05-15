@@ -24,7 +24,7 @@ The current repository has:
 - SQLite storage plus app/Tauri/frontend API methods for manual Workspace-scoped
   queue task create/list/read/update operations
 - a frontend product UI for manual queue task create, list, select, edit,
-  status, priority, and explicit save
+  status, priority, and explicit save, including `running` as data only
 - backend/storage/Tauri/frontend API methods for manual Queue-to-Executor
   assignment and assignment clearing
 - frontend controls for manually assigning or clearing a visible Agent Executor

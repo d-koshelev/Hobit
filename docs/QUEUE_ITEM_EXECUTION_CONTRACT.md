@@ -115,8 +115,9 @@ Recommended future transitions:
 - `running` to `failed` when the Agent Executor run fails
 - `running` to `cancelled` when the operator cancels the run
 
-The current persisted task status list does not include `running`. Add
-`running` to the task status model before implementing queue item execution.
+The persisted task status model supports `running` as data before queue item
+execution exists. A later queue execution implementation may use that status
+for visible lifecycle transitions.
 
 The first queue execution implementation must not add automatic dependency
 status transitions.

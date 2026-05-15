@@ -91,7 +91,7 @@ fn create_list_get_and_update_agent_queue_task() {
             title: "Updated API review".to_owned(),
             description: "Updated description".to_owned(),
             prompt: "Updated prompt".to_owned(),
-            status: "completed".to_owned(),
+            status: "running".to_owned(),
             priority: 4,
         })
         .expect("update queue task")
@@ -100,7 +100,7 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(updated.title, "Updated API review");
     assert_eq!(updated.description, "Updated description");
     assert_eq!(updated.prompt, "Updated prompt");
-    assert_eq!(updated.status, "completed");
+    assert_eq!(updated.status, "running");
     assert_eq!(updated.priority, 4);
     assert_eq!(updated.assigned_executor_widget_id, None);
     assert_ne!(updated.updated_at, task.updated_at);
@@ -215,13 +215,13 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             title: "Task".to_owned(),
             description: "".to_owned(),
             prompt: "Prompt".to_owned(),
-            status: "running".to_owned(),
+            status: "blocked".to_owned(),
             priority: 1,
         })
         .expect_err("invalid status rejected");
     assert!(invalid_status
         .to_string()
-        .contains("unsupported queue task status: running"));
+        .contains("unsupported queue task status: blocked"));
 
     let invalid_priority = service
         .create_agent_queue_task(CreateAgentQueueTaskInput {
@@ -338,6 +338,25 @@ fn clear_agent_queue_task_assignment_clears_slot_without_status_change() {
 }
 
 #[test]
+fn running_agent_queue_task_status_is_supported_as_data() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+
+    let task = create_task(&service, &workspace.id, "Running task", "running", 2);
+
+    assert_eq!(task.status, "running");
+    let listed = service
+        .list_agent_queue_tasks(&workspace.id)
+        .expect("list queue tasks");
+    assert_eq!(listed[0].status, "running");
+    let fetched = service
+        .get_agent_queue_task(&workspace.id, &task.queue_item_id)
+        .expect("get queue task")
+        .expect("queue task");
+    assert_eq!(fetched.status, "running");
+}
+
+#[test]
 fn assign_agent_queue_task_to_executor_rejects_non_executor_and_unknown_widget() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Queue workspace");
@@ -449,4 +468,61 @@ fn assign_agent_queue_task_to_executor_rejects_final_statuses() {
             .to_string()
             .contains(&format!("queue task status cannot be assigned: {status}")));
     }
+}
+
+#[test]
+fn running_task_assignment_and_clear_assignment_are_rejected() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let executor_id = add_widget(
+        &service,
+        &workspace,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Executor",
+    );
+    let running_task = create_task(&service, &workspace.id, "Running", "running", 1);
+
+    let assign_error = service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: running_task.queue_item_id,
+            executor_widget_instance_id: executor_id.clone(),
+        })
+        .expect_err("running status rejected for assignment");
+
+    assert!(assign_error
+        .to_string()
+        .contains("queue task status cannot be assigned: running"));
+
+    let assigned_task = create_task(&service, &workspace.id, "Assigned", "queued", 1);
+    service
+        .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: assigned_task.queue_item_id.clone(),
+            executor_widget_instance_id: executor_id,
+        })
+        .expect("assign queued task");
+    service
+        .update_agent_queue_task(UpdateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: assigned_task.queue_item_id.clone(),
+            title: assigned_task.title,
+            description: assigned_task.description,
+            prompt: assigned_task.prompt,
+            status: "running".to_owned(),
+            priority: assigned_task.priority,
+        })
+        .expect("update to running")
+        .expect("updated task");
+
+    let clear_error = service
+        .clear_agent_queue_task_assignment(ClearAgentQueueTaskAssignmentInput {
+            workspace_id: workspace.id,
+            queue_item_id: assigned_task.queue_item_id,
+        })
+        .expect_err("running status rejected for assignment clearing");
+
+    assert!(clear_error
+        .to_string()
+        .contains("queue task assignment cannot be cleared while status is running"));
 }

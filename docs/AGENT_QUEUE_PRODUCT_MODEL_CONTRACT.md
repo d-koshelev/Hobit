@@ -301,6 +301,7 @@ Current Agent Queue remains:
   priority, explicit save, and visible executor assignment
 - backed by an assignment API foundation for manually assigning or clearing an
   Agent Executor widget slot
+- supports `running` as task status data before queue execution exists
 - non-executing
 - non-dispatching
 - without dependency management

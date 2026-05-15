@@ -56,7 +56,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
             title: "Updated".to_owned(),
             description: "Updated description".to_owned(),
             prompt: "Updated prompt".to_owned(),
-            status: "completed".to_owned(),
+            status: "running".to_owned(),
             priority: 4,
         },
         db_path.clone(),
@@ -67,7 +67,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(updated.title, "Updated");
     assert_eq!(updated.description, "Updated description");
     assert_eq!(updated.prompt, "Updated prompt");
-    assert_eq!(updated.status, "completed");
+    assert_eq!(updated.status, "running");
     assert_eq!(updated.priority, 4);
     assert_eq!(updated.assigned_executor_widget_id, None);
     remove_test_db_files(&db_path);
@@ -206,6 +206,83 @@ fn assignment_command_helper_rejects_non_executor_widget() {
     .expect_err("non-executor rejected");
 
     assert!(error.contains("assigned widget is not an Agent Executor"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn assignment_command_helper_rejects_running_task_assignment_changes() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+    let executor_widget_id =
+        add_widget_in_test_db(&db_path, &workspace_id, "agent-run", "Agent Executor");
+    let running = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Running task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "running".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect("create running queue task");
+
+    let assign_error = assign_agent_queue_task_to_executor_blocking(
+        AssignAgentQueueTaskToExecutorRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: running.queue_item_id,
+            executor_widget_instance_id: executor_widget_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect_err("running assignment rejected");
+    assert!(assign_error.contains("queue task status cannot be assigned: running"));
+
+    let queued = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Queued task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+        },
+        db_path.clone(),
+    )
+    .expect("create queued queue task");
+    assign_agent_queue_task_to_executor_blocking(
+        AssignAgentQueueTaskToExecutorRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: queued.queue_item_id.clone(),
+            executor_widget_instance_id: executor_widget_id,
+        },
+        db_path.clone(),
+    )
+    .expect("assign queued queue task");
+    update_agent_queue_task_blocking(
+        UpdateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: queued.queue_item_id.clone(),
+            title: queued.title,
+            description: queued.description,
+            prompt: queued.prompt,
+            status: "running".to_owned(),
+            priority: queued.priority,
+        },
+        db_path.clone(),
+    )
+    .expect("update task to running");
+
+    let clear_error = clear_agent_queue_task_assignment_blocking(
+        ClearAgentQueueTaskAssignmentRequest {
+            workspace_id,
+            queue_item_id: queued.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect_err("running clear assignment rejected");
+    assert!(clear_error.contains("queue task assignment cannot be cleared while status is running"));
     remove_test_db_files(&db_path);
 }
 

@@ -96,7 +96,8 @@ future widget capability.
   foundation exists for assigning and clearing an Agent Executor slot.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
-  It can also manually assign or clear a visible Agent Executor slot.
+  It supports `running` as task status data and can also manually assign or
+  clear a visible Agent Executor slot when the task is not running.
 - Future task, dependency, and executor capacity model is governed by
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
   slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.

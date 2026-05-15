@@ -161,6 +161,55 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
 }
 
 #[test]
+fn running_status_round_trips_through_create_update_get_and_list() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    let created = store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-running",
+            workspace_id: "workspace-1",
+            title: "Running",
+            description: "Description",
+            prompt: "Prompt",
+            status: "running",
+            priority: 2,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create running queue task");
+
+    assert_eq!(created.status, "running");
+
+    let updated = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-running",
+            AgentQueueTaskUpdate {
+                title: "Still running",
+                description: "Updated description",
+                prompt: "Updated prompt",
+                status: "running",
+                priority: 3,
+                updated_at: Some("2"),
+            },
+        )
+        .expect("update running queue task")
+        .expect("updated queue task");
+    let fetched = store
+        .get_agent_queue_task("workspace-1", "task-running")
+        .expect("get running queue task")
+        .expect("running queue task");
+    let listed = store
+        .list_agent_queue_tasks("workspace-1")
+        .expect("list running queue tasks");
+
+    assert_eq!(updated.status, "running");
+    assert_eq!(fetched.status, "running");
+    assert_eq!(listed[0].status, "running");
+}
+
+#[test]
 fn unknown_agent_queue_task_returns_none() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
