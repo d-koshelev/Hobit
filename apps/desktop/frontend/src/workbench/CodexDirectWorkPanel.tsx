@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "../design-system/Button";
 import type {
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
@@ -27,23 +26,21 @@ import {
   type CodexDirectWorkLiveRun,
 } from "./CodexDirectWorkLiveLog";
 import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
+import { cancellationFeedbackFromResponse } from "./CodexDirectWorkCancellationFeedback";
+import {
+  handoffStartedAtMs,
+  queueHandoffLiveRun,
+  queueHandoffRequestDraft,
+} from "./CodexDirectWorkQueueHandoffModel";
 import type { GetAgentExecutorDiffSummaryHandler } from "./CodexDirectWorkDiffSummary";
 import { CodexDirectWorkPostRunReview } from "./CodexDirectWorkPostRunReview";
+import { CodexDirectWorkQueueSource } from "./CodexDirectWorkQueueSource";
 import { CodexDirectWorkResultSummary } from "./CodexDirectWorkResultSummary";
-import type {
-  CodexDirectWorkRequestDraft,
-  CodexDirectWorkStreamSession,
-} from "./CodexDirectWorkTypes";
-import {
-  cancellationStatusMessage,
-  isOneShotFallbackRunning,
-} from "./CodexDirectWorkStatusText";
+import { CodexDirectWorkStopPanel } from "./CodexDirectWorkStopPanel";
+import type { CodexDirectWorkRequestDraft, CodexDirectWorkStreamSession } from "./CodexDirectWorkTypes";
+import { isOneShotFallbackRunning } from "./CodexDirectWorkStatusText";
 import { CodexDirectWorkPanelOverview } from "./CodexDirectWorkPanelOverview";
-import type {
-  DirectWorkGitReviewRequestInput,
-  DirectWorkGitReviewStatus,
-  WidgetInstanceId,
-} from "./types";
+import type { DirectWorkGitReviewRequestInput, DirectWorkGitReviewStatus, DirectWorkRunHandoff, WidgetInstanceId } from "./types";
 import {
   AgentExecutorRunHistoryPanel,
   type GetAgentExecutorRunDetailHandler,
@@ -75,18 +72,26 @@ type CodexDirectWorkPanelProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<CancelCodexDirectWorkRunResponse | null>;
+  onAttachToCodexDirectWorkStream?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<CodexDirectWorkStreamSession | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
     onEvent: (event: DirectWorkStreamEvent) => void,
   ) => Promise<CodexDirectWorkStreamSession | null>;
+  directWorkRunHandoff?: DirectWorkRunHandoff | null;
   widgetInstanceId: WidgetInstanceId;
 };
 
 export function CodexDirectWorkPanel({
+  directWorkRunHandoff,
   gitReviewStatus,
   hasGitWidget,
   onDirectWorkGitReviewRequested,
+  onAttachToCodexDirectWorkStream,
   onCancelCodexDirectWorkRun,
   onGetAgentExecutorDiffSummary,
   onGetAgentExecutorRunDetail,
@@ -114,6 +119,7 @@ export function CodexDirectWorkPanel({
     startedAtMs: number;
   } | null>(null);
   const [liveRun, setLiveRun] = useState<CodexDirectWorkLiveRun | null>(null);
+  const [queueRunSource, setQueueRunSource] = useState<DirectWorkRunHandoff | null>(null);
   const [activeStreamingRunId, setActiveStreamingRunId] =
     useState<string | null>(null);
   const [isStopRequesting, setIsStopRequesting] = useState(false);
@@ -124,6 +130,7 @@ export function CodexDirectWorkPanel({
   >([]);
   const localLogEntrySequenceRef = useRef(0);
   const activeRequestRef = useRef<CodexDirectWorkRequestDraft | null>(null);
+  const handledQueueHandoffIdRef = useRef<number | null>(null);
   const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const canRunBackend = Boolean(
@@ -144,6 +151,18 @@ export function CodexDirectWorkPanel({
   } = useAgentExecutorRunHistoryRefresh(onRunDirectWorkValidation);
 
   useEffect(() => () => stopActiveStreamListening(), []);
+
+  useEffect(() => {
+    if (
+      !directWorkRunHandoff ||
+      handledQueueHandoffIdRef.current === directWorkRunHandoff.id
+    ) {
+      return;
+    }
+
+    handledQueueHandoffIdRef.current = directWorkRunHandoff.id;
+    void attachQueueStartedRun(directWorkRunHandoff);
+  }, [directWorkRunHandoff]);
 
   async function runDirectWork(request: CodexDirectWorkRequestDraft) {
     if (isRunning || (!onStartCodexDirectWorkStream && !onRunCodexDirectWork)) {
@@ -311,6 +330,58 @@ export function CodexDirectWorkPanel({
     });
   }
 
+  async function attachQueueStartedRun(handoff: DirectWorkRunHandoff) {
+    if (isRunning || activeStreamingRunId) {
+      setRunInfoNotice({
+        message:
+          "This Agent Executor already has an active run. The Queue-started run was not attached in this UI session.",
+        title: "Queue run handoff ignored",
+      });
+      return;
+    }
+
+    if (!onAttachToCodexDirectWorkStream) {
+      setRunErrorMessage("Codex Direct Work stream attachment is unavailable.");
+      return;
+    }
+
+    clearRunState();
+    const startedAtMs = handoffStartedAtMs(handoff.startedAt);
+    setQueueRunSource(handoff);
+    activeRequestRef.current = queueHandoffRequestDraft(handoff.repoRoot);
+    runStartedAtRef.current = startedAtMs;
+    setIsRunning(true);
+    setActiveStreamingRunId(handoff.runId);
+    setLiveRun(queueHandoffLiveRun(handoff.runId, startedAtMs));
+    appendLocalLiveLogEntry(
+      "queue_handoff_attached",
+      "Attached to Queue-started Direct Work run.",
+      "info",
+      `Run id: ${handoff.runId}`,
+      "running",
+      handoff.runId,
+    );
+
+    try {
+      const session = await onAttachToCodexDirectWorkStream(
+        widgetInstanceId,
+        handoff.runId,
+        recordStreamEvent,
+      );
+
+      if (!session) {
+        throw new Error("Queue-started Direct Work stream was not attached.");
+      }
+
+      stopStreamListeningRef.current = session.stopListening;
+    } catch (error) {
+      setRunErrorMessage(codexDirectWorkErrorToMessage(error));
+      setLiveRun(null);
+      setIsRunning(false);
+      setActiveStreamingRunId(null);
+    }
+  }
+
   async function runOneShotDirectWork(
     request: CodexDirectWorkRequestDraft,
   ): Promise<RunCodexDirectWorkResponse> {
@@ -470,76 +541,16 @@ export function CodexDirectWorkPanel({
   function recordCancellationResponse(
     response: CancelCodexDirectWorkRunResponse,
   ) {
-    const message = response.message || cancellationStatusMessage(response.status);
-
-    if (response.cancellationRequested || response.status === "cancellation_requested") {
-      appendLocalLiveLogEntry(
-        "stop_acknowledged",
-        "Stop request accepted.",
-        "info",
-        "Waiting for the Direct Work stream to finish cancellation.",
-        response.status,
-        response.runId,
-      );
-      setStopNotice({
-        message:
-          "Stop requested; waiting for the run to finish cancellation. Review Git status after cancellation if files may have changed.",
-        title: "Stop requested",
-        variant: "info",
-      });
-      return;
-    }
-
-    if (response.status === "already_finished") {
-      appendLocalLiveLogEntry(
-        "stop_not_active",
-        "Run already finished.",
-        "neutral",
-        message,
-        response.status,
-        response.runId,
-      );
-      setStopNotice({
-        message,
-        title: "Run already finished",
-        variant: "info",
-      });
-      return;
-    }
-
-    if (response.status === "not_found" || response.status === "not_active") {
-      appendLocalLiveLogEntry(
-        "stop_not_active",
-        "No active run to stop.",
-        "neutral",
-        message,
-        response.status,
-        response.runId,
-      );
-      setStopNotice({
-        message,
-        title:
-          response.status === "not_active"
-            ? "Run is not active"
-            : "Run was not found",
-        variant: "info",
-      });
-      return;
-    }
-
+    const feedback = cancellationFeedbackFromResponse(response);
     appendLocalLiveLogEntry(
-      "stop_not_active",
-      "Stop request returned a status.",
-      "neutral",
-      message,
-      response.status,
-      response.runId,
+      feedback.entry.kind,
+      feedback.entry.text,
+      feedback.entry.tone,
+      feedback.entry.detail,
+      feedback.entry.status,
+      feedback.entry.runId,
     );
-    setStopNotice({
-      message,
-      title: "Stop request status",
-      variant: "info",
-    });
+    setStopNotice(feedback.notice);
   }
 
   function clearRunState() {
@@ -549,6 +560,7 @@ export function CodexDirectWorkPanel({
     setRunResult(null);
     setRunResultTiming(null);
     setLiveRun(null);
+    setQueueRunSource(null);
     setActiveStreamingRunId(null);
     setIsStopRequesting(false);
     setValidationRepositoryRoot(null);
@@ -590,6 +602,8 @@ export function CodexDirectWorkPanel({
         widgetInstanceId={widgetInstanceId}
       />
 
+      {queueRunSource ? <CodexDirectWorkQueueSource handoff={queueRunSource} /> : null}
+
       <CodexDirectWorkForm
         canRunBackend={canRunBackend}
         isRunning={isRunning}
@@ -614,25 +628,10 @@ export function CodexDirectWorkPanel({
       ) : null}
 
       {canStopActiveStreamingRun ? (
-        <div className="codex-direct-work-stop-panel">
-          <div className="codex-direct-work-copy">
-            <p className="codex-direct-work-title">Active streaming run</p>
-            <p className="codex-direct-work-text">
-              Stop run attempts to stop the active Codex process. It does not
-              reset files or undo changes already written.
-            </p>
-            <p className="codex-direct-work-review-note">
-              Review Git status after cancellation if files may have changed.
-            </p>
-          </div>
-          <Button
-            disabled={isStopRequesting}
-            onClick={() => void stopStreamingRun()}
-            variant="secondary"
-          >
-            {isStopRequesting ? "Stopping..." : "Stop run"}
-          </Button>
-        </div>
+        <CodexDirectWorkStopPanel
+          isStopRequesting={isStopRequesting}
+          onStopStreamingRun={() => void stopStreamingRun()}
+        />
       ) : null}
 
       {stopNotice ? (

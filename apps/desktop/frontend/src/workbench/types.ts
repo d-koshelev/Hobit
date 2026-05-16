@@ -213,6 +213,25 @@ export type DirectWorkGitReviewStatus = {
   state: "pending" | "completed" | "failed";
 };
 
+export type DirectWorkRunHandoff = {
+  executorWidgetInstanceId: WidgetInstanceId;
+  id: number;
+  queueItemId: string;
+  repoRoot: string;
+  runId: string;
+  startedAt: string;
+  taskTitle: string;
+  workbenchId: string;
+  workspaceId: string;
+};
+
+export type DirectWorkRunHandoffInput = Omit<
+  DirectWorkRunHandoff,
+  "id" | "startedAt"
+> & {
+  startedAt?: string;
+};
+
 export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
@@ -221,6 +240,7 @@ export type WidgetRenderProps = {
   frameStyle?: CSSProperties;
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
+  directWorkRunHandoff?: DirectWorkRunHandoff | null;
   hasGitWidget?: boolean;
   instance: WidgetInstance;
   logRefreshToken?: number;
@@ -253,6 +273,9 @@ export type WidgetRenderProps = {
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
+  onDirectWorkRunHandoffStarted?: (
+    handoff: DirectWorkRunHandoffInput,
+  ) => void;
   agentExecutorSlots?: AgentExecutorSlot[];
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
@@ -315,6 +338,16 @@ export type WidgetRenderProps = {
       RunCodexDirectWorkRequest,
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<
+    | (StartCodexDirectWorkStreamResponse & {
+        stopListening: () => void;
+      })
+    | null
+  >;
+  onAttachToCodexDirectWorkStream?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
   ) => Promise<
     | (StartCodexDirectWorkStreamResponse & {

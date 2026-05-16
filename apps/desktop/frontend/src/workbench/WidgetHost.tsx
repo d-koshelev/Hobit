@@ -16,6 +16,7 @@ import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import { WidgetRemoveAction } from "./WidgetRemoveAction";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
+import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type {
   WidgetInstance,
   WidgetDefinition,
@@ -50,6 +51,7 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
 
 type WidgetHostProps = {
   directWorkGitReview: DirectWorkGitReviewHandoff;
+  directWorkRunHandoff: DirectWorkRunHandoffController;
   dockedSize?: {
     height: number;
     width: number;
@@ -76,6 +78,7 @@ type WidgetHostProps = {
 
 export function WidgetHost({
   directWorkGitReview,
+  directWorkRunHandoff,
   dockedSize,
   hasGitWidget,
   agentExecutorSlots,
@@ -209,6 +212,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.startCodexDirectWorkStream
       : undefined;
+  const attachToCodexDirectWorkStream =
+    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.attachToCodexDirectWorkStream
+      : undefined;
   const createAgentQueueTask =
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.createAgentQueueTask
@@ -293,6 +300,11 @@ export function WidgetHost({
           ? directWorkGitReview.status
           : undefined
       }
+      directWorkRunHandoff={
+        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+          ? (directWorkRunHandoff.handoffs[instance.id] ?? null)
+          : undefined
+      }
       frameActions={frameActions}
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
@@ -318,6 +330,11 @@ export function WidgetHost({
       onAssignAgentQueueTaskToExecutor={assignAgentQueueTaskToExecutor}
       onClearAgentQueueTaskAssignment={clearAgentQueueTaskAssignment}
       onStartAssignedAgentQueueTask={startAssignedAgentQueueTask}
+      onDirectWorkRunHandoffStarted={
+        definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkRunHandoff.recordHandoff
+          : undefined
+      }
       onListAgentExecutorRuns={listAgentExecutorRuns}
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}
@@ -331,6 +348,7 @@ export function WidgetHost({
       onRunDirectWorkValidation={runDirectWorkValidation}
       onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}
       onStartCodexDirectWorkStream={startCodexDirectWorkStream}
+      onAttachToCodexDirectWorkStream={attachToCodexDirectWorkStream}
       onRunTerminalCommand={runTerminalCommand}
       onStartFrameMove={startDockedDrag}
       onUpdateLayout={widgetActions.updateWidgetLayout}

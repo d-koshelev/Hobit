@@ -7,6 +7,7 @@ import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
 import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
+import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { GIT_WIDGET_DEFINITION_ID, isUserFacingWidgetDefinition } from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type { WidgetInstanceId, WidgetLayout, WorkbenchLayoutMode, WorkbenchViewState } from "./types";
@@ -89,8 +90,7 @@ export function WorkbenchCanvas({
   const [popoutPositions, setPopoutPositions] = useState<
     PopoutPositionMap
   >({});
-  const [activeDockedDrag, setActiveDockedDrag] =
-    useState<ActiveDockedDrag | null>(null);
+  const [activeDockedDrag, setActiveDockedDrag] = useState<ActiveDockedDrag | null>(null);
   const [activeDockedResize, setActiveDockedResize] =
     useState<ActiveDockedResize | null>(null);
   const [activePopoutDrag, setActivePopoutDrag] =
@@ -110,6 +110,7 @@ export function WorkbenchCanvas({
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
+  const directWorkRunHandoff = useDirectWorkRunHandoff();
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
   const canvasShellClass = isLayoutEditing
@@ -645,6 +646,7 @@ export function WorkbenchCanvas({
                       <WidgetHost
                         agentExecutorSlots={agentExecutorSlots}
                         directWorkGitReview={directWorkGitReview}
+                        directWorkRunHandoff={directWorkRunHandoff}
                         hasGitWidget={hasGitWidget}
                         instance={widget}
                         layoutMode={layoutMode}
@@ -663,6 +665,7 @@ export function WorkbenchCanvas({
                       agentExecutorSlots={agentExecutorSlots}
                       dockedSize={dockedSize}
                       directWorkGitReview={directWorkGitReview}
+                      directWorkRunHandoff={directWorkRunHandoff}
                       hasGitWidget={hasGitWidget}
                       instance={widget}
                       layoutMode={layoutMode}

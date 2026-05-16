@@ -311,6 +311,7 @@
 }
 
 .codex-direct-work-overview,
+.codex-direct-work-source,
 .codex-direct-work-run-setup,
 .codex-direct-work-result,
 .codex-direct-work-live-log,
@@ -611,6 +612,11 @@
 
 .codex-direct-work-live-log {
   background: var(--color-nested-surface);
+}
+
+.codex-direct-work-source {
+  border-color: var(--color-info);
+  background: var(--color-info-soft);
 }
 
 .codex-direct-work-live-log-list {

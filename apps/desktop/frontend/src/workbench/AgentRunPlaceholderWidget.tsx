@@ -14,6 +14,7 @@ export function AgentRunPlaceholderWidget({
   frameMoveEnabled,
   frameStyle,
   directWorkGitReviewStatus,
+  directWorkRunHandoff,
   hasGitWidget,
   instance,
   logRefreshToken,
@@ -23,6 +24,7 @@ export function AgentRunPlaceholderWidget({
   onLoadLogs,
   onListAgentExecutorRuns,
   onCancelCodexDirectWorkRun,
+  onAttachToCodexDirectWorkStream,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
@@ -52,6 +54,8 @@ export function AgentRunPlaceholderWidget({
               : null
           }
           hasGitWidget={hasGitWidget}
+          directWorkRunHandoff={directWorkRunHandoff}
+          onAttachToCodexDirectWorkStream={onAttachToCodexDirectWorkStream}
           onDirectWorkGitReviewRequested={onDirectWorkGitReviewRequested}
           onGetAgentExecutorDiffSummary={onGetAgentExecutorDiffSummary}
           onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}

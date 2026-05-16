@@ -7,11 +7,9 @@ import {
   getAgentExecutorRunDetail,
   getGitRepositoryStatus,
   listAgentExecutorRuns,
-  listenToDirectWorkStreamEvents,
   listWidgetLogs,
   runCodexDirectWork,
   runDirectWorkValidation,
-  startCodexDirectWorkStream,
   runTerminalCommand,
   updateWidgetInstanceLayout,
   updateWidgetInstanceState,
@@ -25,17 +23,20 @@ import type {
   DirectWorkStreamEvent,
   GitCommitResponse,
   GitRepositoryStatus,
-  RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
   RunDirectWorkValidationResponse,
-  StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   WorkspaceWorkbenchState,
 } from "../workspace/types";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
-import { directWorkResultFromStreamEvent } from "./directWorkStreamActivity";
+import {
+  attachDirectWorkStreamSession,
+  startDirectWorkStreamSession,
+  type CodexDirectWorkRunRequest,
+  type CodexDirectWorkStreamSession,
+} from "./directWorkStreamSessions";
 import type {
   WidgetInstanceId,
   WidgetLogEntry,
@@ -98,6 +99,11 @@ export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & AgentQueueTask
     request: CodexDirectWorkRunRequest,
     onEvent: (event: DirectWorkStreamEvent) => void,
   ) => Promise<CodexDirectWorkStreamSession | null>;
+  attachToCodexDirectWorkStream: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<CodexDirectWorkStreamSession | null>;
   runTerminalCommand: (
     widgetInstanceId: WidgetInstanceId,
     command: TerminalCommandRunRequest,
@@ -120,6 +126,7 @@ export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions & Pick<
   | "runDirectWorkValidation"
   | "cancelCodexDirectWorkRun"
   | "startCodexDirectWorkStream"
+  | "attachToCodexDirectWorkStream"
   | "runTerminalCommand"
   | "updateWidgetLayout"
   | "updateWidgetState"
@@ -131,19 +138,12 @@ type TerminalCommandRunRequest = Omit<
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
-type CodexDirectWorkRunRequest = Omit<
-  RunCodexDirectWorkRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
->;
-
 type DirectWorkValidationRunRequest = Omit<
   RunDirectWorkValidationRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
 type GitCommitCreateRequest = Omit<CreateGitCommitRequest, "workspaceId" | "workbenchId" | "widgetInstanceId">;
-
-type CodexDirectWorkStreamSession = StartCodexDirectWorkStreamResponse & { stopListening: () => void };
 
 export function useWorkbenchWidgetActions({
   currentSessionActivity,
@@ -571,93 +571,43 @@ export function useWorkbenchWidgetActions({
       throw new Error("Codex Direct Work could not be run for this widget.");
     }
 
-    const workspaceId = viewState.workspace.id;
-    const workbenchId = viewState.workbench.id;
-    let activeRunId: string | null = null;
-    const queuedEvents: DirectWorkStreamEvent[] = [];
-    let finalEventSeen = false;
-
-    const unsubscribe = await listenToDirectWorkStreamEvents((event) => {
-      if (
-        event.workspaceId !== workspaceId ||
-        event.workbenchId !== workbenchId ||
-        event.widgetInstanceId !== widgetInstanceId
-      ) {
-        return;
-      }
-
-      if (!activeRunId) {
-        queuedEvents.push(event);
-        return;
-      }
-
-      if (event.runId !== activeRunId) {
-        return;
-      }
-
-      onEvent(event);
-
-      if (event.isFinal) {
-        finalEventSeen = true;
-        bumpWidgetLogRefreshToken(widgetInstanceId);
-        currentSessionActivity?.markDirectWorkRunFinished(
-          widgetInstanceId,
-          directWorkResultFromStreamEvent(event),
-        );
-        unsubscribe();
-      }
+    return startDirectWorkStreamSession({
+      bumpWidgetLogRefreshToken,
+      currentSessionActivity,
+      onEvent,
+      request,
+      widgetInstanceId,
+      workbenchId: viewState.workbench.id,
+      workspaceId: viewState.workspace.id,
     });
+  }
 
-    currentSessionActivity?.markDirectWorkRunStarted(widgetInstanceId);
-
-    try {
-      const response = await startCodexDirectWorkStream({
-        workspaceId,
-        workbenchId,
-        widgetInstanceId,
-        ...request,
-      });
-
-      if (!response) {
-        unsubscribe();
-        currentSessionActivity?.markDirectWorkRunFinished(
-          widgetInstanceId,
-          null,
-        );
-        return null;
-      }
-
-      activeRunId = response.runId;
-      queuedEvents
-        .filter((event) => event.runId === activeRunId)
-        .forEach((event) => {
-          onEvent(event);
-
-          if (event.isFinal) {
-            finalEventSeen = true;
-            bumpWidgetLogRefreshToken(widgetInstanceId);
-            currentSessionActivity?.markDirectWorkRunFinished(
-              widgetInstanceId,
-              directWorkResultFromStreamEvent(event),
-            );
-            unsubscribe();
-          }
-        });
-
-      return {
-        ...response,
-        stopListening: () => {
-          unsubscribe();
-          if (!finalEventSeen) {
-            bumpWidgetLogRefreshToken(widgetInstanceId);
-          }
-        },
-      };
-    } catch (error) {
-      unsubscribe();
-      currentSessionActivity?.markDirectWorkRunFailed(widgetInstanceId, error);
-      throw error;
+  async function attachToCodexDirectWorkStreamForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ): Promise<CodexDirectWorkStreamSession | null> {
+    if (!viewState.workbench.id) {
+      throw new Error("A workbench must be open to attach Codex Direct Work.");
     }
+
+    const widget = viewState.widgets.find(
+      (candidate) => candidate.id === widgetInstanceId,
+    );
+
+    if (!widget) {
+      throw new Error("Codex Direct Work could not be attached for this widget.");
+    }
+
+    return attachDirectWorkStreamSession({
+      bumpWidgetLogRefreshToken,
+      currentSessionActivity,
+      onEvent,
+      runId,
+      widgetInstanceId,
+      workbenchId: viewState.workbench.id,
+      workspaceId: viewState.workspace.id,
+    });
   }
 
   return {
@@ -676,6 +626,7 @@ export function useWorkbenchWidgetActions({
     runDirectWorkValidation: runDirectWorkValidationForWidget,
     cancelCodexDirectWorkRun: cancelCodexDirectWorkRunForWidget,
     startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,
+    attachToCodexDirectWorkStream: attachToCodexDirectWorkStreamForWidget,
     runTerminalCommand: runTerminalWidgetCommand,
     updateWidgetLayout,
     updateWidgetState,

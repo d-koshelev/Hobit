@@ -47,7 +47,8 @@ export type CodexDirectWorkLiveLogEntryKind =
   | "stop_failed"
   | "fallback_starting"
   | "fallback_completed"
-  | "fallback_failed";
+  | "fallback_failed"
+  | "queue_handoff_attached";
 
 export type CodexDirectWorkLiveLogEntryTone =
   | "neutral"
@@ -498,6 +499,7 @@ const LOCAL_LOG_LABELS: Partial<
   fallback_completed: "Fallback completed",
   fallback_failed: "Fallback failed",
   fallback_starting: "Fallback",
+  queue_handoff_attached: "Queue handoff",
   started: "Run started",
   stop_acknowledged: "Stop requested",
   stop_failed: "Stop failed",

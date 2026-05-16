@@ -242,10 +242,15 @@ export function AgentQueueTaskRunPanel({
       </div>
 
       {startMessage ? (
-        <p className="agent-queue-message agent-queue-message-success">
-          {startMessage}
-          {startedRunId ? ` Run id: ${startedRunId}.` : ""}
-        </p>
+        <>
+          <p className="agent-queue-message agent-queue-message-success">
+            {startMessage}
+            {startedRunId ? ` Run id: ${startedRunId}.` : ""}
+          </p>
+          <p className="agent-queue-run-note">
+            Live logs and result are shown in the assigned Agent Executor.
+          </p>
+        </>
       ) : null}
       {startError ? (
         <p className="agent-queue-message agent-queue-message-error" role="alert">

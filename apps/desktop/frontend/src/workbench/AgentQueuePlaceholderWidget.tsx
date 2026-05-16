@@ -23,6 +23,7 @@ export function AgentQueuePlaceholderWidget({
   onGetAgentQueueTask,
   onListAgentQueueTasks,
   onLoadLogs,
+  onDirectWorkRunHandoffStarted,
   onStartFrameMove,
   onStartAssignedAgentQueueTask,
   onUpdateAgentQueueTask,
@@ -392,6 +393,16 @@ export function AgentQueuePlaceholderWidget({
     }
 
     const response = await onStartAssignedAgentQueueTask(request);
+    onDirectWorkRunHandoffStarted?.({
+      executorWidgetInstanceId: response.executorWidgetInstanceId,
+      queueItemId: response.queueItemId,
+      repoRoot: request.repoRoot,
+      runId: response.runId,
+      startedAt: new Date().toISOString(),
+      taskTitle: selectedTask?.title ?? "Queue task",
+      workbenchId: response.workbenchId,
+      workspaceId: response.workspaceId,
+    });
     await loadTasks(response.queueItemId);
     return response;
   }
