@@ -27,11 +27,6 @@ import {
 } from "./CodexDirectWorkLiveLog";
 import { CodexDirectWorkNotice } from "./CodexDirectWorkNotice";
 import { cancellationFeedbackFromResponse } from "./CodexDirectWorkCancellationFeedback";
-import {
-  handoffStartedAtMs,
-  queueHandoffLiveRun,
-  queueHandoffRequestDraft,
-} from "./CodexDirectWorkQueueHandoffModel";
 import type { GetAgentExecutorDiffSummaryHandler } from "./CodexDirectWorkDiffSummary";
 import { CodexDirectWorkPostRunReview } from "./CodexDirectWorkPostRunReview";
 import { CodexDirectWorkQueueSource } from "./CodexDirectWorkQueueSource";
@@ -47,6 +42,7 @@ import {
   type ListAgentExecutorRunsHandler,
 } from "./AgentExecutorRunHistoryPanel";
 import { useAgentExecutorRunHistoryRefresh } from "./useAgentExecutorRunHistoryRefresh";
+import { useCodexDirectWorkQueueHandoff } from "./useCodexDirectWorkQueueHandoff";
 
 type CodexDirectWorkPanelProps = {
   gitReviewStatus?: DirectWorkGitReviewStatus | null;
@@ -130,7 +126,6 @@ export function CodexDirectWorkPanel({
   >([]);
   const localLogEntrySequenceRef = useRef(0);
   const activeRequestRef = useRef<CodexDirectWorkRequestDraft | null>(null);
-  const handledQueueHandoffIdRef = useRef<number | null>(null);
   const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const canRunBackend = Boolean(
@@ -152,17 +147,32 @@ export function CodexDirectWorkPanel({
 
   useEffect(() => () => stopActiveStreamListening(), []);
 
-  useEffect(() => {
-    if (
-      !directWorkRunHandoff ||
-      handledQueueHandoffIdRef.current === directWorkRunHandoff.id
-    ) {
-      return;
-    }
-
-    handledQueueHandoffIdRef.current = directWorkRunHandoff.id;
-    void attachQueueStartedRun(directWorkRunHandoff);
-  }, [directWorkRunHandoff]);
+  useCodexDirectWorkQueueHandoff({
+    activeRequestRef,
+    activeStreamingRunId,
+    appendLocalLiveLogEntry,
+    clearRunState,
+    directWorkRunHandoff,
+    isRunning,
+    liveRun,
+    onAttachToCodexDirectWorkStream,
+    onGetAgentExecutorRunDetail,
+    recordStreamEvent,
+    refreshRunHistory,
+    requestGitReviewForRepositoryRoot,
+    runStartedAtRef,
+    setActiveStreamingRunId,
+    setIsRunning,
+    setIsStopRequesting,
+    setLiveRun,
+    setQueueRunSource,
+    setRunErrorMessage,
+    setRunInfoNotice,
+    setValidationRepositoryRoot,
+    stopActiveStreamListening,
+    stopStreamListeningRef,
+    widgetInstanceId,
+  });
 
   async function runDirectWork(request: CodexDirectWorkRequestDraft) {
     if (isRunning || (!onStartCodexDirectWorkStream && !onRunCodexDirectWork)) {
@@ -328,58 +338,6 @@ export function CodexDirectWorkPanel({
           currentRun?.runId === session.runId ? currentRun.stdoutPreview : "",
       };
     });
-  }
-
-  async function attachQueueStartedRun(handoff: DirectWorkRunHandoff) {
-    if (isRunning || activeStreamingRunId) {
-      setRunInfoNotice({
-        message:
-          "This Agent Executor already has an active run. The Queue-started run was not attached in this UI session.",
-        title: "Queue run handoff ignored",
-      });
-      return;
-    }
-
-    if (!onAttachToCodexDirectWorkStream) {
-      setRunErrorMessage("Codex Direct Work stream attachment is unavailable.");
-      return;
-    }
-
-    clearRunState();
-    const startedAtMs = handoffStartedAtMs(handoff.startedAt);
-    setQueueRunSource(handoff);
-    activeRequestRef.current = queueHandoffRequestDraft(handoff.repoRoot);
-    runStartedAtRef.current = startedAtMs;
-    setIsRunning(true);
-    setActiveStreamingRunId(handoff.runId);
-    setLiveRun(queueHandoffLiveRun(handoff.runId, startedAtMs));
-    appendLocalLiveLogEntry(
-      "queue_handoff_attached",
-      "Attached to Queue-started Direct Work run.",
-      "info",
-      `Run id: ${handoff.runId}`,
-      "running",
-      handoff.runId,
-    );
-
-    try {
-      const session = await onAttachToCodexDirectWorkStream(
-        widgetInstanceId,
-        handoff.runId,
-        recordStreamEvent,
-      );
-
-      if (!session) {
-        throw new Error("Queue-started Direct Work stream was not attached.");
-      }
-
-      stopStreamListeningRef.current = session.stopListening;
-    } catch (error) {
-      setRunErrorMessage(codexDirectWorkErrorToMessage(error));
-      setLiveRun(null);
-      setIsRunning(false);
-      setActiveStreamingRunId(null);
-    }
   }
 
   async function runOneShotDirectWork(

@@ -249,6 +249,8 @@ export function AgentQueueTaskRunPanel({
           </p>
           <p className="agent-queue-run-note">
             Live logs and result are shown in the assigned Agent Executor.
+            Use Refresh to update Queue status after the Executor reaches a
+            final state.
           </p>
         </>
       ) : null}
