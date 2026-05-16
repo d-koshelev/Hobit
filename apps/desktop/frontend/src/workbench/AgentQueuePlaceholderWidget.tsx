@@ -5,6 +5,8 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
 import { AgentQueueTaskAssignmentPanel } from "./AgentQueueTaskAssignmentPanel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
+import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
+import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import { clamp, DEFAULT_TASK_TITLE, emptyDraft, errorToMessage, formatUpdatedTimestamp, isQueueTaskStatus, MAX_PRIORITY, MIN_PRIORITY, normalizeTaskStatus, statusBadgeVariant, statusLabel, STATUS_OPTIONS, type QueueFilter, type TaskDraft, validateDraft } from "./agentQueueTaskUiModel";
 import type { WidgetRenderProps } from "./types";
 
@@ -22,6 +24,7 @@ export function AgentQueuePlaceholderWidget({
   onListAgentQueueTasks,
   onLoadLogs,
   onStartFrameMove,
+  onStartAssignedAgentQueueTask,
   onUpdateAgentQueueTask,
   title,
 }: WidgetRenderProps) {
@@ -381,6 +384,18 @@ export function AgentQueuePlaceholderWidget({
     }
   }
 
+  async function startAssignedTask(
+    request: Parameters<NonNullable<typeof onStartAssignedAgentQueueTask>>[0],
+  ) {
+    if (!onStartAssignedAgentQueueTask) {
+      throw new Error("Agent Queue execution is not available in this runtime.");
+    }
+
+    const response = await onStartAssignedAgentQueueTask(request);
+    await loadTasks(response.queueItemId);
+    return response;
+  }
+
   function setSelectedDraft(task: AgentQueueTask) {
     setSelectedTask(task);
     setDraft({
@@ -428,14 +443,16 @@ export function AgentQueuePlaceholderWidget({
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
-      status={statusBadge({
-        apiAvailable,
-        isDirty,
-        isLoading,
-        isSaving,
-        loadError,
-        selectedTask,
-      })}
+      status={
+        <AgentQueueWidgetStatusBadge
+          apiAvailable={apiAvailable}
+          isDirty={isDirty}
+          isLoading={isLoading}
+          isSaving={isSaving}
+          loadError={loadError}
+          selectedTask={selectedTask}
+        />
+      }
       style={frameStyle}
       title={title}
     >
@@ -444,8 +461,8 @@ export function AgentQueuePlaceholderWidget({
           <div className="agent-queue-product-summary-copy">
             <p className="agent-queue-product-eyebrow">Workspace task queue</p>
             <p className="agent-queue-product-summary-text">
-              Manual task planning and visible executor assignment. Execution
-              and dispatch are future work.
+              Manual task planning, visible executor assignment, and explicit
+              run starts. Automatic dispatch is not implemented.
             </p>
           </div>
           <div className="agent-queue-product-summary-badges">
@@ -594,6 +611,12 @@ export function AgentQueuePlaceholderWidget({
                   selectedTask={selectedTask}
                 />
 
+                <AgentQueueTaskRunPanel
+                  isDirty={isDirty}
+                  onStartAssignedTask={onStartAssignedAgentQueueTask ? startAssignedTask : undefined}
+                  selectedTask={selectedTask}
+                />
+
                 <div className="agent-queue-editor-actions">
                   <div className="agent-queue-editor-status">
                     <Badge variant={statusBadgeVariant(draft.status)}>
@@ -629,9 +652,9 @@ export function AgentQueuePlaceholderWidget({
                   </p>
                 ) : null}
                 <p className="agent-queue-boundary-note">
-                  Queue tasks are workspace-local records. This UI does not run
-                  agents, launch Terminal commands, dispatch work, or mutate
-                  Git.
+                  Queue tasks are workspace-local records. Queue does not show
+                  live logs, auto-dispatch work, launch Terminal commands, or
+                  mutate Git.
                 </p>
               </div>
             ) : (
@@ -654,42 +677,4 @@ export function AgentQueuePlaceholderWidget({
       </div>
     </WidgetFrame>
   );
-}
-
-function statusBadge({
-  apiAvailable,
-  isDirty,
-  isLoading,
-  isSaving,
-  loadError,
-  selectedTask,
-}: {
-  apiAvailable: boolean;
-  isDirty: boolean;
-  isLoading: boolean;
-  isSaving: boolean;
-  loadError: string | null;
-  selectedTask: AgentQueueTask | null;
-}) {
-  if (!apiAvailable) {
-    return <Badge variant="warning">Unsupported</Badge>;
-  }
-
-  if (isLoading) {
-    return <Badge variant="info">Loading</Badge>;
-  }
-
-  if (loadError) {
-    return <Badge variant="warning">Unavailable</Badge>;
-  }
-
-  if (isSaving) {
-    return <Badge variant="info">Saving</Badge>;
-  }
-
-  if (isDirty) {
-    return <Badge variant="warning">Unsaved</Badge>;
-  }
-
-  return <Badge variant={selectedTask ? "success" : "neutral"}>Queue</Badge>;
 }

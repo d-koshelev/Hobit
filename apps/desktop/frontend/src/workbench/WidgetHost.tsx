@@ -233,6 +233,10 @@ export function WidgetHost({
     definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.clearAgentQueueTaskAssignment
       : undefined;
+  const startAssignedAgentQueueTask =
+    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+      ? widgetActions.startAssignedAgentQueueTask
+      : undefined;
   const createGitCommit =
     definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.createGitCommit
@@ -313,6 +317,7 @@ export function WidgetHost({
       onUpdateAgentQueueTask={updateAgentQueueTask}
       onAssignAgentQueueTaskToExecutor={assignAgentQueueTaskToExecutor}
       onClearAgentQueueTaskAssignment={clearAgentQueueTaskAssignment}
+      onStartAssignedAgentQueueTask={startAssignedAgentQueueTask}
       onListAgentExecutorRuns={listAgentExecutorRuns}
       onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
       onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}

@@ -17,6 +17,8 @@ import type {
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
   RunDirectWorkValidationResponse,
+  StartAssignedAgentQueueTaskRequest,
+  StartAssignedAgentQueueTaskResponse,
   StartCodexDirectWorkStreamResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
@@ -248,6 +250,9 @@ export type WidgetRenderProps = {
   onClearAgentQueueTaskAssignment?: (
     request: Omit<ClearAgentQueueTaskAssignmentRequest, "workspaceId">,
   ) => Promise<AgentQueueTask>;
+  onStartAssignedAgentQueueTask?: (
+    request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<StartAssignedAgentQueueTaskResponse>;
   agentExecutorSlots?: AgentExecutorSlot[];
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
