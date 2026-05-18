@@ -6,6 +6,11 @@ Tools are structured capabilities, not random text commands.
 
 A Tool Action is a typed request to use a capability within a Workbench Session. It must be visible to the operator when it affects workbench state, external systems, files, data, or generated outputs.
 
+For Coordinator-centered widget use, the capability side of this model is
+defined in `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. Widgets expose explicit
+capabilities with risk, autonomy, context, secrets, and audit boundaries; Tool
+Actions are the visible requests or executions of those capabilities.
+
 ## Action Shape
 
 A Tool Action should define:
@@ -42,7 +47,7 @@ commit slice.
 
 Future Script Runner behavior is further defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It must use explicit script paths, argv arguments, visible working directories, output caps, timeouts, and operator Run actions, with no hidden or automatic execution.
 
-Future Workspace-aware Coordinator Agent proposals are not tool execution by themselves. When an approved Coordinator proposal becomes a tool action, it must still follow this approval-aware Tool Action contract and the approved-context proposal rules in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+Future Workspace-aware Coordinator Agent proposals are not tool execution by themselves. When an approved Coordinator proposal becomes a tool action, it must still follow this approval-aware Tool Action contract, the widget capability boundary in `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and the approved-context proposal rules in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 
 The first real AI integration slice is proposal-only under
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must use `allowed_tools: []`.

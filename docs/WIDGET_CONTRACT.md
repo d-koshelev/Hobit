@@ -15,7 +15,8 @@ WidgetFrame anatomy and the unified widget surface rule.
 Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`
 and `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat is the
 primary operator-facing AI surface. Widgets expose controlled capabilities to
-Coordinator through explicit, approval-aware boundaries. Agent Queue organizes
+Coordinator through explicit, approval-aware boundaries defined in
+`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. Agent Queue organizes
 executable tasks, Agent Executor executes tasks and shows visibility, and
 Runbook remains a deferred procedural surface.
 
@@ -475,6 +476,8 @@ Future agent/task run observability behavior is further defined in `AGENT_RUN_OB
 Coordinator-centered widget capability direction is defined in
 `COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`: Coordinator Chat is the main
 operator-facing AI chat, and widgets expose controlled capabilities/tools.
+The capability descriptor, risk, autonomy, context, secrets, and audit boundary
+is further defined in `WIDGET_CAPABILITY_TOOL_CONTRACT.md`.
 
 Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: Coordinator Chat understands/plans/proposes widget actions, Agent Executor runs one task and shows execution, Agent Queue organizes tasks and executor history, and Runbook follows procedural steps.
 

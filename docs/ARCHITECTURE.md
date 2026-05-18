@@ -31,6 +31,13 @@ expose controlled capabilities; Agent Queue organizes executable tasks; Agent
 Executors execute tasks and provide visibility; the operator controls autonomy
 and approvals.
 
+`WIDGET_CAPABILITY_TOOL_CONTRACT.md` defines the product and technical boundary
+for those widget capabilities: capability descriptors, risk levels, autonomy
+and confirmation rules, context exposure, secrets policy, audit expectations,
+and widget-specific capability examples. It is contract-only and does not
+implement a capability registry, runtime, schema, Tauri commands, or widget
+tools.
+
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
 the Coordinator-centered update: Coordinator Chat handles conversation and
 planning, Agent Queue organizes tasks and executor history, Agent Executor runs

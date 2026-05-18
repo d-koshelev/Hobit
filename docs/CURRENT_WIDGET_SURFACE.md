@@ -29,6 +29,9 @@ Coordinator-centered direction is defined in
 Agent widget remains the compatibility/local-chat foundation, but near-term
 product language should reposition it as Coordinator Chat rather than adding a
 second separate chat surface.
+Coordinator-visible widget capability boundaries are defined in
+`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
+Coordinator capability registry or widget tool execution.
 
 Future product polish for these surfaces should follow
 `docs/PRODUCT_UI_VISUAL_CONTRACT.md`: dark dotted Workbench canvas, grid-aware
@@ -177,7 +180,6 @@ context sharing.
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Block 205 - Widget capability/tool contract.
 - Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.

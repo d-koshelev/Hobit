@@ -12,6 +12,8 @@ Coordinator Chat to describe problems, explore solutions, and ask Hobit to use
 available widgets as controlled tools/proxies. Widgets expose controlled
 capabilities; Agent Queue organizes executable tasks; Agent Executors execute
 tasks and provide visibility; the operator controls autonomy and approvals.
+The widget capability/tool boundary is defined in
+`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`.
 
 Near-term product direction:
 
@@ -30,7 +32,6 @@ Near-term product direction:
 
 Recommended next blocks:
 
-- Block 205 - Widget capability/tool contract.
 - Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.

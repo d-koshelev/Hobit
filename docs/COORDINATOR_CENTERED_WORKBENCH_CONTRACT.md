@@ -55,6 +55,8 @@ Widgets are controlled tool/proxy surfaces.
 
 Each widget may expose selected capabilities to Coordinator. A widget capability
 must remain explicit, scoped, and approval-aware where risk requires it.
+The detailed descriptor, risk, autonomy, context, secrets, and audit model is
+defined in `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`.
 
 ### JDBC Widget Future Capabilities
 
@@ -340,7 +342,6 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Block 205 - Widget capability/tool contract.
 - Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
