@@ -50,6 +50,10 @@ type CodexDirectWorkPanelProps = {
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;
+  onDirectWorkRunHandoffFinalState?: (
+    handoff: DirectWorkRunHandoff,
+    finalStatus: string,
+  ) => void;
   onGetAgentExecutorDiffSummary?: GetAgentExecutorDiffSummaryHandler;
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
@@ -87,6 +91,7 @@ export function CodexDirectWorkPanel({
   gitReviewStatus,
   hasGitWidget,
   onDirectWorkGitReviewRequested,
+  onDirectWorkRunHandoffFinalState,
   onAttachToCodexDirectWorkStream,
   onCancelCodexDirectWorkRun,
   onGetAgentExecutorDiffSummary,
@@ -157,6 +162,7 @@ export function CodexDirectWorkPanel({
     liveRun,
     onAttachToCodexDirectWorkStream,
     onGetAgentExecutorRunDetail,
+    onQueueRunFinalState: onDirectWorkRunHandoffFinalState,
     recordStreamEvent,
     refreshRunHistory,
     requestGitReviewForRepositoryRoot,

@@ -305,6 +305,11 @@ export function WidgetHost({
           ? (directWorkRunHandoff.handoffs[instance.id] ?? null)
           : undefined
       }
+      queueTaskAutoRefreshRequest={
+        definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkRunHandoff.queueTaskAutoRefreshRequest
+          : undefined
+      }
       frameActions={frameActions}
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
@@ -333,6 +338,11 @@ export function WidgetHost({
       onDirectWorkRunHandoffStarted={
         definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
           ? directWorkRunHandoff.recordHandoff
+          : undefined
+      }
+      onDirectWorkRunHandoffFinalState={
+        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
+          ? directWorkRunHandoff.recordFinalState
           : undefined
       }
       onListAgentExecutorRuns={listAgentExecutorRuns}

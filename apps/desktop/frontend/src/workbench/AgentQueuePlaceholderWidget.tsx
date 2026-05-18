@@ -9,6 +9,7 @@ import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import { clamp, DEFAULT_TASK_TITLE, emptyDraft, errorToMessage, formatUpdatedTimestamp, isQueueTaskStatus, MAX_PRIORITY, MIN_PRIORITY, normalizeTaskStatus, statusBadgeVariant, statusLabel, STATUS_OPTIONS, type QueueFilter, type TaskDraft, validateDraft } from "./agentQueueTaskUiModel";
 import type { WidgetRenderProps } from "./types";
+import { useQueueTaskAutoRefreshFromExecutor } from "./useQueueTaskAutoRefreshFromExecutor";
 
 export function AgentQueuePlaceholderWidget({
   frameActions,
@@ -24,6 +25,7 @@ export function AgentQueuePlaceholderWidget({
   onListAgentQueueTasks,
   onLoadLogs,
   onDirectWorkRunHandoffStarted,
+  queueTaskAutoRefreshRequest,
   onStartFrameMove,
   onStartAssignedAgentQueueTask,
   onUpdateAgentQueueTask,
@@ -84,7 +86,7 @@ export function AgentQueuePlaceholderWidget({
   }, [statusFilter, tasks]);
 
   const loadTasks = useCallback(
-    async (preferredTaskId?: string | null) => {
+    async (preferredTaskId?: string | null, options?: { preserveCurrentOnError?: boolean }) => {
       if (
         !onCreateAgentQueueTask ||
         !onGetAgentQueueTask ||
@@ -97,7 +99,7 @@ export function AgentQueuePlaceholderWidget({
           "Agent Queue task persistence is not available in this runtime.",
         );
         setIsLoading(false);
-        return;
+        return "Agent Queue task persistence is not available in this runtime.";
       }
 
       setIsLoading(true);
@@ -119,7 +121,7 @@ export function AgentQueuePlaceholderWidget({
 
         if (!taskIdToSelect) {
           clearSelectedTask();
-          return;
+          return null;
         }
 
         const detail = await onGetAgentQueueTask(taskIdToSelect);
@@ -127,15 +129,19 @@ export function AgentQueuePlaceholderWidget({
         if (!detail) {
           clearSelectedTask();
           setEditorError("The selected queue task could not be found.");
-          return;
+          return "The selected queue task could not be found.";
         }
 
         setSelectedDraft(detail);
         setSaveStateText("Saved");
+        return null;
       } catch (error) {
-        setTasks([]);
-        clearSelectedTask();
-        setLoadError(errorToMessage(error, "Unable to load Agent Queue tasks."));
+        if (!options?.preserveCurrentOnError) {
+          setTasks([]);
+          clearSelectedTask();
+          setLoadError(errorToMessage(error, "Unable to load Agent Queue tasks."));
+        }
+        return errorToMessage(error, "Unable to load Agent Queue tasks.");
       } finally {
         setIsLoading(false);
       }
@@ -151,6 +157,7 @@ export function AgentQueuePlaceholderWidget({
   useEffect(() => {
     void loadTasks(null);
   }, [loadTasks]);
+  useQueueTaskAutoRefreshFromExecutor({ autoRefreshRequest: queueTaskAutoRefreshRequest, isDirty, loadTasks, setValidationMessage });
 
   useEffect(() => {
     if (!selectedTask) {

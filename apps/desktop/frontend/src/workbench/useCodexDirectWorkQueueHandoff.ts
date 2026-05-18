@@ -57,6 +57,10 @@ type UseCodexDirectWorkQueueHandoffOptions = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<AgentExecutorRunDetail | null>;
+  onQueueRunFinalState?: (
+    handoff: DirectWorkRunHandoff,
+    finalStatus: string,
+  ) => void;
   recordStreamEvent: (event: DirectWorkStreamEvent) => void;
   refreshRunHistory: () => void;
   requestGitReviewForRepositoryRoot: (repositoryRoot?: string | null) => void;
@@ -84,6 +88,7 @@ export function useCodexDirectWorkQueueHandoff({
   liveRun,
   onAttachToCodexDirectWorkStream,
   onGetAgentExecutorRunDetail,
+  onQueueRunFinalState,
   recordStreamEvent,
   refreshRunHistory,
   requestGitReviewForRepositoryRoot,
@@ -166,7 +171,10 @@ export function useCodexDirectWorkQueueHandoff({
       const session = await onAttachToCodexDirectWorkStream(
         widgetInstanceId,
         handoff.runId,
-        recordStreamEvent,
+        (event) => {
+          recordStreamEvent(event);
+          notifyQueueRunFinalStateFromEvent(handoff, event);
+        },
       );
 
       if (!session) {
@@ -174,7 +182,7 @@ export function useCodexDirectWorkQueueHandoff({
       }
 
       stopStreamListeningRef.current = session.stopListening;
-      scheduleQueueHandoffRecovery(handoff.runId);
+      scheduleQueueHandoffRecovery(handoff);
     } catch (error) {
       clearQueueHandoffRecoveryTimer();
       setRunErrorMessage(codexDirectWorkErrorToMessage(error));
@@ -186,7 +194,7 @@ export function useCodexDirectWorkQueueHandoff({
     }
   }
 
-  function scheduleQueueHandoffRecovery(runId: string) {
+  function scheduleQueueHandoffRecovery(handoff: DirectWorkRunHandoff) {
     if (!onGetAgentExecutorRunDetail || typeof window === "undefined") {
       return;
     }
@@ -194,11 +202,13 @@ export function useCodexDirectWorkQueueHandoff({
     clearQueueHandoffRecoveryTimer();
     recoveryTimerRef.current = window.setTimeout(() => {
       recoveryTimerRef.current = null;
-      void recoverQueueHandoffRunDetail(runId);
+      void recoverQueueHandoffRunDetail(handoff);
     }, QUEUE_HANDOFF_RECOVERY_DELAY_MS);
   }
 
-  async function recoverQueueHandoffRunDetail(runId: string) {
+  async function recoverQueueHandoffRunDetail(handoff: DirectWorkRunHandoff) {
+    const runId = handoff.runId;
+
     if (!onGetAgentExecutorRunDetail || !shouldRecoverRun(runId)) {
       return;
     }
@@ -238,6 +248,7 @@ export function useCodexDirectWorkQueueHandoff({
     requestGitReviewForRepositoryRoot(repositoryRoot);
     activeRequestRef.current = null;
     refreshRunHistory();
+    onQueueRunFinalState?.(handoff, detail.summary.status);
     setRunInfoNotice({
       message:
         "The Queue-started run had already reached a final state; Agent Executor loaded its stored result.",
@@ -263,6 +274,21 @@ export function useCodexDirectWorkQueueHandoff({
     );
   }
 
+  function notifyQueueRunFinalStateFromEvent(
+    handoff: DirectWorkRunHandoff,
+    event: DirectWorkStreamEvent,
+  ) {
+    if (!event.isFinal || event.runId !== handoff.runId) {
+      return;
+    }
+
+    const finalStatus = finalStreamEventStatus(event);
+
+    if (finalStatus) {
+      onQueueRunFinalState?.(handoff, finalStatus);
+    }
+  }
+
   function clearQueueHandoffRecoveryTimer() {
     if (recoveryTimerRef.current === null) {
       return;
@@ -271,6 +297,12 @@ export function useCodexDirectWorkQueueHandoff({
     window.clearTimeout(recoveryTimerRef.current);
     recoveryTimerRef.current = null;
   }
+}
+
+function finalStreamEventStatus(event: DirectWorkStreamEvent) {
+  const status = event.status ?? event.eventKind;
+
+  return isFinalStatus(status) ? status : null;
 }
 
 function recoveredLogTone(

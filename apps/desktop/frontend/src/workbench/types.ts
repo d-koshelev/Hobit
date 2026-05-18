@@ -232,6 +232,15 @@ export type DirectWorkRunHandoffInput = Omit<
   startedAt?: string;
 };
 
+export type DirectWorkQueueTaskAutoRefreshRequest = Omit<
+  DirectWorkRunHandoff,
+  "id"
+> & {
+  completedAt: string;
+  finalStatus: string;
+  id: number;
+};
+
 export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
@@ -240,6 +249,7 @@ export type WidgetRenderProps = {
   frameStyle?: CSSProperties;
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
+  queueTaskAutoRefreshRequest?: DirectWorkQueueTaskAutoRefreshRequest | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   hasGitWidget?: boolean;
   instance: WidgetInstance;
@@ -275,6 +285,10 @@ export type WidgetRenderProps = {
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
   onDirectWorkRunHandoffStarted?: (
     handoff: DirectWorkRunHandoffInput,
+  ) => void;
+  onDirectWorkRunHandoffFinalState?: (
+    handoff: DirectWorkRunHandoff,
+    finalStatus: string,
   ) => void;
   agentExecutorSlots?: AgentExecutorSlot[];
   onListAgentExecutorRuns?: (

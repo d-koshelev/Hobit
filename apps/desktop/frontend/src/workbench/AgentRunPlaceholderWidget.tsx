@@ -19,6 +19,7 @@ export function AgentRunPlaceholderWidget({
   instance,
   logRefreshToken,
   onDirectWorkGitReviewRequested,
+  onDirectWorkRunHandoffFinalState,
   onGetAgentExecutorDiffSummary,
   onGetAgentExecutorRunDetail,
   onLoadLogs,
@@ -57,6 +58,7 @@ export function AgentRunPlaceholderWidget({
           directWorkRunHandoff={directWorkRunHandoff}
           onAttachToCodexDirectWorkStream={onAttachToCodexDirectWorkStream}
           onDirectWorkGitReviewRequested={onDirectWorkGitReviewRequested}
+          onDirectWorkRunHandoffFinalState={onDirectWorkRunHandoffFinalState}
           onGetAgentExecutorDiffSummary={onGetAgentExecutorDiffSummary}
           onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
           onListAgentExecutorRuns={onListAgentExecutorRuns}
