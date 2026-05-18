@@ -125,16 +125,16 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
   },
   {
     id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-    title: "Interactive Agent",
+    title: "Coordinator Chat",
     category: "core",
     description:
-      "Manual long-running agent chat/work placeholder, separate from Queue and Executor in v1.",
+      "Primary operator chat for planning, asking, and coordinating work through widget capabilities.",
     section: "preview",
     status: "available",
     capabilitySummary: [
-      "Manual chat/work direction",
-      "No Queue or monitoring integration",
-      "No tool execution",
+      "Local chat placeholder",
+      "No AI provider connected yet",
+      "No widget tools or workspace actions yet",
     ],
     futureWidgetDefinitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   },

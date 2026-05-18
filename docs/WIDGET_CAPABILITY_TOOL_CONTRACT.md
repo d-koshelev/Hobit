@@ -439,7 +439,6 @@ state-changing or external effects.
 
 ## Recommended Follow-Up Blocks
 
-- Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
 - Block 209 - JDBC connector model/API foundation.

@@ -414,9 +414,10 @@ owning Workbench and remove widget-local runs, results, logs, state, and layout
 for that instance. Frontend delete controls, workspace deletion, undo/restore,
 and bulk deletion are not implemented.
 
-The current user-facing widget set is Agent Executor, Agent Queue, the
-Interactive Agent placeholder now intended to be repositioned as Coordinator
-Chat, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing
+The current user-facing widget set is Agent Executor, Agent Queue, Coordinator
+Chat, Runbook, Git, Terminal, and Notes. Coordinator Chat currently reuses the
+existing `interactive-agent` widget id/component for compatibility. Agent
+Executor reuses the existing
 `agent-run` widget identity for persistence compatibility and keeps the current
 Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget
 instance, executable, repository root, operator prompt, sandbox, approval
@@ -427,10 +428,10 @@ auto-commit, push, automatic Queue dispatch, or Git mutation. Agent Queue is a
 singleton per Workspace and is a preview task organization/history surface;
 manual Queue-to-Executor assignment and explicit run foundations exist, but it
 does not auto-dispatch or schedule queued work. Existing persisted Agent Queue
-duplicates are not automatically removed or migrated. Interactive Agent and
-Runbook are minimal placeholders only; Interactive Agent is compatibility
-foundation for future Coordinator Chat and does not call providers, execute
-tools, integrate with Queue, or mutate workspace content. Notes persists a
+duplicates are not automatically removed or migrated. Coordinator Chat and
+Runbook are minimal placeholders only; Coordinator Chat is local-only and does
+not call providers, execute tools, integrate with Queue, or mutate workspace
+content. Notes persists a
 minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
 has a minimal desktop-only one-shot command form. The Git widget placeholder has
 a transient explicit repository-root input and supports manual desktop-only
@@ -444,7 +445,7 @@ The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fi
 
 The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions and Terminal one-shot command responses when already open. Existing widget add/state/layout mutations emit basic logs. Terminal one-shot command runs and Codex Direct Work runs emit lifecycle logs and structured results. Runtime streaming UI, polling, interactive terminal output, and full agent run observability are not implemented yet.
 
-Future Agent Executor, Interactive Agent, Terminal, or other task execution widgets should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views when they run agent/task execution.
+Future Agent Executor, Coordinator Chat, Terminal, or other task execution widgets should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views when they run agent/task execution.
 
 Future Script Runner Widget behavior is further defined in `SCRIPT_RUNNER_WIDGET_CONTRACT.md`, including explicit script path, argv argument model, working directory, timeout, output caps, operator Run action, safety boundaries, and non-goals. Script Runner is not implemented and is not available for widget insertion.
 
@@ -454,7 +455,7 @@ Current user-facing widget types are:
 
 - Agent Executor
 - Agent Queue
-- Interactive Agent
+- Coordinator Chat
 - Runbook
 - Git
 - Terminal
@@ -484,9 +485,9 @@ Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: C
 Interactive Agent Widget behavior is further defined in
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md`; that document now exists as
 compatibility context for the current Interactive Agent widget id/local chat
-foundation that should become Coordinator Chat in a later implementation block.
+foundation now presented as Coordinator Chat.
 
-Runbook Widget behavior is further defined in `RUNBOOK_WIDGET_CONTRACT.md`; it is a step-based procedural work surface, separate from Agent Queue, Agent Executor, Interactive Agent, and Coordinator.
+Runbook Widget behavior is further defined in `RUNBOOK_WIDGET_CONTRACT.md`; it is a step-based procedural work surface, separate from Agent Queue, Agent Executor, and Coordinator Chat.
 
 Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`; it is an operator-controlled agent command queue, command history, and review inbox, not hidden automation or a generic task list.
 

@@ -29,8 +29,8 @@ Near-term direction:
 - reposition the existing Interactive Agent direction into Coordinator Chat
 - do not keep separate freeform Interactive Agent plus Coordinator concepts in
   the near-term product
-- reuse the current Interactive Agent local chat foundation only as a
-  compatibility/minimal UI starting point when implementation arrives
+- reuse the current `interactive-agent` widget id/component as a
+  compatibility/minimal UI foundation
 - use widgets as controlled capability/tool surfaces, not hidden context stores
 
 Coordinator Chat must follow
@@ -125,7 +125,7 @@ The legacy widget contract is defined in
 
 Role:
 
-- support the minimal local chat foundation that may become Coordinator Chat
+- support the minimal local chat foundation now presented as Coordinator Chat
 - preserve explicit context and action boundaries
 - avoid separate freeform chat and Coordinator surfaces in the near term
 
@@ -230,7 +230,7 @@ Git Widget can remain independent.
 Future binding direction:
 
 - Git Widget can link to an Agent Executor.
-- Git Widget can later link to a Runbook or Interactive Agent if useful.
+- Git Widget can later link to a Runbook or Coordinator Chat if useful.
 - Coordinator links must follow the Coordinator-centered capability model.
 - Multiple Git Widgets may exist.
 - Git Widget remains read-only until explicit Git mutation features are added.
@@ -260,8 +260,6 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Block 205 - Widget capability/tool contract.
-- Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
 - Block 209 - JDBC connector model/API foundation.

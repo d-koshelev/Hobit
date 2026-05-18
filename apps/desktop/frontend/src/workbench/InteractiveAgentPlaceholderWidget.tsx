@@ -14,12 +14,12 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
   {
     id: "local-assistant-intro",
     role: "assistant",
-    body: "Manual agent chat workspace. Provider not connected yet. No tools, files, Git, Terminal, Queue, or Runbook actions are available in this version.",
+    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Widget tools are not enabled yet. No workspace actions are performed in this version.",
   },
 ];
 
 const LOCAL_PLACEHOLDER_RESPONSE =
-  "Interactive Agent is not connected yet. This message is stored only in this local widget session.";
+  "Coordinator Chat is not connected yet. This message is stored only in this local widget session. Future versions will use approved widget capabilities.";
 
 export function InteractiveAgentPlaceholderWidget({
   frameActions,
@@ -84,24 +84,27 @@ export function InteractiveAgentPlaceholderWidget({
     >
       <div className="interactive-agent-chat">
         <section
-          aria-label="Interactive Agent local-only status"
+          aria-label="Coordinator Chat local-only status"
           className="interactive-agent-status"
         >
           <div className="interactive-agent-status-copy">
-            <p className="interactive-agent-title">
-              Manual agent chat workspace.
+            <p className="interactive-agent-title">Coordinator Chat</p>
+            <p className="interactive-agent-text">
+              Primary operator chat surface.
             </p>
             <p className="interactive-agent-text">Provider not connected yet.</p>
             <p className="interactive-agent-text">
-              No tools, files, Git, Terminal, Queue, or Runbook actions are
-              available in this version.
+              Widget tools are not enabled yet.
+            </p>
+            <p className="interactive-agent-text">
+              No workspace actions are performed in this version.
             </p>
           </div>
           <Badge variant="neutral">Local only</Badge>
         </section>
 
         <div
-          aria-label="Local Interactive Agent transcript"
+          aria-label="Local Coordinator Chat transcript"
           aria-live="polite"
           className="interactive-agent-message-list"
           role="log"
@@ -112,7 +115,7 @@ export function InteractiveAgentPlaceholderWidget({
               key={message.id}
             >
               <p className="interactive-agent-message-role">
-                {message.role === "operator" ? "You" : "Interactive Agent"}
+                {message.role === "operator" ? "You" : "Coordinator Chat"}
               </p>
               <p className="interactive-agent-message-body">{message.body}</p>
             </article>

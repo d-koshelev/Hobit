@@ -10,8 +10,9 @@ The updated source of truth is
 operator-facing AI chat, and Hobit should not keep separate freeform
 Interactive Agent plus Coordinator concepts in the near-term product.
 
-This contract remains as compatibility context for the existing Interactive
-Agent widget id and local chat foundation.
+This contract remains as compatibility context for the existing
+`interactive-agent` widget id and local chat foundation. The user-facing
+surface is now Coordinator Chat.
 
 The previous Interactive Agent direction was a separate widget for manual
 long-running work with an agent in a conversational session.
@@ -48,8 +49,8 @@ Compatibility-only Interactive Agent is:
 The operator controls what is sent, what context is included, and what follow-up
 action happens after the conversation.
 
-Near-term product work should use the Coordinator Chat language and capability
-model instead of adding a second separate chat surface.
+Near-term product work uses the Coordinator Chat language and capability model
+instead of adding a second separate chat surface.
 
 ## What Interactive Agent Is Not In V1
 
@@ -215,9 +216,9 @@ Expert.
 
 ## Recommended Next Blocks
 
-- Block 164  Interactive Agent minimal UI
-- Later  Interactive Agent session persistence
-- Later  Interactive Agent provider/Codex integration
+- Block 207  Coordinator Chat minimal UI
+- Later  Coordinator Chat session persistence
+- Later  Coordinator Chat provider/Codex integration
 - Later  optional handoff to Agent Executor
 - Later  optional queue item creation from conversation
 

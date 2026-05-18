@@ -33,6 +33,7 @@ import {
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
   RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
@@ -379,6 +380,13 @@ function displayWidgetTitle(
     return definition.defaultTitle;
   }
 
+  if (
+    definition.id === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID &&
+    isLegacyInteractiveAgentTitle(instance.title)
+  ) {
+    return definition.defaultTitle;
+  }
+
   return instance.title || definition.defaultTitle;
 }
 
@@ -388,6 +396,10 @@ function isLegacyAgentRunTitle(title: string) {
     title === "Agent Monitoring" ||
     title === "Direct Work / Codex"
   );
+}
+
+function isLegacyInteractiveAgentTitle(title: string) {
+  return title === "Interactive Agent";
 }
 
 function widgetFrameStyle(

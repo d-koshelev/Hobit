@@ -306,12 +306,12 @@ Near-term direction: Interactive Agent should become Coordinator Chat.
 
 Do not keep two separate primary chat concepts in the current product.
 
-The internal widget id may remain temporarily for compatibility. The
-user-facing title should become Coordinator or Coordinator Chat in a later
-implementation block.
+The user-facing title is Coordinator Chat. The internal widget id may remain
+temporarily as `interactive-agent` for compatibility.
 
-The current Interactive Agent local chat can be reused as the minimal
-Coordinator Chat UI foundation later.
+The current local chat is the minimal Coordinator Chat UI foundation. It is
+still local-only and does not connect to a provider, execute widget tools,
+compile context, or perform Workspace actions.
 
 ## Runbook Status
 
@@ -342,7 +342,6 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
 - Block 209 - JDBC connector model/API foundation.

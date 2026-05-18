@@ -46,13 +46,14 @@ Ready:
 Preview:
 
 - Agent Queue
-- Interactive Agent
+- Coordinator Chat
 - Runbook
 
 Old or future surfaces such as Agent Chat, Agent Monitoring, Template Library,
 Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit,
-Coordinator, and Validation must not appear as current product surfaces unless
-a later block explicitly reintroduces them under the relevant contract.
+separate legacy Coordinator previews, and Validation must not appear as current
+product surfaces unless a later block explicitly reintroduces them under the
+relevant contract.
 
 ## Canvas Visual Direction
 
@@ -386,9 +387,11 @@ Target direction:
 Execution, dispatch, automatic scheduler behavior, and automatic acceptance
 must not be implied until the task model and dispatch/runtime contracts exist.
 
-### Interactive Agent
+### Coordinator Chat
 
-Interactive Agent is a manual chat/work surface.
+Coordinator Chat is the primary operator-facing AI chat surface. The current
+implementation is a local placeholder using the existing Interactive Agent
+compatibility component.
 
 Rules:
 
@@ -458,13 +461,13 @@ Current product UI must not overclaim capability.
 Explicit prohibitions:
 
 - No separate Validation widget in the current model.
-- No Coordinator surface in the current model.
+- No separate legacy Coordinator surface beyond Coordinator Chat.
 - No Terminal full shell UI until PTY/session support exists.
 - No Notes multi-note UI until storage/API exists.
 - No Queue scheduler UI until task model/dispatch exists.
 - No Git push controls until push contract/API/UI exists.
 - No auto-commit or hidden Git mutation.
-- No fake provider/tool claims in Interactive Agent.
+- No fake provider/tool claims in Coordinator Chat.
 - No hidden Queue execution.
 - No background scheduler implied by status chips.
 - No Git mutations hidden behind refresh, review, or completion states.

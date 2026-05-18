@@ -21,14 +21,13 @@ Ready:
 Preview:
 
 - Agent Queue
-- Coordinator Chat direction using the current Interactive Agent placeholder
+- Coordinator Chat
 - Runbook
 
 Coordinator-centered direction is defined in
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. The current Interactive
-Agent widget remains the compatibility/local-chat foundation, but near-term
-product language should reposition it as Coordinator Chat rather than adding a
-second separate chat surface.
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat currently
+uses the existing `interactive-agent` widget id/component as a compatibility
+local-chat foundation rather than adding a second separate chat surface.
 Coordinator-visible widget capability boundaries are defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
 Coordinator capability registry or widget tool execution.
@@ -124,7 +123,8 @@ future widget capability.
 
 ### Coordinator Chat / Interactive Agent Compatibility
 
-- Preview local chat MVP currently using the Interactive Agent placeholder.
+- Preview local chat MVP currently using the existing `interactive-agent`
+  widget id/component for compatibility.
 - Near-term direction is Coordinator Chat, not a separate freeform Interactive
   Agent plus Coordinator.
 - Keeps messages in local React state for the current widget session.
@@ -141,7 +141,7 @@ future widget capability.
 - Step states are `pending`, `running`, `done`, `failed`, `skipped`, and
   `blocked`.
 - Does not persist runbooks, edit/build templates, execute steps, launch Agent
-  Executor, create queue items, integrate with Interactive Agent, execute
+  Executor, create queue items, integrate with Coordinator Chat, execute
   Terminal commands, mutate files, or mutate Git.
 
 ## Retired And Hidden Surfaces
@@ -180,7 +180,6 @@ context sharing.
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
 - Runbook persistence and edit mode later.

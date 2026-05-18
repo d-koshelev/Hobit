@@ -17,7 +17,8 @@ The widget capability/tool boundary is defined in
 
 Near-term product direction:
 
-- reposition the existing Interactive Agent direction as Coordinator Chat
+- keep the existing Interactive Agent implementation path repositioned as
+  Coordinator Chat
 - do not keep separate freeform Interactive Agent plus Coordinator concepts
 - keep Agent Queue as task organization for Agent Executors, not the main chat
   or global orchestrator
@@ -32,7 +33,6 @@ Near-term product direction:
 
 Recommended next blocks:
 
-- Block 206 - Reposition Interactive Agent as Coordinator Chat.
 - Block 207 - Coordinator Chat minimal UI.
 - Block 208 - JDBC widget contract.
 - Block 209 - JDBC connector model/API foundation.
@@ -60,14 +60,14 @@ work:
   results.
 - Runbook: follow and manage procedural steps.
 
-Interactive Agent future work is now compatibility/repositioning work and must
-follow `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
+Interactive Agent future work is now Coordinator Chat compatibility work and
+must follow `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
 `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`: the existing local chat foundation
-should become Coordinator Chat rather than a second primary chat surface.
+is the Coordinator Chat placeholder rather than a second primary chat surface.
 
 Runbook future work must follow `docs/RUNBOOK_WIDGET_CONTRACT.md`: it is a
 step-based procedural widget, not Queue execution, Agent Executor dispatch,
-Interactive Agent chat, Coordinator behavior, Terminal automation, Git
+Coordinator Chat behavior, Terminal automation, Git
 mutation, or a hidden tool runner.
 
 Future Agent Queue task work is contract-gated by
