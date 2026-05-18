@@ -11,6 +11,11 @@ On startup the shell resolves the Tauri app data directory, creates it if
 needed, initializes the idempotent SQLite schema, and stores the local database
 at `hobit.sqlite3` inside that app data directory.
 
+For development or constrained smoke environments, `HOBIT_DATABASE_PATH` may be
+set to an explicit writable SQLite file path. Startup keeps the normal app-data
+location by default and reports the database path, parent directory, attempted
+operation, and remediation hint when the database cannot be written.
+
 The Tauri source is split by responsibility: `app_state.rs` owns app data and
 SQLite initialization, `workspace_commands.rs` owns command handlers, and
 focused DTO modules own bridge request/response mapping.

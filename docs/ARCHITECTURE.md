@@ -146,9 +146,9 @@ This milestone hosts the existing frontend and allows it to call the workspace l
 
 ## Current Tauri Workspace Bridge Milestone
 
-The Tauri shell initializes a local SQLite database at `hobit.sqlite3` in the Tauri app data directory.
+The Tauri shell initializes a local SQLite database at `hobit.sqlite3` in the Tauri app data directory by default.
 
-On startup, the shell creates the app data directory if needed and runs the idempotent SQLite schema initialization.
+On startup, the shell creates the database parent directory if needed, checks that the database path or parent directory is writable, and runs the idempotent SQLite schema initialization. For development or constrained smoke environments, `HOBIT_DATABASE_PATH` may be set to an explicit writable SQLite file path; startup keeps the normal app-data location unless that override is present and reports the database path, parent directory, attempted operation, and remediation hint when the database cannot be written.
 
 The shell exposes WorkspaceService lifecycle and widget foundation commands over the Tauri bridge:
 

@@ -23,6 +23,7 @@ mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
 mod codex_direct_work_dto_tests;
+mod database_startup;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
