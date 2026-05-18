@@ -21,8 +21,14 @@ Ready:
 Preview:
 
 - Agent Queue
-- Interactive Agent
+- Coordinator Chat direction using the current Interactive Agent placeholder
 - Runbook
+
+Coordinator-centered direction is defined in
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. The current Interactive
+Agent widget remains the compatibility/local-chat foundation, but near-term
+product language should reposition it as Coordinator Chat rather than adding a
+second separate chat surface.
 
 Future product polish for these surfaces should follow
 `docs/PRODUCT_UI_VISUAL_CONTRACT.md`: dark dotted Workbench canvas, grid-aware
@@ -46,8 +52,8 @@ future widget capability.
 - Provides a read-only backend/Tauri diff summary API for an explicit repository
   root, with a compact read-only frontend diff summary UI.
 - Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
-  hidden background scheduler. Queue assignment can target Executor slots, but
-  execution from Queue remains future work governed by
+  hidden background scheduler. Queue assignment can target Executor slots, and
+  explicit Queue-started runs are governed by
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 ### Git
@@ -97,6 +103,9 @@ future widget capability.
 - Manual Queue-to-Executor execution backend/Tauri/frontend API foundation
   exists for starting an assigned task in its assigned Agent Executor with an
   explicit repository root.
+- Queue-to-Executor handoff and final-status auto-refresh are frontend-owned
+  current-session behavior. Agent Executor owns live logs and final results;
+  Queue refreshes task status and does not duplicate execution output.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
   It supports `running` as task status data and can also manually assign or
@@ -105,20 +114,21 @@ future widget capability.
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
   slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
   Manual run of an assigned task is governed by
-  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; frontend run controls remain future
-  work.
+  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 - Does not dispatch, schedule, approve/apply, automatically run assigned tasks,
   capture responses outside normal Direct Work artifacts, validate responses,
   mutate Notes, launch Terminal, or mutate Git.
 
-### Interactive Agent
+### Coordinator Chat / Interactive Agent Compatibility
 
-- Preview local chat MVP for manual long-chat work.
+- Preview local chat MVP currently using the Interactive Agent placeholder.
+- Near-term direction is Coordinator Chat, not a separate freeform Interactive
+  Agent plus Coordinator.
 - Keeps messages in local React state for the current widget session.
 - Shows local placeholder assistant responses.
 - Does not connect to a provider, call Codex, execute tools, persist sessions,
   read hidden context, create queue items, launch Agent Executor, integrate with
-  Runbook, mutate files, mutate Git, or run Terminal commands.
+  Runbook, mutate files, mutate Git, run SQL, or run Terminal commands.
 
 ### Runbook
 
@@ -146,7 +156,13 @@ current Workbench surface:
 - JIRA
 - Confluence
 - Image Edit
-- Coordinator
+- separate legacy Coordinator preview surface
+
+Database/JDBC is not a current catalog surface, but it is now a first-version
+scope candidate for the Coordinator-centered database investigation scenario.
+Future JDBC work must start with a contract and preserve read-only defaults,
+connector secret isolation, explicit approval, capped results, and explicit AI
+context sharing.
 
 ## Compatibility Notes
 
@@ -161,9 +177,9 @@ current Workbench surface:
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Interactive Agent session persistence later.
-- Interactive Agent provider integration later.
+- Block 205 - Widget capability/tool contract.
+- Block 206 - Reposition Interactive Agent as Coordinator Chat.
+- Block 207 - Coordinator Chat minimal UI.
+- Block 208 - JDBC widget contract.
 - Runbook persistence and edit mode later.
-- Queue item execution backend/API foundation later.
-- Queue item execution UI later.
 - Agent Queue dependency blocks later.

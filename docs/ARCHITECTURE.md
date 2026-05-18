@@ -2,7 +2,7 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. The current user-facing widget set is Agent Executor, Agent Queue, Interactive Agent, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing `agent-run` widget identity for persistence compatibility, shows each widget instance as a visible execution slot, and keeps the current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget instance, executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. Terminal has a bounded one-shot command path for persisted Terminal widget instances only. Git has a narrow manual desktop-only read-only status refresh path. Agent Queue is a preview manual task queue surface backed by Workspace-scoped task storage/API, assignment API/UI, and a manual backend/API start path for assigned tasks, with no frontend run controls, automatic dispatch, scheduler, or dependency behavior. Interactive Agent has a local chat MVP, and Runbook has a local/manual steps MVP. There is no Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI runtime, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, shell mode, interactive terminal, frontend live streaming UI, PTY, Terminal cancellation, command history, executable chat runtime beyond the manual Direct Work/Queue API paths, Git mutations/diff/log/show, hidden context access, provider settings UI, secrets UI, HTTPS provider adapter, or broad tool execution in the current user-facing workbench surface.
+The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. The current user-facing widget set is Agent Executor, Agent Queue, the Interactive Agent placeholder now intended to be repositioned as Coordinator Chat, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing `agent-run` widget identity for persistence compatibility, shows each widget instance as a visible execution slot, and keeps the current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget instance, executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. Terminal has a bounded one-shot command path for persisted Terminal widget instances only. Git has a narrow manual desktop-only read-only status refresh path. Agent Queue is a preview manual task queue surface backed by Workspace-scoped task storage/API, assignment API/UI, and a manual backend/API start path for assigned tasks, with no automatic dispatch, scheduler, or dependency behavior. Coordinator-centered product direction is contract-only in this block; no Coordinator runtime, JDBC implementation, hidden context access, or broad tool execution is implemented. Runbook has a local/manual steps MVP. There is no Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI runtime, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, shell mode, interactive terminal, frontend live streaming UI, PTY, Terminal cancellation, command history, executable chat runtime beyond the manual Direct Work/Queue API paths, Git mutations/diff/log/show, hidden context access, provider settings UI, secrets UI, HTTPS provider adapter, or broad tool execution in the current user-facing workbench surface.
 
 ## Documentation Contracts
 
@@ -25,7 +25,17 @@ are not implemented.
 
 `CURRENT_WIDGET_SURFACE.md` captures the current post-cleanup user-facing widget inventory and implementation boundaries.
 
-`AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model: Agent Executor, Agent Queue, Interactive Agent, and Runbook stay separate; Agent Executor is the current user-facing name for the `agent-run`/Codex Direct Work implementation and each Agent Executor widget instance is a future execution slot; Coordinator is deferred.
+`COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` defines the updated product
+model: Coordinator Chat is the primary operator-facing AI surface; widgets
+expose controlled capabilities; Agent Queue organizes executable tasks; Agent
+Executors execute tasks and provide visibility; the operator controls autonomy
+and approvals.
+
+`AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
+the Coordinator-centered update: Coordinator Chat handles conversation and
+planning, Agent Queue organizes tasks and executor history, Agent Executor runs
+one task and shows execution, and Runbook remains a deferred procedural
+surface.
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no automatic execution, Queue execution, response validation engine, or required Coordinator product surface is implemented yet.
 
@@ -66,7 +76,10 @@ Agent Executor Direct Work ownership, and no automatic dispatch, scheduler,
 Terminal launch, auto-commit, push, or hidden execution. No implementation is
 added by that contract.
 
-`INTERACTIVE_AGENT_WIDGET_CONTRACT.md` defines Interactive Agent as a separate manual long-chat work surface for exploratory agent conversation. It is not Agent Queue, Agent Executor, Runbook, Coordinator, queue dispatch, approval/apply behavior, or a hidden mutation path.
+`INTERACTIVE_AGENT_WIDGET_CONTRACT.md` now remains compatibility context for
+the existing Interactive Agent widget id and local chat foundation. Near-term
+product work should reposition that surface as Coordinator Chat instead of
+adding a second separate chat concept.
 
 `RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Interactive Agent, Coordinator, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.
 
@@ -132,7 +145,7 @@ In plain browser/Vite development, the frontend uses an in-memory workspace API 
 
 The Empty Workbench shell intentionally renders no concrete widgets by default. New Workspaces still start with zero widget instances.
 
-The frontend includes a Widget Catalog drawer opened from Add Widget controls. The current user-facing catalog exposes Ready templates for Agent Executor, Git, Terminal, and Notes, plus Preview templates for Agent Queue, Interactive Agent, and Runbook. Agent Executor reuses the existing `agent-run` definition id for persistence compatibility. Retired surfaces such as Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, and Coordinator previews are not shown in the current catalog or workbench surface.
+The frontend includes a Widget Catalog drawer opened from Add Widget controls. The current user-facing catalog exposes Ready templates for Agent Executor, Git, Terminal, and Notes, plus Preview templates for Agent Queue, Interactive Agent, and Runbook. Interactive Agent is the current compatibility/local-chat placeholder for the Coordinator Chat direction. Agent Executor reuses the existing `agent-run` definition id for persistence compatibility. Retired surfaces such as Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not shown in the current catalog or workbench surface.
 
 There is no shell execution, script execution, executable chat runtime, Workspace-aware Coordinator surface, executable proposal behavior, Agent Queue runner/real command queue/execution history, Terminal result monitoring, arbitrary widget result monitoring, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond Agent Executor, Agent Queue, Interactive Agent, Runbook, Git, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view mode behavior, persisted presence zones beyond current canvas/floating presentation, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notebook/Notes document model yet.
 

@@ -8,7 +8,13 @@ Hobit remains operator-controlled. Agents may help coordinate, implement, audit,
 
 This is primarily a product/domain contract. The current Agent Chat widget includes a proposal-only preview with explicit current-session approved context selection, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and desktop proposal-only run/result persistence. The current frontend surfaces Direct Work / Codex as a Ready catalog item that reuses the existing `agent-run` widget identity, and the backend/Tauri Direct Work foundation can persist Codex Direct Work run/log/result artifacts for that owner. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. This contract does not implement template editing, response validation, or automatic execution.
 
-Near-term product-facing agent surfaces are defined in `docs/AGENT_SURFACE_MODEL.md`. That model keeps Agent Executor, Agent Queue, Interactive Agent, and Runbook separate, positions Direct Work / Codex as the current Agent Executor implementation direction, and defers Coordinator as a required product surface.
+Near-term product-facing agent surfaces are defined in
+`docs/AGENT_SURFACE_MODEL.md` and
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat is now the
+primary operator-facing AI surface concept; Agent Queue organizes executable
+tasks; Agent Executor executes tasks and provides visibility; Runbook remains
+deferred. Direct Work / Codex remains the current Agent Executor
+implementation direction.
 
 ## Current Status
 
@@ -26,7 +32,9 @@ Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVAB
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
-Coordinator is deferred in the near-term surface model. Future Coordinator language in this contract describes a possible planning role for later and must not be treated as a prerequisite for Agent Executor, Agent Queue, Interactive Agent, or Runbook work.
+Coordinator Chat is no longer deferred as a product concept. Coordinator
+runtime, provider integration, context packs, action proposal execution, and
+widget capability/tool wiring remain future implementation work.
 
 First real AI/provider work must also follow
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: the initial AI slice is
@@ -70,7 +78,10 @@ Strict workflow:
 
 A Coordinator Agent is the long-lived coordination role for a Workspace or Project.
 
-Near-term product note: Coordinator is deferred as a required Hobit surface. Do not make Agent Queue, Agent Executor, Interactive Agent, or Runbook depend on Coordinator before a later block explicitly reintroduces it.
+Near-term product note: Coordinator Chat is the primary operator-facing AI
+surface concept, but this contract still separates Coordinator planning from
+Executor implementation. Do not let Coordinator bypass widget boundaries,
+Queue/Executor roles, or explicit approvals.
 
 The coordinator may:
 

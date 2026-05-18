@@ -2,6 +2,46 @@
 
 This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure, and current implementation work continues to exercise those contracts through the Workbench shell.
 
+## Coordinator-Centered Workbench Direction
+
+The updated product model is defined in
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
+
+Coordinator Chat is the primary operator-facing AI surface. The operator uses
+Coordinator Chat to describe problems, explore solutions, and ask Hobit to use
+available widgets as controlled tools/proxies. Widgets expose controlled
+capabilities; Agent Queue organizes executable tasks; Agent Executors execute
+tasks and provide visibility; the operator controls autonomy and approvals.
+
+Near-term product direction:
+
+- reposition the existing Interactive Agent direction as Coordinator Chat
+- do not keep separate freeform Interactive Agent plus Coordinator concepts
+- keep Agent Queue as task organization for Agent Executors, not the main chat
+  or global orchestrator
+- keep Agent Executor focused on task execution, live logs, result, diff,
+  validation, history, and stop/cancel
+- keep Runbook preview/minimal and deferred from active roadmap
+- make JDBC/Database Connector a first-version scope candidate under a
+  contract-gated, read-only-by-default capability model
+- treat Evidence/Sources as an important future trust layer
+- keep medical/healthcare workflows out of active scope due
+  privacy/compliance/safety sensitivity
+
+Recommended next blocks:
+
+- Block 205 - Widget capability/tool contract.
+- Block 206 - Reposition Interactive Agent as Coordinator Chat.
+- Block 207 - Coordinator Chat minimal UI.
+- Block 208 - JDBC widget contract.
+- Block 209 - JDBC connector model/API foundation.
+- Block 210 - JDBC query UI MVP.
+- Block 211 - Coordinator action proposal UI pattern.
+- Block 212 - Coordinator to JDBC read-only query proposal flow.
+- Block 213 - Coordinator to Queue task creation flow.
+- Block 214 - Evidence/Sources contract.
+- Block 215 - AI context/token economy contract.
+
 ## Near-Term Agent Surface Model
 
 The near-term agent/work surface model is defined in
@@ -9,32 +49,31 @@ The near-term agent/work surface model is defined in
 The current post-cleanup widget inventory is summarized in
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
-The model keeps four surfaces separate:
+The model now separates Coordinator conversation/planning, Queue task
+organization, Executor execution visibility, and deferred procedural Runbook
+work:
 
 - Agent Executor: run one task and show execution.
 - Agent Queue: organize tasks and executor history.
-- Interactive Agent: manually chat/work with an agent.
+- Coordinator Chat: understand, plan, propose widget actions, and interpret
+  results.
 - Runbook: follow and manage procedural steps.
 
-Interactive Agent future work must follow
-`docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`: it is a manual long-chat widget,
-not Queue execution, Agent Executor dispatch, Runbook execution, Coordinator
-behavior, or a hidden mutation path.
+Interactive Agent future work is now compatibility/repositioning work and must
+follow `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
+`docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`: the existing local chat foundation
+should become Coordinator Chat rather than a second primary chat surface.
 
 Runbook future work must follow `docs/RUNBOOK_WIDGET_CONTRACT.md`: it is a
 step-based procedural widget, not Queue execution, Agent Executor dispatch,
 Interactive Agent chat, Coordinator behavior, Terminal automation, Git
 mutation, or a hidden tool runner.
 
-Coordinator is deferred. It should not be required for Agent Executor, Agent
-Queue, Interactive Agent, or Runbook work until a later block explicitly
-reintroduces it.
-
 Future Agent Queue task work is contract-gated by
 `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`: Agent Queue is a Workspace-level
 task and history surface with future dependencies, executor capacity, and
-manual assignment, but no execution, dispatch, scheduler, Coordinator
-dependency, Runbook dependency, or Git mutation in the current model.
+manual assignment. Agent Queue is not Coordinator Chat, not a scheduler, and
+not a global orchestrator.
 Manual Queue-to-Executor assignment is contract-gated by
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`; assignment is visible operator
 routing only and must remain separate from execution, dispatch, scheduling,
@@ -155,7 +194,8 @@ pinning, autosave, or other multi-note UI.
 
 ## Early Non-Goals
 
-- No real JDBC integration yet.
+- No real JDBC integration until the Coordinator-centered JDBC contract and
+  connector model/API blocks are completed.
 - No real image editing yet.
 - No full drag-and-drop layout editor yet.
 - No Knowledge Catalog implementation yet.

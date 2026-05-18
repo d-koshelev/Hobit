@@ -12,10 +12,12 @@ Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md` and
 `docs/PRODUCT_UI_VISUAL_CONTRACT.md`. Widgets should normally use the shared
 WidgetFrame anatomy and the unified widget surface rule.
 
-Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`.
-Agent Executor, Agent Queue, Interactive Agent, and Runbook should remain
-separate widget responsibilities. Coordinator is deferred and must not become a
-dependency for basic agent, queue, interactive, or runbook work.
+Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`
+and `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat is the
+primary operator-facing AI surface. Widgets expose controlled capabilities to
+Coordinator through explicit, approval-aware boundaries. Agent Queue organizes
+executable tasks, Agent Executor executes tasks and shows visibility, and
+Runbook remains a deferred procedural surface.
 
 ## WidgetDefinition
 
@@ -384,7 +386,13 @@ Widgets may:
 
 Widgets should communicate through workbench state and events, not direct widget-to-widget calls.
 
-Future Workspace-aware Coordinator Agent behavior may read only intentional, approved widget context surfaces and may propose actions only through previewed, operator-approved flows. Widgets must not expose hidden private state to Agent Chat / Coordinator or accept direct Coordinator mutation outside the Workbench state/event and approval model. See `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+Future Workspace-aware Coordinator behavior may read only intentional, approved
+widget context surfaces and may propose actions only through previewed,
+operator-approved flows. Widgets must not expose hidden private state to
+Coordinator or accept direct Coordinator mutation outside the Workbench
+state/event and approval model. See
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
+`docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 
 ## Current Implementation Foundation
 
@@ -405,7 +413,31 @@ owning Workbench and remove widget-local runs, results, logs, state, and layout
 for that instance. Frontend delete controls, workspace deletion, undo/restore,
 and bulk deletion are not implemented.
 
-The current user-facing widget set is Agent Executor, Agent Queue, Interactive Agent, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing `agent-run` widget identity for persistence compatibility and keeps the current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget instance, executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. It persists widget run/log/result artifacts and safety flags without auto-commit, push, Queue execution, or Git mutation. Agent Queue is a singleton per Workspace, is a preview review/history foundation only, and does not execute or dispatch queued work. Existing persisted Agent Queue duplicates are not automatically removed or migrated. Interactive Agent and Runbook are minimal placeholders only; they do not call agents, execute tools, integrate with Queue, or mutate workspace content. Notes persists a minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget has a minimal desktop-only one-shot command form. The Git widget placeholder has a transient explicit repository-root input and supports manual desktop-only read-only Git status refresh through `get_git_repository_status`, rendered as a visual status card and grouped changed-files summary. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, and Coordinator preview surfaces are not part of the current user-facing catalog or workbench surface.
+The current user-facing widget set is Agent Executor, Agent Queue, the
+Interactive Agent placeholder now intended to be repositioned as Coordinator
+Chat, Runbook, Git, Terminal, and Notes. Agent Executor reuses the existing
+`agent-run` widget identity for persistence compatibility and keeps the current
+Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget
+instance, executable, repository root, operator prompt, sandbox, approval
+policy, timeout, and output caps; on Windows, resolving `codex` also tries
+`codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell.
+It persists widget run/log/result artifacts and safety flags without
+auto-commit, push, automatic Queue dispatch, or Git mutation. Agent Queue is a
+singleton per Workspace and is a preview task organization/history surface;
+manual Queue-to-Executor assignment and explicit run foundations exist, but it
+does not auto-dispatch or schedule queued work. Existing persisted Agent Queue
+duplicates are not automatically removed or migrated. Interactive Agent and
+Runbook are minimal placeholders only; Interactive Agent is compatibility
+foundation for future Coordinator Chat and does not call providers, execute
+tools, integrate with Queue, or mutate workspace content. Notes persists a
+minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
+has a minimal desktop-only one-shot command form. The Git widget placeholder has
+a transient explicit repository-root input and supports manual desktop-only
+read-only Git status refresh through `get_git_repository_status`, rendered as a
+visual status card and grouped changed-files summary. Old Agent Chat, Agent
+Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC,
+JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces
+are not part of the current user-facing catalog or workbench surface.
 
 The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, preset editing, and real Dock behavior are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
@@ -440,12 +472,22 @@ block.
 
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
-Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: Agent Executor runs one task and shows execution, Agent Queue organizes tasks and executor history, Interactive Agent manually chats/works with an agent, and Runbook follows procedural steps.
+Coordinator-centered widget capability direction is defined in
+`COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`: Coordinator Chat is the main
+operator-facing AI chat, and widgets expose controlled capabilities/tools.
 
-Interactive Agent Widget behavior is further defined in `INTERACTIVE_AGENT_WIDGET_CONTRACT.md`; it is a manual long-chat work surface, separate from Agent Queue, Agent Executor, Runbook, and Coordinator.
+Near-term agent surface roles are further defined in `AGENT_SURFACE_MODEL.md`: Coordinator Chat understands/plans/proposes widget actions, Agent Executor runs one task and shows execution, Agent Queue organizes tasks and executor history, and Runbook follows procedural steps.
+
+Interactive Agent Widget behavior is further defined in
+`INTERACTIVE_AGENT_WIDGET_CONTRACT.md`; that document now exists as
+compatibility context for the current Interactive Agent widget id/local chat
+foundation that should become Coordinator Chat in a later implementation block.
 
 Runbook Widget behavior is further defined in `RUNBOOK_WIDGET_CONTRACT.md`; it is a step-based procedural work surface, separate from Agent Queue, Agent Executor, Interactive Agent, and Coordinator.
 
 Future Agent Queue behavior is further defined in `AGENT_QUEUE_CONTRACT.md`; it is an operator-controlled agent command queue, command history, and review inbox, not hidden automation or a generic task list.
 
-Future Workspace-aware Coordinator Agent behavior is deferred and further defined in `WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; it is an approved-context, preview-before-apply proposal model, not unrestricted chat access or direct widget mutation.
+Future Workspace-aware Coordinator action behavior is further defined in
+`WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`; it is an approved-context,
+preview-before-apply proposal model, not unrestricted chat access or direct
+widget mutation.

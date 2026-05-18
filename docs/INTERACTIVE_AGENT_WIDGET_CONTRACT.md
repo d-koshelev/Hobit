@@ -2,8 +2,19 @@
 
 ## Purpose
 
-Interactive Agent is a separate widget for manual long-running work with an
-agent in a conversational session.
+Interactive Agent is being repositioned into Coordinator Chat for the near-term
+product direction.
+
+The updated source of truth is
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`: Coordinator Chat is the main
+operator-facing AI chat, and Hobit should not keep separate freeform
+Interactive Agent plus Coordinator concepts in the near-term product.
+
+This contract remains as compatibility context for the existing Interactive
+Agent widget id and local chat foundation.
+
+The previous Interactive Agent direction was a separate widget for manual
+long-running work with an agent in a conversational session.
 
 It is useful when the operator wants to explore a problem, ask follow-up
 questions, reason with an agent, debug an issue, review code, understand a
@@ -16,13 +27,14 @@ execution, PTY, or an interactive process/session.
 
 ## One-Sentence Role
 
-Interactive Agent: manual long-chat work with an agent.
+Coordinator Chat: understand, plan, propose controlled widget actions, and
+interpret results.
 
 ## What Interactive Agent Is
 
-Interactive Agent is:
+Compatibility-only Interactive Agent is:
 
-- a separate Workbench widget
+- a current Workbench widget identity that may be reused temporarily
 - a manual conversation surface
 - a place for operator-driven messages and agent responses
 - a long-chat/work session that feels closer to working with Codex CLI on a
@@ -31,10 +43,13 @@ Interactive Agent is:
   understanding
 - potentially backed by a current-session transcript first, with persistent
   transcript storage only when explicitly scoped
-- a future candidate for explicit project/repository/context selection
+- a future minimal foundation for Coordinator Chat
 
 The operator controls what is sent, what context is included, and what follow-up
 action happens after the conversation.
+
+Near-term product work should use the Coordinator Chat language and capability
+model instead of adding a second separate chat surface.
 
 ## What Interactive Agent Is Not In V1
 
@@ -43,7 +58,7 @@ Interactive Agent is not:
 - Agent Queue
 - Agent Executor
 - Runbook
-- Coordinator
+- a second separate Coordinator surface
 - a task scheduler
 - an automatic executor
 - queue dispatch
@@ -51,9 +66,10 @@ Interactive Agent is not:
 - an approval/apply workflow
 - automatic Git, Terminal, filesystem, Notes, or workspace mutation
 
-Interactive Agent v1 must not automatically create queue items, dispatch tasks,
-launch Agent Executor runs, execute Runbook steps, run Terminal commands, mutate
-Git, read hidden filesystem context, or apply changes.
+Interactive Agent/Coordinator Chat v1 must not automatically create queue
+items, dispatch tasks, launch Agent Executor runs, execute Runbook steps, run
+Terminal commands, mutate Git, read hidden filesystem context, or apply
+changes.
 
 ## Relationship To Agent Executor
 

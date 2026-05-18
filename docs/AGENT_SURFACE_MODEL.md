@@ -4,16 +4,39 @@
 
 This contract defines Hobit's near-term agent and work surface model.
 
-The goal is to keep the Workbench explainable by separating execution, queue
-history, manual interactive agent work, and procedural runbooks. These surfaces
-may cooperate later, but they should not be collapsed into one broad
-Coordinator, queue, chat, or workflow engine before the simple model is proven.
+Coordinator Chat has returned as the primary operator-facing AI surface. The
+updated product model is defined in
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
+
+The goal is to keep the Workbench explainable by separating conversation and
+planning, task organization, execution, and procedural runbooks. Coordinator
+Chat is the conversation/planning surface; widgets expose controlled
+capabilities; Agent Queue organizes executable tasks; Agent Executor executes
+tasks and shows what ran.
 
 This document is docs-only. It does not implement runtime behavior, frontend
 UI, storage, schema, Tauri commands, queue execution, Interactive Agent, Runbook
 behavior, Coordinator behavior, or Git mutation.
 
 ## Near-Term Surfaces
+
+### Coordinator Chat
+
+Coordinator Chat is the main operator-facing AI chat.
+
+Near-term direction:
+
+- reposition the existing Interactive Agent direction into Coordinator Chat
+- do not keep separate freeform Interactive Agent plus Coordinator concepts in
+  the near-term product
+- reuse the current Interactive Agent local chat foundation only as a
+  compatibility/minimal UI starting point when implementation arrives
+- use widgets as controlled capability/tool surfaces, not hidden context stores
+
+Coordinator Chat must follow
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`: no hidden Workspace reads, no
+silent widget access, no secret use, no silent Terminal launch, no automatic
+Queue dispatch, and no Git mutation without explicit approval.
 
 ### Agent Executor
 
@@ -78,7 +101,8 @@ defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual
 Queue-to-Executor assignment rules are defined in
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 Manual run of an assigned Queue task is defined in
-`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` and remains future work.
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`. A manual run foundation now exists;
+automatic dispatch and scheduling remain future work.
 
 Near-term simplification:
 
@@ -86,27 +110,31 @@ Near-term simplification:
 - prevent adding new duplicate Agent Queue widgets in one Workspace while
   preserving any existing persisted duplicates
 - do not make it a universal workflow engine yet
-- do not execute queue items until queue execution is explicitly implemented in
-  a later block
+- do not auto-dispatch or schedule queue items until those behaviors are
+  explicitly implemented in later blocks
 
-### Interactive Agent
+### Interactive Agent / Coordinator Chat Compatibility
 
-Interactive Agent is a manual long-running chat or work session with an agent.
-The widget contract is defined in
+The previous Interactive Agent direction is now repositioned as Coordinator
+Chat. The widget contract is retained for compatibility and is superseded for
+near-term product direction by
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
+
+The legacy widget contract is defined in
 `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`.
 
 Role:
 
-- support manual exploratory work with an agent
-- feel closer to working with Codex CLI on a problem
-- stay separate from Agent Queue and Agent Executor in v1
+- support the minimal local chat foundation that may become Coordinator Chat
+- preserve explicit context and action boundaries
+- avoid separate freeform chat and Coordinator surfaces in the near term
 
 MVP direction:
 
 - chat transcript
 - user messages
 - agent responses
-- possible repository or context selection later
+- explicit context selection later
 - no queue integration
 - no monitoring integration
 - no executor history recording
@@ -162,19 +190,23 @@ Important boundaries:
 - Do not force Runbook into Agent Executor before real usage clarifies the
   model.
 
-## Deferred Coordinator
+## Coordinator-Centered Direction
 
-Coordinator widget or surface behavior is deferred from the near-term product
-scope.
+Coordinator is no longer deferred as a product concept.
 
-Coordinator may return later as a planning or chat surface, but it is not
-required for Agent Queue, Agent Executor, Interactive Agent, or Runbook.
+Coordinator Chat is the primary operator-facing AI surface, while widgets
+remain controlled capability surfaces. Agent Queue remains task organization,
+Agent Executor remains execution visibility, and Runbook remains deferred.
 
 For now:
 
-- do not make basic work depend on Coordinator
-- do not add Coordinator-driven flows before simpler surfaces are proven
+- do not implement Coordinator runtime in documentation blocks
+- do not give Coordinator hidden Workspace or widget access
+- do not make Queue a chat or global orchestrator
+- do not let Coordinator silently launch Executor, Terminal, Git, SQL, or Queue
+  actions
 - keep future Coordinator behavior bound by
+  `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`
 
 ## Parallelism Model
@@ -185,11 +217,11 @@ The number of Agent Executor widgets determines available execution slots.
 - 1 Agent Executor means one task can run at a time.
 - N Agent Executors means up to N tasks may run concurrently.
 - Current Agent Executor widgets show a compact slot identity. Agent Queue can
-  manually assign tasks to those slots, but execution from assignment remains
-  future work governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
+  manually assign tasks to those slots and explicitly start assigned tasks
+  under `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
-Automatic scheduling is future work. Manual execution from an Agent Executor
-remains valid.
+Automatic scheduling is future work. Manual execution from Agent Queue and
+manual execution from an Agent Executor remain valid.
 
 ## Git Widget Binding Direction
 
@@ -199,16 +231,17 @@ Future binding direction:
 
 - Git Widget can link to an Agent Executor.
 - Git Widget can later link to a Runbook or Interactive Agent if useful.
-- Coordinator links are deferred with Coordinator.
+- Coordinator links must follow the Coordinator-centered capability model.
 - Multiple Git Widgets may exist.
 - Git Widget remains read-only until explicit Git mutation features are added.
 
 ## What Not To Mix
 
-- Do not mix Interactive Agent with Agent Queue in MVP.
+- Do not keep separate Interactive Agent and Coordinator Chat concepts in the
+  near-term product.
+- Do not mix Coordinator Chat with Agent Queue responsibilities.
 - Do not mix Runbook with Agent Queue in MVP.
 - Do not make Agent Queue a universal workflow engine yet.
-- Do not add a Coordinator dependency to basic work.
 - Do not put every feature into Agent Executor.
 - Keep each widget explainable in one sentence.
 
@@ -218,7 +251,8 @@ The current user-facing workbench widget set is:
 
 - Agent Executor: run one task and show execution.
 - Agent Queue: organize tasks and executor history.
-- Interactive Agent: manually chat/work with an agent.
+- Coordinator Chat: understand, plan, propose widget actions, and interpret
+  results.
 - Runbook: follow and manage procedural steps.
 - Git Widget: review repository state.
 - Terminal: run manual one-shot commands.
@@ -226,9 +260,9 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Queue item execution backend/API after
-  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
-- Interactive Agent session persistence later.
-- Interactive Agent provider/Codex integration later.
+- Block 205 - Widget capability/tool contract.
+- Block 206 - Reposition Interactive Agent as Coordinator Chat.
+- Block 207 - Coordinator Chat minimal UI.
+- Block 208 - JDBC widget contract.
+- Block 209 - JDBC connector model/API foundation.
 - Runbook persistence and edit mode later.
-- Keep Coordinator deferred.

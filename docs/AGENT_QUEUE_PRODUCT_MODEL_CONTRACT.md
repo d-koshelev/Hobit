@@ -18,7 +18,9 @@ Agent Queue: organize tasks and executor history.
 ## What Agent Queue Is
 
 Agent Queue is the Workspace-level queue and history surface for structured
-Agent Executor work.
+Agent Executor work. It is not the primary chat or global orchestrator; that
+role belongs to Coordinator Chat under
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
 
 Future Agent Queue is:
 
@@ -45,7 +47,7 @@ Agent Queue does not yet provide:
 - automatic Agent Executor launch
 - Git mutation
 - commit or push behavior
-- Coordinator dependency
+- Coordinator ownership or global orchestration
 - Runbook dependency
 
 Queue execution, dispatch, scheduling, dependency running, and automatic
@@ -179,8 +181,9 @@ Manual assignment is the bridge between a task backlog and future execution.
 Detailed manual Queue-to-Executor assignment rules are defined in
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
 Manual run-from-assignment rules are defined in
-`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; a backend/API foundation now exists,
-while frontend run controls remain future work.
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; backend/API and frontend run control
+foundations now exist. Automatic dispatch, scheduler behavior, and dependency
+execution remain future work.
 It should be visible, reversible when safe, and understandable from Agent
 Queue.
 
@@ -214,13 +217,20 @@ result summary. Git review remains explicit through Git Widget, and commit,
 push, stage, reset, clean, restore, stash, or other Git mutations require
 separate explicit Git features.
 
-## Relationship To Interactive Agent
+## Relationship To Coordinator Chat
 
-Interactive Agent is manual long-chat work.
+Coordinator Chat is the main operator-facing AI chat.
 
-Interactive Agent is not Agent Queue in v1. A future optional feature may
-create a Queue Item from an Interactive Agent conversation, but that is not
-implemented now and must be operator-visible if added later.
+Coordinator may create Queue tasks after operator approval or under a future
+explicit autonomy policy. Creating a task does not start execution, accept
+work, mutate Git, launch Terminal, or bypass Agent Queue and Agent Executor
+boundaries.
+
+Agent Queue is not a chat, does not reason, and is not the Coordinator.
+
+The previous Interactive Agent direction is being repositioned into
+Coordinator Chat. Do not add separate Interactive Agent-to-Queue and
+Coordinator-to-Queue models in the near term.
 
 ## Relationship To Runbook
 
@@ -228,14 +238,6 @@ Runbook is deferred from the active near-term plan.
 
 Runbook does not create Queue Items in the MVP. A future Runbook integration
 may create Queue Items from steps, but not now.
-
-## Relationship To Coordinator
-
-Coordinator is deferred.
-
-Agent Queue must not require Coordinator. Queue Items can be created manually
-first. Any future Coordinator-created Queue Item must be previewed and approved
-by the operator before it enters the Queue.
 
 ## UI Direction
 
