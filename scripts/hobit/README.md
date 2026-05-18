@@ -149,3 +149,18 @@ python scripts/hobit/changed-files-summary.py --json
 ```
 
 Use this before final validation and in final-report preparation.
+
+### `smoke-queue-executor-ui.mjs`
+
+Runs the mocked frontend Queue-to-Agent Executor UI smoke:
+
+```powershell
+node scripts/hobit/smoke-queue-executor-ui.mjs
+node scripts/hobit/smoke-queue-executor-ui.mjs --scenario event-final
+node scripts/hobit/smoke-queue-executor-ui.mjs --scenario reconciliation-final
+```
+
+The script starts the Vite frontend, opens the committed smoke page in a local
+Chrome/Edge browser through Chrome DevTools Protocol, and uses mocked frontend
+actions only. It does not call Tauri commands, start Codex, use SQLite, launch a
+Terminal widget, or mutate Git.
