@@ -472,6 +472,11 @@ Future Terminal PTY Widget behavior is further defined in
 desktop-only one-shot command runner until a later PTY/session implementation
 block.
 
+Future Database/JDBC Widget behavior is further defined in
+`docs/JDBC_WIDGET_CONTRACT.md`. Database/JDBC is not part of the current
+catalog surface; when implemented, it must remain read-only by default,
+connector-secret-isolated, capped, and approval-aware.
+
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
 Coordinator-centered widget capability direction is defined in

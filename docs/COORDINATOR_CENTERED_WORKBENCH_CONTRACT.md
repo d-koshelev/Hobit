@@ -166,6 +166,8 @@ Coordinator owns:
 JDBC/Database Connector is a first-version scope candidate.
 
 Coordinator should use JDBC only through the JDBC widget capability boundary.
+The detailed JDBC product and safety model is defined in
+`docs/JDBC_WIDGET_CONTRACT.md`.
 
 JDBC safety rules:
 
@@ -342,15 +344,13 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Block 207 - Coordinator Chat minimal UI.
-- Block 208 - JDBC widget contract.
-- Block 209 - JDBC connector model/API foundation.
-- Block 210 - JDBC query UI MVP.
-- Block 211 - Coordinator action proposal UI pattern.
-- Block 212 - Coordinator to JDBC read-only query proposal flow.
-- Block 213 - Coordinator to Queue task creation flow.
-- Block 214 - Evidence/Sources contract.
-- Block 215 - AI context/token economy contract.
+- Block 208 - JDBC connector model/API foundation.
+- Block 209 - JDBC query UI MVP.
+- Block 210 - Coordinator action proposal UI pattern.
+- Block 211 - Coordinator to JDBC read-only query proposal flow.
+- Block 212 - Coordinator to Queue task creation flow.
+- Block 213 - Evidence/Sources contract.
+- Block 214 - AI context/token economy contract.
 
 ## Non-Goals
 

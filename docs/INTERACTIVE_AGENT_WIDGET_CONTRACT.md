@@ -216,7 +216,6 @@ Expert.
 
 ## Recommended Next Blocks
 
-- Block 207  Coordinator Chat minimal UI
 - Later  Coordinator Chat session persistence
 - Later  Coordinator Chat provider/Codex integration
 - Later  optional handoff to Agent Executor

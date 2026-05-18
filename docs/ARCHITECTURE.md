@@ -38,6 +38,12 @@ and widget-specific capability examples. It is contract-only and does not
 implement a capability registry, runtime, schema, Tauri commands, or widget
 tools.
 
+`JDBC_WIDGET_CONTRACT.md` defines the future Database/JDBC widget product and
+safety model: connector boundaries, read-only SQL defaults, query limits,
+secret isolation, `EXPLAIN`, AI SQL assistance, and Coordinator capability
+rules. It is contract-only and does not implement JDBC UI, execution, sidecars,
+secrets storage, schema, Tauri commands, or Coordinator runtime.
+
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
 the Coordinator-centered update: Coordinator Chat handles conversation and
 planning, Agent Queue organizes tasks and executor history, Agent Executor runs

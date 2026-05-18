@@ -25,23 +25,21 @@ Near-term product direction:
 - keep Agent Executor focused on task execution, live logs, result, diff,
   validation, history, and stop/cancel
 - keep Runbook preview/minimal and deferred from active roadmap
-- make JDBC/Database Connector a first-version scope candidate under a
-  contract-gated, read-only-by-default capability model
+- make JDBC/Database Connector a first-version scope candidate under
+  `docs/JDBC_WIDGET_CONTRACT.md` and its read-only-by-default capability model
 - treat Evidence/Sources as an important future trust layer
 - keep medical/healthcare workflows out of active scope due
   privacy/compliance/safety sensitivity
 
 Recommended next blocks:
 
-- Block 207 - Coordinator Chat minimal UI.
-- Block 208 - JDBC widget contract.
-- Block 209 - JDBC connector model/API foundation.
-- Block 210 - JDBC query UI MVP.
-- Block 211 - Coordinator action proposal UI pattern.
-- Block 212 - Coordinator to JDBC read-only query proposal flow.
-- Block 213 - Coordinator to Queue task creation flow.
-- Block 214 - Evidence/Sources contract.
-- Block 215 - AI context/token economy contract.
+- Block 208 - JDBC connector model/API foundation.
+- Block 209 - JDBC query UI MVP.
+- Block 210 - Coordinator action proposal UI pattern.
+- Block 211 - Coordinator to JDBC read-only query proposal flow.
+- Block 212 - Coordinator to Queue task creation flow.
+- Block 213 - Evidence/Sources contract.
+- Block 214 - AI context/token economy contract.
 
 ## Near-Term Agent Surface Model
 
@@ -195,8 +193,8 @@ pinning, autosave, or other multi-note UI.
 
 ## Early Non-Goals
 
-- No real JDBC integration until the Coordinator-centered JDBC contract and
-  connector model/API blocks are completed.
+- No real JDBC integration until `docs/JDBC_WIDGET_CONTRACT.md` is followed
+  by focused connector model/API and read-only execution blocks.
 - No real image editing yet.
 - No full drag-and-drop layout editor yet.
 - No Knowledge Catalog implementation yet.

@@ -260,7 +260,7 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Block 207 - Coordinator Chat minimal UI.
-- Block 208 - JDBC widget contract.
-- Block 209 - JDBC connector model/API foundation.
+- Block 208 - JDBC connector model/API foundation.
+- Block 209 - JDBC query UI MVP.
+- Block 210 - Coordinator action proposal UI pattern.
 - Runbook persistence and edit mode later.

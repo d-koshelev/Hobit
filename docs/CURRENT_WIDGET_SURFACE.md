@@ -163,9 +163,9 @@ current Workbench surface:
 
 Database/JDBC is not a current catalog surface, but it is now a first-version
 scope candidate for the Coordinator-centered database investigation scenario.
-Future JDBC work must start with a contract and preserve read-only defaults,
-connector secret isolation, explicit approval, capped results, and explicit AI
-context sharing.
+The contract is defined in `docs/JDBC_WIDGET_CONTRACT.md`; implementation must
+preserve read-only defaults, connector secret isolation, explicit approval,
+capped results, and explicit AI context sharing.
 
 ## Compatibility Notes
 
@@ -180,7 +180,7 @@ context sharing.
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Block 207 - Coordinator Chat minimal UI.
-- Block 208 - JDBC widget contract.
+- Block 208 - JDBC connector model/API foundation.
+- Block 209 - JDBC query UI MVP.
 - Runbook persistence and edit mode later.
 - Agent Queue dependency blocks later.

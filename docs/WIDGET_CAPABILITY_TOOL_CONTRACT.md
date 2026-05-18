@@ -366,7 +366,9 @@ Boundaries:
 - result sharing to AI is explicit and inspectable
 
 JDBC is the first practical Coordinator tool/proxy scenario, but it remains
-contract-gated until the JDBC widget and connector model are implemented.
+contract-gated until the JDBC widget and connector model are implemented. The
+JDBC product and safety model is defined in
+`docs/JDBC_WIDGET_CONTRACT.md`.
 
 ## Coordinator Chat Capabilities
 
@@ -439,15 +441,13 @@ state-changing or external effects.
 
 ## Recommended Follow-Up Blocks
 
-- Block 207 - Coordinator Chat minimal UI.
-- Block 208 - JDBC widget contract.
-- Block 209 - JDBC connector model/API foundation.
-- Block 210 - JDBC query UI MVP.
-- Block 211 - Coordinator action proposal UI pattern.
-- Block 212 - Coordinator to JDBC read-only query proposal flow.
-- Block 213 - Coordinator to Queue task creation flow.
-- Block 214 - Evidence/Sources contract.
-- Block 215 - AI context/token economy contract.
+- Block 208 - JDBC connector model/API foundation.
+- Block 209 - JDBC query UI MVP.
+- Block 210 - Coordinator action proposal UI pattern.
+- Block 211 - Coordinator to JDBC read-only query proposal flow.
+- Block 212 - Coordinator to Queue task creation flow.
+- Block 213 - Evidence/Sources contract.
+- Block 214 - AI context/token economy contract.
 
 ## Non-Goals
 
