@@ -6,6 +6,19 @@ A Preset is a saved composition of widget instances, layout, configuration, and 
 
 Presets make workbench setups reusable. They are not hardcoded product modes.
 
+## Current Implementation Status
+
+The current product intentionally supports one start preset: **Empty
+Workbench**. Creating a Workspace starts with no default widget instances; the
+operator adds Agent Executor, Git, Terminal, Notes, Agent Queue, Coordinator
+Chat, Database / JDBC, or Runbook from the Widget Catalog after opening the
+Workspace.
+
+Preset construction, preset editing, preset persistence UI, template libraries,
+marketplaces, default multi-widget templates, and AI-generated presets are
+backlog/deferred work. The start screen should present Empty Workbench as an
+intentional start mode, not as a broken preset selector.
+
 ## Preset Contents
 
 A preset may define:

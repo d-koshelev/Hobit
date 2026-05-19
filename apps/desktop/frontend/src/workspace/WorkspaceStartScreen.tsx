@@ -60,8 +60,8 @@ export function WorkspaceStartScreen({
                 New Workspace
               </h1>
               <p className="workspace-start-text">
-                Name a workspace and open a clean AI Workbench shell for the
-                task in front of you.
+                Name a workspace and start with the intentional Empty
+                Workbench. Add only the widgets this work needs after it opens.
               </p>
             </div>
 
@@ -79,24 +79,22 @@ export function WorkspaceStartScreen({
             </div>
 
             <fieldset className="preset-field">
-              <legend className="workspace-label">Preset</legend>
+              <legend className="workspace-label">Start mode</legend>
               <div
-                aria-label="Selected preset"
+                aria-label={`${selectedPreset.title} start mode`}
                 className="preset-choice"
                 role="group"
               >
                 <span className="preset-choice-copy">
-                  <span className="preset-choice-title">
-                    {selectedPreset.title}
-                  </span>
+                  <span className="preset-choice-title">Start empty</span>
                   <span className="preset-choice-text">
-                    No default widgets. Compose the workbench when you need
-                    capabilities.
+                    Creates the {selectedPreset.title} with no default widgets.
+                    Use the Widget Catalog after opening to add capabilities.
                   </span>
                 </span>
                 <Badge variant="success">
                   <StatusDot variant="success" />
-                  Selected
+                  Current default
                 </Badge>
               </div>
             </fieldset>
