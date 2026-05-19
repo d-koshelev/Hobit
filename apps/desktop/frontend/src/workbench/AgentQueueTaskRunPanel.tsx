@@ -61,26 +61,29 @@ export function AgentQueueTaskRunPanel({
 
   const repoRoot = repoRootDraft.trim();
   const codexExecutable = codexExecutableDraft.trim();
+  const startApiAvailable = Boolean(onStartAssignedTask);
+  const readinessMessage = queueRunReadinessMessage({
+    isDirty,
+    selectedTask,
+    startApiAvailable,
+  });
   const preconditionMessages = useMemo(
     () =>
-      runPreconditionMessages({
-        codexExecutable,
-        isDirty,
-        isStarting,
-        repoRoot,
-        selectedTask,
-        startApiAvailable: Boolean(onStartAssignedTask),
-      }),
+      readinessMessage
+        ? []
+        : runPreconditionMessages({
+            codexExecutable,
+            isStarting,
+            repoRoot,
+          }),
     [
       codexExecutable,
-      isDirty,
       isStarting,
-      onStartAssignedTask,
+      readinessMessage,
       repoRoot,
-      selectedTask,
     ],
   );
-  const canStart = preconditionMessages.length === 0;
+  const canStart = !readinessMessage && preconditionMessages.length === 0;
 
   async function startAssignedTask() {
     if (!canStart || !onStartAssignedTask || startInFlightRef.current) {
@@ -124,7 +127,8 @@ export function AgentQueueTaskRunPanel({
         <div>
           <p className="agent-queue-run-title">Run assigned task</p>
           <p className="agent-queue-run-copy">
-            Running starts the task in the assigned Agent Executor.
+            Running starts this task as Codex Direct Work in the assigned Agent
+            Executor.
           </p>
         </div>
         <div className="agent-queue-run-badges">
@@ -138,108 +142,116 @@ export function AgentQueueTaskRunPanel({
       </div>
 
       <p className="agent-queue-run-boundary-copy">
-        Agent Executor owns live logs, result, validation, diff, and stop
-        controls. Queue only tracks task status and assignment.
+        Queue tasks can be planned without a repository root. Repository root
+        is execution configuration for Codex Direct Work only.
       </p>
 
-      <div className="agent-queue-run-controls">
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label className="field-label" htmlFor={repoRootInputId}>
-            Repo root
-          </label>
-          <Input
-            autoComplete="off"
-            id={repoRootInputId}
-            onChange={(event) => {
-              setRepoRootDraft(event.currentTarget.value);
-              setStartError(null);
-            }}
-            placeholder="C:\\path\\to\\repo"
-            spellCheck={false}
-            type="text"
-            value={repoRootDraft}
-          />
-          <p className="agent-queue-run-note">
-            Queue tasks do not store repo roots. Enter the approved root for
-            this run.
-          </p>
-        </div>
+      {readinessMessage ? (
+        <p className="agent-queue-run-note">{readinessMessage}</p>
+      ) : (
+        <>
+          <div className="agent-queue-run-controls">
+            <div className="agent-queue-run-field agent-queue-run-field-wide">
+              <label className="field-label" htmlFor={repoRootInputId}>
+                Repo root
+              </label>
+              <Input
+                autoComplete="off"
+                id={repoRootInputId}
+                onChange={(event) => {
+                  setRepoRootDraft(event.currentTarget.value);
+                  setStartError(null);
+                }}
+                placeholder="C:\\path\\to\\repo"
+                spellCheck={false}
+                type="text"
+                value={repoRootDraft}
+              />
+              <p className="agent-queue-run-note">
+                Required for this Codex Direct Work run. Queue task planning
+                does not store or require a repo root.
+              </p>
+            </div>
 
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label className="field-label" htmlFor={codexExecutableInputId}>
-            Codex executable
-          </label>
-          <Input
-            autoComplete="off"
-            id={codexExecutableInputId}
-            onChange={(event) => {
-              setCodexExecutableDraft(event.currentTarget.value);
-              setStartError(null);
-            }}
-            spellCheck={false}
-            type="text"
-            value={codexExecutableDraft}
-          />
-        </div>
+            <div className="agent-queue-run-field agent-queue-run-field-wide">
+              <label className="field-label" htmlFor={codexExecutableInputId}>
+                Codex executable
+              </label>
+              <Input
+                autoComplete="off"
+                id={codexExecutableInputId}
+                onChange={(event) => {
+                  setCodexExecutableDraft(event.currentTarget.value);
+                  setStartError(null);
+                }}
+                spellCheck={false}
+                type="text"
+                value={codexExecutableDraft}
+              />
+            </div>
 
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={sandboxInputId}>
-            Sandbox
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={sandboxInputId}
-            onChange={(event) =>
-              setSandbox(event.currentTarget.value as DirectWorkSandbox)
-            }
-            value={sandbox}
-          >
-            <option value="read_only">read_only</option>
-            <option value="workspace_write">workspace_write</option>
-          </select>
-        </div>
+            <div className="agent-queue-run-field">
+              <label className="field-label" htmlFor={sandboxInputId}>
+                Sandbox
+              </label>
+              <select
+                className="input agent-queue-run-select"
+                id={sandboxInputId}
+                onChange={(event) =>
+                  setSandbox(event.currentTarget.value as DirectWorkSandbox)
+                }
+                value={sandbox}
+              >
+                <option value="read_only">read_only</option>
+                <option value="workspace_write">workspace_write</option>
+              </select>
+            </div>
 
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={approvalPolicyInputId}>
-            Approval policy
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={approvalPolicyInputId}
-            onChange={(event) =>
-              setApprovalPolicy(event.currentTarget.value as DirectWorkApprovalPolicy)
-            }
-            value={approvalPolicy}
-          >
-            <option value="never">never</option>
-            <option value="on_request">on_request</option>
-            <option value="untrusted">untrusted</option>
-          </select>
-        </div>
-      </div>
+            <div className="agent-queue-run-field">
+              <label className="field-label" htmlFor={approvalPolicyInputId}>
+                Approval policy
+              </label>
+              <select
+                className="input agent-queue-run-select"
+                id={approvalPolicyInputId}
+                onChange={(event) =>
+                  setApprovalPolicy(
+                    event.currentTarget.value as DirectWorkApprovalPolicy,
+                  )
+                }
+                value={approvalPolicy}
+              >
+                <option value="never">never</option>
+                <option value="on_request">on_request</option>
+                <option value="untrusted">untrusted</option>
+              </select>
+            </div>
+          </div>
 
-      {preconditionMessages.length > 0 ? (
-        <div className="agent-queue-run-warning-list">
-          {preconditionMessages.map((message) => (
-            <p className="agent-queue-run-warning" key={message}>
-              {message}
+          {preconditionMessages.length > 0 ? (
+            <div className="agent-queue-run-warning-list">
+              {preconditionMessages.map((message) => (
+                <p className="agent-queue-run-warning" key={message}>
+                  {message}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="agent-queue-run-actions">
+            <Button
+              disabled={!canStart}
+              onClick={() => void startAssignedTask()}
+              variant="primary"
+            >
+              {isStarting ? "Starting" : "Run assigned task"}
+            </Button>
+            <p className="agent-queue-run-note">
+              Open the assigned Agent Executor for live logs and result.
             </p>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="agent-queue-run-actions">
-        <Button
-          disabled={!canStart}
-          onClick={() => void startAssignedTask()}
-          variant="primary"
-        >
-          {isStarting ? "Starting" : "Run assigned task"}
-        </Button>
-        <p className="agent-queue-run-note">
-          Open the assigned Agent Executor for live logs and result.
-        </p>
-      </div>
+          </div>
+        </>
+      )}
 
       {startMessage ? (
         <>
@@ -265,49 +277,17 @@ export function AgentQueueTaskRunPanel({
 
 function runPreconditionMessages({
   codexExecutable,
-  isDirty,
   isStarting,
   repoRoot,
-  selectedTask,
-  startApiAvailable,
 }: {
   codexExecutable: string;
-  isDirty: boolean;
   isStarting: boolean;
   repoRoot: string;
-  selectedTask: AgentQueueTask;
-  startApiAvailable: boolean;
 }) {
   const messages: string[] = [];
 
-  if (!startApiAvailable) {
-    messages.push("Agent Queue execution is not available in this runtime.");
-  }
-
-  if (!selectedTask.assignedExecutorWidgetId) {
-    messages.push("Assign this task to an Agent Executor before running.");
-  }
-
-  if (selectedTask.status === "draft") {
-    messages.push("Set status to queued, ready, or review needed before running.");
-  } else if (selectedTask.status === "running") {
-    messages.push("This task is already running.");
-  } else if (isFinalQueueTaskStatus(selectedTask.status)) {
-    messages.push("Final-status tasks cannot be run in this version.");
-  } else if (!isRunnableQueueTaskStatus(selectedTask.status)) {
-    messages.push(`Task status cannot be run: ${statusLabel(selectedTask.status)}.`);
-  }
-
-  if (!selectedTask.prompt.trim()) {
-    messages.push("Task prompt is required before running.");
-  }
-
-  if (isDirty) {
-    messages.push("Save task edits before running.");
-  }
-
   if (!repoRoot) {
-    messages.push("Repository root is required before running.");
+    messages.push("Repository root is required for Codex Direct Work execution.");
   }
 
   if (!codexExecutable) {
@@ -319,6 +299,50 @@ function runPreconditionMessages({
   }
 
   return messages;
+}
+
+function queueRunReadinessMessage({
+  isDirty,
+  selectedTask,
+  startApiAvailable,
+}: {
+  isDirty: boolean;
+  selectedTask: AgentQueueTask;
+  startApiAvailable: boolean;
+}) {
+  if (!startApiAvailable) {
+    return "Assigned-task execution is not available in this runtime.";
+  }
+
+  if (!selectedTask.assignedExecutorWidgetId) {
+    return "Assign an Agent Executor when this task is ready to run. Assignment remains planning only and does not start execution.";
+  }
+
+  if (isDirty) {
+    return "Save task edits before configuring execution.";
+  }
+
+  if (!selectedTask.prompt.trim()) {
+    return "Add a task prompt before configuring execution.";
+  }
+
+  if (selectedTask.status === "draft") {
+    return "Draft tasks can stay in planning without a repository root. Set status to queued, ready, or review needed before configuring execution.";
+  }
+
+  if (selectedTask.status === "running") {
+    return "This task is already running in its assigned Agent Executor.";
+  }
+
+  if (isFinalQueueTaskStatus(selectedTask.status)) {
+    return "Final-status tasks cannot be run in this version.";
+  }
+
+  if (!isRunnableQueueTaskStatus(selectedTask.status)) {
+    return `Task status cannot be run: ${statusLabel(selectedTask.status)}.`;
+  }
+
+  return null;
 }
 
 function isRunnableQueueTaskStatus(status: string) {
@@ -333,7 +357,7 @@ function queueRunStartErrorMessage(error: unknown) {
   }
 
   if (/repo root must not be empty/i.test(message)) {
-    return "Repository root is required before running.";
+    return "Repository root is required for Codex Direct Work execution.";
   }
 
   if (/queue task status cannot be run/i.test(message)) {

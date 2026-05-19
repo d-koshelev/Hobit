@@ -74,7 +74,7 @@ export function CodexDirectWorkForm({
   function submitDirectWork() {
     if (!codexExecutable || !repoRoot || !operatorPrompt) {
       onValidationError(
-        "Codex executable, repository root, and operator prompt are required.",
+        "Codex Direct Work requires a Codex executable, repository root, and operator prompt.",
       );
       return;
     }
@@ -109,10 +109,10 @@ export function CodexDirectWorkForm({
     >
       <div className="codex-direct-work-section-header">
         <div className="codex-direct-work-copy">
-          <h3 className="codex-direct-work-title">Run setup</h3>
+          <h3 className="codex-direct-work-title">Codex Direct Work setup</h3>
           <p className="codex-direct-work-text">
-            Provide the approved repository root, prompt, sandbox, and approval
-            policy before launching Codex.
+            This execution mode runs Codex CLI inside an explicit repository
+            boundary. Generic task planning belongs in Agent Queue.
           </p>
         </div>
         <Badge variant="neutral">Direct Work</Badge>
@@ -132,6 +132,10 @@ export function CodexDirectWorkForm({
             type="text"
             value={repoRootDraft}
           />
+          <p className="codex-direct-work-note">
+            Required for Codex Direct Work because the current executor is
+            repository-scoped.
+          </p>
         </div>
 
         <div className="codex-direct-work-field codex-direct-work-field-wide">
@@ -142,7 +146,7 @@ export function CodexDirectWorkForm({
             className="input codex-direct-work-prompt"
             id={promptInputId}
             onChange={(event) => setOperatorPromptDraft(event.target.value)}
-            placeholder="Describe the focused task for Codex."
+            placeholder="Describe the focused repository task for Codex."
             spellCheck={true}
             value={operatorPromptDraft}
           />
@@ -214,7 +218,7 @@ export function CodexDirectWorkForm({
 
       <div className="codex-direct-work-action-row">
         <Button disabled={!canRun} onClick={submitDirectWork} variant="primary">
-          {isRunning ? "Running..." : "Run Codex"}
+          {isRunning ? "Running..." : "Run Codex Direct Work"}
         </Button>
         <CodexDirectWorkActionSafetyCopy />
       </div>

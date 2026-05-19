@@ -62,7 +62,8 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     status: "available",
     capabilitySummary: [
       "Current provider is Codex CLI",
-      "Explicit prompt, repository root, sandbox, and approval policy",
+      "Codex Direct Work requires an explicit repository root",
+      "Explicit prompt, sandbox, and approval policy",
       "No auto-commit, push, queue execution, or Git mutation",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,

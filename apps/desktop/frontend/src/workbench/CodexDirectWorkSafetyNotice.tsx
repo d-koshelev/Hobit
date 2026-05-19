@@ -8,9 +8,9 @@ export function CodexDirectWorkPromptGuidance({
   return (
     <>
       <p className="codex-direct-work-note">
-        Codex works in the selected repo. It cannot click or inspect Hobit UI widgets.
-        To review changes, ask Codex to inspect git status/diff, or refresh the Git
-        widget manually after the run.
+        Codex Direct Work is repository-scoped. It cannot click or inspect Hobit
+        UI widgets. To review changes, ask Codex to inspect git status/diff, or
+        refresh the Git widget manually after the run.
       </p>
       {promptWarningMessage ? (
         <p className="codex-direct-work-warning" role="status">
