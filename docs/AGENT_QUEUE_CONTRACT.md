@@ -4,9 +4,21 @@
 
 This contract defines Hobit's future Agent Queue as an operator-controlled agent command queue, command history, and review inbox.
 
+Current contract navigation is defined in `docs/ACTIVE_CONTRACT_INDEX.md`.
+This document is retained for Queue domain and proposal-review compatibility
+context. For the current Queue task, assignment, and explicit Executor run
+surface, prefer `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`,
+`docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`, and
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
+
 The Agent Queue is a queue/review/history surface for structured agent work. It should track planned, queued, running, completed, failed, and accepted agent commands or blocks, and connect Request Templates, Response Templates, Agent Run observability, Git review, artifacts, Notes/Notebook context, and Workspace Activity without turning Hobit into hidden automation.
 
-This is primarily a product/domain contract. The current implementation includes the first persisted review-inbox slice for proposal-only Agent Chat local mock results, but it does not implement automatic execution, executor integration, response parsing, response validation, Git mutation, approval/apply behavior, or real Agent runtime behavior.
+This is primarily a product/domain contract. The current implementation includes
+retained proposal-review compatibility paths plus manual Queue task,
+assignment, explicit assigned-task start, handoff, and final-status
+auto-refresh foundations. It does not implement automatic execution,
+scheduler behavior, response parsing, response validation, Git mutation,
+approval/apply behavior, Terminal launch, or real Agent runtime behavior.
 
 Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
 
@@ -14,7 +26,9 @@ The future task model, dependency model, executor capacity model, and manual ass
 
 ## Current Status
 
-Agent Queue currently exists as an insertable Workbench widget with a narrow persisted review-item path for Agent Chat local mock proposal results.
+Agent Queue currently exists as an insertable Workbench widget with manual task
+organization, visible Executor assignment, explicit assigned-task start, and a
+retained persisted review-item path for Agent Chat local mock proposal results.
 
 The current repository has:
 
@@ -34,16 +48,21 @@ The current repository has:
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted proposal-review item compatibility paths scoped to the current
   Workspace Workbench
-- no frontend run button or automatic agent execution
+- explicit frontend Run assigned task UI for assigned tasks
 - no background queue runner
 - no response capture, parser, or validator
-- no frontend run-from-assignment UI
 - no automatic executor runtime integration beyond the manual assigned-task
   start API
 - no queue-linked Git review state
 - no queue-linked Notes/Notebook behavior
 
-Current related foundations are limited to the persisted proposal review item path, manual queue task storage/API and product UI foundation, manual Queue-to-Executor assignment API/UI foundation, static Template Library placeholder, Agent Monitoring read-only viewer for Agent Chat proposal-only run/result artifacts, Agent Chat proposal-only run/result artifacts, Git placeholder with manual read-only status refresh, Notes placeholder, widget-local Logs panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Current related foundations include the retained proposal review item path,
+manual queue task storage/API and product UI foundation, manual
+Queue-to-Executor assignment API/UI foundation, explicit assigned-task start UI,
+Queue-to-Executor handoff and final-status auto-refresh, retained Agent
+Chat/Agent Monitoring proposal artifact compatibility paths, Git placeholder
+with manual read-only status refresh, Notes placeholder, widget-local Logs
+panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 

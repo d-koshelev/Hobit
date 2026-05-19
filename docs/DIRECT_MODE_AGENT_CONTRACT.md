@@ -22,14 +22,14 @@ repository now includes backend/tooling-only Codex CLI foundations in
 and a streaming runner foundation for `codex exec --json`.
 The one-shot runner is now wired through the app/Tauri boundary as the
 one-shot `run_codex_direct_work` command that persists widget run/log/result
-artifacts for an allowed Agent Monitoring (`agent-run`) widget instance. A
+artifacts for an allowed Agent Executor (`agent-run`) widget instance. A
 streaming app/Tauri bridge can start the `hobit-tools` streaming runner, emit
 Tauri stream events, append widget logs during the run, and finish the same
-widget run/result artifact shape. It still does not implement Agent Monitoring
-Direct Work display, frontend live log UI, storage/schema changes, queue
-execution, Git mutations, commits, pushes, an embedded PTY, or interactive
-agent sessions. The current frontend surfaces Direct Work / Codex as a Ready
-catalog item that reuses the `agent-run` widget identity.
+widget run/result artifact shape. The current frontend surfaces this as Agent
+Executor, with live logs, result, stop/cancel, history, diff, and validation
+surfaces, while reusing the `agent-run` widget identity for compatibility. It
+still does not implement Git mutations, commits, pushes, an embedded PTY, or
+interactive agent sessions.
 
 In the near-term surface model defined by `docs/AGENT_SURFACE_MODEL.md`, Direct
 Work / Codex is the current Agent Executor implementation direction. This
@@ -48,10 +48,10 @@ Hobit currently has:
 - Agent Chat proposal-only artifacts with explicit approved current-view
   metadata and no tool execution
 - a first backend HTTP AI provider proposal boundary when explicitly configured
-- Agent Monitoring for read-only Overview / Result / Raw inspection of stored
-  proposal artifacts
-- Agent Queue as a narrow review inbox for explicitly created proposal review
-  items
+- Agent Executor as the user-facing Direct Work execution surface
+- retained Agent Chat / Agent Monitoring proposal artifact compatibility paths
+- Agent Queue as a manual task organization, assignment, and explicit
+  assigned-run surface
 - Git widget placeholder support for manual read-only status refresh from an
   explicit transient repository root
 
@@ -59,21 +59,21 @@ Hobit exposes a backend/Tauri one-shot Codex Direct Work command for explicit
 Workspace, Workbench, owning widget instance, repository root, operator prompt,
 sandbox, approval policy, timeout, output caps, and Codex executable. The
 command validates Workspace/Workbench/widget ownership, currently allows only
-the existing Agent Monitoring (`agent-run`) widget definition to own these
+the existing Agent Executor (`agent-run`) widget definition to own these
 artifacts, creates a widget run before execution, runs the existing
 `hobit-tools` Codex runner outside the storage transaction, and persists
 lifecycle logs plus a structured Direct Work result artifact. The Widget
-Catalog now presents this `agent-run` surface primarily as Direct Work / Codex.
+Catalog now presents this `agent-run` surface as Agent Executor.
 Hobit also exposes a backend/Tauri streaming start path for Direct Work that
 creates the widget run immediately, streams Codex events through a stable Tauri
 event payload, appends persisted widget logs during the run, and stores a final
 structured result when the stream completes, fails, or times out. Hobit still
-does not expose Agent Monitoring Direct Work display, a frontend live log
-viewer, Agent Queue, or Git Widget integration for these runs. It does not
-execute Queue items.
+does not expose Git Widget mutation for these runs. Queue-started runs are
+operator-triggered through the assigned Agent Executor path only; there is no
+automatic Queue dispatch or scheduler.
 The backend/Tauri foundation can now request cancellation of an active
 streaming Direct Work run, signal the underlying Codex process, and persist a
-cancelled final run/result state. A frontend Stop button is still pending.
+cancelled final run/result state. Agent Executor has a frontend Stop button.
 Cancellation does not add Git mutation, commit, push, PTY, or an interactive
 session.
 

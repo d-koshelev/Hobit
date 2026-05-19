@@ -40,7 +40,6 @@ Current Agent Queue is still a preview/foundation surface.
 
 Agent Queue does not yet provide:
 
-- frontend execution UI in the current MVP
 - automatic dispatch
 - a scheduler
 - dependency execution
@@ -50,8 +49,9 @@ Agent Queue does not yet provide:
 - Coordinator ownership or global orchestration
 - Runbook dependency
 
-Queue execution, dispatch, scheduling, dependency running, and automatic
-assignment require later explicit implementation blocks.
+Manual assigned-task execution UI and current-session Executor handoff now
+exist. Dispatch, scheduling, dependency running, automatic assignment, and
+automatic Agent Executor launch require later explicit implementation blocks.
 
 ## Singleton Rule
 
@@ -283,14 +283,17 @@ Recommended first implementation after this contract:
 - no dependency execution
 - no scheduler
 
+Completed implementation slices now include the task storage/API foundation,
+Queue product UI, manual assignment to Agent Executor, explicit assigned-task
+run UI, current-session Queue-to-Executor handoff, and final-status
+auto-refresh.
+
 Recommended next slices:
 
-- Queue product UI
-- manual assignment to Agent Executor
-- manual run selected item in selected Agent Executor
 - dependencies MVP
 - ready/blocked view
-- parallel planner contract
+- capacity/planner contract later
+- auto-dispatch contract later
 
 ## Current State
 
@@ -307,7 +310,9 @@ Current Agent Queue remains:
 - supports `running` as task status data for manual queue-start lifecycle
 - backed by a manual backend/API foundation for starting an assigned task in
   its assigned Agent Executor
-- without frontend run controls
+- with explicit frontend Run assigned task controls
+- with frontend current-session Queue-to-Executor handoff and final-status
+  auto-refresh
 - non-dispatching
 - without dependency management
 
@@ -315,34 +320,29 @@ The task and assignment foundation stores Workspace-scoped task records only. It
 does not add scheduler behavior, dependency execution, automatic dispatch, or
 automatic status transitions outside the explicit manual start API.
 Manual run of an assigned task is governed by
-`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`; UI remains pending.
+`docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 The current preview/review foundation must not be treated as a task runner,
 scheduler, or hidden execution path.
 
 ## Recommended Follow-Up Blocks
 
-- Block 188A  Agent Queue task model backend foundation.
-- Block 189  Agent Queue product UI.
-- Block 195  Queue item execution backend/API foundation.
-- Block 196  Queue item execution UI.
-- Block 197  Queue item execution smoke and hardening.
-- Block 198  Queue dependencies MVP.
-- Block 199  Queue ready and blocked view.
-- Block 200  Parallel executor planner contract.
-- Block 201  Auto-dispatch contract later.
+- Queue dependencies MVP.
+- Queue ready and blocked view.
+- Capacity/planner contract later.
+- Auto-dispatch contract later.
 
 ## Non-Goals
 
 This contract does not define or require:
 
-- frontend UI
-- backend behavior beyond the manual task and assignment storage/API foundation
-  noted above
-- Tauri commands beyond manual task create/list/read/update/assign/clear
+- automatic dispatch or scheduler UI
+- backend behavior beyond the manual task, assignment, and explicit
+  assigned-run foundations noted above
+- Tauri commands beyond manual task create/list/read/update/assign/clear/start
 - storage/schema behavior beyond Workspace-scoped manual task records and
   nullable assignment state
-- queue execution
+- automatic queue execution beyond explicit operator-started assigned runs
 - task dispatch
 - scheduler
 - dependencies implementation

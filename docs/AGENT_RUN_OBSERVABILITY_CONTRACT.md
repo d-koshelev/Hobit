@@ -4,6 +4,12 @@
 
 This contract defines how future Hobit agent, executor, terminal-backed, or task runs should be observable to the operator.
 
+For current contract navigation, read `docs/ACTIVE_CONTRACT_INDEX.md`. Older
+Agent Chat / Agent Monitoring language in this document is retained for
+compatibility/reference; the current user-facing execution surface is Agent
+Executor, and the current widget inventory is defined in
+`docs/CURRENT_WIDGET_SURFACE.md`.
+
 Hobit must not expose future agent work only as raw terminal or agent output. Every agent/task execution should be understandable through three linked views:
 
 - Raw Log

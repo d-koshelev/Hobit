@@ -254,13 +254,15 @@ The current user-facing workbench widget set is:
 - Coordinator Chat: understand, plan, propose widget actions, and interpret
   results.
 - Runbook: follow and manage procedural steps.
+- Database / JDBC: manage connector metadata now; later run approved read-only
+  SQL through controlled capabilities.
 - Git Widget: review repository state.
 - Terminal: run manual one-shot commands.
 - Notes: write/save local notes.
 
 ## Recommended Next Blocks
 
-- Block 208 - JDBC connector model/API foundation.
-- Block 209 - JDBC query UI MVP.
-- Block 210 - Coordinator action proposal UI pattern.
+- JDBC read-only query execution backend.
+- JDBC result grid UI.
+- Coordinator action proposal UI pattern.
 - Runbook persistence and edit mode later.

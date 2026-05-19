@@ -4,6 +4,13 @@
 
 This contract defines the future Workspace-aware Coordinator Agent behavior for Hobit.
 
+This area is deferred/reference from the active roadmap. For current
+Coordinator Chat direction, use `docs/ACTIVE_CONTRACT_INDEX.md`,
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, and
+`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. Do not use this document as
+implementation guidance unless a block explicitly targets Workspace-aware
+Coordinator Agent behavior.
+
 The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
 
 This is primarily a documentation and product/domain contract. The current Agent Chat widget has a proposal-only preview with explicit current-session approved context selection for safe current-view metadata, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and a desktop persistence path for proposal-only widget run/result artifacts. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. It does not implement agent runtime behavior, persisted approved context models outside the proposal result snapshot, executable action proposals, action execution, proposal approval/apply behavior, or cross-widget mutation.

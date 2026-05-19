@@ -4,6 +4,14 @@
 
 This contract defines the boundary for Hobit's first real AI integration slice.
 
+This document is retained for the older proposal-only Agent Chat provider
+slice and compatibility paths. For current product direction, read
+`docs/ACTIVE_CONTRACT_INDEX.md`,
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, and
+`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. New Coordinator Chat work must not
+use this document to bypass current context, tool, or widget capability
+boundaries.
+
 The first AI slice must preserve Hobit's operator-controlled Workbench model:
 the operator provides a prompt, explicitly approves context, receives a
 proposal-only AI response, and can inspect the stored artifact. It must not turn
