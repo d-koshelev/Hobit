@@ -1,26 +1,115 @@
 # Desktop Frontend
 
-This directory contains the future Hobit desktop frontend.
+This directory contains the Hobit desktop frontend.
 
 ## Current State
 
-The current milestone is a Workspace Start Screen shell built with Vite, React, and TypeScript.
+The frontend is a Vite, React, and TypeScript workbench shell.
 
-The app starts on the Workspace Start Screen. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands, loads the Workbench state through `get_workspace_workbench_state`, maps it into `WorkbenchViewState`, and then opens the Empty Workbench shell.
+The app starts on the Workspace Start Screen. In the Tauri desktop shell,
+creating or opening a workspace calls the Tauri workspace lifecycle commands,
+loads Workbench state through `get_workspace_workbench_state`, maps it into
+`WorkbenchViewState`, and opens the Workbench shell.
 
-In plain browser/Vite development, the workspace API uses an in-memory fallback so the frontend remains usable without Tauri. Browser fallback workspaces and Workbench states are local to the current page session and are lost on refresh.
+In browser/Vite development, the workspace API uses an in-memory fallback so
+the frontend remains usable without Tauri. Browser fallback workspaces and
+Workbench states are local to the current page session and are lost on refresh.
+Desktop-only actions report unsupported fallback errors instead of inventing
+local behavior.
 
-The default preset intentionally renders no widgets. New workspaces still begin with an empty Workbench, and the current concrete catalog insertion paths are limited to persisted Notes, a Terminal one-shot command widget, an Agent Chat proposal-only mock widget, Agent Monitoring read-only proposal artifact viewer with explicit review-item creation, Agent Queue proposal-review inbox, Git placeholder, and Template Library placeholder widgets. Script Runner appears in the Widget Catalog as a planned/display-only item only; it follows `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md` and is not implemented, insertable, or available for script execution.
+New workspaces start with an empty Workbench. The Widget Catalog currently
+exposes these user-facing surfaces:
 
-The Add Widget controls open a Widget Catalog shell. The catalog allows adding the Notes, Terminal, Agent Chat, Agent Monitoring, Agent Queue, Git, and Template Library widgets through the workspace API boundary. The Notes placeholder saves a single widget-state draft through `update_widget_instance_state` with the shape `{ "body": "..." }`; it is not a full Notebook/Notes document model and does not implement tabs, Markdown rendering, Mermaid or diagram rendering, formatting tools, checklists, todos, or AI-assisted editing. The Terminal widget supports a desktop-only one-shot local command form for persisted Terminal widget instances; browser fallback reports local process execution as unsupported. It does not provide shell mode, interactive stdin, PTY, streaming, cancellation, command history, environment/secrets support, Agent-triggered execution, or Script Runner behavior. The Agent Chat widget accepts an operator prompt, lets the operator select safe current-session context metadata, generates a deterministic local/mock proposal preview, and in the desktop shell persists that generated proposal as a proposal-only widget run/log/result artifact. Approved context is limited to Workspace/workbench identity, widget inventory metadata, and current global activity status. Agent Chat does not execute agents, call LLMs, read hidden context, read Notes/Git/Terminal/log/file content, create Queue items by itself, persist chat messages, persist reusable context snapshots, or mutate Workspace content. Browser fallback keeps the proposal preview local and reports proposal persistence as unsupported. The Agent Monitoring widget is read-only: in the desktop shell it lists persisted Agent Chat proposal-only mock results for the current Workspace Workbench, renders Overview, Result, and Raw sections for the selected stored artifact, and can explicitly create a review-only Agent Queue item from the selected valid proposal result. It keeps the existing `agent-run` definition id for persistence compatibility and cannot start runs, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, call agents, execute tools, apply proposals, or write widget state. Browser fallback reports monitoring result reads and queue item creation as unsupported and does not invent sample persisted data. The Agent Queue widget reads persisted proposal-review items in desktop mode and renders read-only inbox cards plus details with source proposal, plan, proposed actions marked not executed, and safety flags; static preview content remains only as clearly labeled empty/demo copy when no persisted items exist. It cannot execute queue items, approve or apply proposals, launch agents, run a background queue, capture executor responses, parse or validate responses, associate Git review, mutate Git, automatically accept work, or write widget state. The Git placeholder includes a visible transient repository-root input. In the Tauri desktop path, the operator can manually refresh read-only Git status for that explicit repository root through `get_git_repository_status`; the result is shown as a visual status card with branch, clean/dirty state, counts, ahead/behind data when available, warnings, last commit data when available, and a read-only grouped changed-files summary. Changed files are grouped by staged, unstaged, untracked, conflicted, and unknown states, with lightweight UI-only hints for generated-looking, dependency, or schema-looking paths. The repository root and refreshed status are local React state only: they are not persisted, restored, polled, watched, validated into Workspace state, or reused after reopening. The Git placeholder renders explicit not-configured, browser-unsupported, clean, dirty, and common read-failure states without fake status data. The Git placeholder still does not show diffs, parse raw diff output, associate validation results, stage, unstage, commit, push, revert/reset, clean, stash, or run mutating Git operations. The Template Library placeholder includes static Request Template, Response Template, and Coordinator Workflow previews for future executor block work, plus a local-only generated executor request preview built from transient React state and the static Codex implementation block preview data. The generated preview is not persisted, copied, sent, or connected to an executor; it does not add a template engine, template storage, response capture, response validation, agent calls, or Git-response association. The Workbench canvas includes a compact Dock placeholder surface that previews independently enabled top, right, bottom, and left perimeter rails with static Indicator-style examples only; its controls are local UI state and it does not park widgets, move widgets, open Compact views, persist Dock state, implement drag-and-drop, or add presence-zone behavior. Future Script Runner, JIRA, and Confluence catalog entries are planned/display-only candidates; Script Runner is planned for explicit operator-controlled configured local script execution, but no Script Runner UI, widget insertion, backend runtime, Tauri command, storage, or script execution exists. Docked widgets no longer expose the temporary Compact, Normal, and Wide controls. The Workbench top bar has a frontend-only layout mode control with locked and edit states; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final `dock_x`/`dock_y` position and `dock_width`/`dock_height` size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, and floating overlay resize are not implemented. Widget frames include a frontend-only Float action that moves the same mounted widget into an in-app overlay and leaves a ghost placeholder with Dock back in the original slot; the floating frame exposes Move and Dock back actions. This floating state is transient, is not persisted, and does not use Tauri windows. Floating overlays can be repositioned inside the main Hobit window with an in-memory Move handle. Widget frames also include a local Logs toggle that performs bounded `list_widget_logs` reads when opened and refreshes an open panel after successful widget state/layout actions, Terminal command responses, and Agent Chat proposal persistence. Existing widget add/state/layout mutations, Terminal one-shot commands, and Agent Chat proposal persistence emit bounded persisted logs, but polling, streaming, and full agent run observability are not implemented yet. The Workbench canvas shows a compact Recent activity surface backed by workspace-scoped events returned from `get_workspace_workbench_state`; it is not a runtime log console. All other catalog templates remain planned and display-only. No preset persistence, interactive terminal execution, script execution, agent runtime, executable chat runtime, Agent Run runtime, Agent Queue execution/runtime, full Git runtime, Template Library runtime, JIRA integration, Confluence integration, or general widget runtime behavior is implemented yet.
+Ready:
 
-Recent workspaces are loaded from Tauri in desktop mode and from the in-memory fallback in browser mode. The frontend still has no interactive terminal execution or agent runtime calls.
+- Agent Executor
+- Git
+- Terminal
+- Notes
 
-The workspace frontend flow is split by responsibility: `workspaceApi.ts` is the
-public facade, `tauriWorkspaceApi.ts` invokes Tauri commands,
-`memoryWorkspaceApi.ts` provides the browser/Vite in-memory fallback, and
-`useWorkspaceFlow.ts` owns the start-screen lifecycle state. Workspace API DTOs
-stay separate from UI selection state for opening the Workbench.
+Preview:
+
+- Agent Queue
+- Coordinator Chat
+- Database / JDBC
+- Runbook
+
+Retired or hidden surfaces such as old Agent Chat, old Agent Monitoring,
+Template Library, Dock / Docking Station, Agent CLI, Script Runner, JIRA,
+Confluence, Image Edit, and separate legacy Coordinator preview surfaces are
+not current insertable catalog surfaces.
+
+Coordinator Chat uses the existing `interactive-agent` widget id/component as a
+local placeholder compatibility foundation. It has no provider connection,
+Queue integration, monitoring integration, widget tool execution, file
+mutation, Git mutation, SQL execution, Terminal execution, or persisted chat
+runtime.
+
+Agent Executor reuses the existing `agent-run` widget id for persistence
+compatibility. It can run explicit Codex Direct Work from operator-provided
+inputs, show live logs, stop/cancel, display final responses, show changed
+files, request read-only diff summaries, capture validation, show run history,
+and receive explicit Queue-started handoff. It does not auto-commit,
+auto-push, mutate Git, run hidden background work, or auto-dispatch Queue
+tasks.
+
+Agent Queue is a Preview manual task organization surface. It supports
+workspace-scoped task create/list/read/update, visible assignment to an Agent
+Executor slot, explicit Run assigned task, Queue-to-Executor handoff, and
+final-status auto-refresh. It does not schedule, auto-dispatch, approve/apply
+proposals, launch Terminal, mutate Notes, mutate Git, or show live execution
+logs.
+
+Git supports an explicit transient repository root, manual read-only status and
+diff review, and explicit local commit with operator confirmation. It does not
+push, reset, clean, stash, fetch, poll, watch, or auto-commit.
+
+Terminal supports a desktop-only one-shot command form for persisted Terminal
+widget instances. It uses explicit program, argv, working directory, timeout,
+and output caps. It is not a shell, PTY, streaming session, stdin session,
+command history, Script Runner, or Agent-triggered execution path.
+
+Notes uses workspace-local notes storage/API and a product UI for list, filter,
+new, edit, save, and pin flows. It does not implement autosave, delete, tags,
+the full Notebook model, Markdown rendering, Mermaid rendering, or AI-in-Notes
+behavior.
+
+Database / JDBC is a Preview connector metadata shell. It manages non-secret
+workspace-local connector descriptors only. It does not store credentials, test
+connections, execute SQL, run `EXPLAIN`, format SQL, show query results, call
+AI, or expose Coordinator tools.
+
+Runbook is a Preview local/manual steps surface. It has no persistence, edit
+mode, builder, Queue integration, step execution, Terminal execution, or
+agent-assisted steps.
+
+The Workbench includes layout lock/edit-mode behavior for persisted docked
+position and size, plus frontend-only in-app floating widgets with ghost
+placeholders and Dock back behavior. Real Dock rails, Compact/Indicator view
+modes, drag-and-drop between zones, external Tauri/OS popout windows,
+persisted external geometry, always-on-top, snapping, collision detection,
+auto-reflow, and preset editing are not implemented.
+
+Widget frames include a widget-local Logs panel backed by persisted widget
+logs. Existing widget add/state/layout mutations, Terminal one-shot commands,
+and Codex Direct Work runs emit bounded lifecycle logs. Polling, arbitrary
+runtime log streaming UI, interactive terminal logs, and full agent run
+observability are not implemented.
+
+## Frontend Organization
+
+The workspace frontend flow is split by responsibility:
+
+- `workspaceApi.ts` is the public compatibility facade.
+- `workspaceApiTypes.ts` owns the public `WorkspaceApi` type.
+- `workspaceApiRuntime.ts` selects the Tauri or memory implementation.
+- focused `workspaceApi*.ts` modules expose domain wrappers for callers.
+- `tauriWorkspaceApi.ts` owns core workspace/widget Tauri calls and imports
+  focused Tauri domain adapters.
+- `memoryWorkspaceApi.ts` owns supported browser fallback behavior.
+- `memoryUnsupportedWorkspaceApi.ts` owns unsupported desktop-only fallback
+  methods.
+- `useWorkspaceFlow.ts` owns the start-screen lifecycle state.
 
 Workbench rendering consumes a frontend `WorkbenchViewState` boundary. Current
 Tauri or memory Workbench state is adapted into that view state before
@@ -29,17 +118,28 @@ and widget rendering.
 
 ## Widget Registry And Preset Model
 
-The workbench is rendered from a frontend-local preset model and widget registry.
+The Workbench is rendered from a frontend-local preset model and widget
+registry.
 
 Current preset:
 
 - Empty Workbench: empty workbench surface
 
-`WidgetHost` maps persisted widget instances to registered frontend components. The current registry contains the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring read-only viewer, Agent Queue placeholder, Git placeholder, and Template Library placeholder renderers. The Widget Catalog template list remains separate metadata; only the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring, Agent Queue placeholder, Git placeholder, and Template Library placeholder templates are currently available for insertion. Script Runner is listed only as a planned/display-only catalog item and is not registered or insertable.
+`WidgetHost` maps persisted widget instances to registered frontend
+components. The current registry contains Agent Executor, Agent Queue,
+Coordinator Chat through the existing `interactive-agent` renderer, Database /
+JDBC, Runbook, Git, Terminal, and Notes renderers.
+
+The Widget Catalog template list remains separate metadata. Only Agent
+Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Terminal, and Notes are current insertion paths.
 
 ## Visual Direction
 
-The Workspace Start Screen and Empty Workbench follow `docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal surfaces, a locked theme in `src/styles/hobit-theme.css`, no gradients, semantic state colors, and a unified shell/canvas surface.
+The Workspace Start Screen and Workbench follow
+`docs/DESIGN_SYSTEM_CONTRACT.md`: dark blue-charcoal surfaces, a locked theme in
+`src/styles/hobit-theme.css`, no gradients, semantic state colors, and a
+unified shell/canvas surface.
 
 Raw colors outside `src/styles/hobit-theme.css` are not allowed.
 
@@ -54,11 +154,16 @@ npm run dev
 
 ## Run Tauri Dev
 
-The Tauri shell lives in the sibling `apps/desktop/src-tauri` directory and hosts this frontend.
+The Tauri shell lives in the sibling `apps/desktop/src-tauri` directory and
+hosts this frontend.
 
 ```powershell
 npm run tauri:dev
 ```
+
+For desktop smoke runs in constrained environments, set
+`HOBIT_DATABASE_PATH` to an explicit writable SQLite file path if the default
+Tauri app-data path is inaccessible.
 
 ## Build
 
@@ -74,21 +179,28 @@ npm run tauri:build
 
 ## Intentionally Not Implemented Yet
 
-- Frontend persistence outside the Tauri workspace commands.
-- Full Notebook/Notes editing, note document storage, multi-tab state, Markdown rendering, Mermaid or diagram rendering, checklist/todo structure, text formatting tools, or AI-assisted editing.
-- Runtime widget behavior beyond placeholder insertion, the Notes state-save path, Terminal one-shot command runs, Agent Chat proposal-only result persistence, Agent Monitoring read-only proposal artifact viewing, Git manual read-only status refresh, and generic frame/log/layout behavior.
-- Script Runner UI, widget insertion, script execution, backend execution, Tauri commands, storage, or runtime behavior beyond the planned/display-only catalog item.
-- Real capability widget insertion beyond the Notes, Terminal placeholder, Agent Chat placeholder, Agent Monitoring proposal result viewer, Agent Queue placeholder, Git placeholder, and Template Library placeholder.
-- Real Dock widget parking, Compact views from Dock items, Dock persistence, drag-and-drop, presence-zone storage, or per-widget Indicator status providers.
-- Snapping, collision detection, auto-reflow, and floating overlay resize.
-- True external Tauri/OS popout windows, persisted external popout geometry, and always-on-top behavior.
-- Interactive terminal execution.
-- Real agent calls, executable Agent Chat runtime, or hidden workspace-context access from Agent Chat.
-- Agent Run runtime, streaming logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, or executor integration beyond Agent Monitoring's read-only stored Agent Chat proposal artifact viewer.
-- Agent Queue execution, proposal approval/apply behavior, background queue running, automatic launch, automatic acceptance, response capture/parser/validator, Git association, Notes mutation, or executor integration beyond explicit review-only items created from persisted Agent Chat proposal mock results.
-- Git behavior beyond manual desktop read-only status refresh for an explicit transient repository root.
-- Repository-root persistence, status persistence, polling, background watching, diff view, raw diff parsing, validation association, staging, unstaging, commit, push, revert/reset, clean, stash, or other Git mutations.
-- Template storage, template editing, real variable filling, a template generation engine, persisted request generation, copy/send behavior, response capture, response parsing, response validation, executor launch/integration, Git-response association, or agent execution from the Template Library placeholder.
-- Preset persistence.
-- Knowledge, Stages, Runbooks, JIRA, Confluence, JDBC, Image Edit, or database UI.
-- Full Git review/control UI beyond the current placeholder status surface.
+- Evidence/Sources storage/API, capture UI, review UI, citations, or AI context
+  packs.
+- Coordinator provider/runtime/tools, hidden context access, or automatic AI
+  context inclusion.
+- JDBC credentials, SQL execution, Java sidecar, `EXPLAIN`, result grid, SQL
+  formatter, or AI assistance.
+- Terminal PTY, shell mode, stdin, streaming sessions, cancellation, command
+  history, environment/secrets support, or Agent-triggered execution.
+- Queue scheduler, dependencies, auto-dispatch, approval/apply behavior,
+  response parser/validator, Git association, Notes mutation, or Terminal
+  launch.
+- Git push, reset, clean, stash, fetch, polling, watching, automatic commit,
+  or hidden repository discovery.
+- Notes autosave, delete, tags, full Notebook model, Markdown rendering,
+  Mermaid rendering, or AI-in-Notes behavior.
+- Runbook persistence, edit mode, builder, Queue integration, step execution,
+  Terminal execution, or agent-assisted steps.
+- Script Runner UI, widget insertion, script execution, backend execution,
+  Tauri commands, storage, or runtime behavior.
+- Real Dock rails, Compact/Indicator view modes, persisted presence zones,
+  full drag-and-drop layout editor, snapping, collision detection, auto-reflow,
+  floating overlay resize, true external popout windows, persisted external
+  geometry, always-on-top, or preset editing.
+- JIRA, Confluence, Image Edit, Knowledge Catalog, Stages, YouTube Analyst, or
+  medical/healthcare workflow scope.
