@@ -29,10 +29,10 @@ scheduler, or dependency behavior. Database / JDBC is a Preview connector
 metadata shell backed by workspace-local JDBC connector metadata storage/API;
 there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
 assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
-direction is represented by a local-only Coordinator Chat placeholder; no
-Coordinator runtime, hidden context access, action proposal card UI, or broad
-tool execution is implemented. Runbook has a local/manual steps MVP. There is
-no Agent Chat
+direction is represented by a local-only Coordinator Chat placeholder with
+frontend-only inert sample action proposal cards; no Coordinator runtime,
+hidden context access, executable proposal behavior, or broad tool execution is
+implemented. Runbook has a local/manual steps MVP. There is no Agent Chat
 proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
 runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
@@ -362,7 +362,7 @@ The Agent Executor widget reuses the existing `agent-run` definition id for pers
 
 The Agent Queue widget is a preview manual task queue surface. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
-Coordinator Chat is a local chat MVP using the existing Interactive Agent compatibility component. Its compatibility contract is defined in `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. Coordinator action proposal cards are now contract/planned only: future cards should be visible, message-associated, reviewable, and inert until an operator approves a specific widget capability action. The current implementation has no provider connection, no Queue integration, no Agent Executor integration, no Runbook integration, no monitoring integration, no tool execution, no proposal card UI, no hidden context access, no file mutation, no Git mutation, and no Terminal execution. Runbook is a local/manual procedural steps MVP with states such as pending, running, done, failed, skipped, and blocked, plus local notes/evidence. It has no persistence, step execution, edit mode, builder, Queue integration, or agent-assisted steps.
+Coordinator Chat is a local chat MVP using the existing Interactive Agent compatibility component. Its compatibility contract is defined in `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows deterministic local inert action proposal cards attached to the initial Coordinator message for safe preview types: create Agent Queue task, create Note, and prepare JDBC query suggestion text without execution. Proposal card controls Approve, Reject, Edit, and Copy update local preview state or copy proposal details only. The current implementation has no provider connection, no Queue integration, no Agent Executor integration, no Runbook integration, no monitoring integration, no tool execution, no executable proposal behavior, no hidden context access, no file mutation, no Git mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural steps MVP with states such as pending, running, done, failed, skipped, and blocked, plus local notes/evidence. It has no persistence, step execution, edit mode, builder, Queue integration, or agent-assisted steps.
 
 The Git widget has a transient explicit repository-root input. In the Tauri
 desktop path, it manually refreshes a read-only status snapshot through

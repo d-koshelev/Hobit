@@ -1,0 +1,180 @@
+export type CoordinatorProposalTypeId =
+  | "create-agent-queue-task"
+  | "create-note"
+  | "prepare-jdbc-query-suggestion";
+
+export type CoordinatorProposalApprovalStatus =
+  | "Pending preview"
+  | "Approved preview"
+  | "Rejected preview"
+  | "Edited preview";
+
+export type CoordinatorProposalExecutionStatus =
+  | "Not run"
+  | "Execution bridge not implemented";
+
+export type CoordinatorProposalInput = {
+  label: string;
+  value: string;
+};
+
+export type CoordinatorActionProposal = {
+  approvalStatus: CoordinatorProposalApprovalStatus;
+  executionStatus: CoordinatorProposalExecutionStatus;
+  expectedResult: string;
+  id: string;
+  inputs: CoordinatorProposalInput[];
+  intent: string;
+  resultSummary: string;
+  riskLevel: "analysis_only" | "local_write";
+  riskNotes: string[];
+  targetCapability: string;
+  targetWidget: string;
+  title: string;
+  typeId: CoordinatorProposalTypeId;
+};
+
+export type CoordinatorProposalTypeDefinition = {
+  displayName: string;
+  requiredInputs: string[];
+  riskLevel: CoordinatorActionProposal["riskLevel"];
+  safetyNotes: string[];
+  targetCapability: string;
+  targetWidget: string;
+  typeId: CoordinatorProposalTypeId;
+};
+
+export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefinition[] =
+  [
+    {
+      displayName: "Create Agent Queue task",
+      requiredInputs: ["Title", "Description", "Prompt"],
+      riskLevel: "local_write",
+      safetyNotes: [
+        "Preview only in this UI slice.",
+        "Future approval may create a task but must not start execution.",
+        "No Queue auto-dispatch.",
+      ],
+      targetCapability: "create Queue task",
+      targetWidget: "Agent Queue",
+      typeId: "create-agent-queue-task",
+    },
+    {
+      displayName: "Create Note",
+      requiredInputs: ["Title", "Body"],
+      riskLevel: "local_write",
+      safetyNotes: [
+        "Preview only in this UI slice.",
+        "Future approval may write only the visible note text.",
+        "No hidden Notes reading.",
+      ],
+      targetCapability: "create Note",
+      targetWidget: "Notes",
+      typeId: "create-note",
+    },
+    {
+      displayName: "Prepare JDBC query suggestion",
+      requiredInputs: ["Question", "Suggested SQL text"],
+      riskLevel: "analysis_only",
+      safetyNotes: [
+        "Preview only in this UI slice.",
+        "No connector access or SQL execution.",
+        "No database metadata or results are inspected.",
+      ],
+      targetCapability: "prepare query suggestion",
+      targetWidget: "Database / JDBC",
+      typeId: "prepare-jdbc-query-suggestion",
+    },
+  ];
+
+export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
+  {
+    approvalStatus: "Pending preview",
+    executionStatus: "Execution bridge not implemented",
+    expectedResult:
+      "A reviewed Queue task could be created later, but this preview does not call Queue APIs.",
+    id: "sample-create-queue-task",
+    inputs: [
+      { label: "Title", value: "Investigate slow dashboard load" },
+      {
+        label: "Description",
+        value: "Capture the operator request as a future engineering task.",
+      },
+      {
+        label: "Prompt",
+        value:
+          "Review visible symptoms and propose next diagnostic steps. Do not run commands automatically.",
+      },
+    ],
+    intent: "Turn the conversation into a queued follow-up task for later review.",
+    resultSummary: "No action has run. This is a local inert preview.",
+    riskLevel: "local_write",
+    riskNotes: [
+      "No Queue task is created from this preview.",
+      "No Agent Executor run is launched.",
+      "No automatic dispatch is allowed.",
+    ],
+    targetCapability: "create Queue task",
+    targetWidget: "Agent Queue",
+    title: "Preview: create Queue task",
+    typeId: "create-agent-queue-task",
+  },
+  {
+    approvalStatus: "Pending preview",
+    executionStatus: "Execution bridge not implemented",
+    expectedResult:
+      "A reviewed Note could be created later, but this preview does not write Notes.",
+    id: "sample-create-note",
+    inputs: [
+      { label: "Title", value: "Coordinator summary draft" },
+      {
+        label: "Body",
+        value:
+          "Local proposal cards can show approved text before any future Notes handoff.",
+      },
+    ],
+    intent: "Save an operator-approved summary as a future note.",
+    resultSummary: "No action has run. This is a local inert preview.",
+    riskLevel: "local_write",
+    riskNotes: [
+      "No Note is created from this preview.",
+      "No existing Notes content is read.",
+      "No provider receives note content.",
+    ],
+    targetCapability: "create Note",
+    targetWidget: "Notes",
+    title: "Preview: create Note",
+    typeId: "create-note",
+  },
+  {
+    approvalStatus: "Pending preview",
+    executionStatus: "Execution bridge not implemented",
+    expectedResult:
+      "A SQL suggestion could be reviewed later, but this preview cannot execute SQL.",
+    id: "sample-jdbc-query-suggestion",
+    inputs: [
+      {
+        label: "Question",
+        value: "Which query would help inspect recent error volume?",
+      },
+      {
+        label: "Suggested SQL text",
+        value:
+          "select event_date, count(*) from app_errors group by event_date order by event_date desc",
+      },
+    ],
+    intent: "Prepare a read-only query suggestion for operator review.",
+    resultSummary: "No action has run. This is a local inert preview.",
+    riskLevel: "analysis_only",
+    riskNotes: [
+      "No JDBC connector is accessed.",
+      "No SQL is executed.",
+      "No database metadata or results are read.",
+    ],
+    targetCapability: "prepare query suggestion",
+    targetWidget: "Database / JDBC",
+    title: "Preview: prepare JDBC query suggestion",
+    typeId: "prepare-jdbc-query-suggestion",
+  },
+];
+
