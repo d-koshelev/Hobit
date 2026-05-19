@@ -27,6 +27,7 @@ import type {
   AgentExecutorSlot,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
+import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
@@ -184,106 +185,15 @@ export function WidgetHost({
 
   const Component = widgetComponents[definition.componentKey];
   const title = frameTitle;
-  const runTerminalCommand =
-    definition.componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.runTerminalCommand
-      : undefined;
-  const runCodexDirectWork =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.runCodexDirectWork
-      : undefined;
-  const listAgentExecutorRuns =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.listAgentExecutorRuns
-      : undefined;
-  const getAgentExecutorRunDetail =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getAgentExecutorRunDetail
-      : undefined;
-  const getAgentExecutorDiffSummary =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getAgentExecutorDiffSummary
-      : undefined;
-  const runDirectWorkValidation =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.runDirectWorkValidation
-      : undefined;
-  const cancelCodexDirectWorkRun =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.cancelCodexDirectWorkRun
-      : undefined;
-  const startCodexDirectWorkStream =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.startCodexDirectWorkStream
-      : undefined;
-  const attachToCodexDirectWorkStream =
-    definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.attachToCodexDirectWorkStream
-      : undefined;
-  const createAgentQueueTask =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.createAgentQueueTask
-      : undefined;
-  const listAgentQueueTasks =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.listAgentQueueTasks
-      : undefined;
-  const getAgentQueueTask =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getAgentQueueTask
-      : undefined;
-  const updateAgentQueueTask =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.updateAgentQueueTask
-      : undefined;
-  const assignAgentQueueTaskToExecutor =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.assignAgentQueueTaskToExecutor
-      : undefined;
-  const clearAgentQueueTaskAssignment =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.clearAgentQueueTaskAssignment
-      : undefined;
-  const startAssignedAgentQueueTask =
-    definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.startAssignedAgentQueueTask
-      : undefined;
-  const createGitCommit =
-    definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.createGitCommit
-      : undefined;
-  const createWorkspaceNote =
-    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.createWorkspaceNote
-      : undefined;
-  const listWorkspaceNotes =
-    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.listWorkspaceNotes
-      : undefined;
-  const getWorkspaceNote =
-    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.getWorkspaceNote
-      : undefined;
-  const updateWorkspaceNote =
-    definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
-      ? widgetActions.updateWorkspaceNote
-      : undefined;
-  const createJdbcConnector =
-    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
-      ? widgetActions.createJdbcConnector
-      : undefined;
-  const listJdbcConnectors =
-    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
-      ? widgetActions.listJdbcConnectors
-      : undefined;
-  const getJdbcConnector =
-    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
-      ? widgetActions.getJdbcConnector
-      : undefined;
-  const updateJdbcConnector =
-    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
-      ? widgetActions.updateJdbcConnector
-      : undefined;
+  const renderProps = widgetHostRenderProps({
+    agentExecutorSlots,
+    componentKey: definition.componentKey,
+    directWorkGitReview,
+    directWorkRunHandoff,
+    hasGitWidget,
+    instanceId: instance.id,
+    widgetActions,
+  });
 
   if (!Component) {
     return (
@@ -310,83 +220,13 @@ export function WidgetHost({
     <Component
       config={{ ...definition.defaultConfig, ...instance.config }}
       definition={definition}
-      directWorkGitReviewRequest={
-        definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkGitReview.request
-          : undefined
-      }
-      directWorkGitReviewStatus={
-        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkGitReview.status
-          : undefined
-      }
-      directWorkRunHandoff={
-        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-          ? (directWorkRunHandoff.handoffs[instance.id] ?? null)
-          : undefined
-      }
-      queueTaskAutoRefreshRequest={
-        definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkRunHandoff.queueTaskAutoRefreshRequest
-          : undefined
-      }
       frameActions={frameActions}
       frameMoveEnabled={canMoveDockedWidget}
       frameStyle={frameStyle}
-      hasGitWidget={hasGitWidget}
-      agentExecutorSlots={agentExecutorSlots}
       instance={instance}
       logRefreshToken={logRefreshToken}
-      onDirectWorkGitReviewRequested={
-        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkGitReview.requestReview
-          : undefined
-      }
-      onDirectWorkGitReviewStatusChange={
-        definition.componentKey === GIT_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkGitReview.updateStatus
-          : undefined
-      }
-      onGetGitRepositoryStatus={widgetActions.getGitRepositoryStatus}
-      onCreateAgentQueueTask={createAgentQueueTask}
-      onListAgentQueueTasks={listAgentQueueTasks}
-      onGetAgentQueueTask={getAgentQueueTask}
-      onUpdateAgentQueueTask={updateAgentQueueTask}
-      onAssignAgentQueueTaskToExecutor={assignAgentQueueTaskToExecutor}
-      onClearAgentQueueTaskAssignment={clearAgentQueueTaskAssignment}
-      onStartAssignedAgentQueueTask={startAssignedAgentQueueTask}
-      onDirectWorkRunHandoffStarted={
-        definition.componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkRunHandoff.recordHandoff
-          : undefined
-      }
-      onDirectWorkRunHandoffFinalState={
-        definition.componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY
-          ? directWorkRunHandoff.recordFinalState
-          : undefined
-      }
-      onListAgentExecutorRuns={listAgentExecutorRuns}
-      onGetAgentExecutorRunDetail={getAgentExecutorRunDetail}
-      onGetAgentExecutorDiffSummary={getAgentExecutorDiffSummary}
-      onLoadLogs={widgetActions.listWidgetLogs}
-      onCreateGitCommit={createGitCommit}
-      onCreateWorkspaceNote={createWorkspaceNote}
-      onListWorkspaceNotes={listWorkspaceNotes}
-      onGetWorkspaceNote={getWorkspaceNote}
-      onUpdateWorkspaceNote={updateWorkspaceNote}
-      onCreateJdbcConnector={createJdbcConnector}
-      onListJdbcConnectors={listJdbcConnectors}
-      onGetJdbcConnector={getJdbcConnector}
-      onUpdateJdbcConnector={updateJdbcConnector}
-      onRunCodexDirectWork={runCodexDirectWork}
-      onRunDirectWorkValidation={runDirectWorkValidation}
-      onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}
-      onStartCodexDirectWorkStream={startCodexDirectWorkStream}
-      onAttachToCodexDirectWorkStream={attachToCodexDirectWorkStream}
-      onRunTerminalCommand={runTerminalCommand}
+      {...renderProps}
       onStartFrameMove={startDockedDrag}
-      onUpdateLayout={widgetActions.updateWidgetLayout}
-      onUpdateState={widgetActions.updateWidgetState}
       title={title}
     />
   );

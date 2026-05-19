@@ -1,56 +1,36 @@
 import { useState } from "react";
+import type { WorkspaceWorkbenchState } from "../workspace/types";
 import {
-  addWidgetInstanceToWorkbench,
-  cancelCodexDirectWorkRun,
-  createGitCommit,
-  getAgentExecutorDiffSummary,
-  getAgentExecutorRunDetail,
-  getGitRepositoryStatus,
-  listAgentExecutorRuns,
-  listWidgetLogs,
-  runCodexDirectWork,
-  runDirectWorkValidation,
-  runTerminalCommand,
-  updateWidgetInstanceLayout,
-  updateWidgetInstanceState,
-} from "../workspace/workspaceApi";
-import type {
-  AgentExecutorDiffSummary,
-  AgentExecutorRunDetail,
-  AgentExecutorRunHistory,
-  CancelCodexDirectWorkRunResponse,
-  CreateGitCommitRequest,
-  DirectWorkStreamEvent,
-  GitCommitResponse,
-  GitRepositoryStatus,
-  RunCodexDirectWorkResponse,
-  RunDirectWorkValidationRequest,
-  RunDirectWorkValidationResponse,
-  RunTerminalCommandRequest,
-  RunTerminalCommandResponse,
-  WorkspaceWorkbenchState,
-} from "../workspace/types";
-import type { WidgetCatalogTemplate } from "./catalogTemplates";
+  createAgentExecutorWidgetActions,
+  type AgentExecutorWidgetActions,
+} from "./agentExecutorWidgetActions";
 import {
-  attachDirectWorkStreamSession,
-  startDirectWorkStreamSession,
-  type CodexDirectWorkRunRequest,
-  type CodexDirectWorkStreamSession,
-} from "./directWorkStreamSessions";
-import type {
-  WidgetInstanceId,
-  WidgetLogEntry,
-  WidgetLayout,
-  WidgetState,
-  WorkbenchViewState,
-} from "./types";
+  createAgentQueueTaskActions,
+  type AgentQueueTaskWidgetActions,
+} from "./agentQueueTaskWidgetActions";
+import {
+  createGitWidgetActions,
+  type GitWidgetActions,
+} from "./gitWidgetActions";
+import {
+  createJdbcConnectorActions,
+  type JdbcConnectorWidgetActions,
+} from "./jdbcConnectorWidgetActions";
+import {
+  createTerminalWidgetActions,
+  type TerminalWidgetActions,
+} from "./terminalWidgetActions";
+import type { WidgetInstanceId, WorkbenchViewState } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
-import { createAgentQueueTaskActions, type AgentQueueTaskWidgetActions } from "./agentQueueTaskWidgetActions";
-import { createJdbcConnectorActions, type JdbcConnectorWidgetActions } from "./jdbcConnectorWidgetActions";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
-import { createWorkspaceNoteActions, type WorkspaceNoteWidgetActions } from "./workspaceNoteWidgetActions";
-import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
-import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
+import {
+  createWorkspaceNoteActions,
+  type WorkspaceNoteWidgetActions,
+} from "./workspaceNoteWidgetActions";
+import {
+  createWorkspaceWidgetActions,
+  type WorkspaceWidgetActions,
+} from "./workspaceWidgetActions";
 
 type UseWorkbenchWidgetActionsOptions = {
   currentSessionActivity?: CurrentSessionActivityEvents;
@@ -58,97 +38,18 @@ type UseWorkbenchWidgetActionsOptions = {
   viewState: WorkbenchViewState;
 };
 
-export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions &
+export type WorkbenchWidgetActions = WorkspaceWidgetActions &
+  WorkspaceNoteWidgetActions &
   AgentQueueTaskWidgetActions &
-  JdbcConnectorWidgetActions & {
-  addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
-  getGitRepositoryStatus: (
-    widgetInstanceId: WidgetInstanceId,
-    repositoryRoot: string,
-  ) => Promise<GitRepositoryStatus | null>;
-  createGitCommit: (
-    widgetInstanceId: WidgetInstanceId,
-    request: GitCommitCreateRequest,
-  ) => Promise<GitCommitResponse | null>;
-  listAgentExecutorRuns: (
-    widgetInstanceId: WidgetInstanceId,
-    limit?: number,
-  ) => Promise<AgentExecutorRunHistory | null>;
-  getAgentExecutorRunDetail: (
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-  ) => Promise<AgentExecutorRunDetail | null>;
-  getAgentExecutorDiffSummary: (
-    widgetInstanceId: WidgetInstanceId,
-    repositoryRoot: string,
-  ) => Promise<AgentExecutorDiffSummary | null>;
-  listWidgetLogs: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
-  logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
-  removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
-  runCodexDirectWork: (
-    widgetInstanceId: WidgetInstanceId,
-    request: CodexDirectWorkRunRequest,
-  ) => Promise<RunCodexDirectWorkResponse | null>;
-  runDirectWorkValidation: (
-    widgetInstanceId: WidgetInstanceId,
-    request: DirectWorkValidationRunRequest,
-  ) => Promise<RunDirectWorkValidationResponse | null>;
-  cancelCodexDirectWorkRun: (
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-  ) => Promise<CancelCodexDirectWorkRunResponse | null>;
-  startCodexDirectWorkStream: (
-    widgetInstanceId: WidgetInstanceId,
-    request: CodexDirectWorkRunRequest,
-    onEvent: (event: DirectWorkStreamEvent) => void,
-  ) => Promise<CodexDirectWorkStreamSession | null>;
-  attachToCodexDirectWorkStream: (
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-    onEvent: (event: DirectWorkStreamEvent) => void,
-  ) => Promise<CodexDirectWorkStreamSession | null>;
-  runTerminalCommand: (
-    widgetInstanceId: WidgetInstanceId,
-    command: TerminalCommandRunRequest,
-  ) => Promise<RunTerminalCommandResponse | null>;
-  updateWidgetLayout: (widgetInstanceId: WidgetInstanceId, layout: WidgetLayout) => Promise<void>;
-  updateWidgetState: (widgetInstanceId: WidgetInstanceId, state: WidgetState) => Promise<void>;
-};
-
-export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions &
   JdbcConnectorWidgetActions &
-  Pick<
-    WorkbenchWidgetActions,
-  | "listWidgetLogs"
-  | "logRefreshTokens"
-  | "removeWidgetInstance"
-  | "listAgentExecutorRuns"
-  | "getAgentExecutorRunDetail"
-  | "getAgentExecutorDiffSummary"
-  | "createGitCommit"
-  | "getGitRepositoryStatus"
-  | "runCodexDirectWork"
-  | "runDirectWorkValidation"
-  | "cancelCodexDirectWorkRun"
-  | "startCodexDirectWorkStream"
-  | "attachToCodexDirectWorkStream"
-  | "runTerminalCommand"
-  | "updateWidgetLayout"
-  | "updateWidgetState"
-> &
-  AgentQueueTaskWidgetActions;
+  AgentExecutorWidgetActions &
+  GitWidgetActions &
+  TerminalWidgetActions;
 
-type TerminalCommandRunRequest = Omit<
-  RunTerminalCommandRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
+export type WorkbenchWidgetInstanceActions = Omit<
+  WorkbenchWidgetActions,
+  "addWidgetTemplate"
 >;
-
-type DirectWorkValidationRunRequest = Omit<
-  RunDirectWorkValidationRequest,
-  "workspaceId" | "workbenchId" | "widgetInstanceId"
->;
-
-type GitCommitCreateRequest = Omit<CreateGitCommitRequest, "workspaceId" | "workbenchId" | "widgetInstanceId">;
 
 export function useWorkbenchWidgetActions({
   currentSessionActivity,
@@ -172,473 +73,29 @@ export function useWorkbenchWidgetActions({
     }));
   }
 
-  async function addWidgetTemplate(template: WidgetCatalogTemplate) {
-    if (template.status !== "available" || !viewState.workbench.id) {
-      return false;
-    }
-
-    try {
-      const workbenchState = await addWidgetInstanceToWorkbench({
-        workspaceId: viewState.workspace.id,
-        workbenchId: viewState.workbench.id,
-        definitionId: template.futureWidgetDefinitionId ?? template.id,
-        title: template.title,
-        category: template.category,
-      });
-
-      if (!workbenchState) {
-        return false;
-      }
-
-      applyWorkbenchState(workbenchState);
-      return true;
-    } catch (error) {
-      console.error("Failed to add widget instance.", error);
-      return false;
-    }
-  }
-
-  async function updateWidgetState(
-    widgetInstanceId: WidgetInstanceId,
-    state: WidgetState,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to update widget state.");
-    }
-
-    const workbenchState = await updateWidgetInstanceState({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      state: JSON.stringify(state),
-    });
-
-    if (!workbenchState) {
-      throw new Error("Widget state could not be updated.");
-    }
-
-    applyWorkbenchState(workbenchState);
-    bumpWidgetLogRefreshToken(widgetInstanceId);
-  }
-
-  async function updateWidgetLayout(
-    widgetInstanceId: WidgetInstanceId,
-    layout: WidgetLayout,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to update widget layout.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Widget layout could not be updated.");
-    }
-
-    const workbenchState = await updateWidgetInstanceLayout({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      layout: {
-        layoutMode: persistedLayoutMode(layout.mode),
-        dockX: layout.x,
-        dockY: layout.y,
-        dockWidth: layout.width,
-        dockHeight: layout.height,
-        popoutX: layout.popout?.x ?? null,
-        popoutY: layout.popout?.y ?? null,
-        popoutWidth: layout.popout?.width ?? null,
-        popoutHeight: layout.popout?.height ?? null,
-        alwaysOnTop:
-          layout.mode === "popped-out"
-            ? (layout.popout?.alwaysOnTop ?? false)
-            : false,
-        isVisible: widget.visible,
-      },
-    });
-
-    if (!workbenchState) {
-      throw new Error("Widget layout could not be updated.");
-    }
-
-    applyWorkbenchState(workbenchState);
-    bumpWidgetLogRefreshToken(widgetInstanceId);
-  }
-
-  async function removeWidgetInstance(widgetInstanceId: WidgetInstanceId) {
-    const workbenchState = await removeWidgetInstanceFromWorkbenchView(
-      viewState,
-      widgetInstanceId,
-    );
-    applyWorkbenchState(workbenchState);
-  }
-
-  async function loadWidgetLogs(widgetInstanceId: WidgetInstanceId) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to load widget logs.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Widget logs could not be loaded.");
-    }
-
-    const logs = await listWidgetLogs({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      limit: 100,
-    });
-
-    return logs.map(widgetLogEntryFromApi);
-  }
-
-  async function loadAgentExecutorRuns(
-    widgetInstanceId: WidgetInstanceId,
-    limit = 20,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to read Agent Executor history.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Agent Executor history could not be read for this widget.");
-    }
-
-    return listAgentExecutorRuns({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      limit,
-    });
-  }
-
-  async function loadAgentExecutorRunDetail(
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to read Agent Executor run detail.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Agent Executor run detail could not be read for this widget.");
-    }
-
-    return getAgentExecutorRunDetail({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      runId,
-    });
-  }
-
-  async function loadAgentExecutorDiffSummary(
-    widgetInstanceId: WidgetInstanceId,
-    repositoryRoot: string,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to read Agent Executor diff summary.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Agent Executor diff summary could not be read for this widget.");
-    }
-
-    return getAgentExecutorDiffSummary({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      repoRoot: repositoryRoot,
-      includePatchPreview: true,
-    });
-  }
-
-  async function loadGitRepositoryStatus(
-    widgetInstanceId: WidgetInstanceId,
-    repositoryRoot: string,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to refresh Git status.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Git status could not be refreshed for this widget.");
-    }
-
-    return getGitRepositoryStatus({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      repositoryRoot,
-    });
-  }
-
-  async function createGitCommitForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    request: GitCommitCreateRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to create a Git commit.");
-    }
-    if (!viewState.widgets.some((candidate) => candidate.id === widgetInstanceId)) {
-      throw new Error("Git commit could not be created for this widget.");
-    }
-    const response = await createGitCommit({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      ...request,
-    });
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
-    }
-    return response;
-  }
-
-  async function runTerminalWidgetCommand(
-    widgetInstanceId: WidgetInstanceId,
-    command: TerminalCommandRunRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to run a Terminal command.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Terminal command could not be run for this widget.");
-    }
-
-    currentSessionActivity?.markTerminalRunStarted(widgetInstanceId);
-
-    try {
-      const response = await runTerminalCommand({
-        workspaceId: viewState.workspace.id,
-        workbenchId: viewState.workbench.id,
-        widgetInstanceId,
-        ...command,
-      });
-
-      if (response) {
-        bumpWidgetLogRefreshToken(widgetInstanceId);
-      }
-
-      currentSessionActivity?.markTerminalRunFinished(
-        widgetInstanceId,
-        response,
-      );
-      return response;
-    } catch (error) {
-      currentSessionActivity?.markTerminalRunFailed(widgetInstanceId, error);
-      throw error;
-    }
-  }
-
-  async function runCodexDirectWorkForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    request: CodexDirectWorkRunRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to run Codex Direct Work.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Codex Direct Work could not be run for this widget.");
-    }
-
-    currentSessionActivity?.markDirectWorkRunStarted(widgetInstanceId);
-
-    try {
-      const response = await runCodexDirectWork({
-        workspaceId: viewState.workspace.id,
-        workbenchId: viewState.workbench.id,
-        widgetInstanceId,
-        ...request,
-      });
-
-      if (response) {
-        bumpWidgetLogRefreshToken(widgetInstanceId);
-      }
-
-      currentSessionActivity?.markDirectWorkRunFinished(
-        widgetInstanceId,
-        response,
-      );
-      return response;
-    } catch (error) {
-      currentSessionActivity?.markDirectWorkRunFailed(widgetInstanceId, error);
-      throw error;
-    }
-  }
-
-  async function runDirectWorkValidationForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    request: DirectWorkValidationRunRequest,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to run Direct Work validation.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Direct Work validation could not be run for this widget.");
-    }
-
-    const response = await runDirectWorkValidation({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      ...request,
-    });
-
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
-    }
-
-    return response;
-  }
-
-  async function cancelCodexDirectWorkRunForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-  ) {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to stop Codex Direct Work.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Codex Direct Work could not be stopped for this widget.");
-    }
-
-    const response = await cancelCodexDirectWorkRun({
-      workspaceId: viewState.workspace.id,
-      workbenchId: viewState.workbench.id,
-      widgetInstanceId,
-      runId,
-    });
-
-    if (response) {
-      bumpWidgetLogRefreshToken(widgetInstanceId);
-    }
-
-    return response;
-  }
-
-  async function startCodexDirectWorkStreamForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    request: CodexDirectWorkRunRequest,
-    onEvent: (event: DirectWorkStreamEvent) => void,
-  ): Promise<CodexDirectWorkStreamSession | null> {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to run Codex Direct Work.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Codex Direct Work could not be run for this widget.");
-    }
-
-    return startDirectWorkStreamSession({
-      bumpWidgetLogRefreshToken,
-      currentSessionActivity,
-      onEvent,
-      request,
-      widgetInstanceId,
-      workbenchId: viewState.workbench.id,
-      workspaceId: viewState.workspace.id,
-    });
-  }
-
-  async function attachToCodexDirectWorkStreamForWidget(
-    widgetInstanceId: WidgetInstanceId,
-    runId: string,
-    onEvent: (event: DirectWorkStreamEvent) => void,
-  ): Promise<CodexDirectWorkStreamSession | null> {
-    if (!viewState.workbench.id) {
-      throw new Error("A workbench must be open to attach Codex Direct Work.");
-    }
-
-    const widget = viewState.widgets.find(
-      (candidate) => candidate.id === widgetInstanceId,
-    );
-
-    if (!widget) {
-      throw new Error("Codex Direct Work could not be attached for this widget.");
-    }
-
-    return attachDirectWorkStreamSession({
-      bumpWidgetLogRefreshToken,
-      currentSessionActivity,
-      onEvent,
-      runId,
-      widgetInstanceId,
-      workbenchId: viewState.workbench.id,
-      workspaceId: viewState.workspace.id,
-    });
-  }
-
   return {
-    addWidgetTemplate,
+    ...createWorkspaceWidgetActions({
+      applyWorkbenchState,
+      bumpWidgetLogRefreshToken,
+      logRefreshTokens,
+      viewState,
+    }),
     ...createWorkspaceNoteActions(viewState),
     ...createAgentQueueTaskActions(viewState),
     ...createJdbcConnectorActions(viewState),
-    listAgentExecutorRuns: loadAgentExecutorRuns,
-    getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
-    getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,
-    createGitCommit: createGitCommitForWidget,
-    getGitRepositoryStatus: loadGitRepositoryStatus,
-    listWidgetLogs: loadWidgetLogs,
-    logRefreshTokens,
-    removeWidgetInstance,
-    runCodexDirectWork: runCodexDirectWorkForWidget,
-    runDirectWorkValidation: runDirectWorkValidationForWidget,
-    cancelCodexDirectWorkRun: cancelCodexDirectWorkRunForWidget,
-    startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,
-    attachToCodexDirectWorkStream: attachToCodexDirectWorkStreamForWidget,
-    runTerminalCommand: runTerminalWidgetCommand,
-    updateWidgetLayout,
-    updateWidgetState,
+    ...createAgentExecutorWidgetActions({
+      bumpWidgetLogRefreshToken,
+      currentSessionActivity,
+      viewState,
+    }),
+    ...createGitWidgetActions({
+      bumpWidgetLogRefreshToken,
+      viewState,
+    }),
+    ...createTerminalWidgetActions({
+      bumpWidgetLogRefreshToken,
+      currentSessionActivity,
+      viewState,
+    }),
   };
-}
-
-function persistedLayoutMode(mode: WidgetLayout["mode"]) {
-  return mode === "popped-out" ? "popped_out" : mode;
 }
