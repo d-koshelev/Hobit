@@ -16,7 +16,7 @@ export function liveRunStatusView(status: string): {
     return {
       badgeLabel: "Completed",
       badgeVariant: "success",
-      title: "Live log completed",
+      title: "Direct Work events",
     };
   }
 
@@ -24,7 +24,7 @@ export function liveRunStatusView(status: string): {
     return {
       badgeLabel: "Failed",
       badgeVariant: "error",
-      title: "Live log failed",
+      title: "Direct Work events",
     };
   }
 
@@ -32,7 +32,7 @@ export function liveRunStatusView(status: string): {
     return {
       badgeLabel: "Timed out",
       badgeVariant: "warning",
-      title: "Live log timed out",
+      title: "Direct Work events",
     };
   }
 
@@ -40,14 +40,14 @@ export function liveRunStatusView(status: string): {
     return {
       badgeLabel: "Cancelled",
       badgeVariant: "warning",
-      title: "Live log cancelled",
+      title: "Direct Work events",
     };
   }
 
   return {
     badgeLabel: "Running",
     badgeVariant: "info",
-    title: "Live log running",
+    title: "Direct Work events",
   };
 }
 
@@ -166,8 +166,43 @@ export function formatEntryTiming(entry: CodexDirectWorkLiveLogEntry) {
   return parts.join("  ");
 }
 
+export function formatCompactEntryTiming(entry: CodexDirectWorkLiveLogEntry) {
+  const parts = [
+    formatDirectWorkClockTime(entry.receivedAtMs),
+    `+${formatDirectWorkDuration(entry.elapsedMs)}`,
+  ];
+
+  if (entry.deltaMs !== null && entry.deltaMs > 0) {
+    parts.push(`gap ${formatDirectWorkDuration(entry.deltaMs)}`);
+  }
+
+  return parts.join(" - ");
+}
+
+export function liveRunCompactStatusLine(liveRun: CodexDirectWorkLiveRun) {
+  const parts = [
+    liveRun.startedAtMs !== null
+      ? `Started ${formatDirectWorkClockTime(liveRun.startedAtMs)}`
+      : null,
+    liveRun.durationMs === null
+      ? null
+      : `Duration ${formatDirectWorkDuration(liveRun.durationMs)}`,
+    liveRun.finalStatus && liveRun.finalStatus !== liveRun.status
+      ? `Final ${liveRun.finalStatus.replace(/_/g, " ")}`
+      : null,
+    liveRun.exitCode !== null ? `Exit ${liveRun.exitCode}` : null,
+    `Run ${shortRunId(liveRun.runId)}`,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" - ");
+}
+
 function liveRunDurationLabel(liveRun: CodexDirectWorkLiveRun) {
   return liveRun.durationMs === null
     ? "Running"
     : formatDirectWorkDuration(liveRun.durationMs);
+}
+
+function shortRunId(runId: string) {
+  return runId.length <= 12 ? runId : `${runId.slice(0, 8)}...`;
 }

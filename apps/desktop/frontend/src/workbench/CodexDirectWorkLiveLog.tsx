@@ -10,7 +10,9 @@ import {
   codexJsonEventText,
 } from "./CodexDirectWorkLiveLogCodexEvents";
 import {
+  formatCompactEntryTiming,
   formatEntryTiming,
+  liveRunCompactStatusLine,
   liveRunStatusFields,
   liveRunStatusView,
   localLogStatusView,
@@ -107,20 +109,30 @@ export function CodexDirectWorkLiveLog({
         <div className="codex-direct-work-copy">
           <h3 className="codex-direct-work-title">{statusView.title}</h3>
           <p className="codex-direct-work-text">
-            Current Direct Work status entries.
+            Compact Direct Work event stream.
           </p>
         </div>
         <Badge variant={statusView.badgeVariant}>{statusView.badgeLabel}</Badge>
       </div>
 
       {liveRun ? (
-        <StaticPreviewFieldList
-          className="codex-direct-work-result-grid"
-          fieldClassName="codex-direct-work-result-field"
-          fields={liveRunStatusFields(liveRun)}
-          labelClassName="codex-direct-work-result-label"
-          valueClassName="codex-direct-work-result-value"
-        />
+        <>
+          <p className="codex-direct-work-live-log-status-line">
+            {liveRunCompactStatusLine(liveRun)}
+          </p>
+          <details className="codex-direct-work-output-details codex-direct-work-live-log-run-details">
+            <summary className="codex-direct-work-output-summary">
+              Run details
+            </summary>
+            <StaticPreviewFieldList
+              className="codex-direct-work-result-grid"
+              fieldClassName="codex-direct-work-result-field"
+              fields={liveRunStatusFields(liveRun)}
+              labelClassName="codex-direct-work-result-label"
+              valueClassName="codex-direct-work-result-value"
+            />
+          </details>
+        </>
       ) : null}
 
       {liveRun && isFailureStatus(liveRun.status) ? (
@@ -147,15 +159,17 @@ export function CodexDirectWorkLiveLog({
               key={entry.id}
               role="listitem"
             >
-              <div className="codex-direct-work-live-log-entry-meta">
+              <div className="codex-direct-work-live-log-entry-line">
+                <span className="codex-direct-work-live-log-time">
+                  {formatCompactEntryTiming(entry)}
+                </span>
                 <span className="codex-direct-work-live-log-kind">
                   {entry.label ?? liveLogEntryLabel(entry)}
                 </span>
-                <span className="codex-direct-work-live-log-time">
-                  {formatEntryTiming(entry)}
+                <span className="codex-direct-work-live-log-text">
+                  {entry.text}
                 </span>
               </div>
-              <p className="codex-direct-work-live-log-text">{entry.text}</p>
               {entry.detail ? (
                 <p className="codex-direct-work-live-log-detail">
                   {entry.detail}
@@ -164,10 +178,10 @@ export function CodexDirectWorkLiveLog({
               {entry.rawPreview ? (
                 <details className="codex-direct-work-live-log-raw">
                   <summary className="codex-direct-work-live-log-detail">
-                    Raw event
+                    Raw JSON event
                   </summary>
                   <p className="codex-direct-work-live-log-detail">
-                    {entry.rawPreview}
+                    {formatEntryTiming(entry)} - {entry.rawPreview}
                   </p>
                 </details>
               ) : null}

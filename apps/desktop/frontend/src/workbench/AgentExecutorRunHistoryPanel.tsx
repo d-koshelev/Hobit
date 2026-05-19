@@ -245,14 +245,8 @@ export function AgentExecutorRunHistoryPanel({
                 <span className="codex-direct-work-result-value">
                   {runModeLabel(run)}
                 </span>
-                <span className="codex-direct-work-review-note">
-                  Started {formatTimestamp(run.startedAt)}
-                </span>
-                <span className="codex-direct-work-review-note">
-                  Completed {formatTimestamp(run.finishedAt)}
-                </span>
-                <span className="codex-direct-work-review-note">
-                  Duration {formatRunDuration(run)}
+                <span className="agent-executor-history-item-meta-line">
+                  {historyRunMetaLine(run)}
                 </span>
                 {run.repoRoot ? (
                   <span className="codex-direct-work-review-note">
@@ -498,15 +492,17 @@ function RunLogs({
         <div className="agent-executor-history-log-list" role="list">
           {logs.map((log) => (
             <div className="agent-executor-history-log" key={log.id} role="listitem">
-              <div className="agent-executor-history-log-meta">
+              <div className="agent-executor-history-log-line">
+                <span className="codex-direct-work-live-log-time">
+                  {formatTimestamp(log.createdAt)}
+                </span>
                 <span className="codex-direct-work-result-label">
                   {log.level}
                 </span>
-                <span className="codex-direct-work-review-note">
-                  {formatTimestamp(log.createdAt)}
+                <span className="codex-direct-work-result-value">
+                  {log.message}
                 </span>
               </div>
-              <p className="codex-direct-work-result-value">{log.message}</p>
               {log.payload ? (
                 <details className="codex-direct-work-live-log-raw">
                   <summary className="codex-direct-work-live-log-detail">
@@ -576,6 +572,17 @@ function formatRunDuration(run: AgentExecutorRunSummary) {
   }
 
   return "Unknown";
+}
+
+function historyRunMetaLine(run: AgentExecutorRunSummary) {
+  const duration = formatRunDuration(run);
+  const parts = [
+    `Started ${formatTimestamp(run.startedAt)}`,
+    run.finishedAt ? `Completed ${formatTimestamp(run.finishedAt)}` : null,
+    duration === "Unknown" ? null : `Duration ${duration}`,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" - ");
 }
 
 function formatTimestamp(value: string | null) {
