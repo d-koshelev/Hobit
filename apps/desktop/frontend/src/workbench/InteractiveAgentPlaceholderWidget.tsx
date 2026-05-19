@@ -8,6 +8,7 @@ import {
   LOCAL_COORDINATOR_SAMPLE_PROPOSALS,
   type CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
+import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
 import type { WidgetRenderProps } from "./types";
 
 type InteractiveAgentMessage = {
@@ -27,9 +28,6 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
     ),
   },
 ];
-
-const LOCAL_PLACEHOLDER_RESPONSE =
-  "Coordinator Chat is not connected yet. This message is stored only in this local widget session. Future versions will use approved widget capabilities.";
 
 const APPROVED_PREVIEW_SUMMARY =
   "Approved locally only. Execution bridge is not implemented, and no widget capability was invoked.";
@@ -106,12 +104,14 @@ export function InteractiveAgentPlaceholderWidget({
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
     body: string,
+    proposalIds?: string[],
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
 
     return {
       id,
+      proposalIds,
       role,
       body,
     };
@@ -125,10 +125,34 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
+    const operatorMessage = createLocalMessage("operator", trimmedDraft);
+    const assistantMessageId = `local-${nextMessageId.current}`;
+    const generated = generateLocalCoordinatorProposals(
+      trimmedDraft,
+      assistantMessageId,
+    );
+    const generatedProposalIds = generated.proposals.map(
+      (proposal) => proposal.id,
+    );
+    const assistantMessage = createLocalMessage(
+      "assistant",
+      generated.responseBody,
+      generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
+    );
+
+    if (generated.proposals.length > 0) {
+      setProposals((currentProposals) => ({
+        ...currentProposals,
+        ...Object.fromEntries(
+          generated.proposals.map((proposal) => [proposal.id, proposal]),
+        ),
+      }));
+    }
+
     setMessages((currentMessages) => [
       ...currentMessages,
-      createLocalMessage("operator", trimmedDraft),
-      createLocalMessage("assistant", LOCAL_PLACEHOLDER_RESPONSE),
+      operatorMessage,
+      assistantMessage,
     ]);
     setDraft("");
     window.setTimeout(() => textareaRef.current?.focus(), 0);
@@ -394,6 +418,10 @@ export function InteractiveAgentPlaceholderWidget({
             <p className="interactive-agent-text">Provider not connected yet.</p>
             <p className="interactive-agent-text">
               Approved Queue task and Note creation are enabled.
+            </p>
+            <p className="interactive-agent-text">
+              Explicit messages can generate local deterministic proposal
+              previews.
             </p>
             <p className="interactive-agent-text">
               Coordinator does not read Notes, dispatch Queue tasks, or launch

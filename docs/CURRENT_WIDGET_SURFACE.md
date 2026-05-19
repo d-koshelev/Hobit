@@ -158,6 +158,8 @@ future widget capability.
 - Shows local placeholder assistant responses.
 - Shows deterministic local sample action proposal cards attached to the
   initial Coordinator message.
+- Can generate deterministic local proposal cards from explicit operator chat
+  messages for the same safe proposal types.
 - Uses a frontend-only static proposal registry for safe preview types: create
   Agent Queue task, create Note, and prepare JDBC query suggestion text without
   execution.
@@ -174,6 +176,9 @@ future widget capability.
 - JDBC query suggestion proposal cards remain non-executing. They show the
   visible SQL suggestion in a reviewable monospace block and provide Copy SQL
   for copying only that SQL text.
+- Local proposal generation uses only the explicit chat message. It does not
+  read widget state, Notes, Terminal output, Git diffs, JDBC connector metadata,
+  Agent Executor logs, filesystem data, or hidden Workspace context.
 - Does not connect to a provider, call Codex, execute broad tools, persist
   sessions, read hidden context, launch Agent Executor, integrate
   with Runbook, mutate files, mutate Git, run SQL, call JDBC connectors, or run
@@ -239,10 +244,8 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Coordinator local deterministic proposal generation from explicit user chat
-  text.
-- Coordinator provider/runtime planning or local deterministic proposal
-  plumbing.
+- Coordinator proposal card UX/state polish.
+- Coordinator provider/runtime planning.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
   review exists.

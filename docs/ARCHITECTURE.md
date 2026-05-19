@@ -30,14 +30,16 @@ metadata shell backed by workspace-local JDBC connector metadata storage/API;
 there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
 assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
 direction is represented by a local-only Coordinator Chat placeholder with
-frontend action proposal cards. An approved create-Agent-Queue-task proposal
-can create a draft workspace-scoped Queue task through the existing Queue task
-API only after a separate operator create action; it does not assign, dispatch,
-run, or hand the task to Agent Executor. An approved create-Note proposal can
-create a workspace-local Note through the existing Notes create API using only
-visible title, body, and pinned inputs. No Coordinator runtime, hidden context
-access, provider-backed proposal behavior, hidden Notes reads, or broad tool
-execution is implemented. Runbook has a local/manual steps MVP. There is no
+frontend action proposal cards. A deterministic frontend parser can generate
+the safe local proposal types from explicit operator chat text only. An approved
+create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
+through the existing Queue task API only after a separate operator create
+action; it does not assign, dispatch, run, or hand the task to Agent Executor.
+An approved create-Note proposal can create a workspace-local Note through the
+existing Notes create API using only visible title, body, and pinned inputs. No
+Coordinator runtime, hidden context access, provider-backed proposal behavior,
+hidden Notes reads, hidden widget reads, or broad tool execution is
+implemented. Runbook has a local/manual steps MVP. There is no
 Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
 runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
@@ -367,7 +369,7 @@ The Agent Executor widget reuses the existing `agent-run` definition id for pers
 
 The Agent Queue widget is a preview manual task queue surface. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
-Coordinator Chat is a local chat MVP using the existing Interactive Agent compatibility component. Its compatibility contract is defined in `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows deterministic local action proposal cards attached to the initial Coordinator message for safe preview types: create Agent Queue task, create Note, and prepare JDBC query suggestion text without execution. Proposal card controls Approve, Reject, Edit, and Copy details update local proposal state or copy proposal details. Only approved create-Agent-Queue-task proposals expose a separate Create Queue task action, which uses the existing workspace-scoped Queue task API to create a draft task and does not assign, dispatch, run, or hand it to Agent Executor. Only approved create-Note proposals expose a separate Create Note action, which uses the existing workspace-local Notes create API with visible title, body, and pinned inputs and does not read, search, or summarize existing Notes. JDBC proposal cards remain non-executing; they show the visible SQL suggestion in a monospace review block and Copy SQL copies only that SQL text without connector access, database calls, or `EXPLAIN`. The current implementation has no provider connection, no Agent Executor integration, no Runbook integration, no monitoring integration, no broad tool execution, no hidden context access, no file mutation, no Git mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural steps MVP with states such as pending, running, done, failed, skipped, and blocked, plus local notes/evidence. It has no persistence, step execution, edit mode, builder, Queue integration, or agent-assisted steps.
+Coordinator Chat is a local chat MVP using the existing Interactive Agent compatibility component. Its compatibility contract is defined in `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows deterministic local action proposal cards attached to the initial Coordinator message for safe preview types: create Agent Queue task, create Note, and prepare JDBC query suggestion text without execution. A local deterministic parser can also create those same proposal types from explicit operator chat messages using only the typed message text. Proposal card controls Approve, Reject, Edit, and Copy details update local proposal state or copy proposal details. Only approved create-Agent-Queue-task proposals expose a separate Create Queue task action, which uses the existing workspace-scoped Queue task API to create a draft task and does not assign, dispatch, run, or hand it to Agent Executor. Only approved create-Note proposals expose a separate Create Note action, which uses the existing workspace-local Notes create API with visible title, body, and pinned inputs and does not read, search, or summarize existing Notes. JDBC proposal cards remain non-executing; they show the visible SQL suggestion in a monospace review block and Copy SQL copies only that SQL text without connector access, database calls, or `EXPLAIN`. The current implementation has no provider connection, no Agent Executor integration, no Runbook integration, no monitoring integration, no broad tool execution, no hidden context access, no hidden widget state reads, no file mutation, no Git mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural steps MVP with states such as pending, running, done, failed, skipped, and blocked, plus local notes/evidence. It has no persistence, step execution, edit mode, builder, Queue integration, or agent-assisted steps.
 
 The Git widget has a transient explicit repository-root input. In the Tauri
 desktop path, it manually refreshes a read-only status snapshot through
@@ -444,9 +446,11 @@ the existing `agent-run` owner and requires an explicit execution workspace
 path. Agent Queue has a preview manual task product UI
 backed by manual task storage/API only. Coordinator Chat has local
 current-session chat state through the existing `interactive-agent`
-compatibility component plus an explicit approved-proposal bridge for creating
-draft Queue tasks and workspace-local Notes only, and Runbook has local
-current-session step state plus notes/evidence only. Database / JDBC can manage non-secret connector metadata
+compatibility component, deterministic local proposal generation from explicit
+chat text, and an explicit approved-proposal bridge for creating draft Queue
+tasks and workspace-local Notes only. JDBC suggestions remain non-executing
+review/copy text, and Runbook has local current-session step state plus
+notes/evidence only. Database / JDBC can manage non-secret connector metadata
 only. The Git widget supports manual desktop status/diff review and explicit
 selected-file local commit with operator confirmation for a transient explicit
 repository root. Terminal supports a visible desktop PTY session surface plus a
