@@ -171,7 +171,9 @@ future widget capability.
   creates a workspace-local Note from visible title, body, and pinned fields
   through the existing Notes API. Existing Notes content is not read, searched,
   or summarized.
-- JDBC query suggestion proposal cards remain inert in this slice.
+- JDBC query suggestion proposal cards remain non-executing. They show the
+  visible SQL suggestion in a reviewable monospace block and provide Copy SQL
+  for copying only that SQL text.
 - Does not connect to a provider, call Codex, execute broad tools, persist
   sessions, read hidden context, launch Agent Executor, integrate
   with Runbook, mutate files, mutate Git, run SQL, call JDBC connectors, or run
@@ -237,7 +239,8 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Coordinator proposal to create Agent Queue task with explicit approval.
+- Coordinator local deterministic proposal generation from explicit user chat
+  text.
 - Coordinator provider/runtime planning or local deterministic proposal
   plumbing.
 - Later controlled widget capability bridge.

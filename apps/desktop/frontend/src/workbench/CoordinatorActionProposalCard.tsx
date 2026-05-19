@@ -91,12 +91,34 @@ export function CoordinatorActionProposalCard({
     }
   }
 
+  async function copySqlSuggestion() {
+    setCopyStatus(null);
+    if (!sqlSuggestion) {
+      setCopyStatus("No SQL suggestion to copy. No action ran.");
+      return;
+    }
+    if (!navigator.clipboard?.writeText) {
+      setCopyStatus("Clipboard unavailable. No SQL ran.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(sqlSuggestion);
+      setCopyStatus("Copied SQL only. No SQL ran.");
+    } catch {
+      setCopyStatus("Copy SQL failed. No SQL ran.");
+    }
+  }
+
   const hasCreatedNote = Boolean(proposal.createdNoteId);
   const hasCreatedQueueTask = Boolean(proposal.createdQueueTaskId);
   const isCreateNoteProposal = proposal.typeId === "create-note";
+  const isJdbcQuerySuggestion =
+    proposal.typeId === "prepare-jdbc-query-suggestion";
   const isCreateQueueTaskProposal =
     proposal.typeId === "create-agent-queue-task";
   const isApproved = proposal.approvalStatus === "Approved preview";
+  const sqlSuggestion = proposalInputValue(proposal, "Suggested SQL text");
   const canCreateNote =
     isCreateNoteProposal && isApproved && !hasCreatedNote;
   const canCreateQueueTask =
@@ -119,6 +141,8 @@ export function CoordinatorActionProposalCard({
               ? "Queue task proposal"
               : isCreateNoteProposal
                 ? "Note proposal"
+                : isJdbcQuerySuggestion
+                  ? "JDBC SQL suggestion"
               : "Local inert proposal"}
           </p>
           <h4 className="coordinator-proposal-title">{proposal.title}</h4>
@@ -202,7 +226,15 @@ export function CoordinatorActionProposalCard({
               {proposal.inputs.map((input) => (
                 <div className="coordinator-proposal-input" key={input.label}>
                   <dt>{input.label}</dt>
-                  <dd>{input.value}</dd>
+                  <dd>
+                    {isSqlSuggestionInput(input) ? (
+                      <pre className="coordinator-proposal-sql">
+                        <code>{input.value}</code>
+                      </pre>
+                    ) : (
+                      input.value
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -302,8 +334,17 @@ export function CoordinatorActionProposalCard({
                   : "Create Queue task"}
               </Button>
             ) : null}
+            {isJdbcQuerySuggestion ? (
+              <Button
+                disabled={!sqlSuggestion}
+                onClick={() => void copySqlSuggestion()}
+                variant="secondary"
+              >
+                Copy SQL
+              </Button>
+            ) : null}
             <Button onClick={copyProposalDetails} variant="ghost">
-              Copy
+              Copy details
             </Button>
           </>
         )}
@@ -369,7 +410,8 @@ function executionBadgeVariant(
     status === "Ready to create Queue task" ||
     status === "Creating Queue task" ||
     status === "Ready to create Note" ||
-    status === "Creating Note"
+    status === "Creating Note" ||
+    status === "SQL suggestion only"
   ) {
     return "info";
   }
@@ -415,8 +457,25 @@ function formatProposalDetails(proposal: CoordinatorActionProposal) {
       ? "Queue task creation requires approval and a separate Create Queue task action. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
       : proposal.typeId === "create-note"
         ? "Note creation requires approval and a separate Create Note action. No existing Notes content is read, and no provider runtime, Queue task, Agent Executor launch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
+        : proposal.typeId === "prepare-jdbc-query-suggestion"
+          ? "SQL suggestion only. Copy SQL copies only the visible SQL text. No connector access, database call, EXPLAIN, provider runtime, Terminal command, Git mutation, Queue dispatch, Agent Executor launch, or JDBC SQL execution is triggered."
         : "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
+}
+
+function proposalInputValue(
+  proposal: CoordinatorActionProposal,
+  label: string,
+) {
+  return (
+    proposal.inputs
+      .find((input) => input.label.toLowerCase() === label.toLowerCase())
+      ?.value.trim() ?? ""
+  );
+}
+
+function isSqlSuggestionInput(input: CoordinatorProposalInput) {
+  return input.label.toLowerCase() === "suggested sql text";
 }

@@ -40,6 +40,9 @@ const APPROVED_QUEUE_TASK_SUMMARY =
 const APPROVED_NOTE_SUMMARY =
   "Approved locally. Review the visible title, body, and pinned state, then use Create Note. No Note has been created yet.";
 
+const APPROVED_JDBC_SUGGESTION_SUMMARY =
+  "Approved locally as a non-executing SQL suggestion. Use Copy SQL for manual review. No connector is accessed and no SQL is executed.";
+
 const CREATING_QUEUE_TASK_SUMMARY =
   "Creating a draft Agent Queue task from the visible approved proposal inputs.";
 
@@ -137,6 +140,8 @@ export function InteractiveAgentPlaceholderWidget({
       const isCreateQueueTaskProposal =
         proposal?.typeId === "create-agent-queue-task";
       const isCreateNoteProposal = proposal?.typeId === "create-note";
+      const isJdbcQuerySuggestion =
+        proposal?.typeId === "prepare-jdbc-query-suggestion";
 
       return updateProposal(currentProposals, proposalId, {
         approvalStatus: "Approved preview",
@@ -145,12 +150,16 @@ export function InteractiveAgentPlaceholderWidget({
           ? "Ready to create Queue task"
           : isCreateNoteProposal
             ? "Ready to create Note"
-          : "Execution bridge not implemented",
+            : isJdbcQuerySuggestion
+              ? "SQL suggestion only"
+              : "Execution bridge not implemented",
         resultSummary: isCreateQueueTaskProposal
           ? APPROVED_QUEUE_TASK_SUMMARY
           : isCreateNoteProposal
             ? APPROVED_NOTE_SUMMARY
-          : APPROVED_PREVIEW_SUMMARY,
+            : isJdbcQuerySuggestion
+              ? APPROVED_JDBC_SUGGESTION_SUMMARY
+              : APPROVED_PREVIEW_SUMMARY,
       });
     });
   }
@@ -178,6 +187,8 @@ export function InteractiveAgentPlaceholderWidget({
       const isCreateQueueTaskProposal =
         proposal?.typeId === "create-agent-queue-task";
       const isCreateNoteProposal = proposal?.typeId === "create-note";
+      const isJdbcQuerySuggestion =
+        proposal?.typeId === "prepare-jdbc-query-suggestion";
 
       return updateProposal(currentProposals, proposalId, {
         ...patch,
@@ -191,7 +202,9 @@ export function InteractiveAgentPlaceholderWidget({
           ? "Not run"
           : isCreateNoteProposal
             ? "Not run"
-          : "Execution bridge not implemented",
+            : isJdbcQuerySuggestion
+              ? "SQL suggestion only"
+              : "Execution bridge not implemented",
         resultSummary: EDITED_PREVIEW_SUMMARY,
       });
     });

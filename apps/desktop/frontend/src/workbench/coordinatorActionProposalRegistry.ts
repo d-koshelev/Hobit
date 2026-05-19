@@ -19,6 +19,7 @@ export type CoordinatorProposalExecutionStatus =
   | "Creating Note"
   | "Note created"
   | "Note creation failed"
+  | "SQL suggestion only"
   | "Execution bridge not implemented";
 
 export type CoordinatorProposalInput = {
@@ -90,7 +91,7 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
       requiredInputs: ["Question", "Suggested SQL text"],
       riskLevel: "analysis_only",
       safetyNotes: [
-        "Preview only in this UI slice.",
+        "SQL suggestion text is for review and copy only.",
         "No connector access or SQL execution.",
         "No database metadata or results are inspected.",
       ],
@@ -164,9 +165,9 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
   },
   {
     approvalStatus: "Pending preview",
-    executionStatus: "Execution bridge not implemented",
+    executionStatus: "SQL suggestion only",
     expectedResult:
-      "A SQL suggestion could be reviewed later, but this preview cannot execute SQL.",
+      "A SQL suggestion can be reviewed and copied, but this preview cannot execute SQL.",
     id: "sample-jdbc-query-suggestion",
     inputs: [
       {
@@ -180,12 +181,14 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
       },
     ],
     intent: "Prepare a read-only query suggestion for operator review.",
-    resultSummary: "No action has run. This is a local inert preview.",
+    resultSummary:
+      "Non-executing SQL suggestion only. Copy SQL copies the visible SQL text and does not contact a connector or database.",
     riskLevel: "analysis_only",
     riskNotes: [
       "No JDBC connector is accessed.",
       "No SQL is executed.",
       "No database metadata or results are read.",
+      "Future SQL execution must happen only through an approved JDBC execution surface.",
     ],
     targetCapability: "prepare query suggestion",
     targetWidget: "Database / JDBC",
