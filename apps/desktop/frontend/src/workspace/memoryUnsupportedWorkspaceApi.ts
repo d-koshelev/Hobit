@@ -195,6 +195,62 @@ export const runTerminalCommand: WorkspaceApi["runTerminalCommand"] = async (
   );
 };
 
+export const createTerminalPtySession: WorkspaceApi["createTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot create local shell sessions.",
+    );
+  };
+
+export const writeTerminalPtySession: WorkspaceApi["writeTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot send stdin to local shell sessions.",
+    );
+  };
+
+export const resizeTerminalPtySession: WorkspaceApi["resizeTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot resize local shell sessions.",
+    );
+  };
+
+export const stopTerminalPtySession: WorkspaceApi["stopTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot stop local shell sessions.",
+    );
+  };
+
+export const killTerminalPtySession: WorkspaceApi["killTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot force terminate local shell sessions.",
+    );
+  };
+
+export const closeTerminalPtySession: WorkspaceApi["closeTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot close local shell sessions.",
+    );
+  };
+
+export const getTerminalPtySession: WorkspaceApi["getTerminalPtySession"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot inspect local shell sessions.",
+    );
+  };
+
+export const listTerminalPtySessions: WorkspaceApi["listTerminalPtySessions"] =
+  async (_request) => {
+    throw new Error(
+      "Terminal PTY sessions are only available in the Tauri desktop shell. Browser fallback cannot list local shell sessions.",
+    );
+  };
+
 export const runCodexDirectWork: WorkspaceApi["runCodexDirectWork"] = async (
   _request,
 ) => {

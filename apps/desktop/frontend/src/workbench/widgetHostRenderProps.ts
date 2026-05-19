@@ -126,6 +126,30 @@ export function widgetHostRenderProps({
     onRunTerminalCommand: isTerminal
       ? widgetActions.runTerminalCommand
       : undefined,
+    onCreateTerminalPtySession: isTerminal
+      ? widgetActions.createTerminalPtySession
+      : undefined,
+    onWriteTerminalPtySession: isTerminal
+      ? widgetActions.writeTerminalPtySession
+      : undefined,
+    onResizeTerminalPtySession: isTerminal
+      ? widgetActions.resizeTerminalPtySession
+      : undefined,
+    onStopTerminalPtySession: isTerminal
+      ? widgetActions.stopTerminalPtySession
+      : undefined,
+    onKillTerminalPtySession: isTerminal
+      ? widgetActions.killTerminalPtySession
+      : undefined,
+    onCloseTerminalPtySession: isTerminal
+      ? widgetActions.closeTerminalPtySession
+      : undefined,
+    onGetTerminalPtySession: isTerminal
+      ? widgetActions.getTerminalPtySession
+      : undefined,
+    onListTerminalPtySessions: isTerminal
+      ? widgetActions.listTerminalPtySessions
+      : undefined,
     onStartAssignedAgentQueueTask: isAgentQueue
       ? widgetActions.startAssignedAgentQueueTask
       : undefined,

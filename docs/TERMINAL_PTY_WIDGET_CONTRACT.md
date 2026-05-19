@@ -14,24 +14,31 @@ not a hidden automation path, and not an Agent Executor replacement.
 
 ## Current State
 
-Current Terminal is a bounded one-shot command runner.
+Current Terminal has a visible PTY session mode and preserves the bounded
+one-shot command runner.
 
 Current Terminal:
 
 - Is desktop-only for local process execution.
-- Accepts an explicit program, argv, working directory, timeout, and output
-  caps.
-- Creates widget run/log/result records for persisted Terminal widget
-  instances.
-- Shows the final stdout/stderr result.
-- Is not a PTY.
-- Is not an interactive shell.
-- Has no persistent shell session.
+- In `PTY session` mode, accepts an explicit shell executable, optional shell
+  argv, explicit execution workspace / working directory, columns/rows, and
+  bounded output buffer cap.
+- Starts a visible manual shell session through the desktop PTY backend when
+  supported.
+- Displays bounded session-only PTY output via frontend refresh/polling, sends
+  operator stdin, resizes by columns/rows, and exposes Stop, Kill, and Close
+  controls.
+- In `Run command` mode, accepts an explicit program, argv, working directory,
+  timeout, and output caps.
+- Creates widget run/log/result records only for persisted one-shot Terminal
+  command runs.
+- Shows the final stdout/stderr result for one-shot command runs.
 - Has no tabs.
 - Has no split panes.
-- Has no streaming stdin/stdout session.
-- Has no command history, shell profile model, cancellation, or Agent-triggered
-  execution.
+- Has no event-streamed PTY output bridge yet.
+- Has no command history, persistent transcript, shell profile model,
+  Agent-triggered execution, Queue-triggered execution, Coordinator control, or
+  Script Runner behavior.
 
 Current backend foundation:
 
@@ -41,10 +48,12 @@ Current backend foundation:
   get, and list sessions.
 - Windows ConPTY is the first supported backend.
 - PTY output/history remains session-only and is not persisted to storage.
-- No frontend Terminal PTY UI consumes the backend foundation yet.
+- The frontend Terminal widget consumes the PTY command foundation in
+  `PTY session` mode.
 
-The current UI must remain honest about this boundary until PTY/session support
-is visible in the Terminal widget.
+The current UI must remain honest that PTY sessions are desktop/manual,
+session-only, and do not include tabs, split panes, persistent history, or
+event-streamed output yet.
 
 ## Relationship To Current One-Shot Terminal
 
@@ -55,9 +64,8 @@ Decision:
 
 - Keep the current one-shot behavior as an explicit `Run command` capability
   inside the Terminal widget.
-- Future PTY behavior should become the primary Terminal shell mode when
-  implemented, but it must not delete or silently replace the existing
-  one-shot path in the same block.
+- PTY behavior is now the primary Terminal shell mode, but it must not delete
+  or silently replace the existing one-shot path.
 - The one-shot path may remain useful as a bounded command/result action with
   timeout and output caps.
 - The PTY path is an interactive session surface. It has different lifecycle,
@@ -73,9 +81,9 @@ Current one-shot behavior stays unchanged:
 - final stdout/stderr result
 - no stdin, no PTY, no streaming, no cancellation, no shell mode
 
-Future UI may present this as a `Run command` mode, tab, or secondary panel
-inside Terminal. It must not create a second Terminal widget definition or use
-Script Runner behavior without a separate contract.
+Current UI presents this as a secondary `Run command` mode inside Terminal. It
+must not create a second Terminal widget definition or use Script Runner
+behavior without a separate contract.
 
 ## Target Role
 
@@ -473,9 +481,12 @@ Difference from current one-shot command runner:
 ### Slice 3: Frontend Terminal PTY UI
 
 - Add the minimal Operational PTY UI in the existing Terminal widget.
+  Implemented as a visible `PTY session` mode.
 - Show buffer, input focus, working directory, shell, status, clear/copy,
-  resize, stop, kill, and close controls.
-- Preserve current one-shot `Run command` behavior.
+  resize, stop, kill, and close controls. Implemented through scoped
+  WorkspaceApi/Tauri calls with bounded buffer refresh.
+- Preserve current one-shot `Run command` behavior. Implemented as a secondary
+  visible mode.
 - No tabs or split panes in this slice unless the prompt explicitly narrows and
   approves that expansion.
 
@@ -543,9 +554,9 @@ Do not show:
 - Kill/stop controls before lifecycle support exists.
 - Shell profile controls before shell profile support exists.
 
-The current one-shot Terminal may mention the future PTY direction in concise
-copy, but must not render controls that look operational before the backing
-behavior exists.
+Terminal may mention later PTY direction such as tabs, splits, event streaming,
+or history in concise copy, but must not render controls that look operational
+before the backing behavior exists.
 
 ## Recommended Follow-Up Blocks
 
@@ -564,9 +575,9 @@ behavior exists.
 
 ## Non-Goals
 
-The current backend foundation still does not implement:
+The current PTY foundation still does not implement:
 
-- UI implementation.
+- Event-streamed output/lifecycle bridge hardening.
 - Tabs implementation.
 - Split panes implementation.
 - Storage/schema changes.

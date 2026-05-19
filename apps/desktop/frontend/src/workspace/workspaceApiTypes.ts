@@ -23,6 +23,7 @@ import type {
   CreateGitCommitRequest,
   CreateWorkspaceNoteRequest,
   CreateWorkspaceRequest,
+  CreateTerminalPtySessionRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
@@ -42,6 +43,7 @@ import type {
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
   ListAgentQueueTasksRequest,
+  ListTerminalPtySessionsRequest,
   ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
@@ -56,11 +58,15 @@ import type {
   StartAssignedAgentQueueTaskResponse,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
+  ResizeTerminalPtySessionRequest,
+  TerminalPtySession,
+  TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   UpdateWorkspaceNoteRequest,
   WidgetLogEntry,
+  WriteTerminalPtySessionRequest,
   WorkspaceNote,
   WorkspaceSessionSummary,
   WorkspaceSummary,
@@ -177,6 +183,30 @@ export type WorkspaceApi = {
   runTerminalCommand: (
     request: RunTerminalCommandRequest,
   ) => Promise<RunTerminalCommandResponse | null>;
+  createTerminalPtySession: (
+    request: CreateTerminalPtySessionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  writeTerminalPtySession: (
+    request: WriteTerminalPtySessionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  resizeTerminalPtySession: (
+    request: ResizeTerminalPtySessionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  stopTerminalPtySession: (
+    request: TerminalPtySessionActionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  killTerminalPtySession: (
+    request: TerminalPtySessionActionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  closeTerminalPtySession: (
+    request: TerminalPtySessionActionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  getTerminalPtySession: (
+    request: TerminalPtySessionActionRequest,
+  ) => Promise<TerminalPtySession | null>;
+  listTerminalPtySessions: (
+    request: ListTerminalPtySessionsRequest,
+  ) => Promise<TerminalPtySession[]>;
   runCodexDirectWork: (
     request: RunCodexDirectWorkRequest,
   ) => Promise<RunCodexDirectWorkResponse | null>;

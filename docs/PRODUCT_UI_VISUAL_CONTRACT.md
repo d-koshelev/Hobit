@@ -345,17 +345,18 @@ Terminal target direction is a full shell with tabs and split panes.
 
 Rules:
 
-- Future PTY behavior is contract-gated by
+- PTY behavior is contract-gated by
   `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - PTY/session behavior must be contract-gated before implementation.
-- Do not show full shell UI until PTY/session support exists.
+- Do not show full shell UI beyond implemented PTY/session support.
 - Current one-shot command behavior must remain visually honest.
-- Future PTY UI must show shell, running/closed status, and explicit working
+- PTY UI must show shell, running/closed status, and explicit working
   directory / execution workspace.
-- Stop and kill controls must not appear active until lifecycle support exists.
-- Current Terminal must not imply stdin, streaming, cancellation, tabs, split
-  panes, shell history, environment profile support, or Script Runner behavior
-  until those features exist.
+- Stop and kill controls must not appear active outside the implemented
+  lifecycle path.
+- Current Terminal must not imply event-streaming, tabs, split panes,
+  persistent shell history, environment profile support, Agent/Queue/Coordinator
+  control, or Script Runner behavior until those features exist.
 
 ### Notes
 

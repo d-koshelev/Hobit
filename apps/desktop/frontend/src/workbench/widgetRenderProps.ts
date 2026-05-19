@@ -19,18 +19,24 @@ import type {
   ForceKillCodexDirectWorkRunResponse,
   GitCommitResponse,
   GitRepositoryStatus,
+  CreateTerminalPtySessionRequest,
+  ListTerminalPtySessionsRequest,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
   RunDirectWorkValidationResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  ResizeTerminalPtySessionRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartCodexDirectWorkStreamResponse,
+  TerminalPtySession,
+  TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
   UpdateWorkspaceNoteRequest,
   WorkspaceNote,
+  WriteTerminalPtySessionRequest,
 } from "../workspace/types";
 import type {
   AgentExecutorSlot,
@@ -160,6 +166,58 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<RunTerminalCommandResponse | null>;
+  onCreateTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      CreateTerminalPtySessionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onWriteTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      WriteTerminalPtySessionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onResizeTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      ResizeTerminalPtySessionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onStopTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      TerminalPtySessionActionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onKillTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      TerminalPtySessionActionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onCloseTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      TerminalPtySessionActionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onGetTerminalPtySession?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      TerminalPtySessionActionRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<TerminalPtySession | null>;
+  onListTerminalPtySessions?: (
+    request?: Omit<ListTerminalPtySessionsRequest, "workspaceId" | "workbenchId">,
+  ) => Promise<TerminalPtySession[]>;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;

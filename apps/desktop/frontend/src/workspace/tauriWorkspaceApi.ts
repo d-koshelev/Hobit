@@ -35,6 +35,16 @@ import {
   updateJdbcConnector,
 } from "./tauriJdbcConnectorApi";
 import { runTerminalCommand } from "./tauriTerminalCommandApi";
+import {
+  closeTerminalPtySession,
+  createTerminalPtySession,
+  getTerminalPtySession,
+  killTerminalPtySession,
+  listTerminalPtySessions,
+  resizeTerminalPtySession,
+  stopTerminalPtySession,
+  writeTerminalPtySession,
+} from "./tauriTerminalPtyApi";
 import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
 import {
   createWorkspaceNote,
@@ -94,6 +104,14 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   runTerminalCommand,
+  createTerminalPtySession,
+  writeTerminalPtySession,
+  resizeTerminalPtySession,
+  stopTerminalPtySession,
+  killTerminalPtySession,
+  closeTerminalPtySession,
+  getTerminalPtySession,
+  listTerminalPtySessions,
   runCodexDirectWork,
   runDirectWorkValidation,
   cancelCodexDirectWorkRun,

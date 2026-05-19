@@ -1,0 +1,123 @@
+.terminal-mode-switch {
+  display: inline-flex;
+  width: fit-content;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.terminal-mode-switch .button {
+  min-height: 30px;
+}
+
+.terminal-pty-panel {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.terminal-pty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.terminal-pty-kill-action {
+  position: relative;
+  display: inline-flex;
+}
+
+.terminal-pty-kill-button {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.terminal-pty-kill-button:not(:disabled):hover {
+  border-color: var(--color-error);
+  background: color-mix(
+    in srgb,
+    var(--color-error-soft) 72%,
+    var(--color-overlay-surface)
+  );
+  color: var(--color-error);
+}
+
+.terminal-pty-kill-confirm {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  display: grid;
+  width: min(340px, calc(100vw - 48px));
+  gap: var(--space-sm);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  box-shadow: var(--shadow-widget);
+  padding: var(--space-sm);
+}
+
+.terminal-pty-kill-confirm .terminal-run-notice-title {
+  color: var(--color-error);
+}
+
+.terminal-pty-kill-confirm-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.terminal-pty-summary {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-sm);
+}
+
+.terminal-pty-stdin-row {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.terminal-pty-stdin {
+  min-height: 42px;
+  padding-block: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.terminal-pty-output-card {
+  min-width: 0;
+}
+
+.terminal-pty-output {
+  min-height: 220px;
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  color: var(--color-text-secondary);
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .terminal-mode-switch {
+    width: 100%;
+  }
+
+  .terminal-mode-switch .button {
+    flex: 1 1 0;
+  }
+}

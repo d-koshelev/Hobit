@@ -108,11 +108,13 @@ class QueueExecutorSmokeRuntime {
         };
       },
       cancelCodexDirectWorkRun: async () => this.forbidden(null),
+      closeTerminalPtySession: async () => this.forbidden(null),
       forceKillCodexDirectWorkRun: async () => this.forbidden(null),
       clearAgentQueueTaskAssignment: async () => this.cloneTask(),
       createAgentQueueTask: async () => this.cloneTask(),
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
+      createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
       getAgentExecutorDiffSummary: async () => null,
       getAgentExecutorRunDetail: async () => {
@@ -128,7 +130,9 @@ class QueueExecutorSmokeRuntime {
       getAgentQueueTask: async () => this.cloneTask(),
       getGitRepositoryStatus: async () => null,
       getJdbcConnector: this.unsupported,
+      getTerminalPtySession: async () => this.forbidden(null),
       getWorkspaceNote: async () => null,
+      killTerminalPtySession: async () => this.forbidden(null),
       listAgentExecutorRuns: async () => {
         this.listExecutorRunsCallCount += 1;
         return this.executorRunHistory();
@@ -141,6 +145,7 @@ class QueueExecutorSmokeRuntime {
         return [this.cloneTask()];
       },
       listJdbcConnectors: this.unsupported,
+      listTerminalPtySessions: async () => [],
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => [],
       logRefreshTokens: {},
@@ -151,6 +156,7 @@ class QueueExecutorSmokeRuntime {
         this.terminalRunCallCount += 1;
         return this.forbidden(null);
       },
+      resizeTerminalPtySession: async () => this.forbidden(null),
       startAssignedAgentQueueTask: async (request) => {
         this.startCallCount += 1;
         this.task = {
@@ -168,11 +174,13 @@ class QueueExecutorSmokeRuntime {
         } satisfies StartAssignedAgentQueueTaskResponse;
       },
       startCodexDirectWorkStream: async () => this.forbidden(null),
+      stopTerminalPtySession: async () => this.forbidden(null),
       updateAgentQueueTask: async () => this.cloneTask(),
       updateJdbcConnector: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => null,
+      writeTerminalPtySession: async () => this.forbidden(null),
     } satisfies WorkbenchWidgetInstanceActions;
   }
 

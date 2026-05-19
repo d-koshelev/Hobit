@@ -82,17 +82,27 @@ future widget capability.
 
 ### Terminal
 
-- Desktop-only one-shot command runner for persisted Terminal widget
-  instances.
-- Uses explicit program, argv, working directory, timeout, and output caps.
-- This one-shot behavior remains the current `Run command` capability until a
-  future PTY/session UI lands.
-- Is not a shell, PTY, interactive terminal, stdin session, streaming console,
-  command history, or Script Runner runtime.
+- Desktop-only Terminal widget with two visible modes:
+  - `PTY session` for a manual operator-controlled shell session.
+  - `Run command` for the existing bounded one-shot command runner.
+- PTY session mode uses explicit shell executable, optional shell argv,
+  explicit execution workspace / working directory, visible status, bounded
+  session-only output buffer display, stdin send, manual refresh/polling,
+  resize by columns/rows, Stop, Kill with confirmation, and Close.
+- PTY output/history is not persisted to storage, does not create widget
+  run/result records, and is not sent to AI, Queue, Git, Notes, Agent
+  Executor, or Evidence/Sources.
+- Browser/Vite fallback and unsupported platforms report unsupported state
+  honestly.
+- One-shot `Run command` mode still uses explicit program, argv, working
+  directory, timeout, and output caps, creates widget run/log/result records,
+  and shows the final stdout/stderr result.
+- Terminal does not implement tabs, split panes, persistent command history,
+  persistent transcripts, shell profiles, environment/secrets support,
+  Agent-triggered execution, Queue-triggered execution, Coordinator control, or
+  Script Runner behavior.
 - Future interactive shell behavior is governed by
-  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. A desktop backend/Tauri PTY session
-  foundation exists for explicit Terminal widget owners, but no frontend PTY UI
-  consumes it yet.
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 
 ### Notes
 
