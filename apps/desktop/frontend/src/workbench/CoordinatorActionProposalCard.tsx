@@ -3,9 +3,15 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import type {
   CoordinatorActionProposal,
-  CoordinatorProposalApprovalStatus,
   CoordinatorProposalInput,
 } from "./coordinatorActionProposalRegistry";
+import {
+  formatProposalDetails,
+  getProposalCardState,
+  isSqlSuggestionInput,
+  proposalInputValue,
+  type ProposalResultDisplay,
+} from "./coordinatorActionProposalCardState";
 
 type ProposalPatch = {
   expectedResult: string;
@@ -119,6 +125,7 @@ export function CoordinatorActionProposalCard({
     proposal.typeId === "create-agent-queue-task";
   const isApproved = proposal.approvalStatus === "Approved preview";
   const sqlSuggestion = proposalInputValue(proposal, "Suggested SQL text");
+  const cardState = getProposalCardState(proposal);
   const canCreateNote =
     isCreateNoteProposal && isApproved && !hasCreatedNote;
   const canCreateQueueTask =
@@ -132,35 +139,43 @@ export function CoordinatorActionProposalCard({
   return (
     <section
       aria-label={`Coordinator action proposal: ${proposal.title}`}
-      className="coordinator-proposal-card"
+      className={`coordinator-proposal-card coordinator-proposal-card-${cardState.tone}`}
     >
       <div className="coordinator-proposal-header">
         <div className="coordinator-proposal-title-copy">
-          <p className="coordinator-proposal-kicker">
-            {isCreateQueueTaskProposal
-              ? "Queue task proposal"
-              : isCreateNoteProposal
-                ? "Note proposal"
-                : isJdbcQuerySuggestion
-                  ? "JDBC SQL suggestion"
-              : "Local inert proposal"}
-          </p>
+          <p className="coordinator-proposal-kicker">{cardState.typeLabel}</p>
           <h4 className="coordinator-proposal-title">{proposal.title}</h4>
+          <dl className="coordinator-proposal-summary">
+            <ProposalMeta label="Target" value={proposal.targetWidget} />
+            <ProposalMeta label="Capability" value={proposal.targetCapability} />
+            <ProposalMeta label="Risk" value={proposal.riskLevel} />
+          </dl>
         </div>
         <div className="coordinator-proposal-badges">
-          <Badge variant={approvalBadgeVariant(proposal.approvalStatus)}>
+          <Badge variant={cardState.approvalVariant}>
             {proposal.approvalStatus}
           </Badge>
-          <Badge variant={executionBadgeVariant(proposal.executionStatus)}>
+          <Badge variant={cardState.executionVariant}>
             {proposal.executionStatus}
           </Badge>
         </div>
       </div>
 
-      <div className="coordinator-proposal-meta-grid">
-        <ProposalMeta label="Target widget" value={proposal.targetWidget} />
-        <ProposalMeta label="Capability" value={proposal.targetCapability} />
-        <ProposalMeta label="Risk" value={proposal.riskLevel} />
+      <div
+        className={`coordinator-proposal-state coordinator-proposal-state-${cardState.tone}`}
+      >
+        <span
+          aria-hidden="true"
+          className={`status-dot status-dot-${cardState.statusDotVariant}`}
+        />
+        <div className="coordinator-proposal-state-copy">
+          <p className="coordinator-proposal-state-label">
+            {cardState.stateLabel}
+          </p>
+          <p className="coordinator-proposal-state-description">
+            {cardState.stateDescription}
+          </p>
+        </div>
       </div>
 
       {isEditing ? (
@@ -168,6 +183,14 @@ export function CoordinatorActionProposalCard({
           aria-label="Edit proposal preview fields"
           className="coordinator-proposal-edit"
         >
+          <div className="coordinator-proposal-edit-heading">
+            <p className="coordinator-proposal-section-label">
+              Editing visible proposal fields
+            </p>
+            <p className="coordinator-proposal-section-value">
+              Save changes returns this card to review. No action runs.
+            </p>
+          </div>
           <label
             className="coordinator-proposal-label"
             htmlFor={`${editFormId}-intent`}
@@ -239,39 +262,21 @@ export function CoordinatorActionProposalCard({
               ))}
             </dl>
           </div>
-          <div className="coordinator-proposal-section">
-            <p className="coordinator-proposal-section-label">
-              Risk / safety notes
-            </p>
+          <details className="coordinator-proposal-safety" open>
+            <summary>Risk / safety notes</summary>
             <ul className="coordinator-proposal-risk-list">
               {proposal.riskNotes.map((riskNote) => (
                 <li key={riskNote}>{riskNote}</li>
               ))}
             </ul>
-          </div>
+          </details>
           <ProposalSection
             label="Expected result"
             value={proposal.expectedResult}
           />
-          {proposal.createdQueueTaskId ? (
-            <ProposalSection
-              label="Created Queue task"
-              value={`${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`}
-            />
+          {cardState.result ? (
+            <ProposalResult result={cardState.result} />
           ) : null}
-          {proposal.createdNoteId ? (
-            <ProposalSection
-              label="Created Note"
-              value={`${proposal.createdNoteTitle ?? "Note"} (${proposal.createdNoteId})`}
-            />
-          ) : null}
-          {proposal.executionError ? (
-            <ProposalSection label="Error" value={proposal.executionError} />
-          ) : null}
-          <ProposalSection
-            label="Result summary"
-            value={proposal.resultSummary}
-          />
         </>
       )}
 
@@ -279,7 +284,7 @@ export function CoordinatorActionProposalCard({
         {isEditing ? (
           <>
             <Button onClick={saveEdit} variant="primary">
-              Save edit
+              Save changes
             </Button>
             <Button onClick={cancelEdit} variant="ghost">
               Cancel
@@ -360,9 +365,9 @@ export function CoordinatorActionProposalCard({
 
 function ProposalMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="coordinator-proposal-meta">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
@@ -376,106 +381,16 @@ function ProposalSection({ label, value }: { label: string; value: string }) {
   );
 }
 
-function approvalBadgeVariant(
-  status: CoordinatorProposalApprovalStatus,
-): "info" | "success" | "warning" | "error" {
-  if (status === "Approved preview") {
-    return "success";
-  }
-  if (status === "Rejected preview") {
-    return "error";
-  }
-  if (status === "Edited preview") {
-    return "info";
-  }
-  return "warning";
-}
-
-function executionBadgeVariant(
-  status: CoordinatorActionProposal["executionStatus"],
-): "neutral" | "info" | "success" | "warning" | "error" {
-  if (status === "Queue task created") {
-    return "success";
-  }
-  if (status === "Note created") {
-    return "success";
-  }
-  if (
-    status === "Queue task creation failed" ||
-    status === "Note creation failed"
-  ) {
-    return "error";
-  }
-  if (
-    status === "Ready to create Queue task" ||
-    status === "Creating Queue task" ||
-    status === "Ready to create Note" ||
-    status === "Creating Note" ||
-    status === "SQL suggestion only"
-  ) {
-    return "info";
-  }
-  if (status === "Execution bridge not implemented") {
-    return "warning";
-  }
-  return "neutral";
-}
-
-function formatProposalDetails(proposal: CoordinatorActionProposal) {
-  const inputs = proposal.inputs
-    .map((input) => `- ${input.label}: ${input.value}`)
-    .join("\n");
-  const riskNotes = proposal.riskNotes.map((note) => `- ${note}`).join("\n");
-
-  return [
-    `Title: ${proposal.title}`,
-    `Target widget: ${proposal.targetWidget}`,
-    `Capability: ${proposal.targetCapability}`,
-    `Risk: ${proposal.riskLevel}`,
-    `Approval status: ${proposal.approvalStatus}`,
-    `Execution status: ${proposal.executionStatus}`,
-    "",
-    `Intent: ${proposal.intent}`,
-    "",
-    "Visible inputs:",
-    inputs,
-    "",
-    "Risk / safety notes:",
-    riskNotes,
-    "",
-    `Expected result: ${proposal.expectedResult}`,
-    proposal.createdQueueTaskId
-      ? `Created Queue task: ${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`
-      : null,
-    proposal.createdNoteId
-      ? `Created Note: ${proposal.createdNoteTitle ?? "Note"} (${proposal.createdNoteId})`
-      : null,
-    proposal.executionError ? `Error: ${proposal.executionError}` : null,
-    `Result summary: ${proposal.resultSummary}`,
-    "",
-    proposal.typeId === "create-agent-queue-task"
-      ? "Queue task creation requires approval and a separate Create Queue task action. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
-      : proposal.typeId === "create-note"
-        ? "Note creation requires approval and a separate Create Note action. No existing Notes content is read, and no provider runtime, Queue task, Agent Executor launch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
-        : proposal.typeId === "prepare-jdbc-query-suggestion"
-          ? "SQL suggestion only. Copy SQL copies only the visible SQL text. No connector access, database call, EXPLAIN, provider runtime, Terminal command, Git mutation, Queue dispatch, Agent Executor launch, or JDBC SQL execution is triggered."
-        : "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
-  ]
-    .filter((line): line is string => line !== null)
-    .join("\n");
-}
-
-function proposalInputValue(
-  proposal: CoordinatorActionProposal,
-  label: string,
-) {
+function ProposalResult({ result }: { result: ProposalResultDisplay }) {
   return (
-    proposal.inputs
-      .find((input) => input.label.toLowerCase() === label.toLowerCase())
-      ?.value.trim() ?? ""
+    <div
+      className={`coordinator-proposal-result coordinator-proposal-result-${result.tone}`}
+    >
+      <p className="coordinator-proposal-section-label">{result.title}</p>
+      <p className="coordinator-proposal-section-value">{result.detail}</p>
+      {result.summary ? (
+        <p className="coordinator-proposal-note">{result.summary}</p>
+      ) : null}
+    </div>
   );
-}
-
-function isSqlSuggestionInput(input: CoordinatorProposalInput) {
-  return input.label.toLowerCase() === "suggested sql text";
 }
