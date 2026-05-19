@@ -151,6 +151,36 @@ pub struct WorkspaceNoteUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewJdbcConnector<'a> {
+    pub connector_id: &'a str,
+    pub workspace_id: &'a str,
+    pub display_name: &'a str,
+    pub database_kind: &'a str,
+    pub driver_kind: &'a str,
+    pub jdbc_url_masked: &'a str,
+    pub environment: &'a str,
+    pub read_only_default: bool,
+    pub status: &'a str,
+    pub notes: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub last_used_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JdbcConnectorUpdate<'a> {
+    pub display_name: &'a str,
+    pub database_kind: &'a str,
+    pub driver_kind: &'a str,
+    pub jdbc_url_masked: &'a str,
+    pub environment: &'a str,
+    pub read_only_default: bool,
+    pub status: &'a str,
+    pub notes: &'a str,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewSharedStateObject<'a> {
     pub id: &'a str,
     pub workspace_id: &'a str,

@@ -12,6 +12,7 @@ import {
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
 import { createGitCommit } from "./tauriGitCommitApi";
+import { createJdbcConnector, getJdbcConnector, listJdbcConnectors, updateJdbcConnector } from "./tauriJdbcConnectorApi";
 import { createWorkspaceNote, getWorkspaceNote, listWorkspaceNotes, updateWorkspaceNote } from "./tauriWorkspaceNotesApi";
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
@@ -46,6 +47,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listWorkspaceNotes,
   getWorkspaceNote,
   updateWorkspaceNote,
+  createJdbcConnector, listJdbcConnectors, getJdbcConnector, updateJdbcConnector,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

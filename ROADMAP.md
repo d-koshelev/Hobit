@@ -33,7 +33,6 @@ Near-term product direction:
 
 Recommended next blocks:
 
-- Block 208 - JDBC connector model/API foundation.
 - Block 209 - JDBC query UI MVP.
 - Block 210 - Coordinator action proposal UI pattern.
 - Block 211 - Coordinator to JDBC read-only query proposal flow.
@@ -193,8 +192,10 @@ pinning, autosave, or other multi-note UI.
 
 ## Early Non-Goals
 
-- No real JDBC integration until `docs/JDBC_WIDGET_CONTRACT.md` is followed
-  by focused connector model/API and read-only execution blocks.
+- No real JDBC execution until `docs/JDBC_WIDGET_CONTRACT.md` is followed by
+  focused read-only execution, result limit, and approval blocks. The connector
+  metadata API foundation exists, but no JDBC UI, credentials, sidecar, query
+  runner, `EXPLAIN`, or AI SQL assistance exists yet.
 - No real image editing yet.
 - No full drag-and-drop layout editor yet.
 - No Knowledge Catalog implementation yet.

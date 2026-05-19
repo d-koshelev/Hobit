@@ -1,13 +1,13 @@
 use hobit_storage_sqlite::{
-    AgentQueueTaskRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow,
-    WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
-    AgentQueueTaskSummary, SharedStateObjectSummary, WidgetInstanceSummary, WidgetLogSummary,
-    WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceNoteSummary, WorkspaceSummary,
+    AgentQueueTaskSummary, JdbcConnectorSummary, SharedStateObjectSummary, WidgetInstanceSummary,
+    WidgetLogSummary, WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -111,6 +111,24 @@ pub(super) fn workspace_note_summary(row: WorkspaceNoteRow) -> WorkspaceNoteSumm
         archived: row.archived,
         created_at: row.created_at,
         updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn jdbc_connector_summary(row: JdbcConnectorRow) -> JdbcConnectorSummary {
+    JdbcConnectorSummary {
+        connector_id: row.connector_id,
+        workspace_id: row.workspace_id,
+        display_name: row.display_name,
+        database_kind: row.database_kind,
+        driver_kind: row.driver_kind,
+        jdbc_url_masked: row.jdbc_url_masked,
+        environment: row.environment,
+        read_only_default: row.read_only_default,
+        status: row.status,
+        notes: row.notes,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        last_used_at: row.last_used_at,
     }
 }
 

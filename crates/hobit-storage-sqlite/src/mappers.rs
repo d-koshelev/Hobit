@@ -3,9 +3,10 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueItemRow, AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow,
+    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -159,6 +160,24 @@ pub(crate) fn workspace_note_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceNot
         archived: i64_to_bool(row.get(5)?),
         created_at: row.get(6)?,
         updated_at: row.get(7)?,
+    })
+}
+
+pub(crate) fn jdbc_connector_row(row: &rusqlite::Row<'_>) -> Result<JdbcConnectorRow> {
+    Ok(JdbcConnectorRow {
+        connector_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        display_name: row.get(2)?,
+        database_kind: row.get(3)?,
+        driver_kind: row.get(4)?,
+        jdbc_url_masked: row.get(5)?,
+        environment: row.get(6)?,
+        read_only_default: i64_to_bool(row.get(7)?),
+        status: row.get(8)?,
+        notes: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
+        last_used_at: row.get(12)?,
     })
 }
 

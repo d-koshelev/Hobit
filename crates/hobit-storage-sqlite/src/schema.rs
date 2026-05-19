@@ -134,6 +134,22 @@ CREATE TABLE IF NOT EXISTS notes (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS jdbc_connectors (
+    connector_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    display_name TEXT NOT NULL,
+    database_kind TEXT NOT NULL,
+    driver_kind TEXT NOT NULL,
+    jdbc_url_masked TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    read_only_default INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    notes TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_used_at TEXT NULL
+);
+
 CREATE TABLE IF NOT EXISTS shared_state_objects (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -191,6 +207,12 @@ CREATE INDEX IF NOT EXISTS idx_notes_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_notes_workspace_ordering
     ON notes(workspace_id, archived, pinned, updated_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_id
+    ON jdbc_connectors(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_ordering
+    ON jdbc_connectors(workspace_id, updated_at, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
     ON shared_state_objects(workspace_id);

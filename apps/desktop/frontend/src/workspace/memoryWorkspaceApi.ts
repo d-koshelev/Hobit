@@ -1,5 +1,12 @@
 import type { WorkspaceApi } from "./workspaceApi";
 import type {
+  CreateJdbcConnectorRequest,
+  GetJdbcConnectorRequest,
+  JdbcConnector,
+  ListJdbcConnectorsRequest,
+  UpdateJdbcConnectorRequest,
+} from "./jdbcConnectorTypes";
+import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
@@ -80,6 +87,10 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   listWorkspaceNotes,
   getWorkspaceNote,
   updateWorkspaceNote,
+  createJdbcConnector,
+  listJdbcConnectors,
+  getJdbcConnector,
+  updateJdbcConnector,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
@@ -236,6 +247,38 @@ async function updateWorkspaceNote(
 ): Promise<WorkspaceNote | null> {
   throw new Error(
     "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot update workspace notes.",
+  );
+}
+
+async function createJdbcConnector(
+  _request: CreateJdbcConnectorRequest,
+): Promise<JdbcConnector> {
+  throw new Error(
+    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot persist JDBC connectors.",
+  );
+}
+
+async function listJdbcConnectors(
+  _request: ListJdbcConnectorsRequest,
+): Promise<JdbcConnector[]> {
+  throw new Error(
+    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot read JDBC connectors.",
+  );
+}
+
+async function getJdbcConnector(
+  _request: GetJdbcConnectorRequest,
+): Promise<JdbcConnector | null> {
+  throw new Error(
+    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot read JDBC connectors.",
+  );
+}
+
+async function updateJdbcConnector(
+  _request: UpdateJdbcConnectorRequest,
+): Promise<JdbcConnector | null> {
+  throw new Error(
+    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot update JDBC connectors.",
   );
 }
 

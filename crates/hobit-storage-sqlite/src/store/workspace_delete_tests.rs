@@ -19,6 +19,7 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
     let queue_id = format!("queue-{suffix}");
     let queue_task_id = format!("queue-task-{suffix}");
     let note_id = format!("note-{suffix}");
+    let jdbc_connector_id = format!("jdbc-{suffix}");
 
     store
         .create_workspace(workspace_id, "Workspace", None, "active")
@@ -165,6 +166,23 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
             updated_at: Some("6"),
         })
         .expect("create note");
+    store
+        .create_jdbc_connector(NewJdbcConnector {
+            connector_id: &jdbc_connector_id,
+            workspace_id,
+            display_name: "Workspace JDBC connector",
+            database_kind: "postgres",
+            driver_kind: "jdbc",
+            jdbc_url_masked: "jdbc:postgresql://db.example.test/app",
+            environment: "dev",
+            read_only_default: true,
+            status: "not_configured",
+            notes: "metadata only",
+            created_at: Some("7"),
+            updated_at: Some("7"),
+            last_used_at: None,
+        })
+        .expect("create JDBC connector");
 }
 
 #[test]
@@ -230,6 +248,10 @@ fn deleting_workspace_removes_workspace_and_local_children() {
         .get_note_by_id("note-delete")
         .expect("get deleted note")
         .is_none());
+    assert!(store
+        .get_jdbc_connector_by_id("jdbc-delete")
+        .expect("get deleted JDBC connector")
+        .is_none());
 }
 
 #[test]
@@ -275,6 +297,10 @@ fn deleting_one_workspace_preserves_other_workspace_graph() {
     assert!(store
         .get_note_by_id("note-keep")
         .expect("get kept note")
+        .is_some());
+    assert!(store
+        .get_jdbc_connector_by_id("jdbc-keep")
+        .expect("get kept JDBC connector")
         .is_some());
 }
 

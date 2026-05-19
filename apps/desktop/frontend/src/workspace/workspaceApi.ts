@@ -2,6 +2,13 @@ import { memoryWorkspaceApi } from "./memoryWorkspaceApi";
 import { tauriWorkspaceApi } from "./tauriWorkspaceApi";
 import { isTauriRuntime } from "./tauriEnvironment";
 import type {
+  CreateJdbcConnectorRequest,
+  GetJdbcConnectorRequest,
+  JdbcConnector,
+  ListJdbcConnectorsRequest,
+  UpdateJdbcConnectorRequest,
+} from "./jdbcConnectorTypes";
+import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
@@ -90,6 +97,18 @@ export type WorkspaceApi = {
   updateWorkspaceNote: (
     request: UpdateWorkspaceNoteRequest,
   ) => Promise<WorkspaceNote | null>;
+  createJdbcConnector: (
+    request: CreateJdbcConnectorRequest,
+  ) => Promise<JdbcConnector>;
+  listJdbcConnectors: (
+    request: ListJdbcConnectorsRequest,
+  ) => Promise<JdbcConnector[]>;
+  getJdbcConnector: (
+    request: GetJdbcConnectorRequest,
+  ) => Promise<JdbcConnector | null>;
+  updateJdbcConnector: (
+    request: UpdateJdbcConnectorRequest,
+  ) => Promise<JdbcConnector | null>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;
@@ -238,6 +257,30 @@ export function updateWorkspaceNote(
   request: UpdateWorkspaceNoteRequest,
 ): Promise<WorkspaceNote | null> {
   return getWorkspaceApi().updateWorkspaceNote(request);
+}
+
+export function createJdbcConnector(
+  request: CreateJdbcConnectorRequest,
+): Promise<JdbcConnector> {
+  return getWorkspaceApi().createJdbcConnector(request);
+}
+
+export function listJdbcConnectors(
+  request: ListJdbcConnectorsRequest,
+): Promise<JdbcConnector[]> {
+  return getWorkspaceApi().listJdbcConnectors(request);
+}
+
+export function getJdbcConnector(
+  request: GetJdbcConnectorRequest,
+): Promise<JdbcConnector | null> {
+  return getWorkspaceApi().getJdbcConnector(request);
+}
+
+export function updateJdbcConnector(
+  request: UpdateJdbcConnectorRequest,
+): Promise<JdbcConnector | null> {
+  return getWorkspaceApi().updateJdbcConnector(request);
 }
 
 export function addWidgetInstanceToWorkbench(

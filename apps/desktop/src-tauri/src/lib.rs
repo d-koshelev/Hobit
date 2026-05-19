@@ -27,6 +27,10 @@ mod database_startup;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
+mod jdbc_connector_commands;
+mod jdbc_connector_dto;
+#[cfg(test)]
+mod jdbc_connector_dto_tests;
 mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
@@ -76,6 +80,10 @@ pub fn run() {
             notes_commands::list_workspace_notes,
             notes_commands::get_workspace_note,
             notes_commands::update_workspace_note,
+            jdbc_connector_commands::create_jdbc_connector,
+            jdbc_connector_commands::list_jdbc_connectors,
+            jdbc_connector_commands::get_jdbc_connector,
+            jdbc_connector_commands::update_jdbc_connector,
             agent_queue_task_commands::create_agent_queue_task,
             agent_queue_task_commands::list_agent_queue_tasks,
             agent_queue_task_commands::get_agent_queue_task,

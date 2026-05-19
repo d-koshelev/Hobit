@@ -166,6 +166,10 @@ scope candidate for the Coordinator-centered database investigation scenario.
 The contract is defined in `docs/JDBC_WIDGET_CONTRACT.md`; implementation must
 preserve read-only defaults, connector secret isolation, explicit approval,
 capped results, and explicit AI context sharing.
+Workspace-local JDBC connector metadata storage/API now exists for
+create/list/read/update, but there is still no catalog widget, connector UI,
+credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI assistance, or
+Coordinator tool runtime.
 
 ## Compatibility Notes
 
@@ -180,7 +184,6 @@ capped results, and explicit AI context sharing.
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Block 208 - JDBC connector model/API foundation.
 - Block 209 - JDBC query UI MVP.
 - Runbook persistence and edit mode later.
 - Agent Queue dependency blocks later.

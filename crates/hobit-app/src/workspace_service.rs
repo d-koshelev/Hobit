@@ -19,6 +19,8 @@ mod direct_work_stream;
 mod direct_work_validation;
 mod git;
 mod git_commit;
+mod jdbc_connector_types;
+mod jdbc_connectors;
 mod logs;
 mod mapping;
 mod notes;
@@ -57,6 +59,8 @@ mod direct_work_validation_tests;
 #[cfg(test)]
 mod git_commit_tests;
 #[cfg(test)]
+mod jdbc_connectors_tests;
+#[cfg(test)]
 mod notes_tests;
 #[cfg(test)]
 mod terminal_tests;
@@ -74,6 +78,9 @@ pub use agent_queue_task_types::{
     AssignedAgentQueueTaskStartSummary, ClearAgentQueueTaskAssignmentInput,
     CreateAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+};
+pub use jdbc_connector_types::{
+    CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,
 };
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
