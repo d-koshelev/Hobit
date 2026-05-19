@@ -30,7 +30,7 @@ export type PopoutPositionMap = Partial<
 
 type LayoutSurfaceRect = Pick<DOMRect, "height" | "left" | "top" | "width">;
 
-export const WORKBENCH_GRID_SIZE_OPTIONS = [16, 24, 32, 48] as const;
+export const WORKBENCH_GRID_SIZE_OPTIONS = [12, 16, 20, 24, 28] as const;
 export type WorkbenchGridSize = (typeof WORKBENCH_GRID_SIZE_OPTIONS)[number];
 
 // Keep this in sync with the default --workbench-grid-step in styles/tokens.css.

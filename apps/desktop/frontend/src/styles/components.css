@@ -1273,33 +1273,53 @@
   font-size: var(--text-xs);
 }
 
-.git-status-summary-line,
-.git-status-boundary {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: var(--line-normal);
+.git-status-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: var(--space-xs);
 }
 
-.git-status-summary-line {
+.git-status-tile {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-io-surface);
-  color: var(--color-text-primary);
-  padding: var(--space-sm);
-  font-weight: 720;
-  overflow-wrap: anywhere;
+  padding: var(--space-xs) var(--space-sm);
 }
 
-.git-status-summary-line-clean {
-  border-color: var(--color-success);
+.git-status-tile-label,
+.git-status-tile-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.git-status-summary-line-dirty {
-  border-color: var(--color-warning);
-}
-
-.git-status-boundary {
+.git-status-tile-label {
   color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.git-status-tile-value {
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.git-status-tile-value-success {
+  color: var(--color-success);
+}
+
+.git-status-tile-value-warning {
+  color: var(--color-warning);
+}
+
+.git-status-tile-value-neutral {
+  color: var(--color-text-secondary);
 }
 
 .git-status-commit {

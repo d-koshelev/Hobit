@@ -13,7 +13,8 @@ import {
   gitChangeKindBadgeVariant,
   gitChangeKindLabel,
   gitFileRiskHints,
-  gitStatusCompactLine,
+  aheadBehindLabel,
+  branchLabel,
   gitStatusSummary,
   repositoryRootHelpText,
   shortCommitHash,
@@ -166,16 +167,7 @@ export function GitStatusCard({
         </div>
       </div>
 
-      <p
-        className={`git-status-summary-line git-status-summary-line-${statusSummary.stateTone}`}
-      >
-        {gitStatusCompactLine(status)}
-      </p>
-
-      <p className="git-status-boundary">
-        Status refresh is read-only; it does not fetch, poll, watch, or mutate
-        Git.
-      </p>
+      <GitStatusTileGrid status={status} />
 
       {status.lastCommit ? (
         <GitLastCommitSummary commit={status.lastCommit} />
@@ -194,6 +186,61 @@ export function GitStatusCard({
 
       <GitChangedFilesSummary changedFiles={status.changedFiles} />
     </section>
+  );
+}
+
+function GitStatusTileGrid({ status }: { status: GitRepositoryStatus }) {
+  const statusSummary = gitStatusSummary(status);
+  const tiles = [
+    {
+      label: "Branch",
+      value: branchLabel(status.branch),
+    },
+    {
+      label: "Working tree status",
+      tone: statusSummary.stateBadgeVariant,
+      value: statusSummary.stateLabel,
+    },
+    {
+      label: "Changed files",
+      value: String(status.changedFiles.length),
+    },
+    {
+      label: "Staged",
+      value: String(status.workingTree.stagedCount),
+    },
+    {
+      label: "Unstaged",
+      value: String(status.workingTree.unstagedCount),
+    },
+    {
+      label: "Untracked",
+      value: String(status.workingTree.untrackedCount),
+    },
+    {
+      label: "Ahead/behind",
+      value: aheadBehindLabel(status.branch),
+    },
+  ];
+
+  return (
+    <div className="git-status-tile-grid" aria-label="Git status summary">
+      {tiles.map((tile) => (
+        <div className="git-status-tile" key={tile.label}>
+          <span className="git-status-tile-label">{tile.label}</span>
+          <span
+            className={
+              tile.tone
+                ? `git-status-tile-value git-status-tile-value-${tile.tone}`
+                : "git-status-tile-value"
+            }
+            title={tile.value}
+          >
+            {tile.value}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

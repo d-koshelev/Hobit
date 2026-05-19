@@ -125,6 +125,33 @@
   padding: 0 var(--space-sm);
 }
 
+.widget-actions .button.widget-icon-button {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.button-icon-refresh {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+}
+
+.button-icon-refresh::after {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid currentColor;
+  border-left: 4px solid transparent;
+  content: "";
+}
+
 .widget-remove-action {
   position: relative;
   display: inline-flex;

@@ -17,7 +17,6 @@ export type GitFrameStatusView = {
 export type GitStatusSummaryView = {
   stateBadgeVariant: "success" | "warning" | "neutral";
   stateLabel: string;
-  stateTone: "clean" | "dirty";
 };
 
 export type GitStatusErrorCategory =
@@ -125,31 +124,7 @@ export function gitStatusSummary(
         ? "warning"
         : "neutral",
     stateLabel: isClean ? "Clean" : "Dirty",
-    stateTone: isClean ? "clean" : "dirty",
   };
-}
-
-export function gitStatusCompactLine(status: GitRepositoryStatus) {
-  const parts = [
-    gitStatusSummary(status).stateLabel,
-    branchLabel(status.branch),
-  ];
-  const changeParts = [
-    countLabel(status.workingTree.stagedCount, "staged"),
-    countLabel(status.workingTree.unstagedCount, "unstaged"),
-    countLabel(status.workingTree.untrackedCount, "untracked"),
-  ].filter(Boolean);
-  const aheadBehind = aheadBehindLabel(status.branch);
-
-  parts.push(
-    ...(changeParts.length > 0 ? changeParts : ["0 changed files"]),
-  );
-
-  if (aheadBehind !== "Not reported") {
-    parts.push(aheadBehind);
-  }
-
-  return parts.join(" | ");
 }
 
 export function branchLabel(branch: GitBranchStatus | null) {
@@ -481,10 +456,6 @@ function pathSegmentLooksGenerated(path: string, segment: string) {
     path.startsWith(`${segment}/`) ||
     path.includes(`/${segment}/`)
   );
-}
-
-function countLabel(count: number, label: string) {
-  return count > 0 ? `${count} ${label}` : "";
 }
 
 function gitStatusErrorViewFromMessage(message: string): GitStatusErrorView {

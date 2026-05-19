@@ -45,8 +45,6 @@ export function NotesPlaceholderWidget({
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
-  const [saveStateText, setSaveStateText] = useState("Saved");
-
   const isDirty = Boolean(
     selectedNote &&
       (draftTitle !== selectedNote.title ||
@@ -111,7 +109,6 @@ export function NotesPlaceholderWidget({
         }
 
         setSelectedDraft(detail);
-        setSaveStateText("Saved");
       } catch (error) {
         setNotes([]);
         clearSelectedNote();
@@ -189,7 +186,6 @@ export function NotesPlaceholderWidget({
           note.noteId === detail.noteId ? detail : note,
         ),
       );
-      setSaveStateText("Saved");
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to open workspace note."));
     } finally {
@@ -221,7 +217,6 @@ export function NotesPlaceholderWidget({
     setIsSaving(true);
     setEditorError(null);
     setValidationMessage(null);
-    setSaveStateText("Saving");
 
     try {
       const updatedNote = await onUpdateWorkspaceNote({
@@ -233,7 +228,6 @@ export function NotesPlaceholderWidget({
 
       if (!updatedNote) {
         setEditorError("The selected workspace note could not be found.");
-        setSaveStateText("Unsaved changes");
         return;
       }
 
@@ -243,10 +237,8 @@ export function NotesPlaceholderWidget({
           note.noteId === updatedNote.noteId ? updatedNote : note,
         ),
       );
-      setSaveStateText("Saved");
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to save workspace note."));
-      setSaveStateText("Unsaved changes");
     } finally {
       setIsSaving(false);
     }
@@ -279,17 +271,19 @@ export function NotesPlaceholderWidget({
     setDraftTitle("");
     setDraftBody("");
     setDraftPinned(false);
-    setSaveStateText("Saved");
   }
 
   const notesFrameActions = (
     <>
       <Button
+        aria-label="Refresh notes"
+        className="widget-icon-button"
         disabled={isLoading || isSaving || !apiAvailable}
         onClick={refreshNotes}
+        title="Refresh notes"
         variant="ghost"
       >
-        Refresh
+        <span aria-hidden="true" className="button-icon-refresh" />
       </Button>
       <Button
         disabled={isCreating || isLoading || !apiAvailable}
@@ -309,9 +303,6 @@ export function NotesPlaceholderWidget({
     loadError,
     selectedNote,
   });
-  const selectedUpdatedText = selectedNote
-    ? formatUpdatedTimestamp(selectedNote.updatedAt)
-    : null;
   const singleState = notesSingleState({
     isLoading,
     loadError,
@@ -342,25 +333,13 @@ export function NotesPlaceholderWidget({
       ) : (
         <div className="notes-product-shell">
           <aside className="notes-list-pane" aria-label="Workspace notes">
-            <div className="notes-pane-header">
-              <div>
-                <p className="notes-pane-label">Workspace notes</p>
-                <p className="notes-pane-count">
-                  {notes.length === 1
-                    ? "1 note"
-                    : `${notes.length.toString()} notes`}
-                </p>
-              </div>
-            </div>
-            <label className="field-label" htmlFor={searchInputId}>
-              Filter
-            </label>
             <input
+              aria-label="Filter notes"
               className="input notes-search-input"
               disabled={isLoading || notes.length === 0}
               id={searchInputId}
               onChange={(event) => setSearchText(event.currentTarget.value)}
-              placeholder="Title or body"
+              placeholder="Filter"
               type="search"
               value={searchText}
             />
@@ -382,45 +361,58 @@ export function NotesPlaceholderWidget({
                 <p className="empty-state-text">No matching notes.</p>
               ) : (
                 filteredNotes.map((note) => {
-                  const updatedText = formatUpdatedTimestamp(note.updatedAt);
+                  const isSelected = selectedNote?.noteId === note.noteId;
 
                   return (
-                    <button
-                      aria-current={
-                        selectedNote?.noteId === note.noteId
-                          ? "true"
-                          : undefined
-                      }
+                    <div
                       className={
-                        selectedNote?.noteId === note.noteId
+                        isSelected
                           ? "notes-list-item notes-list-item-selected"
                           : "notes-list-item"
                       }
-                      disabled={isSelecting}
                       key={note.noteId}
-                      onClick={() => void selectNote(note.noteId)}
-                      type="button"
+                      role="listitem"
                     >
-                      <span className="notes-list-item-title-row">
+                      <button
+                        aria-current={isSelected ? "true" : undefined}
+                        className="notes-list-item-select"
+                        disabled={isSelecting}
+                        onClick={() => void selectNote(note.noteId)}
+                        type="button"
+                      >
                         <span className="notes-list-item-title">
                           {displayNoteTitle(note)}
                         </span>
-                        {note.pinned ? (
+                        <span className="notes-list-item-preview">
+                          {notePreview(note)}
+                        </span>
+                      </button>
+                      <span className="notes-list-pin-slot">
+                        {isSelected ? (
+                          <input
+                            aria-label={
+                              draftPinned
+                                ? "Unpin selected note"
+                                : "Pin selected note"
+                            }
+                            checked={draftPinned}
+                            className="notes-list-pin-checkbox"
+                            disabled={isSelecting || isSaving}
+                            onChange={(event) =>
+                              updateDraftPinned(event.currentTarget.checked)
+                            }
+                            title={
+                              draftPinned
+                                ? "Unpin selected note"
+                                : "Pin selected note"
+                            }
+                            type="checkbox"
+                          />
+                        ) : note.pinned ? (
                           <span className="notes-pin-marker">Pinned</span>
                         ) : null}
                       </span>
-                      <span className="notes-list-item-preview">
-                        {notePreview(note)}
-                      </span>
-                      {updatedText ? (
-                        <time
-                          className="notes-list-item-time"
-                          dateTime={note.updatedAt}
-                        >
-                          {updatedText}
-                        </time>
-                      ) : null}
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -442,45 +434,27 @@ export function NotesPlaceholderWidget({
               </div>
             ) : selectedNote ? (
               <div className="notes-editor">
-                <div className="notes-editor-meta">
-                  {selectedUpdatedText ? (
-                    <span>{selectedUpdatedText}</span>
-                  ) : null}
-                  <span>{isDirty ? "Unsaved changes" : saveStateText}</span>
-                </div>
-                <label className="field-label" htmlFor={titleInputId}>
-                  Title
-                </label>
                 <input
+                  aria-label="Note title"
                   className="input notes-title-input"
                   id={titleInputId}
                   onChange={(event) =>
                     updateDraftTitle(event.currentTarget.value)
                   }
+                  placeholder={DEFAULT_NOTE_TITLE}
                   value={draftTitle}
                 />
-                <label className="field-label" htmlFor={bodyInputId}>
-                  Body
-                </label>
                 <textarea
+                  aria-label="Note body"
                   className="input notes-body-input"
                   id={bodyInputId}
                   onChange={(event) =>
                     updateDraftBody(event.currentTarget.value)
                   }
+                  placeholder="Write note…"
                   value={draftBody}
                 />
                 <div className="notes-editor-controls">
-                  <label className="notes-pin-control">
-                    <input
-                      checked={draftPinned}
-                      onChange={(event) =>
-                        updateDraftPinned(event.currentTarget.checked)
-                      }
-                      type="checkbox"
-                    />
-                    Pinned
-                  </label>
                   <Button
                     disabled={!selectedNote || !isDirty || isSaving}
                     onClick={saveNote}
@@ -555,7 +529,9 @@ function statusBadge({
     return <Badge variant="warning">Unsaved</Badge>;
   }
 
-  return <Badge variant={selectedNote ? "success" : "neutral"}>Notes</Badge>;
+  return <Badge variant={selectedNote ? "success" : "neutral"}>
+    {selectedNote ? "Saved" : "Ready"}
+  </Badge>;
 }
 
 function displayNoteTitle(note: WorkspaceNote) {
@@ -599,21 +575,6 @@ function notesSingleState({
   }
 
   return null;
-}
-
-function formatUpdatedTimestamp(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-  }).format(date);
 }
 
 function errorToMessage(error: unknown, fallback: string): string {

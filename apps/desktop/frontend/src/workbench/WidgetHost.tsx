@@ -90,7 +90,6 @@ export function WidgetHost({
   instance,
   layoutMode,
   onDockBack,
-  onPopOut,
   onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
@@ -133,11 +132,7 @@ export function WidgetHost({
       <Button onClick={() => onDockBack(instance.id)} variant="secondary">
         Dock back
       </Button>
-    ) : (
-      <Button onClick={() => onPopOut(instance.id)} variant="ghost">
-        Float
-      </Button>
-    );
+    ) : null;
 
   const frameActions = (
     <>
