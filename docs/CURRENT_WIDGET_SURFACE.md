@@ -9,6 +9,9 @@ It is an inventory and boundary document only. It does not add runtime
 behavior, backend commands, storage, schema, queue execution, Git mutation, or
 new widgets.
 
+Contract-reading navigation is defined in
+`docs/ACTIVE_CONTRACT_INDEX.md`.
+
 ## Current User-Facing Widgets
 
 Ready:

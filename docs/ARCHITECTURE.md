@@ -36,6 +36,12 @@ user-facing workbench surface.
 
 ## Documentation Contracts
 
+`ACTIVE_CONTRACT_INDEX.md` is the compact navigation source for choosing which
+contracts to read for a block. If older documentation conflicts with that
+index, `CURRENT_WIDGET_SURFACE.md`, or
+`COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, treat the older text as stale and
+update or report it.
+
 `PRODUCT_POSITIONING.md` defines Hobit's core positioning as an operator-controlled AI Workbench for precise, fast, and efficient work with AI agents. Future architecture must not drift toward a generic hidden automation or agent-runner system.
 
 `DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.

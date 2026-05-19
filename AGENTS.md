@@ -20,6 +20,12 @@ Future Script Runner Widget work must preserve `docs/SCRIPT_RUNNER_WIDGET_CONTRA
 
 Before making changes, Codex must read the relevant project contracts.
 
+Current contract navigation is defined in `docs/ACTIVE_CONTRACT_INDEX.md`.
+Use it to choose the smallest relevant reading set for future blocks. If older
+guidance conflicts with the active index, `docs/CURRENT_WIDGET_SURFACE.md`, or
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, treat the older text as
+stale and report or update it in a focused cleanup block.
+
 Always read:
 - README.md
 - docs/PRODUCT_POSITIONING.md
