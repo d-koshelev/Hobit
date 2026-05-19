@@ -93,7 +93,8 @@
 }
 
 .terminal-placeholder-output {
-  max-height: 220px;
+  min-height: 132px;
+  max-height: 300px;
   margin: 0;
   overflow: auto;
   border: 1px solid var(--color-border-subtle);
@@ -111,7 +112,7 @@
 .terminal-command-panel,
 .terminal-result-card {
   display: grid;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
@@ -147,6 +148,7 @@
 .terminal-command-title,
 .terminal-command-text,
 .terminal-command-note,
+.terminal-command-boundary,
 .terminal-command-validation,
 .terminal-result-title,
 .terminal-result-text,
@@ -174,6 +176,7 @@
 
 .terminal-command-text,
 .terminal-command-note,
+.terminal-command-boundary,
 .terminal-command-validation,
 .terminal-result-text,
 .terminal-result-value,
@@ -181,6 +184,16 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+}
+
+.terminal-command-boundary {
+  color: var(--color-warning);
+}
+
+.terminal-command-main-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: var(--space-sm);
 }
 
 .terminal-command-controls,
@@ -227,7 +240,7 @@
 }
 
 .terminal-command-args-textarea {
-  min-height: 96px;
+  min-height: 84px;
   padding-block: var(--space-sm);
   line-height: var(--line-normal);
   resize: vertical;
@@ -280,6 +293,7 @@
 
 .terminal-result-grid {
   margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
 .terminal-result-field,
@@ -290,6 +304,12 @@
 
 .terminal-result-value {
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .terminal-command-main-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .codex-direct-work-panel {
