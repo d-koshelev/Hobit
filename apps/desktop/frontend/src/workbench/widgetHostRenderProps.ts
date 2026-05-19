@@ -78,7 +78,7 @@ export function widgetHostRenderProps({
     onCreateJdbcConnector: isJdbc
       ? widgetActions.createJdbcConnector
       : undefined,
-    onCreateWorkspaceNote: isNotes
+    onCreateWorkspaceNote: isNotes || isInteractiveAgent
       ? widgetActions.createWorkspaceNote
       : undefined,
     onDirectWorkGitReviewRequested: isAgentExecutor

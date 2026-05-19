@@ -21,7 +21,7 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
   {
     id: "local-assistant-intro",
     role: "assistant",
-    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Approved Queue task creation is the only enabled handoff; it does not run tasks.",
+    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Approved Queue task and Note creation are the only enabled handoffs; they do not run tasks or read Notes.",
     proposalIds: LOCAL_COORDINATOR_SAMPLE_PROPOSALS.map(
       (proposal) => proposal.id,
     ),
@@ -37,11 +37,20 @@ const APPROVED_PREVIEW_SUMMARY =
 const APPROVED_QUEUE_TASK_SUMMARY =
   "Approved locally. Review the visible inputs, then use Create Queue task. No Queue task has been created yet.";
 
+const APPROVED_NOTE_SUMMARY =
+  "Approved locally. Review the visible title, body, and pinned state, then use Create Note. No Note has been created yet.";
+
 const CREATING_QUEUE_TASK_SUMMARY =
   "Creating a draft Agent Queue task from the visible approved proposal inputs.";
 
+const CREATING_NOTE_SUMMARY =
+  "Creating a workspace-local Note from the visible approved proposal inputs.";
+
 const QUEUE_TASK_CREATED_SUMMARY =
   "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
+
+const NOTE_CREATED_SUMMARY =
+  "Workspace-local Note created. Existing Notes content was not read, summarized, or searched.";
 
 const REJECTED_PREVIEW_SUMMARY =
   "Rejected locally only. No widget capability was invoked.";
@@ -61,6 +70,7 @@ export function InteractiveAgentPlaceholderWidget({
   instance,
   logRefreshToken,
   onCreateAgentQueueTask,
+  onCreateWorkspaceNote,
   onLoadLogs,
   onStartFrameMove,
   title,
@@ -82,6 +92,9 @@ export function InteractiveAgentPlaceholderWidget({
     ),
   );
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [creatingNoteProposalIds, setCreatingNoteProposalIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
@@ -123,15 +136,20 @@ export function InteractiveAgentPlaceholderWidget({
       const proposal = currentProposals[proposalId];
       const isCreateQueueTaskProposal =
         proposal?.typeId === "create-agent-queue-task";
+      const isCreateNoteProposal = proposal?.typeId === "create-note";
 
       return updateProposal(currentProposals, proposalId, {
         approvalStatus: "Approved preview",
         executionError: undefined,
         executionStatus: isCreateQueueTaskProposal
           ? "Ready to create Queue task"
+          : isCreateNoteProposal
+            ? "Ready to create Note"
           : "Execution bridge not implemented",
         resultSummary: isCreateQueueTaskProposal
           ? APPROVED_QUEUE_TASK_SUMMARY
+          : isCreateNoteProposal
+            ? APPROVED_NOTE_SUMMARY
           : APPROVED_PREVIEW_SUMMARY,
       });
     });
@@ -159,15 +177,20 @@ export function InteractiveAgentPlaceholderWidget({
       const proposal = currentProposals[proposalId];
       const isCreateQueueTaskProposal =
         proposal?.typeId === "create-agent-queue-task";
+      const isCreateNoteProposal = proposal?.typeId === "create-note";
 
       return updateProposal(currentProposals, proposalId, {
         ...patch,
         approvalStatus: "Edited preview",
+        createdNoteId: undefined,
+        createdNoteTitle: undefined,
         createdQueueTaskId: undefined,
         createdQueueTaskTitle: undefined,
         executionError: undefined,
         executionStatus: isCreateQueueTaskProposal
           ? "Not run"
+          : isCreateNoteProposal
+            ? "Not run"
           : "Execution bridge not implemented",
         resultSummary: EDITED_PREVIEW_SUMMARY,
       });
@@ -254,6 +277,86 @@ export function InteractiveAgentPlaceholderWidget({
     }
   }
 
+  async function createNoteFromProposal(proposalId: string) {
+    if (creatingNoteProposalIds.has(proposalId)) {
+      return;
+    }
+
+    const proposal = proposals[proposalId];
+    if (!proposal || proposal.typeId !== "create-note") {
+      return;
+    }
+
+    if (proposal.approvalStatus !== "Approved preview") {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: "Approve this proposal before creating a Note.",
+          executionStatus: "Note creation failed",
+          resultSummary: "No Note was created.",
+        }),
+      );
+      return;
+    }
+
+    if (proposal.createdNoteId) {
+      return;
+    }
+
+    if (!onCreateWorkspaceNote) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError:
+            "Workspace Note creation is unavailable in this runtime.",
+          executionStatus: "Note creation failed",
+          resultSummary: "No Note was created.",
+        }),
+      );
+      return;
+    }
+
+    setCreatingNoteProposalIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(proposalId);
+      return nextIds;
+    });
+    setProposals((currentProposals) =>
+      updateProposal(currentProposals, proposalId, {
+        executionError: undefined,
+        executionStatus: "Creating Note",
+        resultSummary: CREATING_NOTE_SUMMARY,
+      }),
+    );
+
+    try {
+      const note = await onCreateWorkspaceNote(
+        noteCreateRequestFromProposal(proposal),
+      );
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          createdNoteId: note.noteId,
+          createdNoteTitle: note.title,
+          executionError: undefined,
+          executionStatus: "Note created",
+          resultSummary: `${NOTE_CREATED_SUMMARY} Created note "${note.title}" (${note.noteId}).`,
+        }),
+      );
+    } catch (error) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: errorToMessage(error, "Unable to create Note."),
+          executionStatus: "Note creation failed",
+          resultSummary: "No Note was created.",
+        }),
+      );
+    } finally {
+      setCreatingNoteProposalIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(proposalId);
+        return nextIds;
+      });
+    }
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -277,10 +380,11 @@ export function InteractiveAgentPlaceholderWidget({
             </p>
             <p className="interactive-agent-text">Provider not connected yet.</p>
             <p className="interactive-agent-text">
-              Approved Queue task creation is enabled.
+              Approved Queue task and Note creation are enabled.
             </p>
             <p className="interactive-agent-text">
-              Queue tasks are not assigned, dispatched, or run by Coordinator.
+              Coordinator does not read Notes, dispatch Queue tasks, or launch
+              execution.
             </p>
             <p className="interactive-agent-text">
               Static preview types: {STATIC_PROPOSAL_TYPE_SUMMARY}.
@@ -312,10 +416,16 @@ export function InteractiveAgentPlaceholderWidget({
                     return proposal ? (
                       <CoordinatorActionProposalCard
                         key={proposal.id}
+                        isNoteCreationPending={creatingNoteProposalIds.has(
+                          proposal.id,
+                        )}
                         isQueueTaskCreationPending={creatingQueueProposalIds.has(
                           proposal.id,
                         )}
                         onApprove={approveProposal}
+                        onCreateNote={(proposalId) =>
+                          void createNoteFromProposal(proposalId)
+                        }
                         onCreateQueueTask={(proposalId) =>
                           void createQueueTaskFromProposal(proposalId)
                         }
@@ -379,6 +489,10 @@ type QueueTaskCreateRequest = Parameters<
   NonNullable<WidgetRenderProps["onCreateAgentQueueTask"]>
 >[0];
 
+type WorkspaceNoteCreateRequest = Parameters<
+  NonNullable<WidgetRenderProps["onCreateWorkspaceNote"]>
+>[0];
+
 function queueTaskRequestFromProposal(
   proposal: CoordinatorActionProposal,
 ): QueueTaskCreateRequest {
@@ -414,6 +528,26 @@ function queueTaskPriority(value: string) {
   }
 
   return Math.min(5, Math.max(0, priority));
+}
+
+function noteCreateRequestFromProposal(
+  proposal: CoordinatorActionProposal,
+): WorkspaceNoteCreateRequest {
+  return {
+    body:
+      proposalInputValue(proposal, "Body") ||
+      proposal.intent.trim() ||
+      proposal.expectedResult.trim(),
+    pinned: pinnedInputValue(proposalInputValue(proposal, "Pinned")),
+    title:
+      proposalInputValue(proposal, "Title") ||
+      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
+      "Coordinator note",
+  };
+}
+
+function pinnedInputValue(value: string) {
+  return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase());
 }
 
 function errorToMessage(error: unknown, fallback: string): string {

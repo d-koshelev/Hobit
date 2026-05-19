@@ -35,8 +35,8 @@ local-chat foundation rather than adding a second separate chat surface.
 Coordinator-visible widget capability boundaries are defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
 runtime Coordinator capability registry or broad widget tool execution. The
-current Coordinator UI can create a draft Agent Queue task only after explicit
-proposal approval and a separate create action.
+current Coordinator UI can create a draft Agent Queue task or workspace-local
+Note only after explicit proposal approval and a separate create action.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -111,6 +111,8 @@ future widget capability.
 - Uses explicit save.
 - Workspace-local Notes product UI exists for list, filter, create new, edit,
   save, and pin flows.
+- Coordinator Chat can create a new workspace-local Note from an approved
+  create-Note proposal using only visible title, body, and pinned fields.
 - Future multi-note product direction is governed by
   `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
 - Does not implement the full Notebook model, tabs, Markdown rendering,
@@ -165,10 +167,13 @@ future widget capability.
   action that creates a workspace-scoped draft Queue task through the existing
   Agent Queue task API. The task is not assigned, dispatched, run, or handed to
   Agent Executor.
-- Create Note and JDBC query suggestion proposal cards remain inert in this
-  slice.
+- Approved create-Note proposals show a separate Create Note action that
+  creates a workspace-local Note from visible title, body, and pinned fields
+  through the existing Notes API. Existing Notes content is not read, searched,
+  or summarized.
+- JDBC query suggestion proposal cards remain inert in this slice.
 - Does not connect to a provider, call Codex, execute broad tools, persist
-  sessions, read hidden context, create Notes, launch Agent Executor, integrate
+  sessions, read hidden context, launch Agent Executor, integrate
   with Runbook, mutate files, mutate Git, run SQL, call JDBC connectors, or run
   Terminal commands.
 

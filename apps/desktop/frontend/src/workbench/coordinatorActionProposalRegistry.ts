@@ -15,6 +15,10 @@ export type CoordinatorProposalExecutionStatus =
   | "Creating Queue task"
   | "Queue task created"
   | "Queue task creation failed"
+  | "Ready to create Note"
+  | "Creating Note"
+  | "Note created"
+  | "Note creation failed"
   | "Execution bridge not implemented";
 
 export type CoordinatorProposalInput = {
@@ -24,6 +28,8 @@ export type CoordinatorProposalInput = {
 
 export type CoordinatorActionProposal = {
   approvalStatus: CoordinatorProposalApprovalStatus;
+  createdNoteId?: string;
+  createdNoteTitle?: string;
   createdQueueTaskId?: string;
   createdQueueTaskTitle?: string;
   executionError?: string;
@@ -71,8 +77,8 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
       requiredInputs: ["Title", "Body"],
       riskLevel: "local_write",
       safetyNotes: [
-        "Preview only in this UI slice.",
-        "Future approval may write only the visible note text.",
+        "Approved proposals may create a Note only after a separate create action.",
+        "Creating the Note writes only the visible approved fields.",
         "No hidden Notes reading.",
       ],
       targetCapability: "create Note",
@@ -129,9 +135,9 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
   },
   {
     approvalStatus: "Pending preview",
-    executionStatus: "Execution bridge not implemented",
+    executionStatus: "Not run",
     expectedResult:
-      "A reviewed Note could be created later, but this preview does not write Notes.",
+      "A reviewed workspace-local Note can be created after approval, but it will not trigger any other action.",
     id: "sample-create-note",
     inputs: [
       { label: "Title", value: "Coordinator summary draft" },
@@ -140,18 +146,20 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
         value:
           "Local proposal cards can show approved text before any future Notes handoff.",
       },
+      { label: "Pinned", value: "false" },
     ],
     intent: "Save an operator-approved summary as a future note.",
-    resultSummary: "No action has run. This is a local inert preview.",
+    resultSummary:
+      "No action has run. Approval is required before Note creation is available.",
     riskLevel: "local_write",
     riskNotes: [
-      "No Note is created from this preview.",
+      "Note creation requires approval plus a separate Create Note action.",
       "No existing Notes content is read.",
       "No provider receives note content.",
     ],
     targetCapability: "create Note",
     targetWidget: "Notes",
-    title: "Preview: create Note",
+    title: "Coordinator summary draft",
     typeId: "create-note",
   },
   {

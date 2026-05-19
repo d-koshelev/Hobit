@@ -16,26 +16,26 @@ slice for a workspace-local multi-note Notes widget.
 
 ## Current State
 
-Current Notes is intentionally minimal:
+Current Notes is a workspace-local multi-note product UI:
 
-- It is one persisted body draft.
-- The persisted widget state is shaped as `{ "body": "..." }`.
+- It uses the workspace-local notes storage/API foundation.
+- It can create, list, read, update, filter, edit, save, and pin notes.
 - It uses explicit Save.
-- It is not a multi-note system.
-- It has no note list.
-- It has no note search.
-- It has no pinned notes.
 - It has no autosave.
+- It has no delete/archive UI.
 - It has no tags.
 - It has no linked tasks.
 - It has no Agent Executor integration.
 - It has no Agent Queue integration.
-- It has no Interactive Agent integration.
+- Coordinator Chat can create a new workspace-local Note from an approved
+  create-Note proposal using only visible title, body, and pinned inputs.
+  Existing Notes content is not read or used as hidden Coordinator context.
 - It has no Runbook integration.
 - It has no Git integration.
 
-Current Notes widget UI behavior must not be described as multi-note behavior
-until the product UI exists.
+Current Notes widget UI behavior should not be described as autosave,
+archive/delete, tags, Markdown/Notebook, AI-in-Notes, or hidden context
+behavior until those features exist.
 
 ## Current Implementation Foundation
 
@@ -51,9 +51,8 @@ The backend/storage/API foundation now exists for workspace-local notes:
   updated notes.
 - Deleting a Workspace deletes its workspace-local notes.
 
-This foundation does not change the current Notes widget UI. The current widget
-still saves one `{ "body": "..." }` draft with explicit Save. Multi-note UI,
-search, autosave, note deletion/archive commands, tags, linked context, and
+The current widget consumes this foundation for the workspace-local Notes
+product UI. Autosave, note deletion/archive commands, tags, linked context, and
 Agent/Queue/Runbook/Git integrations remain unimplemented.
 
 ## Target One-Sentence Role
@@ -189,10 +188,11 @@ of the MVP.
 
 ## Relationship To Interactive Agent
 
-Interactive Agent may later copy selected transcript snippets into Notes through
-an explicit operator action.
+Coordinator Chat may create a Note through an approved create-Note proposal and
+a separate explicit Create Note action.
 
-Interactive Agent should not automatically write Notes in the MVP.
+Coordinator Chat must not automatically write Notes, read existing Notes, or
+use Notes as hidden context.
 
 ## Relationship To Runbook
 

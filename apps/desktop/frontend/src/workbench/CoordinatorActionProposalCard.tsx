@@ -14,8 +14,10 @@ type ProposalPatch = {
 };
 
 type CoordinatorActionProposalCardProps = {
+  isNoteCreationPending?: boolean;
   isQueueTaskCreationPending?: boolean;
   onApprove: (proposalId: string) => void;
+  onCreateNote?: (proposalId: string) => void;
   onCreateQueueTask?: (proposalId: string) => void;
   onEdit: (proposalId: string, patch: ProposalPatch) => void;
   onReject: (proposalId: string) => void;
@@ -23,8 +25,10 @@ type CoordinatorActionProposalCardProps = {
 };
 
 export function CoordinatorActionProposalCard({
+  isNoteCreationPending = false,
   isQueueTaskCreationPending = false,
   onApprove,
+  onCreateNote,
   onCreateQueueTask,
   onEdit,
   onReject,
@@ -87,14 +91,21 @@ export function CoordinatorActionProposalCard({
     }
   }
 
+  const hasCreatedNote = Boolean(proposal.createdNoteId);
   const hasCreatedQueueTask = Boolean(proposal.createdQueueTaskId);
+  const isCreateNoteProposal = proposal.typeId === "create-note";
   const isCreateQueueTaskProposal =
     proposal.typeId === "create-agent-queue-task";
   const isApproved = proposal.approvalStatus === "Approved preview";
+  const canCreateNote =
+    isCreateNoteProposal && isApproved && !hasCreatedNote;
   const canCreateQueueTask =
     isCreateQueueTaskProposal && isApproved && !hasCreatedQueueTask;
   const canChangeReviewState =
-    !isQueueTaskCreationPending && !hasCreatedQueueTask;
+    !isNoteCreationPending &&
+    !isQueueTaskCreationPending &&
+    !hasCreatedNote &&
+    !hasCreatedQueueTask;
 
   return (
     <section
@@ -106,6 +117,8 @@ export function CoordinatorActionProposalCard({
           <p className="coordinator-proposal-kicker">
             {isCreateQueueTaskProposal
               ? "Queue task proposal"
+              : isCreateNoteProposal
+                ? "Note proposal"
               : "Local inert proposal"}
           </p>
           <h4 className="coordinator-proposal-title">{proposal.title}</h4>
@@ -214,6 +227,12 @@ export function CoordinatorActionProposalCard({
               value={`${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`}
             />
           ) : null}
+          {proposal.createdNoteId ? (
+            <ProposalSection
+              label="Created Note"
+              value={`${proposal.createdNoteTitle ?? "Note"} (${proposal.createdNoteId})`}
+            />
+          ) : null}
           {proposal.executionError ? (
             <ProposalSection label="Error" value={proposal.executionError} />
           ) : null}
@@ -257,6 +276,17 @@ export function CoordinatorActionProposalCard({
             >
               Edit
             </Button>
+            {canCreateNote || isNoteCreationPending ? (
+              <Button
+                disabled={
+                  !canCreateNote || isNoteCreationPending || !onCreateNote
+                }
+                onClick={() => onCreateNote?.(proposal.id)}
+                variant="primary"
+              >
+                {isNoteCreationPending ? "Creating Note" : "Create Note"}
+              </Button>
+            ) : null}
             {canCreateQueueTask || isQueueTaskCreationPending ? (
               <Button
                 disabled={
@@ -326,12 +356,20 @@ function executionBadgeVariant(
   if (status === "Queue task created") {
     return "success";
   }
-  if (status === "Queue task creation failed") {
+  if (status === "Note created") {
+    return "success";
+  }
+  if (
+    status === "Queue task creation failed" ||
+    status === "Note creation failed"
+  ) {
     return "error";
   }
   if (
     status === "Ready to create Queue task" ||
-    status === "Creating Queue task"
+    status === "Creating Queue task" ||
+    status === "Ready to create Note" ||
+    status === "Creating Note"
   ) {
     return "info";
   }
@@ -367,12 +405,17 @@ function formatProposalDetails(proposal: CoordinatorActionProposal) {
     proposal.createdQueueTaskId
       ? `Created Queue task: ${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`
       : null,
+    proposal.createdNoteId
+      ? `Created Note: ${proposal.createdNoteTitle ?? "Note"} (${proposal.createdNoteId})`
+      : null,
     proposal.executionError ? `Error: ${proposal.executionError}` : null,
     `Result summary: ${proposal.resultSummary}`,
     "",
     proposal.typeId === "create-agent-queue-task"
       ? "Queue task creation requires approval and a separate Create Queue task action. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
-      : "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
+      : proposal.typeId === "create-note"
+        ? "Note creation requires approval and a separate Create Note action. No existing Notes content is read, and no provider runtime, Queue task, Agent Executor launch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
+        : "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
