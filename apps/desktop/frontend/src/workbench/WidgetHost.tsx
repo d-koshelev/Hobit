@@ -104,6 +104,7 @@ export function WidgetHost({
     layoutMode === "editing" &&
     presentationMode === "docked" &&
     instance.layout.mode === "docked";
+  const canRemoveWidget = layoutMode === "editing";
 
   function startPopoutDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (
@@ -152,10 +153,12 @@ export function WidgetHost({
         </Button>
       ) : null}
       {presentationAction}
-      <WidgetRemoveAction
-        onRemove={() => widgetActions.removeWidgetInstance(instance.id)}
-        widgetTitle={frameTitle}
-      />
+      {canRemoveWidget ? (
+        <WidgetRemoveAction
+          onRemove={() => widgetActions.removeWidgetInstance(instance.id)}
+          widgetTitle={frameTitle}
+        />
+      ) : null}
     </>
   );
   const frameStyle = widgetFrameStyle(instance, presentationMode, dockedSize);

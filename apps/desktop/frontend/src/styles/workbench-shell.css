@@ -250,29 +250,6 @@
   line-height: var(--line-normal);
 }
 
-.layout-editing-status {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: var(--space-xs);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-widget-surface);
-  color: var(--color-text-secondary);
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-tight);
-}
-
-.layout-editing-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
-}
-
 .widget-layout-surface {
   position: relative;
   flex: 1;

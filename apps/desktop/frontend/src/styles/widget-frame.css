@@ -126,9 +126,9 @@
 }
 
 .widget-remove-action {
-  display: grid;
-  gap: var(--space-xs);
-  justify-items: end;
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 .widget-actions .button.widget-remove-button {
@@ -143,15 +143,21 @@
 }
 
 .widget-remove-confirmation {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + var(--space-xs));
+  right: 0;
   display: grid;
-  width: min(280px, 100%);
+  width: min(320px, calc(100vw - 48px));
   gap: var(--space-xs);
   border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
-  background: var(--color-error-soft);
+  background: var(--color-overlay-surface);
   padding: var(--space-sm);
-  box-shadow: 0 12px 32px
-    color-mix(in srgb, var(--color-app-bg) 36%, transparent);
+  box-shadow:
+    0 12px 32px
+      color-mix(in srgb, var(--color-app-bg) 42%, transparent),
+    0 0 0 1px var(--color-error-soft);
 }
 
 .widget-remove-title,

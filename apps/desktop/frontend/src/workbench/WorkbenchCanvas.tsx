@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WorkbenchActivity } from "./WorkbenchActivity";
-import { WorkbenchEditStatus } from "./WorkbenchEditStatus";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
@@ -122,10 +121,7 @@ export function WorkbenchCanvas({
     dockedResizeSizes,
   );
   const canvasTopSurfaces = (
-    <>
-      <WorkbenchActivity events={viewState.recentEvents} />
-      {isLayoutEditing ? <WorkbenchEditStatus /> : null}
-    </>
+    <WorkbenchActivity events={viewState.recentEvents} />
   );
 
   useEffect(() => {
