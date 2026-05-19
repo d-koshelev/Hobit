@@ -76,3 +76,7 @@ python scripts/hobit/changed-files-summary.py
 
 If a repeated inspection task is not covered, propose a small deterministic
 Toolbelt script instead of creating an ad-hoc script for one block.
+
+The current structure and contract cleanup audit is captured in
+`docs/CODEBASE_AND_CONTRACT_REFACTOR_AUDIT.md`. Use it as a planning reference
+for contract-index cleanup and structure-only refactor blocks.
