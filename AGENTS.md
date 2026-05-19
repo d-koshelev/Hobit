@@ -91,6 +91,7 @@ Current Toolbelt entry points:
 - `scripts/hobit/check-file-sizes.py`
 - `scripts/hobit/module-map.py`
 - `scripts/hobit/changed-files-summary.py`
+- `scripts/hobit/desktop-smoke-readiness.ps1`
 
 If a repeated inspection need is missing, propose a small deterministic Toolbelt script instead of leaving temporary Python, Bash, or PowerShell helpers in the repository.
 

@@ -156,7 +156,10 @@ Runbook:
 - Real desktop Queue-to-Executor smoke was not verified because this
   environment could not reliably drive the Tauri WebView.
 - The default Tauri app-data database path was inaccessible in this
-  environment; use `HOBIT_DATABASE_PATH` for desktop smoke runs.
+  environment; use `HOBIT_DATABASE_PATH` for desktop smoke runs. The helper
+  `scripts/hobit/desktop-smoke-readiness.ps1` prepares an isolated
+  `target/hobit-smoke` database path and prints the desktop launch and manual
+  verification steps, but it does not automate WebView interaction.
 - Coordinator Chat has no provider, runtime, or tools yet.
 - Database / JDBC has no SQL execution, Java sidecar, `EXPLAIN`, result grid,
   SQL formatter, or AI assistance yet.
@@ -196,7 +199,8 @@ Primary path:
 
 Alternative stabilization path:
 
-- Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.
+- Real desktop Queue-to-Executor smoke using the
+  `scripts/hobit/desktop-smoke-readiness.ps1` `HOBIT_DATABASE_PATH` workflow.
 - Git commit UI real smoke.
 - Workspace continuity/crash recovery contract.
 

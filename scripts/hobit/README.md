@@ -150,6 +150,29 @@ python scripts/hobit/changed-files-summary.py --json
 
 Use this before final validation and in final-report preparation.
 
+### `desktop-smoke-readiness.ps1`
+
+Prepares the `HOBIT_DATABASE_PATH` workflow for manual Tauri desktop smoke
+runs in constrained environments:
+
+```powershell
+scripts/hobit/desktop-smoke-readiness.ps1
+scripts/hobit/desktop-smoke-readiness.ps1 -Reset
+scripts/hobit/desktop-smoke-readiness.ps1 -Launch
+scripts/hobit/desktop-smoke-readiness.ps1 -DatabasePath target/hobit-smoke/desktop/custom.sqlite3
+```
+
+By default, it uses
+`target/hobit-smoke/desktop/hobit-desktop-smoke.sqlite3`, creates and checks the
+parent directory, and prints the exact `HOBIT_DATABASE_PATH` and
+`npm.cmd run tauri:dev --prefix apps/desktop/frontend` commands. `-Launch`
+runs that command with the environment variable set. `-Reset` deletes the
+selected smoke database files only when they are under `target/hobit-smoke`.
+
+This helper verifies database path readiness and launch-command readiness only.
+It does not automate WebView interaction, create Queue tasks, run Agent
+Executors, mutate Git, or claim a full real desktop smoke pass.
+
 ### `smoke-queue-executor-ui.mjs`
 
 Runs the mocked frontend Queue-to-Agent Executor UI smoke:
