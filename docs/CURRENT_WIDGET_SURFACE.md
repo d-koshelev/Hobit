@@ -64,13 +64,12 @@ future widget capability.
 
 ### Git
 
-- Read-only repository status surface for an explicit transient repository
-  root.
-- Visible Git Widget UI does not stage, commit, push, reset, clean, stash,
-  fetch, poll, watch, or mutate repositories.
-- Backend/Tauri/frontend API foundation exists for explicit local commit
-  creation owned by Git Widget, with selected files and an operator-provided
-  message only. Frontend commit UI is pending.
+- Read-only repository status and diff surface for an explicit transient
+  repository root.
+- Explicit local commit API/UI exists for Git Widget, with selected files,
+  an operator-provided message, and operator confirmation.
+- The Git Widget does not push, reset, clean, stash, fetch, poll, watch, or
+  automatically commit repositories.
 - Explicit local commit support is governed by
   `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`; push, reset, clean, auto-commit, and
   Agent Executor auto-commit are not implemented.
@@ -89,13 +88,13 @@ future widget capability.
 
 - Persists a minimal widget-state body draft shaped as `{ "body": "..." }`.
 - Uses explicit save.
+- Workspace-local Notes product UI exists for list, filter, create new, edit,
+  save, and pin flows.
 - Future multi-note product direction is governed by
   `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
-- Backend/storage/Tauri/frontend API foundation exists for workspace-local
-  create/list/read/update notes, but no product UI consumes it yet.
 - Does not implement the full Notebook model, tabs, Markdown rendering,
-  diagrams, checklists, snippets, review notes, formatting tools, note list,
-  search UI, autosave, archive/delete UI, tags, or AI-in-Notes.
+  diagrams, checklists, snippets, review notes, formatting tools, search UI,
+  autosave, archive/delete UI, tags, or AI-in-Notes.
 
 ### Agent Queue
 
@@ -114,8 +113,9 @@ future widget capability.
   Queue refreshes task status and does not duplicate execution output.
 - Frontend product UI can create, list, select, edit, and explicitly save
   workspace queue tasks with title, description, prompt, status, and priority.
-  It supports `running` as task status data and can also manually assign or
-  clear a visible Agent Executor slot when the task is not running.
+  It supports `running` as task status data, can manually assign or clear a
+  visible Agent Executor slot when the task is not running, and can explicitly
+  run an assigned task in its assigned Executor.
 - Future task, dependency, and executor capacity model is governed by
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
   slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
@@ -197,9 +197,12 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Git commit UI with confirmation after the backend/API foundation.
-- Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
-- Notes product UI after the storage/API foundation.
-- JDBC read-only query execution backend and result grid slices later.
-- Runbook persistence and edit mode later.
-- Agent Queue dependency blocks later.
+- Coordinator Chat product UI polish or Coordinator runtime/provider contract.
+- Coordinator action proposal UI pattern.
+- JDBC read-only query execution backend.
+- JDBC query results UI.
+- Coordinator to JDBC read-only proposal flow.
+- Evidence/Sources contract.
+- AI context/token economy contract.
+- YouTube Analyst widget contract.
+- Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.

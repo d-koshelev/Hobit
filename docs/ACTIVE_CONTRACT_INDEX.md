@@ -93,6 +93,12 @@ Read this set for almost every future block:
 - `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - deferred PTY/manual shell direction;
   read only for explicitly Terminal PTY work.
 
+## Reference Handoff
+
+- `docs/NEW_CHAT_HANDOFF.md` - compact current-state handoff for starting a
+  fresh chat/thread after Blocks 210 through 216. This is a reference note, not
+  a default active contract or a replacement for this index.
+
 ## Deferred Contracts
 
 These are valid contracts, but they are not active implementation targets
