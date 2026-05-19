@@ -84,6 +84,72 @@ fn mock_coordinator_provider_returns_text_and_note_draft_response() {
 }
 
 #[test]
+fn external_coordinator_provider_missing_config_surfaces_not_configured() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let provider = ExternalCoordinatorProviderAdapter::new(ExternalCoordinatorProviderConfig::new(
+        "external-test",
+        false,
+        false,
+    ));
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+
+    assert_eq!(response.provider_kind, "external-test");
+    assert_eq!(response.provider_status, "not_configured");
+    assert!(response.allowed_tools.is_empty());
+    assert!(response.assistant_text.contains("not configured"));
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Configure backend endpoint and credential"));
+    assert!(response.no_tools_executed);
+    assert!(response.no_mutations_performed);
+    assert!(response.no_hidden_context_used);
+}
+
+#[test]
+fn external_coordinator_provider_configured_placeholder_keeps_secret_values_out() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let credential_value_that_must_not_surface = "sk-provider-secret";
+    let provider = ExternalCoordinatorProviderAdapter::new(ExternalCoordinatorProviderConfig::new(
+        "external-test",
+        true,
+        !credential_value_that_must_not_surface.is_empty(),
+    ));
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+    let serialized = serde_json::to_string(&json!({
+        "assistant_text": response.assistant_text,
+        "provider_kind": response.provider_kind,
+        "provider_status": response.provider_status,
+        "provider_error": response.provider_error,
+    }))
+    .expect("serialize response");
+
+    assert_eq!(response.provider_status, "unsupported");
+    assert!(response.allowed_tools.is_empty());
+    assert!(!serialized.contains(credential_value_that_must_not_surface));
+    assert!(!serialized.contains("token"));
+    assert!(!serialized.contains("secret"));
+    assert!(!serialized.contains("provider_api_key"));
+}
+
+#[test]
 fn mock_coordinator_provider_returns_valid_queue_draft_without_creating_task() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
@@ -355,6 +421,10 @@ impl StaticProvider {
 }
 
 impl CoordinatorProviderAdapter for StaticProvider {
+    fn provider_kind(&self) -> &str {
+        "static-test"
+    }
+
     fn request_coordinator_response(
         &self,
         _request: &CoordinatorProviderRequest,
@@ -385,6 +455,10 @@ impl CapturingProvider {
 }
 
 impl CoordinatorProviderAdapter for CapturingProvider {
+    fn provider_kind(&self) -> &str {
+        "capturing-test"
+    }
+
     fn request_coordinator_response(
         &self,
         request: &CoordinatorProviderRequest,

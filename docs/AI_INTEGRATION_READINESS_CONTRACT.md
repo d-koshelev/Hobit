@@ -10,11 +10,11 @@ draft response text and draft action proposals, but it must not receive hidden
 Workspace context, call tools, execute widget capabilities, mutate state, or
 turn Hobit into hidden automation.
 
-This document is docs/contracts only for the current Coordinator direction. It
-does not implement frontend UI, backend or Tauri commands, storage/schema
-changes, provider adapters, LLM calls, Coordinator runtime, widget tool
-execution, JDBC SQL execution, Git mutation, Terminal control, Queue
-auto-dispatch, Agent Executor launch, Evidence/Sources, or secret handling.
+This document is the contract for the current Coordinator direction. It does
+not itself add frontend UI, backend or Tauri commands, storage/schema changes,
+provider adapters, LLM calls, Coordinator runtime, widget tool execution, JDBC
+SQL execution, Git mutation, Terminal control, Queue auto-dispatch, Agent
+Executor launch, Evidence/Sources, or secret handling.
 
 Older proposal-only Agent Chat provider compatibility paths may still exist in
 the codebase. New work must use the Coordinator-centered model in
@@ -27,7 +27,7 @@ be used to bypass current context, tool, approval, or widget boundaries.
 The first Coordinator provider slice is text-and-proposal drafting only:
 `allowed_tools: []`, explicit visible context only, no execution.
 
-## Current Coordinator State Before Provider Work
+## Current Coordinator Provider State
 
 Coordinator Chat currently has:
 
@@ -36,9 +36,16 @@ Coordinator Chat currently has:
 - approved Queue task creation through a separate explicit create action
 - approved Note creation through a separate explicit create action
 - JDBC SQL suggestion review/copy cards with no SQL execution
-- no provider connection in the current Coordinator Chat UI
+- backend-owned mock/local provider text responses
+- backend-owned mock/local structured proposal drafts with validation before
+  rendering
+- backend-selected external-provider placeholder configuration that can report
+  not-configured or unsupported state without network calls
 - no hidden context access
 - no widget capability runtime
+- no external LLM calls
+- no provider credentials in frontend state, prompts, logs, proposal cards, or
+  test snapshots
 
 Provider work starts from this surface. It must not widen any current behavior
 implicitly.
@@ -234,6 +241,9 @@ Runtime expectations for future implementation:
   provider APIs directly from frontend code.
 - Provider configuration and secrets must be backend-owned and must not appear
   in prompts, logs, proposal cards, stored artifacts, or frontend state.
+- Missing external provider configuration must surface as a visible
+  not-configured state. Configured external-provider placeholders may surface
+  unsupported until a real provider call slice is explicitly implemented.
 - Request payloads should include an explicit `allowed_tools: []` field or an
   equivalent provider-specific no-tools configuration.
 - Provider errors, parse failures, timeouts, cancellation, and unsupported
@@ -285,17 +295,14 @@ product surfaces unless a later block explicitly scopes that compatibility UI.
 
 Recommended next implementation slices:
 
-1. Coordinator provider adapter foundation with mock/local provider first and
-   tools disabled.
-2. Provider-backed Coordinator text response, tools disabled, explicit visible
-   conversation context only.
-3. Provider structured proposal drafts rendered as review cards, still no
-   execution.
-4. Provider result/error/cancellation hardening with visible status and no
+1. First real configured provider call with tools disabled, backend-owned
+   credentials, and explicit visible conversation context only.
+2. Provider result/error/cancellation hardening with visible status and no
    hidden fallback execution.
-5. Controlled capability bridge hardening after proposal review/approval
+3. Structured draft UX hardening after provider responses are stable.
+4. Controlled capability bridge hardening after proposal review/approval
    remains stable.
-6. Future Evidence/Sources approved context packs before any broader context
+5. Future Evidence/Sources approved context packs before any broader context
    sharing.
 
 Each slice must state whether it changes frontend UI, backend/runtime code,

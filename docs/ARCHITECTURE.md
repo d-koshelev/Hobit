@@ -30,10 +30,13 @@ metadata shell backed by workspace-local JDBC connector metadata storage/API;
 there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
 assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
-proposal cards and a backend-owned mock/local provider response path for
-explicit chat sends. The mock provider path uses visible current-session chat
-context and `allowed_tools: []`; it does not call an external LLM and can
-return validated safe structured proposal drafts as review cards only. A
+proposal cards and a backend-owned provider response path for explicit chat
+sends. Mock/local is the default provider. The provider path uses visible
+current-session chat context and `allowed_tools: []`; it does not call an
+external LLM and can return validated safe structured proposal drafts as
+review cards only. An external-provider placeholder can be selected from
+backend environment configuration and surfaces not-configured/unsupported
+state without exposing credential values. A
 deterministic frontend parser can generate the safe local proposal types from
 explicit operator chat text only. An approved
 create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
@@ -50,7 +53,7 @@ runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
 manual Direct Work/Queue API paths, Git behavior beyond current status/diff
 review and explicit local commit, hidden context access, provider settings UI,
-secrets UI, HTTPS provider adapter, Evidence/Sources capture or review, AI
+secrets UI, real HTTPS provider adapter, Evidence/Sources capture or review, AI
 context packs, or broad tool execution in the current user-facing workbench
 surface.
 
@@ -319,7 +322,7 @@ workspace-local notes create/list/read/update API, workspace-local JDBC
 connector metadata create/list/read/update API, Agent Queue task
 create/list/read/update/assign/clear/start API, Agent Executor history reads,
 Git status/local commit APIs, Terminal one-shot command, Terminal PTY session
-API, Coordinator mock provider response API, Agent Chat backend AI
+API, Coordinator provider response API, Agent Chat backend AI
 proposal generation, Agent Chat proposal persistence, Agent Monitoring
 proposal artifact read, Agent Queue proposal-review item paths, and the typed
 Direct Work API facade through the workspace API facade when running inside
@@ -329,7 +332,7 @@ Git status reads and local commit creation, Terminal command execution,
 Terminal PTY sessions, workspace-local notes persistence, JDBC connector
 metadata persistence, Agent Queue task persistence/assignment/execution
 persistence, Codex Direct Work execution, Agent Executor persisted
-history/detail reads, backend AI provider calls, Coordinator mock provider
+history/detail reads, backend AI provider calls, Coordinator provider
 calls, Agent Chat proposal persistence, Agent Monitoring persisted artifact
 reads, and Agent Queue persistence. The JDBC connector metadata commands store
 and return masked/non-secret connector descriptors only; they do not store
@@ -340,9 +343,11 @@ The `generate_coordinator_provider_response` Tauri command is called only from
 Coordinator Chat after an explicit operator message. It validates
 Workspace/Workbench/current `interactive-agent` widget ownership, builds a
 request from visible current-session chat messages and visible local proposal
-draft summaries only, sets `allowed_tools: []`, uses a mock/local backend
-adapter, returns assistant text only, and does not persist runs/results, call
-external providers, or execute widget capabilities.
+draft summaries only, sets `allowed_tools: []`, and uses a backend-selected
+provider adapter. Mock/local is the default. External-provider selection is a
+configuration placeholder that reports not-configured or unsupported state; it
+does not perform network calls, send credentials to the frontend or prompt, or
+execute widget capabilities.
 
 The `run_terminal_command` Tauri command is called only from the collapsed
 Terminal legacy one-shot fallback and remains limited to persisted Terminal
@@ -403,8 +408,8 @@ UI, Terminal split panes, PTY command history, persistent PTY transcripts,
 executable chat runtime beyond Direct Work artifacts, Template Library runtime,
 Git runtime beyond the narrow status/diff/local commit path, JDBC query
 execution, workspace restore runtime, log polling, provider settings UI,
-secrets UI, scratch execution workspace support, external Coordinator provider
-adapter, or HTTPS provider adapter in this milestone.
+secrets UI, scratch execution workspace support, real external Coordinator
+provider calls, or HTTPS provider adapter in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -476,12 +481,14 @@ message for safe preview types: create Agent Queue task, create Note, and
 prepare JDBC query suggestion text without execution. A local deterministic
 parser can also create those same proposal types from explicit operator chat
 messages using only the typed message text. Explicit chat sends can request a
-backend-owned mock/local provider response with visible current-session chat
-context, visible local proposal draft summaries, and `allowed_tools: []`;
-the mock/local provider can return validated structured proposal drafts for
-the same safe preview types, and unsafe or unsupported drafts are rejected
-before rendering. Browser fallback keeps the deterministic local response path
-and does not call a provider directly. Proposal card controls Approve, Reject,
+backend-owned provider response with visible current-session chat context,
+visible local proposal draft summaries, and `allowed_tools: []`. Mock/local is
+the default provider. A backend environment-selected external provider
+placeholder can report not-configured or unsupported state without network
+calls or frontend-visible credentials. Provider drafts for the same safe
+preview types are validated before rendering, and unsafe or unsupported drafts
+are rejected or degraded before display. Browser fallback keeps the deterministic local
+response path and does not call a provider directly. Proposal card controls Approve, Reject,
 Edit, and Copy details update local proposal state or copy proposal details. Only approved
 create-Agent-Queue-task proposals expose a separate Create Queue task action,
 which uses the existing workspace-scoped Queue task API to create a draft task
@@ -492,7 +499,7 @@ inputs and does not read, search, or summarize existing Notes. JDBC proposal
 cards remain non-executing; they show the visible SQL suggestion in a monospace
 review block and Copy SQL copies only that SQL text without connector access,
 database calls, or `EXPLAIN`. The current implementation has no external
-provider call, no provider credentials, no Agent Executor integration, no
+provider network call, no frontend or prompt-visible provider credentials, no Agent Executor integration, no
 Runbook integration, no monitoring integration, no broad tool execution, no
 hidden context access, no hidden widget state reads, no file mutation, no Git
 mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural
@@ -547,10 +554,11 @@ owned by desktop runtime state, not storage. It also includes one-shot and
 streaming Codex Direct Work orchestration paths for an allowed `agent-run`
 widget owner, creating widget run/log/result records around the `hobit-tools`
 Codex runners outside storage transactions and emitting Tauri stream events for
-the streaming path. It includes a Coordinator Chat mock/local provider adapter
-foundation for current `interactive-agent` widgets: request DTOs,
-visible-context validation, `allowed_tools: []`, response/proposal-draft
-normalization, safe draft validation, and no storage persistence. It also includes retained
+the streaming path. It includes a Coordinator Chat provider adapter foundation
+for current `interactive-agent` widgets: request DTOs, visible-context
+validation, `allowed_tools: []`, backend-selected mock/local or external
+placeholder configuration, response/proposal-draft normalization, safe draft
+validation, and no storage persistence. It also includes retained
 proposal-only Agent Chat AI compatibility paths, a proposal-review Agent Queue
 path that validates a stored local mock proposal result before creating a
 read-only queue item, manual Agent Queue task create/list/read/update/assign/
@@ -560,8 +568,8 @@ kind/status values, rejects obvious secret-bearing metadata, and does not
 handle credentials or execute SQL. It does not restore runtime state, provide
 Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history,
 automatically dispatch tasks, approve/apply proposals, execute JDBC queries,
-create scratch execution workspaces, call an external Coordinator provider, or
-add automatic agent behavior.
+create scratch execution workspaces, make external Coordinator provider network
+calls, or add automatic agent behavior.
 
 ## Workspace Model Boundary
 

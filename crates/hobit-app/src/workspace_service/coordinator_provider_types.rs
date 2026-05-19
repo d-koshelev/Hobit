@@ -35,6 +35,8 @@ pub struct CoordinatorProviderVisibleInput {
 }
 
 pub trait CoordinatorProviderAdapter {
+    fn provider_kind(&self) -> &str;
+
     fn request_coordinator_response(
         &self,
         request: &CoordinatorProviderRequest,
@@ -62,6 +64,9 @@ pub enum CoordinatorProviderOutcome {
         proposal_drafts: Vec<CoordinatorProviderProposalDraftContext>,
     },
     RequestFailed {
+        message: String,
+    },
+    NotConfigured {
         message: String,
     },
     Unsupported {

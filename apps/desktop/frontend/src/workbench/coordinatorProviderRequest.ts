@@ -105,6 +105,28 @@ export function coordinatorProviderErrorMeta(
   };
 }
 
+export function coordinatorProviderModeLabel(
+  response: CoordinatorProviderResponse,
+) {
+  if (!response) {
+    return "Local fallback";
+  }
+
+  if (response.providerStatus === "not_configured") {
+    return "Not configured";
+  }
+
+  if (response.providerKind === "mock-local") {
+    return "Mock/local provider";
+  }
+
+  if (response.providerStatus === "unsupported") {
+    return "Configured provider unavailable";
+  }
+
+  return "Configured provider";
+}
+
 export function coordinatorProviderResponseMeta(
   response: CoordinatorProviderResponse,
 ): CoordinatorProviderMessageMeta {
@@ -130,10 +152,17 @@ export function coordinatorProviderResponseMeta(
   }.`;
 
   if (response.providerStatus !== "completed") {
+    const label =
+      response.providerStatus === "not_configured"
+        ? "Not configured"
+        : response.providerStatus === "unsupported"
+          ? "Unsupported"
+          : `${response.providerKind} ${response.providerStatus}`;
+
     return {
       badgeVariant: "warning",
       detail: `${response.providerError ?? "Provider did not complete."} ${contextSummary} Tools stayed disabled.`,
-      label: `${response.providerKind} ${response.providerStatus}`,
+      label,
       tone: "warning",
     };
   }

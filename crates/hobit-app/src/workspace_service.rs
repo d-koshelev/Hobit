@@ -15,6 +15,8 @@ mod agent_queue_task_types;
 mod agent_queue_tasks;
 mod coordinator_provider;
 mod coordinator_provider_drafts;
+mod coordinator_provider_external;
+mod coordinator_provider_runtime;
 mod coordinator_provider_types;
 mod direct_work;
 mod direct_work_cancellation;
@@ -88,6 +90,13 @@ pub use agent_queue_task_types::{
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
+pub use coordinator_provider_external::{
+    ExternalCoordinatorProviderAdapter, ExternalCoordinatorProviderConfig,
+    EXTERNAL_COORDINATOR_PROVIDER_KIND,
+};
+pub use coordinator_provider_runtime::{
+    coordinator_provider_adapter_from_config, CoordinatorProviderRuntimeConfig,
+};
 pub use coordinator_provider_types::{
     CoordinatorProviderAdapter, CoordinatorProviderMessage, CoordinatorProviderOutcome,
     CoordinatorProviderProposalDraftContext, CoordinatorProviderRequest,

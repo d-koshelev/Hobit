@@ -433,7 +433,10 @@ proposals:
 
 Provider calls must be visible user-triggered Coordinator Chat actions. Widget
 changes must not trigger background provider calls. Provider errors, parse
-failures, and unsupported configuration must be visible.
+failures, not-configured external provider selection, and unsupported
+configuration must be visible. External provider credentials are backend-owned
+configuration only and must never appear in prompts, logs, frontend state, or
+proposal cards.
 
 The detailed first-provider boundary is defined in
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`.
@@ -473,9 +476,12 @@ Do not keep two separate primary chat concepts in the current product.
 The user-facing title is Coordinator Chat. The internal widget id may remain
 temporarily as `interactive-agent` for compatibility.
 
-The current local chat is the minimal Coordinator Chat UI foundation. It is
-still local-only and does not connect to a provider, execute widget tools,
-compile context, or perform Workspace actions.
+The current local chat is the minimal Coordinator Chat UI foundation. It can
+request backend-owned mock/local provider responses and validated provider
+proposal drafts from visible chat context only, with `allowed_tools: []`.
+External-provider configuration is a backend placeholder until a real provider
+call slice is explicitly implemented. Coordinator Chat still does not execute
+widget tools, compile hidden context, or perform Workspace actions directly.
 
 ## Runbook Status
 
@@ -509,11 +515,9 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Coordinator provider adapter foundation with mock/local provider first and
-  tools disabled.
-- Provider-backed Coordinator text response with explicit visible context only.
-- Provider structured proposal drafts rendered as review cards, still no
-  execution.
+- First real configured provider call with tools disabled and explicit visible
+  context only.
+- Provider error/cancellation hardening and structured draft UX smoke.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only query proposal flow after JDBC execution
   and result review are contract-ready.

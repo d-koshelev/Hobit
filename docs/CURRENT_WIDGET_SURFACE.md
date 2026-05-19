@@ -42,7 +42,9 @@ The first Coordinator provider/runtime boundary is defined in
 proposal cards only, with explicit visible context and
 `allowed_tools: []`. The current implementation has a backend-owned
 mock/local response path that can return text plus validated safe proposal
-drafts for review cards; external LLM calls are not implemented.
+drafts for review cards, plus a backend-selected external-provider
+configuration placeholder that can report not-configured/unsupported state
+without exposing credentials. External LLM calls are not implemented.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -185,19 +187,21 @@ future widget capability.
 - Local proposal generation uses only the explicit chat message. It does not
   read widget state, Notes, Terminal output, Git diffs, JDBC connector metadata,
   Agent Executor logs, filesystem data, or hidden Workspace context.
-- Sends explicit operator chat messages through a backend-owned mock/local
-  Coordinator provider response path in the Tauri desktop shell. Requests
-  include only the visible current-session chat transcript, visible local
-  proposal draft summaries when present, compact safety instructions, and
-  `allowed_tools: []`.
+- Sends explicit operator chat messages through a backend-owned Coordinator
+  provider response path in the Tauri desktop shell. Mock/local is the default
+  provider. An explicit backend environment selection can choose an external
+  provider placeholder, which reports not-configured or unsupported state
+  without performing network calls. Requests include only the visible
+  current-session chat transcript, visible local proposal draft summaries when
+  present, compact safety instructions, and `allowed_tools: []`.
 - The mock/local provider can return structured proposal drafts for create
   Agent Queue task, create Note, and JDBC SQL suggestion only. Drafts are
   validated before rendering; unsupported or unsafe drafts are rejected or
   degraded into visible assistant text and never execute.
 - Browser/Vite fallback keeps the deterministic local response path and does
   not call a provider directly.
-- Does not call an external LLM, use provider credentials, execute broad
-  tools, persist sessions, read hidden context, launch Agent Executor,
+- Does not call an external LLM, send provider credentials to the frontend or
+  prompt, execute broad tools, persist sessions, read hidden context, launch Agent Executor,
   integrate with Runbook, mutate files, mutate Git, run SQL, call JDBC
   connectors, or run Terminal commands.
 - Provider-generated proposal cards use the same approval and handoff rules as

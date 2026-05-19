@@ -15,6 +15,7 @@ use super::{
 
 const MOCK_COORDINATOR_PROVIDER_KIND: &str = "mock-local";
 const PROVIDER_STATUS_COMPLETED: &str = "completed";
+const PROVIDER_STATUS_NOT_CONFIGURED: &str = "not_configured";
 const PROVIDER_STATUS_REQUEST_FAILED: &str = "request_failed";
 const PROVIDER_STATUS_UNSUPPORTED: &str = "unsupported";
 const MAX_OPERATOR_MESSAGE_CHARS: usize = 4_000;
@@ -28,6 +29,10 @@ const MAX_RISK_NOTES_PER_PROPOSAL: usize = 8;
 pub struct MockCoordinatorProviderAdapter;
 
 impl CoordinatorProviderAdapter for MockCoordinatorProviderAdapter {
+    fn provider_kind(&self) -> &str {
+        MOCK_COORDINATOR_PROVIDER_KIND
+    }
+
     fn request_coordinator_response(
         &self,
         request: &CoordinatorProviderRequest,
@@ -62,8 +67,9 @@ impl WorkspaceService {
         }
 
         let request = provider_request(&input);
+        let provider_kind = provider.provider_kind().to_owned();
         let outcome = provider.request_coordinator_response(&request);
-        Ok(Some(provider_response(request, outcome)))
+        Ok(Some(provider_response(request, provider_kind, outcome)))
     }
 }
 
@@ -185,6 +191,7 @@ fn provider_request(
 
 fn provider_response(
     request: CoordinatorProviderRequest,
+    provider_kind: String,
     outcome: CoordinatorProviderOutcome,
 ) -> CoordinatorProviderResponse {
     let (assistant_text, provider_status, provider_error, proposal_drafts) = match outcome {
@@ -210,8 +217,15 @@ fn provider_response(
             )
         }
         CoordinatorProviderOutcome::RequestFailed { message } => (
-            "Mock/local Coordinator provider failed before producing a response.".to_owned(),
+            "Coordinator provider failed before producing a response.".to_owned(),
             PROVIDER_STATUS_REQUEST_FAILED.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::NotConfigured { message } => (
+            "Coordinator provider is not configured. Mock/local fallback remains available."
+                .to_owned(),
+            PROVIDER_STATUS_NOT_CONFIGURED.to_owned(),
             Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
             Vec::new(),
         ),
@@ -226,7 +240,7 @@ fn provider_response(
     CoordinatorProviderResponse {
         request_id: request.request_id,
         assistant_text,
-        provider_kind: MOCK_COORDINATOR_PROVIDER_KIND.to_owned(),
+        provider_kind,
         provider_status,
         provider_error,
         allowed_tools: request.allowed_tools,

@@ -19,6 +19,7 @@ import {
   coordinatorProviderErrorMeta,
   coordinatorProviderFallbackMeta,
   coordinatorProviderMessage,
+  coordinatorProviderModeLabel,
   type CoordinatorProviderMessageMeta,
   coordinatorProviderPendingMeta,
   coordinatorProviderProposalDraftContext,
@@ -123,6 +124,8 @@ export function InteractiveAgentPlaceholderWidget({
   >(() => new Set());
   const [draft, setDraft] = useState("");
   const [isProviderPending, setIsProviderPending] = useState(false);
+  const [providerModeLabel, setProviderModeLabel] =
+    useState("Mock/local provider");
   const canSend = draft.trim().length > 0 && !isProviderPending;
 
   function createLocalMessage(
@@ -188,6 +191,7 @@ export function InteractiveAgentPlaceholderWidget({
     window.setTimeout(() => textareaRef.current?.focus(), 0);
 
     if (!onGenerateCoordinatorProviderResponse) {
+      setProviderModeLabel("Local fallback");
       return;
     }
 
@@ -209,6 +213,7 @@ export function InteractiveAgentPlaceholderWidget({
         providerResponse,
         assistantMessage.id,
       );
+      setProviderModeLabel(coordinatorProviderModeLabel(providerResponse));
       const providerProposalIds = providerDrafts.proposals.map(
         (proposal) => proposal.id,
       );
@@ -235,6 +240,7 @@ export function InteractiveAgentPlaceholderWidget({
       });
     } catch (error) {
       const message = errorToMessage(error, "Provider request failed.");
+      setProviderModeLabel("Provider error");
       patchMessage(assistantMessage.id, {
         body: generated.responseBody,
         providerMeta: coordinatorProviderErrorMeta(
@@ -512,14 +518,27 @@ export function InteractiveAgentPlaceholderWidget({
           <div className="interactive-agent-status-copy">
             <p className="interactive-agent-title">Coordinator Chat</p>
             <p className="interactive-agent-text">
-              Mock/local provider drafts text from visible chat. Local proposal previews stay separate and approval-gated.
+              Provider responses use visible chat only. Mock/local remains the fallback; configured providers stay tools-disabled.
             </p>
             <div
               aria-label="Coordinator provider boundaries"
               className="interactive-agent-provider-badges"
             >
-              <Badge variant={isProviderPending ? "warning" : "info"}>
-                {isProviderPending ? "Drafting" : "Mock/local provider"}
+              <Badge
+                variant={
+                  isProviderPending
+                    ? "warning"
+                    : providerModeLabel === "Provider error"
+                      ? "error"
+                      : providerModeLabel === "Not configured" ||
+                          providerModeLabel.includes("unavailable")
+                        ? "warning"
+                        : providerModeLabel === "Local fallback"
+                          ? "neutral"
+                          : "info"
+                }
+              >
+                {isProviderPending ? "Drafting" : providerModeLabel}
               </Badge>
               <Badge variant="neutral">Tools disabled</Badge>
               <Badge variant="neutral">Visible chat only</Badge>
