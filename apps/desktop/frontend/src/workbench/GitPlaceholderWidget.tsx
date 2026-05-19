@@ -241,9 +241,6 @@ export function GitPlaceholderWidget({
         repositoryRootDraft={repositoryRootDraft}
         repositoryRootInputId={repositoryRootInputId}
         repositoryRootTitleId={repositoryRootTitleId}
-        status={gitStatus}
-        statusError={statusError}
-        statusRepositoryRoot={statusRepositoryRoot}
         supportsDesktopGitReads={supportsDesktopGitReads}
       />
 
@@ -269,35 +266,15 @@ export function GitPlaceholderWidget({
       ) : null}
 
       {gitStatus && statusRepositoryRoot ? (
-        <GitStatusCard
-          repositoryRoot={statusRepositoryRoot}
-          status={gitStatus}
-        />
+        <GitStatusCard status={gitStatus} />
       ) : null}
 
       <GitWidgetCommitPanel
-        isRefreshingStatus={isRefreshingStatus}
         onCreateGitCommit={createGitCommit}
         onRefreshStatusAfterCommit={refreshStatusAfterCommit}
         repositoryRoot={statusRepositoryRoot}
         status={gitStatus}
       />
-
-      {supportsDesktopGitReads && !gitStatus && !statusError && !isRefreshingStatus ? (
-        <GitStatusNotice
-          message={
-            hasRepositoryRootDraft
-              ? "Ready to read one manual snapshot. Hobit will not poll, watch, persist, or mutate this repository."
-              : "Enter an explicit local repository path before reading Git status."
-          }
-          title={
-            hasRepositoryRootDraft
-              ? "No status snapshot loaded"
-              : "Repository root not configured"
-          }
-          variant="neutral"
-        />
-      ) : null}
 
     </WidgetFrame>
   );

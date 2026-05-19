@@ -967,11 +967,11 @@
 
 .git-repository-root-panel {
   display: grid;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
 }
 
 .git-repository-root-header {
@@ -1022,37 +1022,6 @@
 
 .git-repository-root-field {
   flex: 1 1 240px;
-}
-
-.git-repository-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
-  gap: var(--space-sm);
-}
-
-.git-repository-overview-field {
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-io-surface);
-  padding: var(--space-sm);
-}
-
-.git-repository-overview-label {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 680;
-  line-height: var(--line-tight);
-}
-
-.git-repository-overview-value {
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-normal);
-  overflow-wrap: anywhere;
 }
 
 .git-status-feedback {
@@ -1121,11 +1090,11 @@
 
 .git-status-card {
   display: grid;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
 }
 
 .git-status-card-header,
@@ -1146,8 +1115,6 @@
 }
 
 .git-status-title-copy,
-.git-status-root,
-.git-status-metric,
 .git-status-commit-copy,
 .git-status-warnings {
   display: grid;
@@ -1163,8 +1130,6 @@
 }
 
 .git-status-card-title,
-.git-status-root-label,
-.git-status-metric-value,
 .git-status-commit-label,
 .git-status-warning-title {
   color: var(--color-text-secondary);
@@ -1174,8 +1139,6 @@
 }
 
 .git-status-card-subtitle,
-.git-status-root-label,
-.git-status-metric-label,
 .git-status-commit-meta,
 .git-status-warning-list {
   color: var(--color-text-muted);
@@ -1194,66 +1157,33 @@
   font-size: var(--text-xs);
 }
 
-.git-status-state {
-  display: grid;
-  gap: var(--space-xs);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-io-surface);
-  padding: var(--space-sm);
-}
-
-.git-status-state-clean {
-  border-color: var(--color-success);
-  background: var(--color-success-soft);
-}
-
-.git-status-state-dirty {
-  border-color: var(--color-warning);
-  background: var(--color-warning-soft);
-}
-
-.git-status-state-title,
-.git-status-state-text {
+.git-status-summary-line,
+.git-status-boundary {
   margin: 0;
-}
-
-.git-status-state-title {
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-tight);
-}
-
-.git-status-state-clean .git-status-state-title {
-  color: var(--color-success);
-}
-
-.git-status-state-dirty .git-status-state-title {
-  color: var(--color-warning);
-}
-
-.git-status-state-text {
-  color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
 }
 
-.git-status-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
-  gap: var(--space-sm);
-}
-
-.git-status-metric {
+.git-status-summary-line {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-io-surface);
+  color: var(--color-text-primary);
   padding: var(--space-sm);
+  font-weight: 720;
+  overflow-wrap: anywhere;
 }
 
-.git-status-metric-value {
-  overflow-wrap: anywhere;
+.git-status-summary-line-clean {
+  border-color: var(--color-success);
+}
+
+.git-status-summary-line-dirty {
+  border-color: var(--color-warning);
+}
+
+.git-status-boundary {
+  color: var(--color-text-muted);
 }
 
 .git-status-commit {
@@ -1421,12 +1351,17 @@
   padding: var(--space-md);
 }
 
+.git-commit-panel-collapsed {
+  padding: var(--space-sm) var(--space-md);
+}
+
 .git-commit-header,
 .git-commit-selection-header,
 .git-commit-confirmation-header,
 .git-commit-result-header,
 .git-commit-action-row,
-.git-commit-selection-actions {
+.git-commit-selection-actions,
+.git-commit-header-actions {
   display: flex;
   gap: var(--space-sm);
 }
@@ -1440,9 +1375,14 @@
 }
 
 .git-commit-action-row,
-.git-commit-selection-actions {
+.git-commit-selection-actions,
+.git-commit-header-actions {
   flex-wrap: wrap;
   align-items: center;
+}
+
+.git-commit-header-actions {
+  justify-content: flex-end;
 }
 
 .git-commit-safety-copy,

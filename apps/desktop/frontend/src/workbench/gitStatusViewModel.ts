@@ -17,8 +17,6 @@ export type GitFrameStatusView = {
 export type GitStatusSummaryView = {
   stateBadgeVariant: "success" | "warning" | "neutral";
   stateLabel: string;
-  stateText: string;
-  stateTitle: string;
   stateTone: "clean" | "dirty";
 };
 
@@ -105,14 +103,14 @@ export function repositoryRootHelpText(
   supportsDesktopGitReads: boolean,
 ) {
   if (!supportsDesktopGitReads) {
-    return "Desktop/Tauri shell is required for real Git reads. The path remains transient and local to this widget.";
+    return "Desktop shell required for local Git status.";
   }
 
   if (hasRepositoryRootDraft) {
-    return "This transient path is used for manual status snapshots and explicit local commits from this widget.";
+    return "Manual read-only refresh uses this explicit local path.";
   }
 
-  return "Repository root not configured. Enter an explicit local repository path to enable refresh and commit review.";
+  return "Enter a local repository path to load status.";
 }
 
 export function gitStatusSummary(
@@ -127,14 +125,31 @@ export function gitStatusSummary(
         ? "warning"
         : "neutral",
     stateLabel: isClean ? "Clean" : "Dirty",
-    stateText: isClean
-      ? "No changed files were reported in this manual snapshot."
-      : "This snapshot is read-only. Commit controls below require explicit file selection and confirmation.",
-    stateTitle: isClean
-      ? "Working tree clean"
-      : "Uncommitted changes detected",
     stateTone: isClean ? "clean" : "dirty",
   };
+}
+
+export function gitStatusCompactLine(status: GitRepositoryStatus) {
+  const parts = [
+    gitStatusSummary(status).stateLabel,
+    branchLabel(status.branch),
+  ];
+  const changeParts = [
+    countLabel(status.workingTree.stagedCount, "staged"),
+    countLabel(status.workingTree.unstagedCount, "unstaged"),
+    countLabel(status.workingTree.untrackedCount, "untracked"),
+  ].filter(Boolean);
+  const aheadBehind = aheadBehindLabel(status.branch);
+
+  parts.push(
+    ...(changeParts.length > 0 ? changeParts : ["0 changed files"]),
+  );
+
+  if (aheadBehind !== "Not reported") {
+    parts.push(aheadBehind);
+  }
+
+  return parts.join(" | ");
 }
 
 export function branchLabel(branch: GitBranchStatus | null) {
@@ -466,6 +481,10 @@ function pathSegmentLooksGenerated(path: string, segment: string) {
     path.startsWith(`${segment}/`) ||
     path.includes(`/${segment}/`)
   );
+}
+
+function countLabel(count: number, label: string) {
+  return count > 0 ? `${count} ${label}` : "";
 }
 
 function gitStatusErrorViewFromMessage(message: string): GitStatusErrorView {

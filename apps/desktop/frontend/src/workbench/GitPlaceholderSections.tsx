@@ -6,8 +6,6 @@ import type {
   GitRepositoryStatus,
 } from "../workspace/types";
 import {
-  aheadBehindLabel,
-  branchLabel,
   gitChangedFileDisplayView,
   gitChangedFileGroups,
   gitChangedFilePathLabel,
@@ -15,6 +13,7 @@ import {
   gitChangeKindBadgeVariant,
   gitChangeKindLabel,
   gitFileRiskHints,
+  gitStatusCompactLine,
   gitStatusSummary,
   repositoryRootHelpText,
   shortCommitHash,
@@ -31,9 +30,6 @@ export function GitRepositoryRootPanel({
   repositoryRootDraft,
   repositoryRootInputId,
   repositoryRootTitleId,
-  status,
-  statusError,
-  statusRepositoryRoot,
   supportsDesktopGitReads,
 }: {
   canRefreshStatus: boolean;
@@ -44,19 +40,8 @@ export function GitRepositoryRootPanel({
   repositoryRootDraft: string;
   repositoryRootInputId: string;
   repositoryRootTitleId: string;
-  status: GitRepositoryStatus | null;
-  statusError: GitStatusErrorView | null;
-  statusRepositoryRoot: string | null;
   supportsDesktopGitReads: boolean;
 }) {
-  const overviewFields = gitRepositoryOverviewFields({
-    isRefreshingStatus,
-    repositoryRootDraft,
-    status,
-    statusError,
-    statusRepositoryRoot,
-  });
-
   return (
     <section
       aria-labelledby={repositoryRootTitleId}
@@ -74,9 +59,6 @@ export function GitRepositoryRootPanel({
             )}
           </p>
         </div>
-        <Badge variant={supportsDesktopGitReads ? "neutral" : "info"}>
-          {supportsDesktopGitReads ? "Transient" : "Desktop required"}
-        </Badge>
       </div>
 
       <div className="git-repository-root-controls">
@@ -108,78 +90,8 @@ export function GitRepositoryRootPanel({
           {isRefreshingStatus ? "Refreshing..." : "Refresh snapshot"}
         </Button>
       </div>
-
-      <p className="git-repository-root-note">
-        Manual refresh reads a desktop-only status snapshot. The repository
-        root and status are not persisted, polled, or watched. Commit creation
-        requires separate explicit confirmation.
-      </p>
-
-      <div
-        aria-label="Repository snapshot overview"
-        className="git-repository-overview-grid"
-      >
-        {overviewFields.map((field) => (
-          <div className="git-repository-overview-field" key={field.label}>
-            <span className="git-repository-overview-label">
-              {field.label}
-            </span>
-            <span className="git-repository-overview-value">
-              {field.value}
-            </span>
-          </div>
-        ))}
-      </div>
     </section>
   );
-}
-
-function gitRepositoryOverviewFields({
-  isRefreshingStatus,
-  repositoryRootDraft,
-  status,
-  statusError,
-  statusRepositoryRoot,
-}: {
-  isRefreshingStatus: boolean;
-  repositoryRootDraft: string;
-  status: GitRepositoryStatus | null;
-  statusError: GitStatusErrorView | null;
-  statusRepositoryRoot: string | null;
-}) {
-  const loadedStatus = status ? gitStatusSummary(status) : null;
-  const repositoryRoot = statusRepositoryRoot ?? repositoryRootDraft.trim();
-
-  return [
-    {
-      label: "Repo root",
-      value: repositoryRoot || "Not configured",
-    },
-    {
-      label: "Status",
-      value: isRefreshingStatus
-        ? "Reading"
-        : loadedStatus
-          ? loadedStatus.stateLabel
-          : statusError
-            ? statusError.badgeLabel
-            : "Not loaded",
-    },
-    {
-      label: "Branch",
-      value: status ? branchLabel(status.branch) : "Not reported",
-    },
-    {
-      label: "Last refresh",
-      value: isRefreshingStatus
-        ? "Refreshing"
-        : statusError
-          ? "Failed"
-          : status
-            ? "Loaded"
-            : "Not loaded",
-    },
-  ];
 }
 
 export function GitStatusNotice({
@@ -229,10 +141,8 @@ export function GitStatusErrorNotice({
 }
 
 export function GitStatusCard({
-  repositoryRoot,
   status,
 }: {
-  repositoryRoot: string;
   status: GitRepositoryStatus;
 }) {
   const statusSummary = gitStatusSummary(status);
@@ -244,58 +154,28 @@ export function GitStatusCard({
     >
       <div className="git-status-card-header">
         <div className="git-status-title-copy">
-          <h3 className="git-status-card-title">Repository</h3>
+          <h3 className="git-status-card-title">Status</h3>
           <p className="git-status-card-subtitle">
-            Latest manual read-only snapshot
+            Read-only snapshot from the explicit path above
           </p>
         </div>
         <div className="git-status-badge-row">
           <Badge variant={statusSummary.stateBadgeVariant}>
             {statusSummary.stateLabel}
           </Badge>
-          <Badge variant="neutral">Read-only</Badge>
         </div>
       </div>
 
-      <div className="git-status-root">
-        <span className="git-status-root-label">Root used</span>
-        <code className="git-status-root-value">{repositoryRoot}</code>
-      </div>
-
-      <div
-        className={`git-status-state git-status-state-${statusSummary.stateTone}`}
+      <p
+        className={`git-status-summary-line git-status-summary-line-${statusSummary.stateTone}`}
       >
-        <p className="git-status-state-title">{statusSummary.stateTitle}</p>
-        <p className="git-status-state-text">{statusSummary.stateText}</p>
-      </div>
+        {gitStatusCompactLine(status)}
+      </p>
 
-      <div className="git-status-metric-grid">
-        <GitStatusMetric label="Branch" value={branchLabel(status.branch)} />
-        <GitStatusMetric
-          label="Working tree"
-          value={statusSummary.stateLabel}
-        />
-        <GitStatusMetric
-          label="Changed files"
-          value={String(status.changedFiles.length)}
-        />
-        <GitStatusMetric
-          label="Staged"
-          value={String(status.workingTree.stagedCount)}
-        />
-        <GitStatusMetric
-          label="Unstaged"
-          value={String(status.workingTree.unstagedCount)}
-        />
-        <GitStatusMetric
-          label="Untracked"
-          value={String(status.workingTree.untrackedCount)}
-        />
-        <GitStatusMetric
-          label="Ahead / behind"
-          value={aheadBehindLabel(status.branch)}
-        />
-      </div>
+      <p className="git-status-boundary">
+        Status refresh is read-only; it does not fetch, poll, watch, or mutate
+        Git.
+      </p>
 
       {status.lastCommit ? (
         <GitLastCommitSummary commit={status.lastCommit} />
@@ -427,15 +307,6 @@ function GitChangedFileRow({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function GitStatusMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="git-status-metric">
-      <span className="git-status-metric-label">{label}</span>
-      <span className="git-status-metric-value">{value}</span>
     </div>
   );
 }

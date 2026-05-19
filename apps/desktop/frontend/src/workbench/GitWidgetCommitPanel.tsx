@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
@@ -26,10 +20,7 @@ type GitCommitCreateRequest = {
 };
 
 type GitWidgetCommitPanelProps = {
-  isRefreshingStatus: boolean;
-  onCreateGitCommit?: (
-    request: GitCommitCreateRequest,
-  ) => Promise<GitCommitResponse | null>;
+  onCreateGitCommit?: (request: GitCommitCreateRequest) => Promise<GitCommitResponse | null>;
   onRefreshStatusAfterCommit?: () => Promise<void>;
   repositoryRoot: string | null;
   status: GitRepositoryStatus | null;
@@ -43,7 +34,6 @@ type CommitCandidate = {
 };
 
 export function GitWidgetCommitPanel({
-  isRefreshingStatus,
   onCreateGitCommit,
   onRefreshStatusAfterCommit,
   repositoryRoot,
@@ -59,12 +49,9 @@ export function GitWidgetCommitPanel({
   const [commitMessage, setCommitMessage] = useState("");
   const [messageError, setMessageError] = useState<string | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const [commitResult, setCommitResult] = useState<GitCommitResponse | null>(
-    null,
-  );
-  const [refreshAfterCommitError, setRefreshAfterCommitError] = useState<
-    string | null
-  >(null);
+  const [commitResult, setCommitResult] = useState<GitCommitResponse | null>(null);
+  const [refreshAfterCommitError, setRefreshAfterCommitError] = useState<string | null>(null);
+  const [isCommitOpen, setIsCommitOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const candidatePathSet = useMemo(
@@ -81,9 +68,14 @@ export function GitWidgetCommitPanel({
   const hasSelectableFiles = candidates.length > 0;
   const allCandidatesSelected =
     hasSelectableFiles && selectedFiles.length === candidates.length;
+  const hasCommitContext = Boolean(repositoryRoot && status);
+  const shouldShowCommitPanel = Boolean(
+    commitError || commitResult || (hasCommitContext && hasChangedFiles),
+  );
 
   useEffect(() => {
     setSelectedFilePaths(candidates.map((candidate) => candidate.path));
+    setIsCommitOpen(false);
     setIsConfirming(false);
     setMessageError(null);
     setCommitError(null);
@@ -194,45 +186,45 @@ export function GitWidgetCommitPanel({
     }
   }
 
+  if (!shouldShowCommitPanel) {
+    return null;
+  }
+
   return (
-    <section aria-label="Create local Git commit" className="git-commit-panel">
+    <section
+      aria-label="Create local Git commit"
+      className={`git-commit-panel${
+        isCommitOpen ? "" : " git-commit-panel-collapsed"
+      }`}
+    >
       <div className="git-commit-header">
         <div className="git-status-title-copy">
-          <h3 className="git-status-card-title">Commit</h3>
+          <h3 className="git-status-card-title">Local commit</h3>
           <p className="git-status-card-subtitle">
-            Explicit operator-approved commit for the selected files
+            {commitPanelSubtitle({
+              candidates,
+              hasChangedFiles,
+              hasCommitContext,
+              hasSelectableFiles,
+            })}
           </p>
         </div>
-        <Badge variant="warning">Local only</Badge>
+        <div className="git-commit-header-actions">
+          <Badge variant="warning">Local only</Badge>
+          {repositoryRoot && status && hasSelectableFiles ? (
+            <Button
+              disabled={isCommitting}
+              onClick={() => {
+                setIsCommitOpen((current) => !current);
+                setIsConfirming(false);
+              }}
+              variant={isCommitOpen ? "ghost" : "secondary"}
+            >
+              {isCommitOpen ? "Close" : "Create local commit"}
+            </Button>
+          ) : null}
+        </div>
       </div>
-
-      <p className="git-commit-safety-copy">
-        Local commit only. No push will be performed. No reset or clean will be
-        performed. Only selected files are included.
-      </p>
-
-      <p className="git-commit-review-note">
-        Review validation status before committing if this change came from
-        Agent Executor.
-      </p>
-
-      {!repositoryRoot || !status ? (
-        <GitCommitNotice
-          message={
-            isRefreshingStatus
-              ? "Commit is unavailable while Git status is refreshing."
-              : "Commit unavailable until Git status is loaded."
-          }
-          title="Commit unavailable"
-        />
-      ) : null}
-
-      {repositoryRoot && status && !hasChangedFiles ? (
-        <GitCommitNotice
-          message="No changes to commit."
-          title="Working tree clean"
-        />
-      ) : null}
 
       {repositoryRoot && status && hasChangedFiles && !hasSelectableFiles ? (
         <GitCommitNotice
@@ -241,8 +233,13 @@ export function GitWidgetCommitPanel({
         />
       ) : null}
 
-      {repositoryRoot && status && hasSelectableFiles ? (
+      {repositoryRoot && status && hasSelectableFiles && isCommitOpen ? (
         <>
+          <p className="git-commit-safety-copy">
+            Local commit only. Selected files only. Confirmation is required
+            before staging.
+          </p>
+
           <div className="git-commit-field">
             <label
               className="git-commit-field-label"
@@ -357,6 +354,32 @@ function GitCommitNotice({
       <p className="git-status-feedback-text">{message}</p>
     </div>
   );
+}
+
+function commitPanelSubtitle({
+  candidates,
+  hasChangedFiles,
+  hasCommitContext,
+  hasSelectableFiles,
+}: {
+  candidates: CommitCandidate[];
+  hasChangedFiles: boolean;
+  hasCommitContext: boolean;
+  hasSelectableFiles: boolean;
+}) {
+  if (!hasCommitContext) {
+    return "Latest commit result";
+  }
+
+  if (!hasChangedFiles) {
+    return "No changed files in the loaded status snapshot";
+  }
+
+  if (!hasSelectableFiles) {
+    return "No safe repo-relative files are selectable";
+  }
+
+  return `${candidates.length} selectable files; explicit confirmation required`;
 }
 
 function GitCommitFileRow({
