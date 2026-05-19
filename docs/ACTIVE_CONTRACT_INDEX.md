@@ -46,6 +46,9 @@ Read this set for almost every future block:
   and visual polish blocks.
 - `docs/TOOL_ACTION_CONTRACT.md` - read for explicit, visible, approval-aware
   action modeling.
+- `docs/AI_INTEGRATION_READINESS_CONTRACT.md` - read before Coordinator
+  provider/runtime work; it defines the first provider slice boundary with
+  explicit visible context only and `allowed_tools: []`.
 
 ## Active Domain Contracts
 
@@ -132,7 +135,6 @@ These documents should not override the Coordinator-centered model or
   direction by Coordinator Chat, but still useful for compatibility with the
   existing `interactive-agent` widget id/component.
 - Older Agent Chat and Agent Monitoring proposal-era text in
-  `docs/AI_INTEGRATION_READINESS_CONTRACT.md`,
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
   `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`,
   `docs/WORKSPACE_CONTRACT.md`, and

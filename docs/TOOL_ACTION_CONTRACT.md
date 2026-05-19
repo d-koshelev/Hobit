@@ -58,6 +58,15 @@ Terminal command proposals, Git mutations, JDBC SQL execution, Agent Executor
 run launch, Queue auto-dispatch, and hidden context compilation are out of the
 first proposal UI slice.
 
+Provider-backed Coordinator proposals follow the same rule. A provider may
+return assistant text and proposal drafts, but those drafts are not Tool
+Actions and are not execution authority. The first provider slice must use
+`allowed_tools: []`; provider output must be parsed and validated before
+rendering, and unsupported or unsafe drafts must degrade to plain text or a
+visibly rejected draft. Queue task creation, Note creation, JDBC suggestion
+copying, and any future widget action remain separate operator-visible actions
+after review and approval.
+
 ## Approval
 
 Dangerous actions require explicit approval before execution.
@@ -85,10 +94,10 @@ Future Script Runner behavior is further defined in `docs/SCRIPT_RUNNER_WIDGET_C
 
 Future Workspace-aware Coordinator Agent proposals are not tool execution by themselves. When an approved Coordinator proposal becomes a tool action, it must still follow this approval-aware Tool Action contract, the widget capability boundary in `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and the approved-context proposal rules in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 
-The first real AI integration slice is proposal-only under
+The first Coordinator provider slice is proposal-only under
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must use `allowed_tools: []`.
 AI may propose, but it cannot execute Terminal, Git, Notes, File, Script Runner,
-Agent Queue, or external-system actions directly.
+Agent Queue, JDBC, or external-system actions directly.
 
 ## Relation To Direct Mode
 

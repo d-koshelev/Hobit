@@ -266,10 +266,11 @@ The current user-facing workbench widget set is:
 
 ## Recommended Next Blocks
 
-- Coordinator local action proposal card UI, frontend-only/inert.
-- Coordinator proposal to create Agent Queue task with explicit approval.
-- Coordinator provider/runtime planning or local deterministic proposal
-  plumbing.
+- Coordinator provider adapter foundation with mock/local provider first and
+  tools disabled.
+- Provider-backed Coordinator text response with explicit visible context only.
+- Provider structured proposal drafts rendered as review cards, still no
+  execution.
 - Later controlled widget capability bridge.
 - Later JDBC read-only query execution backend.
 - Later JDBC result grid UI.

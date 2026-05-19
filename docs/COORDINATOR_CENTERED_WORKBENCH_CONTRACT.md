@@ -395,6 +395,49 @@ A future context pack should show:
 - estimated token size
 - whether the operator approved it
 
+## Provider Runtime Boundary
+
+The first Coordinator provider runtime must be drafting-only.
+
+Provider input may include only the explicit operator chat message, visible
+current-session Coordinator Chat messages, visible proposal draft context that
+the operator can inspect, and compact safe system/product instructions. It must
+not include hidden widget state, Terminal output, Agent Executor logs/results,
+Git diffs/status, JDBC connector metadata/results/secrets, Notes bodies,
+filesystem contents, environment variables, secrets, or unapproved
+Evidence/Sources.
+
+The first provider request must use:
+
+```text
+allowed_tools: []
+```
+
+Provider output may contain assistant text and optional structured proposal
+drafts for the currently supported safe proposal types: create Agent Queue
+task, create Note, and prepare JDBC query suggestion text without execution.
+Provider output must be parsed and validated before rendering. Unsupported,
+malformed, or unsafe proposals must degrade to plain text or a visibly rejected
+draft; they must never trigger fallback execution.
+
+Provider-backed proposals preserve the same approval boundary as local
+proposals:
+
+- Approve is not execution.
+- Queue task creation requires a separate `Create Queue task` action.
+- Note creation requires a separate `Create Note` action.
+- JDBC proposals remain non-executing suggestions.
+- Terminal, Git, Agent Executor launch, Queue auto-dispatch, JDBC SQL
+  execution, and hidden context compilation are not supported in the first
+  provider slice.
+
+Provider calls must be visible user-triggered Coordinator Chat actions. Widget
+changes must not trigger background provider calls. Provider errors, parse
+failures, and unsupported configuration must be visible.
+
+The detailed first-provider boundary is defined in
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`.
+
 ## Token Economy
 
 Coordinator should use compact context.
@@ -466,10 +509,11 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Coordinator local action proposal card UI, frontend-only/inert.
-- Coordinator proposal to create Agent Queue task with explicit approval.
-- Coordinator provider/runtime planning or local deterministic proposal
-  plumbing.
+- Coordinator provider adapter foundation with mock/local provider first and
+  tools disabled.
+- Provider-backed Coordinator text response with explicit visible context only.
+- Provider structured proposal drafts rendered as review cards, still no
+  execution.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only query proposal flow after JDBC execution
   and result review are contract-ready.

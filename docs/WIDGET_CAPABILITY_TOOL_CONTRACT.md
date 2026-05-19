@@ -390,6 +390,27 @@ Coordinator must not bypass widgets. Any action that uses widget state,
 external systems, files, repositories, tasks, notes, or processes must go
 through the owning widget capability boundary.
 
+## Coordinator Provider Tool Boundary
+
+The first provider-backed Coordinator slice has no tools.
+
+Provider requests must declare:
+
+```text
+allowed_tools: []
+```
+
+The provider may draft assistant text and structured proposal drafts, but it
+must not call widget capabilities, inspect widget internals, create Queue
+tasks, create Notes, execute Terminal commands, run SQL, mutate Git, launch
+Agent Executor, read files, or compile hidden context.
+
+Provider-generated proposal drafts are descriptive requests only. They must be
+validated against the current supported proposal types or a later explicit
+capability descriptor before rendering. Only an approved proposal can proceed
+to a separate visible operator action, and that action must still be owned by
+the target widget capability boundary.
+
 ## Coordinator Action Proposal Boundary
 
 A Coordinator action proposal is an inert, visible request to use a widget
@@ -498,10 +519,11 @@ state-changing or external effects.
 
 ## Recommended Follow-Up Blocks
 
-- Coordinator local action proposal card UI, frontend-only/inert.
-- Coordinator proposal to create Agent Queue task with explicit approval.
-- Coordinator provider/runtime planning or local deterministic proposal
-  plumbing.
+- Coordinator provider adapter foundation with mock/local provider first and
+  tools disabled.
+- Provider-backed Coordinator text response with explicit visible context only.
+- Provider structured proposal drafts rendered as review cards, still no
+  execution.
 - Later controlled widget capability bridge.
 - Later JDBC read-only query execution backend.
 - Later JDBC result grid UI.

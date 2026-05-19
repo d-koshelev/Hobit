@@ -37,6 +37,10 @@ Coordinator-visible widget capability boundaries are defined in
 runtime Coordinator capability registry or broad widget tool execution. The
 current Coordinator UI can create a draft Agent Queue task or workspace-local
 Note only after explicit proposal approval and a separate create action.
+The first Coordinator provider/runtime boundary is defined in
+`docs/AI_INTEGRATION_READINESS_CONTRACT.md`: future provider calls may draft
+text and proposal cards only, with explicit visible context and
+`allowed_tools: []`.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -183,6 +187,10 @@ future widget capability.
   sessions, read hidden context, launch Agent Executor, integrate
   with Runbook, mutate files, mutate Git, run SQL, call JDBC connectors, or run
   Terminal commands.
+- Future provider-backed Coordinator responses are contract-gated by
+  `docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must keep tools disabled,
+  context explicit, and proposals review-only until separately approved and
+  handed off through an existing visible action.
 
 ### Database / JDBC
 
@@ -244,8 +252,11 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Coordinator proposal card UX/state polish.
-- Coordinator provider/runtime planning.
+- Coordinator provider adapter foundation with mock/local provider first and
+  tools disabled.
+- Provider-backed Coordinator text response with explicit visible context only.
+- Provider structured proposal drafts rendered as review cards, still no
+  execution.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
   review exists.

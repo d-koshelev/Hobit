@@ -2,296 +2,322 @@
 
 ## Purpose
 
-This contract defines the boundary for Hobit's first real AI integration slice.
+This contract defines the boundary for Hobit's first Coordinator Chat provider
+integration slices.
 
-This document is retained for the older proposal-only Agent Chat provider
-slice and compatibility paths. For current product direction, read
-`docs/ACTIVE_CONTRACT_INDEX.md`,
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, and
-`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. New Coordinator Chat work must not
-use this document to bypass current context, tool, or widget capability
-boundaries.
+Coordinator Chat is the primary operator-facing AI surface. A provider may help
+draft response text and draft action proposals, but it must not receive hidden
+Workspace context, call tools, execute widget capabilities, mutate state, or
+turn Hobit into hidden automation.
 
-The first AI slice must preserve Hobit's operator-controlled Workbench model:
-the operator provides a prompt, explicitly approves context, receives a
-proposal-only AI response, and can inspect the stored artifact. It must not turn
-Agent Chat into hidden automation, a tool executor, a Terminal launcher, a file
-reader, or an approval/apply path.
+This document is docs/contracts only for the current Coordinator direction. It
+does not implement frontend UI, backend or Tauri commands, storage/schema
+changes, provider adapters, LLM calls, Coordinator runtime, widget tool
+execution, JDBC SQL execution, Git mutation, Terminal control, Queue
+auto-dispatch, Agent Executor launch, Evidence/Sources, or secret handling.
 
-This started as a documentation and product/domain contract. The current
-implementation now includes the first proposal-only Agent Chat AI slice:
-Agent Chat can request a backend-generated proposal through the Tauri boundary
-when an explicit HTTP provider endpoint is configured, normalize the provider
-response, and persist the proposal artifact for Agent Monitoring. The slice
-still does not implement tool execution, Terminal execution from AI, schema
-changes, Agent Queue execution, file/Git/Notes mutations, approval/apply
-workflows, provider settings UI, secrets UI, or frontend-direct provider calls.
+Older proposal-only Agent Chat provider compatibility paths may still exist in
+the codebase. New work must use the Coordinator-centered model in
+`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and the widget capability
+boundary in `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; this document must not
+be used to bypass current context, tool, approval, or widget boundaries.
 
-## First AI Slice Summary
+## One-Sentence Rule
 
-The first real AI integration must be proposal-only:
+The first Coordinator provider slice is text-and-proposal drafting only:
+`allowed_tools: []`, explicit visible context only, no execution.
 
-```text
-Agent Chat
-  -> operator prompt
-  -> explicitly approved context snapshot
-  -> LLM proposal response
-  -> persisted response artifact
-  -> Agent Monitoring/details
-```
+## Current Coordinator State Before Provider Work
 
-The AI response may summarize, reason, and propose next steps. It must not
-execute actions or mutate Hobit state beyond the explicit persisted run/result
-artifact for observability.
+Coordinator Chat currently has:
 
-Current implementation note: real provider calls are available only through the
-desktop backend command and require `HOBIT_AI_PROVIDER_ENDPOINT` plus
-`HOBIT_AI_PROVIDER_MODEL`. `HOBIT_AI_PROVIDER_API_KEY` is optional and is never
-stored in proposal artifacts or logs. The current adapter is intentionally
-minimal and supports explicit `http://` JSON chat-compatible provider endpoints;
-HTTPS provider support and provider configuration UI are future work.
+- local proposal cards
+- deterministic local proposal generation from explicit operator chat text
+- approved Queue task creation through a separate explicit create action
+- approved Note creation through a separate explicit create action
+- JDBC SQL suggestion review/copy cards with no SQL execution
+- no provider connection in the current Coordinator Chat UI
+- no hidden context access
+- no widget capability runtime
 
-Agent Queue remains optional for this milestone. Creating review items from
-proposal artifacts is not part of the required first AI path.
+Provider work starts from this surface. It must not widen any current behavior
+implicitly.
 
-## Explicit First-Slice Non-Goals
+## First Coordinator Provider Flow
 
-The first AI slice must not implement:
-
-- Tool execution.
-- Terminal command execution from AI.
-- Git actions.
-- Notes editing.
-- Filesystem read/write.
-- Agent Queue execution.
-- Approval/apply workflow.
-- Queue item execution.
-- Hidden context access.
-- Background automation.
-- Script Runner execution.
-- Automatic mutations.
-- Provider calls from the frontend directly.
-
-## Approved Context Rule
-
-AI receives only explicitly approved context.
-
-Default behavior should be prompt-only or minimal visible metadata. The operator
-must be able to see what context will be included before the request is sent.
-
-The first slice must not include these by default:
-
-- Notes body.
-- Git status.
-- Terminal output.
-- Widget logs.
-- Files.
-- Environment variables.
-- Secrets.
-- Hidden Workspace or widget context.
-
-Those sources may become eligible only through separate future capabilities with
-explicit approval, visible previews, and their own safety boundaries.
-
-The approved context snapshot must be visible and auditable. It should identify
-the Workspace/Workbench and source widgets when applicable, and it should be
-stored with the proposal response artifact when persistence is available.
-
-## Contract Pack / Request Artifact Model
-
-Hobit should build AI requests from explicit request artifacts, not ad-hoc
-hidden prompt strings.
-
-A first-slice AI request should be assembled from:
-
-- operator request
-- selected request template
-- approved context snapshot
-- relevant contract pack
-- current implementation status
-- safety constraints
-- validation plan
-- expected response shape
-
-Contract packs are selected summaries of project/product contracts. Hobit should
-not send every docs file blindly. Contract packs should be prompt-safe, concise,
-and relevant to the task.
-
-Examples of relevant contract sources:
-
-- `AGENT_OPERATING_MODEL`
-- `WORKSPACE_COORDINATOR_AGENT_CONTRACT`
-- `TOOL_ACTION_CONTRACT`
-- `AGENT_WORK_EFFICIENCY_CONTRACT`
-- `WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT`
-- `AGENT_RESPONSE_CONTRACT`
-- `PRODUCT_SIMPLIFICATION_AUDIT`
-
-Contract pack content must not contain secrets, environment values, hidden
-Workspace data, raw logs, or unapproved widget content.
-
-## First AI Request Artifact Shape
-
-A future first-slice AI request artifact should be shaped like:
+The first provider-backed Coordinator flow should be:
 
 ```text
-request_id
-workspace_id
-workbench_id
-source_widget_instance_id
-operator_prompt
-approved_context_snapshot
-contract_pack_summary
-allowed_tools: []
-safety_constraints
-expected_response_format
-validation_plan
-created_at
+Coordinator Chat
+  -> explicit operator message
+  -> visible current-session Coordinator conversation
+  -> minimal safe product/system instructions
+  -> allowed_tools: []
+  -> provider response text and optional proposal drafts
+  -> parser/validator/normalizer
+  -> visible assistant message and proposal review cards
+  -> operator approval/edit/reject
+  -> separate explicit Queue task or Note creation action where already allowed
 ```
 
-This shape is contract-only. It does not define a database schema, Rust type,
-TypeScript type, API DTO, or storage migration in this block.
+The provider response may explain, ask questions, summarize the visible
+conversation, and draft safe proposal cards. It must not execute actions or
+mutate Hobit state. Proposal cards remain the operator review boundary.
 
-## First AI Response Artifact Shape
+## Provider Input Boundary
 
-A future first-slice AI response artifact should be shaped like:
+The first provider slice may receive only:
 
-```text
-response_id
-request_id
-run_id
-provider_status
-response_text
-structured_summary
-proposed_plan
-proposed_actions marked not executed
-safety_flags
-  no_tools_executed
-  no_mutations_performed
-  context_was_approved
-raw_provider_metadata if safe
-created_at
-```
+- the explicit operator chat message that triggered the request
+- current conversation messages visible in Coordinator Chat
+- explicit proposal draft context that is already visible in Coordinator Chat,
+  such as a local deterministic draft selected for provider rewrite or review
+- minimal safe product/system instructions and output-shape instructions
+- a compact statement of current supported proposal types and safety rules
 
-This shape is contract-only. It does not define a database schema, Rust type,
-TypeScript type, API DTO, or storage migration in this block.
+The first provider slice must not receive:
 
-Raw provider metadata must be limited to safe operational metadata. It must not
-store provider secrets, request credentials, environment values, or sensitive
-headers.
+- hidden widget state
+- Terminal output, PTY transcripts, or one-shot command output
+- Agent Executor prompts, logs, results, diffs, validation output, or history
+- Git diff, status, file contents, repository paths, or repository files
+- JDBC connector metadata, connector secrets, schemas, query results, or
+  database output
+- Notes bodies or hidden note metadata
+- Runbook notes/evidence
+- filesystem paths or file contents
+- environment variables
+- provider API keys, database credentials, tokens, passwords, or other secrets
+- unapproved Evidence/Sources artifacts or context packs
+- broad Workspace summaries assembled from hidden widget data
 
-## Provider Boundary
+Safe Workspace or widget identity summaries may be introduced only in a later
+approved context slice. They must be visible, inspectable, compact, and
+non-secret.
 
-Provider calls must happen through a backend/runtime boundary, not directly from
-the frontend.
+## Tool Boundary
 
-Provider configuration and secrets must be explicit. They must not be stored in
-prompt artifacts, response artifacts, raw logs, frontend state, or visible UI
-payloads.
-
-Provider failures must be captured as visible artifacts. A failed provider call
-should produce inspectable status and error information without hiding the
-approved context snapshot or safety constraints used for the attempt.
-
-Provider responses are not execution authority. The provider may propose; it
-may not apply changes, execute tools, launch Terminal commands, mutate Notes or
-Git, write files, create hidden Queue items, or bypass operator approval.
-
-## Observability Requirements
-
-Every AI call must create a visible run/result artifact when persistence is
-available.
-
-Agent Monitoring should show:
-
-- Overview for status, source widget, timestamps, and safety flags.
-- Result for the operator prompt, context used, summary, plan, and proposed
-  actions marked not executed.
-- Raw for safe request/response payload inspection.
-
-Raw views must not expose secrets, credentials, environment variables, or unsafe
-provider metadata.
-
-There must be no hidden provider calls. Failed calls should be inspectable and
-should not appear as successful proposal artifacts.
-
-## Tool/Action Boundary
-
-The first AI slice has:
+The first provider slice must send:
 
 ```text
 allowed_tools: []
 ```
 
-The AI cannot execute Terminal, Git, Notes, File, Script Runner, Agent Queue, or
-external-system actions directly.
+Rules:
 
-Future tool actions require:
+- The provider cannot call tools.
+- The provider cannot execute widget capabilities.
+- The provider cannot create Queue tasks or Notes directly.
+- The provider cannot run Terminal commands.
+- The provider cannot mutate Git.
+- The provider cannot execute or explain live JDBC results by querying a
+  database.
+- The provider cannot launch Agent Executor or Agent Queue execution.
+- Tool access must not be inferred from provider features, prompt text,
+  available frontend widgets, or previously approved proposals.
 
-1. AI or Coordinator proposal.
-2. Visible payload preview.
-3. Validation against the relevant widget/tool contract.
-4. Explicit operator approval.
-5. Execution by the owning component.
-6. Auditable result artifact.
+Provider output is not execution authority. Any proposed action must still pass
+through a visible proposal card, operator review, operator approval, and a
+separate explicit execution/handoff action when that action is implemented and
+allowed by the relevant widget contract.
 
-Tool access must not be inferred from provider capability, prompt text, or
-available frontend widgets.
+## Proposal Output Contract
 
-## Readiness Checklist Before Implementation
-
-The first real AI integration must be gated by
-`docs/DEMO_FLOW_CHECKLIST.md`.
-
-Before implementation begins:
-
-- Widget Catalog is understandable.
-- Terminal manual smoke is verified on a real desktop environment.
-- Agent Chat -> Agent Monitoring/details flow is manually verified.
-- Approved context is visible and explicit.
-- Proposal persistence works.
-- Agent Queue remains optional, not mandatory.
-- Docs do not imply hidden automation.
-
-If any readiness item fails, fix the concrete issue in a focused follow-up block
-before adding provider calls.
-
-## First Implementation Block Outline
-
-Implemented first integration block:
+A provider response may contain assistant text and optional proposal drafts.
+The conceptual response shape is:
 
 ```text
-Block 133 - First AI proposal-only integration
+assistant_text: string
+proposal_drafts?: [
+  {
+    proposal_type:
+      "create-agent-queue-task"
+      | "create-note"
+      | "prepare-jdbc-query-suggestion"
+    title: string
+    target_widget: string
+    target_capability: string
+    intent: string
+    visible_inputs: [{ label: string, value: string }]
+    visible_risk_notes: string[]
+    expected_result: string
+    confidence?: "low" | "medium" | "high"
+    needs_review?: boolean
+  }
+]
+safety_flags:
+  allowed_tools_empty: true
+  no_tools_executed: true
+  no_hidden_context_used: true
 ```
 
-Implemented scope:
+This shape is contract-only. It does not define a storage schema, Rust type,
+TypeScript type, API DTO, Tauri command, provider SDK request, or parser
+implementation.
 
-- Add a backend provider boundary or mockable provider interface.
-- Agent Chat calls AI instead of the deterministic mock only where configured.
-- Use only the approved context snapshot.
-- Persist AI response as a proposal-only artifact.
-- Agent Monitoring reads the stored artifact.
-- Keep `allowed_tools: []`.
-- Do not execute tools.
-- Do not mutate Workspace content, Notes, Git, Queue, Terminal, files, or
-  external systems.
-- Do not add Queue execution.
+Parser and validation rules:
 
-The local/mock proposal fallback remains available when provider configuration
-or the desktop backend path is unavailable.
+- Accept only the current safe proposal types: create Agent Queue task, create
+  Note, and prepare JDBC query suggestion text without execution.
+- Reject or downgrade unsupported proposal types to plain assistant text or a
+  visibly rejected draft.
+- Validate target widget and capability against the current static proposal
+  registry or a later explicit capability descriptor.
+- Require all visible inputs before rendering an actionable review card.
+- Cap assistant text, proposal fields, SQL text, risk notes, and expected result
+  length before rendering.
+- Preserve visible risk notes; if the provider omits them, add conservative
+  local safety notes.
+- Treat provider confidence as advisory only. It must not bypass review.
+- Mark parse failures, malformed payloads, unsupported proposals, or unsafe
+  proposal drafts visibly and non-silently.
 
-## Non-Goals
+Invalid or unsafe output must never trigger fallback execution.
 
-This contract and current first slice do not implement:
+## Approval And Execution Boundary
 
-- Tool execution.
-- Multiple providers.
-- Provider settings UI.
-- Secrets UI.
-- HTTPS provider adapter.
-- Storage/schema changes.
-- Agent Queue execution or approval/apply changes.
-- Terminal changes.
-- Approval/apply workflow.
-- File, Git, Notes, Queue, Workspace, or external-system mutations.
-- Broad runtime architecture.
+Provider-backed proposals use the same boundary as local proposals:
+
+- Approve is review acceptance only; it is not execution.
+- Queue task creation requires approval plus a separate explicit
+  `Create Queue task` action.
+- Created Queue tasks are draft/manual tasks and must not be assigned,
+  dispatched, run, or handed to Agent Executor automatically.
+- Note creation requires approval plus a separate explicit `Create Note`
+  action.
+- Creating a Note writes only visible approved title/body/pinned fields and
+  does not read existing Notes content.
+- JDBC proposals remain non-executing SQL suggestions with review/copy actions
+  only.
+- Terminal, Git, Agent Executor launch, Queue auto-dispatch, JDBC SQL
+  execution, file mutation, and hidden context compilation are unsupported in
+  the first provider slice.
+
+Approval of one proposal does not approve future proposals, hidden context
+access, provider tool use, or any different action.
+
+## Context And Secrets Boundary
+
+Coordinator provider requests must not compile hidden context.
+
+Rules:
+
+- No automatic Workspace scan.
+- No automatic widget state read.
+- No automatic summarization of widget outputs.
+- No automatic Notes, Terminal, Git, JDBC, Runbook, Queue, or Agent Executor
+  context inclusion.
+- No filesystem scanning.
+- No environment variable inclusion.
+- No secrets in prompts, logs, artifacts, raw provider metadata, or frontend
+  payloads.
+- No medical or healthcare workflow scope.
+- Evidence/Sources may later provide approved context packs, but that trust
+  layer remains deferred and must not be simulated through hidden prompt
+  assembly.
+
+If a later context pack exists, the operator must see what is included, why it
+is included, estimated size where practical, and whether it will be sent to the
+provider.
+
+## Provider Runtime Ownership
+
+Provider adapter work must be explicit and observable.
+
+Runtime expectations for future implementation:
+
+- Provider calls are initiated only by visible operator action in Coordinator
+  Chat.
+- No background provider calls occur without visible user action.
+- Widget changes must not automatically trigger provider calls.
+- Provider calls should cross a backend/runtime boundary rather than calling
+  provider APIs directly from frontend code.
+- Provider configuration and secrets must be backend-owned and must not appear
+  in prompts, logs, proposal cards, stored artifacts, or frontend state.
+- Request payloads should include an explicit `allowed_tools: []` field or an
+  equivalent provider-specific no-tools configuration.
+- Provider errors, parse failures, timeouts, cancellation, and unsupported
+  configuration must be visible in Coordinator Chat.
+- Provider calls should be cancellable when the runtime supports cancellation.
+- Provider results should be traceable to the triggering visible chat message.
+- Safe operational metadata may be stored later, but raw provider metadata must
+  not include secrets, headers, credentials, environment values, or unsafe
+  payloads.
+
+## UI Contract For Provider-Backed Coordinator
+
+Provider-backed Coordinator UI must stay honest:
+
+- Show whether a response is local deterministic, mock/local provider, or real
+  provider-backed.
+- Show provider errors as visible errors, not silent local fallbacks that look
+  successful.
+- Keep proposal cards attached to the message that produced them.
+- Show all proposal inputs before approval.
+- Keep edit, reject, approve, copy, and separate create actions visible and
+  understandable.
+- Do not show fake tool availability, hidden workspace inspection, Terminal
+  control, Git mutation, JDBC execution, Agent Executor launch, or Queue
+  dispatch.
+- Raw provider/debug payloads, if added later, belong behind an explicit
+  details view and must be redacted.
+
+## Relationship To Existing Compatibility Paths
+
+The codebase may retain older Agent Chat AI proposal compatibility paths for
+stored artifacts, tests, or migration safety. Those paths do not define the
+current Coordinator provider product surface.
+
+Future Coordinator provider work may reuse small safe infrastructure only if it
+preserves:
+
+- `allowed_tools: []`
+- explicit visible context only
+- backend/runtime provider boundary
+- no provider secrets in artifacts or logs
+- no direct widget mutation by provider response
+- visible proposal review before any allowed action handoff
+
+Do not expose old Agent Chat or Agent Monitoring provider flows as current
+product surfaces unless a later block explicitly scopes that compatibility UI.
+
+## Staged Implementation Plan
+
+Recommended next implementation slices:
+
+1. Coordinator provider adapter foundation with mock/local provider first and
+   tools disabled.
+2. Provider-backed Coordinator text response, tools disabled, explicit visible
+   conversation context only.
+3. Provider structured proposal drafts rendered as review cards, still no
+   execution.
+4. Provider result/error/cancellation hardening with visible status and no
+   hidden fallback execution.
+5. Controlled capability bridge hardening after proposal review/approval
+   remains stable.
+6. Future Evidence/Sources approved context packs before any broader context
+   sharing.
+
+Each slice must state whether it changes frontend UI, backend/runtime code,
+Tauri commands, storage/schema, provider configuration, prompt assembly,
+proposal parsing, or widget handoff behavior.
+
+## Explicit Non-Goals For First Provider Work
+
+Do not implement:
+
+- tool execution
+- provider tool calling
+- hidden context access
+- hidden Workspace or widget scans
+- Terminal control
+- Git mutation
+- JDBC SQL execution or `EXPLAIN`
+- database connector reads or secret access
+- Agent Executor launch
+- Queue auto-dispatch or scheduler behavior
+- direct provider calls from frontend code
+- Evidence/Sources storage/API
+- storage/schema changes unless a later block explicitly scopes observable
+  provider artifacts
+- medical or healthcare workflows
