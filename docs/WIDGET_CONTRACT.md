@@ -434,10 +434,10 @@ Runbook are minimal placeholders only; Coordinator Chat is local-only and does
 not call providers, execute tools, integrate with Queue, or mutate workspace
 content. Notes persists a
 minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
-has a minimal desktop-only one-shot command form. The Git widget placeholder has
-a transient explicit repository-root input and supports manual desktop-only
-read-only Git status refresh through `get_git_repository_status`, rendered as a
-visual status card and grouped changed-files summary. Database / JDBC is a
+has a minimal desktop-only one-shot command form. The Git widget has a
+transient explicit repository-root input, manual desktop-only status/diff review
+through `get_git_repository_status`, grouped changed files, and explicit
+selected-file local commit UI with operator confirmation. Database / JDBC is a
 Preview connector metadata shell only; it does not collect credentials, run
 SQL, run `EXPLAIN`, format SQL, show real results, or expose Coordinator tools.
 Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script

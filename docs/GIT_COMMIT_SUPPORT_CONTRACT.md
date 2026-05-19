@@ -2,20 +2,22 @@
 
 ## Purpose
 
-This contract defines how Hobit may support Git commit creation in the future
+This contract defines how Hobit supports explicit local Git commit creation
 while preserving operator control.
 
 It is the product and safety contract for explicit commit support. The current
-backend/API foundation implements a narrow explicit local commit path for Git
-Widget ownership only. It does not implement commit UI, push, reset, clean,
-queue execution, PTY, or interactive sessions.
+backend/Tauri/frontend implementation provides a narrow explicit local commit
+path for Git Widget ownership only, including selected-file UI and operator
+confirmation. It does not implement push, reset, clean, stash, fetch, polling,
+watching, queue execution, PTY, or interactive sessions.
 
 ## Current Implementation Boundary
 
-Hobit has a backend/Tauri/frontend API foundation for explicit local Git commit
+Hobit has a backend/Tauri/frontend implementation for explicit local Git commit
 creation. It is owned by Git Widget, validates workspace/workbench/widget
 ownership, requires an explicit repo root, requires an operator-provided commit
-message, and requires an explicit non-empty included file list.
+message, requires an explicit non-empty included file list, and requires
+operator confirmation before creating the commit.
 
 The current foundation:
 
@@ -28,8 +30,9 @@ The current foundation:
 - returns structured stdout, stderr, exit code, duration, command summary,
   commit hash, branch, included files, message, status, and safety flags
 
-It does not persist a Git action artifact yet and does not add frontend commit
-controls. Git Widget UI remains read-only until a later confirmation UI block.
+It does not persist a Git action artifact yet. Git Widget commit UI is
+local-only and selected-file based; it does not push, reset, clean, stash,
+fetch, poll, watch, or auto-commit.
 
 ## One-Sentence Rule
 
@@ -40,7 +43,7 @@ the commit action.
 
 ## What Commit Support Is
 
-Future commit support means:
+Commit support means:
 
 - an explicit operator action
 - a local Git commit
@@ -48,7 +51,7 @@ Future commit support means:
 - an operator-approved commit message
 - a visible included change set
 - a recorded commit result
-- no push in the first commit slice
+- no push in the current local commit slice
 
 Commit support is a review and control capability. It is not acceptance by
 default, background cleanup, or proof that the work is correct.
@@ -74,7 +77,7 @@ or operator confirmation.
 
 ## Preconditions Before Commit
 
-Future commit UI or API should require or strongly surface:
+Current and future commit UI or API should require or strongly surface:
 
 - repo root
 - current branch
@@ -99,17 +102,17 @@ implementation explicitly chooses that policy.
 
 ## Change Set Policy
 
-Future commit support must make the included change set visible before commit.
+Commit support must make the included change set visible before commit.
 
-Acceptable future approaches:
+The current Git Widget commit UI uses selected files. Acceptable future
+enhancements include:
 
-- MVP option: commit all currently changed tracked and untracked files only
-  after displaying them clearly and requiring confirmation.
-- Safer later option: selected files.
-- Safer later option: staged-only mode.
-- Safer later option: patch-level selection.
+- staged-only mode
+- patch-level selection
+- commit all currently changed tracked and untracked files only after
+  displaying them clearly and requiring confirmation
 
-For the first implementation, choose the smallest safe behavior and document it
+Future blocks must document any change to the current selected-file policy
 before coding.
 
 Rules:
@@ -119,8 +122,8 @@ Rules:
 - Generated or large files should be called out when identifiable.
 - Staging, when needed for commit creation, must be limited to the confirmed
   included change set.
-- A separate general-purpose staging UI is not required for the first commit
-  slice unless that slice explicitly chooses it.
+- A separate general-purpose staging UI is not required for the current local
+  commit slice unless a future block explicitly chooses it.
 
 ## Commit Message Policy
 
@@ -148,7 +151,7 @@ support must not imply that local commits are published.
 
 ## Git Command Safety
 
-Future commit implementation must:
+Commit implementation must:
 
 - use program plus args only
 - avoid shell command string concatenation
@@ -159,13 +162,13 @@ Future commit implementation must:
 - not run outside the explicit repo root
 - validate repo root
 
-Allowed future Git commands for the first commit slice may include:
+Allowed Git commands for the current local commit slice may include:
 
 - `git status`
 - `git add` with an explicit file list or clearly defined selected set
 - `git commit -m` with an operator-approved message
 
-Forbidden in the first commit slice:
+Forbidden in the current local commit slice:
 
 - `git push`
 - `git reset`
@@ -177,7 +180,7 @@ Forbidden in the first commit slice:
 - `git merge`
 - force options
 
-The first implementation must use fixed command construction and bounded
+The current implementation must use fixed command construction and bounded
 outputs. It must not expose arbitrary Git command execution.
 
 ## Relationship To Agent Executor
@@ -194,14 +197,14 @@ but it must not silently create a commit.
 
 ## Relationship To Git Widget
 
-Git Widget should remain the review surface:
+Git Widget remains the review surface:
 
 - changed files
 - diff summary
 - validation status if available
-- commit controls later
+- selected-file local commit controls
 
-Git Widget is the natural place for commit UI, but commit controls can also be
+Git Widget owns the current commit UI. Future commit controls can also be
 linked from Agent Executor after review.
 
 Commit controls must preserve the Git Widget role as a visual,
@@ -219,8 +222,8 @@ Commit UI should surface validation result:
 
 Validation does not automatically commit.
 
-Commit does not automatically run validation in the first slice unless
-explicitly implemented later.
+Commit does not automatically run validation in the current local commit slice
+unless explicitly implemented later.
 
 Validation failure, timeout, or absence must remain visible at the point of
 commit confirmation.
@@ -255,8 +258,7 @@ The recorded result must distinguish:
 
 Recommended follow-up blocks:
 
-- Git commit UI with confirmation
-- Commit smoke and hardening
+- Git commit UI smoke and hardening
 - Optional commit message suggestion
 - Push contract later
 - Push backend/API later
@@ -277,5 +279,5 @@ The next implementation block should not add:
 - queue execution
 - arbitrary shell commands
 
-The first implementation block should create the smallest safe explicit local
+Future commit-hardening blocks should preserve the smallest safe explicit local
 commit path and stop before remote or destructive Git behavior.

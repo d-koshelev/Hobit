@@ -233,7 +233,10 @@ Future binding direction:
 - Git Widget can later link to a Runbook or Coordinator Chat if useful.
 - Coordinator links must follow the Coordinator-centered capability model.
 - Multiple Git Widgets may exist.
-- Git Widget remains read-only until explicit Git mutation features are added.
+- Git Widget currently provides read-only status/diff review plus explicit
+  selected-file local commit with operator confirmation. Push, reset, clean,
+  stash, fetch, polling, watching, auto-commit, and Agent Executor auto-commit
+  remain out of scope.
 
 ## What Not To Mix
 

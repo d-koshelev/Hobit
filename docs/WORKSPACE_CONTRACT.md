@@ -121,7 +121,15 @@ Implemented foundation:
 - The Agent Queue preview supports manual Workspace-scoped task create/list/read/update, visible Queue-to-Executor assignment, explicit assigned-task start in its assigned Agent Executor, current-session handoff, and final-status auto-refresh. It does not auto-dispatch, schedule, approve/apply proposals, launch Terminal, mutate Git/Notes/files, automatically accept work, or capture responses outside normal Agent Executor artifacts.
 - Database / JDBC is a Preview connector metadata surface. It can create/list/read/update non-secret connector metadata only. It does not collect credentials, store passwords or tokens, test connections, run SQL, run `EXPLAIN`, format SQL, show real results, call AI, or provide Coordinator tool execution.
 - Template Library is not a current catalog surface. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution remain deferred.
-- The Git widget placeholder has a transient explicit repository-root input. In the Tauri desktop path, it can manually refresh a read-only Git status snapshot for that root through `get_git_repository_status`, then render a status card and grouped changed-files summary. Repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations are not implemented. Browser/Vite fallback cannot read Git status.
+- The Git widget has a transient explicit repository-root input. In the Tauri
+  desktop path, it can manually refresh a read-only Git status/diff snapshot
+  for that root through `get_git_repository_status`, render compact repository
+  status and grouped changed files, and create an explicit selected-file local
+  commit only after an operator-provided message and operator confirmation.
+  Repository root/status persistence, polling, watching, fetch, log/show UI,
+  validation association, push, revert/reset, clean, stash, Agent Executor
+  auto-commit, and broader Git mutations are not implemented. Browser/Vite
+  fallback cannot read Git status or create local commits.
 - Template Library remains deferred/reference. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
 - Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
@@ -145,7 +153,11 @@ Not implemented yet:
 - shell or interactive terminal execution
 - automatic/background agent runtime calls beyond the explicit Direct Work backend command
 - real agent run Raw Log, Overview Log, and Result Report views beyond the Agent Monitoring read-only proposal artifact viewer
-- Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root; repository root/status persistence, polling, watching, diff/log/show, validation association, staging, commit, push, revert/reset, clean, stash, and other Git mutations
+- Git behavior beyond manual desktop-only status/diff review and selected-file
+  local commit for an explicit transient repository root; repository
+  root/status persistence, polling, watching, fetch, log/show UI, validation
+  association, push, revert/reset, clean, stash, Agent Executor auto-commit,
+  and broader Git mutations
 
 ## Workspace
 

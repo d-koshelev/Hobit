@@ -52,8 +52,8 @@ Hobit currently has:
 - retained Agent Chat / Agent Monitoring proposal artifact compatibility paths
 - Agent Queue as a manual task organization, assignment, and explicit
   assigned-run surface
-- Git widget placeholder support for manual read-only status refresh from an
-  explicit transient repository root
+- Git widget support for manual status/diff review and explicit selected-file
+  local commit from an explicit transient repository root
 
 Hobit exposes a backend/Tauri one-shot Codex Direct Work command for explicit
 Workspace, Workbench, owning widget instance, repository root, operator prompt,

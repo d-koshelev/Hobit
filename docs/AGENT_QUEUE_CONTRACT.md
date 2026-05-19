@@ -60,9 +60,10 @@ Current related foundations include the retained proposal review item path,
 manual queue task storage/API and product UI foundation, manual
 Queue-to-Executor assignment API/UI foundation, explicit assigned-task start UI,
 Queue-to-Executor handoff and final-status auto-refresh, retained Agent
-Chat/Agent Monitoring proposal artifact compatibility paths, Git placeholder
-with manual read-only status refresh, Notes placeholder, widget-local Logs
-panel, and Workspace Activity summaries described in `docs/ARCHITECTURE.md`.
+Chat/Agent Monitoring proposal artifact compatibility paths, Git widget
+status/diff review and explicit selected-file local commit UI, Notes
+placeholder, widget-local Logs panel, and Workspace Activity summaries
+described in `docs/ARCHITECTURE.md`.
 
 The current Agent Queue persisted item selection is frontend-local UI state only. Creating a review item is explicit, uses a validated stored proposal result, and creates only review metadata; it does not execute, approve, apply, or mutate the source proposal.
 
