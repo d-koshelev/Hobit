@@ -82,11 +82,9 @@ future widget capability.
 
 ### Terminal
 
-- Desktop-only Terminal widget with two visible modes:
-  - `PTY session` for a manual operator-controlled shell session.
-  - `Run command` for the existing bounded one-shot command runner.
-- PTY session mode uses explicit shell executable, optional shell argv,
-  explicit execution workspace / working directory, visible status, bounded
+- Desktop-only Terminal widget with a PTY-first manual shell surface.
+- PTY session UI uses explicit shell executable, optional shell argv, explicit
+  execution workspace / working directory, visible status, bounded
   session-only output buffer display, stdin send, manual refresh/polling,
   resize by columns/rows, Stop, Kill with confirmation, and Close.
 - PTY output/history is not persisted to storage, does not create widget
@@ -94,9 +92,10 @@ future widget capability.
   Executor, or Evidence/Sources.
 - Browser/Vite fallback and unsupported platforms report unsupported state
   honestly.
-- One-shot `Run command` mode still uses explicit program, argv, working
-  directory, timeout, and output caps, creates widget run/log/result records,
-  and shows the final stdout/stderr result.
+- The legacy one-shot command runner is demoted from the normal Terminal
+  surface into a collapsed fallback. It still uses explicit program, argv,
+  working directory, timeout, and output caps, creates widget run/log/result
+  records, and shows the final stdout/stderr result when explicitly opened.
 - Terminal does not implement tabs, split panes, persistent command history,
   persistent transcripts, shell profiles, environment/secrets support,
   Agent-triggered execution, Queue-triggered execution, Coordinator control, or

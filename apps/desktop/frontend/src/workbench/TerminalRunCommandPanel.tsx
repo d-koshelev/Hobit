@@ -143,18 +143,18 @@ export function TerminalRunCommandPanel({
         <div className="terminal-command-header">
           <div className="terminal-command-copy">
             <h3 className="terminal-command-title" id={commandPanelTitleId}>
-              Run command
+              Legacy one-shot command
             </h3>
             <p className="terminal-command-text">
-              Run one local desktop command and capture its final stdout,
-              stderr, exit status, and duration.
+              Run one local desktop program plus argv and capture its final
+              stdout, stderr, exit status, and duration.
             </p>
             <p className="terminal-command-boundary">
-              One command per run. No interactive stdin, tabs, splits, or
-              command history.
+              Fallback compatibility path. No interactive stdin, shell session,
+              tabs, splits, or command history.
             </p>
           </div>
-          <Badge variant="info">One-shot</Badge>
+          <Badge variant="neutral">Fallback</Badge>
         </div>
 
         <div className="terminal-command-main-grid">
@@ -274,8 +274,8 @@ export function TerminalRunCommandPanel({
             {isRunning ? "Running..." : "Run command"}
           </Button>
           <p className="terminal-command-note">
-            Requires a program and working directory. The run ends when the
-            process exits or times out.
+            Requires a program and working directory. Prefer PTY sessions for
+            normal Terminal work.
           </p>
         </div>
       </section>
@@ -433,13 +433,14 @@ function TerminalEmptyConsole() {
         <div className="terminal-result-copy">
           <h3 className="terminal-result-title">Result output</h3>
           <p className="terminal-result-text">
-            Run a one-shot command to capture final stdout and stderr here.
+            Run the legacy one-shot fallback to capture final stdout and stderr
+            here.
           </p>
         </div>
         <Badge variant="neutral">Idle</Badge>
       </div>
       <pre aria-label="Terminal output" className="terminal-placeholder-output">
-        <code>stdout and stderr will appear after the command exits.</code>
+        <code>stdout and stderr will appear after the fallback run exits.</code>
       </pre>
     </section>
   );

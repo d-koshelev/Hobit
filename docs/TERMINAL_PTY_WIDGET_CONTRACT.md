@@ -14,8 +14,8 @@ not a hidden automation path, and not an Agent Executor replacement.
 
 ## Current State
 
-Current Terminal has a visible PTY session mode and preserves the bounded
-one-shot command runner.
+Current Terminal is PTY-first and preserves the bounded one-shot command runner
+as a demoted compatibility fallback.
 
 Current Terminal:
 
@@ -28,8 +28,8 @@ Current Terminal:
 - Displays bounded session-only PTY output via frontend refresh/polling, sends
   operator stdin, resizes by columns/rows, and exposes Stop, Kill, and Close
   controls.
-- In `Run command` mode, accepts an explicit program, argv, working directory,
-  timeout, and output caps.
+- In the collapsed legacy one-shot fallback, accepts an explicit program, argv,
+  working directory, timeout, and output caps.
 - Creates widget run/log/result records only for persisted one-shot Terminal
   command runs.
 - Shows the final stdout/stderr result for one-shot command runs.
@@ -48,8 +48,8 @@ Current backend foundation:
   get, and list sessions.
 - Windows ConPTY is the first supported backend.
 - PTY output/history remains session-only and is not persisted to storage.
-- The frontend Terminal widget consumes the PTY command foundation in
-  `PTY session` mode.
+- The frontend Terminal widget consumes the PTY command foundation as its
+  normal visible Terminal surface.
 
 The current UI must remain honest that PTY sessions are desktop/manual,
 session-only, and do not include tabs, split panes, persistent history, or
@@ -57,15 +57,16 @@ event-streamed output yet.
 
 ## Relationship To Current One-Shot Terminal
 
-The current one-shot command runner remains valid and must be preserved until a
-PTY implementation is available and proven.
+The current one-shot command runner remains valid for compatibility, tests, and
+bounded internal fallback use. It is no longer the normal visible Terminal
+surface.
 
 Decision:
 
-- Keep the current one-shot behavior as an explicit `Run command` capability
-  inside the Terminal widget.
+- Keep the current one-shot behavior as a legacy fallback capability inside the
+  Terminal widget.
 - PTY behavior is now the primary Terminal shell mode, but it must not delete
-  or silently replace the existing one-shot path.
+  or silently replace the existing one-shot backend/API path.
 - The one-shot path may remain useful as a bounded command/result action with
   timeout and output caps.
 - The PTY path is an interactive session surface. It has different lifecycle,
@@ -81,9 +82,9 @@ Current one-shot behavior stays unchanged:
 - final stdout/stderr result
 - no stdin, no PTY, no streaming, no cancellation, no shell mode
 
-Current UI presents this as a secondary `Run command` mode inside Terminal. It
-must not create a second Terminal widget definition or use Script Runner
-behavior without a separate contract.
+Current UI presents this behind a collapsed legacy fallback, not as a parallel
+first-class Terminal mode. It must not create a second Terminal widget
+definition or use Script Runner behavior without a separate contract.
 
 ## Target Role
 
@@ -481,12 +482,12 @@ Difference from current one-shot command runner:
 ### Slice 3: Frontend Terminal PTY UI
 
 - Add the minimal Operational PTY UI in the existing Terminal widget.
-  Implemented as a visible `PTY session` mode.
+  Implemented as the normal visible Terminal surface.
 - Show buffer, input focus, working directory, shell, status, clear/copy,
   resize, stop, kill, and close controls. Implemented through scoped
   WorkspaceApi/Tauri calls with bounded buffer refresh.
-- Preserve current one-shot `Run command` behavior. Implemented as a secondary
-  visible mode.
+- Preserve current one-shot behavior behind a collapsed legacy fallback, not as
+  a secondary first-class visible mode.
 - No tabs or split panes in this slice unless the prompt explicitly narrows and
   approves that expansion.
 
@@ -507,8 +508,8 @@ Difference from current one-shot command runner:
 
 ### Slice 6: Optional One-Shot Fallback Integration
 
-- Decide whether `Run command` remains in the same Terminal surface as a
-  secondary mode, moves behind a details panel, or becomes a compact fallback.
+- Current decision: the one-shot runner lives behind a collapsed legacy
+  fallback panel rather than a parallel Terminal mode.
 - Keep one-shot widget run/log/result behavior compatible.
 - Do not remove one-shot behavior until the PTY path is stable and a separate
   compatibility decision is made.
@@ -565,7 +566,7 @@ before the backing behavior exists.
 - Later  Terminal PTY output/lifecycle event bridge hardening.
 - Block 243  Terminal stop/kill hardening.
 - Block 244  Terminal PTY smoke/manual verification.
-- Later  One-shot `Run command` fallback integration polish.
+- Later  One-shot backend/API compatibility review.
 - Later  Terminal tabs UI.
 - Later  Terminal split panes UI.
 - Later  Terminal transcript/history.
@@ -585,7 +586,7 @@ The current PTY foundation still does not implement:
 - Queue integration.
 - Agent integration.
 - Direct Work runtime changes.
-- Current Terminal behavior changes.
+- One-shot backend/API removal.
 - Scratch workspace creation.
 - Persistent PTY transcripts or command history.
 - Shell profile management.

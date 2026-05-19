@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { TerminalPtySessionPanel } from "./TerminalPtySessionPanel";
 import {
+  TerminalNotice,
   TerminalRunCommandPanel,
   type TerminalFrameStatusView,
 } from "./TerminalRunCommandPanel";
 import type { WidgetRenderProps } from "./types";
-
-type TerminalMode = "pty" | "command";
 
 const DEFAULT_FRAME_STATUS: TerminalFrameStatusView = {
   label: "Not started",
@@ -34,18 +32,10 @@ export function TerminalPlaceholderWidget({
   onWriteTerminalPtySession,
   title,
 }: WidgetRenderProps) {
-  const [mode, setMode] = useState<TerminalMode>("pty");
   const [ptyActive, setPtyActive] = useState(false);
+  const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
   const [frameStatus, setFrameStatus] =
     useState<TerminalFrameStatusView>(DEFAULT_FRAME_STATUS);
-
-  useEffect(() => {
-    setFrameStatus(
-      mode === "pty"
-        ? DEFAULT_FRAME_STATUS
-        : { label: "Run command", variant: "neutral" },
-    );
-  }, [mode]);
 
   const status = <Badge variant={frameStatus.variant}>{frameStatus.label}</Badge>;
 
@@ -60,53 +50,50 @@ export function TerminalPlaceholderWidget({
       style={frameStyle}
       title={title}
     >
-      <div aria-label="Terminal mode" className="terminal-mode-switch">
-        <Button
-          aria-pressed={mode === "pty"}
-          className={mode === "pty" ? "terminal-mode-button-active" : undefined}
-          onClick={() => setMode("pty")}
-          variant={mode === "pty" ? "primary" : "secondary"}
-        >
-          PTY session
-        </Button>
-        <Button
-          aria-pressed={mode === "command"}
-          className={
-            mode === "command" ? "terminal-mode-button-active" : undefined
-          }
-          disabled={ptyActive}
-          onClick={() => setMode("command")}
-          title={
-            ptyActive
-              ? "Stop or kill the active PTY session before switching modes."
-              : "Show one-shot Run command mode"
-          }
-          variant={mode === "command" ? "primary" : "secondary"}
-        >
-          Run command
-        </Button>
-      </div>
+      <TerminalPtySessionPanel
+        instance={instance}
+        onActiveSessionChange={setPtyActive}
+        onCloseTerminalPtySession={onCloseTerminalPtySession}
+        onCreateTerminalPtySession={onCreateTerminalPtySession}
+        onFrameStatusChange={setFrameStatus}
+        onGetTerminalPtySession={onGetTerminalPtySession}
+        onKillTerminalPtySession={onKillTerminalPtySession}
+        onResizeTerminalPtySession={onResizeTerminalPtySession}
+        onStopTerminalPtySession={onStopTerminalPtySession}
+        onWriteTerminalPtySession={onWriteTerminalPtySession}
+      />
 
-      {mode === "pty" ? (
-        <TerminalPtySessionPanel
-          instance={instance}
-          onActiveSessionChange={setPtyActive}
-          onCloseTerminalPtySession={onCloseTerminalPtySession}
-          onCreateTerminalPtySession={onCreateTerminalPtySession}
-          onFrameStatusChange={setFrameStatus}
-          onGetTerminalPtySession={onGetTerminalPtySession}
-          onKillTerminalPtySession={onKillTerminalPtySession}
-          onResizeTerminalPtySession={onResizeTerminalPtySession}
-          onStopTerminalPtySession={onStopTerminalPtySession}
-          onWriteTerminalPtySession={onWriteTerminalPtySession}
-        />
-      ) : (
-        <TerminalRunCommandPanel
-          instance={instance}
-          onFrameStatusChange={setFrameStatus}
-          onRunTerminalCommand={onRunTerminalCommand}
-        />
-      )}
+      <details
+        className="terminal-legacy-runner"
+        onToggle={(event) => {
+          if (event.currentTarget !== event.target) {
+            return;
+          }
+          setLegacyFallbackOpen(event.currentTarget.open);
+        }}
+      >
+        <summary className="terminal-legacy-runner-summary">
+          Legacy one-shot command fallback
+        </summary>
+        <p className="terminal-legacy-runner-copy">
+          Compatibility path for one bounded program/argv run. PTY sessions are
+          the normal Terminal surface.
+        </p>
+        {legacyFallbackOpen ? (
+          ptyActive ? (
+            <TerminalNotice
+              message="Stop or kill the active PTY session before using the legacy one-shot command fallback."
+              title="PTY session active"
+              variant="info"
+            />
+          ) : (
+            <TerminalRunCommandPanel
+              instance={instance}
+              onRunTerminalCommand={onRunTerminalCommand}
+            />
+          )
+        ) : null}
+      </details>
     </WidgetFrame>
   );
 }

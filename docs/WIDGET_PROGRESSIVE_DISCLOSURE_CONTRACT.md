@@ -121,24 +121,25 @@ change. It should not be the first visible complexity layer for complex widgets.
 
 ### Terminal
 
-Current level: Operational one-shot command runner.
+Current level: Operational PTY session surface.
 
-Current Terminal behavior is a desktop-only one-shot local command path for
-persisted Terminal widget instances. It accepts explicit program + argv +
-working directory and stores run/log/result records.
+Current Terminal behavior is a desktop-only PTY-first manual shell for
+persisted Terminal widget instances. It accepts explicit shell, optional argv,
+execution workspace / working directory, size, and output buffer cap, and it
+keeps PTY output session-only. The older one-shot local command path remains as
+a collapsed legacy fallback with explicit program + argv + working directory
+and widget run/log/result records.
 
 Future direction:
 
-- Minimal: latest run status plus a basic Run command surface.
-- Operational: explicit program, argv, working directory, bounded caps, timeout,
-  final stdout/stderr preview, and widget-local logs.
-- Future PTY Operational: visible shell, execution workspace / working
-  directory, live buffer, stdin, resize, status, stop, kill, clear, and copy.
+- Minimal: PTY status plus explicit execution workspace and Start session.
+- Operational: visible shell, execution workspace / working directory, live
+  buffer, stdin, resize, status, stop, kill, clear, and copy.
 - Full / Expert: run history, raw result payloads, cancellation/kill
   diagnostics if explicitly implemented later, settings, and deeper
   diagnostics.
 
-Shell mode, PTY, interactive stdin, streaming, command history, persistent
+Tabs, split panes, event-streamed output, command history, persistent
 transcripts, and Agent-driven Terminal execution remain out of scope unless
 explicitly implemented in later blocks.
 

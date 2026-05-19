@@ -293,9 +293,10 @@ Rules:
   primary surface.
 
 Terminal target direction is a real shell widget with tabs and split panes
-later. The current one-shot Terminal must not pretend to be a PTY, shell,
-interactive session, streaming terminal, or command-history surface until those
-capabilities are contract-gated and implemented.
+later. The current PTY-first Terminal must not imply event-streamed output,
+tabs, split panes, persistent shell history, environment profile support, or
+Agent/Queue/Coordinator control until those capabilities are contract-gated and
+implemented.
 
 ## Widget-Specific Visual Direction
 
@@ -349,7 +350,8 @@ Rules:
   `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - PTY/session behavior must be contract-gated before implementation.
 - Do not show full shell UI beyond implemented PTY/session support.
-- Current one-shot command behavior must remain visually honest.
+- Legacy one-shot command behavior must remain visually honest and demoted from
+  the normal Terminal surface.
 - PTY UI must show shell, running/closed status, and explicit working
   directory / execution workspace.
 - Stop and kill controls must not appear active outside the implemented

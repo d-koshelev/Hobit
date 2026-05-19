@@ -327,14 +327,13 @@ Boundaries:
 
 ## Terminal Capabilities
 
-Terminal is currently a bounded one-shot command runner.
-
-Future Terminal direction is a PTY manual operator shell.
+Terminal is currently a PTY-first manual operator shell with a bounded
+one-shot command runner retained as a collapsed legacy fallback.
 
 Boundaries:
 
-- The current one-shot path remains an explicit `Run command` capability until
-  PTY support lands.
+- The current one-shot path remains a compatibility capability but is no longer
+  the normal visible Terminal surface.
 - Coordinator must not control Terminal in the MVP.
 - No hidden shell execution.
 - Terminal commands require explicit operator action.

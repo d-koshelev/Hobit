@@ -99,11 +99,11 @@ Future agent/task execution widgets have an additional observability contract: R
 
 Future Script Runner Widget behavior is defined in `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. It is a contract for an explicit operator-controlled configured local script action only. Script Runner is not part of the current user-facing widget set, and no Script Runner widget, insertable catalog path, runtime execution, or backend behavior is implemented.
 
-Future Terminal PTY Widget behavior is defined in
-`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. It is the contract for turning the
-current one-shot Terminal into a manual operator-controlled interactive shell
-surface later. PTY sessions, tabs, split panes, streaming stdin/stdout, and
-Agent/Queue-controlled Terminal execution are not implemented.
+Terminal PTY Widget behavior is defined in
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Terminal is now a PTY-first manual
+operator-controlled shell surface with a demoted one-shot command fallback.
+Tabs, split panes, event-streamed PTY output, persistent transcripts/history,
+and Agent/Queue-controlled Terminal execution are not implemented.
 
 ### WidgetResult
 
@@ -436,7 +436,8 @@ Runbook are minimal placeholders only; Coordinator Chat is local-only and does
 not call providers, execute tools, integrate with Queue, or mutate workspace
 content. Notes persists a
 minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
-has a minimal desktop-only one-shot command form. The Git widget has a
+has a desktop-only PTY-first manual shell surface plus a collapsed legacy
+one-shot command fallback. The Git widget has a
 transient explicit repository-root input, manual desktop-only status/diff review
 through `get_git_repository_status`, grouped changed files, and explicit
 selected-file local commit UI with operator confirmation. Database / JDBC is a
@@ -448,7 +449,7 @@ surfaces are not part of the current user-facing catalog or workbench surface.
 
 The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, preset editing, and real Dock behavior are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
-The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions and Terminal one-shot command responses when already open. Existing widget add/state/layout mutations emit basic logs. Terminal one-shot command runs and Codex Direct Work runs emit lifecycle logs and structured results. Runtime streaming UI, polling, interactive terminal output, and full agent run observability are not implemented yet.
+The widget-local Logs panel loads persisted logs and refreshes after successful state/layout actions and Terminal one-shot fallback command responses when already open. Existing widget add/state/layout mutations emit basic logs. Terminal one-shot fallback command runs and Codex Direct Work runs emit lifecycle logs and structured results. PTY output uses session-only frontend polling of the bounded runtime buffer rather than persisted widget logs. Event-streamed Terminal output and full agent run observability are not implemented yet.
 
 Future Agent Executor, Coordinator Chat, Terminal, or other task execution widgets should follow `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` for Raw Log, Overview Log, and Result Report views when they run agent/task execution.
 
@@ -473,10 +474,10 @@ JIRA and Confluence are future widget/integration candidates. JIRA should suppor
 
 Future Git Widget / Git Plugin behavior is further defined in `GIT_WIDGET_CONTRACT.md`. Git must be a visual, approval-aware review/control surface for repository state, not only raw command output.
 
-Future Terminal PTY Widget behavior is further defined in
-`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal remains a
-desktop-only one-shot command runner until a later PTY/session implementation
-block.
+Terminal PTY Widget behavior is further defined in
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal is PTY-first, and the
+one-shot command runner remains a compatibility fallback rather than the normal
+visible Terminal surface.
 
 Future Database/JDBC Widget behavior is further defined in
 `docs/JDBC_WIDGET_CONTRACT.md`. Database / JDBC is part of the current Preview
