@@ -32,11 +32,11 @@ assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
 proposal cards and a backend-owned provider response path for explicit chat
 sends. Mock/local is the default provider. The provider path uses visible
-current-session chat context and `allowed_tools: []`; it does not call an
-external LLM and can return validated safe structured proposal drafts as
-review cards only. An external-provider placeholder can be selected from
-backend environment configuration and surfaces not-configured/unsupported
-state without exposing credential values. A
+current-session chat context and `allowed_tools: []`; it can return validated
+safe structured proposal drafts as review cards only. An explicitly configured
+HTTP JSON provider can be selected from backend environment configuration and
+can call a configured `http://` endpoint without exposing credential values to
+frontend state, prompts, logs, proposal cards, or serialized responses. A
 deterministic frontend parser can generate the safe local proposal types from
 explicit operator chat text only. An approved
 create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
@@ -53,7 +53,7 @@ runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
 manual Direct Work/Queue API paths, Git behavior beyond current status/diff
 review and explicit local commit, hidden context access, provider settings UI,
-secrets UI, real HTTPS provider adapter, Evidence/Sources capture or review, AI
+secrets UI, direct HTTPS vendor adapter, Evidence/Sources capture or review, AI
 context packs, or broad tool execution in the current user-facing workbench
 surface.
 
@@ -344,10 +344,12 @@ Coordinator Chat after an explicit operator message. It validates
 Workspace/Workbench/current `interactive-agent` widget ownership, builds a
 request from visible current-session chat messages and visible local proposal
 draft summaries only, sets `allowed_tools: []`, and uses a backend-selected
-provider adapter. Mock/local is the default. External-provider selection is a
-configuration placeholder that reports not-configured or unsupported state; it
-does not perform network calls, send credentials to the frontend or prompt, or
-execute widget capabilities.
+provider adapter. Mock/local is the default. External-provider selection can
+use the configured HTTP JSON provider when endpoint and credential environment
+values are present; missing configuration reports not-configured and unknown
+provider kinds report unsupported. Provider credentials stay backend-only and
+are not sent to the frontend or prompt, and provider output cannot execute
+widget capabilities.
 
 The `run_terminal_command` Tauri command is called only from the collapsed
 Terminal legacy one-shot fallback and remains limited to persisted Terminal
@@ -408,8 +410,8 @@ UI, Terminal split panes, PTY command history, persistent PTY transcripts,
 executable chat runtime beyond Direct Work artifacts, Template Library runtime,
 Git runtime beyond the narrow status/diff/local commit path, JDBC query
 execution, workspace restore runtime, log polling, provider settings UI,
-secrets UI, scratch execution workspace support, real external Coordinator
-provider calls, or HTTPS provider adapter in this milestone.
+secrets UI, scratch execution workspace support, or direct HTTPS vendor
+provider adapter in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -483,9 +485,11 @@ parser can also create those same proposal types from explicit operator chat
 messages using only the typed message text. Explicit chat sends can request a
 backend-owned provider response with visible current-session chat context,
 visible local proposal draft summaries, and `allowed_tools: []`. Mock/local is
-the default provider. A backend environment-selected external provider
-placeholder can report not-configured or unsupported state without network
-calls or frontend-visible credentials. Provider drafts for the same safe
+the default provider. A backend environment-selected HTTP JSON provider can
+call a configured endpoint when endpoint and credential values exist; missing
+config reports not-configured, unknown kinds report unsupported, and provider
+failures surface visibly without frontend-visible credentials. Provider drafts
+for the same safe
 preview types are validated before rendering, and unsafe or unsupported drafts
 are rejected or degraded before display. Browser fallback keeps the deterministic local
 response path and does not call a provider directly. Proposal card controls Approve, Reject,
@@ -498,8 +502,8 @@ existing workspace-local Notes create API with visible title, body, and pinned
 inputs and does not read, search, or summarize existing Notes. JDBC proposal
 cards remain non-executing; they show the visible SQL suggestion in a monospace
 review block and Copy SQL copies only that SQL text without connector access,
-database calls, or `EXPLAIN`. The current implementation has no external
-provider network call, no frontend or prompt-visible provider credentials, no Agent Executor integration, no
+database calls, or `EXPLAIN`. The current implementation has no frontend or
+prompt-visible provider credentials, no Agent Executor integration, no
 Runbook integration, no monitoring integration, no broad tool execution, no
 hidden context access, no hidden widget state reads, no file mutation, no Git
 mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural
@@ -556,9 +560,10 @@ widget owner, creating widget run/log/result records around the `hobit-tools`
 Codex runners outside storage transactions and emitting Tauri stream events for
 the streaming path. It includes a Coordinator Chat provider adapter foundation
 for current `interactive-agent` widgets: request DTOs, visible-context
-validation, `allowed_tools: []`, backend-selected mock/local or external
-placeholder configuration, response/proposal-draft normalization, safe draft
-validation, and no storage persistence. It also includes retained
+validation, `allowed_tools: []`, response/proposal-draft normalization, safe
+draft validation, and no storage persistence. The desktop runtime supplies the
+mock/local provider by default and can select the configured HTTP JSON provider
+from backend environment configuration. It also includes retained
 proposal-only Agent Chat AI compatibility paths, a proposal-review Agent Queue
 path that validates a stored local mock proposal result before creating a
 read-only queue item, manual Agent Queue task create/list/read/update/assign/

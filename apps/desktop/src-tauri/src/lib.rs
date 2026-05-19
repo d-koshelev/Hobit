@@ -27,6 +27,7 @@ mod coordinator_provider_commands;
 mod coordinator_provider_dto;
 #[cfg(test)]
 mod coordinator_provider_dto_tests;
+mod coordinator_provider_http;
 mod database_startup;
 mod git_commit_dto;
 #[cfg(test)]

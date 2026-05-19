@@ -15,7 +15,7 @@ fn coordinator_provider_command_returns_mock_text_with_tools_disabled() {
     let response = generate_coordinator_provider_response_with_config(
         provider_request(&workspace_id, &workbench_id, &widget_id),
         db_path.clone(),
-        CoordinatorProviderRuntimeConfig::mock_local(),
+        CoordinatorProviderCommandConfig::MockLocal,
     )
     .expect("generate provider response")
     .expect("provider response");
@@ -37,17 +37,16 @@ fn coordinator_provider_command_surfaces_external_not_configured() {
     let db_path = unique_test_db_path();
     let (workspace_id, workbench_id, widget_id) = create_coordinator_widget_in_test_db(&db_path);
 
-    let response = generate_coordinator_provider_response_with_config(
-        provider_request(&workspace_id, &workbench_id, &widget_id),
-        db_path.clone(),
-        CoordinatorProviderRuntimeConfig::External(ExternalCoordinatorProviderConfig::new(
-            "external-test",
-            false,
-            false,
-        )),
-    )
-    .expect("generate provider response")
-    .expect("provider response");
+    let response =
+        generate_coordinator_provider_response_with_config(
+            provider_request(&workspace_id, &workbench_id, &widget_id),
+            db_path.clone(),
+            CoordinatorProviderCommandConfig::ExternalMissing(
+                ExternalCoordinatorProviderConfig::new("external-test", false, false),
+            ),
+        )
+        .expect("generate provider response")
+        .expect("provider response");
 
     assert_eq!(response.provider_kind, "external-test");
     assert_eq!(response.provider_status, "not_configured");
@@ -62,6 +61,30 @@ fn coordinator_provider_command_surfaces_external_not_configured() {
 }
 
 #[test]
+fn coordinator_provider_command_surfaces_unsupported_external_kind() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, workbench_id, widget_id) = create_coordinator_widget_in_test_db(&db_path);
+
+    let response = generate_coordinator_provider_response_with_config(
+        provider_request(&workspace_id, &workbench_id, &widget_id),
+        db_path.clone(),
+        CoordinatorProviderCommandConfig::ExternalUnsupported("unsupported-kind".to_owned()),
+    )
+    .expect("generate provider response")
+    .expect("provider response");
+
+    assert_eq!(response.provider_kind, "unsupported-kind");
+    assert_eq!(response.provider_status, "unsupported");
+    assert!(response.allowed_tools.is_empty());
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("not supported"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn coordinator_provider_command_rejects_missing_widget_without_provider_call() {
     let db_path = unique_test_db_path();
     let store = SqliteStore::open(&db_path).expect("open sqlite test store");
@@ -71,7 +94,7 @@ fn coordinator_provider_command_rejects_missing_widget_without_provider_call() {
     let response = generate_coordinator_provider_response_with_config(
         provider_request("missing-workspace", "missing-workbench", "missing-widget"),
         db_path.clone(),
-        CoordinatorProviderRuntimeConfig::mock_local(),
+        CoordinatorProviderCommandConfig::MockLocal,
     )
     .expect("missing widget should return cleanly");
 

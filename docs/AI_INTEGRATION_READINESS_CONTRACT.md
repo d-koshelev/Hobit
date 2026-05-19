@@ -39,11 +39,10 @@ Coordinator Chat currently has:
 - backend-owned mock/local provider text responses
 - backend-owned mock/local structured proposal drafts with validation before
   rendering
-- backend-selected external-provider placeholder configuration that can report
-  not-configured or unsupported state without network calls
+- backend-selected configured HTTP JSON provider path that can report
+  not-configured, unsupported, failed, or completed state
 - no hidden context access
 - no widget capability runtime
-- no external LLM calls
 - no provider credentials in frontend state, prompts, logs, proposal cards, or
   test snapshots
 
@@ -70,6 +69,39 @@ Coordinator Chat
 The provider response may explain, ask questions, summarize the visible
 conversation, and draft safe proposal cards. It must not execute actions or
 mutate Hobit state. Proposal cards remain the operator review boundary.
+
+## Current Configured Provider Boundary
+
+The current desktop runtime keeps mock/local as the default provider. A
+configured external provider is selected only by backend environment
+configuration:
+
+- `HOBIT_COORDINATOR_PROVIDER` or `HOBIT_COORDINATOR_PROVIDER_MODE` set to
+  `external`, `configured`, `real`, or `provider`
+- `HOBIT_COORDINATOR_PROVIDER_ENDPOINT` set to an explicit `http://` endpoint
+- `HOBIT_COORDINATOR_PROVIDER_API_KEY` set backend-side
+- optional `HOBIT_COORDINATOR_PROVIDER_KIND`; supported values are
+  `hobit-http-json` and the compatibility alias `external-provider`
+
+The configured provider receives Hobit's compact JSON request shape with
+visible chat messages, visible proposal summaries, compact safety
+instructions, and `allowed_tools: []`. The API key is used only as a backend
+authorization header and is not serialized into the request body, frontend DTO,
+prompt text, logs, proposal cards, or docs examples. HTTPS/direct vendor SDK
+support and provider settings UI remain future work.
+
+The configured provider may return Hobit's JSON response shape directly:
+
+```json
+{
+  "assistant_text": "Visible assistant text",
+  "proposal_drafts": []
+}
+```
+
+OpenAI-style chat-completion envelopes are accepted only when their message
+content contains the same Hobit response JSON or plain assistant text. All
+provider drafts still pass through local validation before rendering.
 
 ## Provider Input Boundary
 
@@ -242,8 +274,10 @@ Runtime expectations for future implementation:
 - Provider configuration and secrets must be backend-owned and must not appear
   in prompts, logs, proposal cards, stored artifacts, or frontend state.
 - Missing external provider configuration must surface as a visible
-  not-configured state. Configured external-provider placeholders may surface
-  unsupported until a real provider call slice is explicitly implemented.
+  not-configured state. Unsupported provider kinds must surface as visible
+  unsupported state. The first configured external provider path is a
+  backend-owned HTTP JSON adapter for an explicit `http://` endpoint; direct
+  HTTPS/vendor SDK integration remains future work.
 - Request payloads should include an explicit `allowed_tools: []` field or an
   equivalent provider-specific no-tools configuration.
 - Provider errors, parse failures, timeouts, cancellation, and unsupported
@@ -295,14 +329,12 @@ product surfaces unless a later block explicitly scopes that compatibility UI.
 
 Recommended next implementation slices:
 
-1. First real configured provider call with tools disabled, backend-owned
-   credentials, and explicit visible conversation context only.
-2. Provider result/error/cancellation hardening with visible status and no
+1. Provider result/error/cancellation hardening with visible status and no
    hidden fallback execution.
-3. Structured draft UX hardening after provider responses are stable.
-4. Controlled capability bridge hardening after proposal review/approval
+2. Structured draft UX hardening after provider responses are stable.
+3. Controlled capability bridge hardening after proposal review/approval
    remains stable.
-5. Future Evidence/Sources approved context packs before any broader context
+4. Future Evidence/Sources approved context packs before any broader context
    sharing.
 
 Each slice must state whether it changes frontend UI, backend/runtime code,

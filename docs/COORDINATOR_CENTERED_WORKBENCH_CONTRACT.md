@@ -477,11 +477,11 @@ The user-facing title is Coordinator Chat. The internal widget id may remain
 temporarily as `interactive-agent` for compatibility.
 
 The current local chat is the minimal Coordinator Chat UI foundation. It can
-request backend-owned mock/local provider responses and validated provider
-proposal drafts from visible chat context only, with `allowed_tools: []`.
-External-provider configuration is a backend placeholder until a real provider
-call slice is explicitly implemented. Coordinator Chat still does not execute
-widget tools, compile hidden context, or perform Workspace actions directly.
+request backend-owned mock/local provider responses or a configured HTTP JSON
+provider response from visible chat context only, with `allowed_tools: []`.
+Provider proposal drafts are validated before rendering. Coordinator Chat
+still does not execute widget tools, compile hidden context, or perform
+Workspace actions directly.
 
 ## Runbook Status
 
@@ -515,9 +515,8 @@ Flow:
 
 ## Recommended Next Blocks
 
-- First real configured provider call with tools disabled and explicit visible
-  context only.
-- Provider error/cancellation hardening and structured draft UX smoke.
+- Provider error/cancellation hardening and structured draft UX smoke with
+  tools disabled and explicit visible context only.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only query proposal flow after JDBC execution
   and result review are contract-ready.

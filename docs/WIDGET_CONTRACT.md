@@ -434,10 +434,10 @@ does not auto-dispatch or schedule queued work. Existing persisted Agent Queue
 duplicates are not automatically removed or migrated. Coordinator Chat is a
 preview chat/planning surface with local proposal cards, visible-context-only
 mock/local provider responses, validated provider proposal drafts, and a
-backend external-provider configuration placeholder that does not call an
-external LLM. It does not execute tools, directly mutate workspace content, or
-create Queue tasks/Notes without explicit approved proposal handoffs. Runbook
-is a minimal placeholder only. Notes persists a
+backend configured HTTP JSON provider path that keeps `allowed_tools: []` and
+provider credentials backend-only. It does not execute tools, directly mutate
+workspace content, or create Queue tasks/Notes without explicit approved
+proposal handoffs. Runbook is a minimal placeholder only. Notes persists a
 minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
 has a desktop-only PTY-first manual shell surface plus a collapsed legacy
 one-shot command fallback. The Git widget has a

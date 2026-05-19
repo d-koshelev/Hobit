@@ -42,9 +42,13 @@ The first Coordinator provider/runtime boundary is defined in
 proposal cards only, with explicit visible context and
 `allowed_tools: []`. The current implementation has a backend-owned
 mock/local response path that can return text plus validated safe proposal
-drafts for review cards, plus a backend-selected external-provider
-configuration placeholder that can report not-configured/unsupported state
-without exposing credentials. External LLM calls are not implemented.
+drafts for review cards, plus a backend-selected configured HTTP JSON provider
+path that can call an explicit `http://` endpoint when
+`HOBIT_COORDINATOR_PROVIDER=external`,
+`HOBIT_COORDINATOR_PROVIDER_ENDPOINT`, and
+`HOBIT_COORDINATOR_PROVIDER_API_KEY` are configured. Provider credentials stay
+backend-only and are not sent to the frontend, prompts, proposal cards, or
+serialized response DTOs.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -189,19 +193,20 @@ future widget capability.
   Agent Executor logs, filesystem data, or hidden Workspace context.
 - Sends explicit operator chat messages through a backend-owned Coordinator
   provider response path in the Tauri desktop shell. Mock/local is the default
-  provider. An explicit backend environment selection can choose an external
-  provider placeholder, which reports not-configured or unsupported state
-  without performing network calls. Requests include only the visible
-  current-session chat transcript, visible local proposal draft summaries when
-  present, compact safety instructions, and `allowed_tools: []`.
+  provider. An explicit backend environment selection can choose the configured
+  HTTP JSON provider. Missing endpoint/key reports not-configured, unsupported
+  provider kinds report unsupported, and configured provider failures are
+  visible. Requests include only the visible current-session chat transcript,
+  visible local proposal draft summaries when present, compact safety
+  instructions, and `allowed_tools: []`.
 - The mock/local provider can return structured proposal drafts for create
   Agent Queue task, create Note, and JDBC SQL suggestion only. Drafts are
   validated before rendering; unsupported or unsafe drafts are rejected or
   degraded into visible assistant text and never execute.
 - Browser/Vite fallback keeps the deterministic local response path and does
   not call a provider directly.
-- Does not call an external LLM, send provider credentials to the frontend or
-  prompt, execute broad tools, persist sessions, read hidden context, launch Agent Executor,
+- Does not send provider credentials to the frontend or prompt, execute broad
+  tools, persist sessions, read hidden context, launch Agent Executor,
   integrate with Runbook, mutate files, mutate Git, run SQL, call JDBC
   connectors, or run Terminal commands.
 - Provider-generated proposal cards use the same approval and handoff rules as
@@ -269,8 +274,8 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Coordinator provider configuration / real provider preparation with tools
-  disabled and explicit visible context only.
+- Coordinator provider error/cancellation/timeout hardening and provider UX
+  smoke with tools disabled and explicit visible context only.
 - Coordinator structured-draft UX smoke/hardening if provider drafts reveal UI
   issues.
 - Later controlled widget capability bridge.
