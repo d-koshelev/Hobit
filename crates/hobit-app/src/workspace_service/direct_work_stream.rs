@@ -179,7 +179,11 @@ impl WorkspaceService {
         let final_status_value = widget_run_status_value(&final_status);
         let result_summary = direct_work_stream_result_summary(output);
         let result_payload = direct_work_stream_result_payload(input, output, final_status_value);
-        let completion_message = direct_work_stream_completion_log_message(output.status);
+        let completion_message = if output.force_killed {
+            "Codex process force-killed"
+        } else {
+            direct_work_stream_completion_log_message(output.status)
+        };
         let completion_log_level = direct_work_stream_completion_log_level(output.status);
         let completion_payload =
             direct_work_stream_completion_log_payload(output, final_status_value);
@@ -396,6 +400,10 @@ fn direct_work_stream_final_status(status: CodexDirectStreamStatus) -> WidgetRun
 }
 
 fn direct_work_stream_result_summary(output: &CodexDirectStreamOutput) -> String {
+    if output.force_killed {
+        return "Codex Direct Work stream force-killed".to_owned();
+    }
+
     match output.status {
         CodexDirectStreamStatus::Completed => "Codex Direct Work stream completed".to_owned(),
         CodexDirectStreamStatus::Failed => "Codex Direct Work stream failed".to_owned(),
@@ -445,6 +453,7 @@ fn direct_work_stream_completion_log_payload(
         "error_message": &output.error_message,
         "failed_stage": direct_work_stream_failed_stage(output.status),
         "cancellation_requested": output.status == CodexDirectStreamStatus::Cancelled,
+        "force_killed": output.force_killed,
     })
     .to_string()
 }
@@ -496,6 +505,7 @@ fn direct_work_stream_result_payload(
         "error_message": &output.error_message,
         "failed_stage": direct_work_stream_failed_stage(output.status),
         "cancellation_requested": output.status == CodexDirectStreamStatus::Cancelled,
+        "force_killed": output.force_killed,
         "event_count": output.event_count,
         "no_auto_commit": true,
         "no_auto_push": true,

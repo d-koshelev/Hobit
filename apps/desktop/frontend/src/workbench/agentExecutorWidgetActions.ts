@@ -1,5 +1,6 @@
 import {
   cancelCodexDirectWorkRun,
+  forceKillCodexDirectWorkRun,
   getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
   listAgentExecutorRuns,
@@ -12,6 +13,7 @@ import type {
   AgentExecutorRunHistory,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
+  ForceKillCodexDirectWorkRunResponse,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
   RunDirectWorkValidationResponse,
@@ -45,6 +47,10 @@ export type AgentExecutorWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<CancelCodexDirectWorkRunResponse | null>;
+  forceKillCodexDirectWorkRun: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<ForceKillCodexDirectWorkRunResponse | null>;
   getAgentExecutorDiffSummary: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
@@ -245,6 +251,34 @@ export function createAgentExecutorWidgetActions({
     return response;
   }
 
+  async function forceKillCodexDirectWorkRunForWidget(
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) {
+    const workbenchId = requireOpenWorkbench(
+      viewState,
+      "force kill Codex Direct Work",
+    );
+    requireWidget(
+      viewState,
+      widgetInstanceId,
+      "Codex Direct Work could not be force-killed for this widget.",
+    );
+
+    const response = await forceKillCodexDirectWorkRun({
+      workspaceId: viewState.workspace.id,
+      workbenchId,
+      widgetInstanceId,
+      runId,
+    });
+
+    if (response) {
+      bumpWidgetLogRefreshToken(widgetInstanceId);
+    }
+
+    return response;
+  }
+
   async function startCodexDirectWorkStreamForWidget(
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -300,6 +334,7 @@ export function createAgentExecutorWidgetActions({
   return {
     attachToCodexDirectWorkStream: attachToCodexDirectWorkStreamForWidget,
     cancelCodexDirectWorkRun: cancelCodexDirectWorkRunForWidget,
+    forceKillCodexDirectWorkRun: forceKillCodexDirectWorkRunForWidget,
     getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     listAgentExecutorRuns: loadAgentExecutorRuns,

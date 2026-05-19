@@ -20,6 +20,7 @@ import {
 } from "./tauriAgentExecutorHistoryApi";
 import {
   cancelCodexDirectWorkRun,
+  forceKillCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
   runCodexDirectWork,
   runDirectWorkValidation,
@@ -96,6 +97,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   runCodexDirectWork,
   runDirectWorkValidation,
   cancelCodexDirectWorkRun,
+  forceKillCodexDirectWorkRun,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };

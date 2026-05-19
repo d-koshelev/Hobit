@@ -261,6 +261,7 @@ where
     let mut child_finished = false;
     let mut timed_out = false;
     let mut cancelled = false;
+    let mut force_killed = false;
     let mut wait_error = None;
     let mut exit_code = None;
 
@@ -294,21 +295,23 @@ where
                     child_finished = true;
                 }
                 Ok(None) => {
-                    if cancellation_token.is_cancellation_requested() {
-                        let _ = child.kill();
-                        let _ = child.wait();
+                    if cancellation_token.is_force_kill_requested() {
+                        force_kill_child(&mut child);
+                        force_killed = true;
+                        cancelled = true;
+                        child_finished = true;
+                    } else if cancellation_token.is_cancellation_requested() {
+                        terminate_child(&mut child);
                         cancelled = true;
                         child_finished = true;
                     } else if started_at.elapsed() >= timeout {
-                        let _ = child.kill();
-                        let _ = child.wait();
+                        terminate_child(&mut child);
                         timed_out = true;
                         child_finished = true;
                     }
                 }
                 Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    terminate_child(&mut child);
                     wait_error = Some(format!("could not wait for codex exec: {error}"));
                     child_finished = true;
                 }
@@ -356,7 +359,11 @@ where
 
     let status = direct_stream_status(cancelled, timed_out, wait_error.as_deref(), exit_code);
     let error_message = combine_optional_messages([
-        direct_stream_error_message(status, exit_code, &stderr_collected, &stdout_collected),
+        if force_killed {
+            Some("codex exec --json force-killed by operator request".to_owned())
+        } else {
+            direct_stream_error_message(status, exit_code, &stderr_collected, &stdout_collected)
+        },
         wait_error,
         stdout_reader_error,
         stderr_reader_error,
@@ -386,6 +393,7 @@ where
         error_message,
         command_summary,
         event_count,
+        force_killed,
     }
 }
 
@@ -545,7 +553,35 @@ where
         error_message: Some(message),
         command_summary,
         event_count,
+        force_killed: false,
     }
+}
+
+fn terminate_child(child: &mut std::process::Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn force_kill_child(child: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        let pid = child.id().to_string();
+        let force_kill_status = Command::new("taskkill")
+            .args(["/PID", pid.as_str(), "/T", "/F"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+
+        if !force_kill_status.is_ok_and(|status| status.success()) {
+            let _ = child.kill();
+        }
+
+        let _ = child.wait();
+    }
+
+    #[cfg(not(windows))]
+    terminate_child(child);
 }
 
 fn emit_final_status_event<F>(

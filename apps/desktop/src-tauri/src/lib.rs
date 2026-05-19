@@ -69,6 +69,7 @@ pub fn run() {
             workspace_commands::run_direct_work_validation,
             workspace_commands::start_codex_direct_work_stream,
             workspace_commands::cancel_codex_direct_work_run,
+            workspace_commands::force_kill_codex_direct_work_run,
             workspace_commands::generate_agent_chat_ai_proposal,
             workspace_commands::persist_agent_chat_proposal,
             workspace_commands::get_agent_monitoring_snapshot,

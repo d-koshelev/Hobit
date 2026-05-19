@@ -68,6 +68,32 @@ impl DirectWorkActiveRunRegistry {
         true
     }
 
+    pub(crate) fn request_force_kill(
+        &self,
+        workspace_id: &str,
+        workbench_id: &str,
+        widget_instance_id: &str,
+        run_id: &str,
+    ) -> bool {
+        let runs = self
+            .runs
+            .lock()
+            .expect("direct work active run registry lock");
+        let Some(run) = runs.get(run_id) else {
+            return false;
+        };
+
+        if run.workspace_id != workspace_id
+            || run.workbench_id != workbench_id
+            || run.widget_instance_id != widget_instance_id
+        {
+            return false;
+        }
+
+        run.cancellation_token.request_force_kill();
+        true
+    }
+
     pub(crate) fn has_active_widget_run(
         &self,
         workspace_id: &str,
@@ -162,6 +188,25 @@ mod tests {
 
         assert!(!registry.request_cancellation("ws_1", "wb_1", "wid_1", "run_1"));
         assert!(!registry.has_active_widget_run("ws_1", "wb_1", "wid_1"));
+    }
+
+    #[test]
+    fn active_run_registry_requests_matching_force_kill() {
+        let registry = DirectWorkActiveRunRegistry::default();
+        let token = CodexDirectStreamCancellationToken::new();
+        registry.register(DirectWorkActiveRun::new(
+            "run_1".to_owned(),
+            "ws_1".to_owned(),
+            "wb_1".to_owned(),
+            "wid_1".to_owned(),
+            token.clone(),
+        ));
+
+        assert!(!registry.request_force_kill("other", "wb_1", "wid_1", "run_1"));
+        assert!(!token.is_force_kill_requested());
+        assert!(registry.request_force_kill("ws_1", "wb_1", "wid_1", "run_1"));
+        assert!(token.is_force_kill_requested());
+        assert!(token.is_cancellation_requested());
     }
 
     #[test]

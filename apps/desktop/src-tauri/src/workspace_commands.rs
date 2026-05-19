@@ -22,6 +22,7 @@ use crate::agent_queue_dto::{
 use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
 use crate::codex_direct_work_dto::{
     CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
+    ForceKillCodexDirectWorkRunRequest, ForceKillCodexDirectWorkRunResponseDto,
     RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto, RunDirectWorkValidationRequest,
     RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
     StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
@@ -495,6 +496,62 @@ fn cancel_codex_direct_work_run_blocking(
     service
         .record_codex_direct_work_cancellation_requested(input)
         .map(CancelCodexDirectWorkRunResponseDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn force_kill_codex_direct_work_run(
+    request: ForceKillCodexDirectWorkRunRequest,
+    state: State<'_, AppState>,
+) -> Result<ForceKillCodexDirectWorkRunResponseDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    let active_runs = state.direct_work_active_runs();
+    tauri::async_runtime::spawn_blocking(move || {
+        force_kill_codex_direct_work_run_blocking(request, db_path, active_runs)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn force_kill_codex_direct_work_run_blocking(
+    request: ForceKillCodexDirectWorkRunRequest,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> Result<ForceKillCodexDirectWorkRunResponseDto, String> {
+    let input: hobit_app::ForceKillCodexDirectWorkRunInput = request.into();
+    let service = workspace_service(&db_path)?;
+    let inspection = service
+        .inspect_codex_direct_work_force_kill(input.clone())
+        .map_err(command_error)?;
+
+    if inspection.status != "active" {
+        return Ok(ForceKillCodexDirectWorkRunResponseDto::from(inspection));
+    }
+
+    if !active_runs.request_force_kill(
+        &input.workspace_id,
+        &input.workbench_id,
+        &input.widget_instance_id,
+        &input.run_id,
+    ) {
+        let refreshed = service
+            .inspect_codex_direct_work_force_kill(input.clone())
+            .map_err(command_error)?;
+        if refreshed.status != "active" {
+            return Ok(ForceKillCodexDirectWorkRunResponseDto::from(refreshed));
+        }
+
+        return Ok(ForceKillCodexDirectWorkRunResponseDto {
+            run_id: input.run_id,
+            status: "not_active".to_owned(),
+            message: "Direct Work run is not active in this app session".to_owned(),
+            force_kill_requested: false,
+        });
+    }
+
+    service
+        .record_codex_direct_work_force_kill_requested(input)
+        .map(ForceKillCodexDirectWorkRunResponseDto::from)
         .map_err(command_error)
 }
 

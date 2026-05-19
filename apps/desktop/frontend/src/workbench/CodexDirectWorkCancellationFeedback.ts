@@ -1,4 +1,7 @@
-import type { CancelCodexDirectWorkRunResponse } from "../workspace/types";
+import type {
+  CancelCodexDirectWorkRunResponse,
+  ForceKillCodexDirectWorkRunResponse,
+} from "../workspace/types";
 import type {
   CodexDirectWorkLiveLogEntryKind,
   CodexDirectWorkLiveLogEntryTone,
@@ -101,6 +104,90 @@ export function cancellationFeedbackFromResponse(
     notice: {
       message,
       title: "Stop request status",
+      variant: "info",
+    },
+  };
+}
+
+export function forceKillFeedbackFromResponse(
+  response: ForceKillCodexDirectWorkRunResponse,
+): CodexDirectWorkCancellationFeedback {
+  const message = response.message || cancellationStatusMessage(response.status);
+
+  if (
+    response.forceKillRequested ||
+    response.status === "force_kill_requested"
+  ) {
+    return {
+      entry: {
+        detail:
+          "Waiting for the Direct Work stream to report a final cancelled state. Files already written are not rolled back; check Git status after killing.",
+        kind: "kill_acknowledged",
+        runId: response.runId,
+        status: response.status,
+        text: "Kill request accepted.",
+        tone: "error",
+      },
+      notice: {
+        message:
+          "Force kill requested; waiting for the run to report cancellation. Files already written are not rolled back. Check Git status after killing.",
+        title: "Kill requested",
+        variant: "error",
+      },
+    };
+  }
+
+  if (response.status === "already_finished") {
+    return {
+      entry: {
+        detail: message,
+        kind: "kill_not_active",
+        runId: response.runId,
+        status: response.status,
+        text: "Run already finished.",
+        tone: "neutral",
+      },
+      notice: {
+        message,
+        title: "Run already finished",
+        variant: "info",
+      },
+    };
+  }
+
+  if (response.status === "not_found" || response.status === "not_active") {
+    return {
+      entry: {
+        detail: message,
+        kind: "kill_not_active",
+        runId: response.runId,
+        status: response.status,
+        text: "No active run to kill.",
+        tone: "neutral",
+      },
+      notice: {
+        message,
+        title:
+          response.status === "not_active"
+            ? "Run is not active"
+            : "Run was not found",
+        variant: "info",
+      },
+    };
+  }
+
+  return {
+    entry: {
+      detail: message,
+      kind: "kill_not_active",
+      runId: response.runId,
+      status: response.status,
+      text: "Kill request returned a status.",
+      tone: "neutral",
+    },
+    notice: {
+      message,
+      title: "Kill request status",
       variant: "info",
     },
   };

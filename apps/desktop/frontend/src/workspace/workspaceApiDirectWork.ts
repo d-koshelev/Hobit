@@ -3,6 +3,8 @@ import type {
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
+  ForceKillCodexDirectWorkRunRequest,
+  ForceKillCodexDirectWorkRunResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
@@ -27,6 +29,12 @@ export function cancelCodexDirectWorkRun(
   request: CancelCodexDirectWorkRunRequest,
 ): Promise<CancelCodexDirectWorkRunResponse | null> {
   return getWorkspaceApi().cancelCodexDirectWorkRun(request);
+}
+
+export function forceKillCodexDirectWorkRun(
+  request: ForceKillCodexDirectWorkRunRequest,
+): Promise<ForceKillCodexDirectWorkRunResponse | null> {
+  return getWorkspaceApi().forceKillCodexDirectWorkRun(request);
 }
 
 export function startCodexDirectWorkStream(

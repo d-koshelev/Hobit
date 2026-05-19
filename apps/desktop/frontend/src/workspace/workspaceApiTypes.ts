@@ -27,6 +27,8 @@ import type {
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
   DirectWorkStreamEvent,
+  ForceKillCodexDirectWorkRunRequest,
+  ForceKillCodexDirectWorkRunResponse,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
   GetAgentExecutorDiffSummaryRequest,
@@ -184,6 +186,9 @@ export type WorkspaceApi = {
   cancelCodexDirectWorkRun: (
     request: CancelCodexDirectWorkRunRequest,
   ) => Promise<CancelCodexDirectWorkRunResponse | null>;
+  forceKillCodexDirectWorkRun: (
+    request: ForceKillCodexDirectWorkRunRequest,
+  ) => Promise<ForceKillCodexDirectWorkRunResponse | null>;
   startCodexDirectWorkStream: (
     request: StartCodexDirectWorkStreamRequest,
   ) => Promise<StartCodexDirectWorkStreamResponse | null>;

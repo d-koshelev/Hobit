@@ -210,6 +210,9 @@ export type CancelCodexDirectWorkRunRequest = {
   runId: string;
 };
 
+export type ForceKillCodexDirectWorkRunRequest =
+  CancelCodexDirectWorkRunRequest;
+
 export type ListAgentExecutorRunsRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -343,6 +346,13 @@ export type CancelCodexDirectWorkRunResponse = {
   status: string;
   message: string;
   cancellationRequested: boolean;
+};
+
+export type ForceKillCodexDirectWorkRunResponse = {
+  runId: string;
+  status: string;
+  message: string;
+  forceKillRequested: boolean;
 };
 
 export type StartCodexDirectWorkStreamRequest = RunCodexDirectWorkRequest;

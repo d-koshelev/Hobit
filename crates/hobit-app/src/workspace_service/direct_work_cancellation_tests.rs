@@ -95,6 +95,92 @@ fn direct_work_cancellation_records_request_and_cancelled_final_result() {
 }
 
 #[test]
+fn direct_work_force_kill_records_request_and_force_killed_final_result() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
+    let input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Run until force killed.",
+    );
+    let start = service
+        .start_codex_direct_work_stream(input.clone())
+        .expect("start stream")
+        .expect("stream start summary");
+    let force_kill_input =
+        force_kill_input(&workspace_id, &workbench_id, &widget_id, &start.run_id);
+
+    let inspection = service
+        .inspect_codex_direct_work_force_kill(force_kill_input.clone())
+        .expect("inspect force kill");
+    assert_eq!(inspection.status, "active");
+
+    let requested = service
+        .record_codex_direct_work_force_kill_requested(force_kill_input)
+        .expect("record force kill request");
+    assert_eq!(requested.status, "force_kill_requested");
+    assert!(requested.force_kill_requested);
+
+    let emitted_events = RefCell::new(Vec::new());
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            input,
+            &start.run_id,
+            |request, on_event| {
+                on_event(force_killed_event());
+                force_killed_output(&request)
+            },
+            |event| emitted_events.borrow_mut().push(event),
+        )
+        .expect("run force-killed stream")
+        .expect("force-killed stream summary");
+
+    let run = service
+        .store
+        .get_widget_run(&summary.run_id)
+        .expect("get run")
+        .expect("run row");
+    let results = service
+        .store
+        .list_widget_results(&summary.run_id)
+        .expect("list widget results");
+    let payload: Value =
+        serde_json::from_str(results[0].payload.as_deref().expect("result payload"))
+            .expect("result payload json");
+    let logs = service
+        .list_widget_logs(&workspace_id, &workbench_id, &widget_id, 20)
+        .expect("list logs")
+        .expect("widget logs");
+    let messages = widget_log_messages(&logs);
+    let events = emitted_events.borrow();
+
+    assert_eq!(summary.status, "cancelled");
+    assert_eq!(run.status, "cancelled");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].status, "cancelled");
+    assert_eq!(payload["status"], "cancelled");
+    assert_eq!(payload["codex_status"], "cancelled");
+    assert_eq!(payload["cancellation_requested"], true);
+    assert_eq!(payload["force_killed"], true);
+    assert_eq!(payload["no_auto_commit"], true);
+    assert_eq!(payload["no_auto_push"], true);
+    assert_eq!(payload["git_mutations_performed_by_hobit"], false);
+    assert!(messages.contains(&"Direct Work force kill requested"));
+    assert!(messages.contains(&"Codex stream cancelled"));
+    assert!(messages.contains(&"Codex process force-killed"));
+    assert!(events.iter().any(|event| {
+        event.event_kind == "cancelled"
+            && event.is_final
+            && event
+                .error_message
+                .as_deref()
+                .is_some_and(|message| message.contains("force-killed"))
+    }));
+}
+
+#[test]
 fn direct_work_cancellation_unknown_run_returns_not_found() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
@@ -252,6 +338,20 @@ fn cancel_input(
     }
 }
 
+fn force_kill_input(
+    workspace_id: &str,
+    workbench_id: &str,
+    widget_id: &str,
+    run_id: &str,
+) -> ForceKillCodexDirectWorkRunInput {
+    ForceKillCodexDirectWorkRunInput {
+        workspace_id: workspace_id.to_owned(),
+        workbench_id: workbench_id.to_owned(),
+        widget_instance_id: widget_id.to_owned(),
+        run_id: run_id.to_owned(),
+    }
+}
+
 fn cancelled_event() -> CodexDirectStreamEvent {
     CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::Cancelled,
@@ -267,8 +367,30 @@ fn cancelled_event() -> CodexDirectStreamEvent {
     }
 }
 
+fn force_killed_event() -> CodexDirectStreamEvent {
+    CodexDirectStreamEvent {
+        kind: CodexDirectStreamEventKind::Cancelled,
+        elapsed_ms: 17,
+        line: None,
+        text: None,
+        parsed_json: None,
+        error_message: Some("codex exec --json force-killed by operator request".to_owned()),
+        stderr_preview: None,
+        exit_code: None,
+        final_status: Some("cancelled".to_owned()),
+        failed_stage: None,
+    }
+}
+
 fn cancelled_output(request: &CodexDirectStreamRequest) -> CodexDirectStreamOutput {
     stream_output(request, CodexDirectStreamStatus::Cancelled)
+}
+
+fn force_killed_output(request: &CodexDirectStreamRequest) -> CodexDirectStreamOutput {
+    let mut output = stream_output(request, CodexDirectStreamStatus::Cancelled);
+    output.force_killed = true;
+    output.error_message = Some("codex exec --json force-killed by operator request".to_owned());
+    output
 }
 
 fn completed_output(request: &CodexDirectStreamRequest) -> CodexDirectStreamOutput {
@@ -312,6 +434,7 @@ fn stream_output(
             "<operator-prompt-stdin>".to_owned(),
         ],
         event_count: 1,
+        force_killed: false,
     }
 }
 

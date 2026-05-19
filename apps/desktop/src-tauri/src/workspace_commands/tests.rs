@@ -160,6 +160,30 @@ fn cancel_codex_direct_work_run_blocking_returns_not_found_for_missing_workspace
 }
 
 #[test]
+fn force_kill_codex_direct_work_run_blocking_returns_not_found_for_missing_workspace() {
+    let db_path = unique_test_db_path();
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    drop(store);
+
+    let response = force_kill_codex_direct_work_run_blocking(
+        ForceKillCodexDirectWorkRunRequest {
+            workspace_id: "missing-workspace".to_owned(),
+            workbench_id: "missing-workbench".to_owned(),
+            widget_instance_id: "missing-widget".to_owned(),
+            run_id: "missing-run".to_owned(),
+        },
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+    )
+    .expect("direct work force kill helper should return cleanly");
+
+    assert_eq!(response.status, "not_found");
+    assert!(!response.force_kill_requested);
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn delete_widget_instance_from_workbench_blocking_returns_refreshed_state() {
     let db_path = unique_test_db_path();
     let (workspace_id, workbench_id, widget_id) = create_widget_in_test_db(&db_path);

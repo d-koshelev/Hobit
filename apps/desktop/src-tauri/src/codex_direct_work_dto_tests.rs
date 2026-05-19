@@ -1,13 +1,15 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
-    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    DirectWorkValidationRunSummary, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
+    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary,
+    CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
+    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary,
+    ForceKillCodexDirectWorkRunInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
 };
 
 use crate::codex_direct_work_dto::{
     CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
+    ForceKillCodexDirectWorkRunRequest, ForceKillCodexDirectWorkRunResponseDto,
     RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto, RunDirectWorkValidationRequest,
     RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
     StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
@@ -180,6 +182,23 @@ fn maps_cancel_codex_direct_work_run_request_to_app_input() {
 }
 
 #[test]
+fn maps_force_kill_codex_direct_work_run_request_to_app_input() {
+    let request = ForceKillCodexDirectWorkRunRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        run_id: "run_1".to_owned(),
+    };
+
+    let input = ForceKillCodexDirectWorkRunInput::from(request);
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.workbench_id, "wb_1");
+    assert_eq!(input.widget_instance_id, "wid_1");
+    assert_eq!(input.run_id, "run_1");
+}
+
+#[test]
 fn maps_run_direct_work_validation_response_to_dto() {
     let summary = DirectWorkValidationRunSummary {
         run_id: "run_1".to_owned(),
@@ -237,6 +256,21 @@ fn maps_cancel_codex_direct_work_run_response_to_dto() {
     assert_eq!(dto.status, "cancellation_requested");
     assert_eq!(dto.message, "Direct Work cancellation requested");
     assert!(dto.cancellation_requested);
+}
+
+#[test]
+fn maps_force_kill_codex_direct_work_run_response_to_dto() {
+    let dto = ForceKillCodexDirectWorkRunResponseDto::from(CodexDirectWorkForceKillSummary {
+        run_id: "run_1".to_owned(),
+        status: "force_kill_requested".to_owned(),
+        message: "Direct Work force kill requested".to_owned(),
+        force_kill_requested: true,
+    });
+
+    assert_eq!(dto.run_id, "run_1");
+    assert_eq!(dto.status, "force_kill_requested");
+    assert_eq!(dto.message, "Direct Work force kill requested");
+    assert!(dto.force_kill_requested);
 }
 
 #[test]

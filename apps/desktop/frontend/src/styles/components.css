@@ -348,6 +348,53 @@
   flex-wrap: wrap;
 }
 
+.codex-direct-work-stop-panel {
+  flex-wrap: wrap;
+}
+
+.codex-direct-work-stop-actions,
+.codex-direct-work-kill-confirm-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.codex-direct-work-kill-action {
+  position: relative;
+}
+
+.codex-direct-work-kill-button {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.codex-direct-work-kill-button:not(:disabled):hover {
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error-soft) 72%, var(--color-overlay-surface));
+  color: var(--color-error);
+}
+
+.codex-direct-work-kill-confirm {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  display: grid;
+  width: min(320px, calc(100vw - 48px));
+  gap: var(--space-sm);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  box-shadow: var(--shadow-widget);
+  padding: var(--space-sm);
+}
+
+.codex-direct-work-kill-confirm .codex-direct-work-title {
+  color: var(--color-error);
+}
+
 .codex-direct-work-copy,
 .codex-direct-work-field,
 .codex-direct-work-final-message,

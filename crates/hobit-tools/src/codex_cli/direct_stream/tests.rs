@@ -171,6 +171,42 @@ fn cancellation_token_emits_cancelled_status_and_kills_process() {
     assert!(cancelled_event.is_final_status_event());
     assert_eq!(cancelled_event.final_status.as_deref(), Some("cancelled"));
     assert_eq!(cancelled_event.failed_stage, None);
+    assert!(!output.force_killed);
+}
+
+#[test]
+fn force_kill_token_emits_cancelled_status_and_marks_output() {
+    let request = request_with_program(temp_repo("force-killed"), "sleep", direct_stream_helper());
+    let token = CodexDirectStreamCancellationToken::new();
+    let force_kill = token.clone();
+    let mut events = Vec::new();
+
+    let output = run_codex_direct_work_streaming_with_cancellation(request, token, |event| {
+        if event.kind == CodexDirectStreamEventKind::Started {
+            force_kill.request_force_kill();
+        }
+        events.push(event);
+    });
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Cancelled);
+    assert!(output.force_killed);
+    assert_eq!(output.exit_code, None);
+    assert!(output
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("force-killed"));
+    let cancelled_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::Cancelled)
+        .expect("cancelled event should be emitted");
+    assert!(cancelled_event.is_final_status_event());
+    assert_eq!(cancelled_event.final_status.as_deref(), Some("cancelled"));
+    assert!(cancelled_event
+        .error_message
+        .as_deref()
+        .unwrap_or_default()
+        .contains("force-killed"));
 }
 
 #[test]

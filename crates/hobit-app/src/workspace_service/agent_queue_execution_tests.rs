@@ -424,5 +424,6 @@ fn stream_output(
             Some("stream stopped".to_owned())
         },
         event_count: 1,
+        force_killed: false,
     }
 }

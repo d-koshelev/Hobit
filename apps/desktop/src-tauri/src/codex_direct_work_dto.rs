@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary, CodexDirectWorkRunSummary,
-    CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    DirectWorkValidationRunSummary, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
+    CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary,
+    CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary, CodexDirectWorkStreamEventSummary,
+    CodexDirectWorkStreamStartSummary, DirectWorkValidationRunSummary,
+    ForceKillCodexDirectWorkRunInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +54,14 @@ pub(crate) struct RunDirectWorkValidationRequest {
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CancelCodexDirectWorkRunRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub run_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct ForceKillCodexDirectWorkRunRequest {
     pub workspace_id: String,
     pub workbench_id: String,
     pub widget_instance_id: String,
@@ -140,6 +149,14 @@ pub(crate) struct CancelCodexDirectWorkRunResponseDto {
     pub cancellation_requested: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ForceKillCodexDirectWorkRunResponseDto {
+    pub run_id: String,
+    pub status: String,
+    pub message: String,
+    pub force_kill_requested: bool,
+}
+
 impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
     fn from(request: RunCodexDirectWorkRequest) -> Self {
         Self {
@@ -193,6 +210,17 @@ impl From<RunDirectWorkValidationRequest> for RunDirectWorkValidationInput {
 
 impl From<CancelCodexDirectWorkRunRequest> for CancelCodexDirectWorkRunInput {
     fn from(request: CancelCodexDirectWorkRunRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            run_id: request.run_id,
+        }
+    }
+}
+
+impl From<ForceKillCodexDirectWorkRunRequest> for ForceKillCodexDirectWorkRunInput {
+    fn from(request: ForceKillCodexDirectWorkRunRequest) -> Self {
         Self {
             workspace_id: request.workspace_id,
             workbench_id: request.workbench_id,
@@ -262,6 +290,17 @@ impl From<CodexDirectWorkCancellationSummary> for CancelCodexDirectWorkRunRespon
             status: summary.status,
             message: summary.message,
             cancellation_requested: summary.cancellation_requested,
+        }
+    }
+}
+
+impl From<CodexDirectWorkForceKillSummary> for ForceKillCodexDirectWorkRunResponseDto {
+    fn from(summary: CodexDirectWorkForceKillSummary) -> Self {
+        Self {
+            run_id: summary.run_id,
+            status: summary.status,
+            message: summary.message,
+            force_kill_requested: summary.force_kill_requested,
         }
     }
 }

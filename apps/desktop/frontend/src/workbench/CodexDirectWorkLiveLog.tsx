@@ -47,6 +47,10 @@ export type CodexDirectWorkLiveLogEntryKind =
   | "stop_acknowledged"
   | "stop_not_active"
   | "stop_failed"
+  | "kill_requested"
+  | "kill_acknowledged"
+  | "kill_not_active"
+  | "kill_failed"
   | "fallback_starting"
   | "fallback_completed"
   | "fallback_failed"
@@ -519,6 +523,10 @@ const LOCAL_LOG_LABELS: Partial<
   stop_failed: "Stop failed",
   stop_not_active: "Stop unavailable",
   stop_requested: "Stop requested",
+  kill_acknowledged: "Kill requested",
+  kill_failed: "Kill failed",
+  kill_not_active: "Kill unavailable",
+  kill_requested: "Kill requested",
   stream_start_failed: "Streaming failed",
   stream_starting: "Starting",
 };

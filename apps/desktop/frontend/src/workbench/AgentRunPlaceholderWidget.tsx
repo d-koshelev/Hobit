@@ -25,6 +25,7 @@ export function AgentRunPlaceholderWidget({
   onLoadLogs,
   onListAgentExecutorRuns,
   onCancelCodexDirectWorkRun,
+  onForceKillCodexDirectWorkRun,
   onAttachToCodexDirectWorkStream,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
@@ -63,6 +64,7 @@ export function AgentRunPlaceholderWidget({
           onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
           onListAgentExecutorRuns={onListAgentExecutorRuns}
           onCancelCodexDirectWorkRun={onCancelCodexDirectWorkRun}
+          onForceKillCodexDirectWorkRun={onForceKillCodexDirectWorkRun}
           onRunCodexDirectWork={onRunCodexDirectWork}
           onRunDirectWorkValidation={onRunDirectWorkValidation}
           onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}

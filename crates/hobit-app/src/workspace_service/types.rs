@@ -480,6 +480,14 @@ pub struct CancelCodexDirectWorkRunInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ForceKillCodexDirectWorkRunInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub run_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CodexDirectWorkRunSummary {
     pub run_id: String,
     pub result_id: String,
@@ -510,6 +518,14 @@ pub struct CodexDirectWorkCancellationSummary {
     pub status: String,
     pub message: String,
     pub cancellation_requested: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CodexDirectWorkForceKillSummary {
+    pub run_id: String,
+    pub status: String,
+    pub message: String,
+    pub force_kill_requested: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

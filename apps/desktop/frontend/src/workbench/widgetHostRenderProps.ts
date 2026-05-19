@@ -62,6 +62,9 @@ export function widgetHostRenderProps({
     onCancelCodexDirectWorkRun: isAgentExecutor
       ? widgetActions.cancelCodexDirectWorkRun
       : undefined,
+    onForceKillCodexDirectWorkRun: isAgentExecutor
+      ? widgetActions.forceKillCodexDirectWorkRun
+      : undefined,
     onClearAgentQueueTaskAssignment: isAgentQueue
       ? widgetActions.clearAgentQueueTaskAssignment
       : undefined,

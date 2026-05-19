@@ -4,6 +4,8 @@ import type {
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
   DirectWorkStreamEvent,
+  ForceKillCodexDirectWorkRunRequest,
+  ForceKillCodexDirectWorkRunResponse,
   RunCodexDirectWorkRequest,
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
@@ -70,6 +72,13 @@ type TauriCancelCodexDirectWorkRunResponse = {
   status: string;
   message: string;
   cancellation_requested: boolean;
+};
+
+type TauriForceKillCodexDirectWorkRunResponse = {
+  run_id: string;
+  status: string;
+  message: string;
+  force_kill_requested: boolean;
 };
 
 type TauriDirectWorkStreamEvent = {
@@ -156,6 +165,25 @@ export async function cancelCodexDirectWorkRun(
     );
 
   return response ? normalizeCancelCodexDirectWorkRunResponse(response) : null;
+}
+
+export async function forceKillCodexDirectWorkRun(
+  request: ForceKillCodexDirectWorkRunRequest,
+): Promise<ForceKillCodexDirectWorkRunResponse | null> {
+  const response =
+    await invokeDirectWork<TauriForceKillCodexDirectWorkRunResponse | null>(
+      "force_kill_codex_direct_work_run",
+      {
+        request: {
+          workspace_id: request.workspaceId,
+          workbench_id: request.workbenchId,
+          widget_instance_id: request.widgetInstanceId,
+          run_id: request.runId,
+        },
+      },
+    );
+
+  return response ? normalizeForceKillCodexDirectWorkRunResponse(response) : null;
 }
 
 export async function startCodexDirectWorkStream(
@@ -266,6 +294,17 @@ function normalizeCancelCodexDirectWorkRunResponse(
     status: response.status,
     message: response.message,
     cancellationRequested: response.cancellation_requested,
+  };
+}
+
+function normalizeForceKillCodexDirectWorkRunResponse(
+  response: TauriForceKillCodexDirectWorkRunResponse,
+): ForceKillCodexDirectWorkRunResponse {
+  return {
+    runId: response.run_id,
+    status: response.status,
+    message: response.message,
+    forceKillRequested: response.force_kill_requested,
   };
 }
 

@@ -619,6 +619,7 @@ fn stream_output(
             "<operator-prompt>".to_owned(),
         ],
         event_count,
+        force_killed: false,
     }
 }
 

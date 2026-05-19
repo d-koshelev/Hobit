@@ -16,6 +16,7 @@ import type {
   CreateGitCommitRequest,
   CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
+  ForceKillCodexDirectWorkRunResponse,
   GitCommitResponse,
   GitRepositoryStatus,
   RunCodexDirectWorkRequest,
@@ -77,6 +78,10 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<CancelCodexDirectWorkRunResponse | null>;
+  onForceKillCodexDirectWorkRun?: (
+    widgetInstanceId: WidgetInstanceId,
+    runId: string,
+  ) => Promise<ForceKillCodexDirectWorkRunResponse | null>;
   onClearAgentQueueTaskAssignment?: (
     request: Omit<ClearAgentQueueTaskAssignmentRequest, "workspaceId">,
   ) => Promise<AgentQueueTask>;

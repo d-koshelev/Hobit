@@ -1,6 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
 use super::super::direct_run::{CodexApprovalPolicy, CodexSandboxMode};
@@ -53,6 +53,7 @@ pub struct CodexDirectStreamOutput {
     pub error_message: Option<String>,
     pub command_summary: Vec<String>,
     pub event_count: usize,
+    pub force_killed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -131,9 +132,9 @@ impl fmt::Display for CodexDirectStreamEventKind {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CodexDirectStreamCancellationToken {
-    requested: Arc<AtomicBool>,
+    requested: Arc<AtomicU8>,
 }
 
 impl CodexDirectStreamCancellationToken {
@@ -142,10 +143,31 @@ impl CodexDirectStreamCancellationToken {
     }
 
     pub fn request_cancellation(&self) {
-        self.requested.store(true, Ordering::SeqCst);
+        self.requested
+            .fetch_max(CANCELLATION_REQUESTED, Ordering::SeqCst);
+    }
+
+    pub fn request_force_kill(&self) {
+        self.requested.store(FORCE_KILL_REQUESTED, Ordering::SeqCst);
     }
 
     pub fn is_cancellation_requested(&self) -> bool {
-        self.requested.load(Ordering::SeqCst)
+        self.requested.load(Ordering::SeqCst) >= CANCELLATION_REQUESTED
+    }
+
+    pub fn is_force_kill_requested(&self) -> bool {
+        self.requested.load(Ordering::SeqCst) >= FORCE_KILL_REQUESTED
+    }
+}
+
+const CANCELLATION_NOT_REQUESTED: u8 = 0;
+const CANCELLATION_REQUESTED: u8 = 1;
+const FORCE_KILL_REQUESTED: u8 = 2;
+
+impl Default for CodexDirectStreamCancellationToken {
+    fn default() -> Self {
+        Self {
+            requested: Arc::new(AtomicU8::new(CANCELLATION_NOT_REQUESTED)),
+        }
     }
 }

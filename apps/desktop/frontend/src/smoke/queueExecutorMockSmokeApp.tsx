@@ -107,6 +107,7 @@ class QueueExecutorSmokeRuntime {
         };
       },
       cancelCodexDirectWorkRun: async () => this.forbidden(null),
+      forceKillCodexDirectWorkRun: async () => this.forbidden(null),
       clearAgentQueueTaskAssignment: async () => this.cloneTask(),
       createAgentQueueTask: async () => this.cloneTask(),
       createGitCommit: async () => this.forbidden(null),

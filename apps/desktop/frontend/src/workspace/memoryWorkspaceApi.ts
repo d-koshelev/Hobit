@@ -9,6 +9,7 @@ import {
   createWorkspaceNote,
   deleteWidgetInstanceFromWorkbench,
   deleteWorkspace,
+  forceKillCodexDirectWorkRun,
   generateAgentChatAiProposal,
   getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
@@ -97,6 +98,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   runCodexDirectWork,
   runDirectWorkValidation,
   cancelCodexDirectWorkRun,
+  forceKillCodexDirectWorkRun,
   startCodexDirectWorkStream,
   listenToDirectWorkStreamEvents,
 };

@@ -217,6 +217,13 @@ export const cancelCodexDirectWorkRun: WorkspaceApi["cancelCodexDirectWorkRun"] 
     );
   };
 
+export const forceKillCodexDirectWorkRun: WorkspaceApi["forceKillCodexDirectWorkRun"] =
+  async (_request) => {
+    throw new Error(
+      "Codex Direct Work force kill is only available in the Tauri desktop shell. Browser fallback cannot terminate local executor processes.",
+    );
+  };
+
 export const startCodexDirectWorkStream: WorkspaceApi["startCodexDirectWorkStream"] =
   async (_request) => {
     throw new Error(
