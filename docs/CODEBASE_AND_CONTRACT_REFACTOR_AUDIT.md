@@ -185,6 +185,91 @@ discovery-era docs unless the block needs historical context.
   `agent-chat`, or `agent-run`.
 - Consolidating all agent-era contracts into one document.
 
+## Block 220 Compatibility Path Audit
+
+This audit reviewed retained Agent Chat proposal, Agent Monitoring snapshot,
+and proposal-review Agent Queue paths after the current surface moved to
+Coordinator Chat, Agent Executor, and manual Agent Queue tasks.
+
+### Reference Map
+
+- Agent Chat proposal persistence:
+  - Rust service: `crates/hobit-app/src/workspace_service/agent_proposals.rs`.
+  - Rust AI proposal generation:
+    `crates/hobit-app/src/workspace_service/agent_ai_proposals.rs`.
+  - Tauri commands: `persist_agent_chat_proposal` and
+    `generate_agent_chat_ai_proposal`.
+  - Frontend Workspace API: `workspaceApiAgentChat.ts`,
+    `tauriAgentChatProposalPersistenceApi.ts`, `tauriAgentChatAiApi.ts`, and
+    unsupported browser fallback methods.
+  - Tests: `agent_proposal_tests.rs`, `agent_ai_proposal_tests.rs`,
+    `workspace_dto_tests.rs`, and `agent_chat_ai_dto_tests.rs`.
+- Agent Monitoring snapshot:
+  - Rust service: `crates/hobit-app/src/workspace_service/agent_monitoring.rs`,
+    including `proposal_result_summary`, which is still shared by the
+    proposal-review Agent Queue path.
+  - Tauri command: `get_agent_monitoring_snapshot`.
+  - Frontend Workspace API: `tauriAgentMonitoringApi.ts`,
+    `workspaceApiAgentChat.ts`, and unsupported browser fallback methods.
+  - Tests: `agent_monitoring_tests.rs` and `workspace_dto_tests.rs`.
+- Proposal-review Agent Queue:
+  - Rust service: `crates/hobit-app/src/workspace_service/agent_queue.rs`.
+  - Storage: the schema-backed `agent_queue_items` table and indexes,
+    `store/agent_queue_items.rs`, `AgentQueueItemRow`, `NewAgentQueueItem`,
+    workspace deletion cleanup, and widget deletion reference checks.
+  - Tauri commands and DTOs: `create_agent_queue_item_from_proposal`,
+    `get_agent_queue_snapshot`, and `agent_queue_dto.rs`.
+  - Frontend Workspace API: `tauriAgentQueueApi.ts`,
+    `workspaceApiAgentQueue.ts`, and unsupported browser fallback methods.
+  - Tests: `agent_queue_tests.rs`, `agent_queue_dto_tests.rs`,
+    `insert_and_list_agent_queue_items`, and workspace deletion tests.
+
+Current Workbench components do not call the old proposal persistence,
+Agent Monitoring snapshot, or proposal-review Queue APIs directly. That is not
+enough to delete the paths because they remain typed, registered, tested, and
+schema-backed compatibility surfaces.
+
+### Removal Decision
+
+No code removal was safe in Block 220. These paths are no longer current
+catalog surfaces, but they are not definitely dead:
+
+- They are registered Tauri commands and typed Workspace API methods.
+- They are covered by app, Tauri DTO, and storage compatibility tests.
+- They use persisted widget run/result artifacts and the schema-backed
+  `agent_queue_items` table.
+- Proposal-review queue items can reference source widget results, so deletion
+  interacts with storage cleanup and widget/workspace deletion safety.
+- Removing them would require a schema/API compatibility decision and broad
+  test and documentation updates.
+
+### Required Before Deletion
+
+- Decide whether existing `agent_queue_items` data may be dropped, migrated, or
+  preserved read-only.
+- Decide whether the Tauri command names remain as compatibility no-ops, return
+  unsupported errors, or are removed.
+- Decide whether frontend `WorkspaceApi` methods remain for compatibility or
+  are removed in a breaking API cleanup.
+- Update or retire app, Tauri, frontend, and storage tests intentionally instead
+  of weakening assertions.
+- Update stale docs that still describe Agent Chat, Agent Monitoring, or
+  proposal-review Queue as current behavior.
+
+### Recommended Cleanup Slices
+
+1. Frontend API compatibility policy: decide whether unused frontend wrappers
+   remain compatibility-only methods or can be removed in a breaking cleanup.
+2. Tauri/app compatibility policy: decide command-level fate for
+   `persist_agent_chat_proposal`, `generate_agent_chat_ai_proposal`,
+   `get_agent_monitoring_snapshot`, `create_agent_queue_item_from_proposal`,
+   and `get_agent_queue_snapshot`.
+3. Storage/schema cleanup: design a migration, archival, or preservation policy
+   for `agent_queue_items`.
+4. Docs cleanup: mark old Agent Chat, Agent Monitoring, and proposal-review
+   Queue docs as historical compatibility where they still read like current
+   behavior.
+
 ## Codebase Hotspots
 
 ### Must Refactor Before Large New Runtime Work
