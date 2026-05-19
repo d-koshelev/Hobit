@@ -20,7 +20,7 @@ auto-refresh foundations. It does not implement automatic execution,
 scheduler behavior, response parsing, response validation, Git mutation,
 approval/apply behavior, Terminal launch, or real Agent runtime behavior.
 
-Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or execute queue items until explicit queue execution work is approved.
+Near-term Agent Queue boundaries are further defined in `docs/AGENT_SURFACE_MODEL.md`: Agent Queue organizes tasks and executor history, remains one Queue per Workspace, and must not become a universal workflow engine or automatic dispatcher. Explicit assigned-task starts through Agent Executor remain operator-controlled and are governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 The future task model, dependency model, executor capacity model, and manual assignment direction are defined in `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Detailed manual Queue-to-Executor assignment rules are defined in `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`. Manual execution of an assigned Queue task through Agent Executor is governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`. The current task and assignment foundations add storage/API state and compact assignment UI only; they do not add queue execution, dispatch, scheduler behavior, or Agent Executor runtime changes.
 
@@ -44,7 +44,7 @@ The current repository has:
 - frontend controls for manually assigning or clearing a visible Agent Executor
   slot on the selected task
 - backend/Tauri/frontend API foundation for manually starting an assigned task
-  in its assigned Agent Executor with an explicit repository root
+  in its assigned Agent Executor with an explicit execution workspace path
 - explicit Agent Monitoring action to create a `needs_review` / `pending_review` queue item from the currently displayed proposal result
 - persisted proposal-review item compatibility paths scoped to the current
   Workspace Workbench

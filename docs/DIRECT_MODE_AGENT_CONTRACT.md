@@ -6,14 +6,15 @@ Direct Mode is Hobit's controlled path for letting an agent perform small
 approved work directly.
 
 It exists for focused operator-approved work such as code edits, validation,
-and concise documentation changes where an executor agent can act inside an
-approved Workspace and repository boundary.
+concise documentation changes, and other bounded tasks where an executor agent
+can act inside an approved Workspace and execution workspace boundary.
 
 Direct Mode does not replace Proposal Mode. It adds a future execution path for
 bounded work while preserving Hobit's core rule:
 
 - Agent proposes or works within the approved boundary.
-- Operator chooses the mode, prompt, repository root, sandbox, and review.
+- Operator chooses the mode, prompt, execution workspace boundary, sandbox,
+  and review.
 - Hobit makes the work visible, logged, observable, and reviewable.
 
 This contract defines the product and runtime boundary for Direct Mode. The
@@ -56,8 +57,11 @@ Hobit currently has:
   local commit from an explicit transient repository root
 
 Hobit exposes a backend/Tauri one-shot Codex Direct Work command for explicit
-Workspace, Workbench, owning widget instance, repository root, operator prompt,
-sandbox, approval policy, timeout, output caps, and Codex executable. The
+Workspace, Workbench, owning widget instance, execution workspace path,
+operator prompt, sandbox, approval policy, timeout, output caps, and Codex
+executable. The current compatibility field and DTO name remains `repo_root`.
+For the current Codex Direct Work mode, that path is an explicit existing
+repository or local project folder. The
 command validates Workspace/Workbench/widget ownership, currently allows only
 the existing Agent Executor (`agent-run`) widget definition to own these
 artifacts, creates a widget run before execution, runs the existing
@@ -83,7 +87,8 @@ The repository now includes backend/tooling-only Codex CLI foundations in
 - an availability/version probe that runs only `codex --version` or
   `<explicit-program> --version`, captures stdout, stderr, duration, version
   text when available, and returns a structured availability result
-- a one-shot Direct Work runner that validates an explicit repository root and
+- a one-shot Direct Work runner that validates an explicit execution workspace
+  path and
   operator prompt, resolves the requested Codex executable without shell
   invocation, builds `codex exec` with fixed argv, passes the selected sandbox
   and approval policy, captures stdout/stderr, reads the `--output-last-message`
@@ -91,30 +96,32 @@ The repository now includes backend/tooling-only Codex CLI foundations in
   result. On Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and
   `codex.bat` from PATH.
 - a streaming Direct Work runner foundation that validates the same explicit
-  inputs, resolves the same executable candidates, builds `codex exec --json`
+  execution inputs, resolves the same executable candidates, builds
+  `codex exec --json`
   with global args before `exec` and exec args after it, reads stdout/stderr
   line-by-line while the process is running, emits caller callback events,
   captures the final `--output-last-message` file, applies output caps and
   timeout, kills the child on timeout, and returns a structured final output.
   This foundation is wired to a backend/Tauri stream event bridge, persisted
-  widget logs, and final widget run/result storage. It is not wired to
-  frontend live logs, Agent Monitoring Direct Work display, Git Widget, Queue
-  execution, stdin, PTY, or interactive sessions.
+  widget logs, final widget run/result storage, Agent Executor live logs, and
+  explicit Queue-started runs. It is not wired to Agent Monitoring Direct Work
+  display, automatic Queue dispatch, stdin, PTY, or interactive sessions.
 
 The one-shot runner, streaming runner bridge, and explicit Toolbelt validation
 capture command are wired to app/Tauri storage-backed run artifacts. Validation
-capture is API-only for now; Direct Work validation UI and automatic post-run
-validation are not implemented. The streaming bridge is not wired to Agent
-Monitoring Direct Work display, Agent Queue, Git Widget, or frontend live UI.
+capture has a manual Agent Executor UI; automatic post-run validation is not
+implemented. The streaming bridge is not wired to Agent Monitoring Direct Work
+display, automatic Queue dispatch, PTY, or interactive sessions.
 Agent Executor now also has a read-only app/Tauri run history API for listing
 recent Direct Work and Direct Work validation artifacts owned by a specific
 `agent-run` widget instance and reading their stored result/log summaries. The
 frontend shows those artifacts in a compact read-only history/detail panel.
 Agent Executor also has a read-only app/Tauri diff summary API for an explicit
-repository root. It returns bounded changed-file, numstat, and optional capped
-patch-preview data for future UI without staging, committing, pushing,
+repository root when the execution workspace is a Git repository. It returns
+bounded changed-file, numstat, and optional capped patch-preview data for
+future UI without staging, committing, pushing,
 resetting, cleaning, or writing artifacts. Rerun, deletion, frontend diff UI,
-queue execution, and Git mutations remain future work.
+automatic Queue dispatch, and Git mutations remain future work.
 
 The near-term direction is to make Codex CLI the first practical executor for
 Direct Mode because it is available locally. The model must remain
@@ -169,12 +176,12 @@ Current Agent Chat provider behavior remains Proposal Mode.
 ### Direct Work Mode
 
 Direct Work Mode may let an approved executor edit files and run validation
-inside an approved Workspace and repository root.
+inside an approved Workspace and execution workspace boundary.
 
 Rules:
 
 - operator chooses Direct Work explicitly
-- repository root must be explicit and approved
+- execution workspace boundary must be explicit and approved
 - operator prompt must be explicit and captured
 - sandbox/mode must be explicit and captured
 - normal sandbox for coding work is `workspace-write`
@@ -203,8 +210,8 @@ Rules:
 - must still produce observable raw logs, final response, changed files, and
   review artifacts
 
-Dangerous Mode must not be used to bypass repository approval, Git review,
-validation visibility, or operator control.
+Dangerous Mode must not be used to bypass execution workspace approval, Git
+review, validation visibility, or operator control.
 
 ## Direct Work MVP Boundary
 
@@ -212,7 +219,7 @@ The first Direct Work implementation should be the smallest useful slice:
 
 - one-shot run first, not an embedded interactive PTY
 - explicit Workspace and Workbench context
-- explicit approved repository root
+- explicit approved execution workspace boundary
 - explicit operator prompt
 - explicit executor kind, starting with `codex_cli`
 - explicit sandbox/mode, normally `workspace-write`
@@ -227,11 +234,40 @@ The first Direct Work implementation should be the smallest useful slice:
 - no auto-commit
 - no auto-push
 - no hidden background execution
-- no queue execution in the MVP
+- no automatic Queue dispatch in the MVP; explicit Queue-started runs are
+  governed by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`
 
 The first implementation should stop before adding interactivity, background
 scheduling, broad queue execution, Git mutations, schema-heavy history, or
 multi-executor orchestration.
+
+## Execution Workspace Boundary
+
+An execution workspace is the filesystem boundary in which an executor may
+work. Hobit Workspace remains the durable product isolation boundary; execution
+workspace is the runtime filesystem boundary for one run.
+
+Current supported execution workspace:
+
+- Existing repository or local project folder, explicitly provided by the
+  operator.
+- The compatibility API/storage field remains `repo_root`.
+- Git status, diff, and commit review apply only when this path is a Git
+  repository.
+
+Future scratch workspace direction:
+
+- Add an explicit `Use scratch workspace` choice for generic/non-repo tasks.
+- Resolve it to a Hobit-controlled scratch folder, creating it if missing.
+- Never default to `~/`, user home, Documents, Downloads, or another broad
+  user filesystem root.
+- Files written there are not automatically deleted unless a future visible
+  cleanup feature exists.
+- Do not initialize Git unless a later block proves it is required and keeps
+  it inside the scratch folder.
+
+Future no-filesystem or analysis-only execution may exist as a separate
+explicit mode. It is not implemented by the current Direct Work path.
 
 ## Codex CLI Expectations
 
@@ -245,7 +281,8 @@ Rules:
 - Hobit must not silently run Codex.
 - `workspace-write` is the normal Direct Work sandbox for small coding tasks.
 - `danger-full-access` is not default and is not part of the MVP.
-- The approved repository root must be passed as an explicit working boundary.
+- The approved execution workspace path must be passed as an explicit working
+  boundary.
 - The operator prompt must be captured as the user-approved task input.
 - Raw output, final response, status, duration, changed files, and validation
   results must be visible after completion.
@@ -350,25 +387,26 @@ Manual Queue-to-Executor assignment is governed by
 execution.
 Manual execution of an assigned Queue task through Agent Executor is governed
 by `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`. A backend/API foundation can start
-an assigned task through the Direct Work streaming path; frontend run controls,
-auto-dispatch, scheduler behavior, and dependencies remain unimplemented.
+an assigned task through the Direct Work streaming path; frontend run controls
+exist for explicit assigned-task starts. Auto-dispatch, scheduler behavior, and
+dependencies remain unimplemented.
 
 MVP rules:
 
-- no queue execution unless explicitly added in a later block
+- no automatic Queue dispatch
 - no automatic launch
 - no automatic acceptance
 - no automatic commit or push
 - no background queue runner
 
 Queue-created Direct Work tasks, when implemented later, must still require
-visible request preview, explicit mode/sandbox/repository approval, run
+visible request preview, explicit mode/sandbox/execution workspace approval, run
 observability, Git review, and operator decision.
 
 ## Safety Rules
 
 - Operator must choose Direct Work explicitly.
-- Approved repository root is required.
+- Approved execution workspace boundary is required.
 - The task should be small and focused.
 - The operator prompt must be visible before launch.
 - The sandbox/mode must be visible before launch.
@@ -401,6 +439,7 @@ source_widget_instance_id when applicable
 executor_kind
 executor_version when available
 mode
+execution_workspace_boundary
 repo_root
 operator_prompt
 sandbox
@@ -454,10 +493,12 @@ Direct Mode must preserve:
 - `docs/AGENT_OPERATING_MODEL.md`: Direct Work is an executor path for focused
   blocks, not a long-lived hidden autonomous agent.
 - `docs/WORKSPACE_CONTRACT.md`: runs, logs, artifacts, repository roots, and
-  review state belong to the owning Workspace and Workbench.
+  review state belong to the owning Workspace and Workbench. Repository roots
+  remain the current compatibility field for existing repository execution
+  workspaces.
 - `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`: Coordinator proposals do not
   execute Direct Work until the operator explicitly approves the concrete run.
-- `docs/AGENT_QUEUE_CONTRACT.md`: Queue items do not automatically execute,
+- `docs/AGENT_QUEUE_CONTRACT.md`: Queue items do not automatically dispatch,
   accept, commit, or push Direct Work in the MVP.
 
 ## Near-Term Implementation Plan
@@ -471,16 +512,15 @@ Follow-up blocks should stay small and focused:
 
 2. Codex direct-run backend foundation.
    - Add a one-shot backend execution boundary for an explicit prompt,
-     repository root, sandbox, and approval policy.
+     execution workspace path, sandbox, and approval policy.
    - Capture raw output and final status.
-   - Do not add UI, queue execution, commits, pushes, or Git mutations.
+   - Do not add automatic Queue dispatch, commits, pushes, or Git mutations.
    - Current status: implemented in `hobit-tools` and wired through app/Tauri
-     with persisted widget run/log/result artifacts; not exposed through UI,
-     Agent Monitoring Direct Work display, Queue, or Git surfaces.
+     with persisted widget run/log/result artifacts and Agent Executor UI.
 
 3. Direct Work minimal UI.
-   - Add the smallest useful operator surface for prompt, repo root, mode,
-     sandbox, and run launch.
+   - Add the smallest useful operator surface for prompt, execution workspace,
+     mode, sandbox, and run launch.
    - Follow Minimal or narrow Operational widget disclosure.
    - Do not add Full / Expert controls by default.
 

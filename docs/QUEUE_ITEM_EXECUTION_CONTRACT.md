@@ -13,12 +13,13 @@ or interactive session behavior.
 
 Current implementation foundation: Hobit now exposes a backend/Tauri/frontend
 API method for manually starting an assigned Queue task in its assigned Agent
-Executor. It requires an explicit repository root, starts the normal Direct
-Work streaming path, marks the task `running` after the run starts, and updates
-the task to `completed`, `failed`, or `cancelled` when the Direct Work run
-finishes. No frontend run button, automatic dispatch, scheduler, dependency
-behavior, Terminal launch, Git mutation, validation auto-run, auto-commit, or
-auto-push is implemented.
+Executor. It requires an explicit execution workspace path, starts the normal
+Direct Work streaming path, marks the task `running` after the run starts, and
+updates the task to `completed`, `failed`, or `cancelled` when the Direct Work
+run finishes. The current compatibility field remains `repo_root` and expects
+an existing repository or local project folder. Automatic dispatch, scheduler,
+dependency behavior, Terminal launch, Git mutation, validation auto-run,
+auto-commit, or auto-push is not implemented.
 
 ## One-Sentence Rule
 
@@ -74,29 +75,36 @@ Before a Queue item can run:
 - the assigned executor widget is in the same Workspace
 - the task status is runnable
 - the task prompt is non-empty after trimming
-- the repository root is known, or the operator provides it before the run
+- the execution workspace is known, or the operator provides it before the run
 - no active run is already running in the target Agent Executor when
   single-run-per-executor behavior is required
 
 Implementations should return clear operator-visible errors for unmet
 preconditions.
 
-## Repo Root Policy
+## Execution Workspace Policy
 
-The current Queue task model does not include `repo_root`.
+The current Queue task model does not include an execution workspace field.
+The compatibility run-start DTO uses `repo_root`.
 
 First implementation options:
 
-- Option A: ask the operator for repository root at run time.
-- Option B: use the selected Agent Executor current repository root if it is
-  clearly visible and editable.
-- Option C: add a Queue task `repo_root` field in a later storage/API block.
+- Option A: ask the operator for execution workspace at run time.
+- Option B: use the selected Agent Executor current execution workspace if it
+  is clearly visible and editable.
+- Option C: add a Queue task execution workspace field in a later storage/API
+  block.
 
-Recommended first implementation: ask the operator for repository root at run
-time, or use the selected Agent Executor current repository root only when it is
-clearly visible and editable before launch.
+Recommended first implementation: ask the operator for execution workspace at
+run time, or use the selected Agent Executor current execution workspace only
+when it is clearly visible and editable before launch.
 
-Hobit must not silently guess a repository root.
+Hobit must not silently guess an execution workspace. Current Codex Direct Work
+expects an explicit existing repository or local project folder. Future scratch
+workspace support must be an explicit operator choice, use a Hobit-controlled
+scratch folder, create it if missing, and never default to `~/`, user home,
+Documents, Downloads, or another broad filesystem root. Scratch files must not
+be automatically deleted unless a future visible cleanup feature exists.
 
 ## Runnable Statuses
 
@@ -178,7 +186,7 @@ Future Agent Queue UI should show:
 
 - `Run assigned task` only when the task is assigned and runnable
 - assigned executor
-- repository root selection or a visible repository root
+- execution workspace selection or a visible execution workspace
 - run status
 - last result summary
 - link to the Agent Executor run detail
@@ -253,7 +261,7 @@ Run from Queue must preserve these boundaries:
 - no commit or push
 - no reset or clean
 - no file deletion cleanup
-- operator-visible start, target executor, repository root, and run status
+- operator-visible start, target executor, execution workspace, and run status
 
 Agent proposes; operator controls.
 

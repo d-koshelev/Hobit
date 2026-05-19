@@ -123,7 +123,7 @@ async function runScenario({ browserPort, scenario, url }) {
 
     await waitFor(cdp, "Boolean(window.__HOBIT_QUEUE_EXECUTOR_SMOKE__)");
     await waitForText(cdp, "Queue to Executor smoke");
-    await setFieldByLabel(cdp, "Repo root", REPO_ROOT);
+    await setFieldByLabel(cdp, "Execution workspace", REPO_ROOT);
     await waitForEnabledButton(cdp, "Run assigned task");
     await clickButton(cdp, "Run assigned task");
 

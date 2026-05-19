@@ -62,9 +62,9 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     status: "available",
     capabilitySummary: [
       "Current provider is Codex CLI",
-      "Codex Direct Work requires an explicit repository root",
+      "Codex Direct Work requires an explicit execution workspace",
       "Explicit prompt, sandbox, and approval policy",
-      "No auto-commit, push, queue execution, or Git mutation",
+      "No auto-commit, push, automatic dispatch, or Git mutation",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },
@@ -116,12 +116,12 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Agent Queue",
     category: "workflow",
     description:
-      "Organizes tasks and executor history; execution dispatch is not implemented yet.",
+      "Organizes tasks and executor history with explicit assigned-task starts.",
     section: "preview",
     status: "available",
     capabilitySummary: [
-      "Review and history foundation only",
-      "No dispatch or queue execution",
+      "Manual task planning and assignment",
+      "Explicit assigned-task start only",
       "No automatic acceptance or Git mutation",
     ],
     futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,

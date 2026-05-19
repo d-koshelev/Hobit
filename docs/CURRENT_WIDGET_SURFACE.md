@@ -60,9 +60,12 @@ future widget capability.
   validation run history, with a compact read-only frontend history/detail UI.
 - Provides a read-only backend/Tauri diff summary API for an explicit repository
   root, with a compact read-only frontend diff summary UI.
-- Does not auto-commit, auto-push, execute queue items, mutate Git, or run as a
-  hidden background scheduler. Queue assignment can target Executor slots, and
-  explicit Queue-started runs are governed by
+- Current Direct Work requires an explicit execution workspace path. The
+  compatibility API/storage field is `repo_root`, and today it expects an
+  existing repository or local project folder.
+- Does not auto-commit, auto-push, mutate Git, or run as a hidden background
+  scheduler. Queue assignment can target Executor slots, and explicit
+  Queue-started runs are governed by
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
 
 ### Git
@@ -110,7 +113,7 @@ future widget capability.
   foundation exists for assigning and clearing an Agent Executor slot.
 - Manual Queue-to-Executor execution backend/Tauri/frontend API foundation
   exists for starting an assigned task in its assigned Agent Executor with an
-  explicit repository root.
+  explicit execution workspace path.
 - Queue-to-Executor handoff and final-status auto-refresh are frontend-owned
   current-session behavior. Agent Executor owns live logs and final results;
   Queue refreshes task status and does not duplicate execution output.

@@ -421,9 +421,11 @@ compatibility. Agent
 Executor reuses the existing
 `agent-run` widget identity for persistence compatibility and keeps the current
 Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget
-instance, executable, repository root, operator prompt, sandbox, approval
-policy, timeout, and output caps; on Windows, resolving `codex` also tries
-`codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell.
+instance, executable, execution workspace path, operator prompt, sandbox,
+approval policy, timeout, and output caps. The compatibility field remains
+`repo_root` and currently expects an existing repository or local project
+folder; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and
+`codex.bat` from PATH without invoking a shell.
 It persists widget run/log/result artifacts and safety flags without
 auto-commit, push, automatic Queue dispatch, or Git mutation. Agent Queue is a
 singleton per Workspace and is a preview task organization/history surface;

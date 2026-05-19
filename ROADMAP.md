@@ -92,24 +92,27 @@ After the proposal-only AI provider slice, the near-term executor direction is
 Direct Mode with Codex CLI as the first planned executor kind. Direct Mode is
 the current Agent Executor implementation direction and is
 the controlled path for small approved work where the operator explicitly
-chooses the repository root, prompt, sandbox/mode, and review flow.
+chooses the execution workspace boundary, prompt, sandbox/mode, and review
+flow. Repository root is the current Git-capable execution workspace kind, not
+the whole product model.
 
 Direct Mode must remain agent-agnostic for future executors and must follow
 `docs/DIRECT_MODE_AGENT_CONTRACT.md`. Backend/tooling-only Codex CLI
 foundations now exist in `hobit-tools`: availability/version probing and a
-one-shot Direct Work runner for an explicit repository root and operator
-prompt. The app/Tauri boundary now exposes a focused one-shot
+one-shot Direct Work runner for an explicit execution workspace path and
+operator prompt. The app/Tauri boundary now exposes a focused one-shot
 `run_codex_direct_work` command that persists Direct Work widget run/log/result
 artifacts for an allowed Agent Executor (`agent-run`) widget instance.
 Direct Work / Codex is now surfaced as a Ready Widget Catalog surface while
 reusing the existing `agent-run` widget identity. The frontend lets the
-operator paste a prompt, repository root, and Codex executable in Advanced; on
+operator paste a prompt, execution workspace, and Codex executable in Advanced; on
 Windows the backend resolver tries `codex`, `codex.exe`, `codex.cmd`, and
 `codex.bat` from PATH without invoking a shell. Direct Mode product integration
 is still intentionally narrow: no retired Agent Monitoring surface or persisted
-Direct Work reader, storage/schema change, queue execution, Git mutation,
-auto-commit, auto-push, embedded PTY, interactive session, or hidden background
-execution is part of the current roadmap slice.
+Direct Work reader, storage/schema change, automatic queue dispatch, scratch
+execution workspace support, Git mutation, auto-commit, auto-push, embedded
+PTY, interactive session, or hidden background execution is part of the current
+roadmap slice.
 
 Future explicit local commit support is contract-gated by
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must remain an

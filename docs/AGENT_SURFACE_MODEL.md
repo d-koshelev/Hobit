@@ -61,7 +61,7 @@ Current implementation direction:
 Agent Executor should include:
 
 - prompt or task input
-- repository root or execution context
+- execution workspace or workspace boundary
 - sandbox or mode
 - live monitoring
 - result artifact
@@ -84,7 +84,8 @@ Agent Queue organizes tasks and executor history.
 Role:
 
 - hold queued tasks
-- eventually dispatch tasks to available Agent Executors
+- eventually route tasks to available Agent Executors through explicit
+  operator-controlled start flows
 - keep executor run history
 - remain one Agent Queue per Workspace
 

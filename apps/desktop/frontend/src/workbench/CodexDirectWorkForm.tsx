@@ -74,7 +74,7 @@ export function CodexDirectWorkForm({
   function submitDirectWork() {
     if (!codexExecutable || !repoRoot || !operatorPrompt) {
       onValidationError(
-        "Codex Direct Work requires a Codex executable, repository root, and operator prompt.",
+        "Codex Direct Work requires a Codex executable, execution workspace, and operator prompt.",
       );
       return;
     }
@@ -111,8 +111,8 @@ export function CodexDirectWorkForm({
         <div className="codex-direct-work-copy">
           <h3 className="codex-direct-work-title">Codex Direct Work setup</h3>
           <p className="codex-direct-work-text">
-            This execution mode runs Codex CLI inside an explicit repository
-            boundary. Generic task planning belongs in Agent Queue.
+            This execution mode runs Codex CLI inside an explicit execution
+            workspace. Generic task planning belongs in Agent Queue.
           </p>
         </div>
         <Badge variant="neutral">Direct Work</Badge>
@@ -121,20 +121,21 @@ export function CodexDirectWorkForm({
       <div className="codex-direct-work-controls">
         <div className="codex-direct-work-field codex-direct-work-field-wide">
           <label className="codex-direct-work-label" htmlFor={repoInputId}>
-            Repo root
+            Execution workspace
           </label>
           <Input
             autoComplete="off"
             id={repoInputId}
             onChange={(event) => setRepoRootDraft(event.target.value)}
-            placeholder="C:\\path\\to\\repo"
+            placeholder="C:\\path\\to\\repo-or-project"
             spellCheck={false}
             type="text"
             value={repoRootDraft}
           />
           <p className="codex-direct-work-note">
-            Required for Codex Direct Work because the current executor is
-            repository-scoped.
+            Current Codex Direct Work expects an explicit existing repository
+            or local project folder. Scratch workspace support is future and
+            must not default to home.
           </p>
         </div>
 
@@ -146,7 +147,7 @@ export function CodexDirectWorkForm({
             className="input codex-direct-work-prompt"
             id={promptInputId}
             onChange={(event) => setOperatorPromptDraft(event.target.value)}
-            placeholder="Describe the focused repository task for Codex."
+            placeholder="Describe the focused task for Codex."
             spellCheck={true}
             value={operatorPromptDraft}
           />
@@ -228,7 +229,7 @@ export function CodexDirectWorkForm({
 
 function directWorkPromptWarning(prompt: string): string | null {
   if (/(git\s+widget|agent\s+monitoring|hobit\s+ui)/i.test(prompt)) {
-    return "Codex cannot operate Hobit UI widgets. Use repository-oriented prompts instead.";
+    return "Codex cannot operate Hobit UI widgets. Use execution-workspace prompts instead.";
   }
 
   return null;

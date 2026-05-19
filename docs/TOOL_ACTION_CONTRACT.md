@@ -57,23 +57,24 @@ Agent Queue, or external-system actions directly.
 ## Relation To Direct Mode
 
 Codex Direct Work is an explicit high-power tool/executor mode defined in
-`docs/DIRECT_MODE_AGENT_CONTRACT.md`. The current implementation has a
-backend/Tauri one-shot run artifact foundation only; frontend launch UI,
-Agent Monitoring display, Git review wiring, and Queue execution are future
-work.
+`docs/DIRECT_MODE_AGENT_CONTRACT.md`. The current implementation has frontend
+Agent Executor launch/run surfaces plus backend/Tauri one-shot and streaming
+run artifact foundations. Agent Monitoring Direct Work display, automatic
+Queue dispatch, and broader tool execution remain future work.
 
 Because Direct Work may edit files and run validation commands, it must require:
 
 - explicit operator choice of Direct Work
-- explicit approved repository root
+- explicit approved execution workspace boundary
 - explicit operator prompt
 - explicit executor kind, starting with `codex_cli`
 - explicit sandbox/mode, normally `workspace-write`
 - explicit approval policy
 - logged command and argv
-- visible run status, raw log, final response, changed files, and validation
-  summary
+- visible run status, raw log, final response, changed files when the
+  workspace is a Git repository, and validation summary
 
 Direct Work must not be launched silently, run in the background without visible
-state, auto-commit, auto-push, mutate Git, execute Queue items, or use
+state, auto-commit, auto-push, mutate Git, automatically dispatch Queue items,
+or use
 `danger-full-access` as a default or MVP behavior.

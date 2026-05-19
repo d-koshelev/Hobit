@@ -232,7 +232,8 @@ Capability lifecycle states:
 
 Coordinator should show unsupported or disabled capabilities honestly. It must
 not pretend that browser-only fallbacks, missing desktop APIs, missing
-connectors, missing repository roots, or unconfigured providers are usable.
+connectors, missing execution workspace boundaries, missing repository roots
+for Git-specific actions, or unconfigured providers are usable.
 
 ## Agent Executor Capabilities
 

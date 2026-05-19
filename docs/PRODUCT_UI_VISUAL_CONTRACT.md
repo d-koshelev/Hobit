@@ -47,10 +47,11 @@ Preview:
 
 - Agent Queue
 - Coordinator Chat
+- Database / JDBC
 - Runbook
 
 Old or future surfaces such as Agent Chat, Agent Monitoring, Template Library,
-Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit,
+Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit,
 separate legacy Coordinator previews, and Validation must not appear as current
 product surfaces unless a later block explicitly reintroduces them under the
 relevant contract.
@@ -312,6 +313,8 @@ Target direction:
 - Show the review package after completion.
 - Make failed, cancelled, timed out, validation failed, validation skipped, and
   dirty Git review states visible.
+- Show the selected execution workspace boundary. Repository root is the
+  current Git-capable workspace kind, not the whole product model.
 - Keep advanced executor settings compact or behind details.
 
 Validation belongs inside Agent Executor as part of run review and result
@@ -384,8 +387,9 @@ Target direction:
 - Review state.
 - Run history summary.
 
-Execution, dispatch, automatic scheduler behavior, and automatic acceptance
-must not be implied until the task model and dispatch/runtime contracts exist.
+Automatic dispatch, automatic scheduler behavior, and automatic acceptance
+must not be implied. Explicit assigned-task starts belong behind visible
+operator controls and Agent Executor ownership.
 
 ### Coordinator Chat
 

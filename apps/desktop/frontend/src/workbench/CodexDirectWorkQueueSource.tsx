@@ -20,7 +20,7 @@ export function CodexDirectWorkQueueSource({
           <dd className="codex-direct-work-result-value">{handoff.runId}</dd>
         </div>
         <div className="codex-direct-work-result-field">
-          <dt className="codex-direct-work-result-label">Repo root</dt>
+          <dt className="codex-direct-work-result-label">Execution workspace</dt>
           <dd className="codex-direct-work-result-value">{handoff.repoRoot}</dd>
         </div>
       </dl>

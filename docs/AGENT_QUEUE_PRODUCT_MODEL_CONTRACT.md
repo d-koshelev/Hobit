@@ -212,10 +212,10 @@ Git Widget remains the repository review and commit surface.
 
 Agent Queue does not mutate Git.
 
-A Queue Item may later show related repository root, Git review status, or run
-result summary. Git review remains explicit through Git Widget, and commit,
-push, stage, reset, clean, restore, stash, or other Git mutations require
-separate explicit Git features.
+A Queue Item may later show related execution workspace, Git review status
+when that workspace is a repository, or run result summary. Git review remains
+explicit through Git Widget, and commit, push, stage, reset, clean, restore,
+stash, or other Git mutations require separate explicit Git features.
 
 ## Relationship To Coordinator Chat
 

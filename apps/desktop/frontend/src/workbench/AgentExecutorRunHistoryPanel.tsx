@@ -250,7 +250,7 @@ export function AgentExecutorRunHistoryPanel({
                 </span>
                 {run.repoRoot ? (
                   <span className="codex-direct-work-review-note">
-                    Repo {run.repoRoot}
+                    Execution workspace {run.repoRoot}
                   </span>
                 ) : null}
                 {run.validationProfile || run.validationStatus ? (
@@ -373,7 +373,7 @@ function RunHistoryDetailContent({
           { label: "Duration", value: formatRunDuration(summary) },
           { label: "Result type", value: valueOrNone(summary.resultType) },
           { label: "Result status", value: valueOrNone(detail.resultStatus) },
-          { label: "Repo root", value: valueOrNone(summary.repoRoot) },
+          { label: "Execution workspace", value: valueOrNone(summary.repoRoot) },
           {
             label: "Validation profile",
             value: valueOrNone(detail.validationProfile),

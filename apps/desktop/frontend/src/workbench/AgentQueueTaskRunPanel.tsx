@@ -142,8 +142,8 @@ export function AgentQueueTaskRunPanel({
       </div>
 
       <p className="agent-queue-run-boundary-copy">
-        Queue tasks can be planned without a repository root. Repository root
-        is execution configuration for Codex Direct Work only.
+        Queue tasks can be planned without an execution workspace. Select one
+        only when starting a Codex Direct Work run.
       </p>
 
       {readinessMessage ? (
@@ -153,7 +153,7 @@ export function AgentQueueTaskRunPanel({
           <div className="agent-queue-run-controls">
             <div className="agent-queue-run-field agent-queue-run-field-wide">
               <label className="field-label" htmlFor={repoRootInputId}>
-                Repo root
+                Execution workspace
               </label>
               <Input
                 autoComplete="off"
@@ -162,14 +162,15 @@ export function AgentQueueTaskRunPanel({
                   setRepoRootDraft(event.currentTarget.value);
                   setStartError(null);
                 }}
-                placeholder="C:\\path\\to\\repo"
+                placeholder="C:\\path\\to\\repo-or-project"
                 spellCheck={false}
                 type="text"
                 value={repoRootDraft}
               />
               <p className="agent-queue-run-note">
-                Required for this Codex Direct Work run. Queue task planning
-                does not store or require a repo root.
+                Current Codex Direct Work expects an explicit existing
+                repository or local project folder. Queue task planning does
+                not store or require it.
               </p>
             </div>
 
@@ -287,7 +288,7 @@ function runPreconditionMessages({
   const messages: string[] = [];
 
   if (!repoRoot) {
-    messages.push("Repository root is required for Codex Direct Work execution.");
+    messages.push("Execution workspace is required for Codex Direct Work execution.");
   }
 
   if (!codexExecutable) {
@@ -327,7 +328,7 @@ function queueRunReadinessMessage({
   }
 
   if (selectedTask.status === "draft") {
-    return "Draft tasks can stay in planning without a repository root. Set status to queued, ready, or review needed before configuring execution.";
+    return "Draft tasks can stay in planning without an execution workspace. Set status to queued, ready, or review needed before configuring execution.";
   }
 
   if (selectedTask.status === "running") {
@@ -357,7 +358,7 @@ function queueRunStartErrorMessage(error: unknown) {
   }
 
   if (/repo root must not be empty/i.test(message)) {
-    return "Repository root is required for Codex Direct Work execution.";
+    return "Execution workspace is required for Codex Direct Work execution.";
   }
 
   if (/queue task status cannot be run/i.test(message)) {

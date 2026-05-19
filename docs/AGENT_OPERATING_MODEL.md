@@ -28,7 +28,7 @@ The frontend Template Library placeholder may show a static planned Coordinator 
 
 The project workflow currently uses numbered blocks, focused executor tasks, validation, one commit or one no-commit audit, and a final response governed by `docs/AGENT_RESPONSE_CONTRACT.md`. This contract documents that operating model so future Hobit product and agent work can model it explicitly.
 
-Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Direct Work / Codex surface can run one explicit Codex Direct Work request and its secondary Agent Monitoring details can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. Persisted Direct Work artifacts are not displayed there yet. This is not a full Agent Run runtime: streaming/runtime logs, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, Agent Queue execution, and broader executor integration are not implemented yet.
+Future agent/task execution observability is defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`. The frontend Direct Work / Codex surface can run one explicit Codex Direct Work request, show live run status/logs, and read stored Direct Work artifacts through Agent Executor history/detail. The retained Agent Monitoring details can read stored Agent Chat proposal-only artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for those artifacts, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This is not a full Agent Run runtime: Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, automatic Agent Queue dispatch, and broader executor integration are not implemented yet.
 
 Future Workspace-aware Coordinator Agent behavior is defined in `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`. Agent Chat / Coordinator may later read persisted explicitly approved Workspace or widget context and propose executable previewed actions, but durable approved context models outside the proposal result snapshot, a real context-aware proposal engine, action approval flow, and cross-widget mutation are not implemented yet.
 
@@ -42,14 +42,15 @@ proposal-only, uses explicitly approved context, persists an observable
 response artifact, and keeps `allowed_tools: []` with no tool execution or
 mutations.
 
-Direct Mode is the next executor path for small approved coding tasks.
+Direct Mode is the next executor path for small approved bounded tasks.
 It is defined in `docs/DIRECT_MODE_AGENT_CONTRACT.md`: the model is
 agent-agnostic, Codex CLI is the first planned executor kind, and Direct Work
-must require an explicit repository root, operator prompt, sandbox/mode,
-visible run status, captured raw log/final response, changed-file review, and
-no auto-commit, auto-push, hidden background execution, or Queue execution in
-the MVP. The current implementation is limited to a minimal frontend launch
-surface plus backend/Tauri run artifact persistence.
+must require an explicit execution workspace boundary, operator prompt,
+sandbox/mode, visible run status, captured raw log/final response,
+changed-file review when the workspace is a Git repository, and no auto-commit,
+auto-push, hidden background execution, or automatic Queue dispatch. The
+current compatibility field remains `repo_root` and expects an existing
+repository or local project folder.
 
 ## Core Rule
 
@@ -207,7 +208,7 @@ Report.
 ## Relation To Direct Mode
 
 Direct Mode is the one-shot executor path for focused approved work inside an
-explicit repository root. It keeps the coordinator/executor split:
+explicit execution workspace boundary. It keeps the coordinator/executor split:
 the Coordinator or operator prepares the request, and the Direct Work executor
 performs only the approved block.
 

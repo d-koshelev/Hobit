@@ -8,9 +8,10 @@ export function CodexDirectWorkPromptGuidance({
   return (
     <>
       <p className="codex-direct-work-note">
-        Codex Direct Work is repository-scoped. It cannot click or inspect Hobit
-        UI widgets. To review changes, ask Codex to inspect git status/diff, or
-        refresh the Git widget manually after the run.
+        Codex Direct Work stays inside the selected execution workspace. It
+        cannot click or inspect Hobit UI widgets. For repository work, ask Codex
+        to inspect git status/diff, or refresh the Git widget manually after the
+        run.
       </p>
       {promptWarningMessage ? (
         <p className="codex-direct-work-warning" role="status">
@@ -24,7 +25,7 @@ export function CodexDirectWorkPromptGuidance({
 export function CodexDirectWorkWorkspaceWriteWarning() {
   return (
     <p className="codex-direct-work-warning" role="status">
-      workspace_write allows Codex to edit files inside the selected repository boundary.
+      workspace_write allows Codex to edit files inside the selected execution workspace.
     </p>
   );
 }
@@ -32,9 +33,9 @@ export function CodexDirectWorkWorkspaceWriteWarning() {
 export function CodexDirectWorkActionSafetyCopy() {
   return (
     <p className="codex-direct-work-safety-copy">
-      Direct Work can edit files when workspace-write is selected. No commit or push is
-      created automatically. Review changes afterwards. This is one-shot, not an
-      interactive terminal.
+      Direct Work can edit files inside the selected execution workspace when
+      workspace-write is selected. No commit or push is created automatically.
+      Review changes afterwards. This is one-shot, not an interactive terminal.
     </p>
   );
 }
