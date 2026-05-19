@@ -21,7 +21,7 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
   {
     id: "local-assistant-intro",
     role: "assistant",
-    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Widget tools are not enabled yet. No workspace actions are performed in this version.",
+    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Approved Queue task creation is the only enabled handoff; it does not run tasks.",
     proposalIds: LOCAL_COORDINATOR_SAMPLE_PROPOSALS.map(
       (proposal) => proposal.id,
     ),
@@ -33,6 +33,15 @@ const LOCAL_PLACEHOLDER_RESPONSE =
 
 const APPROVED_PREVIEW_SUMMARY =
   "Approved locally only. Execution bridge is not implemented, and no widget capability was invoked.";
+
+const APPROVED_QUEUE_TASK_SUMMARY =
+  "Approved locally. Review the visible inputs, then use Create Queue task. No Queue task has been created yet.";
+
+const CREATING_QUEUE_TASK_SUMMARY =
+  "Creating a draft Agent Queue task from the visible approved proposal inputs.";
+
+const QUEUE_TASK_CREATED_SUMMARY =
+  "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
 
 const REJECTED_PREVIEW_SUMMARY =
   "Rejected locally only. No widget capability was invoked.";
@@ -51,6 +60,7 @@ export function InteractiveAgentPlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  onCreateAgentQueueTask,
   onLoadLogs,
   onStartFrameMove,
   title,
@@ -71,6 +81,9 @@ export function InteractiveAgentPlaceholderWidget({
       ]),
     ),
   );
+  const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [draft, setDraft] = useState("");
   const canSend = draft.trim().length > 0;
 
@@ -106,19 +119,29 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function approveProposal(proposalId: string) {
-    setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
+    setProposals((currentProposals) => {
+      const proposal = currentProposals[proposalId];
+      const isCreateQueueTaskProposal =
+        proposal?.typeId === "create-agent-queue-task";
+
+      return updateProposal(currentProposals, proposalId, {
         approvalStatus: "Approved preview",
-        executionStatus: "Execution bridge not implemented",
-        resultSummary: APPROVED_PREVIEW_SUMMARY,
-      }),
-    );
+        executionError: undefined,
+        executionStatus: isCreateQueueTaskProposal
+          ? "Ready to create Queue task"
+          : "Execution bridge not implemented",
+        resultSummary: isCreateQueueTaskProposal
+          ? APPROVED_QUEUE_TASK_SUMMARY
+          : APPROVED_PREVIEW_SUMMARY,
+      });
+    });
   }
 
   function rejectProposal(proposalId: string) {
     setProposals((currentProposals) =>
       updateProposal(currentProposals, proposalId, {
         approvalStatus: "Rejected preview",
+        executionError: undefined,
         executionStatus: "Not run",
         resultSummary: REJECTED_PREVIEW_SUMMARY,
       }),
@@ -132,14 +155,103 @@ export function InteractiveAgentPlaceholderWidget({
       "expectedResult" | "inputs" | "intent"
     >,
   ) {
-    setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
+    setProposals((currentProposals) => {
+      const proposal = currentProposals[proposalId];
+      const isCreateQueueTaskProposal =
+        proposal?.typeId === "create-agent-queue-task";
+
+      return updateProposal(currentProposals, proposalId, {
         ...patch,
         approvalStatus: "Edited preview",
-        executionStatus: "Execution bridge not implemented",
+        createdQueueTaskId: undefined,
+        createdQueueTaskTitle: undefined,
+        executionError: undefined,
+        executionStatus: isCreateQueueTaskProposal
+          ? "Not run"
+          : "Execution bridge not implemented",
         resultSummary: EDITED_PREVIEW_SUMMARY,
+      });
+    });
+  }
+
+  async function createQueueTaskFromProposal(proposalId: string) {
+    if (creatingQueueProposalIds.has(proposalId)) {
+      return;
+    }
+
+    const proposal = proposals[proposalId];
+    if (!proposal || proposal.typeId !== "create-agent-queue-task") {
+      return;
+    }
+
+    if (proposal.approvalStatus !== "Approved preview") {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: "Approve this proposal before creating a Queue task.",
+          executionStatus: "Queue task creation failed",
+          resultSummary: "No Queue task was created.",
+        }),
+      );
+      return;
+    }
+
+    if (proposal.createdQueueTaskId) {
+      return;
+    }
+
+    if (!onCreateAgentQueueTask) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError:
+            "Agent Queue task creation is unavailable in this runtime.",
+          executionStatus: "Queue task creation failed",
+          resultSummary: "No Queue task was created.",
+        }),
+      );
+      return;
+    }
+
+    setCreatingQueueProposalIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(proposalId);
+      return nextIds;
+    });
+    setProposals((currentProposals) =>
+      updateProposal(currentProposals, proposalId, {
+        executionError: undefined,
+        executionStatus: "Creating Queue task",
+        resultSummary: CREATING_QUEUE_TASK_SUMMARY,
       }),
     );
+
+    try {
+      const task = await onCreateAgentQueueTask(
+        queueTaskRequestFromProposal(proposal),
+      );
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          createdQueueTaskId: task.queueItemId,
+          createdQueueTaskTitle: task.title,
+          executionError: undefined,
+          executionStatus: "Queue task created",
+          resultSummary: `${QUEUE_TASK_CREATED_SUMMARY} Created task "${task.title}" (${task.queueItemId}) with status ${task.status}.`,
+        }),
+      );
+    } catch (error) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: errorToMessage(error, "Unable to create Queue task."),
+          executionStatus: "Queue task creation failed",
+          resultSummary: "No Queue task was created.",
+        }),
+      );
+    } finally {
+      setCreatingQueueProposalIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(proposalId);
+        return nextIds;
+      });
+    }
   }
 
   return (
@@ -165,10 +277,10 @@ export function InteractiveAgentPlaceholderWidget({
             </p>
             <p className="interactive-agent-text">Provider not connected yet.</p>
             <p className="interactive-agent-text">
-              Widget tools are not enabled yet.
+              Approved Queue task creation is enabled.
             </p>
             <p className="interactive-agent-text">
-              No workspace actions are performed in this version.
+              Queue tasks are not assigned, dispatched, or run by Coordinator.
             </p>
             <p className="interactive-agent-text">
               Static preview types: {STATIC_PROPOSAL_TYPE_SUMMARY}.
@@ -200,7 +312,13 @@ export function InteractiveAgentPlaceholderWidget({
                     return proposal ? (
                       <CoordinatorActionProposalCard
                         key={proposal.id}
+                        isQueueTaskCreationPending={creatingQueueProposalIds.has(
+                          proposal.id,
+                        )}
                         onApprove={approveProposal}
+                        onCreateQueueTask={(proposalId) =>
+                          void createQueueTaskFromProposal(proposalId)
+                        }
                         onEdit={editProposal}
                         onReject={rejectProposal}
                         proposal={proposal}
@@ -255,4 +373,53 @@ function updateProposal(
       ...patch,
     },
   };
+}
+
+type QueueTaskCreateRequest = Parameters<
+  NonNullable<WidgetRenderProps["onCreateAgentQueueTask"]>
+>[0];
+
+function queueTaskRequestFromProposal(
+  proposal: CoordinatorActionProposal,
+): QueueTaskCreateRequest {
+  return {
+    description:
+      proposalInputValue(proposal, "Description") || proposal.intent.trim(),
+    priority: queueTaskPriority(proposalInputValue(proposal, "Priority")),
+    prompt: proposalInputValue(proposal, "Prompt") || proposal.intent.trim(),
+    status: "draft",
+    title:
+      proposalInputValue(proposal, "Title") ||
+      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
+      "Coordinator proposal",
+  };
+}
+
+function proposalInputValue(
+  proposal: CoordinatorActionProposal,
+  label: string,
+) {
+  return (
+    proposal.inputs
+      .find((input) => input.label.toLowerCase() === label.toLowerCase())
+      ?.value.trim() ?? ""
+  );
+}
+
+function queueTaskPriority(value: string) {
+  const priority = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(priority)) {
+    return 0;
+  }
+
+  return Math.min(5, Math.max(0, priority));
+}
+
+function errorToMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
 }

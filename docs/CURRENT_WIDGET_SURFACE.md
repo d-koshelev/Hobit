@@ -34,7 +34,9 @@ uses the existing `interactive-agent` widget id/component as a compatibility
 local-chat foundation rather than adding a second separate chat surface.
 Coordinator-visible widget capability boundaries are defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
-Coordinator capability registry or widget tool execution.
+runtime Coordinator capability registry or broad widget tool execution. The
+current Coordinator UI can create a draft Agent Queue task only after explicit
+proposal approval and a separate create action.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -152,17 +154,23 @@ future widget capability.
   Agent plus Coordinator.
 - Keeps messages in local React state for the current widget session.
 - Shows local placeholder assistant responses.
-- Shows deterministic local inert sample action proposal cards attached to the
+- Shows deterministic local sample action proposal cards attached to the
   initial Coordinator message.
 - Uses a frontend-only static proposal registry for safe preview types: create
   Agent Queue task, create Note, and prepare JDBC query suggestion text without
   execution.
-- Proposal card controls Approve, Reject, Edit, and Copy update only local
-  preview state or copy proposal details.
-- Does not connect to a provider, call Codex, execute tools, persist sessions,
-  read hidden context, create queue items, create Notes, launch Agent Executor,
-  integrate with Runbook, mutate files, mutate Git, run SQL, call JDBC
-  connectors, or run Terminal commands.
+- Proposal card controls Approve, Reject, Edit, and Copy update local proposal
+  state or copy proposal details.
+- Approved create-Agent-Queue-task proposals show a separate Create Queue task
+  action that creates a workspace-scoped draft Queue task through the existing
+  Agent Queue task API. The task is not assigned, dispatched, run, or handed to
+  Agent Executor.
+- Create Note and JDBC query suggestion proposal cards remain inert in this
+  slice.
+- Does not connect to a provider, call Codex, execute broad tools, persist
+  sessions, read hidden context, create Notes, launch Agent Executor, integrate
+  with Runbook, mutate files, mutate Git, run SQL, call JDBC connectors, or run
+  Terminal commands.
 
 ### Database / JDBC
 

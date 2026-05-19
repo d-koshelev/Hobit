@@ -14,14 +14,18 @@ type ProposalPatch = {
 };
 
 type CoordinatorActionProposalCardProps = {
+  isQueueTaskCreationPending?: boolean;
   onApprove: (proposalId: string) => void;
+  onCreateQueueTask?: (proposalId: string) => void;
   onEdit: (proposalId: string, patch: ProposalPatch) => void;
   onReject: (proposalId: string) => void;
   proposal: CoordinatorActionProposal;
 };
 
 export function CoordinatorActionProposalCard({
+  isQueueTaskCreationPending = false,
   onApprove,
+  onCreateQueueTask,
   onEdit,
   onReject,
   proposal,
@@ -83,21 +87,36 @@ export function CoordinatorActionProposalCard({
     }
   }
 
+  const hasCreatedQueueTask = Boolean(proposal.createdQueueTaskId);
+  const isCreateQueueTaskProposal =
+    proposal.typeId === "create-agent-queue-task";
+  const isApproved = proposal.approvalStatus === "Approved preview";
+  const canCreateQueueTask =
+    isCreateQueueTaskProposal && isApproved && !hasCreatedQueueTask;
+  const canChangeReviewState =
+    !isQueueTaskCreationPending && !hasCreatedQueueTask;
+
   return (
     <section
-      aria-label={`Inert action proposal: ${proposal.title}`}
+      aria-label={`Coordinator action proposal: ${proposal.title}`}
       className="coordinator-proposal-card"
     >
       <div className="coordinator-proposal-header">
         <div className="coordinator-proposal-title-copy">
-          <p className="coordinator-proposal-kicker">Local inert proposal</p>
+          <p className="coordinator-proposal-kicker">
+            {isCreateQueueTaskProposal
+              ? "Queue task proposal"
+              : "Local inert proposal"}
+          </p>
           <h4 className="coordinator-proposal-title">{proposal.title}</h4>
         </div>
         <div className="coordinator-proposal-badges">
           <Badge variant={approvalBadgeVariant(proposal.approvalStatus)}>
             {proposal.approvalStatus}
           </Badge>
-          <Badge variant="neutral">{proposal.executionStatus}</Badge>
+          <Badge variant={executionBadgeVariant(proposal.executionStatus)}>
+            {proposal.executionStatus}
+          </Badge>
         </div>
       </div>
 
@@ -189,6 +208,15 @@ export function CoordinatorActionProposalCard({
             label="Expected result"
             value={proposal.expectedResult}
           />
+          {proposal.createdQueueTaskId ? (
+            <ProposalSection
+              label="Created Queue task"
+              value={`${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`}
+            />
+          ) : null}
+          {proposal.executionError ? (
+            <ProposalSection label="Error" value={proposal.executionError} />
+          ) : null}
           <ProposalSection
             label="Result summary"
             value={proposal.resultSummary}
@@ -208,15 +236,42 @@ export function CoordinatorActionProposalCard({
           </>
         ) : (
           <>
-            <Button onClick={() => onApprove(proposal.id)} variant="primary">
-              Approve
+            <Button
+              disabled={!canChangeReviewState || isApproved}
+              onClick={() => onApprove(proposal.id)}
+              variant="primary"
+            >
+              {isApproved ? "Approved" : "Approve"}
             </Button>
-            <Button onClick={() => onReject(proposal.id)} variant="secondary">
+            <Button
+              disabled={!canChangeReviewState}
+              onClick={() => onReject(proposal.id)}
+              variant="secondary"
+            >
               Reject
             </Button>
-            <Button onClick={beginEdit} variant="secondary">
+            <Button
+              disabled={!canChangeReviewState}
+              onClick={beginEdit}
+              variant="secondary"
+            >
               Edit
             </Button>
+            {canCreateQueueTask || isQueueTaskCreationPending ? (
+              <Button
+                disabled={
+                  !canCreateQueueTask ||
+                  isQueueTaskCreationPending ||
+                  !onCreateQueueTask
+                }
+                onClick={() => onCreateQueueTask?.(proposal.id)}
+                variant="primary"
+              >
+                {isQueueTaskCreationPending
+                  ? "Creating Queue task"
+                  : "Create Queue task"}
+              </Button>
+            ) : null}
             <Button onClick={copyProposalDetails} variant="ghost">
               Copy
             </Button>
@@ -265,6 +320,27 @@ function approvalBadgeVariant(
   return "warning";
 }
 
+function executionBadgeVariant(
+  status: CoordinatorActionProposal["executionStatus"],
+): "neutral" | "info" | "success" | "warning" | "error" {
+  if (status === "Queue task created") {
+    return "success";
+  }
+  if (status === "Queue task creation failed") {
+    return "error";
+  }
+  if (
+    status === "Ready to create Queue task" ||
+    status === "Creating Queue task"
+  ) {
+    return "info";
+  }
+  if (status === "Execution bridge not implemented") {
+    return "warning";
+  }
+  return "neutral";
+}
+
 function formatProposalDetails(proposal: CoordinatorActionProposal) {
   const inputs = proposal.inputs
     .map((input) => `- ${input.label}: ${input.value}`)
@@ -288,8 +364,16 @@ function formatProposalDetails(proposal: CoordinatorActionProposal) {
     riskNotes,
     "",
     `Expected result: ${proposal.expectedResult}`,
+    proposal.createdQueueTaskId
+      ? `Created Queue task: ${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`
+      : null,
+    proposal.executionError ? `Error: ${proposal.executionError}` : null,
     `Result summary: ${proposal.resultSummary}`,
     "",
-    "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
-  ].join("\n");
+    proposal.typeId === "create-agent-queue-task"
+      ? "Queue task creation requires approval and a separate Create Queue task action. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
+      : "Preview only. No backend API, widget mutation, provider runtime, or tool execution ran.",
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }

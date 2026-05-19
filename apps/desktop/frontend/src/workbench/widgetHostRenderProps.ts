@@ -10,6 +10,7 @@ import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
+  INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   JDBC_WIDGET_COMPONENT_KEY,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
@@ -37,6 +38,8 @@ export function widgetHostRenderProps({
   const isAgentExecutor = componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY;
   const isAgentQueue = componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY;
   const isGit = componentKey === GIT_PLACEHOLDER_COMPONENT_KEY;
+  const isInteractiveAgent =
+    componentKey === INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY;
   const isJdbc = componentKey === JDBC_WIDGET_COMPONENT_KEY;
   const isNotes = componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY;
   const isTerminal = componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY;
@@ -68,7 +71,7 @@ export function widgetHostRenderProps({
     onClearAgentQueueTaskAssignment: isAgentQueue
       ? widgetActions.clearAgentQueueTaskAssignment
       : undefined,
-    onCreateAgentQueueTask: isAgentQueue
+    onCreateAgentQueueTask: isAgentQueue || isInteractiveAgent
       ? widgetActions.createAgentQueueTask
       : undefined,
     onCreateGitCommit: isGit ? widgetActions.createGitCommit : undefined,

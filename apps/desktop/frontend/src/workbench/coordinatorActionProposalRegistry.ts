@@ -11,6 +11,10 @@ export type CoordinatorProposalApprovalStatus =
 
 export type CoordinatorProposalExecutionStatus =
   | "Not run"
+  | "Ready to create Queue task"
+  | "Creating Queue task"
+  | "Queue task created"
+  | "Queue task creation failed"
   | "Execution bridge not implemented";
 
 export type CoordinatorProposalInput = {
@@ -20,6 +24,9 @@ export type CoordinatorProposalInput = {
 
 export type CoordinatorActionProposal = {
   approvalStatus: CoordinatorProposalApprovalStatus;
+  createdQueueTaskId?: string;
+  createdQueueTaskTitle?: string;
+  executionError?: string;
   executionStatus: CoordinatorProposalExecutionStatus;
   expectedResult: string;
   id: string;
@@ -51,8 +58,8 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
       requiredInputs: ["Title", "Description", "Prompt"],
       riskLevel: "local_write",
       safetyNotes: [
-        "Preview only in this UI slice.",
-        "Future approval may create a task but must not start execution.",
+        "Approved proposals may create a draft Queue task only after a separate create action.",
+        "Creating the task must not start execution.",
         "No Queue auto-dispatch.",
       ],
       targetCapability: "create Queue task",
@@ -90,9 +97,9 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
 export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
   {
     approvalStatus: "Pending preview",
-    executionStatus: "Execution bridge not implemented",
+    executionStatus: "Not run",
     expectedResult:
-      "A reviewed Queue task could be created later, but this preview does not call Queue APIs.",
+      "A reviewed draft Queue task can be created after approval, but it will not run automatically.",
     id: "sample-create-queue-task",
     inputs: [
       { label: "Title", value: "Investigate slow dashboard load" },
@@ -107,16 +114,17 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
       },
     ],
     intent: "Turn the conversation into a queued follow-up task for later review.",
-    resultSummary: "No action has run. This is a local inert preview.",
+    resultSummary:
+      "No action has run. Approval is required before Queue task creation is available.",
     riskLevel: "local_write",
     riskNotes: [
-      "No Queue task is created from this preview.",
+      "Queue task creation requires approval plus a separate Create Queue task action.",
       "No Agent Executor run is launched.",
       "No automatic dispatch is allowed.",
     ],
     targetCapability: "create Queue task",
     targetWidget: "Agent Queue",
-    title: "Preview: create Queue task",
+    title: "Investigate slow dashboard load",
     typeId: "create-agent-queue-task",
   },
   {
@@ -177,4 +185,3 @@ export const LOCAL_COORDINATOR_SAMPLE_PROPOSALS: CoordinatorActionProposal[] = [
     typeId: "prepare-jdbc-query-suggestion",
   },
 ];
-
