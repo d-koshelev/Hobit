@@ -85,6 +85,8 @@ future widget capability.
 - Desktop-only one-shot command runner for persisted Terminal widget
   instances.
 - Uses explicit program, argv, working directory, timeout, and output caps.
+- This one-shot behavior remains the current `Run command` capability until a
+  future PTY/session implementation lands.
 - Is not a shell, PTY, interactive terminal, stdin session, streaming console,
   command history, or Script Runner runtime.
 - Future interactive shell behavior is governed by

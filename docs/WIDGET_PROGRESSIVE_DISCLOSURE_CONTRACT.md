@@ -132,12 +132,15 @@ Future direction:
 - Minimal: latest run status plus a basic Run command surface.
 - Operational: explicit program, argv, working directory, bounded caps, timeout,
   final stdout/stderr preview, and widget-local logs.
-- Full / Expert: run history, raw result payloads, cancellation if explicitly
-  implemented later, settings, and deeper diagnostics.
+- Future PTY Operational: visible shell, execution workspace / working
+  directory, live buffer, stdin, resize, status, stop, kill, clear, and copy.
+- Full / Expert: run history, raw result payloads, cancellation/kill
+  diagnostics if explicitly implemented later, settings, and deeper
+  diagnostics.
 
-Shell mode, PTY, interactive stdin, streaming, command history, and Agent-driven
-Terminal execution remain out of scope unless explicitly implemented in later
-blocks.
+Shell mode, PTY, interactive stdin, streaming, command history, persistent
+transcripts, and Agent-driven Terminal execution remain out of scope unless
+explicitly implemented in later blocks.
 
 ### Agent Chat
 

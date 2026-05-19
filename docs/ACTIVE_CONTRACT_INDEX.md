@@ -98,8 +98,8 @@ Read this set for almost every future block:
 
 ### Terminal
 
-- `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - deferred PTY/manual shell direction;
-  read only for explicitly Terminal PTY work.
+- `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - deferred PTY/manual shell direction
+  and staged implementation plan; read only for explicitly Terminal PTY work.
 
 ## Reference Handoff
 

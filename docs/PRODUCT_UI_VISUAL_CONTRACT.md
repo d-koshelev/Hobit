@@ -350,6 +350,9 @@ Rules:
 - PTY/session behavior must be contract-gated before implementation.
 - Do not show full shell UI until PTY/session support exists.
 - Current one-shot command behavior must remain visually honest.
+- Future PTY UI must show shell, running/closed status, and explicit working
+  directory / execution workspace.
+- Stop and kill controls must not appear active until lifecycle support exists.
 - Current Terminal must not imply stdin, streaming, cancellation, tabs, split
   panes, shell history, environment profile support, or Script Runner behavior
   until those features exist.
@@ -482,18 +485,14 @@ capabilities are implemented. It is not a separate current widget.
 
 ## Recommended Implementation Blocks
 
-Recommended follow-up blocks:
+Current follow-up references:
 
-- Block 178  Canvas and top bar product shell.
-- Block 179  Grid snap layout foundation.
-- Block 180  Shared widget frame product polish.
-- Block 181  Agent Executor product layout pass.
-- Block 182  Git Widget product layout pass.
-- Block 183  Terminal PTY contract.
-- Block 184  Notes product contract.
-- Block 185  Notes storage/API foundation.
-- Block 186  Notes product UI.
-- Block 190  Agent Queue product model contract.
+- Terminal PTY follow-up blocks are defined in
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` and start with the backend
+  foundation slice.
+- Notes, Git, Agent Queue, Coordinator, JDBC, and other widget follow-up blocks
+  should use their focused domain contracts and `docs/CURRENT_WIDGET_SURFACE.md`
+  as the current-surface inventory.
 
 Each block should remain focused. If implementation pressure crosses into
 runtime behavior, schema changes, new Tauri commands, new widgets, Git

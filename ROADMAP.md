@@ -125,7 +125,10 @@ reset, and clean remain out of scope.
 Future Terminal PTY work is contract-gated by
 `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal remains a bounded
 one-shot command runner until a later PTY/session implementation block adds an
-interactive shell foundation.
+interactive shell foundation. The next PTY direction is staged as backend
+foundation, Tauri command/event bridge, frontend PTY UI, stop/kill hardening,
+smoke/manual verification, and optional one-shot `Run command` fallback
+integration polish.
 
 Future multi-note Notes work is contract-gated by
 `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`. The first implementation should be a

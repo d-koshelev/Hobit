@@ -333,11 +333,15 @@ Future Terminal direction is a PTY manual operator shell.
 
 Boundaries:
 
+- The current one-shot path remains an explicit `Run command` capability until
+  PTY support lands.
 - Coordinator must not control Terminal in the MVP.
 - No hidden shell execution.
 - Terminal commands require explicit operator action.
 - No Queue-driven Terminal launch.
 - Terminal output must not become hidden Coordinator context.
+- Future PTY sessions must be visible in the owning Terminal widget and scoped
+  to an explicit execution workspace / working directory.
 
 Terminal remains a manual operator surface, not a Coordinator execution backend.
 
