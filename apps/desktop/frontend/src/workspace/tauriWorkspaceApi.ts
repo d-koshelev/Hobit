@@ -26,6 +26,7 @@ import {
   runDirectWorkValidation,
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
+import { generateCoordinatorProviderResponse } from "./tauriCoordinatorProviderApi";
 import { createGitCommit } from "./tauriGitCommitApi";
 import { getGitRepositoryStatus } from "./tauriGitStatusApi";
 import {
@@ -103,6 +104,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   createGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,
+  generateCoordinatorProviderResponse,
   runTerminalCommand,
   createTerminalPtySession,
   writeTerminalPtySession,

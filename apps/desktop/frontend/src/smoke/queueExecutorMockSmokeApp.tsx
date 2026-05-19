@@ -116,6 +116,7 @@ class QueueExecutorSmokeRuntime {
       createJdbcConnector: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
+      generateCoordinatorProviderResponse: async () => this.forbidden(null),
       getAgentExecutorDiffSummary: async () => null,
       getAgentExecutorRunDetail: async () => {
         this.executorRunDetailCallCount += 1;

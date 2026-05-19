@@ -32,6 +32,8 @@ import type {
   ForceKillCodexDirectWorkRunResponse,
   GenerateAgentChatAiProposalRequest,
   GenerateAgentChatAiProposalResponse,
+  GenerateCoordinatorProviderResponse,
+  GenerateCoordinatorProviderResponseRequest,
   GetAgentExecutorDiffSummaryRequest,
   GetAgentExecutorRunDetailRequest,
   GetAgentMonitoringSnapshotRequest,
@@ -180,6 +182,9 @@ export type WorkspaceApi = {
   generateAgentChatAiProposal: (
     request: GenerateAgentChatAiProposalRequest,
   ) => Promise<GenerateAgentChatAiProposalResponse | null>;
+  generateCoordinatorProviderResponse: (
+    request: GenerateCoordinatorProviderResponseRequest,
+  ) => Promise<GenerateCoordinatorProviderResponse | null>;
   runTerminalCommand: (
     request: RunTerminalCommandRequest,
   ) => Promise<RunTerminalCommandResponse | null>;

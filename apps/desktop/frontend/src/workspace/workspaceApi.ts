@@ -4,6 +4,7 @@ export * from "./workspaceApiAgentChat";
 export * from "./workspaceApiAgentExecutor";
 export * from "./workspaceApiAgentQueue";
 export * from "./workspaceApiCore";
+export * from "./workspaceApiCoordinatorProvider";
 export * from "./workspaceApiDirectWork";
 export * from "./workspaceApiGit";
 export * from "./workspaceApiJdbc";

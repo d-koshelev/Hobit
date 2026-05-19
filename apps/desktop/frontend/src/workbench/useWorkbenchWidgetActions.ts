@@ -20,6 +20,10 @@ import {
   createTerminalWidgetActions,
   type TerminalWidgetActions,
 } from "./terminalWidgetActions";
+import {
+  createCoordinatorProviderActions,
+  type CoordinatorProviderWidgetActions,
+} from "./coordinatorProviderWidgetActions";
 import type { WidgetInstanceId, WorkbenchViewState } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
@@ -42,6 +46,7 @@ export type WorkbenchWidgetActions = WorkspaceWidgetActions &
   WorkspaceNoteWidgetActions &
   AgentQueueTaskWidgetActions &
   JdbcConnectorWidgetActions &
+  CoordinatorProviderWidgetActions &
   AgentExecutorWidgetActions &
   GitWidgetActions &
   TerminalWidgetActions;
@@ -83,6 +88,7 @@ export function useWorkbenchWidgetActions({
     ...createWorkspaceNoteActions(viewState),
     ...createAgentQueueTaskActions(viewState),
     ...createJdbcConnectorActions(viewState),
+    ...createCoordinatorProviderActions(viewState),
     ...createAgentExecutorWidgetActions({
       bumpWidgetLogRefreshToken,
       currentSessionActivity,

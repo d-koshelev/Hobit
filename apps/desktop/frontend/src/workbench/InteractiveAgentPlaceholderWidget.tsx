@@ -9,6 +9,11 @@ import {
   type CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
 import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
+import {
+  coordinatorProviderMessage,
+  coordinatorProviderProposalDraftContext,
+  coordinatorProviderResponseBody,
+} from "./coordinatorProviderRequest";
 import type { WidgetRenderProps } from "./types";
 
 type InteractiveAgentMessage = {
@@ -72,6 +77,7 @@ export function InteractiveAgentPlaceholderWidget({
   logRefreshToken,
   onCreateAgentQueueTask,
   onCreateWorkspaceNote,
+  onGenerateCoordinatorProviderResponse,
   onLoadLogs,
   onStartFrameMove,
   title,
@@ -99,7 +105,8 @@ export function InteractiveAgentPlaceholderWidget({
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
-  const canSend = draft.trim().length > 0;
+  const [isProviderPending, setIsProviderPending] = useState(false);
+  const canSend = draft.trim().length > 0 && !isProviderPending;
 
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
@@ -117,11 +124,11 @@ export function InteractiveAgentPlaceholderWidget({
     };
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedDraft = draft.trim();
-    if (!trimmedDraft) {
+    if (!trimmedDraft || isProviderPending) {
       return;
     }
 
@@ -136,9 +143,10 @@ export function InteractiveAgentPlaceholderWidget({
     );
     const assistantMessage = createLocalMessage(
       "assistant",
-      generated.responseBody,
+      "Mock/local provider response pending. Local deterministic proposal previews, if any, are visible below and remain review-only.",
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
     );
+    const providerConversation = [...messages, operatorMessage];
 
     if (generated.proposals.length > 0) {
       setProposals((currentProposals) => ({
@@ -156,6 +164,56 @@ export function InteractiveAgentPlaceholderWidget({
     ]);
     setDraft("");
     window.setTimeout(() => textareaRef.current?.focus(), 0);
+
+    if (!onGenerateCoordinatorProviderResponse) {
+      replaceMessageBody(
+        assistantMessage.id,
+        `${generated.responseBody} Mock/local provider API is unavailable in this runtime; no provider request was made.`,
+      );
+      return;
+    }
+
+    setIsProviderPending(true);
+    try {
+      const providerResponse = await onGenerateCoordinatorProviderResponse(
+        instance.id,
+        {
+          operatorMessage: trimmedDraft,
+          visibleConversation: providerConversation.map(
+            coordinatorProviderMessage,
+          ),
+          visibleProposalDrafts: generated.proposals.map(
+            coordinatorProviderProposalDraftContext,
+          ),
+        },
+      );
+
+      replaceMessageBody(
+        assistantMessage.id,
+        coordinatorProviderResponseBody(
+          providerResponse,
+          generated.responseBody,
+        ),
+      );
+    } catch (error) {
+      replaceMessageBody(
+        assistantMessage.id,
+        `${generated.responseBody} Mock/local provider request failed visibly: ${errorToMessage(
+          error,
+          "Provider request failed.",
+        )}`,
+      );
+    } finally {
+      setIsProviderPending(false);
+    }
+  }
+
+  function replaceMessageBody(messageId: string, body: string) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId ? { ...message, body } : message,
+      ),
+    );
   }
 
   function approveProposal(proposalId: string) {
@@ -415,7 +473,9 @@ export function InteractiveAgentPlaceholderWidget({
             <p className="interactive-agent-text">
               Primary operator chat surface.
             </p>
-            <p className="interactive-agent-text">Provider not connected yet.</p>
+            <p className="interactive-agent-text">
+              Mock/local provider can draft text only.
+            </p>
             <p className="interactive-agent-text">
               Approved Queue task and Note creation are enabled.
             </p>
@@ -424,14 +484,16 @@ export function InteractiveAgentPlaceholderWidget({
               previews.
             </p>
             <p className="interactive-agent-text">
-              Coordinator does not read Notes, dispatch Queue tasks, or launch
-              execution.
+              Coordinator does not read hidden widget state, dispatch Queue
+              tasks, or launch execution.
             </p>
             <p className="interactive-agent-text">
               Static preview types: {STATIC_PROPOSAL_TYPE_SUMMARY}.
             </p>
           </div>
-          <Badge variant="neutral">Local only</Badge>
+          <Badge variant={isProviderPending ? "warning" : "neutral"}>
+            {isProviderPending ? "Provider pending" : "Mock provider"}
+          </Badge>
         </section>
 
         <div
@@ -496,9 +558,11 @@ export function InteractiveAgentPlaceholderWidget({
             value={draft}
           />
           <div className="interactive-agent-action-row">
-            <p className="interactive-agent-note">Local transcript only.</p>
+            <p className="interactive-agent-note">
+              Visible chat only. Tools disabled.
+            </p>
             <Button disabled={!canSend} type="submit" variant="primary">
-              Send
+              {isProviderPending ? "Sending" : "Send"}
             </Button>
           </div>
         </form>

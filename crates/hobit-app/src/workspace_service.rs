@@ -13,6 +13,8 @@ mod agent_queue;
 mod agent_queue_execution;
 mod agent_queue_task_types;
 mod agent_queue_tasks;
+mod coordinator_provider;
+mod coordinator_provider_types;
 mod direct_work;
 mod direct_work_cancellation;
 mod direct_work_stream;
@@ -50,6 +52,8 @@ mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_tests;
 #[cfg(test)]
+mod coordinator_provider_tests;
+#[cfg(test)]
 mod direct_work_cancellation_tests;
 #[cfg(test)]
 mod direct_work_stream_tests;
@@ -81,6 +85,13 @@ pub use agent_queue_task_types::{
     AssignedAgentQueueTaskStartSummary, ClearAgentQueueTaskAssignmentInput,
     CreateAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+};
+pub use coordinator_provider::MockCoordinatorProviderAdapter;
+pub use coordinator_provider_types::{
+    CoordinatorProviderAdapter, CoordinatorProviderMessage, CoordinatorProviderOutcome,
+    CoordinatorProviderProposalDraftContext, CoordinatorProviderRequest,
+    CoordinatorProviderResponse, CoordinatorProviderVisibleInput,
+    GenerateCoordinatorProviderResponseInput,
 };
 pub use jdbc_connector_types::{
     CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,
@@ -133,6 +144,7 @@ const AGENT_CHAT_AI_PROPOSAL_RESULT_TYPE: &str = "agent_chat_ai_proposal_result"
 const AGENT_CHAT_PROPOSAL_COMMAND_KIND: &str = "agent_chat_mock_proposal";
 const AGENT_CHAT_PROPOSAL_RESULT_TYPE: &str = "agent_chat_mock_proposal_result";
 const AGENT_CHAT_PROPOSAL_RUNTIME_STATUS: &str = "proposal_only_mock";
+const COORDINATOR_CHAT_WIDGET_DEFINITION_ID: &str = "interactive-agent";
 const AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND: &str = "agent_queue_proposal_review";
 const AGENT_QUEUE_STATUS_NEEDS_REVIEW: &str = "needs_review";
 const AGENT_QUEUE_DECISION_PENDING_REVIEW: &str = "pending_review";

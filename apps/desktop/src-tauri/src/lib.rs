@@ -23,6 +23,10 @@ mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
 mod codex_direct_work_dto_tests;
+mod coordinator_provider_commands;
+mod coordinator_provider_dto;
+#[cfg(test)]
+mod coordinator_provider_dto_tests;
 mod database_startup;
 mod git_commit_dto;
 #[cfg(test)]
@@ -87,6 +91,7 @@ pub fn run() {
             workspace_commands::start_codex_direct_work_stream,
             workspace_commands::cancel_codex_direct_work_run,
             workspace_commands::force_kill_codex_direct_work_run,
+            coordinator_provider_commands::generate_coordinator_provider_response,
             workspace_commands::generate_agent_chat_ai_proposal,
             workspace_commands::persist_agent_chat_proposal,
             workspace_commands::get_agent_monitoring_snapshot,

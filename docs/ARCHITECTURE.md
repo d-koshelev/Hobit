@@ -29,17 +29,20 @@ scheduler, or dependency behavior. Database / JDBC is a Preview connector
 metadata shell backed by workspace-local JDBC connector metadata storage/API;
 there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
 assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
-direction is represented by a local-only Coordinator Chat placeholder with
-frontend action proposal cards. A deterministic frontend parser can generate
-the safe local proposal types from explicit operator chat text only. An approved
+direction is represented by a Coordinator Chat placeholder with frontend action
+proposal cards and a backend-owned mock/local provider text response path for
+explicit chat sends. The mock provider path uses visible current-session chat
+context and `allowed_tools: []`; it does not call an external LLM or return
+structured proposal drafts. A deterministic frontend parser can generate the
+safe local proposal types from explicit operator chat text only. An approved
 create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
 through the existing Queue task API only after a separate operator create
 action; it does not assign, dispatch, run, or hand the task to Agent Executor.
 An approved create-Note proposal can create a workspace-local Note through the
 existing Notes create API using only visible title, body, and pinned inputs. No
-Coordinator runtime, hidden context access, provider-backed proposal behavior,
-hidden Notes reads, hidden widget reads, or broad tool execution is
-implemented. Runbook has a local/manual steps MVP. There is no
+hidden context access, provider-backed proposal behavior, hidden Notes reads,
+hidden widget reads, or broad tool execution is implemented. Runbook has a
+local/manual steps MVP. There is no
 Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
 runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
@@ -309,7 +312,97 @@ The shell exposes WorkspaceService lifecycle and widget foundation commands over
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, Agent Queue task command handlers in `agent_queue_task_commands.rs`, JDBC connector command handlers in `jdbc_connector_commands.rs`, and command DTO mapping in focused DTO modules.
 
-The React frontend calls the workspace lifecycle, widget mutation/log read, workspace-local notes create/list/read/update API, workspace-local JDBC connector metadata create/list/read/update API, Agent Queue task create/list/read/update/assign/clear/start API, Agent Executor history reads, Git status/local commit APIs, Terminal one-shot command, Terminal PTY session API, Agent Chat backend AI proposal generation, Agent Chat proposal persistence, Agent Monitoring proposal artifact read, Agent Queue proposal-review item paths, and the typed Direct Work API facade through the workspace API facade when running inside Tauri. The browser/Vite path uses the same facade with an in-memory implementation; browser fallback throws a visible unsupported state for real Git status reads and local commit creation, Terminal command execution, Terminal PTY sessions, workspace-local notes persistence, JDBC connector metadata persistence, Agent Queue task persistence/assignment/execution persistence, Codex Direct Work execution, Agent Executor persisted history/detail reads, backend AI provider calls, Agent Chat proposal persistence, Agent Monitoring persisted artifact reads, and Agent Queue persistence. The JDBC connector metadata commands store and return masked/non-secret connector descriptors only; they do not store passwords, tokens, secret references, credentials, driver jars, query text, or query results, and they do not test connections or execute SQL. The `run_terminal_command` Tauri command is called only from the collapsed Terminal legacy one-shot fallback and remains limited to persisted Terminal widget instances. The desktop shell also exposes Terminal PTY commands for explicit Terminal widget owners: create session, write stdin, resize, stop, kill, close, get, and list session state. The frontend Terminal PTY surface consumes create, write, resize, stop, kill, close, and get through scoped widget actions. PTY output/history is session-only runtime state and is refreshed from the bounded backend buffer; it is not persisted. The `run_codex_direct_work` Tauri command is called only from the Direct Work / Codex panel; it validates an explicit Workspace/Workbench/widget owner, currently allows only the `agent-run` widget definition to own Direct Work artifacts, resolves the requested Codex executable, runs the `hobit-tools` Codex runner outside storage transactions, and persists run/log/result artifacts without Git mutation or auto-commit/push. The compatibility DTO/storage field remains `repo_root`, but the product boundary is the selected execution workspace path. The `start_codex_direct_work_stream` Tauri command creates a Direct Work widget run immediately, returns a started run id, runs the `hobit-tools` streaming runner in a background blocking task, emits `direct-work://event` payloads, appends persisted widget logs during the run, and stores the final result without schema changes or Git mutation. The `start_assigned_agent_queue_task` command validates an assigned runnable Queue task, explicit execution workspace path, and idle assigned Agent Executor, then starts the same Direct Work streaming path and updates Queue task status from `running` to a final status when the stream completes. The read-only `list_agent_executor_runs` and `get_agent_executor_run_detail` commands expose stored Direct Work and Direct Work validation run/result/log summaries for the owning `agent-run` widget only; they do not rerun, delete, mutate Git, or compute diffs. The Agent Executor frontend consumes those history APIs in a compact read-only history/detail panel. The `create_git_commit` command is called only from the Git widget UI, validates explicit Workspace/Workbench/Git-widget ownership, requires explicit selected files, an operator-provided message, and confirmation, creates a local commit only, and does not push, reset, clean, stash, fetch, poll, watch, or auto-commit. The `generate_agent_chat_ai_proposal` Tauri command is called only from the Agent Chat widget UI, validates the target Agent Chat widget, builds a proposal-only AI request artifact from the operator prompt and approved context snapshot, calls the explicit environment-configured provider only from the backend, normalizes the response, and persists a proposal-only run/log/result artifact. The `persist_agent_chat_proposal` Tauri command remains available for local/mock fallback artifacts. The `get_agent_monitoring_snapshot` Tauri command is read-only, filters to Agent Chat proposal-only results in the current Workspace Workbench, and does not expose Terminal results, Direct Work results, or arbitrary widget results. The `create_agent_queue_item_from_proposal` command creates only a review item from a valid local mock proposal result in the same Workspace Workbench; `get_agent_queue_snapshot` lists those review items. The Agent Queue task commands create, list, read, update, assign, clear, and manually start stored Workspace-scoped task records only; they do not automatically dispatch, schedule, launch Terminal commands, run validation automatically, mutate Git, auto-commit, or auto-push. There is no Terminal tabs UI, Terminal split panes, PTY command history, persistent PTY transcripts, executable chat runtime beyond Direct Work artifacts, Template Library runtime, Git runtime beyond the narrow status/diff/local commit path, JDBC query execution, workspace restore runtime, log polling, provider settings UI, secrets UI, scratch execution workspace support, or HTTPS provider adapter in this milestone.
+The React frontend calls the workspace lifecycle, widget mutation/log read,
+workspace-local notes create/list/read/update API, workspace-local JDBC
+connector metadata create/list/read/update API, Agent Queue task
+create/list/read/update/assign/clear/start API, Agent Executor history reads,
+Git status/local commit APIs, Terminal one-shot command, Terminal PTY session
+API, Coordinator mock provider text response API, Agent Chat backend AI
+proposal generation, Agent Chat proposal persistence, Agent Monitoring
+proposal artifact read, Agent Queue proposal-review item paths, and the typed
+Direct Work API facade through the workspace API facade when running inside
+Tauri. The browser/Vite path uses the same facade with an in-memory
+implementation; browser fallback throws a visible unsupported state for real
+Git status reads and local commit creation, Terminal command execution,
+Terminal PTY sessions, workspace-local notes persistence, JDBC connector
+metadata persistence, Agent Queue task persistence/assignment/execution
+persistence, Codex Direct Work execution, Agent Executor persisted
+history/detail reads, backend AI provider calls, Coordinator mock provider
+calls, Agent Chat proposal persistence, Agent Monitoring persisted artifact
+reads, and Agent Queue persistence. The JDBC connector metadata commands store
+and return masked/non-secret connector descriptors only; they do not store
+passwords, tokens, secret references, credentials, driver jars, query text, or
+query results, and they do not test connections or execute SQL.
+
+The `generate_coordinator_provider_response` Tauri command is called only from
+Coordinator Chat after an explicit operator message. It validates
+Workspace/Workbench/current `interactive-agent` widget ownership, builds a
+request from visible current-session chat messages and visible local proposal
+draft summaries only, sets `allowed_tools: []`, uses a mock/local backend
+adapter, returns assistant text only, and does not persist runs/results, call
+external providers, or execute widget capabilities.
+
+The `run_terminal_command` Tauri command is called only from the collapsed
+Terminal legacy one-shot fallback and remains limited to persisted Terminal
+widget instances. The desktop shell also exposes Terminal PTY commands for
+explicit Terminal widget owners: create session, write stdin, resize, stop,
+kill, close, get, and list session state. The frontend Terminal PTY surface
+consumes create, write, resize, stop, kill, close, and get through scoped
+widget actions. PTY output/history is session-only runtime state and is
+refreshed from the bounded backend buffer; it is not persisted.
+
+The `run_codex_direct_work` Tauri command is called only from the Direct Work /
+Codex panel; it validates an explicit Workspace/Workbench/widget owner,
+currently allows only the `agent-run` widget definition to own Direct Work
+artifacts, resolves the requested Codex executable, runs the `hobit-tools`
+Codex runner outside storage transactions, and persists run/log/result
+artifacts without Git mutation or auto-commit/push. The compatibility
+DTO/storage field remains `repo_root`, but the product boundary is the selected
+execution workspace path. The `start_codex_direct_work_stream` Tauri command
+creates a Direct Work widget run immediately, returns a started run id, runs
+the `hobit-tools` streaming runner in a background blocking task, emits
+`direct-work://event` payloads, appends persisted widget logs during the run,
+and stores the final result without schema changes or Git mutation. The
+`start_assigned_agent_queue_task` command validates an assigned runnable Queue
+task, explicit execution workspace path, and idle assigned Agent Executor, then
+starts the same Direct Work streaming path and updates Queue task status from
+`running` to a final status when the stream completes.
+
+The read-only `list_agent_executor_runs` and `get_agent_executor_run_detail`
+commands expose stored Direct Work and Direct Work validation run/result/log
+summaries for the owning `agent-run` widget only; they do not rerun, delete,
+mutate Git, or compute diffs. The Agent Executor frontend consumes those
+history APIs in a compact read-only history/detail panel. The
+`create_git_commit` command is called only from the Git widget UI, validates
+explicit Workspace/Workbench/Git-widget ownership, requires explicit selected
+files, an operator-provided message, and confirmation, creates a local commit
+only, and does not push, reset, clean, stash, fetch, poll, watch, or
+auto-commit.
+
+The `generate_agent_chat_ai_proposal` Tauri command remains a retained
+compatibility path for older Agent Chat proposal artifacts; it validates the
+target Agent Chat widget, builds a proposal-only AI request artifact from the
+operator prompt and approved context snapshot, calls the explicit
+environment-configured provider only from the backend, normalizes the response,
+and persists a proposal-only run/log/result artifact. The
+`persist_agent_chat_proposal` Tauri command remains available for local/mock
+fallback artifacts. The `get_agent_monitoring_snapshot` Tauri command is
+read-only, filters to Agent Chat proposal-only results in the current Workspace
+Workbench, and does not expose Terminal results, Direct Work results, or
+arbitrary widget results. The `create_agent_queue_item_from_proposal` command
+creates only a review item from a valid local mock proposal result in the same
+Workspace Workbench; `get_agent_queue_snapshot` lists those review items.
+
+The Agent Queue task commands create, list, read, update, assign, clear, and
+manually start stored Workspace-scoped task records only; they do not
+automatically dispatch, schedule, launch Terminal commands, run validation
+automatically, mutate Git, auto-commit, or auto-push. There is no Terminal tabs
+UI, Terminal split panes, PTY command history, persistent PTY transcripts,
+executable chat runtime beyond Direct Work artifacts, Template Library runtime,
+Git runtime beyond the narrow status/diff/local commit path, JDBC query
+execution, workspace restore runtime, log polling, provider settings UI,
+secrets UI, scratch execution workspace support, external Coordinator provider
+adapter, or HTTPS provider adapter in this milestone.
 
 ## Current Workbench State Command Milestone
 
@@ -373,7 +466,36 @@ The Agent Executor widget reuses the existing `agent-run` definition id for pers
 
 The Agent Queue widget is a preview manual task queue surface. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
-Coordinator Chat is a local chat MVP using the existing Interactive Agent compatibility component. Its compatibility contract is defined in `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows deterministic local action proposal cards attached to the initial Coordinator message for safe preview types: create Agent Queue task, create Note, and prepare JDBC query suggestion text without execution. A local deterministic parser can also create those same proposal types from explicit operator chat messages using only the typed message text. Proposal card controls Approve, Reject, Edit, and Copy details update local proposal state or copy proposal details. Only approved create-Agent-Queue-task proposals expose a separate Create Queue task action, which uses the existing workspace-scoped Queue task API to create a draft task and does not assign, dispatch, run, or hand it to Agent Executor. Only approved create-Note proposals expose a separate Create Note action, which uses the existing workspace-local Notes create API with visible title, body, and pinned inputs and does not read, search, or summarize existing Notes. JDBC proposal cards remain non-executing; they show the visible SQL suggestion in a monospace review block and Copy SQL copies only that SQL text without connector access, database calls, or `EXPLAIN`. The current implementation has no provider connection, no Agent Executor integration, no Runbook integration, no monitoring integration, no broad tool execution, no hidden context access, no hidden widget state reads, no file mutation, no Git mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural steps MVP with states such as pending, running, done, failed, skipped, and blocked, plus local notes/evidence. It has no persistence, step execution, edit mode, builder, Queue integration, or agent-assisted steps.
+Coordinator Chat is a local chat MVP using the existing Interactive Agent
+compatibility component. Its compatibility contract is defined in
+`docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows
+deterministic local action proposal cards attached to the initial Coordinator
+message for safe preview types: create Agent Queue task, create Note, and
+prepare JDBC query suggestion text without execution. A local deterministic
+parser can also create those same proposal types from explicit operator chat
+messages using only the typed message text. Explicit chat sends can request a
+backend-owned mock/local provider text response with visible current-session
+chat context, visible local proposal draft summaries, and `allowed_tools: []`;
+browser fallback keeps the deterministic local response path and does not call
+a provider directly. Proposal card controls Approve, Reject, Edit, and Copy
+details update local proposal state or copy proposal details. Only approved
+create-Agent-Queue-task proposals expose a separate Create Queue task action,
+which uses the existing workspace-scoped Queue task API to create a draft task
+and does not assign, dispatch, run, or hand it to Agent Executor. Only approved
+create-Note proposals expose a separate Create Note action, which uses the
+existing workspace-local Notes create API with visible title, body, and pinned
+inputs and does not read, search, or summarize existing Notes. JDBC proposal
+cards remain non-executing; they show the visible SQL suggestion in a monospace
+review block and Copy SQL copies only that SQL text without connector access,
+database calls, or `EXPLAIN`. The current implementation has no external
+provider call, no provider credentials, no provider-generated structured
+proposal drafts, no Agent Executor integration, no Runbook integration, no
+monitoring integration, no broad tool execution, no hidden context access, no
+hidden widget state reads, no file mutation, no Git mutation, no JDBC SQL
+execution, and no Terminal execution. Runbook is a local/manual procedural
+steps MVP with states such as pending, running, done, failed, skipped, and
+blocked, plus local notes/evidence. It has no persistence, step execution, edit
+mode, builder, Queue integration, or agent-assisted steps.
 
 The Git widget has a transient explicit repository-root input. In the Tauri
 desktop path, it manually refreshes a read-only status snapshot through
@@ -413,7 +535,30 @@ This storage layer is foundational only. It is wired through `hobit-app` and the
 
 The service creates empty Workspaces with one associated empty Workbench, opens Workspaces by creating WorkspaceSession rows, appends basic Workbench events, returns simple Workspace and WorkspaceSession summaries, and supports the current widget foundation mutations for adding a WidgetInstance, updating widget state, updating widget layout, and listing widget-local logs.
 
-This application layer is wired to the Tauri workspace bridge. It includes a bounded one-shot Terminal command orchestration path for persisted Terminal widget instances only, creating widget run/log/result records around the shared process adapter. It also validates explicit Terminal widget ownership for the desktop PTY session foundation; PTY process handles and session buffers are owned by desktop runtime state, not storage. It also includes one-shot and streaming Codex Direct Work orchestration paths for an allowed `agent-run` widget owner, creating widget run/log/result records around the `hobit-tools` Codex runners outside storage transactions and emitting Tauri stream events for the streaming path. It also includes a proposal-only Agent Chat AI request artifact builder, mockable provider boundary, provider response normalizer, AI proposal artifact persistence path, local/mock proposal persistence path, a proposal-review Agent Queue path that validates a stored local mock proposal result before creating a read-only queue item, manual Agent Queue task create/list/read/update/assign/clear/start service methods, and workspace-local JDBC connector metadata create/list/read/update service methods. The JDBC service validates allowed kind/status values, rejects obvious secret-bearing metadata, and does not handle credentials or execute SQL. It does not restore runtime state, provide Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history, automatically dispatch tasks, approve/apply proposals, execute JDBC queries, create scratch execution workspaces, or add automatic agent behavior.
+This application layer is wired to the Tauri workspace bridge. It includes a
+bounded one-shot Terminal command orchestration path for persisted Terminal
+widget instances only, creating widget run/log/result records around the shared
+process adapter. It also validates explicit Terminal widget ownership for the
+desktop PTY session foundation; PTY process handles and session buffers are
+owned by desktop runtime state, not storage. It also includes one-shot and
+streaming Codex Direct Work orchestration paths for an allowed `agent-run`
+widget owner, creating widget run/log/result records around the `hobit-tools`
+Codex runners outside storage transactions and emitting Tauri stream events for
+the streaming path. It includes a Coordinator Chat mock/local provider adapter
+foundation for current `interactive-agent` widgets: request DTOs,
+visible-context validation, `allowed_tools: []`, text-only response
+normalization, and no storage persistence. It also includes retained
+proposal-only Agent Chat AI compatibility paths, a proposal-review Agent Queue
+path that validates a stored local mock proposal result before creating a
+read-only queue item, manual Agent Queue task create/list/read/update/assign/
+clear/start service methods, and workspace-local JDBC connector metadata
+create/list/read/update service methods. The JDBC service validates allowed
+kind/status values, rejects obvious secret-bearing metadata, and does not
+handle credentials or execute SQL. It does not restore runtime state, provide
+Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history,
+automatically dispatch tasks, approve/apply proposals, execute JDBC queries,
+create scratch execution workspaces, call an external Coordinator provider, or
+add automatic agent behavior.
 
 ## Workspace Model Boundary
 

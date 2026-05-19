@@ -103,6 +103,9 @@ export function widgetHostRenderProps({
       ? widgetActions.getAgentQueueTask
       : undefined,
     onGetGitRepositoryStatus: widgetActions.getGitRepositoryStatus,
+    onGenerateCoordinatorProviderResponse: isInteractiveAgent
+      ? widgetActions.generateCoordinatorProviderResponse
+      : undefined,
     onGetJdbcConnector: isJdbc ? widgetActions.getJdbcConnector : undefined,
     onGetWorkspaceNote: isNotes
       ? widgetActions.getWorkspaceNote

@@ -17,6 +17,8 @@ import type {
   CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
   ForceKillCodexDirectWorkRunResponse,
+  GenerateCoordinatorProviderResponse,
+  GenerateCoordinatorProviderResponseRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   CreateTerminalPtySessionRequest,
@@ -107,6 +109,13 @@ export type WidgetRenderProps = {
   onCreateWorkspaceNote?: (
     request: Omit<CreateWorkspaceNoteRequest, "workspaceId">,
   ) => Promise<WorkspaceNote>;
+  onGenerateCoordinatorProviderResponse?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      GenerateCoordinatorProviderResponseRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<GenerateCoordinatorProviderResponse | null>;
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;
