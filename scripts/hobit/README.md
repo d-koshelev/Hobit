@@ -162,6 +162,10 @@ scripts/hobit/desktop-smoke-readiness.ps1 -Launch
 scripts/hobit/desktop-smoke-readiness.ps1 -DatabasePath target/hobit-smoke/desktop/custom.sqlite3
 ```
 
+If the local PowerShell execution policy blocks direct `.ps1` invocation, use
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hobit/desktop-smoke-readiness.ps1 -Reset`
+for the same helper call.
+
 By default, it uses
 `target/hobit-smoke/desktop/hobit-desktop-smoke.sqlite3`, creates and checks the
 parent directory, and prints the exact `HOBIT_DATABASE_PATH` and
@@ -172,6 +176,15 @@ selected smoke database files only when they are under `target/hobit-smoke`.
 This helper verifies database path readiness and launch-command readiness only.
 It does not automate WebView interaction, create Queue tasks, run Agent
 Executors, mutate Git, or claim a full real desktop smoke pass.
+
+### `DESKTOP_SMOKE_CHECKLIST.md`
+
+Manual checklist for real Tauri desktop smoke runs using the
+`desktop-smoke-readiness.ps1` `HOBIT_DATABASE_PATH` workflow. It covers
+Workspace basics, Queue-to-Executor, Git, Notes, Database / JDBC, Coordinator
+Chat, Terminal, and Runbook. It must be filled from actual desktop UI
+observation; app launch readiness and mocked smoke results are not a real
+desktop UI pass.
 
 ### `smoke-queue-executor-ui.mjs`
 
