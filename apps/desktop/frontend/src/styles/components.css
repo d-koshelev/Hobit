@@ -901,12 +901,38 @@
 }
 
 .interactive-agent-status-copy,
+.interactive-agent-message-heading,
 .interactive-agent-message-list,
 .interactive-agent-message,
 .interactive-agent-composer {
   display: grid;
   gap: var(--space-sm);
   min-width: 0;
+}
+
+.interactive-agent-message-heading,
+.interactive-agent-provider-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.interactive-agent-provider-badges {
+  margin-top: 2px;
+}
+
+.interactive-agent-provider-disclosure {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.interactive-agent-provider-disclosure summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
 }
 
 .interactive-agent-message-list {
@@ -955,6 +981,34 @@
 
 .interactive-agent-message-body {
   overflow-wrap: anywhere;
+}
+
+.interactive-agent-provider-meta {
+  margin: 0;
+  border-left: 2px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.interactive-agent-provider-meta-success {
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.interactive-agent-provider-meta-pending,
+.interactive-agent-provider-meta-warning {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.interactive-agent-provider-meta-error {
+  border-left-color: var(--color-error);
+  background: var(--color-error-soft);
 }
 
 .interactive-agent-input {

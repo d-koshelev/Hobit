@@ -12,7 +12,7 @@ export type LocalProposalGenerationResult = {
 };
 
 const NO_PROPOSAL_RESPONSE =
-  "Coordinator Chat is not connected yet. This message is stored only in this local widget session. No explicit safe proposal intent was detected.";
+  "Local deterministic fallback did not detect a supported proposal intent in your explicit message.";
 
 const GENERATED_PROPOSAL_RESPONSE =
   "Generated local deterministic proposal previews from your explicit message. Review or edit the visible inputs before approval; approval does not execute by itself.";

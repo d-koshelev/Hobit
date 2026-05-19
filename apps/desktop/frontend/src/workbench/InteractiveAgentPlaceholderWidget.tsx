@@ -10,15 +10,21 @@ import {
 } from "./coordinatorActionProposalRegistry";
 import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
 import {
+  coordinatorProviderAssistantText,
+  coordinatorProviderErrorMeta,
+  coordinatorProviderFallbackMeta,
   coordinatorProviderMessage,
+  type CoordinatorProviderMessageMeta,
+  coordinatorProviderPendingMeta,
   coordinatorProviderProposalDraftContext,
-  coordinatorProviderResponseBody,
+  coordinatorProviderResponseMeta,
 } from "./coordinatorProviderRequest";
 import type { WidgetRenderProps } from "./types";
 
 type InteractiveAgentMessage = {
   id: string;
   proposalIds?: string[];
+  providerMeta?: CoordinatorProviderMessageMeta;
   role: "operator" | "assistant";
   body: string;
 };
@@ -27,7 +33,13 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
   {
     id: "local-assistant-intro",
     role: "assistant",
-    body: "Coordinator Chat is the primary operator chat surface. Provider not connected yet. Approved Queue task and Note creation are the only enabled handoffs; they do not run tasks or read Notes.",
+    body: "Coordinator Chat can draft text through a mock/local provider in desktop mode. The sample proposal cards below are local previews.",
+    providerMeta: {
+      badgeVariant: "neutral",
+      detail: "Current-session preview. No provider request was made for this message.",
+      label: "Local preview",
+      tone: "neutral",
+    },
     proposalIds: LOCAL_COORDINATOR_SAMPLE_PROPOSALS.map(
       (proposal) => proposal.id,
     ),
@@ -112,6 +124,7 @@ export function InteractiveAgentPlaceholderWidget({
     role: InteractiveAgentMessage["role"],
     body: string,
     proposalIds?: string[],
+    providerMeta?: CoordinatorProviderMessageMeta,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -119,6 +132,7 @@ export function InteractiveAgentPlaceholderWidget({
     return {
       id,
       proposalIds,
+      providerMeta,
       role,
       body,
     };
@@ -138,13 +152,16 @@ export function InteractiveAgentPlaceholderWidget({
       trimmedDraft,
       assistantMessageId,
     );
-    const generatedProposalIds = generated.proposals.map(
-      (proposal) => proposal.id,
-    );
+    const generatedProposalIds = generated.proposals.map((proposal) => proposal.id);
     const assistantMessage = createLocalMessage(
       "assistant",
-      "Mock/local provider response pending. Local deterministic proposal previews, if any, are visible below and remain review-only.",
+      onGenerateCoordinatorProviderResponse
+        ? "Drafting a mock/local provider response from visible chat."
+        : generated.responseBody,
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
+      onGenerateCoordinatorProviderResponse
+        ? coordinatorProviderPendingMeta(generatedProposalIds.length)
+        : coordinatorProviderFallbackMeta("Provider API unavailable in this runtime. Local deterministic response only."),
     );
     const providerConversation = [...messages, operatorMessage];
 
@@ -166,10 +183,6 @@ export function InteractiveAgentPlaceholderWidget({
     window.setTimeout(() => textareaRef.current?.focus(), 0);
 
     if (!onGenerateCoordinatorProviderResponse) {
-      replaceMessageBody(
-        assistantMessage.id,
-        `${generated.responseBody} Mock/local provider API is unavailable in this runtime; no provider request was made.`,
-      );
       return;
     }
 
@@ -188,30 +201,33 @@ export function InteractiveAgentPlaceholderWidget({
         },
       );
 
-      replaceMessageBody(
-        assistantMessage.id,
-        coordinatorProviderResponseBody(
+      patchMessage(assistantMessage.id, {
+        body: coordinatorProviderAssistantText(
           providerResponse,
           generated.responseBody,
         ),
-      );
+        providerMeta: coordinatorProviderResponseMeta(providerResponse),
+      });
     } catch (error) {
-      replaceMessageBody(
-        assistantMessage.id,
-        `${generated.responseBody} Mock/local provider request failed visibly: ${errorToMessage(
-          error,
-          "Provider request failed.",
-        )}`,
-      );
+      const message = errorToMessage(error, "Provider request failed.");
+      patchMessage(assistantMessage.id, {
+        body: generated.responseBody,
+        providerMeta: coordinatorProviderErrorMeta(
+          `Mock/local provider request failed visibly: ${message}`,
+        ),
+      });
     } finally {
       setIsProviderPending(false);
     }
   }
 
-  function replaceMessageBody(messageId: string, body: string) {
+  function patchMessage(
+    messageId: string,
+    patch: Partial<InteractiveAgentMessage>,
+  ) {
     setMessages((currentMessages) =>
       currentMessages.map((message) =>
-        message.id === messageId ? { ...message, body } : message,
+        message.id === messageId ? { ...message, ...patch } : message,
       ),
     );
   }
@@ -465,35 +481,32 @@ export function InteractiveAgentPlaceholderWidget({
     >
       <div className="interactive-agent-chat">
         <section
-          aria-label="Coordinator Chat local-only status"
+          aria-label="Coordinator Chat provider status"
           className="interactive-agent-status"
         >
           <div className="interactive-agent-status-copy">
             <p className="interactive-agent-title">Coordinator Chat</p>
             <p className="interactive-agent-text">
-              Primary operator chat surface.
+              Mock/local provider drafts text from visible chat. Local proposal previews stay separate and approval-gated.
             </p>
-            <p className="interactive-agent-text">
-              Mock/local provider can draft text only.
-            </p>
-            <p className="interactive-agent-text">
-              Approved Queue task and Note creation are enabled.
-            </p>
-            <p className="interactive-agent-text">
-              Explicit messages can generate local deterministic proposal
-              previews.
-            </p>
-            <p className="interactive-agent-text">
-              Coordinator does not read hidden widget state, dispatch Queue
-              tasks, or launch execution.
-            </p>
-            <p className="interactive-agent-text">
-              Static preview types: {STATIC_PROPOSAL_TYPE_SUMMARY}.
-            </p>
+            <div
+              aria-label="Coordinator provider boundaries"
+              className="interactive-agent-provider-badges"
+            >
+              <Badge variant={isProviderPending ? "warning" : "info"}>
+                {isProviderPending ? "Drafting" : "Mock/local provider"}
+              </Badge>
+              <Badge variant="neutral">Tools disabled</Badge>
+              <Badge variant="neutral">Visible chat only</Badge>
+              <Badge variant="neutral">Current session</Badge>
+            </div>
+            <details className="interactive-agent-provider-disclosure">
+              <summary>Supported local proposals</summary>
+              <p className="interactive-agent-text">
+                {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue and Note handoffs require approval plus a separate create action; JDBC suggestions do not execute SQL.
+              </p>
+            </details>
           </div>
-          <Badge variant={isProviderPending ? "warning" : "neutral"}>
-            {isProviderPending ? "Provider pending" : "Mock provider"}
-          </Badge>
         </section>
 
         <div
@@ -504,13 +517,29 @@ export function InteractiveAgentPlaceholderWidget({
         >
           {messages.map((message) => (
             <article
-              className={`interactive-agent-message interactive-agent-message-${message.role}`}
+              className={`interactive-agent-message interactive-agent-message-${message.role}${
+                message.providerMeta
+                  ? ` interactive-agent-message-${message.providerMeta.tone}`
+                  : ""
+              }`}
               key={message.id}
             >
-              <p className="interactive-agent-message-role">
-                {message.role === "operator" ? "You" : "Coordinator Chat"}
-              </p>
+              <div className="interactive-agent-message-heading">
+                <p className="interactive-agent-message-role">
+                  {message.role === "operator" ? "You" : "Coordinator Chat"}
+                </p>
+                {message.providerMeta ? (
+                  <Badge variant={message.providerMeta.badgeVariant}>
+                    {message.providerMeta.label}
+                  </Badge>
+                ) : null}
+              </div>
               <p className="interactive-agent-message-body">{message.body}</p>
+              {message.providerMeta ? (
+                <p className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}>
+                  {message.providerMeta.detail}
+                </p>
+              ) : null}
               {message.proposalIds ? (
                 <div className="coordinator-proposal-list">
                   {message.proposalIds.map((proposalId) => {

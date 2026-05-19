@@ -15,6 +15,13 @@ type CoordinatorProviderResponse = Awaited<
   ReturnType<NonNullable<WidgetRenderProps["onGenerateCoordinatorProviderResponse"]>>
 >;
 
+export type CoordinatorProviderMessageMeta = {
+  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
+  detail: string;
+  label: string;
+  tone: "neutral" | "pending" | "success" | "warning" | "error";
+};
+
 type CoordinatorChatMessage = {
   body: string;
   id: string;
@@ -50,26 +57,90 @@ export function coordinatorProviderProposalDraftContext(
   };
 }
 
-export function coordinatorProviderResponseBody(
+export function coordinatorProviderAssistantText(
   response: CoordinatorProviderResponse,
   localFallback: string,
 ) {
   if (!response) {
-    return `${localFallback} Mock/local provider returned no response. No tools or widget capabilities were executed.`;
+    return localFallback;
   }
 
-  const safetySummary =
-    response.allowedTools.length === 0 &&
+  return response.assistantText;
+}
+
+export function coordinatorProviderPendingMeta(
+  proposalDraftCount: number,
+): CoordinatorProviderMessageMeta {
+  return {
+    badgeVariant: "warning",
+    detail: proposalDraftCount
+      ? `${proposalDraftCount} visible local proposal summar${
+          proposalDraftCount === 1 ? "y" : "ies"
+        } included for review context.`
+      : "Visible chat context only; no local proposal summaries included.",
+    label: "Drafting",
+    tone: "pending",
+  };
+}
+
+export function coordinatorProviderFallbackMeta(
+  detail: string,
+): CoordinatorProviderMessageMeta {
+  return {
+    badgeVariant: "neutral",
+    detail,
+    label: "Local fallback",
+    tone: "neutral",
+  };
+}
+
+export function coordinatorProviderErrorMeta(
+  detail: string,
+): CoordinatorProviderMessageMeta {
+  return {
+    badgeVariant: "error",
+    detail,
+    label: "Provider error",
+    tone: "error",
+  };
+}
+
+export function coordinatorProviderResponseMeta(
+  response: CoordinatorProviderResponse,
+): CoordinatorProviderMessageMeta {
+  if (!response) {
+    return coordinatorProviderFallbackMeta(
+      "Mock/local provider returned no response. Local deterministic fallback remained in use.",
+    );
+  }
+
+  const toolsDisabled = response.allowedTools.length === 0;
+  const boundarySatisfied =
+    toolsDisabled &&
     response.noToolsExecuted &&
     response.noMutationsPerformed &&
-    response.noHiddenContextUsed
-      ? "Provider safety: allowed_tools is empty, no tools executed, and no hidden context was used."
-      : "Provider safety flags were not all satisfied; treat this as a non-executing draft only.";
+    response.noHiddenContextUsed;
+  const contextSummary = `${response.visibleContextMessageCount} visible message${
+    response.visibleContextMessageCount === 1 ? "" : "s"
+  }, ${response.visibleProposalDraftCount} proposal summar${
+    response.visibleProposalDraftCount === 1 ? "y" : "ies"
+  }.`;
 
-  const statusSummary =
-    response.providerStatus === "completed"
-      ? `Provider: ${response.providerKind}. ${safetySummary}`
-      : `Provider: ${response.providerKind} (${response.providerStatus}). ${response.providerError ?? "No additional error detail."} ${safetySummary}`;
+  if (response.providerStatus !== "completed") {
+    return {
+      badgeVariant: "warning",
+      detail: `${response.providerError ?? "Provider did not complete."} ${contextSummary} Tools stayed disabled.`,
+      label: `${response.providerKind} ${response.providerStatus}`,
+      tone: "warning",
+    };
+  }
 
-  return `${response.assistantText} ${statusSummary}`;
+  return {
+    badgeVariant: boundarySatisfied ? "success" : "warning",
+    detail: boundarySatisfied
+      ? `${contextSummary} allowed_tools: []; no tools, mutations, or hidden context.`
+      : `${contextSummary} Provider safety flags were incomplete; treat as text-only draft.`,
+    label: response.providerKind,
+    tone: boundarySatisfied ? "success" : "warning",
+  };
 }
