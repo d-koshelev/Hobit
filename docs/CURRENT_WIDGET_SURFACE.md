@@ -35,6 +35,9 @@ local-chat foundation rather than adding a second separate chat surface.
 Coordinator-visible widget capability boundaries are defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
 Coordinator capability registry or widget tool execution.
+Future Evidence/Sources trust boundaries are defined in
+`docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
+capture, evidence review, citations, or AI context packs.
 
 Future product polish for these surfaces should follow
 `docs/PRODUCT_UI_VISUAL_CONTRACT.md`: dark dotted Workbench canvas, grid-aware
@@ -197,12 +200,12 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Coordinator Chat product UI polish or Coordinator runtime/provider contract.
-- Coordinator action proposal UI pattern.
+- Evidence/Sources storage/API foundation.
 - JDBC read-only query execution backend.
 - JDBC query results UI.
 - Coordinator to JDBC read-only proposal flow.
-- Evidence/Sources contract.
+- Coordinator Chat product UI polish or Coordinator runtime/provider contract.
+- Coordinator action proposal UI pattern.
 - AI context/token economy contract.
 - YouTube Analyst widget contract.
 - Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.

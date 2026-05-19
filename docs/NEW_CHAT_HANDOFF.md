@@ -162,7 +162,8 @@ Runbook:
   SQL formatter, or AI assistance yet.
 - Terminal PTY was blocked/deferred after the earlier crates.io/Schannel issue
   and rollback.
-- Evidence/Sources is not implemented.
+- Evidence/Sources contract exists; storage/API, capture, review, citations,
+  and AI context packs are not implemented.
 - AI context/token economy is not implemented.
 - YouTube Analyst is not implemented.
 - Workspace continuity/crash recovery is deferred.
@@ -183,15 +184,15 @@ Runbook:
 
 Primary path:
 
-- 217 - Coordinator Chat product UI polish or Coordinator runtime/provider
+- 218 - Evidence/Sources storage/API foundation.
+- 219 - Coordinator Chat product UI polish or Coordinator runtime/provider
   contract.
-- 218 - Coordinator action proposal UI pattern.
-- 219 - JDBC read-only query execution backend.
-- 220 - JDBC query results UI.
-- 221 - Coordinator to JDBC read-only proposal flow.
-- 222 - Evidence/Sources contract.
-- 223 - AI context/token economy contract.
-- 224 - YouTube Analyst widget contract.
+- 220 - Coordinator action proposal UI pattern.
+- 221 - JDBC read-only query execution backend.
+- 222 - JDBC query results UI.
+- 223 - Coordinator to JDBC read-only proposal flow.
+- 224 - AI context/token economy contract.
+- 225 - YouTube Analyst widget contract.
 
 Alternative stabilization path:
 

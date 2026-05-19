@@ -403,6 +403,9 @@ AI interpretation is not evidence unless marked as AI interpretation.
 
 Evidence/Sources is a future trust layer. It should preserve source,
 timestamp, context, approval status, and whether the AI saw the evidence.
+The detailed Evidence/Sources boundary is defined in
+`docs/EVIDENCE_SOURCES_CONTRACT.md`. Capability outputs must not become
+AI-readable context automatically.
 
 ## Token Economy Relationship
 
@@ -446,7 +449,7 @@ state-changing or external effects.
 - Coordinator action proposal UI pattern.
 - Coordinator to JDBC read-only query proposal flow.
 - Coordinator to Queue task creation flow.
-- Evidence/Sources contract.
+- Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
 
 ## Non-Goals

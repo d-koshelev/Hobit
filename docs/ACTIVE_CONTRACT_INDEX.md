@@ -30,6 +30,8 @@ Read this set for almost every future block:
   cross-widget, autonomy, context, or product-model work.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Coordinator or future
   AI surfaces use widgets through controlled capabilities.
+- `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
+  provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,
@@ -81,6 +83,12 @@ Read this set for almost every future block:
 
 - `docs/JDBC_WIDGET_CONTRACT.md` - Database / JDBC connector, read-only SQL,
   secrets, EXPLAIN, AI assistance, and Coordinator capability boundaries.
+
+### Evidence / Sources
+
+- `docs/EVIDENCE_SOURCES_CONTRACT.md` - future Evidence/Sources trust layer,
+  source provenance, evidence lifecycle, capping/redaction, and AI context
+  approval boundary.
 
 ### UI / Product
 
@@ -148,7 +156,9 @@ These documents should not override the Coordinator-centered model or
 - Coordinator/JDBC work: read
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`,
   `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and
-  `docs/JDBC_WIDGET_CONTRACT.md`.
+  `docs/JDBC_WIDGET_CONTRACT.md`. Add
+  `docs/EVIDENCE_SOURCES_CONTRACT.md` when the work touches result sharing,
+  citations, AI-readable context, or evidence capture.
 - Refactor-only work: read `docs/CODE_ORGANIZATION_CONTRACT.md` and this
   index; read domain contracts only if behavior boundaries could be affected.
 

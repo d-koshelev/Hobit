@@ -14,6 +14,8 @@ capabilities; Agent Queue organizes executable tasks; Agent Executors execute
 tasks and provide visibility; the operator controls autonomy and approvals.
 The widget capability/tool boundary is defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`.
+The Evidence/Sources trust boundary is defined in
+`docs/EVIDENCE_SOURCES_CONTRACT.md`.
 
 Near-term product direction:
 
@@ -28,18 +30,19 @@ Near-term product direction:
 - make JDBC/Database Connector a first-version scope candidate under
   `docs/JDBC_WIDGET_CONTRACT.md` and its read-only-by-default capability model;
   the current Preview widget manages connector metadata only
-- treat Evidence/Sources as an important future trust layer
+- treat Evidence/Sources as the future trust layer for approved, capped,
+  redacted, source-backed AI context
 - keep medical/healthcare workflows out of active scope due
   privacy/compliance/safety sensitivity
 
 Recommended next blocks:
 
+- Evidence/Sources storage/API foundation.
 - JDBC read-only query execution backend.
 - JDBC result grid UI.
 - Coordinator action proposal UI pattern.
 - Coordinator to JDBC read-only query proposal flow.
 - Coordinator to Queue task creation flow.
-- Evidence/Sources contract.
 - AI context/token economy contract.
 
 ## Near-Term Agent Surface Model

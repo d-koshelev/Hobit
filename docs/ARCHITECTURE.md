@@ -31,8 +31,9 @@ runtime, Script Runner, JIRA, Confluence, Image Edit, shell mode, interactive
 terminal, frontend live streaming UI, PTY, Terminal cancellation, command
 history, executable chat runtime beyond the manual Direct Work/Queue API paths,
 Git mutations/diff/log/show, hidden context access, provider settings UI,
-secrets UI, HTTPS provider adapter, or broad tool execution in the current
-user-facing workbench surface.
+secrets UI, HTTPS provider adapter, Evidence/Sources capture or review, AI
+context packs, or broad tool execution in the current user-facing workbench
+surface.
 
 ## Documentation Contracts
 
@@ -73,6 +74,12 @@ and confirmation rules, context exposure, secrets policy, audit expectations,
 and widget-specific capability examples. It is contract-only and does not
 implement a capability registry, runtime, schema, Tauri commands, or widget
 tools.
+
+`EVIDENCE_SOURCES_CONTRACT.md` defines the future trust layer for sources,
+captured evidence, AI interpretation, provenance, capping, redaction, and
+explicit AI-context approval. It is contract-only and does not implement
+frontend UI, backend or Tauri commands, storage/schema changes, Coordinator
+runtime, AI provider integration, widget tool execution, or evidence capture.
 
 `JDBC_WIDGET_CONTRACT.md` defines the future Database/JDBC widget product and
 safety model: connector boundaries, read-only SQL defaults, query limits,

@@ -436,6 +436,8 @@ does not run Agent Executor, and Agent Queue does not run SQL directly.
 ## Relationship To Evidence And Sources
 
 SQL results and `EXPLAIN` output can become evidence candidates later.
+The evidence trust boundary is defined in
+`docs/EVIDENCE_SOURCES_CONTRACT.md`.
 
 Evidence should record:
 
@@ -459,6 +461,8 @@ Recommended implementation slices:
 5. `EXPLAIN` UI.
 6. AI SQL review contract.
 7. Coordinator to JDBC read-only action proposal flow.
+8. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
+   foundation exists.
 
 Each slice must remain narrow and preserve the read-only, approval-aware,
 secret-isolated boundary.

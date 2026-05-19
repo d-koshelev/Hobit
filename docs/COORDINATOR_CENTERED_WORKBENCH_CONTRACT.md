@@ -183,6 +183,8 @@ JDBC safety rules:
 ## Coordinator And Evidence/Sources
 
 Evidence/Sources is a future trust layer.
+The detailed trust, provenance, capping, redaction, and AI-context approval
+boundary is defined in `docs/EVIDENCE_SOURCES_CONTRACT.md`.
 
 Coordinator should eventually ground analysis in evidence such as:
 
@@ -197,6 +199,9 @@ Coordinator should eventually ground analysis in evidence such as:
 AI output is not itself evidence unless marked as AI interpretation.
 
 Evidence should track source, timestamp, context, and approval for AI use.
+Coordinator must not treat raw widget output, widget state, logs, notes, SQL
+results, Git diffs, or AI interpretation as approved evidence unless the
+operator has reviewed and approved the evidence boundary.
 
 ## Autonomy Policy
 
@@ -349,7 +354,7 @@ Flow:
 - Coordinator action proposal UI pattern.
 - Coordinator to JDBC read-only query proposal flow.
 - Coordinator to Queue task creation flow.
-- Evidence/Sources contract.
+- Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
 
 ## Non-Goals
