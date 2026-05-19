@@ -39,10 +39,10 @@ current Coordinator UI can create a draft Agent Queue task or workspace-local
 Note only after explicit proposal approval and a separate create action.
 The first Coordinator provider/runtime boundary is defined in
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: provider calls may draft text and
-future proposal cards only, with explicit visible context and
+proposal cards only, with explicit visible context and
 `allowed_tools: []`. The current implementation has a backend-owned
-mock/local text response path only; external LLM calls and provider-generated
-proposal drafts are not implemented.
+mock/local response path that can return text plus validated safe proposal
+drafts for review cards; external LLM calls are not implemented.
 Future Evidence/Sources trust boundaries are defined in
 `docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
 capture, evidence review, citations, or AI context packs.
@@ -186,21 +186,24 @@ future widget capability.
   read widget state, Notes, Terminal output, Git diffs, JDBC connector metadata,
   Agent Executor logs, filesystem data, or hidden Workspace context.
 - Sends explicit operator chat messages through a backend-owned mock/local
-  Coordinator provider text response path in the Tauri desktop shell. Requests
+  Coordinator provider response path in the Tauri desktop shell. Requests
   include only the visible current-session chat transcript, visible local
   proposal draft summaries when present, compact safety instructions, and
   `allowed_tools: []`.
+- The mock/local provider can return structured proposal drafts for create
+  Agent Queue task, create Note, and JDBC SQL suggestion only. Drafts are
+  validated before rendering; unsupported or unsafe drafts are rejected or
+  degraded into visible assistant text and never execute.
 - Browser/Vite fallback keeps the deterministic local response path and does
   not call a provider directly.
 - Does not call an external LLM, use provider credentials, execute broad
   tools, persist sessions, read hidden context, launch Agent Executor,
   integrate with Runbook, mutate files, mutate Git, run SQL, call JDBC
   connectors, or run Terminal commands.
-- Provider-generated structured proposal drafts are not implemented yet.
-  Future provider-backed proposal cards remain contract-gated by
-  `docs/AI_INTEGRATION_READINESS_CONTRACT.md` and must keep tools disabled,
-  context explicit, and proposals review-only until separately approved and
-  handed off through an existing visible action.
+- Provider-generated proposal cards use the same approval and handoff rules as
+  local deterministic cards: Queue task creation and Note creation require a
+  separate explicit create action after approval, while JDBC remains
+  non-executing review/copy text only.
 
 ### Database / JDBC
 
@@ -262,10 +265,10 @@ runtime.
 
 ## Recommended Next Blocks
 
-- Provider-backed Coordinator text response hardening with explicit visible
-  context only and tools disabled.
-- Provider structured proposal drafts rendered as review cards, still no
-  execution.
+- Coordinator provider configuration / real provider preparation with tools
+  disabled and explicit visible context only.
+- Coordinator structured-draft UX smoke/hardening if provider drafts reveal UI
+  issues.
 - Later controlled widget capability bridge.
 - Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
   review exists.

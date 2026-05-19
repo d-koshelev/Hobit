@@ -14,6 +14,7 @@ mod agent_queue_execution;
 mod agent_queue_task_types;
 mod agent_queue_tasks;
 mod coordinator_provider;
+mod coordinator_provider_drafts;
 mod coordinator_provider_types;
 mod direct_work;
 mod direct_work_cancellation;

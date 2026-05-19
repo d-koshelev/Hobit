@@ -54,7 +54,7 @@ fn coordinator_provider_request_uses_empty_allowed_tools_and_visible_context_onl
 }
 
 #[test]
-fn mock_coordinator_provider_returns_text_only_response() {
+fn mock_coordinator_provider_returns_text_and_note_draft_response() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
     let provider = MockCoordinatorProviderAdapter;
@@ -73,8 +73,146 @@ fn mock_coordinator_provider_returns_text_only_response() {
         .assistant_text
         .contains("Mock Coordinator provider response"));
     assert!(response.assistant_text.contains("allowed_tools: []"));
-    assert!(response.proposal_drafts.is_empty());
+    assert_eq!(response.proposal_drafts.len(), 1);
+    assert_eq!(response.proposal_drafts[0].type_id, "create-note");
+    assert_eq!(response.proposal_drafts[0].target_widget, "Notes");
+    assert_eq!(
+        input_value(&response.proposal_drafts[0], "Pinned").as_deref(),
+        Some("false")
+    );
     assert!(response.provider_error.is_none());
+}
+
+#[test]
+fn mock_coordinator_provider_returns_valid_queue_draft_without_creating_task() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let provider = MockCoordinatorProviderAdapter;
+    let mut input = provider_input(&workspace_id, &workbench_id, &widget_id);
+    input.operator_message =
+        "create queue task title: Review sync; prompt: inspect visible notes; priority: 99"
+            .to_owned();
+
+    let response = service
+        .generate_coordinator_provider_response(input, &provider)
+        .expect("provider response")
+        .expect("response");
+
+    assert!(response.allowed_tools.is_empty());
+    assert_eq!(response.proposal_drafts.len(), 1);
+    let draft = &response.proposal_drafts[0];
+    assert_eq!(draft.type_id, "create-agent-queue-task");
+    assert_eq!(draft.target_widget, "Agent Queue");
+    assert_eq!(draft.target_capability, "create Queue task");
+    assert_eq!(input_value(draft, "Title").as_deref(), Some("Review sync"));
+    assert_eq!(input_value(draft, "Priority").as_deref(), Some("5"));
+    assert!(service
+        .list_agent_queue_tasks(&workspace_id)
+        .expect("list queue tasks")
+        .is_empty());
+}
+
+#[test]
+fn mock_coordinator_provider_returns_valid_note_draft_without_creating_note() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let provider = MockCoordinatorProviderAdapter;
+    let mut input = provider_input(&workspace_id, &workbench_id, &widget_id);
+    input.operator_message =
+        "create note title: Visible summary; body: save only this visible text".to_owned();
+
+    let response = service
+        .generate_coordinator_provider_response(input, &provider)
+        .expect("provider response")
+        .expect("response");
+
+    assert_eq!(response.proposal_drafts.len(), 1);
+    let draft = &response.proposal_drafts[0];
+    assert_eq!(draft.type_id, "create-note");
+    assert_eq!(draft.target_capability, "create Note");
+    assert_eq!(
+        input_value(draft, "Body").as_deref(),
+        Some("save only this visible text")
+    );
+    assert!(service
+        .list_workspace_notes(&workspace_id)
+        .expect("list notes")
+        .is_empty());
+}
+
+#[test]
+fn mock_coordinator_provider_returns_valid_jdbc_suggestion_draft() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let provider = MockCoordinatorProviderAdapter;
+    let mut input = provider_input(&workspace_id, &workbench_id, &widget_id);
+    input.operator_message =
+        "prepare sql question: count recent errors; sql: select count(*) from app_errors"
+            .to_owned();
+
+    let response = service
+        .generate_coordinator_provider_response(input, &provider)
+        .expect("provider response")
+        .expect("response");
+
+    assert_eq!(response.proposal_drafts.len(), 1);
+    let draft = &response.proposal_drafts[0];
+    assert_eq!(draft.type_id, "prepare-jdbc-query-suggestion");
+    assert_eq!(draft.target_widget, "Database / JDBC");
+    assert_eq!(draft.target_capability, "prepare query suggestion");
+    assert_eq!(
+        input_value(draft, "Suggested SQL text").as_deref(),
+        Some("select count(*) from app_errors")
+    );
+    assert!(draft
+        .risk_notes
+        .iter()
+        .any(|note| note.contains("No connector is accessed")));
+}
+
+#[test]
+fn coordinator_provider_rejects_unsafe_provider_drafts_before_rendering() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let provider = StaticProvider::new(CoordinatorProviderOutcome::ResponseWithDrafts {
+        assistant_text: "Provider attempted an unsafe draft.".to_owned(),
+        proposal_drafts: vec![CoordinatorProviderProposalDraftContext {
+            id: "unsafe-draft".to_owned(),
+            type_id: "run-terminal-command".to_owned(),
+            title: "Run Terminal command".to_owned(),
+            target_widget: "Terminal".to_owned(),
+            target_capability: "run command".to_owned(),
+            intent: "Execute a shell command.".to_owned(),
+            visible_inputs: vec![CoordinatorProviderVisibleInput {
+                label: "Command".to_owned(),
+                value: "echo unsafe".to_owned(),
+            }],
+            risk_notes: vec!["Would execute Terminal.".to_owned()],
+            expected_result: "Command output.".to_owned(),
+        }],
+    });
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+
+    assert!(response.proposal_drafts.is_empty());
+    assert!(response
+        .assistant_text
+        .contains("rejected before rendering"));
+    assert!(response.allowed_tools.is_empty());
+    assert!(service
+        .list_agent_queue_tasks(&workspace_id)
+        .expect("list queue tasks")
+        .is_empty());
+    assert!(service
+        .list_workspace_notes(&workspace_id)
+        .expect("list notes")
+        .is_empty());
 }
 
 #[test]
@@ -352,4 +490,12 @@ fn request_payload(request: &CoordinatorProviderRequest) -> serde_json::Value {
         "allowed_tools": &request.allowed_tools,
         "created_at": &request.created_at,
     })
+}
+
+fn input_value(proposal: &CoordinatorProviderProposalDraftContext, label: &str) -> Option<String> {
+    proposal
+        .visible_inputs
+        .iter()
+        .find(|input| input.label.eq_ignore_ascii_case(label))
+        .map(|input| input.value.clone())
 }

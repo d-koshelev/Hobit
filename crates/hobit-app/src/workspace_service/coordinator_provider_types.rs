@@ -54,9 +54,19 @@ pub struct CoordinatorProviderRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CoordinatorProviderOutcome {
-    Response { assistant_text: String },
-    RequestFailed { message: String },
-    Unsupported { message: String },
+    Response {
+        assistant_text: String,
+    },
+    ResponseWithDrafts {
+        assistant_text: String,
+        proposal_drafts: Vec<CoordinatorProviderProposalDraftContext>,
+    },
+    RequestFailed {
+        message: String,
+    },
+    Unsupported {
+        message: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

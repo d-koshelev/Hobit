@@ -26,6 +26,8 @@ fn coordinator_provider_command_returns_mock_text_with_tools_disabled() {
     assert!(response.no_mutations_performed);
     assert!(response.no_hidden_context_used);
     assert!(response.assistant_text.contains("allowed_tools: []"));
+    assert_eq!(response.proposal_drafts.len(), 1);
+    assert_eq!(response.proposal_drafts[0].type_id, "create-note");
     remove_test_db_files(&db_path);
 }
 

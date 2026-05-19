@@ -30,19 +30,21 @@ metadata shell backed by workspace-local JDBC connector metadata storage/API;
 there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
 assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
-proposal cards and a backend-owned mock/local provider text response path for
+proposal cards and a backend-owned mock/local provider response path for
 explicit chat sends. The mock provider path uses visible current-session chat
-context and `allowed_tools: []`; it does not call an external LLM or return
-structured proposal drafts. A deterministic frontend parser can generate the
-safe local proposal types from explicit operator chat text only. An approved
+context and `allowed_tools: []`; it does not call an external LLM and can
+return validated safe structured proposal drafts as review cards only. A
+deterministic frontend parser can generate the safe local proposal types from
+explicit operator chat text only. An approved
 create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
 through the existing Queue task API only after a separate operator create
 action; it does not assign, dispatch, run, or hand the task to Agent Executor.
 An approved create-Note proposal can create a workspace-local Note through the
 existing Notes create API using only visible title, body, and pinned inputs. No
-hidden context access, provider-backed proposal behavior, hidden Notes reads,
-hidden widget reads, or broad tool execution is implemented. Runbook has a
-local/manual steps MVP. There is no
+hidden context access, hidden Notes reads, hidden widget reads, or broad tool
+execution is implemented, and unsupported or unsafe provider drafts are
+rejected or degraded before rendering. Runbook has a local/manual steps MVP.
+There is no
 Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
 runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
@@ -317,7 +319,7 @@ workspace-local notes create/list/read/update API, workspace-local JDBC
 connector metadata create/list/read/update API, Agent Queue task
 create/list/read/update/assign/clear/start API, Agent Executor history reads,
 Git status/local commit APIs, Terminal one-shot command, Terminal PTY session
-API, Coordinator mock provider text response API, Agent Chat backend AI
+API, Coordinator mock provider response API, Agent Chat backend AI
 proposal generation, Agent Chat proposal persistence, Agent Monitoring
 proposal artifact read, Agent Queue proposal-review item paths, and the typed
 Direct Work API facade through the workspace API facade when running inside
@@ -474,11 +476,13 @@ message for safe preview types: create Agent Queue task, create Note, and
 prepare JDBC query suggestion text without execution. A local deterministic
 parser can also create those same proposal types from explicit operator chat
 messages using only the typed message text. Explicit chat sends can request a
-backend-owned mock/local provider text response with visible current-session
-chat context, visible local proposal draft summaries, and `allowed_tools: []`;
-browser fallback keeps the deterministic local response path and does not call
-a provider directly. Proposal card controls Approve, Reject, Edit, and Copy
-details update local proposal state or copy proposal details. Only approved
+backend-owned mock/local provider response with visible current-session chat
+context, visible local proposal draft summaries, and `allowed_tools: []`;
+the mock/local provider can return validated structured proposal drafts for
+the same safe preview types, and unsafe or unsupported drafts are rejected
+before rendering. Browser fallback keeps the deterministic local response path
+and does not call a provider directly. Proposal card controls Approve, Reject,
+Edit, and Copy details update local proposal state or copy proposal details. Only approved
 create-Agent-Queue-task proposals expose a separate Create Queue task action,
 which uses the existing workspace-scoped Queue task API to create a draft task
 and does not assign, dispatch, run, or hand it to Agent Executor. Only approved
@@ -488,11 +492,10 @@ inputs and does not read, search, or summarize existing Notes. JDBC proposal
 cards remain non-executing; they show the visible SQL suggestion in a monospace
 review block and Copy SQL copies only that SQL text without connector access,
 database calls, or `EXPLAIN`. The current implementation has no external
-provider call, no provider credentials, no provider-generated structured
-proposal drafts, no Agent Executor integration, no Runbook integration, no
-monitoring integration, no broad tool execution, no hidden context access, no
-hidden widget state reads, no file mutation, no Git mutation, no JDBC SQL
-execution, and no Terminal execution. Runbook is a local/manual procedural
+provider call, no provider credentials, no Agent Executor integration, no
+Runbook integration, no monitoring integration, no broad tool execution, no
+hidden context access, no hidden widget state reads, no file mutation, no Git
+mutation, no JDBC SQL execution, and no Terminal execution. Runbook is a local/manual procedural
 steps MVP with states such as pending, running, done, failed, skipped, and
 blocked, plus local notes/evidence. It has no persistence, step execution, edit
 mode, builder, Queue integration, or agent-assisted steps.
@@ -546,8 +549,8 @@ widget owner, creating widget run/log/result records around the `hobit-tools`
 Codex runners outside storage transactions and emitting Tauri stream events for
 the streaming path. It includes a Coordinator Chat mock/local provider adapter
 foundation for current `interactive-agent` widgets: request DTOs,
-visible-context validation, `allowed_tools: []`, text-only response
-normalization, and no storage persistence. It also includes retained
+visible-context validation, `allowed_tools: []`, response/proposal-draft
+normalization, safe draft validation, and no storage persistence. It also includes retained
 proposal-only Agent Chat AI compatibility paths, a proposal-review Agent Queue
 path that validates a stored local mock proposal result before creating a
 read-only queue item, manual Agent Queue task create/list/read/update/assign/

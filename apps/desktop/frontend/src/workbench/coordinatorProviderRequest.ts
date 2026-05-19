@@ -125,6 +125,9 @@ export function coordinatorProviderResponseMeta(
   }, ${response.visibleProposalDraftCount} proposal summar${
     response.visibleProposalDraftCount === 1 ? "y" : "ies"
   }.`;
+  const providerDraftSummary = `${response.proposalDrafts.length} validated provider draft${
+    response.proposalDrafts.length === 1 ? "" : "s"
+  }.`;
 
   if (response.providerStatus !== "completed") {
     return {
@@ -138,8 +141,8 @@ export function coordinatorProviderResponseMeta(
   return {
     badgeVariant: boundarySatisfied ? "success" : "warning",
     detail: boundarySatisfied
-      ? `${contextSummary} allowed_tools: []; no tools, mutations, or hidden context.`
-      : `${contextSummary} Provider safety flags were incomplete; treat as text-only draft.`,
+      ? `${contextSummary} ${providerDraftSummary} allowed_tools: []; no tools, mutations, or hidden context.`
+      : `${contextSummary} ${providerDraftSummary} Provider safety flags were incomplete; treat as untrusted draft.`,
     label: response.providerKind,
     tone: boundarySatisfied ? "success" : "warning",
   };

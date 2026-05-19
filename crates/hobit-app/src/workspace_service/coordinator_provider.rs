@@ -1,6 +1,9 @@
 use crate::WorkspaceServiceError;
 
 use super::{
+    coordinator_provider_drafts::{
+        mock_provider_proposal_drafts, validate_provider_proposal_drafts,
+    },
     placeholder_id, placeholder_timestamp,
     validation::{required_input, validate_widget_ownership},
     CoordinatorProviderAdapter, CoordinatorProviderMessage, CoordinatorProviderOutcome,
@@ -29,8 +32,9 @@ impl CoordinatorProviderAdapter for MockCoordinatorProviderAdapter {
         &self,
         request: &CoordinatorProviderRequest,
     ) -> CoordinatorProviderOutcome {
-        CoordinatorProviderOutcome::Response {
+        CoordinatorProviderOutcome::ResponseWithDrafts {
             assistant_text: mock_assistant_text(request),
+            proposal_drafts: mock_provider_proposal_drafts(request),
         }
     }
 }
@@ -166,11 +170,13 @@ fn provider_request(
         visible_conversation: input.visible_conversation.clone(),
         visible_proposal_drafts: input.visible_proposal_drafts.clone(),
         system_instructions: vec![
-            "Coordinator Chat may draft response text only in this slice.".to_owned(),
+            "Coordinator Chat may draft response text and safe structured proposal drafts only."
+                .to_owned(),
             "Use only the explicit operator message and visible Coordinator Chat transcript."
                 .to_owned(),
             "Do not use hidden widget state, Notes, Terminal output, Git data, JDBC metadata, files, environment values, or secrets.".to_owned(),
-            "Do not execute tools or widget capabilities.".to_owned(),
+            "Do not execute tools or widget capabilities; proposal drafts must remain review-only."
+                .to_owned(),
         ],
         allowed_tools: Vec::new(),
         created_at: placeholder_timestamp(),
@@ -181,21 +187,39 @@ fn provider_response(
     request: CoordinatorProviderRequest,
     outcome: CoordinatorProviderOutcome,
 ) -> CoordinatorProviderResponse {
-    let (assistant_text, provider_status, provider_error) = match outcome {
-        CoordinatorProviderOutcome::Response { assistant_text } => (
-            truncate_chars(assistant_text, MAX_OPERATOR_MESSAGE_CHARS),
-            PROVIDER_STATUS_COMPLETED.to_owned(),
-            None,
-        ),
+    let (assistant_text, provider_status, provider_error, proposal_drafts) = match outcome {
+        CoordinatorProviderOutcome::Response { assistant_text } => {
+            let drafts = validate_provider_proposal_drafts(Vec::new());
+            (
+                provider_assistant_text(assistant_text, drafts.rejected_count),
+                PROVIDER_STATUS_COMPLETED.to_owned(),
+                None,
+                drafts.accepted,
+            )
+        }
+        CoordinatorProviderOutcome::ResponseWithDrafts {
+            assistant_text,
+            proposal_drafts,
+        } => {
+            let drafts = validate_provider_proposal_drafts(proposal_drafts);
+            (
+                provider_assistant_text(assistant_text, drafts.rejected_count),
+                PROVIDER_STATUS_COMPLETED.to_owned(),
+                None,
+                drafts.accepted,
+            )
+        }
         CoordinatorProviderOutcome::RequestFailed { message } => (
             "Mock/local Coordinator provider failed before producing a response.".to_owned(),
             PROVIDER_STATUS_REQUEST_FAILED.to_owned(),
             Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
         ),
         CoordinatorProviderOutcome::Unsupported { message } => (
             "Coordinator provider response is unsupported in this runtime.".to_owned(),
             PROVIDER_STATUS_UNSUPPORTED.to_owned(),
             Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
         ),
     };
 
@@ -208,11 +232,25 @@ fn provider_response(
         allowed_tools: request.allowed_tools,
         visible_context_message_count: request.visible_conversation.len(),
         visible_proposal_draft_count: request.visible_proposal_drafts.len(),
-        proposal_drafts: Vec::new(),
+        proposal_drafts,
         no_tools_executed: true,
         no_mutations_performed: true,
         no_hidden_context_used: true,
     }
+}
+
+fn provider_assistant_text(assistant_text: String, rejected_draft_count: usize) -> String {
+    let mut text = truncate_chars(assistant_text, MAX_OPERATOR_MESSAGE_CHARS);
+
+    if rejected_draft_count > 0 {
+        text.push_str(&format!(
+            " {rejected_draft_count} provider proposal draft{} rejected before rendering because {} unsupported or unsafe.",
+            if rejected_draft_count == 1 { " was" } else { "s were" },
+            if rejected_draft_count == 1 { "it was" } else { "they were" },
+        ));
+    }
+
+    text
 }
 
 fn mock_assistant_text(request: &CoordinatorProviderRequest) -> String {

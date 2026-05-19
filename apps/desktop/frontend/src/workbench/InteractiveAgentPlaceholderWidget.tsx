@@ -10,6 +10,11 @@ import {
 } from "./coordinatorActionProposalRegistry";
 import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
 import {
+  noteCreateRequestFromProposal,
+  queueTaskRequestFromProposal,
+} from "./coordinatorProposalHandoffs";
+import { coordinatorProviderDraftProposals } from "./coordinatorProviderDraftProposals";
+import {
   coordinatorProviderAssistantText,
   coordinatorProviderErrorMeta,
   coordinatorProviderFallbackMeta,
@@ -200,6 +205,22 @@ export function InteractiveAgentPlaceholderWidget({
           ),
         },
       );
+      const providerDrafts = coordinatorProviderDraftProposals(
+        providerResponse,
+        assistantMessage.id,
+      );
+      const providerProposalIds = providerDrafts.proposals.map(
+        (proposal) => proposal.id,
+      );
+
+      if (providerDrafts.proposals.length > 0) {
+        setProposals((currentProposals) => ({
+          ...currentProposals,
+          ...Object.fromEntries(
+            providerDrafts.proposals.map((proposal) => [proposal.id, proposal]),
+          ),
+        }));
+      }
 
       patchMessage(assistantMessage.id, {
         body: coordinatorProviderAssistantText(
@@ -207,6 +228,10 @@ export function InteractiveAgentPlaceholderWidget({
           generated.responseBody,
         ),
         providerMeta: coordinatorProviderResponseMeta(providerResponse),
+        proposalIds:
+          providerProposalIds.length > 0
+            ? providerProposalIds
+            : assistantMessage.proposalIds,
       });
     } catch (error) {
       const message = errorToMessage(error, "Provider request failed.");
@@ -617,71 +642,6 @@ function updateProposal(
       ...patch,
     },
   };
-}
-
-type QueueTaskCreateRequest = Parameters<
-  NonNullable<WidgetRenderProps["onCreateAgentQueueTask"]>
->[0];
-
-type WorkspaceNoteCreateRequest = Parameters<
-  NonNullable<WidgetRenderProps["onCreateWorkspaceNote"]>
->[0];
-
-function queueTaskRequestFromProposal(
-  proposal: CoordinatorActionProposal,
-): QueueTaskCreateRequest {
-  return {
-    description:
-      proposalInputValue(proposal, "Description") || proposal.intent.trim(),
-    priority: queueTaskPriority(proposalInputValue(proposal, "Priority")),
-    prompt: proposalInputValue(proposal, "Prompt") || proposal.intent.trim(),
-    status: "draft",
-    title:
-      proposalInputValue(proposal, "Title") ||
-      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
-      "Coordinator proposal",
-  };
-}
-
-function proposalInputValue(
-  proposal: CoordinatorActionProposal,
-  label: string,
-) {
-  return (
-    proposal.inputs
-      .find((input) => input.label.toLowerCase() === label.toLowerCase())
-      ?.value.trim() ?? ""
-  );
-}
-
-function queueTaskPriority(value: string) {
-  const priority = Number.parseInt(value, 10);
-
-  if (!Number.isFinite(priority)) {
-    return 0;
-  }
-
-  return Math.min(5, Math.max(0, priority));
-}
-
-function noteCreateRequestFromProposal(
-  proposal: CoordinatorActionProposal,
-): WorkspaceNoteCreateRequest {
-  return {
-    body:
-      proposalInputValue(proposal, "Body") ||
-      proposal.intent.trim() ||
-      proposal.expectedResult.trim(),
-    pinned: pinnedInputValue(proposalInputValue(proposal, "Pinned")),
-    title:
-      proposalInputValue(proposal, "Title") ||
-      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
-      "Coordinator note",
-  };
-}
-
-function pinnedInputValue(value: string) {
-  return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase());
 }
 
 function errorToMessage(error: unknown, fallback: string): string {
