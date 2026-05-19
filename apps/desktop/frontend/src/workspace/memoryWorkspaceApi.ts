@@ -1,70 +1,50 @@
-import type { WorkspaceApi } from "./workspaceApi";
-import type {
-  CreateJdbcConnectorRequest,
-  GetJdbcConnectorRequest,
-  JdbcConnector,
-  ListJdbcConnectorsRequest,
-  UpdateJdbcConnectorRequest,
-} from "./jdbcConnectorTypes";
+import {
+  assignAgentQueueTaskToExecutor,
+  cancelCodexDirectWorkRun,
+  clearAgentQueueTaskAssignment,
+  createAgentQueueItemFromProposal,
+  createAgentQueueTask,
+  createGitCommit,
+  createJdbcConnector,
+  createWorkspaceNote,
+  deleteWidgetInstanceFromWorkbench,
+  deleteWorkspace,
+  generateAgentChatAiProposal,
+  getAgentExecutorDiffSummary,
+  getAgentExecutorRunDetail,
+  getAgentMonitoringSnapshot,
+  getAgentQueueSnapshot,
+  getAgentQueueTask,
+  getGitRepositoryStatus,
+  getJdbcConnector,
+  getWorkspaceNote,
+  listAgentExecutorRuns,
+  listAgentQueueTasks,
+  listJdbcConnectors,
+  listWorkspaceNotes,
+  listenToDirectWorkStreamEvents,
+  persistAgentChatProposal,
+  runCodexDirectWork,
+  runDirectWorkValidation,
+  runTerminalCommand,
+  startAssignedAgentQueueTask,
+  startCodexDirectWorkStream,
+  updateAgentQueueTask,
+  updateJdbcConnector,
+  updateWorkspaceNote,
+} from "./memoryUnsupportedWorkspaceApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
-  AgentExecutorDiffSummary,
-  AgentExecutorRunDetail,
-  AgentExecutorRunHistory,
-  AgentMonitoringSnapshot,
-  AgentQueueItem,
-  AgentQueueSnapshot,
-  AgentQueueTask,
-  AssignAgentQueueTaskToExecutorRequest,
-  CancelCodexDirectWorkRunRequest,
-  CancelCodexDirectWorkRunResponse,
-  ClearAgentQueueTaskAssignmentRequest,
-  CreateAgentQueueTaskRequest,
   CreateWorkspaceRequest,
-  CreateGitCommitRequest,
-  CreateAgentQueueItemFromProposalRequest,
-  CreateWorkspaceNoteRequest,
-  DeleteWidgetInstanceFromWorkbenchRequest,
-  DeleteWorkspaceRequest,
-  DeleteWorkspaceResponse,
-  DirectWorkStreamEvent,
-  GenerateAgentChatAiProposalRequest,
-  GenerateAgentChatAiProposalResponse,
-  GetAgentExecutorRunDetailRequest,
-  GetAgentExecutorDiffSummaryRequest,
-  GetAgentMonitoringSnapshotRequest,
-  GetAgentQueueSnapshotRequest,
-  GetAgentQueueTaskRequest,
-  GetGitRepositoryStatusRequest,
-  GetWorkspaceNoteRequest,
-  GitCommitResponse,
-  GitRepositoryStatus,
-  ListAgentExecutorRunsRequest,
-  ListAgentQueueTasksRequest,
-  ListWorkspaceNotesRequest,
   ListWidgetLogsRequest,
-  PersistAgentChatProposalRequest,
-  PersistAgentChatProposalResponse,
-  RunCodexDirectWorkRequest,
-  RunCodexDirectWorkResponse,
-  RunDirectWorkValidationRequest,
-  RunDirectWorkValidationResponse,
-  RunTerminalCommandRequest,
-  RunTerminalCommandResponse,
-  StartCodexDirectWorkStreamRequest,
-  StartCodexDirectWorkStreamResponse,
-  StartAssignedAgentQueueTaskRequest,
-  StartAssignedAgentQueueTaskResponse,
-  UpdateAgentQueueTaskRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
-  UpdateWorkspaceNoteRequest,
   WidgetLogEntry,
-  WorkspaceNote,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
 } from "./types";
+import type { WorkspaceApi } from "./workspaceApiTypes";
 
 const fallbackWorkspaces: WorkspaceSummary[] = [];
 const fallbackWorkbenchStates = new Map<string, WorkspaceWorkbenchState>();
@@ -163,14 +143,6 @@ async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   return fallbackWorkspaces.map(cloneWorkspaceSummary);
 }
 
-async function deleteWorkspace(
-  _request: DeleteWorkspaceRequest,
-): Promise<DeleteWorkspaceResponse> {
-  throw new Error(
-    "Workspace deletion is only available in the Tauri desktop shell. Browser fallback cannot delete persisted workspaces.",
-  );
-}
-
 async function getWorkspaceSummary(
   workspaceId: string,
 ): Promise<WorkspaceSummary | null> {
@@ -216,70 +188,6 @@ async function getWorkspaceWorkbenchState(
   }
 
   return cloneWorkspaceWorkbenchState(state);
-}
-
-async function createWorkspaceNote(
-  _request: CreateWorkspaceNoteRequest,
-): Promise<WorkspaceNote> {
-  throw new Error(
-    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot persist workspace notes.",
-  );
-}
-
-async function listWorkspaceNotes(
-  _request: ListWorkspaceNotesRequest,
-): Promise<WorkspaceNote[]> {
-  throw new Error(
-    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot read workspace notes.",
-  );
-}
-
-async function getWorkspaceNote(
-  _request: GetWorkspaceNoteRequest,
-): Promise<WorkspaceNote | null> {
-  throw new Error(
-    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot read workspace notes.",
-  );
-}
-
-async function updateWorkspaceNote(
-  _request: UpdateWorkspaceNoteRequest,
-): Promise<WorkspaceNote | null> {
-  throw new Error(
-    "Workspace Notes persistence is only available in the Tauri desktop shell. Browser fallback cannot update workspace notes.",
-  );
-}
-
-async function createJdbcConnector(
-  _request: CreateJdbcConnectorRequest,
-): Promise<JdbcConnector> {
-  throw new Error(
-    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot persist JDBC connectors.",
-  );
-}
-
-async function listJdbcConnectors(
-  _request: ListJdbcConnectorsRequest,
-): Promise<JdbcConnector[]> {
-  throw new Error(
-    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot read JDBC connectors.",
-  );
-}
-
-async function getJdbcConnector(
-  _request: GetJdbcConnectorRequest,
-): Promise<JdbcConnector | null> {
-  throw new Error(
-    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot read JDBC connectors.",
-  );
-}
-
-async function updateJdbcConnector(
-  _request: UpdateJdbcConnectorRequest,
-): Promise<JdbcConnector | null> {
-  throw new Error(
-    "JDBC connector metadata is only available in the Tauri desktop shell. Browser fallback cannot update JDBC connectors.",
-  );
 }
 
 async function addWidgetInstanceToWorkbench(
@@ -407,202 +315,10 @@ async function updateWidgetInstanceLayout(
   return cloneWorkspaceWorkbenchState(state);
 }
 
-async function deleteWidgetInstanceFromWorkbench(
-  _request: DeleteWidgetInstanceFromWorkbenchRequest,
-): Promise<WorkspaceWorkbenchState | null> {
-  throw new Error(
-    "Widget deletion is only available in the Tauri desktop shell. Browser fallback cannot delete persisted widget instances.",
-  );
-}
-
 async function listWidgetLogs(
   _request: ListWidgetLogsRequest,
 ): Promise<WidgetLogEntry[]> {
   return [];
-}
-
-async function listAgentExecutorRuns(
-  _request: ListAgentExecutorRunsRequest,
-): Promise<AgentExecutorRunHistory | null> {
-  throw new Error(
-    "Agent Executor run history is only available in the Tauri desktop shell. Browser fallback cannot read persisted Direct Work artifacts.",
-  );
-}
-
-async function getAgentExecutorRunDetail(
-  _request: GetAgentExecutorRunDetailRequest,
-): Promise<AgentExecutorRunDetail | null> {
-  throw new Error(
-    "Agent Executor run detail is only available in the Tauri desktop shell. Browser fallback cannot read persisted Direct Work artifacts.",
-  );
-}
-
-async function getAgentExecutorDiffSummary(
-  _request: GetAgentExecutorDiffSummaryRequest,
-): Promise<AgentExecutorDiffSummary | null> {
-  throw new Error(
-    "Agent Executor diff summary is only available in the Tauri desktop shell. Browser fallback cannot read local Git diffs.",
-  );
-}
-
-async function getAgentMonitoringSnapshot(
-  _request: GetAgentMonitoringSnapshotRequest,
-): Promise<AgentMonitoringSnapshot | null> {
-  throw new Error(
-    "Agent Monitoring proposal result reads are only available in the Tauri desktop shell. Browser fallback has no persisted proposal run artifacts to display.",
-  );
-}
-
-async function createAgentQueueItemFromProposal(
-  _request: CreateAgentQueueItemFromProposalRequest,
-): Promise<AgentQueueItem | null> {
-  throw new Error(
-    "Agent Queue review item persistence is only available in the Tauri desktop shell. Browser fallback cannot create persisted queue items from proposal artifacts.",
-  );
-}
-
-async function getAgentQueueSnapshot(
-  _request: GetAgentQueueSnapshotRequest,
-): Promise<AgentQueueSnapshot | null> {
-  throw new Error(
-    "Agent Queue persisted review items are only available in the Tauri desktop shell. Browser fallback has no persisted queue inbox to display.",
-  );
-}
-
-async function createAgentQueueTask(
-  _request: CreateAgentQueueTaskRequest,
-): Promise<AgentQueueTask> {
-  throw new Error(
-    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot create persisted queue tasks.",
-  );
-}
-
-async function listAgentQueueTasks(
-  _request: ListAgentQueueTasksRequest,
-): Promise<AgentQueueTask[]> {
-  throw new Error(
-    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot read persisted queue tasks.",
-  );
-}
-
-async function getAgentQueueTask(
-  _request: GetAgentQueueTaskRequest,
-): Promise<AgentQueueTask | null> {
-  throw new Error(
-    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot read persisted queue tasks.",
-  );
-}
-
-async function updateAgentQueueTask(
-  _request: UpdateAgentQueueTaskRequest,
-): Promise<AgentQueueTask | null> {
-  throw new Error(
-    "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot update persisted queue tasks.",
-  );
-}
-
-async function assignAgentQueueTaskToExecutor(
-  _request: AssignAgentQueueTaskToExecutorRequest,
-): Promise<AgentQueueTask> {
-  throw new Error(
-    "Agent Queue assignment persistence is only available in the Tauri desktop shell. Browser fallback cannot assign queue tasks to executor slots.",
-  );
-}
-
-async function clearAgentQueueTaskAssignment(
-  _request: ClearAgentQueueTaskAssignmentRequest,
-): Promise<AgentQueueTask> {
-  throw new Error(
-    "Agent Queue assignment persistence is only available in the Tauri desktop shell. Browser fallback cannot clear queue task assignments.",
-  );
-}
-
-async function startAssignedAgentQueueTask(
-  _request: StartAssignedAgentQueueTaskRequest,
-): Promise<StartAssignedAgentQueueTaskResponse> {
-  throw new Error(
-    "Agent Queue execution is only available in the Tauri desktop shell. Browser fallback cannot start assigned queue tasks.",
-  );
-}
-
-async function getGitRepositoryStatus(
-  _request: GetGitRepositoryStatusRequest,
-): Promise<GitRepositoryStatus | null> {
-  throw new Error(
-    "Git status is only available in the Tauri desktop shell. Browser fallback cannot read Git repositories.",
-  );
-}
-
-async function createGitCommit(
-  _request: CreateGitCommitRequest,
-): Promise<GitCommitResponse | null> {
-  throw new Error(
-    "Git commit creation is only available in the Tauri desktop shell. Browser fallback cannot mutate Git repositories.",
-  );
-}
-
-async function runTerminalCommand(
-  _request: RunTerminalCommandRequest,
-): Promise<RunTerminalCommandResponse | null> {
-  throw new Error(
-    "Terminal command execution is only available in the Tauri desktop shell. Browser fallback cannot run local processes.",
-  );
-}
-
-async function runCodexDirectWork(
-  _request: RunCodexDirectWorkRequest,
-): Promise<RunCodexDirectWorkResponse | null> {
-  throw new Error(
-    "Codex Direct Work is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or persist Direct Work artifacts.",
-  );
-}
-
-async function runDirectWorkValidation(
-  _request: RunDirectWorkValidationRequest,
-): Promise<RunDirectWorkValidationResponse | null> {
-  throw new Error(
-    "Direct Work validation capture is only available in the Tauri desktop shell. Browser fallback cannot run Toolbelt validation or persist Direct Work validation artifacts.",
-  );
-}
-
-async function cancelCodexDirectWorkRun(
-  _request: CancelCodexDirectWorkRunRequest,
-): Promise<CancelCodexDirectWorkRunResponse | null> {
-  throw new Error(
-    "Codex Direct Work cancellation is only available in the Tauri desktop shell. Browser fallback cannot stop local executor processes.",
-  );
-}
-
-async function startCodexDirectWorkStream(
-  _request: StartCodexDirectWorkStreamRequest,
-): Promise<StartCodexDirectWorkStreamResponse | null> {
-  throw new Error(
-    "Codex Direct Work streaming is only available in the Tauri desktop shell. Browser fallback cannot run local executor processes or stream Direct Work events.",
-  );
-}
-
-async function listenToDirectWorkStreamEvents(
-  _onEvent: (event: DirectWorkStreamEvent) => void,
-): Promise<() => void> {
-  throw new Error(
-    "Codex Direct Work streaming is only available in the Tauri desktop shell. Browser fallback cannot subscribe to Direct Work events.",
-  );
-}
-
-async function persistAgentChatProposal(
-  _request: PersistAgentChatProposalRequest,
-): Promise<PersistAgentChatProposalResponse | null> {
-  throw new Error(
-    "Agent Chat proposal persistence is only available in the Tauri desktop shell. Browser fallback keeps the proposal preview local and does not persist run artifacts.",
-  );
-}
-
-async function generateAgentChatAiProposal(
-  _request: GenerateAgentChatAiProposalRequest,
-): Promise<GenerateAgentChatAiProposalResponse | null> {
-  throw new Error(
-    "Agent Chat AI provider calls are only available through the Tauri desktop backend. Browser fallback does not call AI providers directly.",
-  );
 }
 
 function requiredValue(value: string, label: string) {

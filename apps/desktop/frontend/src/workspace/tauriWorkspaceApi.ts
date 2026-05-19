@@ -1,9 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
-import { assignAgentQueueTaskToExecutor, clearAgentQueueTaskAssignment, createAgentQueueItemFromProposal, createAgentQueueTask, getAgentQueueSnapshot, getAgentQueueTask, listAgentQueueTasks, startAssignedAgentQueueTask, updateAgentQueueTask } from "./tauriAgentQueueApi";
-import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
+import { persistAgentChatProposal } from "./tauriAgentChatProposalPersistenceApi";
+import { getAgentMonitoringSnapshot } from "./tauriAgentMonitoringApi";
+import {
+  assignAgentQueueTaskToExecutor,
+  clearAgentQueueTaskAssignment,
+  createAgentQueueItemFromProposal,
+  createAgentQueueTask,
+  getAgentQueueSnapshot,
+  getAgentQueueTask,
+  listAgentQueueTasks,
+  startAssignedAgentQueueTask,
+  updateAgentQueueTask,
+} from "./tauriAgentQueueApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
-import { getAgentExecutorRunDetail, listAgentExecutorRuns } from "./tauriAgentExecutorHistoryApi";
+import {
+  getAgentExecutorRunDetail,
+  listAgentExecutorRuns,
+} from "./tauriAgentExecutorHistoryApi";
 import {
   cancelCodexDirectWorkRun,
   listenToDirectWorkStreamEvents,
@@ -12,22 +26,26 @@ import {
   startCodexDirectWorkStream,
 } from "./tauriCodexDirectWorkApi";
 import { createGitCommit } from "./tauriGitCommitApi";
-import { createJdbcConnector, getJdbcConnector, listJdbcConnectors, updateJdbcConnector } from "./tauriJdbcConnectorApi";
-import { createWorkspaceNote, getWorkspaceNote, listWorkspaceNotes, updateWorkspaceNote } from "./tauriWorkspaceNotesApi";
-import type { WorkspaceApi } from "./workspaceApi";
+import { getGitRepositoryStatus } from "./tauriGitStatusApi";
+import {
+  createJdbcConnector,
+  getJdbcConnector,
+  listJdbcConnectors,
+  updateJdbcConnector,
+} from "./tauriJdbcConnectorApi";
+import { runTerminalCommand } from "./tauriTerminalCommandApi";
+import { deleteWorkspace } from "./tauriWorkspaceDeletionApi";
+import {
+  createWorkspaceNote,
+  getWorkspaceNote,
+  listWorkspaceNotes,
+  updateWorkspaceNote,
+} from "./tauriWorkspaceNotesApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
-  AgentMonitoringSnapshot,
   CreateWorkspaceRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
-  GetAgentMonitoringSnapshotRequest,
-  GetGitRepositoryStatusRequest,
-  GitRepositoryStatus,
   ListWidgetLogsRequest,
-  PersistAgentChatProposalRequest,
-  PersistAgentChatProposalResponse,
-  RunTerminalCommandRequest,
-  RunTerminalCommandResponse,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -35,6 +53,7 @@ import type {
   WorkspaceSummary,
   WorkspaceWorkbenchState,
 } from "./types";
+import type { WorkspaceApi } from "./workspaceApiTypes";
 
 export const tauriWorkspaceApi: WorkspaceApi = {
   createWorkspace,
@@ -47,7 +66,10 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listWorkspaceNotes,
   getWorkspaceNote,
   updateWorkspaceNote,
-  createJdbcConnector, listJdbcConnectors, getJdbcConnector, updateJdbcConnector,
+  createJdbcConnector,
+  listJdbcConnectors,
+  getJdbcConnector,
+  updateJdbcConnector,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,
@@ -149,109 +171,6 @@ type TauriWidgetLogEntry = {
   message: string;
   payload: string | null;
   created_at: string;
-};
-
-type TauriAgentMonitoringSnapshot = {
-  workspace_id: string;
-  workbench_id: string;
-  proposal_results: TauriAgentMonitoringProposalResult[];
-};
-
-type TauriAgentMonitoringProposalResult = {
-  run_id: string;
-  result_id: string;
-  status: string;
-  result_type: string;
-  result_summary: string | null;
-  result_content: string | null;
-  run_started_at: string;
-  run_finished_at: string | null;
-  result_created_at: string;
-  source_widget_id: string;
-  source_widget_title: string;
-  runtime_status: string;
-  provider_status: string;
-  provider_used: boolean;
-  provider_response_received: boolean;
-  no_llm_called: boolean;
-  no_tools_executed: boolean;
-  no_mutations_performed: boolean;
-  context_was_approved: boolean;
-  operator_prompt: string;
-  proposal_summary: string;
-  proposed_plan: string[];
-  context_needed: string[];
-  approved_context_summary: string;
-  approved_context_status: string;
-  approved_context_source_labels: string[];
-  proposed_actions: TauriAgentMonitoringProposalAction[];
-  safety_notes: string[];
-  raw_payload: string;
-};
-
-type TauriAgentMonitoringProposalAction = {
-  title: string;
-  description: string;
-  status: string;
-  executed: boolean;
-};
-
-type TauriGitRepositoryStatus = {
-  branch: TauriGitBranchStatus | null;
-  working_tree: TauriGitWorkingTreeStatus;
-  changed_files: TauriGitFileChange[];
-  last_commit: TauriGitLastCommit | null;
-  warnings: string[];
-};
-
-type TauriGitBranchStatus = {
-  name: string | null;
-  upstream: string | null;
-  ahead: number | null;
-  behind: number | null;
-  is_detached: boolean;
-};
-
-type TauriGitWorkingTreeStatus = {
-  is_clean: boolean;
-  is_dirty: boolean;
-  staged_count: number;
-  unstaged_count: number;
-  untracked_count: number;
-};
-
-type TauriGitFileChange = {
-  area: string;
-  kind: string;
-  path: string;
-  original_path: string | null;
-};
-
-type TauriGitLastCommit = {
-  hash: string;
-  title: string;
-  author: string | null;
-  committed_at: string | null;
-};
-
-type TauriRunTerminalCommandResponse = {
-  run_id: string;
-  status: string;
-  exit_code: number | null;
-  stdout: string;
-  stderr: string;
-  stdout_truncated: boolean;
-  stderr_truncated: boolean;
-  duration_ms: number;
-  error_message: string | null;
-};
-
-type TauriPersistAgentChatProposalResponse = {
-  run_id: string;
-  status: string;
-  result_id: string;
-  result_type: string;
-  summary: string;
 };
 
 async function createWorkspace(
@@ -411,94 +330,6 @@ async function listWidgetLogs(
   return logs ? logs.map(normalizeWidgetLogEntry) : [];
 }
 
-async function getAgentMonitoringSnapshot(
-  request: GetAgentMonitoringSnapshotRequest,
-): Promise<AgentMonitoringSnapshot | null> {
-  const snapshot = await invoke<TauriAgentMonitoringSnapshot | null>(
-    "get_agent_monitoring_snapshot",
-    {
-      request: {
-        workspace_id: request.workspaceId,
-        workbench_id: request.workbenchId,
-      },
-    },
-  );
-
-  return snapshot ? normalizeAgentMonitoringSnapshot(snapshot) : null;
-}
-
-async function getGitRepositoryStatus(
-  request: GetGitRepositoryStatusRequest,
-): Promise<GitRepositoryStatus | null> {
-  const status = await invoke<TauriGitRepositoryStatus | null>(
-    "get_git_repository_status",
-    {
-      request: {
-        workspace_id: request.workspaceId,
-        workbench_id: request.workbenchId,
-        widget_instance_id: request.widgetInstanceId,
-        repository_root: request.repositoryRoot,
-      },
-    },
-  );
-
-  return status ? normalizeGitRepositoryStatus(status) : null;
-}
-
-async function runTerminalCommand(
-  request: RunTerminalCommandRequest,
-): Promise<RunTerminalCommandResponse | null> {
-  const response = await invoke<TauriRunTerminalCommandResponse | null>(
-    "run_terminal_command",
-    {
-      request: {
-        workspace_id: request.workspaceId,
-        workbench_id: request.workbenchId,
-        widget_instance_id: request.widgetInstanceId,
-        program: request.program,
-        args: request.args,
-        working_directory: request.workingDirectory,
-        timeout_ms: request.timeoutMs ?? null,
-        stdout_cap_bytes: request.stdoutCapBytes ?? null,
-        stderr_cap_bytes: request.stderrCapBytes ?? null,
-      },
-    },
-  );
-
-  return response ? normalizeRunTerminalCommandResponse(response) : null;
-}
-
-async function persistAgentChatProposal(
-  request: PersistAgentChatProposalRequest,
-): Promise<PersistAgentChatProposalResponse | null> {
-  const response = await invoke<TauriPersistAgentChatProposalResponse | null>(
-    "persist_agent_chat_proposal",
-    {
-      request: {
-        workspace_id: request.workspaceId,
-        workbench_id: request.workbenchId,
-        widget_instance_id: request.widgetInstanceId,
-        operator_prompt: request.operatorPrompt,
-        approved_context_snapshot_json: request.approvedContextSnapshotJson,
-        proposal: {
-          id: request.proposal.id,
-          request_summary: request.proposal.requestSummary,
-          proposed_plan: request.proposal.proposedPlan,
-          context_needed: request.proposal.contextNeeded,
-          action_proposals: request.proposal.actionProposals.map((action) => ({
-            title: action.title,
-            description: action.description,
-          })),
-          safety_notes: request.proposal.safetyNotes,
-          runtime_notes: request.proposal.runtimeNotes,
-        },
-      },
-    },
-  );
-
-  return response ? normalizePersistAgentChatProposalResponse(response) : null;
-}
-
 function normalizeWorkspaceSummary(
   workspace: TauriWorkspaceSummary,
 ): WorkspaceSummary {
@@ -577,124 +408,5 @@ function normalizeWidgetLogEntry(log: TauriWidgetLogEntry): WidgetLogEntry {
     message: log.message,
     payload: log.payload,
     createdAt: log.created_at,
-  };
-}
-
-function normalizeAgentMonitoringSnapshot(
-  snapshot: TauriAgentMonitoringSnapshot,
-): AgentMonitoringSnapshot {
-  return {
-    workspaceId: snapshot.workspace_id,
-    workbenchId: snapshot.workbench_id,
-    proposalResults: snapshot.proposal_results.map(
-      normalizeAgentMonitoringProposalResult,
-    ),
-  };
-}
-
-function normalizeAgentMonitoringProposalResult(
-  result: TauriAgentMonitoringProposalResult,
-) {
-  return {
-    runId: result.run_id,
-    resultId: result.result_id,
-    status: result.status,
-    resultType: result.result_type,
-    resultSummary: result.result_summary,
-    resultContent: result.result_content,
-    runStartedAt: result.run_started_at,
-    runFinishedAt: result.run_finished_at,
-    resultCreatedAt: result.result_created_at,
-    sourceWidgetId: result.source_widget_id,
-    sourceWidgetTitle: result.source_widget_title,
-    runtimeStatus: result.runtime_status,
-    providerStatus: result.provider_status,
-    providerUsed: result.provider_used,
-    providerResponseReceived: result.provider_response_received,
-    noLlmCalled: result.no_llm_called,
-    noToolsExecuted: result.no_tools_executed,
-    noMutationsPerformed: result.no_mutations_performed,
-    contextWasApproved: result.context_was_approved,
-    operatorPrompt: result.operator_prompt,
-    proposalSummary: result.proposal_summary,
-    proposedPlan: result.proposed_plan,
-    contextNeeded: result.context_needed,
-    approvedContextSummary: result.approved_context_summary,
-    approvedContextStatus: result.approved_context_status,
-    approvedContextSourceLabels: result.approved_context_source_labels,
-    proposedActions: result.proposed_actions.map((action) => ({
-      title: action.title,
-      description: action.description,
-      status: action.status,
-      executed: action.executed,
-    })),
-    safetyNotes: result.safety_notes,
-    rawPayload: result.raw_payload,
-  };
-}
-
-function normalizeGitRepositoryStatus(
-  status: TauriGitRepositoryStatus,
-): GitRepositoryStatus {
-  return {
-    branch: status.branch
-      ? {
-          name: status.branch.name,
-          upstream: status.branch.upstream,
-          ahead: status.branch.ahead,
-          behind: status.branch.behind,
-          isDetached: status.branch.is_detached,
-        }
-      : null,
-    workingTree: {
-      isClean: status.working_tree.is_clean,
-      isDirty: status.working_tree.is_dirty,
-      stagedCount: status.working_tree.staged_count,
-      unstagedCount: status.working_tree.unstaged_count,
-      untrackedCount: status.working_tree.untracked_count,
-    },
-    changedFiles: status.changed_files.map((change) => ({
-      area: change.area,
-      kind: change.kind,
-      path: change.path,
-      originalPath: change.original_path,
-    })),
-    lastCommit: status.last_commit
-      ? {
-          hash: status.last_commit.hash,
-          title: status.last_commit.title,
-          author: status.last_commit.author,
-          committedAt: status.last_commit.committed_at,
-        }
-      : null,
-    warnings: status.warnings,
-  };
-}
-
-function normalizeRunTerminalCommandResponse(
-  response: TauriRunTerminalCommandResponse,
-): RunTerminalCommandResponse {
-  return {
-    runId: response.run_id,
-    status: response.status,
-    exitCode: response.exit_code,
-    stdout: response.stdout,
-    stderr: response.stderr,
-    stdoutTruncated: response.stdout_truncated,
-    stderrTruncated: response.stderr_truncated,
-    durationMs: response.duration_ms,
-    errorMessage: response.error_message,
-  };
-}
-
-function normalizePersistAgentChatProposalResponse(
-  response: TauriPersistAgentChatProposalResponse,
-): PersistAgentChatProposalResponse {
-  return {
-    runId: response.run_id,
-    status: response.status,
-    resultId: response.result_id,
-    resultType: response.result_type,
-    summary: response.summary,
   };
 }
