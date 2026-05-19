@@ -22,6 +22,42 @@ A Tool Action should define:
 - expected output
 - result
 
+## Coordinator Action Proposals
+
+A Coordinator action proposal is a visible draft that may become a Tool Action
+only after operator review and approval. A proposal is not execution by itself.
+It must not trigger provider tool calls, widget capability calls, Terminal
+commands, Git mutation, JDBC SQL execution, Agent Executor runs, Queue
+dispatch, filesystem reads, or hidden context collection.
+
+A Coordinator action proposal should define:
+
+- title
+- target widget or widget kind
+- target capability
+- intent
+- required inputs
+- visible risk/safety notes
+- expected result
+- approval status
+- execution status
+- result summary
+
+The proposal UI should be message-associated in Coordinator Chat and expose
+Approve, Reject, Edit, and Copy controls. All target and input values must be
+visible before approval. Edits create a new reviewed input state; approval of
+one proposal does not approve different future actions.
+
+Initial safe proposal types:
+
+- create Agent Queue task from explicit Coordinator/operator text
+- create Note from explicit Coordinator/operator text
+- prepare JDBC query suggestion text without execution
+
+Terminal command proposals, Git mutations, JDBC SQL execution, Agent Executor
+run launch, Queue auto-dispatch, and hidden context compilation are out of the
+first proposal UI slice.
+
 ## Approval
 
 Dangerous actions require explicit approval before execution.

@@ -91,6 +91,10 @@ Future possible integrations:
 Those integrations are future work and must be explicit, operator-controlled,
 and separately scoped.
 
+Near-term Coordinator action proposal UI should start as message-associated,
+inert proposal cards. The first safe handoff target is approved Queue task
+creation. Agent Executor run launch remains out of the first proposal UI slice.
+
 ## Relationship To Agent Queue
 
 Interactive Agent v1 must not:
@@ -216,10 +220,11 @@ Expert.
 
 ## Recommended Next Blocks
 
-- Later  Coordinator Chat session persistence
-- Later  Coordinator Chat provider/Codex integration
-- Later  optional handoff to Agent Executor
-- Later  optional queue item creation from conversation
+- Coordinator local action proposal card UI, frontend-only/inert.
+- Coordinator proposal to create Agent Queue task with explicit approval.
+- Later Coordinator Chat session persistence.
+- Later Coordinator Chat provider/Codex integration.
+- Later optional handoff to Agent Executor after a separate safety/design slice.
 
 ## Non-Goals
 

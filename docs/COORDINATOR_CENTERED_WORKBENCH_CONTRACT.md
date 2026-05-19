@@ -121,10 +121,11 @@ Agent Executor owns live execution visibility.
 
 ### Terminal Capabilities
 
-Terminal currently exposes a one-shot command widget only.
+Terminal is currently a PTY-first manual operator shell with a collapsed legacy
+one-shot command fallback.
 
-Future PTY behavior is a manual operator shell. Coordinator must not control
-Terminal in the MVP.
+Coordinator must not control Terminal PTY or the legacy one-shot fallback in
+the MVP.
 
 ## Coordinator And Agent Queue
 
@@ -203,6 +204,11 @@ Coordinator must not treat raw widget output, widget state, logs, notes, SQL
 results, Git diffs, or AI interpretation as approved evidence unless the
 operator has reviewed and approved the evidence boundary.
 
+Action proposals should remain compatible with future Evidence/Sources by
+allowing later source or evidence references, but the proposal model must not
+depend on Evidence/Sources storage/API. This contract does not implement
+evidence capture, evidence review, source storage, or AI context approval.
+
 ## Autonomy Policy
 
 Coordinator must support autonomy levels in the future.
@@ -235,26 +241,126 @@ warnings and external sandboxing.
 
 ## Action Proposal Pattern
 
-Coordinator actions should be visible as action cards.
+Coordinator actions should first appear as inert action proposals. A proposal
+is a visible, reviewable plan to use a widget capability. It is not tool
+execution, provider tool access, or permission to inspect hidden Workspace data.
 
-Examples:
+An action proposal should define:
 
-- Run read-only SQL
-- Create Queue task
-- Assign Queue task to Executor
-- Start assigned task
-- Create local commit
-- Save summary as Note
+- `proposal_id`
+- `source_message_id`
+- `title`
+- `target_widget`
+- `target_capability`
+- `intent`
+- `required_inputs`
+- `visible_risk_notes`
+- `expected_result`
+- `approval_status`
+- `execution_status`
+- `result_summary`
 
-An action card should show:
+Conceptual approval statuses:
 
-- action type
-- target widget
-- input preview
-- risk level
-- what data will be used
-- what will happen
-- confirmation or policy status
+- `draft`
+- `pending_review`
+- `approved`
+- `rejected`
+- `edited`
+
+Conceptual execution statuses:
+
+- `not_run`
+- `running`
+- `completed`
+- `failed`
+- `cancelled`
+
+These fields are a product/contract model only. They do not define a storage
+schema, frontend type, Rust type, Tauri command, runtime registry, provider
+tool schema, or widget capability implementation in this block.
+
+Coordinator action proposals should be visible as message-associated action
+cards in Coordinator Chat. A card should show the proposal title, target
+widget, target capability, intent, input preview, risk/safety notes, expected
+result, approval status, execution status, and result summary when one exists.
+
+Minimum card controls:
+
+- Approve
+- Reject
+- Edit
+- Copy
+
+Cards must show all inputs that would be sent to the target capability before
+approval. Nothing may execute invisibly. If the first UI slice is frontend-only
+and inert, Approve must clearly mean "approve this draft/preview" or remain
+disabled until an execution bridge exists.
+
+Initial safe proposal types:
+
+- Create Agent Queue task from explicit Coordinator/operator text. This creates
+  a task only after operator approval; it does not start execution.
+- Create Note from explicit Coordinator/operator text. This writes only the
+  approved note body/title; it does not read hidden Notes content.
+- Prepare JDBC query suggestion text. This is an analysis/planning proposal
+  only; it must not execute SQL or inspect database metadata beyond explicit
+  operator-provided text.
+
+Do not use the first implementation slice for:
+
+- Terminal command execution
+- Git commit, push, reset, clean, stash, checkout, or restore
+- JDBC SQL execution
+- Agent Executor run launch
+- hidden context compilation
+- Queue auto-dispatch
+
+Terminal command proposals are future-only and require a separate safety
+contract before any UI or runtime work. Coordinator must not control Terminal
+PTY or the legacy one-shot command runner in the current slice.
+
+## Capability Reference Boundary
+
+The first action proposal implementation may use a static frontend proposal
+type registry that lists allowed proposal types, display labels, target widget
+kinds, required inputs, risk notes, and disabled/unsupported reasons.
+
+Later work may replace or supplement that with widget capability descriptors,
+but Coordinator still must not use runtime hidden introspection of widget
+state. The capability boundary is descriptive until the operator approves a
+specific visible action.
+
+Coordinator must not automatically read:
+
+- widget logs
+- widget results
+- Terminal output
+- Agent Executor logs or final responses
+- Git diffs or repository files
+- JDBC connector secrets, schemas, query results, or external database data
+- Notes bodies
+- filesystem paths or file contents
+- environment variables
+- provider secrets
+
+## Approval, Edit, And Execution Flow
+
+The required proposal flow is:
+
+1. Coordinator produces or displays a proposal associated with a chat message.
+2. The operator reviews visible target, capability, intent, inputs, risks, and
+   expected result.
+3. The operator may edit proposal inputs before execution.
+4. The operator approves or rejects the proposal.
+5. Only an approved proposal can become a Tool Action through the target widget
+   capability boundary.
+6. The action result, failure, or cancellation is shown visibly on the proposal
+   card or adjacent message.
+
+Failed execution must be visible and non-silent. Approval of a proposal does
+not grant broad future autonomy, hidden context access, or permission to run a
+different action.
 
 ## Context Policy
 
@@ -262,17 +368,25 @@ Coordinator should not receive all Workspace data by default.
 
 Coordinator context must be explicit and inspectable.
 
-Possible context sources:
+Current allowed context for the first proposal UI work:
 
 - current conversation
-- selected widget state
-- selected Queue task
-- selected Note
-- selected Git diff
-- selected validation result
-- selected SQL result
-- selected evidence item
-- recent Workspace summary
+- explicit operator text
+- safe Workspace identity summary
+- safe visible widget identity summary, such as widget title, definition id, and
+  visible availability state
+
+Not allowed without a later approved context/evidence flow:
+
+- Terminal output
+- Agent Executor logs, prompts, final responses, diffs, or validation output
+- Git diffs, file contents, repository files, or status snapshots
+- JDBC results, connector secrets, schemas, or query output
+- Notes bodies
+- Runbook notes/evidence
+- filesystem contents
+- environment variables
+- secrets
 
 A future context pack should show:
 
@@ -335,7 +449,10 @@ Do not use medical workflows as a near-term demo or design driver.
 
 ## First Practical Coordinator Scenario
 
-The first practical Coordinator scenario is database investigation with JDBC.
+The first product scenario remains database investigation with JDBC once JDBC
+read-only execution and result review exist. The first action proposal UI slice
+should still start smaller: inert proposal cards, then approved Queue task
+creation, before any SQL execution or provider runtime.
 
 Flow:
 
@@ -349,11 +466,13 @@ Flow:
 
 ## Recommended Next Blocks
 
-- JDBC read-only query execution backend.
-- JDBC result grid UI.
-- Coordinator action proposal UI pattern.
-- Coordinator to JDBC read-only query proposal flow.
-- Coordinator to Queue task creation flow.
+- Coordinator local action proposal card UI, frontend-only/inert.
+- Coordinator proposal to create Agent Queue task with explicit approval.
+- Coordinator provider/runtime planning or local deterministic proposal
+  plumbing.
+- Later controlled widget capability bridge.
+- Later Coordinator to JDBC read-only query proposal flow after JDBC execution
+  and result review are contract-ready.
 - Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
 

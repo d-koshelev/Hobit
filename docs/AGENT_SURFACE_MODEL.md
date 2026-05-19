@@ -255,18 +255,22 @@ The current user-facing workbench widget set is:
 
 - Agent Executor: run one task and show execution.
 - Agent Queue: organize tasks and executor history.
-- Coordinator Chat: understand, plan, propose widget actions, and interpret
-  results.
+- Coordinator Chat: understand, plan, propose controlled widget actions, and
+  interpret results.
 - Runbook: follow and manage procedural steps.
 - Database / JDBC: manage connector metadata now; later run approved read-only
   SQL through controlled capabilities.
 - Git Widget: review repository state.
-- Terminal: run manual one-shot commands.
+- Terminal: run manual PTY sessions, with a collapsed legacy one-shot fallback.
 - Notes: write/save local notes.
 
 ## Recommended Next Blocks
 
-- JDBC read-only query execution backend.
-- JDBC result grid UI.
-- Coordinator action proposal UI pattern.
+- Coordinator local action proposal card UI, frontend-only/inert.
+- Coordinator proposal to create Agent Queue task with explicit approval.
+- Coordinator provider/runtime planning or local deterministic proposal
+  plumbing.
+- Later controlled widget capability bridge.
+- Later JDBC read-only query execution backend.
+- Later JDBC result grid UI.
 - Runbook persistence and edit mode later.

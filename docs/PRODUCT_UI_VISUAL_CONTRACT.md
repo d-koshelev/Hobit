@@ -411,6 +411,14 @@ Rules:
   Executor launch until provider/tool integration and explicit handoff contracts
   exist.
 - Be honest about local/mock/provider-backed status.
+- Future action proposal cards should sit with the message that produced them,
+  show the target widget/capability, visible inputs, risk/safety notes,
+  expected result, approval state, execution state, and result summary, and use
+  compact Approve, Reject, Edit, and Copy controls.
+- Proposal cards are review surfaces. They must not look like hidden execution,
+  broad workspace inspection, Terminal control, Git mutation, SQL execution, or
+  Agent Executor launch unless that exact capability is implemented and
+  approval-gated.
 
 ### Runbook
 

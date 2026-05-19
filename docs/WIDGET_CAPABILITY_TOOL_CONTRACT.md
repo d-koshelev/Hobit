@@ -390,6 +390,51 @@ Coordinator must not bypass widgets. Any action that uses widget state,
 external systems, files, repositories, tasks, notes, or processes must go
 through the owning widget capability boundary.
 
+## Coordinator Action Proposal Boundary
+
+A Coordinator action proposal is an inert, visible request to use a widget
+capability later. It is not capability execution and does not grant hidden
+access to widget internals.
+
+The proposal model should include:
+
+- title
+- target widget or widget kind
+- target capability
+- intent
+- required inputs
+- visible risk/safety notes
+- expected result
+- approval status
+- execution status
+- result summary
+
+The first implementation may use a static frontend registry of supported
+proposal types. That registry may describe display labels, required inputs,
+target widget kinds, risk notes, and unsupported reasons. It must not introspect
+widget state, logs, output buffers, files, repositories, databases, notes,
+environment variables, or secrets.
+
+Initial safe proposal types:
+
+- Create Agent Queue task from explicit Coordinator/operator text.
+- Create Note from explicit Coordinator/operator text.
+- Prepare JDBC query suggestion text without execution.
+
+Out of first-slice proposal execution:
+
+- Terminal PTY or one-shot command execution.
+- Git mutation, including commit, push, reset, clean, stash, checkout, or
+  restore.
+- JDBC SQL execution.
+- Agent Executor run launch.
+- Queue auto-dispatch.
+- hidden context compilation.
+
+Only an approved proposal can become a Tool Action, and that conversion must
+still pass through the owning widget capability boundary and the Tool Action
+approval model.
+
 ## Evidence And Sources Relationship
 
 Capabilities can produce evidence candidates:
@@ -425,12 +470,17 @@ samples, and evidence items over raw data.
 
 Future Coordinator action cards should show:
 
+- title
 - capability name
 - target widget
+- intent
 - input preview
 - risk level
+- visible risk/safety notes
 - context included
-- confirmation status
+- approval status
+- execution status
+- expected result
 - result summary
 
 Action cards are preview and approval surfaces, not hidden execution. This
@@ -448,11 +498,14 @@ state-changing or external effects.
 
 ## Recommended Follow-Up Blocks
 
-- JDBC read-only query execution backend.
-- JDBC result grid UI.
-- Coordinator action proposal UI pattern.
-- Coordinator to JDBC read-only query proposal flow.
-- Coordinator to Queue task creation flow.
+- Coordinator local action proposal card UI, frontend-only/inert.
+- Coordinator proposal to create Agent Queue task with explicit approval.
+- Coordinator provider/runtime planning or local deterministic proposal
+  plumbing.
+- Later controlled widget capability bridge.
+- Later JDBC read-only query execution backend.
+- Later JDBC result grid UI.
+- Later Coordinator to JDBC read-only query proposal flow.
 - Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
 

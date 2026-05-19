@@ -152,6 +152,9 @@ future widget capability.
   Agent plus Coordinator.
 - Keeps messages in local React state for the current widget session.
 - Shows local placeholder assistant responses.
+- Coordinator action proposal cards are contract/planned only. The next slice
+  may add inert frontend-only proposal cards, followed by explicit approved
+  Queue task creation.
 - Does not connect to a provider, call Codex, execute tools, persist sessions,
   read hidden context, create queue items, launch Agent Executor, integrate with
   Runbook, mutate files, mutate Git, run SQL, or run Terminal commands.
@@ -216,12 +219,16 @@ runtime.
 
 ## Recommended Next Blocks
 
+- Coordinator local action proposal card UI, frontend-only/inert.
+- Coordinator proposal to create Agent Queue task with explicit approval.
+- Coordinator provider/runtime planning or local deterministic proposal
+  plumbing.
+- Later controlled widget capability bridge.
+- Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
+  review exists.
 - Evidence/Sources storage/API foundation.
 - JDBC read-only query execution backend.
 - JDBC query results UI.
-- Coordinator to JDBC read-only proposal flow.
-- Coordinator Chat product UI polish or Coordinator runtime/provider contract.
-- Coordinator action proposal UI pattern.
 - AI context/token economy contract.
 - YouTube Analyst widget contract.
 - Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.
