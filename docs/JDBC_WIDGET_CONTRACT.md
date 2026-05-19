@@ -12,11 +12,12 @@ permissions, execution, and AI-context sharing controlled.
 
 This document is the controlling contract for JDBC work. The current
 implementation foundation is intentionally limited to workspace-local connector
-metadata storage/API. It does not implement frontend UI, a Java sidecar, JDBC
-execution, SQL formatting, `EXPLAIN` visualization, AI provider integration,
-Coordinator runtime, widget tool execution, database credential handling,
-secret storage, Terminal or PTY behavior, Git mutation, Queue behavior, Agent
-Executor behavior, or Runbook work.
+metadata storage/API and a Preview frontend connector metadata shell. It does
+not implement a Java sidecar, JDBC execution, SQL formatting, `EXPLAIN`
+visualization, AI provider integration, Coordinator runtime, widget tool
+execution, database credential handling, secret storage, Terminal or PTY
+behavior, Git mutation, Queue behavior, Agent Executor behavior, or Runbook
+work.
 
 ## One-Sentence Role
 
@@ -91,11 +92,13 @@ and `EXPLAIN` behavior before execution is implemented.
 Current foundation status:
 
 - workspace-local connector metadata create/list/read/update APIs exist
+- a Preview Database / JDBC widget can create, list, select, and update
+  connector metadata
 - stored metadata includes only masked/non-secret connector descriptors
 - passwords, tokens, secret references, driver jars, and runtime credentials are
   not stored
-- no JDBC widget UI, query execution, test connection, Java sidecar, SQL
-  formatter, `EXPLAIN`, AI assistance, or Coordinator capability runtime exists
+- no query execution, test connection, Java sidecar, SQL formatter, `EXPLAIN`,
+  AI assistance, credential input, or Coordinator capability runtime exists
 
 ## Secrets Policy
 
@@ -449,14 +452,13 @@ AI interpretation is not evidence unless it is marked as AI interpretation.
 
 Recommended implementation slices:
 
-1. JDBC UI connector list and SQL editor MVP.
-2. JDBC read-only query execution backend.
-3. JDBC result grid UI.
-4. SQL formatter.
-5. `EXPLAIN` backend/API.
-6. `EXPLAIN` UI.
-7. AI SQL review contract.
-8. Coordinator to JDBC read-only action proposal flow.
+1. JDBC read-only query execution backend.
+2. JDBC result grid UI.
+3. SQL formatter.
+4. `EXPLAIN` backend/API.
+5. `EXPLAIN` UI.
+6. AI SQL review contract.
+7. Coordinator to JDBC read-only action proposal flow.
 
 Each slice must remain narrow and preserve the read-only, approval-aware,
 secret-isolated boundary.

@@ -415,8 +415,9 @@ for that instance. Frontend delete controls, workspace deletion, undo/restore,
 and bulk deletion are not implemented.
 
 The current user-facing widget set is Agent Executor, Agent Queue, Coordinator
-Chat, Runbook, Git, Terminal, and Notes. Coordinator Chat currently reuses the
-existing `interactive-agent` widget id/component for compatibility. Agent
+Chat, Database / JDBC, Runbook, Git, Terminal, and Notes. Coordinator Chat
+currently reuses the existing `interactive-agent` widget id/component for
+compatibility. Agent
 Executor reuses the existing
 `agent-run` widget identity for persistence compatibility and keeps the current
 Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget
@@ -436,10 +437,12 @@ minimal widget-state draft shaped as `{ "body": "..." }`. The Terminal widget
 has a minimal desktop-only one-shot command form. The Git widget placeholder has
 a transient explicit repository-root input and supports manual desktop-only
 read-only Git status refresh through `get_git_repository_status`, rendered as a
-visual status card and grouped changed-files summary. Old Agent Chat, Agent
-Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC,
-JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces
-are not part of the current user-facing catalog or workbench surface.
+visual status card and grouped changed-files summary. Database / JDBC is a
+Preview connector metadata shell only; it does not collect credentials, run
+SQL, run `EXPLAIN`, format SQL, show real results, or expose Coordinator tools.
+Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script
+Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview
+surfaces are not part of the current user-facing catalog or workbench surface.
 
 The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, preset editing, and real Dock behavior are not implemented yet. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This is transient frontend-only presentation state, not a separate OS window.
 
@@ -456,6 +459,7 @@ Current user-facing widget types are:
 - Agent Executor
 - Agent Queue
 - Coordinator Chat
+- Database / JDBC
 - Runbook
 - Git
 - Terminal
@@ -473,9 +477,10 @@ desktop-only one-shot command runner until a later PTY/session implementation
 block.
 
 Future Database/JDBC Widget behavior is further defined in
-`docs/JDBC_WIDGET_CONTRACT.md`. Database/JDBC is not part of the current
-catalog surface; when implemented, it must remain read-only by default,
-connector-secret-isolated, capped, and approval-aware.
+`docs/JDBC_WIDGET_CONTRACT.md`. Database / JDBC is part of the current Preview
+catalog surface as a connector metadata shell only; future query execution must
+remain read-only by default, connector-secret-isolated, capped, and
+approval-aware.
 
 Future agent/task run observability behavior is further defined in `AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 

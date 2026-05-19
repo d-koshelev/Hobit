@@ -1,5 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
+  CreateJdbcConnectorRequest,
+  JdbcConnector,
+  UpdateJdbcConnectorRequest,
+} from "../workspace/jdbcConnectorTypes";
+import type {
   AgentExecutorDiffSummary,
   AgentQueueTask,
   AgentExecutorRunDetail,
@@ -322,6 +327,14 @@ export type WidgetRenderProps = {
   onUpdateWorkspaceNote?: (
     request: Omit<UpdateWorkspaceNoteRequest, "workspaceId">,
   ) => Promise<WorkspaceNote | null>;
+  onCreateJdbcConnector?: (
+    request: Omit<CreateJdbcConnectorRequest, "workspaceId">,
+  ) => Promise<JdbcConnector>;
+  onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
+  onGetJdbcConnector?: (connectorId: string) => Promise<JdbcConnector | null>;
+  onUpdateJdbcConnector?: (
+    request: Omit<UpdateJdbcConnectorRequest, "workspaceId">,
+  ) => Promise<JdbcConnector | null>;
   onDirectWorkGitReviewRequested?: (
     request: DirectWorkGitReviewRequestInput,
   ) => void;

@@ -26,19 +26,21 @@ Near-term product direction:
   validation, history, and stop/cancel
 - keep Runbook preview/minimal and deferred from active roadmap
 - make JDBC/Database Connector a first-version scope candidate under
-  `docs/JDBC_WIDGET_CONTRACT.md` and its read-only-by-default capability model
+  `docs/JDBC_WIDGET_CONTRACT.md` and its read-only-by-default capability model;
+  the current Preview widget manages connector metadata only
 - treat Evidence/Sources as an important future trust layer
 - keep medical/healthcare workflows out of active scope due
   privacy/compliance/safety sensitivity
 
 Recommended next blocks:
 
-- Block 209 - JDBC query UI MVP.
-- Block 210 - Coordinator action proposal UI pattern.
-- Block 211 - Coordinator to JDBC read-only query proposal flow.
-- Block 212 - Coordinator to Queue task creation flow.
-- Block 213 - Evidence/Sources contract.
-- Block 214 - AI context/token economy contract.
+- JDBC read-only query execution backend.
+- JDBC result grid UI.
+- Coordinator action proposal UI pattern.
+- Coordinator to JDBC read-only query proposal flow.
+- Coordinator to Queue task creation flow.
+- Evidence/Sources contract.
+- AI context/token economy contract.
 
 ## Near-Term Agent Surface Model
 
@@ -194,8 +196,8 @@ pinning, autosave, or other multi-note UI.
 
 - No real JDBC execution until `docs/JDBC_WIDGET_CONTRACT.md` is followed by
   focused read-only execution, result limit, and approval blocks. The connector
-  metadata API foundation exists, but no JDBC UI, credentials, sidecar, query
-  runner, `EXPLAIN`, or AI SQL assistance exists yet.
+  metadata API foundation and Preview metadata UI exist, but no credentials,
+  sidecar, query runner, `EXPLAIN`, or AI SQL assistance exists yet.
 - No real image editing yet.
 - No full drag-and-drop layout editor yet.
 - No Knowledge Catalog implementation yet.

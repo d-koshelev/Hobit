@@ -11,6 +11,7 @@ import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
+import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
@@ -34,6 +35,7 @@ import {
   getWidgetDefinition,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  JDBC_WIDGET_COMPONENT_KEY,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
   RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
@@ -45,6 +47,7 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
   [INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY]:
     InteractiveAgentPlaceholderWidget,
+  [JDBC_WIDGET_COMPONENT_KEY]: JdbcConnectorWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
   [RUNBOOK_PLACEHOLDER_COMPONENT_KEY]: RunbookPlaceholderWidget,
   [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
@@ -265,6 +268,22 @@ export function WidgetHost({
     definition.componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY
       ? widgetActions.updateWorkspaceNote
       : undefined;
+  const createJdbcConnector =
+    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
+      ? widgetActions.createJdbcConnector
+      : undefined;
+  const listJdbcConnectors =
+    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
+      ? widgetActions.listJdbcConnectors
+      : undefined;
+  const getJdbcConnector =
+    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
+      ? widgetActions.getJdbcConnector
+      : undefined;
+  const updateJdbcConnector =
+    definition.componentKey === JDBC_WIDGET_COMPONENT_KEY
+      ? widgetActions.updateJdbcConnector
+      : undefined;
 
   if (!Component) {
     return (
@@ -355,6 +374,10 @@ export function WidgetHost({
       onListWorkspaceNotes={listWorkspaceNotes}
       onGetWorkspaceNote={getWorkspaceNote}
       onUpdateWorkspaceNote={updateWorkspaceNote}
+      onCreateJdbcConnector={createJdbcConnector}
+      onListJdbcConnectors={listJdbcConnectors}
+      onGetJdbcConnector={getJdbcConnector}
+      onUpdateJdbcConnector={updateJdbcConnector}
       onRunCodexDirectWork={runCodexDirectWork}
       onRunDirectWorkValidation={runDirectWorkValidation}
       onCancelCodexDirectWorkRun={cancelCodexDirectWorkRun}

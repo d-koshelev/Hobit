@@ -4,6 +4,7 @@ import {
   AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  JDBC_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
   RUNBOOK_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
@@ -14,7 +15,8 @@ export type WidgetCatalogCategory =
   | "workflow"
   | "productivity"
   | "tools"
-  | "codebase";
+  | "codebase"
+  | "database";
 
 export type WidgetCatalogTemplateStatus = "available";
 export type WidgetCatalogSection = "ready" | "preview";
@@ -122,6 +124,21 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "No automatic acceptance or Git mutation",
     ],
     futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: JDBC_WIDGET_DEFINITION_ID,
+    title: "Database / JDBC",
+    category: "database",
+    description:
+      "Controlled database connector surface. Configure connector metadata now; SQL execution, EXPLAIN, formatting, and AI query assistance are pending.",
+    section: "preview",
+    status: "available",
+    capabilitySummary: [
+      "Workspace-local connector metadata",
+      "No credentials, SQL execution, EXPLAIN, or result grid",
+      "Future Coordinator proxy through approved read-only capabilities",
+    ],
+    futureWidgetDefinitionId: JDBC_WIDGET_DEFINITION_ID,
   },
   {
     id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,

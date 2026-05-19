@@ -22,6 +22,7 @@ Preview:
 
 - Agent Queue
 - Coordinator Chat
+- Database / JDBC
 - Runbook
 
 Coordinator-centered direction is defined in
@@ -133,6 +134,20 @@ future widget capability.
   read hidden context, create queue items, launch Agent Executor, integrate with
   Runbook, mutate files, mutate Git, run SQL, or run Terminal commands.
 
+### Database / JDBC
+
+- Preview connector metadata surface.
+- Uses workspace-local JDBC connector metadata APIs for create, list, read, and
+  update.
+- Lets the operator create and edit non-secret connector descriptors:
+  display name, database kind, driver kind, masked JDBC URL metadata,
+  environment, read-only default, status, and notes.
+- Shows a disabled future SQL workspace placeholder.
+- Does not collect credentials, store passwords or tokens, test connections,
+  run SQL, run `EXPLAIN`, format SQL, show real results, call AI, integrate
+  with Coordinator Chat runtime, launch Terminal, mutate Git, or affect Agent
+  Queue or Agent Executor behavior.
+
 ### Runbook
 
 - Preview local/manual steps MVP for procedural work.
@@ -155,21 +170,19 @@ current Workbench surface:
 - Dock
 - Agent CLI
 - Script Runner
-- Database/JDBC
 - JIRA
 - Confluence
 - Image Edit
 - separate legacy Coordinator preview surface
 
-Database/JDBC is not a current catalog surface, but it is now a first-version
-scope candidate for the Coordinator-centered database investigation scenario.
-The contract is defined in `docs/JDBC_WIDGET_CONTRACT.md`; implementation must
-preserve read-only defaults, connector secret isolation, explicit approval,
-capped results, and explicit AI context sharing.
-Workspace-local JDBC connector metadata storage/API now exists for
-create/list/read/update, but there is still no catalog widget, connector UI,
-credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI assistance, or
-Coordinator tool runtime.
+Database/JDBC is now a current Preview catalog surface for connector metadata
+only. The contract is defined in `docs/JDBC_WIDGET_CONTRACT.md`;
+implementation must preserve read-only defaults, connector secret isolation,
+explicit approval, capped results, and explicit AI context sharing.
+Workspace-local JDBC connector metadata storage/API and frontend metadata UI
+exist for create/list/read/update, but there is still no credential storage,
+SQL execution, Java sidecar, `EXPLAIN`, AI assistance, or Coordinator tool
+runtime.
 
 ## Compatibility Notes
 
@@ -184,6 +197,6 @@ Coordinator tool runtime.
 - Git commit UI with confirmation after the backend/API foundation.
 - Terminal PTY backend foundation after `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 - Notes product UI after the storage/API foundation.
-- Block 209 - JDBC query UI MVP.
+- JDBC read-only query execution backend and result grid slices later.
 - Runbook persistence and edit mode later.
 - Agent Queue dependency blocks later.

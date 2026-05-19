@@ -7,6 +7,8 @@ export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
 export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
 export const GIT_WIDGET_DEFINITION_ID = "git";
 export const GIT_PLACEHOLDER_COMPONENT_KEY = "git-placeholder";
+export const JDBC_WIDGET_DEFINITION_ID = "database-jdbc";
+export const JDBC_WIDGET_COMPONENT_KEY = "database-jdbc-widget";
 export const INTERACTIVE_AGENT_WIDGET_DEFINITION_ID = "interactive-agent";
 export const INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY =
   "interactive-agent-placeholder";
@@ -67,6 +69,16 @@ export const widgetRegistry: WidgetDefinition[] = [
     defaultTitle: "Git",
     defaultConfig: {},
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
+  },
+  {
+    id: JDBC_WIDGET_DEFINITION_ID,
+    title: "Database / JDBC",
+    category: "database",
+    description:
+      "Preview surface for workspace-local database connector metadata. SQL execution is pending.",
+    defaultTitle: "Database / JDBC",
+    defaultConfig: {},
+    componentKey: JDBC_WIDGET_COMPONENT_KEY,
   },
   {
     id: TERMINAL_WIDGET_DEFINITION_ID,

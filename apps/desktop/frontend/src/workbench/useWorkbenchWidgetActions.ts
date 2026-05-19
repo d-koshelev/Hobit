@@ -46,6 +46,7 @@ import type {
 } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
 import { createAgentQueueTaskActions, type AgentQueueTaskWidgetActions } from "./agentQueueTaskWidgetActions";
+import { createJdbcConnectorActions, type JdbcConnectorWidgetActions } from "./jdbcConnectorWidgetActions";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 import { createWorkspaceNoteActions, type WorkspaceNoteWidgetActions } from "./workspaceNoteWidgetActions";
 import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
@@ -57,7 +58,9 @@ type UseWorkbenchWidgetActionsOptions = {
   viewState: WorkbenchViewState;
 };
 
-export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & AgentQueueTaskWidgetActions & {
+export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions &
+  AgentQueueTaskWidgetActions &
+  JdbcConnectorWidgetActions & {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
   getGitRepositoryStatus: (
     widgetInstanceId: WidgetInstanceId,
@@ -112,8 +115,10 @@ export type WorkbenchWidgetActions = WorkspaceNoteWidgetActions & AgentQueueTask
   updateWidgetState: (widgetInstanceId: WidgetInstanceId, state: WidgetState) => Promise<void>;
 };
 
-export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions & Pick<
-  WorkbenchWidgetActions,
+export type WorkbenchWidgetInstanceActions = WorkspaceNoteWidgetActions &
+  JdbcConnectorWidgetActions &
+  Pick<
+    WorkbenchWidgetActions,
   | "listWidgetLogs"
   | "logRefreshTokens"
   | "removeWidgetInstance"
@@ -614,6 +619,7 @@ export function useWorkbenchWidgetActions({
     addWidgetTemplate,
     ...createWorkspaceNoteActions(viewState),
     ...createAgentQueueTaskActions(viewState),
+    ...createJdbcConnectorActions(viewState),
     listAgentExecutorRuns: loadAgentExecutorRuns,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,

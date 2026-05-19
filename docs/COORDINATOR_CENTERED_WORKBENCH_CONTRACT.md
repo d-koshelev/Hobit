@@ -344,13 +344,13 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Block 208 - JDBC connector model/API foundation.
-- Block 209 - JDBC query UI MVP.
-- Block 210 - Coordinator action proposal UI pattern.
-- Block 211 - Coordinator to JDBC read-only query proposal flow.
-- Block 212 - Coordinator to Queue task creation flow.
-- Block 213 - Evidence/Sources contract.
-- Block 214 - AI context/token economy contract.
+- JDBC read-only query execution backend.
+- JDBC result grid UI.
+- Coordinator action proposal UI pattern.
+- Coordinator to JDBC read-only query proposal flow.
+- Coordinator to Queue task creation flow.
+- Evidence/Sources contract.
+- AI context/token economy contract.
 
 ## Non-Goals
 

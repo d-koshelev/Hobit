@@ -110,6 +110,7 @@ class QueueExecutorSmokeRuntime {
       clearAgentQueueTaskAssignment: async () => this.cloneTask(),
       createAgentQueueTask: async () => this.cloneTask(),
       createGitCommit: async () => this.forbidden(null),
+      createJdbcConnector: this.unsupported,
       createWorkspaceNote: this.unsupported,
       getAgentExecutorDiffSummary: async () => null,
       getAgentExecutorRunDetail: async () => {
@@ -124,6 +125,7 @@ class QueueExecutorSmokeRuntime {
       },
       getAgentQueueTask: async () => this.cloneTask(),
       getGitRepositoryStatus: async () => null,
+      getJdbcConnector: this.unsupported,
       getWorkspaceNote: async () => null,
       listAgentExecutorRuns: async () => {
         this.listExecutorRunsCallCount += 1;
@@ -136,6 +138,7 @@ class QueueExecutorSmokeRuntime {
 
         return [this.cloneTask()];
       },
+      listJdbcConnectors: this.unsupported,
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => [],
       logRefreshTokens: {},
@@ -164,6 +167,7 @@ class QueueExecutorSmokeRuntime {
       },
       startCodexDirectWorkStream: async () => this.forbidden(null),
       updateAgentQueueTask: async () => this.cloneTask(),
+      updateJdbcConnector: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => null,

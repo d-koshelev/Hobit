@@ -2,7 +2,37 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
-The current repository contains a root Rust workspace that includes the core crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri workspace bridge, and a SQLite workspace persistence foundation. The current user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the existing `interactive-agent` widget id/component for compatibility. Agent Executor reuses the existing `agent-run` widget identity for persistence compatibility, shows each widget instance as a visible execution slot, and keeps the current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning widget instance, executable, repository root, operator prompt, sandbox, approval policy, timeout, and output caps; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell. Terminal has a bounded one-shot command path for persisted Terminal widget instances only. Git has a narrow manual desktop-only read-only status refresh path. Agent Queue is a preview manual task queue surface backed by Workspace-scoped task storage/API, assignment API/UI, and a manual backend/API start path for assigned tasks, with no automatic dispatch, scheduler, or dependency behavior. Workspace-local JDBC connector metadata storage/API exists, but there is no Database/JDBC catalog widget, JDBC UI, credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL assistance, or Coordinator JDBC tool runtime. Coordinator-centered product direction is represented by a local-only Coordinator Chat placeholder; no Coordinator runtime, hidden context access, or broad tool execution is implemented. Runbook has a local/manual steps MVP. There is no Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI runtime, Script Runner, Database/JDBC widget, JIRA, Confluence, Image Edit, shell mode, interactive terminal, frontend live streaming UI, PTY, Terminal cancellation, command history, executable chat runtime beyond the manual Direct Work/Queue API paths, Git mutations/diff/log/show, hidden context access, provider settings UI, secrets UI, HTTPS provider adapter, or broad tool execution in the current user-facing workbench surface.
+The current repository contains a root Rust workspace that includes the core
+crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
+workspace bridge, and a SQLite workspace persistence foundation. The current
+user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat,
+Database / JDBC, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the
+existing `interactive-agent` widget id/component for compatibility. Agent
+Executor reuses the existing `agent-run` widget identity for persistence
+compatibility, shows each widget instance as a visible execution slot, and
+keeps the current Codex CLI Direct Work behavior: explicit Workspace,
+Workbench, owning widget instance, executable, repository root, operator
+prompt, sandbox, approval policy, timeout, and output caps; on Windows,
+resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from
+PATH without invoking a shell. Terminal has a bounded one-shot command path for
+persisted Terminal widget instances only. Git has a narrow manual desktop-only
+read-only status refresh path. Agent Queue is a preview manual task queue
+surface backed by Workspace-scoped task storage/API, assignment API/UI, and a
+manual backend/API start path for assigned tasks, with no automatic dispatch,
+scheduler, or dependency behavior. Database / JDBC is a Preview connector
+metadata shell backed by workspace-local JDBC connector metadata storage/API;
+there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
+assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
+direction is represented by a local-only Coordinator Chat placeholder; no
+Coordinator runtime, hidden context access, or broad tool execution is
+implemented. Runbook has a local/manual steps MVP. There is no Agent Chat
+proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
+runtime, Script Runner, JIRA, Confluence, Image Edit, shell mode, interactive
+terminal, frontend live streaming UI, PTY, Terminal cancellation, command
+history, executable chat runtime beyond the manual Direct Work/Queue API paths,
+Git mutations/diff/log/show, hidden context access, provider settings UI,
+secrets UI, HTTPS provider adapter, or broad tool execution in the current
+user-facing workbench surface.
 
 ## Documentation Contracts
 
@@ -42,8 +72,9 @@ tools.
 safety model: connector boundaries, read-only SQL defaults, query limits,
 secret isolation, `EXPLAIN`, AI SQL assistance, and Coordinator capability
 rules. The current implementation foundation adds workspace-local connector
-metadata storage/API only; JDBC UI, execution, sidecars, credential storage,
-secret storage, query results, and Coordinator runtime remain unimplemented.
+metadata storage/API and a Preview connector metadata UI only; SQL execution,
+sidecars, credential storage, secret storage, query results, and Coordinator
+runtime remain unimplemented.
 
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
 the Coordinator-centered update: Coordinator Chat handles conversation and
@@ -159,9 +190,31 @@ In plain browser/Vite development, the frontend uses an in-memory workspace API 
 
 The Empty Workbench shell intentionally renders no concrete widgets by default. New Workspaces still start with zero widget instances.
 
-The frontend includes a Widget Catalog drawer opened from Add Widget controls. The current user-facing catalog exposes Ready templates for Agent Executor, Git, Terminal, and Notes, plus Preview templates for Agent Queue, Coordinator Chat, and Runbook. Coordinator Chat uses the current `interactive-agent` compatibility/local-chat placeholder. Agent Executor reuses the existing `agent-run` definition id for persistence compatibility. Retired surfaces such as Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, Database/JDBC, JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not shown in the current catalog or workbench surface.
+The frontend includes a Widget Catalog drawer opened from Add Widget controls.
+The current user-facing catalog exposes Ready templates for Agent Executor,
+Git, Terminal, and Notes, plus Preview templates for Agent Queue, Coordinator
+Chat, Database / JDBC, and Runbook. Coordinator Chat uses the current
+`interactive-agent` compatibility/local-chat placeholder. Agent Executor
+reuses the existing `agent-run` definition id for persistence compatibility.
+Database / JDBC is a connector metadata shell only. Retired surfaces such as
+Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner,
+JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not
+shown in the current catalog or workbench surface.
 
-There is no shell execution, script execution, executable Coordinator runtime, Workspace-aware Coordinator action runtime, executable proposal behavior, Agent Queue runner/real command queue/execution history, Terminal result monitoring, arbitrary widget result monitoring, Template Library runtime, template storage/editing/request generation/response validation, Git behavior beyond manual desktop-only read-only status refresh for an explicit transient repository root, real capability widget insertion beyond Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view mode behavior, persisted presence zones beyond current canvas/floating presentation, preset editor, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or full Notebook/Notes document model yet.
+There is no shell execution, script execution, executable Coordinator runtime,
+Workspace-aware Coordinator action runtime, executable proposal behavior, Agent
+Queue runner/real command queue/execution history, Terminal result monitoring,
+arbitrary widget result monitoring, Template Library runtime, template
+storage/editing/request generation/response validation, Git behavior beyond
+manual desktop-only read-only status refresh for an explicit transient
+repository root, real capability widget insertion beyond Agent Executor, Agent
+Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes,
+real Dock behavior, widget Full/Compact/Indicator view mode behavior,
+persisted presence zones beyond current canvas/floating presentation, preset
+editor, full drag/drop layout editor, snapping, collision detection,
+auto-reflow, floating overlay resize, true external Tauri/OS popout window
+behavior, persisted external popout geometry, always-on-top behavior, or full
+Notebook/Notes document model yet.
 
 ## Current Desktop Shell Milestone
 
@@ -240,7 +293,12 @@ The browser/Vite flow keeps the same frontend boundary but uses in-memory Worksp
 
 The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
 
-This milestone uses Tauri workspace commands in desktop mode and an in-memory frontend fallback in browser mode. It loads persisted Workbench summary state before entering the Workbench, but it does not implement runtime restoration, widget runtime reconstruction, real capability widget insertion beyond Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, Terminal, and Notes, or persisted browser fallback state.
+This milestone uses Tauri workspace commands in desktop mode and an in-memory
+frontend fallback in browser mode. It loads persisted Workbench summary state
+before entering the Workbench, but it does not implement runtime restoration,
+widget runtime reconstruction, real capability widget insertion beyond Agent
+Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Terminal, and Notes, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
 
@@ -248,9 +306,17 @@ The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `Workbenc
 
 The Empty Workbench is rendered from preset data and new Workspaces currently start with no visible widget instances.
 
-`WidgetHost` remains the mapping layer from persisted widget instances to React components. The current frontend registry contains Agent Executor, Agent Queue, Coordinator Chat through the existing `interactive-agent` renderer, Runbook, Git, Terminal, and Notes renderers.
+`WidgetHost` remains the mapping layer from persisted widget instances to React
+components. The current frontend registry contains Agent Executor, Agent Queue,
+Coordinator Chat through the existing `interactive-agent` renderer,
+Database / JDBC, Runbook, Git, Terminal, and Notes renderers.
 
-The Widget Catalog has frontend-local template metadata for current surfaces. Ready templates are Agent Executor, Git, Terminal, and Notes. Preview templates are Agent Queue, Coordinator Chat, and Runbook. There is no Planned section in the current user-facing catalog, no runtime widget loading, and no real capability widget insertion beyond those available templates/placeholders through the Tauri bridge yet.
+The Widget Catalog has frontend-local template metadata for current surfaces.
+Ready templates are Agent Executor, Git, Terminal, and Notes. Preview templates
+are Agent Queue, Coordinator Chat, Database / JDBC, and Runbook. There is no
+Planned section in the current user-facing catalog, no runtime widget loading,
+and no real capability widget insertion beyond those available
+templates/placeholders through the Tauri bridge yet.
 
 The Workbench top bar includes a compact global activity/idle indicator. It is current-session frontend state only: it shows `Idle - No active local runs` by default, switches to a running Terminal status while a Terminal one-shot command started from the current UI session is awaiting its backend response, and can show attention for failed or timed-out Terminal command requests. It does not poll SQLite run state, observe background work, monitor external processes, implement approvals, or imply that Agent Queue or Agent runtime execution exists.
 
@@ -300,7 +366,15 @@ The current Workspace model foundation supports persisted Workspace records, Wor
 
 The Workspace is the context-isolation boundary. Unrelated work such as Hobit development, a Vertica incident, VICO review, and personal planning should be separate Workspaces. Multiple Workbenches inside one Workspace are future surfaces for the same problem, not a way to mix unrelated contexts.
 
-Full runtime restore is not implemented yet. There is no event replay, widget runtime reconstruction, preset editor, real Dock behavior, widget Full/Compact/Indicator view mode behavior, persisted presence zone model, full drag/drop layout editor, real capability widget insertion beyond Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, Terminal, and Notes, shell or interactive terminal execution, executable Coordinator runtime, Agent Queue execution/real command queue/history beyond review/history records, Template Library execution, Git behavior beyond manual read-only status refresh, or automatic agent runtime behavior.
+Full runtime restore is not implemented yet. There is no event replay, widget
+runtime reconstruction, preset editor, real Dock behavior, widget
+Full/Compact/Indicator view mode behavior, persisted presence zone model, full
+drag/drop layout editor, real capability widget insertion beyond Agent
+Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Terminal, and Notes, shell or interactive terminal execution, executable
+Coordinator runtime, Agent Queue execution/real command queue/history beyond
+review/history records, Template Library execution, Git behavior beyond manual
+read-only status refresh, or automatic agent runtime behavior.
 
 ## Planned Notes Model
 
@@ -312,7 +386,26 @@ scopes and render Markdown-adjacent fenced blocks such as Mermaid diagrams, but
 source text remains the source of truth and rendering must not execute commands,
 load remote assets by default, or mutate note content.
 
-The current app has a Notes placeholder widget that saves and restores one widget-state draft shaped as `{ "body": "..." }`, plus Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, and Terminal widgets. Agent Executor keeps backend/Tauri Codex Direct Work run/result persistence for the existing `agent-run` owner. Agent Queue has a preview manual task product UI backed by manual task storage/API only. Coordinator Chat has local current-session chat state only through the existing `interactive-agent` compatibility component, and Runbook has local current-session step state plus notes/evidence only. The Git placeholder supports only manual desktop read-only status refresh for a transient explicit repository root. Terminal supports only an explicit desktop one-shot command form, not shell mode or interactive terminal behavior. Workspace-local notes storage/API exists, but there is no Notes product UI, Notebook tab model, text formatting tool surface, folder UI, Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block preview system, autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, Agent Queue execution/response capture/validation, Template Library runtime, template storage/editing/request generation/response validation, Git mutations/diff/log/show, or executable Coordinator runtime in the current repository.
+The current app has a Notes placeholder widget that saves and restores one
+widget-state draft shaped as `{ "body": "..." }`, plus Agent Executor, Agent
+Queue, Coordinator Chat, Database / JDBC, Runbook, Git, and Terminal widgets.
+Agent Executor keeps backend/Tauri Codex Direct Work run/result persistence for
+the existing `agent-run` owner. Agent Queue has a preview manual task product UI
+backed by manual task storage/API only. Coordinator Chat has local
+current-session chat state only through the existing `interactive-agent`
+compatibility component, and Runbook has local current-session step state plus
+notes/evidence only. Database / JDBC can manage non-secret connector metadata
+only. The Git placeholder supports only manual desktop read-only status refresh
+for a transient explicit repository root. Terminal supports only an explicit
+desktop one-shot command form, not shell mode or interactive terminal behavior.
+Workspace-local notes storage/API exists, but there is no Notes product UI,
+Notebook tab model, text formatting tool surface, folder UI, Markdown editor,
+Markdown renderer, Mermaid or diagram renderer, rendered block preview system,
+autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, Agent Queue
+execution/response capture/validation, JDBC SQL execution, Template Library
+runtime, template storage/editing/request generation/response validation, Git
+mutations/diff/log/show, or executable Coordinator runtime in the current
+repository.
 
 ## Intended Repository Layout
 
@@ -358,6 +451,18 @@ crates/
 
 ## Current Boundary
 
-The current repository state is documentation, repository hygiene, a root Rust workspace including the Tauri shell, core Rust domain/storage/application crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget Catalog with Agent Executor, Agent Queue, Coordinator Chat, Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed workspace/workbench state, widget state/layout, workspace event, widget-local log foundations in desktop mode, Terminal one-shot run/result persistence, Codex Direct Work run/result persistence for the `agent-run` owner, workspace-local JDBC connector metadata storage/API without credentials or SQL execution, retained backend proposal/review artifact paths that are not exposed as current catalog surfaces, and a narrow manual desktop-only read-only Git status path for the Git widget. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
+The current repository state is documentation, repository hygiene, a root Rust
+workspace including the Tauri shell, core Rust domain/storage/application
+crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget
+Catalog with Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC,
+Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
+workspace/workbench state, widget state/layout, workspace event, widget-local
+log foundations in desktop mode, Terminal one-shot run/result persistence,
+Codex Direct Work run/result persistence for the `agent-run` owner,
+workspace-local JDBC connector metadata storage/API and frontend metadata UI
+without credentials or SQL execution, retained backend proposal/review artifact
+paths that are not exposed as current catalog surfaces, and a narrow manual
+desktop-only read-only Git status path for the Git widget. Generated Tauri
+schema artifacts under `apps/desktop/src-tauri/gen/` are ignored.
 
 Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.
