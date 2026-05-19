@@ -30,16 +30,20 @@ export type PopoutPositionMap = Partial<
 
 type LayoutSurfaceRect = Pick<DOMRect, "height" | "left" | "top" | "width">;
 
-// Keep this in sync with --workbench-grid-step in styles/tokens.css.
-export const WORKBENCH_GRID_STEP = 24;
+export const WORKBENCH_GRID_SIZE_OPTIONS = [16, 24, 32, 48] as const;
+export type WorkbenchGridSize = (typeof WORKBENCH_GRID_SIZE_OPTIONS)[number];
+
+// Keep this in sync with the default --workbench-grid-step in styles/tokens.css.
+export const DEFAULT_WORKBENCH_GRID_SIZE: WorkbenchGridSize = 24;
+export const WORKBENCH_GRID_STEP = DEFAULT_WORKBENCH_GRID_SIZE;
 
 const DEFAULT_POPOUT_TOP = 96;
 const DEFAULT_NARROW_POPOUT_TOP = 80;
-const DOCKED_LAYOUT_MIN_HEIGHT = WORKBENCH_GRID_STEP * 22;
-const DOCKED_LAYOUT_BOTTOM_PADDING = WORKBENCH_GRID_STEP * 10;
+const DOCKED_LAYOUT_MIN_HEIGHT = DEFAULT_WORKBENCH_GRID_SIZE * 22;
+const DOCKED_LAYOUT_BOTTOM_PADDING = DEFAULT_WORKBENCH_GRID_SIZE * 10;
 const DOCKED_WIDGET_MAX_DIMENSION = 16_384;
-const DOCKED_WIDGET_MIN_HEIGHT = WORKBENCH_GRID_STEP * 10;
-const DOCKED_WIDGET_MIN_WIDTH = WORKBENCH_GRID_STEP * 14;
+const DOCKED_WIDGET_MIN_HEIGHT = DEFAULT_WORKBENCH_GRID_SIZE * 10;
+const DOCKED_WIDGET_MIN_WIDTH = DEFAULT_WORKBENCH_GRID_SIZE * 14;
 const POPOUT_DESKTOP_MARGIN = 48;
 const POPOUT_NARROW_MARGIN = 32;
 const POPOUT_EDGE_MARGIN = 16;
@@ -70,6 +74,14 @@ export function widgetLayoutSurfaceStyle(
       maxWidgetBottom + DOCKED_LAYOUT_BOTTOM_PADDING,
     )}px`,
   };
+}
+
+export function workbenchCanvasGridStyle(
+  gridSize: WorkbenchGridSize,
+): CSSProperties {
+  return {
+    "--workbench-grid-step": `${gridSize}px`,
+  } as CSSProperties;
 }
 
 export function widgetLayoutItemStyle(
@@ -107,6 +119,7 @@ export function clampDockedPosition(
   surfaceRect: LayoutSurfaceRect,
   widgetWidth: number,
   widgetHeight: number,
+  gridSize: WorkbenchGridSize = DEFAULT_WORKBENCH_GRID_SIZE,
 ): DockedPosition {
   const maxX = Math.max(
     0,
@@ -119,14 +132,14 @@ export function clampDockedPosition(
 
   return {
     x: clamp(
-      snapToWorkbenchGrid(position.x),
+      snapToWorkbenchGrid(position.x, gridSize),
       0,
-      snapMaximumToWorkbenchGrid(maxX, 0),
+      snapMaximumToWorkbenchGrid(maxX, 0, gridSize),
     ),
     y: clamp(
-      snapToWorkbenchGrid(position.y),
+      snapToWorkbenchGrid(position.y, gridSize),
       0,
-      snapMaximumToWorkbenchGrid(maxY, 0),
+      snapMaximumToWorkbenchGrid(maxY, 0, gridSize),
     ),
   };
 }
@@ -135,32 +148,44 @@ export function clampDockedSize(
   size: DockedSize,
   surfaceRect: LayoutSurfaceRect,
   position: DockedPosition,
+  gridSize: WorkbenchGridSize = DEFAULT_WORKBENCH_GRID_SIZE,
 ): DockedSize {
-  const maxWidth = Math.max(
+  const minWidth = snapMinimumToWorkbenchGrid(
     DOCKED_WIDGET_MIN_WIDTH,
+    gridSize,
+  );
+  const minHeight = snapMinimumToWorkbenchGrid(
+    DOCKED_WIDGET_MIN_HEIGHT,
+    gridSize,
+  );
+  const maxWidth = Math.max(
+    minWidth,
     Math.min(DOCKED_WIDGET_MAX_DIMENSION, surfaceRect.width - position.x),
   );
   const maxHeight = Math.max(
-    DOCKED_WIDGET_MIN_HEIGHT,
+    minHeight,
     Math.min(DOCKED_WIDGET_MAX_DIMENSION, surfaceRect.height - position.y),
   );
 
   return {
     height: clamp(
-      snapToWorkbenchGrid(size.height),
-      DOCKED_WIDGET_MIN_HEIGHT,
-      snapMaximumToWorkbenchGrid(maxHeight, DOCKED_WIDGET_MIN_HEIGHT),
+      snapToWorkbenchGrid(size.height, gridSize),
+      minHeight,
+      snapMaximumToWorkbenchGrid(maxHeight, minHeight, gridSize),
     ),
     width: clamp(
-      snapToWorkbenchGrid(size.width),
-      DOCKED_WIDGET_MIN_WIDTH,
-      snapMaximumToWorkbenchGrid(maxWidth, DOCKED_WIDGET_MIN_WIDTH),
+      snapToWorkbenchGrid(size.width, gridSize),
+      minWidth,
+      snapMaximumToWorkbenchGrid(maxWidth, minWidth, gridSize),
     ),
   };
 }
 
-export function snapToWorkbenchGrid(value: number) {
-  return Math.round(value / WORKBENCH_GRID_STEP) * WORKBENCH_GRID_STEP;
+export function snapToWorkbenchGrid(
+  value: number,
+  gridSize: WorkbenchGridSize = DEFAULT_WORKBENCH_GRID_SIZE,
+) {
+  return Math.round(value / gridSize) * gridSize;
 }
 
 export function nextDockedDragPosition({
@@ -171,7 +196,9 @@ export function nextDockedDragPosition({
   pointerY,
   surfaceRect,
   width,
+  gridSize = DEFAULT_WORKBENCH_GRID_SIZE,
 }: {
+  gridSize?: WorkbenchGridSize;
   height: number;
   offsetX: number;
   offsetY: number;
@@ -188,6 +215,7 @@ export function nextDockedDragPosition({
     surfaceRect,
     width,
     height,
+    gridSize,
   );
 }
 
@@ -200,8 +228,10 @@ export function nextDockedResizeSize({
   resizePointerX,
   resizePointerY,
   surfaceRect,
+  gridSize = DEFAULT_WORKBENCH_GRID_SIZE,
 }: {
   direction: ResizeDirection;
+  gridSize?: WorkbenchGridSize;
   originalSize: DockedSize;
   pointerX: number;
   pointerY: number;
@@ -225,7 +255,7 @@ export function nextDockedResizeSize({
     nextSize.height += deltaY;
   }
 
-  return clampDockedSize(nextSize, surfaceRect, position);
+  return clampDockedSize(nextSize, surfaceRect, position, gridSize);
 }
 
 export function removeWidgetPosition(
@@ -395,10 +425,27 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function snapMaximumToWorkbenchGrid(value: number, minimum: number) {
+export function normalizeWorkbenchGridSize(value: number): WorkbenchGridSize {
+  return WORKBENCH_GRID_SIZE_OPTIONS.includes(value as WorkbenchGridSize)
+    ? (value as WorkbenchGridSize)
+    : DEFAULT_WORKBENCH_GRID_SIZE;
+}
+
+function snapMinimumToWorkbenchGrid(
+  value: number,
+  gridSize: WorkbenchGridSize,
+) {
+  return Math.max(gridSize, Math.ceil(value / gridSize) * gridSize);
+}
+
+function snapMaximumToWorkbenchGrid(
+  value: number,
+  minimum: number,
+  gridSize: WorkbenchGridSize,
+) {
   return Math.max(
     minimum,
-    Math.floor(value / WORKBENCH_GRID_STEP) * WORKBENCH_GRID_STEP,
+    Math.floor(value / gridSize) * gridSize,
   );
 }
 

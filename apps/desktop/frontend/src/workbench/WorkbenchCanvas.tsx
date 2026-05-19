@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../design-system/Button";
 import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
+import { WorkbenchEmptyCanvas } from "./WorkbenchEmptyCanvas";
 import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
@@ -24,6 +24,7 @@ import {
   removeWidgetPosition,
   removeWidgetSize,
   visibleWidgetIdSet,
+  workbenchCanvasGridStyle,
   widgetDockedPosition,
   widgetDockedSize,
   widgetLayoutItemStyle,
@@ -36,9 +37,11 @@ import {
   type PopoutPosition,
   type PopoutPositionMap,
   type ResizeDirection,
+  type WorkbenchGridSize,
 } from "./workbenchLayoutGeometry";
 
 type WorkbenchCanvasProps = {
+  gridSize: WorkbenchGridSize;
   layoutMode: WorkbenchLayoutMode;
   onOpenWidgetCatalog: () => void;
   viewState: WorkbenchViewState;
@@ -72,23 +75,20 @@ type ActiveDockedResize = {
 };
 
 export function WorkbenchCanvas({
+  gridSize,
   layoutMode,
   onOpenWidgetCatalog,
   viewState,
   widgetActions,
 }: WorkbenchCanvasProps) {
-  const [poppedOutWidgetIds, setPoppedOutWidgetIds] = useState<
-    WidgetInstanceId[]
-  >([]);
-  const [dockedDragPositions, setDockedDragPositions] = useState<
-    DockedPositionMap
-  >({});
-  const [dockedResizeSizes, setDockedResizeSizes] = useState<
-    DockedSizeMap
-  >({});
-  const [popoutPositions, setPopoutPositions] = useState<
-    PopoutPositionMap
-  >({});
+  const [poppedOutWidgetIds, setPoppedOutWidgetIds] =
+    useState<WidgetInstanceId[]>([]);
+  const [dockedDragPositions, setDockedDragPositions] =
+    useState<DockedPositionMap>({});
+  const [dockedResizeSizes, setDockedResizeSizes] =
+    useState<DockedSizeMap>({});
+  const [popoutPositions, setPopoutPositions] =
+    useState<PopoutPositionMap>({});
   const [activeDockedDrag, setActiveDockedDrag] = useState<ActiveDockedDrag | null>(null);
   const [activeDockedResize, setActiveDockedResize] =
     useState<ActiveDockedResize | null>(null);
@@ -120,6 +120,7 @@ export function WorkbenchCanvas({
     dockedDragPositions,
     dockedResizeSizes,
   );
+  const canvasGridStyle = workbenchCanvasGridStyle(gridSize);
   const canvasTopSurfaces = (
     <WorkbenchActivity events={viewState.recentEvents} />
   );
@@ -210,7 +211,7 @@ export function WorkbenchCanvas({
       window.removeEventListener("pointerup", finishDockedWidgetDrag);
       window.removeEventListener("pointercancel", cancelDockedWidgetDrag);
     };
-  }, [activeDockedDrag]);
+  }, [activeDockedDrag, gridSize]);
 
   useEffect(() => {
     if (!activeDockedResize) {
@@ -259,7 +260,7 @@ export function WorkbenchCanvas({
       window.removeEventListener("pointerup", finishDockedWidgetResize);
       window.removeEventListener("pointercancel", cancelDockedWidgetResize);
     };
-  }, [activeDockedResize]);
+  }, [activeDockedResize, gridSize]);
 
   useEffect(() => {
     if (!activePopoutDrag) {
@@ -346,6 +347,7 @@ export function WorkbenchCanvas({
       surfaceRect,
       widget.layout.width,
       widget.layout.height,
+      gridSize,
     );
 
     setDockedDragPositions((currentPositions) => ({
@@ -381,6 +383,7 @@ export function WorkbenchCanvas({
       pointerY: event.clientY,
       surfaceRect,
       width: drag.width,
+      gridSize,
     });
   }
 
@@ -445,7 +448,12 @@ export function WorkbenchCanvas({
       widgetDockedPosition(widget);
     const currentSize =
       dockedResizeSizesRef.current[widgetInstanceId] ?? widgetDockedSize(widget);
-    const clampedSize = clampDockedSize(currentSize, surfaceRect, position);
+    const clampedSize = clampDockedSize(
+      currentSize,
+      surfaceRect,
+      position,
+      gridSize,
+    );
 
     setDockedResizeSizes((currentSizes) => ({
       ...currentSizes,
@@ -481,6 +489,7 @@ export function WorkbenchCanvas({
       resizePointerX: resize.pointerX,
       resizePointerY: resize.pointerY,
       surfaceRect,
+      gridSize,
     });
   }
 
@@ -574,27 +583,22 @@ export function WorkbenchCanvas({
 
   if (visibleWidgets.length === 0) {
     return (
-      <section className={canvasShellClass} aria-label={canvasLabel}>
-        <div className="canvas-stack">
-          {canvasTopSurfaces}
-          <div className="empty-workbench" aria-label="Empty workbench">
-            <div className="empty-workbench-content">
-              <h1 className="empty-workbench-title">Your workbench is empty</h1>
-              <p className="empty-workbench-text">
-                Add widgets to compose your AI workspace.
-              </p>
-              <Button onClick={onOpenWidgetCatalog} variant="primary">
-                + Add Widget
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <WorkbenchEmptyCanvas
+        canvasGridStyle={canvasGridStyle}
+        canvasLabel={canvasLabel}
+        canvasShellClass={canvasShellClass}
+        onOpenWidgetCatalog={onOpenWidgetCatalog}
+        topSurfaces={canvasTopSurfaces}
+      />
     );
   }
 
   return (
-    <section className={canvasShellClass} aria-label={canvasLabel}>
+    <section
+      className={canvasShellClass}
+      aria-label={canvasLabel}
+      style={canvasGridStyle}
+    >
       <div className="canvas-stack">
         {canvasTopSurfaces}
         <div

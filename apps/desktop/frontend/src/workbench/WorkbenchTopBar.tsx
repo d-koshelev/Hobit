@@ -7,10 +7,17 @@ import {
   type GlobalActivityStatus,
 } from "./GlobalActivityIndicator";
 import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
+import {
+  normalizeWorkbenchGridSize,
+  WORKBENCH_GRID_SIZE_OPTIONS,
+  type WorkbenchGridSize,
+} from "./workbenchLayoutGeometry";
 
 type WorkbenchTopBarProps = {
   activityStatus: GlobalActivityStatus;
+  gridSize: WorkbenchGridSize;
   layoutMode: WorkbenchLayoutMode;
+  onGridSizeChange: (gridSize: WorkbenchGridSize) => void;
   onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
   viewState: WorkbenchViewState;
@@ -18,7 +25,9 @@ type WorkbenchTopBarProps = {
 
 export function WorkbenchTopBar({
   activityStatus,
+  gridSize,
   layoutMode,
+  onGridSizeChange,
   onLayoutModeChange,
   onOpenWidgetCatalog,
   viewState,
@@ -73,6 +82,25 @@ export function WorkbenchTopBar({
             Edit layout
           </Button>
         </div>
+        <label className="grid-size-control">
+          <span className="grid-size-label">Grid</span>
+          <Select
+            aria-label="Workbench grid size"
+            className="grid-size-select"
+            onChange={(event) =>
+              onGridSizeChange(
+                normalizeWorkbenchGridSize(Number(event.target.value)),
+              )
+            }
+            value={gridSize}
+          >
+            {WORKBENCH_GRID_SIZE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}px
+              </option>
+            ))}
+          </Select>
+        </label>
         <Badge variant="info">
           <StatusDot variant="info" />
           Local preview

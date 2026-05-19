@@ -47,6 +47,15 @@
     flex: 1 1 0;
   }
 
+  .grid-size-control {
+    width: 100%;
+  }
+
+  .grid-size-select.select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .topbar-left .select {
     width: 100%;
     max-width: none;

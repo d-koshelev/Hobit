@@ -6,6 +6,7 @@ import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
 import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
+import { DEFAULT_WORKBENCH_GRID_SIZE } from "./workbenchLayoutGeometry";
 import { AGENT_QUEUE_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
 type WorkbenchShellProps = {
@@ -20,6 +21,7 @@ export function WorkbenchShell({
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
   const [layoutMode, setLayoutMode] =
     useState<WorkbenchLayoutMode>("locked");
+  const [gridSize, setGridSize] = useState(DEFAULT_WORKBENCH_GRID_SIZE);
   const currentSessionActivity = useCurrentSessionActivity();
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);
   const closeWidgetCatalog = () => setIsWidgetCatalogOpen(false);
@@ -45,7 +47,9 @@ export function WorkbenchShell({
       <div className="workbench">
         <WorkbenchTopBar
           activityStatus={currentSessionActivity.status}
+          gridSize={gridSize}
           layoutMode={layoutMode}
+          onGridSizeChange={setGridSize}
           onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}
           viewState={viewState}
@@ -56,6 +60,7 @@ export function WorkbenchShell({
           }`}
         >
           <WorkbenchCanvas
+            gridSize={gridSize}
             layoutMode={layoutMode}
             onOpenWidgetCatalog={openWidgetCatalog}
             viewState={viewState}

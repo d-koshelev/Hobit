@@ -14,6 +14,7 @@ import type {
   StartAssignedAgentQueueTaskResponse,
 } from "../workspace/types";
 import { WorkbenchCanvas } from "../workbench/WorkbenchCanvas";
+import { DEFAULT_WORKBENCH_GRID_SIZE } from "../workbench/workbenchLayoutGeometry";
 import type { WorkbenchWidgetInstanceActions } from "../workbench/useWorkbenchWidgetActions";
 import type {
   WidgetInstance,
@@ -329,6 +330,7 @@ function SmokeWorkbench() {
       <div className="workbench">
         <div className="workbench-content">
           <WorkbenchCanvas
+            gridSize={DEFAULT_WORKBENCH_GRID_SIZE}
             layoutMode="locked"
             onOpenWidgetCatalog={() => undefined}
             viewState={viewState}
