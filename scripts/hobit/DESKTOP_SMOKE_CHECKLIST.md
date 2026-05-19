@@ -101,6 +101,57 @@ documented isolated `HOBIT_DATABASE_PATH` workflow.
   Coordinator Chat, Terminal, and Runbook UI items unchecked until an operator
   verifies them in the real desktop window.
 
+### Block 223 - 2026-05-19
+
+Scope: first focused Queue-to-Executor real desktop smoke attempt, or
+readiness-only improvement if WebView interaction remained unavailable.
+
+- Readiness reset:
+  `[x]` `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hobit/desktop-smoke-readiness.ps1 -Reset`
+  passed and reset
+  `target\hobit-smoke\desktop\hobit-desktop-smoke.sqlite3`.
+- Desktop launch:
+  `[~]` `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/hobit/desktop-smoke-readiness.ps1 -Launch`
+  reached Vite ready, completed the Tauri dev build, and printed the
+  `Running ...\target\debug\hobit-desktop.exe` launch marker. The command was
+  stopped by a 45-second command timeout because `tauri dev` remains active
+  while the desktop app is open.
+- Isolated database:
+  `[x]` `target\hobit-smoke\desktop\hobit-desktop-smoke.sqlite3` was created
+  by the launch attempt.
+- WebView interaction:
+  `[~]` Still not available from the Codex tool session. Codex could observe
+  process output and smoke database creation, but could not manually view,
+  click, type into, or otherwise verify the Tauri WebView.
+- Real Queue-to-Executor smoke:
+  `[~]` Blocked. No Workspace, Widget Catalog, Queue task, assignment, manual
+  run, Agent Executor logs/final state, or Queue final-status refresh was
+  verified in the desktop UI.
+- Manual checklist items verified:
+  `[ ]` None. Process-level launch readiness is not a desktop UI smoke pass.
+
+## Troubleshooting WebView Smoke Blocks
+
+Use these notes when a desktop launch works but a real manual smoke pass cannot
+be claimed.
+
+- If direct `.ps1` execution is blocked, use the documented
+  `powershell -NoProfile -ExecutionPolicy Bypass -File ...` command form.
+- If `-Launch` appears to hang after printing
+  `Running ...\target\debug\hobit-desktop.exe`, that is normal for `tauri dev`
+  while the desktop app is open. Keep it running during manual verification and
+  stop it after the smoke attempt.
+- A Vite ready message, Tauri dev build success, launch marker, running process,
+  or SQLite file creation verifies launch readiness only.
+- A real UI smoke pass requires an operator or automation harness that can
+  observe the Tauri desktop window and perform WebView actions.
+- Do not mark Workspace, Widget Catalog, Queue-to-Executor, Git, Notes, JDBC,
+  Coordinator Chat, Terminal, or Runbook items as passed from process output,
+  mocked browser smoke, or SQLite file presence alone.
+- When WebView interaction is unavailable, record the blocker here and use
+  `node scripts/hobit/smoke-queue-executor-ui.mjs` only as mocked frontend
+  coverage, not as a desktop UI substitute.
+
 ## Workspace Basics
 
 - `[ ]` Create a new disposable Workspace.

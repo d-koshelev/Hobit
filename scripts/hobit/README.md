@@ -172,6 +172,8 @@ parent directory, and prints the exact `HOBIT_DATABASE_PATH` and
 `npm.cmd run tauri:dev --prefix apps/desktop/frontend` commands. `-Launch`
 runs that command with the environment variable set. `-Reset` deletes the
 selected smoke database files only when they are under `target/hobit-smoke`.
+`-Launch` is expected to remain active while the desktop app is open; a launch
+marker or running command is not a real desktop UI smoke pass.
 
 This helper verifies database path readiness and launch-command readiness only.
 It does not automate WebView interaction, create Queue tasks, run Agent
