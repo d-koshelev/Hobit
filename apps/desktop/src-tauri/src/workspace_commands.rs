@@ -19,7 +19,9 @@ use crate::agent_queue_dto::{
     AgentQueueItemDto, AgentQueueSnapshotDto, CreateAgentQueueItemFromProposalRequest,
     GetAgentQueueSnapshotRequest,
 };
-use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
+use crate::app_state::{
+    AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry, TerminalPtySessionRegistry,
+};
 use crate::codex_direct_work_dto::{
     CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
     ForceKillCodexDirectWorkRunRequest, ForceKillCodexDirectWorkRunResponseDto,
@@ -75,6 +77,7 @@ pub(crate) fn delete_workspace(
         request,
         state.db_path().to_path_buf(),
         state.direct_work_active_runs(),
+        state.terminal_pty_sessions(),
     )
 }
 
@@ -82,10 +85,17 @@ fn delete_workspace_blocking(
     request: DeleteWorkspaceRequest,
     db_path: PathBuf,
     active_runs: DirectWorkActiveRunRegistry,
+    terminal_pty_sessions: TerminalPtySessionRegistry,
 ) -> Result<WorkspaceDeletionResponseDto, String> {
     if active_runs.has_active_workspace_run(&request.workspace_id) {
         return Err(
             "Workspace has an active Direct Work run. Stop the run before deleting the workspace."
+                .to_owned(),
+        );
+    }
+    if terminal_pty_sessions.has_active_workspace_session(&request.workspace_id) {
+        return Err(
+            "Workspace has an active Terminal PTY session. Stop or kill the session before deleting the workspace."
                 .to_owned(),
         );
     }
@@ -194,6 +204,7 @@ pub(crate) fn delete_widget_instance_from_workbench(
         request,
         state.db_path().to_path_buf(),
         state.direct_work_active_runs(),
+        state.terminal_pty_sessions(),
     )
 }
 
@@ -201,6 +212,7 @@ fn delete_widget_instance_from_workbench_blocking(
     request: DeleteWidgetInstanceFromWorkbenchRequest,
     db_path: PathBuf,
     active_runs: DirectWorkActiveRunRegistry,
+    terminal_pty_sessions: TerminalPtySessionRegistry,
 ) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
     if active_runs.has_active_widget_run(
         &request.workspace_id,
@@ -209,6 +221,15 @@ fn delete_widget_instance_from_workbench_blocking(
     ) {
         return Err(
             "cannot delete widget instance while Direct Work run is active; stop the active run before deleting the widget".to_owned(),
+        );
+    }
+    if terminal_pty_sessions.has_active_widget_session(
+        &request.workspace_id,
+        &request.workbench_id,
+        &request.widget_instance_id,
+    ) {
+        return Err(
+            "cannot delete widget instance while Terminal PTY session is active; stop or kill the active session before deleting the widget".to_owned(),
         );
     }
 

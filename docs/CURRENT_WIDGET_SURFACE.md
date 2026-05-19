@@ -86,11 +86,13 @@ future widget capability.
   instances.
 - Uses explicit program, argv, working directory, timeout, and output caps.
 - This one-shot behavior remains the current `Run command` capability until a
-  future PTY/session implementation lands.
+  future PTY/session UI lands.
 - Is not a shell, PTY, interactive terminal, stdin session, streaming console,
   command history, or Script Runner runtime.
 - Future interactive shell behavior is governed by
-  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` and remains unimplemented.
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. A desktop backend/Tauri PTY session
+  foundation exists for explicit Terminal widget owners, but no frontend PTY UI
+  consumes it yet.
 
 ### Notes
 

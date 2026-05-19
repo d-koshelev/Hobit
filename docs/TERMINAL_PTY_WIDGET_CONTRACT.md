@@ -5,10 +5,8 @@
 This contract defines the future transition from the current one-shot Terminal
 widget to a real interactive shell surface.
 
-It is a docs/contracts-only boundary. It does not implement Terminal PTY
-behavior, frontend terminal UI changes, backend commands, Tauri commands,
-storage/schema changes, process/session runtime, tabs, split panes, Queue
-execution, Git mutation, or changes to the current one-shot Terminal behavior.
+This is the product/runtime contract for Terminal PTY behavior. Current
+implementation status is tracked in the Current State section below.
 
 Future implementation must preserve Hobit's Workbench-first product model:
 Terminal is a widget capability inside the Workbench, not the product center,
@@ -35,8 +33,18 @@ Current Terminal:
 - Has no command history, shell profile model, cancellation, or Agent-triggered
   execution.
 
+Current backend foundation:
+
+- Desktop/Tauri owns a session-only PTY runtime registry for explicit Terminal
+  widget owners.
+- The backend foundation can create, write stdin, resize, stop, kill, close,
+  get, and list sessions.
+- Windows ConPTY is the first supported backend.
+- PTY output/history remains session-only and is not persisted to storage.
+- No frontend Terminal PTY UI consumes the backend foundation yet.
+
 The current UI must remain honest about this boundary until PTY/session support
-exists.
+is visible in the Terminal widget.
 
 ## Relationship To Current One-Shot Terminal
 
@@ -443,19 +451,21 @@ Difference from current one-shot command runner:
 
 ### Slice 1: PTY Backend Foundation
 
-- Add a focused Windows-first PTY runtime/session module.
+- Add a focused Windows-first PTY runtime/session module. Implemented as a
+  desktop runtime registry backed by Windows ConPTY.
 - Add create/write/resize/stop/kill/close primitives behind internal service
-  boundaries.
+  boundaries. Implemented with session get/list state.
 - Keep sessions Workspace/Workbench/Terminal-widget scoped.
 - Keep transcript and command history session-only.
 - No Coordinator, Queue, Agent Executor, Git, Notes, Evidence/Sources, or
   storage integration.
 
-### Slice 2: Tauri Command And Event Bridge
+### Slice 2: Tauri Event Bridge Hardening
 
-- Expose typed desktop-only commands for create, write stdin, resize, stop,
-  kill, close, and attach.
-- Emit bounded output/lifecycle events.
+- Typed desktop-only commands for create, write stdin, resize, stop, kill,
+  close, get, and list now exist.
+- Add or harden bounded output/lifecycle events when the frontend needs live
+  push updates instead of inspect/list polling.
 - Reject browser fallback and cross-owner access clearly.
 - Keep the bridge independent from the current one-shot `run_terminal_command`
   path.
@@ -540,8 +550,8 @@ behavior exists.
 ## Recommended Follow-Up Blocks
 
 - Block 240  Terminal PTY backend foundation.
-- Block 241  Terminal PTY Tauri command/event bridge.
-- Block 242  Terminal PTY frontend UI.
+- Block 241  Terminal PTY frontend shell UI.
+- Later  Terminal PTY output/lifecycle event bridge hardening.
 - Block 243  Terminal stop/kill hardening.
 - Block 244  Terminal PTY smoke/manual verification.
 - Later  One-shot `Run command` fallback integration polish.
@@ -554,13 +564,9 @@ behavior exists.
 
 ## Non-Goals
 
-This contract does not implement:
+The current backend foundation still does not implement:
 
 - UI implementation.
-- Backend implementation.
-- Tauri commands.
-- PTY runtime.
-- Shell process management.
 - Tabs implementation.
 - Split panes implementation.
 - Storage/schema changes.

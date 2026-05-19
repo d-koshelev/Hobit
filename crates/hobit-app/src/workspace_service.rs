@@ -26,6 +26,7 @@ mod mapping;
 mod notes;
 mod runs;
 mod terminal;
+mod terminal_pty;
 mod types;
 mod validation;
 mod widgets;
@@ -62,6 +63,8 @@ mod git_commit_tests;
 mod jdbc_connectors_tests;
 #[cfg(test)]
 mod notes_tests;
+#[cfg(test)]
+mod terminal_pty_tests;
 #[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]

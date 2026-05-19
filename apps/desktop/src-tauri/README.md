@@ -17,8 +17,9 @@ location by default and reports the database path, parent directory, attempted
 operation, and remediation hint when the database cannot be written.
 
 The Tauri source is split by responsibility: `app_state.rs` owns app data and
-SQLite initialization, `workspace_commands.rs` owns command handlers, and
-focused DTO modules own bridge request/response mapping.
+SQLite initialization and runtime registries, `workspace_commands.rs` owns
+general workspace command handlers, and focused command/DTO modules own bridge
+request/response mapping.
 
 ## Current Scope
 
@@ -42,6 +43,15 @@ focused DTO modules own bridge request/response mapping.
   - `list_widget_logs`
 - Terminal one-shot command for persisted Terminal widgets:
   - `run_terminal_command`
+- Terminal PTY backend foundation for explicit Terminal widget owners:
+  - `create_terminal_pty_session`
+  - `write_terminal_pty_session`
+  - `resize_terminal_pty_session`
+  - `stop_terminal_pty_session`
+  - `kill_terminal_pty_session`
+  - `close_terminal_pty_session`
+  - `get_terminal_pty_session`
+  - `list_terminal_pty_sessions`
 - Codex Direct Work one-shot command for an allowed Agent Monitoring widget owner:
   - `run_codex_direct_work`
 - Agent Chat proposal-only persistence for persisted Agent Chat widgets:
@@ -60,8 +70,10 @@ focused DTO modules own bridge request/response mapping.
 - Frontend persistence beyond current workspace/workbench state loading and widget mutation/log foundations.
 - Runtime restore, event replay, or widget runtime reconstruction.
 - Widget runtime beyond placeholder insertion, mutation/log foundations, Terminal one-shot command runs, Codex Direct Work run/result persistence, Agent Chat proposal-only result persistence, Agent Monitoring read-only proposal artifact viewing, and explicit Agent Queue review-item creation from valid proposal results.
-- Interactive Terminal execution.
+- Frontend Terminal PTY UI.
 - Agent runtime calls.
-- Tool execution adapters beyond Terminal one-shot command execution, Codex Direct Work one-shot execution, and the narrow read-only Git status path.
+- Tool execution adapters beyond Terminal one-shot command execution, the
+  explicit Terminal PTY backend foundation, Codex Direct Work one-shot
+  execution, and the narrow read-only Git status path.
 - Agent Monitoring Direct Work display, runtime execution controls, streaming, Terminal result monitoring, arbitrary widget result monitoring, response parsing, response validation, overview summarization, proposal approval/apply behavior, queue execution, or broader executor integration.
 - Git diff/log/show, repository root/status persistence, polling, watching, or Git mutations.

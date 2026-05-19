@@ -196,6 +196,7 @@ fn delete_widget_instance_from_workbench_blocking_returns_refreshed_state() {
         },
         db_path.clone(),
         DirectWorkActiveRunRegistry::default(),
+        TerminalPtySessionRegistry::default(),
     )
     .expect("delete widget command helper")
     .expect("refreshed state");
@@ -232,6 +233,7 @@ fn delete_widget_instance_from_workbench_blocking_rejects_active_direct_work_wid
         },
         db_path.clone(),
         active_runs,
+        TerminalPtySessionRegistry::default(),
     )
     .expect_err("active run blocks delete");
 
@@ -259,6 +261,7 @@ fn delete_workspace_blocking_returns_remaining_workspaces() {
         },
         db_path.clone(),
         DirectWorkActiveRunRegistry::default(),
+        TerminalPtySessionRegistry::default(),
     )
     .expect("delete workspace command helper");
 
@@ -304,6 +307,7 @@ fn delete_workspace_blocking_rejects_active_direct_work_run() {
         },
         db_path.clone(),
         active_runs,
+        TerminalPtySessionRegistry::default(),
     )
     .expect_err("active run blocks workspace delete");
 

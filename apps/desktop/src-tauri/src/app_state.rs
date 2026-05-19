@@ -6,10 +6,12 @@ use hobit_app::CodexDirectStreamCancellationToken;
 use tauri::Manager;
 
 use crate::database_startup::initialize_database;
+use crate::terminal_pty::TerminalPtySessionManager;
 
 pub(crate) struct AppState {
     db_path: PathBuf,
     direct_work_active_runs: DirectWorkActiveRunRegistry,
+    terminal_pty_sessions: TerminalPtySessionRegistry,
 }
 
 impl AppState {
@@ -17,6 +19,7 @@ impl AppState {
         Self {
             db_path,
             direct_work_active_runs: DirectWorkActiveRunRegistry::default(),
+            terminal_pty_sessions: TerminalPtySessionRegistry::default(),
         }
     }
 
@@ -27,7 +30,13 @@ impl AppState {
     pub(crate) fn direct_work_active_runs(&self) -> DirectWorkActiveRunRegistry {
         self.direct_work_active_runs.clone()
     }
+
+    pub(crate) fn terminal_pty_sessions(&self) -> TerminalPtySessionRegistry {
+        self.terminal_pty_sessions.clone()
+    }
 }
+
+pub(crate) type TerminalPtySessionRegistry = TerminalPtySessionManager;
 
 #[derive(Clone, Default)]
 pub(crate) struct DirectWorkActiveRunRegistry {

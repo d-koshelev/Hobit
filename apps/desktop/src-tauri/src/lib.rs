@@ -35,6 +35,15 @@ mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
 mod notes_dto_tests;
+mod terminal_pty;
+mod terminal_pty_commands;
+mod terminal_pty_dto;
+#[cfg(test)]
+mod terminal_pty_tests;
+#[cfg(not(windows))]
+mod terminal_pty_unsupported;
+#[cfg(windows)]
+mod terminal_pty_windows;
 mod workspace_commands;
 mod workspace_dto;
 #[cfg(test)]
@@ -65,6 +74,14 @@ pub fn run() {
             workspace_commands::get_agent_executor_run_detail,
             workspace_commands::get_agent_executor_diff_summary,
             workspace_commands::run_terminal_command,
+            terminal_pty_commands::create_terminal_pty_session,
+            terminal_pty_commands::write_terminal_pty_session,
+            terminal_pty_commands::resize_terminal_pty_session,
+            terminal_pty_commands::stop_terminal_pty_session,
+            terminal_pty_commands::kill_terminal_pty_session,
+            terminal_pty_commands::close_terminal_pty_session,
+            terminal_pty_commands::get_terminal_pty_session,
+            terminal_pty_commands::list_terminal_pty_sessions,
             workspace_commands::run_codex_direct_work,
             workspace_commands::run_direct_work_validation,
             workspace_commands::start_codex_direct_work_stream,
