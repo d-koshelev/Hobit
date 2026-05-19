@@ -166,7 +166,7 @@ export function formatUpdatedTimestamp(value: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "Updated time unavailable";
+    return null;
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -175,6 +175,39 @@ export function formatUpdatedTimestamp(value: string) {
     minute: "2-digit",
     month: "short",
   }).format(date);
+}
+
+export function queueSingleState({
+  isLoading,
+  loadError,
+  taskCount,
+}: {
+  isLoading: boolean;
+  loadError: string | null;
+  taskCount: number;
+}) {
+  if (isLoading) {
+    return {
+      text: "Loading workspace queue tasks from desktop storage.",
+      title: "Loading queue.",
+    };
+  }
+
+  if (loadError) {
+    return {
+      text: loadError,
+      title: "Queue unavailable.",
+    };
+  }
+
+  if (taskCount === 0) {
+    return {
+      text: "Create one from the header, then assign it to an Agent Executor when it is ready.",
+      title: "No tasks yet.",
+    };
+  }
+
+  return null;
 }
 
 export function errorToMessage(error: unknown, fallback: string): string {

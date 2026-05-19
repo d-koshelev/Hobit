@@ -312,6 +312,11 @@ export function NotesPlaceholderWidget({
   const selectedUpdatedText = selectedNote
     ? formatUpdatedTimestamp(selectedNote.updatedAt)
     : null;
+  const singleState = notesSingleState({
+    isLoading,
+    loadError,
+    noteCount: notes.length,
+  });
 
   return (
     <WidgetFrame
@@ -324,179 +329,193 @@ export function NotesPlaceholderWidget({
       status={frameStatus}
       title={title}
     >
-      <div className="notes-product-shell">
-        <aside className="notes-list-pane" aria-label="Workspace notes">
-          <div className="notes-pane-header">
-            <div>
-              <p className="notes-pane-label">Workspace notes</p>
-              <p className="notes-pane-count">
-                {notes.length === 1
-                  ? "1 note"
-                  : `${notes.length.toString()} notes`}
-              </p>
-            </div>
+      {singleState ? (
+        <div className="notes-product-shell notes-product-shell-empty">
+          <div
+            className="notes-empty-state notes-empty-state-compact"
+            role={loadError ? "alert" : undefined}
+          >
+            <p className="empty-state-title">{singleState.title}</p>
+            <p className="empty-state-text">{singleState.text}</p>
           </div>
-          <label className="field-label" htmlFor={searchInputId}>
-            Filter
-          </label>
-          <input
-            className="input notes-search-input"
-            disabled={isLoading || notes.length === 0}
-            id={searchInputId}
-            onChange={(event) => setSearchText(event.currentTarget.value)}
-            placeholder="Title or body"
-            type="search"
-            value={searchText}
-          />
-          <div className="notes-list" role="list">
-            {isLoading ? (
-              <p className="empty-state-text">Loading workspace notes.</p>
-            ) : loadError ? (
-              <p className="empty-state-text" role="alert">
-                {loadError}
-              </p>
-            ) : notes.length === 0 ? (
-              <div className="notes-empty-state">
-                <p className="empty-state-title">No notes yet.</p>
-                <p className="empty-state-text">
-                  Create your first workspace note.
+        </div>
+      ) : (
+        <div className="notes-product-shell">
+          <aside className="notes-list-pane" aria-label="Workspace notes">
+            <div className="notes-pane-header">
+              <div>
+                <p className="notes-pane-label">Workspace notes</p>
+                <p className="notes-pane-count">
+                  {notes.length === 1
+                    ? "1 note"
+                    : `${notes.length.toString()} notes`}
                 </p>
-                <Button
-                  disabled={isCreating || !apiAvailable}
-                  onClick={createNote}
-                  variant="primary"
-                >
-                  New note
-                </Button>
               </div>
-            ) : filteredNotes.length === 0 ? (
-              <p className="empty-state-text">No matching notes.</p>
-            ) : (
-              filteredNotes.map((note) => (
-                <button
-                  aria-current={
-                    selectedNote?.noteId === note.noteId ? "true" : undefined
-                  }
-                  className={
-                    selectedNote?.noteId === note.noteId
-                      ? "notes-list-item notes-list-item-selected"
-                      : "notes-list-item"
-                  }
-                  disabled={isSelecting}
-                  key={note.noteId}
-                  onClick={() => void selectNote(note.noteId)}
-                  type="button"
-                >
-                  <span className="notes-list-item-title-row">
-                    <span className="notes-list-item-title">
-                      {displayNoteTitle(note)}
-                    </span>
-                    {note.pinned ? (
-                      <span className="notes-pin-marker">Pinned</span>
-                    ) : null}
-                  </span>
-                  <span className="notes-list-item-preview">
-                    {notePreview(note)}
-                  </span>
-                  <time
-                    className="notes-list-item-time"
-                    dateTime={note.updatedAt}
-                  >
-                    {formatUpdatedTimestamp(note.updatedAt)}
-                  </time>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
+            </div>
+            <label className="field-label" htmlFor={searchInputId}>
+              Filter
+            </label>
+            <input
+              className="input notes-search-input"
+              disabled={isLoading || notes.length === 0}
+              id={searchInputId}
+              onChange={(event) => setSearchText(event.currentTarget.value)}
+              placeholder="Title or body"
+              type="search"
+              value={searchText}
+            />
+            <div className="notes-list" role="list">
+              {isLoading ? (
+                <p className="empty-state-text">Loading workspace notes.</p>
+              ) : loadError ? (
+                <p className="empty-state-text" role="alert">
+                  {loadError}
+                </p>
+              ) : notes.length === 0 ? (
+                <div className="notes-empty-state">
+                  <p className="empty-state-title">No notes yet.</p>
+                  <p className="empty-state-text">
+                    Create one from the header to capture workspace notes.
+                  </p>
+                </div>
+              ) : filteredNotes.length === 0 ? (
+                <p className="empty-state-text">No matching notes.</p>
+              ) : (
+                filteredNotes.map((note) => {
+                  const updatedText = formatUpdatedTimestamp(note.updatedAt);
 
-        <section className="notes-editor-pane" aria-label="Selected note">
-          {isLoading ? (
-            <div className="notes-empty-state">
-              <p className="empty-state-title">Loading notes.</p>
-              <p className="empty-state-text">
-                Workspace-local notes are loading from desktop storage.
-              </p>
+                  return (
+                    <button
+                      aria-current={
+                        selectedNote?.noteId === note.noteId
+                          ? "true"
+                          : undefined
+                      }
+                      className={
+                        selectedNote?.noteId === note.noteId
+                          ? "notes-list-item notes-list-item-selected"
+                          : "notes-list-item"
+                      }
+                      disabled={isSelecting}
+                      key={note.noteId}
+                      onClick={() => void selectNote(note.noteId)}
+                      type="button"
+                    >
+                      <span className="notes-list-item-title-row">
+                        <span className="notes-list-item-title">
+                          {displayNoteTitle(note)}
+                        </span>
+                        {note.pinned ? (
+                          <span className="notes-pin-marker">Pinned</span>
+                        ) : null}
+                      </span>
+                      <span className="notes-list-item-preview">
+                        {notePreview(note)}
+                      </span>
+                      {updatedText ? (
+                        <time
+                          className="notes-list-item-time"
+                          dateTime={note.updatedAt}
+                        >
+                          {updatedText}
+                        </time>
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
             </div>
-          ) : loadError ? (
-            <div className="notes-empty-state" role="alert">
-              <p className="empty-state-title">Notes unavailable.</p>
-              <p className="empty-state-text">{loadError}</p>
-            </div>
-          ) : selectedNote ? (
-            <div className="notes-editor">
-              <div className="notes-editor-meta">
-                <span>{selectedUpdatedText}</span>
-                <span>{isDirty ? "Unsaved changes" : saveStateText}</span>
+          </aside>
+
+          <section className="notes-editor-pane" aria-label="Selected note">
+            {isLoading ? (
+              <div className="notes-empty-state">
+                <p className="empty-state-title">Loading notes.</p>
+                <p className="empty-state-text">
+                  Workspace-local notes are loading from desktop storage.
+                </p>
               </div>
-              <label className="field-label" htmlFor={titleInputId}>
-                Title
-              </label>
-              <input
-                className="input notes-title-input"
-                id={titleInputId}
-                onChange={(event) => updateDraftTitle(event.currentTarget.value)}
-                value={draftTitle}
-              />
-              <label className="field-label" htmlFor={bodyInputId}>
-                Body
-              </label>
-              <textarea
-                className="input notes-body-input"
-                id={bodyInputId}
-                onChange={(event) => updateDraftBody(event.currentTarget.value)}
-                value={draftBody}
-              />
-              <div className="notes-editor-controls">
-                <label className="notes-pin-control">
-                  <input
-                    checked={draftPinned}
-                    onChange={(event) =>
-                      updateDraftPinned(event.currentTarget.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Pinned
+            ) : loadError ? (
+              <div className="notes-empty-state" role="alert">
+                <p className="empty-state-title">Notes unavailable.</p>
+                <p className="empty-state-text">{loadError}</p>
+              </div>
+            ) : selectedNote ? (
+              <div className="notes-editor">
+                <div className="notes-editor-meta">
+                  {selectedUpdatedText ? (
+                    <span>{selectedUpdatedText}</span>
+                  ) : null}
+                  <span>{isDirty ? "Unsaved changes" : saveStateText}</span>
+                </div>
+                <label className="field-label" htmlFor={titleInputId}>
+                  Title
                 </label>
-                <Button
-                  disabled={!selectedNote || !isDirty || isSaving}
-                  onClick={saveNote}
-                  variant="primary"
-                >
-                  {isSaving ? "Saving" : "Save"}
-                </Button>
+                <input
+                  className="input notes-title-input"
+                  id={titleInputId}
+                  onChange={(event) =>
+                    updateDraftTitle(event.currentTarget.value)
+                  }
+                  value={draftTitle}
+                />
+                <label className="field-label" htmlFor={bodyInputId}>
+                  Body
+                </label>
+                <textarea
+                  className="input notes-body-input"
+                  id={bodyInputId}
+                  onChange={(event) =>
+                    updateDraftBody(event.currentTarget.value)
+                  }
+                  value={draftBody}
+                />
+                <div className="notes-editor-controls">
+                  <label className="notes-pin-control">
+                    <input
+                      checked={draftPinned}
+                      onChange={(event) =>
+                        updateDraftPinned(event.currentTarget.checked)
+                      }
+                      type="checkbox"
+                    />
+                    Pinned
+                  </label>
+                  <Button
+                    disabled={!selectedNote || !isDirty || isSaving}
+                    onClick={saveNote}
+                    variant="primary"
+                  >
+                    {isSaving ? "Saving" : "Save"}
+                  </Button>
+                </div>
+                {validationMessage ? (
+                  <p
+                    className="notes-message notes-message-warning"
+                    role="alert"
+                  >
+                    {validationMessage}
+                  </p>
+                ) : null}
+                {editorError ? (
+                  <p className="notes-message notes-message-error" role="alert">
+                    {editorError}
+                  </p>
+                ) : null}
+                <p className="notes-privacy-note">
+                  Workspace-local notes. Not sent to agents or Git
+                  automatically.
+                </p>
               </div>
-              {validationMessage ? (
-                <p className="notes-message notes-message-warning" role="alert">
-                  {validationMessage}
-                </p>
-              ) : null}
-              {editorError ? (
-                <p className="notes-message notes-message-error" role="alert">
-                  {editorError}
-                </p>
-              ) : null}
-              <p className="notes-privacy-note">
-                Workspace-local notes. Not sent to agents or Git automatically.
-              </p>
-            </div>
-          ) : (
-            <div className="notes-empty-state">
-              <p className="empty-state-title">No note selected.</p>
-              <p className="empty-state-text">
-                Select a note from the list or create a new workspace note.
-              </p>
-              <Button
-                disabled={isCreating || !apiAvailable}
-                onClick={createNote}
-                variant="primary"
-              >
-                New note
-              </Button>
-            </div>
-          )}
-        </section>
-      </div>
+            ) : (
+              <div className="notes-empty-state">
+                <p className="empty-state-title">No note selected.</p>
+                <p className="empty-state-text">Select a note from the list.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
     </WidgetFrame>
   );
 }
@@ -549,11 +568,44 @@ function notePreview(note: WorkspaceNote) {
   return preview || "No body yet.";
 }
 
+function notesSingleState({
+  isLoading,
+  loadError,
+  noteCount,
+}: {
+  isLoading: boolean;
+  loadError: string | null;
+  noteCount: number;
+}) {
+  if (isLoading) {
+    return {
+      text: "Loading workspace-local notes from desktop storage.",
+      title: "Loading notes.",
+    };
+  }
+
+  if (loadError) {
+    return {
+      text: loadError,
+      title: "Notes unavailable.",
+    };
+  }
+
+  if (noteCount === 0) {
+    return {
+      text: "Create one from the header to capture workspace notes.",
+      title: "No notes yet.",
+    };
+  }
+
+  return null;
+}
+
 function formatUpdatedTimestamp(value: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "Updated time unavailable";
+    return null;
   }
 
   return new Intl.DateTimeFormat(undefined, {
