@@ -151,7 +151,8 @@ and component keys may still appear in code and persistence.
 - Queue-to-Executor handoff and final-status auto-refresh are current-session
   frontend behavior. Agent Executor owns live logs and final results.
 - Queue task persistence includes `executionPolicy` model/DTO support with a
-  `manual` default, but no current UI control or runner behavior uses it.
+  `manual` default, and the Queue editor exposes a policy control for
+  `manual`, `auto`, and `after_previous_success`.
   Planned Sequential Queue Runner behavior is defined in
   `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md`; it is not current behavior.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.

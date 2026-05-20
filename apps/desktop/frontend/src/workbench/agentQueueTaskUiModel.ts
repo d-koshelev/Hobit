@@ -1,4 +1,7 @@
-import type { AgentQueueTask } from "../workspace/types";
+import type {
+  AgentQueueTask,
+  AgentQueueTaskExecutionPolicy,
+} from "../workspace/types";
 import type { AgentExecutorSlot, WidgetInstance } from "./types";
 import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
@@ -24,6 +27,7 @@ export type QueueFilter = "all" | QueueTaskStatus;
 
 export type TaskDraft = {
   description: string;
+  executionPolicy: AgentQueueTaskExecutionPolicy;
   priority: number;
   prompt: string;
   status: QueueTaskStatus;
@@ -49,9 +53,22 @@ export const FILTERS: Array<{ label: string; value: QueueFilter }> = [
   ...STATUS_OPTIONS,
 ];
 
+export const EXECUTION_POLICY_OPTIONS: Array<{
+  label: string;
+  value: AgentQueueTaskExecutionPolicy;
+}> = [
+  { label: "Manual - requires operator command", value: "manual" },
+  { label: "Auto - run automatically", value: "auto" },
+  {
+    label: "After previous success - run if previous task succeeded",
+    value: "after_previous_success",
+  },
+];
+
 export function emptyDraft(): TaskDraft {
   return {
     description: "",
+    executionPolicy: "manual",
     priority: 0,
     prompt: "",
     status: "draft",
@@ -81,6 +98,22 @@ export function validateDraft(draft: TaskDraft): string | null {
 
 export function isQueueTaskStatus(status: string): status is QueueTaskStatus {
   return TASK_STATUSES.includes(status as QueueTaskStatus);
+}
+
+export function isAgentQueueTaskExecutionPolicy(
+  executionPolicy: string,
+): executionPolicy is AgentQueueTaskExecutionPolicy {
+  return EXECUTION_POLICY_OPTIONS.some(
+    (option) => option.value === executionPolicy,
+  );
+}
+
+export function normalizeTaskExecutionPolicy(
+  executionPolicy: string | null | undefined,
+): AgentQueueTaskExecutionPolicy {
+  return executionPolicy && isAgentQueueTaskExecutionPolicy(executionPolicy)
+    ? executionPolicy
+    : "manual";
 }
 
 export function normalizeTaskStatus(status: string): QueueTaskStatus {

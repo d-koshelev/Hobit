@@ -58,6 +58,9 @@ Preview surfaces are smoke targets only when labeled as Preview.
 - [ ] Smoke policy model persistence only when scoped: Queue tasks default
   `executionPolicy` to `manual`, and create/update/list/read preserve the
   stored value without changing execution behavior.
+- [ ] Smoke the editor policy control when scoped: `manual`, `auto`, and
+  `after_previous_success` can be selected, saved, reloaded, and do not start
+  execution by themselves.
 - [ ] Smoke visible manual assignment or clear of a task to an Agent Executor
   slot when APIs are available.
 - [ ] Smoke explicit start of an assigned task only through operator action and
@@ -67,7 +70,6 @@ Preview surfaces are smoke targets only when labeled as Preview.
 
 Planned future smoke for Sequential Queue Runner, after implementation:
 
-- [ ] Smoke `manual`, `auto`, and `after_previous_success` policy selection.
 - [ ] Smoke ordered single-Executor automatic starts using existing
   Queue-to-Executor handoff.
 - [ ] Smoke runner stop on `manual` task, failed/cancelled/timed-out previous

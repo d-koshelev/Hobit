@@ -13,6 +13,7 @@ import {
   isFinalQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
+  normalizeTaskExecutionPolicy,
   normalizeTaskStatus,
   shortWidgetInstanceId,
   statusLabel,
@@ -119,6 +120,8 @@ export function useAgentQueueController({
     selectedTask &&
       (draft.title !== selectedTask.title ||
         draft.description !== selectedTask.description ||
+        draft.executionPolicy !==
+          normalizeTaskExecutionPolicy(selectedTask.executionPolicy) ||
         draft.prompt !== selectedTask.prompt ||
         draft.status !== normalizeTaskStatus(selectedTask.status) ||
         draft.priority !== selectedTask.priority),
@@ -297,6 +300,7 @@ export function useAgentQueueController({
         prompt: "",
         status: "draft",
         priority: 0,
+        executionPolicy: "manual",
       });
       await loadTasks(createdTask.queueItemId);
     } catch (error) {
@@ -384,6 +388,7 @@ export function useAgentQueueController({
         prompt: draft.prompt,
         status: draft.status,
         priority: draft.priority,
+        executionPolicy: draft.executionPolicy,
       });
 
       if (!updatedTask) {
@@ -549,6 +554,7 @@ export function useAgentQueueController({
     setSelectedTask(task);
     setDraft({
       description: task.description,
+      executionPolicy: normalizeTaskExecutionPolicy(task.executionPolicy),
       priority: task.priority,
       prompt: task.prompt,
       status: normalizeTaskStatus(task.status),
@@ -570,6 +576,7 @@ export function useAgentQueueController({
     assignmentMessage,
     createTask,
     draft,
+    editorError,
     filteredTasks,
     isAssigning,
     isCreating,

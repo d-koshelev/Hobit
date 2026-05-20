@@ -8,6 +8,8 @@ import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import {
   formatUpdatedTimestamp,
+  EXECUTION_POLICY_OPTIONS,
+  isAgentQueueTaskExecutionPolicy,
   isQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
@@ -44,6 +46,7 @@ export function AgentQueuePlaceholderWidget({
   const promptInputId = useId();
   const statusInputId = useId();
   const priorityInputId = useId();
+  const executionPolicyInputId = useId();
   const assignmentInputId = useId();
   const queue = useAgentQueueController({
     agentExecutorSlots,
@@ -263,6 +266,48 @@ export function AgentQueuePlaceholderWidget({
                         type="number"
                         value={draft.priority}
                       />
+                    </div>
+
+                    <div className="agent-queue-editor-field">
+                      <label
+                        className="field-label"
+                        htmlFor={executionPolicyInputId}
+                      >
+                        Execution policy
+                      </label>
+                      <select
+                        className="input agent-queue-execution-policy-select"
+                        id={executionPolicyInputId}
+                        onChange={(event) => {
+                          const nextExecutionPolicy =
+                            event.currentTarget.value;
+
+                          if (
+                            isAgentQueueTaskExecutionPolicy(
+                              nextExecutionPolicy,
+                            )
+                          ) {
+                            updateDraft({
+                              executionPolicy: nextExecutionPolicy,
+                            });
+                          }
+                        }}
+                        value={draft.executionPolicy}
+                      >
+                        {EXECUTION_POLICY_OPTIONS.map((executionPolicy) => (
+                          <option
+                            key={executionPolicy.value}
+                            value={executionPolicy.value}
+                          >
+                            {executionPolicy.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="agent-queue-run-note">
+                        Manual tasks require explicit operator run. Auto
+                        policies are for the future Queue runner; no automatic
+                        execution happens now.
+                      </p>
                     </div>
                   </div>
 

@@ -28,10 +28,10 @@ Related documents:
 This contract defines the Queue item execution policy model before automatic
 Queue execution is implemented.
 
-The persisted model and DTO support for `executionPolicy` is implemented.
-Runner behavior, frontend policy selection UI, bulk prompt import, Coordinator
-automation, and automatic execution remain Planned or Deferred as defined
-below.
+The persisted model, DTO support, and Queue editor policy selection UI for
+`executionPolicy` are implemented. Runner behavior, bulk prompt import,
+Coordinator automation, and automatic execution remain Planned or Deferred as
+defined below.
 
 It does not add Queue runner behavior, Agent Executor runtime changes,
 Coordinator behavior, Terminal behavior, Git behavior, or automatic product
@@ -207,6 +207,7 @@ Implemented persistence/model support includes:
 - app service Queue task types
 - Tauri Queue DTOs/commands
 - frontend Queue types/API
+- Queue editor UI control
 - storage/app/Tauri tests for defaulting, explicit persistence, preserving
   policy when update omits it, changing policy when update supplies it, and
   rejecting unsupported policy values at the app-service validation boundary
@@ -222,7 +223,6 @@ Default policy:
 
 Still Planned:
 
-- Queue editor UI control for `executionPolicy`
 - Sequential Queue Runner
 - bulk prompt import/create UI
 - smoke checklist for automatic queue execution
@@ -262,8 +262,8 @@ system.
 Recommended order:
 
 1. Persist `executionPolicy` on Queue tasks. Completed.
-2. Add Queue editor UI control for `executionPolicy`.
-3. Add tests for a policy/status selection helper.
+2. Add Queue editor UI control for `executionPolicy`. Completed.
+3. Add tests for policy draft/load/save behavior. Completed.
 4. Add Sequential Queue Runner using `executionPolicy`.
 5. Add bulk prompt import/create UI.
 6. Add smoke checklist for automatic queue execution.
