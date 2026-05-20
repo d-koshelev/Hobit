@@ -122,6 +122,7 @@ class CoordinatorProviderProductSmokeRuntime {
         };
         return this.lastCreatedNote;
       },
+      executeJdbcReadOnlyQuery: this.jdbcUnsupported,
       forceKillCodexDirectWorkRun: this.executorUnsupported,
       generateCoordinatorProviderResponse: async (_widgetInstanceId, request) =>
         this.providerResponse(request),
@@ -160,6 +161,7 @@ class CoordinatorProviderProductSmokeRuntime {
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => this.forbidden(null),
+      validateJdbcReadOnlySql: this.jdbcUnsupported,
       writeTerminalPtySession: this.terminalUnsupported,
     } satisfies WorkbenchWidgetInstanceActions;
   }

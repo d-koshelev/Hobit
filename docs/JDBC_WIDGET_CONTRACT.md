@@ -12,12 +12,13 @@ permissions, execution, and AI-context sharing controlled.
 
 This document is the controlling contract for JDBC work. The current
 implementation foundation is intentionally limited to workspace-local connector
-metadata storage/API and a Preview frontend connector metadata shell. It does
-not implement a Java sidecar, JDBC execution, SQL formatting, `EXPLAIN`
-visualization, AI provider integration, Coordinator runtime, widget tool
-execution, database credential handling, secret storage, Terminal or PTY
-behavior, Git mutation, Queue behavior, Agent Executor behavior, or Runbook
-work.
+metadata storage/API, a Preview frontend connector metadata shell, and a
+widget-owned mock/safe read-only SQL validation/execution path with bounded
+sample results. It does not implement a Java sidecar, real database JDBC
+execution, SQL formatting, `EXPLAIN` visualization, AI provider integration,
+Coordinator runtime, widget tool execution, database credential handling,
+secret storage, Terminal or PTY behavior, Git mutation, Queue behavior, Agent
+Executor behavior, or Runbook work.
 
 ## One-Sentence Role
 
@@ -95,10 +96,14 @@ Current foundation status:
 - a Preview Database / JDBC widget can create, list, select, and update
   connector metadata
 - stored metadata includes only masked/non-secret connector descriptors
+- widget-owned read-only SQL validation and mock/safe execution APIs exist
+- the Preview widget can validate SQL, run the mock adapter, and display
+  bounded sample results or sanitized errors
 - passwords, tokens, secret references, driver jars, and runtime credentials are
   not stored
-- no query execution, test connection, Java sidecar, SQL formatter, `EXPLAIN`,
-  AI assistance, credential input, or Coordinator capability runtime exists
+- no real database query execution, test connection, Java sidecar, SQL
+  formatter, `EXPLAIN`, AI assistance, credential input, or Coordinator
+  capability runtime exists
 
 ## Secrets Policy
 

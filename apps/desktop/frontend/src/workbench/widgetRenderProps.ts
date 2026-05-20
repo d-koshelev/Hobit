@@ -5,6 +5,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "../workspace/jdbcConnectorTypes";
 import type {
+  ExecuteJdbcReadOnlyQueryRequest,
+  JdbcReadOnlyQueryResult,
+  JdbcReadOnlySqlValidation,
+  ValidateJdbcReadOnlySqlRequest,
+} from "../workspace/jdbcQueryTypes";
+import type {
   AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
@@ -106,6 +112,13 @@ export type WidgetRenderProps = {
   onCreateJdbcConnector?: (
     request: Omit<CreateJdbcConnectorRequest, "workspaceId">,
   ) => Promise<JdbcConnector>;
+  onExecuteJdbcReadOnlyQuery?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      ExecuteJdbcReadOnlyQueryRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<JdbcReadOnlyQueryResult>;
   onCreateWorkspaceNote?: (
     request: Omit<CreateWorkspaceNoteRequest, "workspaceId">,
   ) => Promise<WorkspaceNote>;
@@ -250,6 +263,13 @@ export type WidgetRenderProps = {
   onUpdateJdbcConnector?: (
     request: Omit<UpdateJdbcConnectorRequest, "workspaceId">,
   ) => Promise<JdbcConnector | null>;
+  onValidateJdbcReadOnlySql?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      ValidateJdbcReadOnlySqlRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<JdbcReadOnlySqlValidation>;
   onUpdateLayout?: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,

@@ -8,7 +8,7 @@ import type {
   JdbcDatabaseKind,
   JdbcDriverKind,
 } from "../workspace/jdbcConnectorTypes";
-import { JdbcSqlWorkspacePlaceholder } from "./JdbcSqlWorkspacePlaceholder";
+import { JdbcReadOnlyQueryPanel } from "./JdbcReadOnlyQueryPanel";
 import {
   JdbcConnectorStatusChip,
   jdbcConnectorFrameStatus,
@@ -30,11 +30,13 @@ export function JdbcConnectorWidget({
   instance,
   logRefreshToken,
   onCreateJdbcConnector,
+  onExecuteJdbcReadOnlyQuery,
   onGetJdbcConnector,
   onListJdbcConnectors,
   onLoadLogs,
   onStartFrameMove,
   onUpdateJdbcConnector,
+  onValidateJdbcReadOnlySql,
   title,
 }: WidgetRenderProps) {
   const displayNameInputId = useId();
@@ -391,13 +393,13 @@ export function JdbcConnectorWidget({
           <div className="jdbc-summary-copy">
             <p className="jdbc-eyebrow">Preview database connector surface</p>
             <p className="jdbc-summary-text">
-              Configure workspace-local connector metadata. SQL execution,
-              EXPLAIN, formatting, result grids, and AI query assistance are
-              pending.
+              Configure workspace-local connector metadata and run bounded
+              mock read-only SQL through the JDBC widget. Real database
+              connections, credentials, and AI result sharing are not enabled.
             </p>
           </div>
           <div className="jdbc-summary-badges">
-            <Badge variant="info">Metadata only</Badge>
+            <Badge variant="info">Mock read-only</Badge>
             <Badge variant="warning">No secrets</Badge>
           </div>
         </section>
@@ -666,7 +668,22 @@ export function JdbcConnectorWidget({
           </section>
         </div>
 
-        <JdbcSqlWorkspacePlaceholder />
+        <JdbcReadOnlyQueryPanel
+          connectors={connectors}
+          isConnectorSelectionDisabled={isSelecting || isDirty}
+          onExecuteQuery={
+            onExecuteJdbcReadOnlyQuery
+              ? (request) => onExecuteJdbcReadOnlyQuery(instance.id, request)
+              : undefined
+          }
+          onSelectConnector={selectConnector}
+          onValidateSql={
+            onValidateJdbcReadOnlySql
+              ? (request) => onValidateJdbcReadOnlySql(instance.id, request)
+              : undefined
+          }
+          selectedConnector={selectedConnector}
+        />
       </div>
     </WidgetFrame>
   );

@@ -219,17 +219,20 @@ future widget capability.
 
 ### Database / JDBC
 
-- Preview connector metadata surface.
+- Preview connector metadata and mock read-only query surface.
 - Uses workspace-local JDBC connector metadata APIs for create, list, read, and
   update.
 - Lets the operator create and edit non-secret connector descriptors:
   display name, database kind, driver kind, masked JDBC URL metadata,
   environment, read-only default, status, and notes.
-- Shows a disabled future SQL workspace placeholder.
+- Shows an operator-triggered read-only SQL workspace backed by the mock/safe
+  validator and bounded result adapter.
+- Can validate conservative read-only SQL and render deterministic bounded
+  mock results or sanitized validation/runtime errors.
 - Does not collect credentials, store passwords or tokens, test connections,
-  run SQL, run `EXPLAIN`, format SQL, show real results, call AI, integrate
-  with Coordinator Chat runtime, launch Terminal, mutate Git, or affect Agent
-  Queue or Agent Executor behavior.
+  connect to real databases, run SQL against external systems, run `EXPLAIN`,
+  format SQL, call AI, integrate with Coordinator Chat runtime, launch
+  Terminal, mutate Git, or affect Agent Queue or Agent Executor behavior.
 
 ### Runbook
 
@@ -259,13 +262,15 @@ current Workbench surface:
 - separate legacy Coordinator preview surface
 
 Database/JDBC is now a current Preview catalog surface for connector metadata
-only. The contract is defined in `docs/JDBC_WIDGET_CONTRACT.md`;
+and mock read-only query review. The contract is defined in
+`docs/JDBC_WIDGET_CONTRACT.md`;
 implementation must preserve read-only defaults, connector secret isolation,
 explicit approval, capped results, and explicit AI context sharing.
 Workspace-local JDBC connector metadata storage/API and frontend metadata UI
-exist for create/list/read/update, but there is still no credential storage,
-SQL execution, Java sidecar, `EXPLAIN`, AI assistance, or Coordinator tool
-runtime.
+exist for create/list/read/update, and a widget-owned mock/safe read-only SQL
+validation/execution path exists for bounded sample results. There is still no
+credential storage, real database connection/query execution, Java sidecar,
+`EXPLAIN`, AI assistance, or Coordinator tool runtime.
 
 ## Compatibility Notes
 
@@ -285,8 +290,8 @@ runtime.
 - Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
   review exists.
 - Evidence/Sources storage/API foundation.
-- JDBC read-only query execution backend.
-- JDBC query results UI.
+- JDBC read-only query UI smoke/hardening.
+- Real JDBC connector runtime planning with credential boundaries.
 - AI context/token economy contract.
 - YouTube Analyst widget contract.
 - Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.

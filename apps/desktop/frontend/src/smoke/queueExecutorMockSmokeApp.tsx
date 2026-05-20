@@ -116,6 +116,7 @@ class QueueExecutorSmokeRuntime {
       createJdbcConnector: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
+      executeJdbcReadOnlyQuery: this.unsupported,
       generateCoordinatorProviderResponse: async () => this.forbidden(null),
       getAgentExecutorDiffSummary: async () => null,
       getAgentExecutorRunDetail: async () => {
@@ -181,6 +182,7 @@ class QueueExecutorSmokeRuntime {
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => null,
+      validateJdbcReadOnlySql: this.unsupported,
       writeTerminalPtySession: async () => this.forbidden(null),
     } satisfies WorkbenchWidgetInstanceActions;
   }

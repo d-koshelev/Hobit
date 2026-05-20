@@ -78,6 +78,9 @@ export function widgetHostRenderProps({
     onCreateJdbcConnector: isJdbc
       ? widgetActions.createJdbcConnector
       : undefined,
+    onExecuteJdbcReadOnlyQuery: isJdbc
+      ? widgetActions.executeJdbcReadOnlyQuery
+      : undefined,
     onCreateWorkspaceNote: isNotes || isInteractiveAgent
       ? widgetActions.createWorkspaceNote
       : undefined,
@@ -167,6 +170,9 @@ export function widgetHostRenderProps({
       : undefined,
     onUpdateJdbcConnector: isJdbc
       ? widgetActions.updateJdbcConnector
+      : undefined,
+    onValidateJdbcReadOnlySql: isJdbc
+      ? widgetActions.validateJdbcReadOnlySql
       : undefined,
     onUpdateLayout: widgetActions.updateWidgetLayout,
     onUpdateState: widgetActions.updateWidgetState,

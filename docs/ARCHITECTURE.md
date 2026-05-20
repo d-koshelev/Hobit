@@ -26,9 +26,11 @@ commit UI with operator confirmation. Agent Queue is a preview manual task queue
 backed by Workspace-scoped task storage/API, assignment API/UI, and a
 manual backend/API start path for assigned tasks, with no automatic dispatch,
 scheduler, or dependency behavior. Database / JDBC is a Preview connector
-metadata shell backed by workspace-local JDBC connector metadata storage/API;
-there is no credential storage, SQL execution, Java sidecar, `EXPLAIN`, AI SQL
-assistance, or Coordinator JDBC tool runtime. Coordinator-centered product
+metadata and mock read-only query surface backed by workspace-local JDBC
+connector metadata storage/API plus widget-owned SQL validation and bounded
+mock execution APIs; there is no credential storage, real database query
+execution, Java sidecar, `EXPLAIN`, AI SQL assistance, or Coordinator JDBC
+tool runtime. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
 proposal cards and a backend-owned provider response path for explicit chat
 sends. Mock/local is the default provider. The provider path uses visible
@@ -113,9 +115,10 @@ runtime, AI provider integration, widget tool execution, or evidence capture.
 safety model: connector boundaries, read-only SQL defaults, query limits,
 secret isolation, `EXPLAIN`, AI SQL assistance, and Coordinator capability
 rules. The current implementation foundation adds workspace-local connector
-metadata storage/API and a Preview connector metadata UI only; SQL execution,
-sidecars, credential storage, secret storage, query results, and Coordinator
-runtime remain unimplemented.
+metadata storage/API, a Preview connector metadata UI, and a widget-owned
+mock/safe read-only SQL validation/execution path with bounded sample results;
+real database execution, sidecars, credential storage, secret storage,
+`EXPLAIN`, and Coordinator runtime remain unimplemented.
 
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
 the Coordinator-centered update: Coordinator Chat handles conversation and
@@ -251,7 +254,8 @@ Git, Terminal, and Notes, plus Preview templates for Agent Queue, Coordinator
 Chat, Database / JDBC, and Runbook. Coordinator Chat uses the current
 `interactive-agent` compatibility/local-chat placeholder. Agent Executor
 reuses the existing `agent-run` definition id for persistence compatibility.
-Database / JDBC is a connector metadata shell only. Retired surfaces such as
+Database / JDBC is a connector metadata surface with mock read-only query
+review only. Retired surfaces such as
 Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner,
 JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not
 shown in the current catalog or workbench surface.
@@ -572,13 +576,16 @@ proposal-only Agent Chat AI compatibility paths, a proposal-review Agent Queue
 path that validates a stored local mock proposal result before creating a
 read-only queue item, manual Agent Queue task create/list/read/update/assign/
 clear/start service methods, and workspace-local JDBC connector metadata
-create/list/read/update service methods. The JDBC service validates allowed
-kind/status values, rejects obvious secret-bearing metadata, and does not
-handle credentials or execute SQL. It does not restore runtime state, provide
+create/list/read/update plus mock read-only SQL validation/execution service
+methods. The JDBC service validates allowed kind/status values, rejects obvious
+secret-bearing metadata, validates conservative read-only SQL, and returns only
+bounded deterministic mock query results. It does not handle credentials,
+connect to real databases, or execute SQL against external systems. It does not
+restore runtime state, provide
 Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history,
-automatically dispatch tasks, approve/apply proposals, execute JDBC queries,
-create scratch execution workspaces, make external Coordinator provider network
-calls, or add automatic agent behavior.
+automatically dispatch tasks, approve/apply proposals, execute real JDBC
+queries, create scratch execution workspaces, make external Coordinator
+provider network calls, or add automatic agent behavior.
 
 ## Workspace Model Boundary
 
@@ -685,8 +692,9 @@ Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,
 Codex Direct Work run/result persistence for the `agent-run` owner,
-workspace-local JDBC connector metadata storage/API and frontend metadata UI
-without credentials or SQL execution, retained backend proposal/review artifact
+workspace-local JDBC connector metadata storage/API, frontend metadata UI, and
+mock read-only query UI/API without credentials or real database SQL execution,
+retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
 desktop-only Git status/diff and selected-file local commit path for the Git
 widget. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/`
