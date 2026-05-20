@@ -5,7 +5,7 @@ import {
 import type {
   CodexDirectWorkLiveLogEntry,
   CodexDirectWorkLiveRun,
-} from "./CodexDirectWorkLiveLog";
+} from "./executor/codexDirectWorkLogTypes";
 
 export function liveRunStatusView(status: string): {
   badgeLabel: string;
