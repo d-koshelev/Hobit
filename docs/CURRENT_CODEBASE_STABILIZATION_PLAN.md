@@ -90,6 +90,48 @@ Out of scope:
 - new runtime behavior
 - hidden automation changes
 
+# Current validation baseline
+
+Baseline recorded on 2026-05-20 after the Phase 1 P0 bootstrap fixes.
+
+- Passing: `cargo check --workspace` passes after restoring the Tauri icon
+  validation assets.
+- Known warning: `cargo check --workspace` reports four pre-existing
+  `hobit-desktop` dead-code warnings in
+  `apps/desktop/src-tauri/src/terminal_pty.rs`: unused
+  `TERMINAL_STREAM_KIND`, unused `SharedOutputBuffer::push_terminal_output`,
+  unread `TerminalPtyOutputBuffer::next_sequence`, and unused
+  `TerminalPtyOutputBuffer::push`.
+- Unresolved blocker: `cargo test --workspace` fails in
+  `hobit-desktop` on this Linux checkout because three Terminal PTY tests try
+  to create long-lived PTY sessions while the implementation reports
+  `Terminal PTY sessions are currently supported only on Windows desktop`.
+  The failing tests are
+  `terminal_pty_rejects_cross_scope_session_actions`,
+  `terminal_pty_resize_write_kill_and_close_lifecycle`, and
+  `terminal_pty_stop_marks_session_stopping_without_targeting_pid`.
+- Passing: `bash -n scripts/hobit/validate.sh` passes.
+- Expected environment failure: `bash scripts/hobit/validate.sh` exits
+  non-zero before validation because frontend dependencies are missing. The
+  failure is actionable and prints the required bootstrap command:
+  `npm ci --prefix apps/desktop/frontend`.
+- Expected environment failure: direct `scripts/hobit/validate.sh` execution
+  fails with `Permission denied` in this checkout. Git records the script as
+  executable mode `100755`, but the local filesystem mode is currently
+  `-rw-rw-rw-`, so this is an execution-mode/materialization issue in this
+  checkout, not a tracked script-mode change.
+- Expected environment failure: frontend dependency state is missing
+  `apps/desktop/frontend/node_modules` and local
+  `node_modules/.bin/tsc`. Do not treat frontend validation as a code failure
+  until dependencies are installed and `validate.sh` proceeds past the
+  preflight.
+- Known warning: the worktree has pre-existing unrelated dirty files across
+  docs, frontend, Rust, and decision records. Phase 1 validation baseline work
+  must not stage or modify those unrelated files.
+- Not run: frontend typecheck/build were not run directly because this
+  validation/reporting block explicitly must not install frontend
+  dependencies.
+
 ## Known Problem Inventory
 
 These are known cleanup areas for follow-up tasks. Do not solve them inside a
@@ -129,13 +171,16 @@ implementation changes.
 - Fix the clean-checkout `cargo check --workspace` blocker where the Tauri
   desktop shell expects missing icon assets such as
   `apps/desktop/src-tauri/icons/icon.png`. Fixed by restoring valid generated
-  Tauri icon assets under `apps/desktop/src-tauri/icons/`.
+  Tauri icon assets under `apps/desktop/src-tauri/icons/`. Closed for
+  `cargo check --workspace`; the command now passes with only known
+  Terminal PTY dead-code warnings.
 - Improve `scripts/hobit/validate.sh` failure reporting when frontend
   dependencies, `node_modules`, or `tsc` are missing, so bootstrap failures are
   actionable instead of opaque. Fixed by adding a frontend dependency preflight
   that reports the missing local TypeScript toolchain and the required
   `npm ci --prefix apps/desktop/frontend` bootstrap command before npm
-  validation steps run.
+  validation steps run. Mitigated; missing dependencies remain an expected
+  environment failure until `npm ci --prefix apps/desktop/frontend` is run.
 - Verify real-repository Git portability for `.git` gitdir pointers and
   `hobit-local-git` configuration, including reviewed cases where an absolute
   Windows path broke `git status` outside the original environment. Do not edit
@@ -144,7 +189,8 @@ implementation changes.
   but is ignored and untracked, `core.worktree` is relative (`..`), and
   `git status` works. Classify the reviewed absolute-path failure as a local
   metadata/export artifact unless a clean clone or source archive reproduces
-  tracked `hobit-local-git` contents or an absolute `core.worktree`.
+  tracked `hobit-local-git` contents or an absolute `core.worktree`. Verified
+  local-only in this checkout.
 - Review smoke HTML files located at the frontend Vite root next to production
   `index.html`; decide whether they move under `smoke/dev` or are explicitly
   gated in Vite config.
