@@ -17,7 +17,7 @@ fn sidecar_stub_returns_not_configured_without_exposing_backend_secrets() {
     assert!(!request_debug.contains("jdbc:postgresql://private-host"));
     assert!(!request_debug.contains("readonly-user"));
 
-    let result = SidecarReadOnlyJdbcAdapter.execute_read_only_query(request);
+    let result = SidecarReadOnlyJdbcAdapter::not_configured().execute_read_only_query(request);
     let result_debug = format!("{result:?}");
 
     assert_eq!(result.status, STATUS_NOT_CONFIGURED);
@@ -36,7 +36,7 @@ fn sidecar_stub_returns_not_configured_without_exposing_backend_secrets() {
 #[test]
 fn sidecar_stub_rejects_invalid_validation_before_runtime_configuration() {
     let request = adapter_request(sidecar_connector(), invalid_validation());
-    let result = SidecarReadOnlyJdbcAdapter.execute_read_only_query(request);
+    let result = SidecarReadOnlyJdbcAdapter::not_configured().execute_read_only_query(request);
 
     assert_eq!(result.status, STATUS_QUERY_REJECTED);
     assert_eq!(
@@ -65,7 +65,7 @@ fn sidecar_stub_reports_unsupported_driver_as_sanitized_runtime_status() {
         valid_validation(),
     );
 
-    let result = SidecarReadOnlyJdbcAdapter.execute_read_only_query(request);
+    let result = SidecarReadOnlyJdbcAdapter::not_configured().execute_read_only_query(request);
 
     assert_eq!(result.status, STATUS_UNSUPPORTED_DRIVER);
     assert_eq!(

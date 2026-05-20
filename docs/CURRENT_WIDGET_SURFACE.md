@@ -232,6 +232,10 @@ future widget capability.
 - Has a backend adapter boundary for future real read-only JDBC execution:
   `MockReadOnlyJdbcAdapter` remains active, while the sidecar adapter is a
   not-configured/unsupported stub with backend-only credential boundaries.
+- Has a dependency-free Java sidecar scaffold and smoke script for the narrow
+  stdin/stdout JSON protocol. This scaffold is test-only and returns
+  deterministic mock/not-configured/unsupported responses without drivers,
+  credentials, network, or database connections.
 - Does not collect credentials, store passwords or tokens, test connections,
   connect to real databases, run SQL against external systems, run `EXPLAIN`,
   format SQL, call AI, integrate with Coordinator Chat runtime, launch
@@ -272,10 +276,11 @@ explicit approval, capped results, and explicit AI context sharing.
 Workspace-local JDBC connector metadata storage/API and frontend metadata UI
 exist for create/list/read/update, and a widget-owned mock/safe read-only SQL
 validation/execution path exists for bounded sample results. There is still no
-credential storage, real database connection/query execution, Java sidecar,
-`EXPLAIN`, AI assistance, or Coordinator tool runtime. Block 263 establishes
-the future Java sidecar runtime decision and adapter stub only; the active
-runtime remains mock-only.
+credential storage, real database connection/query execution, production Java
+sidecar runtime, `EXPLAIN`, AI assistance, or Coordinator tool runtime. Block
+263 establishes the future Java sidecar runtime decision and adapter stub.
+Block 264 adds only a dependency-free Java sidecar protocol scaffold; the
+active runtime remains mock-only.
 
 ## Compatibility Notes
 

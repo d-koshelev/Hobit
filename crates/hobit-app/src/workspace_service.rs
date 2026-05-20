@@ -29,6 +29,7 @@ mod jdbc_connectors;
 mod jdbc_query;
 mod jdbc_query_types;
 mod jdbc_runtime;
+mod jdbc_sidecar_protocol;
 mod logs;
 mod mapping;
 mod notes;
@@ -75,6 +76,8 @@ mod jdbc_connectors_tests;
 mod jdbc_query_tests;
 #[cfg(test)]
 mod jdbc_runtime_tests;
+#[cfg(test)]
+mod jdbc_sidecar_protocol_tests;
 #[cfg(test)]
 mod notes_tests;
 #[cfg(test)]

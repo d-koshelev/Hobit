@@ -5,12 +5,15 @@ use hobit_storage_sqlite::JdbcConnectorRow;
 use super::jdbc_query_types::{
     JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary, JdbcReadOnlySqlValidationSummary,
 };
+use super::jdbc_sidecar_protocol::JdbcSidecarProcessRunner;
 
 pub(super) const STATUS_COMPLETED: &str = "completed";
 pub(super) const STATUS_VALIDATION_FAILED: &str = "validation_failed";
 pub(super) const STATUS_NOT_CONFIGURED: &str = "not_configured";
 pub(super) const STATUS_UNSUPPORTED_DRIVER: &str = "unsupported_driver";
 pub(super) const STATUS_QUERY_REJECTED: &str = "query_rejected";
+pub(super) const STATUS_EXECUTION_FAILED: &str = "execution_failed";
+pub(super) const STATUS_TIMEOUT: &str = "timeout";
 
 const VALUE_KIND_TEXT: &str = "text";
 
@@ -129,9 +132,9 @@ impl JdbcReadOnlyRuntimeErrorKind {
             Self::UnsupportedDriver => STATUS_UNSUPPORTED_DRIVER,
             Self::ConnectionFailed => "connection_failed",
             Self::AuthenticationFailed => "authentication_failed",
-            Self::Timeout => "timeout",
+            Self::Timeout => STATUS_TIMEOUT,
             Self::QueryRejected => STATUS_QUERY_REJECTED,
-            Self::ExecutionFailed => "execution_failed",
+            Self::ExecutionFailed => STATUS_EXECUTION_FAILED,
             Self::ResultTruncated => "result_truncated",
         }
     }
@@ -180,8 +183,24 @@ impl ReadOnlyJdbcAdapter for MockReadOnlyJdbcAdapter {
     }
 }
 
-#[allow(dead_code)]
-pub(super) struct SidecarReadOnlyJdbcAdapter;
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(super) struct SidecarReadOnlyJdbcAdapter {
+    runner: Option<JdbcSidecarProcessRunner>,
+}
+
+impl SidecarReadOnlyJdbcAdapter {
+    #[allow(dead_code)]
+    pub(super) fn not_configured() -> Self {
+        Self { runner: None }
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn with_runner(runner: JdbcSidecarProcessRunner) -> Self {
+        Self {
+            runner: Some(runner),
+        }
+    }
+}
 
 impl ReadOnlyJdbcAdapter for SidecarReadOnlyJdbcAdapter {
     fn execute_read_only_query(
@@ -205,6 +224,15 @@ impl ReadOnlyJdbcAdapter for SidecarReadOnlyJdbcAdapter {
                 JdbcReadOnlyRuntimeErrorKind::UnsupportedDriver,
                 Some(&message),
             );
+        }
+
+        if matches!(
+            &request.connector.runtime_config,
+            JdbcConnectorRuntimeConfig::Sidecar(_)
+        ) {
+            if let Some(runner) = &self.runner {
+                return runner.execute_read_only_query(request);
+            }
         }
 
         failed_adapter_result(request, JdbcReadOnlyRuntimeErrorKind::NotConfigured, None)

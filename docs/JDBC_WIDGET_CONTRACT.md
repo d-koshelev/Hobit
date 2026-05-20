@@ -14,11 +14,12 @@ This document is the controlling contract for JDBC work. The current
 implementation foundation is intentionally limited to workspace-local connector
 metadata storage/API, a Preview frontend connector metadata shell, and a
 widget-owned mock/safe read-only SQL validation/execution path with bounded
-sample results. It does not implement a Java sidecar, real database JDBC
-execution, SQL formatting, `EXPLAIN` visualization, AI provider integration,
-Coordinator runtime, widget tool execution, database credential handling,
-secret storage, Terminal or PTY behavior, Git mutation, Queue behavior, Agent
-Executor behavior, or Runbook work.
+sample results. Block 264 adds a dependency-free Java sidecar scaffold and
+backend protocol runner for opt-in tests only. It does not implement real
+database JDBC execution, SQL formatting, `EXPLAIN` visualization, AI provider
+integration, Coordinator runtime, widget tool execution, database credential
+handling, secret storage, Terminal or PTY behavior, Git mutation, Queue
+behavior, Agent Executor behavior, or Runbook work.
 
 ## One-Sentence Role
 
@@ -101,12 +102,16 @@ Current foundation status:
   bounded sample results or sanitized errors
 - passwords, tokens, secret references, driver jars, and runtime credentials are
   not stored
-- no real database query execution, test connection, Java sidecar, SQL
-  formatter, `EXPLAIN`, AI assistance, credential input, or Coordinator
+- no real database query execution, test connection, production Java sidecar,
+  SQL formatter, `EXPLAIN`, AI assistance, credential input, or Coordinator
   capability runtime exists
 - Block 263 adds the backend adapter boundary only: mock remains the active
   execution adapter, and the real sidecar adapter is a not-configured stub with
   sanitized runtime statuses and no credential exposure
+- Block 264 adds a dependency-free Java sidecar scaffold at
+  `sidecars/jdbc-readonly-sidecar/` plus `scripts/hobit/smoke-jdbc-sidecar.mjs`;
+  the scaffold returns deterministic mock/read-only protocol responses and is
+  not active in the JDBC widget by default
 
 ## Secrets Policy
 
@@ -185,6 +190,20 @@ The sidecar response shape should include only:
 The sidecar must not expose arbitrary Java execution, shell commands, driver
 jar browsing, raw driver dumps, frontend credential values, Coordinator tools,
 Terminal control, Git mutation, Queue dispatch, or Agent Executor launch.
+
+Block 264 scaffold:
+
+- source location:
+  `sidecars/jdbc-readonly-sidecar/src/main/java/com/hobit/jdbc/JdbcReadOnlySidecar.java`
+- smoke command: `node scripts/hobit/smoke-jdbc-sidecar.mjs`
+- transport: one JSON request on stdin, one JSON response on stdout
+- accepted runtime kind: `mock_read_only`
+- implemented statuses: `completed`, `query_rejected`, `not_configured`, and
+  `unsupported_driver`
+- no JDBC driver loading, no credentials, no network, and no database
+  connection
+- backend integration remains opt-in/test-only through the sidecar process
+  runner; the product service still uses `MockReadOnlyJdbcAdapter`
 
 ## SQL Editor Behavior
 
@@ -712,7 +731,7 @@ This contract does not implement:
 - frontend UI
 - backend or Tauri commands
 - storage/schema changes
-- Java sidecar implementation
+- production Java sidecar implementation
 - JDBC execution
 - SQL formatter implementation
 - `EXPLAIN` visualization implementation

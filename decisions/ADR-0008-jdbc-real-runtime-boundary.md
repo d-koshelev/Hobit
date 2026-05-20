@@ -39,6 +39,76 @@ unrestricted driver loading, frontend-visible credentials, provider tools,
 Coordinator execution, Terminal control, Git mutation, Queue dispatch, or
 Agent Executor launch.
 
+## Block 264 Scaffold
+
+The first sidecar scaffold lives at:
+
+```text
+sidecars/jdbc-readonly-sidecar/
+```
+
+The Java entry point is:
+
+```text
+sidecars/jdbc-readonly-sidecar/src/main/java/com/hobit/jdbc/JdbcReadOnlySidecar.java
+```
+
+It is dependency-free Java source. It does not load JDBC drivers, credentials,
+network sockets, or database connections. It accepts one JSON request on stdin
+and writes one JSON response on stdout.
+
+Current request fields:
+
+- `protocol_version`
+- `request_id`
+- `runtime_kind`
+- `connector_id`
+- `database_kind`
+- `driver_kind`
+- `statement_kind`
+- `validated_read_only`
+- `sql`
+- `row_limit`
+- `timeout_ms`
+- `max_columns`
+- `max_cell_chars`
+- `max_result_bytes`
+
+Current response fields:
+
+- `protocol_version`
+- `request_id`
+- `status`
+- `columns`
+- `rows`
+- `row_count`
+- `returned_row_count`
+- `truncated`
+- `truncated_rows`
+- `truncated_columns`
+- `truncated_cells`
+- `truncated_bytes`
+- `duration_ms`
+- `sanitized_error`
+- `no_secrets_returned`
+- `no_ai_context_shared`
+- `mock_execution`
+
+The only successful runtime kind in the scaffold is `mock_read_only`.
+`real_jdbc` and other runtime kinds return `not_configured`. Unsupported
+driver kinds return `unsupported_driver`. Requests with
+`validated_read_only: false` return `query_rejected`.
+
+The scaffold smoke is:
+
+```text
+node scripts/hobit/smoke-jdbc-sidecar.mjs
+```
+
+The smoke compiles and runs the sidecar when `java` and `javac` are available
+on `PATH`. If a JDK is absent, it reports the skip without changing product
+behavior.
+
 ## Credential Boundary
 
 Credentials are backend-only runtime configuration.
@@ -70,6 +140,8 @@ proposal cards, widget logs, persisted query results, or test snapshots.
   passwords, tokens, raw JDBC URLs, environment values, or driver dumps.
 - Mock execution remains deterministic and default until a later explicit
   sidecar implementation block.
+- The Block 264 Java scaffold is test-only. It is not the default JDBC widget
+  runtime and does not make real database connections possible by itself.
 - Coordinator Chat remains suggest/copy only for JDBC SQL and cannot invoke the
   adapter.
 - No storage schema, credential UI, driver installation, broad JDBC sidecar, or
