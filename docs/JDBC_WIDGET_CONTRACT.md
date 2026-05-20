@@ -2,13 +2,31 @@
 
 ## Purpose
 
-This contract defines the future Database / JDBC widget product model and
-safety boundary.
+Contract status: Current Preview.
 
-The JDBC widget is a controlled database work surface and database proxy for
-Coordinator Chat. It lets the operator and Coordinator work with databases
-through explicit connector and SQL capabilities while keeping secrets,
-permissions, execution, and AI-context sharing controlled.
+Source of truth for:
+
+- Database / JDBC Current Preview behavior and boundaries
+- workspace-local non-secret connector metadata behavior
+- bounded mock/safe read-only SQL validation/execution behavior
+- JDBC safety boundaries and Deferred production-runtime scope
+
+Not source of truth for:
+
+- production JDBC runtime
+- Coordinator SQL execution
+- broad database automation
+- future credential workflows
+
+This contract defines the Database / JDBC widget product model and safety
+boundary. Current behavior is a Preview surface, not a production database
+runtime.
+
+The JDBC widget is a controlled database work surface. Future Coordinator Chat
+integration may work with databases only through explicit, visible widget
+capabilities while keeping secrets, permissions, execution, and AI-context
+sharing controlled. Current Coordinator Chat can suggest SQL text only; it
+cannot execute SQL or inspect JDBC metadata/results.
 
 This document is the controlling contract for JDBC work. The current
 implementation foundation is intentionally limited to workspace-local connector
@@ -28,34 +46,39 @@ work.
 
 ## One-Sentence Role
 
-JDBC Widget: run and review approved SQL through configured database
-connectors.
+JDBC Widget: manage connector metadata and preview bounded mock/safe read-only
+SQL validation/execution.
 
-## What The JDBC Widget Is
+## What The JDBC Widget Is In Current Preview
 
-The JDBC widget is:
+The current JDBC widget is:
 
 - a database connector list
 - a selected connector workspace
 - a SQL editor surface
-- a read-only query runner by default
-- a result grid
-- an `EXPLAIN` runner
+- a bounded mock/safe read-only SQL validator and execution preview
+- a bounded mock result grid / sanitized error surface
+
+Future JDBC work may add:
+
+- production read-only query execution after explicit credential/runtime design
+- an `EXPLAIN` runner after dialect-specific safety rules are accepted
 - a future `EXPLAIN` visualization surface
 - a future AI SQL explanation and optimization surface
 - a controlled capability provider for Coordinator Chat
 
-The widget owns database interaction. Coordinator Chat may propose database
-actions, but execution must go through this widget's connector, SQL, approval,
-limit, and result-sharing policy.
+The widget owns database interaction. Coordinator Chat may propose SQL text,
+but it must not execute SQL, select connectors silently, inspect metadata, or
+receive results unless a later approved capability flow exists.
 
-## What The JDBC Widget Is Not In The First Version
+## What The JDBC Widget Is Not In Current Preview
 
-The first JDBC widget version is not:
+The Current Preview JDBC widget is not:
 
 - a hidden database agent
 - automatic database crawling
 - write SQL execution
+- production JDBC execution
 - a production mutation tool
 - a BI dashboard replacement
 - a secrets manager
@@ -92,9 +115,10 @@ Possible `database_kind` values include:
 - `mysql`
 - `generic_jdbc`
 
-The first implementation does not need to support all database kinds. Each
-supported kind must define its connection, read-only detection, query limits,
-and `EXPLAIN` behavior before execution is implemented.
+The Current Preview does not need to support all database kinds. Each future
+production-supported kind must define its connection, read-only detection,
+query limits, and `EXPLAIN` behavior before real external execution is
+implemented.
 
 Current foundation status:
 
@@ -133,15 +157,15 @@ Rules:
 
 - passwords and tokens must not enter AI prompts
 - connection strings shown in UI must be masked
-- credentials are backend-only or session-only
+- future credentials must be backend-only or session-only
 - secrets should not be logged
 - secrets should not be stored in ordinary widget state
-- first implementation may use session-only credentials if persistent secret
-  storage is not ready
 - Coordinator Chat never receives raw credentials
 - connector metadata returned to Coordinator must be non-secret or redacted
 
-Persistent secret storage requires a separate contract before implementation.
+The Current Preview does not collect credentials. Session-only credentials and
+persistent secret storage are Deferred and require a separate contract before
+implementation.
 
 ## Driver And Runtime Direction
 
@@ -272,21 +296,20 @@ Block 266 mock sidecar activation:
 
 ## SQL Editor Behavior
 
-Future JDBC UI should include:
+Current Preview JDBC UI includes:
 
 - connector selector
 - SQL editor
-- Format SQL
 - Run
-- Explain
 - row limit
 - timeout
 - result area
 - error area
-- AI review actions later
 
-The MVP editor may start as a textarea. Monaco or CodeMirror is optional later
-and must not be required for the first safe slice.
+Deferred UI capabilities include Format SQL, `EXPLAIN`, saved query history,
+tabs, charts, schema browser, AI analysis, and write-mode controls. Monaco or
+CodeMirror is optional later and must not be required for the Current Preview
+or the first production-runtime slice.
 
 ## SQL Formatting
 
@@ -304,20 +327,22 @@ explicitly approved. This contract does not implement a formatter.
 
 Default JDBC execution mode must be read-only.
 
-The first practical execution slice must start conservative. It should validate
-SQL before any runtime or sidecar call, and it must reject ambiguous input
-rather than trying to repair or reinterpret it.
+The Current Preview execution path is conservative. It validates SQL before
+mock/safe execution, and it must reject ambiguous input rather than trying to
+repair or reinterpret it.
 
-The first slice should allow only safe query forms such as:
+The Current Preview should allow only safe query forms such as:
 
 - `SELECT`
 - `WITH`
 - `SHOW`
 - `DESCRIBE`
-- `EXPLAIN` only when the implementation explicitly blocks `EXPLAIN ANALYZE`
-  or dialect-specific variants that may execute work beyond plan inspection
 
-The first slice should reject or block SQL forms such as:
+`EXPLAIN` workflows remain Deferred unless a later explicit implementation
+defines and accepts dialect-specific safety rules, including blocking
+`EXPLAIN ANALYZE` or variants that may execute work beyond plan inspection.
+
+The Current Preview should reject or block SQL forms such as:
 
 - `INSERT`
 - `UPDATE`
@@ -339,7 +364,7 @@ before implementation. SQL classification must be conservative; ambiguous
 statements should require explicit rejection or a later stronger policy rather
 than executing silently.
 
-Additional first-slice validator rules:
+Additional Current Preview validator rules:
 
 - Strip leading comments and whitespace only for classification.
 - Reject empty SQL.
@@ -356,9 +381,11 @@ Additional first-slice validator rules:
 
 ## First Read-Only Execution Slice
 
-The next implementation slice should add a backend-owned, widget-scoped
-read-only query foundation. It must be executable only from the Database / JDBC
-widget after visible operator review.
+The first read-only execution slice is shipped as Current Preview. It is a
+backend-owned, widget-scoped bounded mock/safe query foundation. It must be
+executable only from the Database / JDBC widget after visible operator review,
+and it must not be represented as production JDBC runtime or real database
+results.
 
 Execution boundary:
 
@@ -375,13 +402,15 @@ Connector boundary:
 - Use an explicit selected connector id.
 - Connector display metadata may be visible; raw credentials must remain
   backend-only or unavailable.
-- If real credentials or sidecar execution are not ready, Block 260 should use
-  a mock/safe execution adapter that proves validation, DTOs, caps, and UI
-  behavior without opening a database connection.
-- Missing connector runtime or missing credentials should return a visible
-  `not_configured` or `unsupported` execution error, not a fake success.
+- The Current Preview uses a mock/safe execution adapter that proves
+  validation, DTOs, caps, and UI behavior without opening a database
+  connection.
+- Future production runtime with credentials or sidecar execution remains
+  Deferred. Missing connector runtime or missing credentials in a future
+  production path should return a visible `not_configured` or `unsupported`
+  execution error, not a fake success.
 
-Minimal API shape for the first backend foundation:
+Current Preview API shape:
 
 ```text
 validate_jdbc_read_only_sql(request)
@@ -432,7 +461,7 @@ above are the minimum behavior contract. Result rows should be represented as
 display-safe scalar values; binary or driver-specific values must be converted
 to capped strings or returned as redacted placeholders.
 
-Minimal frontend shape for the first visible JDBC execution UI:
+Current Preview frontend shape:
 
 - connector selector using existing connector metadata APIs
 - SQL textarea/editor
@@ -442,12 +471,13 @@ Minimal frontend shape for the first visible JDBC execution UI:
 - result table/grid with column headers and compact rows
 - duration, returned row count, and truncation notices
 - sanitized error panel
-- no AI execution, no Coordinator execution, no schema crawler, and no result
-  sharing controls until a later Evidence/Sources or AI-context slice exists
+- no AI execution, no Coordinator execution, no schema crawler, no production
+  JDBC runtime, and no result sharing controls until a later Evidence/Sources
+  or AI-context slice exists
 
-The first UI may be operationally simple. It should not show production-grade
-features such as saved query history, tabs, charts, schema browser, `EXPLAIN`
-visualization, AI analysis, or write-mode controls.
+The Current Preview UI may be operationally simple. It should not show
+production-grade features such as saved query history, tabs, charts, schema
+browser, `EXPLAIN` visualization, AI analysis, or write-mode controls.
 
 ## Query Execution Limits
 
@@ -465,10 +495,11 @@ Mandatory execution limits:
 - duration
 - row count when available
 
-Limit values should be visible to the operator before execution and included
-in action proposals when Coordinator Chat requests a JDBC capability.
+Limit values should be visible to the operator before execution. They should
+be included in future action proposals only when a later explicit Coordinator
+JDBC capability flow exists.
 
-Recommended first-slice defaults:
+Recommended Current Preview defaults:
 
 - row limit: 100
 - maximum columns: 50
@@ -507,10 +538,9 @@ driver-specific credential detail.
 
 ## EXPLAIN Behavior
 
-`EXPLAIN` is read-only and should be allowed in the first practical JDBC
-slice.
+`EXPLAIN` is Deferred in the Current Preview.
 
-`EXPLAIN` output should be:
+Future `EXPLAIN` output should be:
 
 - captured
 - displayed
@@ -526,11 +556,11 @@ Future visualization may include:
 - expensive nodes
 - operator summaries
 
-This contract does not implement `EXPLAIN` visualization.
+This contract does not implement `EXPLAIN` execution or visualization.
 
 ## Result Grid Behavior
 
-Results should show:
+Current Preview results should show:
 
 - columns
 - rows
@@ -545,14 +575,14 @@ Large results should be capped and must not be automatically sent to AI.
 Operator-visible truncation must make it clear that the result is a sample or
 bounded output rather than the complete dataset.
 
-For the first execution slice, results are session/UI state unless a later
-block explicitly adds widget run/result persistence. Do not add Evidence/Sources
-capture, AI context sharing, saved query history, or storage migrations as part
-of the first read-only execution foundation.
+For the Current Preview execution slice, results are session/UI state unless a
+later block explicitly adds widget run/result persistence. Do not add
+Evidence/Sources capture, AI context sharing, saved query history, or storage
+migrations as part of the Current Preview foundation.
 
 ## AI SQL Assistance
 
-AI can help with:
+Future AI SQL assistance may help with:
 
 - explain this query
 - optimize this query
@@ -569,8 +599,9 @@ AI must not:
 - receive full uncapped results by default
 - generate and run write SQL automatically
 
-AI output should be suggestions and explanations. Execution remains through
-the JDBC widget capability and policy.
+AI output should be suggestions and explanations. Current Preview has no AI
+query assistance, no AI result sharing, and no Coordinator execution.
+Execution remains through the JDBC widget capability and policy.
 
 ## Coordinator Capability Model
 
@@ -604,7 +635,7 @@ Coordinator can request these capabilities only through the JDBC widget
 boundary. It must not bypass connector selection, SQL approval, query limits,
 or result-sharing policy.
 
-Current Coordinator relationship for the first execution milestone:
+Current Coordinator relationship for the Current Preview:
 
 - Coordinator JDBC proposals remain non-executing SQL suggestion cards.
 - A later bridge may copy a reviewed SQL suggestion into the JDBC widget after
@@ -617,7 +648,7 @@ Current Coordinator relationship for the first execution milestone:
 
 ## Action Approval Model
 
-Coordinator should propose JDBC actions as action cards.
+Future Coordinator JDBC actions should be proposed as action cards.
 
 The action card should show:
 
@@ -634,11 +665,15 @@ The action card should show:
 The operator can approve, edit, or cancel.
 
 Guided or autonomous modes may later allow low-risk read-only queries within
-explicit policy, but write SQL is not allowed in the first JDBC slices.
+explicit policy, but they are Deferred. Write SQL is not allowed in the Current
+Preview and remains out of scope for first production JDBC slices.
 
 ## Context Sharing With AI
 
-By default, AI may receive:
+Current Preview does not share JDBC metadata, SQL results, schemas, database
+errors, or result samples with AI.
+
+Future approved AI context-sharing flows may receive:
 
 - SQL text
 - connector type and non-secret metadata
@@ -658,8 +693,8 @@ AI must not receive:
 - all rows
 - unapproved result data
 
-The operator or an explicit autonomy policy controls whether a query result,
-sample, schema, or `EXPLAIN` output becomes AI context.
+The operator or an explicit approved context-sharing policy must control
+whether a query result, sample, schema, or `EXPLAIN` output becomes AI context.
 
 ## Schema Metadata
 
@@ -696,11 +731,18 @@ This contract does not implement audit storage.
 The JDBC widget safety boundary is:
 
 - read-only by default
-- no write SQL in the first slice
+- Current Preview only for bounded mock/safe read-only SQL
+  validation/execution
+- no production JDBC execution in Current Preview
+- no write SQL
 - no hidden queries
 - no secret exposure
+- no credential expansion
+- no schema mutation
 - no uncapped result streaming
+- no `EXPLAIN` workflow in Current Preview
 - no automatic AI execution
+- no hidden Coordinator-triggered SQL execution
 - no Terminal launch
 - no Git mutation
 - no file mutation
@@ -709,22 +751,26 @@ The JDBC widget safety boundary is:
 
 ## Relationship To Coordinator Chat
 
-Coordinator Chat can use JDBC only through widget capabilities.
+Current Coordinator Chat can suggest JDBC SQL text only. Future Coordinator
+Chat may use JDBC only through explicit widget capabilities after a later
+approved capability flow exists.
 
-Coordinator may:
+Coordinator may currently:
 
 - propose read-only SQL
 - ask clarifying questions before a query
-- interpret an approved result or `EXPLAIN` output
-- suggest safer diagnostics
-- create Queue tasks based on findings
+- suggest safer diagnostics as text
+
+Future approved flows may allow Coordinator to interpret an approved bounded
+result or `EXPLAIN` output and create Queue tasks based on findings.
 
 Coordinator must not:
 
 - choose a connector silently
-- run SQL without approval or policy
+- run SQL
 - receive raw credentials
 - bypass JDBC widget limits
+- inspect connector metadata or query results as hidden context
 - treat database data as hidden workspace context
 
 ## Relationship To Agent Queue And Agent Executor
@@ -756,32 +802,42 @@ AI interpretation is not evidence unless it is marked as AI interpretation.
 
 Recommended implementation slices:
 
-1. JDBC read-only backend foundation: SQL validator, mock/safe execution
-   adapter if real credentials are not ready, bounded result model, sanitized
-   errors, and no Coordinator execution.
-2. JDBC result UI: connector selector, SQL textarea, Run read-only query,
-   validation status, result grid, caps/truncation notices, and error panel.
-3. Real connector execution adapter after credential/runtime handling is
+1. Current Preview JDBC read-only backend foundation: completed for bounded
+   mock/safe execution, SQL validator, bounded result model, sanitized errors,
+   and no Coordinator execution.
+2. Current Preview JDBC result UI: completed for connector selector, SQL
+   textarea, Run read-only query, validation status, result grid,
+   caps/truncation notices, and error panel.
+3. Decision follow-up: decide whether to promote the preview path, hide/remove
+   it, implement production runtime, or connect Coordinator only through
+   explicit approved actions later.
+4. Real connector execution adapter after credential/runtime handling is
    explicitly designed.
-4. SQL formatter.
-5. `EXPLAIN` backend/API with dialect-specific safety rules.
-6. `EXPLAIN` UI.
-7. AI SQL review contract.
-8. Coordinator to JDBC read-only action proposal/copy flow after JDBC
+5. SQL formatter.
+6. `EXPLAIN` backend/API with dialect-specific safety rules.
+7. `EXPLAIN` UI.
+8. AI SQL review contract.
+9. Coordinator to JDBC read-only action proposal/copy flow after JDBC
    execution and result review exist.
-9. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
+10. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
    foundation exists.
 
 Each slice must remain narrow and preserve the read-only, approval-aware,
 secret-isolated boundary.
 
-## Non-Goals For First Implementation
+## Non-Goals For Current Preview
 
-The first implementation should not add:
+The Current Preview does not add:
 
 - write SQL
-- persistent secret storage unless separately designed
+- credential expansion
+- persistent secret storage
+- production JDBC execution
+- production Java sidecar runtime
+- hidden Coordinator-triggered SQL execution
+- `EXPLAIN` workflows
 - schema crawler
+- schema mutation
 - dashboard builder
 - scheduled queries
 - automatic AI-run queries
@@ -793,13 +849,12 @@ The first implementation should not add:
 
 This contract does not implement:
 
-- frontend UI
-- backend or Tauri commands
 - storage/schema changes
 - production Java sidecar implementation
-- JDBC execution
+- production JDBC execution
+- write SQL
 - SQL formatter implementation
-- `EXPLAIN` visualization implementation
+- `EXPLAIN` execution or visualization implementation
 - AI provider integration
 - Coordinator runtime
 - widget tool execution

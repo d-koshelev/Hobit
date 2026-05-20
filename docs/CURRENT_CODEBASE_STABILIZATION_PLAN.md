@@ -37,6 +37,8 @@ Phase 1 does not include:
 
 - Current: implemented behavior that exists in the codebase and is safe to rely
   on.
+- Preview: implemented behavior that is visible, intentionally limited, and not
+  yet a complete product surface.
 - Planned: approved next-step behavior, but not necessarily implemented yet.
 - Deferred: future behavior that must not be implemented unless a task
   explicitly requests it.
@@ -170,6 +172,15 @@ baseline task unless the task explicitly allows that scope.
   proposal-era commands/modules found during the targeted inventory. Future
   optional cleanup remains either retire/delete the old backend/frontend code
   paths or formally keep narrowed compatibility APIs.
+- JDBC Preview contract alignment. Completed for docs:
+  `docs/JDBC_WIDGET_CONTRACT.md` now owns the Database / JDBC Current Preview
+  boundary for connector metadata plus bounded mock/safe read-only SQL
+  validation/execution. Production JDBC execution, hidden
+  Coordinator-triggered SQL execution, credential expansion, write SQL,
+  `EXPLAIN` workflows, broad database automation, and production sidecar
+  runtime remain Deferred. Future JDBC decisions remain whether to later
+  promote the preview path, hide/remove it, implement production runtime, or
+  connect it to Coordinator only through explicit approved actions.
 - Current vs preview vs deferred widget confusion, especially around agent
   surfaces and older proposal-review paths.
 - Broad `AGENTS.md` default read set causing unnecessary context load and
@@ -236,7 +247,9 @@ implementation changes.
   keep narrowed compatibility APIs.
 - Resolve JDBC contract drift: decide whether read-only query execution is
   current and docs should say so, or whether execution paths should be hidden,
-  removed, or deferred.
+  removed, or deferred. Completed for docs: the bounded mock/safe read-only
+  path is Current Preview, while production JDBC execution and hidden
+  Coordinator-triggered SQL remain Deferred.
 - State or enforce the Terminal PTY platform boundary. The reviewed
   implementation is effectively Windows-only, so current docs/catalog behavior
   should either say that clearly or hide/disable Terminal on unsupported
@@ -244,9 +257,8 @@ implementation changes.
 - Normalize current vs preview vs deferred widget surface language after code
   inventory, without rewriting widget contracts ahead of evidence. Completed in
   `docs/CURRENT_WIDGET_SURFACE.md`; remaining decisions are Agent Chat / Agent
-  Monitoring retire vs contract realignment, JDBC read-only execution current
-  vs hidden/deferred, Terminal non-Windows catalog gating vs docs-only
-  limitation, and smoke HTML root cleanup.
+  Monitoring retire vs contract realignment, Terminal non-Windows catalog
+  gating vs docs-only limitation, and smoke HTML root cleanup.
 
 ### P2 - Reduce change amplification
 

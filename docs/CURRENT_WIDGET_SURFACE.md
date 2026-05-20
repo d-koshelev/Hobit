@@ -195,10 +195,10 @@ and component keys may still appear in code and persistence.
   `EXPLAIN`, format SQL, provide AI query assistance, expose a Coordinator
   JDBC execution tool, launch Terminal, mutate Git, or affect Agent Queue or
   Agent Executor behavior.
-- The product decision remains pending on whether read-only JDBC execution
-  should be accepted as current mock-only Preview behavior, hidden/deferred
-  behind contract cleanup, or realigned with the active JDBC contract before
-  further runtime work.
+- This bounded mock/safe read-only path is accepted as Current Preview
+  behavior. Production JDBC execution, credential expansion, write SQL,
+  `EXPLAIN` workflows, broad database automation, production sidecar runtime,
+  and hidden Coordinator-triggered SQL execution remain Deferred.
 
 ### Runbook
 
@@ -284,9 +284,9 @@ Their placement at the Vite root remains a follow-up cleanup decision.
   compatibility alignment is documented in
   `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md`; future cleanup should
   either retire/delete the old paths or keep narrowed compatibility APIs.
-- JDBC read-only execution: decide whether the shipped mock read-only query UI
-  is accepted as current Preview behavior, hidden/deferred, or realigned in the
-  JDBC contract before further runtime work.
+- JDBC read-only execution: completed for Phase 1 docs. The shipped bounded
+  mock/safe read-only query UI is Current Preview; production JDBC execution
+  and hidden Coordinator-triggered SQL remain Deferred.
 - Terminal platform support: decide whether to add non-Windows catalog gating
   or keep the docs-only limitation until cross-platform PTY support exists.
 - Smoke HTML root cleanup: decide whether smoke files move under a dev/smoke

@@ -53,6 +53,8 @@ the requested work needs them.
 
 - Current: implemented behavior that exists in the codebase and is safe to
   rely on.
+- Preview: implemented behavior that is visible, intentionally limited, and
+  not yet a complete product surface.
 - Planned: approved next-step behavior, but not necessarily implemented yet.
 - Deferred: future behavior that must not be implemented unless a task
   explicitly requests it.
@@ -224,7 +226,10 @@ Do not add:
 - script execution or Script Runner runtime behavior
 - real agent calls
 - new Tauri bridge capabilities beyond existing workspace lifecycle/state loading, widget mutation/log reads, explicit read-only Git status reads, the Terminal PTY session API, and the persisted Terminal widget one-shot fallback path
-- JDBC SQL execution, credentials, Java sidecar, or database behavior beyond the current connector metadata API/UI
+- JDBC behavior beyond the current Preview connector metadata UI and bounded
+  mock/safe read-only SQL validation/execution path; do not add production
+  JDBC execution, credentials, write SQL, hidden Coordinator-triggered SQL,
+  broad database automation, `EXPLAIN`, or production Java sidecar behavior
 - JIRA or Confluence integration
 - real Git integration
 - Knowledge Catalog implementation

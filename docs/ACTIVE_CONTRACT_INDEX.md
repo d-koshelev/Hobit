@@ -74,6 +74,8 @@ the requested work needs them.
 
 - Current: implemented behavior that exists in the codebase and is safe to
   rely on.
+- Preview: implemented behavior that is visible, intentionally limited, and
+  not yet a complete product surface.
 - Planned: approved next-step behavior, but not necessarily implemented yet.
 - Deferred: future behavior that must not be implemented unless a task
   explicitly requests it.
@@ -160,8 +162,12 @@ unless the task explicitly requests it.
 
 ### JDBC
 
-- `docs/JDBC_WIDGET_CONTRACT.md` - Database / JDBC connector, read-only SQL,
-  secrets, EXPLAIN, AI assistance, and Coordinator capability boundaries.
+- `docs/JDBC_WIDGET_CONTRACT.md` - Database / JDBC Current Preview behavior
+  and boundaries, including connector metadata, bounded mock/safe read-only SQL
+  validation/execution, secret isolation, production-runtime deferrals, and
+  Coordinator SQL execution boundaries. It is not a source of truth for
+  production JDBC runtime, broad database automation, or hidden Coordinator
+  execution.
 
 ### Evidence / Sources
 

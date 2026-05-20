@@ -143,14 +143,15 @@ explicit AI-context approval. It is contract-only and does not implement
 frontend UI, backend or Tauri commands, storage/schema changes, Coordinator
 runtime, AI provider integration, widget tool execution, or evidence capture.
 
-`JDBC_WIDGET_CONTRACT.md` defines the future Database/JDBC widget product and
-safety model: connector boundaries, read-only SQL defaults, query limits,
-secret isolation, `EXPLAIN`, AI SQL assistance, and Coordinator capability
-rules. The current implementation foundation adds workspace-local connector
-metadata storage/API, a Preview connector metadata UI, and a widget-owned
-mock/safe read-only SQL validation/execution path with bounded sample results;
-real database execution, sidecars, credential storage, secret storage,
-`EXPLAIN`, and Coordinator runtime remain unimplemented.
+`JDBC_WIDGET_CONTRACT.md` defines the Database/JDBC Current Preview behavior
+and safety model: connector metadata boundaries, bounded mock/safe read-only
+SQL validation/execution, query limits, secret isolation, production-runtime
+deferrals, and Coordinator SQL execution boundaries. The current
+implementation foundation adds workspace-local connector metadata storage/API,
+a Preview connector metadata UI, and a widget-owned mock/safe read-only SQL
+validation/execution path with bounded sample results; production database
+execution, credentials, production sidecar runtime, `EXPLAIN`, and Coordinator
+runtime remain Deferred.
 
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
 the Coordinator-centered update: Coordinator Chat handles conversation and
