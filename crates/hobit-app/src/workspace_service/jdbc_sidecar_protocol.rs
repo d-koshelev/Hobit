@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use hobit_tools::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 use serde_json::{json, Value};
 
+use super::jdbc_artifacts::JdbcRuntimeBoundarySummary;
 use super::jdbc_query_types::{JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary};
 use super::jdbc_runtime::{
     cap_string, failed_query_result, sanitize_error, JdbcConnectorRuntimeConfig,
@@ -67,7 +68,7 @@ impl JdbcSidecarProcessRunner {
         });
 
         match process_output.status {
-            ProcessRunStatus::FailedToStart => failed_query_result(
+            ProcessRunStatus::FailedToStart => with_runtime_boundary(failed_query_result(
                 request.connector.connector_id,
                 Some(request.connector.display_name),
                 request.validation,
@@ -75,8 +76,8 @@ impl JdbcSidecarProcessRunner {
                 STATUS_NOT_CONFIGURED,
                 "JDBC sidecar process is unavailable or not configured.",
                 false,
-            ),
-            ProcessRunStatus::TimedOut => failed_query_result(
+            )),
+            ProcessRunStatus::TimedOut => with_runtime_boundary(failed_query_result(
                 request.connector.connector_id,
                 Some(request.connector.display_name),
                 request.validation,
@@ -84,9 +85,9 @@ impl JdbcSidecarProcessRunner {
                 STATUS_TIMEOUT,
                 "JDBC sidecar process timed out.",
                 false,
-            ),
+            )),
             ProcessRunStatus::Completed if process_output.exit_code != Some(0) => {
-                failed_query_result(
+                with_runtime_boundary(failed_query_result(
                     request.connector.connector_id,
                     Some(request.connector.display_name),
                     request.validation,
@@ -94,17 +95,19 @@ impl JdbcSidecarProcessRunner {
                     STATUS_NOT_CONFIGURED,
                     "JDBC sidecar process failed before returning a safe response.",
                     false,
-                )
+                ))
             }
-            ProcessRunStatus::Completed if process_output.stdout_truncated => failed_query_result(
-                request.connector.connector_id,
-                Some(request.connector.display_name),
-                request.validation,
-                request.row_limit,
-                STATUS_EXECUTION_FAILED,
-                "JDBC sidecar response exceeded the backend output cap.",
-                false,
-            ),
+            ProcessRunStatus::Completed if process_output.stdout_truncated => {
+                with_runtime_boundary(failed_query_result(
+                    request.connector.connector_id,
+                    Some(request.connector.display_name),
+                    request.validation,
+                    request.row_limit,
+                    STATUS_EXECUTION_FAILED,
+                    "JDBC sidecar response exceeded the backend output cap.",
+                    false,
+                ))
+            }
             ProcessRunStatus::Completed => map_sidecar_response(&request, &process_output.stdout),
         }
     }
@@ -144,7 +147,7 @@ pub(super) fn map_sidecar_response(
     let parsed = match serde_json::from_str::<Value>(raw_response) {
         Ok(parsed) => parsed,
         Err(_) => {
-            return failed_query_result(
+            return with_runtime_boundary(failed_query_result(
                 request.connector.connector_id.clone(),
                 Some(request.connector.display_name.clone()),
                 request.validation.clone(),
@@ -152,13 +155,13 @@ pub(super) fn map_sidecar_response(
                 STATUS_EXECUTION_FAILED,
                 "JDBC sidecar returned invalid JSON.",
                 false,
-            )
+            ));
         }
     };
 
     let status = string_field(&parsed, "status").unwrap_or(STATUS_EXECUTION_FAILED);
     if status != STATUS_COMPLETED {
-        return failed_query_result(
+        return with_runtime_boundary(failed_query_result(
             request.connector.connector_id.clone(),
             Some(request.connector.display_name.clone()),
             request.validation.clone(),
@@ -167,13 +170,13 @@ pub(super) fn map_sidecar_response(
             string_field(&parsed, "sanitized_error")
                 .unwrap_or("JDBC sidecar returned a sanitized failure."),
             bool_field(&parsed, "mock_execution").unwrap_or(false),
-        );
+        ));
     }
 
     if bool_field(&parsed, "no_secrets_returned") == Some(false)
         || bool_field(&parsed, "no_ai_context_shared") == Some(false)
     {
-        return failed_query_result(
+        return with_runtime_boundary(failed_query_result(
             request.connector.connector_id.clone(),
             Some(request.connector.display_name.clone()),
             request.validation.clone(),
@@ -181,7 +184,7 @@ pub(super) fn map_sidecar_response(
             STATUS_EXECUTION_FAILED,
             "JDBC sidecar response violated safety flags.",
             false,
-        );
+        ));
     }
 
     let mut columns = columns_field(&parsed, request.max_columns);
@@ -214,7 +217,7 @@ pub(super) fn map_sidecar_response(
 
     let returned_row_count = rows.len();
     let row_count = usize_field(&parsed, "row_count").unwrap_or(returned_row_count);
-    JdbcReadOnlyQueryResultSummary {
+    let result = JdbcReadOnlyQueryResultSummary {
         status: STATUS_COMPLETED.to_owned(),
         connector_id: request.connector.connector_id.clone(),
         connector_display_name: Some(request.connector.display_name.clone()),
@@ -235,7 +238,13 @@ pub(super) fn map_sidecar_response(
         no_secrets_returned: true,
         no_ai_context_shared: true,
         mock_execution: bool_field(&parsed, "mock_execution").unwrap_or(false),
-    }
+    };
+    with_runtime_boundary(result)
+}
+
+fn with_runtime_boundary(result: JdbcReadOnlyQueryResultSummary) -> JdbcReadOnlyQueryResultSummary {
+    let _runtime_boundary = JdbcRuntimeBoundarySummary::from_result(&result);
+    result
 }
 
 fn normalized_error_status(status: &str) -> &str {

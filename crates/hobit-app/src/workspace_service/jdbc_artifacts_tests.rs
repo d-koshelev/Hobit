@@ -1,10 +1,17 @@
-use crate::{RuntimeArtifactClass, RuntimeRedactionStatus};
+use crate::{
+    RuntimeArtifactClass, RuntimeErrorKind, RuntimeExecutionStatus, RuntimeKind,
+    RuntimeRedactionStatus,
+};
 
 use super::jdbc_artifacts::{
     query_result_metadata_artifact, sql_text_artifact, JdbcQueryRuntimeArtifacts,
+    JdbcRuntimeBoundarySummary,
 };
 use super::jdbc_query::validate_read_only_sql;
-use super::jdbc_runtime::{failed_query_result, STATUS_VALIDATION_FAILED};
+use super::jdbc_runtime::{
+    failed_query_result, STATUS_COMPLETED, STATUS_EXECUTION_FAILED, STATUS_NOT_CONFIGURED,
+    STATUS_VALIDATION_FAILED,
+};
 
 #[test]
 fn jdbc_sql_text_is_classified_as_sql_text_not_safe_metadata() {
@@ -60,6 +67,110 @@ fn jdbc_artifact_ai_context_and_evidence_eligibility_default_to_false() {
 
     assert!(!artifact.ai_context_eligible);
     assert!(!artifact.evidence_eligible);
+}
+
+#[test]
+fn jdbc_sidecar_not_configured_maps_to_runtime_boundary_failure() {
+    let boundary = JdbcRuntimeBoundarySummary::from_status(
+        STATUS_NOT_CONFIGURED,
+        Some("JDBC sidecar process is unavailable or not configured."),
+        false,
+    );
+
+    assert_eq!(RuntimeKind::Jdbc, boundary.runtime_kind);
+    assert_eq!(
+        RuntimeExecutionStatus::NotConfigured,
+        boundary.execution_status
+    );
+    assert_eq!(Some(RuntimeErrorKind::NotConfigured), boundary.error_kind);
+    assert_eq!(
+        RuntimeArtifactClass::RuntimeError,
+        boundary.artifact.artifact_class
+    );
+    assert_eq!(
+        RuntimeRedactionStatus::Redacted,
+        boundary.artifact.redaction_status
+    );
+}
+
+#[test]
+fn jdbc_sidecar_protocol_errors_are_runtime_error_artifacts() {
+    let boundary = JdbcRuntimeBoundarySummary::from_status(
+        STATUS_EXECUTION_FAILED,
+        Some("JDBC sidecar returned invalid JSON."),
+        false,
+    );
+
+    assert_eq!(RuntimeExecutionStatus::Failed, boundary.execution_status);
+    assert_eq!(Some(RuntimeErrorKind::ExecutionFailed), boundary.error_kind);
+    assert_eq!(
+        RuntimeArtifactClass::RuntimeError,
+        boundary.artifact.artifact_class
+    );
+}
+
+#[test]
+fn jdbc_sidecar_completed_status_metadata_is_safe_metadata() {
+    let boundary = JdbcRuntimeBoundarySummary::from_status(STATUS_COMPLETED, None, false);
+
+    assert_eq!(RuntimeKind::Jdbc, boundary.runtime_kind);
+    assert_eq!(RuntimeExecutionStatus::Succeeded, boundary.execution_status);
+    assert_eq!(None, boundary.error_kind);
+    assert_eq!(
+        RuntimeArtifactClass::SafeMetadata,
+        boundary.artifact.artifact_class
+    );
+    assert_eq!(
+        RuntimeRedactionStatus::NotNeeded,
+        boundary.artifact.redaction_status
+    );
+}
+
+#[test]
+fn jdbc_sidecar_boundary_ai_context_and_evidence_default_to_false() {
+    let boundary = JdbcRuntimeBoundarySummary::from_status(STATUS_COMPLETED, None, false);
+
+    assert!(!boundary.artifact.ai_context_eligible);
+    assert!(!boundary.artifact.evidence_eligible);
+}
+
+#[test]
+fn jdbc_sidecar_boundary_debug_omits_sensitive_runtime_details() {
+    let sensitive_detail = concat!(
+        "select 'sk-secret-jdbc-boundary' as token ",
+        "jdbc:postgresql://private-host/app ",
+        "username=readonly-user password=secret ",
+        "HOBIT_JDBC_SIDECAR_WORKING_DIR=C:/secret/path ",
+        "java -cp C:/secret/classes com.example.Sidecar"
+    );
+    let boundary = JdbcRuntimeBoundarySummary::from_status(
+        STATUS_EXECUTION_FAILED,
+        Some(sensitive_detail),
+        true,
+    );
+    let debug = format!("{boundary:?}");
+
+    assert!(debug.contains("Jdbc"));
+    assert!(debug.contains("ExecutionFailed"));
+    assert!(!debug.contains("sk-secret-jdbc-boundary"));
+    assert!(!debug.contains("jdbc:postgresql://private-host"));
+    assert!(!debug.contains("readonly-user"));
+    assert!(!debug.contains("password=secret"));
+    assert!(!debug.contains("HOBIT_JDBC_SIDECAR_WORKING_DIR"));
+    assert!(!debug.contains("C:/secret"));
+    assert!(!debug.contains("java -cp"));
+}
+
+#[test]
+fn jdbc_sidecar_caps_remain_separate_from_redaction() {
+    let boundary = JdbcRuntimeBoundarySummary::from_status("result_truncated", None, true);
+
+    assert_eq!(Some(RuntimeErrorKind::OutputCapped), boundary.error_kind);
+    assert!(boundary.artifact.capped);
+    assert_eq!(
+        RuntimeRedactionStatus::Redacted,
+        boundary.artifact.redaction_status
+    );
 }
 
 #[test]
