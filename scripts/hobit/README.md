@@ -250,3 +250,23 @@ backend command smoke test. It verifies text responses, safe proposal drafts,
 provider errors, invalid JSON, timeout, and oversized response behavior. Drafts
 are validated by the existing backend pipeline before they can become
 Coordinator review cards; no actions are executed.
+
+### `smoke-coordinator-product-ui.mjs`
+
+Runs the mocked frontend Coordinator product handoff smoke:
+
+```powershell
+node scripts/hobit/smoke-coordinator-product-ui.mjs
+node scripts/hobit/smoke-coordinator-product-ui.mjs --scenario queue-draft
+node scripts/hobit/smoke-coordinator-product-ui.mjs --scenario note-draft
+node scripts/hobit/smoke-coordinator-product-ui.mjs --scenario jdbc-draft
+```
+
+The script starts Vite, opens the committed Coordinator smoke page in a local
+Chrome/Edge browser through Chrome DevTools Protocol, and clicks the real
+proposal-card controls. It verifies that provider-shaped Queue and Note drafts
+render as review cards, Approve alone does not create anything, explicit Create
+Queue task / Create Note performs only the reviewed local write, and JDBC
+suggestions stay copy-only. It uses mocked frontend actions shaped like
+backend-validated provider responses; use `smoke-coordinator-provider.mjs` for
+the real configured HTTP provider path against the local fake provider.
