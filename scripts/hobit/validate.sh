@@ -132,6 +132,21 @@ run_step() {
   fi
 }
 
+ensure_frontend_dependencies() {
+  if [ -d "apps/desktop/frontend/node_modules" ] && [ -f "apps/desktop/frontend/node_modules/.bin/tsc" ]; then
+    return 0
+  fi
+
+  echo "ERROR: Frontend dependencies are missing." >&2
+  echo "" >&2
+  echo "Run:" >&2
+  echo "  npm ci --prefix apps/desktop/frontend" >&2
+  echo "" >&2
+  echo "Then rerun:" >&2
+  echo "  scripts/hobit/validate.sh --profile $PROFILE" >&2
+  exit 2
+}
+
 is_ignored_path() {
   path="$1"
   case "$path" in
@@ -224,6 +239,7 @@ changed_files() {
 }
 
 run_fast_profile() {
+  ensure_frontend_dependencies
   run_step "npm typecheck" npm run typecheck --prefix apps/desktop/frontend
   run_step "cargo check" cargo check --workspace
   run_step "check-file-sizes changed-only" "$PYTHON_CMD" scripts/hobit/check-file-sizes.py --changed-only
@@ -271,9 +287,11 @@ EOF
   printf 'Changed profile considered %s changed file(s) after Toolbelt ignores.\n' "$CONSIDERED_COUNT"
 
   if [ "$FRONTEND_CHANGED" -eq 1 ]; then
+    ensure_frontend_dependencies
     run_step "npm typecheck" npm run typecheck --prefix apps/desktop/frontend
   fi
   if [ "$FRONTEND_SOURCE_OR_CONFIG_CHANGED" -eq 1 ]; then
+    ensure_frontend_dependencies
     run_step "npm build" npm run build --prefix apps/desktop/frontend
   fi
 
@@ -291,6 +309,7 @@ EOF
 }
 
 run_full_profile() {
+  ensure_frontend_dependencies
   run_step "npm typecheck" npm run typecheck --prefix apps/desktop/frontend
   run_step "npm build" npm run build --prefix apps/desktop/frontend
   run_step "cargo fmt" cargo fmt --all
