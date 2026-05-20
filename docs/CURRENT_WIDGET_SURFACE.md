@@ -12,6 +12,21 @@ new widgets.
 Contract-reading navigation is defined in
 `docs/ACTIVE_CONTRACT_INDEX.md`.
 
+## Status Model
+
+- Ready and Preview entries below describe Current implemented widget behavior
+  only.
+- Planned behavior belongs in task-specific contracts and is not implemented
+  unless the current task explicitly requests it.
+- Deferred behavior must not be implemented unless explicitly requested.
+- Compatibility names and persistence IDs may still appear in code or storage,
+  but they are not preferred product/domain names.
+- Deprecated terminology should not be used for new work.
+
+If this document conflicts with broader or older contracts, this document and
+`docs/ACTIVE_CONTRACT_INDEX.md` are authoritative for current implemented
+widget behavior.
+
 ## Current User-Facing Widgets
 
 Ready:

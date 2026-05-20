@@ -2,6 +2,11 @@
 
 This document describes the current repository structure and intended future architecture for Hobit.
 
+For current behavior, check `docs/ACTIVE_CONTRACT_INDEX.md` and
+`docs/CURRENT_WIDGET_SURFACE.md` first. If this document conflicts with either
+one, treat the conflicting Architecture section as stale unless the current task
+explicitly says otherwise.
+
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current

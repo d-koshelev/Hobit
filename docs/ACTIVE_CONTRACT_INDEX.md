@@ -9,6 +9,28 @@ Use it to reduce prompt context size and to avoid implementing from stale or
 superseded discovery-era documents. When a block needs deeper detail, read the
 small default set first, then only the relevant domain contracts.
 
+## Phase 1 Stabilization Baseline
+
+`docs/CURRENT_CODEBASE_STABILIZATION_PLAN.md` is the working baseline for
+Phase 1 cleanup tasks.
+
+Phase 1 is about stabilizing the current codebase and contracts, not adding new
+product functionality. It covers documentation authority cleanup,
+current/planned/deferred separation, stale contract detection, current widget
+surface cleanup, known coupling/problem inventory, validation/smoke checklist
+preparation, and reducing Codex ambiguity.
+
+Phase 1 does not include new Notes features, Notebook features, Coordinator /
+Queue / Executor redesign, component renames, storage migrations, runtime
+behavior changes, or automatic agent orchestration changes.
+
+For Phase 1 cleanup work, read:
+
+- `docs/CURRENT_CODEBASE_STABILIZATION_PLAN.md`
+- `docs/CURRENT_WIDGET_SURFACE.md`
+- `docs/CODE_ORGANIZATION.md`
+- `docs/ARCHITECTURE.md`
+
 ## Default Reading Set
 
 Read this set for almost every future block:
@@ -17,12 +39,39 @@ Read this set for almost every future block:
 - `docs/ACTIVE_CONTRACT_INDEX.md` - current contract navigation.
 - `docs/CURRENT_WIDGET_SURFACE.md` - current user-facing widget inventory and
   implementation boundaries.
-- `docs/CODE_ORGANIZATION_CONTRACT.md` - repository structure and refactor
-  rules.
+- `docs/CODE_ORGANIZATION.md` - current code organization navigation and Phase
+  1 boundaries.
 - `docs/ARCHITECTURE.md` - current implemented architecture and bridge
   boundaries.
-- `docs/AGENT_RESPONSE_CONTRACT.md` - final response format only; this is not a
-  product reasoning contract.
+
+Do not expand the default reading set. Add task-specific contracts only when
+the requested work needs them.
+
+## Contract Statuses
+
+- Current: implemented behavior that exists in the codebase and is safe to
+  rely on.
+- Planned: approved next-step behavior, but not necessarily implemented yet.
+- Deferred: future behavior that must not be implemented unless a task
+  explicitly requests it.
+- Compatibility: legacy names, persistence IDs, old component names, old state
+  shapes, or aliases that may still exist for backward compatibility but are
+  not preferred product/domain names.
+- Deprecated: old behavior or terminology that should not be used for new work.
+
+Do not implement Planned, Deferred, Compatibility, or Deprecated behavior
+unless the task explicitly requests it.
+
+## Source-Of-Truth Priority
+
+1. `AGENTS.md` for workflow rules and validation expectations.
+2. `docs/ACTIVE_CONTRACT_INDEX.md` for active/authoritative contracts.
+3. `docs/CURRENT_WIDGET_SURFACE.md` for current implemented widget behavior.
+4. Task-specific contracts for the relevant widget/domain.
+5. `docs/ARCHITECTURE.md` for structural guidance unless it conflicts with
+   active current contracts.
+6. Older or broader docs are non-authoritative when they conflict with active
+   contracts.
 
 ## Core Active Contracts
 
@@ -166,9 +215,9 @@ These documents should not override the Coordinator-centered model or
 
 ## Stale Doc Rule
 
-If any document conflicts with this index, `docs/CURRENT_WIDGET_SURFACE.md`, or
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, treat the conflicting text as
-stale. Do not implement from stale guidance. Update the stale reference in a
+If any document conflicts with this index or `docs/CURRENT_WIDGET_SURFACE.md`,
+treat the conflicting text as stale unless the current task explicitly says
+otherwise. Do not implement from stale guidance. Update the stale reference in a
 cleanup block or report it explicitly.
 
 ## Medical Domain Note

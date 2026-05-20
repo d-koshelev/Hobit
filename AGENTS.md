@@ -18,60 +18,65 @@ Future Script Runner Widget work must preserve `docs/SCRIPT_RUNNER_WIDGET_CONTRA
 
 ## Mandatory contract reading
 
-Before making changes, Codex must read the relevant project contracts.
+Before making changes, Codex must read only the smallest relevant contract set.
 
 Current contract navigation is defined in `docs/ACTIVE_CONTRACT_INDEX.md`.
-Use it to choose the smallest relevant reading set for future blocks. If older
-guidance conflicts with the active index, `docs/CURRENT_WIDGET_SURFACE.md`, or
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, treat the older text as
-stale and report or update it in a focused cleanup block.
+Use it to choose task-specific docs. If older guidance conflicts with the
+active index or `docs/CURRENT_WIDGET_SURFACE.md`, treat the older text as stale
+unless the current task explicitly says otherwise. Report or update stale text
+only in a focused cleanup block.
 
-Always read:
-- README.md
-- docs/PRODUCT_POSITIONING.md
-- ROADMAP.md
-- docs/PRODUCT_CONTRACT.md
-- docs/AI_WORKBENCH_CONTRACT.md
-- docs/WORKSPACE_CONTRACT.md
-- docs/UI_CONTRACT.md
-- docs/WIDGET_CONTRACT.md
-- docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md
-- docs/PRESET_CONTRACT.md
-- docs/DESIGN_SYSTEM_CONTRACT.md
+Default read set:
+- AGENTS.md
+- docs/ACTIVE_CONTRACT_INDEX.md
+- docs/CURRENT_WIDGET_SURFACE.md
+- docs/CODE_ORGANIZATION.md
 - docs/ARCHITECTURE.md
-- docs/CODE_ORGANIZATION_CONTRACT.md
-- docs/GLOSSARY.md
 
-For agent/runtime work, also read:
-- docs/AGENT_SURFACE_MODEL.md
-- docs/AGENT_OPERATING_MODEL.md
-- docs/AI_INTEGRATION_READINESS_CONTRACT.md
-- docs/DIRECT_MODE_AGENT_CONTRACT.md
-- docs/AGENT_WORK_EFFICIENCY_CONTRACT.md
-- docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md
-- docs/AGENT_QUEUE_CONTRACT.md
-- docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md
-- docs/AGENT_RUNTIME_CONTRACT.md
-- docs/STATE_AND_EVENTS_CONTRACT.md
-- docs/TOOL_ACTION_CONTRACT.md
-
-For Script Runner widget work, also read:
-- docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md
-
-For design/frontend/widget work, always read:
-- docs/DESIGN_SYSTEM_CONTRACT.md
-- docs/UI_CONTRACT.md
-- docs/WIDGET_CONTRACT.md
-- docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md
-- docs/PRESET_CONTRACT.md
+Task-specific contracts should be read only when the task needs them:
+- Notes task -> Notes contracts.
+- Terminal task -> Terminal contract.
+- Git task -> Git contract.
+- JDBC task -> JDBC contract.
+- Runtime/tooling task -> runtime/tooling contracts.
+- Coordinator / Queue / Executor task -> their contracts only after Phase 1
+  and Notes stabilization are complete, unless the task explicitly targets
+  current inventory or deferral notes.
 
 For architectural decisions, inspect:
 - decisions/
 
-For request/response template work, also read:
-- docs/AGENT_OPERATING_MODEL.md
-- docs/TEMPLATE_CONTRACT.md
-- docs/AGENT_RESPONSE_CONTRACT.md
+Do not expand the global default read set. Add task-specific reads only when
+the requested work needs them.
+
+## Contract statuses
+
+- Current: implemented behavior that exists in the codebase and is safe to
+  rely on.
+- Planned: approved next-step behavior, but not necessarily implemented yet.
+- Deferred: future behavior that must not be implemented unless a task
+  explicitly requests it.
+- Compatibility: legacy names, persistence IDs, old component names, old state
+  shapes, or aliases that may still exist for backward compatibility but are
+  not preferred product/domain names.
+- Deprecated: old behavior or terminology that should not be used for new work.
+
+Do not implement Planned, Deferred, Compatibility, or Deprecated behavior
+unless the task explicitly requests it.
+
+## Source-of-truth priority
+
+1. AGENTS.md for workflow rules and validation expectations.
+2. docs/ACTIVE_CONTRACT_INDEX.md for active/authoritative contracts.
+3. docs/CURRENT_WIDGET_SURFACE.md for current implemented widget behavior.
+4. Task-specific contracts for the relevant widget/domain.
+5. docs/ARCHITECTURE.md for structural guidance unless it conflicts with
+   active current contracts.
+6. Older or broader docs are non-authoritative when they conflict with active
+   contracts.
+
+Phase 1 stabilization work is governed by
+`docs/CURRENT_CODEBASE_STABILIZATION_PLAN.md`.
 
 Request Templates and Response Templates are future product assets, not only conversation prompt conventions.
 
