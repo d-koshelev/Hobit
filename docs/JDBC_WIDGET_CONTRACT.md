@@ -15,7 +15,9 @@ implementation foundation is intentionally limited to workspace-local connector
 metadata storage/API, a Preview frontend connector metadata shell, and a
 widget-owned mock/safe read-only SQL validation/execution path with bounded
 sample results. Block 264 adds a dependency-free Java sidecar scaffold and
-backend protocol runner for opt-in tests only. It does not implement real
+backend protocol runner for opt-in tests only. Block 265 adds a backend-only
+runtime config loader and crate-internal opt-in sidecar adapter selection path;
+the product default remains the mock adapter. It does not implement real
 database JDBC execution, SQL formatting, `EXPLAIN` visualization, AI provider
 integration, Coordinator runtime, widget tool execution, database credential
 handling, secret storage, Terminal or PTY behavior, Git mutation, Queue
@@ -112,6 +114,9 @@ Current foundation status:
   `sidecars/jdbc-readonly-sidecar/` plus `scripts/hobit/smoke-jdbc-sidecar.mjs`;
   the scaffold returns deterministic mock/read-only protocol responses and is
   not active in the JDBC widget by default
+- Block 265 adds backend-only sidecar runtime config parsing and opt-in
+  adapter selection for tests/future desktop wiring; `WorkspaceService::new`
+  and the current Tauri bridge still use the mock adapter by default
 
 ## Secrets Policy
 
@@ -204,6 +209,41 @@ Block 264 scaffold:
   connection
 - backend integration remains opt-in/test-only through the sidecar process
   runner; the product service still uses `MockReadOnlyJdbcAdapter`
+
+Block 265 runtime config loader:
+
+- backend-only module:
+  `crates/hobit-app/src/workspace_service/jdbc_runtime_config.rs`
+- default runtime config: `mock_active`, using `MockReadOnlyJdbcAdapter`
+- opt-in sidecar selection requires explicit backend construction plus
+  `HOBIT_JDBC_RUNTIME_MODE=sidecar` or `java_sidecar`
+- `HOBIT_JDBC_SIDECAR_ENABLED=true` must be present before sidecar launch
+  config is considered configured
+- sidecar launch keys:
+  `HOBIT_JDBC_SIDECAR_JAVA_PROGRAM`, `HOBIT_JDBC_SIDECAR_JAR`,
+  `HOBIT_JDBC_SIDECAR_CLASSPATH`, `HOBIT_JDBC_SIDECAR_MAIN_CLASS`, and
+  `HOBIT_JDBC_SIDECAR_WORKING_DIR`
+- connector/runtime keys:
+  `HOBIT_JDBC_SIDECAR_CONNECTOR_ID`,
+  `HOBIT_JDBC_SIDECAR_RUNTIME_KIND`,
+  `HOBIT_JDBC_SIDECAR_DRIVER_KIND`, and
+  `HOBIT_JDBC_SIDECAR_TIMEOUT_MS`
+- credential presence keys:
+  `HOBIT_JDBC_SIDECAR_JDBC_URL_PRESENT`,
+  `HOBIT_JDBC_SIDECAR_USERNAME_PRESENT`, and
+  `HOBIT_JDBC_SIDECAR_PASSWORD_PRESENT`
+- safe runtime statuses: `mock_active`, `sidecar_configured`,
+  `sidecar_not_configured`, and `unsupported_runtime`
+- status/debug output is presence-only and omits raw paths, raw JDBC URLs,
+  usernames, passwords, tokens, and environment values
+- sidecar request JSON still contains no credentials; it contains only the
+  safe runtime kind, connector/query identifiers, SQL, and bounded execution
+  caps
+- missing sidecar launch configuration and missing Java/process execution
+  return sanitized `not_configured` results rather than panics or raw process
+  output
+- unsupported connector driver kinds return sanitized `unsupported_driver`
+  before process launch
 
 ## SQL Editor Behavior
 

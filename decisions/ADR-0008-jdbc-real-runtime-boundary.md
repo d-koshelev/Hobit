@@ -109,6 +109,55 @@ The smoke compiles and runs the sidecar when `java` and `javac` are available
 on `PATH`. If a JDK is absent, it reports the skip without changing product
 behavior.
 
+## Block 265 Runtime Config Loader
+
+Block 265 adds a backend-only runtime config loader and crate-internal opt-in
+adapter selection path. The default `WorkspaceService::new(...)` path still
+uses `MockReadOnlyJdbcAdapter`; desktop/Tauri construction does not read these
+keys or switch to sidecar by default.
+
+Backend runtime config keys:
+
+- `HOBIT_JDBC_RUNTIME_MODE`: `mock` by default; `sidecar` or `java_sidecar`
+  selects the sidecar adapter path only inside explicit backend construction.
+- `HOBIT_JDBC_SIDECAR_ENABLED`: must be true for sidecar launch configuration
+  to be considered configured.
+- `HOBIT_JDBC_SIDECAR_JAVA_PROGRAM`: Java launcher program; defaults to
+  `java`.
+- `HOBIT_JDBC_SIDECAR_JAR`: optional sidecar jar launch path.
+- `HOBIT_JDBC_SIDECAR_CLASSPATH`: optional classpath launch path when not
+  using a jar.
+- `HOBIT_JDBC_SIDECAR_MAIN_CLASS`: Java main class; defaults to
+  `com.hobit.jdbc.JdbcReadOnlySidecar`.
+- `HOBIT_JDBC_SIDECAR_WORKING_DIR`: sidecar process working directory;
+  defaults to `.`.
+- `HOBIT_JDBC_SIDECAR_CONNECTOR_ID`: connector id allowed to use the opt-in
+  sidecar runtime.
+- `HOBIT_JDBC_SIDECAR_RUNTIME_KIND`: protocol runtime kind; defaults to
+  `mock_read_only`.
+- `HOBIT_JDBC_SIDECAR_DRIVER_KIND`: expected connector driver kind; defaults
+  to `jdbc`.
+- `HOBIT_JDBC_SIDECAR_TIMEOUT_MS`: sidecar process timeout, capped at 10
+  seconds.
+- `HOBIT_JDBC_SIDECAR_JDBC_URL_PRESENT`,
+  `HOBIT_JDBC_SIDECAR_USERNAME_PRESENT`, and
+  `HOBIT_JDBC_SIDECAR_PASSWORD_PRESENT`: presence-only flags. They do not
+  carry credential values.
+
+Safe status values exposed by the loader are `mock_active`,
+`sidecar_configured`, `sidecar_not_configured`, and
+`unsupported_runtime`. Status/debug output records connector/runtime ids,
+kinds, and credential presence flags only. It does not record raw local paths,
+JDBC URLs, usernames, passwords, tokens, or environment values.
+
+The opt-in sidecar adapter still requires backend SQL validation before
+process launch. Missing launch configuration returns sanitized
+`not_configured`. A missing Java executable or sidecar process returns
+sanitized `not_configured` without process details. Unsupported connector
+driver kinds return sanitized `unsupported_driver` before process launch.
+Sidecar request JSON still omits credential values and includes only the safe
+runtime kind plus connector/query limits.
+
 ## Credential Boundary
 
 Credentials are backend-only runtime configuration.

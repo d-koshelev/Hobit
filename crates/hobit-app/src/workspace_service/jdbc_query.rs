@@ -9,7 +9,6 @@ use super::{
     },
     jdbc_runtime::{
         cap_string, failed_query_result, sanitize_error, JdbcReadOnlyAdapterRequest,
-        JdbcReadOnlyRuntimeConnector, MockReadOnlyJdbcAdapter, ReadOnlyJdbcAdapter,
         STATUS_NOT_CONFIGURED, STATUS_VALIDATION_FAILED,
     },
     validation::{required_input, validate_widget_ownership},
@@ -120,7 +119,7 @@ impl WorkspaceService {
         };
 
         let adapter_request = JdbcReadOnlyAdapterRequest {
-            connector: JdbcReadOnlyRuntimeConnector::mock_only(connector),
+            connector: self.jdbc_runtime_config.runtime_connector(connector),
             sql: input.sql,
             row_limit: input.row_limit,
             timeout_ms: input.timeout_ms,
@@ -130,7 +129,9 @@ impl WorkspaceService {
             validation,
         };
 
-        Ok(MockReadOnlyJdbcAdapter.execute_read_only_query(adapter_request))
+        Ok(self
+            .jdbc_runtime_config
+            .execute_read_only_query(adapter_request))
     }
 
     fn validate_jdbc_query_owner(

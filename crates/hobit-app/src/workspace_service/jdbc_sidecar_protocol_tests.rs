@@ -6,7 +6,7 @@ use super::jdbc_query_types::JdbcReadOnlySqlValidationSummary;
 use super::jdbc_runtime::{
     JdbcConnectorRuntimeConfig, JdbcReadOnlyAdapterRequest, JdbcReadOnlyRuntimeConnector,
     JdbcRuntimeSecret, JdbcSidecarRuntimeConfig, ReadOnlyJdbcAdapter, SidecarReadOnlyJdbcAdapter,
-    STATUS_COMPLETED, STATUS_EXECUTION_FAILED, STATUS_QUERY_REJECTED,
+    STATUS_COMPLETED, STATUS_NOT_CONFIGURED, STATUS_QUERY_REJECTED,
 };
 use super::jdbc_sidecar_protocol::{
     build_sidecar_request_json, map_sidecar_response, JdbcSidecarProcessRunner,
@@ -148,10 +148,10 @@ fn sidecar_process_runner_failure_is_sanitized() {
         "select 1",
     ));
 
-    assert_eq!(result.status, STATUS_EXECUTION_FAILED);
+    assert_eq!(result.status, STATUS_NOT_CONFIGURED);
     assert_eq!(
         result.sanitized_error.as_deref(),
-        Some("JDBC sidecar process failed to start.")
+        Some("JDBC sidecar process is unavailable or not configured.")
     );
     assert!(result.no_secrets_returned);
     assert!(result.no_ai_context_shared);
@@ -183,6 +183,7 @@ fn sidecar_connector() -> JdbcReadOnlyRuntimeConnector {
         environment: "dev".to_owned(),
         runtime_config: JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
             driver_kind: "jdbc".to_owned(),
+            runtime_kind: "mock_read_only".to_owned(),
             jdbc_url: JdbcRuntimeSecret::new(format!(
                 "jdbc:postgresql://private-host/app?password={SECRET_SENTINEL}"
             )),

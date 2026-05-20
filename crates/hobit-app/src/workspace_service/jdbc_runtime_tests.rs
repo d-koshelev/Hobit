@@ -139,6 +139,7 @@ fn sidecar_connector() -> JdbcReadOnlyRuntimeConnector {
         environment: "dev".to_owned(),
         runtime_config: JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
             driver_kind: "jdbc".to_owned(),
+            runtime_kind: "mock_read_only".to_owned(),
             jdbc_url: JdbcRuntimeSecret::new(format!(
                 "jdbc:postgresql://private-host/app?password={SECRET_SENTINEL}"
             )),

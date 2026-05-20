@@ -36,6 +36,12 @@ impl JdbcRuntimeSecret {
             value: value.into(),
         }
     }
+
+    pub(super) fn presence_marker(label: &str) -> Self {
+        Self {
+            value: format!("{label}:present"),
+        }
+    }
 }
 
 impl fmt::Debug for JdbcRuntimeSecret {
@@ -47,6 +53,7 @@ impl fmt::Debug for JdbcRuntimeSecret {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct JdbcSidecarRuntimeConfig {
     pub(super) driver_kind: String,
+    pub(super) runtime_kind: String,
     pub(super) jdbc_url: JdbcRuntimeSecret,
     pub(super) username: Option<JdbcRuntimeSecret>,
     pub(super) password: Option<JdbcRuntimeSecret>,
@@ -186,18 +193,30 @@ impl ReadOnlyJdbcAdapter for MockReadOnlyJdbcAdapter {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(super) struct SidecarReadOnlyJdbcAdapter {
     runner: Option<JdbcSidecarProcessRunner>,
+    unavailable_message: Option<String>,
 }
 
 impl SidecarReadOnlyJdbcAdapter {
     #[allow(dead_code)]
     pub(super) fn not_configured() -> Self {
-        Self { runner: None }
+        Self {
+            runner: None,
+            unavailable_message: None,
+        }
+    }
+
+    pub(super) fn unavailable(message: impl Into<String>) -> Self {
+        Self {
+            runner: None,
+            unavailable_message: Some(message.into()),
+        }
     }
 
     #[allow(dead_code)]
     pub(super) fn with_runner(runner: JdbcSidecarProcessRunner) -> Self {
         Self {
             runner: Some(runner),
+            unavailable_message: None,
         }
     }
 }
@@ -233,6 +252,20 @@ impl ReadOnlyJdbcAdapter for SidecarReadOnlyJdbcAdapter {
             if let Some(runner) = &self.runner {
                 return runner.execute_read_only_query(request);
             }
+
+            let message = self
+                .unavailable_message
+                .as_deref()
+                .unwrap_or("JDBC real runtime is not configured for read-only execution.");
+            return failed_query_result(
+                request.connector.connector_id,
+                Some(request.connector.display_name),
+                request.validation,
+                request.row_limit,
+                STATUS_NOT_CONFIGURED,
+                message,
+                false,
+            );
         }
 
         failed_adapter_result(request, JdbcReadOnlyRuntimeErrorKind::NotConfigured, None)

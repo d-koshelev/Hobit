@@ -35,7 +35,11 @@ active `MockReadOnlyJdbcAdapter` from a future Java sidecar runtime; the
 sidecar adapter is opt-in/test-only and does not load credentials, drivers, or
 open database connections. A dependency-free Java sidecar scaffold exists under
 `sidecars/jdbc-readonly-sidecar/` for the narrow stdin/stdout JSON protocol
-smoke only. Coordinator-centered product
+smoke only. A backend-only JDBC runtime config loader can parse explicit
+sidecar launch/runtime keys and select the sidecar adapter for tests/future
+desktop wiring, but `WorkspaceService::new(...)` and current desktop commands
+remain mock-default. The loader surfaces safe status only and does not expose
+raw paths or credential values to frontend DTOs. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
 proposal cards and a backend-owned provider response path for explicit chat
 sends. Mock/local is the default provider. The provider path uses visible
@@ -700,8 +704,9 @@ Codex Direct Work run/result persistence for the `agent-run` owner,
 workspace-local JDBC connector metadata storage/API, frontend metadata UI, and
 mock read-only query UI/API without credentials or real database SQL execution,
 with a future Java sidecar adapter boundary and dependency-free sidecar
-scaffold that return sanitized mock/not-configured/unsupported statuses only,
-retained backend proposal/review artifact
+scaffold that returns sanitized mock/not-configured/unsupported statuses only,
+plus backend-only opt-in runtime config parsing that does not switch the
+product default away from mock execution, retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
 desktop-only Git status/diff and selected-file local commit path for the Git
 widget. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/`

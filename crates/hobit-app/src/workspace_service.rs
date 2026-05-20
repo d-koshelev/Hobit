@@ -29,6 +29,7 @@ mod jdbc_connectors;
 mod jdbc_query;
 mod jdbc_query_types;
 mod jdbc_runtime;
+mod jdbc_runtime_config;
 mod jdbc_sidecar_protocol;
 mod logs;
 mod mapping;
@@ -75,6 +76,8 @@ mod jdbc_connectors_tests;
 #[cfg(test)]
 mod jdbc_query_tests;
 #[cfg(test)]
+mod jdbc_runtime_config_tests;
+#[cfg(test)]
 mod jdbc_runtime_tests;
 #[cfg(test)]
 mod jdbc_sidecar_protocol_tests;
@@ -120,6 +123,7 @@ pub use jdbc_query_types::{
     ExecuteJdbcReadOnlyQueryInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
     JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
 };
+use jdbc_runtime_config::JdbcRuntimeConfig;
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
@@ -180,11 +184,26 @@ const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 
 pub struct WorkspaceService {
     store: SqliteStore,
+    jdbc_runtime_config: JdbcRuntimeConfig,
 }
 
 impl WorkspaceService {
     pub fn new(store: SqliteStore) -> Self {
-        Self { store }
+        Self {
+            store,
+            jdbc_runtime_config: JdbcRuntimeConfig::default(),
+        }
+    }
+
+    #[allow(dead_code)]
+    fn new_with_jdbc_runtime_config(
+        store: SqliteStore,
+        jdbc_runtime_config: JdbcRuntimeConfig,
+    ) -> Self {
+        Self {
+            store,
+            jdbc_runtime_config,
+        }
     }
 }
 

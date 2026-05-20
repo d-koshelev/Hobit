@@ -236,6 +236,11 @@ future widget capability.
   stdin/stdout JSON protocol. This scaffold is test-only and returns
   deterministic mock/not-configured/unsupported responses without drivers,
   credentials, network, or database connections.
+- Has a backend-only runtime config loader for future opt-in sidecar wiring.
+  Safe status is limited to mock active, sidecar configured, sidecar not
+  configured, sidecar unavailable through sanitized `not_configured`, and
+  unsupported runtime/driver states. Raw paths and credential values are not
+  in frontend DTOs.
 - Does not collect credentials, store passwords or tokens, test connections,
   connect to real databases, run SQL against external systems, run `EXPLAIN`,
   format SQL, call AI, integrate with Coordinator Chat runtime, launch
@@ -280,7 +285,10 @@ credential storage, real database connection/query execution, production Java
 sidecar runtime, `EXPLAIN`, AI assistance, or Coordinator tool runtime. Block
 263 establishes the future Java sidecar runtime decision and adapter stub.
 Block 264 adds only a dependency-free Java sidecar protocol scaffold; the
-active runtime remains mock-only.
+active runtime remains mock-only. Block 265 adds backend-only config parsing
+and opt-in sidecar adapter selection for tests/future desktop wiring, but the
+current product runtime remains mock-default and no real database connection is
+opened.
 
 ## Compatibility Notes
 

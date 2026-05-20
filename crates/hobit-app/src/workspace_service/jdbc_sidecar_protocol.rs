@@ -1,3 +1,4 @@
+use std::fmt;
 use std::path::PathBuf;
 
 use hobit_tools::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
@@ -5,21 +6,33 @@ use serde_json::{json, Value};
 
 use super::jdbc_query_types::{JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary};
 use super::jdbc_runtime::{
-    cap_string, failed_query_result, sanitize_error, JdbcReadOnlyAdapterRequest, STATUS_COMPLETED,
-    STATUS_EXECUTION_FAILED, STATUS_NOT_CONFIGURED, STATUS_QUERY_REJECTED, STATUS_TIMEOUT,
-    STATUS_UNSUPPORTED_DRIVER,
+    cap_string, failed_query_result, sanitize_error, JdbcConnectorRuntimeConfig,
+    JdbcReadOnlyAdapterRequest, STATUS_COMPLETED, STATUS_EXECUTION_FAILED, STATUS_NOT_CONFIGURED,
+    STATUS_QUERY_REJECTED, STATUS_TIMEOUT, STATUS_UNSUPPORTED_DRIVER,
 };
 
 const SIDECAR_PROTOCOL_VERSION: u64 = 1;
 const SIDECAR_STDERR_CAP_BYTES: usize = 16 * 1024;
 const SIDECAR_RESPONSE_OVERHEAD_BYTES: usize = 16 * 1024;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub(super) struct JdbcSidecarProcessRunner {
     program: String,
     args: Vec<String>,
     working_directory: PathBuf,
     timeout_ms: u64,
+}
+
+impl fmt::Debug for JdbcSidecarProcessRunner {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("JdbcSidecarProcessRunner")
+            .field("program_configured", &!self.program.trim().is_empty())
+            .field("arg_count", &self.args.len())
+            .field("working_directory_configured", &true)
+            .field("timeout_ms", &self.timeout_ms)
+            .finish()
+    }
 }
 
 impl JdbcSidecarProcessRunner {
@@ -59,8 +72,8 @@ impl JdbcSidecarProcessRunner {
                 Some(request.connector.display_name),
                 request.validation,
                 request.row_limit,
-                STATUS_EXECUTION_FAILED,
-                "JDBC sidecar process failed to start.",
+                STATUS_NOT_CONFIGURED,
+                "JDBC sidecar process is unavailable or not configured.",
                 false,
             ),
             ProcessRunStatus::TimedOut => failed_query_result(
@@ -73,18 +86,13 @@ impl JdbcSidecarProcessRunner {
                 false,
             ),
             ProcessRunStatus::Completed if process_output.exit_code != Some(0) => {
-                let error = if process_output.stderr.trim().is_empty() {
-                    "JDBC sidecar process exited with failure.".to_owned()
-                } else {
-                    sanitize_error(&process_output.stderr)
-                };
                 failed_query_result(
                     request.connector.connector_id,
                     Some(request.connector.display_name),
                     request.validation,
                     request.row_limit,
-                    STATUS_EXECUTION_FAILED,
-                    &error,
+                    STATUS_NOT_CONFIGURED,
+                    "JDBC sidecar process failed before returning a safe response.",
                     false,
                 )
             }
@@ -106,7 +114,7 @@ pub(super) fn build_sidecar_request_json(request: &JdbcReadOnlyAdapterRequest) -
     json!({
         "protocol_version": SIDECAR_PROTOCOL_VERSION,
         "request_id": request.connector.connector_id,
-        "runtime_kind": "mock_read_only",
+        "runtime_kind": sidecar_runtime_kind(&request.connector.runtime_config),
         "connector_id": request.connector.connector_id,
         "database_kind": request.connector.database_kind,
         "driver_kind": request.connector.driver_kind,
@@ -120,6 +128,13 @@ pub(super) fn build_sidecar_request_json(request: &JdbcReadOnlyAdapterRequest) -
         "max_result_bytes": request.max_result_bytes,
     })
     .to_string()
+}
+
+fn sidecar_runtime_kind(runtime_config: &JdbcConnectorRuntimeConfig) -> &str {
+    match runtime_config {
+        JdbcConnectorRuntimeConfig::Sidecar(config) => &config.runtime_kind,
+        _ => "mock_read_only",
+    }
 }
 
 pub(super) fn map_sidecar_response(
