@@ -104,6 +104,9 @@ Current foundation status:
 - no real database query execution, test connection, Java sidecar, SQL
   formatter, `EXPLAIN`, AI assistance, credential input, or Coordinator
   capability runtime exists
+- Block 263 adds the backend adapter boundary only: mock remains the active
+  execution adapter, and the real sidecar adapter is a not-configured stub with
+  sanitized runtime statuses and no credential exposure
 
 ## Secrets Policy
 
@@ -138,8 +141,50 @@ read-only query execution, `EXPLAIN`, limits, errors, and result summaries. It
 must not expose arbitrary Java execution, shell access, unrestricted driver
 loading, or raw credentials to the frontend.
 
-This runtime is not implemented yet and must remain contract-gated before
-coding.
+Block 263 decision:
+
+- true JDBC execution should be hosted by a backend-owned Java sidecar rather
+  than a frontend runtime or Coordinator tool
+- the sidecar protocol is narrow JSON for read-only query requests and bounded
+  result/error responses
+- the backend resolves runtime configuration and credentials before invoking
+  the sidecar
+- `MockReadOnlyJdbcAdapter` remains the default active adapter
+- `SidecarReadOnlyJdbcAdapter` exists only as a not-configured/unsupported
+  boundary stub until a later explicit sidecar block
+- no driver download, driver installation, sidecar process lifecycle, or real
+  database connection is implemented by the boundary slice
+
+The sidecar request shape should include only:
+
+- connector id
+- database kind
+- driver kind
+- backend-only runtime connector config
+- SQL text after backend validation
+- validator statement kind
+- row limit
+- timeout
+- maximum columns
+- maximum cell characters
+- maximum result bytes
+
+The sidecar response shape should include only:
+
+- status
+- display-safe column summaries
+- bounded display-safe row values
+- returned row count
+- known total row count when available
+- truncation flags
+- duration
+- sanitized error
+- `no_secrets_returned`
+- `no_ai_context_shared`
+
+The sidecar must not expose arbitrary Java execution, shell commands, driver
+jar browsing, raw driver dumps, frontend credential values, Coordinator tools,
+Terminal control, Git mutation, Queue dispatch, or Agent Executor launch.
 
 ## SQL Editor Behavior
 
@@ -360,6 +405,21 @@ Error handling:
   environment variables, or unbounded driver output.
 - Query text may be shown back to the operator because the operator supplied it,
   but it must not be logged or sent to AI by default.
+
+Sanitized real-runtime status values:
+
+- `not_configured`
+- `unsupported_driver`
+- `connection_failed`
+- `authentication_failed`
+- `timeout`
+- `query_rejected`
+- `execution_failed`
+- `result_truncated`
+
+`authentication_failed` must use generic text and must not reveal username,
+password, token, raw JDBC URL, secret reference, environment variable, or
+driver-specific credential detail.
 
 ## EXPLAIN Behavior
 

@@ -4,8 +4,13 @@ use crate::WorkspaceServiceError;
 
 use super::{
     jdbc_query_types::{
-        ExecuteJdbcReadOnlyQueryInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
+        ExecuteJdbcReadOnlyQueryInput, JdbcReadOnlyQueryResultSummary,
         JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
+    },
+    jdbc_runtime::{
+        cap_string, failed_query_result, sanitize_error, JdbcReadOnlyAdapterRequest,
+        JdbcReadOnlyRuntimeConnector, MockReadOnlyJdbcAdapter, ReadOnlyJdbcAdapter,
+        STATUS_NOT_CONFIGURED, STATUS_VALIDATION_FAILED,
     },
     validation::{required_input, validate_widget_ownership},
     WorkspaceService, JDBC_WIDGET_DEFINITION_ID,
@@ -21,11 +26,6 @@ const DEFAULT_MAX_CELL_CHARS: usize = 2_000;
 const MAX_CELL_CHARS: usize = 2_000;
 const DEFAULT_MAX_RESULT_BYTES: usize = 256 * 1024;
 const MAX_RESULT_BYTES: usize = 256 * 1024;
-
-const STATUS_COMPLETED: &str = "completed";
-const STATUS_VALIDATION_FAILED: &str = "validation_failed";
-const STATUS_NOT_CONFIGURED: &str = "not_configured";
-const VALUE_KIND_TEXT: &str = "text";
 
 const READ_ONLY_STATEMENTS: &[&str] = &["SELECT", "WITH", "SHOW", "DESCRIBE"];
 const UNSAFE_TOKENS: &[&str] = &[
@@ -103,6 +103,7 @@ impl WorkspaceService {
                 input.row_limit,
                 STATUS_VALIDATION_FAILED,
                 "SQL did not pass the read-only validator.",
+                true,
             ));
         }
 
@@ -114,10 +115,22 @@ impl WorkspaceService {
                 input.row_limit,
                 STATUS_NOT_CONFIGURED,
                 "JDBC connector is not configured for read-only execution.",
+                true,
             ));
         };
 
-        Ok(mock_read_only_query_result(input, connector, validation))
+        let adapter_request = JdbcReadOnlyAdapterRequest {
+            connector: JdbcReadOnlyRuntimeConnector::mock_only(connector),
+            sql: input.sql,
+            row_limit: input.row_limit,
+            timeout_ms: input.timeout_ms,
+            max_columns: input.max_columns,
+            max_cell_chars: input.max_cell_chars,
+            max_result_bytes: input.max_result_bytes,
+            validation,
+        };
+
+        Ok(MockReadOnlyJdbcAdapter.execute_read_only_query(adapter_request))
     }
 
     fn validate_jdbc_query_owner(
@@ -303,133 +316,6 @@ fn validate_read_only_sql(sql: &str) -> JdbcReadOnlySqlValidationSummary {
     }
 }
 
-fn mock_read_only_query_result(
-    input: NormalizedExecuteInput,
-    connector: JdbcConnectorRow,
-    validation: JdbcReadOnlySqlValidationSummary,
-) -> JdbcReadOnlyQueryResultSummary {
-    let statement_kind = validation.statement_kind.clone();
-    let mut columns = vec![
-        text_column("sample_index"),
-        text_column("statement_kind"),
-        text_column("connector"),
-        text_column("sql_preview"),
-    ];
-    let mut rows = vec![
-        vec![
-            "1".to_owned(),
-            statement_kind
-                .clone()
-                .unwrap_or_else(|| "unknown".to_owned()),
-            connector.display_name.clone(),
-            validation.normalized_preview.clone(),
-        ],
-        vec![
-            "2".to_owned(),
-            statement_kind
-                .clone()
-                .unwrap_or_else(|| "unknown".to_owned()),
-            connector.database_kind.clone(),
-            "Deterministic mock read-only sample.".to_owned(),
-        ],
-        vec![
-            "3".to_owned(),
-            statement_kind
-                .clone()
-                .unwrap_or_else(|| "unknown".to_owned()),
-            connector.environment.clone(),
-            "No real database connection or credential access occurred.".to_owned(),
-        ],
-    ];
-
-    let row_count = rows.len();
-    let mut truncated_rows = false;
-    if rows.len() > input.row_limit {
-        rows.truncate(input.row_limit);
-        truncated_rows = true;
-    }
-
-    let mut truncated_columns = false;
-    if columns.len() > input.max_columns {
-        columns.truncate(input.max_columns);
-        rows.iter_mut()
-            .for_each(|row| row.truncate(input.max_columns));
-        truncated_columns = true;
-    }
-
-    let mut truncated_cells = false;
-    for row in &mut rows {
-        for cell in row {
-            let (capped, was_truncated) = cap_string(cell, input.max_cell_chars);
-            *cell = capped;
-            truncated_cells |= was_truncated;
-        }
-    }
-
-    let mut truncated_bytes = false;
-    while result_size_bytes(&columns, &rows) > input.max_result_bytes && !rows.is_empty() {
-        rows.pop();
-        truncated_rows = true;
-        truncated_bytes = true;
-    }
-
-    let returned_row_count = rows.len();
-    JdbcReadOnlyQueryResultSummary {
-        status: STATUS_COMPLETED.to_owned(),
-        connector_id: connector.connector_id,
-        connector_display_name: Some(connector.display_name),
-        validation,
-        statement_kind,
-        columns,
-        rows,
-        row_count,
-        returned_row_count,
-        row_limit: input.row_limit,
-        truncated: truncated_rows || truncated_columns || truncated_cells || truncated_bytes,
-        truncated_rows,
-        truncated_columns,
-        truncated_cells,
-        truncated_bytes,
-        duration_ms: 0,
-        sanitized_error: None,
-        no_secrets_returned: true,
-        no_ai_context_shared: true,
-        mock_execution: true,
-    }
-}
-
-fn failed_query_result(
-    connector_id: String,
-    connector_display_name: Option<String>,
-    validation: JdbcReadOnlySqlValidationSummary,
-    row_limit: usize,
-    status: &str,
-    error: &str,
-) -> JdbcReadOnlyQueryResultSummary {
-    JdbcReadOnlyQueryResultSummary {
-        status: status.to_owned(),
-        connector_id,
-        connector_display_name,
-        statement_kind: validation.statement_kind.clone(),
-        validation,
-        columns: Vec::new(),
-        rows: Vec::new(),
-        row_count: 0,
-        returned_row_count: 0,
-        row_limit,
-        truncated: false,
-        truncated_rows: false,
-        truncated_columns: false,
-        truncated_cells: false,
-        truncated_bytes: false,
-        duration_ms: 0,
-        sanitized_error: Some(sanitize_error(error)),
-        no_secrets_returned: true,
-        no_ai_context_shared: true,
-        mock_execution: true,
-    }
-}
-
 fn invalid_validation(reason: &str, preview: &str) -> JdbcReadOnlySqlValidationSummary {
     JdbcReadOnlySqlValidationSummary {
         is_valid: false,
@@ -555,47 +441,6 @@ fn normalized_preview(sql: &str) -> String {
     let collapsed = sql.split_whitespace().collect::<Vec<_>>().join(" ");
     let (preview, _) = cap_string(&collapsed, 240);
     preview
-}
-
-fn text_column(name: &str) -> JdbcQueryColumnSummary {
-    JdbcQueryColumnSummary {
-        name: name.to_owned(),
-        value_kind: VALUE_KIND_TEXT.to_owned(),
-    }
-}
-
-fn cap_string(value: &str, max_chars: usize) -> (String, bool) {
-    let max_chars = max_chars.max(1);
-    let char_count = value.chars().count();
-    if char_count <= max_chars {
-        return (value.to_owned(), false);
-    }
-
-    (value.chars().take(max_chars).collect(), true)
-}
-
-fn result_size_bytes(columns: &[JdbcQueryColumnSummary], rows: &[Vec<String>]) -> usize {
-    let column_bytes: usize = columns
-        .iter()
-        .map(|column| column.name.len() + column.value_kind.len())
-        .sum();
-    let row_bytes: usize = rows
-        .iter()
-        .flat_map(|row| row.iter())
-        .map(String::len)
-        .sum();
-    column_bytes + row_bytes
-}
-
-fn sanitize_error(message: &str) -> String {
-    let sanitized = message
-        .replace('\r', " ")
-        .replace('\n', " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    let (capped, _) = cap_string(&sanitized, 240);
-    capped
 }
 
 fn bounded_usize(value: Option<usize>, default_value: usize, max_value: usize) -> usize {

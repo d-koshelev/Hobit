@@ -229,6 +229,9 @@ future widget capability.
   validator and bounded result adapter.
 - Can validate conservative read-only SQL and render deterministic bounded
   mock results or sanitized validation/runtime errors.
+- Has a backend adapter boundary for future real read-only JDBC execution:
+  `MockReadOnlyJdbcAdapter` remains active, while the sidecar adapter is a
+  not-configured/unsupported stub with backend-only credential boundaries.
 - Does not collect credentials, store passwords or tokens, test connections,
   connect to real databases, run SQL against external systems, run `EXPLAIN`,
   format SQL, call AI, integrate with Coordinator Chat runtime, launch
@@ -270,7 +273,9 @@ Workspace-local JDBC connector metadata storage/API and frontend metadata UI
 exist for create/list/read/update, and a widget-owned mock/safe read-only SQL
 validation/execution path exists for bounded sample results. There is still no
 credential storage, real database connection/query execution, Java sidecar,
-`EXPLAIN`, AI assistance, or Coordinator tool runtime.
+`EXPLAIN`, AI assistance, or Coordinator tool runtime. Block 263 establishes
+the future Java sidecar runtime decision and adapter stub only; the active
+runtime remains mock-only.
 
 ## Compatibility Notes
 

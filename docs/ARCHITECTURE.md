@@ -30,7 +30,10 @@ metadata and mock read-only query surface backed by workspace-local JDBC
 connector metadata storage/API plus widget-owned SQL validation and bounded
 mock execution APIs; there is no credential storage, real database query
 execution, Java sidecar, `EXPLAIN`, AI SQL assistance, or Coordinator JDBC
-tool runtime. Coordinator-centered product
+tool runtime. A backend adapter boundary now separates the active
+`MockReadOnlyJdbcAdapter` from a future Java sidecar runtime; the sidecar
+adapter is a not-configured/unsupported stub and does not load credentials,
+drivers, or open database connections. Coordinator-centered product
 direction is represented by a Coordinator Chat placeholder with frontend action
 proposal cards and a backend-owned provider response path for explicit chat
 sends. Mock/local is the default provider. The provider path uses visible
@@ -694,6 +697,8 @@ log foundations in desktop mode, Terminal one-shot run/result persistence,
 Codex Direct Work run/result persistence for the `agent-run` owner,
 workspace-local JDBC connector metadata storage/API, frontend metadata UI, and
 mock read-only query UI/API without credentials or real database SQL execution,
+with a future Java sidecar adapter boundary stub that returns sanitized
+not-configured/unsupported statuses only,
 retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
 desktop-only Git status/diff and selected-file local commit path for the Git
