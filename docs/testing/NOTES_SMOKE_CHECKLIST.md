@@ -43,6 +43,18 @@ Use this checklist only for browser/Vite fallback behavior.
   unsupported-runtime errors.
 - [ ] Do not treat browser fallback as persistent Notes behavior.
 
+## Planned Browser / Dev Memory Smoke
+
+This section is not current smoke until a later task implements the decision in
+`docs/NOTES_DEV_MEMORY_API_DECISION.md`.
+
+- [ ] Browser/dev mode can create, list, select/get, and update Notes in
+  memory.
+- [ ] The UI or exposed status makes dev-only/non-persistent behavior clear.
+- [ ] Reloading the browser page loses in-memory Notes unless a later approved
+  task adds persistence.
+- [ ] Desktop/Tauri Notes persistence smoke remains unchanged.
+
 ## Deferred / Not Current
 
 These are not current Notes smoke checks:

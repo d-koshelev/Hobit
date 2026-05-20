@@ -167,7 +167,9 @@ Planned work may include:
 
 - focused Notes smoke checklist coverage
 - Notes UI/controller refactor without behavior change
-- clearer browser/dev memory Notes API support if explicitly scoped
+- clearer browser/dev memory Notes API support if explicitly scoped; the Phase
+  2 decision is `docs/NOTES_DEV_MEMORY_API_DECISION.md` and remains Planned
+  until implemented
 - explicit archive/delete decisions
 - explicit autosave decisions
 - UI polish for search, pinning, empty states, and save states

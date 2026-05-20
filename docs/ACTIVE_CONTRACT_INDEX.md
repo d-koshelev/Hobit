@@ -68,6 +68,10 @@ of truth for their domains.
   failures, known warnings, unresolved blockers, and not-run checks.
 - `docs/testing/NOTES_SMOKE_CHECKLIST.md` - current Notes behavior smoke
   checklist; Deferred Notebook behavior remains out of current smoke scope.
+- `docs/NOTES_DEV_MEMORY_API_DECISION.md` - Phase 2 Notes decision document
+  for the proposed dev-only browser in-memory Notes API. It is not current
+  behavior until an implementation lands, and it does not override the current
+  Notes contracts or `docs/CURRENT_WIDGET_SURFACE.md`.
 - `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md` - high-level
   current Workbench surface smoke map tied to
   `docs/CURRENT_WIDGET_SURFACE.md`.
@@ -198,6 +202,9 @@ unless the task explicitly requests it.
 - `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` - Notes product planning and
   next-slice boundaries for workspace-local Notes and Deferred Notebook
   behavior.
+- `docs/NOTES_DEV_MEMORY_API_DECISION.md` - Phase 2 decision for whether and
+  how to add a dev-only, non-persistent, frontend-only browser memory Notes
+  API. It is a decision document, not current behavior until implemented.
 
 ### JDBC
 

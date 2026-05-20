@@ -76,8 +76,10 @@ Browser/Vite fallback behavior:
   fallback.
 - Workspace Notes create/list/read/update calls are unsupported in browser
   fallback and surface explicit unsupported-runtime errors.
-- A dev-only persistent or in-memory Notes API is Planned only if a later task
-  explicitly scopes it.
+- A dev-only in-memory Notes API is Proposed for Phase 2 in
+  `docs/NOTES_DEV_MEMORY_API_DECISION.md`. It is not implemented yet and must
+  remain dev-only, frontend-only, and non-persistent if a later task implements
+  it.
 
 ## Current Implementation Foundation
 
@@ -151,7 +153,9 @@ Recommended follow-up blocks:
   unsupported browser fallback.
 - Notes UI/controller refactor that preserves current behavior and widget
   identity.
-- Dev-only memory Notes API decision for realistic browser smoke iteration.
+- Dev-only memory Notes API implementation only after the decision in
+  `docs/NOTES_DEV_MEMORY_API_DECISION.md`, with no production persistence,
+  Tauri, SQLite, or backend behavior change.
 - Archive/delete decision with explicit safety and storage behavior.
 - Autosave decision with clear state reporting if approved later.
 - Search/filter polish if product expectations grow beyond frontend filtering
