@@ -139,7 +139,12 @@ implementation changes.
 - Verify real-repository Git portability for `.git` gitdir pointers and
   `hobit-local-git` configuration, including reviewed cases where an absolute
   Windows path broke `git status` outside the original environment. Do not edit
-  `.git` as part of backlog documentation.
+  `.git` as part of backlog documentation. Current checkout verification:
+  `.git` is a gitdir pointer to `hobit-local-git`, `hobit-local-git` exists
+  but is ignored and untracked, `core.worktree` is relative (`..`), and
+  `git status` works. Classify the reviewed absolute-path failure as a local
+  metadata/export artifact unless a clean clone or source archive reproduces
+  tracked `hobit-local-git` contents or an absolute `core.worktree`.
 - Review smoke HTML files located at the frontend Vite root next to production
   `index.html`; decide whether they move under `smoke/dev` or are explicitly
   gated in Vite config.
