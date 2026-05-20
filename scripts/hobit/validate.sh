@@ -133,11 +133,14 @@ run_step() {
 }
 
 ensure_frontend_dependencies() {
-  if [ -d "apps/desktop/frontend/node_modules" ] && [ -f "apps/desktop/frontend/node_modules/.bin/tsc" ]; then
+  if [ -d "apps/desktop/frontend/node_modules" ] &&
+    { [ -f "apps/desktop/frontend/node_modules/.bin/tsc" ] ||
+      [ -f "apps/desktop/frontend/node_modules/.bin/tsc.cmd" ]; }; then
     return 0
   fi
 
   echo "ERROR: Frontend dependencies are missing." >&2
+  echo "Expected apps/desktop/frontend/node_modules with a local TypeScript compiler at node_modules/.bin/tsc." >&2
   echo "" >&2
   echo "Run:" >&2
   echo "  npm ci --prefix apps/desktop/frontend" >&2

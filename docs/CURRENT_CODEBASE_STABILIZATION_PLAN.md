@@ -132,7 +132,10 @@ implementation changes.
   Tauri icon assets under `apps/desktop/src-tauri/icons/`.
 - Improve `scripts/hobit/validate.sh` failure reporting when frontend
   dependencies, `node_modules`, or `tsc` are missing, so bootstrap failures are
-  actionable instead of opaque.
+  actionable instead of opaque. Fixed by adding a frontend dependency preflight
+  that reports the missing local TypeScript toolchain and the required
+  `npm ci --prefix apps/desktop/frontend` bootstrap command before npm
+  validation steps run.
 - Verify real-repository Git portability for `.git` gitdir pointers and
   `hobit-local-git` configuration, including reviewed cases where an absolute
   Windows path broke `git status` outside the original environment. Do not edit
