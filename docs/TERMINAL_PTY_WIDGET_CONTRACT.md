@@ -8,6 +8,21 @@ widget to a real interactive shell surface.
 This is the product/runtime contract for Terminal PTY behavior. Current
 implementation status is tracked in the Current State section below.
 
+Contract status: Current with platform limitation.
+
+Source of truth for:
+
+- Terminal PTY behavior and safety boundaries.
+- Current Terminal PTY platform support.
+- Legacy one-shot fallback compatibility boundaries.
+
+Not source of truth for:
+
+- Agent Executor runtime.
+- Script Runner behavior.
+- Coordinator-controlled Terminal execution.
+- Cross-platform PTY implementation.
+
 Future implementation must preserve Hobit's Workbench-first product model:
 Terminal is a widget capability inside the Workbench, not the product center,
 not a hidden automation path, and not an Agent Executor replacement.
@@ -46,7 +61,15 @@ Current backend foundation:
   widget owners.
 - The backend foundation can create, write stdin, resize, stop, kill, close,
   get, and list sessions.
-- Windows ConPTY is the first supported backend.
+- Shipped live PTY session support is currently Windows-only through the
+  Windows ConPTY backend.
+- Non-Windows desktop builds may compile, but live PTY creation is unsupported
+  and returns an explicit unsupported-platform error instead of pretending
+  Terminal PTY is fully available.
+- For Phase 1, the accepted decision is a docs-only Windows-only limitation.
+  Catalog gating on unsupported platforms is Deferred.
+- Linux/macOS PTY implementation and broader cross-platform Terminal PTY
+  support are Deferred.
 - PTY output/history remains session-only and is not persisted to storage.
 - The frontend Terminal widget consumes the PTY command foundation as its
   normal visible Terminal surface.
@@ -331,7 +354,8 @@ prompt explicitly chooses persistent transcripts or session history.
 
 ## Platform And Shell Expectations
 
-Windows support is first.
+Windows support is current for live PTY sessions. Cross-platform PTY support is
+not Current.
 
 Initial platform expectations:
 
@@ -347,8 +371,12 @@ Initial platform expectations:
   does not normalize shell-specific quoting.
 - Path handling should preserve literal working-directory paths and surface
   startup errors clearly.
-- Non-Windows support should remain future-compatible but need not be completed
-  in the Windows-first backend foundation.
+- Non-Windows desktop builds may compile, but live PTY creation is unsupported
+  and must surface an explicit unsupported-platform error.
+- Catalog gating or clearer unavailable UI on unsupported platforms is
+  Deferred.
+- Linux/macOS PTY implementation is Deferred and must not be claimed as
+  Current until implemented and accepted by active contracts.
 
 ## Relationship To Agent Executor
 
@@ -561,8 +589,13 @@ before the backing behavior exists.
 
 ## Recommended Follow-Up Blocks
 
-- Block 240  Terminal PTY backend foundation.
-- Block 241  Terminal PTY frontend shell UI.
+- Completed for current Windows-only preview: Terminal PTY backend foundation
+  and frontend shell UI exist for explicit Terminal widget owners.
+- Completed for Phase 1 docs: Windows-only live PTY limitation is accepted as
+  sufficient; non-Windows live PTY creation remains unsupported.
+- Later  Optional catalog gating or clearer unavailable UI on unsupported
+  platforms.
+- Later  Optional Linux/macOS PTY implementation.
 - Later  Terminal PTY output/lifecycle event bridge hardening.
 - Block 243  Terminal stop/kill hardening.
 - Block 244  Terminal PTY smoke/manual verification.
@@ -578,6 +611,9 @@ before the backing behavior exists.
 
 The current PTY foundation still does not implement:
 
+- Linux/macOS live PTY support.
+- Cross-platform Terminal PTY support.
+- Catalog gating for unsupported platforms.
 - Event-streamed output/lifecycle bridge hardening.
 - Tabs implementation.
 - Split panes implementation.

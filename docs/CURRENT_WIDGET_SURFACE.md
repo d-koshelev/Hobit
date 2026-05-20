@@ -260,6 +260,8 @@ or surfaced unless explicitly requested by a future task:
 - real Runbook engine
 - real JDBC connector runtime with credentials or external database execution
 - real Coordinator widget capability execution
+- Terminal catalog gating on unsupported platforms
+- Linux/macOS Terminal PTY support
 - Evidence/Sources capture and AI context packs
 - true external OS/Tauri widget popout windows
 - Dock rails, Compact/Indicator modes, presence-zone persistence, snapping,
@@ -287,8 +289,9 @@ Their placement at the Vite root remains a follow-up cleanup decision.
 - JDBC read-only execution: completed for Phase 1 docs. The shipped bounded
   mock/safe read-only query UI is Current Preview; production JDBC execution
   and hidden Coordinator-triggered SQL remain Deferred.
-- Terminal platform support: decide whether to add non-Windows catalog gating
-  or keep the docs-only limitation until cross-platform PTY support exists.
+- Terminal platform support: completed for Phase 1 docs. Live PTY support is
+  Windows-only in shipped backend code; non-Windows live PTY creation is
+  unsupported. Catalog gating and Linux/macOS PTY support remain Deferred.
 - Smoke HTML root cleanup: decide whether smoke files move under a dev/smoke
   location or are explicitly gated in Vite config.
 - Coordinator / Queue / Executor naming and responsibility cleanup remains

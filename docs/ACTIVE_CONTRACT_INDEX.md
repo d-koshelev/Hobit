@@ -183,8 +183,11 @@ unless the task explicitly requests it.
 
 ### Terminal
 
-- `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - deferred PTY/manual shell direction
-  and staged implementation plan; read only for explicitly Terminal PTY work.
+- `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - Terminal PTY behavior, safety
+  boundaries, and current platform limitations. It is the source of truth for
+  the Windows-only shipped live PTY backend limitation, non-Windows
+  unsupported-platform behavior, the collapsed one-shot fallback compatibility
+  boundary, and Deferred catalog gating / Linux/macOS PTY follow-ups.
 
 ## Reference Handoff
 

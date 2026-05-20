@@ -106,12 +106,13 @@ UI polish blocks: dark dotted canvas, grid-aware widget geometry direction,
 thin top bar, shared dark/glass widget cards, compact controls, status chips,
 clean tables, preview honesty, and prohibited UI overclaims.
 
-`TERMINAL_PTY_WIDGET_CONTRACT.md` defines the Terminal PTY direction and staged
-implementation plan. PTY runtime/Tauri command foundations and the first
-visible frontend PTY session UI now exist for explicit Terminal widget owners in
-the desktop shell, with shipped live PTY backend support currently limited to
-Windows. Non-Windows live PTY sessions are unsupported until platform support or
-catalog gating is implemented. Tabs UI, split panes, persistent
+`TERMINAL_PTY_WIDGET_CONTRACT.md` defines Terminal PTY behavior, safety
+boundaries, and current platform limitations. PTY runtime/Tauri command
+foundations and the first visible frontend PTY session UI now exist for
+explicit Terminal widget owners in the desktop shell, with shipped live PTY
+backend support currently limited to Windows. Non-Windows desktop builds may
+compile, but live PTY creation is unsupported until Deferred platform support
+or catalog gating is implemented. Tabs UI, split panes, persistent
 transcripts/history, event-stream bridge hardening, and storage/schema changes
 are not implemented.
 

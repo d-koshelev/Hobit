@@ -181,6 +181,13 @@ baseline task unless the task explicitly allows that scope.
   runtime remain Deferred. Future JDBC decisions remain whether to later
   promote the preview path, hide/remove it, implement production runtime, or
   connect it to Coordinator only through explicit approved actions.
+- Terminal platform limitation decision confirmation. Completed for docs:
+  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` now owns the current Windows-only live
+  PTY platform boundary. Non-Windows live PTY creation is unsupported, the
+  Phase 1 docs-only limitation is accepted, and catalog gating plus
+  Linux/macOS PTY implementation remain Deferred follow-ups. Optional
+  compatibility/one-shot fallback wording cleanup remains a later narrow
+  follow-up if needed.
 - Current vs preview vs deferred widget confusion, especially around agent
   surfaces and older proposal-review paths.
 - Broad `AGENTS.md` default read set causing unnecessary context load and
@@ -253,12 +260,13 @@ implementation changes.
 - State or enforce the Terminal PTY platform boundary. The reviewed
   implementation is effectively Windows-only, so current docs/catalog behavior
   should either say that clearly or hide/disable Terminal on unsupported
-  platforms.
+  platforms. Completed for docs: Phase 1 accepts the docs-only Windows-only
+  limitation, while catalog gating and Linux/macOS PTY implementation remain
+  Deferred.
 - Normalize current vs preview vs deferred widget surface language after code
   inventory, without rewriting widget contracts ahead of evidence. Completed in
   `docs/CURRENT_WIDGET_SURFACE.md`; remaining decisions are Agent Chat / Agent
-  Monitoring retire vs contract realignment, Terminal non-Windows catalog
-  gating vs docs-only limitation, and smoke HTML root cleanup.
+  Monitoring retire vs contract realignment and smoke HTML root cleanup.
 
 ### P2 - Reduce change amplification
 
@@ -297,17 +305,16 @@ implementation changes.
    autosave decisions.
 7. Clean Architecture stale references. Completed for
    `docs/ARCHITECTURE.md`; remaining architecture-related decisions are Agent
-   Chat / Agent Monitoring retire vs contract realignment, JDBC read-only
-   execution current Preview vs hidden/deferred, Terminal non-Windows catalog
-   gating vs docs-only limitation, smoke HTML root cleanup, and deferred
-   Coordinator / Queue / Executor cleanup.
+   Chat / Agent Monitoring retire vs contract realignment, smoke HTML root
+   cleanup, and deferred Coordinator / Queue / Executor cleanup.
 8. Create the Phase 1 contract drift decision matrix. Completed; see
    `docs/CONTRACT_DRIFT_DECISION_MATRIX.md`.
 9. Agent Chat / Agent Monitoring compatibility alignment. Completed for
    docs-only alignment; future optional cleanup remains either old-path
    removal or narrowed compatibility API retention.
-10. JDBC Preview contract alignment.
-11. Terminal platform limitation decision confirmation.
+10. JDBC Preview contract alignment. Completed for docs-only alignment.
+11. Terminal platform limitation decision confirmation. Completed for
+    docs-only alignment.
 12. Smoke HTML root cleanup.
 13. Smoke checklist discipline.
 14. Feature-slice checklist.
