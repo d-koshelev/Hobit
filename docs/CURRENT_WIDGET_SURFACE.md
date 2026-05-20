@@ -269,16 +269,17 @@ or surfaced unless explicitly requested by a future task:
 
 ## Dev / Smoke Entry Points
 
-Smoke HTML files under the frontend Vite root are development/smoke entry
-points, not current product surfaces or user-facing widgets.
+Smoke HTML files under `apps/desktop/frontend/smoke/dev/` are
+development/smoke entry points, not current product surfaces, user-facing
+widgets, production routes, or catalog entries.
 
 Known smoke entry points include:
 
-- `apps/desktop/frontend/coordinator-provider-product-smoke.html`
-- `apps/desktop/frontend/jdbc-read-only-ui-smoke.html`
-- `apps/desktop/frontend/queue-executor-ui-smoke.html`
+- `apps/desktop/frontend/smoke/dev/coordinator-provider-product-smoke.html`
+- `apps/desktop/frontend/smoke/dev/jdbc-read-only-ui-smoke.html`
+- `apps/desktop/frontend/smoke/dev/queue-executor-ui-smoke.html`
 
-Their placement at the Vite root remains a follow-up cleanup decision.
+Use them through Vite dev URLs under `/smoke/dev/`.
 
 ## Known Drift / Follow-Up Decisions
 
@@ -292,7 +293,8 @@ Their placement at the Vite root remains a follow-up cleanup decision.
 - Terminal platform support: completed for Phase 1 docs. Live PTY support is
   Windows-only in shipped backend code; non-Windows live PTY creation is
   unsupported. Catalog gating and Linux/macOS PTY support remain Deferred.
-- Smoke HTML root cleanup: decide whether smoke files move under a dev/smoke
-  location or are explicitly gated in Vite config.
+- Smoke HTML root cleanup: completed. The remaining smoke follow-ups are
+  checklist discipline, current behavior smoke checklists, and optional e2e
+  automation later.
 - Coordinator / Queue / Executor naming and responsibility cleanup remains
   deferred until current codebase cleanup and Notes stabilization are complete.

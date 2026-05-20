@@ -240,7 +240,9 @@ implementation changes.
   local-only in this checkout.
 - Review smoke HTML files located at the frontend Vite root next to production
   `index.html`; decide whether they move under `smoke/dev` or are explicitly
-  gated in Vite config.
+  gated in Vite config. Completed: dev/smoke HTML entry points now live under
+  `apps/desktop/frontend/smoke/dev/`; they remain dev-only entry points, not
+  production routes or product surfaces.
 
 ### P1 - Align contracts with shipped code
 
@@ -266,7 +268,8 @@ implementation changes.
 - Normalize current vs preview vs deferred widget surface language after code
   inventory, without rewriting widget contracts ahead of evidence. Completed in
   `docs/CURRENT_WIDGET_SURFACE.md`; remaining decisions are Agent Chat / Agent
-  Monitoring retire vs contract realignment and smoke HTML root cleanup.
+  Monitoring retire vs contract realignment. Smoke HTML root cleanup is
+  completed.
 
 ### P2 - Reduce change amplification
 
@@ -315,7 +318,9 @@ implementation changes.
 10. JDBC Preview contract alignment. Completed for docs-only alignment.
 11. Terminal platform limitation decision confirmation. Completed for
     docs-only alignment.
-12. Smoke HTML root cleanup.
+12. Smoke HTML root cleanup. Completed; remaining smoke follow-ups are smoke
+    checklist discipline, current behavior smoke checklists, and optional e2e
+    automation later.
 13. Smoke checklist discipline.
 14. Feature-slice checklist.
 15. Phase 1 closeout.
