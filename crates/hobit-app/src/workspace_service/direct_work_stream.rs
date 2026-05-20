@@ -12,11 +12,14 @@ use crate::WorkspaceServiceError;
 use super::{
     direct_work::{
         append_direct_work_log, can_initiate_direct_work, capped_duration_ms,
-        direct_work_approval_policy_value, direct_work_no_git_mutation_log_payload,
-        direct_work_requested_log_payload, direct_work_sandbox_value,
-        direct_work_started_log_payload, normalize_direct_work_input, NormalizedDirectWorkInput,
-        CODEX_DIRECT_WORK_COMMAND_KIND, CODEX_DIRECT_WORK_EXECUTOR_KIND, CODEX_DIRECT_WORK_MODE,
-        CODEX_DIRECT_WORK_RESULT_TYPE, WIDGET_LOG_ERROR_LEVEL,
+        direct_work_approval_policy_value, direct_work_input_runtime_artifacts,
+        direct_work_no_git_mutation_log_payload, direct_work_requested_log_payload,
+        direct_work_sandbox_value, direct_work_started_log_payload, normalize_direct_work_input,
+        NormalizedDirectWorkInput, CODEX_DIRECT_WORK_COMMAND_KIND, CODEX_DIRECT_WORK_EXECUTOR_KIND,
+        CODEX_DIRECT_WORK_MODE, CODEX_DIRECT_WORK_RESULT_TYPE, WIDGET_LOG_ERROR_LEVEL,
+    },
+    direct_work_artifacts::{
+        DirectWorkOutputRuntimeArtifacts, DirectWorkStreamEventRuntimeArtifact,
     },
     placeholder_id,
     runs::widget_run_status_value,
@@ -275,6 +278,7 @@ pub(super) fn insert_codex_direct_work_stream_start(
     store: &SqliteStore,
     input: &NormalizedDirectWorkInput,
 ) -> Result<Option<CodexDirectWorkStreamStartSummary>, hobit_storage_sqlite::StorageError> {
+    let _input_artifacts = direct_work_input_runtime_artifacts(input);
     let command_payload = direct_work_stream_command_payload(input);
     let Some((workspace, _workbench, widget)) = validate_widget_ownership(
         store,
@@ -331,6 +335,8 @@ fn direct_work_stream_event_summary(
     run_id: &str,
     event: &CodexDirectStreamEvent,
 ) -> CodexDirectWorkStreamEventSummary {
+    let _event_artifact = DirectWorkStreamEventRuntimeArtifact::from_event(event);
+
     CodexDirectWorkStreamEventSummary {
         workspace_id: input.workspace_id.clone(),
         workbench_id: input.workbench_id.clone(),
@@ -483,6 +489,8 @@ fn direct_work_stream_result_payload(
     output: &CodexDirectStreamOutput,
     final_status: &str,
 ) -> String {
+    let _output_artifacts = DirectWorkOutputRuntimeArtifacts::from_stream_output(output);
+
     json!({
         "executor_kind": CODEX_DIRECT_WORK_EXECUTOR_KIND,
         "mode": CODEX_DIRECT_WORK_MODE,

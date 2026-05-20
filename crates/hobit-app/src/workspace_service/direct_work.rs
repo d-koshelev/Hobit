@@ -12,6 +12,7 @@ use serde_json::json;
 use crate::WorkspaceServiceError;
 
 use super::{
+    direct_work_artifacts::{DirectWorkInputRuntimeArtifacts, DirectWorkOutputRuntimeArtifacts},
     placeholder_id,
     runs::widget_run_status_value,
     validation::{required_input, validate_widget_ownership, validate_widget_run_ownership},
@@ -42,6 +43,7 @@ impl WorkspaceService {
         F: FnOnce(CodexDirectRunRequest) -> CodexDirectRunOutput,
     {
         let input = normalize_direct_work_input(input)?;
+        let _input_artifacts = direct_work_input_runtime_artifacts(&input);
         let command_payload = direct_work_command_payload(&input);
         let Some(run_id) = self.start_direct_work_run(&input, &command_payload)? else {
             return Ok(None);
@@ -124,6 +126,7 @@ impl WorkspaceService {
         run_id: &str,
         output: &CodexDirectRunOutput,
     ) -> Result<Option<CodexDirectWorkRunSummary>, WorkspaceServiceError> {
+        let _output_artifacts = DirectWorkOutputRuntimeArtifacts::from_run_output(output);
         let final_status = direct_work_final_status(output.status);
         let final_status_value = widget_run_status_value(&final_status);
         let result_summary = direct_work_result_summary(output);
@@ -381,6 +384,30 @@ fn direct_work_command_payload(input: &NormalizedDirectWorkInput) -> String {
         "git_mutations_performed_by_hobit": false,
     })
     .to_string()
+}
+
+pub(super) fn direct_work_input_runtime_artifacts(
+    input: &NormalizedDirectWorkInput,
+) -> DirectWorkInputRuntimeArtifacts {
+    let repo_root = input.repo_root.to_string_lossy().into_owned();
+    let command_parts = [
+        input.codex_executable.as_str(),
+        "exec",
+        "--cd",
+        repo_root.as_str(),
+        "--sandbox",
+        direct_work_sandbox_value(input.sandbox),
+        "--ask-for-approval",
+        direct_work_approval_policy_value(input.approval_policy),
+        "<operator-prompt-stdin>",
+    ];
+
+    DirectWorkInputRuntimeArtifacts::from_input(
+        &input.operator_prompt,
+        &input.repo_root,
+        &command_parts,
+        false,
+    )
 }
 
 pub(super) fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInput) -> String {

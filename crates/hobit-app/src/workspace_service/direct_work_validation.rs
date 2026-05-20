@@ -13,6 +13,9 @@ use super::{
         append_direct_work_log, can_initiate_direct_work, capped_duration_ms,
         WIDGET_LOG_ERROR_LEVEL,
     },
+    direct_work_artifacts::{
+        command_payload_artifact, local_path_artifact, DirectWorkValidationRuntimeArtifacts,
+    },
     placeholder_id,
     runs::widget_run_status_value,
     validation::{required_input, validate_widget_ownership, validate_widget_run_ownership},
@@ -41,6 +44,7 @@ impl WorkspaceService {
         F: FnOnce(ToolbeltValidationRequest) -> ToolbeltValidationOutput,
     {
         let input = normalize_direct_work_validation_input(input)?;
+        let _input_artifacts = direct_work_validation_input_artifacts(&input);
         let command_payload = direct_work_validation_command_payload(&input);
         let Some(run_id) = self.start_direct_work_validation_run(&input, &command_payload)? else {
             return Ok(None);
@@ -120,6 +124,7 @@ impl WorkspaceService {
         run_id: &str,
         output: &ToolbeltValidationOutput,
     ) -> Result<Option<DirectWorkValidationRunSummary>, WorkspaceServiceError> {
+        let _output_artifacts = DirectWorkValidationRuntimeArtifacts::from_output(output);
         let run_status = direct_work_validation_run_status(output.status);
         let run_status_value = widget_run_status_value(&run_status);
         let result_summary = direct_work_validation_result_summary(output.status);
@@ -304,6 +309,20 @@ fn direct_work_validation_command_payload(input: &NormalizedDirectWorkValidation
         "git_mutations_performed_by_hobit": false,
     })
     .to_string()
+}
+
+fn direct_work_validation_input_artifacts(
+    input: &NormalizedDirectWorkValidationInput,
+) -> (crate::RuntimeArtifactSummary, crate::RuntimeArtifactSummary) {
+    let command_parts = [
+        "toolbelt_validation",
+        validation_profile_value(input.profile),
+    ];
+
+    (
+        local_path_artifact(&input.repo_root),
+        command_payload_artifact(&command_parts, false),
+    )
 }
 
 fn direct_work_validation_requested_log_payload(

@@ -19,6 +19,7 @@ mod coordinator_provider_external;
 mod coordinator_provider_runtime;
 mod coordinator_provider_types;
 mod direct_work;
+mod direct_work_artifacts;
 mod direct_work_cancellation;
 mod direct_work_stream;
 mod direct_work_validation;
@@ -63,6 +64,8 @@ mod agent_queue_tasks_tests;
 mod agent_queue_tests;
 #[cfg(test)]
 mod coordinator_provider_tests;
+#[cfg(test)]
+mod direct_work_artifacts_tests;
 #[cfg(test)]
 mod direct_work_cancellation_tests;
 #[cfg(test)]

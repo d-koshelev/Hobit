@@ -7,6 +7,7 @@ use super::{
         append_direct_work_log, can_initiate_direct_work, CODEX_DIRECT_WORK_COMMAND_KIND,
         CODEX_DIRECT_WORK_MODE,
     },
+    direct_work_artifacts::DirectWorkRuntimeBoundarySummary,
     validation::{required_input, validate_widget_run_ownership},
     CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary,
     CodexDirectWorkForceKillSummary, ForceKillCodexDirectWorkRunInput, WorkspaceService,
@@ -68,6 +69,8 @@ impl WorkspaceService {
         input: CancelCodexDirectWorkRunInput,
     ) -> Result<CodexDirectWorkCancellationSummary, WorkspaceServiceError> {
         let input = normalize_cancel_direct_work_input(input)?;
+        let _cancellation_status =
+            DirectWorkRuntimeBoundarySummary::from_cancellation_request(false);
 
         self.store
             .with_immediate_transaction(|store| {
@@ -168,6 +171,7 @@ impl WorkspaceService {
         input: ForceKillCodexDirectWorkRunInput,
     ) -> Result<CodexDirectWorkForceKillSummary, WorkspaceServiceError> {
         let input = normalize_force_kill_direct_work_input(input)?;
+        let _force_kill_status = DirectWorkRuntimeBoundarySummary::from_cancellation_request(true);
 
         self.store
             .with_immediate_transaction(|store| {
