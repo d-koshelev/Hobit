@@ -73,8 +73,6 @@ impl TerminalRuntimeBoundarySummary {
         Self::from_parts(execution_status, error_kind, error_message, capped)
     }
 
-    // TODO(runtime-adapters): wire this into the Tauri PTY host boundary in a
-    // narrow follow-up; this slice keeps host-specific session ownership alone.
     #[cfg(test)]
     pub(super) fn from_pty_status(status: &str, error_message: Option<&str>, capped: bool) -> Self {
         let (execution_status, error_kind) = match status {

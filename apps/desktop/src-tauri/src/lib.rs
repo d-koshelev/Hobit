@@ -45,6 +45,9 @@ mod notes_dto;
 #[cfg(test)]
 mod notes_dto_tests;
 mod terminal_pty;
+mod terminal_pty_artifacts;
+#[cfg(test)]
+mod terminal_pty_artifacts_tests;
 mod terminal_pty_commands;
 mod terminal_pty_dto;
 #[cfg(test)]

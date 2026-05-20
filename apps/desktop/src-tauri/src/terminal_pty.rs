@@ -9,6 +9,11 @@ use crate::terminal_pty_unsupported::TerminalPtyPlatformSession;
 #[cfg(windows)]
 use crate::terminal_pty_windows::TerminalPtyPlatformSession;
 
+use crate::terminal_pty_artifacts::{
+    classify_runtime_error_passthrough, pty_output_artifact, TerminalPtyCommandRuntimeArtifacts,
+    TerminalPtyRuntimeBoundarySummary,
+};
+
 const DEFAULT_COLS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES: usize = 64 * 1024;
@@ -28,16 +33,25 @@ impl TerminalPtySessionManager {
         &self,
         request: TerminalPtyCreateRequest,
     ) -> Result<TerminalPtySessionSnapshot, String> {
-        let request = normalize_create_request(request)?;
+        let _runtime_artifacts = TerminalPtyCommandRuntimeArtifacts::from_shell(
+            &request.shell,
+            &request.shell_args,
+            &request.working_directory,
+        );
+        let request =
+            normalize_create_request(request).map_err(classify_runtime_error_passthrough)?;
         let session_id = next_session_id();
         let output = SharedOutputBuffer::new(request.output_buffer_cap_bytes);
-        let runtime = TerminalPtyPlatformSession::start(
+        let runtime = match TerminalPtyPlatformSession::start(
             &request.shell,
             &request.shell_args,
             &request.working_directory,
             request.size,
             output.clone(),
-        )?;
+        ) {
+            Ok(runtime) => runtime,
+            Err(error) => return Err(classify_runtime_error_passthrough(error)),
+        };
         let session = TerminalPtySession {
             session_id: session_id.clone(),
             workspace_id: request.workspace_id,
@@ -71,19 +85,27 @@ impl TerminalPtySessionManager {
         request: TerminalPtyWriteRequest,
     ) -> Result<Option<TerminalPtySessionSnapshot>, String> {
         if request.data.is_empty() {
-            return Err("terminal PTY stdin data must not be empty".to_owned());
+            return Err(classify_runtime_error_passthrough(
+                "terminal PTY stdin data must not be empty".to_owned(),
+            ));
         }
 
         self.with_matching_session_mut(&request.scope, |session| {
             session.refresh_status();
             if !session.status.is_active() {
-                return Err("terminal PTY session is not running".to_owned());
+                return Err(classify_runtime_error_passthrough(
+                    "terminal PTY session is not running".to_owned(),
+                ));
             }
             let Some(runtime) = session.runtime.as_mut() else {
-                return Err("terminal PTY session runtime is closed".to_owned());
+                return Err(classify_runtime_error_passthrough(
+                    "terminal PTY session runtime is closed".to_owned(),
+                ));
             };
 
-            runtime.write_stdin(request.data.as_bytes())?;
+            runtime
+                .write_stdin(request.data.as_bytes())
+                .map_err(classify_runtime_error_passthrough)?;
             Ok(session.snapshot())
         })
     }
@@ -92,18 +114,25 @@ impl TerminalPtySessionManager {
         &self,
         request: TerminalPtyResizeRequest,
     ) -> Result<Option<TerminalPtySessionSnapshot>, String> {
-        let size = validate_size(request.cols, request.rows)?;
+        let size = validate_size(request.cols, request.rows)
+            .map_err(classify_runtime_error_passthrough)?;
 
         self.with_matching_session_mut(&request.scope, |session| {
             session.refresh_status();
             if !session.status.is_active() {
-                return Err("terminal PTY session is not running".to_owned());
+                return Err(classify_runtime_error_passthrough(
+                    "terminal PTY session is not running".to_owned(),
+                ));
             }
             let Some(runtime) = session.runtime.as_mut() else {
-                return Err("terminal PTY session runtime is closed".to_owned());
+                return Err(classify_runtime_error_passthrough(
+                    "terminal PTY session runtime is closed".to_owned(),
+                ));
             };
 
-            runtime.resize(size)?;
+            runtime
+                .resize(size)
+                .map_err(classify_runtime_error_passthrough)?;
             session.size = size;
             Ok(session.snapshot())
         })
@@ -119,10 +148,14 @@ impl TerminalPtySessionManager {
                 return Ok(session.snapshot());
             }
             let Some(runtime) = session.runtime.as_mut() else {
-                return Err("terminal PTY session runtime is closed".to_owned());
+                return Err(classify_runtime_error_passthrough(
+                    "terminal PTY session runtime is closed".to_owned(),
+                ));
             };
 
-            runtime.write_stdin(STOP_SEQUENCE)?;
+            runtime
+                .write_stdin(STOP_SEQUENCE)
+                .map_err(classify_runtime_error_passthrough)?;
             session.stop_requested = true;
             session.status = TerminalPtySessionStatus::Stopping;
             Ok(session.snapshot())
@@ -137,7 +170,7 @@ impl TerminalPtySessionManager {
             session.refresh_status();
             if session.status.is_active() {
                 if let Some(mut runtime) = session.runtime.take() {
-                    runtime.kill()?;
+                    runtime.kill().map_err(classify_runtime_error_passthrough)?;
                     runtime.close_runtime_resources();
                 }
                 session.status = TerminalPtySessionStatus::Killed;
@@ -166,9 +199,9 @@ impl TerminalPtySessionManager {
 
         session.refresh_status();
         if session.status.is_active() {
-            return Err(
+            return Err(classify_runtime_error_passthrough(
                 "terminal PTY session is still running; stop or kill it before closing".to_owned(),
-            );
+            ));
         }
 
         let mut session = sessions
@@ -416,12 +449,21 @@ impl TerminalPtySession {
             }
             Ok(None) => {}
             Err(error) => {
+                let _runtime_boundary = TerminalPtyRuntimeBoundarySummary::from_error(&error);
                 self.error_message = Some(error);
             }
         }
     }
 
     fn snapshot(&self) -> TerminalPtySessionSnapshot {
+        let output = self.output.snapshot();
+        let status = self.status.as_str().to_owned();
+        let _runtime_boundary = TerminalPtyRuntimeBoundarySummary::from_status(
+            &status,
+            self.error_message.as_deref(),
+            output.dropped_bytes > 0,
+        );
+
         TerminalPtySessionSnapshot {
             session_id: self.session_id.clone(),
             workspace_id: self.workspace_id.clone(),
@@ -432,12 +474,12 @@ impl TerminalPtySession {
             working_directory: self.working_directory.display().to_string(),
             cols: self.size.cols,
             rows: self.size.rows,
-            status: self.status.as_str().to_owned(),
+            status,
             started_at: self.started_at.clone(),
             ended_at: self.ended_at.clone(),
             exit_code: self.exit_code,
             error_message: self.error_message.clone(),
-            output: self.output.snapshot(),
+            output,
         }
     }
 }
@@ -482,10 +524,12 @@ impl SharedOutputBuffer {
     }
 
     pub(super) fn push_terminal_output(&self, bytes: &[u8]) {
-        self.inner
+        let dropped_or_capped = self
+            .inner
             .lock()
             .expect("terminal PTY output buffer lock")
             .push(TERMINAL_STREAM_KIND, bytes);
+        let _runtime_artifact = pty_output_artifact(bytes.len(), dropped_or_capped);
     }
 
     fn snapshot(&self) -> TerminalPtyOutputSnapshot {
@@ -515,16 +559,18 @@ impl TerminalPtyOutputBuffer {
         }
     }
 
-    fn push(&mut self, stream_kind: &str, bytes: &[u8]) {
+    fn push(&mut self, stream_kind: &str, bytes: &[u8]) -> bool {
+        let mut dropped_or_capped = false;
         if self.cap_bytes == 0 {
             self.dropped_bytes = self.dropped_bytes.saturating_add(bytes.len());
-            return;
+            return !bytes.is_empty();
         }
 
         let stored_bytes = if bytes.len() > self.cap_bytes {
             self.dropped_bytes = self
                 .dropped_bytes
                 .saturating_add(bytes.len().saturating_sub(self.cap_bytes));
+            dropped_or_capped = true;
             &bytes[bytes.len() - self.cap_bytes..]
         } else {
             bytes
@@ -545,7 +591,10 @@ impl TerminalPtyOutputBuffer {
             };
             self.total_buffered_bytes = self.total_buffered_bytes.saturating_sub(removed.byte_len);
             self.dropped_bytes = self.dropped_bytes.saturating_add(removed.byte_len);
+            dropped_or_capped = true;
         }
+
+        dropped_or_capped
     }
 
     fn snapshot(&self) -> TerminalPtyOutputSnapshot {
