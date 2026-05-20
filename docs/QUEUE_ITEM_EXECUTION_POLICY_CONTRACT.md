@@ -212,6 +212,14 @@ Implemented persistence/model support includes:
   policy when update omits it, changing policy when update supplies it, and
   rejecting unsupported policy values at the app-service validation boundary
 
+Implemented frontend preparation support includes:
+
+- pure policy/status helper coverage for normalizing policy values, identifying
+  runnable statuses, blocking empty prompts, stopping on `manual`, allowing
+  `auto` only when status and prompt are runnable, and allowing
+  `after_previous_success` only after a previous task in the current runner
+  pass completed successfully
+
 Default policy:
 
 - Existing tasks should default to `manual` unless a migration/compatibility
