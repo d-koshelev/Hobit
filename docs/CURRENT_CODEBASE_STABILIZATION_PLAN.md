@@ -146,6 +146,32 @@ Baseline recorded on 2026-05-20 after the Phase 1 P0 bootstrap fixes.
   validation/reporting block explicitly must not install frontend
   dependencies.
 
+## Smoke Checklist Discipline
+
+Status:
+
+- Smoke checklist discipline: completed for Phase 1 process docs.
+- Current product smoke, Preview smoke, validation/bootstrap checks, dev-only
+  smoke HTML entry points, and future automation are separated in
+  `docs/testing/SMOKE_CHECKLIST_DISCIPLINE.md`.
+- Current validation baseline reporting is captured in
+  `docs/testing/CURRENT_VALIDATION_SMOKE_CHECKLIST.md`.
+- Current Notes smoke coverage is captured in
+  `docs/testing/NOTES_SMOKE_CHECKLIST.md` without promoting Deferred Notebook,
+  Markdown, autosave, or AI-in-Notes behavior.
+- High-level Workbench current surface smoke coverage is captured in
+  `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md`.
+- Dev-only Vite smoke HTML entry points remain documented in
+  `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` as non-product routes and not e2e
+  automation.
+
+Remaining follow-ups:
+
+- optional e2e automation later
+- optional detailed smoke checklists for specific widgets after their
+  stabilization
+- Phase 1 closeout
+
 ## Known Problem Inventory
 
 These are known cleanup areas for follow-up tasks. Do not solve them inside a
@@ -203,7 +229,8 @@ baseline task unless the task explicitly allows that scope.
 - Compatibility names and IDs such as `interactive-agent` and `agent-run` that
   must not be renamed casually.
 - Missing smoke checklist discipline for focused widget and browser/desktop
-  flows.
+  flows. Completed for Phase 1 testing docs; optional e2e automation and
+  widget-specific detailed smoke checklists remain later follow-ups.
 - Feature work starting before contract cleanup.
 
 ## AMP review findings
@@ -318,10 +345,10 @@ implementation changes.
 10. JDBC Preview contract alignment. Completed for docs-only alignment.
 11. Terminal platform limitation decision confirmation. Completed for
     docs-only alignment.
-12. Smoke HTML root cleanup. Completed; remaining smoke follow-ups are smoke
-    checklist discipline, current behavior smoke checklists, and optional e2e
-    automation later.
-13. Smoke checklist discipline.
+12. Smoke HTML root cleanup. Completed.
+13. Smoke checklist discipline. Completed for Phase 1 testing docs; remaining
+    smoke/testing follow-ups are optional e2e automation later, optional
+    detailed widget smoke checklists after stabilization, and Phase 1 closeout.
 14. Feature-slice checklist.
 15. Phase 1 closeout.
 16. Notes UI/controller refactor.

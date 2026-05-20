@@ -41,6 +41,26 @@ naming. Current widget behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`, and Coordinator / Queue / Executor naming
 cleanup remains deferred.
 
+Testing and smoke checklist docs are process docs only. They do not override
+product contracts, do not add current behavior, and do not expand the global
+mandatory read set. `docs/CURRENT_WIDGET_SURFACE.md` remains the source of
+truth for current widget behavior.
+
+- `docs/testing/SMOKE_CHECKLIST_DISCIPLINE.md` - index and category rules for
+  current product smoke, preview smoke, dev-only smoke HTML entry points,
+  validation/bootstrap checks, and future automation.
+- `docs/testing/CURRENT_VALIDATION_SMOKE_CHECKLIST.md` - Phase 1 validation
+  baseline and reporting labels for passing checks, expected environment
+  failures, known warnings, unresolved blockers, and not-run checks.
+- `docs/testing/NOTES_SMOKE_CHECKLIST.md` - current Notes behavior smoke
+  checklist; Deferred Notebook behavior remains out of current smoke scope.
+- `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md` - high-level
+  current Workbench surface smoke map tied to
+  `docs/CURRENT_WIDGET_SURFACE.md`.
+- `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
+  points under `apps/desktop/frontend/smoke/dev/`; these are not product
+  routes, production widget surfaces, or e2e automation.
+
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime
 behavior changes, or automatic agent orchestration changes.

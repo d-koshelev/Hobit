@@ -2,6 +2,8 @@
 
 These HTML files are Vite development smoke entry points only. They are not
 production routes, product surfaces, user-facing widgets, or catalog entries.
+They are also not e2e automation and are not a replacement for current product
+smoke checklists.
 
 Current dev smoke files:
 
@@ -16,4 +18,7 @@ Use these Vite dev URLs:
 - `/smoke/dev/queue-executor-ui-smoke.html`
 
 Current product smoke checklists, smoke checklist discipline, and optional e2e
-automation are separate follow-up work.
+automation are separate work. See:
+
+- `docs/testing/SMOKE_CHECKLIST_DISCIPLINE.md`
+- `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md`
