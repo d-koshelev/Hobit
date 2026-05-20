@@ -37,6 +37,7 @@ mod mapping;
 mod notes;
 mod runs;
 mod terminal;
+mod terminal_artifacts;
 mod terminal_pty;
 mod types;
 mod validation;
@@ -86,6 +87,8 @@ mod jdbc_runtime_tests;
 mod jdbc_sidecar_protocol_tests;
 #[cfg(test)]
 mod notes_tests;
+#[cfg(test)]
+mod terminal_artifacts_tests;
 #[cfg(test)]
 mod terminal_pty_tests;
 #[cfg(test)]

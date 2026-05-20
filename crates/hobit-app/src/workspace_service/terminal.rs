@@ -13,6 +13,7 @@ use crate::WorkspaceServiceError;
 use super::{
     placeholder_id,
     runs::widget_run_status_value,
+    terminal_artifacts::{TerminalCommandRuntimeArtifacts, TerminalOutputRuntimeArtifacts},
     validation::{required_input, validate_widget_ownership, validate_widget_run_ownership},
     RunTerminalCommandInput, TerminalCommandRunSummary, WorkspaceService,
     TERMINAL_WIDGET_DEFINITION_ID, WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
@@ -39,6 +40,11 @@ impl WorkspaceService {
         F: FnOnce(ProcessRunRequest) -> ProcessRunOutput,
     {
         let input = normalize_terminal_command_input(input)?;
+        let _runtime_artifacts = TerminalCommandRuntimeArtifacts::from_command(
+            &input.program,
+            &input.args,
+            &input.working_directory,
+        );
         let command_payload = terminal_command_payload(&input);
         let Some(run_id) = self.start_terminal_run(&input, &command_payload)? else {
             return Ok(None);
@@ -126,6 +132,8 @@ impl WorkspaceService {
         let completion_message = terminal_completion_log_message(process_output.status);
         let completion_log_level = terminal_completion_log_level(process_output.status);
         let completion_payload = terminal_completion_log_payload(process_output);
+        let _runtime_artifacts =
+            TerminalOutputRuntimeArtifacts::from_process_output(process_output);
 
         self.store
             .with_immediate_transaction(|store| {
