@@ -221,6 +221,7 @@ fn init_schema_upgrades_agent_queue_task_assignment_column() {
         .expect("upgraded queue task");
 
     assert_eq!(task.assigned_executor_widget_id, None);
+    assert_eq!(task.execution_policy, "manual");
 }
 
 #[test]

@@ -14,6 +14,7 @@ fn maps_create_agent_queue_task_request_to_app_input() {
         prompt: "Prompt".to_owned(),
         status: "queued".to_owned(),
         priority: 3,
+        execution_policy: Some("auto".to_owned()),
     };
 
     let input: hobit_app::CreateAgentQueueTaskInput = request.into();
@@ -24,6 +25,7 @@ fn maps_create_agent_queue_task_request_to_app_input() {
     assert_eq!(input.prompt, "Prompt");
     assert_eq!(input.status, "queued");
     assert_eq!(input.priority, 3);
+    assert_eq!(input.execution_policy.as_deref(), Some("auto"));
 }
 
 #[test]
@@ -36,6 +38,7 @@ fn maps_update_agent_queue_task_request_to_app_input() {
         prompt: "Updated prompt".to_owned(),
         status: "running".to_owned(),
         priority: 4,
+        execution_policy: Some("after_previous_success".to_owned()),
     };
 
     let input: hobit_app::UpdateAgentQueueTaskInput = request.into();
@@ -47,6 +50,10 @@ fn maps_update_agent_queue_task_request_to_app_input() {
     assert_eq!(input.prompt, "Updated prompt");
     assert_eq!(input.status, "running");
     assert_eq!(input.priority, 4);
+    assert_eq!(
+        input.execution_policy.as_deref(),
+        Some("after_previous_success")
+    );
 }
 
 #[test]
@@ -87,6 +94,7 @@ fn maps_agent_queue_task_summary_to_dto() {
         prompt: "Prompt".to_owned(),
         status: "running".to_owned(),
         priority: 3,
+        execution_policy: "manual".to_owned(),
         assigned_executor_widget_id: Some("executor_1".to_owned()),
         created_at: "1".to_owned(),
         updated_at: "2".to_owned(),
@@ -101,6 +109,7 @@ fn maps_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.prompt, "Prompt");
     assert_eq!(dto.status, "running");
     assert_eq!(dto.priority, 3);
+    assert_eq!(dto.execution_policy, "manual");
     assert_eq!(
         dto.assigned_executor_widget_id.as_deref(),
         Some("executor_1")

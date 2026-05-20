@@ -7,6 +7,8 @@ use crate::time::now_precise_timestamp;
 
 use super::SqliteStore;
 
+const DEFAULT_AGENT_QUEUE_TASK_EXECUTION_POLICY: &str = "manual";
+
 impl SqliteStore {
     pub fn create_agent_queue_task(
         &self,
@@ -21,11 +23,15 @@ impl SqliteStore {
             .map(str::to_owned)
             .unwrap_or_else(|| created_at.clone());
 
+        let execution_policy = input
+            .execution_policy
+            .unwrap_or(DEFAULT_AGENT_QUEUE_TASK_EXECUTION_POLICY);
+
         self.connection.execute(
             "INSERT INTO agent_queue_tasks (
                 queue_item_id, workspace_id, title, description, prompt, status,
-                priority, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                priority, execution_policy, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 input.queue_item_id,
                 input.workspace_id,
@@ -34,6 +40,7 @@ impl SqliteStore {
                 input.prompt,
                 input.status,
                 input.priority,
+                execution_policy,
                 created_at,
                 updated_at,
             ],
@@ -46,7 +53,7 @@ impl SqliteStore {
     pub fn list_agent_queue_tasks(&self, workspace_id: &str) -> Result<Vec<AgentQueueTaskRow>> {
         let mut statement = self.connection.prepare(
             "SELECT queue_item_id, workspace_id, title, description, prompt, status,
-                priority, assigned_executor_widget_id, created_at, updated_at
+                priority, execution_policy, assigned_executor_widget_id, created_at, updated_at
              FROM agent_queue_tasks
              WHERE workspace_id = ?1
              ORDER BY priority DESC, updated_at DESC, created_at DESC, queue_item_id DESC",
@@ -64,7 +71,7 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, assigned_executor_widget_id, created_at, updated_at
+                    status, priority, execution_policy, assigned_executor_widget_id, created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE workspace_id = ?1 AND queue_item_id = ?2",
                 params![workspace_id, queue_item_id],
@@ -80,7 +87,7 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, assigned_executor_widget_id, created_at, updated_at
+                    status, priority, execution_policy, assigned_executor_widget_id, created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE queue_item_id = ?1",
                 params![queue_item_id],
@@ -102,14 +109,16 @@ impl SqliteStore {
         let affected_rows = self.connection.execute(
             "UPDATE agent_queue_tasks
              SET title = ?1, description = ?2, prompt = ?3, status = ?4,
-                priority = ?5, updated_at = ?6
-             WHERE workspace_id = ?7 AND queue_item_id = ?8",
+                priority = ?5, execution_policy = COALESCE(?6, execution_policy),
+                updated_at = ?7
+             WHERE workspace_id = ?8 AND queue_item_id = ?9",
             params![
                 update.title,
                 update.description,
                 update.prompt,
                 update.status,
                 update.priority,
+                update.execution_policy,
                 updated_at,
                 workspace_id,
                 queue_item_id,

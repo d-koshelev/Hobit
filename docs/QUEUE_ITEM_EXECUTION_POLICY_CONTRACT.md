@@ -1,16 +1,18 @@
 # Queue Item Execution Policy Contract
 
-Contract status: Planned for Queue/Executor MVP
+Contract status: Current for persisted Queue task policy model; Planned for
+Sequential Queue Runner behavior
 
 Source of truth for:
 
 - Queue item execution policy naming
+- persisted Queue task execution policy model support
 - automatic/manual queue execution semantics
 - future Sequential Queue Runner behavior
 
 Not source of truth for:
 
-- current implemented Queue behavior until implementation lands
+- current Queue runner behavior, because no runner is implemented yet
 - Coordinator automation
 - backend scheduler
 - production autonomous orchestration
@@ -26,9 +28,14 @@ Related documents:
 This contract defines the Queue item execution policy model before automatic
 Queue execution is implemented.
 
-It does not add frontend UI, backend/Tauri commands, storage/schema changes,
-Queue runner behavior, Agent Executor runtime changes, Coordinator behavior,
-Terminal behavior, Git behavior, or product behavior.
+The persisted model and DTO support for `executionPolicy` is implemented.
+Runner behavior, frontend policy selection UI, bulk prompt import, Coordinator
+automation, and automatic execution remain Planned or Deferred as defined
+below.
+
+It does not add Queue runner behavior, Agent Executor runtime changes,
+Coordinator behavior, Terminal behavior, Git behavior, or automatic product
+behavior.
 
 Current Agent Queue behavior remains the manual Queue task organization,
 manual assignment, and explicit assigned-task run flow documented in
@@ -45,6 +52,8 @@ Canonical field:
 ```text
 executionPolicy
 ```
+
+Storage and Tauri DTOs use `execution_policy`.
 
 Allowed values:
 
@@ -187,19 +196,20 @@ Validation may remain available as a separate explicit Agent Executor action.
 It must not become an automatic gate before the next Queue task starts unless a
 later contract explicitly adds that behavior.
 
-## Persistence Plan
+## Persistence Model
 
-`executionPolicy` should be persisted on Queue tasks before the Sequential
-Queue Runner is implemented.
+`executionPolicy` is persisted on Queue tasks before the Sequential Queue
+Runner is implemented.
 
-Future implementation will likely need to touch:
+Implemented persistence/model support includes:
 
 - SQLite/storage Queue task row/schema
 - app service Queue task types
 - Tauri Queue DTOs/commands
 - frontend Queue types/API
-- Queue editor UI
-- tests and smoke docs
+- storage/app/Tauri tests for defaulting, explicit persistence, preserving
+  policy when update omits it, changing policy when update supplies it, and
+  rejecting unsupported policy values at the app-service validation boundary
 
 Default policy:
 
@@ -209,6 +219,13 @@ Default policy:
   explicitly sets another policy.
 - Bulk-added ready prompts may default to `auto` only if the bulk-add task
   explicitly scopes that behavior.
+
+Still Planned:
+
+- Queue editor UI control for `executionPolicy`
+- Sequential Queue Runner
+- bulk prompt import/create UI
+- smoke checklist for automatic queue execution
 
 ## Safety Boundaries
 
@@ -244,7 +261,7 @@ system.
 
 Recommended order:
 
-1. Persist `executionPolicy` on Queue tasks.
+1. Persist `executionPolicy` on Queue tasks. Completed.
 2. Add Queue editor UI control for `executionPolicy`.
 3. Add tests for a policy/status selection helper.
 4. Add Sequential Queue Runner using `executionPolicy`.

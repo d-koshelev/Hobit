@@ -140,6 +140,7 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
                 status.to_owned()
             },
             priority: 1,
+            execution_policy: None,
         })
         .expect("create queue task");
     service
@@ -159,6 +160,7 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
                 prompt: task.prompt,
                 status: "completed".to_owned(),
                 priority: task.priority,
+                execution_policy: None,
             })
             .expect("force final status");
     }

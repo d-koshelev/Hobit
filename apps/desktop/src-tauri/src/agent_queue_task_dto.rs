@@ -12,6 +12,8 @@ pub(crate) struct CreateAgentQueueTaskRequest {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    #[serde(default)]
+    pub execution_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -34,6 +36,8 @@ pub(crate) struct UpdateAgentQueueTaskRequest {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    #[serde(default)]
+    pub execution_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -58,6 +62,7 @@ pub(crate) struct AgentQueueTaskDto {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub execution_policy: String,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -72,6 +77,7 @@ impl From<CreateAgentQueueTaskRequest> for CreateAgentQueueTaskInput {
             prompt: request.prompt,
             status: request.status,
             priority: request.priority,
+            execution_policy: request.execution_policy,
         }
     }
 }
@@ -86,6 +92,7 @@ impl From<UpdateAgentQueueTaskRequest> for UpdateAgentQueueTaskInput {
             prompt: request.prompt,
             status: request.status,
             priority: request.priority,
+            execution_policy: request.execution_policy,
         }
     }
 }
@@ -119,6 +126,7 @@ impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
             prompt: summary.prompt,
             status: summary.status,
             priority: summary.priority,
+            execution_policy: summary.execution_policy,
             assigned_executor_widget_id: summary.assigned_executor_widget_id,
             created_at: summary.created_at,
             updated_at: summary.updated_at,

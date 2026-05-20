@@ -19,6 +19,10 @@ pub(super) const AGENT_QUEUE_TASK_STATUS_COMPLETED: &str = "completed";
 pub(super) const AGENT_QUEUE_TASK_STATUS_FAILED: &str = "failed";
 pub(super) const AGENT_QUEUE_TASK_STATUS_CANCELLED: &str = "cancelled";
 pub(super) const AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED: &str = "review_needed";
+pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL: &str = "manual";
+pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_AUTO: &str = "auto";
+pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_AFTER_PREVIOUS_SUCCESS: &str =
+    "after_previous_success";
 const MIN_AGENT_QUEUE_TASK_PRIORITY: i64 = 0;
 const MAX_AGENT_QUEUE_TASK_PRIORITY: i64 = 5;
 
@@ -48,6 +52,7 @@ impl WorkspaceService {
                     prompt: &input.prompt,
                     status: &input.status,
                     priority: input.priority,
+                    execution_policy: Some(&input.execution_policy),
                     created_at: Some(&created_at),
                     updated_at: Some(&created_at),
                 })?;
@@ -112,6 +117,7 @@ impl WorkspaceService {
                     prompt: &input.prompt,
                     status: &input.status,
                     priority: input.priority,
+                    execution_policy: input.execution_policy.as_deref(),
                     updated_at: Some(&updated_at),
                 },
             )?;
@@ -221,6 +227,7 @@ struct NormalizedCreateAgentQueueTaskInput {
     prompt: String,
     status: String,
     priority: i64,
+    execution_policy: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -232,6 +239,7 @@ struct NormalizedUpdateAgentQueueTaskInput {
     prompt: String,
     status: String,
     priority: i64,
+    execution_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -259,6 +267,7 @@ fn normalize_create_agent_queue_task_input(
         prompt,
         status,
         priority: normalize_priority(input.priority)?,
+        execution_policy: normalize_execution_policy(input.execution_policy)?,
     })
 }
 
@@ -275,6 +284,7 @@ fn normalize_update_agent_queue_task_input(
         prompt,
         status,
         priority: normalize_priority(input.priority)?,
+        execution_policy: normalize_optional_execution_policy(input.execution_policy)?,
     })
 }
 
@@ -336,6 +346,31 @@ fn normalize_priority(priority: i64) -> Result<i64, WorkspaceServiceError> {
     }
 
     Ok(priority)
+}
+
+fn normalize_execution_policy(
+    execution_policy: Option<String>,
+) -> Result<String, WorkspaceServiceError> {
+    normalize_optional_execution_policy(execution_policy)
+        .map(|policy| policy.unwrap_or_else(|| AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL.to_owned()))
+}
+
+fn normalize_optional_execution_policy(
+    execution_policy: Option<String>,
+) -> Result<Option<String>, WorkspaceServiceError> {
+    let Some(execution_policy) = execution_policy else {
+        return Ok(None);
+    };
+
+    let execution_policy = required_owned(execution_policy, "queue task execution policy")?;
+    match execution_policy.as_str() {
+        AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL
+        | AGENT_QUEUE_TASK_EXECUTION_POLICY_AUTO
+        | AGENT_QUEUE_TASK_EXECUTION_POLICY_AFTER_PREVIOUS_SUCCESS => Ok(Some(execution_policy)),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported queue task execution policy: {execution_policy}"
+        ))),
+    }
 }
 
 fn required_owned(value: String, label: &str) -> Result<String, WorkspaceServiceError> {

@@ -3,6 +3,7 @@ import type {
   AgentQueueItem,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AgentQueueTaskExecutionPolicy,
   AgentQueueTaskStatus,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
@@ -62,6 +63,7 @@ type TauriAgentQueueTask = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  execution_policy?: AgentQueueTaskExecutionPolicy | null;
   assigned_executor_widget_id: string | null;
   created_at: string;
   updated_at: string;
@@ -121,6 +123,7 @@ export async function createAgentQueueTask(
       prompt: request.prompt,
       status: request.status,
       priority: request.priority,
+      execution_policy: request.executionPolicy ?? null,
     },
   });
 
@@ -169,6 +172,7 @@ export async function updateAgentQueueTask(
         prompt: request.prompt,
         status: request.status,
         priority: request.priority,
+        execution_policy: request.executionPolicy ?? null,
       },
     },
   );
@@ -283,10 +287,29 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     prompt: task.prompt,
     status: task.status,
     priority: task.priority,
+    executionPolicy: normalizeExecutionPolicy(task.execution_policy),
     assignedExecutorWidgetId: task.assigned_executor_widget_id,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };
+}
+
+function normalizeExecutionPolicy(
+  executionPolicy: string | null | undefined,
+): AgentQueueTaskExecutionPolicy {
+  return isAgentQueueTaskExecutionPolicy(executionPolicy)
+    ? executionPolicy
+    : "manual";
+}
+
+function isAgentQueueTaskExecutionPolicy(
+  executionPolicy: string | null | undefined,
+): executionPolicy is AgentQueueTaskExecutionPolicy {
+  return (
+    executionPolicy === "manual" ||
+    executionPolicy === "auto" ||
+    executionPolicy === "after_previous_success"
+  );
 }
 
 function normalizeStartAssignedAgentQueueTaskResponse(

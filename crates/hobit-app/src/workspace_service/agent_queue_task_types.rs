@@ -6,6 +6,7 @@ pub struct CreateAgentQueueTaskInput {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub execution_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -17,6 +18,7 @@ pub struct UpdateAgentQueueTaskInput {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub execution_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -83,6 +85,7 @@ pub struct AgentQueueTaskSummary {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub execution_policy: String,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,

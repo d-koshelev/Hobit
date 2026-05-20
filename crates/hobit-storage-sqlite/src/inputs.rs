@@ -116,6 +116,7 @@ pub struct NewAgentQueueTask<'a> {
     pub prompt: &'a str,
     pub status: &'a str,
     pub priority: i64,
+    pub execution_policy: Option<&'a str>,
     pub created_at: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
@@ -127,6 +128,7 @@ pub struct AgentQueueTaskUpdate<'a> {
     pub prompt: &'a str,
     pub status: &'a str,
     pub priority: i64,
+    pub execution_policy: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
 

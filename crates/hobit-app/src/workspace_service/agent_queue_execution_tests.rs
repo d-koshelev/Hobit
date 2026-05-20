@@ -106,6 +106,7 @@ fn assigned_queue_task_start_rejects_invalid_preconditions_without_run() {
             prompt: "   ".to_owned(),
             status: "draft".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect("create draft task with empty prompt");
     assign_task(
@@ -322,6 +323,7 @@ fn create_task(
             prompt: prompt.to_owned(),
             status: status.to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect("create queue task")
 }

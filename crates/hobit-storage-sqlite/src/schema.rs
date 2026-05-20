@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS agent_queue_tasks (
     prompt TEXT NOT NULL,
     status TEXT NOT NULL,
     priority INTEGER NOT NULL,
+    execution_policy TEXT NOT NULL DEFAULT 'manual',
     assigned_executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

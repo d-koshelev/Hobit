@@ -55,6 +55,9 @@ Preview surfaces are smoke targets only when labeled as Preview.
 ### Agent Queue Preview
 
 - [ ] Smoke manual task create/list/read/update/filter/select/save behavior.
+- [ ] Smoke policy model persistence only when scoped: Queue tasks default
+  `executionPolicy` to `manual`, and create/update/list/read preserve the
+  stored value without changing execution behavior.
 - [ ] Smoke visible manual assignment or clear of a task to an Agent Executor
   slot when APIs are available.
 - [ ] Smoke explicit start of an assigned task only through operator action and

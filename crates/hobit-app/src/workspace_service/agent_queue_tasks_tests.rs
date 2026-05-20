@@ -27,6 +27,7 @@ fn create_task(
             prompt: "Prompt".to_owned(),
             status: status.to_owned(),
             priority,
+            execution_policy: None,
         })
         .expect("create queue task")
 }
@@ -67,6 +68,7 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(task.prompt, "Prompt");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.execution_policy, "manual");
     assert_eq!(task.assigned_executor_widget_id, None);
     assert!(!task.created_at.is_empty());
     assert_eq!(task.created_at, task.updated_at);
@@ -93,6 +95,7 @@ fn create_list_get_and_update_agent_queue_task() {
             prompt: "Updated prompt".to_owned(),
             status: "running".to_owned(),
             priority: 4,
+            execution_policy: None,
         })
         .expect("update queue task")
         .expect("updated queue task");
@@ -102,8 +105,77 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(updated.prompt, "Updated prompt");
     assert_eq!(updated.status, "running");
     assert_eq!(updated.priority, 4);
+    assert_eq!(updated.execution_policy, "manual");
     assert_eq!(updated.assigned_executor_widget_id, None);
     assert_ne!(updated.updated_at, task.updated_at);
+}
+
+#[test]
+fn agent_queue_task_execution_policy_defaults_persists_updates_and_validates() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+
+    let created = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            title: "Policy task".to_owned(),
+            description: "Description".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 2,
+            execution_policy: Some("auto".to_owned()),
+        })
+        .expect("create queue task");
+
+    assert_eq!(created.execution_policy, "auto");
+
+    let preserved = service
+        .update_agent_queue_task(UpdateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: created.queue_item_id.clone(),
+            title: "Policy task preserved".to_owned(),
+            description: "Description".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 2,
+            execution_policy: None,
+        })
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(preserved.execution_policy, "auto");
+
+    let changed = service
+        .update_agent_queue_task(UpdateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: created.queue_item_id,
+            title: "Policy task changed".to_owned(),
+            description: "Description".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 2,
+            execution_policy: Some("after_previous_success".to_owned()),
+        })
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(changed.execution_policy, "after_previous_success");
+
+    let invalid = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id,
+            title: "Invalid policy".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+            execution_policy: Some("when_ready".to_owned()),
+        })
+        .expect_err("invalid execution policy rejected");
+
+    assert!(invalid
+        .to_string()
+        .contains("unsupported queue task execution policy: when_ready"));
 }
 
 #[test]
@@ -118,6 +190,7 @@ fn create_agent_queue_task_rejects_unknown_workspace() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect_err("unknown workspace rejected");
 
@@ -160,6 +233,7 @@ fn get_and_update_agent_queue_task_reject_cross_workspace_access() {
             prompt: "Other prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect_err("cross-workspace update rejected");
     assert!(update_error
@@ -185,6 +259,7 @@ fn get_and_update_unknown_agent_queue_task_returns_none() {
             prompt: "".to_owned(),
             status: "draft".to_owned(),
             priority: 0,
+            execution_policy: None,
         })
         .expect("update unknown queue task")
         .is_none());
@@ -203,6 +278,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect_err("empty title rejected");
     assert!(empty_title
@@ -217,6 +293,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "blocked".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect_err("invalid status rejected");
     assert!(invalid_status
@@ -231,6 +308,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 9,
+            execution_policy: None,
         })
         .expect_err("invalid priority rejected");
     assert!(invalid_priority
@@ -251,6 +329,7 @@ fn non_draft_agent_queue_task_rejects_empty_prompt() {
             prompt: "  ".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            execution_policy: None,
         })
         .expect_err("empty prompt rejected");
 
@@ -511,6 +590,7 @@ fn running_task_assignment_and_clear_assignment_are_rejected() {
             prompt: assigned_task.prompt,
             status: "running".to_owned(),
             priority: assigned_task.priority,
+            execution_policy: None,
         })
         .expect("update to running")
         .expect("updated task");

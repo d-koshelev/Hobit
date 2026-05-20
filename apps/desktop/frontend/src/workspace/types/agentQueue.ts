@@ -22,6 +22,11 @@ export type AgentQueueTaskStatus =
   | "cancelled"
   | "review_needed";
 
+export type AgentQueueTaskExecutionPolicy =
+  | "manual"
+  | "auto"
+  | "after_previous_success";
+
 export type CreateAgentQueueTaskRequest = {
   workspaceId: string;
   title: string;
@@ -29,6 +34,7 @@ export type CreateAgentQueueTaskRequest = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  executionPolicy?: AgentQueueTaskExecutionPolicy;
 };
 
 export type ListAgentQueueTasksRequest = { workspaceId: string };
@@ -46,6 +52,7 @@ export type UpdateAgentQueueTaskRequest = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  executionPolicy?: AgentQueueTaskExecutionPolicy;
 };
 
 export type AssignAgentQueueTaskToExecutorRequest = GetAgentQueueTaskRequest & {
@@ -116,6 +123,7 @@ export type AgentQueueTask = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  executionPolicy?: AgentQueueTaskExecutionPolicy;
   assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;

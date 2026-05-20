@@ -29,6 +29,7 @@ fn create_task(
             prompt: "Prompt",
             status: "queued",
             priority,
+            execution_policy: None,
             created_at: Some(updated_at),
             updated_at: Some(updated_at),
         })
@@ -83,6 +84,7 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
             prompt: "Check the patch for regressions",
             status: "queued",
             priority: 3,
+            execution_policy: None,
             created_at: Some("1"),
             updated_at: Some("2"),
         })
@@ -95,6 +97,7 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
     assert_eq!(task.prompt, "Check the patch for regressions");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.execution_policy, "manual");
     assert_eq!(task.assigned_executor_widget_id, None);
     assert_eq!(task.created_at, "1");
     assert_eq!(task.updated_at, "2");
@@ -145,6 +148,7 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
                 prompt: "Updated prompt",
                 status: "completed",
                 priority: 4,
+                execution_policy: None,
                 updated_at: Some("2"),
             },
         )
@@ -156,8 +160,78 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
     assert_eq!(task.prompt, "Updated prompt");
     assert_eq!(task.status, "completed");
     assert_eq!(task.priority, 4);
+    assert_eq!(task.execution_policy, "manual");
     assert_eq!(task.assigned_executor_widget_id, None);
     assert_eq!(task.updated_at, "2");
+}
+
+#[test]
+fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitted() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    let created = store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-policy",
+            workspace_id: "workspace-1",
+            title: "Policy task",
+            description: "Description",
+            prompt: "Prompt",
+            status: "queued",
+            priority: 1,
+            execution_policy: Some("auto"),
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+
+    assert_eq!(created.execution_policy, "auto");
+
+    let preserved = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-policy",
+            AgentQueueTaskUpdate {
+                title: "Policy task preserved",
+                description: "Description",
+                prompt: "Prompt",
+                status: "queued",
+                priority: 1,
+                execution_policy: None,
+                updated_at: Some("2"),
+            },
+        )
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(preserved.execution_policy, "auto");
+
+    let changed = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-policy",
+            AgentQueueTaskUpdate {
+                title: "Policy task changed",
+                description: "Description",
+                prompt: "Prompt",
+                status: "queued",
+                priority: 1,
+                execution_policy: Some("after_previous_success"),
+                updated_at: Some("3"),
+            },
+        )
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(changed.execution_policy, "after_previous_success");
+    assert_eq!(
+        store
+            .get_agent_queue_task("workspace-1", "task-policy")
+            .expect("get queue task")
+            .expect("queue task")
+            .execution_policy,
+        "after_previous_success"
+    );
 }
 
 #[test]
@@ -174,6 +248,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
             prompt: "Prompt",
             status: "running",
             priority: 2,
+            execution_policy: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })
@@ -191,6 +266,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
                 prompt: "Updated prompt",
                 status: "running",
                 priority: 3,
+                execution_policy: None,
                 updated_at: Some("2"),
             },
         )
@@ -228,6 +304,7 @@ fn unknown_agent_queue_task_returns_none() {
                 prompt: "",
                 status: "draft",
                 priority: 0,
+                execution_policy: None,
                 updated_at: Some("2"),
             },
         )
@@ -291,6 +368,7 @@ fn update_agent_queue_task_status_updates_status_and_updated_at() {
             prompt: "Prompt",
             status: "queued",
             priority: 1,
+            execution_policy: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })

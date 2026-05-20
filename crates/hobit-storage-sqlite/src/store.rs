@@ -117,6 +117,11 @@ impl SqliteStore {
             "assigned_executor_widget_id",
             "assigned_executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL",
         )?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "execution_policy",
+            "execution_policy TEXT NOT NULL DEFAULT 'manual'",
+        )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
         Ok(())
     }
