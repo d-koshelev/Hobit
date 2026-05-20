@@ -7,11 +7,17 @@
 #![forbid(unsafe_code)]
 
 mod error;
+pub mod runtime_adapters;
 mod workspace_service;
 
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
 pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;
+pub use runtime_adapters::{
+    RuntimeAdapterId, RuntimeArtifactClass, RuntimeArtifactSummary, RuntimeCorrelationId,
+    RuntimeErrorKind, RuntimeExecutionStatus, RuntimeKind, RuntimeRedactionStatus,
+    RuntimeRequestId,
+};
 pub use workspace_service::{
     coordinator_provider_adapter_from_config, AgentChatAiProposalProvider,
     AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome, AgentChatAiRequestArtifact,

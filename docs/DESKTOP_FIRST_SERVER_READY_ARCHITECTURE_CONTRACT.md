@@ -103,6 +103,10 @@ Local process, Codex, Terminal, Git, JDBC, and future tool runtimes should be
 represented as adapters with typed request/response contracts, explicit
 ownership, caps, cancellation behavior, and classified outputs.
 
+Current code has a minimal shared runtime boundary vocabulary in
+`crates/hobit-app/src/runtime_adapters/`. It is type-only scaffolding and does
+not change current desktop runtime behavior.
+
 Desktop process memory is acceptable for current MVP session state such as
 live PTY handles and frontend runner state, but that state must be named as
 non-durable.
