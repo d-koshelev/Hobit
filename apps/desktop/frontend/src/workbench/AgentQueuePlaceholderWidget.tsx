@@ -1,15 +1,23 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useId } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import type { AgentQueueTask } from "../workspace/types";
 import { AgentQueueTaskAssignmentPanel } from "./AgentQueueTaskAssignmentPanel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
-import { clamp, DEFAULT_TASK_TITLE, emptyDraft, errorToMessage, formatUpdatedTimestamp, isQueueTaskStatus, MAX_PRIORITY, MIN_PRIORITY, normalizeTaskStatus, queueSingleState, statusBadgeVariant, statusLabel, STATUS_OPTIONS, type QueueFilter, type TaskDraft, validateDraft } from "./agentQueueTaskUiModel";
+import {
+  formatUpdatedTimestamp,
+  isQueueTaskStatus,
+  MAX_PRIORITY,
+  MIN_PRIORITY,
+  queueSingleState,
+  statusBadgeVariant,
+  statusLabel,
+  STATUS_OPTIONS,
+} from "./agentQueueTaskUiModel";
+import { useAgentQueueController } from "./queue/useAgentQueueController";
 import type { WidgetRenderProps } from "./types";
-import { useQueueTaskAutoRefreshFromExecutor } from "./useQueueTaskAutoRefreshFromExecutor";
 
 export function AgentQueuePlaceholderWidget({
   frameActions,
@@ -37,399 +45,51 @@ export function AgentQueuePlaceholderWidget({
   const statusInputId = useId();
   const priorityInputId = useId();
   const assignmentInputId = useId();
-  const apiAvailable = Boolean(
-    onCreateAgentQueueTask &&
-      onGetAgentQueueTask &&
-      onListAgentQueueTasks &&
-      onUpdateAgentQueueTask,
-  );
-  const assignmentApiAvailable = Boolean(
-    onAssignAgentQueueTaskToExecutor && onClearAgentQueueTaskAssignment,
-  );
-  const [tasks, setTasks] = useState<AgentQueueTask[]>([]);
-  const [selectedTask, setSelectedTask] = useState<AgentQueueTask | null>(null);
-  const [draft, setDraft] = useState<TaskDraft>(emptyDraft());
-  const [statusFilter, setStatusFilter] = useState<QueueFilter>("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [assignmentError, setAssignmentError] = useState<string | null>(null);
-  const [assignmentMessage, setAssignmentMessage] = useState<string | null>(
-    null,
-  );
-  const [selectedExecutorWidgetId, setSelectedExecutorWidgetId] =
-    useState("");
-  const [validationMessage, setValidationMessage] = useState<string | null>(
-    null,
-  );
-  const [saveStateText, setSaveStateText] = useState("Saved");
-
-  const isDirty = Boolean(
-    selectedTask &&
-      (draft.title !== selectedTask.title ||
-        draft.description !== selectedTask.description ||
-        draft.prompt !== selectedTask.prompt ||
-        draft.status !== normalizeTaskStatus(selectedTask.status) ||
-        draft.priority !== selectedTask.priority),
-  );
-
-  const filteredTasks = useMemo(() => {
-    if (statusFilter === "all") {
-      return tasks;
-    }
-
-    return tasks.filter((task) => task.status === statusFilter);
-  }, [statusFilter, tasks]);
-
-  const loadTasks = useCallback(
-    async (preferredTaskId?: string | null, options?: { preserveCurrentOnError?: boolean }) => {
-      if (
-        !onCreateAgentQueueTask ||
-        !onGetAgentQueueTask ||
-        !onListAgentQueueTasks ||
-        !onUpdateAgentQueueTask
-      ) {
-        setTasks([]);
-        clearSelectedTask();
-        setLoadError(
-          "Agent Queue task persistence is not available in this runtime.",
-        );
-        setIsLoading(false);
-        return "Agent Queue task persistence is not available in this runtime.";
-      }
-
-      setIsLoading(true);
-      setLoadError(null);
-      setEditorError(null);
-      setAssignmentError(null);
-      setValidationMessage(null);
-
-      try {
-        const loadedTasks = await onListAgentQueueTasks();
-        setTasks(loadedTasks);
-
-        const preferredExists = loadedTasks.some(
-          (task) => task.queueItemId === preferredTaskId,
-        );
-        const taskIdToSelect = preferredExists
-          ? preferredTaskId
-          : loadedTasks[0]?.queueItemId;
-
-        if (!taskIdToSelect) {
-          clearSelectedTask();
-          return null;
-        }
-
-        const detail = await onGetAgentQueueTask(taskIdToSelect);
-
-        if (!detail) {
-          clearSelectedTask();
-          setEditorError("The selected queue task could not be found.");
-          return "The selected queue task could not be found.";
-        }
-
-        setSelectedDraft(detail);
-        setSaveStateText("Saved");
-        return null;
-      } catch (error) {
-        if (!options?.preserveCurrentOnError) {
-          setTasks([]);
-          clearSelectedTask();
-          setLoadError(errorToMessage(error, "Unable to load Agent Queue tasks."));
-        }
-        return errorToMessage(error, "Unable to load Agent Queue tasks.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      onCreateAgentQueueTask,
-      onGetAgentQueueTask,
-      onListAgentQueueTasks,
-      onUpdateAgentQueueTask,
-    ],
-  );
-
-  useEffect(() => {
-    void loadTasks(null);
-  }, [loadTasks]);
-  useQueueTaskAutoRefreshFromExecutor({ autoRefreshRequest: queueTaskAutoRefreshRequest, isDirty, loadTasks, setValidationMessage });
-
-  useEffect(() => {
-    if (!selectedTask) {
-      setSelectedExecutorWidgetId("");
-      return;
-    }
-
-    setSelectedExecutorWidgetId((currentSelection) => {
-      if (selectedTask.assignedExecutorWidgetId) {
-        return selectedTask.assignedExecutorWidgetId;
-      }
-
-      if (
-        currentSelection &&
-        agentExecutorSlots.some(
-          (slot) => slot.widgetInstanceId === currentSelection,
-        )
-      ) {
-        return currentSelection;
-      }
-
-      return agentExecutorSlots[0]?.widgetInstanceId ?? "";
-    });
-  }, [
+  const queue = useAgentQueueController({
     agentExecutorSlots,
-    selectedTask?.assignedExecutorWidgetId,
-    selectedTask?.queueItemId,
-  ]);
-
-  async function createTask() {
-    if (!onCreateAgentQueueTask || isCreating || isLoading) {
-      return;
-    }
-
-    if (isDirty) {
-      setValidationMessage("Save current task before creating another task.");
-      return;
-    }
-
-    setIsCreating(true);
-    setLoadError(null);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-
-    try {
-      const createdTask = await onCreateAgentQueueTask({
-        title: DEFAULT_TASK_TITLE,
-        description: "",
-        prompt: "",
-        status: "draft",
-        priority: 0,
-      });
-      await loadTasks(createdTask.queueItemId);
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to create queue task."));
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  async function refreshTasks() {
-    if (isDirty) {
-      setValidationMessage("Save current task before refreshing the queue.");
-      return;
-    }
-
-    await loadTasks(selectedTask?.queueItemId ?? null);
-  }
-
-  async function selectTask(queueItemId: string) {
-    if (
-      !onGetAgentQueueTask ||
-      isSelecting ||
-      selectedTask?.queueItemId === queueItemId
-    ) {
-      return;
-    }
-
-    if (isDirty) {
-      setValidationMessage("Save current task before selecting another task.");
-      return;
-    }
-
-    setIsSelecting(true);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-
-    try {
-      const detail = await onGetAgentQueueTask(queueItemId);
-
-      if (!detail) {
-        setEditorError("The selected queue task could not be found.");
-        return;
-      }
-
-      setSelectedDraft(detail);
-      setTasks((currentTasks) =>
-        currentTasks.map((task) =>
-          task.queueItemId === detail.queueItemId ? detail : task,
-        ),
-      );
-      setSaveStateText("Saved");
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to open queue task."));
-    } finally {
-      setIsSelecting(false);
-    }
-  }
-
-  async function saveTask() {
-    if (!selectedTask || !onUpdateAgentQueueTask || !isDirty || isSaving) {
-      return;
-    }
-
-    const validationError = validateDraft(draft);
-
-    if (validationError) {
-      setValidationMessage(validationError);
-      return;
-    }
-
-    setIsSaving(true);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-    setSaveStateText("Saving");
-
-    try {
-      const updatedTask = await onUpdateAgentQueueTask({
-        queueItemId: selectedTask.queueItemId,
-        title: draft.title.trim(),
-        description: draft.description,
-        prompt: draft.prompt,
-        status: draft.status,
-        priority: draft.priority,
-      });
-
-      if (!updatedTask) {
-        setEditorError("The selected queue task could not be found.");
-        setSaveStateText("Unsaved changes");
-        return;
-      }
-
-      await loadTasks(updatedTask.queueItemId);
-      setSaveStateText("Saved");
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to save queue task."));
-      setSaveStateText("Unsaved changes");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function updateDraft(nextDraft: Partial<TaskDraft>) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      ...nextDraft,
-    }));
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-  }
-
-  function updatePriority(value: string) {
-    const parsedValue = Number.parseInt(value, 10);
-    const priority = Number.isFinite(parsedValue)
-      ? clamp(parsedValue, MIN_PRIORITY, MAX_PRIORITY)
-      : MIN_PRIORITY;
-
-    updateDraft({ priority });
-  }
-
-  async function assignSelectedTask() {
-    if (
-      !selectedTask ||
-      !onAssignAgentQueueTaskToExecutor ||
-      !selectedExecutorWidgetId ||
-      isAssigning ||
-      isDirty
-    ) {
-      return;
-    }
-
-    setIsAssigning(true);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-
-    try {
-      const updatedTask = await onAssignAgentQueueTaskToExecutor({
-        executorWidgetInstanceId: selectedExecutorWidgetId,
-        queueItemId: selectedTask.queueItemId,
-      });
-      await loadTasks(updatedTask.queueItemId);
-      setAssignmentMessage("Assignment saved.");
-    } catch (error) {
-      setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
-  async function clearSelectedTaskAssignment() {
-    if (
-      !selectedTask ||
-      !onClearAgentQueueTaskAssignment ||
-      isAssigning ||
-      isDirty
-    ) {
-      return;
-    }
-
-    setIsAssigning(true);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-
-    try {
-      const updatedTask = await onClearAgentQueueTaskAssignment({
-        queueItemId: selectedTask.queueItemId,
-      });
-      await loadTasks(updatedTask.queueItemId);
-      setAssignmentMessage("Assignment cleared.");
-    } catch (error) {
-      setAssignmentError(
-        errorToMessage(error, "Unable to clear queue task assignment."),
-      );
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
-  async function startAssignedTask(
-    request: Parameters<NonNullable<typeof onStartAssignedAgentQueueTask>>[0],
-  ) {
-    if (!onStartAssignedAgentQueueTask) {
-      throw new Error("Agent Queue execution is not available in this runtime.");
-    }
-
-    const response = await onStartAssignedAgentQueueTask(request);
-    onDirectWorkRunHandoffStarted?.({
-      executorWidgetInstanceId: response.executorWidgetInstanceId,
-      queueItemId: response.queueItemId,
-      repoRoot: request.repoRoot,
-      runId: response.runId,
-      startedAt: new Date().toISOString(),
-      taskTitle: selectedTask?.title ?? "Queue task",
-      workbenchId: response.workbenchId,
-      workspaceId: response.workspaceId,
-    });
-    await loadTasks(response.queueItemId);
-    return response;
-  }
-
-  function setSelectedDraft(task: AgentQueueTask) {
-    setSelectedTask(task);
-    setDraft({
-      description: task.description,
-      priority: task.priority,
-      prompt: task.prompt,
-      status: normalizeTaskStatus(task.status),
-      title: task.title,
-    });
-  }
-
-  function clearSelectedTask() {
-    setSelectedTask(null);
-    setDraft(emptyDraft());
-    setSaveStateText("Saved");
-  }
+    onAssignAgentQueueTaskToExecutor,
+    onClearAgentQueueTaskAssignment,
+    onCreateAgentQueueTask,
+    onDirectWorkRunHandoffStarted,
+    onGetAgentQueueTask,
+    onListAgentQueueTasks,
+    onStartAssignedAgentQueueTask,
+    onUpdateAgentQueueTask,
+    queueTaskAutoRefreshRequest,
+  });
+  const {
+    apiAvailable,
+    assignmentApiAvailable,
+    assignmentError,
+    assignmentMessage,
+    assignSelectedTask,
+    clearSelectedTaskAssignment,
+    createTask,
+    draft,
+    editorError,
+    filteredTasks,
+    isAssigning,
+    isCreating,
+    isDirty,
+    isLoading,
+    isSaving,
+    isSelecting,
+    loadError,
+    refreshTasks,
+    run,
+    saveStateText,
+    saveTask,
+    selectedExecutorWidgetId,
+    selectedTask,
+    selectExecutorWidget,
+    selectTask,
+    setStatusFilter,
+    statusFilter,
+    tasks,
+    updateDraft,
+    updatePriority,
+    validationMessage,
+  } = queue;
 
   const queueFrameActions = (
     <>
@@ -618,20 +278,13 @@ export function AgentQueuePlaceholderWidget({
                     onAssign={() => void assignSelectedTask()}
                     onClear={() => void clearSelectedTaskAssignment()}
                     onSelectionChange={(executorWidgetInstanceId) => {
-                      setSelectedExecutorWidgetId(executorWidgetInstanceId);
-                      setAssignmentError(null);
-                      setAssignmentMessage(null);
+                      selectExecutorWidget(executorWidgetInstanceId);
                     }}
                     selectedTask={selectedTask}
                   />
 
                   <AgentQueueTaskRunPanel
-                    isDirty={isDirty}
-                    onStartAssignedTask={
-                      onStartAssignedAgentQueueTask
-                        ? startAssignedTask
-                        : undefined
-                    }
+                    run={run}
                     selectedTask={selectedTask}
                   />
 
