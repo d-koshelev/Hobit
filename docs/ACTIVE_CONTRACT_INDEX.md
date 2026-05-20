@@ -188,6 +188,11 @@ unless the task explicitly requests it.
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
   task in its assigned Executor.
+- `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` - Planned Queue item
+  `executionPolicy` naming, automatic/manual start semantics, and future
+  Sequential Queue Runner behavior. It is not current implementation;
+  `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for current
+  manual Queue behavior.
 
 ### Git
 

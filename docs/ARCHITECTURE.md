@@ -203,6 +203,11 @@ Agent Executor Direct Work ownership, and no automatic dispatch, scheduler,
 Terminal launch, auto-commit, push, or hidden execution. No implementation is
 added by that contract.
 
+`QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` defines the Planned Queue item
+`executionPolicy` model and future Sequential Queue Runner semantics. It is
+not current implementation, does not add scheduler behavior, and does not
+override the current manual Queue behavior in `CURRENT_WIDGET_SURFACE.md`.
+
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` now remains compatibility context for
 the existing Interactive Agent widget id and local chat foundation. Near-term
 product work should reposition that surface as Coordinator Chat instead of

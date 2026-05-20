@@ -62,6 +62,16 @@ Preview surfaces are smoke targets only when labeled as Preview.
 - [ ] Do not smoke auto-dispatch, scheduling, automatic acceptance, response
   validation, Terminal launch, Git mutation, or Notes mutation as current.
 
+Planned future smoke for Sequential Queue Runner, after implementation:
+
+- [ ] Smoke `manual`, `auto`, and `after_previous_success` policy selection.
+- [ ] Smoke ordered single-Executor automatic starts using existing
+  Queue-to-Executor handoff.
+- [ ] Smoke runner stop on `manual` task, failed/cancelled/timed-out previous
+  task, missing prompt, missing execution workspace, missing executable, or
+  busy executor.
+- [ ] Do not treat this Planned runner smoke as current behavior.
+
 ### Coordinator Chat Preview
 
 - [ ] Smoke explicit chat send and deterministic/local proposal card behavior
