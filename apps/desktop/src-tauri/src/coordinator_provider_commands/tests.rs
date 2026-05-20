@@ -102,6 +102,99 @@ fn coordinator_provider_command_rejects_missing_widget_without_provider_call() {
     remove_test_db_files(&db_path);
 }
 
+#[test]
+fn coordinator_provider_configured_http_smoke_from_env() {
+    let Ok(scenario) = std::env::var("HOBIT_COORDINATOR_PROVIDER_SMOKE_SCENARIO") else {
+        return;
+    };
+    let db_path = unique_test_db_path();
+    let (workspace_id, workbench_id, widget_id) = create_coordinator_widget_in_test_db(&db_path);
+
+    let response = generate_coordinator_provider_response_with_config(
+        provider_request(&workspace_id, &workbench_id, &widget_id),
+        db_path.clone(),
+        coordinator_provider_config_from_env(),
+    )
+    .expect("generate configured provider smoke response")
+    .expect("provider smoke response");
+
+    assert_eq!(response.provider_kind, "hobit-http-json");
+    assert!(response.allowed_tools.is_empty());
+    assert!(response.no_tools_executed);
+    assert!(response.no_mutations_performed);
+    assert!(response.no_hidden_context_used);
+
+    match scenario.as_str() {
+        "text" => {
+            assert_eq!(response.provider_status, "completed");
+            assert!(response.assistant_text.contains("Text-only response"));
+            assert!(response.proposal_drafts.is_empty());
+        }
+        "queue-draft" => {
+            assert_eq!(response.provider_status, "completed");
+            assert_eq!(response.proposal_drafts.len(), 1);
+            assert_eq!(
+                response.proposal_drafts[0].type_id,
+                "create-agent-queue-task"
+            );
+            assert_eq!(
+                smoke_input_value(&response.proposal_drafts[0], "Priority").as_deref(),
+                Some("2")
+            );
+        }
+        "note-draft" => {
+            assert_eq!(response.provider_status, "completed");
+            assert_eq!(response.proposal_drafts.len(), 1);
+            assert_eq!(response.proposal_drafts[0].type_id, "create-note");
+            assert_eq!(
+                smoke_input_value(&response.proposal_drafts[0], "Pinned").as_deref(),
+                Some("false")
+            );
+        }
+        "jdbc-draft" => {
+            assert_eq!(response.provider_status, "completed");
+            assert_eq!(response.proposal_drafts.len(), 1);
+            assert_eq!(
+                response.proposal_drafts[0].type_id,
+                "prepare-jdbc-query-suggestion"
+            );
+            assert!(
+                smoke_input_value(&response.proposal_drafts[0], "Suggested SQL text")
+                    .as_deref()
+                    .unwrap_or_default()
+                    .contains("select count(*)")
+            );
+        }
+        "provider-error" => {
+            assert_eq!(response.provider_status, "provider_error");
+            assert!(response.proposal_drafts.is_empty());
+        }
+        "invalid-json" => {
+            assert_eq!(response.provider_status, "invalid_response");
+            assert!(response.proposal_drafts.is_empty());
+        }
+        "timeout" => {
+            assert_eq!(response.provider_status, "timeout");
+            assert!(response.proposal_drafts.is_empty());
+        }
+        "oversized-response" => {
+            assert_eq!(response.provider_status, "invalid_response");
+            assert!(response.proposal_drafts.is_empty());
+        }
+        other => panic!("unsupported smoke scenario: {other}"),
+    }
+
+    assert!(!response
+        .assistant_text
+        .contains("sk-hobit-fake-provider-smoke-secret"));
+    assert!(!response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("sk-hobit-fake-provider-smoke-secret"));
+    remove_test_db_files(&db_path);
+}
+
 fn create_coordinator_widget_in_test_db(db_path: &Path) -> (String, String, String) {
     let store = SqliteStore::open(db_path).expect("open sqlite test store");
     store.init_schema().expect("initialize schema");
@@ -175,4 +268,15 @@ fn remove_test_db_files(db_path: &Path) {
     let _ = std::fs::remove_file(db_path);
     let _ = std::fs::remove_file(db_path.with_extension("sqlite3-shm"));
     let _ = std::fs::remove_file(db_path.with_extension("sqlite3-wal"));
+}
+
+fn smoke_input_value(
+    proposal: &CoordinatorProviderProposalDraftContextDto,
+    label: &str,
+) -> Option<String> {
+    proposal
+        .visible_inputs
+        .iter()
+        .find(|input| input.label.eq_ignore_ascii_case(label))
+        .map(|input| input.value.clone())
 }

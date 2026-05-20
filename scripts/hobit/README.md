@@ -202,3 +202,51 @@ The script starts the Vite frontend, opens the committed smoke page in a local
 Chrome/Edge browser through Chrome DevTools Protocol, and uses mocked frontend
 actions only. It does not call Tauri commands, start Codex, use SQLite, launch a
 Terminal widget, or mutate Git.
+
+### `fake-coordinator-provider.mjs`
+
+Runs a deterministic local HTTP provider for the configured Coordinator
+`hobit-http-json` provider contract:
+
+```powershell
+node scripts/hobit/fake-coordinator-provider.mjs
+node scripts/hobit/fake-coordinator-provider.mjs --scenario queue-draft
+node scripts/hobit/fake-coordinator-provider.mjs --port 8765 --delay-ms 2500
+```
+
+The helper serves `POST /coordinator-provider` and supports deterministic
+scenarios: `text`, `queue-draft`, `note-draft`, `jdbc-draft`,
+`provider-error`, `invalid-json`, `timeout`, and `oversized-response`. It checks
+that provider requests keep `allowed_tools: []` and do not include known hidden
+context keys. It is a local smoke provider only, not a production LLM provider,
+and it does not require real credentials.
+
+To route the desktop Coordinator provider path to the helper manually:
+
+```powershell
+$env:HOBIT_COORDINATOR_PROVIDER="external"
+$env:HOBIT_COORDINATOR_PROVIDER_KIND="hobit-http-json"
+$env:HOBIT_COORDINATOR_PROVIDER_ENDPOINT="http://127.0.0.1:8765/coordinator-provider?scenario=queue-draft"
+$env:HOBIT_COORDINATOR_PROVIDER_API_KEY="local-smoke-placeholder"
+$env:HOBIT_COORDINATOR_PROVIDER_TIMEOUT_MS="5000"
+```
+
+Credentials are still backend-only configuration; do not use real provider
+credentials with this fake local helper.
+
+### `smoke-coordinator-provider.mjs`
+
+Runs the configured Coordinator provider product smoke against the local fake
+HTTP provider:
+
+```powershell
+node scripts/hobit/smoke-coordinator-provider.mjs
+node scripts/hobit/smoke-coordinator-provider.mjs --scenario jdbc-draft
+```
+
+The smoke starts the fake provider, configures the real desktop backend
+`hobit-http-json` path through environment variables, and runs the focused
+backend command smoke test. It verifies text responses, safe proposal drafts,
+provider errors, invalid JSON, timeout, and oversized response behavior. Drafts
+are validated by the existing backend pipeline before they can become
+Coordinator review cards; no actions are executed.

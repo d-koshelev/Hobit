@@ -98,6 +98,13 @@ traffic surfaces as visible provider errors instead of unbounded memory growth.
 Provider cancellation is not implemented in the current blocking HTTP adapter;
 the UI must not show fake cancellation controls for provider calls.
 
+A local deterministic smoke provider is available at
+`scripts/hobit/fake-coordinator-provider.mjs`, with the product smoke runner
+`scripts/hobit/smoke-coordinator-provider.mjs`. These helpers exercise the
+configured `hobit-http-json` path with text, safe draft, error, invalid JSON,
+timeout, and oversized-response scenarios. They are not production provider
+integrations and must not use real credentials.
+
 The configured provider may return Hobit's JSON response shape directly:
 
 ```json
