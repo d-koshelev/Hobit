@@ -2,286 +2,242 @@
 
 ## Purpose
 
-This document captures the current simplified Hobit widget surface after the
-agent surface cleanup and first local MVP widget slices.
+This document is the source of truth for current implemented Hobit widget
+behavior during Phase 1 stabilization.
 
 It is an inventory and boundary document only. It does not add runtime
-behavior, backend commands, storage, schema, queue execution, Git mutation, or
-new widgets.
+behavior, backend commands, storage, schema, queue execution, Git mutation,
+widget renames, persistence migrations, or new widgets.
 
 Contract-reading navigation is defined in
 `docs/ACTIVE_CONTRACT_INDEX.md`.
 
 ## Status Model
 
-- Ready and Preview entries below describe Current implemented widget behavior
-  only.
-- Planned behavior belongs in task-specific contracts and is not implemented
-  unless the current task explicitly requests it.
-- Deferred behavior must not be implemented unless explicitly requested.
-- Compatibility names and persistence IDs may still appear in code or storage,
-  but they are not preferred product/domain names.
-- Deprecated terminology should not be used for new work.
+- Current: implemented behavior that exists in the shipped codebase and is safe
+  to rely on.
+- Preview: implemented behavior that is visible, intentionally limited, and not
+  yet a complete product surface.
+- Planned: approved next-step behavior, but not necessarily implemented.
+- Deferred: future behavior that must not be implemented unless explicitly
+  requested.
+- Compatibility: legacy names, persistence IDs, old component names, old state
+  shapes, or old code paths that still exist but are not preferred
+  product/domain names.
+- Deprecated: old behavior or terminology that should not be used for new work.
 
 If this document conflicts with broader or older contracts, this document and
 `docs/ACTIVE_CONTRACT_INDEX.md` are authoritative for current implemented
 widget behavior.
 
-## Current User-Facing Widgets
+## Current User-Facing Catalog
 
-Ready:
+Current ready surfaces:
 
 - Agent Executor
 - Git
 - Terminal
 - Notes
 
-Preview:
+Current preview surfaces:
 
 - Agent Queue
 - Coordinator Chat
 - Database / JDBC
 - Runbook
 
-Coordinator-centered direction is defined in
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat currently
-uses the existing `interactive-agent` widget id/component as a compatibility
-local-chat foundation rather than adding a second separate chat surface.
-Coordinator-visible widget capability boundaries are defined in
-`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; the current UI does not implement a
-runtime Coordinator capability registry or broad widget tool execution. The
-current Coordinator UI can create a draft Agent Queue task or workspace-local
-Note only after explicit proposal approval and a separate create action.
-The first Coordinator provider/runtime boundary is defined in
-`docs/AI_INTEGRATION_READINESS_CONTRACT.md`: provider calls may draft text and
-proposal cards only, with explicit visible context and
-`allowed_tools: []`. The current implementation has a backend-owned
-mock/local response path that can return text plus validated safe proposal
-drafts for review cards, plus a backend-selected configured HTTP JSON provider
-path that can call an explicit `http://` endpoint when
-`HOBIT_COORDINATOR_PROVIDER=external`,
-`HOBIT_COORDINATOR_PROVIDER_ENDPOINT`, and
-`HOBIT_COORDINATOR_PROVIDER_API_KEY` are configured. Provider credentials stay
-backend-only and are not sent to the frontend, prompts, proposal cards, or
-serialized response DTOs.
-Future Evidence/Sources trust boundaries are defined in
-`docs/EVIDENCE_SOURCES_CONTRACT.md`; the current UI does not implement evidence
-capture, evidence review, citations, or AI context packs.
+The current catalog uses these preferred user-facing names. Compatibility IDs
+and component keys may still appear in code and persistence.
 
-Future product polish for these surfaces should follow
-`docs/PRODUCT_UI_VISUAL_CONTRACT.md`: dark dotted Workbench canvas, grid-aware
-widget placement direction, thin top bar, shared dark/glass widget card
-language, compact controls, semantic status chips, and no overclaiming of
-future widget capability.
-
-## Current Widget Status
+## Current Ready Surfaces
 
 ### Agent Executor
 
-- Implemented Direct Work execution surface.
-- Uses the Codex CLI Direct Work path.
-- Reuses the internal `agent-run` widget id for persistence compatibility.
-- Each Agent Executor widget instance is shown as an execution slot using a
-  compact label derived from its stable widget instance id.
-- Shows run state, live logs, stop run, result output, changed-files summary,
-  Git read-only handoff, and validation capture.
-- Provides a read-only backend/Tauri API for stored Direct Work and Direct Work
-  validation run history, with a compact read-only frontend history/detail UI.
-- Provides a read-only backend/Tauri diff summary API for an explicit repository
-  root, with a compact read-only frontend diff summary UI.
-- Current Direct Work requires an explicit execution workspace path. The
-  compatibility API/storage field is `repo_root`, and today it expects an
-  existing repository or local project folder.
-- Does not auto-commit, auto-push, mutate Git, or run as a hidden background
-  scheduler. Queue assignment can target Executor slots, and explicit
-  Queue-started runs are governed by
-  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
+- Current explicit Codex Direct Work execution surface.
+- Uses the existing `agent-run` widget definition id for persistence
+  compatibility.
+- Starts one operator-provided task from visible inputs: prompt, execution
+  workspace path, sandbox, approval policy, and Codex executable options.
+- Shows run state, live logs/streaming where available, stop/cancel/force-kill
+  controls, final result output, changed-files summary, Git read-only handoff,
+  validation capture, and read-only run/detail/history views.
+- Provides read-only backend/Tauri APIs for stored Direct Work runs,
+  validation runs, and explicit diff summaries.
+- Queue tasks can be assigned to visible Executor slots and explicitly started
+  through the Agent Queue preview path.
+- Does not auto-dispatch Queue items, auto-commit, auto-push, mutate Git, run
+  hidden background work, provide a shell mode, or become a general agent
+  runtime.
 
 ### Git
 
-- Read-only repository status and diff surface for an explicit transient
+- Current desktop Git review/control widget for an explicit operator-provided
   repository root.
-- Explicit local commit API/UI exists for Git Widget, with selected files,
-  an operator-provided message, and operator confirmation.
-- The Git Widget does not push, reset, clean, stash, fetch, poll, watch, or
-  automatically commit repositories.
-- Explicit local commit support is governed by
-  `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`; push, reset, clean, auto-commit, and
-  Agent Executor auto-commit are not implemented.
+- Reads a manual read-only status snapshot and grouped changed-file data in the
+  Tauri desktop shell.
+- Supports explicit selected-file local commit with an operator-provided
+  message and operator confirmation.
+- Browser/Vite fallback keeps the widget insertable but cannot perform real
+  Git reads.
+- Does not persist repository roots, poll, watch, fetch, push, reset, clean,
+  stash, show log/history UI, revert files, auto-commit Agent Executor output,
+  or mutate Git outside the explicit local commit path.
 
 ### Terminal
 
-- Desktop-only Terminal widget with a PTY-first manual shell surface.
-- PTY session UI uses explicit shell executable, optional shell argv, explicit
-  execution workspace / working directory, visible status, bounded
-  session-only output buffer display, stdin send, manual refresh/polling,
-  resize by columns/rows, Stop, Kill with confirmation, and Close.
-- PTY output/history is not persisted to storage, does not create widget
-  run/result records, and is not sent to AI, Queue, Git, Notes, Agent
-  Executor, or Evidence/Sources.
-- Browser/Vite fallback and unsupported platforms report unsupported state
-  honestly.
-- The legacy one-shot command runner is demoted from the normal Terminal
-  surface into a collapsed fallback. It still uses explicit program, argv,
-  working directory, timeout, and output caps, creates widget run/log/result
-  records, and shows the final stdout/stderr result when explicitly opened.
+- Current desktop-only Terminal widget with a PTY-first manual shell UI plus a
+  collapsed legacy one-shot command fallback.
+- PTY UI accepts an explicit shell executable, optional shell argv, explicit
+  working directory, cols/rows, stdin sends, manual refresh/polling, resize,
+  Stop, Kill with confirmation, and Close.
+- PTY output is a bounded session-only buffer. It is not persisted as widget
+  logs/results and is not sent to Coordinator Chat, Queue, Agent Executor,
+  Git, Notes, JDBC, or Evidence/Sources.
+- PTY session support is currently Windows-only in shipped backend code.
+  Non-Windows desktop builds compile but live PTY creation returns an
+  unsupported-platform error. Treat non-Windows live PTY sessions as
+  unsupported until platform support or catalog gating is implemented.
+- Browser/Vite fallback cannot run local processes.
+- The legacy one-shot fallback is a Compatibility path. It remains available
+  only behind the collapsed fallback UI, uses explicit program, argv, working
+  directory, timeout, and output caps, creates widget run/log/result records,
+  and shows final stdout/stderr output.
 - Terminal does not implement tabs, split panes, persistent command history,
   persistent transcripts, shell profiles, environment/secrets support,
   Agent-triggered execution, Queue-triggered execution, Coordinator control, or
   Script Runner behavior.
-- Future interactive shell behavior is governed by
-  `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`.
 
 ### Notes
 
-- Persists a minimal widget-state body draft shaped as `{ "body": "..." }`.
-- Uses explicit save.
-- Workspace-local Notes product UI exists for list, filter, create new, edit,
-  save, and pin flows.
-- Coordinator Chat can create a new workspace-local Note from an approved
-  create-Note proposal using only visible title, body, and pinned fields.
-- Future multi-note product direction is governed by
-  `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`.
-- Does not implement the full Notebook model, tabs, Markdown rendering,
-  diagrams, checklists, snippets, review notes, formatting tools, search UI,
-  autosave, archive/delete UI, tags, or AI-in-Notes.
+- Current workspace-local Notes widget supports list, filter, create, select,
+  edit, explicit save, and pin flows through workspace Notes APIs when
+  available.
+- Notes stores source text fields as plain title/body/pinned data. It does not
+  render a Notebook document model.
+- Coordinator Chat can create a new workspace-local Note only from an approved
+  visible create-Note proposal and a separate explicit Create Note action.
+  Existing Notes content is not read, searched, summarized, or sent to agents.
+- The older widget-local draft state shaped as `{ "body": "..." }` may still be
+  relevant for Compatibility/Deprecated persisted data, but it is not the
+  preferred current product model for new work.
+- Full Notebook behavior is Deferred: tabs, Markdown rendering, Mermaid or
+  diagram rendering, checklists/todos, snippets, review notes, rich formatting,
+  autosave, sync/import/export, archive/delete UI, tags, AI-in-Notes, and
+  hidden agent access are not implemented.
+
+## Current Preview Surfaces
 
 ### Agent Queue
 
-- Preview manual task queue surface.
-- Singleton per Workspace for new Agent Queue widget insertion.
-- Existing persisted duplicates are not deleted or migrated.
-- Manual queue task backend/storage/Tauri/frontend API foundation exists for
-  create, list, read, and update.
-- Manual Queue-to-Executor assignment backend/storage/Tauri/frontend API
-  foundation exists for assigning and clearing an Agent Executor slot.
-- Manual Queue-to-Executor execution backend/Tauri/frontend API foundation
-  exists for starting an assigned task in its assigned Agent Executor with an
-  explicit execution workspace path.
-- Queue-to-Executor handoff and final-status auto-refresh are frontend-owned
-  current-session behavior. Agent Executor owns live logs and final results;
-  Queue refreshes task status and does not duplicate execution output.
-- Frontend product UI can create, list, select, edit, and explicitly save
-  workspace queue tasks with title, description, prompt, status, and priority.
-  It supports `running` as task status data, can manually assign or clear a
-  visible Agent Executor slot when the task is not running, and can explicitly
-  run an assigned task in its assigned Executor.
-- Future task, dependency, and executor capacity model is governed by
-  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`. Manual assignment to Executor
-  slots is governed by `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`.
-  Manual run of an assigned task is governed by
-  `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
-- Does not dispatch, schedule, approve/apply, automatically run assigned tasks,
-  capture responses outside normal Direct Work artifacts, validate responses,
-  mutate Notes, launch Terminal, or mutate Git.
+- Current preview manual task organization surface.
+- Uses the `agent-queue` widget definition id.
+- Provides workspace-local task create, list, read, update, filter, select, and
+  explicit save flows for title, description, prompt, status, and priority.
+- Supports visible manual assignment/clear of a task to an Agent Executor slot
+  when assignment APIs are available.
+- Supports explicit start of an assigned task in its assigned Agent Executor
+  with an operator-provided execution workspace path.
+- Queue-to-Executor handoff and final-status auto-refresh are current-session
+  frontend behavior. Agent Executor owns live logs and final results.
+- Existing duplicate persisted Queue widgets are not deleted or migrated.
+- Does not schedule, auto-dispatch, automatically accept tasks, launch runs
+  without an explicit operator action, capture responses outside Direct Work
+  artifacts, validate responses, mutate Notes, launch Terminal, or mutate Git.
 
-### Coordinator Chat / Interactive Agent Compatibility
+### Coordinator Chat
 
-- Preview local chat MVP currently using the existing `interactive-agent`
-  widget id/component for compatibility.
-- Near-term direction is Coordinator Chat, not a separate freeform Interactive
-  Agent plus Coordinator.
-- Keeps messages in local React state for the current widget session.
-- Shows local placeholder assistant responses.
-- Shows deterministic local sample action proposal cards attached to the
-  initial Coordinator message.
-- Can generate deterministic local proposal cards from explicit operator chat
-  messages for the same safe proposal types.
-- Uses a frontend-only static proposal registry for safe preview types: create
-  Agent Queue task, create Note, and prepare JDBC query suggestion text without
-  execution.
-- Proposal card controls Approve, Reject, Edit, and Copy update local proposal
-  state or copy proposal details.
-- Approved create-Agent-Queue-task proposals show a separate Create Queue task
-  action that creates a workspace-scoped draft Queue task through the existing
-  Agent Queue task API. The task is not assigned, dispatched, run, or handed to
-  Agent Executor.
-- Approved create-Note proposals show a separate Create Note action that
-  creates a workspace-local Note from visible title, body, and pinned fields
-  through the existing Notes API. Existing Notes content is not read, searched,
-  or summarized.
-- JDBC query suggestion proposal cards remain non-executing. They show the
-  visible SQL suggestion in a reviewable monospace block and provide Copy SQL
-  for copying only that SQL text.
-- Local proposal generation uses only the explicit chat message. It does not
-  read widget state, Notes, Terminal output, Git diffs, JDBC connector metadata,
-  Agent Executor logs, filesystem data, or hidden Workspace context.
-- Sends explicit operator chat messages through a backend-owned Coordinator
-  provider response path in the Tauri desktop shell. Mock/local is the default
-  provider. An explicit backend environment selection can choose the configured
-  HTTP JSON provider. Missing endpoint/key reports not-configured, unsupported
-  provider kinds report unsupported, and configured provider network failures,
-  timeouts, invalid responses, provider error statuses, and oversized
-  request/response failures are visible. Requests include only the visible
-  current-session chat transcript, visible local proposal draft summaries when
-  present, compact safety instructions, and `allowed_tools: []`. Provider
-  calls are bounded by backend timeout and body-size caps; provider cancellation
-  is not implemented yet.
-- The mock/local provider can return structured proposal drafts for create
-  Agent Queue task, create Note, and JDBC SQL suggestion only. Drafts are
-  validated before rendering; unsupported or unsafe drafts are rejected or
-  degraded into visible assistant text and never execute.
-- Browser/Vite fallback keeps the deterministic local response path and does
-  not call a provider directly.
-- Does not send provider credentials to the frontend or prompt, execute broad
-  tools, persist sessions, read hidden context, launch Agent Executor,
-  integrate with Runbook, mutate files, mutate Git, run SQL, call JDBC
-  connectors, or run Terminal commands.
-- Provider-generated proposal cards use the same approval and handoff rules as
-  local deterministic cards: Queue task creation and Note creation require a
-  separate explicit create action after approval, while JDBC remains
-  non-executing review/copy text only.
+- Current preview operator chat surface shown as Coordinator Chat.
+- Uses the existing `interactive-agent` widget definition id/component key for
+  compatibility.
+- Keeps chat messages and proposal card state in local React state for the
+  current widget session.
+- Can generate deterministic local proposal cards for safe preview types:
+  create Agent Queue task, create Note, and prepare JDBC query suggestion text.
+- In the Tauri desktop shell, explicit sends can use a backend-owned
+  Coordinator provider response path. Mock/local is the default provider; a
+  configured HTTP JSON provider can be selected by backend environment
+  variables. Requests include visible current-session chat, visible proposal
+  draft summaries, compact safety instructions, and `allowed_tools: []`.
+- Provider credentials stay backend-only. Browser/Vite fallback does not call a
+  provider directly.
+- Provider/local drafts are validated before rendering. Queue task creation and
+  Note creation require approval plus a separate explicit create action. JDBC
+  suggestions remain review/copy text only and do not execute SQL.
+- Coordinator Chat does not persist chat sessions, read hidden Workspace
+  context, inspect widget state, read Notes, read Terminal output, read Git
+  diffs, read JDBC metadata, launch Agent Executor, auto-dispatch Queue items,
+  mutate files, mutate Git, run SQL, call JDBC connectors, run Terminal
+  commands, or execute broad widget capability tools.
 
 ### Database / JDBC
 
-- Preview connector metadata and mock read-only query surface.
-- Uses workspace-local JDBC connector metadata APIs for create, list, read, and
-  update.
-- Lets the operator create and edit non-secret connector descriptors:
-  display name, database kind, driver kind, masked JDBC URL metadata,
-  environment, read-only default, status, and notes.
-- Shows an operator-triggered read-only SQL workspace backed by the mock/safe
-  validator and bounded result adapter.
-- Can validate conservative read-only SQL and render deterministic bounded
-  mock results or sanitized validation/runtime errors.
-- Has a backend adapter boundary for future real read-only JDBC execution:
-  `MockReadOnlyJdbcAdapter` remains active, while the sidecar adapter is a
-  not-configured/unsupported stub with backend-only credential boundaries.
-- Has a dependency-free Java sidecar scaffold and smoke script for the narrow
-  stdin/stdout JSON protocol. This scaffold is test-only and returns
-  deterministic mock/not-configured/unsupported responses without drivers,
-  credentials, network, or database connections.
-- Has a backend-only runtime config loader for future opt-in sidecar wiring.
-  Safe status is limited to mock active, sidecar configured, sidecar not
-  configured, sidecar unavailable through sanitized `not_configured`, and
-  unsupported runtime/driver states. Raw paths and credential values are not
-  in frontend DTOs.
-- Has a JDK-gated backend activation test for the Java sidecar
-  `mock_read_only` protocol through explicit `JdbcRuntimeConfig`; it skips
-  cleanly without a JDK and does not change the default product adapter.
-- Does not collect credentials, store passwords or tokens, test connections,
-  connect to real databases, run SQL against external systems, run `EXPLAIN`,
-  format SQL, call AI, integrate with Coordinator Chat runtime, launch
-  Terminal, mutate Git, or affect Agent Queue or Agent Executor behavior.
+- Current preview Database / JDBC widget.
+- Provides workspace-local connector metadata create, list, read, update, and
+  selection flows.
+- Connector metadata is non-secret: display name, database kind, driver kind,
+  masked JDBC URL metadata, environment, read-only default, status, and notes.
+- A read-only SQL validation/execution UI is shipped and wired through
+  frontend, Tauri command, backend adapter, and tests.
+- The current product execution path is bounded mock/safe execution: it
+  validates conservative read-only SQL, applies row/timeout caps, and renders
+  deterministic bounded mock results or sanitized validation/runtime errors.
+- A backend adapter boundary, runtime config loader, Java sidecar scaffold, and
+  JDK-gated tests exist for future opt-in sidecar work. The default product
+  runtime remains mock-only.
+- The current widget does not collect credentials, store passwords or tokens,
+  test real database connections, run SQL against external systems, run
+  `EXPLAIN`, format SQL, provide AI query assistance, expose a Coordinator
+  JDBC execution tool, launch Terminal, mutate Git, or affect Agent Queue or
+  Agent Executor behavior.
+- The product decision remains pending on whether read-only JDBC execution
+  should be accepted as current mock-only Preview behavior, hidden/deferred
+  behind contract cleanup, or realigned with the active JDBC contract before
+  further runtime work.
 
 ### Runbook
 
-- Preview local/manual steps MVP for procedural work.
-- Provides a built-in local sample runbook, selected step details, step states,
-  and local notes/evidence.
+- Current preview local/manual procedural step widget.
+- Provides a built-in local sample runbook, selectable step details, step
+  states, and local notes/evidence text for the current widget session.
 - Step states are `pending`, `running`, `done`, `failed`, `skipped`, and
   `blocked`.
 - Does not persist runbooks, edit/build templates, execute steps, launch Agent
-  Executor, create queue items, integrate with Coordinator Chat, execute
+  Executor, create Queue items, integrate with Coordinator Chat, execute
   Terminal commands, mutate files, or mutate Git.
 
-## Retired And Hidden Surfaces
+## Compatibility / Deprecated Surfaces
 
-These old or future surfaces are not visible in the current Widget Catalog or
-current Workbench surface:
+- `agent-run` remains the internal Agent Executor definition id for persisted
+  compatibility. Do not rename it in cleanup tasks.
+- `interactive-agent` remains the internal Coordinator Chat definition id and
+  component key for persisted compatibility. Do not rename it in cleanup tasks.
+- Placeholder-named components such as `AgentRunPlaceholderWidget`,
+  `AgentQueuePlaceholderWidget`, `InteractiveAgentPlaceholderWidget`, and
+  `NotesPlaceholderWidget` may contain current product UI. The names are
+  Compatibility implementation details, not preferred product names.
+- Retired persisted widget ids are filtered from the current canvas render path
+  when they are not in the user-facing widget registry. This cleanup does not
+  migrate, delete, or rewrite retired widget data.
+- Legacy Agent Executor titles such as Agent Run, Agent Monitoring, and Direct
+  Work / Codex may be normalized in the visible frame title, but the preferred
+  current product name is Agent Executor.
+- Agent Chat, Agent Monitoring, and proposal-era backend/frontend APIs are not
+  preferred current user-facing widgets. Some commands and frontend API modules
+  remain wired as Compatibility or pending-retirement code paths, including
+  proposal persistence, proposal generation, monitoring snapshots, and
+  proposal-to-Queue-item creation.
+- The Terminal one-shot command runner is a Compatibility fallback, not the
+  normal Terminal surface and not Script Runner.
+- The older Notes widget-local `{ "body": "..." }` state is
+  Compatibility/Deprecated for new product work.
 
-- Agent Chat
-- Agent Monitoring
+## Deferred / Future Surfaces
+
+These surfaces are not current user-facing widgets and must not be implemented
+or surfaced unless explicitly requested by a future task:
+
+- Agent Chat as a separate preferred widget
+- Agent Monitoring as a separate preferred widget
 - Template Library
 - Dock
 - Agent CLI
@@ -290,46 +246,41 @@ current Workbench surface:
 - Confluence
 - Image Edit
 - separate legacy Coordinator preview surface
+- Knowledge Catalog
+- Stages
+- full Notebook
+- real Runbook engine
+- real JDBC connector runtime with credentials or external database execution
+- real Coordinator widget capability execution
+- Evidence/Sources capture and AI context packs
+- true external OS/Tauri widget popout windows
+- Dock rails, Compact/Indicator modes, presence-zone persistence, snapping,
+  collision detection, auto-reflow, and preset editing
 
-Database/JDBC is now a current Preview catalog surface for connector metadata
-and mock read-only query review. The contract is defined in
-`docs/JDBC_WIDGET_CONTRACT.md`;
-implementation must preserve read-only defaults, connector secret isolation,
-explicit approval, capped results, and explicit AI context sharing.
-Workspace-local JDBC connector metadata storage/API and frontend metadata UI
-exist for create/list/read/update, and a widget-owned mock/safe read-only SQL
-validation/execution path exists for bounded sample results. There is still no
-credential storage, real database connection/query execution, production Java
-sidecar runtime, `EXPLAIN`, AI assistance, or Coordinator tool runtime. Block
-263 establishes the future Java sidecar runtime decision and adapter stub.
-Block 264 adds only a dependency-free Java sidecar protocol scaffold; the
-active runtime remains mock-only. Block 265 adds backend-only config parsing
-and opt-in sidecar adapter selection for tests/future desktop wiring, but the
-current product runtime remains mock-default and no real database connection is
-opened. Block 266 proves that explicit test/dev config can activate the Java
-sidecar `mock_read_only` protocol when a JDK is available, while JDK absence
-still skips cleanly and production/default execution remains mock-only.
+## Dev / Smoke Entry Points
 
-## Compatibility Notes
+Smoke HTML files under the frontend Vite root are development/smoke entry
+points, not current product surfaces or user-facing widgets.
 
-- `agent-run` remains the internal Agent Executor id for persisted compatibility.
-- Retired persisted widget ids are filtered from the current canvas render path.
-- This cleanup does not migrate, delete, or rewrite retired widget data.
-- Some backend proposal/review compatibility paths still exist, but they are not
-  current catalog surfaces.
+Known smoke entry points include:
 
-## Recommended Next Blocks
+- `apps/desktop/frontend/coordinator-provider-product-smoke.html`
+- `apps/desktop/frontend/jdbc-read-only-ui-smoke.html`
+- `apps/desktop/frontend/queue-executor-ui-smoke.html`
 
-- Coordinator provider error/cancellation/timeout hardening and provider UX
-  smoke with tools disabled and explicit visible context only.
-- Coordinator structured-draft UX smoke/hardening if provider drafts reveal UI
-  issues.
-- Later controlled widget capability bridge.
-- Later Coordinator to JDBC read-only proposal flow after JDBC execution/result
-  review exists.
-- Evidence/Sources storage/API foundation.
-- JDBC read-only query UI smoke/hardening.
-- Real JDBC connector runtime planning with credential boundaries.
-- AI context/token economy contract.
-- YouTube Analyst widget contract.
-- Real desktop Queue-to-Executor smoke using `HOBIT_DATABASE_PATH`.
+Their placement at the Vite root remains a follow-up cleanup decision.
+
+## Known Drift / Follow-Up Decisions
+
+- Agent Chat / Agent Monitoring / proposal-era commands and frontend APIs:
+  decide whether to retire/delete them or realign active contracts around the
+  remaining compatibility paths.
+- JDBC read-only execution: decide whether the shipped mock read-only query UI
+  is accepted as current Preview behavior, hidden/deferred, or realigned in the
+  JDBC contract before further runtime work.
+- Terminal platform support: decide whether to add non-Windows catalog gating
+  or keep the docs-only limitation until cross-platform PTY support exists.
+- Smoke HTML root cleanup: decide whether smoke files move under a dev/smoke
+  location or are explicitly gated in Vite config.
+- Coordinator / Queue / Executor naming and responsibility cleanup remains
+  deferred until current codebase cleanup and Notes stabilization are complete.

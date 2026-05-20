@@ -208,7 +208,11 @@ implementation changes.
   should either say that clearly or hide/disable Terminal on unsupported
   platforms.
 - Normalize current vs preview vs deferred widget surface language after code
-  inventory, without rewriting widget contracts ahead of evidence.
+  inventory, without rewriting widget contracts ahead of evidence. Completed in
+  `docs/CURRENT_WIDGET_SURFACE.md`; remaining decisions are Agent Chat / Agent
+  Monitoring retire vs contract realignment, JDBC read-only execution current
+  vs hidden/deferred, Terminal non-Windows catalog gating vs docs-only
+  limitation, and smoke HTML root cleanup.
 
 ### P2 - Reduce change amplification
 
@@ -239,7 +243,8 @@ implementation changes.
 2. Incorporate AMP findings into stabilization plan.
 3. Fix validation/bootstrap blockers.
 4. Fix repo portability / git hygiene if applicable.
-5. Normalize `CURRENT_WIDGET_SURFACE` against shipped code.
+5. Normalize `CURRENT_WIDGET_SURFACE` against shipped code. Completed; see
+   the remaining drift decisions in `docs/CURRENT_WIDGET_SURFACE.md`.
 6. Normalize Notes contracts.
 7. Clean Architecture stale references.
 8. Add smoke checklist discipline.
