@@ -3,6 +3,7 @@ use hobit_storage_sqlite::JdbcConnectorRow;
 use crate::WorkspaceServiceError;
 
 use super::{
+    jdbc_artifacts::JdbcQueryRuntimeArtifacts,
     jdbc_query_types::{
         ExecuteJdbcReadOnlyQueryInput, JdbcReadOnlyQueryResultSummary,
         JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
@@ -91,9 +92,10 @@ impl WorkspaceService {
 
         let connector = self.jdbc_query_connector(&input.workspace_id, &input.connector_id)?;
         let validation = validate_read_only_sql(&input.sql);
+        let artifacts = JdbcQueryRuntimeArtifacts::from_sql_and_validation(&input.sql, &validation);
 
         if !validation.is_valid {
-            return Ok(failed_query_result(
+            let result = failed_query_result(
                 input.connector_id,
                 connector
                     .as_ref()
@@ -103,11 +105,13 @@ impl WorkspaceService {
                 STATUS_VALIDATION_FAILED,
                 "SQL did not pass the read-only validator.",
                 true,
-            ));
+            );
+            let _runtime_artifacts = artifacts.summaries_for_result(&result);
+            return Ok(result);
         }
 
         let Some(connector) = connector else {
-            return Ok(failed_query_result(
+            let result = failed_query_result(
                 input.connector_id,
                 None,
                 validation,
@@ -115,7 +119,9 @@ impl WorkspaceService {
                 STATUS_NOT_CONFIGURED,
                 "JDBC connector is not configured for read-only execution.",
                 true,
-            ));
+            );
+            let _runtime_artifacts = artifacts.summaries_for_result(&result);
+            return Ok(result);
         };
 
         let adapter_request = JdbcReadOnlyAdapterRequest {
@@ -129,9 +135,12 @@ impl WorkspaceService {
             validation,
         };
 
-        Ok(self
+        let result = self
             .jdbc_runtime_config
-            .execute_read_only_query(adapter_request))
+            .execute_read_only_query(adapter_request);
+        let _runtime_artifacts = artifacts.summaries_for_result(&result);
+
+        Ok(result)
     }
 
     fn validate_jdbc_query_owner(
@@ -247,7 +256,7 @@ fn normalize_execute_input(
     })
 }
 
-fn validate_read_only_sql(sql: &str) -> JdbcReadOnlySqlValidationSummary {
+pub(super) fn validate_read_only_sql(sql: &str) -> JdbcReadOnlySqlValidationSummary {
     let trimmed = sql.trim();
     if trimmed.is_empty() {
         return invalid_validation("SQL must not be empty.", "");
