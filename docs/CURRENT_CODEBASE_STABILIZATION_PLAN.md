@@ -117,20 +117,80 @@ baseline task unless the task explicitly allows that scope.
   flows.
 - Feature work starting before contract cleanup.
 
+## AMP review findings
+
+The AMP review findings are Phase 1 stabilization backlog inputs. They do not
+change product contracts by themselves, do not approve behavior changes, and
+must be confirmed against current code before follow-up contract or
+implementation changes.
+
+### P0 - Restore validation and repo portability
+
+- Fix the clean-checkout `cargo check --workspace` blocker where the Tauri
+  desktop shell expects missing icon assets such as
+  `apps/desktop/src-tauri/icons/icon.png`.
+- Improve `scripts/hobit/validate.sh` failure reporting when frontend
+  dependencies, `node_modules`, or `tsc` are missing, so bootstrap failures are
+  actionable instead of opaque.
+- Verify real-repository Git portability for `.git` gitdir pointers and
+  `hobit-local-git` configuration, including reviewed cases where an absolute
+  Windows path broke `git status` outside the original environment. Do not edit
+  `.git` as part of backlog documentation.
+- Review smoke HTML files located at the frontend Vite root next to production
+  `index.html`; decide whether they move under `smoke/dev` or are explicitly
+  gated in Vite config.
+
+### P1 - Align contracts with shipped code
+
+- Inventory retired Agent Chat, Agent Monitoring, and proposal-era code paths
+  that are still wired in Tauri/frontend modules, then decide whether to
+  delete/retire those paths or move the active contract index/current surface
+  back into alignment.
+- Resolve JDBC contract drift: decide whether read-only query execution is
+  current and docs should say so, or whether execution paths should be hidden,
+  removed, or deferred.
+- State or enforce the Terminal PTY platform boundary. The reviewed
+  implementation is effectively Windows-only, so current docs/catalog behavior
+  should either say that clearly or hide/disable Terminal on unsupported
+  platforms.
+- Normalize current vs preview vs deferred widget surface language after code
+  inventory, without rewriting widget contracts ahead of evidence.
+
+### P2 - Reduce change amplification
+
+- Split or refactor large widget files that are roughly 500-700 lines once
+  validation and contract alignment are stable.
+- Resolve placeholder naming mismatches where placeholder-named widgets already
+  contain real product UI.
+- Reduce `WorkbenchCanvas` size and responsibility breadth.
+- Narrow broad `WorkspaceApi` usage across unrelated widget domains.
+- Narrow broad `WidgetRenderProps` coupling.
+- Reduce the global workbench action bag so widget slices receive only the
+  actions they need.
+- Plan a safer approach for manual Rust/Tauri/TypeScript DTO duplication and
+  drift risk.
+
+### P3 - Feature cleanup after stabilization
+
+- Continue Notes stabilization and refactor only after the P0/P1 baseline is
+  stable.
+- Clean up Coordinator / Queue / Executor naming and responsibility boundaries
+  after current contracts and Notes stabilization are settled.
+- Start new feature work only after the validation, portability, and contract
+  baseline above is stable.
+
 ## Recommended Follow-Up Task Order
 
-1. Contract authority cleanup.
-2. Current widget surface cleanup.
-3. Notes contract normalization.
-4. Architecture stale reference cleanup.
-5. Notes smoke checklist.
-6. Feature-slice checklist.
-7. Notes UI/controller refactor.
-8. Notes dev-only memory API.
-9. WorkspaceApi/domain API cleanup.
-10. WidgetRenderProps/action bag cleanup.
-11. DTO contract checks.
-12. Coordinator / Queue / Executor naming and responsibility cleanup.
+1. Complete Phase 1 authority model baseline.
+2. Incorporate AMP findings into stabilization plan.
+3. Fix validation/bootstrap blockers.
+4. Fix repo portability / git hygiene if applicable.
+5. Normalize `CURRENT_WIDGET_SURFACE` against shipped code.
+6. Normalize Notes contracts.
+7. Clean Architecture stale references.
+8. Add smoke checklist discipline.
+9. Start Notes-focused refactor.
+10. Then handle Coordinator / Queue / Executor.
 
 Coordinator / Queue / Executor cleanup is intentionally deferred until current
 codebase cleanup and Notes stabilization work are complete, unless a task is

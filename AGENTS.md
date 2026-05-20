@@ -249,6 +249,11 @@ Use Hobit Toolbelt validation profiles when possible:
 
 The default Toolbelt validation profile is `full`; do not silently weaken final validation.
 
+Validation blockers must be reported honestly. Do not claim full validation
+passed if missing frontend dependencies, missing Tauri assets, or repository
+Git portability issues prevent it. Prefer actionable failure messages over
+opaque failures, and do not silently weaken validation requirements.
+
 For most changes, run:
 
 - cargo fmt --all

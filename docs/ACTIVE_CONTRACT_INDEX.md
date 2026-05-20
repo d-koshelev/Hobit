@@ -20,6 +20,13 @@ current/planned/deferred separation, stale contract detection, current widget
 surface cleanup, known coupling/problem inventory, validation/smoke checklist
 preparation, and reducing Codex ambiguity.
 
+The `AMP review findings` section in
+`docs/CURRENT_CODEBASE_STABILIZATION_PLAN.md` is an official Phase 1 backlog
+input for validation, repository portability, contract drift, and change
+amplification cleanup. AMP findings are not product contracts by themselves:
+current behavior still must be confirmed against code before contracts are
+changed or implementation follow-up work begins.
+
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime
 behavior changes, or automatic agent orchestration changes.
