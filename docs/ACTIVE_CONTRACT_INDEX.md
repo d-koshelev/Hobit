@@ -33,6 +33,15 @@ widget behavior and is not a future product roadmap. It guides cleanup
 sequencing, scope boundaries, and follow-up task direction. Current widget
 behavior remains governed by `docs/CURRENT_WIDGET_SURFACE.md`.
 
+`docs/development/FEATURE_SLICE_CHECKLIST.md` is the development/process
+checklist for future Codex-driven feature slices. It does not override product
+contracts, does not expand the global mandatory read set, and does not make
+Planned or Deferred behavior current.
+
+`docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
+a process/status document only. It does not override product contracts,
+`docs/CURRENT_WIDGET_SURFACE.md`, or task-specific domain contracts.
+
 `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` is the Compatibility /
 pending-retirement source of truth for retained Agent Chat, Agent Monitoring,
 and proposal-era API status. It is not the source of truth for current widget
@@ -45,6 +54,11 @@ Testing and smoke checklist docs are process docs only. They do not override
 product contracts, do not add current behavior, and do not expand the global
 mandatory read set. `docs/CURRENT_WIDGET_SURFACE.md` remains the source of
 truth for current widget behavior.
+
+Development/process and closeout docs are also process docs only. They guide
+task discipline and reporting, but `docs/CURRENT_WIDGET_SURFACE.md` remains
+the current widget behavior truth and task-specific contracts remain the source
+of truth for their domains.
 
 - `docs/testing/SMOKE_CHECKLIST_DISCIPLINE.md` - index and category rules for
   current product smoke, preview smoke, dev-only smoke HTML entry points,
@@ -60,6 +74,11 @@ truth for current widget behavior.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
+- `docs/development/FEATURE_SLICE_CHECKLIST.md` - process checklist for
+  docs-only, frontend-only, dev/mock/fallback, persisted workspace,
+  runtime/tooling, and compatibility/deprecation feature slices.
+- `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` - Phase 1 completion status,
+  validation baseline, deferred/backlog items, and recommended Phase 2 start.
 
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime

@@ -170,7 +170,18 @@ Remaining follow-ups:
 - optional e2e automation later
 - optional detailed smoke checklists for specific widgets after their
   stabilization
-- Phase 1 closeout
+- Phase 1 closeout: completed; see
+  `docs/PHASE_1_STABILIZATION_CLOSEOUT.md`.
+
+## Phase 1 Closeout
+
+Status:
+
+- Feature-slice checklist: completed; see
+  `docs/development/FEATURE_SLICE_CHECKLIST.md`.
+- Phase 1 closeout report: completed / ready for Phase 2 transition; see
+  `docs/PHASE_1_STABILIZATION_CLOSEOUT.md`.
+- Phase 2 recommended start: Notes stabilization and refactor.
 
 ## Known Problem Inventory
 
@@ -349,8 +360,10 @@ implementation changes.
 13. Smoke checklist discipline. Completed for Phase 1 testing docs; remaining
     smoke/testing follow-ups are optional e2e automation later, optional
     detailed widget smoke checklists after stabilization, and Phase 1 closeout.
-14. Feature-slice checklist.
-15. Phase 1 closeout.
+14. Feature-slice checklist. Completed; see
+    `docs/development/FEATURE_SLICE_CHECKLIST.md`.
+15. Phase 1 closeout. Completed; see
+    `docs/PHASE_1_STABILIZATION_CLOSEOUT.md`.
 16. Notes UI/controller refactor.
 17. Notes dev-only memory API.
 18. WorkspaceApi / WidgetRenderProps / action bag cleanup.
