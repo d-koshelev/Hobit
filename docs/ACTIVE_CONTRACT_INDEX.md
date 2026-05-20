@@ -33,6 +33,14 @@ widget behavior and is not a future product roadmap. It guides cleanup
 sequencing, scope boundaries, and follow-up task direction. Current widget
 behavior remains governed by `docs/CURRENT_WIDGET_SURFACE.md`.
 
+`docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` is the Compatibility /
+pending-retirement source of truth for retained Agent Chat, Agent Monitoring,
+and proposal-era API status. It is not the source of truth for current widget
+behavior, current preferred widget names, or Coordinator / Queue / Executor
+naming. Current widget behavior remains governed by
+`docs/CURRENT_WIDGET_SURFACE.md`, and Coordinator / Queue / Executor naming
+cleanup remains deferred.
+
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime
 behavior changes, or automatic agent orchestration changes.
@@ -202,6 +210,9 @@ These documents should not override the Coordinator-centered model or
 - `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md` - superseded as a product
   direction by Coordinator Chat, but still useful for compatibility with the
   existing `interactive-agent` widget id/component.
+- `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` - source of truth
+  only for Agent Chat / Agent Monitoring / proposal-era API Compatibility /
+  pending-retirement status and cleanup boundaries.
 - Older Agent Chat and Agent Monitoring proposal-era text in
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
   `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`,

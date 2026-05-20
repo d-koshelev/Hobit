@@ -8,9 +8,11 @@ For current implemented widget behavior, defer to
 `docs/CURRENT_WIDGET_SURFACE.md`. For Notes behavior, defer to
 `docs/NOTES_WIDGET_CONTRACT.md` and
 `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`. For active/stale document priority,
-defer to `docs/ACTIVE_CONTRACT_INDEX.md`. If this document conflicts with
-those sources, treat the conflicting Architecture section as stale unless the
-current task explicitly says otherwise.
+defer to `docs/ACTIVE_CONTRACT_INDEX.md`. For retained Agent Chat / Agent
+Monitoring / proposal-era API compatibility status, defer to
+`docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md`. If this document
+conflicts with those sources, treat the conflicting Architecture section as
+stale unless the current task explicitly says otherwise.
 
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
@@ -116,6 +118,11 @@ are not implemented.
 `WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` defines Minimal, Operational, and Full / Expert widget display levels. Future widget architecture and UI blocks should start from the smallest useful surface, avoid raw/debug defaults, and add deeper complexity only through explicit later slices.
 
 `CURRENT_WIDGET_SURFACE.md` captures the current post-cleanup user-facing widget inventory and implementation boundaries.
+
+`AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` defines the Compatibility /
+pending-retirement status for retained Agent Chat, Agent Monitoring, and
+proposal-era API paths. It does not define current preferred widget names,
+current widget behavior, future Coordinator architecture, or product roadmap.
 
 `COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` defines the updated product
 model: Coordinator Chat is the primary operator-facing AI surface; widgets

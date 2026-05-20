@@ -231,7 +231,9 @@ and component keys may still appear in code and persistence.
   preferred current user-facing widgets. Some commands and frontend API modules
   remain wired as Compatibility or pending-retirement code paths, including
   proposal persistence, proposal generation, monitoring snapshots, and
-  proposal-to-Queue-item creation.
+  proposal-to-Queue-item creation. See
+  `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` for the compatibility
+  boundary and cleanup options.
 - The Terminal one-shot command runner is a Compatibility fallback, not the
   normal Terminal surface and not Script Runner.
 - The older Notes widget-local `{ "body": "..." }` state is
@@ -279,8 +281,9 @@ Their placement at the Vite root remains a follow-up cleanup decision.
 ## Known Drift / Follow-Up Decisions
 
 - Agent Chat / Agent Monitoring / proposal-era commands and frontend APIs:
-  decide whether to retire/delete them or realign active contracts around the
-  remaining compatibility paths.
+  compatibility alignment is documented in
+  `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md`; future cleanup should
+  either retire/delete the old paths or keep narrowed compatibility APIs.
 - JDBC read-only execution: decide whether the shipped mock read-only query UI
   is accepted as current Preview behavior, hidden/deferred, or realigned in the
   JDBC contract before further runtime work.

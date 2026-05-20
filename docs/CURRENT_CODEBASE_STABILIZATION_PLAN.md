@@ -164,6 +164,12 @@ baseline task unless the task explicitly allows that scope.
   language states the Windows-only live backend limitation, and older Agent
   Chat / Agent Monitoring paths are framed as Compatibility or
   pending-retirement.
+- Agent Chat / Agent Monitoring compatibility alignment. Completed for docs:
+  `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` now owns the
+  Compatibility / pending-retirement status and lists the retained
+  proposal-era commands/modules found during the targeted inventory. Future
+  optional cleanup remains either retire/delete the old backend/frontend code
+  paths or formally keep narrowed compatibility APIs.
 - Current vs preview vs deferred widget confusion, especially around agent
   surfaces and older proposal-review paths.
 - Broad `AGENTS.md` default read set causing unnecessary context load and
@@ -223,7 +229,11 @@ implementation changes.
 - Inventory retired Agent Chat, Agent Monitoring, and proposal-era code paths
   that are still wired in Tauri/frontend modules, then decide whether to
   delete/retire those paths or move the active contract index/current surface
-  back into alignment.
+  back into alignment. Completed for docs-only alignment: compatibility status
+  and retained wired paths are documented in
+  `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md`; future optional
+  cleanup remains either retire/delete old backend/frontend paths or formally
+  keep narrowed compatibility APIs.
 - Resolve JDBC contract drift: decide whether read-only query execution is
   current and docs should say so, or whether execution paths should be hidden,
   removed, or deferred.
@@ -281,7 +291,9 @@ implementation changes.
    Coordinator / Queue / Executor cleanup.
 8. Create the Phase 1 contract drift decision matrix. Completed; see
    `docs/CONTRACT_DRIFT_DECISION_MATRIX.md`.
-9. Agent Chat / Agent Monitoring compatibility alignment.
+9. Agent Chat / Agent Monitoring compatibility alignment. Completed for
+   docs-only alignment; future optional cleanup remains either old-path
+   removal or narrowed compatibility API retention.
 10. JDBC Preview contract alignment.
 11. Terminal platform limitation decision confirmation.
 12. Smoke HTML root cleanup.
