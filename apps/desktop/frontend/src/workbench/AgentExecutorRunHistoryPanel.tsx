@@ -2,67 +2,19 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
-import type {
-  AgentExecutorRunDetail,
-  AgentExecutorRunHistory,
-  AgentExecutorRunSummary,
-  WidgetLogEntry,
-} from "../workspace/types";
-import { formatDirectWorkDuration } from "./CodexDirectWorkTiming";
-import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
-import type { WidgetInstanceId } from "./types";
+import { AgentExecutorRunDetailPanel } from "./executor/AgentExecutorRunDetailPanel";
+import { AgentExecutorRunHistoryList } from "./executor/AgentExecutorRunHistoryList";
+import { errorToMessage } from "./executor/agentExecutorRunHistoryFormatters";
+import {
+  AGENT_EXECUTOR_HISTORY_LIMIT,
+  type AgentExecutorHistoryState,
+  type AgentExecutorRunDetailState,
+  type AgentExecutorRunHistoryPanelProps,
+  type GetAgentExecutorRunDetailHandler,
+  type ListAgentExecutorRunsHandler,
+} from "./executor/agentExecutorRunHistoryTypes";
 
-const HISTORY_LIMIT = 20;
-const OUTPUT_PREVIEW_LIMIT = 3000;
-const LOG_PREVIEW_LIMIT = 50;
-
-type HistoryState =
-  | {
-      message: string;
-      status: "failed";
-    }
-  | {
-      status: "loading";
-    }
-  | {
-      runs: AgentExecutorRunSummary[];
-      status: "ready";
-    };
-
-type DetailState =
-  | {
-      status: "idle";
-    }
-  | {
-      runId: string;
-      status: "loading";
-    }
-  | {
-      detail: AgentExecutorRunDetail;
-      status: "ready";
-    }
-  | {
-      message: string;
-      runId: string;
-      status: "failed";
-    };
-
-export type GetAgentExecutorRunDetailHandler = (
-  widgetInstanceId: WidgetInstanceId,
-  runId: string,
-) => Promise<AgentExecutorRunDetail | null>;
-
-export type ListAgentExecutorRunsHandler = (
-  widgetInstanceId: WidgetInstanceId,
-  limit?: number,
-) => Promise<AgentExecutorRunHistory | null>;
-
-type AgentExecutorRunHistoryPanelProps = {
-  onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
-  onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
-  refreshToken: number;
-  widgetInstanceId: WidgetInstanceId;
-};
+export type { GetAgentExecutorRunDetailHandler, ListAgentExecutorRunsHandler };
 
 export function AgentExecutorRunHistoryPanel({
   onGetAgentExecutorRunDetail,
@@ -70,10 +22,11 @@ export function AgentExecutorRunHistoryPanel({
   refreshToken,
   widgetInstanceId,
 }: AgentExecutorRunHistoryPanelProps) {
-  const [historyState, setHistoryState] = useState<HistoryState>({
-    status: "loading",
-  });
-  const [detailState, setDetailState] = useState<DetailState>({
+  const [historyState, setHistoryState] =
+    useState<AgentExecutorHistoryState>({
+      status: "loading",
+    });
+  const [detailState, setDetailState] = useState<AgentExecutorRunDetailState>({
     status: "idle",
   });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -95,7 +48,7 @@ export function AgentExecutorRunHistoryPanel({
       try {
         const history = await onListAgentExecutorRuns(
           widgetInstanceId,
-          HISTORY_LIMIT,
+          AGENT_EXECUTOR_HISTORY_LIMIT,
         );
 
         if (!isCurrent) {
@@ -173,8 +126,8 @@ export function AgentExecutorRunHistoryPanel({
         <div className="codex-direct-work-copy">
           <h3 className="codex-direct-work-title">Recent runs</h3>
           <p className="codex-direct-work-text">
-            Read-only stored Direct Work and validation artifacts for this
-            Agent Executor widget.
+            Read-only stored Direct Work and validation artifacts for this Agent
+            Executor widget.
           </p>
         </div>
         <div className="agent-executor-history-actions">
@@ -222,48 +175,13 @@ export function AgentExecutorRunHistoryPanel({
 
       {historyState.status === "ready" && historyState.runs.length > 0 ? (
         <div className="agent-executor-history-layout">
-          <div className="agent-executor-history-list" role="list">
-            {historyState.runs.map((run) => (
-              <button
-                className={`agent-executor-history-item${
-                  selectedRunId === run.runId
-                    ? " agent-executor-history-item-selected"
-                    : ""
-                }`}
-                key={run.runId}
-                onClick={() => void loadRunDetail(run.runId)}
-                type="button"
-              >
-                <span className="agent-executor-history-item-head">
-                  <span className="codex-direct-work-result-label">
-                    {run.title || runModeLabel(run)}
-                  </span>
-                  <Badge variant={statusBadgeVariant(run.status)}>
-                    {statusLabel(run.status)}
-                  </Badge>
-                </span>
-                <span className="codex-direct-work-result-value">
-                  {runModeLabel(run)}
-                </span>
-                <span className="agent-executor-history-item-meta-line">
-                  {historyRunMetaLine(run)}
-                </span>
-                {run.repoRoot ? (
-                  <span className="codex-direct-work-review-note">
-                    Execution workspace {run.repoRoot}
-                  </span>
-                ) : null}
-                {run.validationProfile || run.validationStatus ? (
-                  <span className="codex-direct-work-review-note">
-                    Validation {run.validationProfile ?? "unknown"} /{" "}
-                    {run.validationStatus ?? "unknown"}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
+          <AgentExecutorRunHistoryList
+            onSelectRun={(runId) => void loadRunDetail(runId)}
+            runs={historyState.runs}
+            selectedRunId={selectedRunId}
+          />
 
-          <RunHistoryDetail detailState={detailState} />
+          <AgentExecutorRunDetailPanel detailState={detailState} />
         </div>
       ) : null}
     </section>
@@ -271,12 +189,12 @@ export function AgentExecutorRunHistoryPanel({
 }
 
 async function reloadHistory(
-  onListAgentExecutorRuns:
-    | AgentExecutorRunHistoryPanelProps["onListAgentExecutorRuns"]
-    | undefined,
-  widgetInstanceId: WidgetInstanceId,
-  setHistoryState: (state: HistoryState) => void,
-  setSelectedRunId: (updater: (currentRunId: string | null) => string | null) => void,
+  onListAgentExecutorRuns: ListAgentExecutorRunsHandler | undefined,
+  widgetInstanceId: AgentExecutorRunHistoryPanelProps["widgetInstanceId"],
+  setHistoryState: (state: AgentExecutorHistoryState) => void,
+  setSelectedRunId: (
+    updater: (currentRunId: string | null) => string | null,
+  ) => void,
 ) {
   if (!onListAgentExecutorRuns) {
     setHistoryState({
@@ -287,7 +205,10 @@ async function reloadHistory(
   }
 
   try {
-    const history = await onListAgentExecutorRuns(widgetInstanceId, HISTORY_LIMIT);
+    const history = await onListAgentExecutorRuns(
+      widgetInstanceId,
+      AGENT_EXECUTOR_HISTORY_LIMIT,
+    );
     const runs = history?.runs ?? [];
     setHistoryState({ runs, status: "ready" });
     setSelectedRunId((currentRunId) =>
@@ -301,352 +222,4 @@ async function reloadHistory(
       status: "failed",
     });
   }
-}
-
-function RunHistoryDetail({ detailState }: { detailState: DetailState }) {
-  if (detailState.status === "idle") {
-    return (
-      <div className="agent-executor-history-detail">
-        <p className="codex-direct-work-review-note">
-          Select a stored run to inspect its result, captured output, and logs.
-        </p>
-      </div>
-    );
-  }
-
-  if (detailState.status === "loading") {
-    return (
-      <div className="agent-executor-history-detail">
-        <p className="codex-direct-work-review-note">
-          Loading run detail...
-        </p>
-      </div>
-    );
-  }
-
-  if (detailState.status === "failed") {
-    return (
-      <div className="agent-executor-history-detail">
-        <div className="codex-direct-work-error-message" role="status">
-          <span className="codex-direct-work-result-label">
-            Detail unavailable
-          </span>
-          <span className="codex-direct-work-result-value">
-            {detailState.message}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return <RunHistoryDetailContent detail={detailState.detail} />;
-}
-
-function RunHistoryDetailContent({
-  detail,
-}: {
-  detail: AgentExecutorRunDetail;
-}) {
-  const summary = detail.summary;
-  const finalText =
-    detail.finalMessage ?? detail.resultContent ?? detail.resultSummary;
-  const logs = detail.logs.slice(0, LOG_PREVIEW_LIMIT);
-
-  return (
-    <div className="agent-executor-history-detail">
-      <div className="agent-executor-history-detail-header">
-        <div className="codex-direct-work-copy">
-          <p className="codex-direct-work-title">{summary.title}</p>
-          <p className="codex-direct-work-text">{runModeLabel(summary)}</p>
-        </div>
-        <Badge variant={statusBadgeVariant(summary.status)}>
-          {statusLabel(summary.status)}
-        </Badge>
-      </div>
-
-      <StaticPreviewFieldList
-        className="codex-direct-work-result-grid"
-        fieldClassName="codex-direct-work-result-field"
-        fields={[
-          { label: "Started", value: formatTimestamp(summary.startedAt) },
-          { label: "Completed", value: formatTimestamp(summary.finishedAt) },
-          { label: "Duration", value: formatRunDuration(summary) },
-          { label: "Result type", value: valueOrNone(summary.resultType) },
-          { label: "Result status", value: valueOrNone(detail.resultStatus) },
-          { label: "Execution workspace", value: valueOrNone(summary.repoRoot) },
-          {
-            label: "Validation profile",
-            value: valueOrNone(detail.validationProfile),
-          },
-          {
-            label: "Validation status",
-            value: valueOrNone(detail.validationStatus),
-          },
-          {
-            label: "Logs",
-            value:
-              summary.logCount === null
-                ? String(detail.logs.length)
-                : String(summary.logCount),
-          },
-        ]}
-        labelClassName="codex-direct-work-result-label"
-        valueClassName="codex-direct-work-result-value"
-      />
-
-      <details className="codex-direct-work-output-details codex-direct-work-validation-meta-details">
-        <summary className="codex-direct-work-output-summary">
-          Run artifact ids
-        </summary>
-        <StaticPreviewFieldList
-          className="codex-direct-work-result-grid"
-          fieldClassName="codex-direct-work-result-field"
-          fields={[
-            { label: "Run id", value: summary.runId },
-            { label: "Result id", value: valueOrNone(detail.resultId) },
-          ]}
-          labelClassName="codex-direct-work-result-label"
-          valueClassName="codex-direct-work-result-value"
-        />
-      </details>
-
-      {detail.errorMessage ? (
-        <div className="codex-direct-work-error-message">
-          <span className="codex-direct-work-result-label">Error message</span>
-          <span className="codex-direct-work-result-value">
-            {detail.errorMessage}
-          </span>
-        </div>
-      ) : null}
-
-      {finalText ? (
-        <OutputBlock label="Final response preview" value={finalText} />
-      ) : null}
-
-      {detail.stdoutPreview ? (
-        <OutputDetails label="stdout preview" value={detail.stdoutPreview} />
-      ) : null}
-
-      {detail.stderrPreview ? (
-        <OutputDetails label="stderr preview" value={detail.stderrPreview} />
-      ) : null}
-
-      {detail.changedFilesSummary ? (
-        <OutputDetails
-          label="Changed-files summary"
-          value={detail.changedFilesSummary}
-        />
-      ) : null}
-
-      <RunLogs logs={logs} totalCount={detail.logs.length} />
-
-      {detail.resultPayload ? (
-        <OutputDetails
-          label="Raw payload"
-          value={formatRawPayload(detail.resultPayload)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function OutputBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="codex-direct-work-final-message">
-      <div className="codex-direct-work-output-header">
-        <span className="codex-direct-work-result-label">{label}</span>
-      </div>
-      <pre className="codex-direct-work-output">
-        <code>{previewOutput(value)}</code>
-      </pre>
-    </div>
-  );
-}
-
-function OutputDetails({ label, value }: { label: string; value: string }) {
-  return (
-    <details className="codex-direct-work-output-details">
-      <summary className="codex-direct-work-output-summary">{label}</summary>
-      <pre className="codex-direct-work-output">
-        <code>{previewOutput(value)}</code>
-      </pre>
-    </details>
-  );
-}
-
-function RunLogs({
-  logs,
-  totalCount,
-}: {
-  logs: WidgetLogEntry[];
-  totalCount: number;
-}) {
-  return (
-    <details className="codex-direct-work-output-details">
-      <summary className="codex-direct-work-output-summary">
-        Logs {totalCount > logs.length ? `first ${logs.length} of ${totalCount}` : totalCount}
-      </summary>
-      {logs.length === 0 ? (
-        <p className="codex-direct-work-review-note">No logs captured.</p>
-      ) : (
-        <div className="agent-executor-history-log-list" role="list">
-          {logs.map((log) => (
-            <div className="agent-executor-history-log" key={log.id} role="listitem">
-              <div className="agent-executor-history-log-line">
-                <span className="codex-direct-work-live-log-time">
-                  {formatTimestamp(log.createdAt)}
-                </span>
-                <span className="codex-direct-work-result-label">
-                  {log.level}
-                </span>
-                <span className="codex-direct-work-result-value">
-                  {log.message}
-                </span>
-              </div>
-              {log.payload ? (
-                <details className="codex-direct-work-live-log-raw">
-                  <summary className="codex-direct-work-live-log-detail">
-                    payload
-                  </summary>
-                  <pre className="codex-direct-work-output">
-                    <code>{previewOutput(formatRawPayload(log.payload))}</code>
-                  </pre>
-                </details>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-    </details>
-  );
-}
-
-function runModeLabel(run: AgentExecutorRunSummary) {
-  if (run.validationProfile) {
-    return `Validation ${run.validationProfile}`;
-  }
-
-  return run.mode ?? run.commandKind ?? run.resultType ?? "Direct Work";
-}
-
-function statusLabel(status: string) {
-  return status.replace(/_/g, " ");
-}
-
-function statusBadgeVariant(
-  status: string,
-): "neutral" | "info" | "success" | "warning" | "error" {
-  if (
-    status === "completed" ||
-    status === "succeeded" ||
-    status === "passed"
-  ) {
-    return "success";
-  }
-
-  if (status === "running" || status === "started") {
-    return "info";
-  }
-
-  if (status === "cancelled" || status === "timed_out") {
-    return "warning";
-  }
-
-  if (status === "failed" || status === "failed_to_start") {
-    return "error";
-  }
-
-  return "neutral";
-}
-
-function formatRunDuration(run: AgentExecutorRunSummary) {
-  if (run.durationMs !== null) {
-    return formatDirectWorkDuration(run.durationMs);
-  }
-
-  const startedAt = timestampToMs(run.startedAt);
-  const finishedAt = timestampToMs(run.finishedAt);
-
-  if (startedAt !== null && finishedAt !== null && finishedAt >= startedAt) {
-    return formatDirectWorkDuration(finishedAt - startedAt);
-  }
-
-  return "Unknown";
-}
-
-function historyRunMetaLine(run: AgentExecutorRunSummary) {
-  const duration = formatRunDuration(run);
-  const parts = [
-    `Started ${formatTimestamp(run.startedAt)}`,
-    run.finishedAt ? `Completed ${formatTimestamp(run.finishedAt)}` : null,
-    duration === "Unknown" ? null : `Duration ${duration}`,
-  ].filter((part): part is string => Boolean(part));
-
-  return parts.join(" - ");
-}
-
-function formatTimestamp(value: string | null) {
-  if (!value) {
-    return "Not completed";
-  }
-
-  const timestamp = timestampToMs(value);
-
-  if (timestamp === null) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
-}
-
-function timestampToMs(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-  const numericValue = Number(trimmedValue);
-
-  if (Number.isFinite(numericValue)) {
-    return numericValue > 10_000_000_000 ? numericValue : numericValue * 1000;
-  }
-
-  const parsedValue = Date.parse(trimmedValue);
-
-  return Number.isNaN(parsedValue) ? null : parsedValue;
-}
-
-function valueOrNone(value: string | null) {
-  return value && value.trim() ? value : "None";
-}
-
-function previewOutput(value: string) {
-  if (value.length <= OUTPUT_PREVIEW_LIMIT) {
-    return value;
-  }
-
-  return `${value.slice(0, OUTPUT_PREVIEW_LIMIT)}\n[Preview truncated in UI.]`;
-}
-
-function formatRawPayload(value: string) {
-  try {
-    return JSON.stringify(JSON.parse(value), null, 2);
-  } catch {
-    return value;
-  }
-}
-
-function errorToMessage(error: unknown, fallbackMessage: string) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  return fallbackMessage;
 }
