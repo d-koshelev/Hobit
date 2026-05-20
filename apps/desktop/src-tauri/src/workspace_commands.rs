@@ -29,6 +29,10 @@ use crate::codex_direct_work_dto::{
     RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
     StartCodexDirectWorkStreamResponseDto, DIRECT_WORK_STREAM_EVENT_NAME,
 };
+use crate::direct_work_host_artifacts::{
+    DirectWorkHostRuntimeBoundarySummary, DirectWorkHostStartRuntimeArtifacts,
+    DirectWorkHostStreamEventRuntimeArtifact,
+};
 use crate::git_commit_dto::{CreateGitCommitRequest, GitCommitResponseDto};
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
@@ -354,11 +358,13 @@ fn run_codex_direct_work_blocking(
     request: RunCodexDirectWorkRequest,
     db_path: PathBuf,
 ) -> Result<Option<RunCodexDirectWorkResponseDto>, String> {
+    let input: hobit_app::RunCodexDirectWorkInput = request.into();
+    let _host_start_artifacts = DirectWorkHostStartRuntimeArtifacts::from_input(&input);
     let service = workspace_service(&db_path)?;
     service
-        .run_codex_direct_work(request.into())
+        .run_codex_direct_work(input)
         .map(|summary| summary.map(RunCodexDirectWorkResponseDto::from))
-        .map_err(command_error)
+        .map_err(classify_host_error)
 }
 
 #[tauri::command]
@@ -394,6 +400,7 @@ pub(crate) async fn start_codex_direct_work_stream(
     let db_path = state.db_path().to_path_buf();
     let active_runs = state.direct_work_active_runs();
     let input: hobit_app::RunCodexDirectWorkInput = request.into();
+    let _host_start_artifacts = DirectWorkHostStartRuntimeArtifacts::from_input(&input);
     let start = tauri::async_runtime::spawn_blocking({
         let db_path = db_path.clone();
         let input = input.clone();
@@ -422,6 +429,8 @@ pub(crate) async fn start_codex_direct_work_stream(
             );
             active_runs.unregister(&run_id);
             if let Err(error) = result {
+                let _host_error_artifact =
+                    DirectWorkHostRuntimeBoundarySummary::from_host_error(&error);
                 eprintln!("Direct Work stream background task failed: {error}");
             }
         });
@@ -437,7 +446,7 @@ fn start_codex_direct_work_stream_blocking(
     let service = workspace_service(&db_path)?;
     service
         .start_codex_direct_work_stream(input)
-        .map_err(command_error)
+        .map_err(classify_host_error)
 }
 
 fn run_codex_direct_work_stream_background(
@@ -454,14 +463,25 @@ fn run_codex_direct_work_stream_background(
             &run_id,
             cancellation_token,
             |event| {
-                let _ = app.emit(
+                let _event_artifact = DirectWorkHostStreamEventRuntimeArtifact::from_event(&event);
+                let emit_result = app.emit(
                     DIRECT_WORK_STREAM_EVENT_NAME,
                     DirectWorkStreamEventDto::from(event),
                 );
+                let _emit_artifact = match &emit_result {
+                    Ok(_) => DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(None),
+                    Err(error) => {
+                        let error_message = error.to_string();
+                        DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(Some(
+                            &error_message,
+                        ))
+                    }
+                };
+                let _ = emit_result;
             },
         )
         .map(|_| ())
-        .map_err(command_error)
+        .map_err(classify_host_error)
 }
 
 #[tauri::command]
@@ -506,6 +526,8 @@ fn cancel_codex_direct_work_run_blocking(
             return Ok(CancelCodexDirectWorkRunResponseDto::from(refreshed));
         }
 
+        let _not_active_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_status("not_active", None);
         return Ok(CancelCodexDirectWorkRunResponseDto {
             run_id: input.run_id,
             status: "not_active".to_owned(),
@@ -562,6 +584,8 @@ fn force_kill_codex_direct_work_run_blocking(
             return Ok(ForceKillCodexDirectWorkRunResponseDto::from(refreshed));
         }
 
+        let _not_active_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_status("not_active", None);
         return Ok(ForceKillCodexDirectWorkRunResponseDto {
             run_id: input.run_id,
             status: "not_active".to_owned(),
@@ -684,6 +708,12 @@ fn workspace_service(db_path: &Path) -> Result<WorkspaceService, String> {
 
 fn command_error(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+fn classify_host_error(error: impl std::fmt::Display) -> String {
+    let error = error.to_string();
+    let _host_error_artifact = DirectWorkHostRuntimeBoundarySummary::from_host_error(&error);
+    error
 }
 
 #[cfg(test)]

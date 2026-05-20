@@ -9,6 +9,10 @@ use crate::agent_queue_execution_dto::{
 };
 use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
 use crate::codex_direct_work_dto::{DirectWorkStreamEventDto, DIRECT_WORK_STREAM_EVENT_NAME};
+use crate::direct_work_host_artifacts::{
+    DirectWorkHostRuntimeBoundarySummary, DirectWorkHostStartRuntimeArtifacts,
+    DirectWorkHostStreamEventRuntimeArtifact,
+};
 
 #[tauri::command]
 pub(crate) async fn start_assigned_agent_queue_task(
@@ -28,6 +32,8 @@ pub(crate) async fn start_assigned_agent_queue_task(
 
     let run_id = start.run_id.clone();
     let cancellation_token = hobit_app::CodexDirectStreamCancellationToken::new();
+    let _host_start_artifacts =
+        DirectWorkHostStartRuntimeArtifacts::from_input(&start.direct_work_input);
     active_runs.register(DirectWorkActiveRun::new(
         run_id.clone(),
         start.workspace_id.clone(),
@@ -47,6 +53,8 @@ pub(crate) async fn start_assigned_agent_queue_task(
         );
         active_runs.unregister(&run_id);
         if let Err(error) = result {
+            let _host_error_artifact =
+                DirectWorkHostRuntimeBoundarySummary::from_host_error(&error);
             eprintln!("Assigned Agent Queue task background run failed: {error}");
         }
     });
@@ -97,10 +105,21 @@ fn run_assigned_agent_queue_task_background(
         &run_id,
         cancellation_token,
         |event| {
-            let _ = app.emit(
+            let _event_artifact = DirectWorkHostStreamEventRuntimeArtifact::from_event(&event);
+            let emit_result = app.emit(
                 DIRECT_WORK_STREAM_EVENT_NAME,
                 DirectWorkStreamEventDto::from(event),
             );
+            let _emit_artifact = match &emit_result {
+                Ok(_) => DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(None),
+                Err(error) => {
+                    let error_message = error.to_string();
+                    DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(Some(
+                        &error_message,
+                    ))
+                }
+            };
+            let _ = emit_result;
         },
     );
 
@@ -126,6 +145,9 @@ fn run_assigned_agent_queue_task_background(
             .map(|_| ())
             .map_err(command_error),
         Err(error) => {
+            let error = command_error(error);
+            let _host_error_artifact =
+                DirectWorkHostRuntimeBoundarySummary::from_host_error(&error);
             let _ = service.finish_assigned_agent_queue_task_run(
                 FinishAssignedAgentQueueTaskRunInput {
                     workspace_id,
@@ -135,7 +157,7 @@ fn run_assigned_agent_queue_task_background(
                     direct_work_status: "failed".to_owned(),
                 },
             );
-            Err(command_error(error))
+            Err(error)
         }
     }
 }

@@ -29,6 +29,9 @@ mod coordinator_provider_dto;
 mod coordinator_provider_dto_tests;
 mod coordinator_provider_http;
 mod database_startup;
+mod direct_work_host_artifacts;
+#[cfg(test)]
+mod direct_work_host_artifacts_tests;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;

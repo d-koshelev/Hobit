@@ -6,6 +6,7 @@ use hobit_app::CodexDirectStreamCancellationToken;
 use tauri::Manager;
 
 use crate::database_startup::initialize_database;
+use crate::direct_work_host_artifacts::DirectWorkHostRuntimeBoundarySummary;
 use crate::terminal_pty::TerminalPtySessionManager;
 
 pub(crate) struct AppState {
@@ -45,6 +46,8 @@ pub(crate) struct DirectWorkActiveRunRegistry {
 
 impl DirectWorkActiveRunRegistry {
     pub(crate) fn register(&self, run: DirectWorkActiveRun) {
+        let _active_run_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_active_run_status(&run.run_id, "active");
         self.runs
             .lock()
             .expect("direct work active run registry lock")
@@ -73,6 +76,8 @@ impl DirectWorkActiveRunRegistry {
             return false;
         }
 
+        let _cancellation_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_status("cancellation_requested", None);
         run.cancellation_token.request_cancellation();
         true
     }
@@ -99,6 +104,8 @@ impl DirectWorkActiveRunRegistry {
             return false;
         }
 
+        let _force_kill_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_status("force_kill_requested", None);
         run.cancellation_token.request_force_kill();
         true
     }
@@ -153,6 +160,8 @@ impl DirectWorkActiveRun {
         widget_instance_id: String,
         cancellation_token: CodexDirectStreamCancellationToken,
     ) -> Self {
+        let _active_run_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_active_run_status(&run_id, "starting");
         Self {
             run_id,
             workspace_id,
