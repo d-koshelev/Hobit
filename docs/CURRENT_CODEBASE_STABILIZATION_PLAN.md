@@ -144,7 +144,13 @@ baseline task unless the task explicitly allows that scope.
   `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` owns Notes product planning and
   Deferred Notebook boundaries.
 - Stale Architecture references that mix current behavior, compatibility paths,
-  and future/deferred behavior in long narrative sections.
+  and future/deferred behavior in long narrative sections. Completed for
+  `docs/ARCHITECTURE.md`: architecture is now framed as structural guidance,
+  Notes language defers to the normalized Notes contracts, JDBC language
+  acknowledges the shipped mock/safe read-only Preview path, Terminal PTY
+  language states the Windows-only live backend limitation, and older Agent
+  Chat / Agent Monitoring paths are framed as Compatibility or
+  pending-retirement.
 - Current vs preview vs deferred widget confusion, especially around agent
   surfaces and older proposal-review paths.
 - Broad `AGENTS.md` default read set causing unnecessary context load and
@@ -254,7 +260,12 @@ implementation changes.
    remaining follow-ups are Notes smoke checklist coverage, Notes UI/controller
    refactor, dev-only memory Notes API decision, and future delete/archive and
    autosave decisions.
-7. Clean Architecture stale references.
+7. Clean Architecture stale references. Completed for
+   `docs/ARCHITECTURE.md`; remaining architecture-related decisions are Agent
+   Chat / Agent Monitoring retire vs contract realignment, JDBC read-only
+   execution current Preview vs hidden/deferred, Terminal non-Windows catalog
+   gating vs docs-only limitation, smoke HTML root cleanup, and deferred
+   Coordinator / Queue / Executor cleanup.
 8. Add smoke checklist discipline.
 9. Start Notes-focused refactor.
 10. Then handle Coordinator / Queue / Executor.

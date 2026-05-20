@@ -1,11 +1,16 @@
 # Architecture
 
-This document describes the current repository structure and intended future architecture for Hobit.
+This document is structural guidance for Hobit's repository layout, layering,
+bridge boundaries, and verified current architecture shape. It is not the final
+source of truth for current widget behavior or domain-specific widget details.
 
-For current behavior, check `docs/ACTIVE_CONTRACT_INDEX.md` and
-`docs/CURRENT_WIDGET_SURFACE.md` first. If this document conflicts with either
-one, treat the conflicting Architecture section as stale unless the current task
-explicitly says otherwise.
+For current implemented widget behavior, defer to
+`docs/CURRENT_WIDGET_SURFACE.md`. For Notes behavior, defer to
+`docs/NOTES_WIDGET_CONTRACT.md` and
+`docs/NOTES_WIDGET_PRODUCT_CONTRACT.md`. For active/stale document priority,
+defer to `docs/ACTIVE_CONTRACT_INDEX.md`. If this document conflicts with
+those sources, treat the conflicting Architecture section as stale unless the
+current task explicitly says otherwise.
 
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
@@ -23,9 +28,11 @@ repository or local project folder; scratch execution workspace support is not
 implemented and must not default to user home. On Windows,
 resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from
 PATH without invoking a shell. Terminal has a visible desktop PTY session
-surface for explicit Terminal widget owners and preserves the bounded one-shot
-command path as a demoted legacy fallback for persisted Terminal widget
-instances. Git has a narrow manual
+surface for explicit Terminal widget owners, but shipped backend PTY session
+support is currently Windows-only; non-Windows desktop builds return an
+unsupported-platform error for live PTY creation until platform support or
+catalog gating is added. Terminal preserves the bounded one-shot command path
+as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
 desktop-only status/diff review surface plus explicit selected-file local
 commit UI with operator confirmation. Agent Queue is a preview manual task queue surface
 backed by Workspace-scoped task storage/API, assignment API/UI, and a
@@ -97,13 +104,14 @@ UI polish blocks: dark dotted canvas, grid-aware widget geometry direction,
 thin top bar, shared dark/glass widget cards, compact controls, status chips,
 clean tables, preview honesty, and prohibited UI overclaims.
 
-`TERMINAL_PTY_WIDGET_CONTRACT.md` defines the future Terminal transition from
-the current bounded one-shot command runner to a manual operator-controlled
-interactive PTY shell surface with sessions, tabs, and later split panes. PTY
-runtime/Tauri command foundations and the first visible frontend PTY session UI
-now exist for explicit Terminal widget owners in the desktop shell. Tabs UI,
-split panes, persistent transcripts/history, event-stream bridge hardening, and
-storage/schema changes are not implemented.
+`TERMINAL_PTY_WIDGET_CONTRACT.md` defines the Terminal PTY direction and staged
+implementation plan. PTY runtime/Tauri command foundations and the first
+visible frontend PTY session UI now exist for explicit Terminal widget owners in
+the desktop shell, with shipped live PTY backend support currently limited to
+Windows. Non-Windows live PTY sessions are unsupported until platform support or
+catalog gating is implemented. Tabs UI, split panes, persistent
+transcripts/history, event-stream bridge hardening, and storage/schema changes
+are not implemented.
 
 `WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` defines Minimal, Operational, and Full / Expert widget display levels. Future widget architecture and UI blocks should start from the smallest useful surface, avoid raw/debug defaults, and add deeper complexity only through explicit later slices.
 
@@ -211,14 +219,19 @@ during read-only status collection are forbidden by that contract.
 
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape. Template Library is not part of the current Widget Catalog, and no template storage, editing, request generation, response capture, response parsing, response validation, executor integration, Git-response association, or agent execution behavior is implemented.
 
-`NOTES_WIDGET_CONTRACT.md` defines the future Notebook/Notes widget direction: legacy single-body Notes compatibility, multiple text tabs/documents inside one widget, Markdown source text, rendered Markdown and Mermaid fenced-block preview direction, explicit user-triggered text formatting actions, and operator-approved AI-assisted editing. The current frontend Notes widget still only persists the minimal `{ "body": "..." }` Notes draft state.
+`NOTES_WIDGET_CONTRACT.md` defines the authoritative current Notes widget
+boundary: workspace-local multi-note UI, desktop/Tauri SQLite-backed Workspace
+Notes APIs, browser unsupported-runtime errors for Notes persistence, plain
+title/body source text, and Compatibility/Deprecated handling for the older
+widget-local `{ "body": "..." }` draft state. Full Notebook behavior,
+Markdown/Mermaid rendering, rich formatting, autosave, archive/delete UI, tags,
+AI-in-Notes, and hidden agent access are Deferred.
 
 `NOTES_WIDGET_PRODUCT_CONTRACT.md` defines the near-term product direction for
-evolving Notes into a workspace-local multi-note widget with storage/API first,
-then note list, search, selected note editor, pinning, and save/autosave state
-when implemented.
-The workspace-local notes storage/API foundation now exists for create, list,
-read, and update operations; the product UI is still pending.
+stabilizing the shipped workspace-local multi-note Notes surface without adding
+Notebook scope. Planned follow-ups include smoke coverage, UI/controller
+refactor, dev-only browser Notes API decision, and explicit archive/delete and
+autosave decisions.
 
 `WIDGET_CONTRACT.md` defines future Dock and widget view mode rules. Dock is a Workspace-local perimeter surface for existing WidgetInstances in Indicator view. Clicking a Dock item should open future Compact view, while moving it to Canvas should open Full view. Real Dock behavior, Full/Compact/Indicator rendering behavior, persisted widget presence zones, and drag-and-drop between Canvas, Dock, Float, and future external windows are not implemented yet.
 
@@ -271,16 +284,18 @@ Git, Terminal, and Notes, plus Preview templates for Agent Queue, Coordinator
 Chat, Database / JDBC, and Runbook. Coordinator Chat uses the current
 `interactive-agent` compatibility/local-chat placeholder. Agent Executor
 reuses the existing `agent-run` definition id for persistence compatibility.
-Database / JDBC is a connector metadata surface with mock read-only query
-review only. Retired surfaces such as
+Database / JDBC is a Preview connector metadata surface with shipped mock/safe
+read-only SQL validation and bounded mock execution UI/API. Retired surfaces
+such as
 Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner,
 JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not
 shown in the current catalog or workbench surface.
 
-There is no shell execution, script execution, executable Coordinator runtime,
-Workspace-aware Coordinator action runtime, executable proposal behavior, Agent
-Queue runner/real command queue/execution history, Terminal result monitoring,
-arbitrary widget result monitoring, Template Library runtime, template
+There is no general shell execution outside the explicit Terminal PTY and
+legacy one-shot fallback surfaces, script execution, executable Coordinator
+runtime, Workspace-aware Coordinator action runtime, executable proposal
+behavior, Agent Queue scheduler/automatic dispatch/runtime, Terminal result
+monitoring, arbitrary widget result monitoring, Template Library runtime, template
 storage/editing/request generation/response validation, Git behavior beyond
 manual desktop-only status/diff review and selected-file local commit for an
 explicit transient repository root, real capability widget insertion beyond
@@ -321,6 +336,15 @@ The shell exposes WorkspaceService lifecycle and widget foundation commands over
 - `list_agent_executor_runs`
 - `get_agent_executor_run_detail`
 - `run_terminal_command`
+- `create_terminal_pty_session`
+- `write_terminal_pty_session`
+- `resize_terminal_pty_session`
+- `stop_terminal_pty_session`
+- `kill_terminal_pty_session`
+- `close_terminal_pty_session`
+- `get_terminal_pty_session`
+- `list_terminal_pty_sessions`
+- `generate_coordinator_provider_response`
 - `generate_agent_chat_ai_proposal`
 - `persist_agent_chat_proposal`
 - `get_agent_monitoring_snapshot`
@@ -339,6 +363,8 @@ The shell exposes WorkspaceService lifecycle and widget foundation commands over
 - `list_jdbc_connectors`
 - `get_jdbc_connector`
 - `update_jdbc_connector`
+- `validate_jdbc_read_only_sql`
+- `execute_jdbc_read_only_query`
 
 The current Tauri bridge source keeps app state and SQLite initialization in `app_state.rs`, Workspace command handlers in `workspace_commands.rs`, Agent Queue task command handlers in `agent_queue_task_commands.rs`, JDBC connector command handlers in `jdbc_connector_commands.rs`, and command DTO mapping in focused DTO modules.
 
@@ -362,7 +388,10 @@ calls, Agent Chat proposal persistence, Agent Monitoring persisted artifact
 reads, and Agent Queue persistence. The JDBC connector metadata commands store
 and return masked/non-secret connector descriptors only; they do not store
 passwords, tokens, secret references, credentials, driver jars, query text, or
-query results, and they do not test connections or execute SQL.
+query results, and they do not test connections. Separate JDBC query commands
+validate conservative read-only SQL and return bounded deterministic mock
+results or sanitized validation/runtime errors; they do not execute SQL against
+external systems.
 
 The `generate_coordinator_provider_response` Tauri command is called only from
 Coordinator Chat after an explicit operator message. It validates
@@ -433,8 +462,8 @@ automatically dispatch, schedule, launch Terminal commands, run validation
 automatically, mutate Git, auto-commit, or auto-push. There is no Terminal tabs
 UI, Terminal split panes, PTY command history, persistent PTY transcripts,
 executable chat runtime beyond Direct Work artifacts, Template Library runtime,
-Git runtime beyond the narrow status/diff/local commit path, JDBC query
-execution, workspace restore runtime, log polling, provider settings UI,
+Git runtime beyond the narrow status/diff/local commit path, real external JDBC
+query execution, workspace restore runtime, log polling, provider settings UI,
 secrets UI, scratch execution workspace support, or direct HTTPS vendor
 provider adapter in this milestone.
 
@@ -444,7 +473,10 @@ provider adapter in this milestone.
 
 The Tauri shell exposes this through `get_workspace_workbench_state`, backed by the existing local SQLite store and `WorkspaceService`.
 
-The frontend consumes this command through its workspace API boundary and adapts the response into `WorkbenchViewState` before rendering the Workbench. There is still no event replay, runtime reconstruction, widget execution beyond the bounded Terminal one-shot command path and visible PTY session UI, Terminal event-stream bridge, or agent call behavior.
+The frontend consumes this command through its workspace API boundary and adapts
+the response into `WorkbenchViewState` before rendering the Workbench. There is
+still no event replay, runtime reconstruction, automatic widget runtime
+restoration, Terminal event-stream bridge, or hidden agent call behavior.
 
 ## Current Workspace Flow
 
@@ -492,9 +524,19 @@ templates/placeholders through the Tauri bridge yet.
 
 The Workbench top bar includes a compact global activity/idle indicator. It is current-session frontend state only: it shows `Idle - No active local runs` by default, switches to a running Terminal status while a Terminal one-shot fallback command started from the current UI session is awaiting its backend response, and can show attention for failed or timed-out Terminal command requests. It does not poll SQLite run state, observe background work, monitor external processes, implement approvals, or imply that Agent Queue or Agent runtime execution exists.
 
-The Notes placeholder persists a minimal draft through widget state using the shape `{ "body": "..." }`. A separate workspace-local notes storage/API foundation exists for create/list/read/update operations, but no product UI consumes it yet. This is not the full Notebook/Notes document model, multi-tab state, Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block preview system, text formatting tool surface, autosave flow, folder system, or AI-in-Notes implementation.
+The Notes widget is a workspace-local multi-note UI. It supports list, filter,
+create, select/read, edit title/body as plain source text, explicit save, and
+pin/unpin through the workspace Notes API. Desktop/Tauri persists Notes through
+local SQLite-backed Workspace Notes APIs. Browser/Vite fallback keeps Notes
+insertable but returns visible unsupported-runtime errors for Notes persistence
+reads and writes. The older widget-local `{ "body": "..." }` draft state is
+Compatibility/Deprecated and is not the preferred product model for new work.
+This is not the full Notebook document model, multi-tab state, Markdown editor,
+Markdown renderer, Mermaid or diagram renderer, rendered block preview system,
+text formatting tool surface, autosave flow, folder/tag system, archive/delete
+UI, sync/import/export, or AI-in-Notes implementation.
 
-The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Coordinator control, or Script Runner behavior.
+The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently Windows-only; non-Windows desktop live PTY creation returns an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Coordinator control, or Script Runner behavior.
 
 The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it persists widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
 
@@ -566,7 +608,7 @@ These are pure domain contracts only. Persistence, frontend integration, and Tau
 
 It stores Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, and WorkbenchEvent primitives.
 
-This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, current widget insertion, Notes placeholder state, workspace-local notes create/list/read/update operations, workspace-local JDBC connector metadata create/list/read/update operations, manual Agent Queue task create/list/read/update/assign/clear/start operations, persisted widget layout fields, workspace activity events, widget-local logs, Terminal one-shot run/result persistence, Codex Direct Work run/result persistence for the `agent-run` owner, retained proposal/review artifact paths, Git status reads, and Git local commit commands. Git status refresh is read-only and does not write repository root/status into storage; local commit results are returned to the Git widget and are not persisted as Git action artifacts yet. JDBC connector metadata stores masked/non-secret descriptors only and is removed with its owning Workspace. The storage layer is not wired to interactive terminal sessions, executable chat runtime, automatic Agent Queue dispatch/runtime, Template Library runtime, Git runtime beyond the narrow status/diff/local commit path, JDBC SQL execution, Terminal result monitoring, or arbitrary widget result monitoring.
+This storage layer is foundational only. It is wired through `hobit-app` and the Tauri workspace bridge for Workspace lifecycle, Workbench state loading, current widget insertion, Compatibility/Deprecated widget-local Notes state where present, workspace-local notes create/list/read/update operations, workspace-local JDBC connector metadata create/list/read/update operations, manual Agent Queue task create/list/read/update/assign/clear/start operations, persisted widget layout fields, workspace activity events, widget-local logs, Terminal one-shot run/result persistence, Codex Direct Work run/result persistence for the `agent-run` owner, retained proposal/review artifact paths, Git status reads, and Git local commit commands. Git status refresh is read-only and does not write repository root/status into storage; local commit results are returned to the Git widget and are not persisted as Git action artifacts yet. JDBC connector metadata stores masked/non-secret descriptors only and is removed with its owning Workspace. The storage layer is not wired to interactive terminal sessions, executable chat runtime, automatic Agent Queue dispatch/runtime, Template Library runtime, Git runtime beyond the narrow status/diff/local commit path, real external JDBC SQL execution, Terminal result monitoring, or arbitrary widget result monitoring.
 
 ## Current Application Service Milestone
 
@@ -578,8 +620,9 @@ This application layer is wired to the Tauri workspace bridge. It includes a
 bounded one-shot Terminal command orchestration path for persisted Terminal
 widget instances only, creating widget run/log/result records around the shared
 process adapter. It also validates explicit Terminal widget ownership for the
-desktop PTY session foundation; PTY process handles and session buffers are
-owned by desktop runtime state, not storage. It also includes one-shot and
+desktop PTY session foundation; live PTY backend support is currently
+Windows-only and non-Windows creation returns an unsupported-platform error.
+PTY process handles and session buffers are owned by desktop runtime state, not storage. It also includes one-shot and
 streaming Codex Direct Work orchestration paths for an allowed `agent-run`
 widget owner, creating widget run/log/result records around the `hobit-tools`
 Codex runners outside storage transactions and emitting Tauri stream events for
@@ -621,19 +664,24 @@ beyond explicit assigned-task starts, Template Library execution, Git behavior
 beyond manual status/diff review and selected-file local commit, or automatic
 agent runtime behavior.
 
-## Planned Notes Model
+## Current Notes Model Boundary
 
-Future notes work will support a workspace-local multi-note Notes product slice
-before visual overclaims: storage/API foundation first, then note list, selected
-note editor, search, pinning, and save/autosave state. Future Notebook may also
-support Markdown documents organized in folders with global and workspace-local
-scopes and render Markdown-adjacent fenced blocks such as Mermaid diagrams, but
-source text remains the source of truth and rendering must not execute commands,
-load remote assets by default, or mutate note content.
+Current Notes is a workspace-local multi-note widget surface. It uses
+workspace-local note records and Workspace Notes APIs for list, filter, create,
+select/read, edit title/body as plain source text, explicit save, and pin/unpin.
+Desktop/Tauri persists Notes through local SQLite-backed Workspace Notes APIs.
+Browser/Vite fallback keeps the widget insertable but reports unsupported
+runtime errors for Notes persistence reads and writes. The older widget-local
+draft state shaped as `{ "body": "..." }` is Compatibility/Deprecated for new
+product work.
 
-The current app has a Notes placeholder widget that saves and restores one
-widget-state draft shaped as `{ "body": "..." }`, plus Agent Executor, Agent
-Queue, Coordinator Chat, Database / JDBC, Runbook, Git, and Terminal widgets.
+Future Notebook may support richer text/doc structures and rendering, but that
+behavior is Deferred unless explicitly scoped. Source text must remain the
+durable source of truth, and future rendering must not execute commands, load
+remote assets by default, or mutate note content.
+
+The current app has Agent Executor, Agent Queue, Coordinator Chat, Database /
+JDBC, Runbook, Git, Terminal, and Notes widgets.
 Agent Executor keeps backend/Tauri Codex Direct Work run/result persistence for
 the existing `agent-run` owner and requires an explicit execution workspace
 path. Agent Queue has a preview manual task product UI
@@ -644,18 +692,20 @@ chat text, and an explicit approved-proposal bridge for creating draft Queue
 tasks and workspace-local Notes only. JDBC suggestions remain non-executing
 review/copy text, and Runbook has local current-session step state plus
 notes/evidence only. Database / JDBC can manage non-secret connector metadata
-only. The Git widget supports manual desktop status/diff review and explicit
+and perform bounded mock/safe read-only SQL validation/execution preview only.
+The Git widget supports manual desktop status/diff review and explicit
 selected-file local commit with operator confirmation for a transient explicit
 repository root. Terminal supports a visible desktop PTY session surface plus a
-collapsed legacy one-shot command fallback in the current frontend.
-Workspace-local notes storage/API and compact Notes product UI exist, but
-there is no Notebook tab model, text formatting tool surface, folder UI, Markdown editor,
-Markdown renderer, Mermaid or diagram renderer, rendered block preview system,
-autosave, sync, Knowledge ingestion flow, AI-in-Notes behavior, Agent Queue
-execution/response capture/validation, JDBC SQL execution, Template Library
-runtime, template storage/editing/request generation/response validation, Git
-behavior beyond status/diff review and selected-file local commit, or
-executable Coordinator runtime in the current repository.
+collapsed legacy one-shot command fallback in the current frontend, with live
+PTY backend support currently Windows-only.
+There is no Notebook tab model, text formatting tool surface, folder UI,
+Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block
+preview system, autosave, archive/delete UI, tags, sync, Knowledge ingestion
+flow, AI-in-Notes behavior, Agent Queue automatic execution/response
+capture/validation, real external JDBC SQL execution, Template Library runtime,
+template storage/editing/request generation/response validation, Git behavior
+beyond status/diff review and selected-file local commit, or executable
+Coordinator runtime in the current repository.
 
 ## Intended Repository Layout
 
