@@ -270,3 +270,23 @@ Queue task / Create Note performs only the reviewed local write, and JDBC
 suggestions stay copy-only. It uses mocked frontend actions shaped like
 backend-validated provider responses; use `smoke-coordinator-provider.mjs` for
 the real configured HTTP provider path against the local fake provider.
+
+### `smoke-jdbc-read-only-ui.mjs`
+
+Runs the mocked frontend Database / JDBC read-only UI smoke:
+
+```powershell
+node scripts/hobit/smoke-jdbc-read-only-ui.mjs
+node scripts/hobit/smoke-jdbc-read-only-ui.mjs --scenario valid
+node scripts/hobit/smoke-jdbc-read-only-ui.mjs --scenario validation
+node scripts/hobit/smoke-jdbc-read-only-ui.mjs --scenario caps
+```
+
+The script starts Vite, opens the committed JDBC smoke page in a local
+Chrome/Edge browser through Chrome DevTools Protocol, and clicks the real
+Database / JDBC widget controls. It verifies connector selection, read-only SQL
+validation, mock read-only execution, bounded result display, cap/error states,
+no-connector state, unsupported/browser fallback errors, and no Coordinator
+execution. It uses mocked frontend actions shaped like the mock/safe backend
+DTOs; it does not call Tauri, connect to databases, use credentials, execute
+SQL against external systems, or send results to Coordinator.

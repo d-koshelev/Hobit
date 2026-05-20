@@ -237,11 +237,11 @@ export function JdbcReadOnlyQueryPanel({
       <div className="jdbc-query-actions">
         <JdbcValidationStatus
           isValidationCurrent={isValidationCurrent}
-          validation={currentValidation}
+          validation={validationSnapshot?.validation}
         />
         <div className="jdbc-sql-actions">
           <Button
-            disabled={isValidating || isRunning || !trimmedSql}
+            disabled={isValidating || isRunning}
             onClick={() => void handleValidate()}
             variant="secondary"
           >
@@ -346,6 +346,7 @@ function JdbcReadOnlyQueryResultView({
     <div className="jdbc-result-shell">
       <div className="jdbc-result-meta">
         <Badge variant="success">Completed</Badge>
+        <span>{result.connectorDisplayName ?? result.connectorId}</span>
         <span>{result.statementKind ?? "read-only"}</span>
         <span>
           {result.returnedRowCount.toString()} of {result.rowCount.toString()} rows
