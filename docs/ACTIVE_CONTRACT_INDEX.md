@@ -27,6 +27,12 @@ amplification cleanup. AMP findings are not product contracts by themselves:
 current behavior still must be confirmed against code before contracts are
 changed or implementation follow-up work begins.
 
+`docs/CONTRACT_DRIFT_DECISION_MATRIX.md` is the Phase 1 stabilization decision
+document for remaining drift areas. It is not the source of truth for current
+widget behavior and is not a future product roadmap. It guides cleanup
+sequencing, scope boundaries, and follow-up task direction. Current widget
+behavior remains governed by `docs/CURRENT_WIDGET_SURFACE.md`.
+
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime
 behavior changes, or automatic agent orchestration changes.
@@ -34,6 +40,8 @@ behavior changes, or automatic agent orchestration changes.
 For Phase 1 cleanup work, read:
 
 - `docs/CURRENT_CODEBASE_STABILIZATION_PLAN.md`
+- `docs/CONTRACT_DRIFT_DECISION_MATRIX.md` when the task touches remaining
+  contract drift cleanup or follow-up sequencing
 - `docs/CURRENT_WIDGET_SURFACE.md`
 - `docs/CODE_ORGANIZATION.md`
 - `docs/ARCHITECTURE.md`

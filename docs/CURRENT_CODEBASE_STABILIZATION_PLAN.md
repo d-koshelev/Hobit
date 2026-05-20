@@ -90,6 +90,19 @@ Out of scope:
 - new runtime behavior
 - hidden automation changes
 
+## Contract Drift Decision Matrix
+
+`docs/CONTRACT_DRIFT_DECISION_MATRIX.md` records the Phase 1 decisions for the
+remaining contract drift areas. It is a stabilization decision document, not a
+current widget behavior contract or product roadmap.
+
+Status:
+
+- Contract drift decision matrix: completed / created.
+- Remaining follow-ups now have clearer decisions, scope boundaries, and
+  "must not do yet" constraints.
+- Current widget behavior remains governed by `docs/CURRENT_WIDGET_SURFACE.md`.
+
 # Current validation baseline
 
 Baseline recorded on 2026-05-20 after the Phase 1 P0 bootstrap fixes.
@@ -266,9 +279,19 @@ implementation changes.
    execution current Preview vs hidden/deferred, Terminal non-Windows catalog
    gating vs docs-only limitation, smoke HTML root cleanup, and deferred
    Coordinator / Queue / Executor cleanup.
-8. Add smoke checklist discipline.
-9. Start Notes-focused refactor.
-10. Then handle Coordinator / Queue / Executor.
+8. Create the Phase 1 contract drift decision matrix. Completed; see
+   `docs/CONTRACT_DRIFT_DECISION_MATRIX.md`.
+9. Agent Chat / Agent Monitoring compatibility alignment.
+10. JDBC Preview contract alignment.
+11. Terminal platform limitation decision confirmation.
+12. Smoke HTML root cleanup.
+13. Smoke checklist discipline.
+14. Feature-slice checklist.
+15. Phase 1 closeout.
+16. Notes UI/controller refactor.
+17. Notes dev-only memory API.
+18. WorkspaceApi / WidgetRenderProps / action bag cleanup.
+19. Coordinator / Queue / Executor naming and responsibility cleanup.
 
 Coordinator / Queue / Executor cleanup is intentionally deferred until current
 codebase cleanup and Notes stabilization work are complete, unless a task is
