@@ -170,13 +170,18 @@ explicitly approved. This contract does not implement a formatter.
 
 Default JDBC execution mode must be read-only.
 
-The first practical slice should allow only safe query forms such as:
+The first practical execution slice must start conservative. It should validate
+SQL before any runtime or sidecar call, and it must reject ambiguous input
+rather than trying to repair or reinterpret it.
+
+The first slice should allow only safe query forms such as:
 
 - `SELECT`
 - `WITH`
 - `SHOW`
 - `DESCRIBE`
-- `EXPLAIN`
+- `EXPLAIN` only when the implementation explicitly blocks `EXPLAIN ANALYZE`
+  or dialect-specific variants that may execute work beyond plan inspection
 
 The first slice should reject or block SQL forms such as:
 
@@ -200,6 +205,116 @@ before implementation. SQL classification must be conservative; ambiguous
 statements should require explicit rejection or a later stronger policy rather
 than executing silently.
 
+Additional first-slice validator rules:
+
+- Strip leading comments and whitespace only for classification.
+- Reject empty SQL.
+- Reject multiple statements until a stronger parser exists.
+- Reject semicolon-delimited batches even when each statement appears read-only.
+- Reject transaction control and session mutation keywords such as `BEGIN`,
+  `COMMIT`, `ROLLBACK`, `USE`, `LOCK`, `UNLOCK`, `VACUUM`, `ANALYZE`, and
+  `PRAGMA` unless a later dialect-specific policy explicitly allows them.
+- Reject SQL containing obvious file, program, extension, or privilege
+  operations.
+- Treat validation success as a precondition, not a guarantee of database
+  safety; connector-level read-only credentials or transaction mode should be
+  used when real execution exists.
+
+## First Read-Only Execution Slice
+
+The next implementation slice should add a backend-owned, widget-scoped
+read-only query foundation. It must be executable only from the Database / JDBC
+widget after visible operator review.
+
+Execution boundary:
+
+- The operator triggers execution from the JDBC widget.
+- The operator must see the selected connector, SQL text, validation state,
+  row limit, timeout, and risk notes before running.
+- Coordinator may suggest SQL text, but cannot execute it.
+- Coordinator provider requests must continue to use `allowed_tools: []`.
+- No provider, Queue, Agent Executor, Terminal, Git, Runbook, or hidden runtime
+  path may invoke JDBC execution.
+
+Connector boundary:
+
+- Use an explicit selected connector id.
+- Connector display metadata may be visible; raw credentials must remain
+  backend-only or unavailable.
+- If real credentials or sidecar execution are not ready, Block 260 should use
+  a mock/safe execution adapter that proves validation, DTOs, caps, and UI
+  behavior without opening a database connection.
+- Missing connector runtime or missing credentials should return a visible
+  `not_configured` or `unsupported` execution error, not a fake success.
+
+Minimal API shape for the first backend foundation:
+
+```text
+validate_jdbc_read_only_sql(request)
+  workspace_id
+  workbench_id
+  widget_instance_id
+  connector_id
+  sql
+  row_limit
+  timeout_ms
+  -> validation_status
+     statement_kind
+     normalized_preview
+     rejection_reason?
+     risk_notes[]
+
+execute_jdbc_read_only_query(request)
+  workspace_id
+  workbench_id
+  widget_instance_id
+  connector_id
+  sql
+  row_limit
+  timeout_ms
+  max_columns
+  max_cell_chars
+  max_result_bytes
+  -> status
+     connector_id
+     connector_display_name
+     statement_kind
+     columns[]
+     rows[][]
+     returned_row_count
+     total_row_count_known?
+     truncated_rows
+     truncated_columns
+     truncated_cells
+     truncated_bytes
+     duration_ms
+     sanitized_error?
+     no_secrets_returned
+     no_ai_context_shared
+```
+
+The API may expose separate app-service and Tauri DTO names, but the fields
+above are the minimum behavior contract. Result rows should be represented as
+display-safe scalar values; binary or driver-specific values must be converted
+to capped strings or returned as redacted placeholders.
+
+Minimal frontend shape for the first visible JDBC execution UI:
+
+- connector selector using existing connector metadata APIs
+- SQL textarea/editor
+- row limit and timeout controls with conservative defaults
+- validation status near the Run action
+- explicit `Run read-only query` button
+- result table/grid with column headers and compact rows
+- duration, returned row count, and truncation notices
+- sanitized error panel
+- no AI execution, no Coordinator execution, no schema crawler, and no result
+  sharing controls until a later Evidence/Sources or AI-context slice exists
+
+The first UI may be operationally simple. It should not show production-grade
+features such as saved query history, tabs, charts, schema browser, `EXPLAIN`
+visualization, AI analysis, or write-mode controls.
+
 ## Query Execution Limits
 
 The widget must not return unbounded result sets.
@@ -218,6 +333,28 @@ Mandatory execution limits:
 
 Limit values should be visible to the operator before execution and included
 in action proposals when Coordinator Chat requests a JDBC capability.
+
+Recommended first-slice defaults:
+
+- row limit: 100
+- maximum columns: 50
+- maximum cell length: 2,000 characters
+- maximum result bytes: 256 KiB
+- timeout: 10 seconds
+
+These values may be adjusted by implementation constraints, but the chosen
+defaults must remain conservative, visible, and tested. Large results should be
+rejected or truncated with explicit flags rather than streamed without bounds.
+
+Error handling:
+
+- Driver, network, timeout, validation, unsupported, and not-configured errors
+  must be distinct enough for the operator to understand what happened.
+- Error text must be sanitized before returning to frontend.
+- Errors must not include credentials, authorization headers, raw JDBC URLs,
+  environment variables, or unbounded driver output.
+- Query text may be shown back to the operator because the operator supplied it,
+  but it must not be logged or sent to AI by default.
 
 ## EXPLAIN Behavior
 
@@ -258,6 +395,11 @@ Results should show:
 Large results should be capped and must not be automatically sent to AI.
 Operator-visible truncation must make it clear that the result is a sample or
 bounded output rather than the complete dataset.
+
+For the first execution slice, results are session/UI state unless a later
+block explicitly adds widget run/result persistence. Do not add Evidence/Sources
+capture, AI context sharing, saved query history, or storage migrations as part
+of the first read-only execution foundation.
 
 ## AI SQL Assistance
 
@@ -312,6 +454,17 @@ Risk defaults:
 Coordinator can request these capabilities only through the JDBC widget
 boundary. It must not bypass connector selection, SQL approval, query limits,
 or result-sharing policy.
+
+Current Coordinator relationship for the first execution milestone:
+
+- Coordinator JDBC proposals remain non-executing SQL suggestion cards.
+- A later bridge may copy a reviewed SQL suggestion into the JDBC widget after
+  explicit operator action.
+- Coordinator must not run SQL, select connectors silently, inspect connector
+  metadata, read query results, or receive database errors as hidden context.
+- Provider requests must not include connector metadata, SQL results, schemas,
+  credentials, JDBC errors, or result samples unless a later approved
+  Evidence/Sources or context-sharing flow exists.
 
 ## Action Approval Model
 
@@ -454,14 +607,20 @@ AI interpretation is not evidence unless it is marked as AI interpretation.
 
 Recommended implementation slices:
 
-1. JDBC read-only query execution backend.
-2. JDBC result grid UI.
-3. SQL formatter.
-4. `EXPLAIN` backend/API.
-5. `EXPLAIN` UI.
-6. AI SQL review contract.
-7. Coordinator to JDBC read-only action proposal flow.
-8. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
+1. JDBC read-only backend foundation: SQL validator, mock/safe execution
+   adapter if real credentials are not ready, bounded result model, sanitized
+   errors, and no Coordinator execution.
+2. JDBC result UI: connector selector, SQL textarea, Run read-only query,
+   validation status, result grid, caps/truncation notices, and error panel.
+3. Real connector execution adapter after credential/runtime handling is
+   explicitly designed.
+4. SQL formatter.
+5. `EXPLAIN` backend/API with dialect-specific safety rules.
+6. `EXPLAIN` UI.
+7. AI SQL review contract.
+8. Coordinator to JDBC read-only action proposal/copy flow after JDBC
+   execution and result review exist.
+9. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
    foundation exists.
 
 Each slice must remain narrow and preserve the read-only, approval-aware,
