@@ -1,5 +1,3 @@
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::time::Duration;
 
 use hobit_app::{
@@ -10,15 +8,28 @@ use hobit_app::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+mod transport;
+pub(crate) use transport::{
+    CoordinatorHttpJsonProviderError, CoordinatorHttpJsonProviderErrorKind,
+    CoordinatorHttpJsonTransport, TcpCoordinatorHttpJsonTransport,
+};
+
 pub(crate) const COORDINATOR_HTTP_JSON_PROVIDER_KIND: &str = "hobit-http-json";
 
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_MILLIS: u64 = 30_000;
+const MIN_TIMEOUT_MILLIS: u64 = 1_000;
+const MAX_TIMEOUT_MILLIS: u64 = 120_000;
+const MAX_REQUEST_BODY_BYTES: usize = 512 * 1024;
+const MAX_RESPONSE_BODY_BYTES: usize = 512 * 1024;
 const REDACTED_PROVIDER_SECRET: &str = "[redacted-provider-secret]";
 
 pub(crate) struct CoordinatorHttpJsonProviderConfig {
     provider_kind: String,
     endpoint: String,
     api_key: String,
+    timeout: Duration,
+    max_request_body_bytes: usize,
+    max_response_body_bytes: usize,
 }
 
 impl CoordinatorHttpJsonProviderConfig {
@@ -31,7 +42,16 @@ impl CoordinatorHttpJsonProviderConfig {
             provider_kind: normalize_provider_kind(provider_kind.into()),
             endpoint: endpoint.into().trim().to_owned(),
             api_key: api_key.into().trim().to_owned(),
+            timeout: Duration::from_millis(DEFAULT_TIMEOUT_MILLIS),
+            max_request_body_bytes: MAX_REQUEST_BODY_BYTES,
+            max_response_body_bytes: MAX_RESPONSE_BODY_BYTES,
         }
+    }
+
+    pub(crate) fn with_timeout_millis(mut self, timeout_millis: u64) -> Self {
+        self.timeout =
+            Duration::from_millis(timeout_millis.clamp(MIN_TIMEOUT_MILLIS, MAX_TIMEOUT_MILLIS));
+        self
     }
 
     fn is_configured(&self) -> bool {
@@ -46,6 +66,9 @@ impl std::fmt::Debug for CoordinatorHttpJsonProviderConfig {
             .field("provider_kind", &self.provider_kind)
             .field("endpoint_configured", &(!self.endpoint.is_empty()))
             .field("api_key_configured", &(!self.api_key.is_empty()))
+            .field("timeout_millis", &self.timeout.as_millis())
+            .field("max_request_body_bytes", &self.max_request_body_bytes)
+            .field("max_response_body_bytes", &self.max_response_body_bytes)
             .finish()
     }
 }
@@ -92,15 +115,30 @@ impl<T: CoordinatorHttpJsonTransport> CoordinatorProviderAdapter
         }
 
         let body = coordinator_http_request_body(request).to_string();
+        if body.len() > self.config.max_request_body_bytes {
+            return CoordinatorProviderOutcome::RequestTooLarge {
+                message: "Coordinator provider request exceeded the configured size limit."
+                    .to_owned(),
+            };
+        }
+
         let response_body = match self.transport.post_json(
             &self.config.endpoint,
             &self.config.api_key,
             &body,
-            Duration::from_secs(DEFAULT_TIMEOUT_SECS),
+            self.config.timeout,
+            self.config.max_response_body_bytes,
         ) {
             Ok(response_body) => response_body,
-            Err(message) => return CoordinatorProviderOutcome::RequestFailed { message },
+            Err(error) => return provider_error_outcome(error),
         };
+
+        if response_body.len() > self.config.max_response_body_bytes {
+            return CoordinatorProviderOutcome::InvalidResponse {
+                message: "Coordinator provider response exceeded the configured size limit."
+                    .to_owned(),
+            };
+        }
 
         match coordinator_http_response_outcome(
             &response_body,
@@ -108,7 +146,7 @@ impl<T: CoordinatorHttpJsonTransport> CoordinatorProviderAdapter
             &self.config.api_key,
         ) {
             Ok(outcome) => outcome,
-            Err(message) => CoordinatorProviderOutcome::RequestFailed { message },
+            Err(error) => provider_error_outcome(error),
         }
     }
 }
@@ -119,35 +157,32 @@ pub(crate) fn is_supported_coordinator_provider_kind(provider_kind: &str) -> boo
         || normalized == EXTERNAL_COORDINATOR_PROVIDER_KIND
 }
 
-pub(crate) trait CoordinatorHttpJsonTransport {
-    fn post_json(
-        &self,
-        endpoint: &str,
-        api_key: &str,
-        body: &str,
-        timeout: Duration,
-    ) -> Result<String, String>;
-}
-
-pub(crate) struct TcpCoordinatorHttpJsonTransport;
-
-impl CoordinatorHttpJsonTransport for TcpCoordinatorHttpJsonTransport {
-    fn post_json(
-        &self,
-        endpoint: &str,
-        api_key: &str,
-        body: &str,
-        timeout: Duration,
-    ) -> Result<String, String> {
-        post_json(endpoint, api_key, body, timeout)
+fn provider_error_outcome(error: CoordinatorHttpJsonProviderError) -> CoordinatorProviderOutcome {
+    match error.kind {
+        CoordinatorHttpJsonProviderErrorKind::InvalidResponse => {
+            CoordinatorProviderOutcome::InvalidResponse {
+                message: error.message,
+            }
+        }
+        CoordinatorHttpJsonProviderErrorKind::NetworkFailure => {
+            CoordinatorProviderOutcome::NetworkFailure {
+                message: error.message,
+            }
+        }
+        CoordinatorHttpJsonProviderErrorKind::ProviderError => {
+            CoordinatorProviderOutcome::ProviderError {
+                message: error.message,
+            }
+        }
+        CoordinatorHttpJsonProviderErrorKind::Timeout => CoordinatorProviderOutcome::Timeout {
+            message: error.message,
+        },
+        CoordinatorHttpJsonProviderErrorKind::Unsupported => {
+            CoordinatorProviderOutcome::Unsupported {
+                message: error.message,
+            }
+        }
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct HttpEndpoint {
-    host: String,
-    port: u16,
-    path: String,
 }
 
 #[derive(Deserialize)]
@@ -244,14 +279,18 @@ fn coordinator_http_response_outcome(
     response_body: &str,
     request_id: &str,
     api_key: &str,
-) -> Result<CoordinatorProviderOutcome, String> {
+) -> Result<CoordinatorProviderOutcome, CoordinatorHttpJsonProviderError> {
     let payload = provider_payload_value(response_body)?;
     let envelope = serde_json::from_value::<ProviderResponseEnvelope>(payload).map_err(|_| {
-        "Coordinator provider response did not match the expected Hobit JSON shape.".to_owned()
+        CoordinatorHttpJsonProviderError::invalid_response(
+            "Coordinator provider response did not match the expected Hobit JSON shape.",
+        )
     })?;
 
     if envelope.assistant_text.trim().is_empty() {
-        return Err("Coordinator provider response did not include assistant_text.".to_owned());
+        return Err(CoordinatorHttpJsonProviderError::invalid_response(
+            "Coordinator provider response did not include assistant_text.",
+        ));
     }
 
     let assistant_text = redact_provider_secret(envelope.assistant_text, api_key);
@@ -272,9 +311,12 @@ fn coordinator_http_response_outcome(
     }
 }
 
-fn provider_payload_value(response_body: &str) -> Result<Value, String> {
-    let value = serde_json::from_str::<Value>(response_body)
-        .map_err(|_| "Coordinator provider response was not valid JSON.".to_owned())?;
+fn provider_payload_value(response_body: &str) -> Result<Value, CoordinatorHttpJsonProviderError> {
+    let value = serde_json::from_str::<Value>(response_body).map_err(|_| {
+        CoordinatorHttpJsonProviderError::invalid_response(
+            "Coordinator provider response was not valid JSON.",
+        )
+    })?;
 
     if value.get("assistant_text").is_some() {
         return Ok(value);
@@ -286,12 +328,14 @@ fn provider_payload_value(response_body: &str) -> Result<Value, String> {
         "/output/0/content/0/text",
     ] {
         if let Some(content) = value.pointer(pointer).and_then(Value::as_str) {
-            return serde_json::from_str::<Value>(content)
-                .or_else(|_| Ok(json!({ "assistant_text": content })));
+            return Ok(serde_json::from_str::<Value>(content)
+                .unwrap_or_else(|_| json!({ "assistant_text": content })));
         }
     }
 
-    Err("Coordinator provider response did not contain assistant text.".to_owned())
+    Err(CoordinatorHttpJsonProviderError::invalid_response(
+        "Coordinator provider response did not contain assistant text.",
+    ))
 }
 
 fn provider_draft_context(
@@ -331,145 +375,6 @@ fn draft_id(id: String, request_id: &str, index: usize) -> String {
         format!("{request_id}-provider-draft-{}", index + 1)
     } else {
         trimmed.to_owned()
-    }
-}
-
-fn post_json(
-    endpoint: &str,
-    api_key: &str,
-    body: &str,
-    timeout: Duration,
-) -> Result<String, String> {
-    let endpoint = parse_http_endpoint(endpoint)?;
-    let mut stream = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
-        .map_err(|error| format!("Coordinator provider connection failed: {error}"))?;
-    let timeout = Some(timeout);
-    stream
-        .set_read_timeout(timeout)
-        .map_err(|error| format!("Coordinator provider read timeout could not be set: {error}"))?;
-    stream
-        .set_write_timeout(timeout)
-        .map_err(|error| format!("Coordinator provider write timeout could not be set: {error}"))?;
-
-    let request = http_request(&endpoint, api_key, body);
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|error| format!("Coordinator provider request write failed: {error}"))?;
-
-    let mut response = Vec::new();
-    stream
-        .read_to_end(&mut response)
-        .map_err(|error| format!("Coordinator provider response read failed: {error}"))?;
-    parse_http_response(&String::from_utf8_lossy(&response))
-}
-
-fn http_request(endpoint: &HttpEndpoint, api_key: &str, body: &str) -> String {
-    let headers = [
-        format!("POST {} HTTP/1.1", endpoint.path),
-        format!("Host: {}", host_header(endpoint)),
-        "Content-Type: application/json".to_owned(),
-        "Accept: application/json".to_owned(),
-        "Connection: close".to_owned(),
-        format!("Authorization: Bearer {api_key}"),
-        format!("Content-Length: {}", body.len()),
-    ];
-
-    format!("{}\r\n\r\n{body}", headers.join("\r\n"))
-}
-
-fn parse_http_endpoint(endpoint: &str) -> Result<HttpEndpoint, String> {
-    if endpoint.starts_with("https://") {
-        return Err(
-            "HTTPS Coordinator provider endpoints need a TLS-enabled HTTP adapter. This slice supports explicit http:// endpoints only.".to_owned(),
-        );
-    }
-
-    let Some(rest) = endpoint.strip_prefix("http://") else {
-        return Err("HOBIT_COORDINATOR_PROVIDER_ENDPOINT must start with http://.".to_owned());
-    };
-    let (authority, path) = rest
-        .split_once('/')
-        .map(|(authority, path)| (authority, format!("/{path}")))
-        .unwrap_or((rest, "/".to_owned()));
-
-    if authority.is_empty() || authority.contains('@') {
-        return Err("Coordinator provider endpoint host is invalid.".to_owned());
-    }
-
-    let (host, port) = match authority.rsplit_once(':') {
-        Some((host, port)) => {
-            let port = port
-                .parse::<u16>()
-                .map_err(|_| "Coordinator provider endpoint port is invalid.".to_owned())?;
-            (host.to_owned(), port)
-        }
-        None => (authority.to_owned(), 80),
-    };
-
-    if host.is_empty() {
-        return Err("Coordinator provider endpoint host is invalid.".to_owned());
-    }
-
-    Ok(HttpEndpoint { host, port, path })
-}
-
-fn parse_http_response(response: &str) -> Result<String, String> {
-    let Some((header_text, body)) = response.split_once("\r\n\r\n") else {
-        return Err("Coordinator provider response was not valid HTTP.".to_owned());
-    };
-    let mut header_lines = header_text.lines();
-    let status_line = header_lines
-        .next()
-        .ok_or_else(|| "Coordinator provider response status was missing.".to_owned())?;
-    let status_code = status_line
-        .split_whitespace()
-        .nth(1)
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| "Coordinator provider response status was invalid.".to_owned())?;
-    let headers = header_lines.collect::<Vec<_>>();
-    let body = if headers.iter().any(|header| {
-        header
-            .to_ascii_lowercase()
-            .starts_with("transfer-encoding: chunked")
-    }) {
-        decode_chunked_body(body).unwrap_or_else(|| body.to_owned())
-    } else {
-        body.to_owned()
-    };
-
-    if !(200..300).contains(&status_code) {
-        return Err(format!(
-            "Coordinator provider returned HTTP status {status_code}."
-        ));
-    }
-
-    Ok(body)
-}
-
-fn decode_chunked_body(body: &str) -> Option<String> {
-    let mut decoded = String::new();
-    let mut remaining = body;
-
-    loop {
-        let (size_line, after_size) = remaining.split_once("\r\n")?;
-        let size = usize::from_str_radix(size_line.trim(), 16).ok()?;
-        if size == 0 {
-            return Some(decoded);
-        }
-        if after_size.len() < size + 2 {
-            return None;
-        }
-        let chunk = after_size.get(..size)?;
-        decoded.push_str(chunk);
-        remaining = after_size.get(size + 2..)?;
-    }
-}
-
-fn host_header(endpoint: &HttpEndpoint) -> String {
-    if endpoint.port == 80 {
-        endpoint.host.clone()
-    } else {
-        format!("{}:{}", endpoint.host, endpoint.port)
     }
 }
 

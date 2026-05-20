@@ -241,7 +241,9 @@ fn http_json_provider_failure_surfaces_without_serializing_secret() {
         ),
         RecordingTransport {
             captured: Rc::new(RefCell::new(None)),
-            response: Err("Coordinator provider returned HTTP status 500.".to_owned()),
+            response: Err(CoordinatorHttpJsonProviderError::provider_error(
+                "Coordinator provider returned HTTP status 500.",
+            )),
         },
     );
     let service = initialized_service();
@@ -260,13 +262,190 @@ fn http_json_provider_failure_surfaces_without_serializing_secret() {
     })
     .to_string();
 
-    assert_eq!(response.provider_status, "request_failed");
+    assert_eq!(response.provider_status, "provider_error");
     assert!(response
         .provider_error
         .as_deref()
         .unwrap_or_default()
         .contains("HTTP status 500"));
     assert!(!serialized.contains(secret));
+}
+
+#[test]
+fn http_json_provider_timeout_surfaces_as_visible_provider_error() {
+    let secret = "sk-timeout-provider-secret";
+    let captured = Rc::new(RefCell::new(None));
+    let provider = CoordinatorHttpJsonProviderAdapter::new_with_transport(
+        CoordinatorHttpJsonProviderConfig::new(
+            COORDINATOR_HTTP_JSON_PROVIDER_KIND,
+            "http://127.0.0.1/provider",
+            secret,
+        )
+        .with_timeout_millis(2_500),
+        RecordingTransport {
+            captured: captured.clone(),
+            response: Err(CoordinatorHttpJsonProviderError::timeout(
+                "Coordinator provider request timed out.",
+            )),
+        },
+    );
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+    let serialized = json!({
+        "assistant_text": response.assistant_text,
+        "provider_error": response.provider_error,
+    })
+    .to_string();
+
+    assert_eq!(response.provider_status, "timeout");
+    assert_eq!(
+        captured.borrow().as_ref().expect("captured").timeout,
+        std::time::Duration::from_millis(2_500)
+    );
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("timed out"));
+    assert!(!serialized.contains(secret));
+}
+
+#[test]
+fn http_json_provider_network_failure_surfaces_without_request_details() {
+    let secret = "sk-network-provider-secret";
+    let provider = CoordinatorHttpJsonProviderAdapter::new_with_transport(
+        CoordinatorHttpJsonProviderConfig::new(
+            COORDINATOR_HTTP_JSON_PROVIDER_KIND,
+            "http://127.0.0.1/provider",
+            secret,
+        ),
+        RecordingTransport {
+            captured: Rc::new(RefCell::new(None)),
+            response: Err(CoordinatorHttpJsonProviderError::network_failure(
+                "Coordinator provider connection failed.",
+            )),
+        },
+    );
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+    let serialized = json!({
+        "assistant_text": response.assistant_text,
+        "provider_error": response.provider_error,
+    })
+    .to_string();
+
+    assert_eq!(response.provider_status, "network_failure");
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("connection failed"));
+    assert!(!serialized.contains(secret));
+    assert!(!serialized.contains("operator_message"));
+    assert!(!serialized.contains("visible_conversation"));
+}
+
+#[test]
+fn http_json_provider_invalid_json_maps_to_invalid_response() {
+    let provider = provider_with_response(
+        "sk-invalid-json-secret",
+        "not json".to_owned(),
+        Rc::new(RefCell::new(None)),
+    );
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+
+    assert_eq!(response.provider_status, "invalid_response");
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("not valid JSON"));
+    assert!(response.allowed_tools.is_empty());
+}
+
+#[test]
+fn http_json_provider_oversized_response_is_rejected_safely() {
+    let secret = "sk-oversized-provider-secret";
+    let provider = provider_with_response(
+        secret,
+        "x".repeat(MAX_RESPONSE_BODY_BYTES + 1),
+        Rc::new(RefCell::new(None)),
+    );
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let response = service
+        .generate_coordinator_provider_response(
+            provider_input(&workspace_id, &workbench_id, &widget_id),
+            &provider,
+        )
+        .expect("provider response")
+        .expect("response");
+    let serialized = json!({
+        "assistant_text": response.assistant_text,
+        "provider_error": response.provider_error,
+    })
+    .to_string();
+
+    assert_eq!(response.provider_status, "invalid_response");
+    assert!(response
+        .provider_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("size limit"));
+    assert!(!serialized.contains(secret));
+}
+
+#[test]
+fn http_json_provider_oversized_request_is_rejected_before_transport() {
+    let captured = Rc::new(RefCell::new(None));
+    let provider = CoordinatorHttpJsonProviderAdapter::new_with_transport(
+        CoordinatorHttpJsonProviderConfig::new(
+            COORDINATOR_HTTP_JSON_PROVIDER_KIND,
+            "http://127.0.0.1/provider",
+            "sk-request-too-large-secret",
+        ),
+        RecordingTransport {
+            captured: captured.clone(),
+            response: Ok(json!({ "assistant_text": "Should not be called." }).to_string()),
+        },
+    );
+    let mut request = coordinator_request("Visible message.");
+    request.operator_message = "x".repeat(MAX_REQUEST_BODY_BYTES);
+
+    let outcome = provider.request_coordinator_response(&request);
+
+    assert!(captured.borrow().is_none());
+    assert!(matches!(
+        outcome,
+        CoordinatorProviderOutcome::RequestTooLarge { message }
+            if message.contains("size limit")
+    ));
 }
 
 #[test]
@@ -300,11 +479,12 @@ fn chat_completion_content_json_is_accepted_as_hobit_payload() {
 #[derive(Clone, Debug)]
 struct CapturedRequest {
     body: String,
+    timeout: std::time::Duration,
 }
 
 struct RecordingTransport {
     captured: Rc<RefCell<Option<CapturedRequest>>>,
-    response: Result<String, String>,
+    response: Result<String, CoordinatorHttpJsonProviderError>,
 }
 
 impl CoordinatorHttpJsonTransport for RecordingTransport {
@@ -314,9 +494,11 @@ impl CoordinatorHttpJsonTransport for RecordingTransport {
         _api_key: &str,
         body: &str,
         _timeout: std::time::Duration,
-    ) -> Result<String, String> {
+        _max_response_body_bytes: usize,
+    ) -> Result<String, CoordinatorHttpJsonProviderError> {
         *self.captured.borrow_mut() = Some(CapturedRequest {
             body: body.to_owned(),
+            timeout: _timeout,
         });
         self.response.clone()
     }

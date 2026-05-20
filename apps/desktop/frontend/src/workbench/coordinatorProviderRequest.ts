@@ -124,6 +124,26 @@ export function coordinatorProviderModeLabel(
     return "Configured provider unavailable";
   }
 
+  if (response.providerStatus === "timeout") {
+    return "Provider timeout";
+  }
+
+  if (response.providerStatus === "invalid_response") {
+    return "Invalid provider response";
+  }
+
+  if (response.providerStatus === "provider_error") {
+    return "Provider error";
+  }
+
+  if (response.providerStatus === "network_failure") {
+    return "Network failure";
+  }
+
+  if (response.providerStatus === "request_too_large") {
+    return "Request too large";
+  }
+
   return "Configured provider";
 }
 
@@ -152,18 +172,19 @@ export function coordinatorProviderResponseMeta(
   }.`;
 
   if (response.providerStatus !== "completed") {
-    const label =
-      response.providerStatus === "not_configured"
-        ? "Not configured"
-        : response.providerStatus === "unsupported"
-          ? "Unsupported"
-          : `${response.providerKind} ${response.providerStatus}`;
+    const label = coordinatorProviderStatusLabel(
+      response.providerStatus,
+      response.providerKind,
+    );
+    const isHardProviderFailure =
+      response.providerStatus === "provider_error" ||
+      response.providerStatus === "network_failure";
 
     return {
-      badgeVariant: "warning",
+      badgeVariant: isHardProviderFailure ? "error" : "warning",
       detail: `${response.providerError ?? "Provider did not complete."} ${contextSummary} Tools stayed disabled.`,
       label,
-      tone: "warning",
+      tone: isHardProviderFailure ? "error" : "warning",
     };
   }
 
@@ -175,4 +196,28 @@ export function coordinatorProviderResponseMeta(
     label: response.providerKind,
     tone: boundarySatisfied ? "success" : "warning",
   };
+}
+
+function coordinatorProviderStatusLabel(
+  providerStatus: string,
+  providerKind: string,
+) {
+  switch (providerStatus) {
+    case "not_configured":
+      return "Not configured";
+    case "unsupported":
+      return "Unsupported";
+    case "timeout":
+      return "Timeout";
+    case "invalid_response":
+      return "Invalid response";
+    case "provider_error":
+      return "Provider error";
+    case "network_failure":
+      return "Network failure";
+    case "request_too_large":
+      return "Request too large";
+    default:
+      return `${providerKind} ${providerStatus}`;
+  }
 }

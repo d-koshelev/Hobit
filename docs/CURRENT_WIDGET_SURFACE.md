@@ -195,10 +195,13 @@ future widget capability.
   provider response path in the Tauri desktop shell. Mock/local is the default
   provider. An explicit backend environment selection can choose the configured
   HTTP JSON provider. Missing endpoint/key reports not-configured, unsupported
-  provider kinds report unsupported, and configured provider failures are
-  visible. Requests include only the visible current-session chat transcript,
-  visible local proposal draft summaries when present, compact safety
-  instructions, and `allowed_tools: []`.
+  provider kinds report unsupported, and configured provider network failures,
+  timeouts, invalid responses, provider error statuses, and oversized
+  request/response failures are visible. Requests include only the visible
+  current-session chat transcript, visible local proposal draft summaries when
+  present, compact safety instructions, and `allowed_tools: []`. Provider
+  calls are bounded by backend timeout and body-size caps; provider cancellation
+  is not implemented yet.
 - The mock/local provider can return structured proposal drafts for create
   Agent Queue task, create Note, and JDBC SQL suggestion only. Drafts are
   validated before rendering; unsupported or unsafe drafts are rejected or

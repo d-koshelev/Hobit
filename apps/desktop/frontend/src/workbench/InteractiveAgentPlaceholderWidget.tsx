@@ -530,6 +530,11 @@ export function InteractiveAgentPlaceholderWidget({
                     ? "warning"
                     : providerModeLabel === "Provider error"
                       ? "error"
+                      : providerModeLabel === "Provider timeout" ||
+                          providerModeLabel === "Invalid provider response" ||
+                          providerModeLabel === "Network failure" ||
+                          providerModeLabel === "Request too large"
+                        ? "warning"
                       : providerModeLabel === "Not configured" ||
                           providerModeLabel.includes("unavailable")
                         ? "warning"

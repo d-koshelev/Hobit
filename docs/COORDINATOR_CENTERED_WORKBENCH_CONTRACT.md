@@ -432,11 +432,13 @@ proposals:
   provider slice.
 
 Provider calls must be visible user-triggered Coordinator Chat actions. Widget
-changes must not trigger background provider calls. Provider errors, parse
-failures, not-configured external provider selection, and unsupported
-configuration must be visible. External provider credentials are backend-owned
-configuration only and must never appear in prompts, logs, frontend state, or
-proposal cards.
+changes must not trigger background provider calls. Provider errors, network
+failures, timeouts, invalid responses, not-configured external provider
+selection, and unsupported configuration must be visible. External provider
+credentials are backend-owned configuration only and must never appear in
+prompts, logs, frontend state, or proposal cards. Current configured HTTP JSON
+provider calls are bounded by backend timeout and request/response size caps;
+provider cancellation remains future work until the runtime supports it.
 
 The detailed first-provider boundary is defined in
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`.

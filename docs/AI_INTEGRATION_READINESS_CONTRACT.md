@@ -40,7 +40,8 @@ Coordinator Chat currently has:
 - backend-owned mock/local structured proposal drafts with validation before
   rendering
 - backend-selected configured HTTP JSON provider path that can report
-  not-configured, unsupported, failed, or completed state
+  not-configured, unsupported, network failure, timeout, invalid response,
+  provider error, request-too-large, failed, or completed state
 - no hidden context access
 - no widget capability runtime
 - no provider credentials in frontend state, prompts, logs, proposal cards, or
@@ -89,6 +90,13 @@ instructions, and `allowed_tools: []`. The API key is used only as a backend
 authorization header and is not serialized into the request body, frontend DTO,
 prompt text, logs, proposal cards, or docs examples. HTTPS/direct vendor SDK
 support and provider settings UI remain future work.
+
+The configured HTTP JSON provider uses a backend request timeout, configured by
+`HOBIT_COORDINATOR_PROVIDER_TIMEOUT_MS` and clamped to a safe range. Request and
+response bodies are bounded by backend caps so malformed or oversized provider
+traffic surfaces as visible provider errors instead of unbounded memory growth.
+Provider cancellation is not implemented in the current blocking HTTP adapter;
+the UI must not show fake cancellation controls for provider calls.
 
 The configured provider may return Hobit's JSON response shape directly:
 
@@ -283,6 +291,9 @@ Runtime expectations for future implementation:
 - Provider errors, parse failures, timeouts, cancellation, and unsupported
   configuration must be visible in Coordinator Chat.
 - Provider calls should be cancellable when the runtime supports cancellation.
+- The current blocking HTTP JSON adapter does not yet support provider
+  cancellation. Timeout and visible error reporting are the current hardening
+  boundary.
 - Provider results should be traceable to the triggering visible chat message.
 - Safe operational metadata may be stored later, but raw provider metadata must
   not include secrets, headers, credentials, environment values, or unsafe

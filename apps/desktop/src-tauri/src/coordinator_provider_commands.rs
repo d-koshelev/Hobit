@@ -86,6 +86,7 @@ fn coordinator_provider_config_from_env() -> CoordinatorProviderCommandConfig {
 
     let endpoint = env_value("HOBIT_COORDINATOR_PROVIDER_ENDPOINT");
     let api_key = env_value("HOBIT_COORDINATOR_PROVIDER_API_KEY");
+    let timeout_millis = env_timeout_millis();
     let provider_kind = env_value("HOBIT_COORDINATOR_PROVIDER_KIND")
         .unwrap_or_else(|| EXTERNAL_COORDINATOR_PROVIDER_KIND.to_owned());
     let external_config = ExternalCoordinatorProviderConfig::new(
@@ -104,11 +105,10 @@ fn coordinator_provider_config_from_env() -> CoordinatorProviderCommandConfig {
         );
     }
 
-    CoordinatorProviderCommandConfig::HttpJson(CoordinatorHttpJsonProviderConfig::new(
-        external_config.provider_kind,
-        endpoint,
-        api_key,
-    ))
+    CoordinatorProviderCommandConfig::HttpJson(
+        CoordinatorHttpJsonProviderConfig::new(external_config.provider_kind, endpoint, api_key)
+            .with_timeout_millis(timeout_millis),
+    )
 }
 
 fn is_external_provider_mode(mode: &str) -> bool {
@@ -123,6 +123,12 @@ fn env_value(name: &str) -> Option<String> {
         .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
+}
+
+fn env_timeout_millis() -> u64 {
+    env_value("HOBIT_COORDINATOR_PROVIDER_TIMEOUT_MS")
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(30_000)
 }
 
 fn workspace_service(db_path: &Path) -> Result<WorkspaceService, String> {

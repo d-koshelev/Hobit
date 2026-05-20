@@ -15,8 +15,13 @@ use super::{
 
 const MOCK_COORDINATOR_PROVIDER_KIND: &str = "mock-local";
 const PROVIDER_STATUS_COMPLETED: &str = "completed";
+const PROVIDER_STATUS_INVALID_RESPONSE: &str = "invalid_response";
+const PROVIDER_STATUS_NETWORK_FAILURE: &str = "network_failure";
 const PROVIDER_STATUS_NOT_CONFIGURED: &str = "not_configured";
+const PROVIDER_STATUS_PROVIDER_ERROR: &str = "provider_error";
 const PROVIDER_STATUS_REQUEST_FAILED: &str = "request_failed";
+const PROVIDER_STATUS_REQUEST_TOO_LARGE: &str = "request_too_large";
+const PROVIDER_STATUS_TIMEOUT: &str = "timeout";
 const PROVIDER_STATUS_UNSUPPORTED: &str = "unsupported";
 const MAX_OPERATOR_MESSAGE_CHARS: usize = 4_000;
 const MAX_VISIBLE_CONVERSATION_MESSAGES: usize = 24;
@@ -219,6 +224,36 @@ fn provider_response(
         CoordinatorProviderOutcome::RequestFailed { message } => (
             "Coordinator provider failed before producing a response.".to_owned(),
             PROVIDER_STATUS_REQUEST_FAILED.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::NetworkFailure { message } => (
+            "Coordinator provider could not be reached.".to_owned(),
+            PROVIDER_STATUS_NETWORK_FAILURE.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::Timeout { message } => (
+            "Coordinator provider timed out before producing a response.".to_owned(),
+            PROVIDER_STATUS_TIMEOUT.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::InvalidResponse { message } => (
+            "Coordinator provider returned an invalid response.".to_owned(),
+            PROVIDER_STATUS_INVALID_RESPONSE.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::ProviderError { message } => (
+            "Coordinator provider returned an error status.".to_owned(),
+            PROVIDER_STATUS_PROVIDER_ERROR.to_owned(),
+            Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
+            Vec::new(),
+        ),
+        CoordinatorProviderOutcome::RequestTooLarge { message } => (
+            "Coordinator provider request was too large to send.".to_owned(),
+            PROVIDER_STATUS_REQUEST_TOO_LARGE.to_owned(),
             Some(truncate_chars(message, MAX_VISIBLE_MESSAGE_CHARS)),
             Vec::new(),
         ),

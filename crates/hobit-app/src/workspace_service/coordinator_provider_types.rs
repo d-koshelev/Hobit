@@ -66,6 +66,21 @@ pub enum CoordinatorProviderOutcome {
     RequestFailed {
         message: String,
     },
+    NetworkFailure {
+        message: String,
+    },
+    Timeout {
+        message: String,
+    },
+    InvalidResponse {
+        message: String,
+    },
+    ProviderError {
+        message: String,
+    },
+    RequestTooLarge {
+        message: String,
+    },
     NotConfigured {
         message: String,
     },

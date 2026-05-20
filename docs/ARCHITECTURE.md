@@ -37,6 +37,10 @@ safe structured proposal drafts as review cards only. An explicitly configured
 HTTP JSON provider can be selected from backend environment configuration and
 can call a configured `http://` endpoint without exposing credential values to
 frontend state, prompts, logs, proposal cards, or serialized responses. A
+backend timeout, safe body-size caps, and normalized provider statuses surface
+network failures, timeouts, invalid responses, provider error statuses, and
+oversized traffic visibly. Provider cancellation is not implemented yet for
+the blocking HTTP JSON adapter. A
 deterministic frontend parser can generate the safe local proposal types from
 explicit operator chat text only. An approved
 create-Agent-Queue-task proposal can create a draft workspace-scoped Queue task
