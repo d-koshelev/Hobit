@@ -11,6 +11,10 @@ widget renames, persistence migrations, or new widgets.
 
 Contract-reading navigation is defined in
 `docs/ACTIVE_CONTRACT_INDEX.md`.
+Host/deployment architecture guardrails are defined in
+`docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md`; this widget
+inventory does not add server, enterprise, or shared knowledge runtime
+behavior.
 
 ## Status Model
 

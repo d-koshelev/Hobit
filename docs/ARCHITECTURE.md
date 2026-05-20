@@ -14,6 +14,11 @@ Monitoring / proposal-era API compatibility status, defer to
 conflicts with those sources, treat the conflicting Architecture section as
 stale unless the current task explicitly says otherwise.
 
+For desktop-first host boundaries and future server-ready guardrails, see
+`docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md`. The current
+implementation remains desktop/Tauri-hosted only; no server host, enterprise
+permission layer, or shared knowledge runtime exists today.
+
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
@@ -98,6 +103,12 @@ index, `CURRENT_WIDGET_SURFACE.md`, or
 update or report it.
 
 `PRODUCT_POSITIONING.md` defines Hobit's core positioning as an operator-controlled AI Workbench for precise, fast, and efficient work with AI agents. Future architecture must not drift toward a generic hidden automation or agent-runner system.
+
+`DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md` defines Hobit's
+desktop-first, server-ready architecture guardrails. It treats Tauri as the
+current host/transport bridge, keeps product logic behind reusable application
+service, adapter, capability, artifact, and event boundaries, and does not
+implement a server runtime or enterprise layer.
 
 `DESIGN_SYSTEM_CONTRACT.md` defines the base visual language for future frontend and widget work.
 
@@ -203,10 +214,11 @@ Agent Executor Direct Work ownership, and no automatic dispatch, scheduler,
 Terminal launch, auto-commit, push, or hidden execution. No implementation is
 added by that contract.
 
-`QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` defines the Planned Queue item
-`executionPolicy` model and future Sequential Queue Runner semantics. It is
-not current implementation, does not add scheduler behavior, and does not
-override the current manual Queue behavior in `CURRENT_WIDGET_SURFACE.md`.
+`QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` defines the Queue item
+`executionPolicy` model and Sequential Queue Runner semantics. The current
+implementation includes a visible frontend-driven, current-session-only
+Sequential Queue Runner, not a durable backend scheduler, and it remains
+bounded by `CURRENT_WIDGET_SURFACE.md`.
 
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` now remains compatibility context for
 the existing Interactive Agent widget id and local chat foundation. Near-term

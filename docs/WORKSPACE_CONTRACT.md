@@ -112,14 +112,37 @@ Implemented foundation:
 - The current default Workbench has zero real widget instances.
 - The current product opens one selected Workspace into one rendered Workbench surface at a time. Full multi-open Workspace UI, Workspace tabs/sidebar, separate Workspace windows, and mature multiple-Workbench UI for one Workspace are not implemented.
 - The Widget Catalog can insert Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes as persisted WidgetInstances. Coordinator Chat uses the existing `interactive-agent` id/component for compatibility, and Agent Executor uses the existing `agent-run` id for compatibility. Retired Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces are not current catalog surfaces.
-- The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`. Workspace-local notes storage/API foundation exists for create/list/read/update notes, but the full Notes product UI/document model is not implemented.
+- The Notes widget supports current workspace-local list, filter, create,
+  select/read, edit, explicit save, and pin flows through Workspace Notes APIs.
+  Desktop/Tauri persists Notes through local SQLite-backed Workspace Notes
+  APIs. Browser/Vite development mode uses a frontend-only, non-persistent
+  in-memory Notes API for UI iteration, while non-dev browser fallback reports
+  unsupported-runtime errors for Notes persistence. The older widget-local
+  draft state shaped as `{ "body": "..." }` is Compatibility/Deprecated for
+  new work. Full Notebook/document/knowledge behavior is not implemented.
 - The Terminal widget has a desktop-only PTY-first manual shell surface for persisted Terminal widget instances. It uses explicit shell executable, optional argv, explicit execution workspace / working directory, bounded session-only output, stdin send, resize, Stop, Kill, and Close through the Tauri PTY backend. The legacy one-shot command runner remains available only as a collapsed fallback with explicit program + argv + working directory, widget run/log/result records, and final stdout/stderr output. Terminal tabs, split panes, persistent command history, persistent transcripts, Agent-triggered execution, Queue-triggered execution, Coordinator control, and Script Runner behavior are not implemented.
 - Direct Work / Codex has a minimal frontend launch panel and backend/Tauri one-shot and streaming commands for explicit Workspace, Workbench, owning widget instance, Codex executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps. The compatibility field remains `repo_root` and currently expects an existing repository or local project folder. Scratch execution workspace support is not implemented and must not default to user home. It currently allows the existing `agent-run` widget definition to own the persisted Direct Work run/log/result artifacts. On Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell.
 - The Workbench top bar includes a compact global activity/idle indicator. Current implementation is frontend/current-session only: it shows no active local runs by default, reflects Terminal one-shot fallback commands and Direct Work runs started from the current UI session while they are running, and can show an attention state after a failed or timed-out current-session request. It does not poll persisted runs, observe background work, monitor external processes, or imply Agent Queue/Agent runtime execution exists.
 - Coordinator Chat is the current user-facing chat/planning surface. It uses the existing `interactive-agent` id/component, keeps chat in current-session frontend state, and can request backend-owned mock/local provider responses or a configured HTTP JSON provider response from visible chat context only with `allowed_tools: []`. Provider proposal drafts are validated before rendering. Missing external config surfaces not-configured, unsupported provider kinds surface unsupported, and configured provider failures surface visibly without frontend-visible credentials. Coordinator Chat does not execute widget tools, persist chat sessions, read hidden context, create Queue tasks without explicit approved proposal handoff, launch Agent Executor, run SQL, mutate Git/files, or run Terminal commands. Older Agent Chat proposal-only AI artifact paths remain compatibility/reference paths, not the current catalog surface.
 - Agent Executor is the current execution surface using the existing `agent-run` definition id for compatibility. It owns Direct Work runs, live logs, final result, diff/validation/history surfaces, and stop/cancel behavior. Older Agent Monitoring proposal-detail paths remain retained compatibility/reference paths, not the current catalog surface.
-- The Agent Queue preview supports manual Workspace-scoped task create/list/read/update, visible Queue-to-Executor assignment, explicit assigned-task start in its assigned Agent Executor, current-session handoff, and final-status auto-refresh. It does not auto-dispatch, schedule, approve/apply proposals, launch Terminal, mutate Git/Notes/files, automatically accept work, or capture responses outside normal Agent Executor artifacts.
-- Database / JDBC is a Preview connector metadata surface. It can create/list/read/update non-secret connector metadata only. It does not collect credentials, store passwords or tokens, test connections, run SQL, run `EXPLAIN`, format SQL, show real results, call AI, or provide Coordinator tool execution.
+- The Agent Queue preview supports manual Workspace-scoped task
+  create/list/read/update, visible Queue-to-Executor assignment, explicit
+  assigned-task start in its assigned Agent Executor, current-session handoff,
+  final-status auto-refresh, `executionPolicy` fields, and a visible
+  frontend-driven Sequential Queue Runner for `manual`, `auto`, and
+  `after_previous_success` policy behavior. The runner is current-session-only
+  frontend behavior, not a durable backend scheduler. Agent Queue does not
+  provide durable scheduling, hidden auto-dispatch, approve/apply proposal
+  behavior, Terminal launch, Git/Notes/file mutation, automatic acceptance, or
+  response capture outside normal Agent Executor artifacts.
+- Database / JDBC is a Preview connector metadata and bounded mock/safe
+  read-only query surface. It can create/list/read/update non-secret connector
+  metadata, validate conservative read-only SQL, apply row/timeout caps, and
+  render deterministic bounded mock results or sanitized validation/runtime
+  errors. It does not collect credentials, store passwords or tokens, test real
+  database connections, run SQL against external systems, run `EXPLAIN`, format
+  SQL, show real external results, call AI, or provide Coordinator tool
+  execution.
 - Template Library is not a current catalog surface. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution remain deferred.
 - The Git widget has a transient explicit repository-root input. In the Tauri
   desktop path, it can manually refresh a read-only Git status/diff snapshot
@@ -143,7 +166,9 @@ Not implemented yet:
 - widget runtime reconstruction
 - Workspace deletion undo/restore or bulk deletion
 - real capability widget insertion beyond Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes
-- interactive Terminal, Agent CLI, executable operational agent chat, or other capability widgets
+- Terminal tabs/splits/history, non-Windows live PTY support, Agent CLI,
+  executable operational agent chat, or other capability widgets beyond the
+  current manual Terminal surface
 - Dock, widget presence zones beyond canvas/floating, and Full/Compact/Indicator view mode behavior
 - full drag-and-drop layout editing
 - floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, snapping, collision detection, auto-reflow, and freeform layout editing
@@ -333,7 +358,7 @@ Future mobile or server-backed UI may list multiple Workspaces and their Agent Q
 
 Mobile should act as a remote operator console across Workspaces, not as a context mixer. Opening a Queue Item, Agent Monitoring view, Git review, note, artifact, or decision from mobile/server UI must clearly show which Workspace it belongs to.
 
-This is future product direction only. Mobile UI, server sync, multi-user operation, and remote execution are not implemented.
+This is future product direction only. Mobile UI, server sync, multi-user operation, and remote execution are not implemented. Desktop-first, server-ready architecture guardrails are defined in `docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md`.
 
 ## WorkspaceSession
 

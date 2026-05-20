@@ -158,6 +158,10 @@ unless the task explicitly requests it.
   boundaries, and persistence-scope decisions.
 - `docs/CODE_ORGANIZATION_CONTRACT.md` - read for code structure, module
   splits, and file-size/refactor guidance.
+- `docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md` - read for
+  deployment-host boundaries, future server-ready architecture guardrails,
+  runtime adapter rules, artifact/event/audit readiness, and
+  Knowledge/Skills/Evidence/Artifact separation.
 - `docs/PRODUCT_POSITIONING.md` - read for product positioning and to prevent
   drift into hidden automation or a generic script runner.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - read for frontend UI, widget layout,
@@ -188,11 +192,13 @@ unless the task explicitly requests it.
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
   task in its assigned Executor.
-- `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` - Planned Queue item
-  `executionPolicy` naming, automatic/manual start semantics, and future
-  Sequential Queue Runner behavior. It is not current implementation;
-  `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for current
-  manual Queue behavior.
+- `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` - Queue item
+  `executionPolicy` naming and Sequential Queue Runner semantics. Current
+  implementation includes a visible frontend-driven, current-session-only
+  Sequential Queue Runner with `manual`, `auto`, and
+  `after_previous_success` policy behavior. It is not a durable backend
+  scheduler; `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for
+  current Queue behavior.
 
 ### Git
 
