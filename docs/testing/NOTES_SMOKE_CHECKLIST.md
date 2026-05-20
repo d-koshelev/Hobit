@@ -32,9 +32,28 @@ available.
 - [ ] Confirm the saved note title/body/pinned state persists through the
   SQLite-backed Workspace Notes APIs.
 
-## Browser / Vite Fallback Current Behavior
+## Browser / Vite Dev Memory Current Behavior
 
-Use this checklist only for browser/Vite fallback behavior.
+Use this checklist only for browser/Vite development fallback behavior.
+
+- [ ] Open the Workbench through the in-memory Workspace fallback.
+- [ ] Add or open the Notes widget.
+- [ ] Confirm the widget remains insertable.
+- [ ] Browser/dev mode can create, list, select/get, and update Notes in
+  memory.
+- [ ] Use frontend filter/search across loaded in-memory note title/body.
+- [ ] Pin or unpin the selected note through the pinned control and explicit
+  save.
+- [ ] Confirm the in-memory list sorts pinned notes first, then recently
+  updated notes.
+- [ ] Reloading the browser page loses in-memory Notes unless a later approved
+  task adds persistence.
+- [ ] Do not treat browser/Vite development memory as persistent Notes
+  behavior.
+
+## Browser / Production Unsupported Fallback Current Behavior
+
+Use this checklist only for non-dev browser fallback behavior.
 
 - [ ] Open the Workbench through the in-memory Workspace fallback.
 - [ ] Add or open the Notes widget.
@@ -42,18 +61,6 @@ Use this checklist only for browser/Vite fallback behavior.
 - [ ] Confirm Notes persistence reads/writes surface visible
   unsupported-runtime errors.
 - [ ] Do not treat browser fallback as persistent Notes behavior.
-
-## Planned Browser / Dev Memory Smoke
-
-This section is not current smoke until a later task implements the decision in
-`docs/NOTES_DEV_MEMORY_API_DECISION.md`.
-
-- [ ] Browser/dev mode can create, list, select/get, and update Notes in
-  memory.
-- [ ] The UI or exposed status makes dev-only/non-persistent behavior clear.
-- [ ] Reloading the browser page loses in-memory Notes unless a later approved
-  task adds persistence.
-- [ ] Desktop/Tauri Notes persistence smoke remains unchanged.
 
 ## Deferred / Not Current
 

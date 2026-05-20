@@ -2,7 +2,7 @@
 
 ## Contract / Decision Header
 
-Decision status: Proposed for Phase 2
+Decision status: Implemented for Phase 2 dev/browser fallback
 
 Decision area: Notes browser/dev fallback
 
@@ -61,13 +61,23 @@ memory behavior. Keep production/Tauri Notes persistence unchanged. Keep
 unsupported-runtime behavior available where appropriate if the app is not in a
 dev/browser memory mode.
 
-This decision does not implement the memory API. Until an implementation lands,
-the current browser/Vite fallback remains unsupported-runtime for Notes
-persistence reads and writes.
+This decision is implemented for browser/Vite development only. The
+implementation is frontend-only, in-memory, and non-persistent. It does not
+change desktop/Tauri persistence or add production browser persistence.
 
 ## Implementation Boundaries
 
-Allowed in an implementation follow-up:
+Implemented behavior:
+
+- Browser/Vite development mode can create, list, get/select, and update
+  workspace-local Notes in frontend memory.
+- Notes are keyed by Workspace id and reset on page reload.
+- The memory fallback preserves the current title, body, pinned, archived,
+  createdAt, and updatedAt frontend shape.
+- Tauri desktop continues to use SQLite-backed Workspace Notes APIs.
+- Non-dev browser fallback keeps unsupported-runtime Notes persistence errors.
+
+Allowed in this implementation boundary:
 
 - Add a frontend-only memory Notes API for browser/dev mode.
 - Support only current Notes behavior:
@@ -96,7 +106,9 @@ Not allowed:
 - no WorkspaceApi split unless separately scoped
 - no WidgetRenderProps/action bag cleanup in the implementation task
 
-## Future Implementation Acceptance Criteria
+## Implementation Acceptance Criteria
+
+Implementation status: satisfied for the Phase 2 dev/browser memory API slice.
 
 - Browser/dev mode can create/list/get/update notes in memory.
 - Memory Notes behavior is clearly dev-only/non-persistent.
@@ -118,14 +130,11 @@ Current:
 
 - Desktop/Tauri Notes persistence through local SQLite-backed Workspace Notes
   APIs.
-- Browser/Vite fallback unsupported-runtime behavior for Notes persistence
-  reads and writes.
-
-Planned:
-
 - Dev-only frontend memory Notes API for browser/Vite development, limited to
   the current create/list/get/update Notes behavior and non-persistent across
   reloads.
+- Non-dev browser fallback unsupported-runtime behavior for Notes persistence
+  reads and writes.
 
 Deferred:
 

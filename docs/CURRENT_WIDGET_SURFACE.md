@@ -113,11 +113,13 @@ and component keys may still appear in code and persistence.
   edit, explicit save, and pin flows through workspace Notes APIs when
   available.
 - Desktop/Tauri persists Notes through local SQLite-backed Workspace Notes
-  APIs. Browser/Vite fallback keeps the widget insertable but returns visible
-  unsupported-runtime errors for Notes persistence reads and writes.
-- `docs/NOTES_DEV_MEMORY_API_DECISION.md` proposes a Phase 2 dev-only
-  in-memory browser fallback for Notes UI iteration. It is Planned decision
-  scope only and is not current product persistence until implemented.
+  APIs. Browser/Vite development mode uses a frontend-only, non-persistent
+  in-memory Notes API for create/list/read/update UI iteration. Non-dev
+  browser fallback keeps visible unsupported-runtime errors for Notes
+  persistence reads and writes.
+- `docs/NOTES_DEV_MEMORY_API_DECISION.md` documents the implemented Phase 2
+  dev-only in-memory browser fallback boundary. It is not production browser
+  persistence.
 - Notes stores source text fields as plain title/body/pinned data. It does not
   render a Notebook document model.
 - `docs/NOTES_WIDGET_CONTRACT.md` is authoritative for the current Notes widget

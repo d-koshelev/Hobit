@@ -86,7 +86,11 @@ Current storage/API behavior:
   create/list/read/update operations.
 - Notes are scoped to one Workspace.
 - Workspace deletion deletes that Workspace's workspace-local notes.
-- Browser/Vite fallback keeps the widget insertable through the in-memory
+- Browser/Vite development mode uses a frontend-only, non-persistent
+  in-memory Notes API for create/list/read/update UI iteration.
+- Browser/Vite development memory Notes are keyed by Workspace id and reset on
+  page reload.
+- Non-dev browser fallback keeps the widget insertable through the in-memory
   Workbench fallback, but Workspace Notes persistence is unsupported there and
   note create/list/read/update calls return visible unsupported-runtime errors.
 
@@ -167,9 +171,6 @@ Planned work may include:
 
 - focused Notes smoke checklist coverage
 - Notes UI/controller refactor without behavior change
-- clearer browser/dev memory Notes API support if explicitly scoped; the Phase
-  2 decision is `docs/NOTES_DEV_MEMORY_API_DECISION.md` and remains Planned
-  until implemented
 - explicit archive/delete decisions
 - explicit autosave decisions
 - UI polish for search, pinning, empty states, and save states

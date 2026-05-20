@@ -8,7 +8,7 @@ import {
   createAgentQueueTask,
   createGitCommit,
   createJdbcConnector,
-  createWorkspaceNote,
+  createWorkspaceNote as unsupportedCreateWorkspaceNote,
   deleteWidgetInstanceFromWorkbench,
   deleteWorkspace,
   executeJdbcReadOnlyQuery,
@@ -23,13 +23,13 @@ import {
   getGitRepositoryStatus,
   getJdbcConnector,
   getTerminalPtySession,
-  getWorkspaceNote,
+  getWorkspaceNote as unsupportedGetWorkspaceNote,
   killTerminalPtySession,
   listAgentExecutorRuns,
   listAgentQueueTasks,
   listJdbcConnectors,
   listTerminalPtySessions,
-  listWorkspaceNotes,
+  listWorkspaceNotes as unsupportedListWorkspaceNotes,
   listenToDirectWorkStreamEvents,
   persistAgentChatProposal,
   resizeTerminalPtySession,
@@ -41,10 +41,16 @@ import {
   stopTerminalPtySession,
   updateAgentQueueTask,
   updateJdbcConnector,
-  updateWorkspaceNote,
+  updateWorkspaceNote as unsupportedUpdateWorkspaceNote,
   validateJdbcReadOnlySql,
   writeTerminalPtySession,
 } from "./memoryUnsupportedWorkspaceApi";
+import {
+  createWorkspaceNote as createMemoryWorkspaceNote,
+  getWorkspaceNote as getMemoryWorkspaceNote,
+  listWorkspaceNotes as listMemoryWorkspaceNotes,
+  updateWorkspaceNote as updateMemoryWorkspaceNote,
+} from "./memoryWorkspaceNotesApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
@@ -66,6 +72,19 @@ const AGENT_QUEUE_ALREADY_EXISTS_MESSAGE =
 const PLACEHOLDER_WIDGET_DOCK_HEIGHT = 240;
 const PLACEHOLDER_WIDGET_DOCK_GAP = 16;
 const RECENT_EVENT_LIMIT = 100;
+const memoryNotesApi = import.meta.env.DEV
+  ? {
+      createWorkspaceNote: createMemoryWorkspaceNote,
+      listWorkspaceNotes: listMemoryWorkspaceNotes,
+      getWorkspaceNote: getMemoryWorkspaceNote,
+      updateWorkspaceNote: updateMemoryWorkspaceNote,
+    }
+  : {
+      createWorkspaceNote: unsupportedCreateWorkspaceNote,
+      listWorkspaceNotes: unsupportedListWorkspaceNotes,
+      getWorkspaceNote: unsupportedGetWorkspaceNote,
+      updateWorkspaceNote: unsupportedUpdateWorkspaceNote,
+    };
 let fallbackId = 1;
 
 export const memoryWorkspaceApi: WorkspaceApi = {
@@ -75,10 +94,10 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getWorkspaceSummary,
   openWorkspace,
   getWorkspaceWorkbenchState,
-  createWorkspaceNote,
-  listWorkspaceNotes,
-  getWorkspaceNote,
-  updateWorkspaceNote,
+  createWorkspaceNote: memoryNotesApi.createWorkspaceNote,
+  listWorkspaceNotes: memoryNotesApi.listWorkspaceNotes,
+  getWorkspaceNote: memoryNotesApi.getWorkspaceNote,
+  updateWorkspaceNote: memoryNotesApi.updateWorkspaceNote,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,
