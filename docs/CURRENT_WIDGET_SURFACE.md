@@ -153,12 +153,26 @@ and component keys may still appear in code and persistence.
 - Queue task persistence includes `executionPolicy` model/DTO support with a
   `manual` default, and the Queue editor exposes a policy control for
   `manual`, `auto`, and `after_previous_success`.
-  Planned Sequential Queue Runner behavior is defined in
-  `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md`; it is not current behavior.
+- Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
+  selects one Agent Executor, configures execution workspace/repo root, Codex
+  executable, sandbox, and approval policy once, then starts the runner from
+  Queue. The runner scans the current ordered Queue task list, assigns
+  unassigned runnable tasks to the selected Executor, starts each task through
+  the existing assigned-task Queue-to-Executor handoff path, waits for an
+  Executor final state, and then evaluates the next task.
+- Sequential Queue Runner policy behavior is current for `manual`, `auto`, and
+  `after_previous_success`: `manual` stops for operator action, `auto` may run
+  when runnable and configured, and `after_previous_success` runs only after a
+  previous task in the current runner pass completed successfully.
+- The Sequential Queue Runner is current-session frontend behavior only. It is
+  not durable background scheduling and stops if the Workbench UI closes or
+  reloads.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.
-- Does not schedule, auto-dispatch, automatically accept tasks, launch runs
-  without an explicit operator action, capture responses outside Direct Work
-  artifacts, validate responses, mutate Notes, launch Terminal, or mutate Git.
+- Does not provide a backend scheduler, durable runner persistence,
+  multi-executor parallel scheduling, retries, dependency graph execution,
+  automatic acceptance, response capture outside Direct Work artifacts,
+  response validation, Coordinator automation, Notes mutation, Terminal launch,
+  or Git mutation.
 
 ### Coordinator Chat
 

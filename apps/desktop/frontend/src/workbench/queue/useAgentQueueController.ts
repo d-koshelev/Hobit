@@ -24,6 +24,11 @@ import {
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
 import type { WidgetRenderProps } from "../types";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
+import {
+  getNextQueueRunnerTaskDecision,
+  queueRunnerFinalStatus,
+  type QueueRunnerFinalStatus,
+} from "./queueRunner";
 
 const DEFAULT_CODEX_EXECUTABLE = "codex";
 const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
@@ -59,6 +64,26 @@ export type AgentQueueRunController = {
   startError: string | null;
   startedRunId: string | null;
   startMessage: string | null;
+};
+
+export type AgentQueueRunnerStatus =
+  | "idle"
+  | "running"
+  | "assigning"
+  | "starting"
+  | "waiting_for_executor"
+  | "stopped"
+  | "completed"
+  | "error";
+
+export type AgentQueueRunnerController = {
+  canStart: boolean;
+  error: string | null;
+  message: string | null;
+  onStart: () => void;
+  onStop: () => void;
+  preconditionMessages: string[];
+  status: AgentQueueRunnerStatus;
 };
 
 export function useAgentQueueController({
@@ -115,6 +140,20 @@ export function useAgentQueueController({
   const [startedRunId, setStartedRunId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const startInFlightRef = useRef(false);
+  const [runnerStatus, setRunnerStatus] =
+    useState<AgentQueueRunnerStatus>("idle");
+  const [runnerMessage, setRunnerMessage] = useState<string | null>(null);
+  const [runnerError, setRunnerError] = useState<string | null>(null);
+  const runnerStartedQueueItemIdsRef = useRef<Set<string>>(new Set());
+  const runnerActiveQueueItemIdRef = useRef<string | null>(null);
+  const runnerWaitingRunIdRef = useRef<string | null>(null);
+  const runnerStopRequestedRef = useRef(false);
+  const runnerInFlightRef = useRef(false);
+  const tasksRef = useRef<AgentQueueTask[]>([]);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   const isDirty = Boolean(
     selectedTask &&
@@ -163,6 +202,7 @@ export function useAgentQueueController({
 
       try {
         const loadedTasks = await onListAgentQueueTasks();
+        tasksRef.current = loadedTasks;
         setTasks(loadedTasks);
 
         const preferredExists = loadedTasks.some(
@@ -215,6 +255,7 @@ export function useAgentQueueController({
     autoRefreshRequest: queueTaskAutoRefreshRequest,
     isDirty,
     loadTasks,
+    onRefreshComplete: handleQueueTaskAutoRefreshComplete,
     setValidationMessage,
   });
 
@@ -275,6 +316,33 @@ export function useAgentQueueController({
     [codexExecutable, isStarting, readinessMessage, repoRoot],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
+  const runnerPreconditionMessages = useMemo(
+    () =>
+      queueRunnerPreconditionMessages({
+        assignmentApiAvailable,
+        codexExecutable,
+        hasExecutorSelection: Boolean(selectedExecutorWidgetId),
+        isDirty,
+        isStarting,
+        repoRoot,
+        runnerInFlight: runnerInFlightRef.current,
+        runnerStatus,
+        startApiAvailable,
+        taskCount: tasks.length,
+      }),
+    [
+      assignmentApiAvailable,
+      codexExecutable,
+      isDirty,
+      isStarting,
+      repoRoot,
+      runnerStatus,
+      selectedExecutorWidgetId,
+      startApiAvailable,
+      tasks.length,
+    ],
+  );
+  const canStartRunner = runnerPreconditionMessages.length === 0;
 
   async function createTask() {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
@@ -534,10 +602,216 @@ export function useAgentQueueController({
     }
   }
 
+  function startQueueRunner() {
+    if (!canStartRunner || runnerInFlightRef.current) {
+      return;
+    }
+
+    runnerStartedQueueItemIdsRef.current = new Set();
+    runnerActiveQueueItemIdRef.current = null;
+    runnerWaitingRunIdRef.current = null;
+    runnerStopRequestedRef.current = false;
+    setRunnerError(null);
+    setRunnerMessage("Sequential Queue Runner started.");
+    setRunnerStatus("running");
+    void advanceQueueRunner(null);
+  }
+
+  function stopQueueRunner() {
+    runnerStopRequestedRef.current = true;
+    setRunnerError(null);
+    setRunnerStatus("stopped");
+    setRunnerMessage(
+      "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
+    );
+  }
+
+  async function advanceQueueRunner(
+    previousTaskStatus: QueueRunnerFinalStatus | null,
+  ) {
+    if (runnerStopRequestedRef.current) {
+      setRunnerStatus("stopped");
+      setRunnerMessage("Sequential Queue Runner stopped.");
+      return;
+    }
+
+    if (runnerInFlightRef.current) {
+      return;
+    }
+
+    const decision = getNextQueueRunnerTaskDecision({
+      previousTaskStatus,
+      selectedExecutorWidgetId,
+      startedQueueItemIds: runnerStartedQueueItemIdsRef.current,
+      tasks: tasksRef.current,
+    });
+
+    if (decision.kind === "completed") {
+      setRunnerStatus("completed");
+      setRunnerMessage(
+        decision.skippedTaskCount > 0
+          ? `Sequential Queue Runner completed. Skipped ${decision.skippedTaskCount.toString()} non-runnable task(s).`
+          : "Sequential Queue Runner completed.",
+      );
+      return;
+    }
+
+    if (decision.kind === "stop") {
+      const stopMessage = queueRunnerStopMessage(decision);
+      setRunnerStatus(
+        decision.reason === "assigned_to_different_executor"
+          ? "error"
+          : "stopped",
+      );
+      setRunnerMessage(stopMessage);
+      setRunnerError(
+        decision.reason === "assigned_to_different_executor"
+          ? stopMessage
+          : null,
+      );
+      return;
+    }
+
+    await startQueueRunnerTask(
+      decision.task,
+      decision.requiresAssignment,
+      decision.skippedTaskCount,
+    );
+  }
+
+  async function startQueueRunnerTask(
+    task: AgentQueueTask,
+    requiresAssignment: boolean,
+    skippedTaskCount: number,
+  ) {
+    if (!onStartAssignedAgentQueueTask || runnerInFlightRef.current) {
+      return;
+    }
+
+    runnerInFlightRef.current = true;
+    runnerActiveQueueItemIdRef.current = task.queueItemId;
+    runnerWaitingRunIdRef.current = null;
+    setRunnerError(null);
+
+    try {
+      if (requiresAssignment) {
+        if (!onAssignAgentQueueTaskToExecutor) {
+          throw new Error("Assignment persistence is not available in this runtime.");
+        }
+
+        setRunnerStatus("assigning");
+        setRunnerMessage(
+          `Assigning "${task.title}" to ${shortWidgetInstanceId(
+            selectedExecutorWidgetId,
+          )}.`,
+        );
+        const assignedTask = await onAssignAgentQueueTaskToExecutor({
+          executorWidgetInstanceId: selectedExecutorWidgetId,
+          queueItemId: task.queueItemId,
+        });
+        tasksRef.current = replaceQueueTask(tasksRef.current, assignedTask);
+        setTasks(tasksRef.current);
+      }
+
+      if (runnerStopRequestedRef.current) {
+        setRunnerStatus("stopped");
+        setRunnerMessage("Sequential Queue Runner stopped before starting the next task.");
+        return;
+      }
+
+      const request: AgentQueueTaskStartRequest = {
+        approvalPolicy,
+        codexExecutable,
+        queueItemId: task.queueItemId,
+        repoRoot,
+        sandbox,
+      };
+
+      setRunnerStatus("starting");
+      setRunnerMessage(
+        skippedTaskCount > 0
+          ? `Starting "${task.title}" after skipping ${skippedTaskCount.toString()} non-runnable task(s).`
+          : `Starting "${task.title}".`,
+      );
+
+      const response = await onStartAssignedAgentQueueTask(request);
+      runnerStartedQueueItemIdsRef.current.add(response.queueItemId);
+      runnerWaitingRunIdRef.current = response.runId;
+      onDirectWorkRunHandoffStarted?.({
+        executorWidgetInstanceId: response.executorWidgetInstanceId,
+        queueItemId: response.queueItemId,
+        repoRoot: request.repoRoot,
+        runId: response.runId,
+        startedAt: new Date().toISOString(),
+        taskTitle: task.title,
+        workbenchId: response.workbenchId,
+        workspaceId: response.workspaceId,
+      });
+      await loadTasks(response.queueItemId);
+
+      if (runnerStopRequestedRef.current) {
+        setRunnerStatus("stopped");
+        setRunnerMessage(
+          "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
+        );
+        return;
+      }
+
+      setRunnerStatus("waiting_for_executor");
+      setRunnerMessage(
+        `Waiting for Agent Executor ${shortWidgetInstanceId(
+          response.executorWidgetInstanceId,
+        )} to finish "${task.title}".`,
+      );
+    } catch (error) {
+      const message = queueRunStartErrorMessage(error);
+      setRunnerStatus("error");
+      setRunnerError(message);
+      setRunnerMessage(message);
+      runnerActiveQueueItemIdRef.current = null;
+      runnerWaitingRunIdRef.current = null;
+    } finally {
+      runnerInFlightRef.current = false;
+    }
+  }
+
+  function handleQueueTaskAutoRefreshComplete(
+    request: NonNullable<typeof queueTaskAutoRefreshRequest>,
+  ) {
+    if (
+      runnerStatus !== "waiting_for_executor" ||
+      runnerActiveQueueItemIdRef.current !== request.queueItemId ||
+      runnerWaitingRunIdRef.current !== request.runId
+    ) {
+      return;
+    }
+
+    const finalStatus = queueRunnerFinalStatus(request.finalStatus);
+    runnerActiveQueueItemIdRef.current = null;
+    runnerWaitingRunIdRef.current = null;
+
+    if (runnerStopRequestedRef.current) {
+      setRunnerStatus("stopped");
+      setRunnerMessage(
+        "Sequential Queue Runner stopped. The completed task state was refreshed.",
+      );
+      return;
+    }
+
+    setRunnerStatus("running");
+    setRunnerMessage(
+      finalStatus === "completed"
+        ? "Task completed. Sequential Queue Runner is checking the next task."
+        : `Task ended with ${finalStatus}. Sequential Queue Runner is checking the next task.`,
+    );
+    void advanceQueueRunner(finalStatus);
+  }
+
   function selectExecutorWidget(executorWidgetInstanceId: string) {
     setSelectedExecutorWidgetId(executorWidgetInstanceId);
     setAssignmentError(null);
     setAssignmentMessage(null);
+    setRunnerError(null);
   }
 
   function updateRepoRootDraft(repoRootValue: string) {
@@ -603,6 +877,15 @@ export function useAgentQueueController({
       startedRunId,
       startMessage,
     } satisfies AgentQueueRunController,
+    runner: {
+      canStart: canStartRunner,
+      error: runnerError,
+      message: runnerMessage,
+      onStart: () => startQueueRunner(),
+      onStop: () => stopQueueRunner(),
+      preconditionMessages: runnerPreconditionMessages,
+      status: runnerStatus,
+    } satisfies AgentQueueRunnerController,
     refreshTasks,
     saveStateText,
     saveTask,
@@ -645,6 +928,91 @@ function runPreconditionMessages({
   }
 
   return messages;
+}
+
+function queueRunnerPreconditionMessages({
+  assignmentApiAvailable,
+  codexExecutable,
+  hasExecutorSelection,
+  isDirty,
+  isStarting,
+  repoRoot,
+  runnerInFlight,
+  runnerStatus,
+  startApiAvailable,
+  taskCount,
+}: {
+  assignmentApiAvailable: boolean;
+  codexExecutable: string;
+  hasExecutorSelection: boolean;
+  isDirty: boolean;
+  isStarting: boolean;
+  repoRoot: string;
+  runnerInFlight: boolean;
+  runnerStatus: AgentQueueRunnerStatus;
+  startApiAvailable: boolean;
+  taskCount: number;
+}) {
+  const messages = runPreconditionMessages({
+    codexExecutable,
+    isStarting: isStarting || runnerInFlight || isQueueRunnerActive(runnerStatus),
+    repoRoot,
+  });
+
+  if (!startApiAvailable) {
+    messages.unshift("Assigned-task execution is not available in this runtime.");
+  }
+
+  if (!assignmentApiAvailable) {
+    messages.unshift("Assignment persistence is not available in this runtime.");
+  }
+
+  if (!hasExecutorSelection) {
+    messages.unshift("Select one Agent Executor for the Sequential Queue Runner.");
+  }
+
+  if (taskCount === 0) {
+    messages.unshift("Add queue tasks before starting the Sequential Queue Runner.");
+  }
+
+  if (isDirty) {
+    messages.unshift("Save task edits before starting the Sequential Queue Runner.");
+  }
+
+  return messages;
+}
+
+function isQueueRunnerActive(status: AgentQueueRunnerStatus) {
+  return (
+    status === "assigning" ||
+    status === "running" ||
+    status === "starting" ||
+    status === "waiting_for_executor"
+  );
+}
+
+type QueueRunnerStopDecision = Extract<
+  ReturnType<typeof getNextQueueRunnerTaskDecision>,
+  { kind: "stop" }
+>;
+
+function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
+  switch (decision.reason) {
+    case "assigned_to_different_executor":
+      return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another Agent Executor.`;
+    case "manual":
+      return `Sequential Queue Runner stopped at manual task "${decision.task.title}". Operator action is required.`;
+    case "previous_success_required":
+      return `Sequential Queue Runner stopped before "${decision.task.title}" because it requires a previous task completed in this runner pass.`;
+    case "previous_task_not_successful":
+      return `Sequential Queue Runner stopped before "${decision.task.title}" because the previous task did not complete successfully.`;
+  }
+}
+
+function replaceQueueTask(tasks: AgentQueueTask[], updatedTask: AgentQueueTask) {
+  return tasks.map((task) =>
+    task.queueItemId === updatedTask.queueItemId ? updatedTask : task,
+  );
 }
 
 function queueRunReadinessMessage({

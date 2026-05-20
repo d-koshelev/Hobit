@@ -1,18 +1,17 @@
 # Queue Item Execution Policy Contract
 
-Contract status: Current for persisted Queue task policy model; Planned for
-Sequential Queue Runner behavior
+Contract status: Current for persisted Queue task policy model and
+frontend-driven Sequential Queue Runner MVP
 
 Source of truth for:
 
 - Queue item execution policy naming
 - persisted Queue task execution policy model support
 - automatic/manual queue execution semantics
-- future Sequential Queue Runner behavior
+- current frontend-driven Sequential Queue Runner MVP behavior
 
 Not source of truth for:
 
-- current Queue runner behavior, because no runner is implemented yet
 - Coordinator automation
 - backend scheduler
 - production autonomous orchestration
@@ -25,21 +24,23 @@ Related documents:
 
 ## Purpose
 
-This contract defines the Queue item execution policy model before automatic
-Queue execution is implemented.
+This contract defines the Queue item execution policy model and the current
+frontend-driven Sequential Queue Runner MVP.
 
 The persisted model, DTO support, and Queue editor policy selection UI for
-`executionPolicy` are implemented. Runner behavior, bulk prompt import,
-Coordinator automation, and automatic execution remain Planned or Deferred as
+`executionPolicy` are implemented. The visible Queue runner MVP is implemented
+in frontend state only. Bulk prompt import, Coordinator automation, durable
+background scheduling, and backend scheduling remain Planned or Deferred as
 defined below.
 
-It does not add Queue runner behavior, Agent Executor runtime changes,
-Coordinator behavior, Terminal behavior, Git behavior, or automatic product
-behavior.
+It does not add Agent Executor runtime changes, Coordinator behavior, Terminal
+behavior, Git behavior, backend scheduler behavior, or durable background
+execution.
 
 Current Agent Queue behavior remains the manual Queue task organization,
-manual assignment, and explicit assigned-task run flow documented in
-`docs/CURRENT_WIDGET_SURFACE.md` and `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`.
+manual assignment, explicit assigned-task run flow, and visible
+frontend-driven Sequential Queue Runner documented in
+`docs/CURRENT_WIDGET_SURFACE.md`.
 
 ## Canonical Model
 
@@ -80,8 +81,8 @@ User-facing labels:
 
 ### `auto`
 
-The future runner may start an `auto` task automatically only when all hard
-launch preconditions pass:
+The frontend-driven runner may start an `auto` task automatically only when all
+hard launch preconditions pass:
 
 - the task is runnable
 - the task prompt is non-empty after trimming
@@ -92,8 +93,9 @@ launch preconditions pass:
 
 ### `after_previous_success`
 
-The future runner may start an `after_previous_success` task automatically only
-if the previous task executed by the current runner pass finished with a
+The frontend-driven runner may start an `after_previous_success` task
+automatically only if the previous task executed by the current runner pass
+finished with a
 success/completed final state.
 
 Rules:
@@ -148,12 +150,12 @@ Rules:
 - A future retry model must define how completed, failed, cancelled, or timed
   out work becomes runnable again before any runner restarts it.
 
-## Future Sequential Queue Runner MVP
+## Current Sequential Queue Runner MVP
 
-The future Sequential Queue Runner MVP should be a visible operator-started
-Queue/Executor feature, not a hidden backend scheduler.
+The Sequential Queue Runner MVP is a visible operator-started Queue/Executor
+feature, not a hidden backend scheduler.
 
-Target behavior:
+Current behavior:
 
 - The operator selects one Agent Executor.
 - The operator configures execution workspace/repo root, Codex executable,
@@ -163,11 +165,16 @@ Target behavior:
 - The runner uses the existing Queue -> Executor handoff.
 - The runner waits for a final Agent Executor state before moving to the next
   task.
+- If a runnable task is unassigned, the runner assigns it to the selected Agent
+  Executor before starting it.
+- If a runnable task is assigned to another Agent Executor, the runner stops
+  and reports the mismatch.
 - The runner does not require per-task Assign/Run clicks for tasks that policy
   allows it to start.
 - The runner does not invoke Coordinator.
 - The runner does not perform extra validation gates between tasks.
-- The runner remains frontend-driven MVP unless a later backend scheduler is
+- The runner stops when the Workbench UI closes or reloads.
+- The runner remains frontend-driven unless a later backend scheduler is
   explicitly approved.
 
 ## Without Extra Validations
@@ -198,8 +205,8 @@ later contract explicitly adds that behavior.
 
 ## Persistence Model
 
-`executionPolicy` is persisted on Queue tasks before the Sequential Queue
-Runner is implemented.
+`executionPolicy` is persisted on Queue tasks and is consumed by the
+frontend-driven Sequential Queue Runner MVP.
 
 Implemented persistence/model support includes:
 
@@ -219,6 +226,12 @@ Implemented frontend preparation support includes:
   `auto` only when status and prompt are runnable, and allowing
   `after_previous_success` only after a previous task in the current runner
   pass completed successfully
+- pure runner-selection coverage for assignment-before-start, stopping on
+  manual policy, stopping on assignment mismatch, duplicate-start avoidance,
+  non-runnable task skipping, and after-previous-success final-state behavior
+- Queue controller coverage for assigning an unassigned `auto` task before
+  start, avoiding duplicate start requests, and Stop preventing the next task
+  from starting
 
 Default policy:
 
@@ -231,9 +244,7 @@ Default policy:
 
 Still Planned:
 
-- Sequential Queue Runner
 - bulk prompt import/create UI
-- smoke checklist for automatic queue execution
 
 ## Safety Boundaries
 
@@ -251,6 +262,7 @@ This policy model is not:
 
 Deferred:
 
+- backend scheduler
 - dependency graph
 - retries
 - parallel execution

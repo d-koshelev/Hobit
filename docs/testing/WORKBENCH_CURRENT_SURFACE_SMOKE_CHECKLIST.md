@@ -59,23 +59,32 @@ Preview surfaces are smoke targets only when labeled as Preview.
   `executionPolicy` to `manual`, and create/update/list/read preserve the
   stored value without changing execution behavior.
 - [ ] Smoke the editor policy control when scoped: `manual`, `auto`, and
-  `after_previous_success` can be selected, saved, reloaded, and do not start
-  execution by themselves.
+  `after_previous_success` can be selected, saved, reloaded, and changing the
+  policy alone does not start execution.
 - [ ] Smoke visible manual assignment or clear of a task to an Agent Executor
   slot when APIs are available.
 - [ ] Smoke explicit start of an assigned task only through operator action and
   documented current-session handoff behavior.
-- [ ] Do not smoke auto-dispatch, scheduling, automatic acceptance, response
-  validation, Terminal launch, Git mutation, or Notes mutation as current.
-
-Planned future smoke for Sequential Queue Runner, after implementation:
-
-- [ ] Smoke ordered single-Executor automatic starts using existing
-  Queue-to-Executor handoff.
-- [ ] Smoke runner stop on `manual` task, failed/cancelled/timed-out previous
-  task, missing prompt, missing execution workspace, missing executable, or
-  busy executor.
-- [ ] Do not treat this Planned runner smoke as current behavior.
+- [ ] Smoke frontend-driven Sequential Queue Runner current-session behavior:
+  create or prepare ordered Queue tasks with non-empty prompts, set
+  `executionPolicy`, select one Agent Executor, configure execution
+  workspace/repo root, Codex executable, sandbox, and approval policy once,
+  then Run queue.
+- [ ] Smoke ordered single-Executor starts through the existing
+  Queue-to-Executor handoff and verify tasks execute one at a time.
+- [ ] Smoke that an unassigned runnable `auto` task is assigned to the selected
+  Agent Executor before start, and a task assigned to a different Executor
+  stops the runner with a visible mismatch.
+- [ ] Smoke that a `manual` task stops the runner and requires operator action.
+- [ ] Smoke `after_previous_success`: it starts only after the previous task in
+  the current runner pass completed, and it stops after previous failed,
+  cancelled, or timed-out final states.
+- [ ] Smoke Stop runner prevents later tasks from starting and does not kill the
+  currently running Agent Executor task.
+- [ ] Do not smoke backend scheduling, durable background runner persistence,
+  multi-executor parallel scheduling, automatic acceptance, response
+  validation, Terminal launch, Git mutation, Coordinator automation, or Notes
+  mutation as current.
 
 ### Coordinator Chat Preview
 

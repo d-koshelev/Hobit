@@ -305,8 +305,8 @@ export function AgentQueuePlaceholderWidget({
                       </select>
                       <p className="agent-queue-run-note">
                         Manual tasks require explicit operator run. Auto
-                        policies are for the future Queue runner; no automatic
-                        execution happens now.
+                        policies are used only by the visible Sequential Queue
+                        Runner.
                       </p>
                     </div>
                   </div>
@@ -330,6 +330,7 @@ export function AgentQueuePlaceholderWidget({
 
                   <AgentQueueTaskRunPanel
                     run={run}
+                    runner={queue.runner}
                     selectedTask={selectedTask}
                   />
 
@@ -369,8 +370,8 @@ export function AgentQueuePlaceholderWidget({
                   ) : null}
                   <p className="agent-queue-boundary-note">
                     Queue tasks are workspace-local records. Queue does not show
-                    live logs, auto-dispatch work, launch Terminal commands, or
-                    mutate Git.
+                    live logs, run hidden background scheduling, launch
+                    Terminal commands, or mutate Git.
                   </p>
                 </div>
               ) : (

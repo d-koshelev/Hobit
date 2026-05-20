@@ -13,6 +13,7 @@ type UseQueueTaskAutoRefreshFromExecutorOptions = {
     preferredTaskId?: string | null,
     options?: { preserveCurrentOnError?: boolean },
   ) => Promise<string | null>;
+  onRefreshComplete?: (request: DirectWorkQueueTaskAutoRefreshRequest) => void;
   setValidationMessage: (message: string | null) => void;
 };
 
@@ -20,12 +21,18 @@ export function useQueueTaskAutoRefreshFromExecutor({
   autoRefreshRequest,
   isDirty,
   loadTasks,
+  onRefreshComplete,
   setValidationMessage,
 }: UseQueueTaskAutoRefreshFromExecutorOptions) {
   const handledRequestIdRef = useRef<number | null>(null);
+  const onRefreshCompleteRef = useRef(onRefreshComplete);
   const refreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => clearRefreshTimer(), []);
+
+  useEffect(() => {
+    onRefreshCompleteRef.current = onRefreshComplete;
+  }, [onRefreshComplete]);
 
   useEffect(() => {
     if (
@@ -66,7 +73,10 @@ export function useQueueTaskAutoRefreshFromExecutor({
 
       if (errorMessage) {
         setValidationMessage(`${QUEUE_AUTO_REFRESH_FAILED} ${errorMessage}`);
+        return;
       }
+
+      onRefreshCompleteRef.current?.(request);
     } catch (error) {
       setValidationMessage(
         `${QUEUE_AUTO_REFRESH_FAILED} ${errorToMessage(error)}`,
