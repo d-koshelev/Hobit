@@ -11,6 +11,7 @@ import {
   createWorkspaceNote,
   deleteWidgetInstanceFromWorkbench,
   deleteWorkspace,
+  executeJdbcReadOnlyQuery,
   forceKillCodexDirectWorkRun,
   generateAgentChatAiProposal,
   generateCoordinatorProviderResponse,
@@ -41,6 +42,7 @@ import {
   updateAgentQueueTask,
   updateJdbcConnector,
   updateWorkspaceNote,
+  validateJdbcReadOnlySql,
   writeTerminalPtySession,
 } from "./memoryUnsupportedWorkspaceApi";
 import type {
@@ -81,6 +83,8 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   listJdbcConnectors,
   getJdbcConnector,
   updateJdbcConnector,
+  validateJdbcReadOnlySql,
+  executeJdbcReadOnlyQuery,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

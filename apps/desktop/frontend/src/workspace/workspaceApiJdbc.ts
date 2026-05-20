@@ -5,6 +5,12 @@ import type {
   ListJdbcConnectorsRequest,
   UpdateJdbcConnectorRequest,
 } from "./jdbcConnectorTypes";
+import type {
+  ExecuteJdbcReadOnlyQueryRequest,
+  JdbcReadOnlyQueryResult,
+  JdbcReadOnlySqlValidation,
+  ValidateJdbcReadOnlySqlRequest,
+} from "./jdbcQueryTypes";
 import { getWorkspaceApi } from "./workspaceApiRuntime";
 
 export function createJdbcConnector(
@@ -29,4 +35,16 @@ export function updateJdbcConnector(
   request: UpdateJdbcConnectorRequest,
 ): Promise<JdbcConnector | null> {
   return getWorkspaceApi().updateJdbcConnector(request);
+}
+
+export function validateJdbcReadOnlySql(
+  request: ValidateJdbcReadOnlySqlRequest,
+): Promise<JdbcReadOnlySqlValidation> {
+  return getWorkspaceApi().validateJdbcReadOnlySql(request);
+}
+
+export function executeJdbcReadOnlyQuery(
+  request: ExecuteJdbcReadOnlyQueryRequest,
+): Promise<JdbcReadOnlyQueryResult> {
+  return getWorkspaceApi().executeJdbcReadOnlyQuery(request);
 }

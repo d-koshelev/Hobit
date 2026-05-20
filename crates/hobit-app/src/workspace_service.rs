@@ -26,6 +26,8 @@ mod git;
 mod git_commit;
 mod jdbc_connector_types;
 mod jdbc_connectors;
+mod jdbc_query;
+mod jdbc_query_types;
 mod logs;
 mod mapping;
 mod notes;
@@ -69,6 +71,8 @@ mod git_commit_tests;
 #[cfg(test)]
 mod jdbc_connectors_tests;
 #[cfg(test)]
+mod jdbc_query_tests;
+#[cfg(test)]
 mod notes_tests;
 #[cfg(test)]
 mod terminal_pty_tests;
@@ -105,6 +109,10 @@ pub use coordinator_provider_types::{
 };
 pub use jdbc_connector_types::{
     CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,
+};
+pub use jdbc_query_types::{
+    ExecuteJdbcReadOnlyQueryInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
+    JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
 };
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
@@ -161,6 +169,7 @@ const AGENT_QUEUE_DECISION_PENDING_REVIEW: &str = "pending_review";
 // Agent Executor reuses the internal agent-run id for persisted compatibility.
 const AGENT_RUN_WIDGET_DEFINITION_ID: &str = "agent-run";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
+const JDBC_WIDGET_DEFINITION_ID: &str = "database-jdbc";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 
 pub struct WorkspaceService {

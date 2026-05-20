@@ -35,6 +35,10 @@ import {
   listJdbcConnectors,
   updateJdbcConnector,
 } from "./tauriJdbcConnectorApi";
+import {
+  executeJdbcReadOnlyQuery,
+  validateJdbcReadOnlySql,
+} from "./tauriJdbcQueryApi";
 import { runTerminalCommand } from "./tauriTerminalCommandApi";
 import {
   closeTerminalPtySession,
@@ -82,6 +86,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listJdbcConnectors,
   getJdbcConnector,
   updateJdbcConnector,
+  validateJdbcReadOnlySql,
+  executeJdbcReadOnlyQuery,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

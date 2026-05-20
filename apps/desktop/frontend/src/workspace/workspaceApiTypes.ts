@@ -6,6 +6,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "./jdbcConnectorTypes";
 import type {
+  ExecuteJdbcReadOnlyQueryRequest,
+  JdbcReadOnlyQueryResult,
+  JdbcReadOnlySqlValidation,
+  ValidateJdbcReadOnlySqlRequest,
+} from "./jdbcQueryTypes";
+import type {
   AddWidgetInstanceToWorkbenchRequest,
   AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
@@ -116,6 +122,12 @@ export type WorkspaceApi = {
   updateJdbcConnector: (
     request: UpdateJdbcConnectorRequest,
   ) => Promise<JdbcConnector | null>;
+  validateJdbcReadOnlySql: (
+    request: ValidateJdbcReadOnlySqlRequest,
+  ) => Promise<JdbcReadOnlySqlValidation>;
+  executeJdbcReadOnlyQuery: (
+    request: ExecuteJdbcReadOnlyQueryRequest,
+  ) => Promise<JdbcReadOnlyQueryResult>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;

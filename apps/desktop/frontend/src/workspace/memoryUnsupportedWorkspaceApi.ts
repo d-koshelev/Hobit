@@ -72,6 +72,20 @@ export const updateJdbcConnector: WorkspaceApi["updateJdbcConnector"] = async (
   );
 };
 
+export const validateJdbcReadOnlySql: WorkspaceApi["validateJdbcReadOnlySql"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC SQL validation is only available in the Tauri desktop shell. Browser fallback cannot validate JDBC SQL.",
+    );
+  };
+
+export const executeJdbcReadOnlyQuery: WorkspaceApi["executeJdbcReadOnlyQuery"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC read-only query execution is only available in the Tauri desktop shell. Browser fallback cannot run JDBC queries.",
+    );
+  };
+
 export const deleteWidgetInstanceFromWorkbench: WorkspaceApi["deleteWidgetInstanceFromWorkbench"] =
   async (_request) => {
     throw new Error(
