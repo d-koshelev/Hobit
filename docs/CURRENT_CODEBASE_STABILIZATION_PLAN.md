@@ -128,7 +128,8 @@ implementation changes.
 
 - Fix the clean-checkout `cargo check --workspace` blocker where the Tauri
   desktop shell expects missing icon assets such as
-  `apps/desktop/src-tauri/icons/icon.png`.
+  `apps/desktop/src-tauri/icons/icon.png`. Fixed by restoring valid generated
+  Tauri icon assets under `apps/desktop/src-tauri/icons/`.
 - Improve `scripts/hobit/validate.sh` failure reporting when frontend
   dependencies, `node_modules`, or `tsc` are missing, so bootstrap failures are
   actionable instead of opaque.
