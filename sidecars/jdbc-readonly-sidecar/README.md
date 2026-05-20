@@ -60,6 +60,21 @@ The smoke compiles and runs the sidecar when `java` and `javac` are on `PATH`.
 If a JDK is absent, it reports a clean skip so normal Hobit validation does not
 require Java.
 
+Backend opt-in activation smoke when a JDK is available:
+
+```powershell
+cargo test -p hobit-app sidecar_config_executes_java_mock_runtime_when_jdk_available
+```
+
+This Rust test checks for `java` and `javac` before compiling or launching the
+sidecar. If either tool is absent, the test returns cleanly. When both tools are
+available, it compiles this sidecar into
+`target/hobit-jdbc-sidecar-rust-activation/classes`, creates a normal backend
+Workspace/JDBC widget/connector, installs an explicit test-only
+`JdbcRuntimeConfig`, and executes a valid read-only query through the
+`mock_read_only` sidecar protocol. Mutation SQL is still rejected by the
+backend validator before sidecar launch.
+
 Backend opt-in runtime config keys for future sidecar wiring:
 
 - `HOBIT_JDBC_RUNTIME_MODE=sidecar`

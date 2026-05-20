@@ -17,11 +17,14 @@ widget-owned mock/safe read-only SQL validation/execution path with bounded
 sample results. Block 264 adds a dependency-free Java sidecar scaffold and
 backend protocol runner for opt-in tests only. Block 265 adds a backend-only
 runtime config loader and crate-internal opt-in sidecar adapter selection path;
-the product default remains the mock adapter. It does not implement real
-database JDBC execution, SQL formatting, `EXPLAIN` visualization, AI provider
-integration, Coordinator runtime, widget tool execution, database credential
-handling, secret storage, Terminal or PTY behavior, Git mutation, Queue
-behavior, Agent Executor behavior, or Runbook work.
+the product default remains the mock adapter. Block 266 adds a JDK-gated
+backend activation test that routes one explicit service-owned connector
+through the Java sidecar `mock_read_only` protocol when a JDK is available.
+It does not implement real database JDBC execution, SQL formatting, `EXPLAIN`
+visualization, AI provider integration, Coordinator runtime, widget tool
+execution, database credential handling, secret storage, Terminal or PTY
+behavior, Git mutation, Queue behavior, Agent Executor behavior, or Runbook
+work.
 
 ## One-Sentence Role
 
@@ -117,6 +120,9 @@ Current foundation status:
 - Block 265 adds backend-only sidecar runtime config parsing and opt-in
   adapter selection for tests/future desktop wiring; `WorkspaceService::new`
   and the current Tauri bridge still use the mock adapter by default
+- Block 266 adds a JDK-gated backend activation test for
+  `mock_read_only` sidecar execution through explicit `JdbcRuntimeConfig`;
+  it skips without a JDK and still does not enable the sidecar by default
 
 ## Secrets Policy
 
@@ -244,6 +250,25 @@ Block 265 runtime config loader:
   output
 - unsupported connector driver kinds return sanitized `unsupported_driver`
   before process launch
+
+Block 266 mock sidecar activation:
+
+- backend activation smoke command:
+  `cargo test -p hobit-app sidecar_config_executes_java_mock_runtime_when_jdk_available`
+- the test checks `java` and `javac` first; if either tool is absent, it
+  returns cleanly so normal validation does not require a JDK
+- when a JDK is available, the test compiles the dependency-free Java sidecar
+  into `target/hobit-jdbc-sidecar-rust-activation/classes`
+- the test creates a normal Workspace, Database / JDBC widget, and connector,
+  then explicitly installs a test-only `JdbcRuntimeConfig` for that connector
+- valid read-only SQL reaches the Java sidecar `mock_read_only` protocol and
+  maps back into the existing bounded query result model
+- invalid SQL returns `validation_failed` from the backend validator before
+  the sidecar process can be launched
+- the protocol remains credential-free and status/debug output remains
+  sanitized and path/secret-value free
+- `WorkspaceService::new(...)`, the Tauri production path, and the JDBC widget
+  default remain on `MockReadOnlyJdbcAdapter`
 
 ## SQL Editor Behavior
 

@@ -39,9 +39,12 @@ smoke only. A backend-only JDBC runtime config loader can parse explicit
 sidecar launch/runtime keys and select the sidecar adapter for tests/future
 desktop wiring, but `WorkspaceService::new(...)` and current desktop commands
 remain mock-default. The loader surfaces safe status only and does not expose
-raw paths or credential values to frontend DTOs. Coordinator-centered product
-direction is represented by a Coordinator Chat placeholder with frontend action
-proposal cards and a backend-owned provider response path for explicit chat
+raw paths or credential values to frontend DTOs. A JDK-gated backend activation
+test can compile and run the Java sidecar `mock_read_only` protocol through
+explicit `JdbcRuntimeConfig`, and skips cleanly when a JDK is unavailable.
+Coordinator-centered product direction is represented by a Coordinator Chat
+placeholder with frontend action proposal cards and a backend-owned provider
+response path for explicit chat
 sends. Mock/local is the default provider. The provider path uses visible
 current-session chat context and `allowed_tools: []`; it can return validated
 safe structured proposal drafts as review cards only. An explicitly configured

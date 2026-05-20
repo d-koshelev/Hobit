@@ -158,6 +158,39 @@ driver kinds return sanitized `unsupported_driver` before process launch.
 Sidecar request JSON still omits credential values and includes only the safe
 runtime kind plus connector/query limits.
 
+## Block 266 Mock Sidecar Activation
+
+Block 266 proves the opt-in backend activation path for the Java sidecar
+scaffold without changing the product default.
+
+Focused activation command:
+
+```text
+cargo test -p hobit-app sidecar_config_executes_java_mock_runtime_when_jdk_available
+```
+
+The test checks for `java` and `javac` on `PATH` before compiling or launching
+anything. If either tool is missing, it returns cleanly so ordinary validation
+does not require a JDK. When a JDK is available, it compiles the dependency-free
+sidecar source into:
+
+```text
+target/hobit-jdbc-sidecar-rust-activation/classes
+```
+
+The test then creates a normal backend Workspace, Database / JDBC widget, and
+connector, installs a test-only explicit `JdbcRuntimeConfig` for that connector,
+and executes `select 1` through the sidecar `mock_read_only` protocol. The
+sidecar response is mapped into the existing bounded
+`JdbcReadOnlyQueryResultSummary` model. A mutation statement still returns
+`validation_failed` before sidecar process launch.
+
+This remains test/dev activation only. `WorkspaceService::new(...)`, the Tauri
+desktop service path, and the JDBC widget UI remain on
+`MockReadOnlyJdbcAdapter` by default. No JDBC drivers, credentials, network
+connections, database connections, frontend config exposure, Coordinator
+execution, provider tools, or result persistence are introduced.
+
 ## Credential Boundary
 
 Credentials are backend-only runtime configuration.

@@ -241,6 +241,9 @@ future widget capability.
   configured, sidecar unavailable through sanitized `not_configured`, and
   unsupported runtime/driver states. Raw paths and credential values are not
   in frontend DTOs.
+- Has a JDK-gated backend activation test for the Java sidecar
+  `mock_read_only` protocol through explicit `JdbcRuntimeConfig`; it skips
+  cleanly without a JDK and does not change the default product adapter.
 - Does not collect credentials, store passwords or tokens, test connections,
   connect to real databases, run SQL against external systems, run `EXPLAIN`,
   format SQL, call AI, integrate with Coordinator Chat runtime, launch
@@ -288,7 +291,9 @@ Block 264 adds only a dependency-free Java sidecar protocol scaffold; the
 active runtime remains mock-only. Block 265 adds backend-only config parsing
 and opt-in sidecar adapter selection for tests/future desktop wiring, but the
 current product runtime remains mock-default and no real database connection is
-opened.
+opened. Block 266 proves that explicit test/dev config can activate the Java
+sidecar `mock_read_only` protocol when a JDK is available, while JDK absence
+still skips cleanly and production/default execution remains mock-only.
 
 ## Compatibility Notes
 

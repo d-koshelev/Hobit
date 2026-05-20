@@ -205,6 +205,11 @@ impl WorkspaceService {
             jdbc_runtime_config,
         }
     }
+
+    #[cfg(test)]
+    fn set_jdbc_runtime_config_for_tests(&mut self, jdbc_runtime_config: JdbcRuntimeConfig) {
+        self.jdbc_runtime_config = jdbc_runtime_config;
+    }
 }
 
 // Placeholder ID and timestamp strategy until Hobit selects a durable ID policy.
