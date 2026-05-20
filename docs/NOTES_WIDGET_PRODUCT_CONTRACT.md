@@ -2,212 +2,234 @@
 
 ## Purpose
 
-This contract defines the product and technical direction for moving Notes from
-the current single saved draft into a real multi-note widget.
+This document is the product-level Notes contract for the current
+workspace-local Notes surface and the next planned Notes stabilization slices.
 
 It is a docs/contracts-only product contract. It does not implement frontend
-UI, backend commands, Tauri commands, storage/schema changes, autosave, search,
-pinning, archive/delete behavior, Agent integration, Queue integration, Git
-behavior, Terminal behavior, or PTY behavior.
+UI, backend commands, Tauri commands, storage/schema changes, migrations,
+autosave, delete/archive behavior, tags, Agent integration, Queue integration,
+Git behavior, Terminal behavior, or PTY behavior.
 
-The broader Notebook/Markdown direction remains governed by
-`docs/NOTES_WIDGET_CONTRACT.md`. This document narrows the near-term product
-slice for a workspace-local multi-note Notes widget.
+The authoritative current widget boundary is
+`docs/NOTES_WIDGET_CONTRACT.md`. The broader future Notebook/Markdown direction
+is Deferred unless a later task explicitly scopes it.
 
-## Current State
+## Status Model
 
-Current Notes is a workspace-local multi-note product UI:
+- Current: implemented behavior that exists in the codebase and is safe to rely
+  on.
+- Planned: approved next-step behavior, but not necessarily implemented yet.
+- Deferred: future behavior that must not be implemented unless explicitly
+  requested.
+- Compatibility: legacy IDs, names, aliases, old component names, old state
+  shapes, or old code paths that still exist but are not preferred
+  product/domain names.
+- Deprecated: old behavior or terminology that should not be used for new work.
 
-- It uses the workspace-local notes storage/API foundation.
-- It can create, list, read, update, filter, edit, save, and pin notes.
-- It uses explicit Save.
-- It has no autosave.
-- It has no delete/archive UI.
-- It has no tags.
-- It has no linked tasks.
-- It has no Agent Executor integration.
-- It has no Agent Queue integration.
-- Coordinator Chat can create a new workspace-local Note from an approved
-  create-Note proposal using only visible title, body, and pinned inputs.
-  Existing Notes content is not read or used as hidden Coordinator context.
-- It has no Runbook integration.
-- It has no Git integration.
+## Current Product Role
 
-Current Notes widget UI behavior should not be described as autosave,
-archive/delete, tags, Markdown/Notebook, AI-in-Notes, or hidden context
-behavior until those features exist.
+Notes: capture and organize local workspace notes.
+
+Current Notes is a workspace-local multi-note product UI. It is not a full
+Notebook and must not be described as Markdown, rich text, AI-assisted, or
+autosaved.
+
+## Current Product Behavior
+
+Current Notes supports:
+
+- workspace-local notes
+- create note
+- list notes
+- select/read note
+- edit note title and body
+- explicit save
+- visible unsaved/saving/saved/unavailable states
+- frontend filter/search across loaded note title and body
+- pin/unpin through the selected note's pinned checkbox and explicit save
+- pinned-first, recently-updated ordering from storage
+- desktop/Tauri persistence through local SQLite-backed Workspace Notes APIs
+
+Current Notes does not support:
+
+- autosave
+- note archive/delete UI
+- tags
+- folders
+- Markdown preview or rendering
+- Mermaid or diagram rendering
+- structured checklists/todos
+- attachments
+- import/export/sync
+- collaborative editing
+- Agent Executor integration
+- Agent Queue integration
+- Runbook integration
+- Git integration
+- Terminal or PTY behavior
+- hidden context access
+- AI-in-Notes
+
+Browser/Vite fallback behavior:
+
+- The Workbench and widget insertion can run through the in-memory Workspace
+  fallback.
+- Workspace Notes create/list/read/update calls are unsupported in browser
+  fallback and surface explicit unsupported-runtime errors.
+- A dev-only persistent or in-memory Notes API is Planned only if a later task
+  explicitly scopes it.
 
 ## Current Implementation Foundation
 
-The backend/storage/API foundation now exists for workspace-local notes:
+The backend/storage/API foundation exists for workspace-local notes:
 
-- SQLite stores `notes` records with `note_id`, `workspace_id`, `title`, `body`,
-  `pinned`, `archived`, `created_at`, and `updated_at`.
+- SQLite stores `notes` records with `note_id`, `workspace_id`, `title`,
+  `body`, `pinned`, `archived`, `created_at`, and `updated_at`.
 - `hobit-app` exposes create, list, read, and update methods scoped to a
   Workspace.
-- Tauri commands and frontend Workspace API methods expose those same
-  create/list/read/update operations for future UI work.
+- Tauri commands and frontend Workspace API methods expose the same
+  create/list/read/update operations.
 - Lists return non-archived notes with pinned notes first, then most recently
   updated notes.
 - Deleting a Workspace deletes its workspace-local notes.
 
 The current widget consumes this foundation for the workspace-local Notes
-product UI. Autosave, note deletion/archive commands, tags, linked context, and
-Agent/Queue/Runbook/Git integrations remain unimplemented.
+product UI. The `archived` field exists in storage/API records, but
+archive/delete UI and archive/delete commands are not current product behavior.
 
-## Target One-Sentence Role
+## Current UI Boundary
 
-Notes: capture and organize local workspace notes.
+Current UI includes:
 
-## Target Product Behavior
-
-Future Notes should support:
-
-- multiple notes
 - note list
+- filter input
+- new note action
+- refresh action
 - selected note editor
-- new note
-- note title or rename behavior
-- search
-- pinned notes
-- manual save or autosave depending on the implementation slice
-- updated timestamp
-- empty state
-- delete or archive later
-- local Workspace scope
+- title input
+- body textarea
+- pinned checkbox for the selected note
+- explicit Save button
+- clear empty/error/unsupported states
 
-These features should be added only when the backing storage/API and UI behavior
-exist. Future UI must not overclaim unavailable note capabilities.
+Current UI must stay honest:
 
-## Note Model
+- Do not show autosave until autosave exists.
+- Do not show archive/delete controls until archive/delete behavior exists.
+- Do not show tags until tags exist.
+- Do not show Markdown, Mermaid, rich formatting, or preview controls until
+  they work end to end.
+- Do not show Agent, Queue, Runbook, Terminal, JDBC, or Git note actions until
+  those actions are explicitly implemented and approval-aware where needed.
 
-The first multi-note model should stay small.
+## Compatibility And Deprecated Behavior
 
-Future v1 fields:
+The older widget-local draft state shaped as:
 
-- `note_id`
-- `workspace_id`
-- `title`
-- `body`
-- `created_at`
-- `updated_at`
-- `pinned`
-- `archived`
+```json
+{ "body": "..." }
+```
 
-Later fields:
+is Compatibility/Deprecated for new Notes product work.
 
-- `source`
-- `linked_context`
-- `tags`
+It may remain in persisted `widget_instances.state` data from older saved
+widgets, but the current product model is workspace-local note records. This
+contract does not implement a migration or require current UI to rewrite legacy
+state.
 
-The first implementation should not add tags, backlinks, linked tasks, or rich
-document metadata unless a later block explicitly scopes those fields.
+The `NotesPlaceholderWidget` component name is Compatibility and must not be
+used as evidence that the surface is only a placeholder.
 
-## Storage Scope
+## Planned Notes Stabilization
 
-Notes should be scoped to a Workspace for the first multi-note product slice.
+Planned near-term work should stabilize the current Notes surface without
+adding Notebook scope.
 
-Rules:
+Recommended follow-up blocks:
 
-- A note belongs to one Workspace.
-- Notes are not global by default.
-- Workspace notes should not leak into another Workspace.
-- Deleting a Workspace should delete its workspace-local notes when note storage
-  exists.
-- Deleting a Notes widget should not necessarily delete workspace notes unless a
-  later contract explicitly designs that behavior.
-- Global notes remain a future explicit scope described by
-  `docs/NOTES_WIDGET_CONTRACT.md` and ADR-0007; they are not the default MVP
-  path for this product slice.
+- Notes smoke checklist covering create/list/select/edit/save/filter/pin and
+  unsupported browser fallback.
+- Notes UI/controller refactor that preserves current behavior and widget
+  identity.
+- Dev-only memory Notes API decision for realistic browser smoke iteration.
+- Archive/delete decision with explicit safety and storage behavior.
+- Autosave decision with clear state reporting if approved later.
+- Search/filter polish if product expectations grow beyond frontend filtering
+  of loaded notes.
 
-## MVP Implementation Direction
+Planned work must remain Workspace-scoped by default and must not turn Notes
+into hidden agent memory or automatic cross-widget context.
 
-The first implementation after this contract is a backend/storage/API
-foundation, not a visual-only multi-note UI.
+## Deferred Notebook Behavior
 
-Recommended MVP storage/API capabilities:
+The following are Deferred unless a later task explicitly requests them:
 
-- create note
-- list notes
-- read note
-- update note
-- pin note through the scoped create/update payload
-- delete or archive note later only if scoped and safe
+- full Notebook model
+- multiple tabs/documents inside one widget beyond the current workspace-local
+  note list
+- global Notes
+- folders
+- Markdown preview
+- Markdown rendering
+- Mermaid or diagram rendering
+- rich formatting
+- explicit formatting/transformation tools
+- structured checklists/todos
+- tags
+- backlinks
+- archive/delete UI
+- autosave
+- import/export
+- sync
+- collaborative editing
+- attachments
+- AI-in-Notes
+- note-to-Knowledge review flow
+- note-to-Evidence attachment
+- automatic cross-widget context ingestion
 
-Tags should not be implemented in the first slice unless a later prompt
-explicitly scopes them and the data model remains small.
+Future Notebook source text must remain the source of truth. Rendered output
+must be derived from source and must not execute commands, contact the network,
+mutate note text, or become a hidden automation path.
 
-## UI Direction
+## Relationship To Coordinator Chat
 
-Future product UI should include:
+Coordinator Chat may create a Note through an approved create-Note proposal and
+a separate explicit Create Note action.
 
-- left note list
-- search input
-- new note button
-- selected note editor
-- save or autosave state
-- pinned section if supported
-- empty state
-- clear current note title
-- compact metadata such as updated time
-
-The UI must follow `docs/PRODUCT_UI_VISUAL_CONTRACT.md`: shared WidgetFrame
-language, compact controls, honest empty/error states, no fake future controls,
-and no clutter.
-
-## Save And Autosave Policy
-
-MVP may keep explicit Save for safety.
-
-An Operational version may add autosave if it has clear state reporting:
-
-- `saving`
-- `saved`
-- `unsaved`
-- `error`
-
-Autosave errors must be visible. Notes must not silently lose edits. If autosave
-is implemented later, the UI must make save state understandable without forcing
-the operator to inspect logs.
+Coordinator Chat must not automatically write Notes, read existing Notes,
+search Notes, summarize Notes, or use Notes as hidden context.
 
 ## Relationship To Agent Executor
 
 Notes are not Agent Executor logs.
 
 Agent Executor may later create a note from a result through an explicit
-operator action, but that is not part of the multi-note MVP. Notes should not
-automatically ingest Agent Executor output.
+operator action, but that is not part of the current Notes surface. Notes must
+not automatically ingest Agent Executor output.
 
 ## Relationship To Agent Queue
 
 Notes are not queue items.
 
 Queue item comments or notes may exist later, but Workspace Notes remains a
-separate widget/capability. No automatic queue item creation from Notes is part
-of the MVP.
-
-## Relationship To Interactive Agent
-
-Coordinator Chat may create a Note through an approved create-Note proposal and
-a separate explicit Create Note action.
-
-Coordinator Chat must not automatically write Notes, read existing Notes, or
-use Notes as hidden context.
+separate widget/capability. No automatic Queue item creation from Notes is
+current or planned for the stabilization slice.
 
 ## Relationship To Runbook
 
-Runbook evidence and Notes are separate in the MVP.
+Runbook evidence and Notes are separate.
 
-Runbook may later attach or link notes, but the first multi-note slice should
-not merge Runbook evidence storage with Notes.
+Runbook may later attach or link notes, but the current Notes surface must not
+merge Runbook evidence storage with Notes.
 
 ## Relationship To Git
 
 Notes do not mutate Git.
 
 Notes are not committed automatically. If users later want notes committed to
-repository files, that requires a separate explicit feature with its own Git and
-file-write safety contract.
+repository files, that requires a separate explicit feature with its own Git
+and file-write safety contract.
 
 ## Safety And Privacy
 
@@ -223,39 +245,22 @@ Rules:
 - No hidden context access.
 - No hidden note mutation.
 
-## UI Overclaim Rules
-
-Future UI must stay honest:
-
-- Do not show multi-note UI until the product UI is implemented.
-- Do not show search until search works.
-- Do not show pinned note controls until they work end to end.
-- Do not show autosave until autosave exists.
-- Do not show tags until tags exist.
-- Do not show Agent, Queue, Runbook, or Git note actions until those actions are
-  explicitly implemented and approval-aware where needed.
-
-## Recommended Follow-Up Blocks
-
-- Block 186  Notes product UI.
-- Later  Notes autosave polish.
-- Later  Notes search/pin/archive polish.
-- Later  Optional Note from Agent Executor result.
-- Later  Optional copy Interactive Agent transcript to Note.
-
 ## Non-Goals
 
-This contract and the current foundation still do not implement:
+This contract and the current foundation do not implement:
 
-- frontend UI changes
-- note list
-- note search
-- autosave
+- Notebook features
+- new Notes storage schema
+- legacy state migration
 - archive/delete behavior
+- autosave
 - tags
+- folders
+- Markdown rendering
+- Mermaid rendering
+- AI-in-Notes
 - Agent Executor integration
 - Agent Queue integration
-- Interactive Agent integration
 - Runbook integration
 - Git mutation
 - Terminal or PTY behavior

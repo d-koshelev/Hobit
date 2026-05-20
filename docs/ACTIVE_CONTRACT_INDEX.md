@@ -135,8 +135,12 @@ unless the task explicitly requests it.
 
 ### Notes
 
-- `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` - near-term workspace-local Notes
-  product direction and storage/UI boundaries.
+- `docs/NOTES_WIDGET_CONTRACT.md` - authoritative current Notes widget
+  behavior, current boundaries, Compatibility/Deprecated legacy state, and
+  non-goals.
+- `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` - Notes product planning and
+  next-slice boundaries for workspace-local Notes and Deferred Notebook
+  behavior.
 
 ### JDBC
 

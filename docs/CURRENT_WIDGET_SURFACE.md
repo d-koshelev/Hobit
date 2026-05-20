@@ -112,8 +112,14 @@ and component keys may still appear in code and persistence.
 - Current workspace-local Notes widget supports list, filter, create, select,
   edit, explicit save, and pin flows through workspace Notes APIs when
   available.
+- Desktop/Tauri persists Notes through local SQLite-backed Workspace Notes
+  APIs. Browser/Vite fallback keeps the widget insertable but returns visible
+  unsupported-runtime errors for Notes persistence reads and writes.
 - Notes stores source text fields as plain title/body/pinned data. It does not
   render a Notebook document model.
+- `docs/NOTES_WIDGET_CONTRACT.md` is authoritative for the current Notes widget
+  boundary. `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` is authoritative for Notes
+  product planning and next-slice boundaries.
 - Coordinator Chat can create a new workspace-local Note only from an approved
   visible create-Note proposal and a separate explicit Create Note action.
   Existing Notes content is not read, searched, summarized, or sent to agents.

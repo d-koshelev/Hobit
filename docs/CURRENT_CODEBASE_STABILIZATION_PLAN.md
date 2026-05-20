@@ -138,6 +138,11 @@ baseline task unless the task explicitly allows that scope.
 
 - Conflicting Notes contracts across minimal widget-state draft behavior,
   workspace-local Notes storage/API behavior, and future Notebook direction.
+  Completed for the active Notes contracts:
+  `docs/NOTES_WIDGET_CONTRACT.md` now owns current Notes behavior and
+  Compatibility/Deprecated legacy state, while
+  `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` owns Notes product planning and
+  Deferred Notebook boundaries.
 - Stale Architecture references that mix current behavior, compatibility paths,
   and future/deferred behavior in long narrative sections.
 - Current vs preview vs deferred widget confusion, especially around agent
@@ -245,7 +250,10 @@ implementation changes.
 4. Fix repo portability / git hygiene if applicable.
 5. Normalize `CURRENT_WIDGET_SURFACE` against shipped code. Completed; see
    the remaining drift decisions in `docs/CURRENT_WIDGET_SURFACE.md`.
-6. Normalize Notes contracts.
+6. Normalize Notes contracts. Completed for the active Notes contracts; known
+   remaining follow-ups are Notes smoke checklist coverage, Notes UI/controller
+   refactor, dev-only memory Notes API decision, and future delete/archive and
+   autosave decisions.
 7. Clean Architecture stale references.
 8. Add smoke checklist discipline.
 9. Start Notes-focused refactor.
