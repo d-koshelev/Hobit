@@ -3,8 +3,11 @@ use crate::terminal_pty::{
     TerminalPtySessionManager, TerminalPtySessionScope, TerminalPtyWriteRequest,
 };
 
+#[cfg(windows)]
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn terminal_pty_create_rejects_missing_working_directory() {
@@ -65,6 +68,30 @@ fn terminal_pty_rejects_unknown_session_actions() {
         .is_none());
 }
 
+#[cfg(not(windows))]
+#[test]
+fn terminal_pty_create_reports_unsupported_platform_without_session() {
+    let manager = TerminalPtySessionManager::default();
+
+    let error = manager
+        .create_session(TerminalPtyCreateRequest {
+            workspace_id: "ws".to_owned(),
+            workbench_id: "wb".to_owned(),
+            widget_instance_id: "wid".to_owned(),
+            shell: "sh".to_owned(),
+            shell_args: Vec::new(),
+            working_directory: std::env::current_dir().expect("current dir"),
+            cols: Some(80),
+            rows: Some(24),
+            output_buffer_cap_bytes: Some(4096),
+        })
+        .expect_err("unsupported platform should reject PTY creation");
+
+    assert!(error.contains("supported only on Windows desktop"));
+    assert!(manager.list_sessions(filter()).is_empty());
+}
+
+#[cfg(windows)]
 #[test]
 fn terminal_pty_rejects_cross_scope_session_actions() {
     let manager = TerminalPtySessionManager::default();
@@ -100,6 +127,7 @@ fn terminal_pty_rejects_cross_scope_session_actions() {
     assert_eq!(closed.status, "closed");
 }
 
+#[cfg(windows)]
 #[test]
 fn terminal_pty_resize_write_kill_and_close_lifecycle() {
     let manager = TerminalPtySessionManager::default();
@@ -140,6 +168,7 @@ fn terminal_pty_resize_write_kill_and_close_lifecycle() {
     assert!(manager.list_sessions(filter()).is_empty());
 }
 
+#[cfg(windows)]
 #[test]
 fn terminal_pty_stop_marks_session_stopping_without_targeting_pid() {
     let manager = TerminalPtySessionManager::default();
@@ -157,11 +186,13 @@ fn terminal_pty_stop_marks_session_stopping_without_targeting_pid() {
     let _ = manager.close_session(session_scope(&session.session_id));
 }
 
+#[cfg(windows)]
 #[test]
 fn timeout_helper_sleeps() {
     thread::sleep(Duration::from_millis(500));
 }
 
+#[cfg(windows)]
 fn create_long_lived_session(
     manager: &TerminalPtySessionManager,
 ) -> crate::terminal_pty::TerminalPtySessionSnapshot {
@@ -184,6 +215,7 @@ fn create_long_lived_session(
         .expect("create long-lived terminal PTY session")
 }
 
+#[cfg(windows)]
 fn session_scope(session_id: &str) -> TerminalPtySessionScope {
     TerminalPtySessionScope {
         workspace_id: "ws".to_owned(),
@@ -194,7 +226,12 @@ fn session_scope(session_id: &str) -> TerminalPtySessionScope {
 }
 
 fn scope(session_id: &str) -> TerminalPtySessionScope {
-    session_scope(session_id)
+    TerminalPtySessionScope {
+        workspace_id: "ws".to_owned(),
+        workbench_id: "wb".to_owned(),
+        widget_instance_id: "wid".to_owned(),
+        session_id: session_id.to_owned(),
+    }
 }
 
 fn filter() -> TerminalPtySessionFilter {
@@ -205,6 +242,7 @@ fn filter() -> TerminalPtySessionFilter {
     }
 }
 
+#[cfg(windows)]
 fn current_test_exe() -> String {
     std::env::current_exe()
         .expect("current test exe")

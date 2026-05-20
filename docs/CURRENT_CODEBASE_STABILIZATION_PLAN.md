@@ -102,12 +102,11 @@ Baseline recorded on 2026-05-20 after the Phase 1 P0 bootstrap fixes.
   `TERMINAL_STREAM_KIND`, unused `SharedOutputBuffer::push_terminal_output`,
   unread `TerminalPtyOutputBuffer::next_sequence`, and unused
   `TerminalPtyOutputBuffer::push`.
-- Unresolved blocker: `cargo test --workspace` fails in
-  `hobit-desktop` on this Linux checkout because three Terminal PTY tests try
-  to create long-lived PTY sessions while the implementation reports
-  `Terminal PTY sessions are currently supported only on Windows desktop`.
-  The failing tests are
-  `terminal_pty_rejects_cross_scope_session_actions`,
+- Fixed blocker: `cargo test --workspace` now passes on this Linux checkout
+  after the three long-lived Terminal PTY lifecycle tests were gated to
+  Windows-only support and non-Windows creation now asserts the existing
+  unsupported-platform error without registering a session. The previously
+  failing tests were `terminal_pty_rejects_cross_scope_session_actions`,
   `terminal_pty_resize_write_kill_and_close_lifecycle`, and
   `terminal_pty_stop_marks_session_stopping_without_targeting_pid`.
 - Passing: `bash -n scripts/hobit/validate.sh` passes.
