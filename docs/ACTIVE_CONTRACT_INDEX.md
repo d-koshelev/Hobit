@@ -161,6 +161,11 @@ unless the task explicitly requests it.
   readiness across current Workspace, widget, Queue, Direct Work, Terminal,
   Git, JDBC, Coordinator, Notes, and Runbook surfaces. It is a mapping plan
   only and does not add audit persistence or event emission.
+- `docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md` - read for Artifact
+  Reference / Ownership v0 vocabulary. It is type scaffolding only and does
+  not add an artifact store, artifact persistence, schema changes, audit
+  emission, evidence store, knowledge store, runtime wiring, frontend
+  behavior, server runtime, or RBAC.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

@@ -26,6 +26,12 @@ envelopes may reference action ids, approval ids, causation ids, and
 correlation ids while keeping proposal creation, approval, action request,
 runtime start, completion, and artifact production as separate concepts.
 
+Future artifact refs are described by
+`docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md`. The artifact reference model
+is metadata-only type scaffolding. It does not add an artifact store,
+artifact persistence, artifact resolution, audit emission, evidence store, or
+knowledge store.
+
 The v0 envelope can describe future audit records with:
 
 - event id and schema version

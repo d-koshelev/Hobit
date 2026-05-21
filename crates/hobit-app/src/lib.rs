@@ -6,12 +6,24 @@
 
 #![forbid(unsafe_code)]
 
+pub mod artifacts;
 pub mod audit_events;
 pub mod capabilities;
 mod error;
 pub mod runtime_adapters;
 mod workspace_service;
 
+pub use artifacts::{
+    ArtifactContentClass, ArtifactContextEligibility, ArtifactCoordinatorProposalRef,
+    ArtifactDirectWorkRunRef, ArtifactEvidenceEligibility, ArtifactExternalSourceRef,
+    ArtifactGitCommitRef, ArtifactGitDiffRef, ArtifactGitStatusRef, ArtifactId,
+    ArtifactJdbcQueryRef, ArtifactJdbcResultRef, ArtifactNoteRef, ArtifactOrigin,
+    ArtifactOwnerKind, ArtifactOwnerRef, ArtifactQueueTaskRef, ArtifactRef, ArtifactRefSummary,
+    ArtifactResolutionStatus, ArtifactRetentionHint, ArtifactSensitivity, ArtifactSourceRef,
+    ArtifactStorageKind, ArtifactTerminalRunRef, ArtifactTerminalSessionRef, ArtifactVisibility,
+    ArtifactWidgetDefinitionRef, ArtifactWidgetInstanceRef, ArtifactWidgetLogRef,
+    ArtifactWidgetResultRef, ArtifactWidgetRunRef, ArtifactWorkbenchRef, ArtifactWorkspaceRef,
+};
 pub use audit_events::{
     AuditActionRef, AuditActorKind, AuditActorRef, AuditApprovalId, AuditApprovalRef,
     AuditApprovalStatus, AuditArtifactId, AuditArtifactRef, AuditCapabilityRef, AuditCausationId,

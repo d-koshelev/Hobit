@@ -20,6 +20,12 @@ refs and risk, approval, context, execution, mutation, external access, secret
 exposure, and artifact policy vocabulary that future audit events may
 reference.
 
+`docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md` defines metadata-only artifact
+refs, source refs, ownership, visibility, sensitivity, AI-context eligibility,
+and evidence eligibility vocabulary. It does not add an artifact store,
+artifact persistence, artifact resolution, audit emission, evidence store, or
+knowledge store.
+
 No current path persists audit events. No current path emits audit events from
 Workspace, Widget, Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes,
 or Runbook behavior. Existing Workspace events, widget logs, widget runs,
@@ -88,8 +94,8 @@ Missing or deferred:
 - explicit `approval_id`/`approval_status`; current UI has confirmations and
   preview approval state, but not durable approval records.
 - stable artifact ids for classified runtime artifacts. Current
-  `RuntimeArtifactSummary` is metadata-only and not persisted as an artifact
-  registry.
+  `RuntimeArtifactSummary` and `ArtifactRef` vocabulary are metadata-only and
+  not persisted as an artifact registry.
 - persisted owner refs for Notes APIs, JDBC connector metadata, Git status,
   Git commit result, Coordinator provider response, PTY sessions, and Runbook
   local state where those refs are not already stored.
@@ -161,8 +167,8 @@ This plan does not authorize:
 
 1. Define Workspace capability/action boundary ids for explicit operator
    actions without changing runtime behavior.
-2. Add metadata-only artifact ref vocabulary that can point at existing
-   widget run/result/log rows and future artifact records without copying raw
+2. Use metadata-only artifact ref vocabulary to point at existing widget
+   run/result/log rows and future artifact records without copying raw
    payloads.
 3. Add causation/correlation conventions for visible operator action,
    proposal approval, Queue task start, Direct Work run, validation, and final

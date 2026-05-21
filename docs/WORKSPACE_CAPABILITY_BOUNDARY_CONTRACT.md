@@ -109,6 +109,11 @@ Capabilities may later produce artifact refs, but refs are references only.
 Artifact eligibility for AI context and evidence must be explicit and
 reviewable. Caps and truncation are not redaction.
 
+Artifact Reference / Ownership v0 is defined in
+`docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md`. That vocabulary is
+metadata-only and does not add artifact persistence, artifact resolution,
+capability execution, audit emission, evidence store, or knowledge store.
+
 ## Relationship To Audit
 
 `AuditEventEnvelope` v0 may reference capability ids later. This contract

@@ -133,6 +133,13 @@ reclassifying unsafe raw text as safe product text.
 The current implementation has limited Workspace events, widget logs, and
 runtime result artifacts. It does not implement a full audit runtime.
 
+The current codebase also has Artifact Reference / Ownership v0 type-only
+vocabulary in `crates/hobit-app/src/artifacts/`, further described by
+`docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md`. Those types are
+metadata-only refs. They do not add an artifact store, artifact persistence,
+artifact resolution, schema changes, audit emission, evidence store,
+knowledge store, or current desktop behavior changes.
+
 ## Runtime Adapter Rules
 
 Runtime adapters must use typed request and response boundaries. Raw command
@@ -279,6 +286,8 @@ Rules:
 - Knowledge must be explicit, reviewable, attributable, and permission-ready.
 - Evidence must be source-backed and reviewable before it is treated as an
   evidence record.
+- Artifact refs are metadata-only pointers, not evidence records, knowledge
+  records, AI context, or raw payload containers.
 - Artifacts must preserve classification and provenance sufficient for future
   audit and permission checks.
 - Current Hobit does not provide a full Knowledge, Skills, Evidence, or shared
