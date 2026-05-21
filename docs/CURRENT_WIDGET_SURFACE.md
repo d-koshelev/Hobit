@@ -178,8 +178,9 @@ and component keys may still appear in code and persistence.
   desktop-local runner session state. Queue Autorun can start one eligible
   assigned `auto` task through the existing Queue-to-Executor path after the
   operator clicks Start Autorun. Refresh can observe that run's final status
-  and update the session snapshot, but full sequential continuation is not
-  implemented.
+  and, after success, continue to exactly one next eligible assigned `auto` or
+  `after_previous_success` task per refresh. It is still not a backend
+  scheduler or durable runner.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.
 - Does not provide a backend scheduler, durable runner persistence,
   multi-executor parallel scheduling, retries, dependency graph execution,

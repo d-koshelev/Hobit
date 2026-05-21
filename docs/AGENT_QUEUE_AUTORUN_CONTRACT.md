@@ -82,8 +82,7 @@ The first Queue Autorun implementation must remain conservative:
 - prompt required after trimming;
 - selected executor required;
 - assigned executor must match, or the runner stops;
-- unassigned runnable tasks may be assigned to the selected executor only after
-  the runner is explicitly armed;
+- unassigned runnable tasks are not auto-assigned by Queue Autorun;
 - `manual` tasks stop the runner for operator action;
 - `auto` tasks may run when all hard launch preconditions pass;
 - `after_previous_success` tasks may run only after the previous task in the
@@ -217,11 +216,15 @@ snapshot. The first execution slice can select one eligible `auto` Queue task
 and submit it through the existing assigned-task Queue-to-Executor path.
 Snapshot refresh can reconcile the recorded Autorun-started run id with the
 stored Agent Executor run status and update the session with a safe final run
-status or stop reason.
+status or stop reason. After a successful final status, snapshot refresh can
+select exactly one next eligible `auto` or `after_previous_success` task and
+submit it through the same Queue-to-Executor path.
 
-This slice does not continue to a second task, choose another task after a
-final status, assign unassigned tasks, persist runner state, add schema, or add
-a backend scheduler. Sequential Autorun continuation remains future work.
+This slice starts at most one continuation task per refresh. It does not assign
+unassigned tasks, persist runner state, add schema, add durable reconnect, or
+add a backend scheduler. Autorun still stops on failure, review, cancellation,
+kill, unknown final status, manual task policy, missing executor, invalid
+runtime config, or no next runnable task.
 
 ## Non-Goals
 

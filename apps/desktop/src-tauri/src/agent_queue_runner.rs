@@ -107,6 +107,57 @@ impl QueueRunnerPolicy {
     }
 }
 
+#[derive(Clone, Eq, PartialEq)]
+pub(crate) struct QueueRunnerRuntimeConfig {
+    pub(crate) codex_executable: String,
+    pub(crate) repo_root: String,
+    pub(crate) sandbox: String,
+    pub(crate) approval_policy: String,
+    pub(crate) timeout_ms: Option<u64>,
+    pub(crate) stdout_cap_bytes: Option<usize>,
+    pub(crate) stderr_cap_bytes: Option<usize>,
+}
+
+impl QueueRunnerRuntimeConfig {
+    pub(crate) fn new(
+        codex_executable: impl Into<String>,
+        repo_root: impl Into<String>,
+        sandbox: impl Into<String>,
+        approval_policy: impl Into<String>,
+    ) -> Self {
+        Self {
+            codex_executable: codex_executable.into(),
+            repo_root: repo_root.into(),
+            sandbox: sandbox.into(),
+            approval_policy: approval_policy.into(),
+            timeout_ms: None,
+            stdout_cap_bytes: None,
+            stderr_cap_bytes: None,
+        }
+    }
+}
+
+impl Default for QueueRunnerRuntimeConfig {
+    fn default() -> Self {
+        Self::new("", "", "", "")
+    }
+}
+
+impl fmt::Debug for QueueRunnerRuntimeConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("QueueRunnerRuntimeConfig")
+            .field("codex_executable", &RedactedIdentifier)
+            .field("repo_root", &RedactedIdentifier)
+            .field("sandbox", &RedactedIdentifier)
+            .field("approval_policy", &RedactedIdentifier)
+            .field("timeout_ms", &self.timeout_ms)
+            .field("stdout_cap_bytes", &self.stdout_cap_bytes)
+            .field("stderr_cap_bytes", &self.stderr_cap_bytes)
+            .finish()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum QueueRunnerStopReason {
     OperatorStopped,
@@ -156,6 +207,7 @@ pub(crate) struct QueueRunnerStartRequest {
     pub(crate) workspace_id: String,
     pub(crate) executor_widget_instance_id: String,
     pub(crate) policy: QueueRunnerPolicy,
+    pub(crate) runtime_config: QueueRunnerRuntimeConfig,
 }
 
 impl QueueRunnerStartRequest {
@@ -169,6 +221,7 @@ impl QueueRunnerStartRequest {
             workspace_id: workspace_id.into(),
             executor_widget_instance_id: executor_widget_instance_id.into(),
             policy: QueueRunnerPolicy::default(),
+            runtime_config: QueueRunnerRuntimeConfig::default(),
         }
     }
 
@@ -185,6 +238,7 @@ impl fmt::Debug for QueueRunnerStartRequest {
             .field("workspace_id", &RedactedIdentifier)
             .field("executor_widget_instance_id", &RedactedIdentifier)
             .field("policy", &self.policy)
+            .field("runtime_config", &self.runtime_config)
             .finish()
     }
 }
@@ -275,6 +329,21 @@ impl QueueRunnerSessionRegistry {
         executor_widget_instance_id: impl Into<String>,
         policy: QueueRunnerPolicy,
     ) -> Result<QueueRunnerSnapshot, String> {
+        self.start_session_with_runtime_config(
+            workspace_id,
+            executor_widget_instance_id,
+            policy,
+            QueueRunnerRuntimeConfig::default(),
+        )
+    }
+
+    pub(crate) fn start_session_with_runtime_config(
+        &self,
+        workspace_id: impl Into<String>,
+        executor_widget_instance_id: impl Into<String>,
+        policy: QueueRunnerPolicy,
+        runtime_config: QueueRunnerRuntimeConfig,
+    ) -> Result<QueueRunnerSnapshot, String> {
         let workspace_id = required_value(workspace_id.into(), "workspace id")?;
         let executor_widget_instance_id = required_value(
             executor_widget_instance_id.into(),
@@ -297,6 +366,7 @@ impl QueueRunnerSessionRegistry {
             executor_widget_instance_id,
         );
         start_request.policy = policy;
+        start_request.runtime_config = runtime_config;
         state.start_request = Some(start_request);
         state.snapshot = QueueRunnerSnapshot {
             session_id: Some(session_id),
@@ -343,6 +413,42 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.clone()
     }
 
+    pub(crate) fn stop_after_final_status(
+        &self,
+        reason: QueueRunnerStopReason,
+    ) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.session_id.is_none() {
+            state.snapshot = QueueRunnerSnapshot::default();
+            state.start_request = None;
+            return state.snapshot.clone();
+        }
+
+        state.snapshot.status = QueueRunnerStatus::Stopped;
+        state.snapshot.stop_reason = Some(reason);
+        state.snapshot.active_queue_item_id = None;
+        state.snapshot.waiting_run_id = None;
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn complete_without_continuation(
+        &self,
+        reason: QueueRunnerStopReason,
+    ) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.session_id.is_none() {
+            state.snapshot = QueueRunnerSnapshot::default();
+            state.start_request = None;
+            return state.snapshot.clone();
+        }
+
+        state.snapshot.status = QueueRunnerStatus::Completed;
+        state.snapshot.stop_reason = Some(reason);
+        state.snapshot.active_queue_item_id = None;
+        state.snapshot.waiting_run_id = None;
+        state.snapshot.clone()
+    }
+
     pub(crate) fn waiting_for_executor(
         &self,
         queue_item_id: impl Into<String>,
@@ -353,6 +459,19 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.active_queue_item_id = Some(queue_item_id.into());
         state.snapshot.waiting_run_id = Some(run_id.into());
         state.snapshot.final_run_status = None;
+        state.snapshot.stop_reason = None;
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn waiting_for_executor_after_continuation(
+        &self,
+        queue_item_id: impl Into<String>,
+        run_id: impl Into<String>,
+    ) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        state.snapshot.status = QueueRunnerStatus::WaitingForExecutor;
+        state.snapshot.active_queue_item_id = Some(queue_item_id.into());
+        state.snapshot.waiting_run_id = Some(run_id.into());
         state.snapshot.stop_reason = None;
         state.snapshot.clone()
     }
@@ -401,6 +520,14 @@ impl QueueRunnerSessionRegistry {
             .lock()
             .expect("queue runner session lock")
             .snapshot
+            .clone()
+    }
+
+    pub(crate) fn start_request(&self) -> Option<QueueRunnerStartRequest> {
+        self.state
+            .lock()
+            .expect("queue runner session lock")
+            .start_request
             .clone()
     }
 }
@@ -465,9 +592,38 @@ pub(crate) enum QueueAutorunTaskSelection {
     Stop { reason: QueueRunnerStopReason },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum QueueAutorunSelectionMode {
+    InitialStart,
+    AfterSuccessfulTask,
+}
+
 pub(crate) fn select_next_autorun_task(
     tasks: &[AgentQueueTaskSummary],
     executor_widget_instance_id: &str,
+) -> QueueAutorunTaskSelection {
+    select_next_autorun_task_for_mode(
+        tasks,
+        executor_widget_instance_id,
+        QueueAutorunSelectionMode::InitialStart,
+    )
+}
+
+pub(crate) fn select_next_autorun_task_after_success(
+    tasks: &[AgentQueueTaskSummary],
+    executor_widget_instance_id: &str,
+) -> QueueAutorunTaskSelection {
+    select_next_autorun_task_for_mode(
+        tasks,
+        executor_widget_instance_id,
+        QueueAutorunSelectionMode::AfterSuccessfulTask,
+    )
+}
+
+fn select_next_autorun_task_for_mode(
+    tasks: &[AgentQueueTaskSummary],
+    executor_widget_instance_id: &str,
+    mode: QueueAutorunSelectionMode,
 ) -> QueueAutorunTaskSelection {
     for task in tasks {
         if !is_autorun_runnable_status(&task.status) {
@@ -487,9 +643,11 @@ pub(crate) fn select_next_autorun_task(
                 };
             }
             "after_previous_success" => {
-                return QueueAutorunTaskSelection::Stop {
-                    reason: QueueRunnerStopReason::PreviousSuccessRequired,
-                };
+                if mode != QueueAutorunSelectionMode::AfterSuccessfulTask {
+                    return QueueAutorunTaskSelection::Stop {
+                        reason: QueueRunnerStopReason::PreviousSuccessRequired,
+                    };
+                }
             }
             "auto" => {}
             _ => {

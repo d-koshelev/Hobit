@@ -37,8 +37,9 @@ Currently working:
   runner session state;
 - Queue Autorun can start one eligible assigned `auto` task through the
   existing Queue-to-Executor path after explicit operator Start Autorun. It
-  can observe the recorded run's final status on snapshot refresh. It does not
-  continue to another task yet.
+  can observe the recorded run's final status on snapshot refresh and continue
+  from a successful task to exactly one next eligible assigned `auto` or
+  `after_previous_success` task per refresh.
 
 ## Durable Today
 
@@ -66,7 +67,7 @@ Frontend and desktop-local current-session only:
 - selected runner Agent Executor;
 - runner stopped/running/waiting status;
 - runner observed final status for the active Autorun-started run;
-- runner list of already-started task ids for the current pass;
+- runner continuation decision for the current refresh;
 - execution workspace draft;
 - Codex executable draft;
 - sandbox and approval policy selections in the Queue run panel;
@@ -155,13 +156,14 @@ not survive reload.
 
 1. Queue UI/UX hardening: clarify policy labels/copy, separate planning from
    run controls, and improve the first-task empty path.
-2. Operator-armed Queue Autorun foundation: follow
+2. Operator-armed Queue Autorun hardening: follow
    `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` to keep automatic mode
    explicit, desktop-local, current-session-only, one-task-at-a-time, and
    stopped on failure/review/cancel/missing executor/missing prompt/invalid
    config. Current Tauri runner commands can start one eligible assigned
-   `auto` task through the existing Queue-to-Executor path, then stop at
-   waiting-for-executor state without sequential continuation.
+   `auto` task through the existing Queue-to-Executor path, observe final
+   status on refresh, and continue after success to one next eligible task per
+   refresh.
 3. Queue task detail polish: improve status/policy guidance, validation
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,

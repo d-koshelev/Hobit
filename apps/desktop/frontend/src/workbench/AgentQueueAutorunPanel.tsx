@@ -42,8 +42,9 @@ export function AgentQueueAutorunPanel({
 
       <p className="agent-queue-run-boundary-copy">
         Start Autorun starts at most one eligible task through the existing
-        Queue-to-Executor path. Refresh status observes that run's final status.
-        Sequential continuation is not implemented yet.
+        Queue-to-Executor path. Refresh status can continue from a successful
+        run to one next eligible task. This remains session-only and is not a
+        backend scheduler.
       </p>
 
       <dl className="agent-queue-autorun-facts">

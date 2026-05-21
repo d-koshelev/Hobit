@@ -11,8 +11,9 @@ use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_block
 use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_from_request;
 use crate::agent_queue_execution_dto::StartAssignedAgentQueueTaskRequest;
 use crate::agent_queue_runner::{
-    select_next_autorun_task, QueueAutorunTaskSelection, QueueRunnerPolicy,
-    QueueRunnerSessionRegistry, QueueRunnerSnapshot, QueueRunnerStopReason,
+    select_next_autorun_task, select_next_autorun_task_after_success, QueueAutorunTaskSelection,
+    QueueRunnerPolicy, QueueRunnerRuntimeConfig, QueueRunnerSessionRegistry, QueueRunnerSnapshot,
+    QueueRunnerStartRequest, QueueRunnerStopReason,
 };
 use crate::app_state::{AppState, DirectWorkActiveRunRegistry};
 
@@ -111,13 +112,17 @@ pub(crate) fn stop_agent_queue_runner_session(
 }
 
 #[tauri::command]
-pub(crate) fn get_agent_queue_runner_snapshot(
+pub(crate) async fn get_agent_queue_runner_snapshot(
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<QueueRunnerSnapshotDto, String> {
     Ok(reconcile_agent_queue_runner_snapshot_from_registry(
         state.queue_runner_sessions(),
-        state.db_path(),
-    ))
+        state.db_path().to_path_buf(),
+        app,
+        state.direct_work_active_runs(),
+    )
+    .await)
 }
 
 async fn start_agent_queue_runner_session_once(
@@ -132,10 +137,11 @@ async fn start_agent_queue_runner_session_once(
         .clone()
         .map(QueueRunnerPolicy::from)
         .unwrap_or_default();
-    registry.start_session(
+    registry.start_session_with_runtime_config(
         request.workspace_id.clone(),
         request.executor_widget_instance_id.clone(),
         policy,
+        runtime_config_from_request(&request),
     )?;
 
     if runtime_config_is_missing(&request) {
@@ -213,10 +219,11 @@ fn start_agent_queue_runner_session_once_without_background(
         .clone()
         .map(QueueRunnerPolicy::from)
         .unwrap_or_default();
-    registry.start_session(
+    registry.start_session_with_runtime_config(
         request.workspace_id.clone(),
         request.executor_widget_instance_id.clone(),
         policy,
+        runtime_config_from_request(&request),
     )?;
 
     if runtime_config_is_missing(&request) {
@@ -276,11 +283,48 @@ fn select_autorun_task_for_request(
     ))
 }
 
+fn select_autorun_continuation_task_for_request(
+    request: &QueueRunnerStartRequest,
+    db_path: &std::path::Path,
+) -> Result<QueueAutorunTaskSelection, String> {
+    let service = workspace_service(db_path)?;
+    let tasks = service
+        .list_agent_queue_tasks(&request.workspace_id)
+        .map_err(command_error)?;
+
+    Ok(select_next_autorun_task_after_success(
+        &tasks,
+        &request.executor_widget_instance_id,
+    ))
+}
+
 fn runtime_config_is_missing(request: &StartAgentQueueRunnerSessionRequest) -> bool {
     request.codex_executable.trim().is_empty()
         || request.repo_root.trim().is_empty()
         || request.sandbox.trim().is_empty()
         || request.approval_policy.trim().is_empty()
+}
+
+fn stored_runtime_config_is_missing(request: &QueueRunnerStartRequest) -> bool {
+    request.runtime_config.codex_executable.trim().is_empty()
+        || request.runtime_config.repo_root.trim().is_empty()
+        || request.runtime_config.sandbox.trim().is_empty()
+        || request.runtime_config.approval_policy.trim().is_empty()
+}
+
+fn runtime_config_from_request(
+    request: &StartAgentQueueRunnerSessionRequest,
+) -> QueueRunnerRuntimeConfig {
+    let mut runtime_config = QueueRunnerRuntimeConfig::new(
+        request.codex_executable.clone(),
+        request.repo_root.clone(),
+        request.sandbox.clone(),
+        request.approval_policy.clone(),
+    );
+    runtime_config.timeout_ms = request.timeout_ms;
+    runtime_config.stdout_cap_bytes = request.stdout_cap_bytes;
+    runtime_config.stderr_cap_bytes = request.stderr_cap_bytes;
+    runtime_config
 }
 
 fn stop_reason_for_start_error(error: &str) -> QueueRunnerStopReason {
@@ -321,9 +365,129 @@ fn get_agent_queue_runner_snapshot_from_registry(
     QueueRunnerSnapshotDto::from(registry.snapshot())
 }
 
-fn reconcile_agent_queue_runner_snapshot_from_registry(
+async fn reconcile_agent_queue_runner_snapshot_from_registry(
+    registry: QueueRunnerSessionRegistry,
+    db_path: PathBuf,
+    app: AppHandle,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> QueueRunnerSnapshotDto {
+    let snapshot = registry.snapshot();
+    if snapshot.status.as_str() != "waiting_for_executor" {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    }
+
+    let Some(run_id) = snapshot.waiting_run_id.clone() else {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    };
+
+    let Ok(store) = SqliteStore::open(&db_path) else {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    };
+
+    match store.get_widget_run(&run_id) {
+        Ok(Some(run)) => {
+            let observed = registry.observe_waiting_run_status(
+                &run_id,
+                &run.status,
+                run.finished_at.is_some(),
+            );
+            if observed.status.as_str() == "completed"
+                && observed.final_run_status.as_deref() == Some("completed")
+            {
+                continue_agent_queue_runner_after_success(registry, db_path, app, active_runs).await
+            } else {
+                QueueRunnerSnapshotDto::from(observed)
+            }
+        }
+        Ok(None) => QueueRunnerSnapshotDto::from(registry.observe_missing_waiting_run(&run_id)),
+        Err(_) => QueueRunnerSnapshotDto::from(snapshot),
+    }
+}
+
+async fn continue_agent_queue_runner_after_success(
+    registry: QueueRunnerSessionRegistry,
+    db_path: PathBuf,
+    app: AppHandle,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> QueueRunnerSnapshotDto {
+    let Some(start_request) = registry.start_request() else {
+        return QueueRunnerSnapshotDto::from(
+            registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+        );
+    };
+
+    if stored_runtime_config_is_missing(&start_request) {
+        return QueueRunnerSnapshotDto::from(
+            registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+        );
+    }
+
+    let selection = match select_autorun_continuation_task_for_request(&start_request, &db_path) {
+        Ok(selection) => selection,
+        Err(_) => {
+            return QueueRunnerSnapshotDto::from(
+                registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+            );
+        }
+    };
+
+    let queue_item_id = match selection {
+        QueueAutorunTaskSelection::Start { queue_item_id } => queue_item_id,
+        QueueAutorunTaskSelection::Stop {
+            reason: QueueRunnerStopReason::NoRunnableTasks,
+        } => {
+            return QueueRunnerSnapshotDto::from(
+                registry.complete_without_continuation(QueueRunnerStopReason::NoRunnableTasks),
+            );
+        }
+        QueueAutorunTaskSelection::Stop { reason } => {
+            return QueueRunnerSnapshotDto::from(registry.stop_after_final_status(reason));
+        }
+    };
+
+    let start_response = match start_assigned_agent_queue_task_from_request(
+        continuation_start_request(&start_request, queue_item_id),
+        app,
+        db_path,
+        active_runs,
+    )
+    .await
+    {
+        Ok(start_response) => start_response,
+        Err(error) => {
+            let reason = stop_reason_for_start_error(&error);
+            return QueueRunnerSnapshotDto::from(registry.stop_after_final_status(reason));
+        }
+    };
+
+    QueueRunnerSnapshotDto::from(registry.waiting_for_executor_after_continuation(
+        start_response.queue_item_id,
+        start_response.run_id,
+    ))
+}
+
+fn continuation_start_request(
+    request: &QueueRunnerStartRequest,
+    queue_item_id: String,
+) -> StartAssignedAgentQueueTaskRequest {
+    StartAssignedAgentQueueTaskRequest {
+        workspace_id: request.workspace_id.clone(),
+        queue_item_id,
+        codex_executable: request.runtime_config.codex_executable.clone(),
+        repo_root: request.runtime_config.repo_root.clone(),
+        sandbox: request.runtime_config.sandbox.clone(),
+        approval_policy: request.runtime_config.approval_policy.clone(),
+        timeout_ms: request.runtime_config.timeout_ms,
+        stdout_cap_bytes: request.runtime_config.stdout_cap_bytes,
+        stderr_cap_bytes: request.runtime_config.stderr_cap_bytes,
+    }
+}
+
+#[cfg(test)]
+fn reconcile_agent_queue_runner_snapshot_from_registry_without_background(
     registry: QueueRunnerSessionRegistry,
     db_path: &std::path::Path,
+    active_runs: DirectWorkActiveRunRegistry,
 ) -> QueueRunnerSnapshotDto {
     let snapshot = registry.snapshot();
     if snapshot.status.as_str() != "waiting_for_executor" {
@@ -339,14 +503,86 @@ fn reconcile_agent_queue_runner_snapshot_from_registry(
     };
 
     match store.get_widget_run(&run_id) {
-        Ok(Some(run)) => QueueRunnerSnapshotDto::from(registry.observe_waiting_run_status(
-            &run_id,
-            &run.status,
-            run.finished_at.is_some(),
-        )),
+        Ok(Some(run)) => {
+            let observed = registry.observe_waiting_run_status(
+                &run_id,
+                &run.status,
+                run.finished_at.is_some(),
+            );
+            if observed.status.as_str() == "completed"
+                && observed.final_run_status.as_deref() == Some("completed")
+            {
+                continue_agent_queue_runner_after_success_without_background(
+                    registry,
+                    db_path.to_path_buf(),
+                    active_runs,
+                )
+            } else {
+                QueueRunnerSnapshotDto::from(observed)
+            }
+        }
         Ok(None) => QueueRunnerSnapshotDto::from(registry.observe_missing_waiting_run(&run_id)),
         Err(_) => QueueRunnerSnapshotDto::from(snapshot),
     }
+}
+
+#[cfg(test)]
+fn continue_agent_queue_runner_after_success_without_background(
+    registry: QueueRunnerSessionRegistry,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> QueueRunnerSnapshotDto {
+    let Some(start_request) = registry.start_request() else {
+        return QueueRunnerSnapshotDto::from(
+            registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+        );
+    };
+
+    if stored_runtime_config_is_missing(&start_request) {
+        return QueueRunnerSnapshotDto::from(
+            registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+        );
+    }
+
+    let selection = match select_autorun_continuation_task_for_request(&start_request, &db_path) {
+        Ok(selection) => selection,
+        Err(_) => {
+            return QueueRunnerSnapshotDto::from(
+                registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+            );
+        }
+    };
+
+    let queue_item_id = match selection {
+        QueueAutorunTaskSelection::Start { queue_item_id } => queue_item_id,
+        QueueAutorunTaskSelection::Stop {
+            reason: QueueRunnerStopReason::NoRunnableTasks,
+        } => {
+            return QueueRunnerSnapshotDto::from(
+                registry.complete_without_continuation(QueueRunnerStopReason::NoRunnableTasks),
+            );
+        }
+        QueueAutorunTaskSelection::Stop { reason } => {
+            return QueueRunnerSnapshotDto::from(registry.stop_after_final_status(reason));
+        }
+    };
+
+    let start_response = match start_assigned_agent_queue_task_blocking(
+        continuation_start_request(&start_request, queue_item_id),
+        db_path,
+        active_runs,
+    ) {
+        Ok(start_response) => start_response,
+        Err(error) => {
+            let reason = stop_reason_for_start_error(&error);
+            return QueueRunnerSnapshotDto::from(registry.stop_after_final_status(reason));
+        }
+    };
+
+    QueueRunnerSnapshotDto::from(registry.waiting_for_executor_after_continuation(
+        start_response.queue_item_id,
+        start_response.run_id,
+    ))
 }
 
 impl From<StartAgentQueueRunnerPolicyRequest> for QueueRunnerPolicy {
