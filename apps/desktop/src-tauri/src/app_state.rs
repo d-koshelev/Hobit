@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use hobit_app::CodexDirectStreamCancellationToken;
 use tauri::Manager;
 
+use crate::agent_queue_runner::QueueRunnerSessionRegistry;
 use crate::database_startup::initialize_database;
 use crate::direct_work_host_artifacts::DirectWorkHostRuntimeBoundarySummary;
 use crate::terminal_pty::TerminalPtySessionManager;
@@ -12,6 +13,7 @@ use crate::terminal_pty::TerminalPtySessionManager;
 pub(crate) struct AppState {
     db_path: PathBuf,
     direct_work_active_runs: DirectWorkActiveRunRegistry,
+    queue_runner_sessions: QueueRunnerSessionRegistry,
     terminal_pty_sessions: TerminalPtySessionRegistry,
 }
 
@@ -20,6 +22,7 @@ impl AppState {
         Self {
             db_path,
             direct_work_active_runs: DirectWorkActiveRunRegistry::default(),
+            queue_runner_sessions: QueueRunnerSessionRegistry::default(),
             terminal_pty_sessions: TerminalPtySessionRegistry::default(),
         }
     }
@@ -30,6 +33,10 @@ impl AppState {
 
     pub(crate) fn direct_work_active_runs(&self) -> DirectWorkActiveRunRegistry {
         self.direct_work_active_runs.clone()
+    }
+
+    pub(crate) fn queue_runner_sessions(&self) -> QueueRunnerSessionRegistry {
+        self.queue_runner_sessions.clone()
     }
 
     pub(crate) fn terminal_pty_sessions(&self) -> TerminalPtySessionRegistry {

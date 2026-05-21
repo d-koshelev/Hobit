@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::fmt;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct QueueRunnerSessionId(String);
@@ -52,6 +53,21 @@ impl QueueRunnerStatus {
                 | Self::WaitingForExecutor
                 | Self::Stopping
         )
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Armed => "armed",
+            Self::SelectingTask => "selecting_task",
+            Self::AssigningTask => "assigning_task",
+            Self::StartingTask => "starting_task",
+            Self::WaitingForExecutor => "waiting_for_executor",
+            Self::Stopping => "stopping",
+            Self::Stopped => "stopped",
+            Self::Completed => "completed",
+            Self::Error => "error",
+        }
     }
 }
 
@@ -108,6 +124,29 @@ pub(crate) enum QueueRunnerStopReason {
     TaskKilled,
     UnknownFinalStatus,
     AppSessionEnded,
+}
+
+impl QueueRunnerStopReason {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::OperatorStopped => "operator_stopped",
+            Self::NoRunnableTasks => "no_runnable_tasks",
+            Self::ManualTaskRequiresOperator => "manual_task_requires_operator",
+            Self::PreviousSuccessRequired => "previous_success_required",
+            Self::PreviousTaskNotSuccessful => "previous_task_not_successful",
+            Self::AssignedToDifferentExecutor => "assigned_to_different_executor",
+            Self::ExecutorBusy => "executor_busy",
+            Self::MissingExecutor => "missing_executor",
+            Self::MissingPrompt => "missing_prompt",
+            Self::InvalidConfig => "invalid_config",
+            Self::TaskFailed => "task_failed",
+            Self::ReviewNeeded => "review_needed",
+            Self::TaskCancelled => "task_cancelled",
+            Self::TaskKilled => "task_killed",
+            Self::UnknownFinalStatus => "unknown_final_status",
+            Self::AppSessionEnded => "app_session_ended",
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -217,6 +256,126 @@ impl fmt::Debug for RedactedIdentifier {
     }
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct QueueRunnerSessionRegistry {
+    state: Arc<Mutex<QueueRunnerSessionState>>,
+}
+
+impl QueueRunnerSessionRegistry {
+    pub(crate) fn start_session(
+        &self,
+        workspace_id: impl Into<String>,
+        executor_widget_instance_id: impl Into<String>,
+        policy: QueueRunnerPolicy,
+    ) -> Result<QueueRunnerSnapshot, String> {
+        let workspace_id = required_value(workspace_id.into(), "workspace id")?;
+        let executor_widget_instance_id = required_value(
+            executor_widget_instance_id.into(),
+            "executor widget instance id",
+        )?;
+        validate_start_policy(policy)?;
+
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.status.is_active() {
+            return Err(
+                "Queue runner session is already active. Stop it before arming another session."
+                    .to_owned(),
+            );
+        }
+
+        let session_id = state.next_session_id();
+        let mut start_request = QueueRunnerStartRequest::new(
+            session_id.clone(),
+            workspace_id,
+            executor_widget_instance_id,
+        );
+        start_request.policy = policy;
+        state.start_request = Some(start_request);
+        state.snapshot = QueueRunnerSnapshot {
+            session_id: Some(session_id),
+            status: QueueRunnerStatus::Armed,
+            policy,
+            active_queue_item_id: None,
+            waiting_run_id: None,
+            stop_reason: None,
+        };
+
+        Ok(state.snapshot.clone())
+    }
+
+    pub(crate) fn stop_session(&self) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.session_id.is_none() || state.snapshot.status == QueueRunnerStatus::Idle {
+            state.snapshot = QueueRunnerSnapshot::default();
+            state.start_request = None;
+            return state.snapshot.clone();
+        }
+
+        if state.snapshot.status.is_active() {
+            state.snapshot.status = QueueRunnerStatus::Stopped;
+            state.snapshot.stop_reason = Some(QueueRunnerStopReason::OperatorStopped);
+            state.snapshot.active_queue_item_id = None;
+            state.snapshot.waiting_run_id = None;
+        }
+
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn snapshot(&self) -> QueueRunnerSnapshot {
+        self.state
+            .lock()
+            .expect("queue runner session lock")
+            .snapshot
+            .clone()
+    }
+}
+
+#[derive(Default)]
+struct QueueRunnerSessionState {
+    next_session_sequence: u64,
+    snapshot: QueueRunnerSnapshot,
+    start_request: Option<QueueRunnerStartRequest>,
+}
+
+impl QueueRunnerSessionState {
+    fn next_session_id(&mut self) -> QueueRunnerSessionId {
+        self.next_session_sequence = self.next_session_sequence.saturating_add(1);
+        QueueRunnerSessionId::new(format!(
+            "queue_runner_session_{}",
+            self.next_session_sequence
+        ))
+    }
+}
+
+fn required_value(value: String, label: &str) -> Result<String, String> {
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        return Err(format!("{label} must not be empty"));
+    }
+
+    Ok(value)
+}
+
+fn validate_start_policy(policy: QueueRunnerPolicy) -> Result<(), String> {
+    if !policy.require_operator_start {
+        return Err("Queue runner requires explicit operator start".to_owned());
+    }
+
+    if !policy.one_task_at_a_time {
+        return Err("Queue runner must run one task at a time".to_owned());
+    }
+
+    if policy.allow_hidden_execution {
+        return Err("Queue runner cannot allow hidden execution".to_owned());
+    }
+
+    if policy.durable_resume {
+        return Err("Queue runner durable resume is not implemented".to_owned());
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,5 +479,81 @@ mod tests {
         assert!(!debug.contains("C:\\Users"));
         assert!(!debug.contains("--arg"));
         assert!(debug.contains("require_operator_start: true"));
+    }
+
+    #[test]
+    fn session_registry_starts_explicit_armed_session_without_task_state() {
+        let registry = QueueRunnerSessionRegistry::default();
+
+        let snapshot = registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+
+        assert_eq!(snapshot.status, QueueRunnerStatus::Armed);
+        assert_eq!(
+            snapshot
+                .session_id
+                .as_ref()
+                .map(QueueRunnerSessionId::as_str),
+            Some("queue_runner_session_1")
+        );
+        assert_eq!(snapshot.active_queue_item_id, None);
+        assert_eq!(snapshot.waiting_run_id, None);
+    }
+
+    #[test]
+    fn session_registry_does_not_need_queue_task_or_persistence_to_start() {
+        let registry = QueueRunnerSessionRegistry::default();
+
+        let snapshot = registry
+            .start_session(
+                "workspace without storage",
+                "executor without db lookup",
+                QueueRunnerPolicy::default(),
+            )
+            .expect("start session without queue task");
+
+        assert_eq!(snapshot.status, QueueRunnerStatus::Armed);
+        assert!(snapshot.is_session_only());
+    }
+
+    #[test]
+    fn session_registry_stop_transitions_and_repeated_stop_is_safe() {
+        let registry = QueueRunnerSessionRegistry::default();
+        registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+
+        let stopped = registry.stop_session();
+        let stopped_again = registry.stop_session();
+
+        assert_eq!(stopped.status, QueueRunnerStatus::Stopped);
+        assert_eq!(
+            stopped.stop_reason,
+            Some(QueueRunnerStopReason::OperatorStopped)
+        );
+        assert_eq!(stopped_again, stopped);
+    }
+
+    #[test]
+    fn session_registry_rejects_non_operator_or_hidden_policy() {
+        let registry = QueueRunnerSessionRegistry::default();
+        let hidden_policy = QueueRunnerPolicy {
+            allow_hidden_execution: true,
+            ..QueueRunnerPolicy::default()
+        };
+        let durable_policy = QueueRunnerPolicy {
+            durable_resume: true,
+            ..QueueRunnerPolicy::default()
+        };
+
+        assert!(registry
+            .start_session("ws_1", "executor_1", hidden_policy)
+            .expect_err("hidden execution rejected")
+            .contains("hidden execution"));
+        assert!(registry
+            .start_session("ws_1", "executor_1", durable_policy)
+            .expect_err("durable resume rejected")
+            .contains("not implemented"));
     }
 }

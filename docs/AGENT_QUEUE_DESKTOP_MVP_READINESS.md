@@ -53,9 +53,10 @@ completed timestamp.
 
 ## Current-Session Only
 
-Frontend/current-session only:
+Frontend and desktop-local current-session only:
 
 - Sequential Queue Runner state;
+- desktop-local Queue runner session arm/stop/snapshot state;
 - selected runner Agent Executor;
 - runner stopped/running/waiting status;
 - runner list of already-started task ids for the current pass;
@@ -151,7 +152,8 @@ not survive reload.
    `docs/AGENT_QUEUE_OVERNIGHT_RUNNER_CONTRACT.md` to keep automatic mode
    explicit, desktop-local, current-session-only, one-task-at-a-time, and
    stopped on failure/review/cancel/missing executor/missing prompt/invalid
-   config.
+   config. Current Tauri runner commands arm, stop, and report session state
+   only; they do not execute tasks or submit work to Agent Executor.
 3. Queue task detail polish: improve status/policy guidance, validation
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,

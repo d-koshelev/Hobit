@@ -9,9 +9,9 @@ boundary for the desktop MVP.
 
 It is not a backend scheduler, server worker, durable runner, reconnect/resume
 system, Coordinator automation path, approval bypass, or hidden execution
-system. It does not add persistence, schema, Tauri commands, frontend behavior,
-Direct Work behavior, Agent Executor behavior, server runtime, enterprise/RBAC,
-or multi-user workers by itself.
+system. It does not add persistence, schema, frontend behavior, Direct Work
+behavior, Agent Executor behavior, server runtime, enterprise/RBAC, or
+multi-user workers by itself.
 
 ## Product Model
 
@@ -194,7 +194,7 @@ durable scheduling, hidden execution, or server workers.
 
 ## Current Code Foundation
 
-The first foundation may include private desktop-only session vocabulary for:
+The first foundation includes private desktop-only session vocabulary for:
 
 - runner session id;
 - runner status;
@@ -203,9 +203,16 @@ The first foundation may include private desktop-only session vocabulary for:
 - start request;
 - snapshot.
 
-That vocabulary is session-only and must not be exposed as persistence, Tauri
-DTOs, frontend behavior, or a running loop until a later implementation block
-explicitly wires it.
+The next foundation adds desktop-local session state and Tauri commands to:
+
+- start/arm a Queue runner session;
+- stop the current Queue runner session;
+- read the current Queue runner snapshot.
+
+Those commands arm, stop, and report session state only. They do not select
+Queue tasks, assign tasks, start Direct Work, submit anything to Agent
+Executor, run an execution loop, persist runner state, add schema, or expose a
+frontend UI.
 
 ## Non-Goals
 
