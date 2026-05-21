@@ -149,8 +149,12 @@ and component keys may still appear in code and persistence.
 
 - Current preview manual task organization surface.
 - Uses the `agent-queue` widget definition id.
-- Provides workspace-local task create, list, read, update, filter, select, and
-  explicit save flows for title, description, prompt, status, and priority.
+- Provides workspace-local task create, list, read, update, delete, filter,
+  select, and explicit save flows for title, description, prompt, status, and
+  priority.
+- Task deletion is explicit and confirmation-gated, blocks running/current
+  active runner tasks, and removes only the Queue task row. It does not delete
+  Agent Executor runs, logs, results, artifacts, or Direct Work history.
 - Supports visible manual assignment/clear of a task to an Agent Executor slot
   when assignment APIs are available.
 - Supports explicit start of an assigned task in its assigned Agent Executor

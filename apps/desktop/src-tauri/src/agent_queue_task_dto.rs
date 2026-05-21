@@ -1,6 +1,6 @@
 use hobit_app::{
     AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    CreateAgentQueueTaskInput, DeleteAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,12 @@ pub(crate) struct AssignAgentQueueTaskToExecutorRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
 pub(crate) struct ClearAgentQueueTaskAssignmentRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct DeleteAgentQueueTaskRequest {
     pub workspace_id: String,
     pub queue_item_id: String,
 }
@@ -109,6 +115,15 @@ impl From<AssignAgentQueueTaskToExecutorRequest> for AssignAgentQueueTaskToExecu
 
 impl From<ClearAgentQueueTaskAssignmentRequest> for ClearAgentQueueTaskAssignmentInput {
     fn from(request: ClearAgentQueueTaskAssignmentRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+        }
+    }
+}
+
+impl From<DeleteAgentQueueTaskRequest> for DeleteAgentQueueTaskInput {
+    fn from(request: DeleteAgentQueueTaskRequest) -> Self {
         Self {
             workspace_id: request.workspace_id,
             queue_item_id: request.queue_item_id,

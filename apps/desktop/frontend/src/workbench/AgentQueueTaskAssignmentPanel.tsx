@@ -67,9 +67,11 @@ export function AgentQueueTaskAssignmentPanel({
     >
       <div className="agent-queue-assignment-header">
         <div>
-          <p className="agent-queue-assignment-title">Assignment</p>
-          <p className="agent-queue-assignment-copy">
-            Assignment only. This does not run the task.
+          <p
+            className="agent-queue-assignment-title"
+            title="Assignment records the intended Agent Executor slot. It does not run the task."
+          >
+            Assignment
           </p>
         </div>
         <Badge variant={hasAssignedExecutor ? "info" : "neutral"}>
@@ -189,7 +191,7 @@ function assignmentControlMessage({
   }
 
   if (isRunningStatus) {
-    return "Assignment is locked while the task is running.";
+    return "Assignment locked: task is running.";
   }
 
   if (!hasExecutorSlots) {

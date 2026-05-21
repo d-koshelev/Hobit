@@ -114,7 +114,7 @@ mod workspace_deletion_tests;
 pub use agent_queue_task_types::{
     AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, AssignedAgentQueueTaskRunPlan,
     AssignedAgentQueueTaskStartSummary, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
+    CreateAgentQueueTaskInput, DeleteAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;

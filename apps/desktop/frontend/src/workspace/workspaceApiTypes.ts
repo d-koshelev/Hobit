@@ -31,6 +31,7 @@ import type {
   CreateWorkspaceNoteRequest,
   CreateWorkspaceRequest,
   CreateTerminalPtySessionRequest,
+  DeleteAgentQueueTaskRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
@@ -175,6 +176,9 @@ export type WorkspaceApi = {
   updateAgentQueueTask: (
     request: UpdateAgentQueueTaskRequest,
   ) => Promise<AgentQueueTask | null>;
+  deleteAgentQueueTask: (
+    request: DeleteAgentQueueTaskRequest,
+  ) => Promise<boolean>;
   assignAgentQueueTaskToExecutor: (
     request: AssignAgentQueueTaskToExecutorRequest,
   ) => Promise<AgentQueueTask>;

@@ -70,6 +70,10 @@ impl AgentQueueTaskLifecycleStatus {
         matches!(self, Self::Queued | Self::Ready | Self::ReviewNeeded)
     }
 
+    pub(super) fn allows_deletion(self) -> bool {
+        self != Self::Running
+    }
+
     pub(super) fn is_terminal(self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
     }

@@ -207,4 +207,14 @@ impl SqliteStore {
 
         self.get_agent_queue_task(workspace_id, queue_item_id)
     }
+
+    pub fn delete_agent_queue_task(&self, workspace_id: &str, queue_item_id: &str) -> Result<bool> {
+        let affected_rows = self.connection.execute(
+            "DELETE FROM agent_queue_tasks
+             WHERE workspace_id = ?1 AND queue_item_id = ?2",
+            params![workspace_id, queue_item_id],
+        )?;
+
+        Ok(affected_rows > 0)
+    }
 }

@@ -90,7 +90,7 @@
   display: grid;
   flex: 1 1 auto;
   min-height: 0;
-  grid-template-columns: minmax(220px, 0.82fr) minmax(320px, 1.5fr);
+  grid-template-columns: minmax(240px, clamp(300px, 34%, 400px)) minmax(0, 1fr);
   gap: var(--space-sm);
 }
 
@@ -146,7 +146,7 @@
 .agent-queue-task-row {
   display: grid;
   width: 100%;
-  height: 64px;
+  height: 60px;
   min-width: 0;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--space-xs);
@@ -399,7 +399,10 @@
 .agent-queue-run-title,
 .agent-queue-run-copy,
 .agent-queue-run-note,
-.agent-queue-run-warning {
+.agent-queue-run-warning,
+.agent-queue-delete-note,
+.agent-queue-delete-title,
+.agent-queue-delete-copy {
   margin: 0;
 }
 
@@ -429,6 +432,41 @@
   color: var(--color-warning);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+}
+
+.agent-queue-delete-button,
+.agent-queue-delete-confirm-button {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.agent-queue-delete-note,
+.agent-queue-delete-copy {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-delete-confirmation {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-soft);
+  padding: var(--space-sm);
+}
+
+.agent-queue-delete-title {
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.agent-queue-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
 }
 
 .agent-queue-message {
@@ -555,7 +593,7 @@
   }
 
   .agent-queue-task-row {
-    height: 70px;
+    height: 66px;
   }
 }
 

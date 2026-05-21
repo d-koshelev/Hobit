@@ -439,3 +439,34 @@ fn clear_agent_queue_task_assignment_removes_assignment() {
     assert_eq!(cleared.assigned_executor_widget_id, None);
     assert_eq!(cleared.updated_at, "3");
 }
+
+#[test]
+fn delete_agent_queue_task_removes_only_matching_workspace_task() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workspace(&store, "workspace-2");
+    create_task(&store, "workspace-1", "task-delete", "Delete", 1, "1");
+    create_task(&store, "workspace-1", "task-keep", "Keep", 1, "2");
+    create_task(&store, "workspace-2", "task-other", "Other", 1, "3");
+
+    let deleted = store
+        .delete_agent_queue_task("workspace-1", "task-delete")
+        .expect("delete queue task");
+
+    assert!(deleted);
+    assert!(store
+        .get_agent_queue_task_by_id("task-delete")
+        .expect("get deleted task")
+        .is_none());
+    assert!(store
+        .get_agent_queue_task_by_id("task-keep")
+        .expect("get kept task")
+        .is_some());
+    assert!(store
+        .get_agent_queue_task_by_id("task-other")
+        .expect("get other workspace task")
+        .is_some());
+    assert!(!store
+        .delete_agent_queue_task("workspace-1", "task-other")
+        .expect("cross-workspace delete does not match"));
+}

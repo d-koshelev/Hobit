@@ -2,7 +2,7 @@ use hobit_app::AgentQueueTaskSummary;
 
 use crate::agent_queue_task_dto::{
     AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, ClearAgentQueueTaskAssignmentRequest,
-    CreateAgentQueueTaskRequest, UpdateAgentQueueTaskRequest,
+    CreateAgentQueueTaskRequest, DeleteAgentQueueTaskRequest, UpdateAgentQueueTaskRequest,
 };
 
 #[test]
@@ -79,6 +79,19 @@ fn maps_clear_agent_queue_task_assignment_request_to_app_input() {
     };
 
     let input: hobit_app::ClearAgentQueueTaskAssignmentInput = request.into();
+
+    assert_eq!(input.workspace_id, "ws_1");
+    assert_eq!(input.queue_item_id, "task_1");
+}
+
+#[test]
+fn maps_delete_agent_queue_task_request_to_app_input() {
+    let request = DeleteAgentQueueTaskRequest {
+        workspace_id: "ws_1".to_owned(),
+        queue_item_id: "task_1".to_owned(),
+    };
+
+    let input: hobit_app::DeleteAgentQueueTaskInput = request.into();
 
     assert_eq!(input.workspace_id, "ws_1");
     assert_eq!(input.queue_item_id, "task_1");

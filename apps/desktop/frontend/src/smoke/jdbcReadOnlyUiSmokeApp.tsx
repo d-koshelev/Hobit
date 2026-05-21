@@ -90,6 +90,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       clearAgentQueueTaskAssignment: this.unsupported,
       closeTerminalPtySession: this.unsupported,
       createAgentQueueTask: this.unsupported,
+      deleteAgentQueueTask: this.unsupported,
       createGitCommit: this.unsupported,
       createJdbcConnector: async () => {
         this.createConnectorCallCount += 1;

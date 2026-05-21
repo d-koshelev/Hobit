@@ -6,8 +6,8 @@ use tauri::State;
 
 use crate::agent_queue_task_dto::{
     AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, ClearAgentQueueTaskAssignmentRequest,
-    CreateAgentQueueTaskRequest, GetAgentQueueTaskRequest, ListAgentQueueTasksRequest,
-    UpdateAgentQueueTaskRequest,
+    CreateAgentQueueTaskRequest, DeleteAgentQueueTaskRequest, GetAgentQueueTaskRequest,
+    ListAgentQueueTasksRequest, UpdateAgentQueueTaskRequest,
 };
 use crate::app_state::AppState;
 
@@ -122,6 +122,33 @@ fn clear_agent_queue_task_assignment_blocking(
     service
         .clear_agent_queue_task_assignment(request.into())
         .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn delete_agent_queue_task(
+    request: DeleteAgentQueueTaskRequest,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let snapshot = state.queue_runner_sessions().snapshot();
+    if snapshot.status.is_active()
+        && snapshot.active_queue_item_id.as_deref() == Some(request.queue_item_id.as_str())
+    {
+        return Err(
+            "cannot delete queue task while Queue Autorun is active for that task".to_owned(),
+        );
+    }
+
+    delete_agent_queue_task_blocking(request, state.db_path().to_path_buf())
+}
+
+fn delete_agent_queue_task_blocking(
+    request: DeleteAgentQueueTaskRequest,
+    db_path: PathBuf,
+) -> Result<bool, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .delete_agent_queue_task(request.into())
         .map_err(command_error)
 }
 

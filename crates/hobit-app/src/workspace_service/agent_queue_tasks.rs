@@ -10,8 +10,8 @@ use super::{
     placeholder_id, placeholder_timestamp,
     validation::required_input,
     AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput, WorkspaceService,
-    AGENT_RUN_WIDGET_DEFINITION_ID,
+    CreateAgentQueueTaskInput, DeleteAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    WorkspaceService, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
 const MIN_AGENT_QUEUE_TASK_PRIORITY: i64 = 0;
@@ -185,6 +185,44 @@ impl WorkspaceService {
         Ok(agent_queue_task_summary(task))
     }
 
+    pub fn delete_agent_queue_task(
+        &self,
+        input: DeleteAgentQueueTaskInput,
+    ) -> Result<bool, WorkspaceServiceError> {
+        let input = normalize_delete_agent_queue_task_input(input)?;
+        let deleted = self
+            .store
+            .with_immediate_transaction(|store| {
+                let Some(task) = load_optional_agent_queue_task(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                )?
+                else {
+                    return Ok(false);
+                };
+
+                if !AgentQueueTaskLifecycleStatus::from_current_status(&task.status)
+                    .map(AgentQueueTaskLifecycleStatus::allows_deletion)
+                    .unwrap_or(false)
+                {
+                    return Err(storage_invalid_input(
+                        "queue task cannot be deleted while status is running".to_owned(),
+                    ));
+                }
+
+                let deleted =
+                    store.delete_agent_queue_task(&input.workspace_id, &input.queue_item_id)?;
+                if deleted {
+                    store.touch_workspace(&input.workspace_id)?;
+                }
+                Ok(deleted)
+            })
+            .map_err(map_storage_agent_queue_task_error)?;
+
+        Ok(deleted)
+    }
+
     fn validate_agent_queue_task_workspace_access(
         &self,
         workspace_id: &str,
@@ -246,6 +284,12 @@ struct NormalizedClearAgentQueueTaskAssignmentInput {
     queue_item_id: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct NormalizedDeleteAgentQueueTaskInput {
+    workspace_id: String,
+    queue_item_id: String,
+}
+
 fn normalize_create_agent_queue_task_input(
     input: CreateAgentQueueTaskInput,
 ) -> Result<NormalizedCreateAgentQueueTaskInput, WorkspaceServiceError> {
@@ -296,6 +340,15 @@ fn normalize_clear_agent_queue_task_assignment_input(
     input: ClearAgentQueueTaskAssignmentInput,
 ) -> Result<NormalizedClearAgentQueueTaskAssignmentInput, WorkspaceServiceError> {
     Ok(NormalizedClearAgentQueueTaskAssignmentInput {
+        workspace_id: required_owned(input.workspace_id, "workspace id")?,
+        queue_item_id: required_owned(input.queue_item_id, "queue item id")?,
+    })
+}
+
+fn normalize_delete_agent_queue_task_input(
+    input: DeleteAgentQueueTaskInput,
+) -> Result<NormalizedDeleteAgentQueueTaskInput, WorkspaceServiceError> {
+    Ok(NormalizedDeleteAgentQueueTaskInput {
         workspace_id: required_owned(input.workspace_id, "workspace id")?,
         queue_item_id: required_owned(input.queue_item_id, "queue item id")?,
     })
@@ -373,6 +426,15 @@ pub(super) fn load_agent_queue_task(
     workspace_id: &str,
     queue_item_id: &str,
 ) -> Result<AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
+    load_optional_agent_queue_task(store, workspace_id, queue_item_id)?
+        .ok_or_else(|| storage_invalid_input(format!("queue task not found: {queue_item_id}")))
+}
+
+fn load_optional_agent_queue_task(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Result<Option<AgentQueueTaskRow>, hobit_storage_sqlite::StorageError> {
     if store.get_workspace(workspace_id)?.is_none() {
         return Err(storage_invalid_input(format!(
             "workspace not found: {workspace_id}"
@@ -380,9 +442,7 @@ pub(super) fn load_agent_queue_task(
     }
 
     let Some(task) = store.get_agent_queue_task_by_id(queue_item_id)? else {
-        return Err(storage_invalid_input(format!(
-            "queue task not found: {queue_item_id}"
-        )));
+        return Ok(None);
     };
 
     if task.workspace_id != workspace_id {
@@ -391,7 +451,7 @@ pub(super) fn load_agent_queue_task(
         )));
     }
 
-    Ok(task)
+    Ok(Some(task))
 }
 
 fn load_clearable_agent_queue_task(

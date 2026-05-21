@@ -4,6 +4,7 @@ import type {
   AgentQueueTask,
   AssignAgentQueueTaskToExecutorRequest,
   CreateAgentQueueTaskRequest,
+  DeleteAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
@@ -271,6 +272,143 @@ describe("useAgentQueueController sequential runner", () => {
   });
 });
 
+describe("useAgentQueueController delete task", () => {
+  it("requires confirmation before deleting a task", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "queued" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.deleteTask.onRequest();
+    });
+
+    expect(hook.result.current.deleteTask.isConfirming).toBe(true);
+    expect(harness.deleteRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("cancels delete confirmation without deleting", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "queued" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.deleteTask.onRequest();
+      hook.result.current.deleteTask.onCancel();
+    });
+
+    expect(hook.result.current.deleteTask.isConfirming).toBe(false);
+    expect(harness.deleteRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("deletes a confirmed task and selects the next task", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "queued", title: "First" }),
+      queueTask({ queueItemId: "queue-2", status: "queued", title: "Second" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.deleteTask.onRequest();
+    });
+    await act(async () => {
+      hook.result.current.deleteTask.onConfirm();
+      await flushControllerLoad();
+    });
+
+    expect(harness.deleteRequests).toEqual([{ queueItemId: "queue-1" }]);
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-2",
+    ]);
+    expect(hook.result.current.selectedTask?.queueItemId).toBe("queue-2");
+    expect(hook.result.current.deleteTask.message).toBe("Queue task deleted.");
+
+    hook.unmount();
+  });
+
+  it("blocks delete for running tasks", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "running" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.deleteTask.canRequest).toBe(false);
+    expect(hook.result.current.deleteTask.blockedReason).toBe(
+      "Running tasks cannot be deleted.",
+    );
+
+    act(() => {
+      hook.result.current.deleteTask.onRequest();
+    });
+
+    expect(harness.deleteRequests).toHaveLength(0);
+    expect(hook.result.current.deleteTask.error).toBe(
+      "Running tasks cannot be deleted.",
+    );
+
+    hook.unmount();
+  });
+
+  it("blocks delete while the selected task is waiting for the executor", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+    await act(async () => {
+      hook.result.current.runner.onStart();
+      await flushHookEffects();
+    });
+
+    expect(hook.result.current.runner.status).toBe("waiting_for_executor");
+    expect(hook.result.current.deleteTask.canRequest).toBe(false);
+    expect(hook.result.current.deleteTask.blockedReason).toBe(
+      "Running tasks cannot be deleted.",
+    );
+
+    hook.unmount();
+  });
+});
+
 function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const tasks = new Map<string, AgentQueueTask>(
     initialTasks.map((task) => [task.queueItemId, task]),
@@ -285,6 +423,8 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const startRequests: Array<
     Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">
   > = [];
+  const deleteRequests: Array<Omit<DeleteAgentQueueTaskRequest, "workspaceId">> =
+    [];
   const handoffs: DirectWorkRunHandoffInput[] = [];
   const options: AgentQueueControllerOptions = {
     agentExecutorSlots: [
@@ -328,6 +468,12 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       tasks.set(createdTask.queueItemId, createdTask);
 
       return createdTask;
+    },
+    onDeleteAgentQueueTask: async (
+      request: Omit<DeleteAgentQueueTaskRequest, "workspaceId">,
+    ) => {
+      deleteRequests.push(request);
+      return tasks.delete(request.queueItemId);
     },
     onClearAgentQueueTaskAssignment: async (request) => {
       const task = tasks.get(request.queueItemId);
@@ -407,6 +553,7 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   return {
     assignRequests,
     createRequests,
+    deleteRequests,
     handoffs,
     options,
     replaceTask(task: AgentQueueTask) {

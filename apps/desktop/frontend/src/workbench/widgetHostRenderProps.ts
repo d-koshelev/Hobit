@@ -74,6 +74,9 @@ export function widgetHostRenderProps({
     onCreateAgentQueueTask: isAgentQueue || isInteractiveAgent
       ? widgetActions.createAgentQueueTask
       : undefined,
+    onDeleteAgentQueueTask: isAgentQueue
+      ? widgetActions.deleteAgentQueueTask
+      : undefined,
     onCreateGitCommit: isGit ? widgetActions.createGitCommit : undefined,
     onCreateJdbcConnector: isJdbc
       ? widgetActions.createJdbcConnector

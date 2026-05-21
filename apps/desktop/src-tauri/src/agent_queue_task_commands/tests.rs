@@ -297,6 +297,77 @@ fn assignment_command_helper_rejects_running_task_assignment_changes() {
     remove_test_db_files(&db_path);
 }
 
+#[test]
+fn delete_agent_queue_task_command_helper_deletes_non_running_task() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+    let created = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+            execution_policy: None,
+        },
+        db_path.clone(),
+    )
+    .expect("create queue task");
+
+    let deleted = delete_agent_queue_task_blocking(
+        DeleteAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: created.queue_item_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("delete queue task");
+
+    assert!(deleted);
+    assert!(get_agent_queue_task_blocking(
+        GetAgentQueueTaskRequest {
+            workspace_id,
+            queue_item_id: created.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect("get deleted task")
+    .is_none());
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn delete_agent_queue_task_command_helper_rejects_running_task() {
+    let db_path = unique_test_db_path();
+    let workspace_id = create_workspace_in_test_db(&db_path);
+    let running = create_agent_queue_task_blocking(
+        CreateAgentQueueTaskRequest {
+            workspace_id: workspace_id.clone(),
+            title: "Running task".to_owned(),
+            description: "".to_owned(),
+            prompt: "Prompt".to_owned(),
+            status: "running".to_owned(),
+            priority: 1,
+            execution_policy: None,
+        },
+        db_path.clone(),
+    )
+    .expect("create running queue task");
+
+    let error = delete_agent_queue_task_blocking(
+        DeleteAgentQueueTaskRequest {
+            workspace_id,
+            queue_item_id: running.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect_err("running delete rejected");
+
+    assert!(error.contains("queue task cannot be deleted while status is running"));
+    remove_test_db_files(&db_path);
+}
+
 fn create_workspace_in_test_db(db_path: &Path) -> String {
     let store = SqliteStore::open(db_path).expect("open sqlite test store");
     store.init_schema().expect("initialize schema");

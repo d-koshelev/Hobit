@@ -11,6 +11,7 @@ import type {
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
+  DeleteAgentQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   ListAgentQueueTasksRequest,
@@ -204,6 +205,17 @@ export async function updateAgentQueueTask(
   );
 
   return task ? normalizeAgentQueueTask(task) : null;
+}
+
+export async function deleteAgentQueueTask(
+  request: DeleteAgentQueueTaskRequest,
+): Promise<boolean> {
+  return invoke<boolean>("delete_agent_queue_task", {
+    request: {
+      workspace_id: request.workspaceId,
+      queue_item_id: request.queueItemId,
+    },
+  });
 }
 
 export async function assignAgentQueueTaskToExecutor(

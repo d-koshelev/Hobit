@@ -105,6 +105,7 @@ class CoordinatorProviderProductSmokeRuntime {
         };
         return this.lastCreatedQueueTask;
       },
+      deleteAgentQueueTask: async () => this.forbidden(false),
       createGitCommit: this.gitUnsupported,
       createJdbcConnector: this.jdbcUnsupported,
       createTerminalPtySession: this.terminalUnsupported,

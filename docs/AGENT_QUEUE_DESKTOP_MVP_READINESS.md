@@ -17,6 +17,8 @@ work.
 Currently working:
 
 - create, list, read, update, filter, and select Queue tasks;
+- explicit confirmation-gated Queue task deletion for non-running,
+  non-active tasks;
 - persisted task title, description, prompt, status, priority, execution
   policy, assignment, and timestamps;
 - task assignment to a visible Agent Executor widget;
@@ -48,6 +50,8 @@ Currently working:
 Durable in `hobit-app` / SQLite-backed storage:
 
 - Queue task rows;
+- explicit task deletion removes only the Queue task row and does not delete
+  Agent Executor run/log/result artifacts;
 - task lifecycle status vocabulary;
 - task execution policy values: `manual`, `auto`,
   `after_previous_success`;

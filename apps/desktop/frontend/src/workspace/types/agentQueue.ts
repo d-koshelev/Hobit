@@ -44,6 +44,8 @@ export type GetAgentQueueTaskRequest = {
   queueItemId: string;
 };
 
+export type DeleteAgentQueueTaskRequest = GetAgentQueueTaskRequest;
+
 export type UpdateAgentQueueTaskRequest = {
   workspaceId: string;
   queueItemId: string;

@@ -23,6 +23,7 @@ import type {
   CreateGitCommitRequest,
   CreateWorkspaceNoteRequest,
   DirectWorkStreamEvent,
+  DeleteAgentQueueTaskRequest,
   ForceKillCodexDirectWorkRunResponse,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
@@ -104,6 +105,9 @@ export type WidgetRenderProps = {
   onCreateAgentQueueTask?: (
     request: Omit<CreateAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<AgentQueueTask>;
+  onDeleteAgentQueueTask?: (
+    request: Omit<DeleteAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<boolean>;
   onCreateGitCommit?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

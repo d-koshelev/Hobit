@@ -1,5 +1,7 @@
 use super::*;
 
+use hobit_storage_sqlite::{NewWidgetLog, NewWidgetResult, NewWidgetRun};
+
 fn initialized_service() -> WorkspaceService {
     let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
     store.init_schema().expect("initialize schema");
@@ -605,4 +607,126 @@ fn running_task_assignment_and_clear_assignment_are_rejected() {
     assert!(clear_error
         .to_string()
         .contains("queue task assignment cannot be cleared while status is running"));
+}
+
+#[test]
+fn delete_agent_queue_task_removes_task_without_deleting_executor_artifacts() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let executor_id = add_widget(
+        &service,
+        &workspace,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Executor",
+    );
+    let task = create_task(&service, &workspace.id, "Delete me", "queued", 1);
+    insert_widget_artifacts(&service, &executor_id);
+
+    let deleted = service
+        .delete_agent_queue_task(DeleteAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+        })
+        .expect("delete queue task");
+
+    assert!(deleted);
+    assert!(service
+        .get_agent_queue_task(&workspace.id, &task.queue_item_id)
+        .expect("get deleted queue task")
+        .is_none());
+    assert!(service
+        .store
+        .get_widget_run("run-queue-delete")
+        .expect("get executor run")
+        .is_some());
+    assert!(service
+        .store
+        .get_widget_result("result-queue-delete")
+        .expect("get executor result")
+        .is_some());
+    assert!(service
+        .store
+        .get_widget_log("log-queue-delete")
+        .expect("get executor log")
+        .is_some());
+}
+
+#[test]
+fn delete_agent_queue_task_rejects_running_and_cross_workspace_tasks() {
+    let service = initialized_service();
+    let first = create_workspace(&service, "First workspace");
+    let second = create_workspace(&service, "Second workspace");
+    let running_task = create_task(&service, &first.id, "Running", "running", 1);
+    let other_task = create_task(&service, &first.id, "Other", "queued", 1);
+
+    let running_error = service
+        .delete_agent_queue_task(DeleteAgentQueueTaskInput {
+            workspace_id: first.id.clone(),
+            queue_item_id: running_task.queue_item_id,
+        })
+        .expect_err("running delete rejected");
+    assert!(running_error
+        .to_string()
+        .contains("queue task cannot be deleted while status is running"));
+
+    let cross_workspace_error = service
+        .delete_agent_queue_task(DeleteAgentQueueTaskInput {
+            workspace_id: second.id,
+            queue_item_id: other_task.queue_item_id.clone(),
+        })
+        .expect_err("cross-workspace delete rejected");
+    assert!(cross_workspace_error
+        .to_string()
+        .contains("queue task does not belong to workspace"));
+
+    assert!(
+        service
+            .delete_agent_queue_task(DeleteAgentQueueTaskInput {
+                workspace_id: first.id,
+                queue_item_id: "missing-task".to_owned(),
+            })
+            .expect("unknown delete returns false")
+            == false
+    );
+}
+
+fn insert_widget_artifacts(service: &WorkspaceService, widget_id: &str) {
+    service
+        .store
+        .insert_widget_run(NewWidgetRun {
+            id: "run-queue-delete",
+            widget_instance_id: widget_id,
+            status: "completed",
+            command_kind: Some("direct_work"),
+            command_payload: Some("{}"),
+            started_at: Some("1"),
+            finished_at: Some("2"),
+            summary: Some("Completed"),
+        })
+        .expect("insert widget run");
+    service
+        .store
+        .insert_widget_result(NewWidgetResult {
+            id: "result-queue-delete",
+            run_id: "run-queue-delete",
+            status: "completed",
+            result_type: Some("direct_work_result"),
+            summary: Some("Result"),
+            content: Some("content"),
+            payload: Some("{}"),
+            created_at: Some("2"),
+        })
+        .expect("insert widget result");
+    service
+        .store
+        .append_widget_log(NewWidgetLog {
+            id: "log-queue-delete",
+            widget_instance_id: widget_id,
+            run_id: Some("run-queue-delete"),
+            level: "info",
+            message: "Run log",
+            created_at: Some("2"),
+            details: None,
+        })
+        .expect("append widget log");
 }

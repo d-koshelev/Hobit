@@ -165,6 +165,13 @@ export const updateAgentQueueTask: WorkspaceApi["updateAgentQueueTask"] =
     );
   };
 
+export const deleteAgentQueueTask: WorkspaceApi["deleteAgentQueueTask"] =
+  async (_request) => {
+    throw new Error(
+      "Agent Queue task persistence is only available in the Tauri desktop shell. Browser fallback cannot delete persisted queue tasks.",
+    );
+  };
+
 export const assignAgentQueueTaskToExecutor: WorkspaceApi["assignAgentQueueTaskToExecutor"] =
   async (_request) => {
     throw new Error(

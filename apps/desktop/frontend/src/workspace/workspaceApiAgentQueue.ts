@@ -8,6 +8,7 @@ import type {
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
+  DeleteAgentQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   ListAgentQueueTasksRequest,
@@ -51,6 +52,12 @@ export function updateAgentQueueTask(
   request: UpdateAgentQueueTaskRequest,
 ): Promise<AgentQueueTask | null> {
   return getWorkspaceApi().updateAgentQueueTask(request);
+}
+
+export function deleteAgentQueueTask(
+  request: DeleteAgentQueueTaskRequest,
+): Promise<boolean> {
+  return getWorkspaceApi().deleteAgentQueueTask(request);
 }
 
 export function assignAgentQueueTaskToExecutor(

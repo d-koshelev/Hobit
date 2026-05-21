@@ -40,6 +40,7 @@ type UseAgentQueueControllerOptions = Pick<
   | "onAssignAgentQueueTaskToExecutor"
   | "onClearAgentQueueTaskAssignment"
   | "onCreateAgentQueueTask"
+  | "onDeleteAgentQueueTask"
   | "onDirectWorkRunHandoffStarted"
   | "onGetAgentQueueTask"
   | "onGetAgentQueueRunnerSnapshot"
@@ -106,11 +107,24 @@ export type AgentQueueAutorunController = {
   snapshot: AgentQueueRunnerSnapshot | null;
 };
 
+export type AgentQueueDeleteController = {
+  blockedReason: string | null;
+  canRequest: boolean;
+  error: string | null;
+  isConfirming: boolean;
+  isDeleting: boolean;
+  message: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onRequest: () => void;
+};
+
 export function useAgentQueueController({
   agentExecutorSlots = [],
   onAssignAgentQueueTaskToExecutor,
   onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
+  onDeleteAgentQueueTask,
   onDirectWorkRunHandoffStarted,
   onGetAgentQueueTask,
   onGetAgentQueueRunnerSnapshot,
@@ -123,6 +137,7 @@ export function useAgentQueueController({
 }: UseAgentQueueControllerOptions) {
   const apiAvailable = Boolean(
     onCreateAgentQueueTask &&
+      onDeleteAgentQueueTask &&
       onGetAgentQueueTask &&
       onListAgentQueueTasks &&
       onUpdateAgentQueueTask,
@@ -144,8 +159,12 @@ export function useAgentQueueController({
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<string | null>(
     null,
@@ -216,6 +235,7 @@ export function useAgentQueueController({
     ) => {
       if (
         !onCreateAgentQueueTask ||
+        !onDeleteAgentQueueTask ||
         !onGetAgentQueueTask ||
         !onListAgentQueueTasks ||
         !onUpdateAgentQueueTask
@@ -276,6 +296,7 @@ export function useAgentQueueController({
     },
     [
       onCreateAgentQueueTask,
+      onDeleteAgentQueueTask,
       onGetAgentQueueTask,
       onListAgentQueueTasks,
       onUpdateAgentQueueTask,
@@ -403,6 +424,15 @@ export function useAgentQueueController({
     !isAutorunActive &&
     !isAutorunLoading &&
     !isAutorunStopping;
+  const deleteBlockedReason = queueTaskDeleteBlockedReason({
+    apiAvailable: Boolean(onDeleteAgentQueueTask),
+    autorunSnapshot,
+    isDeleting,
+    isDirty,
+    runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
+    runnerStatus,
+    selectedTask,
+  });
 
   async function createTask(nextDraft?: TaskDraft) {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
@@ -431,6 +461,9 @@ export function useAgentQueueController({
     setAssignmentError(null);
     setAssignmentMessage(null);
     setValidationMessage(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
+    setIsConfirmingDelete(false);
 
     try {
       const createdTask = await onCreateAgentQueueTask({
@@ -495,6 +528,9 @@ export function useAgentQueueController({
         ),
       );
       setSaveStateText("Saved");
+      setDeleteError(null);
+      setDeleteMessage(null);
+      setIsConfirmingDelete(false);
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to open queue task."));
     } finally {
@@ -548,6 +584,84 @@ export function useAgentQueueController({
     }
   }
 
+  function requestDeleteSelectedTask() {
+    const blockedReason = queueTaskDeleteBlockedReason({
+      apiAvailable: Boolean(onDeleteAgentQueueTask),
+      autorunSnapshot,
+      isDeleting,
+      isDirty,
+      runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
+      runnerStatus,
+      selectedTask,
+    });
+
+    setDeleteMessage(null);
+    setDeleteError(null);
+
+    if (blockedReason) {
+      setDeleteError(blockedReason);
+      setIsConfirmingDelete(false);
+      return;
+    }
+
+    setIsConfirmingDelete(true);
+  }
+
+  function cancelDeleteSelectedTask() {
+    setIsConfirmingDelete(false);
+    setDeleteError(null);
+  }
+
+  async function confirmDeleteSelectedTask() {
+    if (!selectedTask || !onDeleteAgentQueueTask || isDeleting) {
+      return;
+    }
+
+    const blockedReason = queueTaskDeleteBlockedReason({
+      apiAvailable: true,
+      autorunSnapshot,
+      isDeleting: false,
+      isDirty,
+      runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
+      runnerStatus,
+      selectedTask,
+    });
+
+    if (blockedReason) {
+      setDeleteError(blockedReason);
+      setIsConfirmingDelete(false);
+      return;
+    }
+
+    const deletedTaskId = selectedTask.queueItemId;
+    const nextTaskId = nextQueueTaskSelection(tasksRef.current, deletedTaskId);
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    setDeleteMessage(null);
+
+    try {
+      const didDelete = await onDeleteAgentQueueTask({
+        queueItemId: deletedTaskId,
+      });
+
+      if (!didDelete) {
+        setDeleteError("The selected queue task could not be found.");
+        setIsConfirmingDelete(false);
+        await loadTasks(nextTaskId);
+        return;
+      }
+
+      setIsConfirmingDelete(false);
+      setDeleteMessage("Queue task deleted.");
+      await loadTasks(nextTaskId);
+    } catch (error) {
+      setDeleteError(errorToMessage(error, "Unable to delete queue task."));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   function updateDraft(nextDraft: Partial<TaskDraft>) {
     setDraft((currentDraft) => ({
       ...currentDraft,
@@ -555,6 +669,7 @@ export function useAgentQueueController({
     }));
     setAssignmentMessage(null);
     setValidationMessage(null);
+    setDeleteMessage(null);
   }
 
   function updatePriority(value: string) {
@@ -580,6 +695,8 @@ export function useAgentQueueController({
     setIsAssigning(true);
     setAssignmentError(null);
     setAssignmentMessage(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
 
     try {
       const updatedTask = await onAssignAgentQueueTaskToExecutor({
@@ -608,6 +725,8 @@ export function useAgentQueueController({
     setIsAssigning(true);
     setAssignmentError(null);
     setAssignmentMessage(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
 
     try {
       const updatedTask = await onClearAgentQueueTaskAssignment({
@@ -986,6 +1105,8 @@ export function useAgentQueueController({
   function updateRepoRootDraft(repoRootValue: string) {
     setRepoRootDraft(repoRootValue);
     setStartError(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
   }
 
   function updateCodexExecutableDraft(codexExecutableValue: string) {
@@ -1028,6 +1149,17 @@ export function useAgentQueueController({
     isSaving,
     isSelecting,
     loadError,
+    deleteTask: {
+      blockedReason: deleteBlockedReason,
+      canRequest: Boolean(selectedTask && !deleteBlockedReason),
+      error: deleteError,
+      isConfirming: isConfirmingDelete,
+      isDeleting,
+      message: deleteMessage,
+      onCancel: () => cancelDeleteSelectedTask(),
+      onConfirm: () => void confirmDeleteSelectedTask(),
+      onRequest: () => requestDeleteSelectedTask(),
+    } satisfies AgentQueueDeleteController,
     run: {
       approvalPolicy,
       canStart,
@@ -1303,6 +1435,85 @@ function queueRunStartErrorMessage(error: unknown) {
   }
 
   return message;
+}
+
+function queueTaskDeleteBlockedReason({
+  apiAvailable,
+  autorunSnapshot,
+  isDeleting,
+  isDirty,
+  runnerActiveQueueItemId,
+  runnerStatus,
+  selectedTask,
+}: {
+  apiAvailable: boolean;
+  autorunSnapshot: AgentQueueRunnerSnapshot | null;
+  isDeleting: boolean;
+  isDirty: boolean;
+  runnerActiveQueueItemId: string | null;
+  runnerStatus: AgentQueueRunnerStatus;
+  selectedTask: AgentQueueTask | null;
+}) {
+  if (!selectedTask) {
+    return "Select a queue task before deleting.";
+  }
+
+  if (!apiAvailable) {
+    return "Queue task deletion is not available in this runtime.";
+  }
+
+  if (isDirty) {
+    return "Save or discard task edits before deleting.";
+  }
+
+  if (isDeleting) {
+    return "Delete request is already in flight.";
+  }
+
+  if (selectedTask.status === "running") {
+    return "Running tasks cannot be deleted.";
+  }
+
+  if (
+    isQueueRunnerActive(runnerStatus) &&
+    runnerActiveQueueItemId === selectedTask.queueItemId
+  ) {
+    return "This task is active in the Sequential Queue Runner.";
+  }
+
+  if (
+    autorunSnapshot?.isActive &&
+    autorunSnapshot.activeQueueItemId === selectedTask.queueItemId
+  ) {
+    return "This task is active in Queue Autorun.";
+  }
+
+  return null;
+}
+
+function nextQueueTaskSelection(
+  tasks: AgentQueueTask[],
+  deletedQueueItemId: string,
+) {
+  const deletedIndex = tasks.findIndex(
+    (task) => task.queueItemId === deletedQueueItemId,
+  );
+  const remainingTasks = tasks.filter(
+    (task) => task.queueItemId !== deletedQueueItemId,
+  );
+
+  if (remainingTasks.length === 0) {
+    return null;
+  }
+
+  if (deletedIndex < 0) {
+    return remainingTasks[0]?.queueItemId ?? null;
+  }
+
+  return (
+    remainingTasks[Math.min(deletedIndex, remainingTasks.length - 1)]
+      ?.queueItemId ?? null
+  );
 }
 
 function defaultCodexExecutable(): string {

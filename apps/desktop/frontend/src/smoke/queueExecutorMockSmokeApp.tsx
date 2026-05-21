@@ -113,6 +113,7 @@ class QueueExecutorSmokeRuntime {
       forceKillCodexDirectWorkRun: async () => this.forbidden(null),
       clearAgentQueueTaskAssignment: async () => this.cloneTask(),
       createAgentQueueTask: async () => this.cloneTask(),
+      deleteAgentQueueTask: async () => false,
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),

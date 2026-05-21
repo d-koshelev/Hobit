@@ -40,13 +40,11 @@ export function AgentQueueTaskRunPanel({
     >
       <div className="agent-queue-run-header">
         <div>
-          <p className="agent-queue-run-title">Run assigned task</p>
           <p
-            className="agent-queue-run-copy"
-            title="Running starts this task as Codex Direct Work in the assigned Agent Executor."
+            className="agent-queue-run-title"
+            title="Starts this task as Codex Direct Work in the assigned Agent Executor."
           >
-            Running starts this task as Codex Direct Work in the assigned Agent
-            Executor.
+            Run assigned task
           </p>
         </div>
         <div className="agent-queue-run-badges">
@@ -203,9 +201,8 @@ export function AgentQueueTaskRunPanel({
       <details className="agent-queue-details">
         <summary>Run details</summary>
         <p className="agent-queue-run-note">
-          Queue tasks can be planned without an execution workspace. Select one
-          only when starting Codex Direct Work. The current Direct Work path
-          expects an explicit existing repository or local project folder.
+          Direct Work requires an explicit existing repository or local project
+          folder.
         </p>
       </details>
 
@@ -216,9 +213,7 @@ export function AgentQueueTaskRunPanel({
             {run.startedRunId ? ` Run id: ${run.startedRunId}.` : ""}
           </p>
           <p className="agent-queue-run-note">
-            Live logs and result are shown in the assigned Agent Executor.
-            Queue status will refresh after the assigned Agent Executor reaches
-            a final state.
+            Result appears in the assigned Agent Executor.
           </p>
         </>
       ) : null}

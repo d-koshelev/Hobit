@@ -35,6 +35,12 @@ pub struct ClearAgentQueueTaskAssignmentInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeleteAgentQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartAssignedAgentQueueTaskInput {
     pub workspace_id: String,
     pub queue_item_id: String,
