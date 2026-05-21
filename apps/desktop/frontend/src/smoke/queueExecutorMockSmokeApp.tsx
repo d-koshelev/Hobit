@@ -28,6 +28,7 @@ import {
 } from "../workbench/widgetRegistry";
 
 type SmokeScenario = "event-final" | "reconciliation-final";
+type SmokeViewMode = "standard" | "no-executor";
 
 type SmokeSnapshot = {
   attachCallCount: number;
@@ -80,25 +81,44 @@ class QueueExecutorSmokeRuntime {
   private queueListCallsAfterFinal = 0;
   private startCallCount = 0;
   private terminalRunCallCount = 0;
-  private streamListeners = new Map<string, (event: DirectWorkStreamEvent) => void>();
-  private task: AgentQueueTask = {
-    assignedExecutorWidgetId: EXECUTOR_WIDGET_ID,
-    createdAt: "2026-05-18T10:00:00.000Z",
-    description: "Real desktop smoke for assigned Queue task execution.",
-    priority: 0,
-    prompt: "Return exactly: Hobit Queue to Executor smoke. Do not edit files.",
-    queueItemId: QUEUE_ITEM_ID,
-    status: "queued",
-    title: TASK_TITLE,
-    updatedAt: "2026-05-18T10:00:00.000Z",
-    workspaceId: WORKSPACE_ID,
-  };
+  private streamListeners = new Map<
+    string,
+    (event: DirectWorkStreamEvent) => void
+  >();
+  private task: AgentQueueTask;
+  private readonly extraTasks: AgentQueueTask[];
 
-  constructor(readonly scenario: SmokeScenario) {}
+  constructor(
+    readonly scenario: SmokeScenario,
+    readonly viewMode: SmokeViewMode,
+  ) {
+    this.task = smokeTask({
+      assignedExecutorWidgetId:
+        viewMode === "no-executor" ? null : EXECUTOR_WIDGET_ID,
+      description: "Real desktop smoke for assigned Queue task execution.",
+      executionPolicy: "manual",
+      priority: 0,
+      prompt: "Return exactly: Hobit Queue to Executor smoke. Do not edit files.",
+      queueItemId: QUEUE_ITEM_ID,
+      status: "queued",
+      title: TASK_TITLE,
+      updatedAt: "2026-05-18T10:00:00.000Z",
+    });
+    this.extraTasks = smokeQueueDensityTasks(viewMode);
+  }
 
   actions(): WorkbenchWidgetInstanceActions {
     return {
-      assignAgentQueueTaskToExecutor: async () => this.cloneTask(),
+      assignAgentQueueTaskToExecutor: async (request) => {
+        const task = this.findTask(request.queueItemId);
+
+        return task
+          ? {
+              ...task,
+              assignedExecutorWidgetId: request.executorWidgetInstanceId,
+            }
+          : this.cloneTask();
+      },
       attachToCodexDirectWorkStream: async (_widgetInstanceId, runId, onEvent) => {
         this.attachCallCount += 1;
         this.streamListeners.set(runId, onEvent);
@@ -111,7 +131,13 @@ class QueueExecutorSmokeRuntime {
       cancelCodexDirectWorkRun: async () => this.forbidden(null),
       closeTerminalPtySession: async () => this.forbidden(null),
       forceKillCodexDirectWorkRun: async () => this.forbidden(null),
-      clearAgentQueueTaskAssignment: async () => this.cloneTask(),
+      clearAgentQueueTaskAssignment: async (request) => {
+        const task = this.findTask(request.queueItemId);
+
+        return task
+          ? { ...task, assignedExecutorWidgetId: null }
+          : this.cloneTask();
+      },
       createAgentQueueTask: async () => this.cloneTask(),
       deleteAgentQueueTask: async () => false,
       createGitCommit: async () => this.forbidden(null),
@@ -131,7 +157,8 @@ class QueueExecutorSmokeRuntime {
 
         return this.finalStatusAvailable ? this.runDetail() : null;
       },
-      getAgentQueueTask: async () => this.cloneTask(),
+      getAgentQueueTask: async (queueItemId) =>
+        this.findTask(queueItemId) ?? this.cloneTask(),
       getGitRepositoryStatus: async () => null,
       getJdbcConnector: this.unsupported,
       getTerminalPtySession: async () => this.forbidden(null),
@@ -146,7 +173,7 @@ class QueueExecutorSmokeRuntime {
           this.queueListCallsAfterFinal += 1;
         }
 
-        return [this.cloneTask()];
+        return this.queueTasks();
       },
       listJdbcConnectors: this.unsupported,
       listTerminalPtySessions: async () => [],
@@ -182,7 +209,8 @@ class QueueExecutorSmokeRuntime {
       stopAgentQueueRunnerSession: async () => this.runnerSnapshot("stopped"),
       stopTerminalPtySession: async () => this.forbidden(null),
       getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot("idle"),
-      updateAgentQueueTask: async () => this.cloneTask(),
+      updateAgentQueueTask: async (request) =>
+        this.findTask(request.queueItemId) ?? this.cloneTask(),
       updateJdbcConnector: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
@@ -233,6 +261,14 @@ class QueueExecutorSmokeRuntime {
 
   private cloneTask() {
     return { ...this.task };
+  }
+
+  private queueTasks() {
+    return [this.cloneTask(), ...this.extraTasks.map((task) => ({ ...task }))];
+  }
+
+  private findTask(queueItemId: string) {
+    return this.queueTasks().find((task) => task.queueItemId === queueItemId);
   }
 
   private executorRunHistory(): AgentExecutorRunHistory {
@@ -353,8 +389,12 @@ class QueueExecutorSmokeRuntime {
 
 function SmokeWorkbench() {
   const scenario = smokeScenario();
-  const runtime = useMemo(() => new QueueExecutorSmokeRuntime(scenario), [scenario]);
-  const viewState = useMemo(() => smokeViewState(), []);
+  const viewMode = smokeViewMode();
+  const runtime = useMemo(
+    () => new QueueExecutorSmokeRuntime(scenario, viewMode),
+    [scenario, viewMode],
+  );
+  const viewState = useMemo(() => smokeViewState(viewMode), [viewMode]);
 
   window.__HOBIT_QUEUE_EXECUTOR_SMOKE__ = {
     emitExecutorFinalEvents: () => runtime.emitExecutorFinalEvents(),
@@ -389,11 +429,20 @@ function smokeScenario(): SmokeScenario {
     : "event-final";
 }
 
-function smokeViewState(): WorkbenchViewState {
+function smokeViewMode(): SmokeViewMode {
+  const view = new URLSearchParams(window.location.search).get("view");
+
+  return view === "no-executor" ? "no-executor" : "standard";
+}
+
+function smokeViewState(viewMode: SmokeViewMode): WorkbenchViewState {
   return {
     recentEvents: [],
     sharedStateObjects: [],
-    widgets: [queueWidget(), executorWidget()],
+    widgets:
+      viewMode === "no-executor"
+        ? [queueWidget()]
+        : [queueWidget(), executorWidget()],
     workbench: {
       id: WORKBENCH_ID,
       preset: {
@@ -409,6 +458,82 @@ function smokeViewState(): WorkbenchViewState {
       title: "Queue Executor Smoke",
     },
   };
+}
+
+function smokeTask(
+  overrides: Omit<AgentQueueTask, "createdAt" | "workspaceId">,
+): AgentQueueTask {
+  return {
+    createdAt: "2026-05-18T10:00:00.000Z",
+    workspaceId: WORKSPACE_ID,
+    ...overrides,
+  };
+}
+
+function smokeQueueDensityTasks(viewMode: SmokeViewMode): AgentQueueTask[] {
+  const assignedExecutorWidgetId =
+    viewMode === "no-executor" ? null : EXECUTOR_WIDGET_ID;
+
+  return [
+    smokeTask({
+      assignedExecutorWidgetId: null,
+      description:
+        "Long title and unassigned queued task used to inspect row truncation.",
+      executionPolicy: "manual",
+      priority: 5,
+      prompt:
+        "Review the workspace for stale task copy, summarize the safest edits, and stop before changing files.",
+      queueItemId: "queue-task-long-unassigned",
+      status: "queued",
+      title:
+        "Audit the onboarding workspace setup for stale queue copy before the demo review window closes",
+      updatedAt: "2026-05-18T10:04:00.000Z",
+    }),
+    smokeTask({
+      assignedExecutorWidgetId,
+      description: "Running task keeps assignment and delete controls locked.",
+      executionPolicy: "auto",
+      priority: 2,
+      prompt: "Continue the current verification run and report final status.",
+      queueItemId: "queue-task-running",
+      status: "running",
+      title: "Verify direct work result handoff",
+      updatedAt: "2026-05-18T10:08:00.000Z",
+    }),
+    smokeTask({
+      assignedExecutorWidgetId,
+      description: "Needs operator review before follow-up execution.",
+      executionPolicy: "after_previous_success",
+      priority: 1,
+      prompt: "Prepare the next validation step after the review decision.",
+      queueItemId: "queue-task-review",
+      status: "review_needed",
+      title: "Review generated validation notes",
+      updatedAt: "2026-05-18T10:12:00.000Z",
+    }),
+    smokeTask({
+      assignedExecutorWidgetId,
+      description: "Completed task verifies final-status density.",
+      executionPolicy: "manual",
+      priority: 0,
+      prompt: "No action required.",
+      queueItemId: "queue-task-completed",
+      status: "completed",
+      title: "Capture baseline screenshot",
+      updatedAt: "2026-05-18T10:16:00.000Z",
+    }),
+    smokeTask({
+      assignedExecutorWidgetId: null,
+      description: "Failed unassigned task checks badge spacing.",
+      executionPolicy: "manual",
+      priority: 4,
+      prompt: "Retry only after the operator reviews the failure.",
+      queueItemId: "queue-task-failed",
+      status: "failed",
+      title: "Retry smoke after missing workspace path",
+      updatedAt: "2026-05-18T10:20:00.000Z",
+    }),
+  ];
 }
 
 function queueWidget(): WidgetInstance {

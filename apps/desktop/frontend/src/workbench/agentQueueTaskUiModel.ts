@@ -57,10 +57,10 @@ export const EXECUTION_POLICY_OPTIONS: Array<{
   label: string;
   value: AgentQueueTaskExecutionPolicy;
 }> = [
-  { label: "Manual - requires operator command", value: "manual" },
-  { label: "Auto - run automatically", value: "auto" },
+  { label: "Manual", value: "manual" },
+  { label: "Auto", value: "auto" },
   {
-    label: "After previous success - run if previous task succeeded",
+    label: "After success",
     value: "after_previous_success",
   },
 ];
