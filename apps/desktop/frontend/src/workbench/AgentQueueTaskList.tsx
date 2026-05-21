@@ -83,6 +83,8 @@ export function AgentQueueTaskList({
         ) : (
           filteredTasks.map((task) => {
             const updatedText = formatUpdatedTimestamp(task.updatedAt);
+            const taskTitle = displayTaskTitle(task);
+            const taskHint = taskPreview(task);
 
             return (
               <button
@@ -99,18 +101,16 @@ export function AgentQueueTaskList({
                 disabled={isSelecting}
                 key={task.queueItemId}
                 onClick={() => onSelectTask(task.queueItemId)}
+                title={taskHint}
                 type="button"
               >
                 <span className="agent-queue-task-row-main">
                   <span className="agent-queue-task-row-title">
-                    {displayTaskTitle(task)}
+                    {taskTitle}
                   </span>
                   <Badge variant={statusBadgeVariant(task.status)}>
                     {statusLabel(task.status)}
                   </Badge>
-                </span>
-                <span className="agent-queue-task-row-preview">
-                  {taskPreview(task)}
                 </span>
                 <span className="agent-queue-task-row-meta">
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>

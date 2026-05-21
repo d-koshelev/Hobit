@@ -188,6 +188,10 @@ describe("useAgentQueueController sequential runner", () => {
 
     act(() => {
       hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+    await flushHookEffects();
+
+    act(() => {
       hook.result.current.runner.onStart();
       hook.result.current.runner.onStart();
     });
@@ -324,6 +328,22 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       tasks.set(createdTask.queueItemId, createdTask);
 
       return createdTask;
+    },
+    onClearAgentQueueTaskAssignment: async (request) => {
+      const task = tasks.get(request.queueItemId);
+
+      if (!task) {
+        throw new Error("Queue task not found.");
+      }
+
+      const updatedTask = {
+        ...task,
+        assignedExecutorWidgetId: null,
+        updatedAt: "2026-05-20T10:01:00.000Z",
+      };
+      tasks.set(updatedTask.queueItemId, updatedTask);
+
+      return updatedTask;
     },
     onDirectWorkRunHandoffStarted: (handoff) => {
       handoffs.push(handoff);

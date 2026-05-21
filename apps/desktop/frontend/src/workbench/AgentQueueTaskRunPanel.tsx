@@ -41,7 +41,10 @@ export function AgentQueueTaskRunPanel({
       <div className="agent-queue-run-header">
         <div>
           <p className="agent-queue-run-title">Run assigned task</p>
-          <p className="agent-queue-run-copy">
+          <p
+            className="agent-queue-run-copy"
+            title="Running starts this task as Codex Direct Work in the assigned Agent Executor."
+          >
             Running starts this task as Codex Direct Work in the assigned Agent
             Executor.
           </p>
@@ -55,11 +58,6 @@ export function AgentQueueTaskRunPanel({
           </Badge>
         </div>
       </div>
-
-      <p className="agent-queue-run-boundary-copy">
-        Queue tasks can be planned without an execution workspace. Select one
-        only when starting a Codex Direct Work run.
-      </p>
 
       {run.readinessMessage ? (
         <p className="agent-queue-run-note">{run.readinessMessage}</p>
@@ -81,11 +79,6 @@ export function AgentQueueTaskRunPanel({
             type="text"
             value={run.repoRootDraft}
           />
-          <p className="agent-queue-run-note">
-            Current Codex Direct Work expects an explicit existing repository or
-            local project folder. Queue task planning does not store or require
-            it.
-          </p>
         </div>
 
         <div className="agent-queue-run-field agent-queue-run-field-wide">
@@ -206,6 +199,15 @@ export function AgentQueueTaskRunPanel({
           {runner.error}
         </p>
       ) : null}
+
+      <details className="agent-queue-details">
+        <summary>Run details</summary>
+        <p className="agent-queue-run-note">
+          Queue tasks can be planned without an execution workspace. Select one
+          only when starting Codex Direct Work. The current Direct Work path
+          expects an explicit existing repository or local project folder.
+        </p>
+      </details>
 
       {run.startMessage ? (
         <>

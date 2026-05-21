@@ -404,14 +404,25 @@ export function useAgentQueueController({
     !isAutorunLoading &&
     !isAutorunStopping;
 
-  async function createTask() {
+  async function createTask(nextDraft?: TaskDraft) {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
-      return;
+      return false;
     }
 
     if (isDirty) {
       setValidationMessage("Save current task before creating another task.");
-      return;
+      return false;
+    }
+
+    const taskDraft = nextDraft ?? {
+      ...emptyDraft(),
+      title: DEFAULT_TASK_TITLE,
+    };
+    const validationError = validateDraft(taskDraft);
+
+    if (validationError) {
+      setValidationMessage(validationError);
+      return false;
     }
 
     setIsCreating(true);
@@ -423,16 +434,18 @@ export function useAgentQueueController({
 
     try {
       const createdTask = await onCreateAgentQueueTask({
-        title: DEFAULT_TASK_TITLE,
-        description: "",
-        prompt: "",
-        status: "draft",
-        priority: 0,
-        executionPolicy: "manual",
+        title: taskDraft.title.trim(),
+        description: taskDraft.description,
+        prompt: taskDraft.prompt,
+        status: taskDraft.status,
+        priority: taskDraft.priority,
+        executionPolicy: taskDraft.executionPolicy,
       });
       await loadTasks(createdTask.queueItemId);
+      return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create queue task."));
+      return false;
     } finally {
       setIsCreating(false);
     }

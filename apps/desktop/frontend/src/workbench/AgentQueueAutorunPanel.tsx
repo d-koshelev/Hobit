@@ -22,7 +22,10 @@ export function AgentQueueAutorunPanel({
       <div className="agent-queue-run-header">
         <div>
           <p className="agent-queue-run-title">Queue Autorun</p>
-          <p className="agent-queue-run-copy">
+          <p
+            className="agent-queue-run-copy"
+            title="Start Autorun uses the existing Queue-to-Executor path and remains current-session only."
+          >
             Autorun is desktop-local and only works while Hobit is open.
           </p>
         </div>
@@ -39,12 +42,6 @@ export function AgentQueueAutorunPanel({
           </Badge>
         </div>
       </div>
-
-      <p className="agent-queue-run-boundary-copy">
-        Start Autorun uses the existing Queue-to-Executor path, then continues
-        automatically from a successful run to one next eligible task while
-        Hobit is open. This remains session-only and is not a backend scheduler.
-      </p>
 
       <dl className="agent-queue-autorun-facts">
         <div>
@@ -128,15 +125,15 @@ export function AgentQueueAutorunPanel({
       {autorun.message ? (
         <p className="agent-queue-run-note">{autorun.message}</p>
       ) : null}
-      <p className="agent-queue-run-note">
-        Stop Autorun stops future Autorun scheduling. It does not cancel the
-        active Agent Executor run; use the Agent Executor controls for that.
-      </p>
-      <p className="agent-queue-run-note">
-        Keep Hobit open and the machine awake. App close, reload, shutdown, or
-        sleep can interrupt Autorun because there is no durable reconnect or
-        resume yet.
-      </p>
+      <details className="agent-queue-details">
+        <summary>Autorun limits</summary>
+        <p className="agent-queue-run-note">
+          Start Autorun uses the existing Queue-to-Executor path, then
+          continues from a successful run to one next eligible task while Hobit
+          is open. Stop Autorun stops future scheduling, not the active Agent
+          Executor run. App close, reload, shutdown, or sleep can interrupt it.
+        </p>
+      </details>
       {autorun.error ? (
         <p
           className="agent-queue-message agent-queue-message-error"

@@ -3,6 +3,7 @@
   flex: 1 1 auto;
   min-height: 0;
   gap: var(--space-sm);
+  position: relative;
 }
 
 .agent-queue-task-list-pane,
@@ -20,6 +21,7 @@
 .agent-queue-task-list-pane,
 .agent-queue-task-editor-pane,
 .agent-queue-task-editor,
+.agent-queue-editor-section,
 .agent-queue-editor-field {
   display: grid;
   min-width: 0;
@@ -30,6 +32,7 @@
 .agent-queue-editor-actions,
 .agent-queue-editor-meta,
 .agent-queue-pane-header,
+.agent-queue-section-header,
 .agent-queue-task-row-main,
 .agent-queue-task-row-meta {
   display: flex;
@@ -40,6 +43,7 @@
 .agent-queue-editor-actions,
 .agent-queue-editor-meta,
 .agent-queue-pane-header,
+.agent-queue-section-header,
 .agent-queue-task-row-main,
 .agent-queue-task-row-meta {
   justify-content: space-between;
@@ -52,9 +56,10 @@
 }
 
 .agent-queue-pane-title,
+.agent-queue-section-title,
 .agent-queue-pane-subtitle,
+.agent-queue-section-copy,
 .agent-queue-task-row-title,
-.agent-queue-task-row-preview,
 .agent-queue-task-row-meta,
 .agent-queue-editor-meta,
 .agent-queue-message,
@@ -63,6 +68,7 @@
 }
 
 .agent-queue-pane-title,
+.agent-queue-section-title,
 .agent-queue-task-row-title {
   color: var(--color-text-primary);
   font-size: var(--text-sm);
@@ -71,7 +77,7 @@
 }
 
 .agent-queue-pane-subtitle,
-.agent-queue-task-row-preview,
+.agent-queue-section-copy,
 .agent-queue-task-row-meta,
 .agent-queue-editor-meta,
 .agent-queue-boundary-note {
@@ -91,6 +97,17 @@
 .agent-queue-task-list-pane,
 .agent-queue-task-editor-pane {
   min-height: 0;
+}
+
+.agent-queue-task-list-pane {
+  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.agent-queue-task-editor-pane {
+  overflow: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .agent-queue-filter-select {
@@ -129,13 +146,16 @@
 .agent-queue-task-row {
   display: grid;
   width: 100%;
+  height: 64px;
   min-width: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--space-xs);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
+  overflow: hidden;
   padding: var(--space-xs) var(--space-sm);
   text-align: left;
 }
@@ -166,11 +186,16 @@
   white-space: nowrap;
 }
 
-.agent-queue-task-row-preview {
-  display: -webkit-box;
+.agent-queue-task-row-main > .badge {
+  flex: 0 0 auto;
+}
+
+.agent-queue-task-row-meta > span,
+.agent-queue-task-row-meta > time {
+  min-width: 0;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-queue-empty-state {
@@ -191,9 +216,21 @@
 
 .agent-queue-task-editor {
   flex: 1 1 auto;
-  grid-template-rows:
-    auto auto auto auto minmax(76px, auto) auto minmax(140px, 1fr)
-    auto auto auto auto;
+  align-content: start;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.agent-queue-editor-section {
+  gap: var(--space-xs);
+}
+
+.agent-queue-task-section {
+  padding-bottom: var(--space-xs);
+}
+
+.agent-queue-section-header {
+  align-items: flex-start;
 }
 
 .agent-queue-title-input,
@@ -203,12 +240,12 @@
 }
 
 .agent-queue-description-input {
-  min-height: 68px;
+  min-height: 58px;
   resize: vertical;
 }
 
 .agent-queue-prompt-input {
-  min-height: 124px;
+  min-height: 104px;
   resize: vertical;
 }
 
@@ -216,6 +253,32 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(96px, 140px);
   gap: var(--space-sm);
+}
+
+.agent-queue-editor-field-wide {
+  grid-column: 1 / -1;
+}
+
+.agent-queue-details {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.agent-queue-details > summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-normal);
+}
+
+.agent-queue-details-hint {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  margin-left: var(--space-xs);
 }
 
 .agent-queue-assignment-section {
@@ -335,7 +398,6 @@
 .agent-queue-assignment-note,
 .agent-queue-run-title,
 .agent-queue-run-copy,
-.agent-queue-run-boundary-copy,
 .agent-queue-run-note,
 .agent-queue-run-warning {
   margin: 0;
@@ -352,7 +414,6 @@
 .agent-queue-assignment-copy,
 .agent-queue-assignment-note,
 .agent-queue-run-copy,
-.agent-queue-run-boundary-copy,
 .agent-queue-run-note {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -402,8 +463,77 @@
   padding-top: var(--space-xs);
 }
 
+.agent-queue-safety-details .agent-queue-boundary-note {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.agent-queue-create-dialog-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  overflow: auto;
+  background: color-mix(
+    in srgb,
+    var(--color-canvas-surface) 72%,
+    transparent
+  );
+  padding: var(--space-md);
+}
+
+.agent-queue-create-dialog {
+  display: grid;
+  width: min(560px, 100%);
+  max-height: 100%;
+  min-width: 0;
+  gap: var(--space-sm);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-overlay-surface);
+  box-shadow: var(--shadow-elevated);
+  padding: var(--space-md);
+}
+
+.agent-queue-create-dialog-header,
+.agent-queue-create-dialog-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.agent-queue-create-dialog-title,
+.agent-queue-create-dialog-copy {
+  margin: 0;
+}
+
+.agent-queue-create-dialog-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  line-height: var(--line-tight);
+}
+
+.agent-queue-create-dialog-copy {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-create-dialog-body {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+}
+
 @media (max-width: 860px) {
   .agent-queue-editor-actions,
+  .agent-queue-section-header,
+  .agent-queue-create-dialog-header,
+  .agent-queue-create-dialog-actions,
   .agent-queue-assignment-controls,
   .agent-queue-assignment-header,
   .agent-queue-run-header,
@@ -422,6 +552,10 @@
 
   .agent-queue-task-list {
     max-height: 280px;
+  }
+
+  .agent-queue-task-row {
+    height: 70px;
   }
 }
 

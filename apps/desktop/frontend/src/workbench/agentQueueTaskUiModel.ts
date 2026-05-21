@@ -213,11 +213,9 @@ export function formatUpdatedTimestamp(value: string) {
 export function queueSingleState({
   isLoading,
   loadError,
-  taskCount,
 }: {
   isLoading: boolean;
   loadError: string | null;
-  taskCount: number;
 }) {
   if (isLoading) {
     return {
@@ -230,13 +228,6 @@ export function queueSingleState({
     return {
       text: loadError,
       title: "Queue unavailable.",
-    };
-  }
-
-  if (taskCount === 0) {
-    return {
-      text: "Create one from the header, then assign it to an Agent Executor when it is ready.",
-      title: "No tasks yet.",
     };
   }
 
