@@ -153,6 +153,10 @@ unless the task explicitly requests it.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0
   vocabulary work; it is type scaffolding only and does not add audit
   persistence, server runtime, organizations, or RBAC.
+- `docs/AUDIT_EVENT_MAPPING_PLAN.md` - read for future audit adoption
+  readiness across current Workspace, widget, Queue, Direct Work, Terminal,
+  Git, JDBC, Coordinator, Notes, and Runbook surfaces. It is a mapping plan
+  only and does not add audit persistence or event emission.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

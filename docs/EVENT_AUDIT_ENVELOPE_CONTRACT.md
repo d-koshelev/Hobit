@@ -13,6 +13,11 @@ runtime event emission.
 
 The current Rust type model lives in `crates/hobit-app/src/audit_events/`.
 
+Future mapping from current Workspace, widget, Queue, Direct Work, Terminal,
+Git, JDBC, Coordinator, Notes, and Runbook surfaces is documented in
+`docs/AUDIT_EVENT_MAPPING_PLAN.md`. That plan is readiness documentation only;
+it does not add audit emission or persistence.
+
 The v0 envelope can describe future audit records with:
 
 - event id and schema version

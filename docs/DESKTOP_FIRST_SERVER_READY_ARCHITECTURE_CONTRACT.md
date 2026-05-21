@@ -211,6 +211,10 @@ The current codebase has a v0 type-only envelope model in
 emit events from existing runtime paths, create organization/RBAC behavior, or
 change current desktop behavior.
 
+Current surface-to-envelope readiness is mapped in
+`docs/AUDIT_EVENT_MAPPING_PLAN.md`; it is a docs-only future implementation
+plan and does not add audit persistence or emission.
+
 ## Secrets And Artifact Classification
 
 Hobit should use explicit classification vocabulary for inputs, outputs, and
