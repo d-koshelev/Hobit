@@ -168,10 +168,11 @@ unless the task explicitly requests it.
   behavior, server runtime, or RBAC.
 - `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` - read for future Knowledge,
   Skills, Evidence, Context Pack, and Runbook boundaries. Current Rust refs
-  live in `crates/hobit-app/src/knowledge/` as type scaffolding only. They do
-  not add a knowledge store, evidence store, Skills widget, context ingestion,
-  Coordinator context wiring, runtime behavior, schema changes, server runtime,
-  or RBAC.
+  live in `crates/hobit-app/src/knowledge/` and
+  `crates/hobit-app/src/context_packs/` as type scaffolding only. They do not
+  add a knowledge store, evidence store, Context Pack store, Skills widget,
+  context ingestion, Coordinator/provider context wiring, prompt changes,
+  runtime behavior, schema changes, server runtime, or RBAC.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

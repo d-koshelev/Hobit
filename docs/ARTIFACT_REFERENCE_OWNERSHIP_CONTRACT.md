@@ -107,6 +107,8 @@ or runtime wiring.
 
 The current Knowledge / Evidence Rust refs may point to `ArtifactRef`
 metadata. They must not resolve artifacts or copy raw artifact payloads.
+Context Pack refs may include `ArtifactRef` metadata as selected items, but
+membership does not turn an artifact into Evidence or AI context.
 
 ## Relationship To Audit And Capabilities
 

@@ -25,6 +25,12 @@ Knowledge, Skill, Runbook, Evidence, Evidence Source, and Knowledge/Evidence
 links. It does not implement stores, resolvers, context packs, UI,
 Coordinator wiring, schema changes, or runtime behavior.
 
+The current Context Pack Rust reference vocabulary lives in
+`crates/hobit-app/src/context_packs/`. It is type-only scaffolding for explicit
+context selections and does not implement Context Pack storage, Coordinator
+context wiring, provider prompt changes, UI, schema changes, or runtime
+behavior.
+
 Notes exist as workspace-local human-authored text records, but Notes are not
 the knowledge system. A Note does not become reusable Knowledge by default,
 and existing Notes content is not silently read, summarized, indexed, or sent
@@ -161,6 +167,10 @@ A Context Pack must include:
 A Context Pack is not automatic hidden context, global memory, background
 Workspace scanning, or prompt augmentation. Creating or using a Context Pack
 must be visible and approval-aware.
+
+The Rust v0 `ContextPackRef` model contains refs and metadata only. It does not
+mean Coordinator, an agent, or a provider has received the context, and it does
+not imply approval, evidence eligibility, AI-context sharing, or execution.
 
 ## AI Context Rules
 

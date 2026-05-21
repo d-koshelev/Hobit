@@ -142,10 +142,11 @@ knowledge store, or current desktop behavior changes.
 
 Future Knowledge, Skills, Evidence, Context Pack, and Runbook boundaries are
 defined in `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`. That contract is
-backed by type-only Rust refs in `crates/hobit-app/src/knowledge/` and does
-not add a knowledge store, evidence store, Skills widget, context ingestion,
-Coordinator context wiring, runtime behavior, schema changes, server runtime,
-or RBAC.
+backed by type-only Rust refs in `crates/hobit-app/src/knowledge/` and
+`crates/hobit-app/src/context_packs/` and does not add a knowledge store,
+evidence store, Context Pack store, Skills widget, context ingestion,
+Coordinator/provider context wiring, prompt changes, runtime behavior, schema
+changes, server runtime, or RBAC.
 
 ## Runtime Adapter Rules
 

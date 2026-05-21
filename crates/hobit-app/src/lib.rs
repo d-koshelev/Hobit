@@ -9,6 +9,7 @@
 pub mod artifacts;
 pub mod audit_events;
 pub mod capabilities;
+pub mod context_packs;
 mod error;
 pub mod knowledge;
 pub mod runtime_adapters;
@@ -43,6 +44,12 @@ pub use capabilities::{
     CapabilityMutationScope, CapabilityRiskLevel, CapabilitySecretExposure, CapabilitySubjectRef,
     CapabilitySummary, CapabilityWidgetDefinitionRef, CapabilityWidgetInstanceRef,
     CapabilityWorkbenchRef, CapabilityWorkspaceRef, WidgetCapabilityRef, WorkspaceCapabilityRef,
+};
+pub use context_packs::{
+    ContextPackEligibility, ContextPackExternalRef, ContextPackFreshness, ContextPackId,
+    ContextPackItemKind, ContextPackItemRef, ContextPackRef, ContextPackReviewStatus,
+    ContextPackSelectionReason, ContextPackSensitivity, ContextPackSharingScope,
+    ContextPackSummary, ContextPackVisibility,
 };
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
