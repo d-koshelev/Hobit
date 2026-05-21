@@ -234,6 +234,9 @@ unless the task explicitly requests it.
   `after_previous_success` policy behavior. It is not a durable backend
   scheduler; `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for
   current Queue behavior.
+- `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md` - Queue desktop MVP readiness
+  checkpoint. Read before Queue UX hardening, runner reliability work, run
+  visibility/history work, dependency modeling, or durable runner design.
 
 ### Git
 
