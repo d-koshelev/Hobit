@@ -121,6 +121,7 @@ not survive reload.
 - retry model;
 - persisted Queue run history or `last_run_id`;
 - Queue-owned live logs or result detail;
+- durable per-task references to Agent Executor run history;
 - bulk task import;
 - Coordinator-driven Queue execution;
 - Terminal launch;
@@ -135,7 +136,8 @@ not survive reload.
   current implementation. The product should keep saying that policy is used
   only by the visible, operator-started Sequential Queue Runner.
 - Queue does not show durable run linkage or last result summary after a
-  Queue-started run.
+  Queue-started run. The docs-first plan is
+  `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`.
 - Queue task detail has many controls in one panel; the next UI pass should
   make planning, assignment, manual run, and runner controls easier to scan.
 - Empty states explain task creation, but there is no guided path for
@@ -152,7 +154,8 @@ not survive reload.
 - The frontend runner depends on current-session React state and final-state
   handoff events. It should not be treated as durable orchestration.
 - Queue-started run linkage is visible during the session but not persisted on
-  the Queue task record.
+  the Queue task record. Future Queue run-history visibility should reference
+  Executor-owned run/result artifacts instead of copying raw output into Queue.
 - Auto-refresh can be blocked by dirty task edits; operators may need manual
   refresh to see final task status.
 - Agent Executor remains the runtime owner. Adding Queue-side run detail later
@@ -177,8 +180,9 @@ not survive reload.
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,
    improve stop/waiting/final-state messages, and strengthen frontend tests.
-5. Queue task run visibility/history: add a docs/design slice first, then
-   persist minimal run linkage if approved.
+5. Queue task run visibility/history: follow
+   `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`, then persist minimal run
+   linkage if approved.
 6. Queue dependencies / blocked-ready model: design dependency semantics
    before adding UI or storage.
 7. Later durable backend runner design contract: no implementation until the

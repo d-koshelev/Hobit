@@ -143,6 +143,11 @@ Failure must be visible in Agent Queue runner status and in the Agent Executor
 run result. The runner must not continue after an unknown or ambiguous final
 state.
 
+Morning review after Autorun is governed by
+`docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`. Queue should reference
+Executor-owned run metadata for each task and must not copy raw stdout, stderr,
+prompts, final responses, diffs, logs, or result payloads into Queue.
+
 ## Relationship To Agent Executor
 
 Agent Executor remains the runtime owner.
@@ -266,6 +271,7 @@ This contract does not implement:
 - hidden task starts;
 - schema changes;
 - Queue run history persistence;
+- Queue-side raw run output or result copying;
 - automatic retries;
 - dependency execution;
 - Git mutation, auto-commit, or push;
@@ -280,6 +286,7 @@ Read this with:
 - `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md`;
 - `docs/QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md`;
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md`;
+- `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`;
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`;
 - `docs/DIRECT_MODE_AGENT_CONTRACT.md`;
 - `docs/CURRENT_WIDGET_SURFACE.md`.

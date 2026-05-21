@@ -243,6 +243,11 @@ unless the task explicitly requests it.
   sequencing, stop conditions, and Agent Executor / Direct Work ownership. It
   does not add a backend scheduler, durable runner, schema, Tauri command,
   frontend wiring, hidden execution, server runtime, or RBAC.
+- `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md` - Queue task to Agent
+  Executor run-history visibility plan. It defines safe per-task run metadata,
+  ownership boundaries, raw-output non-goals, current gaps, and future
+  implementation slices without adding schema, persistence, DTOs, runtime
+  behavior, or frontend UI.
 
 ### Git
 

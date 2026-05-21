@@ -130,6 +130,12 @@ Current Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes, Runbook,
 widget run/result/log storage, frontend behavior, Tauri commands, and DTO
 compatibility are unchanged by this contract.
 
+Queue task run-history visibility is defined in
+`docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`. That future Queue surface
+should use metadata-only references to Executor-owned run/result artifacts and
+must not duplicate raw prompts, stdout, stderr, final responses, diffs, logs,
+or result payloads in Queue.
+
 ## Non-Goals
 
 This contract does not add:
