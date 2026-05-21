@@ -9,6 +9,8 @@ import type {
 } from "../workspace/types";
 import {
   assignmentLabel,
+  isAssignmentLockedQueueTaskStatus,
+  isFinalQueueTaskStatus,
   statusBadgeVariant,
   statusLabel,
 } from "./agentQueueTaskUiModel";
@@ -16,16 +18,39 @@ import type {
   AgentQueueRunController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
+import type { AgentExecutorSlot } from "./types";
 
 type AgentQueueTaskRunPanelProps = {
+  apiAvailable: boolean;
+  assignmentError: string | null;
+  assignmentMessage: string | null;
+  currentSelection: string;
+  executorSlots: AgentExecutorSlot[];
   hasExecutorSlots: boolean;
+  inputId: string;
+  isAssigning: boolean;
+  isDirty: boolean;
+  onAssign: () => void;
+  onClear: () => void;
+  onSelectionChange: (executorWidgetInstanceId: string) => void;
   run: AgentQueueRunController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
 };
 
 export function AgentQueueTaskRunPanel({
+  apiAvailable,
+  assignmentError,
+  assignmentMessage,
+  currentSelection,
+  executorSlots,
   hasExecutorSlots,
+  inputId,
+  isAssigning,
+  isDirty,
+  onAssign,
+  onClear,
+  onSelectionChange,
   run,
   runner,
   selectedTask,
@@ -34,23 +59,46 @@ export function AgentQueueTaskRunPanel({
   const codexExecutableInputId = useId();
   const sandboxInputId = useId();
   const approvalPolicyInputId = useId();
+  const hasAssignedExecutor = Boolean(selectedTask.assignedExecutorWidgetId);
+  const isFinalStatus = isFinalQueueTaskStatus(selectedTask.status);
+  const isAssignmentLockedStatus = isAssignmentLockedQueueTaskStatus(
+    selectedTask.status,
+  );
+  const assignmentDisabledReason = assignmentControlMessage({
+    apiAvailable,
+    hasExecutorSlots,
+    isDirty,
+    isFinalStatus,
+    isRunningStatus: selectedTask.status === "running",
+  });
+  const assignDisabled = Boolean(
+    assignmentDisabledReason ||
+      isAssigning ||
+      !hasExecutorSlots ||
+      !currentSelection,
+  );
+  const clearDisabled = Boolean(
+    assignmentDisabledReason || isAssigning || !hasAssignedExecutor,
+  );
 
   return (
     <section
-      aria-label="Run assigned Agent Queue task"
-      className="agent-queue-run-section"
+      aria-label="Queue task execution"
+      className="agent-queue-execution-section"
     >
-      <div className="agent-queue-run-header">
+      <div className="agent-queue-execution-header">
         <div>
           <p
-            className="agent-queue-run-title"
-            title="Starts this task as Codex Direct Work in the assigned Agent Executor."
+            className="agent-queue-execution-title"
+            title="Select an Agent Executor, configure Direct Work, then run the task."
           >
-            Run assigned task
+            Execution
           </p>
         </div>
-        <div className="agent-queue-run-badges">
-          <Badge variant={selectedTask.assignedExecutorWidgetId ? "info" : "neutral"}>
+        <div className="agent-queue-execution-badges">
+          <Badge
+            variant={selectedTask.assignedExecutorWidgetId ? "info" : "neutral"}
+          >
             {assignmentLabel(selectedTask.assignedExecutorWidgetId)}
           </Badge>
           <Badge variant={statusBadgeVariant(selectedTask.status)}>
@@ -60,17 +108,106 @@ export function AgentQueueTaskRunPanel({
       </div>
 
       {!hasExecutorSlots ? (
-        <p className="agent-queue-attention-message" role="status">
-          No Agent Executor widgets available. Add an Agent Executor to run Queue
-          tasks.
-        </p>
+        <div className="agent-queue-attention-message" role="alert">
+          <p className="agent-queue-attention-title">
+            No Agent Executor available
+          </p>
+          <p className="agent-queue-attention-copy">
+            Add an Agent Executor widget to run Queue tasks.
+          </p>
+        </div>
       ) : run.readinessMessage ? (
         <p className="agent-queue-run-note">{run.readinessMessage}</p>
       ) : null}
 
+      {assignmentDisabledReason ? (
+        <p className="agent-queue-assignment-note">
+          {assignmentDisabledReason}
+        </p>
+      ) : null}
+
+      {hasExecutorSlots ? (
+        <div className="agent-queue-assignment-controls">
+          <div className="agent-queue-assignment-field">
+            <label className="field-label" htmlFor={inputId}>
+              Executor
+            </label>
+            <select
+              className="input agent-queue-assignment-select"
+              disabled={
+                !apiAvailable ||
+                isDirty ||
+                isAssignmentLockedStatus ||
+                isAssigning
+              }
+              id={inputId}
+              onChange={(event) =>
+                onSelectionChange(event.currentTarget.value)
+              }
+              value={currentSelection}
+            >
+              {executorSlots.map((slot) => (
+                <option
+                  key={slot.widgetInstanceId}
+                  value={slot.widgetInstanceId}
+                >
+                  {slot.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="agent-queue-assignment-buttons">
+            <Button
+              disabled={assignDisabled}
+              onClick={() => onAssign()}
+              variant="secondary"
+            >
+              {isAssigning ? "Assigning" : "Assign"}
+            </Button>
+            {hasAssignedExecutor ? (
+              <Button
+                disabled={clearDisabled}
+                onClick={() => onClear()}
+                variant="ghost"
+              >
+                Clear
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : hasAssignedExecutor ? (
+        <div className="agent-queue-assignment-buttons">
+          <Button
+            disabled={clearDisabled}
+            onClick={() => onClear()}
+            variant="ghost"
+          >
+            Clear assignment
+          </Button>
+        </div>
+      ) : null}
+
+      {assignmentMessage ? (
+        <p className="agent-queue-message agent-queue-message-success">
+          {assignmentMessage}
+        </p>
+      ) : null}
+      {assignmentError ? (
+        <p
+          className="agent-queue-message agent-queue-message-error"
+          role="alert"
+        >
+          {assignmentError}
+        </p>
+      ) : null}
+
       <div className="agent-queue-run-controls">
         <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label className="field-label" htmlFor={repoRootInputId}>
+          <label
+            className="field-label"
+            htmlFor={repoRootInputId}
+            title="Use an existing repository or local project folder."
+          >
             Execution workspace
           </label>
           <Input
@@ -158,9 +295,16 @@ export function AgentQueueTaskRunPanel({
         >
           {run.isStarting ? "Starting" : "Run assigned task"}
         </Button>
-        <p className="agent-queue-run-note">
-          Open the assigned Agent Executor for live logs and result.
-        </p>
+        <Button
+          disabled={!selectedTask.assignedExecutorWidgetId}
+          onClick={() =>
+            openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
+          }
+          title="Scroll to the assigned Agent Executor for live logs and result."
+          variant="ghost"
+        >
+          Open Executor
+        </Button>
       </div>
 
       <div className="agent-queue-run-actions">
@@ -205,14 +349,6 @@ export function AgentQueueTaskRunPanel({
         </p>
       ) : null}
 
-      <details className="agent-queue-details">
-        <summary>Run details</summary>
-        <p className="agent-queue-run-note">
-          Direct Work requires an explicit existing repository or local project
-          folder.
-        </p>
-      </details>
-
       {run.startMessage ? (
         <>
           <p className="agent-queue-message agent-queue-message-success">
@@ -225,12 +361,68 @@ export function AgentQueueTaskRunPanel({
         </>
       ) : null}
       {run.startError ? (
-        <p className="agent-queue-message agent-queue-message-error" role="alert">
+        <p
+          className="agent-queue-message agent-queue-message-error"
+          role="alert"
+        >
           {run.startError}
         </p>
       ) : null}
     </section>
   );
+}
+
+function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
+  if (!assignedExecutorWidgetId || typeof document === "undefined") {
+    return;
+  }
+
+  const target = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+  ).find(
+    (element) => element.dataset.widgetInstanceId === assignedExecutorWidgetId,
+  );
+
+  target?.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+  });
+}
+
+function assignmentControlMessage({
+  hasExecutorSlots,
+  apiAvailable,
+  isDirty,
+  isFinalStatus,
+  isRunningStatus,
+}: {
+  apiAvailable: boolean;
+  hasExecutorSlots: boolean;
+  isDirty: boolean;
+  isFinalStatus: boolean;
+  isRunningStatus: boolean;
+}) {
+  if (!apiAvailable) {
+    return "Assignment persistence is not available in this runtime.";
+  }
+
+  if (isDirty) {
+    return "Save task edits before changing assignment.";
+  }
+
+  if (isFinalStatus) {
+    return "Assignment is locked for final-status tasks.";
+  }
+
+  if (isRunningStatus) {
+    return "Assignment locked: task is running.";
+  }
+
+  if (!hasExecutorSlots) {
+    return null;
+  }
+
+  return null;
 }
 
 function isRunnerActive(status: AgentQueueRunnerController["status"]) {

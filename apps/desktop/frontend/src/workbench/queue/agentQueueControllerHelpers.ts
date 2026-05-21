@@ -190,7 +190,7 @@ export function queueRunReadinessMessage({
   }
 
   if (!selectedTask.assignedExecutorWidgetId) {
-    return "Assign an Agent Executor when this task is ready to run. Assignment remains planning only and does not start execution.";
+    return "Assign an Agent Executor before running.";
   }
 
   if (isDirty) {

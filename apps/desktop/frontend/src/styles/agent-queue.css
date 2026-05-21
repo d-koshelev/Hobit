@@ -340,7 +340,8 @@
   padding-top: var(--space-xs);
 }
 
-.agent-queue-run-section {
+.agent-queue-run-section,
+.agent-queue-execution-section {
   display: grid;
   gap: var(--space-xs);
   border-top: 1px solid var(--color-border-subtle);
@@ -351,13 +352,15 @@
 .agent-queue-assignment-controls,
 .agent-queue-assignment-buttons,
 .agent-queue-run-header,
-.agent-queue-run-actions {
+.agent-queue-run-actions,
+.agent-queue-execution-header {
   display: flex;
   gap: var(--space-sm);
 }
 
 .agent-queue-assignment-header,
-.agent-queue-run-header {
+.agent-queue-run-header,
+.agent-queue-execution-header {
   align-items: flex-start;
   justify-content: space-between;
 }
@@ -371,11 +374,13 @@
 }
 
 .agent-queue-run-badges,
+.agent-queue-execution-badges,
 .agent-queue-run-actions {
   flex-wrap: wrap;
 }
 
-.agent-queue-run-badges {
+.agent-queue-run-badges,
+.agent-queue-execution-badges {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -449,17 +454,21 @@
 .agent-queue-assignment-copy,
 .agent-queue-assignment-note,
 .agent-queue-run-title,
+.agent-queue-execution-title,
 .agent-queue-run-copy,
 .agent-queue-run-note,
 .agent-queue-run-warning,
 .agent-queue-delete-note,
 .agent-queue-delete-title,
-.agent-queue-delete-copy {
+.agent-queue-delete-copy,
+.agent-queue-attention-title,
+.agent-queue-attention-copy {
   margin: 0;
 }
 
 .agent-queue-assignment-title,
-.agent-queue-run-title {
+.agent-queue-run-title,
+.agent-queue-execution-title {
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 720;
@@ -549,6 +558,8 @@
 }
 
 .agent-queue-attention-message {
+  display: grid;
+  gap: 2px;
   margin: 0;
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
@@ -558,6 +569,10 @@
   font-weight: 680;
   line-height: var(--line-normal);
   padding: var(--space-sm);
+}
+
+.agent-queue-attention-copy {
+  font-weight: 520;
 }
 
 .agent-queue-boundary-note {
@@ -639,12 +654,14 @@
   .agent-queue-assignment-controls,
   .agent-queue-assignment-header,
   .agent-queue-run-header,
+  .agent-queue-execution-header,
   .agent-queue-run-actions {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .agent-queue-run-badges {
+  .agent-queue-run-badges,
+  .agent-queue-execution-badges {
     justify-content: flex-start;
   }
 

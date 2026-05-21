@@ -622,6 +622,7 @@ export function WorkbenchCanvas({
             return (
               <div
                 className={itemClassName}
+                data-widget-instance-id={widget.id}
                 key={widget.id}
                 style={widgetLayoutItemStyle(
                   widget,

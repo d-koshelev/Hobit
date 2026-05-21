@@ -344,7 +344,7 @@ export function useAgentQueueController({
         selectedTask,
         startApiAvailable,
       })
-    : "Assign an Agent Executor when this task is ready to run. Assignment remains planning only and does not start execution.";
+    : "Assign an Agent Executor before running.";
   const preconditionMessages = useMemo(
     () =>
       readinessMessage
