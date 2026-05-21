@@ -11,13 +11,11 @@ import {
   DEFAULT_TASK_TITLE,
   emptyDraft,
   errorToMessage,
-  isFinalQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
   normalizeTaskExecutionPolicy,
   normalizeTaskStatus,
   shortWidgetInstanceId,
-  statusLabel,
   type QueueFilter,
   type TaskDraft,
   validateDraft,
@@ -26,13 +24,16 @@ import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions"
 import type { WidgetRenderProps } from "../types";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
 import {
-  getNextQueueRunnerTaskDecision,
-  queueRunnerFinalStatus,
-  type QueueRunnerFinalStatus,
-} from "./queueRunner";
-
-const DEFAULT_CODEX_EXECUTABLE = "codex";
-const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
+  defaultCodexExecutable,
+  nextQueueTaskSelection,
+  queueAutorunPreconditionMessages,
+  queueRunReadinessMessage,
+  queueRunStartErrorMessage,
+  queueTaskDeleteBlockedReason,
+  runPreconditionMessages,
+  type AgentQueueRunnerStatus,
+} from "./agentQueueControllerHelpers";
+import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 
 type UseAgentQueueControllerOptions = Pick<
   WidgetRenderProps,
@@ -71,15 +72,7 @@ export type AgentQueueRunController = {
   startMessage: string | null;
 };
 
-export type AgentQueueRunnerStatus =
-  | "idle"
-  | "running"
-  | "assigning"
-  | "starting"
-  | "waiting_for_executor"
-  | "stopped"
-  | "completed"
-  | "error";
+export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 
 export type AgentQueueRunnerController = {
   canStart: boolean;
@@ -187,15 +180,6 @@ export function useAgentQueueController({
   const [startedRunId, setStartedRunId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const startInFlightRef = useRef(false);
-  const [runnerStatus, setRunnerStatus] =
-    useState<AgentQueueRunnerStatus>("idle");
-  const [runnerMessage, setRunnerMessage] = useState<string | null>(null);
-  const [runnerError, setRunnerError] = useState<string | null>(null);
-  const runnerStartedQueueItemIdsRef = useRef<Set<string>>(new Set());
-  const runnerActiveQueueItemIdRef = useRef<string | null>(null);
-  const runnerWaitingRunIdRef = useRef<string | null>(null);
-  const runnerStopRequestedRef = useRef(false);
-  const runnerInFlightRef = useRef(false);
   const tasksRef = useRef<AgentQueueTask[]>([]);
   const [autorunSnapshot, setAutorunSnapshot] =
     useState<AgentQueueRunnerSnapshot | null>(null);
@@ -316,14 +300,6 @@ export function useAgentQueueController({
     void refreshAutorunSnapshot({ silent: true });
   }, [onGetAgentQueueRunnerSnapshot]);
 
-  useQueueTaskAutoRefreshFromExecutor({
-    autoRefreshRequest: queueTaskAutoRefreshRequest,
-    isDirty,
-    loadTasks,
-    onRefreshComplete: handleQueueTaskAutoRefreshComplete,
-    setValidationMessage,
-  });
-
   useEffect(() => {
     if (!selectedTask) {
       setSelectedExecutorWidgetId("");
@@ -381,33 +357,31 @@ export function useAgentQueueController({
     [codexExecutable, isStarting, readinessMessage, repoRoot],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
-  const runnerPreconditionMessages = useMemo(
-    () =>
-      queueRunnerPreconditionMessages({
-        assignmentApiAvailable,
-        codexExecutable,
-        hasExecutorSelection: Boolean(selectedExecutorWidgetId),
-        isDirty,
-        isStarting,
-        repoRoot,
-        runnerInFlight: runnerInFlightRef.current,
-        runnerStatus,
-        startApiAvailable,
-        taskCount: tasks.length,
-      }),
-    [
-      assignmentApiAvailable,
-      codexExecutable,
-      isDirty,
-      isStarting,
-      repoRoot,
-      runnerStatus,
-      selectedExecutorWidgetId,
-      startApiAvailable,
-      tasks.length,
-    ],
-  );
-  const canStartRunner = runnerPreconditionMessages.length === 0;
+  const queueRunner = useAgentQueueSequentialRunner({
+    approvalPolicy,
+    assignmentApiAvailable,
+    codexExecutable,
+    isDirty,
+    isStarting,
+    loadTasks,
+    onAssignAgentQueueTaskToExecutor,
+    onDirectWorkRunHandoffStarted,
+    onStartAssignedAgentQueueTask,
+    repoRoot,
+    sandbox,
+    selectedExecutorWidgetId,
+    setTasks,
+    startApiAvailable,
+    taskCount: tasks.length,
+    tasksRef,
+  });
+  useQueueTaskAutoRefreshFromExecutor({
+    autoRefreshRequest: queueTaskAutoRefreshRequest,
+    isDirty,
+    loadTasks,
+    onRefreshComplete: queueRunner.onAutoRefreshComplete,
+    setValidationMessage,
+  });
   const autorunSelectedExecutor = agentExecutorSlots.find(
     (slot) => slot.widgetInstanceId === selectedExecutorWidgetId,
   );
@@ -429,8 +403,8 @@ export function useAgentQueueController({
     autorunSnapshot,
     isDeleting,
     isDirty,
-    runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
-    runnerStatus,
+    runnerActiveQueueItemId: queueRunner.activeQueueItemId,
+    runnerStatus: queueRunner.controller.status,
     selectedTask,
   });
 
@@ -590,8 +564,8 @@ export function useAgentQueueController({
       autorunSnapshot,
       isDeleting,
       isDirty,
-      runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
-      runnerStatus,
+      runnerActiveQueueItemId: queueRunner.activeQueueItemId,
+      runnerStatus: queueRunner.controller.status,
       selectedTask,
     });
 
@@ -622,8 +596,8 @@ export function useAgentQueueController({
       autorunSnapshot,
       isDeleting: false,
       isDirty,
-      runnerActiveQueueItemId: runnerActiveQueueItemIdRef.current,
-      runnerStatus,
+      runnerActiveQueueItemId: queueRunner.activeQueueItemId,
+      runnerStatus: queueRunner.controller.status,
       selectedTask,
     });
 
@@ -794,30 +768,6 @@ export function useAgentQueueController({
     }
   }
 
-  function startQueueRunner() {
-    if (!canStartRunner || runnerInFlightRef.current) {
-      return;
-    }
-
-    runnerStartedQueueItemIdsRef.current = new Set();
-    runnerActiveQueueItemIdRef.current = null;
-    runnerWaitingRunIdRef.current = null;
-    runnerStopRequestedRef.current = false;
-    setRunnerError(null);
-    setRunnerMessage("Sequential Queue Runner started.");
-    setRunnerStatus("running");
-    void advanceQueueRunner(null);
-  }
-
-  function stopQueueRunner() {
-    runnerStopRequestedRef.current = true;
-    setRunnerError(null);
-    setRunnerStatus("stopped");
-    setRunnerMessage(
-      "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
-    );
-  }
-
   async function refreshAutorunSnapshot(options?: { silent?: boolean }) {
     if (!onGetAgentQueueRunnerSnapshot) {
       setAutorunSnapshot(null);
@@ -914,192 +864,11 @@ export function useAgentQueueController({
     }
   }
 
-  async function advanceQueueRunner(
-    previousTaskStatus: QueueRunnerFinalStatus | null,
-  ) {
-    if (runnerStopRequestedRef.current) {
-      setRunnerStatus("stopped");
-      setRunnerMessage("Sequential Queue Runner stopped.");
-      return;
-    }
-
-    if (runnerInFlightRef.current) {
-      return;
-    }
-
-    const decision = getNextQueueRunnerTaskDecision({
-      previousTaskStatus,
-      selectedExecutorWidgetId,
-      startedQueueItemIds: runnerStartedQueueItemIdsRef.current,
-      tasks: tasksRef.current,
-    });
-
-    if (decision.kind === "completed") {
-      setRunnerStatus("completed");
-      setRunnerMessage(
-        decision.skippedTaskCount > 0
-          ? `Sequential Queue Runner completed. Skipped ${decision.skippedTaskCount.toString()} non-runnable task(s).`
-          : "Sequential Queue Runner completed.",
-      );
-      return;
-    }
-
-    if (decision.kind === "stop") {
-      const stopMessage = queueRunnerStopMessage(decision);
-      setRunnerStatus(
-        decision.reason === "assigned_to_different_executor"
-          ? "error"
-          : "stopped",
-      );
-      setRunnerMessage(stopMessage);
-      setRunnerError(
-        decision.reason === "assigned_to_different_executor"
-          ? stopMessage
-          : null,
-      );
-      return;
-    }
-
-    await startQueueRunnerTask(
-      decision.task,
-      decision.requiresAssignment,
-      decision.skippedTaskCount,
-    );
-  }
-
-  async function startQueueRunnerTask(
-    task: AgentQueueTask,
-    requiresAssignment: boolean,
-    skippedTaskCount: number,
-  ) {
-    if (!onStartAssignedAgentQueueTask || runnerInFlightRef.current) {
-      return;
-    }
-
-    runnerInFlightRef.current = true;
-    runnerActiveQueueItemIdRef.current = task.queueItemId;
-    runnerWaitingRunIdRef.current = null;
-    setRunnerError(null);
-
-    try {
-      if (requiresAssignment) {
-        if (!onAssignAgentQueueTaskToExecutor) {
-          throw new Error("Assignment persistence is not available in this runtime.");
-        }
-
-        setRunnerStatus("assigning");
-        setRunnerMessage(
-          `Assigning "${task.title}" to ${shortWidgetInstanceId(
-            selectedExecutorWidgetId,
-          )}.`,
-        );
-        const assignedTask = await onAssignAgentQueueTaskToExecutor({
-          executorWidgetInstanceId: selectedExecutorWidgetId,
-          queueItemId: task.queueItemId,
-        });
-        tasksRef.current = replaceQueueTask(tasksRef.current, assignedTask);
-        setTasks(tasksRef.current);
-      }
-
-      if (runnerStopRequestedRef.current) {
-        setRunnerStatus("stopped");
-        setRunnerMessage("Sequential Queue Runner stopped before starting the next task.");
-        return;
-      }
-
-      const request: AgentQueueTaskStartRequest = {
-        approvalPolicy,
-        codexExecutable,
-        queueItemId: task.queueItemId,
-        repoRoot,
-        sandbox,
-      };
-
-      setRunnerStatus("starting");
-      setRunnerMessage(
-        skippedTaskCount > 0
-          ? `Starting "${task.title}" after skipping ${skippedTaskCount.toString()} non-runnable task(s).`
-          : `Starting "${task.title}".`,
-      );
-
-      const response = await onStartAssignedAgentQueueTask(request);
-      runnerStartedQueueItemIdsRef.current.add(response.queueItemId);
-      runnerWaitingRunIdRef.current = response.runId;
-      onDirectWorkRunHandoffStarted?.({
-        executorWidgetInstanceId: response.executorWidgetInstanceId,
-        queueItemId: response.queueItemId,
-        repoRoot: request.repoRoot,
-        runId: response.runId,
-        startedAt: new Date().toISOString(),
-        taskTitle: task.title,
-        workbenchId: response.workbenchId,
-        workspaceId: response.workspaceId,
-      });
-      await loadTasks(response.queueItemId);
-
-      if (runnerStopRequestedRef.current) {
-        setRunnerStatus("stopped");
-        setRunnerMessage(
-          "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
-        );
-        return;
-      }
-
-      setRunnerStatus("waiting_for_executor");
-      setRunnerMessage(
-        `Waiting for Agent Executor ${shortWidgetInstanceId(
-          response.executorWidgetInstanceId,
-        )} to finish "${task.title}".`,
-      );
-    } catch (error) {
-      const message = queueRunStartErrorMessage(error);
-      setRunnerStatus("error");
-      setRunnerError(message);
-      setRunnerMessage(message);
-      runnerActiveQueueItemIdRef.current = null;
-      runnerWaitingRunIdRef.current = null;
-    } finally {
-      runnerInFlightRef.current = false;
-    }
-  }
-
-  function handleQueueTaskAutoRefreshComplete(
-    request: NonNullable<typeof queueTaskAutoRefreshRequest>,
-  ) {
-    if (
-      runnerStatus !== "waiting_for_executor" ||
-      runnerActiveQueueItemIdRef.current !== request.queueItemId ||
-      runnerWaitingRunIdRef.current !== request.runId
-    ) {
-      return;
-    }
-
-    const finalStatus = queueRunnerFinalStatus(request.finalStatus);
-    runnerActiveQueueItemIdRef.current = null;
-    runnerWaitingRunIdRef.current = null;
-
-    if (runnerStopRequestedRef.current) {
-      setRunnerStatus("stopped");
-      setRunnerMessage(
-        "Sequential Queue Runner stopped. The completed task state was refreshed.",
-      );
-      return;
-    }
-
-    setRunnerStatus("running");
-    setRunnerMessage(
-      finalStatus === "completed"
-        ? "Task completed. Sequential Queue Runner is checking the next task."
-        : `Task ended with ${finalStatus}. Sequential Queue Runner is checking the next task.`,
-    );
-    void advanceQueueRunner(finalStatus);
-  }
-
   function selectExecutorWidget(executorWidgetInstanceId: string) {
     setSelectedExecutorWidgetId(executorWidgetInstanceId);
     setAssignmentError(null);
     setAssignmentMessage(null);
-    setRunnerError(null);
+    queueRunner.clearError();
   }
 
   function updateRepoRootDraft(repoRootValue: string) {
@@ -1194,13 +963,7 @@ export function useAgentQueueController({
       snapshot: autorunSnapshot,
     } satisfies AgentQueueAutorunController,
     runner: {
-      canStart: canStartRunner,
-      error: runnerError,
-      message: runnerMessage,
-      onStart: () => startQueueRunner(),
-      onStop: () => stopQueueRunner(),
-      preconditionMessages: runnerPreconditionMessages,
-      status: runnerStatus,
+      ...queueRunner.controller,
     } satisfies AgentQueueRunnerController,
     refreshTasks,
     saveStateText,
@@ -1218,311 +981,4 @@ export function useAgentQueueController({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
-}
-
-function runPreconditionMessages({
-  codexExecutable,
-  isStarting,
-  repoRoot,
-}: {
-  codexExecutable: string;
-  isStarting: boolean;
-  repoRoot: string;
-}) {
-  const messages: string[] = [];
-
-  if (!repoRoot) {
-    messages.push("Execution workspace is required for Codex Direct Work execution.");
-  }
-
-  if (!codexExecutable) {
-    messages.push("Codex executable is required before running.");
-  }
-
-  if (isStarting) {
-    messages.push("Run request is already in flight.");
-  }
-
-  return messages;
-}
-
-function queueRunnerPreconditionMessages({
-  assignmentApiAvailable,
-  codexExecutable,
-  hasExecutorSelection,
-  isDirty,
-  isStarting,
-  repoRoot,
-  runnerInFlight,
-  runnerStatus,
-  startApiAvailable,
-  taskCount,
-}: {
-  assignmentApiAvailable: boolean;
-  codexExecutable: string;
-  hasExecutorSelection: boolean;
-  isDirty: boolean;
-  isStarting: boolean;
-  repoRoot: string;
-  runnerInFlight: boolean;
-  runnerStatus: AgentQueueRunnerStatus;
-  startApiAvailable: boolean;
-  taskCount: number;
-}) {
-  const messages = runPreconditionMessages({
-    codexExecutable,
-    isStarting: isStarting || runnerInFlight || isQueueRunnerActive(runnerStatus),
-    repoRoot,
-  });
-
-  if (!startApiAvailable) {
-    messages.unshift("Assigned-task execution is not available in this runtime.");
-  }
-
-  if (!assignmentApiAvailable) {
-    messages.unshift("Assignment persistence is not available in this runtime.");
-  }
-
-  if (!hasExecutorSelection) {
-    messages.unshift("Select one Agent Executor for the Sequential Queue Runner.");
-  }
-
-  if (taskCount === 0) {
-    messages.unshift("Add queue tasks before starting the Sequential Queue Runner.");
-  }
-
-  if (isDirty) {
-    messages.unshift("Save task edits before starting the Sequential Queue Runner.");
-  }
-
-  return messages;
-}
-
-function queueAutorunPreconditionMessages({
-  apiAvailable,
-  codexExecutable,
-  hasExecutorSelection,
-  isStarting,
-  repoRoot,
-}: {
-  apiAvailable: boolean;
-  codexExecutable: string;
-  hasExecutorSelection: boolean;
-  isStarting: boolean;
-  repoRoot: string;
-}) {
-  const messages: string[] = [];
-
-  if (!apiAvailable) {
-    messages.push(
-      "Queue Autorun session control is only available in the Tauri desktop shell.",
-    );
-  }
-
-  if (!hasExecutorSelection) {
-    messages.push("Select one Agent Executor before arming Queue Autorun.");
-  }
-
-  if (!repoRoot) {
-    messages.push("Execution workspace is required before arming Queue Autorun.");
-  }
-
-  if (!codexExecutable) {
-    messages.push("Codex executable is required before arming Queue Autorun.");
-  }
-
-  if (isStarting) {
-    messages.push("Queue Autorun arm request is already in flight.");
-  }
-
-  return messages;
-}
-
-function isQueueRunnerActive(status: AgentQueueRunnerStatus) {
-  return (
-    status === "assigning" ||
-    status === "running" ||
-    status === "starting" ||
-    status === "waiting_for_executor"
-  );
-}
-
-type QueueRunnerStopDecision = Extract<
-  ReturnType<typeof getNextQueueRunnerTaskDecision>,
-  { kind: "stop" }
->;
-
-function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
-  switch (decision.reason) {
-    case "assigned_to_different_executor":
-      return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another Agent Executor.`;
-    case "manual":
-      return `Sequential Queue Runner stopped at manual task "${decision.task.title}". Operator action is required.`;
-    case "previous_success_required":
-      return `Sequential Queue Runner stopped before "${decision.task.title}" because it requires a previous task completed in this runner pass.`;
-    case "previous_task_not_successful":
-      return `Sequential Queue Runner stopped before "${decision.task.title}" because the previous task did not complete successfully.`;
-  }
-}
-
-function replaceQueueTask(tasks: AgentQueueTask[], updatedTask: AgentQueueTask) {
-  return tasks.map((task) =>
-    task.queueItemId === updatedTask.queueItemId ? updatedTask : task,
-  );
-}
-
-function queueRunReadinessMessage({
-  isDirty,
-  selectedTask,
-  startApiAvailable,
-}: {
-  isDirty: boolean;
-  selectedTask: AgentQueueTask;
-  startApiAvailable: boolean;
-}) {
-  if (!startApiAvailable) {
-    return "Assigned-task execution is not available in this runtime.";
-  }
-
-  if (!selectedTask.assignedExecutorWidgetId) {
-    return "Assign an Agent Executor when this task is ready to run. Assignment remains planning only and does not start execution.";
-  }
-
-  if (isDirty) {
-    return "Save task edits before configuring execution.";
-  }
-
-  if (!selectedTask.prompt.trim()) {
-    return "Add a task prompt before configuring execution.";
-  }
-
-  if (selectedTask.status === "draft") {
-    return "Draft tasks can stay in planning without an execution workspace. Set status to queued, ready, or review needed before configuring execution.";
-  }
-
-  if (selectedTask.status === "running") {
-    return "This task is already running in its assigned Agent Executor.";
-  }
-
-  if (isFinalQueueTaskStatus(selectedTask.status)) {
-    return "Final-status tasks cannot be run in this version.";
-  }
-
-  if (!isRunnableQueueTaskStatus(selectedTask.status)) {
-    return `Task status cannot be run: ${statusLabel(selectedTask.status)}.`;
-  }
-
-  return null;
-}
-
-function isRunnableQueueTaskStatus(status: string) {
-  return status === "queued" || status === "ready" || status === "review_needed";
-}
-
-function queueRunStartErrorMessage(error: unknown) {
-  const message = errorToMessage(error, "Unable to start assigned queue task.");
-
-  if (/already has an active Direct Work run/i.test(message)) {
-    return "Assigned Agent Executor is already running another task.";
-  }
-
-  if (/repo root must not be empty/i.test(message)) {
-    return "Execution workspace is required for Codex Direct Work execution.";
-  }
-
-  if (/queue task status cannot be run/i.test(message)) {
-    return message;
-  }
-
-  return message;
-}
-
-function queueTaskDeleteBlockedReason({
-  apiAvailable,
-  autorunSnapshot,
-  isDeleting,
-  isDirty,
-  runnerActiveQueueItemId,
-  runnerStatus,
-  selectedTask,
-}: {
-  apiAvailable: boolean;
-  autorunSnapshot: AgentQueueRunnerSnapshot | null;
-  isDeleting: boolean;
-  isDirty: boolean;
-  runnerActiveQueueItemId: string | null;
-  runnerStatus: AgentQueueRunnerStatus;
-  selectedTask: AgentQueueTask | null;
-}) {
-  if (!selectedTask) {
-    return "Select a queue task before deleting.";
-  }
-
-  if (!apiAvailable) {
-    return "Queue task deletion is not available in this runtime.";
-  }
-
-  if (isDirty) {
-    return "Save or discard task edits before deleting.";
-  }
-
-  if (isDeleting) {
-    return "Delete request is already in flight.";
-  }
-
-  if (selectedTask.status === "running") {
-    return "Running tasks cannot be deleted.";
-  }
-
-  if (
-    isQueueRunnerActive(runnerStatus) &&
-    runnerActiveQueueItemId === selectedTask.queueItemId
-  ) {
-    return "This task is active in the Sequential Queue Runner.";
-  }
-
-  if (
-    autorunSnapshot?.isActive &&
-    autorunSnapshot.activeQueueItemId === selectedTask.queueItemId
-  ) {
-    return "This task is active in Queue Autorun.";
-  }
-
-  return null;
-}
-
-function nextQueueTaskSelection(
-  tasks: AgentQueueTask[],
-  deletedQueueItemId: string,
-) {
-  const deletedIndex = tasks.findIndex(
-    (task) => task.queueItemId === deletedQueueItemId,
-  );
-  const remainingTasks = tasks.filter(
-    (task) => task.queueItemId !== deletedQueueItemId,
-  );
-
-  if (remainingTasks.length === 0) {
-    return null;
-  }
-
-  if (deletedIndex < 0) {
-    return remainingTasks[0]?.queueItemId ?? null;
-  }
-
-  return (
-    remainingTasks[Math.min(deletedIndex, remainingTasks.length - 1)]
-      ?.queueItemId ?? null
-  );
-}
-
-function defaultCodexExecutable(): string {
-  if (typeof navigator === "undefined") {
-    return DEFAULT_CODEX_EXECUTABLE;
-  }
-
-  const platformText = `${navigator.userAgent} ${navigator.platform}`;
-  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
-    ? WINDOWS_CODEX_EXECUTABLE
-    : DEFAULT_CODEX_EXECUTABLE;
 }
