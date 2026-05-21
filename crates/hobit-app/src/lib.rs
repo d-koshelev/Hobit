@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod audit_events;
+pub mod capabilities;
 mod error;
 pub mod runtime_adapters;
 mod workspace_service;
@@ -18,6 +19,14 @@ pub use audit_events::{
     AuditEventSummary, AuditOrganizationRef, AuditRiskLevel, AuditRunRef, AuditSchemaVersion,
     AuditTaskRef, AuditWidgetDefinitionRef, AuditWidgetInstanceRef, AuditWidgetRef,
     AuditWorkbenchRef, AuditWorkspaceRef,
+};
+pub use capabilities::{
+    CapabilityActorId, CapabilityActorKind, CapabilityActorRef, CapabilityApprovalRequirement,
+    CapabilityArtifactPolicy, CapabilityBoundarySummary, CapabilityContextExposure,
+    CapabilityExecutionMode, CapabilityExternalAccess, CapabilityId, CapabilityKind,
+    CapabilityMutationScope, CapabilityRiskLevel, CapabilitySecretExposure, CapabilitySubjectRef,
+    CapabilitySummary, CapabilityWidgetDefinitionRef, CapabilityWidgetInstanceRef,
+    CapabilityWorkbenchRef, CapabilityWorkspaceRef, WidgetCapabilityRef, WorkspaceCapabilityRef,
 };
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;

@@ -118,6 +118,12 @@ explicit, visible, risk-labeled, and approval-aware. Coordinator or provider
 output must not bypass operator approval or invoke widget capabilities
 silently.
 
+The current codebase has a Workspace Capability Boundary v0 type-only model in
+`crates/hobit-app/src/capabilities/`, further described by
+`docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md`. Those types do not register
+capabilities, execute capabilities, enforce permissions, emit audit events, or
+change current desktop behavior.
+
 ### Artifact / Event / Audit Boundary
 
 Inputs, outputs, logs, errors, decisions, approvals, and evidence candidates

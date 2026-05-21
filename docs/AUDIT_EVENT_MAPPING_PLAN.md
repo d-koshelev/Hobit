@@ -15,6 +15,11 @@ server runtime, organizations, tenants, enterprise permissions, or RBAC.
 related refs, actor, approval, artifact, event kind, risk, summary, and error
 classification types.
 
+`docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` defines type-only capability
+refs and risk, approval, context, execution, mutation, external access, secret
+exposure, and artifact policy vocabulary that future audit events may
+reference.
+
 No current path persists audit events. No current path emits audit events from
 Workspace, Widget, Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes,
 or Runbook behavior. Existing Workspace events, widget logs, widget runs,

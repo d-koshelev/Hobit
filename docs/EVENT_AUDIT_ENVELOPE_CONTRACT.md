@@ -18,6 +18,10 @@ Git, JDBC, Coordinator, Notes, and Runbook surfaces is documented in
 `docs/AUDIT_EVENT_MAPPING_PLAN.md`. That plan is readiness documentation only;
 it does not add audit emission or persistence.
 
+Future capability refs are described by
+`docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md`. The capability boundary model
+is type scaffolding only and does not add audit persistence or emission.
+
 The v0 envelope can describe future audit records with:
 
 - event id and schema version

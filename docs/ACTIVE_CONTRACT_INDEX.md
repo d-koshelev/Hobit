@@ -148,6 +148,10 @@ unless the task explicitly requests it.
   cross-widget, autonomy, context, or product-model work.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Coordinator or future
   AI surfaces use widgets through controlled capabilities.
+- `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
+  Capability Boundary v0 vocabulary. It is type scaffolding only and does not
+  add capability execution, permission checks, audit emission, server runtime,
+  RBAC, storage, DTO, Tauri, frontend, or widget behavior changes.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0
