@@ -32,7 +32,9 @@ Currently working:
 - current-session Queue auto-refresh after the assigned Agent Executor reaches
   a final state;
 - visible frontend Sequential Queue Runner that can run policy-eligible tasks
-  after the operator starts the runner.
+  after the operator starts the runner;
+- visible Queue Autorun panel that can arm, stop, and refresh desktop-local
+  runner session state. It does not execute tasks yet.
 
 ## Durable Today
 

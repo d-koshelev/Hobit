@@ -206,16 +206,16 @@ The first foundation includes private desktop-only session vocabulary for:
 - start request;
 - snapshot.
 
-The next foundation adds desktop-local session state and Tauri commands to:
+The desktop-local session state and Tauri commands can:
 
 - start/arm a Queue runner session;
 - stop the current Queue runner session;
 - read the current Queue runner snapshot.
 
-Those commands arm, stop, and report session state only. They do not select
-Queue tasks, assign tasks, start Direct Work, submit anything to Agent
-Executor, run an execution loop, persist runner state, add schema, or expose a
-frontend UI.
+The Agent Queue frontend can arm, stop, and refresh this session snapshot. That
+UI and those commands report session state only. They do not select Queue
+tasks, assign tasks, start Direct Work, submit anything to Agent Executor, run
+an execution loop, persist runner state, or add schema.
 
 ## Non-Goals
 

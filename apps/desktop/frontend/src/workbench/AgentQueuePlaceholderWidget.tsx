@@ -2,6 +2,7 @@ import { useId } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import { AgentQueueTaskAssignmentPanel } from "./AgentQueueTaskAssignmentPanel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
@@ -32,12 +33,15 @@ export function AgentQueuePlaceholderWidget({
   onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
   onGetAgentQueueTask,
+  onGetAgentQueueRunnerSnapshot,
   onListAgentQueueTasks,
   onLoadLogs,
   onDirectWorkRunHandoffStarted,
   queueTaskAutoRefreshRequest,
   onStartFrameMove,
   onStartAssignedAgentQueueTask,
+  onStartAgentQueueRunnerSession,
+  onStopAgentQueueRunnerSession,
   onUpdateAgentQueueTask,
   title,
 }: WidgetRenderProps) {
@@ -55,8 +59,11 @@ export function AgentQueuePlaceholderWidget({
     onCreateAgentQueueTask,
     onDirectWorkRunHandoffStarted,
     onGetAgentQueueTask,
+    onGetAgentQueueRunnerSnapshot,
     onListAgentQueueTasks,
     onStartAssignedAgentQueueTask,
+    onStartAgentQueueRunnerSession,
+    onStopAgentQueueRunnerSession,
     onUpdateAgentQueueTask,
     queueTaskAutoRefreshRequest,
   });
@@ -333,6 +340,8 @@ export function AgentQueuePlaceholderWidget({
                     runner={queue.runner}
                     selectedTask={selectedTask}
                   />
+
+                  <AgentQueueAutorunPanel autorun={queue.autorun} />
 
                   <div className="agent-queue-editor-actions">
                     <div className="agent-queue-editor-status">

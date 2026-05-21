@@ -124,6 +124,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       },
       getAgentExecutorDiffSummary: this.unsupported,
       getAgentExecutorRunDetail: this.unsupported,
+      getAgentQueueRunnerSnapshot: this.unsupported,
       getAgentQueueTask: this.unsupported,
       getGitRepositoryStatus: this.unsupported,
       getJdbcConnector: async (connectorId) => {
@@ -149,7 +150,9 @@ class JdbcReadOnlyUiSmokeRuntime {
       runDirectWorkValidation: this.unsupported,
       runTerminalCommand: this.unsupported,
       startAssignedAgentQueueTask: this.unsupported,
+      startAgentQueueRunnerSession: this.unsupported,
       startCodexDirectWorkStream: this.unsupported,
+      stopAgentQueueRunnerSession: this.unsupported,
       stopTerminalPtySession: this.unsupported,
       updateAgentQueueTask: this.unsupported,
       updateJdbcConnector: async () => {

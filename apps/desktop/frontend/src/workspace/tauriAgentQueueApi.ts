@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentQueueItem,
+  AgentQueueRunnerPolicy,
+  AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
   AgentQueueTaskExecutionPolicy,
@@ -14,6 +16,7 @@ import type {
   ListAgentQueueTasksRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
 } from "./types";
 
@@ -76,6 +79,27 @@ type TauriStartAssignedAgentQueueTaskResponse = {
   executor_widget_instance_id: string;
   run_id: string;
   status: string;
+};
+
+type TauriAgentQueueRunnerPolicy = {
+  require_operator_start: boolean;
+  one_task_at_a_time: boolean;
+  stop_on_failure: boolean;
+  stop_on_review_needed: boolean;
+  stop_on_cancel: boolean;
+  allow_hidden_execution: boolean;
+  durable_resume: boolean;
+};
+
+type TauriAgentQueueRunnerSnapshot = {
+  session_id: string | null;
+  status: string;
+  is_active: boolean;
+  is_session_only: boolean;
+  policy: TauriAgentQueueRunnerPolicy;
+  active_queue_item_id: string | null;
+  waiting_run_id: string | null;
+  stop_reason: string | null;
 };
 
 export async function createAgentQueueItemFromProposal(
@@ -236,6 +260,45 @@ export async function startAssignedAgentQueueTask(
   return normalizeStartAssignedAgentQueueTaskResponse(response);
 }
 
+export async function startAgentQueueRunnerSession(
+  request: StartAgentQueueRunnerSessionRequest,
+): Promise<AgentQueueRunnerSnapshot> {
+  const snapshot = await invoke<TauriAgentQueueRunnerSnapshot>(
+    "start_agent_queue_runner_session",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        executor_widget_instance_id: request.executorWidgetInstanceId,
+        policy: request.policy
+          ? {
+              stop_on_failure: request.policy.stopOnFailure ?? null,
+              stop_on_review_needed: request.policy.stopOnReviewNeeded ?? null,
+              stop_on_cancel: request.policy.stopOnCancel ?? null,
+            }
+          : null,
+      },
+    },
+  );
+
+  return normalizeAgentQueueRunnerSnapshot(snapshot);
+}
+
+export async function stopAgentQueueRunnerSession(): Promise<AgentQueueRunnerSnapshot> {
+  const snapshot = await invoke<TauriAgentQueueRunnerSnapshot>(
+    "stop_agent_queue_runner_session",
+  );
+
+  return normalizeAgentQueueRunnerSnapshot(snapshot);
+}
+
+export async function getAgentQueueRunnerSnapshot(): Promise<AgentQueueRunnerSnapshot> {
+  const snapshot = await invoke<TauriAgentQueueRunnerSnapshot>(
+    "get_agent_queue_runner_snapshot",
+  );
+
+  return normalizeAgentQueueRunnerSnapshot(snapshot);
+}
+
 function normalizeAgentQueueSnapshot(
   snapshot: TauriAgentQueueSnapshot,
 ): AgentQueueSnapshot {
@@ -322,5 +385,34 @@ function normalizeStartAssignedAgentQueueTaskResponse(
     executorWidgetInstanceId: response.executor_widget_instance_id,
     runId: response.run_id,
     status: response.status,
+  };
+}
+
+function normalizeAgentQueueRunnerSnapshot(
+  snapshot: TauriAgentQueueRunnerSnapshot,
+): AgentQueueRunnerSnapshot {
+  return {
+    sessionId: snapshot.session_id,
+    status: snapshot.status,
+    isActive: snapshot.is_active,
+    isSessionOnly: snapshot.is_session_only,
+    policy: normalizeAgentQueueRunnerPolicy(snapshot.policy),
+    activeQueueItemId: snapshot.active_queue_item_id,
+    waitingRunId: snapshot.waiting_run_id,
+    stopReason: snapshot.stop_reason,
+  };
+}
+
+function normalizeAgentQueueRunnerPolicy(
+  policy: TauriAgentQueueRunnerPolicy,
+): AgentQueueRunnerPolicy {
+  return {
+    requireOperatorStart: policy.require_operator_start,
+    oneTaskAtATime: policy.one_task_at_a_time,
+    stopOnFailure: policy.stop_on_failure,
+    stopOnReviewNeeded: policy.stop_on_review_needed,
+    stopOnCancel: policy.stop_on_cancel,
+    allowHiddenExecution: policy.allow_hidden_execution,
+    durableResume: policy.durable_resume,
   };
 }

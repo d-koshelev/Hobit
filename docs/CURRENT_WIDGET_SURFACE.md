@@ -174,6 +174,9 @@ and component keys may still appear in code and persistence.
 - The Sequential Queue Runner is current-session frontend behavior only. It is
   not durable background scheduling and stops if the Workbench UI closes or
   reloads.
+- Provides a visible Queue Autorun panel that can arm, stop, and refresh
+  desktop-local runner session state. Queue Autorun currently has no task
+  execution loop and does not submit work to Agent Executor.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.
 - Does not provide a backend scheduler, durable runner persistence,
   multi-executor parallel scheduling, retries, dependency graph execution,

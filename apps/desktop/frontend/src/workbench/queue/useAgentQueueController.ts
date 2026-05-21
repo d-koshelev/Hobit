@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  AgentQueueRunnerSnapshot,
   AgentQueueTask,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -41,8 +42,11 @@ type UseAgentQueueControllerOptions = Pick<
   | "onCreateAgentQueueTask"
   | "onDirectWorkRunHandoffStarted"
   | "onGetAgentQueueTask"
+  | "onGetAgentQueueRunnerSnapshot"
   | "onListAgentQueueTasks"
   | "onStartAssignedAgentQueueTask"
+  | "onStartAgentQueueRunnerSession"
+  | "onStopAgentQueueRunnerSession"
   | "onUpdateAgentQueueTask"
   | "queueTaskAutoRefreshRequest"
 >;
@@ -86,6 +90,22 @@ export type AgentQueueRunnerController = {
   status: AgentQueueRunnerStatus;
 };
 
+export type AgentQueueAutorunController = {
+  apiAvailable: boolean;
+  canArm: boolean;
+  error: string | null;
+  isLoading: boolean;
+  isStarting: boolean;
+  isStopping: boolean;
+  message: string | null;
+  onArm: () => void;
+  onRefresh: () => void;
+  onStop: () => void;
+  preconditionMessages: string[];
+  selectedExecutorLabel: string | null;
+  snapshot: AgentQueueRunnerSnapshot | null;
+};
+
 export function useAgentQueueController({
   agentExecutorSlots = [],
   onAssignAgentQueueTaskToExecutor,
@@ -93,8 +113,11 @@ export function useAgentQueueController({
   onCreateAgentQueueTask,
   onDirectWorkRunHandoffStarted,
   onGetAgentQueueTask,
+  onGetAgentQueueRunnerSnapshot,
   onListAgentQueueTasks,
   onStartAssignedAgentQueueTask,
+  onStartAgentQueueRunnerSession,
+  onStopAgentQueueRunnerSession,
   onUpdateAgentQueueTask,
   queueTaskAutoRefreshRequest,
 }: UseAgentQueueControllerOptions) {
@@ -106,6 +129,11 @@ export function useAgentQueueController({
   );
   const assignmentApiAvailable = Boolean(
     onAssignAgentQueueTaskToExecutor && onClearAgentQueueTaskAssignment,
+  );
+  const autorunApiAvailable = Boolean(
+    onStartAgentQueueRunnerSession &&
+      onStopAgentQueueRunnerSession &&
+      onGetAgentQueueRunnerSnapshot,
   );
   const [tasks, setTasks] = useState<AgentQueueTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<AgentQueueTask | null>(null);
@@ -150,6 +178,13 @@ export function useAgentQueueController({
   const runnerStopRequestedRef = useRef(false);
   const runnerInFlightRef = useRef(false);
   const tasksRef = useRef<AgentQueueTask[]>([]);
+  const [autorunSnapshot, setAutorunSnapshot] =
+    useState<AgentQueueRunnerSnapshot | null>(null);
+  const [isAutorunLoading, setIsAutorunLoading] = useState(false);
+  const [isAutorunStarting, setIsAutorunStarting] = useState(false);
+  const [isAutorunStopping, setIsAutorunStopping] = useState(false);
+  const [autorunMessage, setAutorunMessage] = useState<string | null>(null);
+  const [autorunError, setAutorunError] = useState<string | null>(null);
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -251,6 +286,15 @@ export function useAgentQueueController({
     void loadTasks(null);
   }, [loadTasks]);
 
+  useEffect(() => {
+    if (!onGetAgentQueueRunnerSnapshot) {
+      setAutorunSnapshot(null);
+      return;
+    }
+
+    void refreshAutorunSnapshot({ silent: true });
+  }, [onGetAgentQueueRunnerSnapshot]);
+
   useQueueTaskAutoRefreshFromExecutor({
     autoRefreshRequest: queueTaskAutoRefreshRequest,
     isDirty,
@@ -343,6 +387,20 @@ export function useAgentQueueController({
     ],
   );
   const canStartRunner = runnerPreconditionMessages.length === 0;
+  const autorunSelectedExecutor = agentExecutorSlots.find(
+    (slot) => slot.widgetInstanceId === selectedExecutorWidgetId,
+  );
+  const autorunPreconditionMessages = queueAutorunPreconditionMessages({
+    apiAvailable: autorunApiAvailable,
+    hasExecutorSelection: Boolean(selectedExecutorWidgetId),
+    isStarting: isAutorunStarting,
+  });
+  const isAutorunActive = Boolean(autorunSnapshot?.isActive);
+  const canArmAutorun =
+    autorunPreconditionMessages.length === 0 &&
+    !isAutorunActive &&
+    !isAutorunLoading &&
+    !isAutorunStopping;
 
   async function createTask() {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
@@ -626,6 +684,91 @@ export function useAgentQueueController({
     );
   }
 
+  async function refreshAutorunSnapshot(options?: { silent?: boolean }) {
+    if (!onGetAgentQueueRunnerSnapshot) {
+      setAutorunSnapshot(null);
+      setAutorunError(
+        "Queue Autorun is only available in the Tauri desktop shell.",
+      );
+      return;
+    }
+
+    if (!options?.silent) {
+      setIsAutorunLoading(true);
+      setAutorunError(null);
+    }
+
+    try {
+      const snapshot = await onGetAgentQueueRunnerSnapshot();
+      setAutorunSnapshot(snapshot);
+      if (!options?.silent) {
+        setAutorunMessage("Queue Autorun status refreshed.");
+      }
+    } catch (error) {
+      setAutorunError(
+        errorToMessage(error, "Unable to refresh Queue Autorun status."),
+      );
+    } finally {
+      if (!options?.silent) {
+        setIsAutorunLoading(false);
+      }
+    }
+  }
+
+  async function armAutorunSession() {
+    if (
+      !onStartAgentQueueRunnerSession ||
+      !selectedExecutorWidgetId ||
+      !canArmAutorun ||
+      isAutorunStarting
+    ) {
+      return;
+    }
+
+    setIsAutorunStarting(true);
+    setAutorunError(null);
+    setAutorunMessage(null);
+
+    try {
+      const snapshot = await onStartAgentQueueRunnerSession({
+        executorWidgetInstanceId: selectedExecutorWidgetId,
+        policy: {
+          stopOnCancel: true,
+          stopOnFailure: true,
+          stopOnReviewNeeded: true,
+        },
+      });
+      setAutorunSnapshot(snapshot);
+      setAutorunMessage(
+        "Queue Autorun session armed. Task execution loop is not implemented yet.",
+      );
+    } catch (error) {
+      setAutorunError(errorToMessage(error, "Unable to arm Queue Autorun."));
+    } finally {
+      setIsAutorunStarting(false);
+    }
+  }
+
+  async function stopAutorunSession() {
+    if (!onStopAgentQueueRunnerSession || isAutorunStopping) {
+      return;
+    }
+
+    setIsAutorunStopping(true);
+    setAutorunError(null);
+    setAutorunMessage(null);
+
+    try {
+      const snapshot = await onStopAgentQueueRunnerSession();
+      setAutorunSnapshot(snapshot);
+      setAutorunMessage("Queue Autorun session stopped.");
+    } catch (error) {
+      setAutorunError(errorToMessage(error, "Unable to stop Queue Autorun."));
+    } finally {
+      setIsAutorunStopping(false);
+    }
+  }
+
   async function advanceQueueRunner(
     previousTaskStatus: QueueRunnerFinalStatus | null,
   ) {
@@ -877,6 +1020,21 @@ export function useAgentQueueController({
       startedRunId,
       startMessage,
     } satisfies AgentQueueRunController,
+    autorun: {
+      apiAvailable: autorunApiAvailable,
+      canArm: canArmAutorun,
+      error: autorunError,
+      isLoading: isAutorunLoading,
+      isStarting: isAutorunStarting,
+      isStopping: isAutorunStopping,
+      message: autorunMessage,
+      onArm: () => void armAutorunSession(),
+      onRefresh: () => void refreshAutorunSnapshot(),
+      onStop: () => void stopAutorunSession(),
+      preconditionMessages: autorunPreconditionMessages,
+      selectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
+      snapshot: autorunSnapshot,
+    } satisfies AgentQueueAutorunController,
     runner: {
       canStart: canStartRunner,
       error: runnerError,
@@ -977,6 +1135,34 @@ function queueRunnerPreconditionMessages({
 
   if (isDirty) {
     messages.unshift("Save task edits before starting the Sequential Queue Runner.");
+  }
+
+  return messages;
+}
+
+function queueAutorunPreconditionMessages({
+  apiAvailable,
+  hasExecutorSelection,
+  isStarting,
+}: {
+  apiAvailable: boolean;
+  hasExecutorSelection: boolean;
+  isStarting: boolean;
+}) {
+  const messages: string[] = [];
+
+  if (!apiAvailable) {
+    messages.push(
+      "Queue Autorun session control is only available in the Tauri desktop shell.",
+    );
+  }
+
+  if (!hasExecutorSelection) {
+    messages.push("Select one Agent Executor before arming Queue Autorun.");
+  }
+
+  if (isStarting) {
+    messages.push("Queue Autorun arm request is already in flight.");
   }
 
   return messages;

@@ -18,6 +18,7 @@ import type {
   AgentExecutorRunHistory,
   AgentMonitoringSnapshot,
   AgentQueueItem,
+  AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
   AssignAgentQueueTaskToExecutorRequest,
@@ -64,6 +65,7 @@ import type {
   RunTerminalCommandResponse,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  StartAgentQueueRunnerSessionRequest,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
   ResizeTerminalPtySessionRequest,
@@ -182,6 +184,11 @@ export type WorkspaceApi = {
   startAssignedAgentQueueTask: (
     request: StartAssignedAgentQueueTaskRequest,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
+  startAgentQueueRunnerSession: (
+    request: StartAgentQueueRunnerSessionRequest,
+  ) => Promise<AgentQueueRunnerSnapshot>;
+  stopAgentQueueRunnerSession: () => Promise<AgentQueueRunnerSnapshot>;
+  getAgentQueueRunnerSnapshot: () => Promise<AgentQueueRunnerSnapshot>;
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;

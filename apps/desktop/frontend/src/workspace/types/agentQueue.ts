@@ -77,6 +77,39 @@ export type StartAssignedAgentQueueTaskResponse = {
   status: string;
 };
 
+export type StartAgentQueueRunnerPolicyRequest = {
+  stopOnFailure?: boolean;
+  stopOnReviewNeeded?: boolean;
+  stopOnCancel?: boolean;
+};
+
+export type StartAgentQueueRunnerSessionRequest = {
+  workspaceId: string;
+  executorWidgetInstanceId: string;
+  policy?: StartAgentQueueRunnerPolicyRequest;
+};
+
+export type AgentQueueRunnerPolicy = {
+  requireOperatorStart: boolean;
+  oneTaskAtATime: boolean;
+  stopOnFailure: boolean;
+  stopOnReviewNeeded: boolean;
+  stopOnCancel: boolean;
+  allowHiddenExecution: boolean;
+  durableResume: boolean;
+};
+
+export type AgentQueueRunnerSnapshot = {
+  sessionId: string | null;
+  status: string;
+  isActive: boolean;
+  isSessionOnly: boolean;
+  policy: AgentQueueRunnerPolicy;
+  activeQueueItemId: string | null;
+  waitingRunId: string | null;
+  stopReason: string | null;
+};
+
 export type AgentQueueSnapshot = {
   workspaceId: string;
   workbenchId: string;

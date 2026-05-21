@@ -284,6 +284,37 @@
   gap: var(--space-sm);
 }
 
+.agent-queue-autorun-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.agent-queue-autorun-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.agent-queue-autorun-facts dt,
+.agent-queue-autorun-facts dd {
+  margin: 0;
+}
+
+.agent-queue-autorun-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-autorun-facts dd {
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
 .agent-queue-run-field {
   display: grid;
   min-width: 0;
@@ -396,6 +427,7 @@
 
 @media (max-width: 560px) {
   .agent-queue-editor-grid,
+  .agent-queue-autorun-facts,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;
   }

@@ -162,6 +162,15 @@ export function widgetHostRenderProps({
     onStartAssignedAgentQueueTask: isAgentQueue
       ? widgetActions.startAssignedAgentQueueTask
       : undefined,
+    onStartAgentQueueRunnerSession: isAgentQueue
+      ? widgetActions.startAgentQueueRunnerSession
+      : undefined,
+    onStopAgentQueueRunnerSession: isAgentQueue
+      ? widgetActions.stopAgentQueueRunnerSession
+      : undefined,
+    onGetAgentQueueRunnerSnapshot: isAgentQueue
+      ? widgetActions.getAgentQueueRunnerSnapshot
+      : undefined,
     onStartCodexDirectWorkStream: isAgentExecutor
       ? widgetActions.startCodexDirectWorkStream
       : undefined,

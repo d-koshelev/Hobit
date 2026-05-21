@@ -78,9 +78,8 @@ describe("queue runner task selection", () => {
     );
   });
 
-  it.each(["failed", "cancelled", "timed_out"] as const)(
-    "stops after_previous_success after previous %s",
-    (previousTaskStatus) => {
+  for (const previousTaskStatus of ["failed", "cancelled", "timed_out"] as const) {
+    it(`stops after_previous_success after previous ${previousTaskStatus}`, () => {
       const decision = getNextQueueRunnerTaskDecision({
         previousTaskStatus,
         selectedExecutorWidgetId: "executor-1",
@@ -98,8 +97,8 @@ describe("queue runner task selection", () => {
       expect(decision.kind === "stop" && decision.reason).toBe(
         "previous_task_not_successful",
       );
-    },
-  );
+    });
+  }
 
   it("skips non-runnable tasks and starts the next runnable task", () => {
     const decision = getNextQueueRunnerTaskDecision({

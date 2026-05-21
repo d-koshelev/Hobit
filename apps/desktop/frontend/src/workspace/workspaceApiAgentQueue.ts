@@ -1,6 +1,7 @@
 import { getWorkspaceApi } from "./workspaceApiRuntime";
 import type {
   AgentQueueItem,
+  AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
   AssignAgentQueueTaskToExecutorRequest,
@@ -12,6 +13,7 @@ import type {
   ListAgentQueueTasksRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
 } from "./types";
 
@@ -67,4 +69,18 @@ export function startAssignedAgentQueueTask(
   request: StartAssignedAgentQueueTaskRequest,
 ): Promise<StartAssignedAgentQueueTaskResponse> {
   return getWorkspaceApi().startAssignedAgentQueueTask(request);
+}
+
+export function startAgentQueueRunnerSession(
+  request: StartAgentQueueRunnerSessionRequest,
+): Promise<AgentQueueRunnerSnapshot> {
+  return getWorkspaceApi().startAgentQueueRunnerSession(request);
+}
+
+export function stopAgentQueueRunnerSession(): Promise<AgentQueueRunnerSnapshot> {
+  return getWorkspaceApi().stopAgentQueueRunnerSession();
+}
+
+export function getAgentQueueRunnerSnapshot(): Promise<AgentQueueRunnerSnapshot> {
+  return getWorkspaceApi().getAgentQueueRunnerSnapshot();
 }

@@ -9,6 +9,7 @@ import "../styles/layout.css";
 import type {
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
+  AgentQueueRunnerSnapshot,
   AgentQueueTask,
   DirectWorkStreamEvent,
   StartAssignedAgentQueueTaskResponse,
@@ -175,8 +176,11 @@ class QueueExecutorSmokeRuntime {
           workspaceId: WORKSPACE_ID,
         } satisfies StartAssignedAgentQueueTaskResponse;
       },
+      startAgentQueueRunnerSession: async () => this.runnerSnapshot("armed"),
       startCodexDirectWorkStream: async () => this.forbidden(null),
+      stopAgentQueueRunnerSession: async () => this.runnerSnapshot("stopped"),
       stopTerminalPtySession: async () => this.forbidden(null),
+      getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot("idle"),
       updateAgentQueueTask: async () => this.cloneTask(),
       updateJdbcConnector: this.unsupported,
       updateWidgetLayout: async () => undefined,
@@ -244,6 +248,27 @@ class QueueExecutorSmokeRuntime {
   private forbidden<T>(value: T): T {
     this.forbiddenCallCount += 1;
     return value;
+  }
+
+  private runnerSnapshot(status: string): AgentQueueRunnerSnapshot {
+    return {
+      activeQueueItemId: null,
+      isActive: status === "armed",
+      isSessionOnly: true,
+      policy: {
+        allowHiddenExecution: false,
+        durableResume: false,
+        oneTaskAtATime: true,
+        requireOperatorStart: true,
+        stopOnCancel: true,
+        stopOnFailure: true,
+        stopOnReviewNeeded: true,
+      },
+      sessionId: status === "idle" ? null : "queue-smoke-runner-session",
+      status,
+      stopReason: status === "stopped" ? "operator_stopped" : null,
+      waitingRunId: null,
+    };
   }
 
   private markFinalAvailable() {

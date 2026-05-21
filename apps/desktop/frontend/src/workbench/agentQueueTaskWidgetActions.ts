@@ -3,17 +3,22 @@ import {
   clearAgentQueueTaskAssignment,
   createAgentQueueTask,
   getAgentQueueTask,
+  getAgentQueueRunnerSnapshot,
   listAgentQueueTasks,
   startAssignedAgentQueueTask,
+  startAgentQueueRunnerSession,
+  stopAgentQueueRunnerSession,
   updateAgentQueueTask,
 } from "../workspace/workspaceApi";
 import type {
+  AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
 } from "../workspace/types";
 import type { WorkbenchViewState } from "./types";
@@ -43,6 +48,11 @@ export type AgentQueueTaskStartRequest = Omit<
   "workspaceId"
 >;
 
+export type AgentQueueRunnerSessionStartRequest = Omit<
+  StartAgentQueueRunnerSessionRequest,
+  "workspaceId"
+>;
+
 export type AgentQueueTaskWidgetActions = {
   createAgentQueueTask: (
     request: AgentQueueTaskCreateRequest,
@@ -61,6 +71,11 @@ export type AgentQueueTaskWidgetActions = {
   startAssignedAgentQueueTask: (
     request: AgentQueueTaskStartRequest,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
+  startAgentQueueRunnerSession: (
+    request: AgentQueueRunnerSessionStartRequest,
+  ) => Promise<AgentQueueRunnerSnapshot>;
+  stopAgentQueueRunnerSession: () => Promise<AgentQueueRunnerSnapshot>;
+  getAgentQueueRunnerSnapshot: () => Promise<AgentQueueRunnerSnapshot>;
 };
 
 export function createAgentQueueTaskActions(
@@ -114,6 +129,21 @@ export function createAgentQueueTaskActions(
         workspaceId: viewState.workspace.id,
         ...request,
       });
+    },
+    startAgentQueueRunnerSession: (request) => {
+      requireOpenWorkbench(viewState, "arm Queue Autorun");
+      return startAgentQueueRunnerSession({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    stopAgentQueueRunnerSession: () => {
+      requireOpenWorkbench(viewState, "stop Queue Autorun");
+      return stopAgentQueueRunnerSession();
+    },
+    getAgentQueueRunnerSnapshot: () => {
+      requireOpenWorkbench(viewState, "read Queue Autorun status");
+      return getAgentQueueRunnerSnapshot();
     },
   };
 }

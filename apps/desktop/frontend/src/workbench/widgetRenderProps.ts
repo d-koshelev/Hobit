@@ -14,6 +14,7 @@ import type {
   AgentExecutorDiffSummary,
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
+  AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunResponse,
@@ -38,6 +39,7 @@ import type {
   ResizeTerminalPtySessionRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  StartAgentQueueRunnerSessionRequest,
   StartCodexDirectWorkStreamResponse,
   TerminalPtySession,
   TerminalPtySessionActionRequest,
@@ -243,6 +245,11 @@ export type WidgetRenderProps = {
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
+  onStartAgentQueueRunnerSession?: (
+    request: Omit<StartAgentQueueRunnerSessionRequest, "workspaceId">,
+  ) => Promise<AgentQueueRunnerSnapshot>;
+  onStopAgentQueueRunnerSession?: () => Promise<AgentQueueRunnerSnapshot>;
+  onGetAgentQueueRunnerSnapshot?: () => Promise<AgentQueueRunnerSnapshot>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

@@ -186,6 +186,27 @@ export const startAssignedAgentQueueTask: WorkspaceApi["startAssignedAgentQueueT
     );
   };
 
+export const startAgentQueueRunnerSession: WorkspaceApi["startAgentQueueRunnerSession"] =
+  async (_request) => {
+    throw new Error(
+      "Queue Autorun session control is only available in the Tauri desktop shell. Browser fallback cannot arm Queue Autorun.",
+    );
+  };
+
+export const stopAgentQueueRunnerSession: WorkspaceApi["stopAgentQueueRunnerSession"] =
+  async () => {
+    throw new Error(
+      "Queue Autorun session control is only available in the Tauri desktop shell. Browser fallback cannot stop Queue Autorun.",
+    );
+  };
+
+export const getAgentQueueRunnerSnapshot: WorkspaceApi["getAgentQueueRunnerSnapshot"] =
+  async () => {
+    throw new Error(
+      "Queue Autorun session status is only available in the Tauri desktop shell. Browser fallback cannot inspect Queue Autorun.",
+    );
+  };
+
 export const getGitRepositoryStatus: WorkspaceApi["getGitRepositoryStatus"] =
   async (_request) => {
     throw new Error(

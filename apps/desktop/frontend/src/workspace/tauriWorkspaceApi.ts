@@ -8,9 +8,12 @@ import {
   createAgentQueueItemFromProposal,
   createAgentQueueTask,
   getAgentQueueSnapshot,
+  getAgentQueueRunnerSnapshot,
   getAgentQueueTask,
   listAgentQueueTasks,
   startAssignedAgentQueueTask,
+  startAgentQueueRunnerSession,
+  stopAgentQueueRunnerSession,
   updateAgentQueueTask,
 } from "./tauriAgentQueueApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
@@ -106,6 +109,9 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
   startAssignedAgentQueueTask,
+  startAgentQueueRunnerSession,
+  stopAgentQueueRunnerSession,
+  getAgentQueueRunnerSnapshot,
   getGitRepositoryStatus,
   createGitCommit,
   persistAgentChatProposal,
