@@ -6,10 +6,19 @@
 
 #![forbid(unsafe_code)]
 
+pub mod audit_events;
 mod error;
 pub mod runtime_adapters;
 mod workspace_service;
 
+pub use audit_events::{
+    AuditActionRef, AuditActorKind, AuditActorRef, AuditApprovalId, AuditApprovalRef,
+    AuditApprovalStatus, AuditArtifactId, AuditArtifactRef, AuditCapabilityRef, AuditCausationId,
+    AuditCorrelationId, AuditErrorClass, AuditEventEnvelope, AuditEventId, AuditEventKind,
+    AuditEventSummary, AuditOrganizationRef, AuditRiskLevel, AuditRunRef, AuditSchemaVersion,
+    AuditTaskRef, AuditWidgetDefinitionRef, AuditWidgetInstanceRef, AuditWidgetRef,
+    AuditWorkbenchRef, AuditWorkspaceRef,
+};
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
 pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;

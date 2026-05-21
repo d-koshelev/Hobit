@@ -150,6 +150,9 @@ unless the task explicitly requests it.
   AI surfaces use widgets through controlled capabilities.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
+- `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0
+  vocabulary work; it is type scaffolding only and does not add audit
+  persistence, server runtime, organizations, or RBAC.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

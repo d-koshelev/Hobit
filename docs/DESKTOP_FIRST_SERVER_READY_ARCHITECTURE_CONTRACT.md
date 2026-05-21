@@ -205,6 +205,12 @@ This is an envelope readiness contract only. It does not add storage columns,
 schemas, APIs, audit services, organizations, users, permissions, or event
 streaming.
 
+The current codebase has a v0 type-only envelope model in
+`crates/hobit-app/src/audit_events/`, further described by
+`docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md`. Those types do not persist records,
+emit events from existing runtime paths, create organization/RBAC behavior, or
+change current desktop behavior.
+
 ## Secrets And Artifact Classification
 
 Hobit should use explicit classification vocabulary for inputs, outputs, and
