@@ -41,8 +41,8 @@ export function AgentQueueAutorunPanel({
       </div>
 
       <p className="agent-queue-run-boundary-copy">
-        This currently arms the Queue Autorun session. Task execution loop is
-        not implemented yet.
+        Start Autorun starts at most one eligible task through the existing
+        Queue-to-Executor path. Sequential continuation is not implemented yet.
       </p>
 
       <dl className="agent-queue-autorun-facts">
@@ -64,6 +64,18 @@ export function AgentQueueAutorunPanel({
               : "Unknown"}
           </dd>
         </div>
+        <div>
+          <dt>Active task</dt>
+          <dd>{snapshot?.activeQueueItemId ?? "None"}</dd>
+        </div>
+        <div>
+          <dt>Waiting run</dt>
+          <dd>{snapshot?.waitingRunId ?? "None"}</dd>
+        </div>
+        <div>
+          <dt>Stop reason</dt>
+          <dd>{snapshot?.stopReason?.replace(/_/g, " ") ?? "None"}</dd>
+        </div>
       </dl>
 
       <div className="agent-queue-run-actions">
@@ -72,7 +84,7 @@ export function AgentQueueAutorunPanel({
           onClick={() => autorun.onArm()}
           variant="primary"
         >
-          {autorun.isStarting ? "Arming" : "Arm Autorun"}
+          {autorun.isStarting ? "Starting" : "Start Autorun"}
         </Button>
         <Button
           disabled={!canStop}
@@ -103,6 +115,10 @@ export function AgentQueueAutorunPanel({
       {autorun.message ? (
         <p className="agent-queue-run-note">{autorun.message}</p>
       ) : null}
+      <p className="agent-queue-run-note">
+        Stop Autorun stops future Autorun scheduling. It does not cancel the
+        active Agent Executor run; use the Agent Executor controls for that.
+      </p>
       {autorun.error ? (
         <p
           className="agent-queue-message agent-queue-message-error"
@@ -140,7 +156,12 @@ function autorunStatusLabel(status: string | undefined) {
 }
 
 function autorunStatusBadgeVariant(status: string | undefined) {
-  if (status === "armed" || status === "running") {
+  if (
+    status === "armed" ||
+    status === "running" ||
+    status === "waiting_for_executor" ||
+    status === "starting_task"
+  ) {
     return "info";
   }
 

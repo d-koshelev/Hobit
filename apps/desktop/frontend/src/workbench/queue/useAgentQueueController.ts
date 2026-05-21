@@ -392,8 +392,10 @@ export function useAgentQueueController({
   );
   const autorunPreconditionMessages = queueAutorunPreconditionMessages({
     apiAvailable: autorunApiAvailable,
+    codexExecutable,
     hasExecutorSelection: Boolean(selectedExecutorWidgetId),
     isStarting: isAutorunStarting,
+    repoRoot,
   });
   const isAutorunActive = Boolean(autorunSnapshot?.isActive);
   const canArmAutorun =
@@ -731,16 +733,27 @@ export function useAgentQueueController({
 
     try {
       const snapshot = await onStartAgentQueueRunnerSession({
+        approvalPolicy,
+        codexExecutable,
         executorWidgetInstanceId: selectedExecutorWidgetId,
         policy: {
           stopOnCancel: true,
           stopOnFailure: true,
           stopOnReviewNeeded: true,
         },
+        repoRoot,
+        sandbox,
       });
       setAutorunSnapshot(snapshot);
+      if (snapshot.activeQueueItemId && snapshot.waitingRunId) {
+        await loadTasks(snapshot.activeQueueItemId, {
+          preserveCurrentOnError: true,
+        });
+      }
       setAutorunMessage(
-        "Queue Autorun session armed. Task execution loop is not implemented yet.",
+        snapshot.activeQueueItemId
+          ? "Queue Autorun started one eligible task. Sequential continuation is not implemented yet."
+          : "Queue Autorun found no eligible task to start.",
       );
     } catch (error) {
       setAutorunError(errorToMessage(error, "Unable to arm Queue Autorun."));
@@ -1142,12 +1155,16 @@ function queueRunnerPreconditionMessages({
 
 function queueAutorunPreconditionMessages({
   apiAvailable,
+  codexExecutable,
   hasExecutorSelection,
   isStarting,
+  repoRoot,
 }: {
   apiAvailable: boolean;
+  codexExecutable: string;
   hasExecutorSelection: boolean;
   isStarting: boolean;
+  repoRoot: string;
 }) {
   const messages: string[] = [];
 
@@ -1159,6 +1176,14 @@ function queueAutorunPreconditionMessages({
 
   if (!hasExecutorSelection) {
     messages.push("Select one Agent Executor before arming Queue Autorun.");
+  }
+
+  if (!repoRoot) {
+    messages.push("Execution workspace is required before arming Queue Autorun.");
+  }
+
+  if (!codexExecutable) {
+    messages.push("Codex executable is required before arming Queue Autorun.");
   }
 
   if (isStarting) {

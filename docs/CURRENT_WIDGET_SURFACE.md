@@ -175,8 +175,10 @@ and component keys may still appear in code and persistence.
   not durable background scheduling and stops if the Workbench UI closes or
   reloads.
 - Provides a visible Queue Autorun panel that can arm, stop, and refresh
-  desktop-local runner session state. Queue Autorun currently has no task
-  execution loop and does not submit work to Agent Executor.
+  desktop-local runner session state. Queue Autorun can start one eligible
+  assigned `auto` task through the existing Queue-to-Executor path after the
+  operator clicks Start Autorun. Full sequential continuation is not
+  implemented.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.
 - Does not provide a backend scheduler, durable runner persistence,
   multi-executor parallel scheduling, retries, dependency graph execution,

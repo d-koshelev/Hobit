@@ -34,7 +34,10 @@ Currently working:
 - visible frontend Sequential Queue Runner that can run policy-eligible tasks
   after the operator starts the runner;
 - visible Queue Autorun panel that can arm, stop, and refresh desktop-local
-  runner session state. It does not execute tasks yet.
+  runner session state;
+- Queue Autorun can start one eligible assigned `auto` task through the
+  existing Queue-to-Executor path after explicit operator Start Autorun. It
+  does not continue to another task yet.
 
 ## Durable Today
 
@@ -154,8 +157,9 @@ not survive reload.
    `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` to keep automatic mode
    explicit, desktop-local, current-session-only, one-task-at-a-time, and
    stopped on failure/review/cancel/missing executor/missing prompt/invalid
-   config. Current Tauri runner commands arm, stop, and report session state
-   only; they do not execute tasks or submit work to Agent Executor.
+   config. Current Tauri runner commands can start one eligible assigned
+   `auto` task through the existing Queue-to-Executor path, then stop at
+   waiting-for-executor state without sequential continuation.
 3. Queue task detail polish: improve status/policy guidance, validation
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,

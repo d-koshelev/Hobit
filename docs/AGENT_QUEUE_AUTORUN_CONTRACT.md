@@ -9,9 +9,9 @@ desktop MVP.
 
 It is not a backend scheduler, server worker, durable runner, reconnect/resume
 system, Coordinator automation path, approval bypass, or hidden execution
-system. It does not add persistence, schema, frontend behavior, Direct Work
-behavior, Agent Executor behavior, server runtime, enterprise/RBAC, or
-multi-user workers by itself.
+system. It does not add persistence, schema, Direct Work behavior, Agent
+Executor behavior, server runtime, enterprise/RBAC, or multi-user workers by
+itself.
 
 ## Product Model
 
@@ -212,10 +212,14 @@ The desktop-local session state and Tauri commands can:
 - stop the current Queue runner session;
 - read the current Queue runner snapshot.
 
-The Agent Queue frontend can arm, stop, and refresh this session snapshot. That
-UI and those commands report session state only. They do not select Queue
-tasks, assign tasks, start Direct Work, submit anything to Agent Executor, run
-an execution loop, persist runner state, or add schema.
+The Agent Queue frontend can start/arm, stop, and refresh this session
+snapshot. The first execution slice can select one eligible `auto` Queue task
+and submit it through the existing assigned-task Queue-to-Executor path.
+
+This slice does not continue to a second task, wait for final status before
+choosing another task, assign unassigned tasks, persist runner state, add
+schema, or add a backend scheduler. Sequential overnight continuation remains
+future work.
 
 ## Non-Goals
 

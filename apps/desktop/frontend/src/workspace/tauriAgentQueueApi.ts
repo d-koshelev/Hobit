@@ -269,6 +269,13 @@ export async function startAgentQueueRunnerSession(
       request: {
         workspace_id: request.workspaceId,
         executor_widget_instance_id: request.executorWidgetInstanceId,
+        codex_executable: request.codexExecutable,
+        repo_root: request.repoRoot,
+        sandbox: request.sandbox,
+        approval_policy: request.approvalPolicy,
+        timeout_ms: request.timeoutMs ?? null,
+        stdout_cap_bytes: request.stdoutCapBytes ?? null,
+        stderr_cap_bytes: request.stderrCapBytes ?? null,
         policy: request.policy
           ? {
               stop_on_failure: request.policy.stopOnFailure ?? null,

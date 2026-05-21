@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use hobit_app::AgentQueueTaskSummary;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
@@ -314,10 +315,36 @@ impl QueueRunnerSessionRegistry {
         if state.snapshot.status.is_active() {
             state.snapshot.status = QueueRunnerStatus::Stopped;
             state.snapshot.stop_reason = Some(QueueRunnerStopReason::OperatorStopped);
-            state.snapshot.active_queue_item_id = None;
-            state.snapshot.waiting_run_id = None;
         }
 
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn stop_with_reason(&self, reason: QueueRunnerStopReason) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.session_id.is_none() {
+            state.snapshot = QueueRunnerSnapshot::default();
+            state.start_request = None;
+            return state.snapshot.clone();
+        }
+
+        state.snapshot.status = QueueRunnerStatus::Stopped;
+        state.snapshot.stop_reason = Some(reason);
+        state.snapshot.active_queue_item_id = None;
+        state.snapshot.waiting_run_id = None;
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn waiting_for_executor(
+        &self,
+        queue_item_id: impl Into<String>,
+        run_id: impl Into<String>,
+    ) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        state.snapshot.status = QueueRunnerStatus::WaitingForExecutor;
+        state.snapshot.active_queue_item_id = Some(queue_item_id.into());
+        state.snapshot.waiting_run_id = Some(run_id.into());
+        state.snapshot.stop_reason = None;
         state.snapshot.clone()
     }
 
@@ -328,6 +355,72 @@ impl QueueRunnerSessionRegistry {
             .snapshot
             .clone()
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum QueueAutorunTaskSelection {
+    Start { queue_item_id: String },
+    Stop { reason: QueueRunnerStopReason },
+}
+
+pub(crate) fn select_next_autorun_task(
+    tasks: &[AgentQueueTaskSummary],
+    executor_widget_instance_id: &str,
+) -> QueueAutorunTaskSelection {
+    for task in tasks {
+        if !is_autorun_runnable_status(&task.status) {
+            continue;
+        }
+
+        if task.prompt.trim().is_empty() {
+            return QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::MissingPrompt,
+            };
+        }
+
+        match task.execution_policy.as_str() {
+            "manual" => {
+                return QueueAutorunTaskSelection::Stop {
+                    reason: QueueRunnerStopReason::ManualTaskRequiresOperator,
+                };
+            }
+            "after_previous_success" => {
+                return QueueAutorunTaskSelection::Stop {
+                    reason: QueueRunnerStopReason::PreviousSuccessRequired,
+                };
+            }
+            "auto" => {}
+            _ => {
+                return QueueAutorunTaskSelection::Stop {
+                    reason: QueueRunnerStopReason::InvalidConfig,
+                };
+            }
+        }
+
+        let Some(assigned_executor_widget_id) = task.assigned_executor_widget_id.as_deref() else {
+            return QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::MissingExecutor,
+            };
+        };
+
+        if assigned_executor_widget_id != executor_widget_instance_id {
+            return QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::AssignedToDifferentExecutor,
+            };
+        }
+
+        return QueueAutorunTaskSelection::Start {
+            queue_item_id: task.queue_item_id.clone(),
+        };
+    }
+
+    QueueAutorunTaskSelection::Stop {
+        reason: QueueRunnerStopReason::NoRunnableTasks,
+    }
+}
+
+fn is_autorun_runnable_status(status: &str) -> bool {
+    matches!(status, "queued" | "ready" | "review_needed")
 }
 
 #[derive(Default)]
@@ -555,5 +648,137 @@ mod tests {
             .start_session("ws_1", "executor_1", durable_policy)
             .expect_err("durable resume rejected")
             .contains("not implemented"));
+    }
+
+    #[test]
+    fn autorun_selection_starts_one_auto_task_for_selected_executor() {
+        let decision = select_next_autorun_task(
+            &[task_summary(
+                "queue_1",
+                "ready",
+                "auto",
+                "Prompt",
+                Some("executor_1"),
+            )],
+            "executor_1",
+        );
+
+        assert_eq!(
+            decision,
+            QueueAutorunTaskSelection::Start {
+                queue_item_id: "queue_1".to_owned()
+            }
+        );
+    }
+
+    #[test]
+    fn autorun_selection_blocks_missing_prompt_without_exposing_prompt_text() {
+        let decision = select_next_autorun_task(
+            &[task_summary(
+                "queue_1",
+                "ready",
+                "auto",
+                "",
+                Some("executor_1"),
+            )],
+            "executor_1",
+        );
+
+        assert_eq!(
+            decision,
+            QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::MissingPrompt
+            }
+        );
+    }
+
+    #[test]
+    fn autorun_selection_does_not_run_manual_or_after_previous_success_first() {
+        let manual = select_next_autorun_task(
+            &[task_summary(
+                "queue_1",
+                "ready",
+                "manual",
+                "Prompt",
+                Some("executor_1"),
+            )],
+            "executor_1",
+        );
+        let after_previous_success = select_next_autorun_task(
+            &[task_summary(
+                "queue_2",
+                "ready",
+                "after_previous_success",
+                "Prompt",
+                Some("executor_1"),
+            )],
+            "executor_1",
+        );
+
+        assert_eq!(
+            manual,
+            QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::ManualTaskRequiresOperator
+            }
+        );
+        assert_eq!(
+            after_previous_success,
+            QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::PreviousSuccessRequired
+            }
+        );
+    }
+
+    #[test]
+    fn autorun_selection_blocks_missing_or_different_executor() {
+        let missing = select_next_autorun_task(
+            &[task_summary("queue_1", "ready", "auto", "Prompt", None)],
+            "executor_1",
+        );
+        let different = select_next_autorun_task(
+            &[task_summary(
+                "queue_2",
+                "ready",
+                "auto",
+                "Prompt",
+                Some("executor_2"),
+            )],
+            "executor_1",
+        );
+
+        assert_eq!(
+            missing,
+            QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::MissingExecutor
+            }
+        );
+        assert_eq!(
+            different,
+            QueueAutorunTaskSelection::Stop {
+                reason: QueueRunnerStopReason::AssignedToDifferentExecutor
+            }
+        );
+    }
+
+    fn task_summary(
+        queue_item_id: &str,
+        status: &str,
+        execution_policy: &str,
+        prompt: &str,
+        assigned_executor_widget_id: Option<&str>,
+    ) -> AgentQueueTaskSummary {
+        AgentQueueTaskSummary {
+            queue_item_id: queue_item_id.to_owned(),
+            workspace_id: "workspace_1".to_owned(),
+            title: "Task".to_owned(),
+            description: String::new(),
+            prompt: prompt.to_owned(),
+            status: status.to_owned(),
+            priority: 0,
+            execution_policy: execution_policy.to_owned(),
+            assigned_executor_widget_id: assigned_executor_widget_id.map(str::to_owned),
+            created_at: "2026-05-21T00:00:00.000Z".to_owned(),
+            updated_at: "2026-05-21T00:00:00.000Z".to_owned(),
+        }
     }
 }

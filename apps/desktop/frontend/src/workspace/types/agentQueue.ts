@@ -86,6 +86,13 @@ export type StartAgentQueueRunnerPolicyRequest = {
 export type StartAgentQueueRunnerSessionRequest = {
   workspaceId: string;
   executorWidgetInstanceId: string;
+  codexExecutable: string;
+  repoRoot: string;
+  sandbox: RunCodexDirectWorkRequest["sandbox"];
+  approvalPolicy: RunCodexDirectWorkRequest["approvalPolicy"];
+  timeoutMs?: number;
+  stdoutCapBytes?: number;
+  stderrCapBytes?: number;
   policy?: StartAgentQueueRunnerPolicyRequest;
 };
 

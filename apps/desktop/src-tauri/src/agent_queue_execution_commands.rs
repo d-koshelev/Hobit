@@ -22,6 +22,15 @@ pub(crate) async fn start_assigned_agent_queue_task(
 ) -> Result<StartAssignedAgentQueueTaskResponseDto, String> {
     let db_path = state.db_path().to_path_buf();
     let active_runs = state.direct_work_active_runs();
+    start_assigned_agent_queue_task_from_request(request, app, db_path, active_runs).await
+}
+
+pub(crate) async fn start_assigned_agent_queue_task_from_request(
+    request: StartAssignedAgentQueueTaskRequest,
+    app: tauri::AppHandle,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> Result<StartAssignedAgentQueueTaskResponseDto, String> {
     let start = tauri::async_runtime::spawn_blocking({
         let db_path = db_path.clone();
         let active_runs = active_runs.clone();
@@ -42,6 +51,7 @@ pub(crate) async fn start_assigned_agent_queue_task(
         cancellation_token.clone(),
     ));
     let response = StartAssignedAgentQueueTaskResponseDto::from(start.clone());
+    let background_active_runs = active_runs.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let result = run_assigned_agent_queue_task_background(
             start.direct_work_input.clone(),
@@ -51,7 +61,7 @@ pub(crate) async fn start_assigned_agent_queue_task(
             app,
             cancellation_token,
         );
-        active_runs.unregister(&run_id);
+        background_active_runs.unregister(&run_id);
         if let Err(error) = result {
             let _host_error_artifact =
                 DirectWorkHostRuntimeBoundarySummary::from_host_error(&error);
@@ -62,7 +72,7 @@ pub(crate) async fn start_assigned_agent_queue_task(
     Ok(response)
 }
 
-fn start_assigned_agent_queue_task_blocking(
+pub(crate) fn start_assigned_agent_queue_task_blocking(
     request: StartAssignedAgentQueueTaskRequest,
     db_path: PathBuf,
     active_runs: DirectWorkActiveRunRegistry,
