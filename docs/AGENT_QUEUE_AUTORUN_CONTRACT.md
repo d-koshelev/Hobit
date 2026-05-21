@@ -187,6 +187,7 @@ The Queue Autorun UX should eventually show:
 - current runner status;
 - current task title/status;
 - waiting-for-executor state;
+- last non-sensitive reconciliation/tick timestamp;
 - last stop reason;
 - clear current-session limitation copy;
 - warning that Stop runner does not stop the active Agent Executor run.

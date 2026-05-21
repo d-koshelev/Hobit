@@ -428,11 +428,61 @@ fn tick_observes_completed_run_and_starts_one_next_task() {
     );
 
     assert_eq!(snapshot.status, "waiting_for_executor");
+    assert!(snapshot
+        .last_reconciled_at
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("unix_ms:"));
     assert_eq!(
         snapshot.active_queue_item_id.as_deref(),
         Some(second_id.as_str())
     );
     assert_eq!(list_widget_runs(&db_path, &executor_widget_id).len(), 2);
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn tick_keeps_long_running_executor_task_waiting() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
+    create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "First",
+        5,
+    );
+    create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "Second",
+        1,
+    );
+    let registry = QueueRunnerSessionRegistry::default();
+    let started = start_agent_queue_runner_session_once_without_background(
+        start_request(&workspace_id, &executor_widget_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+        registry.clone(),
+    )
+    .expect("start autorun");
+
+    let snapshot = run_agent_queue_runner_tick_without_background(
+        registry,
+        &db_path,
+        DirectWorkActiveRunRegistry::default(),
+    );
+
+    assert_eq!(snapshot.status, "waiting_for_executor");
+    assert_eq!(snapshot.active_queue_item_id, started.active_queue_item_id);
+    assert_eq!(snapshot.waiting_run_id, started.waiting_run_id);
+    assert!(snapshot.last_reconciled_at.is_some());
+    assert_eq!(list_widget_runs(&db_path, &executor_widget_id).len(), 1);
     remove_test_db_files(&db_path);
 }
 

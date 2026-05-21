@@ -82,6 +82,7 @@ pub(crate) struct QueueRunnerSnapshotDto {
     pub active_queue_item_id: Option<String>,
     pub waiting_run_id: Option<String>,
     pub final_run_status: Option<String>,
+    pub last_reconciled_at: Option<String>,
     pub stop_reason: Option<String>,
 }
 
@@ -714,6 +715,7 @@ impl From<QueueRunnerSnapshot> for QueueRunnerSnapshotDto {
             active_queue_item_id: snapshot.active_queue_item_id,
             waiting_run_id: snapshot.waiting_run_id,
             final_run_status: snapshot.final_run_status,
+            last_reconciled_at: snapshot.last_reconciled_at,
             stop_reason: snapshot
                 .stop_reason
                 .map(|stop_reason| stop_reason.as_str().to_owned()),

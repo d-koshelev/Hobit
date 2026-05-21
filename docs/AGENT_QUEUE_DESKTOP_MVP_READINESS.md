@@ -69,6 +69,7 @@ Frontend and desktop-local current-session only:
 - selected runner Agent Executor;
 - runner stopped/running/waiting status;
 - runner observed final status for the active Autorun-started run;
+- runner last non-sensitive reconciliation/tick timestamp;
 - runner continuation decision for the current refresh/tick;
 - execution workspace draft;
 - Codex executable draft;
@@ -79,7 +80,8 @@ Frontend and desktop-local current-session only:
 
 Reloading the Workbench or closing the desktop UI loses these session-only
 runner and handoff details. The Autorun tick also stops when Hobit closes or
-the app session ends. There is no durable runner reconnect or resume.
+the app session ends. Machine sleep, shutdown, or OS process termination can
+interrupt Autorun. There is no durable runner reconnect or resume.
 
 ## Explicit Execution Flow
 

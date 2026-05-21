@@ -58,6 +58,10 @@ export function AgentQueueAutorunPanel({
           <dd>{policyText(snapshot)}</dd>
         </div>
         <div>
+          <dt>State</dt>
+          <dd>{autorunStateText(snapshot)}</dd>
+        </div>
+        <div>
           <dt>Sharing</dt>
           <dd>
             {snapshot?.policy.allowHiddenExecution === false
@@ -76,6 +80,10 @@ export function AgentQueueAutorunPanel({
         <div>
           <dt>Final status</dt>
           <dd>{snapshot?.finalRunStatus?.replace(/_/g, " ") ?? "None"}</dd>
+        </div>
+        <div>
+          <dt>Last check</dt>
+          <dd>{formatReconciledAt(snapshot?.lastReconciledAt)}</dd>
         </div>
         <div>
           <dt>Stop reason</dt>
@@ -124,6 +132,11 @@ export function AgentQueueAutorunPanel({
         Stop Autorun stops future Autorun scheduling. It does not cancel the
         active Agent Executor run; use the Agent Executor controls for that.
       </p>
+      <p className="agent-queue-run-note">
+        Keep Hobit open and the machine awake. App close, reload, shutdown, or
+        sleep can interrupt Autorun because there is no durable reconnect or
+        resume yet.
+      </p>
       {autorun.error ? (
         <p
           className="agent-queue-message agent-queue-message-error"
@@ -150,6 +163,49 @@ function policyText(snapshot: AgentQueueAutorunController["snapshot"]) {
   ];
 
   return labels.join(", ");
+}
+
+function autorunStateText(snapshot: AgentQueueAutorunController["snapshot"]) {
+  if (!snapshot) {
+    return "Unavailable";
+  }
+
+  if (snapshot.status === "waiting_for_executor") {
+    return "Waiting for Agent Executor";
+  }
+
+  if (snapshot.status === "starting_task" || snapshot.status === "selecting_task") {
+    return "Scheduling next task";
+  }
+
+  if (snapshot.status === "completed") {
+    return "Completed for this session";
+  }
+
+  if (snapshot.status === "stopped") {
+    return "Stopped";
+  }
+
+  if (snapshot.isActive) {
+    return "Running while Hobit is open";
+  }
+
+  return autorunStatusLabel(snapshot.status);
+}
+
+function formatReconciledAt(value: string | null | undefined) {
+  if (!value) {
+    return "Not checked yet";
+  }
+
+  if (value.startsWith("unix_ms:")) {
+    const millis = Number(value.slice("unix_ms:".length));
+    if (Number.isFinite(millis)) {
+      return new Date(millis).toLocaleTimeString();
+    }
+  }
+
+  return value;
 }
 
 function autorunStatusLabel(status: string | undefined) {

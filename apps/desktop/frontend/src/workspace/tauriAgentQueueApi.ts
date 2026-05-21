@@ -100,6 +100,7 @@ type TauriAgentQueueRunnerSnapshot = {
   active_queue_item_id: string | null;
   waiting_run_id: string | null;
   final_run_status: string | null;
+  last_reconciled_at: string | null;
   stop_reason: string | null;
 };
 
@@ -408,6 +409,7 @@ function normalizeAgentQueueRunnerSnapshot(
     activeQueueItemId: snapshot.active_queue_item_id,
     waitingRunId: snapshot.waiting_run_id,
     finalRunStatus: snapshot.final_run_status,
+    lastReconciledAt: snapshot.last_reconciled_at,
     stopReason: snapshot.stop_reason,
   };
 }

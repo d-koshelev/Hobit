@@ -752,7 +752,7 @@ export function useAgentQueueController({
       }
       setAutorunMessage(
         snapshot.activeQueueItemId
-          ? "Queue Autorun started one eligible task. Sequential continuation is not implemented yet."
+          ? "Queue Autorun started. It will continue automatically while Hobit is open."
           : "Queue Autorun found no eligible task to start.",
       );
     } catch (error) {

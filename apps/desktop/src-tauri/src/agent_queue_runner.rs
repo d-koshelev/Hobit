@@ -3,6 +3,7 @@
 use hobit_app::AgentQueueTaskSummary;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct QueueRunnerSessionId(String);
@@ -251,6 +252,7 @@ pub(crate) struct QueueRunnerSnapshot {
     pub(crate) active_queue_item_id: Option<String>,
     pub(crate) waiting_run_id: Option<String>,
     pub(crate) final_run_status: Option<String>,
+    pub(crate) last_reconciled_at: Option<String>,
     pub(crate) stop_reason: Option<QueueRunnerStopReason>,
 }
 
@@ -263,6 +265,7 @@ impl Default for QueueRunnerSnapshot {
             active_queue_item_id: None,
             waiting_run_id: None,
             final_run_status: None,
+            last_reconciled_at: None,
             stop_reason: None,
         }
     }
@@ -304,6 +307,7 @@ impl fmt::Debug for QueueRunnerSnapshot {
                 "final_run_status",
                 &self.final_run_status.as_ref().map(|_| RedactedIdentifier),
             )
+            .field("last_reconciled_at", &self.last_reconciled_at)
             .field("stop_reason", &self.stop_reason)
             .finish()
     }
@@ -375,6 +379,7 @@ impl QueueRunnerSessionRegistry {
             active_queue_item_id: None,
             waiting_run_id: None,
             final_run_status: None,
+            last_reconciled_at: None,
             stop_reason: None,
         };
 
@@ -412,6 +417,7 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.active_queue_item_id = None;
         state.snapshot.waiting_run_id = None;
         state.snapshot.final_run_status = None;
+        state.snapshot.last_reconciled_at = None;
         state.snapshot.clone()
     }
 
@@ -463,6 +469,7 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.active_queue_item_id = Some(queue_item_id.into());
         state.snapshot.waiting_run_id = Some(run_id.into());
         state.snapshot.final_run_status = None;
+        state.snapshot.last_reconciled_at = None;
         state.snapshot.stop_reason = None;
         state.snapshot.clone()
     }
@@ -521,6 +528,7 @@ impl QueueRunnerSessionRegistry {
             };
         }
 
+        state.snapshot.last_reconciled_at = Some(current_reconciliation_timestamp());
         let Some(observation) =
             QueueRunnerFinalRunObservation::from_run_status(status, is_finished)
         else {
@@ -555,6 +563,7 @@ impl QueueRunnerSessionRegistry {
 
         state.snapshot.status = QueueRunnerStatus::Stopped;
         state.snapshot.final_run_status = Some("unknown".to_owned());
+        state.snapshot.last_reconciled_at = Some(current_reconciliation_timestamp());
         state.snapshot.stop_reason = Some(QueueRunnerStopReason::UnknownFinalStatus);
         state.snapshot.clone()
     }
@@ -676,6 +685,14 @@ fn status_label(status: &str) -> &'static str {
         "timed_out" => "timed_out",
         _ => "unknown",
     }
+}
+
+fn current_reconciliation_timestamp() -> String {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    format!("unix_ms:{millis}")
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -899,6 +916,7 @@ mod tests {
             active_queue_item_id: Some("prompt with sk-secret and stdout".to_owned()),
             waiting_run_id: Some("C:\\Users\\person\\repo --danger".to_owned()),
             final_run_status: Some("final response sk-secret".to_owned()),
+            last_reconciled_at: Some("unix_ms:123".to_owned()),
             stop_reason: Some(QueueRunnerStopReason::TaskFailed),
         };
 

@@ -115,6 +115,7 @@ export type AgentQueueRunnerSnapshot = {
   activeQueueItemId: string | null;
   waitingRunId: string | null;
   finalRunStatus: string | null;
+  lastReconciledAt: string | null;
   stopReason: string | null;
 };
 
