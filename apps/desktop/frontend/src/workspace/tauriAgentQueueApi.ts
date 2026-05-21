@@ -99,6 +99,7 @@ type TauriAgentQueueRunnerSnapshot = {
   policy: TauriAgentQueueRunnerPolicy;
   active_queue_item_id: string | null;
   waiting_run_id: string | null;
+  final_run_status: string | null;
   stop_reason: string | null;
 };
 
@@ -406,6 +407,7 @@ function normalizeAgentQueueRunnerSnapshot(
     policy: normalizeAgentQueueRunnerPolicy(snapshot.policy),
     activeQueueItemId: snapshot.active_queue_item_id,
     waitingRunId: snapshot.waiting_run_id,
+    finalRunStatus: snapshot.final_run_status,
     stopReason: snapshot.stop_reason,
   };
 }

@@ -42,7 +42,8 @@ export function AgentQueueAutorunPanel({
 
       <p className="agent-queue-run-boundary-copy">
         Start Autorun starts at most one eligible task through the existing
-        Queue-to-Executor path. Sequential continuation is not implemented yet.
+        Queue-to-Executor path. Refresh status observes that run's final status.
+        Sequential continuation is not implemented yet.
       </p>
 
       <dl className="agent-queue-autorun-facts">
@@ -71,6 +72,10 @@ export function AgentQueueAutorunPanel({
         <div>
           <dt>Waiting run</dt>
           <dd>{snapshot?.waitingRunId ?? "None"}</dd>
+        </div>
+        <div>
+          <dt>Final status</dt>
+          <dd>{snapshot?.finalRunStatus?.replace(/_/g, " ") ?? "None"}</dd>
         </div>
         <div>
           <dt>Stop reason</dt>

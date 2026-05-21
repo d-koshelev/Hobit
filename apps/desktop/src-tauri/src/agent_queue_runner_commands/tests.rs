@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_app::{AssignAgentQueueTaskToExecutorInput, CreateAgentQueueTaskInput, WorkspaceService};
-use hobit_storage_sqlite::SqliteStore;
+use hobit_storage_sqlite::{SqliteStore, WidgetRunFinishUpdate};
 
 #[test]
 fn default_runner_snapshot_is_idle_without_active_session() {
@@ -282,6 +282,165 @@ fn start_autorun_with_eligible_task_uses_existing_start_path_once() {
 }
 
 #[test]
+fn refresh_observes_completed_autorun_run_without_starting_second_task() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
+    let first_id = create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "First",
+        5,
+    );
+    let second_id = create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "Second",
+        1,
+    );
+    let registry = QueueRunnerSessionRegistry::default();
+    let started = start_agent_queue_runner_session_once_without_background(
+        start_request(&workspace_id, &executor_widget_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+        registry.clone(),
+    )
+    .expect("start autorun");
+    let run_id = started.waiting_run_id.clone().expect("waiting run id");
+    finish_widget_run_status(&db_path, &run_id, "completed");
+
+    let snapshot = reconcile_agent_queue_runner_snapshot_from_registry(registry, &db_path);
+    let runs = list_widget_runs(&db_path, &executor_widget_id);
+
+    assert_eq!(snapshot.status, "completed");
+    assert!(!snapshot.is_active);
+    assert_eq!(snapshot.final_run_status.as_deref(), Some("completed"));
+    assert_eq!(snapshot.stop_reason, None);
+    assert_eq!(
+        snapshot.active_queue_item_id.as_deref(),
+        Some(first_id.as_str())
+    );
+    assert_eq!(runs.len(), 1);
+    assert_eq!(
+        get_task(&db_path, &workspace_id, &second_id).status,
+        "ready"
+    );
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn refresh_observes_failed_autorun_run_and_stops() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
+    create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "Prompt",
+        1,
+    );
+    let registry = QueueRunnerSessionRegistry::default();
+    let started = start_agent_queue_runner_session_once_without_background(
+        start_request(&workspace_id, &executor_widget_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+        registry.clone(),
+    )
+    .expect("start autorun");
+    let run_id = started.waiting_run_id.clone().expect("waiting run id");
+    finish_widget_run_status(&db_path, &run_id, "failed");
+
+    let snapshot = reconcile_agent_queue_runner_snapshot_from_registry(registry, &db_path);
+
+    assert_eq!(snapshot.status, "stopped");
+    assert_eq!(snapshot.final_run_status.as_deref(), Some("failed"));
+    assert_eq!(snapshot.stop_reason.as_deref(), Some("task_failed"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn refresh_observes_cancelled_and_killed_autorun_runs_conservatively() {
+    for (final_status, stop_reason) in [
+        ("cancelled", "task_cancelled"),
+        ("force_killed", "task_killed"),
+    ] {
+        let db_path = unique_test_db_path();
+        let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
+        create_task(
+            &db_path,
+            &workspace_id,
+            Some(&executor_widget_id),
+            "ready",
+            "auto",
+            "Prompt",
+            1,
+        );
+        let registry = QueueRunnerSessionRegistry::default();
+        let started = start_agent_queue_runner_session_once_without_background(
+            start_request(&workspace_id, &executor_widget_id),
+            db_path.clone(),
+            DirectWorkActiveRunRegistry::default(),
+            registry.clone(),
+        )
+        .expect("start autorun");
+        let run_id = started.waiting_run_id.clone().expect("waiting run id");
+        finish_widget_run_status(&db_path, &run_id, final_status);
+
+        let snapshot = reconcile_agent_queue_runner_snapshot_from_registry(registry, &db_path);
+
+        assert_eq!(snapshot.status, "stopped");
+        assert_eq!(snapshot.final_run_status.as_deref(), Some(final_status));
+        assert_eq!(snapshot.stop_reason.as_deref(), Some(stop_reason));
+        remove_test_db_files(&db_path);
+    }
+}
+
+#[test]
+fn refresh_observes_unknown_final_status_without_exposing_secret_like_status() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
+    create_task(
+        &db_path,
+        &workspace_id,
+        Some(&executor_widget_id),
+        "ready",
+        "auto",
+        "Prompt",
+        1,
+    );
+    let registry = QueueRunnerSessionRegistry::default();
+    let started = start_agent_queue_runner_session_once_without_background(
+        start_request(&workspace_id, &executor_widget_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+        registry.clone(),
+    )
+    .expect("start autorun");
+    let run_id = started.waiting_run_id.clone().expect("waiting run id");
+    finish_widget_run_status(&db_path, &run_id, "final response token=secret");
+
+    let snapshot = reconcile_agent_queue_runner_snapshot_from_registry(registry, &db_path);
+    let debug = format!("{snapshot:?}");
+
+    assert_eq!(snapshot.status, "stopped");
+    assert_eq!(snapshot.final_run_status.as_deref(), Some("unknown"));
+    assert_eq!(
+        snapshot.stop_reason.as_deref(),
+        Some("unknown_final_status")
+    );
+    assert!(!debug.contains("token=secret"));
+    assert!(!debug.contains("final response"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn start_autorun_does_not_start_more_than_one_task() {
     let db_path = unique_test_db_path();
     let (workspace_id, executor_widget_id) = create_workspace_with_executor(&db_path);
@@ -490,6 +649,21 @@ fn list_widget_runs(
     store
         .list_widget_runs_for_widget(executor_widget_id)
         .expect("list widget runs")
+}
+
+fn finish_widget_run_status(db_path: &Path, run_id: &str, status: &str) {
+    let store = SqliteStore::open(db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    store
+        .finish_widget_run(
+            run_id,
+            WidgetRunFinishUpdate {
+                status,
+                finished_at: None,
+                summary: Some("final status observed"),
+            },
+        )
+        .expect("finish widget run");
 }
 
 fn unique_test_db_path() -> PathBuf {

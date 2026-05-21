@@ -215,11 +215,13 @@ The desktop-local session state and Tauri commands can:
 The Agent Queue frontend can start/arm, stop, and refresh this session
 snapshot. The first execution slice can select one eligible `auto` Queue task
 and submit it through the existing assigned-task Queue-to-Executor path.
+Snapshot refresh can reconcile the recorded Autorun-started run id with the
+stored Agent Executor run status and update the session with a safe final run
+status or stop reason.
 
-This slice does not continue to a second task, wait for final status before
-choosing another task, assign unassigned tasks, persist runner state, add
-schema, or add a backend scheduler. Sequential overnight continuation remains
-future work.
+This slice does not continue to a second task, choose another task after a
+final status, assign unassigned tasks, persist runner state, add schema, or add
+a backend scheduler. Sequential Autorun continuation remains future work.
 
 ## Non-Goals
 

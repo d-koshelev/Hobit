@@ -37,7 +37,8 @@ Currently working:
   runner session state;
 - Queue Autorun can start one eligible assigned `auto` task through the
   existing Queue-to-Executor path after explicit operator Start Autorun. It
-  does not continue to another task yet.
+  can observe the recorded run's final status on snapshot refresh. It does not
+  continue to another task yet.
 
 ## Durable Today
 
@@ -64,6 +65,7 @@ Frontend and desktop-local current-session only:
 - desktop-local Queue runner session arm/stop/snapshot state;
 - selected runner Agent Executor;
 - runner stopped/running/waiting status;
+- runner observed final status for the active Autorun-started run;
 - runner list of already-started task ids for the current pass;
 - execution workspace draft;
 - Codex executable draft;

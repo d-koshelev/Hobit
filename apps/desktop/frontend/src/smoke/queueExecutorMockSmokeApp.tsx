@@ -264,6 +264,7 @@ class QueueExecutorSmokeRuntime {
         stopOnFailure: true,
         stopOnReviewNeeded: true,
       },
+      finalRunStatus: null,
       sessionId: status === "idle" ? null : "queue-smoke-runner-session",
       status,
       stopReason: status === "stopped" ? "operator_stopped" : null,

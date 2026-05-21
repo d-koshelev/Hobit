@@ -79,6 +79,7 @@ pub(crate) struct QueueRunnerSnapshotDto {
     pub policy: QueueRunnerPolicyDto,
     pub active_queue_item_id: Option<String>,
     pub waiting_run_id: Option<String>,
+    pub final_run_status: Option<String>,
     pub stop_reason: Option<String>,
 }
 
@@ -113,8 +114,9 @@ pub(crate) fn stop_agent_queue_runner_session(
 pub(crate) fn get_agent_queue_runner_snapshot(
     state: State<'_, AppState>,
 ) -> Result<QueueRunnerSnapshotDto, String> {
-    Ok(get_agent_queue_runner_snapshot_from_registry(
+    Ok(reconcile_agent_queue_runner_snapshot_from_registry(
         state.queue_runner_sessions(),
+        state.db_path(),
     ))
 }
 
@@ -312,10 +314,39 @@ fn stop_agent_queue_runner_session_in_registry(
     QueueRunnerSnapshotDto::from(registry.stop_session())
 }
 
+#[cfg(test)]
 fn get_agent_queue_runner_snapshot_from_registry(
     registry: QueueRunnerSessionRegistry,
 ) -> QueueRunnerSnapshotDto {
     QueueRunnerSnapshotDto::from(registry.snapshot())
+}
+
+fn reconcile_agent_queue_runner_snapshot_from_registry(
+    registry: QueueRunnerSessionRegistry,
+    db_path: &std::path::Path,
+) -> QueueRunnerSnapshotDto {
+    let snapshot = registry.snapshot();
+    if snapshot.status.as_str() != "waiting_for_executor" {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    }
+
+    let Some(run_id) = snapshot.waiting_run_id.clone() else {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    };
+
+    let Ok(store) = SqliteStore::open(db_path) else {
+        return QueueRunnerSnapshotDto::from(snapshot);
+    };
+
+    match store.get_widget_run(&run_id) {
+        Ok(Some(run)) => QueueRunnerSnapshotDto::from(registry.observe_waiting_run_status(
+            &run_id,
+            &run.status,
+            run.finished_at.is_some(),
+        )),
+        Ok(None) => QueueRunnerSnapshotDto::from(registry.observe_missing_waiting_run(&run_id)),
+        Err(_) => QueueRunnerSnapshotDto::from(snapshot),
+    }
 }
 
 impl From<StartAgentQueueRunnerPolicyRequest> for QueueRunnerPolicy {
@@ -361,6 +392,7 @@ impl From<QueueRunnerSnapshot> for QueueRunnerSnapshotDto {
             policy: QueueRunnerPolicyDto::from(snapshot.policy),
             active_queue_item_id: snapshot.active_queue_item_id,
             waiting_run_id: snapshot.waiting_run_id,
+            final_run_status: snapshot.final_run_status,
             stop_reason: snapshot
                 .stop_reason
                 .map(|stop_reason| stop_reason.as_str().to_owned()),

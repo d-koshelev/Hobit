@@ -196,6 +196,7 @@ pub(crate) struct QueueRunnerSnapshot {
     pub(crate) policy: QueueRunnerPolicy,
     pub(crate) active_queue_item_id: Option<String>,
     pub(crate) waiting_run_id: Option<String>,
+    pub(crate) final_run_status: Option<String>,
     pub(crate) stop_reason: Option<QueueRunnerStopReason>,
 }
 
@@ -207,6 +208,7 @@ impl Default for QueueRunnerSnapshot {
             policy: QueueRunnerPolicy::default(),
             active_queue_item_id: None,
             waiting_run_id: None,
+            final_run_status: None,
             stop_reason: None,
         }
     }
@@ -243,6 +245,10 @@ impl fmt::Debug for QueueRunnerSnapshot {
             .field(
                 "waiting_run_id",
                 &self.waiting_run_id.as_ref().map(|_| RedactedIdentifier),
+            )
+            .field(
+                "final_run_status",
+                &self.final_run_status.as_ref().map(|_| RedactedIdentifier),
             )
             .field("stop_reason", &self.stop_reason)
             .finish()
@@ -298,6 +304,7 @@ impl QueueRunnerSessionRegistry {
             policy,
             active_queue_item_id: None,
             waiting_run_id: None,
+            final_run_status: None,
             stop_reason: None,
         };
 
@@ -312,7 +319,7 @@ impl QueueRunnerSessionRegistry {
             return state.snapshot.clone();
         }
 
-        if state.snapshot.status.is_active() {
+        if state.snapshot.status != QueueRunnerStatus::Stopped {
             state.snapshot.status = QueueRunnerStatus::Stopped;
             state.snapshot.stop_reason = Some(QueueRunnerStopReason::OperatorStopped);
         }
@@ -332,6 +339,7 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.stop_reason = Some(reason);
         state.snapshot.active_queue_item_id = None;
         state.snapshot.waiting_run_id = None;
+        state.snapshot.final_run_status = None;
         state.snapshot.clone()
     }
 
@@ -344,7 +352,47 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.status = QueueRunnerStatus::WaitingForExecutor;
         state.snapshot.active_queue_item_id = Some(queue_item_id.into());
         state.snapshot.waiting_run_id = Some(run_id.into());
+        state.snapshot.final_run_status = None;
         state.snapshot.stop_reason = None;
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn observe_waiting_run_status(
+        &self,
+        run_id: &str,
+        status: &str,
+        is_finished: bool,
+    ) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.status != QueueRunnerStatus::WaitingForExecutor
+            || state.snapshot.waiting_run_id.as_deref() != Some(run_id)
+        {
+            return state.snapshot.clone();
+        }
+
+        let Some(observation) =
+            QueueRunnerFinalRunObservation::from_run_status(status, is_finished)
+        else {
+            return state.snapshot.clone();
+        };
+
+        state.snapshot.final_run_status = Some(observation.safe_status.to_owned());
+        state.snapshot.status = observation.status;
+        state.snapshot.stop_reason = observation.stop_reason;
+        state.snapshot.clone()
+    }
+
+    pub(crate) fn observe_missing_waiting_run(&self, run_id: &str) -> QueueRunnerSnapshot {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.status != QueueRunnerStatus::WaitingForExecutor
+            || state.snapshot.waiting_run_id.as_deref() != Some(run_id)
+        {
+            return state.snapshot.clone();
+        }
+
+        state.snapshot.status = QueueRunnerStatus::Stopped;
+        state.snapshot.final_run_status = Some("unknown".to_owned());
+        state.snapshot.stop_reason = Some(QueueRunnerStopReason::UnknownFinalStatus);
         state.snapshot.clone()
     }
 
@@ -354,6 +402,60 @@ impl QueueRunnerSessionRegistry {
             .expect("queue runner session lock")
             .snapshot
             .clone()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct QueueRunnerFinalRunObservation {
+    status: QueueRunnerStatus,
+    safe_status: &'static str,
+    stop_reason: Option<QueueRunnerStopReason>,
+}
+
+impl QueueRunnerFinalRunObservation {
+    fn from_run_status(status: &str, is_finished: bool) -> Option<Self> {
+        match status {
+            "completed" | "succeeded" => Some(Self {
+                status: QueueRunnerStatus::Completed,
+                safe_status: "completed",
+                stop_reason: None,
+            }),
+            "failed" | "timed_out" => Some(Self {
+                status: QueueRunnerStatus::Stopped,
+                safe_status: status_label(status),
+                stop_reason: Some(QueueRunnerStopReason::TaskFailed),
+            }),
+            "cancelled" => Some(Self {
+                status: QueueRunnerStatus::Stopped,
+                safe_status: "cancelled",
+                stop_reason: Some(QueueRunnerStopReason::TaskCancelled),
+            }),
+            "force_killed" => Some(Self {
+                status: QueueRunnerStatus::Stopped,
+                safe_status: "force_killed",
+                stop_reason: Some(QueueRunnerStopReason::TaskKilled),
+            }),
+            "review_needed" => Some(Self {
+                status: QueueRunnerStatus::Stopped,
+                safe_status: "review_needed",
+                stop_reason: Some(QueueRunnerStopReason::ReviewNeeded),
+            }),
+            "running" | "started" if !is_finished => None,
+            _ if is_finished => Some(Self {
+                status: QueueRunnerStatus::Stopped,
+                safe_status: "unknown",
+                stop_reason: Some(QueueRunnerStopReason::UnknownFinalStatus),
+            }),
+            _ => None,
+        }
+    }
+}
+
+fn status_label(status: &str) -> &'static str {
+    match status {
+        "failed" => "failed",
+        "timed_out" => "timed_out",
+        _ => "unknown",
     }
 }
 
@@ -545,6 +647,7 @@ mod tests {
             policy: QueueRunnerPolicy::default(),
             active_queue_item_id: Some("prompt with sk-secret and stdout".to_owned()),
             waiting_run_id: Some("C:\\Users\\person\\repo --danger".to_owned()),
+            final_run_status: Some("final response sk-secret".to_owned()),
             stop_reason: Some(QueueRunnerStopReason::TaskFailed),
         };
 
@@ -552,6 +655,7 @@ mod tests {
 
         assert!(!debug.contains("sk-secret"));
         assert!(!debug.contains("stdout"));
+        assert!(!debug.contains("final response"));
         assert!(!debug.contains("C:\\Users"));
         assert!(!debug.contains("--danger"));
         assert!(debug.contains("<redacted>"));
@@ -626,6 +730,104 @@ mod tests {
             Some(QueueRunnerStopReason::OperatorStopped)
         );
         assert_eq!(stopped_again, stopped);
+    }
+
+    #[test]
+    fn session_registry_observes_completed_run_without_starting_continuation() {
+        let registry = QueueRunnerSessionRegistry::default();
+        registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+        registry.waiting_for_executor("queue_1", "run_1");
+
+        let snapshot = registry.observe_waiting_run_status("run_1", "completed", true);
+
+        assert_eq!(snapshot.status, QueueRunnerStatus::Completed);
+        assert_eq!(snapshot.final_run_status.as_deref(), Some("completed"));
+        assert_eq!(snapshot.active_queue_item_id.as_deref(), Some("queue_1"));
+        assert_eq!(snapshot.waiting_run_id.as_deref(), Some("run_1"));
+        assert_eq!(snapshot.stop_reason, None);
+        assert!(!snapshot.status.is_active());
+    }
+
+    #[test]
+    fn session_registry_observes_failed_cancelled_killed_and_unknown_final_statuses() {
+        for (status, expected_status, expected_reason) in [
+            ("failed", Some("failed"), QueueRunnerStopReason::TaskFailed),
+            (
+                "timed_out",
+                Some("timed_out"),
+                QueueRunnerStopReason::TaskFailed,
+            ),
+            (
+                "cancelled",
+                Some("cancelled"),
+                QueueRunnerStopReason::TaskCancelled,
+            ),
+            (
+                "force_killed",
+                Some("force_killed"),
+                QueueRunnerStopReason::TaskKilled,
+            ),
+            (
+                "review_needed",
+                Some("review_needed"),
+                QueueRunnerStopReason::ReviewNeeded,
+            ),
+            (
+                "secret final response sk-secret",
+                Some("unknown"),
+                QueueRunnerStopReason::UnknownFinalStatus,
+            ),
+        ] {
+            let registry = QueueRunnerSessionRegistry::default();
+            registry
+                .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+                .expect("start runner session");
+            registry.waiting_for_executor("queue_1", "run_1");
+
+            let snapshot = registry.observe_waiting_run_status("run_1", status, true);
+
+            assert_eq!(snapshot.status, QueueRunnerStatus::Stopped);
+            assert_eq!(snapshot.final_run_status.as_deref(), expected_status);
+            assert_eq!(snapshot.stop_reason, Some(expected_reason));
+        }
+    }
+
+    #[test]
+    fn session_registry_ignores_nonfinal_waiting_status_and_mismatched_run() {
+        let registry = QueueRunnerSessionRegistry::default();
+        registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+        registry.waiting_for_executor("queue_1", "run_1");
+
+        let running = registry.observe_waiting_run_status("run_1", "running", false);
+        let mismatched = registry.observe_waiting_run_status("other_run", "completed", true);
+
+        assert_eq!(running.status, QueueRunnerStatus::WaitingForExecutor);
+        assert_eq!(running.final_run_status, None);
+        assert_eq!(mismatched.status, QueueRunnerStatus::WaitingForExecutor);
+        assert_eq!(mismatched.final_run_status, None);
+    }
+
+    #[test]
+    fn stop_after_completed_observation_prevents_future_continuation() {
+        let registry = QueueRunnerSessionRegistry::default();
+        registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+        registry.waiting_for_executor("queue_1", "run_1");
+        registry.observe_waiting_run_status("run_1", "completed", true);
+
+        let snapshot = registry.stop_session();
+
+        assert_eq!(snapshot.status, QueueRunnerStatus::Stopped);
+        assert_eq!(
+            snapshot.stop_reason,
+            Some(QueueRunnerStopReason::OperatorStopped)
+        );
+        assert_eq!(snapshot.final_run_status.as_deref(), Some("completed"));
     }
 
     #[test]

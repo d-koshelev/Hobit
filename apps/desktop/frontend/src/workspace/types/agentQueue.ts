@@ -114,6 +114,7 @@ export type AgentQueueRunnerSnapshot = {
   policy: AgentQueueRunnerPolicy;
   activeQueueItemId: string | null;
   waitingRunId: string | null;
+  finalRunStatus: string | null;
   stopReason: string | null;
 };
 
