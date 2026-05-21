@@ -220,11 +220,16 @@ status or stop reason. After a successful final status, snapshot refresh can
 select exactly one next eligible `auto` or `after_previous_success` task and
 submit it through the same Queue-to-Executor path.
 
-This slice starts at most one continuation task per refresh. It does not assign
-unassigned tasks, persist runner state, add schema, add durable reconnect, or
-add a backend scheduler. Autorun still stops on failure, review, cancellation,
-kill, unknown final status, manual task policy, missing executor, invalid
-runtime config, or no next runnable task.
+The desktop shell also owns a conservative current-session tick loop for the
+explicitly armed session. The tick periodically runs the same reconciliation
+path so Autorun can continue without manual Refresh while Hobit remains open
+and the machine remains awake.
+
+This slice starts at most one continuation task per tick or manual refresh. It
+does not assign unassigned tasks, persist runner state, add schema, add durable
+reconnect, or add a backend scheduler. Autorun still stops on failure, review,
+cancellation, kill, unknown final status, manual task policy, missing executor,
+invalid runtime config, or no next runnable task.
 
 ## Non-Goals
 

@@ -386,6 +386,7 @@ impl QueueRunnerSessionRegistry {
         if state.snapshot.session_id.is_none() || state.snapshot.status == QueueRunnerStatus::Idle {
             state.snapshot = QueueRunnerSnapshot::default();
             state.start_request = None;
+            state.active_tick_loop_session_id = None;
             return state.snapshot.clone();
         }
 
@@ -402,6 +403,7 @@ impl QueueRunnerSessionRegistry {
         if state.snapshot.session_id.is_none() {
             state.snapshot = QueueRunnerSnapshot::default();
             state.start_request = None;
+            state.active_tick_loop_session_id = None;
             return state.snapshot.clone();
         }
 
@@ -421,6 +423,7 @@ impl QueueRunnerSessionRegistry {
         if state.snapshot.session_id.is_none() {
             state.snapshot = QueueRunnerSnapshot::default();
             state.start_request = None;
+            state.active_tick_loop_session_id = None;
             return state.snapshot.clone();
         }
 
@@ -439,6 +442,7 @@ impl QueueRunnerSessionRegistry {
         if state.snapshot.session_id.is_none() {
             state.snapshot = QueueRunnerSnapshot::default();
             state.start_request = None;
+            state.active_tick_loop_session_id = None;
             return state.snapshot.clone();
         }
 
@@ -501,6 +505,46 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.clone()
     }
 
+    pub(crate) fn observe_waiting_run_for_reconciliation(
+        &self,
+        run_id: &str,
+        status: &str,
+        is_finished: bool,
+    ) -> QueueRunnerReconciliationObservation {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.status != QueueRunnerStatus::WaitingForExecutor
+            || state.snapshot.waiting_run_id.as_deref() != Some(run_id)
+        {
+            return QueueRunnerReconciliationObservation {
+                snapshot: state.snapshot.clone(),
+                should_continue_after_success: false,
+            };
+        }
+
+        let Some(observation) =
+            QueueRunnerFinalRunObservation::from_run_status(status, is_finished)
+        else {
+            return QueueRunnerReconciliationObservation {
+                snapshot: state.snapshot.clone(),
+                should_continue_after_success: false,
+            };
+        };
+
+        state.snapshot.final_run_status = Some(observation.safe_status.to_owned());
+        state.snapshot.stop_reason = observation.stop_reason;
+        let should_continue_after_success = observation.status == QueueRunnerStatus::Completed;
+        state.snapshot.status = if should_continue_after_success {
+            QueueRunnerStatus::SelectingTask
+        } else {
+            observation.status
+        };
+
+        QueueRunnerReconciliationObservation {
+            snapshot: state.snapshot.clone(),
+            should_continue_after_success,
+        }
+    }
+
     pub(crate) fn observe_missing_waiting_run(&self, run_id: &str) -> QueueRunnerSnapshot {
         let mut state = self.state.lock().expect("queue runner session lock");
         if state.snapshot.status != QueueRunnerStatus::WaitingForExecutor
@@ -513,6 +557,48 @@ impl QueueRunnerSessionRegistry {
         state.snapshot.final_run_status = Some("unknown".to_owned());
         state.snapshot.stop_reason = Some(QueueRunnerStopReason::UnknownFinalStatus);
         state.snapshot.clone()
+    }
+
+    pub(crate) fn try_mark_continuation_starting(
+        &self,
+        session_id: &QueueRunnerSessionId,
+    ) -> Option<QueueRunnerSnapshot> {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.snapshot.session_id.as_ref() != Some(session_id)
+            || state.snapshot.status != QueueRunnerStatus::SelectingTask
+        {
+            return None;
+        }
+
+        state.snapshot.status = QueueRunnerStatus::StartingTask;
+        Some(state.snapshot.clone())
+    }
+
+    pub(crate) fn try_claim_tick_loop(&self) -> Option<QueueRunnerSessionId> {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        let session_id = state.snapshot.session_id.clone()?;
+        if !state.snapshot.status.is_active() {
+            return None;
+        }
+
+        if state.active_tick_loop_session_id.as_ref() == Some(&session_id) {
+            return None;
+        }
+
+        state.active_tick_loop_session_id = Some(session_id.clone());
+        Some(session_id)
+    }
+
+    pub(crate) fn release_tick_loop(&self, session_id: &QueueRunnerSessionId) {
+        let mut state = self.state.lock().expect("queue runner session lock");
+        if state.active_tick_loop_session_id.as_ref() == Some(session_id) {
+            state.active_tick_loop_session_id = None;
+        }
+    }
+
+    pub(crate) fn tick_loop_should_continue(&self, session_id: &QueueRunnerSessionId) -> bool {
+        let state = self.state.lock().expect("queue runner session lock");
+        state.snapshot.session_id.as_ref() == Some(session_id) && state.snapshot.status.is_active()
     }
 
     pub(crate) fn snapshot(&self) -> QueueRunnerSnapshot {
@@ -530,6 +616,12 @@ impl QueueRunnerSessionRegistry {
             .start_request
             .clone()
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct QueueRunnerReconciliationObservation {
+    pub(crate) snapshot: QueueRunnerSnapshot,
+    pub(crate) should_continue_after_success: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -688,6 +780,7 @@ struct QueueRunnerSessionState {
     next_session_sequence: u64,
     snapshot: QueueRunnerSnapshot,
     start_request: Option<QueueRunnerStartRequest>,
+    active_tick_loop_session_id: Option<QueueRunnerSessionId>,
 }
 
 impl QueueRunnerSessionState {
@@ -986,6 +1079,45 @@ mod tests {
             Some(QueueRunnerStopReason::OperatorStopped)
         );
         assert_eq!(snapshot.final_run_status.as_deref(), Some("completed"));
+    }
+
+    #[test]
+    fn reconciliation_claims_successful_run_once_for_continuation() {
+        let registry = QueueRunnerSessionRegistry::default();
+        registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+        registry.waiting_for_executor("queue_1", "run_1");
+
+        let first = registry.observe_waiting_run_for_reconciliation("run_1", "completed", true);
+        let second = registry.observe_waiting_run_for_reconciliation("run_1", "completed", true);
+
+        assert!(first.should_continue_after_success);
+        assert_eq!(first.snapshot.status, QueueRunnerStatus::SelectingTask);
+        assert!(!second.should_continue_after_success);
+        assert_eq!(second.snapshot.status, QueueRunnerStatus::SelectingTask);
+    }
+
+    #[test]
+    fn tick_loop_claim_is_session_scoped_and_not_duplicated() {
+        let registry = QueueRunnerSessionRegistry::default();
+        assert_eq!(registry.try_claim_tick_loop(), None);
+
+        let started = registry
+            .start_session("ws_1", "executor_1", QueueRunnerPolicy::default())
+            .expect("start runner session");
+        let session_id = started.session_id.expect("session id");
+
+        assert_eq!(registry.try_claim_tick_loop(), Some(session_id.clone()));
+        assert_eq!(registry.try_claim_tick_loop(), None);
+        assert!(registry.tick_loop_should_continue(&session_id));
+
+        let stopped = registry.stop_session();
+        assert_eq!(stopped.status, QueueRunnerStatus::Stopped);
+        assert!(!registry.tick_loop_should_continue(&session_id));
+
+        registry.release_tick_loop(&session_id);
+        assert_eq!(registry.try_claim_tick_loop(), None);
     }
 
     #[test]

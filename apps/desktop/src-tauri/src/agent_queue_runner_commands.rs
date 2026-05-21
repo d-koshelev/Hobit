@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
@@ -84,20 +85,27 @@ pub(crate) struct QueueRunnerSnapshotDto {
     pub stop_reason: Option<String>,
 }
 
+const QUEUE_AUTORUN_TICK_INTERVAL: Duration = Duration::from_secs(10);
+
 #[tauri::command]
 pub(crate) async fn start_agent_queue_runner_session(
     request: StartAgentQueueRunnerSessionRequest,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<QueueRunnerSnapshotDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    let active_runs = state.direct_work_active_runs();
+    let registry = state.queue_runner_sessions();
     let snapshot = start_agent_queue_runner_session_once(
         request,
-        app,
-        state.db_path().to_path_buf(),
-        state.direct_work_active_runs(),
-        state.queue_runner_sessions(),
+        app.clone(),
+        db_path.clone(),
+        active_runs.clone(),
+        registry.clone(),
     )
     .await?;
+
+    spawn_agent_queue_runner_tick_loop_if_active(registry, db_path, app, active_runs);
 
     Ok(snapshot)
 }
@@ -386,17 +394,15 @@ async fn reconcile_agent_queue_runner_snapshot_from_registry(
 
     match store.get_widget_run(&run_id) {
         Ok(Some(run)) => {
-            let observed = registry.observe_waiting_run_status(
+            let observed = registry.observe_waiting_run_for_reconciliation(
                 &run_id,
                 &run.status,
                 run.finished_at.is_some(),
             );
-            if observed.status.as_str() == "completed"
-                && observed.final_run_status.as_deref() == Some("completed")
-            {
+            if observed.should_continue_after_success {
                 continue_agent_queue_runner_after_success(registry, db_path, app, active_runs).await
             } else {
-                QueueRunnerSnapshotDto::from(observed)
+                QueueRunnerSnapshotDto::from(observed.snapshot)
             }
         }
         Ok(None) => QueueRunnerSnapshotDto::from(registry.observe_missing_waiting_run(&run_id)),
@@ -415,6 +421,13 @@ async fn continue_agent_queue_runner_after_success(
             registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
         );
     };
+
+    if registry
+        .try_mark_continuation_starting(&start_request.session_id)
+        .is_none()
+    {
+        return QueueRunnerSnapshotDto::from(registry.snapshot());
+    }
 
     if stored_runtime_config_is_missing(&start_request) {
         return QueueRunnerSnapshotDto::from(
@@ -466,6 +479,60 @@ async fn continue_agent_queue_runner_after_success(
     ))
 }
 
+fn spawn_agent_queue_runner_tick_loop_if_active(
+    registry: QueueRunnerSessionRegistry,
+    db_path: PathBuf,
+    app: AppHandle,
+    active_runs: DirectWorkActiveRunRegistry,
+) {
+    let Some(session_id) = registry.try_claim_tick_loop() else {
+        return;
+    };
+
+    tauri::async_runtime::spawn({
+        let registry = registry.clone();
+        async move {
+            loop {
+                sleep_queue_autorun_tick_interval().await;
+
+                if !registry.tick_loop_should_continue(&session_id) {
+                    break;
+                }
+
+                let _snapshot = run_agent_queue_runner_tick(
+                    registry.clone(),
+                    db_path.clone(),
+                    app.clone(),
+                    active_runs.clone(),
+                )
+                .await;
+
+                if !registry.tick_loop_should_continue(&session_id) {
+                    break;
+                }
+            }
+
+            registry.release_tick_loop(&session_id);
+        }
+    });
+}
+
+async fn sleep_queue_autorun_tick_interval() {
+    let _ = tauri::async_runtime::spawn_blocking(|| {
+        std::thread::sleep(QUEUE_AUTORUN_TICK_INTERVAL);
+    })
+    .await;
+}
+
+async fn run_agent_queue_runner_tick(
+    registry: QueueRunnerSessionRegistry,
+    db_path: PathBuf,
+    app: AppHandle,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> QueueRunnerSnapshotDto {
+    reconcile_agent_queue_runner_snapshot_from_registry(registry, db_path, app, active_runs).await
+}
+
 fn continuation_start_request(
     request: &QueueRunnerStartRequest,
     queue_item_id: String,
@@ -504,21 +571,19 @@ fn reconcile_agent_queue_runner_snapshot_from_registry_without_background(
 
     match store.get_widget_run(&run_id) {
         Ok(Some(run)) => {
-            let observed = registry.observe_waiting_run_status(
+            let observed = registry.observe_waiting_run_for_reconciliation(
                 &run_id,
                 &run.status,
                 run.finished_at.is_some(),
             );
-            if observed.status.as_str() == "completed"
-                && observed.final_run_status.as_deref() == Some("completed")
-            {
+            if observed.should_continue_after_success {
                 continue_agent_queue_runner_after_success_without_background(
                     registry,
                     db_path.to_path_buf(),
                     active_runs,
                 )
             } else {
-                QueueRunnerSnapshotDto::from(observed)
+                QueueRunnerSnapshotDto::from(observed.snapshot)
             }
         }
         Ok(None) => QueueRunnerSnapshotDto::from(registry.observe_missing_waiting_run(&run_id)),
@@ -537,6 +602,13 @@ fn continue_agent_queue_runner_after_success_without_background(
             registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
         );
     };
+
+    if registry
+        .try_mark_continuation_starting(&start_request.session_id)
+        .is_none()
+    {
+        return QueueRunnerSnapshotDto::from(registry.snapshot());
+    }
 
     if stored_runtime_config_is_missing(&start_request) {
         return QueueRunnerSnapshotDto::from(
@@ -583,6 +655,19 @@ fn continue_agent_queue_runner_after_success_without_background(
         start_response.queue_item_id,
         start_response.run_id,
     ))
+}
+
+#[cfg(test)]
+fn run_agent_queue_runner_tick_without_background(
+    registry: QueueRunnerSessionRegistry,
+    db_path: &std::path::Path,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> QueueRunnerSnapshotDto {
+    reconcile_agent_queue_runner_snapshot_from_registry_without_background(
+        registry,
+        db_path,
+        active_runs,
+    )
 }
 
 impl From<StartAgentQueueRunnerPolicyRequest> for QueueRunnerPolicy {

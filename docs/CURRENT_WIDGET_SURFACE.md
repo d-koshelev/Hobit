@@ -179,8 +179,9 @@ and component keys may still appear in code and persistence.
   assigned `auto` task through the existing Queue-to-Executor path after the
   operator clicks Start Autorun. Refresh can observe that run's final status
   and, after success, continue to exactly one next eligible assigned `auto` or
-  `after_previous_success` task per refresh. It is still not a backend
-  scheduler or durable runner.
+  `after_previous_success` task per refresh. A desktop-local current-session
+  tick runs the same reconciliation path while Hobit remains open. It is still
+  not a backend scheduler or durable runner.
 - Existing duplicate persisted Queue widgets are not deleted or migrated.
 - Does not provide a backend scheduler, durable runner persistence,
   multi-executor parallel scheduling, retries, dependency graph execution,

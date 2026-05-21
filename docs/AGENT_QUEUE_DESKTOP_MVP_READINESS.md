@@ -39,7 +39,9 @@ Currently working:
   existing Queue-to-Executor path after explicit operator Start Autorun. It
   can observe the recorded run's final status on snapshot refresh and continue
   from a successful task to exactly one next eligible assigned `auto` or
-  `after_previous_success` task per refresh.
+  `after_previous_success` task per refresh;
+- Queue Autorun also has a desktop-local current-session tick that periodically
+  runs the same reconciliation path while Hobit remains open.
 
 ## Durable Today
 
@@ -67,7 +69,7 @@ Frontend and desktop-local current-session only:
 - selected runner Agent Executor;
 - runner stopped/running/waiting status;
 - runner observed final status for the active Autorun-started run;
-- runner continuation decision for the current refresh;
+- runner continuation decision for the current refresh/tick;
 - execution workspace draft;
 - Codex executable draft;
 - sandbox and approval policy selections in the Queue run panel;
@@ -76,7 +78,8 @@ Frontend and desktop-local current-session only:
 - selected task and task filter UI state.
 
 Reloading the Workbench or closing the desktop UI loses these session-only
-runner and handoff details. There is no durable runner reconnect or resume.
+runner and handoff details. The Autorun tick also stops when Hobit closes or
+the app session ends. There is no durable runner reconnect or resume.
 
 ## Explicit Execution Flow
 
@@ -163,7 +166,7 @@ not survive reload.
    config. Current Tauri runner commands can start one eligible assigned
    `auto` task through the existing Queue-to-Executor path, observe final
    status on refresh, and continue after success to one next eligible task per
-   refresh.
+   refresh/tick.
 3. Queue task detail polish: improve status/policy guidance, validation
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,

@@ -41,10 +41,9 @@ export function AgentQueueAutorunPanel({
       </div>
 
       <p className="agent-queue-run-boundary-copy">
-        Start Autorun starts at most one eligible task through the existing
-        Queue-to-Executor path. Refresh status can continue from a successful
-        run to one next eligible task. This remains session-only and is not a
-        backend scheduler.
+        Start Autorun uses the existing Queue-to-Executor path, then continues
+        automatically from a successful run to one next eligible task while
+        Hobit is open. This remains session-only and is not a backend scheduler.
       </p>
 
       <dl className="agent-queue-autorun-facts">
