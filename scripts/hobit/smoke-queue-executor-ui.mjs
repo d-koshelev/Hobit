@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
 const FRONTEND_DIR = path.join(REPO_ROOT, "apps", "desktop", "frontend");
-const SMOKE_PATH = "/queue-executor-ui-smoke.html";
+const SMOKE_PATH = "/smoke/dev/queue-executor-ui-smoke.html";
 const SCENARIOS = ["event-final", "reconciliation-final"];
 const RUN_ID = "queue-executor-smoke-run";
 
