@@ -50,6 +50,46 @@ Approval, proposal, and execution are separate concepts:
 - Display-only and proposal-only capability modes do not imply runtime
   execution.
 
+## Action, Approval, Causation, And Correlation Conventions
+
+Capability Action v0 is type and convention scaffolding only. It does not add
+capability execution, approval UI, approval workflow persistence, audit event
+emission, audit persistence, permission checks, RBAC, server runtime, storage
+schema, DTO, Tauri command, frontend, Queue, Direct Work, Terminal, Git, JDBC,
+Coordinator, Notes, or Runbook behavior.
+
+The v0 action model exists to connect future records by reference:
+
+- a capability ref identifies what Workspace or widget ability was requested;
+- a capability action id is a stable reference only, not a persisted action
+  record;
+- an approval id links an approval decision to the action it approved or
+  rejected;
+- a causation id links a child event or action to the event or action that
+  caused it;
+- a correlation id groups related events or actions across a visible workflow;
+- a future `AuditEventEnvelope` may carry the action id, capability ref,
+  approval ref, causation id, and correlation id for the same workflow without
+  implying audit emission or persistence exists.
+
+The concepts stay separate:
+
+- proposal creation is not approval;
+- approval is not execution;
+- an action request is not a runtime start;
+- a runtime start request is not a runtime start;
+- a runtime start is not completion;
+- artifact production is a separate lifecycle observation.
+
+Defaults are conservative. Unknown action kinds and lifecycle statuses must
+not be treated as approved, safe, started, completed, or executable. A
+capability policy that requires approval does not create approval records by
+itself. Approval metadata does not imply execution happened.
+
+Causation and correlation are different identifiers and must not be collapsed:
+causation explains why one event or action exists; correlation groups related
+work.
+
 The default posture is conservative:
 
 - unknown risk is not safe;

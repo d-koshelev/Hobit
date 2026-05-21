@@ -21,6 +21,10 @@ it does not add audit emission or persistence.
 Future capability refs are described by
 `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md`. The capability boundary model
 is type scaffolding only and does not add audit persistence or emission.
+Capability Action v0 conventions in that contract describe how future audit
+envelopes may reference action ids, approval ids, causation ids, and
+correlation ids while keeping proposal creation, approval, action request,
+runtime start, completion, and artifact production as separate concepts.
 
 The v0 envelope can describe future audit records with:
 

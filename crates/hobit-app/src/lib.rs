@@ -21,7 +21,10 @@ pub use audit_events::{
     AuditWorkbenchRef, AuditWorkspaceRef,
 };
 pub use capabilities::{
-    CapabilityActorId, CapabilityActorKind, CapabilityActorRef, CapabilityApprovalRequirement,
+    CapabilityActionCausation, CapabilityActionCorrelation, CapabilityActionId,
+    CapabilityActionKind, CapabilityActionLifecycleStatus, CapabilityActionRef,
+    CapabilityActionSummary, CapabilityActorId, CapabilityActorKind, CapabilityActorRef,
+    CapabilityApprovalDecision, CapabilityApprovalRef, CapabilityApprovalRequirement,
     CapabilityArtifactPolicy, CapabilityBoundarySummary, CapabilityContextExposure,
     CapabilityExecutionMode, CapabilityExternalAccess, CapabilityId, CapabilityKind,
     CapabilityMutationScope, CapabilityRiskLevel, CapabilitySecretExposure, CapabilitySubjectRef,

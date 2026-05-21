@@ -153,6 +153,11 @@ impl AuditEventEnvelope {
         self
     }
 
+    pub fn with_action_id(mut self, action_id: impl Into<AuditActionRef>) -> Self {
+        self.action_id = Some(action_id.into());
+        self
+    }
+
     pub fn with_causation_id(mut self, causation_id: impl Into<AuditCausationId>) -> Self {
         self.causation_id = Some(causation_id.into());
         self
