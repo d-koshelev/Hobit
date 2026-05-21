@@ -66,20 +66,34 @@ export function AgentQueueTaskList({
 
       <div className="agent-queue-task-list" role="list">
         {isLoading ? (
-          <p className="empty-state-text">Loading queue tasks.</p>
+          <div className="agent-queue-empty-state agent-queue-empty-state-compact">
+            <p className="empty-state-title">Loading tasks.</p>
+            <p className="empty-state-text">Queue tasks are loading.</p>
+          </div>
         ) : loadError ? (
-          <p className="empty-state-text" role="alert">
-            {loadError}
-          </p>
+          <div
+            className="agent-queue-empty-state agent-queue-empty-state-compact"
+            role="alert"
+          >
+            <p className="empty-state-title">Queue unavailable.</p>
+            <p className="empty-state-text">
+              {loadError} Use Refresh to try again.
+            </p>
+          </div>
         ) : tasks.length === 0 ? (
           <div className="agent-queue-empty-state">
             <p className="empty-state-title">No tasks yet.</p>
             <p className="empty-state-text">
-              Create one from the header to plan workspace work.
+              Use New task to plan workspace work.
             </p>
           </div>
         ) : filteredTasks.length === 0 ? (
-          <p className="empty-state-text">No tasks match this status.</p>
+          <div className="agent-queue-empty-state agent-queue-empty-state-compact">
+            <p className="empty-state-title">No matching tasks.</p>
+            <p className="empty-state-text">
+              No tasks match the current filter.
+            </p>
+          </div>
         ) : (
           filteredTasks.map((task) => {
             const updatedText = formatUpdatedTimestamp(task.updatedAt);

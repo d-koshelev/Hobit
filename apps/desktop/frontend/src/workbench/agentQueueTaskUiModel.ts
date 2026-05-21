@@ -219,14 +219,14 @@ export function queueSingleState({
 }) {
   if (isLoading) {
     return {
-      text: "Loading workspace queue tasks from desktop storage.",
+      text: "Workspace queue tasks are loading.",
       title: "Loading queue.",
     };
   }
 
   if (loadError) {
     return {
-      text: loadError,
+      text: `${loadError} Use Refresh to try again.`,
       title: "Queue unavailable.",
     };
   }

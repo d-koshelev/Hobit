@@ -48,6 +48,7 @@ export function AgentQueueTaskDetailsPanel({
     selectedExecutorWidgetId,
     selectedTask,
     selectExecutorWidget,
+    tasks,
     updateDraft,
     updatePriority,
     validationMessage,
@@ -62,13 +63,15 @@ export function AgentQueueTaskDetailsPanel({
         <div className="agent-queue-empty-state">
           <p className="empty-state-title">Loading queue.</p>
           <p className="empty-state-text">
-            Workspace queue tasks are loading from desktop storage.
+            Workspace queue tasks are loading.
           </p>
         </div>
       ) : loadError ? (
         <div className="agent-queue-empty-state" role="alert">
           <p className="empty-state-title">Queue unavailable.</p>
-          <p className="empty-state-text">{loadError}</p>
+          <p className="empty-state-text">
+            {loadError} Use Refresh to try again.
+          </p>
         </div>
       ) : selectedTask ? (
         <div className="agent-queue-task-editor">
@@ -135,7 +138,7 @@ export function AgentQueueTaskDetailsPanel({
           </details>
         </div>
       ) : (
-        <AgentQueueEmptySelection />
+        <AgentQueueEmptySelection hasTasks={tasks.length > 0} />
       )}
     </section>
   );

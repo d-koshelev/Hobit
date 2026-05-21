@@ -28,7 +28,14 @@ import {
 } from "../workbench/widgetRegistry";
 
 type SmokeScenario = "event-final" | "reconciliation-final";
-type SmokeViewMode = "standard" | "no-executor";
+type SmokeViewMode =
+  | "standard"
+  | "no-executor"
+  | "empty"
+  | "load-error"
+  | "loading"
+  | "delete-error"
+  | "autorun-unsupported";
 
 type SmokeSnapshot = {
   attachCallCount: number;
@@ -108,7 +115,7 @@ class QueueExecutorSmokeRuntime {
   }
 
   actions(): WorkbenchWidgetInstanceActions {
-    return {
+    const actions = {
       assignAgentQueueTaskToExecutor: async (request) => {
         const task = this.findTask(request.queueItemId);
 
@@ -139,7 +146,13 @@ class QueueExecutorSmokeRuntime {
           : this.cloneTask();
       },
       createAgentQueueTask: async () => this.cloneTask(),
-      deleteAgentQueueTask: async () => false,
+      deleteAgentQueueTask: async () => {
+        if (this.viewMode === "delete-error") {
+          throw new Error("Mock delete failure for Queue UI state.");
+        }
+
+        return false;
+      },
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
@@ -169,8 +182,20 @@ class QueueExecutorSmokeRuntime {
         return this.executorRunHistory();
       },
       listAgentQueueTasks: async () => {
+        if (this.viewMode === "loading") {
+          return new Promise<AgentQueueTask[]>(() => undefined);
+        }
+
+        if (this.viewMode === "load-error") {
+          throw new Error("Mock Queue API error for UI state.");
+        }
+
         if (this.finalStatusAvailable) {
           this.queueListCallsAfterFinal += 1;
+        }
+
+        if (this.viewMode === "empty") {
+          return [];
         }
 
         return this.queueTasks();
@@ -218,6 +243,17 @@ class QueueExecutorSmokeRuntime {
       validateJdbcReadOnlySql: this.unsupported,
       writeTerminalPtySession: async () => this.forbidden(null),
     } satisfies WorkbenchWidgetInstanceActions;
+
+    if (this.viewMode === "autorun-unsupported") {
+      return {
+        ...actions,
+        getAgentQueueRunnerSnapshot: undefined,
+        startAgentQueueRunnerSession: undefined,
+        stopAgentQueueRunnerSession: undefined,
+      } as unknown as WorkbenchWidgetInstanceActions;
+    }
+
+    return actions;
   }
 
   emitExecutorFinalEvents() {
@@ -432,7 +468,18 @@ function smokeScenario(): SmokeScenario {
 function smokeViewMode(): SmokeViewMode {
   const view = new URLSearchParams(window.location.search).get("view");
 
-  return view === "no-executor" ? "no-executor" : "standard";
+  if (
+    view === "no-executor" ||
+    view === "empty" ||
+    view === "load-error" ||
+    view === "loading" ||
+    view === "delete-error" ||
+    view === "autorun-unsupported"
+  ) {
+    return view;
+  }
+
+  return "standard";
 }
 
 function smokeViewState(viewMode: SmokeViewMode): WorkbenchViewState {
