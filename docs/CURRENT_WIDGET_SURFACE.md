@@ -15,6 +15,9 @@ Host/deployment architecture guardrails are defined in
 `docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md`; this widget
 inventory does not add server, enterprise, or shared knowledge runtime
 behavior.
+Future Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`; that contract does not add
+current widget behavior.
 
 ## Status Model
 

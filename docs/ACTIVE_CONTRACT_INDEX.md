@@ -166,6 +166,11 @@ unless the task explicitly requests it.
   not add an artifact store, artifact persistence, schema changes, audit
   emission, evidence store, knowledge store, runtime wiring, frontend
   behavior, server runtime, or RBAC.
+- `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` - read for future Knowledge,
+  Skills, Evidence, Context Pack, and Runbook boundaries. It is docs-only and
+  does not add a knowledge store, evidence store, Skills widget, context
+  ingestion, Coordinator context wiring, runtime behavior, schema changes,
+  server runtime, or RBAC.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

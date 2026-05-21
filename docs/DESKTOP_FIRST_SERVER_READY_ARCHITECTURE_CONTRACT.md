@@ -140,6 +140,12 @@ metadata-only refs. They do not add an artifact store, artifact persistence,
 artifact resolution, schema changes, audit emission, evidence store,
 knowledge store, or current desktop behavior changes.
 
+Future Knowledge, Skills, Evidence, Context Pack, and Runbook boundaries are
+defined in `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`. That contract is
+docs-only and does not add a knowledge store, evidence store, Skills widget,
+context ingestion, Coordinator context wiring, runtime behavior, schema
+changes, server runtime, or RBAC.
+
 ## Runtime Adapter Rules
 
 Runtime adapters must use typed request and response boundaries. Raw command
@@ -266,6 +272,9 @@ Rules:
 
 Hobit must distinguish local notes, reusable knowledge, workflows, evidence,
 and work artifacts.
+
+Detailed definitions and non-goals are maintained in
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`.
 
 Definitions:
 

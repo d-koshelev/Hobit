@@ -100,6 +100,11 @@ eligibility. A Workspace, widget, Queue task, runtime run, capability action,
 Note, or Coordinator proposal can own or originate a ref without making that
 ref evidence or AI-readable context.
 
+Future Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`. That contract keeps Artifact,
+Evidence, Knowledge, and AI context separate and does not add stores, ingestion,
+or runtime wiring.
+
 ## Relationship To Audit And Capabilities
 
 Future `AuditEventEnvelope` values should reference artifact refs or

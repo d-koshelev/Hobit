@@ -26,6 +26,12 @@ and evidence eligibility vocabulary. It does not add an artifact store,
 artifact persistence, artifact resolution, audit emission, evidence store, or
 knowledge store.
 
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` defines docs-only Knowledge,
+Skills, Evidence, Context Pack, and Runbook boundaries. It does not add
+Knowledge or Evidence persistence, automatic context ingestion, Coordinator
+context wiring, audit emission, schema changes, runtime behavior, server
+runtime, or RBAC.
+
 No current path persists audit events. No current path emits audit events from
 Workspace, Widget, Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes,
 or Runbook behavior. Existing Workspace events, widget logs, widget runs,
