@@ -31,6 +31,11 @@ exists today. No company self-hosted runtime exists today. No enterprise
 permission or RBAC layer exists today. No implemented Knowledge, Evidence, or
 shared company context runtime exists today.
 
+The current foundation-refactor checkpoint is summarized in
+`docs/ARCHITECTURE_MILESTONE_STATUS.md`. That checkpoint records which
+architecture layers are implemented, type-only, or contract-only before any
+Knowledge, Skills, Evidence, Artifact, or Context Pack UI work begins.
+
 Current widget/runtime truth:
 
 - Coordinator Chat is a proposal/text surface. It uses visible current-session

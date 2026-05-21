@@ -42,6 +42,12 @@ Planned or Deferred behavior current.
 a process/status document only. It does not override product contracts,
 `docs/CURRENT_WIDGET_SURFACE.md`, or task-specific domain contracts.
 
+`docs/ARCHITECTURE_MILESTONE_STATUS.md` is the current checkpoint after the
+desktop/server-ready, runtime artifact, audit, capability, artifact,
+knowledge/evidence, and Context Pack foundation refactor series. It is a
+status/roadmap note only and does not add behavior, storage, schema, UI,
+Coordinator context wiring, audit emission, server runtime, or RBAC.
+
 `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` is the Compatibility /
 pending-retirement source of truth for retained Agent Chat, Agent Monitoring,
 and proposal-era API status. It is not the source of truth for current widget
@@ -84,6 +90,8 @@ of truth for their domains.
   runtime/tooling, and compatibility/deprecation feature slices.
 - `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` - Phase 1 completion status,
   validation baseline, deferred/backlog items, and recommended Phase 2 start.
+- `docs/ARCHITECTURE_MILESTONE_STATUS.md` - foundation refactor checkpoint,
+  type-only/contract-only boundaries, non-goals, and next roadmap groupings.
 
 Phase 1 does not include new Notes features, Notebook features, Coordinator /
 Queue / Executor redesign, component renames, storage migrations, runtime
@@ -173,6 +181,10 @@ unless the task explicitly requests it.
   add a knowledge store, evidence store, Context Pack store, Skills widget,
   context ingestion, Coordinator/provider context wiring, prompt changes,
   runtime behavior, schema changes, server runtime, or RBAC.
+- `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
+  Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
+  what the recent foundation series completed, what remains type-only, and
+  which future steps are safe docs/inspect-first blocks.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,

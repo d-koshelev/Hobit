@@ -19,6 +19,11 @@ For desktop-first host boundaries and future server-ready guardrails, see
 implementation remains desktop/Tauri-hosted only; no server host, enterprise
 permission layer, or shared knowledge runtime exists today.
 
+For the current foundation-refactor checkpoint before Knowledge, Skills,
+Evidence, Artifact, or Context Pack UI work, see
+`docs/ARCHITECTURE_MILESTONE_STATUS.md`. That document is status/roadmap only
+and does not add runtime behavior.
+
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
