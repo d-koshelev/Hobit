@@ -11,9 +11,10 @@ use hobit_tools::git::{
 use crate::WorkspaceServiceError;
 
 use super::{
-    validation::required_input, GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary,
-    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, WorkspaceService,
-    GIT_WIDGET_DEFINITION_ID,
+    git_artifacts::{classify_git_status_error_passthrough, GitStatusRuntimeArtifacts},
+    validation::required_input,
+    GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary, GitRepositoryStatusSummary,
+    GitWorkingTreeStatusSummary, WorkspaceService, GIT_WIDGET_DEFINITION_ID,
 };
 
 impl WorkspaceService {
@@ -73,7 +74,12 @@ impl WorkspaceService {
             return Ok(None);
         }
 
-        let status = read_status(Path::new(repository_root).to_path_buf())?;
+        let repository_root_path = Path::new(repository_root).to_path_buf();
+        let _request_artifacts = GitStatusRuntimeArtifacts::from_request(&repository_root_path);
+        let status = read_status(repository_root_path.clone())
+            .map_err(classify_git_status_error_passthrough)?;
+        let _status_artifacts =
+            GitStatusRuntimeArtifacts::from_status(&repository_root_path, &status);
 
         Ok(Some(GitRepositoryStatusSummary::from(status)))
     }

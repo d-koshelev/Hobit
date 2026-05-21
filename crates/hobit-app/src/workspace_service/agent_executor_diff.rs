@@ -9,6 +9,7 @@ use hobit_tools::git_diff::{
 use crate::WorkspaceServiceError;
 
 use super::{
+    git_artifacts::{classify_git_diff_error_passthrough, GitDiffRuntimeArtifacts},
     validation::{required_input, validate_widget_ownership},
     AgentExecutorDiffFileSummary, AgentExecutorDiffSummary, AgentExecutorDiffTotals,
     GitDiffCommandSummary, WorkspaceService, AGENT_RUN_WIDGET_DEFINITION_ID,
@@ -67,12 +68,16 @@ impl WorkspaceService {
 
         ensure_agent_executor_widget(&widget.definition_id)?;
 
+        let repo_root = PathBuf::from(repo_root);
+        let _request_artifacts = GitDiffRuntimeArtifacts::from_request(&repo_root);
         let summary = read_diff_summary(GitDiffSummaryRequest {
-            repo_root: PathBuf::from(repo_root),
+            repo_root,
             max_files,
             max_patch_bytes_per_file,
             include_patch_preview: include_patch_preview.unwrap_or(true),
-        })?;
+        })
+        .map_err(classify_git_diff_error_passthrough)?;
+        let _summary_artifacts = GitDiffRuntimeArtifacts::from_summary(&summary);
 
         Ok(Some(AgentExecutorDiffSummary::from(summary)))
     }

@@ -24,6 +24,7 @@ mod direct_work_cancellation;
 mod direct_work_stream;
 mod direct_work_validation;
 mod git;
+mod git_artifacts;
 mod git_commit;
 mod jdbc_artifacts;
 mod jdbc_connector_types;
@@ -74,6 +75,8 @@ mod direct_work_stream_tests;
 mod direct_work_tests;
 #[cfg(test)]
 mod direct_work_validation_tests;
+#[cfg(test)]
+mod git_artifacts_tests;
 #[cfg(test)]
 mod git_commit_tests;
 #[cfg(test)]
