@@ -11,6 +11,7 @@ mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
 mod agent_queue_execution;
+mod agent_queue_lifecycle;
 mod agent_queue_task_types;
 mod agent_queue_tasks;
 mod coordinator_provider;
@@ -59,6 +60,8 @@ mod agent_monitoring_tests;
 mod agent_proposal_tests;
 #[cfg(test)]
 mod agent_queue_execution_tests;
+#[cfg(test)]
+mod agent_queue_lifecycle_tests;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
 #[cfg(test)]

@@ -1,12 +1,13 @@
 use crate::WorkspaceServiceError;
 
 use super::{
+    agent_queue_lifecycle::{
+        map_direct_work_final_status_to_queue_status, AgentQueueExecutionLifecycleStatus,
+        AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_STATUS_RUNNING,
+    },
     agent_queue_tasks::{
         load_agent_executor_widget, load_agent_queue_task, map_storage_agent_queue_task_error,
-        storage_invalid_input, AGENT_QUEUE_TASK_STATUS_CANCELLED,
-        AGENT_QUEUE_TASK_STATUS_COMPLETED, AGENT_QUEUE_TASK_STATUS_FAILED,
-        AGENT_QUEUE_TASK_STATUS_QUEUED, AGENT_QUEUE_TASK_STATUS_READY,
-        AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED, AGENT_QUEUE_TASK_STATUS_RUNNING,
+        storage_invalid_input,
     },
     direct_work::{
         can_initiate_direct_work, normalize_direct_work_input, CODEX_DIRECT_WORK_COMMAND_KIND,
@@ -19,8 +20,6 @@ use super::{
     FinishAssignedAgentQueueTaskRunInput, RunCodexDirectWorkInput,
     StartAssignedAgentQueueTaskInput, WorkspaceService,
 };
-
-const QUEUE_TASK_RUN_STATUS_STARTED: &str = "started";
 
 impl WorkspaceService {
     pub fn prepare_assigned_agent_queue_task_run(
@@ -119,7 +118,9 @@ impl WorkspaceService {
                     workbench_id: executor.workbench_id,
                     executor_widget_instance_id: executor.id,
                     run_id: start.run_id,
-                    status: QUEUE_TASK_RUN_STATUS_STARTED.to_owned(),
+                    status: AgentQueueExecutionLifecycleStatus::Started
+                        .as_str()
+                        .to_owned(),
                     direct_work_input,
                 })
             })
@@ -285,12 +286,9 @@ fn load_runnable_assigned_agent_queue_task(
 }
 
 fn is_runnable_agent_queue_task_status(status: &str) -> bool {
-    matches!(
-        status,
-        AGENT_QUEUE_TASK_STATUS_QUEUED
-            | AGENT_QUEUE_TASK_STATUS_READY
-            | AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED
-    )
+    AgentQueueTaskLifecycleStatus::from_current_status(status)
+        .map(AgentQueueTaskLifecycleStatus::allows_explicit_assigned_start)
+        .unwrap_or(false)
 }
 
 fn build_direct_work_input(
@@ -319,12 +317,5 @@ fn build_direct_work_input(
 fn map_direct_work_status_to_queue_status(
     direct_work_status: &str,
 ) -> Result<&'static str, WorkspaceServiceError> {
-    match direct_work_status {
-        AGENT_QUEUE_TASK_STATUS_COMPLETED => Ok(AGENT_QUEUE_TASK_STATUS_COMPLETED),
-        AGENT_QUEUE_TASK_STATUS_CANCELLED => Ok(AGENT_QUEUE_TASK_STATUS_CANCELLED),
-        AGENT_QUEUE_TASK_STATUS_FAILED | "timed_out" => Ok(AGENT_QUEUE_TASK_STATUS_FAILED),
-        value => Err(WorkspaceServiceError::InvalidInput(format!(
-            "unsupported Direct Work final status for queue task: {value}"
-        ))),
-    }
+    map_direct_work_final_status_to_queue_status(direct_work_status).map(|status| status.as_str())
 }

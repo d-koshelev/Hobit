@@ -5,24 +5,15 @@ use hobit_storage_sqlite::{
 use crate::WorkspaceServiceError;
 
 use super::{
-    mapping::agent_queue_task_summary, placeholder_id, placeholder_timestamp,
-    validation::required_input, AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput,
-    ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput,
-    WorkspaceService, AGENT_RUN_WIDGET_DEFINITION_ID,
+    agent_queue_lifecycle::{AgentQueueTaskExecutionPolicy, AgentQueueTaskLifecycleStatus},
+    mapping::agent_queue_task_summary,
+    placeholder_id, placeholder_timestamp,
+    validation::required_input,
+    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
+    CreateAgentQueueTaskInput, UpdateAgentQueueTaskInput, WorkspaceService,
+    AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
-pub(super) const AGENT_QUEUE_TASK_STATUS_DRAFT: &str = "draft";
-pub(super) const AGENT_QUEUE_TASK_STATUS_QUEUED: &str = "queued";
-pub(super) const AGENT_QUEUE_TASK_STATUS_READY: &str = "ready";
-pub(super) const AGENT_QUEUE_TASK_STATUS_RUNNING: &str = "running";
-pub(super) const AGENT_QUEUE_TASK_STATUS_COMPLETED: &str = "completed";
-pub(super) const AGENT_QUEUE_TASK_STATUS_FAILED: &str = "failed";
-pub(super) const AGENT_QUEUE_TASK_STATUS_CANCELLED: &str = "cancelled";
-pub(super) const AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED: &str = "review_needed";
-pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL: &str = "manual";
-pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_AUTO: &str = "auto";
-pub(super) const AGENT_QUEUE_TASK_EXECUTION_POLICY_AFTER_PREVIOUS_SUCCESS: &str =
-    "after_previous_success";
 const MIN_AGENT_QUEUE_TASK_PRIORITY: i64 = 0;
 const MAX_AGENT_QUEUE_TASK_PRIORITY: i64 = 5;
 
@@ -312,16 +303,9 @@ fn normalize_clear_agent_queue_task_assignment_input(
 
 fn normalize_status(status: String) -> Result<String, WorkspaceServiceError> {
     let status = required_owned(status, "queue task status")?;
-    match status.as_str() {
-        AGENT_QUEUE_TASK_STATUS_DRAFT
-        | AGENT_QUEUE_TASK_STATUS_QUEUED
-        | AGENT_QUEUE_TASK_STATUS_READY
-        | AGENT_QUEUE_TASK_STATUS_RUNNING
-        | AGENT_QUEUE_TASK_STATUS_COMPLETED
-        | AGENT_QUEUE_TASK_STATUS_FAILED
-        | AGENT_QUEUE_TASK_STATUS_CANCELLED
-        | AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED => Ok(status),
-        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+    match AgentQueueTaskLifecycleStatus::from_current_status(&status) {
+        Some(_) => Ok(status),
+        None => Err(WorkspaceServiceError::InvalidInput(format!(
             "unsupported queue task status: {status}"
         ))),
     }
@@ -329,7 +313,11 @@ fn normalize_status(status: String) -> Result<String, WorkspaceServiceError> {
 
 fn normalize_prompt(prompt: String, status: &str) -> Result<String, WorkspaceServiceError> {
     let prompt = prompt.trim().to_owned();
-    if status != AGENT_QUEUE_TASK_STATUS_DRAFT && prompt.is_empty() {
+    if AgentQueueTaskLifecycleStatus::from_current_status(status)
+        .map(AgentQueueTaskLifecycleStatus::requires_prompt)
+        .unwrap_or(true)
+        && prompt.is_empty()
+    {
         return Err(WorkspaceServiceError::InvalidInput(
             "queue task prompt must not be empty unless status is draft".to_owned(),
         ));
@@ -351,8 +339,13 @@ fn normalize_priority(priority: i64) -> Result<i64, WorkspaceServiceError> {
 fn normalize_execution_policy(
     execution_policy: Option<String>,
 ) -> Result<String, WorkspaceServiceError> {
-    normalize_optional_execution_policy(execution_policy)
-        .map(|policy| policy.unwrap_or_else(|| AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL.to_owned()))
+    normalize_optional_execution_policy(execution_policy).map(|policy| {
+        policy.unwrap_or_else(|| {
+            AgentQueueTaskExecutionPolicy::default_for_new_task()
+                .as_str()
+                .to_owned()
+        })
+    })
 }
 
 fn normalize_optional_execution_policy(
@@ -363,11 +356,9 @@ fn normalize_optional_execution_policy(
     };
 
     let execution_policy = required_owned(execution_policy, "queue task execution policy")?;
-    match execution_policy.as_str() {
-        AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL
-        | AGENT_QUEUE_TASK_EXECUTION_POLICY_AUTO
-        | AGENT_QUEUE_TASK_EXECUTION_POLICY_AFTER_PREVIOUS_SUCCESS => Ok(Some(execution_policy)),
-        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+    match AgentQueueTaskExecutionPolicy::from_current_policy(&execution_policy) {
+        Some(_) => Ok(Some(execution_policy)),
+        None => Err(WorkspaceServiceError::InvalidInput(format!(
             "unsupported queue task execution policy: {execution_policy}"
         ))),
     }
@@ -410,7 +401,10 @@ fn load_clearable_agent_queue_task(
 ) -> Result<AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
     let task = load_agent_queue_task(store, workspace_id, queue_item_id)?;
 
-    if task.status == AGENT_QUEUE_TASK_STATUS_RUNNING {
+    if !AgentQueueTaskLifecycleStatus::from_current_status(&task.status)
+        .map(AgentQueueTaskLifecycleStatus::allows_assignment_clear)
+        .unwrap_or(false)
+    {
         return Err(storage_invalid_input(
             "queue task assignment cannot be cleared while status is running".to_owned(),
         ));
@@ -463,13 +457,9 @@ pub(super) fn load_agent_executor_widget(
 }
 
 fn is_assignable_agent_queue_task_status(status: &str) -> bool {
-    matches!(
-        status,
-        AGENT_QUEUE_TASK_STATUS_DRAFT
-            | AGENT_QUEUE_TASK_STATUS_QUEUED
-            | AGENT_QUEUE_TASK_STATUS_READY
-            | AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED
-    )
+    AgentQueueTaskLifecycleStatus::from_current_status(status)
+        .map(AgentQueueTaskLifecycleStatus::allows_assignment)
+        .unwrap_or(false)
 }
 
 pub(super) fn storage_invalid_input(message: String) -> hobit_storage_sqlite::StorageError {
