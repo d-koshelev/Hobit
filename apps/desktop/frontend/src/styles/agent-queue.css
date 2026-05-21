@@ -2,6 +2,7 @@
   display: grid;
   flex: 1 1 auto;
   min-height: 0;
+  container-type: inline-size;
   gap: var(--space-sm);
   position: relative;
 }
@@ -658,6 +659,11 @@
     justify-content: flex-start;
   }
 
+  .agent-queue-assignment-field {
+    flex-basis: auto;
+    width: 100%;
+  }
+
   .agent-queue-product-layout {
     grid-template-columns: 1fr;
   }
@@ -680,6 +686,53 @@
 }
 
 @media (max-width: 560px) {
+  .agent-queue-editor-grid,
+  .agent-queue-autorun-facts,
+  .agent-queue-task-control-row,
+  .agent-queue-run-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 760px) {
+  .agent-queue-editor-actions,
+  .agent-queue-section-header,
+  .agent-queue-assignment-controls,
+  .agent-queue-execution-header,
+  .agent-queue-execution-group-header,
+  .agent-queue-run-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agent-queue-execution-badges {
+    justify-content: flex-start;
+  }
+
+  .agent-queue-assignment-field {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .agent-queue-product-layout,
+  .agent-queue-product-layout-resizable {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-queue-task-pane-resize-handle {
+    display: none;
+  }
+
+  .agent-queue-task-list {
+    max-height: 280px;
+  }
+
+  .agent-queue-task-row {
+    height: 66px;
+  }
+}
+
+@container (max-width: 560px) {
   .agent-queue-editor-grid,
   .agent-queue-autorun-facts,
   .agent-queue-task-control-row,
