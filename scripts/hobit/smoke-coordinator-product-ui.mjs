@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
 const FRONTEND_DIR = path.join(REPO_ROOT, "apps", "desktop", "frontend");
-const SMOKE_PATH = "/coordinator-provider-product-smoke.html";
+const SMOKE_PATH = "/smoke/dev/coordinator-provider-product-smoke.html";
 const SCENARIOS = ["queue-draft", "note-draft", "jdbc-draft", "provider-error"];
 const JDBC_SQL = "select count(*) from smoke_table;";
 
