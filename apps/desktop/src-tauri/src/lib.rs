@@ -15,6 +15,7 @@ mod agent_queue_execution_commands;
 mod agent_queue_execution_dto;
 #[cfg(test)]
 mod agent_queue_execution_dto_tests;
+mod agent_queue_runner;
 mod agent_queue_task_commands;
 mod agent_queue_task_dto;
 #[cfg(test)]

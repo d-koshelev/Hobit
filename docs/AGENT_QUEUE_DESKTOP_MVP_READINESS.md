@@ -147,15 +147,20 @@ not survive reload.
 
 1. Queue UI/UX hardening: clarify policy labels/copy, separate planning from
    run controls, and improve the first-task empty path.
-2. Queue task detail polish: improve status/policy guidance, validation
+2. Operator-armed overnight runner foundation: follow
+   `docs/AGENT_QUEUE_OVERNIGHT_RUNNER_CONTRACT.md` to keep automatic mode
+   explicit, desktop-local, current-session-only, one-task-at-a-time, and
+   stopped on failure/review/cancel/missing executor/missing prompt/invalid
+   config.
+3. Queue task detail polish: improve status/policy guidance, validation
    messages, assignment affordances, and dirty-state handling.
-3. Queue runner reliability hardening: make current-session limits clearer,
+4. Queue runner reliability hardening: make current-session limits clearer,
    improve stop/waiting/final-state messages, and strengthen frontend tests.
-4. Queue task run visibility/history: add a docs/design slice first, then
+5. Queue task run visibility/history: add a docs/design slice first, then
    persist minimal run linkage if approved.
-5. Queue dependencies / blocked-ready model: design dependency semantics
+6. Queue dependencies / blocked-ready model: design dependency semantics
    before adding UI or storage.
-6. Later durable backend runner design contract: no implementation until the
+7. Later durable backend runner design contract: no implementation until the
    contract covers scheduler boundaries, explicit operator control,
    reconnect/resume, cancellation, retries, audit/capability refs, and failure
    modes.
