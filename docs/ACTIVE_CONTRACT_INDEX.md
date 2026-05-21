@@ -237,8 +237,8 @@ unless the task explicitly requests it.
 - `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md` - Queue desktop MVP readiness
   checkpoint. Read before Queue UX hardening, runner reliability work, run
   visibility/history work, dependency modeling, or durable runner design.
-- `docs/AGENT_QUEUE_OVERNIGHT_RUNNER_CONTRACT.md` - planned foundation for an
-  operator-armed desktop-local overnight Queue runner. It defines explicit
+- `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` - planned foundation for
+  operator-armed desktop-local Queue Autorun. It defines explicit
   Start / Arm semantics, current-app-session limits, one-task-at-a-time
   sequencing, stop conditions, and Agent Executor / Direct Work ownership. It
   does not add a backend scheduler, durable runner, schema, Tauri command,

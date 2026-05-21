@@ -1,11 +1,11 @@
-# Agent Queue Overnight Runner Contract
+# Agent Queue Autorun Contract
 
 Contract status: Planned foundation
 
 ## Purpose
 
-This contract defines the first operator-armed Agent Queue overnight runner
-boundary for the desktop MVP.
+This contract defines the first operator-armed Queue Autorun boundary for the
+desktop MVP.
 
 It is not a backend scheduler, server worker, durable runner, reconnect/resume
 system, Coordinator automation path, approval bypass, or hidden execution
@@ -15,7 +15,10 @@ multi-user workers by itself.
 
 ## Product Model
 
-The overnight runner is explicit operator-armed automation.
+Queue Autorun is explicit operator-armed automation.
+
+One example use case is leaving Hobit open while the operator is away, such as
+overnight. The feature name is Queue Autorun, not overnight mode.
 
 The intended near-term workflow is:
 
@@ -36,7 +39,7 @@ Start / Arm action in the current app session.
 
 ## Current-App-Session Boundary
 
-The overnight runner is desktop-local and current-app-session only.
+Queue Autorun is desktop-local and current-app-session only.
 
 It may keep runner state in memory while Hobit is open. It must not claim to
 survive:
@@ -70,7 +73,7 @@ Executor and current session configuration.
 
 ## Task Selection Rules
 
-The first overnight runner must remain conservative:
+The first Queue Autorun implementation must remain conservative:
 
 - one selected Agent Executor;
 - one active task at a time;
@@ -174,7 +177,7 @@ rules. This contract does not add new Queue storage fields.
 
 ## Expected UX Controls
 
-The overnight runner UX should eventually show:
+The Queue Autorun UX should eventually show:
 
 - selected Agent Executor;
 - execution workspace;

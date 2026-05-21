@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn stop_reasons_cover_first_overnight_runner_boundaries() {
+    fn stop_reasons_cover_first_autorun_runner_boundaries() {
         let reasons = [
             QueueRunnerStopReason::OperatorStopped,
             QueueRunnerStopReason::NoRunnableTasks,

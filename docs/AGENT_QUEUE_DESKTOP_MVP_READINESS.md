@@ -148,8 +148,8 @@ not survive reload.
 
 1. Queue UI/UX hardening: clarify policy labels/copy, separate planning from
    run controls, and improve the first-task empty path.
-2. Operator-armed overnight runner foundation: follow
-   `docs/AGENT_QUEUE_OVERNIGHT_RUNNER_CONTRACT.md` to keep automatic mode
+2. Operator-armed Queue Autorun foundation: follow
+   `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` to keep automatic mode
    explicit, desktop-local, current-session-only, one-task-at-a-time, and
    stopped on failure/review/cancel/missing executor/missing prompt/invalid
    config. Current Tauri runner commands arm, stop, and report session state
