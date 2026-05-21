@@ -87,7 +87,7 @@ export function AgentQueueTaskAssignmentPanel({
 
       {!hasExecutorSlots ? (
         <>
-          <p className="agent-queue-assignment-note">
+          <p className="agent-queue-attention-message" role="status">
             No Agent Executor widgets available. Add an Agent Executor to assign
             tasks.
           </p>

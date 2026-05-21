@@ -18,12 +18,14 @@ import type {
 } from "./queue/useAgentQueueController";
 
 type AgentQueueTaskRunPanelProps = {
+  hasExecutorSlots: boolean;
   run: AgentQueueRunController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
 };
 
 export function AgentQueueTaskRunPanel({
+  hasExecutorSlots,
   run,
   runner,
   selectedTask,
@@ -57,7 +59,12 @@ export function AgentQueueTaskRunPanel({
         </div>
       </div>
 
-      {run.readinessMessage ? (
+      {!hasExecutorSlots ? (
+        <p className="agent-queue-attention-message" role="status">
+          No Agent Executor widgets available. Add an Agent Executor to run Queue
+          tasks.
+        </p>
+      ) : run.readinessMessage ? (
         <p className="agent-queue-run-note">{run.readinessMessage}</p>
       ) : null}
 

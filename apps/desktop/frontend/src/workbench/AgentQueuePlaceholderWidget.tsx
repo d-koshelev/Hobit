@@ -8,7 +8,6 @@ import { AgentQueueTaskList } from "./AgentQueueTaskList";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import {
   emptyDraft,
-  formatUpdatedTimestamp,
   MAX_PRIORITY,
   MIN_PRIORITY,
   queueSingleState,
@@ -44,7 +43,6 @@ export function AgentQueuePlaceholderWidget({
   title,
 }: WidgetRenderProps) {
   const titleInputId = useId();
-  const descriptionInputId = useId();
   const promptInputId = useId();
   const statusInputId = useId();
   const priorityInputId = useId();
@@ -90,7 +88,6 @@ export function AgentQueuePlaceholderWidget({
     isSelecting,
     loadError,
     refreshTasks,
-    saveStateText,
     selectedTask,
     selectTask,
     setStatusFilter,
@@ -121,9 +118,6 @@ export function AgentQueuePlaceholderWidget({
       {frameActions}
     </>
   );
-  const selectedUpdatedText = selectedTask
-    ? formatUpdatedTimestamp(selectedTask.updatedAt)
-    : null;
   const singleState = queueSingleState({
     isLoading,
     loadError,
@@ -205,17 +199,16 @@ export function AgentQueuePlaceholderWidget({
           </div>
         ) : (
           <AgentQueueLayout
+            isTaskPaneResizable={Boolean(frameMoveEnabled)}
             detailsPanel={
               <AgentQueueTaskDetailsPanel
                 agentExecutorSlots={agentExecutorSlots}
                 assignmentInputId={assignmentInputId}
-                descriptionInputId={descriptionInputId}
                 executionPolicyInputId={executionPolicyInputId}
                 priorityInputId={priorityInputId}
                 promptInputId={promptInputId}
                 queue={queue}
                 selectedTaskHint={selectedTaskHint}
-                selectedUpdatedText={selectedUpdatedText}
                 statusInputId={statusInputId}
                 titleInputId={titleInputId}
               />

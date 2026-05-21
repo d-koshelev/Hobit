@@ -11,13 +11,11 @@ type AgentQueueController = ReturnType<typeof useAgentQueueController>;
 type AgentQueueTaskDetailsPanelProps = {
   agentExecutorSlots: AgentExecutorSlot[];
   assignmentInputId: string;
-  descriptionInputId: string;
   executionPolicyInputId: string;
   priorityInputId: string;
   promptInputId: string;
   queue: AgentQueueController;
   selectedTaskHint: string;
-  selectedUpdatedText: string | null;
   statusInputId: string;
   titleInputId: string;
 };
@@ -25,13 +23,11 @@ type AgentQueueTaskDetailsPanelProps = {
 export function AgentQueueTaskDetailsPanel({
   agentExecutorSlots,
   assignmentInputId,
-  descriptionInputId,
   executionPolicyInputId,
   priorityInputId,
   promptInputId,
   queue,
   selectedTaskHint,
-  selectedUpdatedText,
   statusInputId,
   titleInputId,
 }: AgentQueueTaskDetailsPanelProps) {
@@ -50,7 +46,6 @@ export function AgentQueueTaskDetailsPanel({
     isSaving,
     loadError,
     run,
-    saveStateText,
     saveTask,
     selectedExecutorWidgetId,
     selectedTask,
@@ -81,7 +76,6 @@ export function AgentQueueTaskDetailsPanel({
         <div className="agent-queue-task-editor">
           <AgentQueueTaskSection
             deleteTask={deleteTask}
-            descriptionInputId={descriptionInputId}
             draft={draft}
             executionPolicyInputId={executionPolicyInputId}
             isDirty={isDirty}
@@ -91,12 +85,16 @@ export function AgentQueueTaskDetailsPanel({
             onSave={() => void saveTask()}
             priorityInputId={priorityInputId}
             promptInputId={promptInputId}
-            saveStateText={saveStateText}
-            selectedTask={selectedTask}
             selectedTaskHint={selectedTaskHint}
-            selectedUpdatedText={selectedUpdatedText}
             statusInputId={statusInputId}
             titleInputId={titleInputId}
+          />
+
+          <AgentQueueTaskRunPanel
+            hasExecutorSlots={agentExecutorSlots.length > 0}
+            run={run}
+            runner={queue.runner}
+            selectedTask={selectedTask}
           />
 
           <AgentQueueTaskAssignmentPanel
@@ -113,12 +111,6 @@ export function AgentQueueTaskDetailsPanel({
             onSelectionChange={(executorWidgetInstanceId) => {
               selectExecutorWidget(executorWidgetInstanceId);
             }}
-            selectedTask={selectedTask}
-          />
-
-          <AgentQueueTaskRunPanel
-            run={run}
-            runner={queue.runner}
             selectedTask={selectedTask}
           />
 

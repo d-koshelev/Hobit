@@ -1,15 +1,10 @@
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
-import type { AgentQueueTask } from "../workspace/types";
 import {
-  displayTaskTitle,
   EXECUTION_POLICY_OPTIONS,
   isAgentQueueTaskExecutionPolicy,
   isQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
-  statusBadgeVariant,
-  statusLabel,
   STATUS_OPTIONS,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
@@ -18,7 +13,6 @@ import type { AgentQueueDeleteController } from "./queue/useAgentQueueController
 
 type AgentQueueTaskSectionProps = {
   deleteTask: AgentQueueDeleteController;
-  descriptionInputId: string;
   draft: TaskDraft;
   executionPolicyInputId: string;
   isDirty: boolean;
@@ -28,17 +22,13 @@ type AgentQueueTaskSectionProps = {
   onSave: () => void;
   priorityInputId: string;
   promptInputId: string;
-  saveStateText: string;
-  selectedTask: AgentQueueTask;
   selectedTaskHint: string;
-  selectedUpdatedText: string | null;
   statusInputId: string;
   titleInputId: string;
 };
 
 export function AgentQueueTaskSection({
   deleteTask,
-  descriptionInputId,
   draft,
   executionPolicyInputId,
   isDirty,
@@ -48,74 +38,23 @@ export function AgentQueueTaskSection({
   onSave,
   priorityInputId,
   promptInputId,
-  saveStateText,
-  selectedTask,
   selectedTaskHint,
-  selectedUpdatedText,
   statusInputId,
   titleInputId,
 }: AgentQueueTaskSectionProps) {
   return (
     <section
-      aria-label="Task"
+      aria-label="Selected task details"
       className="agent-queue-editor-section agent-queue-task-section"
     >
-      <div className="agent-queue-section-header">
-        <div>
-          <p
-            className="agent-queue-section-title"
-            title={`${displayTaskTitle(selectedTask)}: ${selectedTaskHint}`}
-          >
-            Task
-          </p>
-          <p className="agent-queue-section-copy">
-            {selectedUpdatedText
-              ? `${selectedUpdatedText} \u00b7 ${
-                  isDirty ? "Unsaved changes" : saveStateText
-                }`
-              : isDirty
-                ? "Unsaved changes"
-                : saveStateText}
-          </p>
-        </div>
-        <div className="agent-queue-editor-status">
-          <Badge variant={statusBadgeVariant(draft.status)}>
-            {statusLabel(draft.status)}
-          </Badge>
-          <Badge variant="neutral">Priority {draft.priority.toString()}</Badge>
-        </div>
-      </div>
-
-      <label className="field-label" htmlFor={titleInputId}>
-        Title
-      </label>
       <input
+        aria-label="Task title"
         className="input agent-queue-title-input"
         id={titleInputId}
         onChange={(event) => onDraftChange({ title: event.currentTarget.value })}
-        title={selectedTaskHint}
+        title={selectedTaskHint || undefined}
         value={draft.title}
       />
-
-      <details className="agent-queue-details">
-        <summary title={selectedTaskHint}>
-          Description
-          <span className="agent-queue-details-hint">
-            Hover task titles for this hint.
-          </span>
-        </summary>
-        <textarea
-          className="input agent-queue-description-input"
-          id={descriptionInputId}
-          onChange={(event) =>
-            onDraftChange({
-              description: event.currentTarget.value,
-            })
-          }
-          placeholder="Optional task hint shown on hover."
-          value={draft.description}
-        />
-      </details>
 
       <label className="field-label" htmlFor={promptInputId}>
         Prompt
@@ -127,7 +66,7 @@ export function AgentQueueTaskSection({
         value={draft.prompt}
       />
 
-      <div className="agent-queue-editor-grid">
+      <div className="agent-queue-task-control-row">
         <div className="agent-queue-editor-field">
           <label className="field-label" htmlFor={statusInputId}>
             Status
@@ -167,7 +106,7 @@ export function AgentQueueTaskSection({
           />
         </div>
 
-        <div className="agent-queue-editor-field agent-queue-editor-field-wide">
+        <div className="agent-queue-editor-field agent-queue-editor-field-policy">
           <label
             className="field-label"
             htmlFor={executionPolicyInputId}
@@ -196,28 +135,28 @@ export function AgentQueueTaskSection({
             ))}
           </select>
         </div>
-      </div>
 
-      <div className="agent-queue-editor-actions">
-        <Button
-          disabled={!selectedTask || !isDirty || isSaving}
-          onClick={() => onSave()}
-          variant="primary"
-        >
-          {isSaving ? "Saving" : "Save task"}
-        </Button>
-        <Button
-          className="agent-queue-delete-button"
-          disabled={!deleteTask.canRequest}
-          onClick={() => deleteTask.onRequest()}
-          title={
-            deleteTask.blockedReason ??
-            "Delete this Queue task. Executor runs and artifacts are preserved."
-          }
-          variant="ghost"
-        >
-          Delete task
-        </Button>
+        <div className="agent-queue-editor-actions">
+          <Button
+            disabled={!isDirty || isSaving}
+            onClick={() => onSave()}
+            variant="primary"
+          >
+            {isSaving ? "Saving" : "Save task"}
+          </Button>
+          <Button
+            className="agent-queue-delete-button"
+            disabled={!deleteTask.canRequest}
+            onClick={() => deleteTask.onRequest()}
+            title={
+              deleteTask.blockedReason ??
+              "Delete this Queue task. Executor runs and artifacts are preserved."
+            }
+            variant="ghost"
+          >
+            Delete task
+          </Button>
+        </div>
       </div>
 
       <AgentQueueDeleteTaskControl deleteTask={deleteTask} />
