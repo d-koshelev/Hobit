@@ -105,6 +105,9 @@ Future Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
 Evidence, Knowledge, and AI context separate and does not add stores, ingestion,
 or runtime wiring.
 
+The current Knowledge / Evidence Rust refs may point to `ArtifactRef`
+metadata. They must not resolve artifacts or copy raw artifact payloads.
+
 ## Relationship To Audit And Capabilities
 
 Future `AuditEventEnvelope` values should reference artifact refs or

@@ -10,6 +10,7 @@ pub mod artifacts;
 pub mod audit_events;
 pub mod capabilities;
 mod error;
+pub mod knowledge;
 pub mod runtime_adapters;
 mod workspace_service;
 
@@ -46,6 +47,14 @@ pub use capabilities::{
 pub use error::WorkspaceServiceError;
 pub use hobit_core::widgets::WidgetRunStatus;
 pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;
+pub use knowledge::{
+    EvidenceArtifactLink, EvidenceAttribution, EvidenceConfidence, EvidenceFreshness, EvidenceId,
+    EvidenceRef, EvidenceReviewStatus, EvidenceSourceId, EvidenceSourceKind, EvidenceSourceRef,
+    KnowledgeContextEligibility, KnowledgeEvidenceLink, KnowledgeFreshness, KnowledgeItemId,
+    KnowledgeItemKind, KnowledgeItemRef, KnowledgeOwnerId, KnowledgeOwnerRef, KnowledgeRefSummary,
+    KnowledgeReviewStatus, KnowledgeVisibility, KnowledgeWorkspaceRef, RunbookId, RunbookRef,
+    SkillId, SkillRef, SkillReviewStatus, SkillVersionRef,
+};
 pub use runtime_adapters::{
     RuntimeAdapterId, RuntimeArtifactClass, RuntimeArtifactSummary, RuntimeCorrelationId,
     RuntimeErrorKind, RuntimeExecutionStatus, RuntimeKind, RuntimeRedactionStatus,

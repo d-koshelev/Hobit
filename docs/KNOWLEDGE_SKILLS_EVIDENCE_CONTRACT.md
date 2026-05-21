@@ -19,6 +19,12 @@ Hobit currently has no implemented evidence store.
 
 Hobit currently has no implemented Skills widget.
 
+The current Rust reference vocabulary lives in
+`crates/hobit-app/src/knowledge/`. It is type-only scaffolding for
+Knowledge, Skill, Runbook, Evidence, Evidence Source, and Knowledge/Evidence
+links. It does not implement stores, resolvers, context packs, UI,
+Coordinator wiring, schema changes, or runtime behavior.
+
 Notes exist as workspace-local human-authored text records, but Notes are not
 the knowledge system. A Note does not become reusable Knowledge by default,
 and existing Notes content is not silently read, summarized, indexed, or sent
@@ -132,6 +138,10 @@ safe storage, redaction, review, and permission behavior.
 
 Evidence has review status. An artifact classified as an evidence candidate is
 not Evidence until reviewed under an explicit future evidence workflow.
+
+The Rust v0 `EvidenceRef` model may link to `ArtifactRef` metadata, but it does
+not resolve artifacts, read widget runs/results/logs, or copy artifact
+payloads.
 
 ## Context Pack Definition
 
