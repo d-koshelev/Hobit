@@ -232,6 +232,25 @@ reconnect, or add a backend scheduler. Autorun still stops on failure, review,
 cancellation, kill, unknown final status, manual task policy, missing executor,
 invalid runtime config, or no next runnable task.
 
+## Manual Desktop Smoke Checklist
+
+For the current desktop MVP, a manual Queue Autorun smoke should verify:
+
+1. Create two assigned `auto` Queue tasks, start Queue Autorun, keep Hobit
+   open, and verify task 1 starts before task 2 starts after task 1 succeeds.
+2. Verify a failed or timed-out first task stops Autorun and does not start
+   task 2.
+3. Verify `review_needed`, cancelled, force-killed, or unknown final status
+   stops Autorun and does not start the next task.
+4. Verify Stop Autorun prevents future scheduling and does not cancel the
+   active Agent Executor run.
+5. Verify a long-running Agent Executor task leaves Autorun waiting and does
+   not start another task.
+6. Verify no next eligible task completes the session with a non-sensitive stop
+   reason.
+7. Verify app close, reload, shutdown, or machine sleep can interrupt Autorun
+   because no durable reconnect/resume exists.
+
 ## Non-Goals
 
 This contract does not implement:
