@@ -14,7 +14,9 @@ import {
   statusBadgeVariant,
   statusLabel,
 } from "./agentQueueTaskUiModel";
+import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
+  AgentQueueAutorunController,
   AgentQueueRunController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
@@ -24,6 +26,7 @@ type AgentQueueTaskRunPanelProps = {
   apiAvailable: boolean;
   assignmentError: string | null;
   assignmentMessage: string | null;
+  autorun: AgentQueueAutorunController;
   currentSelection: string;
   executorSlots: AgentExecutorSlot[];
   hasExecutorSlots: boolean;
@@ -42,6 +45,7 @@ export function AgentQueueTaskRunPanel({
   apiAvailable,
   assignmentError,
   assignmentMessage,
+  autorun,
   currentSelection,
   executorSlots,
   hasExecutorSlots,
@@ -107,267 +111,315 @@ export function AgentQueueTaskRunPanel({
         </div>
       </div>
 
-      {!hasExecutorSlots ? (
-        <div className="agent-queue-attention-message" role="alert">
-          <p className="agent-queue-attention-title">
-            No Agent Executor available
-          </p>
-          <p className="agent-queue-attention-copy">
-            Add an Agent Executor widget to run Queue tasks.
-          </p>
-        </div>
-      ) : run.readinessMessage ? (
-        <p className="agent-queue-run-note">{run.readinessMessage}</p>
-      ) : null}
-
-      {assignmentDisabledReason ? (
-        <p className="agent-queue-assignment-note">
-          {assignmentDisabledReason}
-        </p>
-      ) : null}
-
-      {hasExecutorSlots ? (
-        <div className="agent-queue-assignment-controls">
-          <div className="agent-queue-assignment-field">
-            <label className="field-label" htmlFor={inputId}>
+      <div className="agent-queue-execution-group">
+        <div className="agent-queue-execution-group-header">
+          <div>
+            <p
+              className="agent-queue-execution-group-title"
+              title="Assignment chooses the Agent Executor slot. It does not start work."
+            >
               Executor
-            </label>
-            <select
-              className="input agent-queue-assignment-select"
-              disabled={
-                !apiAvailable ||
-                isDirty ||
-                isAssignmentLockedStatus ||
-                isAssigning
-              }
-              id={inputId}
-              onChange={(event) =>
-                onSelectionChange(event.currentTarget.value)
-              }
-              value={currentSelection}
-            >
-              {executorSlots.map((slot) => (
-                <option
-                  key={slot.widgetInstanceId}
-                  value={slot.widgetInstanceId}
-                >
-                  {slot.label}
-                </option>
-              ))}
-            </select>
+            </p>
           </div>
-          <div className="agent-queue-assignment-buttons">
-            <Button
-              disabled={assignDisabled}
-              onClick={() => onAssign()}
-              variant="secondary"
-            >
-              {isAssigning ? "Assigning" : "Assign"}
-            </Button>
-            {hasAssignedExecutor ? (
+          <Badge variant={hasAssignedExecutor ? "info" : "neutral"}>
+            {assignmentLabel(selectedTask.assignedExecutorWidgetId)}
+          </Badge>
+        </div>
+
+        {!hasExecutorSlots ? (
+          <div className="agent-queue-attention-message" role="alert">
+            <p className="agent-queue-attention-title">
+              No Agent Executor available
+            </p>
+            <p className="agent-queue-attention-copy">
+              Add an Agent Executor widget to run Queue tasks.
+            </p>
+          </div>
+        ) : null}
+
+        {assignmentDisabledReason ? (
+          <p className="agent-queue-assignment-note">
+            {assignmentDisabledReason}
+          </p>
+        ) : null}
+
+        {hasExecutorSlots ? (
+          <div className="agent-queue-assignment-controls">
+            <div className="agent-queue-assignment-field">
+              <label className="field-label" htmlFor={inputId}>
+                Executor
+              </label>
+              <select
+                className="input agent-queue-assignment-select"
+                disabled={
+                  !apiAvailable ||
+                  isDirty ||
+                  isAssignmentLockedStatus ||
+                  isAssigning
+                }
+                id={inputId}
+                onChange={(event) =>
+                  onSelectionChange(event.currentTarget.value)
+                }
+                value={currentSelection}
+              >
+                {executorSlots.map((slot) => (
+                  <option
+                    key={slot.widgetInstanceId}
+                    value={slot.widgetInstanceId}
+                  >
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="agent-queue-assignment-buttons">
               <Button
-                disabled={clearDisabled}
-                onClick={() => onClear()}
+                disabled={assignDisabled}
+                onClick={() => onAssign()}
+                variant="secondary"
+              >
+                {isAssigning ? "Assigning" : "Assign"}
+              </Button>
+              {hasAssignedExecutor ? (
+                <Button
+                  disabled={clearDisabled}
+                  onClick={() => onClear()}
+                  variant="ghost"
+                >
+                  Clear
+                </Button>
+              ) : null}
+              <Button
+                disabled={!selectedTask.assignedExecutorWidgetId}
+                onClick={() =>
+                  openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
+                }
+                title="Scroll to the assigned Agent Executor for live logs and result."
                 variant="ghost"
               >
-                Clear
+                Open Executor
               </Button>
-            ) : null}
+            </div>
+          </div>
+        ) : hasAssignedExecutor ? (
+          <div className="agent-queue-assignment-buttons">
+            <Button
+              disabled={clearDisabled}
+              onClick={() => onClear()}
+              variant="ghost"
+            >
+              Clear assignment
+            </Button>
+          </div>
+        ) : null}
+
+        {assignmentMessage ? (
+          <p className="agent-queue-message agent-queue-message-success">
+            {assignmentMessage}
+          </p>
+        ) : null}
+        {assignmentError ? (
+          <p
+            className="agent-queue-message agent-queue-message-error"
+            role="alert"
+          >
+            {assignmentError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="agent-queue-execution-group">
+        <div className="agent-queue-execution-group-header">
+          <div>
+            <p
+              className="agent-queue-execution-group-title"
+              title="Starts only the selected task in the assigned Agent Executor."
+            >
+              Run selected task
+            </p>
           </div>
         </div>
-      ) : hasAssignedExecutor ? (
-        <div className="agent-queue-assignment-buttons">
+
+        {run.readinessMessage ? (
+          <p className="agent-queue-run-note">{run.readinessMessage}</p>
+        ) : null}
+
+        <div className="agent-queue-run-controls">
+          <div className="agent-queue-run-field agent-queue-run-field-wide">
+            <label
+              className="field-label"
+              htmlFor={repoRootInputId}
+              title="Use an existing repository or local project folder."
+            >
+              Execution workspace
+            </label>
+            <Input
+              autoComplete="off"
+              id={repoRootInputId}
+              onChange={(event) => {
+                run.onRepoRootDraftChange(event.currentTarget.value);
+              }}
+              placeholder="C:\\path\\to\\repo-or-project"
+              spellCheck={false}
+              type="text"
+              value={run.repoRootDraft}
+            />
+          </div>
+
+          <div className="agent-queue-run-field agent-queue-run-field-wide">
+            <label className="field-label" htmlFor={codexExecutableInputId}>
+              Codex executable
+            </label>
+            <Input
+              autoComplete="off"
+              id={codexExecutableInputId}
+              onChange={(event) => {
+                run.onCodexExecutableDraftChange(event.currentTarget.value);
+              }}
+              spellCheck={false}
+              type="text"
+              value={run.codexExecutableDraft}
+            />
+          </div>
+
+          <div className="agent-queue-run-field">
+            <label className="field-label" htmlFor={sandboxInputId}>
+              Sandbox
+            </label>
+            <select
+              className="input agent-queue-run-select"
+              id={sandboxInputId}
+              onChange={(event) =>
+                run.onSandboxChange(
+                  event.currentTarget.value as DirectWorkSandbox,
+                )
+              }
+              value={run.sandbox}
+            >
+              <option value="read_only">read_only</option>
+              <option value="workspace_write">workspace_write</option>
+            </select>
+          </div>
+
+          <div className="agent-queue-run-field">
+            <label className="field-label" htmlFor={approvalPolicyInputId}>
+              Approval policy
+            </label>
+            <select
+              className="input agent-queue-run-select"
+              id={approvalPolicyInputId}
+              onChange={(event) =>
+                run.onApprovalPolicyChange(
+                  event.currentTarget.value as DirectWorkApprovalPolicy,
+                )
+              }
+              value={run.approvalPolicy}
+            >
+              <option value="never">never</option>
+              <option value="on_request">on_request</option>
+              <option value="untrusted">untrusted</option>
+            </select>
+          </div>
+        </div>
+
+        {!run.readinessMessage && run.preconditionMessages.length > 0 ? (
+          <div className="agent-queue-run-warning-list">
+            {run.preconditionMessages.map((message) => (
+              <p className="agent-queue-run-warning" key={message}>
+                {message}
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="agent-queue-run-actions">
           <Button
-            disabled={clearDisabled}
-            onClick={() => onClear()}
-            variant="ghost"
+            disabled={!run.canStart}
+            onClick={() => run.onStartAssignedTask()}
+            variant="primary"
           >
-            Clear assignment
+            {run.isStarting ? "Starting" : "Run this task"}
           </Button>
         </div>
-      ) : null}
 
-      {assignmentMessage ? (
-        <p className="agent-queue-message agent-queue-message-success">
-          {assignmentMessage}
-        </p>
-      ) : null}
-      {assignmentError ? (
-        <p
-          className="agent-queue-message agent-queue-message-error"
-          role="alert"
-        >
-          {assignmentError}
-        </p>
-      ) : null}
-
-      <div className="agent-queue-run-controls">
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label
-            className="field-label"
-            htmlFor={repoRootInputId}
-            title="Use an existing repository or local project folder."
-          >
-            Execution workspace
-          </label>
-          <Input
-            autoComplete="off"
-            id={repoRootInputId}
-            onChange={(event) => {
-              run.onRepoRootDraftChange(event.currentTarget.value);
-            }}
-            placeholder="C:\\path\\to\\repo-or-project"
-            spellCheck={false}
-            type="text"
-            value={run.repoRootDraft}
-          />
-        </div>
-
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label className="field-label" htmlFor={codexExecutableInputId}>
-            Codex executable
-          </label>
-          <Input
-            autoComplete="off"
-            id={codexExecutableInputId}
-            onChange={(event) => {
-              run.onCodexExecutableDraftChange(event.currentTarget.value);
-            }}
-            spellCheck={false}
-            type="text"
-            value={run.codexExecutableDraft}
-          />
-        </div>
-
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={sandboxInputId}>
-            Sandbox
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={sandboxInputId}
-            onChange={(event) =>
-              run.onSandboxChange(event.currentTarget.value as DirectWorkSandbox)
-            }
-            value={run.sandbox}
-          >
-            <option value="read_only">read_only</option>
-            <option value="workspace_write">workspace_write</option>
-          </select>
-        </div>
-
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={approvalPolicyInputId}>
-            Approval policy
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={approvalPolicyInputId}
-            onChange={(event) =>
-              run.onApprovalPolicyChange(
-                event.currentTarget.value as DirectWorkApprovalPolicy,
-              )
-            }
-            value={run.approvalPolicy}
-          >
-            <option value="never">never</option>
-            <option value="on_request">on_request</option>
-            <option value="untrusted">untrusted</option>
-          </select>
-        </div>
-      </div>
-
-      {!run.readinessMessage && run.preconditionMessages.length > 0 ? (
-        <div className="agent-queue-run-warning-list">
-          {run.preconditionMessages.map((message) => (
-            <p className="agent-queue-run-warning" key={message}>
-              {message}
+        {run.startMessage ? (
+          <>
+            <p className="agent-queue-message agent-queue-message-success">
+              {run.startMessage}
+              {run.startedRunId ? ` Run id: ${run.startedRunId}.` : ""}
             </p>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="agent-queue-run-actions">
-        <Button
-          disabled={!run.canStart}
-          onClick={() => run.onStartAssignedTask()}
-          variant="primary"
-        >
-          {run.isStarting ? "Starting" : "Run assigned task"}
-        </Button>
-        <Button
-          disabled={!selectedTask.assignedExecutorWidgetId}
-          onClick={() =>
-            openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
-          }
-          title="Scroll to the assigned Agent Executor for live logs and result."
-          variant="ghost"
-        >
-          Open Executor
-        </Button>
-      </div>
-
-      <div className="agent-queue-run-actions">
-        <Button
-          disabled={!runner.canStart}
-          onClick={() => runner.onStart()}
-          variant="secondary"
-        >
-          {isRunnerActive(runner.status) ? "Runner active" : "Run queue"}
-        </Button>
-        <Button
-          disabled={!isRunnerActive(runner.status)}
-          onClick={() => runner.onStop()}
-          variant="ghost"
-        >
-          Stop runner
-        </Button>
-        <Badge variant={runnerStatusBadgeVariant(runner.status)}>
-          {runnerStatusLabel(runner.status)}
-        </Badge>
-      </div>
-
-      {runner.preconditionMessages.length > 0 ? (
-        <div className="agent-queue-run-warning-list">
-          {runner.preconditionMessages.map((message) => (
-            <p className="agent-queue-run-warning" key={message}>
-              {message}
+            <p className="agent-queue-run-note">
+              Result appears in the assigned Agent Executor.
             </p>
-          ))}
+          </>
+        ) : null}
+        {run.startError ? (
+          <p
+            className="agent-queue-message agent-queue-message-error"
+            role="alert"
+          >
+            {run.startError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="agent-queue-execution-group">
+        <div className="agent-queue-execution-group-header">
+          <div>
+            <p
+              className="agent-queue-execution-group-title"
+              title="Runs eligible tasks from the visible Queue while Hobit is open."
+            >
+              Sequential runner
+            </p>
+          </div>
+          <Badge variant={runnerStatusBadgeVariant(runner.status)}>
+            {runnerStatusLabel(runner.status)}
+          </Badge>
         </div>
-      ) : null}
 
-      {runner.message ? (
-        <p className="agent-queue-run-note">{runner.message}</p>
-      ) : null}
-      {runner.error ? (
-        <p
-          className="agent-queue-message agent-queue-message-error"
-          role="alert"
-        >
-          {runner.error}
-        </p>
-      ) : null}
+        <div className="agent-queue-run-actions">
+          <Button
+            disabled={!runner.canStart}
+            onClick={() => runner.onStart()}
+            variant="secondary"
+          >
+            {isRunnerActive(runner.status) ? "Runner active" : "Start runner"}
+          </Button>
+          <Button
+            disabled={!isRunnerActive(runner.status)}
+            onClick={() => runner.onStop()}
+            variant="ghost"
+          >
+            Stop runner
+          </Button>
+        </div>
 
-      {run.startMessage ? (
-        <>
-          <p className="agent-queue-message agent-queue-message-success">
-            {run.startMessage}
-            {run.startedRunId ? ` Run id: ${run.startedRunId}.` : ""}
+        {runner.preconditionMessages.length > 0 ? (
+          <div className="agent-queue-run-warning-list">
+            {runner.preconditionMessages.map((message) => (
+              <p className="agent-queue-run-warning" key={message}>
+                {message}
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {runner.message ? (
+          <p className="agent-queue-run-note">{runner.message}</p>
+        ) : null}
+        {runner.error ? (
+          <p
+            className="agent-queue-message agent-queue-message-error"
+            role="alert"
+          >
+            {runner.error}
           </p>
-          <p className="agent-queue-run-note">
-            Result appears in the assigned Agent Executor.
-          </p>
-        </>
-      ) : null}
-      {run.startError ? (
-        <p
-          className="agent-queue-message agent-queue-message-error"
-          role="alert"
-        >
-          {run.startError}
-        </p>
-      ) : null}
+        ) : null}
+      </div>
+
+      <AgentQueueAutorunPanel autorun={autorun} />
     </section>
   );
 }

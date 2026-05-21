@@ -333,14 +333,6 @@
   margin-left: var(--space-xs);
 }
 
-.agent-queue-assignment-section {
-  display: grid;
-  gap: var(--space-xs);
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-xs);
-}
-
-.agent-queue-run-section,
 .agent-queue-execution-section {
   display: grid;
   gap: var(--space-xs);
@@ -348,19 +340,30 @@
   padding-top: var(--space-xs);
 }
 
-.agent-queue-assignment-header,
+.agent-queue-execution-group {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.agent-queue-execution-header + .agent-queue-execution-group {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .agent-queue-assignment-controls,
 .agent-queue-assignment-buttons,
-.agent-queue-run-header,
 .agent-queue-run-actions,
-.agent-queue-execution-header {
+.agent-queue-execution-header,
+.agent-queue-execution-group-header {
   display: flex;
   gap: var(--space-sm);
 }
 
-.agent-queue-assignment-header,
-.agent-queue-run-header,
-.agent-queue-execution-header {
+.agent-queue-execution-header,
+.agent-queue-execution-group-header {
   align-items: flex-start;
   justify-content: space-between;
 }
@@ -373,13 +376,11 @@
   flex-wrap: wrap;
 }
 
-.agent-queue-run-badges,
 .agent-queue-execution-badges,
 .agent-queue-run-actions {
   flex-wrap: wrap;
 }
 
-.agent-queue-run-badges,
 .agent-queue-execution-badges {
   display: flex;
   align-items: center;
@@ -450,12 +451,9 @@
   min-height: 36px;
 }
 
-.agent-queue-assignment-title,
-.agent-queue-assignment-copy,
 .agent-queue-assignment-note,
-.agent-queue-run-title,
 .agent-queue-execution-title,
-.agent-queue-run-copy,
+.agent-queue-execution-group-title,
 .agent-queue-run-note,
 .agent-queue-run-warning,
 .agent-queue-delete-note,
@@ -466,18 +464,15 @@
   margin: 0;
 }
 
-.agent-queue-assignment-title,
-.agent-queue-run-title,
-.agent-queue-execution-title {
+.agent-queue-execution-title,
+.agent-queue-execution-group-title {
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 720;
   line-height: var(--line-tight);
 }
 
-.agent-queue-assignment-copy,
 .agent-queue-assignment-note,
-.agent-queue-run-copy,
 .agent-queue-run-note {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -652,15 +647,13 @@
   .agent-queue-create-dialog-header,
   .agent-queue-create-dialog-actions,
   .agent-queue-assignment-controls,
-  .agent-queue-assignment-header,
-  .agent-queue-run-header,
   .agent-queue-execution-header,
+  .agent-queue-execution-group-header,
   .agent-queue-run-actions {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .agent-queue-run-badges,
   .agent-queue-execution-badges {
     justify-content: flex-start;
   }

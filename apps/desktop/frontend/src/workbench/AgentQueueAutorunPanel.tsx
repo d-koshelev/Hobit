@@ -18,18 +18,17 @@ export function AgentQueueAutorunPanel({
     !autorun.isStopping;
 
   return (
-    <section aria-label="Queue Autorun" className="agent-queue-run-section">
-      <div className="agent-queue-run-header">
+    <section aria-label="Queue Autorun" className="agent-queue-execution-group">
+      <div className="agent-queue-execution-group-header">
         <div>
-          <p className="agent-queue-run-title">Queue Autorun</p>
           <p
-            className="agent-queue-run-copy"
-            title="Start Autorun uses the existing Queue-to-Executor path and remains current-session only."
+            className="agent-queue-execution-group-title"
+            title="Starts eligible assigned Queue tasks through the existing Queue-to-Executor path."
           >
-            Autorun is desktop-local and only works while Hobit is open.
+            Queue Autorun
           </p>
         </div>
-        <div className="agent-queue-run-badges">
+        <div className="agent-queue-execution-badges">
           <Badge variant={autorunStatusBadgeVariant(snapshot?.status)}>
             {autorunStatusLabel(snapshot?.status)}
           </Badge>
@@ -126,12 +125,10 @@ export function AgentQueueAutorunPanel({
         <p className="agent-queue-run-note">{autorun.message}</p>
       ) : null}
       <details className="agent-queue-details">
-        <summary>Autorun limits</summary>
+        <summary>Limits</summary>
         <p className="agent-queue-run-note">
-          Start Autorun uses the existing Queue-to-Executor path, then
-          continues from a successful run to one next eligible task while Hobit
-          is open. Stop Autorun stops future scheduling, not the active Agent
-          Executor run. App close, reload, shutdown, or sleep can interrupt it.
+          Current-session only. Stop Autorun stops future scheduling, not the
+          active Agent Executor run.
         </p>
       </details>
       {autorun.error ? (
@@ -171,7 +168,10 @@ function autorunStateText(snapshot: AgentQueueAutorunController["snapshot"]) {
     return "Waiting for Agent Executor";
   }
 
-  if (snapshot.status === "starting_task" || snapshot.status === "selecting_task") {
+  if (
+    snapshot.status === "starting_task" ||
+    snapshot.status === "selecting_task"
+  ) {
     return "Scheduling next task";
   }
 

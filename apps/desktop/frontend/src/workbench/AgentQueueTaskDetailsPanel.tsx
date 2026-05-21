@@ -1,5 +1,4 @@
 import type { useAgentQueueController } from "./queue/useAgentQueueController";
-import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import { AgentQueueEmptySelection } from "./AgentQueueEmptySelection";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueTaskSection } from "./AgentQueueTaskSection";
@@ -93,6 +92,7 @@ export function AgentQueueTaskDetailsPanel({
             apiAvailable={assignmentApiAvailable}
             assignmentError={assignmentError}
             assignmentMessage={assignmentMessage}
+            autorun={queue.autorun}
             currentSelection={selectedExecutorWidgetId}
             executorSlots={agentExecutorSlots}
             hasExecutorSlots={agentExecutorSlots.length > 0}
@@ -108,8 +108,6 @@ export function AgentQueueTaskDetailsPanel({
             runner={queue.runner}
             selectedTask={selectedTask}
           />
-
-          <AgentQueueAutorunPanel autorun={queue.autorun} />
 
           {validationMessage ? (
             <p
