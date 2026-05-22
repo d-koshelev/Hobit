@@ -133,6 +133,32 @@ pub struct AgentQueueTaskUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueTaskRunLink<'a> {
+    pub link_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub executor_widget_id: &'a str,
+    pub direct_work_run_id: &'a str,
+    pub source: &'a str,
+    pub status: &'a str,
+    pub started_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+    pub validation_status: Option<&'a str>,
+    pub review_status: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTaskRunLinkFinalUpdate<'a> {
+    pub status: &'a str,
+    pub completed_at: Option<&'a str>,
+    pub validation_status: Option<&'a str>,
+    pub review_status: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWorkspaceNote<'a> {
     pub note_id: &'a str,
     pub workspace_id: &'a str,

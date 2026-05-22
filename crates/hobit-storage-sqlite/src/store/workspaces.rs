@@ -91,6 +91,11 @@ impl SqliteStore {
             params![workspace_id],
         )?;
         self.connection.execute(
+            "DELETE FROM agent_queue_task_run_links
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
             "DELETE FROM agent_queue_tasks
              WHERE workspace_id = ?1",
             params![workspace_id],

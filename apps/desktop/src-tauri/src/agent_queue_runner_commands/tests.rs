@@ -266,6 +266,7 @@ fn start_autorun_with_eligible_task_uses_existing_start_path_once() {
     .expect("start autorun");
     let runs = list_widget_runs(&db_path, &executor_widget_id);
     let task = get_task(&db_path, &workspace_id, &queue_item_id);
+    let link = latest_run_link(&db_path, &workspace_id, &queue_item_id).expect("latest run link");
 
     assert_eq!(snapshot.status, "waiting_for_executor");
     assert_eq!(
@@ -278,6 +279,9 @@ fn start_autorun_with_eligible_task_uses_existing_start_path_once() {
     );
     assert_eq!(runs.len(), 1);
     assert_eq!(task.status, "running");
+    assert_eq!(link.source, hobit_app::AgentQueueTaskRunSource::Autorun);
+    assert_eq!(link.status, hobit_app::AgentQueueTaskRunStatus::Running);
+    assert_eq!(link.direct_work_run_id, runs[0].id);
     remove_test_db_files(&db_path);
 }
 
@@ -366,6 +370,7 @@ fn refresh_continues_after_completed_autorun_run_to_one_next_task() {
         &db_path,
         DirectWorkActiveRunRegistry::default(),
     );
+    let link = latest_run_link(&db_path, &workspace_id, &first_id).expect("latest run link");
     let runs = list_widget_runs(&db_path, &executor_widget_id);
 
     assert_eq!(snapshot.status, "waiting_for_executor");
@@ -380,6 +385,11 @@ fn refresh_continues_after_completed_autorun_run_to_one_next_task() {
     assert_eq!(
         get_task(&db_path, &workspace_id, &first_id).status,
         "running"
+    );
+    assert_eq!(link.status, hobit_app::AgentQueueTaskRunStatus::Completed);
+    assert_eq!(
+        link.review_status,
+        Some(hobit_app::AgentQueueTaskRunReviewStatus::ReviewNeeded)
     );
     assert_eq!(
         get_task(&db_path, &workspace_id, &second_id).status,
@@ -1344,6 +1354,18 @@ fn list_widget_runs(
     store
         .list_widget_runs_for_widget(executor_widget_id)
         .expect("list widget runs")
+}
+
+fn latest_run_link(
+    db_path: &Path,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Option<hobit_app::AgentQueueTaskRunSummary> {
+    let store = SqliteStore::open(db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    WorkspaceService::new(store)
+        .get_latest_agent_queue_task_run_link(workspace_id, queue_item_id)
+        .expect("get latest run link")
 }
 
 fn finish_widget_run_status(db_path: &Path, run_id: &str, status: &str) {

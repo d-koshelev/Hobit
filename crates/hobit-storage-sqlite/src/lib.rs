@@ -16,15 +16,15 @@ mod rows;
 mod time;
 
 pub use inputs::{
-    AgentQueueTaskUpdate, JdbcConnectorUpdate, NewAgentQueueItem, NewAgentQueueTask,
-    NewJdbcConnector, NewSharedStateObject, NewWidgetInstance, NewWidgetLog, NewWidgetResult,
-    NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, WidgetInstanceLayoutUpdate,
-    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate, NewAgentQueueItem,
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewJdbcConnector, NewSharedStateObject,
+    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 pub use rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow,
-    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
+    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;

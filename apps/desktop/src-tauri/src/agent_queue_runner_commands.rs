@@ -2,14 +2,17 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use hobit_app::WorkspaceService;
+use hobit_app::{
+    AgentQueueTaskRunReviewStatus, AgentQueueTaskRunSource,
+    RecordAgentQueueTaskRunFinalStatusInput, WorkspaceService,
+};
 use hobit_storage_sqlite::SqliteStore;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 #[cfg(test)]
-use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_blocking;
-use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_from_request;
+use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_blocking_with_source;
+use crate::agent_queue_execution_commands::start_assigned_agent_queue_task_from_request_with_source;
 use crate::agent_queue_execution_dto::StartAssignedAgentQueueTaskRequest;
 use crate::agent_queue_runner::{
     select_next_autorun_task, select_next_autorun_task_after_success, QueueAutorunTaskSelection,
@@ -169,7 +172,7 @@ async fn start_agent_queue_runner_session_once(
         }
     };
 
-    let start_response = start_assigned_agent_queue_task_from_request(
+    let start_response = start_assigned_agent_queue_task_from_request_with_source(
         StartAssignedAgentQueueTaskRequest {
             workspace_id: request.workspace_id,
             queue_item_id: queue_item_id.clone(),
@@ -184,6 +187,7 @@ async fn start_agent_queue_runner_session_once(
         app,
         db_path,
         active_runs,
+        AgentQueueTaskRunSource::Autorun,
     )
     .await
     .map_err(|error| {
@@ -251,7 +255,7 @@ fn start_agent_queue_runner_session_once_without_background(
         }
     };
 
-    let start = start_assigned_agent_queue_task_blocking(
+    let start = start_assigned_agent_queue_task_blocking_with_source(
         StartAssignedAgentQueueTaskRequest {
             workspace_id: request.workspace_id,
             queue_item_id,
@@ -265,6 +269,7 @@ fn start_agent_queue_runner_session_once_without_background(
         },
         db_path,
         active_runs,
+        AgentQueueTaskRunSource::Autorun,
     )
     .map_err(|error| {
         let reason = stop_reason_for_start_error(&error);
@@ -400,6 +405,19 @@ async fn reconcile_agent_queue_runner_snapshot_from_registry(
                 &run.status,
                 run.finished_at.is_some(),
             );
+            if run.finished_at.is_some() {
+                if let Some(start_request) = registry.start_request() {
+                    record_autorun_run_link_final_status(
+                        &db_path,
+                        &start_request.workspace_id,
+                        &start_request.executor_widget_instance_id,
+                        &snapshot,
+                        &run_id,
+                        &run.status,
+                        run.finished_at.clone(),
+                    );
+                }
+            }
             if observed.should_continue_after_success {
                 continue_agent_queue_runner_after_success(registry, db_path, app, active_runs).await
             } else {
@@ -459,11 +477,12 @@ async fn continue_agent_queue_runner_after_success(
         }
     };
 
-    let start_response = match start_assigned_agent_queue_task_from_request(
+    let start_response = match start_assigned_agent_queue_task_from_request_with_source(
         continuation_start_request(&start_request, queue_item_id),
         app,
         db_path,
         active_runs,
+        AgentQueueTaskRunSource::Autorun,
     )
     .await
     {
@@ -551,6 +570,34 @@ fn continuation_start_request(
     }
 }
 
+fn record_autorun_run_link_final_status(
+    db_path: &std::path::Path,
+    workspace_id: &str,
+    executor_widget_id: &str,
+    snapshot: &crate::agent_queue_runner::QueueRunnerSnapshot,
+    run_id: &str,
+    status: &str,
+    completed_at: Option<String>,
+) {
+    let Some(queue_item_id) = snapshot.active_queue_item_id.clone() else {
+        return;
+    };
+    let Ok(service) = workspace_service(db_path) else {
+        return;
+    };
+    let _ =
+        service.record_agent_queue_task_run_final_status(RecordAgentQueueTaskRunFinalStatusInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_task_id: queue_item_id,
+            executor_widget_id: executor_widget_id.to_owned(),
+            direct_work_run_id: run_id.to_owned(),
+            status: status.to_owned(),
+            completed_at,
+            validation_status: None,
+            review_status: Some(AgentQueueTaskRunReviewStatus::ReviewNeeded),
+        });
+}
+
 #[cfg(test)]
 fn reconcile_agent_queue_runner_snapshot_from_registry_without_background(
     registry: QueueRunnerSessionRegistry,
@@ -577,6 +624,19 @@ fn reconcile_agent_queue_runner_snapshot_from_registry_without_background(
                 &run.status,
                 run.finished_at.is_some(),
             );
+            if run.finished_at.is_some() {
+                if let Some(start_request) = registry.start_request() {
+                    record_autorun_run_link_final_status(
+                        db_path,
+                        &start_request.workspace_id,
+                        &start_request.executor_widget_instance_id,
+                        &snapshot,
+                        &run_id,
+                        &run.status,
+                        run.finished_at.clone(),
+                    );
+                }
+            }
             if observed.should_continue_after_success {
                 continue_agent_queue_runner_after_success_without_background(
                     registry,
@@ -640,10 +700,11 @@ fn continue_agent_queue_runner_after_success_without_background(
         }
     };
 
-    let start_response = match start_assigned_agent_queue_task_blocking(
+    let start_response = match start_assigned_agent_queue_task_blocking_with_source(
         continuation_start_request(&start_request, queue_item_id),
         db_path,
         active_runs,
+        AgentQueueTaskRunSource::Autorun,
     ) {
         Ok(start_response) => start_response,
         Err(error) => {

@@ -133,6 +133,23 @@ pub struct AgentQueueTaskRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTaskRunLinkRow {
+    pub link_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub executor_widget_id: String,
+    pub direct_work_run_id: String,
+    pub source: String,
+    pub status: String,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub validation_status: Option<String>,
+    pub review_status: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceNoteRow {
     pub note_id: String,
     pub workspace_id: String,

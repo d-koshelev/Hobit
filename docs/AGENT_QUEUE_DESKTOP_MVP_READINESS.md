@@ -52,6 +52,8 @@ Durable in `hobit-app` / SQLite-backed storage:
 - Queue task rows;
 - explicit task deletion removes only the Queue task row and does not delete
   Agent Executor run/log/result artifacts;
+- durable Queue task to Agent Executor / Direct Work run-link metadata rows,
+  with one Queue task able to have multiple run links over time;
 - task lifecycle status vocabulary;
 - task execution policy values: `manual`, `auto`,
   `after_previous_success`;
@@ -60,9 +62,9 @@ Durable in `hobit-app` / SQLite-backed storage:
   Work run;
 - Direct Work run/log/result records owned by Agent Executor runtime paths.
 
-The Queue task record does not currently persist `last_run_id`, result
-summary, runner id, dependency state, retry state, started timestamp, or
-completed timestamp.
+The Queue task record does not persist `last_run_id`, result summary, runner
+id, dependency state, or retry state on the task row. Safe run-link metadata
+lives in a separate table and references Executor-owned Direct Work runs.
 
 ## Current-Session Only
 
@@ -119,9 +121,9 @@ not survive reload.
 - multi-executor scheduling;
 - dependency graph or blocked/ready dependency model;
 - retry model;
-- persisted Queue run history or `last_run_id`;
+- full Queue run-history UI or `last_run_id` task-row fields;
 - Queue-owned live logs or result detail;
-- durable per-task references to Agent Executor run history;
+- Queue-owned raw run details;
 - bulk task import;
 - Coordinator-driven Queue execution;
 - Terminal launch;
@@ -135,8 +137,8 @@ not survive reload.
 - Execution policy labels, especially `auto`, can read stronger than the
   current implementation. The product should keep saying that policy is used
   only by the visible, operator-started Sequential Queue Runner.
-- Queue does not show durable run linkage or last result summary after a
-  Queue-started run. The docs-first plan is
+- Queue does not yet show durable run linkage or last result summary in the
+  frontend. The backend/storage foundation follows
   `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`.
 - Queue task detail has many controls in one panel; the next UI pass should
   make planning, assignment, manual run, and runner controls easier to scan.
@@ -153,9 +155,10 @@ not survive reload.
 
 - The frontend runner depends on current-session React state and final-state
   handoff events. It should not be treated as durable orchestration.
-- Queue-started run linkage is visible during the session but not persisted on
-  the Queue task record. Future Queue run-history visibility should reference
-  Executor-owned run/result artifacts instead of copying raw output into Queue.
+- Queue-started run linkage is persisted as safe metadata in a separate
+  run-link table. Future Queue run-history visibility should continue to
+  reference Executor-owned runs rather than duplicating runtime output into
+  Queue.
 - Auto-refresh can be blocked by dirty task edits; operators may need manual
   refresh to see final task status.
 - Agent Executor remains the runtime owner. Adding Queue-side run detail later
@@ -180,9 +183,9 @@ not survive reload.
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,
    improve stop/waiting/final-state messages, and strengthen frontend tests.
-5. Queue task run visibility/history: follow
-   `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`, then persist minimal run
-   linkage if approved.
+5. Queue task run visibility/history: minimal durable run-link metadata now
+   exists. The next slice should expose safe summaries/open-Executor actions
+   without rendering raw Executor payloads inside Queue.
 6. Queue dependencies / blocked-ready model: design dependency semantics
    before adding UI or storage.
 7. Later durable backend runner design contract: no implementation until the

@@ -6,10 +6,11 @@ This contract defines how Agent Queue should show run-history visibility for
 Queue tasks after manual runs, Sequential Queue Runner runs, or Queue Autorun
 runs.
 
-It is a docs/product contract only. It does not add schema, persistence,
-backend behavior, Tauri commands, DTOs, frontend UI, Queue runtime behavior,
-Queue Autorun behavior, Agent Executor behavior, server runtime, RBAC, or a
-scheduler.
+It began as a docs/product contract. Hobit now has the first minimal
+backend/storage foundation for durable Queue task to Agent Executor run
+linkage. It still does not add frontend run-history UI, Queue-owned raw run
+detail display, scheduler behavior, retries, server runtime, RBAC, or Agent
+Executor ownership changes.
 
 ## Product Need
 
@@ -108,11 +109,9 @@ Already available today:
 
 Missing for durable Queue run-history visibility:
 
-- persisted Queue task to Executor run linkage;
 - safe per-task run summary DTO;
 - query path from Queue task to its associated Executor run summaries;
 - explicit frontend open action from Queue task run ref to Executor run detail;
-- retry/history model for more than one run per Queue task;
 - validation association policy beyond what Agent Executor history already
   exposes per run;
 - ArtifactRef-backed metadata references for later cross-surface linking.
@@ -120,30 +119,43 @@ Missing for durable Queue run-history visibility:
 Current-session handoff and Autorun state are not enough for morning review
 after reload or app restart.
 
+Implemented foundation:
+
+- persisted Queue task to Executor run linkage in a separate run-link record;
+- more than one run-link row can exist for one Queue task, preserving retry and
+  rerun history;
+- manual assigned-task starts record `manual` run-link source metadata;
+- desktop Queue Autorun starts and final-status observation record/update
+  `autorun` run-link metadata;
+- final status updates store safe status/timestamp/review metadata only.
+
+Queue still does not own raw Executor run details. Agent Executor remains the
+owner for logs, results, final responses, validation detail, diffs, and
+artifacts.
+
 ## Future Minimal DTO / Store Support
 
-The first implementation should add the smallest durable linkage needed for
-safe review. Recommended conceptual fields or record shape:
+The first implementation adds the smallest durable linkage needed for safe
+review. Current record shape:
 
 ```text
-queue_item_id
+link_id
 workspace_id
+queue_task_id
 executor_widget_instance_id
-executor_run_id
+direct_work_run_id
+source
+status
 started_at
 completed_at
-run_status
 validation_status
-review_needed
+review_status
 created_at
+updated_at
 ```
 
-This can be implemented as either:
-
-- a minimal Queue task last-run linkage when only latest-run visibility is
-  needed; or
-- a separate Queue task run-link table when retries/history should be visible
-  from the first slice.
+The run-link is a separate table, not latest-run fields on the Queue task row.
+Latest-run visibility can be derived by querying the newest link for a task.
 
 Do not store raw prompt, stdout, stderr, final response, diffs, logs, or result
 payload in Queue linkage records.
@@ -186,8 +198,8 @@ render raw Executor payload inside Queue.
 ## Recommended Implementation Slices
 
 1. Docs accepted: keep this contract as the gate for run-history visibility.
-2. Minimal backend/storage design: choose latest-run-only versus run-link row,
-   with no raw payload duplication.
+2. Minimal backend/storage design: implemented as a separate run-link row with
+   no raw payload duplication.
 3. DTO/API slice: expose safe Queue task run refs and summaries without raw
    prompts/logs/results.
 4. Frontend Queue visibility slice: show latest run status and Open Executor

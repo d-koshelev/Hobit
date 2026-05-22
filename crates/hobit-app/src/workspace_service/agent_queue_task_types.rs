@@ -96,3 +96,132 @@ pub struct AgentQueueTaskSummary {
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTaskRunLinkId(pub String);
+
+impl AgentQueueTaskRunLinkId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentQueueTaskRunSource {
+    Manual,
+    Autorun,
+    SequentialRunner,
+    Unknown,
+}
+
+impl AgentQueueTaskRunSource {
+    pub fn from_current_source(value: &str) -> Self {
+        match value {
+            "manual" => Self::Manual,
+            "autorun" => Self::Autorun,
+            "sequential_runner" => Self::SequentialRunner,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Autorun => "autorun",
+            Self::SequentialRunner => "sequential_runner",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentQueueTaskRunStatus {
+    Running,
+    Completed,
+    Failed,
+    TimedOut,
+    Cancelled,
+    ReviewNeeded,
+    Unknown,
+}
+
+impl AgentQueueTaskRunStatus {
+    pub fn from_current_status(value: &str) -> Self {
+        match value {
+            "running" => Self::Running,
+            "completed" => Self::Completed,
+            "failed" => Self::Failed,
+            "timed_out" => Self::TimedOut,
+            "cancelled" => Self::Cancelled,
+            "review_needed" => Self::ReviewNeeded,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::TimedOut => "timed_out",
+            Self::Cancelled => "cancelled",
+            Self::ReviewNeeded => "review_needed",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentQueueTaskRunReviewStatus {
+    ReviewNeeded,
+    Unknown,
+}
+
+impl AgentQueueTaskRunReviewStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ReviewNeeded => "review_needed",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordAgentQueueTaskRunStartedInput {
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub executor_widget_id: String,
+    pub direct_work_run_id: String,
+    pub source: AgentQueueTaskRunSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordAgentQueueTaskRunFinalStatusInput {
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub executor_widget_id: String,
+    pub direct_work_run_id: String,
+    pub status: String,
+    pub completed_at: Option<String>,
+    pub validation_status: Option<String>,
+    pub review_status: Option<AgentQueueTaskRunReviewStatus>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTaskRunLink {
+    pub link_id: AgentQueueTaskRunLinkId,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub executor_widget_id: String,
+    pub direct_work_run_id: String,
+    pub source: AgentQueueTaskRunSource,
+    pub status: AgentQueueTaskRunStatus,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub validation_status: Option<String>,
+    pub review_status: Option<AgentQueueTaskRunReviewStatus>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+pub type AgentQueueTaskRunSummary = AgentQueueTaskRunLink;

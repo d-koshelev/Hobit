@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use hobit_app::{FinishAssignedAgentQueueTaskRunInput, WorkspaceService};
+use hobit_app::{AgentQueueTaskRunSource, FinishAssignedAgentQueueTaskRunInput, WorkspaceService};
 use hobit_storage_sqlite::SqliteStore;
 use tauri::{Emitter, State};
 
@@ -31,10 +31,34 @@ pub(crate) async fn start_assigned_agent_queue_task_from_request(
     db_path: PathBuf,
     active_runs: DirectWorkActiveRunRegistry,
 ) -> Result<StartAssignedAgentQueueTaskResponseDto, String> {
+    start_assigned_agent_queue_task_from_request_with_source(
+        request,
+        app,
+        db_path,
+        active_runs,
+        AgentQueueTaskRunSource::Manual,
+    )
+    .await
+}
+
+pub(crate) async fn start_assigned_agent_queue_task_from_request_with_source(
+    request: StartAssignedAgentQueueTaskRequest,
+    app: tauri::AppHandle,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+    source: AgentQueueTaskRunSource,
+) -> Result<StartAssignedAgentQueueTaskResponseDto, String> {
     let start = tauri::async_runtime::spawn_blocking({
         let db_path = db_path.clone();
         let active_runs = active_runs.clone();
-        move || start_assigned_agent_queue_task_blocking(request, db_path, active_runs)
+        move || {
+            start_assigned_agent_queue_task_blocking_with_source(
+                request,
+                db_path,
+                active_runs,
+                source,
+            )
+        }
     })
     .await
     .map_err(command_error)??;
@@ -72,10 +96,25 @@ pub(crate) async fn start_assigned_agent_queue_task_from_request(
     Ok(response)
 }
 
+#[cfg(test)]
 pub(crate) fn start_assigned_agent_queue_task_blocking(
     request: StartAssignedAgentQueueTaskRequest,
     db_path: PathBuf,
     active_runs: DirectWorkActiveRunRegistry,
+) -> Result<hobit_app::AssignedAgentQueueTaskStartSummary, String> {
+    start_assigned_agent_queue_task_blocking_with_source(
+        request,
+        db_path,
+        active_runs,
+        AgentQueueTaskRunSource::Manual,
+    )
+}
+
+pub(crate) fn start_assigned_agent_queue_task_blocking_with_source(
+    request: StartAssignedAgentQueueTaskRequest,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+    source: AgentQueueTaskRunSource,
 ) -> Result<hobit_app::AssignedAgentQueueTaskStartSummary, String> {
     let input: hobit_app::StartAssignedAgentQueueTaskInput = request.into();
     let service = workspace_service(&db_path)?;
@@ -95,7 +134,7 @@ pub(crate) fn start_assigned_agent_queue_task_blocking(
     }
 
     service
-        .start_assigned_agent_queue_task(input)
+        .start_assigned_agent_queue_task_with_run_source(input, source)
         .map_err(command_error)
 }
 

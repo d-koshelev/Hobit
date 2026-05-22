@@ -124,6 +124,22 @@ CREATE TABLE IF NOT EXISTS agent_queue_tasks (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_task_run_links (
+    link_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    executor_widget_id TEXT NOT NULL REFERENCES widget_instances(id) ON DELETE CASCADE,
+    direct_work_run_id TEXT NOT NULL UNIQUE REFERENCES widget_runs(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT NULL,
+    validation_status TEXT NULL,
+    review_status TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notes (
     note_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -237,4 +253,10 @@ CREATE INDEX IF NOT EXISTS idx_widget_logs_widget_instance_created_at
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_tasks_assigned_executor_widget_id
     ON agent_queue_tasks(assigned_executor_widget_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_task_started
+    ON agent_queue_task_run_links(workspace_id, queue_task_id, started_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_run_id
+    ON agent_queue_task_run_links(direct_work_run_id);
 "#;

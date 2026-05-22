@@ -5,6 +5,10 @@ use super::{
         map_direct_work_final_status_to_queue_status, AgentQueueExecutionLifecycleStatus,
         AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_STATUS_RUNNING,
     },
+    agent_queue_run_links::{
+        record_agent_queue_task_run_final_status_in_store,
+        record_agent_queue_task_run_started_in_store,
+    },
     agent_queue_tasks::{
         load_agent_executor_widget, load_agent_queue_task, map_storage_agent_queue_task_error,
         storage_invalid_input,
@@ -16,9 +20,9 @@ use super::{
     mapping::agent_queue_task_summary,
     placeholder_timestamp,
     validation::{required_input, validate_widget_run_ownership},
-    AgentQueueTaskSummary, AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
-    FinishAssignedAgentQueueTaskRunInput, RunCodexDirectWorkInput,
-    StartAssignedAgentQueueTaskInput, WorkspaceService,
+    AgentQueueTaskRunSource, AgentQueueTaskSummary, AssignedAgentQueueTaskRunPlan,
+    AssignedAgentQueueTaskStartSummary, FinishAssignedAgentQueueTaskRunInput,
+    RunCodexDirectWorkInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
 };
 
 impl WorkspaceService {
@@ -63,6 +67,14 @@ impl WorkspaceService {
         &self,
         input: StartAssignedAgentQueueTaskInput,
     ) -> Result<AssignedAgentQueueTaskStartSummary, WorkspaceServiceError> {
+        self.start_assigned_agent_queue_task_with_run_source(input, AgentQueueTaskRunSource::Manual)
+    }
+
+    pub fn start_assigned_agent_queue_task_with_run_source(
+        &self,
+        input: StartAssignedAgentQueueTaskInput,
+        source: AgentQueueTaskRunSource,
+    ) -> Result<AssignedAgentQueueTaskStartSummary, WorkspaceServiceError> {
         let input = normalize_start_assigned_agent_queue_task_input(input)?;
         let updated_at = placeholder_timestamp();
 
@@ -102,6 +114,14 @@ impl WorkspaceService {
                                 "assigned Agent Executor could not start Direct Work".to_owned(),
                             )
                         })?;
+                record_agent_queue_task_run_started_in_store(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                    &executor.id,
+                    &start.run_id,
+                    source,
+                )?;
                 let task = store
                     .update_agent_queue_task_status(
                         &input.workspace_id,
@@ -186,6 +206,14 @@ impl WorkspaceService {
                         Some(&updated_at),
                     )?
                     .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                let _ = record_agent_queue_task_run_final_status_in_store(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                    &executor.id,
+                    &input.run_id,
+                    &input.direct_work_status,
+                )?;
                 store.touch_workspace(&input.workspace_id)?;
                 Ok(task)
             })

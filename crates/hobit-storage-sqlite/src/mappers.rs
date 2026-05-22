@@ -3,9 +3,9 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow,
-    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
+    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 
@@ -148,6 +148,26 @@ pub(crate) fn agent_queue_task_row(row: &rusqlite::Row<'_>) -> Result<AgentQueue
         assigned_executor_widget_id: row.get(8)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
+    })
+}
+
+pub(crate) fn agent_queue_task_run_link_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueTaskRunLinkRow> {
+    Ok(AgentQueueTaskRunLinkRow {
+        link_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        queue_task_id: row.get(2)?,
+        executor_widget_id: row.get(3)?,
+        direct_work_run_id: row.get(4)?,
+        source: row.get(5)?,
+        status: row.get(6)?,
+        started_at: row.get(7)?,
+        completed_at: row.get(8)?,
+        validation_status: row.get(9)?,
+        review_status: row.get(10)?,
+        created_at: row.get(11)?,
+        updated_at: row.get(12)?,
     })
 }
 
