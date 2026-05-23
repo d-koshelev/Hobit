@@ -11,6 +11,7 @@ import type {
   AgentExecutorRunHistory,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   DirectWorkStreamEvent,
   StartAssignedAgentQueueTaskResponse,
 } from "../workspace/types";
@@ -40,10 +41,12 @@ type SmokeViewMode =
 type SmokeSnapshot = {
   attachCallCount: number;
   executorRunDetailCallCount: number;
+  executorRunDetailRunIds: string[];
   finalEventEmitCallCount: number;
   finalStatusAvailable: boolean;
   forbiddenCallCount: number;
   listExecutorRunsCallCount: number;
+  listQueueRunLinksCallCount: number;
   queueListCallsAfterFinal: number;
   runId: string | null;
   scenario: SmokeScenario;
@@ -57,6 +60,7 @@ type SmokeApi = {
   emitExecutorFinalEvents: () => void;
   liveLogText: string;
   finalResponseText: string;
+  rawQueueForbiddenText: string;
   scenario: SmokeScenario;
   snapshot: () => SmokeSnapshot;
 };
@@ -73,18 +77,23 @@ const QUEUE_WIDGET_ID = "agent-queue-smoke-widget";
 const EXECUTOR_WIDGET_ID = "agent-executor-smoke-widget";
 const QUEUE_ITEM_ID = "queue-task-smoke";
 const RUN_ID = "queue-executor-smoke-run";
+const HISTORY_RUN_ID = "queue-executor-smoke-history-run";
 const REPO_ROOT = "C:\\Users\\Dmitry\\Documents\\prj\\Hobit";
 const TASK_TITLE = "Queue to Executor smoke";
 const LIVE_LOG_TEXT = "executor-only live log line";
 const FINAL_RESPONSE_TEXT = "executor-only final response body";
+const RAW_QUEUE_FORBIDDEN_TEXT =
+  "queue smoke raw executor payload must stay executor-owned";
 
 class QueueExecutorSmokeRuntime {
   private attachCallCount = 0;
   private executorRunDetailCallCount = 0;
+  private executorRunDetailRunIds: string[] = [];
   private finalEventEmitCallCount = 0;
   private finalStatusAvailable = false;
   private forbiddenCallCount = 0;
   private listExecutorRunsCallCount = 0;
+  private listQueueRunLinksCallCount = 0;
   private queueListCallsAfterFinal = 0;
   private startCallCount = 0;
   private terminalRunCallCount = 0;
@@ -160,15 +169,16 @@ class QueueExecutorSmokeRuntime {
       executeJdbcReadOnlyQuery: this.unsupported,
       generateCoordinatorProviderResponse: async () => this.forbidden(null),
       getAgentExecutorDiffSummary: async () => null,
-      getAgentExecutorRunDetail: async () => {
+      getAgentExecutorRunDetail: async (_widgetInstanceId, runId) => {
         this.executorRunDetailCallCount += 1;
+        this.executorRunDetailRunIds.push(runId);
 
-        if (this.scenario === "reconciliation-final") {
+        if (this.scenario === "reconciliation-final" && runId === RUN_ID) {
           this.markFinalAvailable();
-          return this.runDetail();
+          return this.runDetail(runId);
         }
 
-        return this.finalStatusAvailable ? this.runDetail() : null;
+        return this.finalStatusAvailable ? this.runDetail(runId) : null;
       },
       getAgentQueueTask: async (queueItemId) =>
         this.findTask(queueItemId) ?? this.cloneTask(),
@@ -233,9 +243,12 @@ class QueueExecutorSmokeRuntime {
       startCodexDirectWorkStream: async () => this.forbidden(null),
       stopAgentQueueRunnerSession: async () => this.runnerSnapshot("stopped"),
       stopTerminalPtySession: async () => this.forbidden(null),
-      getAgentQueueTaskLatestRunLink: async () => null,
+      getAgentQueueTaskLatestRunLink: async () => this.queueRunLinks()[0] ?? null,
       getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot("idle"),
-      listAgentQueueTaskRunLinks: async () => [],
+      listAgentQueueTaskRunLinks: async () => {
+        this.listQueueRunLinksCallCount += 1;
+        return this.queueRunLinks();
+      },
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
       updateJdbcConnector: this.unsupported,
@@ -283,10 +296,12 @@ class QueueExecutorSmokeRuntime {
     return {
       attachCallCount: this.attachCallCount,
       executorRunDetailCallCount: this.executorRunDetailCallCount,
+      executorRunDetailRunIds: [...this.executorRunDetailRunIds],
       finalEventEmitCallCount: this.finalEventEmitCallCount,
       finalStatusAvailable: this.finalStatusAvailable,
       forbiddenCallCount: this.forbiddenCallCount,
       listExecutorRunsCallCount: this.listExecutorRunsCallCount,
+      listQueueRunLinksCallCount: this.listQueueRunLinksCallCount,
       queueListCallsAfterFinal: this.queueListCallsAfterFinal,
       runId: this.startCallCount > 0 ? RUN_ID : null,
       scenario: this.scenario,
@@ -310,7 +325,18 @@ class QueueExecutorSmokeRuntime {
   }
 
   private executorRunHistory(): AgentExecutorRunHistory {
-    const runs = this.startCallCount > 0 ? [this.runDetail().summary] : [];
+    const runs =
+      this.startCallCount > 0
+        ? [
+            this.runDetail(RUN_ID).summary,
+            {
+              ...this.runDetail(HISTORY_RUN_ID).summary,
+              finishedAt: "2026-05-18T09:00:03.000Z",
+              startedAt: "2026-05-18T09:00:00.000Z",
+              title: "Previous Queue-linked run",
+            },
+          ]
+        : [];
 
     return {
       runs,
@@ -318,6 +344,54 @@ class QueueExecutorSmokeRuntime {
       workbenchId: WORKBENCH_ID,
       workspaceId: WORKSPACE_ID,
     };
+  }
+
+  private queueRunLinks(): AgentQueueTaskRunLinkSummary[] {
+    if (this.startCallCount === 0 && this.viewMode !== "no-executor") {
+      return [];
+    }
+
+    const latestStatus: AgentQueueTaskRunLinkSummary["status"] =
+      this.finalStatusAvailable || this.viewMode === "no-executor"
+        ? "completed"
+        : "running";
+    const latestCompletedAt =
+      this.finalStatusAvailable || this.viewMode === "no-executor"
+        ? "2026-05-18T10:00:03.000Z"
+        : null;
+
+    return [
+      {
+        completedAt: latestCompletedAt,
+        createdAt: "2026-05-18T10:00:00.000Z",
+        directWorkRunId: RUN_ID,
+        executorWidgetId: EXECUTOR_WIDGET_ID,
+        linkId: "queue-smoke-link-latest",
+        queueTaskId: QUEUE_ITEM_ID,
+        reviewStatus: latestCompletedAt ? "review_needed" : null,
+        source: "manual",
+        startedAt: "2026-05-18T10:00:00.000Z",
+        status: latestStatus,
+        updatedAt: latestCompletedAt ?? "2026-05-18T10:00:00.000Z",
+        validationStatus: null,
+        workspaceId: WORKSPACE_ID,
+      },
+      {
+        completedAt: "2026-05-18T09:00:03.000Z",
+        createdAt: "2026-05-18T09:00:00.000Z",
+        directWorkRunId: HISTORY_RUN_ID,
+        executorWidgetId: EXECUTOR_WIDGET_ID,
+        linkId: "queue-smoke-link-history",
+        queueTaskId: QUEUE_ITEM_ID,
+        reviewStatus: "review_needed",
+        source: "autorun",
+        startedAt: "2026-05-18T09:00:00.000Z",
+        status: "completed",
+        updatedAt: "2026-05-18T09:00:03.000Z",
+        validationStatus: "not_run",
+        workspaceId: WORKSPACE_ID,
+      },
+    ];
   }
 
   private forbidden<T>(value: T): T {
@@ -357,7 +431,7 @@ class QueueExecutorSmokeRuntime {
     };
   }
 
-  private runDetail(): AgentExecutorRunDetail {
+  private runDetail(runId = RUN_ID): AgentExecutorRunDetail {
     const finishedAt = this.finalStatusAvailable
       ? "2026-05-18T10:00:03.000Z"
       : null;
@@ -369,7 +443,11 @@ class QueueExecutorSmokeRuntime {
       logs: [],
       resultContent: this.finalStatusAvailable ? FINAL_RESPONSE_TEXT : null,
       resultId: this.finalStatusAvailable ? "result-smoke" : null,
-      resultPayload: JSON.stringify({ exit_code: 0, status: "completed" }),
+      resultPayload: JSON.stringify({
+        exit_code: 0,
+        raw_output: RAW_QUEUE_FORBIDDEN_TEXT,
+        status: "completed",
+      }),
       resultStatus: this.finalStatusAvailable ? "completed" : null,
       resultSummary: this.finalStatusAvailable ? "Completed" : null,
       stderrPreview: null,
@@ -383,7 +461,7 @@ class QueueExecutorSmokeRuntime {
         mode: "direct_work",
         repoRoot: REPO_ROOT,
         resultType: this.finalStatusAvailable ? "codex_direct_work" : null,
-        runId: RUN_ID,
+        runId,
         startedAt: "2026-05-18T10:00:00.000Z",
         status: this.finalStatusAvailable ? "completed" : "running",
         title: TASK_TITLE,
@@ -438,6 +516,7 @@ function SmokeWorkbench() {
     emitExecutorFinalEvents: () => runtime.emitExecutorFinalEvents(),
     finalResponseText: FINAL_RESPONSE_TEXT,
     liveLogText: LIVE_LOG_TEXT,
+    rawQueueForbiddenText: RAW_QUEUE_FORBIDDEN_TEXT,
     scenario,
     snapshot: () => runtime.snapshot(),
   };

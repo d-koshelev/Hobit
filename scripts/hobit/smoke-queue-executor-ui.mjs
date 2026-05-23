@@ -52,6 +52,14 @@ async function main() {
       );
     }
 
+    const missingExecutorResult = await runMissingExecutorScenario({
+      browserPort,
+      url: `http://127.0.0.1:${vitePort}${SMOKE_PATH}?view=no-executor`,
+    });
+    console.log(
+      `[queue-executor-smoke] missing-executor: passed in ${missingExecutorResult.durationMs}ms`,
+    );
+
     console.log(
       `[queue-executor-smoke] all scenarios passed in ${Date.now() - startedAt}ms`,
     );
@@ -174,7 +182,85 @@ async function runScenario({ browserPort, scenario, url }) {
     await assertDocumentIncludes(cdp, await smokeField(cdp, "finalResponseText"));
     await assertQueueExcludes(cdp, await smokeField(cdp, "liveLogText"));
     await assertQueueExcludes(cdp, await smokeField(cdp, "finalResponseText"));
+    await assertQueueExcludes(cdp, await smokeField(cdp, "rawQueueForbiddenText"));
+    await assertQueueExcludes(cdp, REPO_ROOT);
+    await assertQueueExcludes(cdp, "Raw payload");
     await assertQueueIncludes(cdp, "Completed");
+    await assertQueueIncludes(cdp, "Run history");
+    await assertQueueIncludes(cdp, "Latest run");
+
+    const beforeLatestOpen = await smokeSnapshot(cdp);
+    await clickQueueGroupButton(cdp, "Latest run", "Open Executor");
+    await waitForSnapshot(
+      cdp,
+      (snapshot) =>
+        snapshot.executorRunDetailCallCount >
+          beforeLatestOpen.executorRunDetailCallCount &&
+        snapshot.executorRunDetailRunIds.includes(RUN_ID),
+    );
+
+    const beforeHistoryOpen = await smokeSnapshot(cdp);
+    await clickQueueGroupButton(cdp, "Run history", "Open Executor");
+    await waitForSnapshot(
+      cdp,
+      (snapshot) =>
+        snapshot.executorRunDetailCallCount >
+          beforeHistoryOpen.executorRunDetailCallCount &&
+        snapshot.executorRunDetailRunIds.includes(RUN_ID),
+    );
+
+    const afterOpen = await smokeSnapshot(cdp);
+    assertAtLeast(
+      afterOpen.listQueueRunLinksCallCount,
+      1,
+      "Queue run-link metadata calls",
+    );
+    await assertDocumentIncludes(cdp, await smokeField(cdp, "finalResponseText"));
+    await assertQueueExcludes(cdp, await smokeField(cdp, "finalResponseText"));
+
+    return { durationMs: Date.now() - startedAt };
+  } finally {
+    await cdp.close();
+    await closeTarget(browserPort, target.id).catch(() => {});
+  }
+}
+
+async function runMissingExecutorScenario({ browserPort, url }) {
+  const startedAt = Date.now();
+  const target = await createTarget(browserPort, url);
+  const cdp = await CdpSession.connect(target.webSocketDebuggerUrl);
+
+  try {
+    await cdp.send("Runtime.enable");
+    await cdp.send("Page.enable");
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      deviceScaleFactor: 1,
+      height: 1100,
+      mobile: false,
+      width: 1440,
+    });
+
+    await waitFor(cdp, "Boolean(window.__HOBIT_QUEUE_EXECUTOR_SMOKE__)");
+    await waitForText(cdp, "Queue to Executor smoke");
+    await waitForText(
+      cdp,
+      "Owning Agent Executor is not visible on this Workbench.",
+    );
+    await waitForText(cdp, "Executor not visible");
+    await waitForDisabledQueueGroupButton(cdp, "Latest run", "Open Executor");
+    await waitForDisabledQueueGroupButton(cdp, "Run history", "Open Executor");
+
+    const snapshot = await smokeSnapshot(cdp);
+    assertEqual(snapshot.executorRunDetailCallCount, 0, "run detail calls");
+    assertAtLeast(
+      snapshot.listQueueRunLinksCallCount,
+      1,
+      "Queue run-link metadata calls",
+    );
+    await assertQueueExcludes(cdp, await smokeField(cdp, "liveLogText"));
+    await assertQueueExcludes(cdp, await smokeField(cdp, "finalResponseText"));
+    await assertQueueExcludes(cdp, await smokeField(cdp, "rawQueueForbiddenText"));
+    await assertQueueExcludes(cdp, REPO_ROOT);
 
     return { durationMs: Date.now() - startedAt };
   } finally {
@@ -430,10 +516,40 @@ async function clickButton(cdp, text) {
   );
 }
 
+async function clickQueueGroupButton(cdp, heading, buttonText) {
+  await evaluate(
+    cdp,
+    `(() => {
+      ${queueExecutionGroupScript()}
+      const group = queueExecutionGroup(${JSON.stringify(heading)});
+      const button = [...group.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent.trim() === ${JSON.stringify(buttonText)} && !candidate.disabled
+      );
+      if (!button) {
+        throw new Error("Enabled Queue button not found: ${escapeForJs(heading)} / ${escapeForJs(buttonText)}");
+      }
+      button.click();
+    })()`,
+  );
+}
+
 async function waitForEnabledButton(cdp, text) {
   await waitFor(
     cdp,
     `[...document.querySelectorAll("button")].some((button) => button.textContent.trim() === ${JSON.stringify(text)} && !button.disabled)`,
+  );
+}
+
+async function waitForDisabledQueueGroupButton(cdp, heading, buttonText) {
+  await waitFor(
+    cdp,
+    `(() => {
+      ${queueExecutionGroupScript()}
+      const group = queueExecutionGroup(${JSON.stringify(heading)});
+      return [...group.querySelectorAll("button")].some(
+        (button) => button.textContent.trim() === ${JSON.stringify(buttonText)} && button.disabled
+      );
+    })()`,
   );
 }
 
@@ -523,6 +639,20 @@ async function widgetText(cdp, title) {
       return frame?.textContent ?? "";
     })()`,
   );
+}
+
+function queueExecutionGroupScript() {
+  return `function queueExecutionGroup(heading) {
+    const groups = [...document.querySelectorAll(".agent-queue-execution-group")];
+    const group = groups.find((candidate) => {
+      const title = candidate.querySelector(".agent-queue-execution-group-title");
+      return title && title.textContent.trim() === heading;
+    });
+    if (!group) {
+      throw new Error("Queue group not found: " + heading);
+    }
+    return group;
+  }`;
 }
 
 function assert(condition, message) {

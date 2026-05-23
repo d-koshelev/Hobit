@@ -164,6 +164,8 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
   });
 
   it("shows a compact disabled reason when the owning Executor is not visible", () => {
+    const onOpenAgentExecutorRun = vi.fn();
+
     renderPanel({
       executorSlots: [],
       hasExecutorSlots: false,
@@ -176,12 +178,26 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
           linkId: "link_missing",
         }),
       ]),
+      onOpenAgentExecutorRun,
     });
 
     expect(document.body.textContent).toContain(
       "Owning Agent Executor is not visible on this Workbench.",
     );
     expect(document.body.textContent).toContain("Executor not visible");
+
+    const openButtons = Array.from(document.querySelectorAll("button")).filter(
+      (button) => button.textContent === "Open Executor",
+    );
+
+    expect(openButtons).toHaveLength(2);
+    expect(openButtons.every((button) => button.disabled)).toBe(true);
+    act(() => {
+      openButtons.forEach((button) =>
+        button.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+      );
+    });
+    expect(onOpenAgentExecutorRun).not.toHaveBeenCalled();
   });
 });
 
