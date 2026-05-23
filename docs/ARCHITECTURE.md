@@ -625,7 +625,7 @@ The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fi
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions and Terminal one-shot fallback command responses. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. Terminal fallback command runs emit bounded lifecycle logs. The Direct Work streaming Tauri bridge can append persisted widget logs while a Codex stream is running, and Agent Executor consumes the Direct Work stream for live run status/logs. PTY output uses frontend polling of the bounded backend session buffer. There is no event-streamed Terminal log bridge, persistent PTY transcript, or full agent run Raw Log/Overview Log/Result Report model yet.
 
-The Workbench canvas includes a compact Recent activity surface backed by workspace-scoped events from `get_workspace_workbench_state`. This is not a runtime log console.
+The Workbench shell includes a collapsible Recent Activity drawer backed by workspace-scoped events from `get_workspace_workbench_state`. It is opened from the compact top-bar activity control and is not a widget body, Queue-owned history list, or runtime log console.
 
 ## Current Core Model Milestone
 

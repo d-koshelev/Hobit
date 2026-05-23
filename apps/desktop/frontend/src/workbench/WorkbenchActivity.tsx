@@ -1,42 +1,46 @@
-import { useState } from "react";
-
 import { Button } from "../design-system/Button";
 import type { WorkbenchEventView } from "./types";
 
-const RECENT_ACTIVITY_LIMIT = 5;
-const COLLAPSED_ACTIVITY_LIMIT = 2;
-
 type WorkbenchActivityProps = {
   events: WorkbenchEventView[];
+  id: string;
+  onClose: () => void;
 };
 
-export function WorkbenchActivity({ events }: WorkbenchActivityProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const recentEvents = events.slice(-RECENT_ACTIVITY_LIMIT).reverse();
-  const visibleEvents = isExpanded
-    ? recentEvents
-    : recentEvents.slice(0, COLLAPSED_ACTIVITY_LIMIT);
-  const hasExpandableActivity = recentEvents.length > COLLAPSED_ACTIVITY_LIMIT;
-  const activityClassName = isExpanded
-    ? "workbench-activity workbench-activity-expanded"
-    : "workbench-activity";
+export function WorkbenchActivity({
+  events,
+  id,
+  onClose,
+}: WorkbenchActivityProps) {
+  const recentEvents = [...events].reverse();
 
   return (
-    <aside
+    <footer
       aria-labelledby="workbench-activity-title"
-      className={activityClassName}
+      className="workbench-activity"
+      id={id}
     >
       <div className="workbench-activity-header">
         <h2 className="workbench-activity-title" id="workbench-activity-title">
-          Recent activity
+          Recent Activity
         </h2>
         <span className="workbench-activity-count">
-          {recentEvents.length > 0 ? `${recentEvents.length} latest` : "Empty"}
+          {recentEvents.length > 0
+            ? `${recentEvents.length} recent events`
+            : "Empty"}
         </span>
+        <Button
+          aria-label="Close Recent Activity"
+          className="workbench-activity-close"
+          onClick={onClose}
+          variant="ghost"
+        >
+          Close
+        </Button>
       </div>
-      {visibleEvents.length > 0 ? (
+      {recentEvents.length > 0 ? (
         <ol className="workbench-activity-list">
-          {visibleEvents.map((event, index) => {
+          {recentEvents.map((event, index) => {
             const createdAt =
               typeof event.createdAt === "string" ? event.createdAt : "";
 
@@ -63,17 +67,7 @@ export function WorkbenchActivity({ events }: WorkbenchActivityProps) {
       ) : (
         <p className="workbench-activity-empty">No recent activity yet.</p>
       )}
-      {hasExpandableActivity ? (
-        <Button
-          aria-expanded={isExpanded}
-          className="workbench-activity-toggle"
-          onClick={() => setIsExpanded((current) => !current)}
-          variant="ghost"
-        >
-          {isExpanded ? "Show less" : "Show all"}
-        </Button>
-      ) : null}
-    </aside>
+    </footer>
   );
 }
 

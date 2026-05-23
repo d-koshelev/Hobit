@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { Button } from "../design-system/Button";
 
 type WorkbenchEmptyCanvasProps = {
@@ -6,7 +6,6 @@ type WorkbenchEmptyCanvasProps = {
   canvasLabel: string;
   canvasShellClass: string;
   onOpenWidgetCatalog: () => void;
-  topSurfaces: ReactNode;
 };
 
 export function WorkbenchEmptyCanvas({
@@ -14,7 +13,6 @@ export function WorkbenchEmptyCanvas({
   canvasLabel,
   canvasShellClass,
   onOpenWidgetCatalog,
-  topSurfaces,
 }: WorkbenchEmptyCanvasProps) {
   return (
     <section
@@ -23,7 +21,6 @@ export function WorkbenchEmptyCanvas({
       style={canvasGridStyle}
     >
       <div className="canvas-stack">
-        {topSurfaces}
         <div className="empty-workbench" aria-label="Empty workbench">
           <div className="empty-workbench-content">
             <h1 className="empty-workbench-title">Your workbench is empty</h1>

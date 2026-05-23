@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
@@ -131,10 +130,6 @@ export function WorkbenchCanvas({
     dockedResizeSizes,
   );
   const canvasGridStyle = workbenchCanvasGridStyle(gridSize);
-  const canvasTopSurfaces = (
-    <WorkbenchActivity events={viewState.recentEvents} />
-  );
-
   useEffect(() => {
     dockedDragPositionsRef.current = dockedDragPositions;
   }, [dockedDragPositions]);
@@ -627,7 +622,6 @@ export function WorkbenchCanvas({
         canvasLabel={canvasLabel}
         canvasShellClass={canvasShellClass}
         onOpenWidgetCatalog={onOpenWidgetCatalog}
-        topSurfaces={canvasTopSurfaces}
       />
     );
   }
@@ -639,7 +633,6 @@ export function WorkbenchCanvas({
       style={canvasGridStyle}
     >
       <div className="canvas-stack">
-        {canvasTopSurfaces}
         <div
           className="widget-layout-surface"
           ref={layoutSurfaceRef}

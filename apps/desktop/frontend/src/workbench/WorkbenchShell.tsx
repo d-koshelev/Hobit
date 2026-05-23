@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import { useCurrentSessionActivity } from "./useCurrentSessionActivity";
 import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
+import { WorkbenchActivity } from "./WorkbenchActivity";
 import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
@@ -19,6 +20,7 @@ export function WorkbenchShell({
   viewState,
 }: WorkbenchShellProps) {
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
+  const [isActivityPanelOpen, setIsActivityPanelOpen] = useState(false);
   const [layoutMode, setLayoutMode] =
     useState<WorkbenchLayoutMode>("locked");
   const [gridSize, setGridSize] = useState(DEFAULT_WORKBENCH_GRID_SIZE);
@@ -46,12 +48,17 @@ export function WorkbenchShell({
     <main className="app-shell">
       <div className="workbench">
         <WorkbenchTopBar
+          activityPanelId="workbench-activity-panel"
           activityStatus={currentSessionActivity.status}
           gridSize={gridSize}
+          isActivityPanelOpen={isActivityPanelOpen}
           layoutMode={layoutMode}
           onGridSizeChange={setGridSize}
           onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}
+          onToggleActivityPanel={() =>
+            setIsActivityPanelOpen((current) => !current)
+          }
           viewState={viewState}
         />
         <div
@@ -82,6 +89,13 @@ export function WorkbenchShell({
             onClose={closeWidgetCatalog}
           />
         </div>
+        {isActivityPanelOpen ? (
+          <WorkbenchActivity
+            events={viewState.recentEvents}
+            id="workbench-activity-panel"
+            onClose={() => setIsActivityPanelOpen(false)}
+          />
+        ) : null}
       </div>
     </main>
   );

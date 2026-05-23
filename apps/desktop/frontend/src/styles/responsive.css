@@ -51,6 +51,12 @@
     width: 100%;
   }
 
+  .global-activity-indicator.badge,
+  .global-activity-toggle.button {
+    max-width: none;
+    width: 100%;
+  }
+
   .grid-size-select.select {
     flex: 1 1 auto;
     min-width: 0;
@@ -72,6 +78,22 @@
 
   .workbench-content-catalog-open .canvas-shell {
     margin-right: 0;
+  }
+
+  .workbench-activity {
+    right: var(--space-sm);
+    bottom: var(--space-sm);
+    left: var(--space-sm);
+    max-height: min(320px, calc(100vh - 176px));
+  }
+
+  .workbench-activity-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .workbench-activity-count {
+    margin-left: 0;
   }
 
   .widget-catalog-drawer {

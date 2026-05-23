@@ -14,22 +14,28 @@ import {
 } from "./workbenchLayoutGeometry";
 
 type WorkbenchTopBarProps = {
+  activityPanelId: string;
   activityStatus: GlobalActivityStatus;
   gridSize: WorkbenchGridSize;
+  isActivityPanelOpen: boolean;
   layoutMode: WorkbenchLayoutMode;
   onGridSizeChange: (gridSize: WorkbenchGridSize) => void;
   onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
+  onToggleActivityPanel: () => void;
   viewState: WorkbenchViewState;
 };
 
 export function WorkbenchTopBar({
+  activityPanelId,
   activityStatus,
   gridSize,
+  isActivityPanelOpen,
   layoutMode,
   onGridSizeChange,
   onLayoutModeChange,
   onOpenWidgetCatalog,
+  onToggleActivityPanel,
   viewState,
 }: WorkbenchTopBarProps) {
   const presetId = viewState.workbench.preset.id ?? "";
@@ -62,6 +68,15 @@ export function WorkbenchTopBar({
 
       <div className="topbar-right" aria-label="Workbench controls">
         <GlobalActivityIndicator status={activityStatus} />
+        <Button
+          aria-controls={activityPanelId}
+          aria-expanded={isActivityPanelOpen}
+          className="global-activity-toggle"
+          onClick={onToggleActivityPanel}
+          variant={isActivityPanelOpen ? "secondary" : "ghost"}
+        >
+          Activity
+        </Button>
         <div
           aria-label="Workbench layout mode"
           className="layout-mode-toggle"
