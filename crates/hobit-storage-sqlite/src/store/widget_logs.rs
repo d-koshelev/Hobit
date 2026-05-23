@@ -1,4 +1,6 @@
-use rusqlite::{params, OptionalExtension, Result};
+use std::collections::HashMap;
+
+use rusqlite::{params, params_from_iter, OptionalExtension, Result, ToSql};
 
 use crate::inputs::NewWidgetLog;
 use crate::mappers::widget_log_row;
@@ -75,6 +77,55 @@ impl SqliteStore {
         let mut logs: Vec<_> = rows.collect::<Result<Vec<_>>>()?;
         logs.reverse();
         Ok(logs)
+    }
+
+    pub fn count_widget_logs_for_run(
+        &self,
+        run_id: &str,
+        widget_instance_id: &str,
+    ) -> Result<usize> {
+        let count = self.connection.query_row(
+            "SELECT COUNT(*)
+             FROM widget_logs
+             WHERE run_id = ?1 AND widget_instance_id = ?2",
+            params![run_id, widget_instance_id],
+            |row| row.get::<_, i64>(0),
+        )?;
+
+        Ok(count as usize)
+    }
+
+    pub fn count_widget_logs_for_runs_by_widget(
+        &self,
+        run_ids: &[String],
+        widget_instance_id: &str,
+    ) -> Result<HashMap<String, usize>> {
+        if run_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let placeholders = std::iter::repeat("?")
+            .take(run_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT run_id, COUNT(*)
+             FROM widget_logs
+             WHERE widget_instance_id = ? AND run_id IN ({placeholders})
+             GROUP BY run_id"
+        );
+        let mut statement = self.connection.prepare(&sql)?;
+        let mut query_params: Vec<&dyn ToSql> = Vec::with_capacity(run_ids.len() + 1);
+        query_params.push(&widget_instance_id);
+        for run_id in run_ids {
+            query_params.push(run_id);
+        }
+
+        let rows = statement.query_map(params_from_iter(query_params), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })?;
+
+        rows.collect()
     }
 
     pub fn list_widget_logs_for_widget(

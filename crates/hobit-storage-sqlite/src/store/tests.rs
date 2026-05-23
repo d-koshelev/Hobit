@@ -683,6 +683,87 @@ fn insert_widget_run_log_and_result() {
 }
 
 #[test]
+fn count_widget_logs_for_run_and_runs_is_scoped_to_widget() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "widget-2",
+            workspace_id: "workspace-1",
+            workbench_id: "workbench-1",
+            definition_id: "terminal",
+            title: "Terminal",
+            category: "tool",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(320),
+            dock_height: Some(200),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert second widget");
+    insert_widget_run(&store);
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: "run-2",
+            widget_instance_id: "widget-1",
+            status: "completed",
+            command_kind: Some("save_note"),
+            command_payload: Some("{note:2}"),
+            started_at: Some("3"),
+            finished_at: Some("4"),
+            summary: Some("Saved second note"),
+        })
+        .expect("insert second run");
+
+    for (id, widget_id, run_id) in [
+        ("log-1", "widget-1", "run-1"),
+        ("log-2", "widget-1", "run-1"),
+        ("log-3", "widget-1", "run-2"),
+        ("cross-widget-log", "widget-2", "run-1"),
+    ] {
+        store
+            .append_widget_log(NewWidgetLog {
+                id,
+                widget_instance_id: widget_id,
+                run_id: Some(run_id),
+                level: "info",
+                message: "Run log",
+                created_at: Some("5"),
+                details: None,
+            })
+            .expect("append log");
+    }
+
+    let run_count = store
+        .count_widget_logs_for_run("run-1", "widget-1")
+        .expect("count run logs");
+    let run_counts = store
+        .count_widget_logs_for_runs_by_widget(
+            &[
+                "run-1".to_owned(),
+                "run-2".to_owned(),
+                "missing-run".to_owned(),
+            ],
+            "widget-1",
+        )
+        .expect("count logs for runs");
+
+    assert_eq!(run_count, 2);
+    assert_eq!(run_counts.get("run-1").copied(), Some(2));
+    assert_eq!(run_counts.get("run-2").copied(), Some(1));
+    assert_eq!(run_counts.get("missing-run").copied(), None);
+}
+
+#[test]
 fn insert_and_list_agent_queue_items() {
     let store = initialized_store();
     create_workspace_and_workbench(&store);

@@ -53,13 +53,15 @@ Scope: investigation-first audit of slow request candidates after moving Recent 
    - Starting a selected task calls both `loadTasks` and `refreshLatestRunLink` (`useAgentQueueController.ts:837`, `:838`).
    - Autorun snapshot refresh may also refresh run links for the active or selected task (`useAgentQueueController.ts:853`, `:870`).
 
-4. Agent Executor history has an N+1 pattern for results and log counts.
+4. Agent Executor history had an N+1 pattern for results and log counts.
    - `list_agent_executor_runs` lists widget runs, then for each candidate run calls `list_widget_results`, then `list_widget_logs` to count logs (`agent_executor_history.rs:51`, `:55`, `:65`).
    - This is bounded by a default limit of 20 and max of 100, but the loop can scan many non-executor runs before collecting the requested count.
+   - Status: inspected and partially fixed on 2026-05-24. History now uses one grouped metadata-only log-count query for the returned Executor runs instead of reading full log rows for each returned run. Per-run result reads remain a follow-up because preserving compatibility result-type filtering without fetching broader raw payloads needs a separate focused query design.
 
-5. Agent Executor run detail reads recent logs and then reads all logs again for count.
+5. Agent Executor run detail read recent logs and then read all logs again for count.
    - Detail loads recent logs with `list_recent_widget_logs_for_run` and separately loads all logs with `list_widget_logs` for `log_count` (`agent_executor_history.rs:132`, `:137`).
    - For runs with many logs, the count path is the larger read.
+   - Status: fixed on 2026-05-24. Detail now keeps the capped recent-log preview and gets `log_count` from a metadata-only count query instead of loading all logs.
 
 6. SQLite indexes mostly exist, but a few ordering/query patterns are only partially covered.
    - Queue task ordering uses `workspace_id, priority, updated_at, created_at` index, while SQL additionally orders by `queue_item_id DESC` (`schema.rs:219`, `agent_queue_tasks.rs:59`).
@@ -113,11 +115,14 @@ Existing validation context from the visual block:
    - Shape: keep current command names; consider optional limit in request DTO later, or add service/store helper that returns latest N for UI.
 
 4. Optimize Agent Executor history with aggregate log counts and bounded run query.
+   - Status: partially addressed on 2026-05-24 for aggregate log counts.
    - Impact: medium to high for executors with many runs/logs.
    - Risk: moderate backend refactor, but behavior can stay identical.
    - Shape: add store helpers that fetch recent widget runs in descending order with limit and count logs per run with grouped SQL, instead of per-run `list_widget_logs`.
+   - Remaining follow-up: replace per-run result reads with a focused compatible query only if it can preserve result-type filtering and avoid unnecessary raw payload fetches.
 
 5. Optimize Agent Executor detail log count.
+   - Status: completed on 2026-05-24.
    - Impact: medium for very chatty runs.
    - Risk: low.
    - Shape: add `count_widget_logs_for_run(run_id, widget_instance_id)` and use it instead of loading all logs just to count.
@@ -152,3 +157,4 @@ This is the best next block because it directly targets the most likely user-vis
 
 - 2026-05-23: Completed the recommended frontend-only regression block. `WorkbenchShell.test.tsx` now mounts Agent Queue with mocked Workspace API reads and proves Activity drawer open/close does not call `listAgentQueueTasks` or `getAgentQueueTask` beyond the initial load. Queue task actions are memoized across unchanged `viewState` renders in `useWorkbenchWidgetActions`, preserving manual Refresh and existing mutation-triggered reload behavior.
 - 2026-05-23: Partially completed the Queue mutation reload block. `useAgentQueueController` now reconciles returned task summaries locally for create, save/update, assign, and clear assignment while preserving backend-equivalent task ordering and selected-task draft state. Manual Refresh, delete, manual run start, Sequential Queue Runner run start, Executor-driven task auto-refresh, and Autorun active-task refresh still perform full task reloads because those paths either need deletion/next-selection reconciliation or do not return an updated `AgentQueueTask` summary.
+- 2026-05-24: Inspected Agent Executor history/detail query overhead. Added SQLite metadata-only log-count helpers, switched run detail from capped recent logs plus full log read to capped recent logs plus count query, and switched history from per-run full log reads to one grouped count query for returned runs. Behavior and DTO shape are unchanged: detail still returns the same result payload fields, recent log preview remains capped, history keeps safe summary fields, and Queue run-link visibility remains metadata-only. Remaining follow-up: per-run result reads in history still exist; optimize them separately only with a query that preserves compatibility filtering and does not broaden raw payload exposure.

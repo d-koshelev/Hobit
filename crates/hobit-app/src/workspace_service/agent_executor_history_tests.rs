@@ -4,7 +4,9 @@ use std::env;
 use std::path::PathBuf;
 
 use hobit_core::widgets::WidgetRunStatus;
-use hobit_storage_sqlite::{NewWidgetInstance, NewWidgetLog, SqliteStore};
+use hobit_storage_sqlite::{
+    NewAgentQueueTaskRunLink, NewWidgetInstance, NewWidgetLog, SqliteStore,
+};
 use hobit_tools::codex_cli::{
     CodexApprovalPolicy, CodexDirectRunOutput, CodexDirectRunRequest, CodexDirectRunStatus,
     CodexSandboxMode,
@@ -28,6 +30,19 @@ fn list_agent_executor_runs_returns_direct_work_and_validation_only() {
     let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
     let direct = run_direct_work(&service, &workspace_id, &workbench_id, &widget_id);
     let validation = run_validation(&service, &workspace_id, &workbench_id, &widget_id);
+    let terminal_widget_id = add_terminal_widget(&service, &workspace_id, &workbench_id);
+    service
+        .store
+        .append_widget_log(NewWidgetLog {
+            id: "cross-widget-history-log",
+            widget_instance_id: &terminal_widget_id,
+            run_id: Some(&direct.run_id),
+            level: "info",
+            message: "Wrong widget for same run id",
+            created_at: Some("999"),
+            details: None,
+        })
+        .expect("append cross-widget history log");
     let proposal_run_id =
         create_legacy_proposal_artifact(&service, &workspace_id, &workbench_id, &widget_id);
     let terminal_run_id = create_terminal_artifact(&service, &workspace_id, &workbench_id);
@@ -51,7 +66,8 @@ fn list_agent_executor_runs_returns_direct_work_and_validation_only() {
         .iter()
         .any(|run| run.mode.as_deref() == Some("direct_work")
             && run.repo_root.as_deref() == Some(current_repo_root_string().as_str())
-            && run.has_result));
+            && run.has_result
+            && run.log_count == Some(4)));
     assert!(history.runs.iter().any(|run| {
         run.mode.as_deref() == Some("direct_work_validation")
             && run.validation_profile.as_deref() == Some("fast")
@@ -188,6 +204,95 @@ fn get_agent_executor_run_detail_returns_result_and_run_scoped_logs() {
         .logs
         .iter()
         .any(|log| log.id == "cross-widget-run-log"));
+}
+
+#[test]
+fn get_agent_executor_run_detail_preserves_recent_log_cap_and_total_count() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
+    let direct = run_direct_work(&service, &workspace_id, &workbench_id, &widget_id);
+
+    for index in 0..105 {
+        service
+            .store
+            .append_widget_log(NewWidgetLog {
+                id: &format!("extra-log-{index:03}"),
+                widget_instance_id: &widget_id,
+                run_id: Some(&direct.run_id),
+                level: "info",
+                message: &format!("extra log {index}"),
+                created_at: Some(&format!("9000000{index:03}")),
+                details: None,
+            })
+            .expect("append extra run log");
+    }
+
+    let detail = service
+        .get_agent_executor_run_detail(&workspace_id, &workbench_id, &widget_id, &direct.run_id)
+        .expect("get run detail")
+        .expect("detail");
+
+    assert_eq!(detail.summary.log_count, Some(109));
+    assert_eq!(detail.logs.len(), 100);
+    assert_eq!(detail.logs[0].id, "extra-log-005");
+    assert_eq!(detail.logs.last().expect("last log").id, "extra-log-104");
+}
+
+#[test]
+fn queue_run_links_keep_raw_executor_payload_owned_by_executor_detail() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
+    let direct = run_direct_work(&service, &workspace_id, &workbench_id, &widget_id);
+    let task = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace_id.clone(),
+            title: "Review run".to_owned(),
+            description: String::new(),
+            prompt: "Review Executor output".to_owned(),
+            status: "queued".to_owned(),
+            priority: 1,
+            execution_policy: None,
+        })
+        .expect("create queue task");
+    service
+        .store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id: "link-executor-owned-payload",
+            workspace_id: &workspace_id,
+            queue_task_id: &task.queue_item_id,
+            executor_widget_id: &widget_id,
+            direct_work_run_id: &direct.run_id,
+            source: "manual",
+            status: "completed",
+            started_at: Some("9000000000"),
+            completed_at: Some("9000000001"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("9000000000"),
+            updated_at: Some("9000000001"),
+        })
+        .expect("insert run link");
+
+    let links = service
+        .list_agent_queue_task_run_links(&workspace_id, &task.queue_item_id)
+        .expect("list queue run links");
+    let detail = service
+        .get_agent_executor_run_detail(&workspace_id, &workbench_id, &widget_id, &direct.run_id)
+        .expect("get executor detail")
+        .expect("executor detail");
+
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].direct_work_run_id, direct.run_id);
+    assert_eq!(links[0].executor_widget_id, widget_id);
+    assert_eq!(links[0].status, AgentQueueTaskRunStatus::Completed);
+    assert_eq!(
+        links[0].review_status,
+        Some(AgentQueueTaskRunReviewStatus::ReviewNeeded)
+    );
+    assert!(detail
+        .result_payload
+        .as_deref()
+        .is_some_and(|payload| payload.contains("\"final_message\":\"Final response\"")));
 }
 
 #[test]

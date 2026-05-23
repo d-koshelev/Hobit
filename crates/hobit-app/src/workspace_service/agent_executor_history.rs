@@ -45,7 +45,7 @@ impl WorkspaceService {
 
         ensure_agent_executor_widget(&widget.definition_id)?;
 
-        let mut runs = Vec::new();
+        let mut candidates = Vec::new();
         for run in self
             .store
             .list_widget_runs_for_widget(&widget.id)?
@@ -58,29 +58,43 @@ impl WorkspaceService {
                 continue;
             }
 
-            let result = latest_agent_executor_result(&results);
-            let result_payload =
-                result.and_then(|result| parse_json_value(result.payload.as_deref()));
+            let result = latest_agent_executor_result(&results).cloned();
+            let result_payload = result
+                .as_ref()
+                .and_then(|result| parse_json_value(result.payload.as_deref()));
             let command_payload = parse_json_value(run.command_payload.as_deref());
-            let log_count = self
-                .store
-                .list_widget_logs(&run.id)?
-                .into_iter()
-                .filter(|log| log.widget_instance_id == widget.id)
-                .count();
 
-            runs.push(agent_executor_run_summary(
-                &run,
+            candidates.push(AgentExecutorRunCandidate {
+                run,
                 result,
-                result_payload.as_ref(),
-                command_payload.as_ref(),
-                Some(log_count),
-            ));
+                result_payload,
+                command_payload,
+            });
 
-            if runs.len() >= limit {
+            if candidates.len() >= limit {
                 break;
             }
         }
+        let run_ids = candidates
+            .iter()
+            .map(|candidate| candidate.run.id.clone())
+            .collect::<Vec<_>>();
+        let log_counts = self
+            .store
+            .count_widget_logs_for_runs_by_widget(&run_ids, &widget.id)?;
+        let runs = candidates
+            .iter()
+            .map(|candidate| {
+                let log_count = log_counts.get(&candidate.run.id).copied().unwrap_or(0);
+                agent_executor_run_summary(
+                    &candidate.run,
+                    candidate.result.as_ref(),
+                    candidate.result_payload.as_ref(),
+                    candidate.command_payload.as_ref(),
+                    Some(log_count),
+                )
+            })
+            .collect();
 
         Ok(Some(AgentExecutorRunHistory {
             workspace_id: workspace_id.to_owned(),
@@ -134,12 +148,7 @@ impl WorkspaceService {
             .filter(|log| log.widget_instance_id == widget.id)
             .map(mapping::widget_log_summary)
             .collect::<Vec<_>>();
-        let log_count = self
-            .store
-            .list_widget_logs(&run.id)?
-            .into_iter()
-            .filter(|log| log.widget_instance_id == widget.id)
-            .count();
+        let log_count = self.store.count_widget_logs_for_run(&run.id, &widget.id)?;
         let summary = agent_executor_run_summary(
             &run,
             result,
@@ -155,6 +164,13 @@ impl WorkspaceService {
             logs,
         )))
     }
+}
+
+struct AgentExecutorRunCandidate {
+    run: WidgetRunRow,
+    result: Option<WidgetResultRow>,
+    result_payload: Option<Value>,
+    command_payload: Option<Value>,
 }
 
 fn ensure_agent_executor_widget(definition_id: &str) -> Result<(), WorkspaceServiceError> {
