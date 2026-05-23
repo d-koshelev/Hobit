@@ -102,9 +102,10 @@ Existing validation context from the visual block:
    - Shape: memoize `useWorkbenchWidgetActions` output and/or queue-specific render props, or make `useAgentQueueController` use stable refs for handler callbacks so the initial load effect is not tied to handler identity.
 
 2. Replace full queue reloads after single-task mutations with local state reconciliation.
+   - Status: partially addressed on 2026-05-23 for create, save/update, assign, and clear assignment.
    - Impact: high for Queue-heavy workflows.
    - Risk: moderate. Must preserve sorting, selected-task state, dirty protection, and edge cases when backend returns `None`.
-   - Shape: after create/update/assign/clear/start, update `tasks` and `selectedTask` locally using the returned task, then reserve full reload for delete, manual Refresh, and error reconciliation.
+   - Shape: after create/update/assign/clear, update `tasks` and `selectedTask` locally using the returned task, then reserve full reload for delete, manual Refresh, run start, Autorun snapshot reconciliation, and error reconciliation.
 
 3. Add a bounded history request or list limit for Queue run links.
    - Impact: medium now, higher if one task accumulates many runs.
@@ -150,3 +151,4 @@ This is the best next block because it directly targets the most likely user-vis
 ## Follow-Up Status
 
 - 2026-05-23: Completed the recommended frontend-only regression block. `WorkbenchShell.test.tsx` now mounts Agent Queue with mocked Workspace API reads and proves Activity drawer open/close does not call `listAgentQueueTasks` or `getAgentQueueTask` beyond the initial load. Queue task actions are memoized across unchanged `viewState` renders in `useWorkbenchWidgetActions`, preserving manual Refresh and existing mutation-triggered reload behavior.
+- 2026-05-23: Partially completed the Queue mutation reload block. `useAgentQueueController` now reconciles returned task summaries locally for create, save/update, assign, and clear assignment while preserving backend-equivalent task ordering and selected-task draft state. Manual Refresh, delete, manual run start, Sequential Queue Runner run start, Executor-driven task auto-refresh, and Autorun active-task refresh still perform full task reloads because those paths either need deletion/next-selection reconciliation or do not return an updated `AgentQueueTask` summary.

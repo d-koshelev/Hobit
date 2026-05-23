@@ -176,6 +176,29 @@ export function replaceQueueTask(
   );
 }
 
+export function reconcileQueueTask(
+  tasks: AgentQueueTask[],
+  updatedTask: AgentQueueTask,
+) {
+  const nextTasks = replaceQueueTask(tasks, updatedTask);
+  const foundTask = nextTasks.some(
+    (task) => task.queueItemId === updatedTask.queueItemId,
+  );
+
+  return (foundTask ? nextTasks : [...nextTasks, updatedTask]).sort(
+    compareQueueTasks,
+  );
+}
+
+function compareQueueTasks(first: AgentQueueTask, second: AgentQueueTask) {
+  return (
+    second.priority - first.priority ||
+    second.updatedAt.localeCompare(first.updatedAt) ||
+    second.createdAt.localeCompare(first.createdAt) ||
+    second.queueItemId.localeCompare(first.queueItemId)
+  );
+}
+
 export function queueRunReadinessMessage({
   isDirty,
   selectedTask,

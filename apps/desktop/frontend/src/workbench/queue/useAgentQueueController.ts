@@ -31,6 +31,7 @@ import {
   queueRunReadinessMessage,
   queueRunStartErrorMessage,
   queueTaskDeleteBlockedReason,
+  reconcileQueueTask,
   runPreconditionMessages,
   type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
@@ -529,7 +530,7 @@ export function useAgentQueueController({
         priority: taskDraft.priority,
         executionPolicy: taskDraft.executionPolicy,
       });
-      await loadTasks(createdTask.queueItemId);
+      applyUpdatedTask(createdTask, { select: true });
       return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create queue task."));
@@ -629,7 +630,7 @@ export function useAgentQueueController({
         return;
       }
 
-      await loadTasks(updatedTask.queueItemId);
+      applyUpdatedTask(updatedTask, { select: true });
       setSaveStateText("Saved");
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to save queue task."));
@@ -758,7 +759,7 @@ export function useAgentQueueController({
         executorWidgetInstanceId: selectedExecutorWidgetId,
         queueItemId: selectedTask.queueItemId,
       });
-      await loadTasks(updatedTask.queueItemId);
+      applyUpdatedTask(updatedTask, { select: true });
       setAssignmentMessage("Assignment saved.");
     } catch (error) {
       setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
@@ -787,7 +788,7 @@ export function useAgentQueueController({
       const updatedTask = await onClearAgentQueueTaskAssignment({
         queueItemId: selectedTask.queueItemId,
       });
-      await loadTasks(updatedTask.queueItemId);
+      applyUpdatedTask(updatedTask, { select: true });
       setAssignmentMessage("Assignment cleared.");
     } catch (error) {
       setAssignmentError(
@@ -982,6 +983,19 @@ export function useAgentQueueController({
       status: normalizeTaskStatus(task.status),
       title: task.title,
     });
+  }
+
+  function applyUpdatedTask(
+    task: AgentQueueTask,
+    options?: { select?: boolean },
+  ) {
+    const nextTasks = reconcileQueueTask(tasksRef.current, task);
+    tasksRef.current = nextTasks;
+    setTasks(nextTasks);
+
+    if (options?.select || selectedTask?.queueItemId === task.queueItemId) {
+      setSelectedDraft(task);
+    }
   }
 
   function clearSelectedTask() {

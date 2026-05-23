@@ -1,10 +1,14 @@
 import { act } from "react";
 
 import type {
+  AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   AssignAgentQueueTaskToExecutorRequest,
+  ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   DeleteAgentQueueTaskRequest,
+  StartAgentQueueRunnerSessionRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
@@ -100,7 +104,9 @@ describe("useAgentQueueController executionPolicy draft", () => {
 
     expect(harness.createRequests).toHaveLength(1);
     expect(harness.createRequests[0].executionPolicy).toBe("manual");
-    expect(harness.listRequests).toBe(2);
+    expect(harness.listRequests).toBe(1);
+    expect(harness.getRequests).toEqual([]);
+    expect(hook.result.current.selectedTask?.queueItemId).toBe("queue-1");
     expect(hook.result.current.draft.executionPolicy).toBe("manual");
 
     hook.unmount();
@@ -133,9 +139,101 @@ describe("useAgentQueueController executionPolicy draft", () => {
 
     expect(harness.updateRequests).toHaveLength(1);
     expect(harness.updateRequests[0].executionPolicy).toBe("auto");
-    expect(harness.listRequests).toBe(2);
+    expect(harness.listRequests).toBe(1);
+    expect(harness.getRequests).toEqual(["queue-1"]);
     expect(hook.result.current.draft.executionPolicy).toBe("auto");
     expect(hook.result.current.isDirty).toBe(false);
+
+    hook.unmount();
+  });
+
+  it("updates the selected task and task list from a save response without reloading", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "manual",
+        prompt: "Initial prompt",
+        queueItemId: "queue-1",
+        status: "queued",
+        title: "Initial title",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.updateDraft({
+        priority: 5,
+        prompt: "Updated prompt",
+        title: "Updated title",
+      });
+    });
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+    await flushControllerLoad();
+
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.listRequests).toBe(1);
+    expect(harness.getRequests).toEqual(["queue-1"]);
+    expect(hook.result.current.selectedTask?.title).toBe("Updated title");
+    expect(hook.result.current.tasks[0].priority).toBe(5);
+    expect(hook.result.current.tasks[0].prompt).toBe("Updated prompt");
+    expect(hook.result.current.tasks[0].queueItemId).toBe("queue-1");
+    expect(hook.result.current.tasks[0].title).toBe("Updated title");
+    expect(hook.result.current.draft.title).toBe("Updated title");
+    expect(hook.result.current.isDirty).toBe(false);
+
+    hook.unmount();
+  });
+});
+
+describe("useAgentQueueController assignment refresh behavior", () => {
+  it("updates assignment and selected task from mutation responses without reloading", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "queued" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      await hook.result.current.assignSelectedTask();
+    });
+    await flushControllerLoad();
+
+    expect(harness.assignRequests).toEqual([
+      {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "queue-1",
+      },
+    ]);
+    expect(harness.listRequests).toBe(1);
+    expect(harness.getRequests).toEqual(["queue-1"]);
+    expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBe(
+      "executor-1",
+    );
+    expect(hook.result.current.tasks[0].assignedExecutorWidgetId).toBe(
+      "executor-1",
+    );
+    expect(hook.result.current.assignmentMessage).toBe("Assignment saved.");
+
+    await act(async () => {
+      await hook.result.current.clearSelectedTaskAssignment();
+    });
+    await flushControllerLoad();
+
+    expect(harness.clearRequests).toEqual([{ queueItemId: "queue-1" }]);
+    expect(harness.listRequests).toBe(1);
+    expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
+    expect(hook.result.current.tasks[0].assignedExecutorWidgetId).toBeNull();
+    expect(hook.result.current.assignmentMessage).toBe("Assignment cleared.");
 
     hook.unmount();
   });
@@ -299,6 +397,101 @@ describe("useAgentQueueController sequential runner", () => {
   });
 });
 
+describe("useAgentQueueController run metadata refresh behavior", () => {
+  it("refreshes latest run and run history metadata without reloading tasks", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", status: "queued" }),
+    ]);
+    harness.options.onListAgentQueueTaskRunLinks = async (queueItemId) => {
+      harness.runLinkRequests.push(queueItemId);
+      return [queueRunLink({ queueTaskId: queueItemId })];
+    };
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(harness.runLinkRequests).toEqual(["queue-1"]);
+    expect(hook.result.current.latestRun.link?.queueTaskId).toBe("queue-1");
+    expect(hook.result.current.runHistory.totalCount).toBe(1);
+
+    await act(async () => {
+      hook.result.current.latestRun.onRefresh();
+      await flushHookEffects();
+    });
+    await act(async () => {
+      hook.result.current.runHistory.onRefresh();
+      await flushHookEffects();
+    });
+
+    expect(harness.runLinkRequests).toEqual(["queue-1", "queue-1", "queue-1"]);
+    expect(harness.listRequests).toBe(1);
+    expect(hook.result.current.latestRun.link?.directWorkRunId).toBe("run-1");
+    expect(hook.result.current.runHistory.links).toHaveLength(1);
+
+    hook.unmount();
+  });
+});
+
+describe("useAgentQueueController Autorun refresh behavior", () => {
+  it("keeps Autorun arm task reload behavior unchanged", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    const autorunSnapshots: AgentQueueRunnerSnapshot[] = [
+      queueRunnerSnapshot(),
+      queueRunnerSnapshot({
+        activeQueueItemId: "queue-1",
+        isActive: true,
+        sessionId: "session-1",
+        status: "running",
+        waitingRunId: "run-autorun",
+      }),
+    ];
+    harness.options.onGetAgentQueueRunnerSnapshot = async () => {
+      harness.autorunSnapshotRequests += 1;
+      return autorunSnapshots[0];
+    };
+    harness.options.onStartAgentQueueRunnerSession = async (request) => {
+      harness.autorunStartRequests.push(request);
+      return autorunSnapshots[1];
+    };
+    harness.options.onStopAgentQueueRunnerSession = async () =>
+      queueRunnerSnapshot({ status: "stopped" });
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+    await act(async () => {
+      hook.result.current.autorun.onArm();
+      await flushControllerLoad();
+    });
+
+    expect(harness.autorunSnapshotRequests).toBe(1);
+    expect(harness.autorunStartRequests).toHaveLength(1);
+    expect(harness.listRequests).toBe(2);
+    expect(hook.result.current.autorun.snapshot?.activeQueueItemId).toBe(
+      "queue-1",
+    );
+
+    hook.unmount();
+  });
+});
+
 describe("useAgentQueueController delete task", () => {
   it("requires confirmation before deleting a task", async () => {
     const harness = createQueueHarness([
@@ -448,14 +641,22 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const assignRequests: Array<
     Omit<AssignAgentQueueTaskToExecutorRequest, "workspaceId">
   > = [];
+  const clearRequests: Array<
+    Omit<ClearAgentQueueTaskAssignmentRequest, "workspaceId">
+  > = [];
   const startRequests: Array<
     Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">
+  > = [];
+  const autorunStartRequests: Array<
+    Omit<StartAgentQueueRunnerSessionRequest, "workspaceId">
   > = [];
   const deleteRequests: Array<Omit<DeleteAgentQueueTaskRequest, "workspaceId">> =
     [];
   const getRequests: string[] = [];
   const handoffs: DirectWorkRunHandoffInput[] = [];
+  const runLinkRequests: string[] = [];
   let listRequests = 0;
+  let autorunSnapshotRequests = 0;
   const options: AgentQueueControllerOptions = {
     agentExecutorSlots: [
       {
@@ -506,6 +707,7 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       return tasks.delete(request.queueItemId);
     },
     onClearAgentQueueTaskAssignment: async (request) => {
+      clearRequests.push(request);
       const task = tasks.get(request.queueItemId);
 
       if (!task) {
@@ -587,6 +789,14 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
 
   return {
     assignRequests,
+    autorunStartRequests,
+    get autorunSnapshotRequests() {
+      return autorunSnapshotRequests;
+    },
+    set autorunSnapshotRequests(value: number) {
+      autorunSnapshotRequests = value;
+    },
+    clearRequests,
     createRequests,
     deleteRequests,
     get getRequests() {
@@ -601,6 +811,7 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       tasks.set(task.queueItemId, task);
     },
     startRequests,
+    runLinkRequests,
     updateRequests,
   };
 }
@@ -618,6 +829,57 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
     title: "Queue task",
     updatedAt: "2026-05-20T10:00:00.000Z",
     workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function queueRunLink(
+  overrides: Partial<AgentQueueTaskRunLinkSummary> = {},
+): AgentQueueTaskRunLinkSummary {
+  const link: AgentQueueTaskRunLinkSummary = {
+    completedAt: null,
+    createdAt: "2026-05-20T10:01:00.000Z",
+    directWorkRunId: "run-1",
+    executorWidgetId: "executor-1",
+    linkId: "link-1",
+    queueTaskId: "queue-1",
+    reviewStatus: "unknown",
+    source: "manual",
+    startedAt: "2026-05-20T10:01:00.000Z",
+    status: "running",
+    updatedAt: "2026-05-20T10:01:00.000Z",
+    validationStatus: null,
+    workspaceId: "workspace-1",
+  };
+
+  return {
+    ...link,
+    ...overrides,
+  } as AgentQueueTaskRunLinkSummary;
+}
+
+function queueRunnerSnapshot(
+  overrides: Partial<AgentQueueRunnerSnapshot> = {},
+): AgentQueueRunnerSnapshot {
+  return {
+    activeQueueItemId: null,
+    finalRunStatus: null,
+    isActive: false,
+    isSessionOnly: true,
+    lastReconciledAt: null,
+    policy: {
+      allowHiddenExecution: false,
+      durableResume: false,
+      oneTaskAtATime: true,
+      requireOperatorStart: true,
+      stopOnCancel: true,
+      stopOnFailure: true,
+      stopOnReviewNeeded: true,
+    },
+    sessionId: null,
+    status: "idle",
+    stopReason: null,
+    waitingRunId: null,
     ...overrides,
   };
 }
