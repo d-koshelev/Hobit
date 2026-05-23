@@ -418,24 +418,48 @@
   margin: 0;
 }
 
+.agent-queue-latest-run-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.agent-queue-run-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
 .agent-queue-autorun-facts > div {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
 
+.agent-queue-latest-run-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 .agent-queue-autorun-facts dt,
-.agent-queue-autorun-facts dd {
+.agent-queue-autorun-facts dd,
+.agent-queue-latest-run-facts dt,
+.agent-queue-latest-run-facts dd {
   margin: 0;
 }
 
-.agent-queue-autorun-facts dt {
+.agent-queue-autorun-facts dt,
+.agent-queue-latest-run-facts dt {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
 }
 
-.agent-queue-autorun-facts dd {
+.agent-queue-autorun-facts dd,
+.agent-queue-latest-run-facts dd {
   color: var(--color-text-primary);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
@@ -693,6 +717,7 @@
 @media (max-width: 560px) {
   .agent-queue-editor-grid,
   .agent-queue-autorun-facts,
+  .agent-queue-latest-run-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;
@@ -740,6 +765,7 @@
 @container (max-width: 560px) {
   .agent-queue-editor-grid,
   .agent-queue-autorun-facts,
+  .agent-queue-latest-run-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;

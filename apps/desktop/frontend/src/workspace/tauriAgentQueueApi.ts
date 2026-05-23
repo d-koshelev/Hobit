@@ -5,6 +5,10 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
+  AgentQueueTaskRunReviewStatus,
+  AgentQueueTaskRunSource,
+  AgentQueueTaskRunStatus,
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskStatus,
   AssignAgentQueueTaskToExecutorRequest,
@@ -14,6 +18,7 @@ import type {
   DeleteAgentQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
+  GetAgentQueueTaskLatestRunLinkRequest,
   ListAgentQueueTasksRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -80,6 +85,22 @@ type TauriStartAssignedAgentQueueTaskResponse = {
   executor_widget_instance_id: string;
   run_id: string;
   status: string;
+};
+
+type TauriAgentQueueTaskRunLink = {
+  link_id: string;
+  workspace_id: string;
+  queue_task_id: string;
+  executor_widget_id: string;
+  direct_work_run_id: string;
+  source: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  validation_status: string | null;
+  review_status: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type TauriAgentQueueRunnerPolicy = {
@@ -274,6 +295,22 @@ export async function startAssignedAgentQueueTask(
   return normalizeStartAssignedAgentQueueTaskResponse(response);
 }
 
+export async function getAgentQueueTaskLatestRunLink(
+  request: GetAgentQueueTaskLatestRunLinkRequest,
+): Promise<AgentQueueTaskRunLinkSummary | null> {
+  const link = await invoke<TauriAgentQueueTaskRunLink | null>(
+    "get_agent_queue_task_latest_run_link",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+      },
+    },
+  );
+
+  return link ? normalizeAgentQueueTaskRunLink(link) : null;
+}
+
 export async function startAgentQueueRunnerSession(
   request: StartAgentQueueRunnerSessionRequest,
 ): Promise<AgentQueueRunnerSnapshot> {
@@ -407,6 +444,65 @@ function normalizeStartAssignedAgentQueueTaskResponse(
     runId: response.run_id,
     status: response.status,
   };
+}
+
+function normalizeAgentQueueTaskRunLink(
+  link: TauriAgentQueueTaskRunLink,
+): AgentQueueTaskRunLinkSummary {
+  return {
+    linkId: link.link_id,
+    workspaceId: link.workspace_id,
+    queueTaskId: link.queue_task_id,
+    executorWidgetId: link.executor_widget_id,
+    directWorkRunId: link.direct_work_run_id,
+    source: normalizeRunSource(link.source),
+    status: normalizeRunStatus(link.status),
+    startedAt: link.started_at,
+    completedAt: link.completed_at,
+    validationStatus: link.validation_status,
+    reviewStatus: normalizeReviewStatus(link.review_status),
+    createdAt: link.created_at,
+    updatedAt: link.updated_at,
+  };
+}
+
+function normalizeRunSource(source: string): AgentQueueTaskRunSource {
+  if (
+    source === "manual" ||
+    source === "autorun" ||
+    source === "sequential_runner" ||
+    source === "unknown"
+  ) {
+    return source;
+  }
+
+  return "unknown";
+}
+
+function normalizeRunStatus(status: string): AgentQueueTaskRunStatus {
+  if (
+    status === "running" ||
+    status === "completed" ||
+    status === "failed" ||
+    status === "timed_out" ||
+    status === "cancelled" ||
+    status === "review_needed" ||
+    status === "unknown"
+  ) {
+    return status;
+  }
+
+  return "unknown";
+}
+
+function normalizeReviewStatus(
+  reviewStatus: string | null,
+): AgentQueueTaskRunReviewStatus | null {
+  if (reviewStatus === "review_needed" || reviewStatus === "unknown") {
+    return reviewStatus;
+  }
+
+  return null;
 }
 
 function normalizeAgentQueueRunnerSnapshot(

@@ -8,6 +8,8 @@ use hobit_app::{
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 
+use crate::agent_queue_execution_dto::GetAgentQueueTaskLatestRunLinkRequest;
+
 #[test]
 fn start_assigned_agent_queue_task_command_helper_starts_direct_work_run() {
     let db_path = unique_test_db_path();
@@ -41,6 +43,48 @@ fn start_assigned_agent_queue_task_command_helper_starts_direct_work_run() {
     assert_eq!(runs[0].id, start.run_id);
     assert_eq!(runs[0].status, "running");
     assert_eq!(runs[0].command_kind.as_deref(), Some("codex_direct_work"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn latest_run_link_command_helper_returns_safe_metadata() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, queue_item_id, executor_widget_id) = create_assigned_task(&db_path, "ready");
+
+    let start = start_assigned_agent_queue_task_blocking(
+        request(&workspace_id, &queue_item_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+    )
+    .expect("start assigned queue task");
+
+    let link = get_agent_queue_task_latest_run_link_blocking(
+        GetAgentQueueTaskLatestRunLinkRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: queue_item_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("get latest run link")
+    .expect("latest run link");
+
+    assert_eq!(link.workspace_id, workspace_id);
+    assert_eq!(link.queue_task_id, queue_item_id);
+    assert_eq!(link.executor_widget_id, executor_widget_id);
+    assert_eq!(link.direct_work_run_id, start.run_id);
+    assert_eq!(link.source, "manual");
+    assert_eq!(link.status, "running");
+    assert_eq!(link.completed_at, None);
+
+    let link_json = serde_json::to_value(&link).expect("serialize link");
+    let object = link_json.as_object().expect("link object");
+    assert!(!object.contains_key("prompt"));
+    assert!(!object.contains_key("stdout"));
+    assert!(!object.contains_key("stderr"));
+    assert!(!object.contains_key("final_response"));
+    assert!(!object.contains_key("diff"));
+    assert!(!object.contains_key("payload_json"));
+    assert!(!object.contains_key("repo_root"));
     remove_test_db_files(&db_path);
 }
 

@@ -161,6 +161,12 @@ and component keys may still appear in code and persistence.
   with an operator-provided execution workspace path.
 - Queue-to-Executor handoff and final-status auto-refresh are current-session
   frontend behavior. Agent Executor owns live logs and final results.
+- Selected task details show the latest durable Queue task to Agent Executor
+  run-link metadata when available: safe link id/run id references, source,
+  status, timestamps, review status, and a frontend-only Open Executor scroll
+  action. Queue does not copy or render raw prompts, stdout/stderr, logs, final
+  responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
+  Executor.
 - Queue task persistence includes `executionPolicy` model/DTO support with a
   `manual` default, and the Queue editor exposes a policy control for
   `manual`, `auto`, and `after_previous_success`.

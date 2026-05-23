@@ -5,6 +5,7 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::{Emitter, State};
 
 use crate::agent_queue_execution_dto::{
+    AgentQueueTaskRunLinkDto, GetAgentQueueTaskLatestRunLinkRequest,
     StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
 };
 use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
@@ -23,6 +24,25 @@ pub(crate) async fn start_assigned_agent_queue_task(
     let db_path = state.db_path().to_path_buf();
     let active_runs = state.direct_work_active_runs();
     start_assigned_agent_queue_task_from_request(request, app, db_path, active_runs).await
+}
+
+#[tauri::command]
+pub(crate) fn get_agent_queue_task_latest_run_link(
+    request: GetAgentQueueTaskLatestRunLinkRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentQueueTaskRunLinkDto>, String> {
+    get_agent_queue_task_latest_run_link_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn get_agent_queue_task_latest_run_link_blocking(
+    request: GetAgentQueueTaskLatestRunLinkRequest,
+    db_path: PathBuf,
+) -> Result<Option<AgentQueueTaskRunLinkDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_latest_agent_queue_task_run_link(&request.workspace_id, &request.queue_item_id)
+        .map(|link| link.map(AgentQueueTaskRunLinkDto::from))
+        .map_err(command_error)
 }
 
 pub(crate) async fn start_assigned_agent_queue_task_from_request(

@@ -16,6 +16,7 @@ import type {
   AgentExecutorRunHistory,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunResponse,
   ClearAgentQueueTaskAssignmentRequest,
@@ -159,6 +160,9 @@ export type WidgetRenderProps = {
   onGetAgentQueueTask?: (
     queueItemId: string,
   ) => Promise<AgentQueueTask | null>;
+  onGetAgentQueueTaskLatestRunLink?: (
+    queueItemId: string,
+  ) => Promise<AgentQueueTaskRunLinkSummary | null>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

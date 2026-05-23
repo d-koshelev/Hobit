@@ -129,6 +129,7 @@ class CoordinatorProviderProductSmokeRuntime {
         this.providerResponse(request),
       getAgentExecutorDiffSummary: this.executorUnsupported,
       getAgentExecutorRunDetail: this.executorUnsupported,
+      getAgentQueueTaskLatestRunLink: async () => null,
       getAgentQueueRunnerSnapshot: this.queueDispatchUnsupported,
       getAgentQueueTask: async () => this.lastCreatedQueueTask,
       getGitRepositoryStatus: this.gitUnsupported,

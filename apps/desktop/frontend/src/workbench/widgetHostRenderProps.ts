@@ -108,6 +108,10 @@ export function widgetHostRenderProps({
     onGetAgentQueueTask: isAgentQueue
       ? widgetActions.getAgentQueueTask
       : undefined,
+    onGetAgentQueueTaskLatestRunLink: isAgentQueue
+      ? (queueItemId) =>
+          widgetActions.getAgentQueueTaskLatestRunLink({ queueItemId })
+      : undefined,
     onGetGitRepositoryStatus: widgetActions.getGitRepositoryStatus,
     onGenerateCoordinatorProviderResponse: isInteractiveAgent
       ? widgetActions.generateCoordinatorProviderResponse

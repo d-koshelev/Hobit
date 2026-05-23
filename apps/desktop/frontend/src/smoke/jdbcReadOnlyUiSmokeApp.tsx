@@ -125,6 +125,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       },
       getAgentExecutorDiffSummary: this.unsupported,
       getAgentExecutorRunDetail: this.unsupported,
+      getAgentQueueTaskLatestRunLink: async () => null,
       getAgentQueueRunnerSnapshot: this.unsupported,
       getAgentQueueTask: this.unsupported,
       getGitRepositoryStatus: this.unsupported,

@@ -102,6 +102,7 @@ export function AgentQueueTaskDetailsPanel({
             inputId={assignmentInputId}
             isAssigning={isAssigning}
             isDirty={isDirty}
+            latestRun={queue.latestRun}
             onAssign={() => void assignSelectedTask()}
             onClear={() => void clearSelectedTaskAssignment()}
             onSelectionChange={(executorWidgetInstanceId) => {

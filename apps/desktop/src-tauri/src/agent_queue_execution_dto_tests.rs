@@ -1,9 +1,14 @@
 use std::path::PathBuf;
 
-use hobit_app::{AssignedAgentQueueTaskStartSummary, RunCodexDirectWorkInput};
+use hobit_app::{
+    AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
+    AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AssignedAgentQueueTaskStartSummary,
+    RunCodexDirectWorkInput,
+};
 
 use crate::agent_queue_execution_dto::{
-    StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
+    AgentQueueTaskRunLinkDto, StartAssignedAgentQueueTaskRequest,
+    StartAssignedAgentQueueTaskResponseDto,
 };
 
 #[test]
@@ -63,4 +68,52 @@ fn maps_start_assigned_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.executor_widget_instance_id, "wid_1");
     assert_eq!(dto.run_id, "run_1");
     assert_eq!(dto.status, "started");
+}
+
+#[test]
+fn maps_run_link_summary_to_safe_dto_without_raw_payload_fields() {
+    let dto = AgentQueueTaskRunLinkDto::from(AgentQueueTaskRunLink {
+        link_id: AgentQueueTaskRunLinkId("link_1".to_owned()),
+        workspace_id: "ws_1".to_owned(),
+        queue_task_id: "task_1".to_owned(),
+        executor_widget_id: "wid_1".to_owned(),
+        direct_work_run_id: "run_1".to_owned(),
+        source: AgentQueueTaskRunSource::Manual,
+        status: AgentQueueTaskRunStatus::Completed,
+        started_at: "2026-05-22T10:00:00.000Z".to_owned(),
+        completed_at: Some("2026-05-22T10:01:00.000Z".to_owned()),
+        validation_status: Some("not_run".to_owned()),
+        review_status: Some(AgentQueueTaskRunReviewStatus::ReviewNeeded),
+        created_at: "2026-05-22T10:00:00.000Z".to_owned(),
+        updated_at: "2026-05-22T10:01:00.000Z".to_owned(),
+    });
+
+    assert_eq!(dto.link_id, "link_1");
+    assert_eq!(dto.queue_task_id, "task_1");
+    assert_eq!(dto.executor_widget_id, "wid_1");
+    assert_eq!(dto.direct_work_run_id, "run_1");
+    assert_eq!(dto.source, "manual");
+    assert_eq!(dto.status, "completed");
+    assert_eq!(dto.review_status.as_deref(), Some("review_needed"));
+
+    let dto_json = serde_json::to_value(&dto).expect("serialize dto");
+    let object = dto_json.as_object().expect("dto object");
+    for forbidden_field in [
+        "prompt",
+        "operator_prompt",
+        "stdout",
+        "stderr",
+        "final_response",
+        "diff",
+        "logs",
+        "command_payload",
+        "payload_json",
+        "repo_root",
+        "secrets",
+    ] {
+        assert!(
+            !object.contains_key(forbidden_field),
+            "run link DTO must not expose {forbidden_field}"
+        );
+    }
 }

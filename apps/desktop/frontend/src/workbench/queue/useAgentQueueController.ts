@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../../workspace/types";
@@ -44,6 +45,7 @@ type UseAgentQueueControllerOptions = Pick<
   | "onDeleteAgentQueueTask"
   | "onDirectWorkRunHandoffStarted"
   | "onGetAgentQueueTask"
+  | "onGetAgentQueueTaskLatestRunLink"
   | "onGetAgentQueueRunnerSnapshot"
   | "onListAgentQueueTasks"
   | "onStartAssignedAgentQueueTask"
@@ -100,6 +102,14 @@ export type AgentQueueAutorunController = {
   snapshot: AgentQueueRunnerSnapshot | null;
 };
 
+export type AgentQueueLatestRunLinkController = {
+  apiAvailable: boolean;
+  error: string | null;
+  isLoading: boolean;
+  link: AgentQueueTaskRunLinkSummary | null;
+  onRefresh: () => void;
+};
+
 export type AgentQueueDeleteController = {
   blockedReason: string | null;
   canRequest: boolean;
@@ -120,6 +130,7 @@ export function useAgentQueueController({
   onDeleteAgentQueueTask,
   onDirectWorkRunHandoffStarted,
   onGetAgentQueueTask,
+  onGetAgentQueueTaskLatestRunLink,
   onGetAgentQueueRunnerSnapshot,
   onListAgentQueueTasks,
   onStartAssignedAgentQueueTask,
@@ -179,6 +190,12 @@ export function useAgentQueueController({
   const [startMessage, setStartMessage] = useState<string | null>(null);
   const [startedRunId, setStartedRunId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [latestRunLink, setLatestRunLink] =
+    useState<AgentQueueTaskRunLinkSummary | null>(null);
+  const [latestRunLinkError, setLatestRunLinkError] = useState<string | null>(
+    null,
+  );
+  const [isLatestRunLinkLoading, setIsLatestRunLinkLoading] = useState(false);
   const startInFlightRef = useRef(false);
   const tasksRef = useRef<AgentQueueTask[]>([]);
   const [autorunSnapshot, setAutorunSnapshot] =
@@ -334,6 +351,44 @@ export function useAgentQueueController({
     setStartedRunId(null);
     setStartError(null);
   }, [selectedTask?.queueItemId]);
+
+  const refreshLatestRunLink = useCallback(
+    async (
+      queueItemId: string | null | undefined,
+      options?: { silent?: boolean },
+    ) => {
+      if (!queueItemId || !onGetAgentQueueTaskLatestRunLink) {
+        setLatestRunLink(null);
+        setLatestRunLinkError(null);
+        setIsLatestRunLinkLoading(false);
+        return;
+      }
+
+      if (!options?.silent) {
+        setIsLatestRunLinkLoading(true);
+      }
+      setLatestRunLinkError(null);
+
+      try {
+        const link = await onGetAgentQueueTaskLatestRunLink(queueItemId);
+        setLatestRunLink(link);
+      } catch (error) {
+        setLatestRunLink(null);
+        setLatestRunLinkError(
+          errorToMessage(error, "Unable to load latest Queue run metadata."),
+        );
+      } finally {
+        if (!options?.silent) {
+          setIsLatestRunLinkLoading(false);
+        }
+      }
+    },
+    [onGetAgentQueueTaskLatestRunLink],
+  );
+
+  useEffect(() => {
+    void refreshLatestRunLink(selectedTask?.queueItemId ?? null);
+  }, [refreshLatestRunLink, selectedTask?.queueItemId]);
 
   const repoRoot = repoRootDraft.trim();
   const codexExecutable = codexExecutableDraft.trim();
@@ -754,6 +809,7 @@ export function useAgentQueueController({
         workspaceId: response.workspaceId,
       });
       await loadTasks(response.queueItemId);
+      await refreshLatestRunLink(response.queueItemId, { silent: true });
       setStartMessage(
         `Task started in Agent Executor ${shortWidgetInstanceId(
           response.executorWidgetInstanceId,
@@ -785,6 +841,10 @@ export function useAgentQueueController({
     try {
       const snapshot = await onGetAgentQueueRunnerSnapshot();
       setAutorunSnapshot(snapshot);
+      await refreshLatestRunLink(
+        snapshot.activeQueueItemId ?? selectedTask?.queueItemId ?? null,
+        { silent: true },
+      );
       if (!options?.silent) {
         setAutorunMessage("Queue Autorun status refreshed.");
       }
@@ -830,6 +890,9 @@ export function useAgentQueueController({
       if (snapshot.activeQueueItemId && snapshot.waitingRunId) {
         await loadTasks(snapshot.activeQueueItemId, {
           preserveCurrentOnError: true,
+        });
+        await refreshLatestRunLink(snapshot.activeQueueItemId, {
+          silent: true,
         });
       }
       setAutorunMessage(
@@ -947,6 +1010,14 @@ export function useAgentQueueController({
       startedRunId,
       startMessage,
     } satisfies AgentQueueRunController,
+    latestRun: {
+      apiAvailable: Boolean(onGetAgentQueueTaskLatestRunLink),
+      error: latestRunLinkError,
+      isLoading: isLatestRunLinkLoading,
+      link: latestRunLink,
+      onRefresh: () =>
+        void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
+    } satisfies AgentQueueLatestRunLinkController,
     autorun: {
       apiAvailable: autorunApiAvailable,
       canArm: canArmAutorun,

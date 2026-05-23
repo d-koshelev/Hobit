@@ -21,6 +21,7 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
@@ -46,6 +47,7 @@ import type {
   GetAgentExecutorRunDetailRequest,
   GetAgentMonitoringSnapshotRequest,
   GetAgentQueueSnapshotRequest,
+  GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
   GetGitRepositoryStatusRequest,
   GetWorkspaceNoteRequest,
@@ -188,6 +190,9 @@ export type WorkspaceApi = {
   startAssignedAgentQueueTask: (
     request: StartAssignedAgentQueueTaskRequest,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
+  getAgentQueueTaskLatestRunLink: (
+    request: GetAgentQueueTaskLatestRunLinkRequest,
+  ) => Promise<AgentQueueTaskRunLinkSummary | null>;
   startAgentQueueRunnerSession: (
     request: StartAgentQueueRunnerSessionRequest,
   ) => Promise<AgentQueueRunnerSnapshot>;

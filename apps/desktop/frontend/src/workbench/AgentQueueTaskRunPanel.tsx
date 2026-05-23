@@ -11,12 +11,14 @@ import {
   assignmentLabel,
   isAssignmentLockedQueueTaskStatus,
   isFinalQueueTaskStatus,
+  shortWidgetInstanceId,
   statusBadgeVariant,
   statusLabel,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
   AgentQueueAutorunController,
+  AgentQueueLatestRunLinkController,
   AgentQueueRunController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
@@ -33,6 +35,7 @@ type AgentQueueTaskRunPanelProps = {
   inputId: string;
   isAssigning: boolean;
   isDirty: boolean;
+  latestRun: AgentQueueLatestRunLinkController;
   onAssign: () => void;
   onClear: () => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
@@ -52,6 +55,7 @@ export function AgentQueueTaskRunPanel({
   inputId,
   isAssigning,
   isDirty,
+  latestRun,
   onAssign,
   onClear,
   onSelectionChange,
@@ -109,6 +113,58 @@ export function AgentQueueTaskRunPanel({
             {statusLabel(selectedTask.status)}
           </Badge>
         </div>
+      </div>
+
+      <div className="agent-queue-execution-group">
+        <div className="agent-queue-execution-group-header">
+          <div>
+            <p
+              className="agent-queue-execution-group-title"
+              title="Shows safe metadata for the newest Executor run linked to this Queue task."
+            >
+              Latest run
+            </p>
+          </div>
+          <div className="agent-queue-execution-badges">
+            <Badge
+              variant={
+                latestRun.link
+                  ? runStatusBadgeVariant(latestRun.link.status)
+                  : "neutral"
+              }
+            >
+              {latestRun.link ? runStatusLabel(latestRun.link.status) : "none"}
+            </Badge>
+          </div>
+        </div>
+
+        {!latestRun.apiAvailable ? (
+          <p className="agent-queue-run-note">
+            Latest run metadata is only available in the Tauri desktop shell.
+          </p>
+        ) : latestRun.isLoading ? (
+          <p className="agent-queue-run-note">Loading latest run.</p>
+        ) : latestRun.error ? (
+          <p
+            className="agent-queue-message agent-queue-message-error"
+            role="alert"
+          >
+            {latestRun.error}
+          </p>
+        ) : latestRun.link ? (
+          <LatestRunSummary
+            executorSlots={executorSlots}
+            link={latestRun.link}
+            onRefresh={latestRun.onRefresh}
+          />
+        ) : (
+          <div className="agent-queue-run-empty-state">
+            <p className="agent-queue-run-note">No runs yet.</p>
+            <Button onClick={() => latestRun.onRefresh()} variant="ghost">
+              Refresh
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="agent-queue-execution-group">
@@ -424,6 +480,66 @@ export function AgentQueueTaskRunPanel({
   );
 }
 
+function LatestRunSummary({
+  executorSlots,
+  link,
+  onRefresh,
+}: {
+  executorSlots: AgentExecutorSlot[];
+  link: NonNullable<AgentQueueLatestRunLinkController["link"]>;
+  onRefresh: () => void;
+}) {
+  const executorSlot = executorSlots.find(
+    (slot) => slot.widgetInstanceId === link.executorWidgetId,
+  );
+  const executorLabel =
+    executorSlot?.label ?? `Agent Executor ${shortWidgetInstanceId(link.executorWidgetId)}`;
+
+  return (
+    <>
+      <dl className="agent-queue-latest-run-facts">
+        <div>
+          <dt>Source</dt>
+          <dd>{runSourceLabel(link.source)}</dd>
+        </div>
+        <div>
+          <dt>Executor</dt>
+          <dd>{executorLabel}</dd>
+        </div>
+        <div>
+          <dt>Run</dt>
+          <dd>{shortWidgetInstanceId(link.directWorkRunId)}</dd>
+        </div>
+        <div>
+          <dt>Started</dt>
+          <dd>{formatRunTimestamp(link.startedAt)}</dd>
+        </div>
+        <div>
+          <dt>Completed</dt>
+          <dd>{link.completedAt ? formatRunTimestamp(link.completedAt) : "Running"}</dd>
+        </div>
+        <div>
+          <dt>Review</dt>
+          <dd>{link.reviewStatus ? runReviewStatusLabel(link.reviewStatus) : "None"}</dd>
+        </div>
+      </dl>
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!executorSlot}
+          onClick={() => openAssignedExecutor(link.executorWidgetId)}
+          title="Scroll to the Agent Executor that owns this run."
+          variant="ghost"
+        >
+          Open Executor
+        </Button>
+        <Button onClick={() => onRefresh()} variant="ghost">
+          Refresh
+        </Button>
+      </div>
+    </>
+  );
+}
+
 function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
   if (!assignedExecutorWidgetId || typeof document === "undefined") {
     return;
@@ -438,6 +554,63 @@ function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
   target?.scrollIntoView({
     block: "nearest",
     inline: "nearest",
+  });
+}
+
+function runSourceLabel(source: string) {
+  switch (source) {
+    case "autorun":
+      return "autorun";
+    case "sequential_runner":
+      return "sequential runner";
+    case "manual":
+      return "manual";
+    default:
+      return "unknown";
+  }
+}
+
+function runStatusLabel(status: string) {
+  switch (status) {
+    case "review_needed":
+      return "review needed";
+    case "timed_out":
+      return "timed out";
+    default:
+      return status;
+  }
+}
+
+function runReviewStatusLabel(status: string) {
+  return status === "review_needed" ? "review needed" : "unknown";
+}
+
+function runStatusBadgeVariant(status: string) {
+  if (status === "completed") {
+    return "success";
+  }
+
+  if (status === "failed" || status === "timed_out" || status === "cancelled") {
+    return "error";
+  }
+
+  if (status === "running") {
+    return "info";
+  }
+
+  return "neutral";
+}
+
+function formatRunTimestamp(value: string) {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 }
 

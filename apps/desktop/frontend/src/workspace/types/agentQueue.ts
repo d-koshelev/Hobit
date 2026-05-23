@@ -79,6 +79,41 @@ export type StartAssignedAgentQueueTaskResponse = {
   status: string;
 };
 
+export type AgentQueueTaskRunSource =
+  | "manual"
+  | "autorun"
+  | "sequential_runner"
+  | "unknown";
+
+export type AgentQueueTaskRunStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "timed_out"
+  | "cancelled"
+  | "review_needed"
+  | "unknown";
+
+export type AgentQueueTaskRunReviewStatus = "review_needed" | "unknown";
+
+export type GetAgentQueueTaskLatestRunLinkRequest = GetAgentQueueTaskRequest;
+
+export type AgentQueueTaskRunLinkSummary = {
+  linkId: string;
+  workspaceId: string;
+  queueTaskId: string;
+  executorWidgetId: string;
+  directWorkRunId: string;
+  source: AgentQueueTaskRunSource;
+  status: AgentQueueTaskRunStatus;
+  startedAt: string;
+  completedAt: string | null;
+  validationStatus: string | null;
+  reviewStatus: AgentQueueTaskRunReviewStatus | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type StartAgentQueueRunnerPolicyRequest = {
   stopOnFailure?: boolean;
   stopOnReviewNeeded?: boolean;

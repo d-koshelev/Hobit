@@ -233,6 +233,7 @@ class QueueExecutorSmokeRuntime {
       startCodexDirectWorkStream: async () => this.forbidden(null),
       stopAgentQueueRunnerSession: async () => this.runnerSnapshot("stopped"),
       stopTerminalPtySession: async () => this.forbidden(null),
+      getAgentQueueTaskLatestRunLink: async () => null,
       getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot("idle"),
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
