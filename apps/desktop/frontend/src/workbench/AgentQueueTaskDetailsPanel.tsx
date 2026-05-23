@@ -2,7 +2,10 @@ import type { useAgentQueueController } from "./queue/useAgentQueueController";
 import { AgentQueueEmptySelection } from "./AgentQueueEmptySelection";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueTaskSection } from "./AgentQueueTaskSection";
-import type { AgentExecutorSlot } from "./types";
+import type {
+  AgentExecutorRunOpenRequestInput,
+  AgentExecutorSlot,
+} from "./types";
 
 type AgentQueueController = ReturnType<typeof useAgentQueueController>;
 
@@ -10,6 +13,9 @@ type AgentQueueTaskDetailsPanelProps = {
   agentExecutorSlots: AgentExecutorSlot[];
   assignmentInputId: string;
   executionPolicyInputId: string;
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   priorityInputId: string;
   promptInputId: string;
   queue: AgentQueueController;
@@ -22,6 +28,7 @@ export function AgentQueueTaskDetailsPanel({
   agentExecutorSlots,
   assignmentInputId,
   executionPolicyInputId,
+  onOpenAgentExecutorRun,
   priorityInputId,
   promptInputId,
   queue,
@@ -105,6 +112,7 @@ export function AgentQueueTaskDetailsPanel({
             latestRun={queue.latestRun}
             onAssign={() => void assignSelectedTask()}
             onClear={() => void clearSelectedTaskAssignment()}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onSelectionChange={(executorWidgetInstanceId) => {
               selectExecutorWidget(executorWidgetInstanceId);
             }}

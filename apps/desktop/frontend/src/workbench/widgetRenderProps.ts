@@ -52,6 +52,8 @@ import type {
 } from "../workspace/types";
 import type {
   AgentExecutorSlot,
+  AgentExecutorRunOpenRequest,
+  AgentExecutorRunOpenRequestInput,
   DirectWorkGitReviewRequest,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
@@ -73,6 +75,7 @@ export type WidgetRenderProps = {
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
+  agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
@@ -180,6 +183,9 @@ export type WidgetRenderProps = {
   onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
   onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

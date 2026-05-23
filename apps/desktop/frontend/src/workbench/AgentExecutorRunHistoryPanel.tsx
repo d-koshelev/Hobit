@@ -17,6 +17,7 @@ import {
 export type { GetAgentExecutorRunDetailHandler, ListAgentExecutorRunsHandler };
 
 export function AgentExecutorRunHistoryPanel({
+  openRunDetailRequest,
   onGetAgentExecutorRunDetail,
   onListAgentExecutorRuns,
   refreshToken,
@@ -30,6 +31,17 @@ export function AgentExecutorRunHistoryPanel({
     status: "idle",
   });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !openRunDetailRequest ||
+      openRunDetailRequest.executorWidgetInstanceId !== widgetInstanceId
+    ) {
+      return;
+    }
+
+    void loadRunDetail(openRunDetailRequest.runId);
+  }, [openRunDetailRequest?.id, widgetInstanceId]);
 
   useEffect(() => {
     let isCurrent = true;

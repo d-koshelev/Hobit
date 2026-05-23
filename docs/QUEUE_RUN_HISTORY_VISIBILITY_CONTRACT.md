@@ -134,7 +134,9 @@ Implemented foundation:
   task using the same metadata-only DTO;
 - the frontend Workspace API exposes that latest-link summary and the selected
   Queue task detail renders a compact Latest run section with status, source,
-  Executor ref, timestamps, review status, refresh, and Open Executor scroll;
+  Executor ref, timestamps, review status, refresh, and an Open Executor action
+  that opens/focuses the owning Agent Executor and hands off the safe run id for
+  Executor-owned run detail selection;
 - the selected Queue task detail renders a compact Run history section showing
   the latest three safe run links plus a total count when available.
 
@@ -206,7 +208,10 @@ The selected task detail may show:
 - warning when a task is final but no durable run ref exists.
 
 The current open action scrolls to the owning Agent Executor widget when it is
-visible. It does not fetch or render raw Executor payload inside Queue.
+visible. When an Executor run id is present, Queue passes only the safe
+Executor widget ref and run id to the Executor-owned UI so the Executor can
+select/load its own run detail. Queue does not fetch or render raw Executor
+payload inside Queue.
 
 ## Recommended Implementation Slices
 

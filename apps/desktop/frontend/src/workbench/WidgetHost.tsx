@@ -24,6 +24,8 @@ import type {
   WidgetPresentationMode,
   WidgetRenderProps,
   WorkbenchLayoutMode,
+  AgentExecutorRunOpenRequest,
+  AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
@@ -62,11 +64,15 @@ type WidgetHostProps = {
     width: number;
   };
   hasGitWidget: boolean;
+  agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
   onPopOut: (widgetInstanceId: WidgetInstance["id"]) => void;
+  onOpenAgentExecutorRun: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
     pointerX: number,
@@ -86,10 +92,12 @@ export function WidgetHost({
   directWorkRunHandoff,
   dockedSize,
   hasGitWidget,
+  agentExecutorRunOpenRequest,
   agentExecutorSlots,
   instance,
   layoutMode,
   onDockBack,
+  onOpenAgentExecutorRun,
   onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
@@ -185,11 +193,13 @@ export function WidgetHost({
   const title = frameTitle;
   const renderProps = widgetHostRenderProps({
     agentExecutorSlots,
+    agentExecutorRunOpenRequest,
     componentKey: definition.componentKey,
     directWorkGitReview,
     directWorkRunHandoff,
     hasGitWidget,
     instanceId: instance.id,
+    onOpenAgentExecutorRun,
     widgetActions,
   });
 

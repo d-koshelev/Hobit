@@ -4,6 +4,7 @@ import type {
   AgentExecutorRunSummary,
 } from "../../workspace/types";
 import type { WidgetInstanceId } from "../types";
+import type { AgentExecutorRunOpenRequest } from "../types";
 
 export const AGENT_EXECUTOR_HISTORY_LIMIT = 20;
 export const AGENT_EXECUTOR_LOG_PREVIEW_LIMIT = 50;
@@ -53,6 +54,7 @@ export type ListAgentExecutorRunsHandler = (
 export type AgentExecutorRunHistoryPanelProps = {
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
+  openRunDetailRequest?: AgentExecutorRunOpenRequest | null;
   refreshToken: number;
   widgetInstanceId: WidgetInstanceId;
 };

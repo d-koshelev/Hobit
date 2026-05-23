@@ -9,7 +9,14 @@ import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { GIT_WIDGET_DEFINITION_ID, isUserFacingWidgetDefinition } from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
-import type { WidgetInstanceId, WidgetLayout, WorkbenchLayoutMode, WorkbenchViewState } from "./types";
+import type {
+  AgentExecutorRunOpenRequest,
+  AgentExecutorRunOpenRequestInput,
+  WidgetInstanceId,
+  WidgetLayout,
+  WorkbenchLayoutMode,
+  WorkbenchViewState,
+} from "./types";
 import {
   clampDockedPosition,
   clampDockedSize,
@@ -94,6 +101,9 @@ export function WorkbenchCanvas({
     useState<ActiveDockedResize | null>(null);
   const [activePopoutDrag, setActivePopoutDrag] =
     useState<ActivePopoutDrag | null>(null);
+  const agentExecutorRunOpenRequestIdRef = useRef(0);
+  const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
+    useState<AgentExecutorRunOpenRequest | null>(null);
   const dockedDragPositionsRef = useRef(dockedDragPositions);
   const dockedResizeSizesRef = useRef(dockedResizeSizes);
   const layoutSurfaceRef = useRef<HTMLDivElement | null>(null);
@@ -581,6 +591,35 @@ export function WorkbenchCanvas({
     });
   }
 
+  function openAgentExecutorRun(request: AgentExecutorRunOpenRequestInput) {
+    const executorWidgetInstanceId = request.executorWidgetInstanceId.trim();
+    const runId = request.runId.trim();
+
+    if (!executorWidgetInstanceId || !runId) {
+      return;
+    }
+
+    const target =
+      typeof document === "undefined"
+        ? null
+        : Array.from(
+            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+          ).find(
+            (element) =>
+              element.dataset.widgetInstanceId === executorWidgetInstanceId,
+          );
+
+    target?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+    setAgentExecutorRunOpenRequest({
+      executorWidgetInstanceId,
+      id: ++agentExecutorRunOpenRequestIdRef.current,
+      runId,
+    });
+  }
+
   if (visibleWidgets.length === 0) {
     return (
       <WorkbenchEmptyCanvas
@@ -646,12 +685,16 @@ export function WorkbenchCanvas({
                     >
                       <WidgetHost
                         agentExecutorSlots={agentExecutorSlots}
+                        agentExecutorRunOpenRequest={
+                          agentExecutorRunOpenRequest
+                        }
                         directWorkGitReview={directWorkGitReview}
                         directWorkRunHandoff={directWorkRunHandoff}
                         hasGitWidget={hasGitWidget}
                         instance={widget}
                         layoutMode={layoutMode}
                         onDockBack={dockBackWidget}
+                        onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
                         onStartPopoutDrag={startPopoutDrag}
@@ -664,6 +707,7 @@ export function WorkbenchCanvas({
                   <div className="widget-docked-surface">
                     <WidgetHost
                       agentExecutorSlots={agentExecutorSlots}
+                      agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
                       dockedSize={dockedSize}
                       directWorkGitReview={directWorkGitReview}
                       directWorkRunHandoff={directWorkRunHandoff}
@@ -671,6 +715,7 @@ export function WorkbenchCanvas({
                       instance={widget}
                       layoutMode={layoutMode}
                       onDockBack={dockBackWidget}
+                      onOpenAgentExecutorRun={openAgentExecutorRun}
                       onPopOut={popOutWidget}
                       onStartDockedDrag={startDockedDrag}
                       onStartPopoutDrag={startPopoutDrag}

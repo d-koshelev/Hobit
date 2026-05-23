@@ -23,7 +23,10 @@ import type {
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
-import type { AgentExecutorSlot } from "./types";
+import type {
+  AgentExecutorRunOpenRequestInput,
+  AgentExecutorSlot,
+} from "./types";
 
 type AgentQueueTaskRunPanelProps = {
   apiAvailable: boolean;
@@ -39,6 +42,9 @@ type AgentQueueTaskRunPanelProps = {
   latestRun: AgentQueueLatestRunLinkController;
   onAssign: () => void;
   onClear: () => void;
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
   run: AgentQueueRunController;
   runHistory: AgentQueueRunHistoryController;
@@ -60,6 +66,7 @@ export function AgentQueueTaskRunPanel({
   latestRun,
   onAssign,
   onClear,
+  onOpenAgentExecutorRun,
   onSelectionChange,
   run,
   runHistory,
@@ -154,6 +161,7 @@ export function AgentQueueTaskRunPanel({
           <RunHistorySummary
             executorSlots={executorSlots}
             links={runHistory.links}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onRefresh={runHistory.onRefresh}
             totalCount={runHistory.totalCount}
           />
@@ -207,6 +215,7 @@ export function AgentQueueTaskRunPanel({
           <LatestRunSummary
             executorSlots={executorSlots}
             link={latestRun.link}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onRefresh={latestRun.onRefresh}
           />
         ) : (
@@ -535,11 +544,15 @@ export function AgentQueueTaskRunPanel({
 function RunHistorySummary({
   executorSlots,
   links,
+  onOpenAgentExecutorRun,
   onRefresh,
   totalCount,
 }: {
   executorSlots: AgentExecutorSlot[];
   links: NonNullable<AgentQueueLatestRunLinkController["link"]>[];
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   onRefresh: () => void;
   totalCount: number;
 }) {
@@ -573,12 +586,22 @@ function RunHistorySummary({
                 </span>
                 <Button
                   disabled={!executorSlot}
-                  onClick={() => openAssignedExecutor(link.executorWidgetId)}
-                  title="Scroll to the Agent Executor that owns this run."
+                  onClick={() =>
+                    onOpenAgentExecutorRun?.({
+                      executorWidgetInstanceId: link.executorWidgetId,
+                      runId: link.directWorkRunId,
+                    })
+                  }
+                  title={
+                    executorSlot
+                      ? "Open the Agent Executor that owns this run."
+                      : "Owning Agent Executor is not visible on this Workbench."
+                  }
                   variant="ghost"
                 >
                   Open Executor
                 </Button>
+                {!executorSlot ? <span>Executor not visible</span> : null}
               </div>
             </div>
           );
@@ -601,10 +624,14 @@ function RunHistorySummary({
 function LatestRunSummary({
   executorSlots,
   link,
+  onOpenAgentExecutorRun,
   onRefresh,
 }: {
   executorSlots: AgentExecutorSlot[];
   link: NonNullable<AgentQueueLatestRunLinkController["link"]>;
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   onRefresh: () => void;
 }) {
   const executorSlot = executorSlots.find(
@@ -644,8 +671,17 @@ function LatestRunSummary({
       <div className="agent-queue-run-actions">
         <Button
           disabled={!executorSlot}
-          onClick={() => openAssignedExecutor(link.executorWidgetId)}
-          title="Scroll to the Agent Executor that owns this run."
+          onClick={() =>
+            onOpenAgentExecutorRun?.({
+              executorWidgetInstanceId: link.executorWidgetId,
+              runId: link.directWorkRunId,
+            })
+          }
+          title={
+            executorSlot
+              ? "Open the Agent Executor that owns this run."
+              : "Owning Agent Executor is not visible on this Workbench."
+          }
           variant="ghost"
         >
           Open Executor
@@ -654,6 +690,11 @@ function LatestRunSummary({
           Refresh
         </Button>
       </div>
+      {!executorSlot ? (
+        <p className="agent-queue-run-note">
+          Owning Agent Executor is not visible on this Workbench.
+        </p>
+      ) : null}
     </>
   );
 }

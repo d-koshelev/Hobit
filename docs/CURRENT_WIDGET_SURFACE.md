@@ -163,9 +163,11 @@ and component keys may still appear in code and persistence.
   frontend behavior. Agent Executor owns live logs and final results.
 - Selected task details show the latest durable Queue task to Agent Executor
   run-link metadata when available: safe link id/run id references, source,
-  status, timestamps, review status, and a frontend-only Open Executor scroll
-  action. Selected task details also show a compact recent run-history summary
-  from the same safe run-link metadata, capped to a small list with a count.
+  status, timestamps, review status, and an Open Executor action that
+  opens/focuses the owning Agent Executor and passes only the safe run id for
+  Executor-owned run detail selection. Selected task details also show a
+  compact recent run-history summary from the same safe run-link metadata,
+  capped to a small list with a count.
   Queue does not copy or render raw prompts, stdout/stderr, logs, final
   responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
   Executor.

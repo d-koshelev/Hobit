@@ -12,6 +12,7 @@ import type {
   CodexDirectWorkStreamSession,
 } from "./CodexDirectWorkTypes";
 import type {
+  AgentExecutorRunOpenRequest,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
   DirectWorkRunHandoff,
@@ -23,6 +24,7 @@ import type {
 } from "./AgentExecutorRunHistoryPanel";
 
 export type CodexDirectWorkPanelProps = {
+  agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
   gitReviewStatus?: DirectWorkGitReviewStatus | null;
   hasGitWidget?: boolean;
   onDirectWorkGitReviewRequested?: (

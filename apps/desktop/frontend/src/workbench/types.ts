@@ -205,6 +205,17 @@ export type DirectWorkRunHandoffInput = Omit<
   startedAt?: string;
 };
 
+export type AgentExecutorRunOpenRequest = {
+  executorWidgetInstanceId: WidgetInstanceId;
+  id: number;
+  runId: string;
+};
+
+export type AgentExecutorRunOpenRequestInput = Omit<
+  AgentExecutorRunOpenRequest,
+  "id"
+>;
+
 export type DirectWorkQueueTaskAutoRefreshRequest = Omit<
   DirectWorkRunHandoff,
   "id"

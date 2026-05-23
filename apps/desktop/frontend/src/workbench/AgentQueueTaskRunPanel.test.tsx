@@ -42,7 +42,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("No runs yet.");
   });
 
-  it("shows latest run status and source without raw output", () => {
+  it("shows latest run status and source without raw payload fields", () => {
     renderPanel({
       latestRun: latestRunController(runLink({
         completedAt: "2026-05-22T10:01:00.000Z",
@@ -56,8 +56,12 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("completed");
     expect(document.body.textContent).toContain("manual");
     expect(document.body.textContent).not.toContain("stdout");
+    expect(document.body.textContent).not.toContain("stderr");
     expect(document.body.textContent).not.toContain("final response");
     expect(document.body.textContent).not.toContain("diff");
+    expect(document.body.textContent).not.toContain("repo_root");
+    expect(document.body.textContent).not.toContain("operatorPrompt");
+    expect(document.body.textContent).not.toContain("payloadJson");
   });
 
   it("shows recent safe run history status, source, and compact run ref", () => {
@@ -100,12 +104,8 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).not.toContain("Run run4");
   });
 
-  it("keeps Open Executor as a frontend-only scroll action", () => {
-    const target = document.createElement("div");
-    target.dataset.widgetInstanceId = "executor_visible";
-    document.body.append(target);
-    const scrollIntoView = vi.fn();
-    target.scrollIntoView = scrollIntoView;
+  it("opens the owning Executor from the latest run using only safe refs", () => {
+    const onOpenAgentExecutorRun = vi.fn();
 
     renderPanel({
       latestRun: latestRunController(runLink({
@@ -115,6 +115,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
         source: "autorun",
         status: "running",
       })),
+      onOpenAgentExecutorRun,
     });
 
     const openButtons = Array.from(document.querySelectorAll("button")).filter(
@@ -122,12 +123,65 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     );
 
     act(() => {
-      openButtons[openButtons.length - 1]?.dispatchEvent(
+      openButtons[0]?.dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
     });
 
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(onOpenAgentExecutorRun).toHaveBeenCalledWith({
+      executorWidgetInstanceId: "executor_visible",
+      runId: "run_safe_123456",
+    });
+  });
+
+  it("opens the owning Executor from a history row using only safe refs", () => {
+    const onOpenAgentExecutorRun = vi.fn();
+
+    renderPanel({
+      onOpenAgentExecutorRun,
+      runHistory: runHistoryController([
+        runLink({
+          directWorkRunId: "run_history_safe_123456",
+          linkId: "link_history",
+        }),
+      ]),
+    });
+
+    const openButtons = Array.from(document.querySelectorAll("button")).filter(
+      (button) => button.textContent === "Open Executor",
+    );
+
+    act(() => {
+      openButtons[0]?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onOpenAgentExecutorRun).toHaveBeenCalledWith({
+      executorWidgetInstanceId: "executor_visible",
+      runId: "run_history_safe_123456",
+    });
+  });
+
+  it("shows a compact disabled reason when the owning Executor is not visible", () => {
+    renderPanel({
+      executorSlots: [],
+      hasExecutorSlots: false,
+      latestRun: latestRunController(runLink({
+        executorWidgetId: "executor_missing",
+      })),
+      runHistory: runHistoryController([
+        runLink({
+          executorWidgetId: "executor_missing",
+          linkId: "link_missing",
+        }),
+      ]),
+    });
+
+    expect(document.body.textContent).toContain(
+      "Owning Agent Executor is not visible on this Workbench.",
+    );
+    expect(document.body.textContent).toContain("Executor not visible");
   });
 });
 
@@ -154,6 +208,7 @@ function renderPanel(
         latestRun={latestRunController(null)}
         onAssign={vi.fn()}
         onClear={vi.fn()}
+        onOpenAgentExecutorRun={vi.fn()}
         onSelectionChange={vi.fn()}
         run={runController()}
         runHistory={runHistoryController([])}

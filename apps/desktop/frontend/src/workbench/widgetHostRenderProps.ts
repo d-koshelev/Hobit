@@ -2,6 +2,8 @@ import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type {
+  AgentExecutorRunOpenRequest,
+  AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
   WidgetInstanceId,
   WidgetRenderProps,
@@ -18,21 +20,27 @@ import {
 
 type WidgetHostRenderPropsOptions = {
   agentExecutorSlots: AgentExecutorSlot[];
+  agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   componentKey: string;
   directWorkGitReview: DirectWorkGitReviewHandoff;
   directWorkRunHandoff: DirectWorkRunHandoffController;
   hasGitWidget: boolean;
   instanceId: WidgetInstanceId;
+  onOpenAgentExecutorRun: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
   widgetActions: WorkbenchWidgetInstanceActions;
 };
 
 export function widgetHostRenderProps({
   agentExecutorSlots,
+  agentExecutorRunOpenRequest,
   componentKey,
   directWorkGitReview,
   directWorkRunHandoff,
   hasGitWidget,
   instanceId,
+  onOpenAgentExecutorRun,
   widgetActions,
 }: WidgetHostRenderPropsOptions): Partial<WidgetRenderProps> {
   const isAgentExecutor = componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY;
@@ -46,6 +54,9 @@ export function widgetHostRenderProps({
 
   return {
     agentExecutorSlots,
+    agentExecutorRunOpenRequest: isAgentExecutor
+      ? agentExecutorRunOpenRequest
+      : undefined,
     directWorkGitReviewRequest: isGit
       ? directWorkGitReview.request
       : undefined,
@@ -116,6 +127,7 @@ export function widgetHostRenderProps({
       ? (queueItemId) =>
           widgetActions.listAgentQueueTaskRunLinks({ queueItemId })
       : undefined,
+    onOpenAgentExecutorRun: isAgentQueue ? onOpenAgentExecutorRun : undefined,
     onGetGitRepositoryStatus: widgetActions.getGitRepositoryStatus,
     onGenerateCoordinatorProviderResponse: isInteractiveAgent
       ? widgetActions.generateCoordinatorProviderResponse

@@ -13,6 +13,7 @@ export function AgentRunPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
   frameStyle,
+  agentExecutorRunOpenRequest,
   directWorkGitReviewStatus,
   directWorkRunHandoff,
   hasGitWidget,
@@ -53,6 +54,11 @@ export function AgentRunPlaceholderWidget({
           gitReviewStatus={
             directWorkGitReviewStatus?.sourceWidgetInstanceId === instance.id
               ? directWorkGitReviewStatus
+              : null
+          }
+          agentExecutorRunOpenRequest={
+            agentExecutorRunOpenRequest?.executorWidgetInstanceId === instance.id
+              ? agentExecutorRunOpenRequest
               : null
           }
           hasGitWidget={hasGitWidget}

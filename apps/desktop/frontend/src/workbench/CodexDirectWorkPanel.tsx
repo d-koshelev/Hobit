@@ -13,6 +13,7 @@ import { useAgentExecutorController } from "./executor/useAgentExecutorControlle
 
 export function CodexDirectWorkPanel(props: CodexDirectWorkPanelProps) {
   const {
+    agentExecutorRunOpenRequest,
     gitReviewStatus,
     hasGitWidget,
     onGetAgentExecutorDiffSummary,
@@ -151,6 +152,7 @@ export function CodexDirectWorkPanel(props: CodexDirectWorkPanelProps) {
       ) : null}
 
       <AgentExecutorRunHistoryPanel
+        openRunDetailRequest={agentExecutorRunOpenRequest}
         onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
         onListAgentExecutorRuns={onListAgentExecutorRuns}
         refreshToken={historyRefreshToken}
