@@ -21,6 +21,31 @@ type AgentQueueControllerOptions = Parameters<
 >[0];
 
 describe("useAgentQueueController executionPolicy draft", () => {
+  it("reloads the selected task when manual Refresh is requested", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(harness.listRequests).toBe(1);
+    expect(harness.getRequests).toEqual(["queue-1"]);
+
+    await act(async () => {
+      await hook.result.current.refreshTasks();
+    });
+    await flushControllerLoad();
+
+    expect(harness.listRequests).toBe(2);
+    expect(harness.getRequests).toEqual(["queue-1", "queue-1"]);
+
+    hook.unmount();
+  });
+
   it("loads an existing task executionPolicy into the editor draft", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -75,6 +100,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
 
     expect(harness.createRequests).toHaveLength(1);
     expect(harness.createRequests[0].executionPolicy).toBe("manual");
+    expect(harness.listRequests).toBe(2);
     expect(hook.result.current.draft.executionPolicy).toBe("manual");
 
     hook.unmount();
@@ -107,6 +133,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
 
     expect(harness.updateRequests).toHaveLength(1);
     expect(harness.updateRequests[0].executionPolicy).toBe("auto");
+    expect(harness.listRequests).toBe(2);
     expect(hook.result.current.draft.executionPolicy).toBe("auto");
     expect(hook.result.current.isDirty).toBe(false);
 
@@ -337,6 +364,7 @@ describe("useAgentQueueController delete task", () => {
     });
 
     expect(harness.deleteRequests).toEqual([{ queueItemId: "queue-1" }]);
+    expect(harness.listRequests).toBe(2);
     expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
       "queue-2",
     ]);
@@ -425,7 +453,9 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   > = [];
   const deleteRequests: Array<Omit<DeleteAgentQueueTaskRequest, "workspaceId">> =
     [];
+  const getRequests: string[] = [];
   const handoffs: DirectWorkRunHandoffInput[] = [];
+  let listRequests = 0;
   const options: AgentQueueControllerOptions = {
     agentExecutorSlots: [
       {
@@ -494,9 +524,14 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
     onDirectWorkRunHandoffStarted: (handoff) => {
       handoffs.push(handoff);
     },
-    onGetAgentQueueTask: async (queueItemId: string) =>
-      tasks.get(queueItemId) ?? null,
-    onListAgentQueueTasks: async () => Array.from(tasks.values()),
+    onGetAgentQueueTask: async (queueItemId: string) => {
+      getRequests.push(queueItemId);
+      return tasks.get(queueItemId) ?? null;
+    },
+    onListAgentQueueTasks: async () => {
+      listRequests += 1;
+      return Array.from(tasks.values());
+    },
     onStartAssignedAgentQueueTask: async (
       request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
     ): Promise<StartAssignedAgentQueueTaskResponse> => {
@@ -554,7 +589,13 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
     assignRequests,
     createRequests,
     deleteRequests,
+    get getRequests() {
+      return getRequests;
+    },
     handoffs,
+    get listRequests() {
+      return listRequests;
+    },
     options,
     replaceTask(task: AgentQueueTask) {
       tasks.set(task.queueItemId, task);

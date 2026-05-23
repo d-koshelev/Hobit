@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { WorkspaceWorkbenchState } from "../workspace/types";
 import {
   createAgentExecutorWidgetActions,
@@ -77,6 +77,10 @@ export function useWorkbenchWidgetActions({
       [widgetInstanceId]: (currentTokens[widgetInstanceId] ?? 0) + 1,
     }));
   }
+  const agentQueueTaskActions = useMemo(
+    () => createAgentQueueTaskActions(viewState),
+    [viewState],
+  );
 
   return {
     ...createWorkspaceWidgetActions({
@@ -86,7 +90,7 @@ export function useWorkbenchWidgetActions({
       viewState,
     }),
     ...createWorkspaceNoteActions(viewState),
-    ...createAgentQueueTaskActions(viewState),
+    ...agentQueueTaskActions,
     ...createJdbcConnectorActions(viewState),
     ...createCoordinatorProviderActions(viewState),
     ...createAgentExecutorWidgetActions({

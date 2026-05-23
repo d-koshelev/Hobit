@@ -1,9 +1,33 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkbenchShell } from "./WorkbenchShell";
 import type { WorkbenchViewState } from "./types";
+import type {
+  AgentQueueRunnerSnapshot,
+  AgentQueueTask,
+} from "../workspace/types";
+
+const workspaceApiMocks = vi.hoisted(() => ({
+  getAgentQueueRunnerSnapshot: vi.fn(),
+  getAgentQueueTask: vi.fn(),
+  listAgentQueueTaskRunLinks: vi.fn(),
+  listAgentQueueTasks: vi.fn(),
+}));
+
+vi.mock("../workspace/workspaceApi", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../workspace/workspaceApi")>();
+
+  return {
+    ...actual,
+    getAgentQueueRunnerSnapshot: workspaceApiMocks.getAgentQueueRunnerSnapshot,
+    getAgentQueueTask: workspaceApiMocks.getAgentQueueTask,
+    listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
+    listAgentQueueTasks: workspaceApiMocks.listAgentQueueTasks,
+  };
+});
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -18,6 +42,7 @@ afterEach(() => {
   root = null;
   container = null;
   document.body.innerHTML = "";
+  vi.clearAllMocks();
 });
 
 describe("WorkbenchShell global activity", () => {
@@ -55,9 +80,51 @@ describe("WorkbenchShell global activity", () => {
     expect(document.querySelector("#workbench-activity-panel")).toBeNull();
     expect(activityButton.getAttribute("aria-expanded")).toBe("false");
   });
+
+  it("does not reload Agent Queue tasks when Activity drawer state changes", async () => {
+    const task = queueTask();
+    workspaceApiMocks.listAgentQueueTasks.mockResolvedValue([task]);
+    workspaceApiMocks.getAgentQueueTask.mockResolvedValue(task);
+    workspaceApiMocks.listAgentQueueTaskRunLinks.mockResolvedValue([]);
+    workspaceApiMocks.getAgentQueueRunnerSnapshot.mockResolvedValue(
+      queueRunnerSnapshot(),
+    );
+
+    renderShell(
+      workbenchViewState({
+        widgets: [agentQueueWidget()],
+      }),
+    );
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.listAgentQueueTasks).toHaveBeenCalledTimes(1);
+    expect(workspaceApiMocks.getAgentQueueTask).toHaveBeenCalledTimes(1);
+
+    const activityButton = buttonWithText("Activity");
+
+    act(() => {
+      activityButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushShellEffects();
+
+    expect(document.querySelector("#workbench-activity-panel")).not.toBeNull();
+    expect(workspaceApiMocks.listAgentQueueTasks).toHaveBeenCalledTimes(1);
+    expect(workspaceApiMocks.getAgentQueueTask).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      buttonWithText("Close").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(document.querySelector("#workbench-activity-panel")).toBeNull();
+    expect(workspaceApiMocks.listAgentQueueTasks).toHaveBeenCalledTimes(1);
+    expect(workspaceApiMocks.getAgentQueueTask).toHaveBeenCalledTimes(1);
+  });
 });
 
-function renderShell() {
+function renderShell(viewState = workbenchViewState()) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -66,7 +133,7 @@ function renderShell() {
     root?.render(
       <WorkbenchShell
         onViewStateChange={() => undefined}
-        viewState={workbenchViewState()}
+        viewState={viewState}
       />,
     );
   });
@@ -84,7 +151,9 @@ function buttonWithText(text: string) {
   return button;
 }
 
-function workbenchViewState(): WorkbenchViewState {
+function workbenchViewState(
+  overrides: Partial<WorkbenchViewState> = {},
+): WorkbenchViewState {
   return {
     recentEvents: [
       {
@@ -116,5 +185,75 @@ function workbenchViewState(): WorkbenchViewState {
       status: "open",
       title: "Shell Activity Test",
     },
+    ...overrides,
   };
+}
+
+function agentQueueWidget(): WorkbenchViewState["widgets"][number] {
+  return {
+    config: {},
+    definitionId: "agent-queue",
+    id: "widget_queue_1",
+    layout: {
+      area: "main",
+      height: 560,
+      mode: "docked",
+      order: 0,
+      width: 760,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Agent Queue",
+    visible: true,
+  };
+}
+
+function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
+  return {
+    assignedExecutorWidgetId: null,
+    createdAt: "2026-05-20T10:00:00.000Z",
+    description: "",
+    executionPolicy: "manual",
+    priority: 0,
+    prompt: "",
+    queueItemId: "queue-1",
+    status: "draft",
+    title: "Queue task",
+    updatedAt: "2026-05-20T10:00:00.000Z",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function queueRunnerSnapshot(): AgentQueueRunnerSnapshot {
+  return {
+    activeQueueItemId: null,
+    finalRunStatus: null,
+    isActive: false,
+    isSessionOnly: true,
+    lastReconciledAt: null,
+    policy: {
+      allowHiddenExecution: false,
+      durableResume: false,
+      oneTaskAtATime: true,
+      requireOperatorStart: true,
+      stopOnCancel: true,
+      stopOnFailure: true,
+      stopOnReviewNeeded: true,
+    },
+    sessionId: null,
+    status: "idle",
+    stopReason: null,
+    waitingRunId: null,
+  };
+}
+
+async function flushShellEffects() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
