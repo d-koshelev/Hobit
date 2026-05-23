@@ -13,6 +13,7 @@ import type {
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
+  ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -84,6 +85,12 @@ export function getAgentQueueTaskLatestRunLink(
   request: GetAgentQueueTaskLatestRunLinkRequest,
 ): Promise<AgentQueueTaskRunLinkSummary | null> {
   return getWorkspaceApi().getAgentQueueTaskLatestRunLink(request);
+}
+
+export function listAgentQueueTaskRunLinks(
+  request: ListAgentQueueTaskRunLinksRequest,
+): Promise<AgentQueueTaskRunLinkSummary[]> {
+  return getWorkspaceApi().listAgentQueueTaskRunLinks(request);
 }
 
 export function startAgentQueueRunnerSession(

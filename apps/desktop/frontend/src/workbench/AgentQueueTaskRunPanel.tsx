@@ -20,6 +20,7 @@ import type {
   AgentQueueAutorunController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
+  AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
 import type { AgentExecutorSlot } from "./types";
@@ -40,6 +41,7 @@ type AgentQueueTaskRunPanelProps = {
   onClear: () => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
   run: AgentQueueRunController;
+  runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
 };
@@ -60,6 +62,7 @@ export function AgentQueueTaskRunPanel({
   onClear,
   onSelectionChange,
   run,
+  runHistory,
   runner,
   selectedTask,
 }: AgentQueueTaskRunPanelProps) {
@@ -113,6 +116,55 @@ export function AgentQueueTaskRunPanel({
             {statusLabel(selectedTask.status)}
           </Badge>
         </div>
+      </div>
+
+      <div className="agent-queue-execution-group">
+        <div className="agent-queue-execution-group-header">
+          <div>
+            <p
+              className="agent-queue-execution-group-title"
+              title="Shows recent safe run-link metadata for this Queue task."
+            >
+              Run history
+            </p>
+          </div>
+          <div className="agent-queue-execution-badges">
+            <Badge variant={runHistory.totalCount > 0 ? "info" : "neutral"}>
+              {runHistory.totalCount > 0
+                ? totalRunsLabel(runHistory.totalCount)
+                : "none"}
+            </Badge>
+          </div>
+        </div>
+
+        {!runHistory.apiAvailable ? (
+          <p className="agent-queue-run-note">
+            Run history metadata is only available in the Tauri desktop shell.
+          </p>
+        ) : runHistory.isLoading ? (
+          <p className="agent-queue-run-note">Loading run history.</p>
+        ) : runHistory.error ? (
+          <p
+            className="agent-queue-message agent-queue-message-error"
+            role="alert"
+          >
+            {runHistory.error}
+          </p>
+        ) : runHistory.links.length > 0 ? (
+          <RunHistorySummary
+            executorSlots={executorSlots}
+            links={runHistory.links}
+            onRefresh={runHistory.onRefresh}
+            totalCount={runHistory.totalCount}
+          />
+        ) : (
+          <div className="agent-queue-run-empty-state">
+            <p className="agent-queue-run-note">No runs yet.</p>
+            <Button onClick={() => runHistory.onRefresh()} variant="ghost">
+              Refresh
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="agent-queue-execution-group">
@@ -480,6 +532,72 @@ export function AgentQueueTaskRunPanel({
   );
 }
 
+function RunHistorySummary({
+  executorSlots,
+  links,
+  onRefresh,
+  totalCount,
+}: {
+  executorSlots: AgentExecutorSlot[];
+  links: NonNullable<AgentQueueLatestRunLinkController["link"]>[];
+  onRefresh: () => void;
+  totalCount: number;
+}) {
+  const visibleLinks = links.slice(0, 3);
+  const isLimited = totalCount > visibleLinks.length;
+
+  return (
+    <>
+      <div className="agent-queue-run-history-list">
+        {visibleLinks.map((link) => {
+          const executorSlot = executorSlots.find(
+            (slot) => slot.widgetInstanceId === link.executorWidgetId,
+          );
+          const runRef = shortWidgetInstanceId(link.directWorkRunId);
+
+          return (
+            <div className="agent-queue-run-history-item" key={link.linkId}>
+              <div className="agent-queue-run-history-main">
+                <Badge variant={runStatusBadgeVariant(link.status)}>
+                  {runStatusLabel(link.status)}
+                </Badge>
+                <span>{runSourceLabel(link.source)}</span>
+                <span>Run {runRef}</span>
+              </div>
+              <div className="agent-queue-run-history-meta">
+                <span>Started {formatRunTimestamp(link.startedAt)}</span>
+                <span>
+                  {link.completedAt
+                    ? `Completed ${formatRunTimestamp(link.completedAt)}`
+                    : "Running"}
+                </span>
+                <Button
+                  disabled={!executorSlot}
+                  onClick={() => openAssignedExecutor(link.executorWidgetId)}
+                  title="Scroll to the Agent Executor that owns this run."
+                  variant="ghost"
+                >
+                  Open Executor
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="agent-queue-run-actions">
+        {isLimited ? (
+          <p className="agent-queue-run-note">
+            Showing latest {visibleLinks.length} of {totalCount} total runs.
+          </p>
+        ) : null}
+        <Button onClick={() => onRefresh()} variant="ghost">
+          Refresh
+        </Button>
+      </div>
+    </>
+  );
+}
+
 function LatestRunSummary({
   executorSlots,
   link,
@@ -583,6 +701,10 @@ function runStatusLabel(status: string) {
 
 function runReviewStatusLabel(status: string) {
   return status === "review_needed" ? "review needed" : "unknown";
+}
+
+function totalRunsLabel(totalCount: number) {
+  return totalCount === 1 ? "1 total run" : `${totalCount} total runs`;
 }
 
 function runStatusBadgeVariant(status: string) {

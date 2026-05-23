@@ -7,8 +7,8 @@ use hobit_app::{
 };
 
 use crate::agent_queue_execution_dto::{
-    AgentQueueTaskRunLinkDto, StartAssignedAgentQueueTaskRequest,
-    StartAssignedAgentQueueTaskResponseDto,
+    AgentQueueTaskRunLinkDto, ListAgentQueueTaskRunLinksRequest,
+    StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
 };
 
 #[test]
@@ -116,4 +116,15 @@ fn maps_run_link_summary_to_safe_dto_without_raw_payload_fields() {
             "run link DTO must not expose {forbidden_field}"
         );
     }
+}
+
+#[test]
+fn list_run_links_request_uses_queue_task_identity_only() {
+    let request = ListAgentQueueTaskRunLinksRequest {
+        workspace_id: "ws_1".to_owned(),
+        queue_item_id: "task_1".to_owned(),
+    };
+
+    assert_eq!(request.workspace_id, "ws_1");
+    assert_eq!(request.queue_item_id, "task_1");
 }

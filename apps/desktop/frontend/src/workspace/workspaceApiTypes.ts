@@ -54,6 +54,7 @@ import type {
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
+  ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   ListTerminalPtySessionsRequest,
   ListWorkspaceNotesRequest,
@@ -193,6 +194,9 @@ export type WorkspaceApi = {
   getAgentQueueTaskLatestRunLink: (
     request: GetAgentQueueTaskLatestRunLinkRequest,
   ) => Promise<AgentQueueTaskRunLinkSummary | null>;
+  listAgentQueueTaskRunLinks: (
+    request: ListAgentQueueTaskRunLinksRequest,
+  ) => Promise<AgentQueueTaskRunLinkSummary[]>;
   startAgentQueueRunnerSession: (
     request: StartAgentQueueRunnerSessionRequest,
   ) => Promise<AgentQueueRunnerSnapshot>;

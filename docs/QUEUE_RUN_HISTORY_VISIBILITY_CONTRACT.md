@@ -8,10 +8,10 @@ runs.
 
 It began as a docs/product contract. Hobit now has the first minimal
 backend/storage foundation for durable Queue task to Agent Executor run
-linkage, plus a narrow safe latest-run DTO/API and selected-task UI summary.
-It still does not add a full frontend run-history UI, Queue-owned raw run
-detail display, scheduler behavior, retries, server runtime, RBAC, or Agent
-Executor ownership changes.
+linkage, plus narrow safe DTO/API visibility for the selected task latest run
+and compact recent run-history rows. It still does not add a full frontend
+run-history browser, Queue-owned raw run detail display, scheduler behavior,
+retries, server runtime, RBAC, or Agent Executor ownership changes.
 
 ## Product Need
 
@@ -130,9 +130,13 @@ Implemented foundation:
 - final status updates store safe status/timestamp/review metadata only.
 - a desktop Tauri command exposes the latest run-link summary for one Queue
   task using safe metadata only;
+- a desktop Tauri command exposes safe recent run-link summaries for one Queue
+  task using the same metadata-only DTO;
 - the frontend Workspace API exposes that latest-link summary and the selected
   Queue task detail renders a compact Latest run section with status, source,
-  Executor ref, timestamps, review status, refresh, and Open Executor scroll.
+  Executor ref, timestamps, review status, refresh, and Open Executor scroll;
+- the selected Queue task detail renders a compact Run history section showing
+  the latest three safe run links plus a total count when available.
 
 Queue still does not own raw Executor run details. Agent Executor remains the
 owner for logs, results, final responses, validation detail, diffs, and
@@ -161,8 +165,9 @@ updated_at
 
 The run-link is a separate table, not latest-run fields on the Queue task row.
 Latest-run visibility can be derived by querying the newest link for a task.
-The current API exposes that derived latest link for one selected task; it does
-not expose raw Executor run detail and does not list full history yet.
+The current APIs expose the derived latest link and recent safe run-link rows
+for one selected task. They do not expose raw Executor run detail and do not
+provide a full history browser.
 
 Do not store raw prompt, stdout, stderr, final response, diffs, logs, or result
 payload in Queue linkage records.
@@ -185,8 +190,9 @@ a later evidence/context approval flow changes that.
 
 ## UI Direction
 
-The selected Queue task detail now shows a compact latest-run signal. The
-Queue task list may later show a compact latest-run signal:
+The selected Queue task detail now shows a compact latest-run signal and a
+small recent run-history list. The Queue task list may later show a compact
+latest-run signal:
 
 ```text
 Run wrun_... - completed - Review
@@ -196,7 +202,7 @@ The selected task detail may show:
 
 - Latest run: status, Executor, started/completed, validation status;
 - Open in Agent Executor;
-- Run history count or compact rows when available;
+- Run history count and compact recent rows when available;
 - warning when a task is final but no durable run ref exists.
 
 The current open action scrolls to the owning Agent Executor widget when it is
@@ -212,16 +218,18 @@ visible. It does not fetch or render raw Executor payload inside Queue.
 4. Frontend Queue visibility slice: implemented as selected-task latest run
    status/source/timestamp metadata and a frontend-only Open Executor scroll
    action.
-5. Smoke/test slice: cover manual run, Sequential Queue Runner, Autorun,
+5. Compact history slice: implemented as selected-task recent run-link rows
+   capped to a small list/count without rendering raw Executor payloads.
+6. Smoke/test slice: cover manual run, Sequential Queue Runner, Autorun,
    failed/cancelled run, and no durable run ref states.
-6. ArtifactRef slice later: replace or augment string refs with metadata
+7. ArtifactRef slice later: replace or augment string refs with metadata
    ArtifactRefs after resolver and ownership rules are implemented.
 
 ## Non-Goals
 
 Current implementation still does not implement:
 
-- full run-history UI;
+- full run-history browser;
 - Queue-owned raw run detail storage or rendering;
 - Queue task row latest-run fields;
 - Queue runtime changes;

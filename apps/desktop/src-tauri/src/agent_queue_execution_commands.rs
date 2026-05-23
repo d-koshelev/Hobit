@@ -6,7 +6,8 @@ use tauri::{Emitter, State};
 
 use crate::agent_queue_execution_dto::{
     AgentQueueTaskRunLinkDto, GetAgentQueueTaskLatestRunLinkRequest,
-    StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
+    ListAgentQueueTaskRunLinksRequest, StartAssignedAgentQueueTaskRequest,
+    StartAssignedAgentQueueTaskResponseDto,
 };
 use crate::app_state::{AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry};
 use crate::codex_direct_work_dto::{DirectWorkStreamEventDto, DIRECT_WORK_STREAM_EVENT_NAME};
@@ -34,6 +35,14 @@ pub(crate) fn get_agent_queue_task_latest_run_link(
     get_agent_queue_task_latest_run_link_blocking(request, state.db_path().to_path_buf())
 }
 
+#[tauri::command]
+pub(crate) fn list_agent_queue_task_run_links(
+    request: ListAgentQueueTaskRunLinksRequest,
+    state: State<'_, AppState>,
+) -> Result<Vec<AgentQueueTaskRunLinkDto>, String> {
+    list_agent_queue_task_run_links_blocking(request, state.db_path().to_path_buf())
+}
+
 pub(crate) fn get_agent_queue_task_latest_run_link_blocking(
     request: GetAgentQueueTaskLatestRunLinkRequest,
     db_path: PathBuf,
@@ -42,6 +51,22 @@ pub(crate) fn get_agent_queue_task_latest_run_link_blocking(
     service
         .get_latest_agent_queue_task_run_link(&request.workspace_id, &request.queue_item_id)
         .map(|link| link.map(AgentQueueTaskRunLinkDto::from))
+        .map_err(command_error)
+}
+
+pub(crate) fn list_agent_queue_task_run_links_blocking(
+    request: ListAgentQueueTaskRunLinksRequest,
+    db_path: PathBuf,
+) -> Result<Vec<AgentQueueTaskRunLinkDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .list_agent_queue_task_run_links(&request.workspace_id, &request.queue_item_id)
+        .map(|links| {
+            links
+                .into_iter()
+                .map(AgentQueueTaskRunLinkDto::from)
+                .collect()
+        })
         .map_err(command_error)
 }
 

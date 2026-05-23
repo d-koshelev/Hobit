@@ -34,6 +34,12 @@ pub(crate) struct GetAgentQueueTaskLatestRunLinkRequest {
     pub queue_item_id: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ListAgentQueueTaskRunLinksRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct AgentQueueTaskRunLinkDto {
     pub link_id: String,

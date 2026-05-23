@@ -6,6 +6,7 @@ import {
   getAgentQueueTask,
   getAgentQueueTaskLatestRunLink,
   getAgentQueueRunnerSnapshot,
+  listAgentQueueTaskRunLinks,
   listAgentQueueTasks,
   startAssignedAgentQueueTask,
   startAgentQueueRunnerSession,
@@ -61,6 +62,10 @@ export type AgentQueueTaskLatestRunLinkRequest = {
   queueItemId: string;
 };
 
+export type AgentQueueTaskRunLinksRequest = {
+  queueItemId: string;
+};
+
 export type AgentQueueRunnerSessionStartRequest = Omit<
   StartAgentQueueRunnerSessionRequest,
   "workspaceId"
@@ -90,6 +95,9 @@ export type AgentQueueTaskWidgetActions = {
   getAgentQueueTaskLatestRunLink: (
     request: AgentQueueTaskLatestRunLinkRequest,
   ) => Promise<AgentQueueTaskRunLinkSummary | null>;
+  listAgentQueueTaskRunLinks: (
+    request: AgentQueueTaskRunLinksRequest,
+  ) => Promise<AgentQueueTaskRunLinkSummary[]>;
   startAgentQueueRunnerSession: (
     request: AgentQueueRunnerSessionStartRequest,
   ) => Promise<AgentQueueRunnerSnapshot>;
@@ -159,6 +167,13 @@ export function createAgentQueueTaskActions(
     getAgentQueueTaskLatestRunLink: (request) => {
       requireOpenWorkbench(viewState, "read Agent Queue task run links");
       return getAgentQueueTaskLatestRunLink({
+        workspaceId: viewState.workspace.id,
+        queueItemId: request.queueItemId,
+      });
+    },
+    listAgentQueueTaskRunLinks: (request) => {
+      requireOpenWorkbench(viewState, "read Agent Queue task run links");
+      return listAgentQueueTaskRunLinks({
         workspaceId: viewState.workspace.id,
         queueItemId: request.queueItemId,
       });

@@ -196,6 +196,9 @@ export const startAssignedAgentQueueTask: WorkspaceApi["startAssignedAgentQueueT
 export const getAgentQueueTaskLatestRunLink: WorkspaceApi["getAgentQueueTaskLatestRunLink"] =
   async (_request) => null;
 
+export const listAgentQueueTaskRunLinks: WorkspaceApi["listAgentQueueTaskRunLinks"] =
+  async (_request) => [];
+
 export const startAgentQueueRunnerSession: WorkspaceApi["startAgentQueueRunnerSession"] =
   async (_request) => {
     throw new Error(

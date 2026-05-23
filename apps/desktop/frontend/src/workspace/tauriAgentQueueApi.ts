@@ -19,6 +19,7 @@ import type {
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
+  ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -309,6 +310,22 @@ export async function getAgentQueueTaskLatestRunLink(
   );
 
   return link ? normalizeAgentQueueTaskRunLink(link) : null;
+}
+
+export async function listAgentQueueTaskRunLinks(
+  request: ListAgentQueueTaskRunLinksRequest,
+): Promise<AgentQueueTaskRunLinkSummary[]> {
+  const links = await invoke<TauriAgentQueueTaskRunLink[]>(
+    "list_agent_queue_task_run_links",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+      },
+    },
+  );
+
+  return links.map(normalizeAgentQueueTaskRunLink);
 }
 
 export async function startAgentQueueRunnerSession(

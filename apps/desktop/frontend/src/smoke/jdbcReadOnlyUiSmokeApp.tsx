@@ -137,6 +137,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       getWorkspaceNote: this.unsupported,
       killTerminalPtySession: this.unsupported,
       listAgentExecutorRuns: this.unsupported,
+      listAgentQueueTaskRunLinks: async () => [],
       listAgentQueueTasks: async () => [],
       listJdbcConnectors: async () => {
         this.connectorListCallCount += 1;

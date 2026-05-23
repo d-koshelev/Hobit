@@ -163,6 +163,9 @@ export type WidgetRenderProps = {
   onGetAgentQueueTaskLatestRunLink?: (
     queueItemId: string,
   ) => Promise<AgentQueueTaskRunLinkSummary | null>;
+  onListAgentQueueTaskRunLinks?: (
+    queueItemId: string,
+  ) => Promise<AgentQueueTaskRunLinkSummary[]>;
   onGetGitRepositoryStatus?: (
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,

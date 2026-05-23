@@ -8,7 +8,9 @@ use hobit_app::{
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
 };
 
-use crate::agent_queue_execution_dto::GetAgentQueueTaskLatestRunLinkRequest;
+use crate::agent_queue_execution_dto::{
+    GetAgentQueueTaskLatestRunLinkRequest, ListAgentQueueTaskRunLinksRequest,
+};
 
 #[test]
 fn start_assigned_agent_queue_task_command_helper_starts_direct_work_run() {
@@ -85,6 +87,59 @@ fn latest_run_link_command_helper_returns_safe_metadata() {
     assert!(!object.contains_key("diff"));
     assert!(!object.contains_key("payload_json"));
     assert!(!object.contains_key("repo_root"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn list_run_links_command_helper_returns_safe_metadata() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, queue_item_id, executor_widget_id) = create_assigned_task(&db_path, "ready");
+
+    let start = start_assigned_agent_queue_task_blocking(
+        request(&workspace_id, &queue_item_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+    )
+    .expect("start assigned queue task");
+
+    let links = list_agent_queue_task_run_links_blocking(
+        ListAgentQueueTaskRunLinksRequest {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: queue_item_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("list run links");
+
+    assert_eq!(links.len(), 1);
+    let link = &links[0];
+    assert_eq!(link.workspace_id, workspace_id);
+    assert_eq!(link.queue_task_id, queue_item_id);
+    assert_eq!(link.executor_widget_id, executor_widget_id);
+    assert_eq!(link.direct_work_run_id, start.run_id);
+    assert_eq!(link.source, "manual");
+    assert_eq!(link.status, "running");
+
+    let link_json = serde_json::to_value(link).expect("serialize link");
+    let object = link_json.as_object().expect("link object");
+    for forbidden_field in [
+        "prompt",
+        "operator_prompt",
+        "stdout",
+        "stderr",
+        "final_response",
+        "diff",
+        "logs",
+        "command_payload",
+        "payload_json",
+        "repo_root",
+        "secrets",
+    ] {
+        assert!(
+            !object.contains_key(forbidden_field),
+            "run link list DTO must not expose {forbidden_field}"
+        );
+    }
     remove_test_db_files(&db_path);
 }
 

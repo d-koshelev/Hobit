@@ -98,6 +98,8 @@ export type AgentQueueTaskRunReviewStatus = "review_needed" | "unknown";
 
 export type GetAgentQueueTaskLatestRunLinkRequest = GetAgentQueueTaskRequest;
 
+export type ListAgentQueueTaskRunLinksRequest = GetAgentQueueTaskRequest;
+
 export type AgentQueueTaskRunLinkSummary = {
   linkId: string;
   workspaceId: string;

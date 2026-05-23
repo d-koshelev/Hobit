@@ -235,6 +235,7 @@ class QueueExecutorSmokeRuntime {
       stopTerminalPtySession: async () => this.forbidden(null),
       getAgentQueueTaskLatestRunLink: async () => null,
       getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot("idle"),
+      listAgentQueueTaskRunLinks: async () => [],
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
       updateJdbcConnector: this.unsupported,

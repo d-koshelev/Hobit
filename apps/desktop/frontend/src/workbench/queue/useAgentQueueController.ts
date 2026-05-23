@@ -47,6 +47,7 @@ type UseAgentQueueControllerOptions = Pick<
   | "onGetAgentQueueTask"
   | "onGetAgentQueueTaskLatestRunLink"
   | "onGetAgentQueueRunnerSnapshot"
+  | "onListAgentQueueTaskRunLinks"
   | "onListAgentQueueTasks"
   | "onStartAssignedAgentQueueTask"
   | "onStartAgentQueueRunnerSession"
@@ -110,6 +111,15 @@ export type AgentQueueLatestRunLinkController = {
   onRefresh: () => void;
 };
 
+export type AgentQueueRunHistoryController = {
+  apiAvailable: boolean;
+  error: string | null;
+  isLoading: boolean;
+  links: AgentQueueTaskRunLinkSummary[];
+  onRefresh: () => void;
+  totalCount: number;
+};
+
 export type AgentQueueDeleteController = {
   blockedReason: string | null;
   canRequest: boolean;
@@ -132,6 +142,7 @@ export function useAgentQueueController({
   onGetAgentQueueTask,
   onGetAgentQueueTaskLatestRunLink,
   onGetAgentQueueRunnerSnapshot,
+  onListAgentQueueTaskRunLinks,
   onListAgentQueueTasks,
   onStartAssignedAgentQueueTask,
   onStartAgentQueueRunnerSession,
@@ -192,6 +203,9 @@ export function useAgentQueueController({
   const [startError, setStartError] = useState<string | null>(null);
   const [latestRunLink, setLatestRunLink] =
     useState<AgentQueueTaskRunLinkSummary | null>(null);
+  const [runHistoryLinks, setRunHistoryLinks] = useState<
+    AgentQueueTaskRunLinkSummary[]
+  >([]);
   const [latestRunLinkError, setLatestRunLinkError] = useState<string | null>(
     null,
   );
@@ -357,8 +371,12 @@ export function useAgentQueueController({
       queueItemId: string | null | undefined,
       options?: { silent?: boolean },
     ) => {
-      if (!queueItemId || !onGetAgentQueueTaskLatestRunLink) {
+      if (
+        !queueItemId ||
+        (!onListAgentQueueTaskRunLinks && !onGetAgentQueueTaskLatestRunLink)
+      ) {
         setLatestRunLink(null);
+        setRunHistoryLinks([]);
         setLatestRunLinkError(null);
         setIsLatestRunLinkLoading(false);
         return;
@@ -370,12 +388,20 @@ export function useAgentQueueController({
       setLatestRunLinkError(null);
 
       try {
-        const link = await onGetAgentQueueTaskLatestRunLink(queueItemId);
-        setLatestRunLink(link);
+        if (onListAgentQueueTaskRunLinks) {
+          const links = await onListAgentQueueTaskRunLinks(queueItemId);
+          setRunHistoryLinks(links);
+          setLatestRunLink(links[0] ?? null);
+        } else if (onGetAgentQueueTaskLatestRunLink) {
+          const link = await onGetAgentQueueTaskLatestRunLink(queueItemId);
+          setLatestRunLink(link);
+          setRunHistoryLinks(link ? [link] : []);
+        }
       } catch (error) {
         setLatestRunLink(null);
+        setRunHistoryLinks([]);
         setLatestRunLinkError(
-          errorToMessage(error, "Unable to load latest Queue run metadata."),
+          errorToMessage(error, "Unable to load Queue run metadata."),
         );
       } finally {
         if (!options?.silent) {
@@ -383,7 +409,7 @@ export function useAgentQueueController({
         }
       }
     },
-    [onGetAgentQueueTaskLatestRunLink],
+    [onGetAgentQueueTaskLatestRunLink, onListAgentQueueTaskRunLinks],
   );
 
   useEffect(() => {
@@ -1011,13 +1037,26 @@ export function useAgentQueueController({
       startMessage,
     } satisfies AgentQueueRunController,
     latestRun: {
-      apiAvailable: Boolean(onGetAgentQueueTaskLatestRunLink),
+      apiAvailable: Boolean(
+        onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,
+      ),
       error: latestRunLinkError,
       isLoading: isLatestRunLinkLoading,
       link: latestRunLink,
       onRefresh: () =>
         void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
     } satisfies AgentQueueLatestRunLinkController,
+    runHistory: {
+      apiAvailable: Boolean(
+        onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,
+      ),
+      error: latestRunLinkError,
+      isLoading: isLatestRunLinkLoading,
+      links: runHistoryLinks,
+      onRefresh: () =>
+        void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
+      totalCount: runHistoryLinks.length,
+    } satisfies AgentQueueRunHistoryController,
     autorun: {
       apiAvailable: autorunApiAvailable,
       canArm: canArmAutorun,

@@ -8,6 +8,7 @@ import type {
   AgentQueueAutorunController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
+  AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
 import type { AgentExecutorSlot } from "./types";
@@ -33,29 +34,23 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
   it("shows a no-run state when the selected task has no run link", () => {
     renderPanel({
       latestRun: latestRunController(null),
+      runHistory: runHistoryController([]),
     });
 
     expect(document.body.textContent).toContain("Latest run");
+    expect(document.body.textContent).toContain("Run history");
     expect(document.body.textContent).toContain("No runs yet.");
   });
 
   it("shows latest run status and source without raw output", () => {
     renderPanel({
-      latestRun: latestRunController({
+      latestRun: latestRunController(runLink({
         completedAt: "2026-05-22T10:01:00.000Z",
-        createdAt: "2026-05-22T10:00:00.000Z",
         directWorkRunId: "run_safe_123456",
-        executorWidgetId: "executor_visible",
-        linkId: "link_1",
-        queueTaskId: "task_1",
         reviewStatus: "review_needed",
         source: "manual",
-        startedAt: "2026-05-22T10:00:00.000Z",
         status: "completed",
-        updatedAt: "2026-05-22T10:01:00.000Z",
-        validationStatus: null,
-        workspaceId: "ws_1",
-      }),
+      })),
     });
 
     expect(document.body.textContent).toContain("completed");
@@ -63,6 +58,46 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).not.toContain("stdout");
     expect(document.body.textContent).not.toContain("final response");
     expect(document.body.textContent).not.toContain("diff");
+  });
+
+  it("shows recent safe run history status, source, and compact run ref", () => {
+    renderPanel({
+      latestRun: latestRunController(runLink({ status: "failed" })),
+      runHistory: runHistoryController([
+        runLink({
+          directWorkRunId: "run_safe_recent_123456",
+          linkId: "link_recent",
+          source: "autorun",
+          status: "failed",
+        }),
+      ]),
+    });
+
+    expect(document.body.textContent).toContain("Run history");
+    expect(document.body.textContent).toContain("failed");
+    expect(document.body.textContent).toContain("autorun");
+    expect(document.body.textContent).toContain("Run 123456");
+    expect(document.body.textContent).not.toContain("stdout");
+    expect(document.body.textContent).not.toContain("final response");
+    expect(document.body.textContent).not.toContain("diff");
+  });
+
+  it("limits run history to the latest three rows", () => {
+    renderPanel({
+      latestRun: latestRunController(runLink({ directWorkRunId: "run_1" })),
+      runHistory: runHistoryController([
+        runLink({ directWorkRunId: "run_1", linkId: "link_1" }),
+        runLink({ directWorkRunId: "run_2", linkId: "link_2" }),
+        runLink({ directWorkRunId: "run_3", linkId: "link_3" }),
+        runLink({ directWorkRunId: "run_4", linkId: "link_4" }),
+      ]),
+    });
+
+    expect(document.body.textContent).toContain("Showing latest 3 of 4 total runs.");
+    expect(document.body.textContent).toContain("Run run1");
+    expect(document.body.textContent).toContain("Run run2");
+    expect(document.body.textContent).toContain("Run run3");
+    expect(document.body.textContent).not.toContain("Run run4");
   });
 
   it("keeps Open Executor as a frontend-only scroll action", () => {
@@ -73,21 +108,13 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     target.scrollIntoView = scrollIntoView;
 
     renderPanel({
-      latestRun: latestRunController({
+      latestRun: latestRunController(runLink({
         completedAt: null,
-        createdAt: "2026-05-22T10:00:00.000Z",
         directWorkRunId: "run_safe_123456",
-        executorWidgetId: "executor_visible",
-        linkId: "link_1",
-        queueTaskId: "task_1",
         reviewStatus: null,
         source: "autorun",
-        startedAt: "2026-05-22T10:00:00.000Z",
         status: "running",
-        updatedAt: "2026-05-22T10:00:00.000Z",
-        validationStatus: null,
-        workspaceId: "ws_1",
-      }),
+      })),
     });
 
     const openButtons = Array.from(document.querySelectorAll("button")).filter(
@@ -129,6 +156,7 @@ function renderPanel(
         onClear={vi.fn()}
         onSelectionChange={vi.fn()}
         run={runController()}
+        runHistory={runHistoryController([])}
         runner={runnerController()}
         selectedTask={queueTask()}
         {...overrides}
@@ -153,6 +181,27 @@ function queueTask(): AgentQueueTask {
   };
 }
 
+function runLink(
+  overrides: Partial<NonNullable<AgentQueueLatestRunLinkController["link"]>> = {},
+): NonNullable<AgentQueueLatestRunLinkController["link"]> {
+  return {
+    completedAt: "2026-05-22T10:01:00.000Z",
+    createdAt: "2026-05-22T10:00:00.000Z",
+    directWorkRunId: "run_safe_123456",
+    executorWidgetId: "executor_visible",
+    linkId: "link_1",
+    queueTaskId: "task_1",
+    reviewStatus: null,
+    source: "manual",
+    startedAt: "2026-05-22T10:00:00.000Z",
+    status: "completed",
+    updatedAt: "2026-05-22T10:01:00.000Z",
+    validationStatus: null,
+    workspaceId: "ws_1",
+    ...overrides,
+  };
+}
+
 function executorSlots(): AgentExecutorSlot[] {
   return [
     { label: "Agent Executor visible", widgetInstanceId: "executor_visible" },
@@ -168,6 +217,19 @@ function latestRunController(
     isLoading: false,
     link,
     onRefresh: vi.fn(),
+  };
+}
+
+function runHistoryController(
+  links: AgentQueueRunHistoryController["links"],
+): AgentQueueRunHistoryController {
+  return {
+    apiAvailable: true,
+    error: null,
+    isLoading: false,
+    links,
+    onRefresh: vi.fn(),
+    totalCount: links.length,
   };
 }
 

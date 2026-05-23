@@ -164,7 +164,9 @@ and component keys may still appear in code and persistence.
 - Selected task details show the latest durable Queue task to Agent Executor
   run-link metadata when available: safe link id/run id references, source,
   status, timestamps, review status, and a frontend-only Open Executor scroll
-  action. Queue does not copy or render raw prompts, stdout/stderr, logs, final
+  action. Selected task details also show a compact recent run-history summary
+  from the same safe run-link metadata, capped to a small list with a count.
+  Queue does not copy or render raw prompts, stdout/stderr, logs, final
   responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
   Executor.
 - Queue task persistence includes `executionPolicy` model/DTO support with a

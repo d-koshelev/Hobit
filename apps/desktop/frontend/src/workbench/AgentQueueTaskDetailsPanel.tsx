@@ -109,6 +109,7 @@ export function AgentQueueTaskDetailsPanel({
               selectExecutorWidget(executorWidgetInstanceId);
             }}
             run={run}
+            runHistory={queue.runHistory}
             runner={queue.runner}
             selectedTask={selectedTask}
           />

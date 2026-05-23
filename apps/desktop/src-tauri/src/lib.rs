@@ -131,6 +131,7 @@ pub fn run() {
             agent_queue_task_commands::delete_agent_queue_task,
             agent_queue_execution_commands::start_assigned_agent_queue_task,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
+            agent_queue_execution_commands::list_agent_queue_task_run_links,
             agent_queue_runner_commands::start_agent_queue_runner_session,
             agent_queue_runner_commands::stop_agent_queue_runner_session,
             agent_queue_runner_commands::get_agent_queue_runner_snapshot

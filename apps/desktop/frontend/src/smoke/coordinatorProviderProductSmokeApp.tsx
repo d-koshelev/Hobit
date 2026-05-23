@@ -141,6 +141,7 @@ class CoordinatorProviderProductSmokeRuntime {
       },
       killTerminalPtySession: this.terminalUnsupported,
       listAgentExecutorRuns: this.executorUnsupported,
+      listAgentQueueTaskRunLinks: async () => [],
       listAgentQueueTasks: async () =>
         this.lastCreatedQueueTask ? [this.lastCreatedQueueTask] : [],
       listJdbcConnectors: this.jdbcUnsupported,

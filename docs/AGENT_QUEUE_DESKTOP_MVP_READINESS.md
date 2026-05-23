@@ -36,6 +36,9 @@ Currently working:
 - selected-task latest run metadata display from durable safe run-link records,
   including source/status/timestamps and a frontend-only Open Executor scroll
   action;
+- selected-task compact run history from the same safe run-link metadata,
+  showing recent status/source/run refs and a count without rendering Executor
+  payloads;
 - visible frontend Sequential Queue Runner that can run policy-eligible tasks
   after the operator starts the runner;
 - visible Queue Autorun panel that can arm, stop, and refresh desktop-local
@@ -68,9 +71,9 @@ Durable in `hobit-app` / SQLite-backed storage:
 The Queue task record does not persist `last_run_id`, result summary, runner
 id, dependency state, or retry state on the task row. Safe run-link metadata
 lives in a separate table and references Executor-owned Direct Work runs. The
-Queue API exposes the latest safe link for a selected task without exposing
-prompts, stdout/stderr, logs, final responses, raw diffs, repo paths, secrets,
-or raw JSON payloads.
+Queue API exposes the latest safe link and recent safe link summaries for a
+selected task without exposing prompts, stdout/stderr, logs, final responses,
+raw diffs, repo paths, secrets, or raw JSON payloads.
 
 ## Current-Session Only
 
@@ -127,7 +130,7 @@ not survive reload.
 - multi-executor scheduling;
 - dependency graph or blocked/ready dependency model;
 - retry model;
-- full Queue run-history UI or `last_run_id` task-row fields;
+- full Queue run-history browser or `last_run_id` task-row fields;
 - Queue-owned live logs or result detail;
 - Queue-owned raw run details;
 - bulk task import;
@@ -143,8 +146,9 @@ not survive reload.
 - Execution policy labels, especially `auto`, can read stronger than the
   current implementation. The product should keep saying that policy is used
   only by the visible, operator-started Sequential Queue Runner.
-- Queue now shows latest durable run-link metadata for the selected task, but
-  not a full run-history list or Executor-owned result detail.
+- Queue now shows latest durable run-link metadata and a compact recent
+  history for the selected task, but not a full run-history browser or
+  Executor-owned result detail.
 - Queue task detail has many controls in one panel; the next UI pass should
   make planning, assignment, manual run, and runner controls easier to scan.
 - Empty states explain task creation, but there is no guided path for
@@ -188,10 +192,10 @@ not survive reload.
    messages, assignment affordances, and dirty-state handling.
 4. Queue runner reliability hardening: make current-session limits clearer,
    improve stop/waiting/final-state messages, and strengthen frontend tests.
-5. Queue task run visibility/history: minimal durable run-link metadata and
-   selected-task latest-run visibility now exist. The next slice should add a
-   compact history list/count without rendering raw Executor payloads inside
-   Queue.
+5. Queue task run visibility/history: minimal durable run-link metadata,
+   selected-task latest-run visibility, and a compact history list/count now
+   exist. The next slice should add deeper Executor-owned run opening or
+   filtering only through safe references.
 6. Queue dependencies / blocked-ready model: design dependency semantics
    before adding UI or storage.
 7. Later durable backend runner design contract: no implementation until the
