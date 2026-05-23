@@ -147,3 +147,6 @@ Suggested target:
 
 This is the best next block because it directly targets the most likely user-visible duplicate request introduced by moving Activity into the shell, while avoiding backend, schema, DTO, Queue Autorun, Queue-to-Executor, Agent Executor, Direct Work, Git, JDBC, Terminal, Coordinator, and Notes behavior changes.
 
+## Follow-Up Status
+
+- 2026-05-23: Completed the recommended frontend-only regression block. `WorkbenchShell.test.tsx` now mounts Agent Queue with mocked Workspace API reads and proves Activity drawer open/close does not call `listAgentQueueTasks` or `getAgentQueueTask` beyond the initial load. Queue task actions are memoized across unchanged `viewState` renders in `useWorkbenchWidgetActions`, preserving manual Refresh and existing mutation-triggered reload behavior.
