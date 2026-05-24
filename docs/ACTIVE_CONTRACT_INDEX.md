@@ -153,7 +153,9 @@ unless the task explicitly requests it.
 ## Core Active Contracts
 
 - `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` - read for Coordinator,
-  cross-widget, autonomy, context, or product-model work.
+  cross-widget, autonomy, context, or product-model work. Coordinator is the
+  central chat-based operator work surface; Queue and Executor are supporting
+  execution surfaces.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Coordinator or future
   AI surfaces use widgets through controlled capabilities.
 - `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
@@ -222,7 +224,9 @@ unless the task explicitly requests it.
 
 - `docs/AGENT_QUEUE_CONTRACT.md` - older queue/review boundary context.
 - `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` - current task organization,
-  status, assignment, and future dependency model.
+  status, assignment, and future dependency model. Queue is for
+  promoted/larger async work blocks, not every Coordinator idea or small
+  operator action.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned

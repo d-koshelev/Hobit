@@ -11,7 +11,13 @@ Coordinator Chat direction, use `docs/ACTIVE_CONTRACT_INDEX.md`,
 implementation guidance unless a block explicitly targets Workspace-aware
 Coordinator Agent behavior.
 
-The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
+The Coordinator Agent is a future extension of the Coordinator surface inside
+a Workspace. The current product direction treats Coordinator as the central
+chat-based operator work surface: the place for planning, reasoning, task
+drafting, outcome review, and deciding what should be promoted to Queue or
+sent through an Executor path. Future Workspace-aware behavior may help the
+operator reason over approved Workspace context and propose controlled actions
+across Hobit components.
 
 This is primarily a documentation and product/domain contract. Older Agent Chat
 / Agent Monitoring proposal-era paths remain compatibility/reference only and
@@ -25,13 +31,13 @@ mutation.
 
 ## Current Status
 
-Coordinator Chat is currently the user-facing chat/planning surface. It reuses
-the existing `interactive-agent` id/component for compatibility, keeps chat
-state in the current frontend session, can request backend-owned mock/local or
-configured HTTP JSON provider responses from visible chat/proposal context
-only, and keeps `allowed_tools: []`. Older Agent Chat proposal persistence and
-Agent Monitoring paths are retained compatibility/reference paths, not the
-preferred current surface.
+Coordinator Chat is currently the central user-facing chat-based work surface.
+It reuses the existing `interactive-agent` id/component for compatibility,
+keeps chat state in the current frontend session, can request backend-owned
+mock/local or configured HTTP JSON provider responses from visible
+chat/proposal context only, and keeps `allowed_tools: []`. Older Agent Chat
+proposal persistence and Agent Monitoring paths are retained
+compatibility/reference paths, not the preferred current surface.
 
 The current Coordinator preview:
 
@@ -70,13 +76,15 @@ first AI integration.
 
 ## Role
 
-The Workspace-aware Coordinator Agent is a future coordination surface for one active Workspace.
+The Workspace-aware Coordinator Agent is a future coordination extension for
+one active Workspace.
 
 It may eventually:
 
 - read explicitly approved Workspace and widget context
 - help the operator reason about the current work
 - decompose broad requests into small efficient blocks
+- draft tasks and decide which work is large enough to promote to Queue
 - assign task size, expected changed layers, execution budget, validation plan, and stop/split rules
 - transform approved context into proposed actions
 - preview those proposed actions before they are applied
@@ -266,7 +274,9 @@ Agent Run observability may later capture Raw Log, Overview Log, and Result Repo
 
 ## Relationship To Agent Queue
 
-Agent Queue is the main future target for Coordinator-created work items.
+Agent Queue is the explicit async execution pipeline for promoted/larger
+Coordinator-created work items. It is not the default destination for every
+idea, quick decision, or small operation discussed in Coordinator.
 
 The Coordinator may propose Queue Items from:
 

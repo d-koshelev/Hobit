@@ -48,8 +48,8 @@ Current ready surfaces:
 
 Current preview surfaces:
 
-- Agent Queue
 - Coordinator Chat
+- Agent Queue
 - Database / JDBC
 - Runbook
 
@@ -60,7 +60,7 @@ and component keys may still appear in code and persistence.
 
 ### Agent Executor
 
-- Current explicit Codex Direct Work execution surface.
+- Current explicit Codex Direct Work execution surface and runtime slot.
 - Uses the existing `agent-run` widget definition id for persistence
   compatibility.
 - Starts one operator-provided task from visible inputs: prompt, execution
@@ -68,6 +68,8 @@ and component keys may still appear in code and persistence.
 - Shows run state, live logs/streaming where available, stop/cancel/force-kill
   controls, final result output, changed-files summary, Git read-only handoff,
   validation capture, and read-only run/detail/history views.
+- Owns run detail, live logs, cancellation controls, final responses,
+  validation capture, changed-file visibility, and run history.
 - Provides read-only backend/Tauri APIs for stored Direct Work runs,
   validation runs, and explicit diff summaries.
 - Queue tasks can be assigned to visible Executor slots and explicitly started
@@ -147,8 +149,11 @@ and component keys may still appear in code and persistence.
 
 ### Agent Queue
 
-- Current preview manual task organization surface.
+- Current preview async task organization and execution-support surface.
 - Uses the `agent-queue` widget definition id.
+- Intended for promoted/larger work blocks that need async organization,
+  assignment, sequencing, or later review. It is not the default destination
+  for every Coordinator idea, small decision, or quick operator action.
 - Provides workspace-local task create, list, read, update, delete, filter,
   select, and explicit save flows for title, description, prompt, status, and
   priority.
@@ -205,7 +210,10 @@ and component keys may still appear in code and persistence.
 
 ### Coordinator Chat
 
-- Current preview operator chat surface shown as Coordinator Chat.
+- Current preview central operator work surface shown as Coordinator Chat.
+- It is chat-based, but not merely a chat widget: the operator uses it for
+  planning, reasoning, task drafting, outcome review, and deciding what should
+  become Queue or Executor work.
 - Uses the existing `interactive-agent` widget definition id/component key for
   compatibility.
 - Keeps chat messages and proposal card state in local React state for the

@@ -130,7 +130,10 @@ organization, tenant, user, group, role, enterprise permission, or RBAC layer
 exists today.
 
 Current Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes, and
-Runbook behavior is unchanged by this contract.
+Runbook behavior is unchanged by this contract. Coordinator may be the central
+operator work surface, but this vocabulary does not give it hidden context,
+tool execution, permission enforcement, or a path around widget-owned
+approval/execution boundaries.
 
 ## Non-Goals
 

@@ -29,12 +29,15 @@ crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
 user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat,
 Database / JDBC, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the
-existing `interactive-agent` widget id/component for compatibility. Agent
-Executor reuses the existing `agent-run` widget identity for persistence
-compatibility, shows each widget instance as a visible execution slot, and
-keeps the current Codex CLI Direct Work behavior: explicit Workspace,
-Workbench, owning widget instance, executable, execution workspace path,
-operator prompt, sandbox, approval policy, timeout, and output caps. The
+existing `interactive-agent` widget id/component for compatibility and is the
+central chat-based operator work surface for planning, reasoning, task
+drafting, outcome review, and deciding what should be promoted to Queue or
+sent through an Executor path. Agent Executor reuses the existing `agent-run`
+widget identity for persistence compatibility, shows each widget instance as a
+visible execution slot, owns run detail/logs/final responses, and keeps the
+current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning
+widget instance, executable, execution workspace path, operator prompt,
+sandbox, approval policy, timeout, and output caps. The
 compatibility field remains `repo_root` and currently expects an existing
 repository or local project folder; scratch execution workspace support is not
 implemented and must not default to user home. On Windows,
@@ -46,12 +49,14 @@ unsupported-platform error for live PTY creation until platform support or
 catalog gating is added. Terminal preserves the bounded one-shot command path
 as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
 desktop-only status/diff review surface plus explicit selected-file local
-commit UI with operator confirmation. Agent Queue is a preview manual task queue surface
-backed by Workspace-scoped task storage/API, assignment API/UI, explicit
-assigned-task start, safe selected-task Executor run-link visibility, and an
-operator-armed desktop-local Queue Autorun preview. Queue has no backend
-scheduler, durable reconnect/resume, server worker, or hidden/unarmed
-auto-dispatch. Database / JDBC is a Preview connector
+commit UI with operator confirmation. Agent Queue is a preview async
+execution-support surface for promoted/larger work blocks backed by
+Workspace-scoped task storage/API, assignment API/UI, explicit assigned-task
+start, safe selected-task Executor run-link visibility, and an operator-armed
+desktop-local Queue Autorun preview. Queue is not the default destination for
+every Coordinator idea or small operator action and has no backend scheduler,
+durable reconnect/resume, server worker, or hidden/unarmed auto-dispatch.
+Database / JDBC is a Preview connector
 metadata and mock read-only query surface backed by workspace-local JDBC
 connector metadata storage/API plus widget-owned SQL validation and bounded
 mock execution APIs; there is no credential storage, real database query
@@ -68,12 +73,12 @@ remain mock-default. The loader surfaces safe status only and does not expose
 raw paths or credential values to frontend DTOs. A JDK-gated backend activation
 test can compile and run the Java sidecar `mock_read_only` protocol through
 explicit `JdbcRuntimeConfig`, and skips cleanly when a JDK is unavailable.
-Coordinator-centered product direction is represented by a Coordinator Chat
-placeholder with frontend action proposal cards and a backend-owned provider
-response path for explicit chat
-sends. Mock/local is the default provider. The provider path uses visible
-current-session chat context and `allowed_tools: []`; it can return validated
-safe structured proposal drafts as review cards only. An explicitly configured
+Coordinator-centered product direction is represented by Coordinator Chat as
+the central chat-based work surface, with frontend action proposal cards and a
+backend-owned provider response path for explicit chat sends. Mock/local is
+the default provider. The provider path uses visible current-session chat
+context and `allowed_tools: []`; it can return validated safe structured
+proposal drafts as review cards only. An explicitly configured
 HTTP JSON provider can be selected from backend environment configuration and
 can call a configured `http://` endpoint without exposing credential values to
 frontend state, prompts, logs, proposal cards, or serialized responses. A
@@ -109,7 +114,11 @@ index, `CURRENT_WIDGET_SURFACE.md`, or
 `COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, treat the older text as stale and
 update or report it.
 
-`PRODUCT_POSITIONING.md` defines Hobit's core positioning as an operator-controlled AI Workbench for precise, fast, and efficient work with AI agents. Future architecture must not drift toward a generic hidden automation or agent-runner system.
+`PRODUCT_POSITIONING.md` defines Hobit's core positioning as an
+operator-controlled AI Workbench for precise, fast, and efficient work with AI
+agents, with Coordinator as the central operator work surface. Future
+architecture must not drift toward a generic hidden automation or agent-runner
+system.
 
 `DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md` defines Hobit's
 desktop-first, server-ready architecture guardrails. It treats Tauri as the
@@ -144,10 +153,10 @@ proposal-era API paths. It does not define current preferred widget names,
 current widget behavior, future Coordinator architecture, or product roadmap.
 
 `COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` defines the updated product
-model: Coordinator Chat is the primary operator-facing AI surface; widgets
-expose controlled capabilities; Agent Queue organizes executable tasks; Agent
-Executors execute tasks and provide visibility; the operator controls autonomy
-and approvals.
+model: Coordinator Chat is the central chat-based operator work surface;
+widgets expose controlled capabilities; Agent Queue organizes promoted/larger
+async work blocks; Agent Executors execute tasks and provide run visibility;
+the operator controls autonomy and approvals.
 
 `WIDGET_CAPABILITY_TOOL_CONTRACT.md` defines the product and technical boundary
 for those widget capabilities: capability descriptors, risk levels, autonomy
@@ -315,10 +324,11 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
 The current user-facing catalog exposes Ready templates for Agent Executor,
-Git, Terminal, and Notes, plus Preview templates for Agent Queue, Coordinator
-Chat, Database / JDBC, and Runbook. Coordinator Chat uses the current
-`interactive-agent` compatibility/local-chat placeholder. Agent Executor
-reuses the existing `agent-run` definition id for persistence compatibility.
+Git, Terminal, and Notes, plus Preview templates for Coordinator Chat, Agent
+Queue, Database / JDBC, and Runbook. Coordinator Chat uses the current
+`interactive-agent` compatibility/local-chat placeholder as the central
+operator work surface. Agent Executor reuses the existing `agent-run`
+definition id for persistence compatibility.
 Database / JDBC is a Preview connector metadata surface with shipped mock/safe
 read-only SQL validation and bounded mock execution UI/API. Retired surfaces
 such as
@@ -573,12 +583,14 @@ UI, sync/import/export, or AI-in-Notes implementation.
 
 The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently Windows-only; non-Windows desktop live PTY creation returns an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Coordinator control, or Script Runner behavior.
 
-The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it persists widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
+The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It is the runtime execution slot for Direct Work and Queue-started assigned tasks. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it owns run detail, logs, final responses, history, and persisted widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
 
-The Agent Queue widget is a preview manual task queue surface. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
+The Agent Queue widget is a preview async task organization and execution-support surface for promoted/larger work blocks. It is not the default place for every Coordinator idea, small task, or quick operator action. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
-Coordinator Chat is a local chat MVP using the existing Interactive Agent
-compatibility component. Its compatibility contract is defined in
+Coordinator Chat is the central chat-based operator work surface using the
+existing Interactive Agent compatibility component. It is where the operator
+plans, reasons, drafts tasks, reviews outcomes, and decides what should become
+Queue or Executor work. Its compatibility contract is defined in
 `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows
 deterministic local action proposal cards attached to the initial Coordinator
 message for safe preview types: create Agent Queue task, create Note, and
@@ -717,14 +729,16 @@ remote assets by default, or mutate note content.
 
 The current app has Agent Executor, Agent Queue, Coordinator Chat, Database /
 JDBC, Runbook, Git, Terminal, and Notes widgets.
-Agent Executor keeps backend/Tauri Codex Direct Work run/result persistence for
-the existing `agent-run` owner and requires an explicit execution workspace
-path. Agent Queue has a preview manual task product UI
-backed by manual task storage/API only. Coordinator Chat has local
+Coordinator Chat is the central chat-based operator work surface and has local
 current-session chat state through the existing `interactive-agent`
 compatibility component, deterministic local proposal generation from explicit
 chat text, and an explicit approved-proposal bridge for creating draft Queue
-tasks and workspace-local Notes only. JDBC suggestions remain non-executing
+tasks and workspace-local Notes only. Agent Queue has a preview async task
+product UI backed by manual task storage/API only for promoted/larger work
+blocks. Agent Executor keeps backend/Tauri Codex Direct Work run/result
+persistence for the existing `agent-run` owner, requires an explicit execution
+workspace path, and owns run detail/logs/final responses. JDBC suggestions
+remain non-executing
 review/copy text, and Runbook has local current-session step state plus
 notes/evidence only. Database / JDBC can manage non-secret connector metadata
 and perform bounded mock/safe read-only SQL validation/execution preview only.

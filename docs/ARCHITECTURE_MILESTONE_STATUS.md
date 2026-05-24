@@ -35,6 +35,10 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Coordinator context boundary inspection confirmed current provider requests
   remain visible-context-only with `allowed_tools: []`.
+- Coordinator product positioning is central-work-surface first: planning,
+  reasoning, task drafting, outcome review, and promotion decisions happen in
+  Coordinator, while Queue and Agent Executor remain supporting execution
+  surfaces.
 
 ## Still Type-Only Or Contract-Only
 
@@ -55,10 +59,15 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
 
 The current desktop app remains the only real host/runtime path today.
 
-Coordinator Chat uses explicit visible current-session chat/proposal context
-only. It must not silently ingest Notes, artifacts, evidence, knowledge,
-Context Packs, runtime logs, widget state, Git/JDBC/Terminal state, Queue
-state, files, environment values, or secrets.
+Coordinator Chat is the central chat-based operator work surface, but it uses
+explicit visible current-session chat/proposal context only. It must not
+silently ingest Notes, artifacts, evidence, knowledge, Context Packs, runtime
+logs, widget state, Git/JDBC/Terminal state, Queue state, files, environment
+values, or secrets.
+
+Queue is a supporting async execution pipeline for promoted/larger work
+blocks, not the default place for every idea or small task. Agent Executor is
+the runtime owner for run detail, logs, final responses, and history.
 
 Artifacts, Evidence, Knowledge, Context Packs, audit events, capability
 actions, and approvals are separate concepts. A ref existing does not mean the

@@ -18,6 +18,12 @@ server runtime, enterprise/RBAC, or multi-user workers by itself.
 
 Queue Autorun is explicit operator-armed automation.
 
+Queue itself is a supporting async execution pipeline for promoted/larger work
+blocks. Coordinator remains the central place for planning, reasoning, task
+drafting, review, and deciding whether work should be promoted to Queue.
+Autorun applies only after explicit Queue task creation, assignment, policy,
+runtime configuration, and operator Start / Arm action.
+
 One example use case is leaving Hobit open while the operator is away, such as
 overnight. The feature name is Queue Autorun, not overnight mode.
 
@@ -270,6 +276,7 @@ This contract does not implement:
 - Coordinator-triggered execution;
 - hidden context reads;
 - hidden task starts;
+- treating every Coordinator idea or small operation as Queue work;
 - schema changes;
 - Queue run history persistence;
 - Queue-side raw run output or result copying;

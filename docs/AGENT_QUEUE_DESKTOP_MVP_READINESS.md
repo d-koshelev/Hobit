@@ -11,8 +11,11 @@ changes, frontend behavior, or hidden execution.
 
 ## Current Surface
 
-Agent Queue is a preview manual task organization surface for workspace-local
-work.
+Agent Queue is a preview manual task organization and async execution-support
+surface for workspace-local work. It is for promoted/larger work blocks that
+need assignment, sequencing, current-session runner support, or later review;
+it is not the default place for every Coordinator idea, quick decision, or
+small operator action.
 
 Currently working:
 
@@ -135,6 +138,7 @@ not survive reload.
 - Queue-owned raw run details;
 - bulk task import;
 - Coordinator-driven Queue execution;
+- treating every Coordinator idea or small operation as a Queue task;
 - Terminal launch;
 - Git mutation, auto-commit, or push;
 - validation auto-run between tasks;
@@ -206,6 +210,10 @@ not survive reload.
 ## Preserved Boundaries
 
 Queue is not a backend scheduler.
+
+Queue is not the Coordinator work surface and should not replace
+Coordinator-led planning, reasoning, task drafting, review, or
+decision-making.
 
 Queue does not auto-dispatch without an explicit operator-started visible
 runner, and it has no backend scheduler.
