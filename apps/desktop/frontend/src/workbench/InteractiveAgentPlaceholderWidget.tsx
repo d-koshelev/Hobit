@@ -1,11 +1,17 @@
-import { type FormEvent, useId, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { CoordinatorActionProposalCard } from "./CoordinatorActionProposalCard";
 import {
   COORDINATOR_ACTION_PROPOSAL_REGISTRY,
-  LOCAL_COORDINATOR_SAMPLE_PROPOSALS,
   type CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
 import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
@@ -35,20 +41,27 @@ type InteractiveAgentMessage = {
   body: string;
 };
 
-const INITIAL_MESSAGES: InteractiveAgentMessage[] = [
+const INITIAL_MESSAGES: InteractiveAgentMessage[] = [];
+
+const SUGGESTED_PROMPTS = [
   {
-    id: "local-assistant-intro",
-    role: "assistant",
-    body: "Coordinator Chat can draft text through a mock/local provider in desktop mode. The sample proposal cards below are local previews.",
-    providerMeta: {
-      badgeVariant: "neutral",
-      detail: "Current-session preview. No provider request was made for this message.",
-      label: "Local preview",
-      tone: "neutral",
-    },
-    proposalIds: LOCAL_COORDINATOR_SAMPLE_PROPOSALS.map(
-      (proposal) => proposal.id,
-    ),
+    label: "Plan work",
+    prompt:
+      "Plan this work from the visible chat only. Ask clarifying questions before proposing Queue tasks.",
+  },
+  {
+    label: "Create Queue tasks",
+    prompt: "Create queue task proposals from this visible request: ",
+  },
+  {
+    label: "Review latest Queue runs",
+    prompt:
+      "Review the latest Queue run details I paste here and suggest next actions. Do not inspect Queue automatically.",
+  },
+  {
+    label: "Explain current workspace",
+    prompt:
+      "Explain the current workspace from the visible chat only and list what context you need from me.",
   },
 ];
 
@@ -101,6 +114,7 @@ export function InteractiveAgentPlaceholderWidget({
   title,
 }: WidgetRenderProps) {
   const textareaId = useId();
+  const messageListRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const nextMessageId = useRef(1);
   const [messages, setMessages] = useState<InteractiveAgentMessage[]>(
@@ -108,14 +122,7 @@ export function InteractiveAgentPlaceholderWidget({
   );
   const [proposals, setProposals] = useState<
     Record<string, CoordinatorActionProposal>
-  >(() =>
-    Object.fromEntries(
-      LOCAL_COORDINATOR_SAMPLE_PROPOSALS.map((proposal) => [
-        proposal.id,
-        proposal,
-      ]),
-    ),
-  );
+  >({});
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -127,6 +134,15 @@ export function InteractiveAgentPlaceholderWidget({
   const [providerModeLabel, setProviderModeLabel] =
     useState("Mock/local provider");
   const canSend = draft.trim().length > 0 && !isProviderPending;
+
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (!messageList) {
+      return;
+    }
+
+    messageList.scrollTop = messageList.scrollHeight;
+  }, [messages.length, isProviderPending]);
 
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
@@ -160,7 +176,9 @@ export function InteractiveAgentPlaceholderWidget({
       trimmedDraft,
       assistantMessageId,
     );
-    const generatedProposalIds = generated.proposals.map((proposal) => proposal.id);
+    const generatedProposalIds = generated.proposals.map(
+      (proposal) => proposal.id,
+    );
     const assistantMessage = createLocalMessage(
       "assistant",
       onGenerateCoordinatorProviderResponse
@@ -169,7 +187,9 @@ export function InteractiveAgentPlaceholderWidget({
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
       onGenerateCoordinatorProviderResponse
         ? coordinatorProviderPendingMeta(generatedProposalIds.length)
-        : coordinatorProviderFallbackMeta("Provider API unavailable in this runtime. Local deterministic response only."),
+        : coordinatorProviderFallbackMeta(
+            "Provider API unavailable in this runtime. Local deterministic response only.",
+          ),
     );
     const providerConversation = [...messages, operatorMessage];
 
@@ -250,6 +270,11 @@ export function InteractiveAgentPlaceholderWidget({
     } finally {
       setIsProviderPending(false);
     }
+  }
+
+  function useSuggestedPrompt(prompt: string) {
+    setDraft(prompt);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
   function patchMessage(
@@ -507,47 +532,63 @@ export function InteractiveAgentPlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="info">Preview</Badge>}
+      status={<Badge variant="info">Primary AI</Badge>}
       title={title}
     >
       <div className="interactive-agent-chat">
         <section
-          aria-label="Coordinator Chat provider status"
+          aria-label="Coordinator Chat status"
           className="interactive-agent-status"
         >
           <div className="interactive-agent-status-copy">
-            <p className="interactive-agent-title">Coordinator Chat</p>
-            <p className="interactive-agent-text">
-              Provider responses use visible chat only. Mock/local remains the fallback; configured providers stay tools-disabled.
-            </p>
+            <div className="interactive-agent-status-heading">
+              <div className="interactive-agent-title-copy">
+                <p className="interactive-agent-kicker">Coordinator Chat</p>
+                <h3 className="interactive-agent-title">
+                  Plan, decide, and prepare controlled work
+                </h3>
+              </div>
+              <div
+                aria-label="Coordinator provider status"
+                className="interactive-agent-provider-row"
+              >
+                <span className="interactive-agent-status-label">Provider</span>
+                <Badge
+                  variant={
+                    isProviderPending
+                      ? "warning"
+                      : providerModeLabel === "Provider error"
+                        ? "error"
+                        : providerModeLabel === "Provider timeout" ||
+                            providerModeLabel === "Invalid provider response" ||
+                            providerModeLabel === "Network failure" ||
+                            providerModeLabel === "Request too large"
+                          ? "warning"
+                          : providerModeLabel === "Not configured" ||
+                              providerModeLabel.includes("unavailable")
+                            ? "warning"
+                            : providerModeLabel === "Local fallback"
+                              ? "neutral"
+                              : "info"
+                  }
+                >
+                  {isProviderPending ? "Drafting" : providerModeLabel}
+                </Badge>
+                <span className="interactive-agent-status-label">Model</span>
+                <Badge variant="neutral">Backend selected</Badge>
+                <span className="interactive-agent-status-label">Status</span>
+                <Badge variant={isProviderPending ? "warning" : "success"}>
+                  {isProviderPending ? "Drafting" : "Ready"}
+                </Badge>
+              </div>
+            </div>
             <div
-              aria-label="Coordinator provider boundaries"
+              aria-label="Coordinator safety boundaries"
               className="interactive-agent-provider-badges"
             >
-              <Badge
-                variant={
-                  isProviderPending
-                    ? "warning"
-                    : providerModeLabel === "Provider error"
-                      ? "error"
-                      : providerModeLabel === "Provider timeout" ||
-                          providerModeLabel === "Invalid provider response" ||
-                          providerModeLabel === "Network failure" ||
-                          providerModeLabel === "Request too large"
-                        ? "warning"
-                      : providerModeLabel === "Not configured" ||
-                          providerModeLabel.includes("unavailable")
-                        ? "warning"
-                        : providerModeLabel === "Local fallback"
-                          ? "neutral"
-                          : "info"
-                }
-              >
-                {isProviderPending ? "Drafting" : providerModeLabel}
-              </Badge>
+              <Badge variant="neutral">Visible context only</Badge>
               <Badge variant="neutral">Tools disabled</Badge>
-              <Badge variant="neutral">Visible chat only</Badge>
-              <Badge variant="neutral">Current session</Badge>
+              <Badge variant="neutral">No hidden context</Badge>
             </div>
             <details className="interactive-agent-provider-disclosure">
               <summary>Supported local proposals</summary>
@@ -562,8 +603,35 @@ export function InteractiveAgentPlaceholderWidget({
           aria-label="Local Coordinator Chat transcript"
           aria-live="polite"
           className="interactive-agent-message-list"
+          ref={messageListRef}
           role="log"
         >
+          {messages.length === 0 ? (
+            <div className="interactive-agent-empty">
+              <p className="interactive-agent-empty-title">
+                Start with a planning question or a task draft.
+              </p>
+              <p className="interactive-agent-empty-text">
+                Coordinator uses only this visible chat and can draft reviewable
+                Queue, Note, or JDBC suggestion cards.
+              </p>
+              <div
+                aria-label="Coordinator suggested prompts"
+                className="interactive-agent-suggestion-list"
+              >
+                {SUGGESTED_PROMPTS.map((suggestion) => (
+                  <button
+                    className="interactive-agent-suggestion"
+                    key={suggestion.label}
+                    onClick={() => useSuggestedPrompt(suggestion.prompt)}
+                    type="button"
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {messages.map((message) => (
             <article
               className={`interactive-agent-message interactive-agent-message-${message.role}${
@@ -583,7 +651,9 @@ export function InteractiveAgentPlaceholderWidget({
                   </Badge>
                 ) : null}
               </div>
-              <p className="interactive-agent-message-body">{message.body}</p>
+              <div className="interactive-agent-message-body">
+                {renderMessageBody(message.body)}
+              </div>
               {message.providerMeta ? (
                 <p className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}>
                   {message.providerMeta.detail}
@@ -630,7 +700,7 @@ export function InteractiveAgentPlaceholderWidget({
             className="input interactive-agent-input"
             id={textareaId}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder="Type a local message."
+            placeholder="Ask Coordinator to plan, draft tasks, or prepare a review card."
             ref={textareaRef}
             rows={3}
             value={draft}
@@ -640,13 +710,35 @@ export function InteractiveAgentPlaceholderWidget({
               Visible chat only. Tools disabled.
             </p>
             <Button disabled={!canSend} type="submit" variant="primary">
-              {isProviderPending ? "Sending" : "Send"}
+              {isProviderPending ? "Drafting" : "Send"}
             </Button>
           </div>
         </form>
       </div>
     </WidgetFrame>
   );
+}
+
+function renderMessageBody(body: string): ReactNode {
+  const segments = body.split(/```/);
+
+  if (segments.length === 1) {
+    return <p>{body}</p>;
+  }
+
+  return segments.map((segment, index) => {
+    const key = `${index}-${segment.slice(0, 12)}`;
+    if (index % 2 === 1) {
+      const code = segment.replace(/^\w+\n/, "").trim();
+      return (
+        <pre className="interactive-agent-code-block" key={key}>
+          <code>{code}</code>
+        </pre>
+      );
+    }
+
+    return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
+  });
 }
 
 function updateProposal(
