@@ -96,6 +96,97 @@ Existing validation context from the visual block:
 - `node scripts/hobit/smoke-queue-executor-ui.mjs` passed and asserts Queue run-link metadata is requested at least once.
 - The smoke also confirms Queue does not display raw executor payload/log content in its body, so any refactor should preserve the current Queue/Executor data boundary.
 
+## SQLite Query/Index Audit - 2026-05-24
+
+Scope: static inspection of likely hot SQLite reads after the Queue mutation and
+Agent Executor history/result batching refactors. No query plans or production
+timings were captured in this block.
+
+Inspected tables and current indexes:
+
+- `agent_queue_tasks`: `idx_agent_queue_tasks_workspace_id`,
+  `idx_agent_queue_tasks_workspace_ordering(workspace_id, priority, updated_at, created_at)`,
+  and `idx_agent_queue_tasks_assigned_executor_widget_id`.
+- `agent_queue_task_run_links`:
+  `idx_agent_queue_task_run_links_task_started(workspace_id, queue_task_id, started_at)`
+  and `idx_agent_queue_task_run_links_run_id(direct_work_run_id)`.
+- `widget_runs`: `idx_widget_runs_widget_instance_id`.
+- `widget_results`: `idx_widget_results_run_id`.
+- `widget_logs`: `idx_widget_logs_widget_instance_id`,
+  `idx_widget_logs_run_id`, and
+  `idx_widget_logs_widget_instance_created_at(widget_instance_id, created_at)`.
+- Workbench load/activity tables: `idx_widget_instances_workspace_id`,
+  `idx_widget_instances_workbench_id`, `idx_workbench_events_workspace_id`,
+  `idx_workbench_events_workspace_created_at(workspace_id, created_at)`,
+  `idx_workspace_workbenches_workspace_id`, and
+  `idx_shared_state_objects_workspace_id`.
+
+Query/index match:
+
+- Queue task list reads `WHERE workspace_id = ?` and orders by
+  `priority DESC, updated_at DESC, created_at DESC, queue_item_id DESC`.
+  The existing workspace ordering index covers the filter and the first three
+  ordering columns. The final primary-key tie breaker is not part of the index,
+  but task lists are Workspace-scoped and currently bounded by operator-created
+  task volume.
+- Queue task single-row reads, updates, deletes, and workspace access checks
+  are primary-key or workspace-plus-primary-key lookups. Existing primary-key
+  and workspace indexes are sufficient.
+- Queue task run-link list/latest reads filter by `workspace_id` and
+  `queue_task_id`, order by `started_at DESC, created_at DESC, link_id DESC`,
+  and latest adds `LIMIT 1`. The existing task-started index covers the filter
+  and leading ordering column, but not `created_at` or `link_id`. This is the
+  narrowest future index candidate if one task accumulates many run links and
+  latest/history reads become measurable.
+- Queue run-link final-status updates filter by `workspace_id`,
+  `queue_task_id`, and `direct_work_run_id`; direct run id is unique and indexed
+  through `idx_agent_queue_task_run_links_run_id`, so the path is adequately
+  covered.
+- Agent Executor history reads all runs for one widget via
+  `WHERE widget_instance_id = ? ORDER BY started_at, id`, then walks newest
+  first in memory and batches compatible result reads with
+  `WHERE run_id IN (...) AND result_type IN (...) ORDER BY run_id, created_at, id`.
+  Existing run/result indexes cover the filters, but not all ordering suffixes.
+  The larger remaining cost is the unbounded run-list helper, not a missing
+  result index alone.
+- Agent Executor detail reads one run by primary key, all results for that run,
+  capped recent logs for that run, and a metadata-only log count scoped by
+  run/widget. Existing `run_id` and `widget_instance_id` log indexes cover the
+  filters. `ORDER BY created_at, id` and recent-log descending order are only
+  partially covered, but detail is explicit and capped for log preview.
+- Widget-local Logs panel reads `WHERE widget_instance_id = ? ORDER BY
+  created_at DESC, id DESC LIMIT ?`; the existing
+  `(widget_instance_id, created_at)` index covers the hot filter and leading
+  ordering column.
+- Recent Activity reads `WHERE workspace_id = ? ORDER BY created_at DESC,
+  id DESC LIMIT ?`; the existing `(workspace_id, created_at)` index covers the
+  hot filter and leading ordering column, and the result is capped at 100.
+- Workspace/workbench state loading reads widgets, shared state, workbenches,
+  and recent events by workspace/workbench. Existing indexes cover the leading
+  scope filters; remaining ordering suffixes are low risk for current
+  Workbench-sized data.
+
+Risks found:
+
+- No single index is justified from static inspection alone. All current hot
+  reads have leading filter coverage, and several paths are capped or
+  operator-scoped.
+- The strongest future schema candidate is a covering Queue run-link ordering
+  index such as `(workspace_id, queue_task_id, started_at, created_at, link_id)`
+  if selected-task run history grows large enough to show sorting cost.
+- The strongest future query-helper candidate is Agent Executor history:
+  replace the current all-runs-for-widget helper with a descending, batched
+  run-page helper so history no longer materializes every stored run before
+  finding the requested compatible results.
+
+Recommended next action:
+
+- Do not add a schema index in this block. Keep behavior and schema unchanged.
+- If performance remains visible after the completed Queue and Executor
+  refactors, capture `EXPLAIN QUERY PLAN` or fixture-backed timings for Queue
+  run-link latest/history and Agent Executor history before adding one narrow
+  index or the descending run-page helper.
+
 ## Ranked Refactor Opportunities
 
 1. Stabilize Queue action/render props to stop unrelated shell re-renders from reloading the queue.
@@ -159,3 +250,4 @@ This is the best next block because it directly targets the most likely user-vis
 - 2026-05-23: Partially completed the Queue mutation reload block. `useAgentQueueController` now reconciles returned task summaries locally for create, save/update, assign, and clear assignment while preserving backend-equivalent task ordering and selected-task draft state. Manual Refresh, delete, manual run start, Sequential Queue Runner run start, Executor-driven task auto-refresh, and Autorun active-task refresh still perform full task reloads because those paths either need deletion/next-selection reconciliation or do not return an updated `AgentQueueTask` summary.
 - 2026-05-24: Inspected Agent Executor history/detail query overhead. Added SQLite metadata-only log-count helpers, switched run detail from capped recent logs plus full log read to capped recent logs plus count query, and switched history from per-run full log reads to one grouped count query for returned runs. Behavior and DTO shape are unchanged: detail still returns the same result payload fields, recent log preview remains capped, history keeps safe summary fields, and Queue run-link visibility remains metadata-only.
 - 2026-05-24: Completed the remaining Agent Executor history result-read inspection. Added a SQLite helper to fetch the latest compatible result per run id in batched `IN` queries, then mapped those results in `list_agent_executor_runs`. History ordering, missing-result handling, result-type filtering, summary fields, log counts, and DTO shape remain unchanged. Raw result payload remains exposed only through Executor-owned detail reads; history still parses existing payload internally only to preserve current visible summary fields.
+- 2026-05-24: Completed the SQLite query/index audit after the Queue and Executor performance refactors. The audit found leading-index coverage on the likely hot reads and did not find enough evidence for a behavior-free schema/index change in this block. Recommended follow-up is query-plan or fixture timing evidence before adding one narrow Queue run-link ordering index or an Agent Executor descending run-page helper.
