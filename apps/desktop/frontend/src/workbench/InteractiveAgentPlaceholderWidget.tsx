@@ -141,6 +141,7 @@ export function InteractiveAgentPlaceholderWidget({
   logRefreshToken,
   onCreateAgentQueueTask,
   onCreateWorkspaceNote,
+  coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
   onLoadLogs,
   onStartFrameMove,
@@ -167,6 +168,10 @@ export function InteractiveAgentPlaceholderWidget({
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
+  const [visibleAttachedContext, setVisibleAttachedContext] = useState<{
+    contextText: string;
+    sourceLabel: string;
+  } | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
   const [providerModeLabel, setProviderModeLabel] =
     useState("Mock/local provider");
@@ -180,6 +185,22 @@ export function InteractiveAgentPlaceholderWidget({
 
     messageList.scrollTop = messageList.scrollHeight;
   }, [messages.length, isProviderPending]);
+
+  useEffect(() => {
+    if (!coordinatorAttachedContextRequest) {
+      return;
+    }
+
+    const attachedContext = {
+      contextText: coordinatorAttachedContextRequest.contextText,
+      sourceLabel: coordinatorAttachedContextRequest.sourceLabel,
+    };
+    const attachmentBlock = coordinatorAttachedContextBlock(attachedContext);
+
+    setVisibleAttachedContext(attachedContext);
+    setDraft((currentDraft) => appendDraftBlock(currentDraft, attachmentBlock));
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [coordinatorAttachedContextRequest?.id]);
 
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
@@ -265,6 +286,7 @@ export function InteractiveAgentPlaceholderWidget({
       assistantMessage,
     ]);
     setDraft("");
+    setVisibleAttachedContext(null);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
 
     if (!onGenerateCoordinatorProviderResponse) {
@@ -331,6 +353,23 @@ export function InteractiveAgentPlaceholderWidget({
 
   function useSuggestedPrompt(prompt: string) {
     setDraft(prompt);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  function removeVisibleAttachedContext() {
+    if (!visibleAttachedContext) {
+      return;
+    }
+
+    const attachmentBlock = coordinatorAttachedContextBlock(
+      visibleAttachedContext,
+    );
+    setDraft((currentDraft) =>
+      currentDraft.includes(attachmentBlock)
+        ? currentDraft.replace(attachmentBlock, "").trimStart()
+        : currentDraft,
+    );
+    setVisibleAttachedContext(null);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
@@ -782,6 +821,37 @@ export function InteractiveAgentPlaceholderWidget({
         </div>
 
         <form className="interactive-agent-composer" onSubmit={handleSubmit}>
+          {visibleAttachedContext ? (
+            <section
+              aria-label="Visible attached context"
+              className="interactive-agent-attached-context"
+            >
+              <div className="interactive-agent-attached-context-header">
+                <div>
+                  <p className="interactive-agent-attached-context-kicker">
+                    Visible attached context
+                  </p>
+                  <p className="interactive-agent-attached-context-source">
+                    {visibleAttachedContext.sourceLabel}
+                  </p>
+                </div>
+                <Button
+                  onClick={removeVisibleAttachedContext}
+                  type="button"
+                  variant="ghost"
+                >
+                  Remove
+                </Button>
+              </div>
+              <pre className="interactive-agent-attached-context-body">
+                {visibleAttachedContext.contextText}
+              </pre>
+              <p className="interactive-agent-attached-context-note">
+                Only visible attached context is sent. Edit the message before
+                sending.
+              </p>
+            </section>
+          ) : null}
           <label className="interactive-agent-label" htmlFor={textareaId}>
             Message
           </label>
@@ -828,6 +898,27 @@ function renderMessageBody(body: string): ReactNode {
 
     return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
   });
+}
+
+function coordinatorAttachedContextBlock(context: {
+  contextText: string;
+  sourceLabel: string;
+}) {
+  return [
+    `Visible attached context (${context.sourceLabel})`,
+    context.contextText,
+    "Only visible attached context is sent.",
+  ].join("\n");
+}
+
+function appendDraftBlock(currentDraft: string, block: string) {
+  const trimmedDraft = currentDraft.trim();
+
+  if (!trimmedDraft) {
+    return block;
+  }
+
+  return `${trimmedDraft}\n\n${block}`;
 }
 
 function CoordinatorReviewCard({

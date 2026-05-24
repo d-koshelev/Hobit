@@ -48,6 +48,10 @@ The current Coordinator preview:
 - can show local outcome-review cards from explicitly pasted Queue, Executor,
   or validation result text, with compact summary, success/failure/unclear/
   needs-review interpretation, risks/blockers, and next actions
+- can receive explicitly attached, current-session visible run metadata from
+  Queue latest-run/history rows and Agent Executor run-history/detail controls;
+  the attachment appears in the Coordinator composer before Send and can be
+  edited or removed
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status
@@ -59,7 +63,8 @@ The current Coordinator preview:
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
   details or run history, Executor logs/results/artifacts, files, environment
-  variables, secrets, Context Packs, or hidden context
+  variables, secrets, Context Packs, or hidden context; Attach to Coordinator
+  sends only the visible safe metadata the operator attached, not raw payloads
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
   Autorun, launch Agent Executor, execute actions, or mutate Workspace content

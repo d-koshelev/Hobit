@@ -216,6 +216,17 @@ export type AgentExecutorRunOpenRequestInput = Omit<
   "id"
 >;
 
+export type CoordinatorAttachedContextInput = {
+  contextText: string;
+  sourceLabel: string;
+};
+
+export type CoordinatorAttachedContextRequest =
+  CoordinatorAttachedContextInput & {
+    id: number;
+    targetCoordinatorWidgetInstanceId: WidgetInstanceId;
+  };
+
 export type DirectWorkQueueTaskAutoRefreshRequest = Omit<
   DirectWorkRunHandoff,
   "id"

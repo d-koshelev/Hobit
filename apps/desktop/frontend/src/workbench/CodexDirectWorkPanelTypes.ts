@@ -13,6 +13,7 @@ import type {
 } from "./CodexDirectWorkTypes";
 import type {
   AgentExecutorRunOpenRequest,
+  CoordinatorAttachedContextInput,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
   DirectWorkRunHandoff,
@@ -37,6 +38,9 @@ export type CodexDirectWorkPanelProps = {
   onGetAgentExecutorDiffSummary?: GetAgentExecutorDiffSummaryHandler;
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,

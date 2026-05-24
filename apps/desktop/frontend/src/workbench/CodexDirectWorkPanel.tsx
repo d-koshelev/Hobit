@@ -19,6 +19,7 @@ export function CodexDirectWorkPanel(props: CodexDirectWorkPanelProps) {
     onGetAgentExecutorDiffSummary,
     onGetAgentExecutorRunDetail,
     onListAgentExecutorRuns,
+    onAttachContextToCoordinator,
     onStartCodexDirectWorkStream,
     widgetInstanceId,
   } = props;
@@ -155,6 +156,7 @@ export function CodexDirectWorkPanel(props: CodexDirectWorkPanelProps) {
         openRunDetailRequest={agentExecutorRunOpenRequest}
         onGetAgentExecutorRunDetail={onGetAgentExecutorRunDetail}
         onListAgentExecutorRuns={onListAgentExecutorRuns}
+        onAttachContextToCoordinator={onAttachContextToCoordinator}
         refreshToken={historyRefreshToken}
         widgetInstanceId={widgetInstanceId}
       />

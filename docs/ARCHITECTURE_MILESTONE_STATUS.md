@@ -49,6 +49,11 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   pasted text, may draft follow-up Queue task proposals, and do not fetch
   Executor logs, Queue run history, artifacts, files, Context Packs, or hidden
   widget state. Follow-up Queue tasks remain explicit draft creation only.
+- Queue latest-run/history rows and Agent Executor run-history/detail controls
+  can attach safe run metadata to Coordinator Chat as visible current-session
+  composer context. Attach is operator-controlled, editable/removable before
+  Send, and does not copy raw logs, stdout/stderr, final responses, diffs,
+  prompts, repo paths, secrets, artifacts, or raw payloads.
 
 ## Still Type-Only Or Contract-Only
 
@@ -77,6 +82,9 @@ values, or secrets.
 Planning cards, pasted-result review cards, and Queue task drafts do not
 change this context boundary and do not wire Context Packs, artifacts, logs,
 Queue state, Executor state, or widget data into provider prompts.
+Explicit Attach to Coordinator sends only the visible attached composer text
+after the operator presses Send; it is not hidden context compilation and does
+not read Queue history or Executor logs automatically.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is

@@ -6,11 +6,17 @@ import { WorkbenchEmptyCanvas } from "./WorkbenchEmptyCanvas";
 import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
-import { GIT_WIDGET_DEFINITION_ID, isUserFacingWidgetDefinition } from "./widgetRegistry";
+import {
+  GIT_WIDGET_DEFINITION_ID,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  isUserFacingWidgetDefinition,
+} from "./widgetRegistry";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  CoordinatorAttachedContextInput,
+  CoordinatorAttachedContextRequest,
   WidgetInstanceId,
   WidgetLayout,
   WorkbenchLayoutMode,
@@ -103,6 +109,11 @@ export function WorkbenchCanvas({
   const agentExecutorRunOpenRequestIdRef = useRef(0);
   const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
     useState<AgentExecutorRunOpenRequest | null>(null);
+  const coordinatorAttachedContextRequestIdRef = useRef(0);
+  const [
+    coordinatorAttachedContextRequest,
+    setCoordinatorAttachedContextRequest,
+  ] = useState<CoordinatorAttachedContextRequest | null>(null);
   const dockedDragPositionsRef = useRef(dockedDragPositions);
   const dockedResizeSizesRef = useRef(dockedResizeSizes);
   const layoutSurfaceRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +126,9 @@ export function WorkbenchCanvas({
     .sort((first, second) => first.layout.order - second.layout.order);
   const hasGitWidget = userFacingWidgets.some(
     (widget) => widget.definitionId === GIT_WIDGET_DEFINITION_ID,
+  );
+  const coordinatorWidget = visibleWidgets.find(
+    (widget) => widget.definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
@@ -615,6 +629,35 @@ export function WorkbenchCanvas({
     });
   }
 
+  function attachContextToCoordinator(request: CoordinatorAttachedContextInput) {
+    const contextText = request.contextText.trim();
+    const sourceLabel = request.sourceLabel.trim();
+
+    if (!contextText || !sourceLabel || !coordinatorWidget) {
+      return;
+    }
+
+    const target =
+      typeof document === "undefined"
+        ? null
+        : Array.from(
+            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+          ).find(
+            (element) => element.dataset.widgetInstanceId === coordinatorWidget.id,
+          );
+
+    target?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+    setCoordinatorAttachedContextRequest({
+      contextText,
+      id: ++coordinatorAttachedContextRequestIdRef.current,
+      sourceLabel,
+      targetCoordinatorWidgetInstanceId: coordinatorWidget.id,
+    });
+  }
+
   if (visibleWidgets.length === 0) {
     return (
       <WorkbenchEmptyCanvas
@@ -681,12 +724,20 @@ export function WorkbenchCanvas({
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
                         }
+                        coordinatorAttachedContextRequest={
+                          coordinatorAttachedContextRequest
+                        }
                         directWorkGitReview={directWorkGitReview}
                         directWorkRunHandoff={directWorkRunHandoff}
                         hasGitWidget={hasGitWidget}
                         instance={widget}
                         layoutMode={layoutMode}
                         onDockBack={dockBackWidget}
+                        onAttachContextToCoordinator={
+                          coordinatorWidget
+                            ? attachContextToCoordinator
+                            : undefined
+                        }
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
@@ -701,6 +752,9 @@ export function WorkbenchCanvas({
                     <WidgetHost
                       agentExecutorSlots={agentExecutorSlots}
                       agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
+                      coordinatorAttachedContextRequest={
+                        coordinatorAttachedContextRequest
+                      }
                       dockedSize={dockedSize}
                       directWorkGitReview={directWorkGitReview}
                       directWorkRunHandoff={directWorkRunHandoff}
@@ -708,6 +762,9 @@ export function WorkbenchCanvas({
                       instance={widget}
                       layoutMode={layoutMode}
                       onDockBack={dockBackWidget}
+                      onAttachContextToCoordinator={
+                        coordinatorWidget ? attachContextToCoordinator : undefined
+                      }
                       onOpenAgentExecutorRun={openAgentExecutorRun}
                       onPopOut={popOutWidget}
                       onStartDockedDrag={startDockedDrag}

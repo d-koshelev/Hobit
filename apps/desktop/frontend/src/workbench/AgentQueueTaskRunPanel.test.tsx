@@ -134,6 +134,37 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
   });
 
+  it("attaches latest run safe metadata to Coordinator without raw output fields", () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    renderPanel({
+      latestRun: latestRunController(runLink({
+        completedAt: "2026-05-22T10:01:00.000Z",
+        directWorkRunId: "run_safe_latest_123456",
+        reviewStatus: "review_needed",
+        source: "manual",
+        status: "completed",
+        validationStatus: "passed",
+      })),
+      onAttachContextToCoordinator,
+    });
+
+    clickFirstButton("Attach to Coordinator");
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Queue latest run");
+    expect(request.contextText).toContain("Queue run metadata");
+    expect(request.contextText).toContain("Queue task: Task (task_1)");
+    expect(request.contextText).toContain("run_safe_latest_123456");
+    expect(request.contextText).toContain("Source: manual");
+    expect(request.contextText).toContain("Status: completed");
+    expect(request.contextText).toContain("Validation: passed");
+    expect(request.contextText).not.toMatch(
+      /stdout|stderr|final response|diff|repo_root|operatorPrompt|payloadJson|secret/i,
+    );
+  });
+
   it("opens the owning Executor from a history row using only safe refs", () => {
     const onOpenAgentExecutorRun = vi.fn();
 
@@ -161,6 +192,35 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       executorWidgetInstanceId: "executor_visible",
       runId: "run_history_safe_123456",
     });
+  });
+
+  it("attaches run history row safe metadata to Coordinator", () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    renderPanel({
+      onAttachContextToCoordinator,
+      runHistory: runHistoryController([
+        runLink({
+          directWorkRunId: "run_history_safe_123456",
+          linkId: "link_history",
+          source: "autorun",
+          status: "failed",
+        }),
+      ]),
+    });
+
+    clickFirstButton("Attach to Coordinator");
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Queue run history row");
+    expect(request.contextText).toContain("Queue run metadata");
+    expect(request.contextText).toContain("run_history_safe_123456");
+    expect(request.contextText).toContain("Source: autorun");
+    expect(request.contextText).toContain("Status: failed");
+    expect(request.contextText).not.toMatch(
+      /stdout|stderr|final response|diff|repo_root|operatorPrompt|payloadJson|secret/i,
+    );
   });
 
   it("shows a compact disabled reason when the owning Executor is not visible", () => {
@@ -233,6 +293,20 @@ function renderPanel(
         {...overrides}
       />,
     );
+  });
+}
+
+function clickFirstButton(text: string) {
+  const button = Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`);
+  }
+
+  act(() => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 

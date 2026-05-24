@@ -27,6 +27,8 @@ import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
+  CoordinatorAttachedContextInput,
+  CoordinatorAttachedContextRequest,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
@@ -65,6 +67,7 @@ type WidgetHostProps = {
   };
   hasGitWidget: boolean;
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
+  coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
@@ -72,6 +75,9 @@ type WidgetHostProps = {
   onPopOut: (widgetInstanceId: WidgetInstance["id"]) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
+  ) => void;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
   ) => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
@@ -93,11 +99,13 @@ export function WidgetHost({
   dockedSize,
   hasGitWidget,
   agentExecutorRunOpenRequest,
+  coordinatorAttachedContextRequest,
   agentExecutorSlots,
   instance,
   layoutMode,
   onDockBack,
   onOpenAgentExecutorRun,
+  onAttachContextToCoordinator,
   onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
@@ -195,10 +203,12 @@ export function WidgetHost({
     agentExecutorSlots,
     agentExecutorRunOpenRequest,
     componentKey: definition.componentKey,
+    coordinatorAttachedContextRequest,
     directWorkGitReview,
     directWorkRunHandoff,
     hasGitWidget,
     instanceId: instance.id,
+    onAttachContextToCoordinator,
     onOpenAgentExecutorRun,
     widgetActions,
   });

@@ -4,11 +4,13 @@ import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import type {
   AgentQueueTask,
+  AgentQueueTaskRunLinkSummary,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../workspace/types";
 import {
   assignmentLabel,
+  displayTaskTitle,
   isAssignmentLockedQueueTaskStatus,
   isFinalQueueTaskStatus,
   shortWidgetInstanceId,
@@ -26,6 +28,7 @@ import type {
 import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
+  CoordinatorAttachedContextInput,
 } from "./types";
 
 type AgentQueueTaskRunPanelProps = {
@@ -44,6 +47,9 @@ type AgentQueueTaskRunPanelProps = {
   onClear: () => void;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
+  ) => void;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
   ) => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
   run: AgentQueueRunController;
@@ -67,6 +73,7 @@ export function AgentQueueTaskRunPanel({
   onAssign,
   onClear,
   onOpenAgentExecutorRun,
+  onAttachContextToCoordinator,
   onSelectionChange,
   run,
   runHistory,
@@ -161,8 +168,10 @@ export function AgentQueueTaskRunPanel({
           <RunHistorySummary
             executorSlots={executorSlots}
             links={runHistory.links}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
             onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onRefresh={runHistory.onRefresh}
+            selectedTask={selectedTask}
             totalCount={runHistory.totalCount}
           />
         ) : (
@@ -215,8 +224,10 @@ export function AgentQueueTaskRunPanel({
           <LatestRunSummary
             executorSlots={executorSlots}
             link={latestRun.link}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
             onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onRefresh={latestRun.onRefresh}
+            selectedTask={selectedTask}
           />
         ) : (
           <div className="agent-queue-run-empty-state">
@@ -544,16 +555,22 @@ export function AgentQueueTaskRunPanel({
 function RunHistorySummary({
   executorSlots,
   links,
+  onAttachContextToCoordinator,
   onOpenAgentExecutorRun,
   onRefresh,
+  selectedTask,
   totalCount,
 }: {
   executorSlots: AgentExecutorSlot[];
   links: NonNullable<AgentQueueLatestRunLinkController["link"]>[];
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
   onRefresh: () => void;
+  selectedTask: AgentQueueTask;
   totalCount: number;
 }) {
   const visibleLinks = links.slice(0, 3);
@@ -601,6 +618,29 @@ function RunHistorySummary({
                 >
                   Open Executor
                 </Button>
+                <Button
+                  disabled={!onAttachContextToCoordinator}
+                  onClick={() =>
+                    onAttachContextToCoordinator?.({
+                      contextText: queueRunAttachedContextText({
+                        executorLabel:
+                          executorSlot?.label ??
+                          `Agent Executor ${shortWidgetInstanceId(link.executorWidgetId)}`,
+                        link,
+                        selectedTask,
+                      }),
+                      sourceLabel: "Queue run history row",
+                    })
+                  }
+                  title={
+                    onAttachContextToCoordinator
+                      ? "Attach this safe run metadata to Coordinator Chat."
+                      : "Coordinator Chat is not visible on this Workbench."
+                  }
+                  variant="ghost"
+                >
+                  Attach to Coordinator
+                </Button>
                 {!executorSlot ? <span>Executor not visible</span> : null}
               </div>
             </div>
@@ -624,15 +664,21 @@ function RunHistorySummary({
 function LatestRunSummary({
   executorSlots,
   link,
+  onAttachContextToCoordinator,
   onOpenAgentExecutorRun,
   onRefresh,
+  selectedTask,
 }: {
   executorSlots: AgentExecutorSlot[];
   link: NonNullable<AgentQueueLatestRunLinkController["link"]>;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
   onRefresh: () => void;
+  selectedTask: AgentQueueTask;
 }) {
   const executorSlot = executorSlots.find(
     (slot) => slot.widgetInstanceId === link.executorWidgetId,
@@ -686,6 +732,27 @@ function LatestRunSummary({
         >
           Open Executor
         </Button>
+        <Button
+          disabled={!onAttachContextToCoordinator}
+          onClick={() =>
+            onAttachContextToCoordinator?.({
+              contextText: queueRunAttachedContextText({
+                executorLabel,
+                link,
+                selectedTask,
+              }),
+              sourceLabel: "Queue latest run",
+            })
+          }
+          title={
+            onAttachContextToCoordinator
+              ? "Attach this safe run metadata to Coordinator Chat."
+              : "Coordinator Chat is not visible on this Workbench."
+          }
+          variant="ghost"
+        >
+          Attach to Coordinator
+        </Button>
         <Button onClick={() => onRefresh()} variant="ghost">
           Refresh
         </Button>
@@ -714,6 +781,34 @@ function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
     block: "nearest",
     inline: "nearest",
   });
+}
+
+function queueRunAttachedContextText({
+  executorLabel,
+  link,
+  selectedTask,
+}: {
+  executorLabel: string;
+  link: AgentQueueTaskRunLinkSummary;
+  selectedTask: AgentQueueTask;
+}) {
+  return [
+    "Queue run metadata",
+    `Queue task: ${displayTaskTitle(selectedTask)} (${selectedTask.queueItemId})`,
+    `Executor: ${executorLabel} (${link.executorWidgetId})`,
+    `Run: ${link.directWorkRunId}`,
+    `Run link: ${link.linkId}`,
+    `Source: ${runSourceLabel(link.source)}`,
+    `Status: ${runStatusLabel(link.status)}`,
+    `Started: ${formatRunTimestamp(link.startedAt)}`,
+    `Completed: ${
+      link.completedAt ? formatRunTimestamp(link.completedAt) : "Running"
+    }`,
+    link.reviewStatus ? `Review: ${runReviewStatusLabel(link.reviewStatus)}` : null,
+    link.validationStatus ? `Validation: ${link.validationStatus}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 }
 
 function runSourceLabel(source: string) {

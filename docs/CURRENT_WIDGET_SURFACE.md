@@ -70,6 +70,10 @@ and component keys may still appear in code and persistence.
   validation capture, and read-only run/detail/history views.
 - Owns run detail, live logs, cancellation controls, final responses,
   validation capture, changed-file visibility, and run history.
+- Run history and selected run detail can attach safe run metadata to
+  Coordinator Chat as visible current-session composer context. Attach does not
+  copy raw logs, stdout/stderr, final responses, diffs, prompts, repo paths,
+  secrets, or raw payloads, and it does not send automatically.
 - Provides read-only backend/Tauri APIs for stored Direct Work runs,
   validation runs, and explicit diff summaries.
 - Queue tasks can be assigned to visible Executor slots and explicitly started
@@ -172,7 +176,10 @@ and component keys may still appear in code and persistence.
   opens/focuses the owning Agent Executor and passes only the safe run id for
   Executor-owned run detail selection. Selected task details also show a
   compact recent run-history summary from the same safe run-link metadata,
-  capped to a small list with a count.
+  capped to a small list with a count. Latest-run and recent run-history rows
+  can attach this same safe metadata to Coordinator Chat as visible
+  current-session composer context; attach is operator-controlled, does not
+  send automatically, and does not copy raw Executor payloads.
   Queue does not copy or render raw prompts, stdout/stderr, logs, final
   responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
   Executor.
@@ -226,6 +233,13 @@ and component keys may still appear in code and persistence.
   Executor, or validation results into visible chat. Review cards summarize the
   visible pasted text, classify the likely status as success, failure, unclear,
   or needs review, and suggest next actions.
+- Can receive explicitly attached visible run metadata from Queue latest-run,
+  Queue run-history, and Agent Executor run-history/detail controls. Attached
+  context is current-session UI state inserted into the visible composer and
+  can be edited or removed before Send. Only visible attached context is sent;
+  Attach does not auto-send, read Queue history, read Executor logs, or copy
+  raw stdout/stderr, final responses, diffs, prompts, repo paths, secrets, or
+  raw payloads.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals

@@ -5,6 +5,7 @@ import { AgentQueueTaskSection } from "./AgentQueueTaskSection";
 import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
+  CoordinatorAttachedContextInput,
 } from "./types";
 
 type AgentQueueController = ReturnType<typeof useAgentQueueController>;
@@ -15,6 +16,9 @@ type AgentQueueTaskDetailsPanelProps = {
   executionPolicyInputId: string;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
+  ) => void;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
   ) => void;
   priorityInputId: string;
   promptInputId: string;
@@ -29,6 +33,7 @@ export function AgentQueueTaskDetailsPanel({
   assignmentInputId,
   executionPolicyInputId,
   onOpenAgentExecutorRun,
+  onAttachContextToCoordinator,
   priorityInputId,
   promptInputId,
   queue,
@@ -113,6 +118,7 @@ export function AgentQueueTaskDetailsPanel({
             onAssign={() => void assignSelectedTask()}
             onClear={() => void clearSelectedTaskAssignment()}
             onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
             onSelectionChange={(executorWidgetInstanceId) => {
               selectExecutorWidget(executorWidgetInstanceId);
             }}

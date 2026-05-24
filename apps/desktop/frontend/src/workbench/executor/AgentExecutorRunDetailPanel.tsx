@@ -1,4 +1,5 @@
 import { Badge } from "../../design-system/Badge";
+import { Button } from "../../design-system/Button";
 import type { AgentExecutorRunDetail } from "../../workspace/types";
 import { StaticPreviewFieldList } from "../StaticPreviewPrimitives";
 import {
@@ -22,10 +23,12 @@ import {
 
 type AgentExecutorRunDetailPanelProps = {
   detailState: AgentExecutorRunDetailState;
+  onAttachRunContext?: () => void;
 };
 
 export function AgentExecutorRunDetailPanel({
   detailState,
+  onAttachRunContext,
 }: AgentExecutorRunDetailPanelProps) {
   if (detailState.status === "idle") {
     return (
@@ -60,13 +63,20 @@ export function AgentExecutorRunDetailPanel({
     );
   }
 
-  return <AgentExecutorRunDetailContent detail={detailState.detail} />;
+  return (
+    <AgentExecutorRunDetailContent
+      detail={detailState.detail}
+      onAttachRunContext={onAttachRunContext}
+    />
+  );
 }
 
 function AgentExecutorRunDetailContent({
   detail,
+  onAttachRunContext,
 }: {
   detail: AgentExecutorRunDetail;
+  onAttachRunContext?: () => void;
 }) {
   const summary = detail.summary;
   const finalText =
@@ -83,6 +93,18 @@ function AgentExecutorRunDetailContent({
         <Badge variant={statusBadgeVariant(summary.status)}>
           {statusLabel(summary.status)}
         </Badge>
+        <Button
+          disabled={!onAttachRunContext}
+          onClick={() => onAttachRunContext?.()}
+          title={
+            onAttachRunContext
+              ? "Attach this safe run metadata to Coordinator Chat."
+              : "Coordinator Chat is not visible on this Workbench."
+          }
+          variant="ghost"
+        >
+          Attach to Coordinator
+        </Button>
       </div>
 
       <StaticPreviewFieldList

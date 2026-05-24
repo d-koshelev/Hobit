@@ -54,6 +54,8 @@ import type {
   AgentExecutorSlot,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  CoordinatorAttachedContextInput,
+  CoordinatorAttachedContextRequest,
   DirectWorkGitReviewRequest,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
@@ -76,6 +78,7 @@ export type WidgetRenderProps = {
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
+  coordinatorAttachedContextRequest?: CoordinatorAttachedContextRequest | null;
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
@@ -259,6 +262,9 @@ export type WidgetRenderProps = {
   onListTerminalPtySessions?: (
     request?: Omit<ListTerminalPtySessionsRequest, "workspaceId" | "workbenchId">,
   ) => Promise<TerminalPtySession[]>;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;

@@ -94,6 +94,49 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(createQueueTask).not.toHaveBeenCalled();
   });
 
+  it("renders attached Queue or Executor context visibly without sending", () => {
+    const provider = vi.fn();
+
+    renderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: [
+          "Queue run metadata",
+          "Queue task: Task (task_1)",
+          "Run: run_safe_123456",
+          "Status: completed",
+        ].join("\n"),
+        sourceLabel: "Queue latest run",
+      }),
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    expect(document.body.textContent).toContain("Visible attached context");
+    expect(document.body.textContent).toContain("Queue latest run");
+    expect(document.body.textContent).toContain("Queue run metadata");
+    expect(document.body.textContent).toContain(
+      "Only visible attached context is sent.",
+    );
+    expect(textareaValue()).toContain(
+      "Visible attached context (Queue latest run)",
+    );
+    expect(textareaValue()).toContain("Run: run_safe_123456");
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("allows visible attached context to be removed before send", async () => {
+    renderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: "Executor run metadata\nRun: run_safe_123456",
+        sourceLabel: "Executor run detail",
+      }),
+    });
+
+    await clickButton("Remove");
+
+    expect(document.body.textContent).not.toContain("Executor run detail");
+    expect(textareaValue()).not.toContain("run_safe_123456");
+  });
+
   it("renders a local Plan card without implying execution", async () => {
     renderWidget();
 
@@ -219,6 +262,57 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
     expect(document.body.textContent).toContain("allowed_tools: []");
     expect(document.body.textContent).toContain("const tools = [];");
+  });
+
+  it("sends attached context only after the operator presses Send", async () => {
+    const provider = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: Omit<
+          GenerateCoordinatorProviderResponseRequest,
+          "workspaceId" | "workbenchId" | "widgetInstanceId"
+        >,
+      ) => Promise<GenerateCoordinatorProviderResponse>
+    >(async (_widgetInstanceId, request) =>
+      providerResponse({
+        visibleContextMessageCount: request.visibleConversation.length,
+      }),
+    );
+
+    renderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: [
+          "Executor run metadata",
+          "Executor: Agent Executor visible (executor_visible)",
+          "Run: run_safe_123456",
+          "Status: completed",
+        ].join("\n"),
+        sourceLabel: "Executor run history row",
+      }),
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    expect(provider).not.toHaveBeenCalled();
+
+    await clickButton("Send");
+
+    expect(provider).toHaveBeenCalledTimes(1);
+    const request = provider.mock.calls[0][1];
+    expect(request.operatorMessage).toContain(
+      "Visible attached context (Executor run history row)",
+    );
+    expect(request.operatorMessage).toContain("Executor run metadata");
+    expect(request.visibleConversation).toEqual([
+      {
+        body: request.operatorMessage,
+        id: "local-1",
+        role: "operator",
+      },
+    ]);
+    expect(JSON.stringify(request)).not.toMatch(
+      /stdout|stderr|final response|diff|repoRoot|repo_root|payloadJson|secret/i,
+    );
+    expect(document.body.textContent).toContain("allowed_tools: []");
   });
 
   it("renders provider proposal cards without creating Queue tasks before approval", async () => {
@@ -568,5 +662,17 @@ function instance(): WidgetInstance {
     state: {},
     title: "Coordinator Chat",
     visible: true,
+  };
+}
+
+function attachedContextRequest(overrides: {
+  contextText: string;
+  sourceLabel: string;
+}) {
+  return {
+    contextText: overrides.contextText,
+    id: 1,
+    sourceLabel: overrides.sourceLabel,
+    targetCoordinatorWidgetInstanceId: "coordinator_widget",
   };
 }

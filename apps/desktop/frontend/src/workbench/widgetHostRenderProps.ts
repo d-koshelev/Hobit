@@ -5,6 +5,8 @@ import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
+  CoordinatorAttachedContextInput,
+  CoordinatorAttachedContextRequest,
   WidgetInstanceId,
   WidgetRenderProps,
 } from "./types";
@@ -22,10 +24,14 @@ type WidgetHostRenderPropsOptions = {
   agentExecutorSlots: AgentExecutorSlot[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   componentKey: string;
+  coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   directWorkGitReview: DirectWorkGitReviewHandoff;
   directWorkRunHandoff: DirectWorkRunHandoffController;
   hasGitWidget: boolean;
   instanceId: WidgetInstanceId;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
@@ -36,10 +42,12 @@ export function widgetHostRenderProps({
   agentExecutorSlots,
   agentExecutorRunOpenRequest,
   componentKey,
+  coordinatorAttachedContextRequest,
   directWorkGitReview,
   directWorkRunHandoff,
   hasGitWidget,
   instanceId,
+  onAttachContextToCoordinator,
   onOpenAgentExecutorRun,
   widgetActions,
 }: WidgetHostRenderPropsOptions): Partial<WidgetRenderProps> {
@@ -57,6 +65,12 @@ export function widgetHostRenderProps({
     agentExecutorRunOpenRequest: isAgentExecutor
       ? agentExecutorRunOpenRequest
       : undefined,
+    coordinatorAttachedContextRequest:
+      isInteractiveAgent &&
+      coordinatorAttachedContextRequest?.targetCoordinatorWidgetInstanceId ===
+        instanceId
+        ? coordinatorAttachedContextRequest
+        : undefined,
     directWorkGitReviewRequest: isGit
       ? directWorkGitReview.request
       : undefined,
@@ -182,6 +196,10 @@ export function widgetHostRenderProps({
     onListTerminalPtySessions: isTerminal
       ? widgetActions.listTerminalPtySessions
       : undefined,
+    onAttachContextToCoordinator:
+      (isAgentQueue || isAgentExecutor) && onAttachContextToCoordinator
+        ? onAttachContextToCoordinator
+        : undefined,
     onStartAssignedAgentQueueTask: isAgentQueue
       ? widgetActions.startAssignedAgentQueueTask
       : undefined,

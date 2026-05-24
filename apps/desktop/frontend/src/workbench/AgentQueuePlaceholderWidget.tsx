@@ -35,6 +35,7 @@ export function AgentQueuePlaceholderWidget({
   onListAgentQueueTaskRunLinks,
   onListAgentQueueTasks,
   onLoadLogs,
+  onAttachContextToCoordinator,
   onOpenAgentExecutorRun,
   onDirectWorkRunHandoffStarted,
   queueTaskAutoRefreshRequest,
@@ -213,6 +214,7 @@ export function AgentQueuePlaceholderWidget({
                 priorityInputId={priorityInputId}
                 promptInputId={promptInputId}
                 queue={queue}
+                onAttachContextToCoordinator={onAttachContextToCoordinator}
                 onOpenAgentExecutorRun={onOpenAgentExecutorRun}
                 selectedTaskHint={selectedTaskHint}
                 statusInputId={statusInputId}

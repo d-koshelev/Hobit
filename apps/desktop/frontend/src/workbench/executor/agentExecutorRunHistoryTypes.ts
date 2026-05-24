@@ -5,6 +5,7 @@ import type {
 } from "../../workspace/types";
 import type { WidgetInstanceId } from "../types";
 import type { AgentExecutorRunOpenRequest } from "../types";
+import type { CoordinatorAttachedContextInput } from "../types";
 
 export const AGENT_EXECUTOR_HISTORY_LIMIT = 20;
 export const AGENT_EXECUTOR_LOG_PREVIEW_LIMIT = 50;
@@ -54,6 +55,9 @@ export type ListAgentExecutorRunsHandler = (
 export type AgentExecutorRunHistoryPanelProps = {
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
   openRunDetailRequest?: AgentExecutorRunOpenRequest | null;
   refreshToken: number;
   widgetInstanceId: WidgetInstanceId;

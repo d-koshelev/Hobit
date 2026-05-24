@@ -78,6 +78,61 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
       "Select a stored run to inspect",
     );
   });
+
+  it("attaches safe Executor history metadata without raw run detail", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+    });
+
+    clickButtonAt("Attach to Coordinator", 0);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Executor run history row");
+    expect(request.contextText).toContain("Executor run metadata");
+    expect(request.contextText).toContain("run_safe_123456");
+    expect(request.contextText).toContain("Status: completed");
+    expect(request.contextText).not.toContain("Executor-owned final response");
+    expect(request.contextText).not.toMatch(
+      /stdout|stderr|final response|diff|repoRoot|repo_root|payload|secret/i,
+    );
+  });
+
+  it("attaches safe Executor detail metadata without raw output fields", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi
+        .fn()
+        .mockResolvedValue(runDetail("run_safe_123456")),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    clickButtonAt("Attach to Coordinator", 1);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Executor run detail");
+    expect(request.contextText).toContain("Executor run metadata");
+    expect(request.contextText).toContain("Result status: completed");
+    expect(request.contextText).not.toContain("Executor-owned final response");
+    expect(request.contextText).not.toMatch(
+      /stdout|stderr|final response|diff|repoRoot|repo_root|payload|secret/i,
+    );
+  });
 });
 
 async function renderPanel(
@@ -148,4 +203,19 @@ function runDetail(runId: string): AgentExecutorRunDetail {
     validationProfile: null,
     validationStatus: null,
   };
+}
+
+function clickButtonAt(text: string, index: number) {
+  const buttons = Array.from(document.querySelectorAll("button")).filter(
+    (button) => button.textContent === text,
+  );
+  const button = buttons[index];
+
+  if (!button) {
+    throw new Error(`Button not found: ${text} at ${index}`);
+  }
+
+  act(() => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
 }

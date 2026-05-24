@@ -1,4 +1,5 @@
 import { Badge } from "../../design-system/Badge";
+import { Button } from "../../design-system/Button";
 import type { AgentExecutorRunSummary } from "../../workspace/types";
 import {
   historyRunMetaLine,
@@ -9,22 +10,23 @@ import {
 
 type AgentExecutorRunHistoryListItemProps = {
   isSelected: boolean;
+  onAttachRunContext?: (run: AgentExecutorRunSummary) => void;
   onSelect: (runId: string) => void;
   run: AgentExecutorRunSummary;
 };
 
 export function AgentExecutorRunHistoryListItem({
   isSelected,
+  onAttachRunContext,
   onSelect,
   run,
 }: AgentExecutorRunHistoryListItemProps) {
   return (
-    <button
+    <div
       className={`agent-executor-history-item${
         isSelected ? " agent-executor-history-item-selected" : ""
       }`}
-      onClick={() => onSelect(run.runId)}
-      type="button"
+      role="listitem"
     >
       <span className="agent-executor-history-item-head">
         <span className="codex-direct-work-result-label">
@@ -51,6 +53,23 @@ export function AgentExecutorRunHistoryListItem({
           {run.validationStatus ?? "unknown"}
         </span>
       ) : null}
-    </button>
+      <span className="agent-executor-history-item-actions">
+        <Button onClick={() => onSelect(run.runId)} variant="ghost">
+          Select
+        </Button>
+        <Button
+          disabled={!onAttachRunContext}
+          onClick={() => onAttachRunContext?.(run)}
+          title={
+            onAttachRunContext
+              ? "Attach this safe run metadata to Coordinator Chat."
+              : "Coordinator Chat is not visible on this Workbench."
+          }
+          variant="ghost"
+        >
+          Attach to Coordinator
+        </Button>
+      </span>
+    </div>
   );
 }
