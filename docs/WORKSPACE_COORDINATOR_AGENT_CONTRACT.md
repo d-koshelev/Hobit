@@ -45,14 +45,24 @@ The current Coordinator preview:
 - can include visible current-session chat and visible proposal draft summaries
 - can show local UI-only plan cards with goal, steps, risks/notes, and
   suggested next actions from explicit visible chat text
+- can show local outcome-review cards from explicitly pasted Queue, Executor,
+  or validation result text, with compact summary, success/failure/unclear/
+  needs-review interpretation, risks/blockers, and next actions
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status
+- can draft follow-up Queue task proposal cards from explicitly pasted outcome
+  text when the visible result suggests follow-up work; creation remains a
+  separate explicit Create Queue task action
 - can approve all visible Queue task drafts as local review state only
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
-- does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context
-- does not persist chat messages, persist reusable context snapshots, create Queue items without a separate approved proposal handoff, execute actions, or mutate Workspace content
+- does not read Notes body, Git status, Terminal output, widget logs, Queue
+  details or run history, Executor logs/results/artifacts, files, environment
+  variables, secrets, Context Packs, or hidden context
+- does not persist chat messages, persist reusable context snapshots, create
+  Queue items without a separate approved proposal handoff, start Queue
+  Autorun, launch Agent Executor, execute actions, or mutate Workspace content
 
 There is no implemented:
 

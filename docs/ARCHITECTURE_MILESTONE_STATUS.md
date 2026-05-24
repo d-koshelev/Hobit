@@ -44,6 +44,11 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   cards, and local-only multi-draft review controls. Queue task creation
   remains explicit draft creation only, and execution remains Queue/Executor
   controlled.
+- Coordinator Chat can locally review explicitly pasted Queue, Executor, or
+  validation result text in visible chat. Outcome-review cards use only the
+  pasted text, may draft follow-up Queue task proposals, and do not fetch
+  Executor logs, Queue run history, artifacts, files, Context Packs, or hidden
+  widget state. Follow-up Queue tasks remain explicit draft creation only.
 
 ## Still Type-Only Or Contract-Only
 
@@ -69,9 +74,9 @@ explicit visible current-session chat/proposal context only. It must not
 silently ingest Notes, artifacts, evidence, knowledge, Context Packs, runtime
 logs, widget state, Git/JDBC/Terminal state, Queue state, files, environment
 values, or secrets.
-Planning cards and Queue task drafts do not change this context boundary and
-do not wire Context Packs, artifacts, logs, Queue state, Executor state, or
-widget data into provider prompts.
+Planning cards, pasted-result review cards, and Queue task drafts do not
+change this context boundary and do not wire Context Packs, artifacts, logs,
+Queue state, Executor state, or widget data into provider prompts.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is

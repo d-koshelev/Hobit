@@ -9,6 +9,7 @@ import {
 export type LocalProposalGenerationResult = {
   plan: CoordinatorPlanDraft | null;
   proposals: CoordinatorActionProposal[];
+  review: CoordinatorOutcomeReviewDraft | null;
   responseBody: string;
 };
 
@@ -18,6 +19,16 @@ export type CoordinatorPlanDraft = {
   riskNotes: string[];
   steps: string[];
   suggestedNextActions: string[];
+  title: string;
+};
+
+export type CoordinatorOutcomeReviewDraft = {
+  id: string;
+  likelyOutcome: string;
+  nextActions: string[];
+  observedSummary: string;
+  risksBlockers: string[];
+  statusInterpretation: "success" | "failure" | "unclear" | "needs review";
   title: string;
 };
 
@@ -32,6 +43,12 @@ const GENERATED_PLAN_RESPONSE =
 
 const GENERATED_PLAN_AND_PROPOSAL_RESPONSE =
   "Generated a local plan and proposal previews from your explicit message. Review or edit visible fields before approval; approval does not execute by itself.";
+
+const GENERATED_REVIEW_RESPONSE =
+  "Generated a local outcome review from your explicit pasted text. No Queue, Executor, validation logs, files, artifacts, or hidden context were read.";
+
+const GENERATED_REVIEW_AND_PROPOSAL_RESPONSE =
+  "Generated a local outcome review and follow-up Queue task draft from your explicit pasted text. Review or edit visible fields before approval; approval does not execute by itself.";
 
 const MAX_TITLE_LENGTH = 72;
 const MAX_LOCAL_QUEUE_DRAFTS = 4;
@@ -78,6 +95,20 @@ const JDBC_INTENT_PATTERNS = [
   /\bsuggest\s+(?:a\s+)?query\b/i,
 ];
 
+const OUTCOME_REVIEW_INTENT_PATTERNS = [
+  /\breview\s+(?:pasted\s+)?(?:queue|executor|validation|result|output|failure)/i,
+  /\bexplain\s+(?:this\s+)?executor\s+failure\b/i,
+  /\bturn\s+this\s+result\s+into\s+next\s+steps\b/i,
+  /\bdraft\s+follow-up\s+queue\s+tasks?\b/i,
+  /\bsummarize\s+validation\s+output\b/i,
+  /\bpaste\s+results?\s+here\s+to\s+analy[sz]e\b/i,
+];
+
+const FOLLOW_UP_QUEUE_INTENT_PATTERNS = [
+  /\bdraft\s+follow-up\s+queue\s+tasks?\b/i,
+  /\bturn\s+this\s+result\s+into\s+next\s+steps\b/i,
+];
+
 const PLAN_INTENT_PATTERNS = [
   /\bmake\s+(?:a\s+)?plan\b/i,
   /\bplan\s+(?:this|the|my|our)\b/i,
@@ -96,6 +127,9 @@ export function generateLocalCoordinatorProposals(
   const shouldCreatePlan =
     matchesAny(normalizedMessage, PLAN_INTENT_PATTERNS) ||
     matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS);
+  const review = matchesAny(normalizedMessage, OUTCOME_REVIEW_INTENT_PATTERNS)
+    ? createOutcomeReviewDraft(visibleMessage, normalizedMessage, sourceMessageId)
+    : null;
   const plan = shouldCreatePlan
     ? createPlanDraft(visibleMessage, sourceMessageId)
     : null;
@@ -105,6 +139,16 @@ export function generateLocalCoordinatorProposals(
     proposals.push(
       ...queueDraftsFromMessage(visibleMessage).map((draft, index) =>
         createQueueProposal(draft, sourceMessageId, index),
+      ),
+    );
+  }
+
+  if (review && shouldDraftOutcomeFollowUp(normalizedMessage, review)) {
+    proposals.push(
+      createQueueProposal(
+        queueDraftFromOutcomeReview(visibleMessage, review),
+        sourceMessageId,
+        proposals.length,
       ),
     );
   }
@@ -122,7 +166,8 @@ export function generateLocalCoordinatorProposals(
   return {
     plan,
     proposals,
-    responseBody: responseBodyFor(plan, proposals.length),
+    review,
+    responseBody: responseBodyFor(plan, review, proposals.length),
   };
 }
 
@@ -192,6 +237,196 @@ function createPlanDraft(
       "Create Queue tasks only for larger async work; creation does not run them.",
     ],
     title: derivedTitle(message, "Coordinator plan"),
+  };
+}
+
+function createOutcomeReviewDraft(
+  visibleMessage: string,
+  normalizedMessage: string,
+  sourceMessageId: string,
+): CoordinatorOutcomeReviewDraft {
+  const statusInterpretation = outcomeStatus(normalizedMessage);
+
+  return {
+    id: `${sourceMessageId}-outcome-review`,
+    likelyOutcome: likelyOutcomeFor(statusInterpretation),
+    nextActions: nextActionsFor(statusInterpretation),
+    observedSummary: observedOutcomeSummary(visibleMessage),
+    risksBlockers: risksFor(statusInterpretation),
+    statusInterpretation,
+    title: derivedTitle(
+      visibleMessage,
+      statusInterpretation === "failure"
+        ? "Review pasted failure"
+        : "Review pasted result",
+    ),
+  };
+}
+
+function outcomeStatus(
+  message: string,
+): CoordinatorOutcomeReviewDraft["statusInterpretation"] {
+  if (
+    /\b(failed|failure|error|exception|panic|timed\s*out|timeout|cancelled|canceled|exit\s+code\s+[1-9]|non[-\s]?zero|validation\s+failed|test\s+failed)\b/i.test(
+      message,
+    )
+  ) {
+    return "failure";
+  }
+
+  if (
+    /\b(blocked|warning|warn|needs\s+review|skipped|partial|dirty|conflict|manual\s+review)\b/i.test(
+      message,
+    )
+  ) {
+    return "needs review";
+  }
+
+  if (
+    /\b(passed|success|successful|completed|validated|all\s+tests\s+passed|exit\s+code\s+0|finished)\b/i.test(
+      message,
+    )
+  ) {
+    return "success";
+  }
+
+  return "unclear";
+}
+
+function observedOutcomeSummary(message: string) {
+  const cleaned = stripOutcomeReviewPrefix(message);
+  const lines = cleaned
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const summarySource = lines.slice(0, 3).join(" ");
+  const summary = normalizeWhitespace(summarySource || cleaned);
+
+  if (!summary) {
+    return "No pasted result text was included yet.";
+  }
+
+  return summary.length <= 260 ? summary : `${summary.slice(0, 257).trim()}...`;
+}
+
+function likelyOutcomeFor(
+  status: CoordinatorOutcomeReviewDraft["statusInterpretation"],
+) {
+  if (status === "success") {
+    return "The visible pasted text appears to report a successful result.";
+  }
+  if (status === "failure") {
+    return "The visible pasted text appears to report a failed or blocked outcome.";
+  }
+  if (status === "needs review") {
+    return "The visible pasted text includes warning, skipped, partial, or review-needed signals.";
+  }
+  return "The visible pasted text does not include enough final status detail to classify confidently.";
+}
+
+function risksFor(status: CoordinatorOutcomeReviewDraft["statusInterpretation"]) {
+  const shared = [
+    "Review uses visible chat text only; no hidden Queue or Executor logs were read.",
+  ];
+
+  if (status === "success") {
+    return [
+      "Confirm the pasted validation scope matches the original task.",
+      "Check for skipped checks or warnings before accepting the result.",
+      ...shared,
+    ];
+  }
+
+  if (status === "failure") {
+    return [
+      "Do not accept the result until the first failing command or error is understood.",
+      "A follow-up fix may need a focused Queue task if it is larger than a quick operator decision.",
+      ...shared,
+    ];
+  }
+
+  if (status === "needs review") {
+    return [
+      "Warnings, skipped checks, dirty state, or partial completion may still need operator review.",
+      "Ask for or paste the missing visible result lines before creating larger follow-up work.",
+      ...shared,
+    ];
+  }
+
+  return [
+    "The pasted text lacks a clear final status.",
+    "Paste the relevant Queue, Executor, or validation summary lines before deciding next steps.",
+    ...shared,
+  ];
+}
+
+function nextActionsFor(
+  status: CoordinatorOutcomeReviewDraft["statusInterpretation"],
+) {
+  if (status === "success") {
+    return [
+      "Confirm all expected validation commands are represented in the pasted text.",
+      "Accept the result only if no warnings or skipped checks matter.",
+      "Create a follow-up Queue task only for remaining explicit work.",
+    ];
+  }
+
+  if (status === "failure") {
+    return [
+      "Identify the first visible failing command, error, or timeout.",
+      "Decide whether the fix is small enough for immediate operator action.",
+      "Draft a focused follow-up Queue task when the fix needs async execution.",
+    ];
+  }
+
+  if (status === "needs review") {
+    return [
+      "Resolve warnings, skipped checks, or partial completion before accepting.",
+      "Paste additional visible result lines if the boundary is unclear.",
+      "Draft follow-up Queue work only after the needed scope is visible.",
+    ];
+  }
+
+  return [
+    "Paste the final status, failed command, or validation summary.",
+    "Ask Coordinator again after the visible result text is complete.",
+    "Avoid creating Queue work until the outcome is clear.",
+  ];
+}
+
+function shouldDraftOutcomeFollowUp(
+  normalizedMessage: string,
+  review: CoordinatorOutcomeReviewDraft,
+) {
+  return (
+    matchesAny(normalizedMessage, FOLLOW_UP_QUEUE_INTENT_PATTERNS) ||
+    review.statusInterpretation === "failure" ||
+    review.statusInterpretation === "needs review"
+  );
+}
+
+function queueDraftFromOutcomeReview(
+  visibleMessage: string,
+  review: CoordinatorOutcomeReviewDraft,
+): QueueTaskDraft {
+  const title =
+    review.statusInterpretation === "failure"
+      ? "Investigate pasted Executor failure"
+      : review.statusInterpretation === "success"
+        ? "Review successful pasted result"
+        : "Follow up pasted result review";
+
+  return {
+    description: `Follow-up drafted from visible Coordinator outcome review: ${review.observedSummary}`,
+    priority: review.statusInterpretation === "failure" ? "2" : "1",
+    prompt: [
+      "Review the visible pasted outcome below and propose the smallest safe follow-up.",
+      "",
+      visibleMessage,
+      "",
+      "Use only this prompt and explicit operator-provided context. Do not read hidden Queue or Executor logs, artifacts, files, Notes, Git, JDBC, Terminal output, or Context Packs.",
+    ].join("\n"),
+    title,
   };
 }
 
@@ -293,10 +528,31 @@ function stripPlanningPrefix(message: string) {
     .trim();
 }
 
+function stripOutcomeReviewPrefix(message: string) {
+  return message
+    .replace(/\breview\s+pasted\s+queue\s+result\b/gi, "")
+    .replace(/\bexplain\s+this\s+executor\s+failure\b/gi, "")
+    .replace(/\bturn\s+this\s+result\s+into\s+next\s+steps\b/gi, "")
+    .replace(/\bdraft\s+follow-up\s+queue\s+tasks?\b/gi, "")
+    .replace(/\bsummarize\s+validation\s+output\b/gi, "")
+    .replace(/\bpaste\s+results?\s+here\s+to\s+analy[sz]e\s+them\b/gi, "")
+    .replace(/^[:\s-]+/, "")
+    .trim();
+}
+
 function responseBodyFor(
   plan: CoordinatorPlanDraft | null,
+  review: CoordinatorOutcomeReviewDraft | null,
   proposalCount: number,
 ) {
+  if (review && proposalCount > 0) {
+    return GENERATED_REVIEW_AND_PROPOSAL_RESPONSE;
+  }
+
+  if (review) {
+    return GENERATED_REVIEW_RESPONSE;
+  }
+
   if (plan && proposalCount > 0) {
     return GENERATED_PLAN_AND_PROPOSAL_RESPONSE;
   }

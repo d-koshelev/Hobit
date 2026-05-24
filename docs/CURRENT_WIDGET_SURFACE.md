@@ -222,6 +222,10 @@ and component keys may still appear in code and persistence.
   compact plan title, goal, steps, risks/notes, and suggested next actions.
   These cards are UI-only and do not create tasks, run tools, or persist plan
   state.
+- Shows local outcome-review cards when the operator explicitly pastes Queue,
+  Executor, or validation results into visible chat. Review cards summarize the
+  visible pasted text, classify the likely status as success, failure, unclear,
+  or needs review, and suggest next actions.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals
@@ -229,6 +233,9 @@ and component keys may still appear in code and persistence.
   priority, execution policy, and draft/proposed status. Multi-draft review can
   approve all drafts locally, but each Queue task creation remains a separate
   explicit Create Queue task action.
+- Outcome review may draft follow-up Queue task proposal cards from the pasted
+  visible result text. Queue task creation remains explicit and creates a draft
+  task only; it does not assign, start, run, or arm Queue Autorun.
 - In the Tauri desktop shell, explicit sends can use a backend-owned
   Coordinator provider response path. Mock/local is the default provider; a
   configured HTTP JSON provider can be selected by backend environment
@@ -243,9 +250,10 @@ and component keys may still appear in code and persistence.
   do not execute SQL.
 - Coordinator Chat does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
-  diffs, read JDBC metadata, launch Agent Executor, auto-dispatch Queue items,
-  mutate files, mutate Git, run SQL, call JDBC connectors, run Terminal
-  commands, or execute broad widget capability tools.
+  diffs, read JDBC metadata, fetch Queue run history, read Executor logs or
+  artifacts, launch Agent Executor, auto-dispatch Queue items, mutate files,
+  mutate Git, run SQL, call JDBC connectors, run Terminal commands, or execute
+  broad widget capability tools.
 
 ### Database / JDBC
 

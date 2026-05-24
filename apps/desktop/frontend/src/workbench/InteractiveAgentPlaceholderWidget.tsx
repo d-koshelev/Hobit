@@ -16,6 +16,7 @@ import {
 } from "./coordinatorActionProposalRegistry";
 import {
   generateLocalCoordinatorProposals,
+  type CoordinatorOutcomeReviewDraft,
   type CoordinatorPlanDraft,
 } from "./coordinatorLocalProposalGeneration";
 import {
@@ -41,6 +42,7 @@ type InteractiveAgentMessage = {
   planId?: string;
   proposalIds?: string[];
   providerMeta?: CoordinatorProviderMessageMeta;
+  reviewId?: string;
   role: "operator" | "assistant";
   body: string;
 };
@@ -62,9 +64,29 @@ const SUGGESTED_PROMPTS = [
     prompt: "Draft tasks for this goal using only the visible chat: ",
   },
   {
-    label: "Review latest Queue results",
+    label: "Review pasted Queue result",
     prompt:
-      "Review the latest Queue results I paste here and suggest next actions. Do not inspect Queue automatically.",
+      "Review pasted Queue result using visible chat text only. Paste result here: ",
+  },
+  {
+    label: "Explain this Executor failure",
+    prompt:
+      "Explain this Executor failure using visible chat text only. Paste failure here: ",
+  },
+  {
+    label: "Turn this result into next steps",
+    prompt:
+      "Turn this result into next steps using visible chat text only. Paste result here: ",
+  },
+  {
+    label: "Draft follow-up Queue tasks",
+    prompt:
+      "Draft follow-up Queue tasks from this pasted result using visible chat text only. Paste result here: ",
+  },
+  {
+    label: "Summarize validation output",
+    prompt:
+      "Summarize validation output using visible chat text only. Paste validation output here: ",
   },
   {
     label: "Explain how to execute this safely",
@@ -132,6 +154,9 @@ export function InteractiveAgentPlaceholderWidget({
     INITIAL_MESSAGES,
   );
   const [plans, setPlans] = useState<Record<string, CoordinatorPlanDraft>>({});
+  const [reviews, setReviews] = useState<
+    Record<string, CoordinatorOutcomeReviewDraft>
+  >({});
   const [proposals, setProposals] = useState<
     Record<string, CoordinatorActionProposal>
   >({});
@@ -162,6 +187,7 @@ export function InteractiveAgentPlaceholderWidget({
     proposalIds?: string[],
     providerMeta?: CoordinatorProviderMessageMeta,
     planId?: string,
+    reviewId?: string,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -171,6 +197,7 @@ export function InteractiveAgentPlaceholderWidget({
       planId,
       proposalIds,
       providerMeta,
+      reviewId,
       role,
       body,
     };
@@ -205,6 +232,7 @@ export function InteractiveAgentPlaceholderWidget({
             "Provider API unavailable in this runtime. Local deterministic response only.",
           ),
       generated.plan?.id,
+      generated.review?.id,
     );
     const providerConversation = [...messages, operatorMessage];
 
@@ -221,6 +249,13 @@ export function InteractiveAgentPlaceholderWidget({
       setPlans((currentPlans) => ({
         ...currentPlans,
         [generatedPlan.id]: generatedPlan,
+      }));
+    }
+    const generatedReview = generated.review;
+    if (generatedReview) {
+      setReviews((currentReviews) => ({
+        ...currentReviews,
+        [generatedReview.id]: generatedReview,
       }));
     }
 
@@ -650,6 +685,14 @@ export function InteractiveAgentPlaceholderWidget({
                 Coordinator drafts work; Queue and Executor execute only after
                 explicit operator action.
               </p>
+              <p className="interactive-agent-empty-text">
+                Review uses visible chat text only. Paste results here to
+                analyze them.
+              </p>
+              <p className="interactive-agent-empty-text">
+                Coordinator does not read Executor logs unless you paste or
+                explicitly share them.
+              </p>
               <div
                 aria-label="Coordinator suggested prompts"
                 className="interactive-agent-suggestion-list"
@@ -696,6 +739,9 @@ export function InteractiveAgentPlaceholderWidget({
               ) : null}
               {message.planId && plans[message.planId] ? (
                 <CoordinatorPlanCard plan={plans[message.planId]} />
+              ) : null}
+              {message.reviewId && reviews[message.reviewId] ? (
+                <CoordinatorReviewCard review={reviews[message.reviewId]} />
               ) : null}
               {message.proposalIds ? (
                 <div className="coordinator-proposal-list">
@@ -784,6 +830,65 @@ function renderMessageBody(body: string): ReactNode {
   });
 }
 
+function CoordinatorReviewCard({
+  review,
+}: {
+  review: CoordinatorOutcomeReviewDraft;
+}) {
+  const statusVariant =
+    review.statusInterpretation === "success"
+      ? "success"
+      : review.statusInterpretation === "failure"
+        ? "error"
+        : review.statusInterpretation === "needs review"
+          ? "warning"
+          : "neutral";
+
+  return (
+    <section
+      aria-label={`Coordinator outcome review: ${review.title}`}
+      className={`coordinator-review-card coordinator-review-card-${review.statusInterpretation.replace(
+        /\s+/g,
+        "-",
+      )}`}
+    >
+      <div className="coordinator-review-header">
+        <div className="coordinator-review-title-copy">
+          <p className="coordinator-review-kicker">Outcome review</p>
+          <h4 className="coordinator-review-title">{review.title}</h4>
+        </div>
+        <div className="coordinator-review-badges">
+          <Badge variant={statusVariant}>
+            {review.statusInterpretation}
+          </Badge>
+          <Badge variant="neutral">Visible text only</Badge>
+          <Badge variant="neutral">No execution</Badge>
+        </div>
+      </div>
+      <div className="coordinator-review-grid">
+        <ReviewSection
+          label="Observed result summary"
+          value={review.observedSummary}
+        />
+        <ReviewSection
+          label="Status interpretation"
+          value={review.statusInterpretation}
+        />
+        <ReviewSection label="Likely outcome" value={review.likelyOutcome} />
+        <ReviewList label="Risks / blockers" values={review.risksBlockers} />
+        <ReviewList
+          label="Next recommended actions"
+          values={review.nextActions}
+        />
+      </div>
+      <p className="coordinator-review-note">
+        Review only. Coordinator does not read Queue history, Executor logs, or
+        artifacts unless you paste or explicitly share them.
+      </p>
+    </section>
+  );
+}
+
 function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
   return (
     <section
@@ -817,6 +922,28 @@ function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
         Queue/Executor run work only after explicit operator action.
       </p>
     </section>
+  );
+}
+
+function ReviewSection({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="coordinator-review-section">
+      <p className="coordinator-review-section-label">{label}</p>
+      <p className="coordinator-review-section-value">{value}</p>
+    </div>
+  );
+}
+
+function ReviewList({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="coordinator-review-section">
+      <p className="coordinator-review-section-label">{label}</p>
+      <ol className="coordinator-review-list">
+        {values.map((value) => (
+          <li key={value}>{value}</li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

@@ -1259,6 +1259,105 @@
   padding-top: var(--space-xs);
 }
 
+.coordinator-review-card {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  border-left: 2px solid var(--color-info);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.coordinator-review-card-success {
+  border-left-color: var(--color-success);
+}
+
+.coordinator-review-card-failure {
+  border-left-color: var(--color-error);
+}
+
+.coordinator-review-card-needs-review {
+  border-left-color: var(--color-warning);
+}
+
+.coordinator-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.coordinator-review-title-copy,
+.coordinator-review-section {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.coordinator-review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.coordinator-review-kicker,
+.coordinator-review-title,
+.coordinator-review-section-label,
+.coordinator-review-section-value,
+.coordinator-review-list,
+.coordinator-review-note {
+  margin: 0;
+}
+
+.coordinator-review-kicker,
+.coordinator-review-section-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.coordinator-review-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--line-tight);
+}
+
+.coordinator-review-section-value,
+.coordinator-review-list,
+.coordinator-review-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.coordinator-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  gap: var(--space-sm);
+}
+
+.coordinator-review-section {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-xs);
+}
+
+.coordinator-review-list {
+  display: grid;
+  gap: 4px;
+  padding-left: var(--space-md);
+}
+
+.coordinator-review-note {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
 .coordinator-proposal-card {
   display: grid;
   gap: var(--space-xs);
@@ -1547,6 +1646,7 @@
 
 @media (max-width: 860px) {
   .coordinator-plan-header,
+  .coordinator-review-header,
   .coordinator-proposal-review,
   .coordinator-queue-draft-heading,
   .coordinator-proposal-header,
@@ -1556,6 +1656,7 @@
   }
 
   .coordinator-plan-badges,
+  .coordinator-review-badges,
   .coordinator-queue-draft-meta {
     justify-content: flex-start;
   }

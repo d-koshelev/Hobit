@@ -38,7 +38,11 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break this into Queue tasks");
     expect(document.body.textContent).toContain("Draft tasks for this goal");
-    expect(document.body.textContent).toContain("Review latest Queue results");
+    expect(document.body.textContent).toContain("Review pasted Queue result");
+    expect(document.body.textContent).toContain("Explain this Executor failure");
+    expect(document.body.textContent).toContain("Turn this result into next steps");
+    expect(document.body.textContent).toContain("Draft follow-up Queue tasks");
+    expect(document.body.textContent).toContain("Summarize validation output");
     expect(document.body.textContent).toContain(
       "Explain how to execute this safely",
     );
@@ -47,6 +51,12 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("No hidden context");
     expect(document.body.textContent).toContain(
       "Coordinator drafts work; Queue and Executor execute only after explicit operator action.",
+    );
+    expect(document.body.textContent).toContain(
+      "Review uses visible chat text only. Paste results here to analyze them.",
+    );
+    expect(document.body.textContent).toContain(
+      "Coordinator does not read Executor logs unless you paste or explicitly share them.",
     );
   });
 
@@ -62,6 +72,23 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(textareaValue()).toBe(
       "Make a plan from the visible chat only. Goal: ",
+    );
+    expect(provider).not.toHaveBeenCalled();
+    expect(createQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("clicking an outcome-review suggestion inserts visible text only", async () => {
+    const provider = vi.fn();
+    const createQueueTask = vi.fn();
+    renderWidget({
+      onCreateAgentQueueTask: createQueueTask,
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    await clickButton("Explain this Executor failure");
+
+    expect(textareaValue()).toBe(
+      "Explain this Executor failure using visible chat text only. Paste failure here: ",
     );
     expect(provider).not.toHaveBeenCalled();
     expect(createQueueTask).not.toHaveBeenCalled();
@@ -87,6 +114,65 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "No Workspace, Queue, Executor, Notes, Git, JDBC, Terminal, logs, files, or artifacts were read.",
     );
+  });
+
+  it("renders a pasted Queue result Review card from visible text only", async () => {
+    renderWidget();
+
+    await sendMessage(
+      [
+        "Review pasted Queue result using visible chat text only.",
+        "Queue task completed.",
+        "npm test passed.",
+        "cargo check completed successfully.",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Outcome review");
+    expect(document.body.textContent).toContain("Observed result summary");
+    expect(document.body.textContent).toContain("Status interpretation");
+    expect(document.body.textContent).toContain("success");
+    expect(document.body.textContent).toContain("Likely outcome");
+    expect(document.body.textContent).toContain(
+      "Review uses visible chat text only; no hidden Queue or Executor logs were read.",
+    );
+    expect(document.body.textContent).toContain(
+      "Review only. Coordinator does not read Queue history, Executor logs, or artifacts unless you paste or explicitly share them.",
+    );
+    expect(document.body.textContent).toContain("No execution");
+    expect(buttonWithText("Approve")).toBeUndefined();
+    expect(buttonWithText("Create Queue task")).toBeUndefined();
+  });
+
+  it("drafts follow-up Queue tasks for a visible Executor failure without creating or running them", async () => {
+    const createQueueTask = vi.fn();
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await sendMessage(
+      [
+        "Explain this Executor failure using visible chat text only.",
+        "Executor run failed.",
+        "npm test failed with exit code 1.",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Outcome review");
+    expect(document.body.textContent).toContain("failure");
+    expect(document.body.textContent).toContain("Draft Queue task");
+    expect(document.body.textContent).toContain(
+      "Investigate pasted Executor failure",
+    );
+    expect(document.body.textContent).toContain(
+      "Creates a draft task. Does not run it.",
+    );
+    expect(buttonWithText("Create Queue task")).toBeUndefined();
+    expect(createQueueTask).not.toHaveBeenCalled();
+
+    await clickButton("Approve");
+
+    expect(document.body.textContent).toContain("Approved preview");
+    expect(buttonWithText("Create Queue task")).toBeDefined();
+    expect(createQueueTask).not.toHaveBeenCalled();
   });
 
   it("sends visible chat and proposal summaries through the provider path", async () => {
