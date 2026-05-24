@@ -23,6 +23,7 @@ import {
   type GetAgentExecutorRunDetailHandler,
   type ListAgentExecutorRunsHandler,
 } from "./executor/agentExecutorRunHistoryTypes";
+import { boundAgentExecutorSelectedExcerpt } from "./executor/agentExecutorSelectedExcerpt";
 
 export type { GetAgentExecutorRunDetailHandler, ListAgentExecutorRunsHandler };
 
@@ -230,6 +231,28 @@ export function AgentExecutorRunHistoryPanel({
                     })
                 : undefined
             }
+            onAttachSectionPreview={
+              onAttachContextToCoordinator && detailState.status === "ready"
+                ? (sectionName, visiblePreviewText) => {
+                    const contextText =
+                      executorPreviewSectionAttachedContextText(
+                        detailState.detail,
+                        widgetInstanceId,
+                        sectionName,
+                        visiblePreviewText,
+                      );
+
+                    if (!contextText) {
+                      return;
+                    }
+
+                    onAttachContextToCoordinator({
+                      contextText,
+                      sourceLabel: `Executor ${sectionName}`,
+                    });
+                  }
+                : undefined
+            }
             onAttachSelectedExcerpt={
               onAttachContextToCoordinator && detailState.status === "ready"
                 ? (excerptText) =>
@@ -302,6 +325,29 @@ function executorSelectedExcerptAttachedContextText(
     `Run: ${detail.summary.runId}`,
     "Excerpt:",
     excerptText,
+  ].join("\n");
+}
+
+function executorPreviewSectionAttachedContextText(
+  detail: AgentExecutorRunDetail,
+  widgetInstanceId: string,
+  sectionName: string,
+  visiblePreviewText: string,
+) {
+  const boundedPreview = boundAgentExecutorSelectedExcerpt(visiblePreviewText);
+
+  if (!boundedPreview) {
+    return null;
+  }
+
+  return [
+    "Executor visible preview",
+    `Executor: Agent Executor ${shortRef(widgetInstanceId)}`,
+    `Run: ${detail.summary.runId}`,
+    `Section: ${sectionName}`,
+    `Status: ${statusLabel(detail.summary.status)}`,
+    "Preview:",
+    boundedPreview.text,
   ].join("\n");
 }
 

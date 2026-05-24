@@ -59,6 +59,11 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   visible editable Coordinator composer context and is sent only if the
   operator presses Send. Coordinator still does not automatically read Executor
   logs or take ownership of raw Executor detail.
+- Agent Executor run detail can also attach explicit bounded visible preview
+  sections for final response, stdout, stderr, validation output, and error
+  summary previews. Each attach requires an operator click, lands as visible
+  editable Coordinator composer context, and does not copy full raw Executor
+  logs or transfer raw detail ownership to Coordinator.
 
 ## Still Type-Only Or Contract-Only
 
@@ -91,7 +96,8 @@ Explicit Attach to Coordinator sends only the visible attached composer text
 after the operator presses Send; it is not hidden context compilation and does
 not read Queue history or Executor logs automatically. Executor selected
 excerpts are bounded visible text selected by the operator; raw Executor detail
-remains Executor-owned.
+remains Executor-owned. Executor preview-section attaches are also bounded to
+visible previews and require explicit operator section actions.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is

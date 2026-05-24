@@ -73,8 +73,10 @@ and component keys may still appear in code and persistence.
 - Run history and selected run detail can attach safe run metadata to
   Coordinator Chat as visible current-session composer context. Selected run
   detail can also attach an explicit bounded excerpt from text the operator has
-  selected inside the visible Executor-owned detail panel. Attach does not copy
-  raw logs, stdout/stderr, final responses, diffs, prompts, repo paths,
+  selected inside the visible Executor-owned detail panel, or explicitly attach
+  bounded visible preview sections such as final response, stdout, stderr,
+  validation output, and error summary previews. Attach does not copy raw logs,
+  full stdout/stderr, full final responses, diffs, prompts, repo paths,
   secrets, or raw payloads automatically, and it does not send automatically.
   Raw Executor detail remains Agent Executor-owned.
 - Provides read-only backend/Tauri APIs for stored Direct Work runs,
@@ -239,11 +241,13 @@ and component keys may still appear in code and persistence.
 - Can receive explicitly attached visible run metadata from Queue latest-run,
   Queue run-history, and Agent Executor run-history/detail controls. It can
   also receive an operator-selected bounded excerpt from visible Agent
-  Executor-owned run detail. Attached context is current-session UI state
-  inserted into the visible composer and can be edited or removed before Send.
-  Only visible attached context is sent; Attach does not auto-send, read Queue
-  history, read Executor logs, or copy raw stdout/stderr, final responses,
-  diffs, prompts, repo paths, secrets, or raw payloads automatically.
+  Executor-owned run detail, and bounded Executor run-detail preview sections
+  explicitly attached by the operator. Attached context is current-session UI
+  state inserted into the visible composer and can be edited or removed before
+  Send. Only visible attached context is sent; Attach does not auto-send, read
+  Queue history, read Executor logs, or copy raw stdout/stderr, full final
+  responses, diffs, prompts, repo paths, secrets, or raw payloads
+  automatically.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals

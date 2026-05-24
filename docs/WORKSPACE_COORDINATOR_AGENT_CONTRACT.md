@@ -55,6 +55,11 @@ The current Coordinator preview:
 - can receive an explicit bounded excerpt selected by the operator from visible
   Agent Executor-owned run detail; raw Executor detail remains owned by Agent
   Executor and is not read automatically
+- can receive explicitly attached bounded visible Agent Executor run-detail
+  preview sections, including final response, stdout, stderr, validation
+  output, and error summary previews, only after the operator clicks the
+  section attach action; raw Executor detail remains Executor-owned and is not
+  read automatically
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status
@@ -67,8 +72,8 @@ The current Coordinator preview:
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
   details or run history, Executor logs/results/artifacts, files, environment
   variables, secrets, Context Packs, or hidden context; Attach to Coordinator
-  sends only the visible metadata or selected excerpt the operator attached,
-  not raw payloads or full Executor logs
+  sends only the visible metadata, selected excerpt, or bounded visible preview
+  section the operator attached, not raw payloads or full Executor logs
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
   Autorun, launch Agent Executor, execute actions, or mutate Workspace content

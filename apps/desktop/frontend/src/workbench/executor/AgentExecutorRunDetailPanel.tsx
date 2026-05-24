@@ -5,6 +5,7 @@ import { Button } from "../../design-system/Button";
 import type { AgentExecutorRunDetail } from "../../workspace/types";
 import { StaticPreviewFieldList } from "../StaticPreviewPrimitives";
 import {
+  previewOutput,
   formatRawPayload,
   formatRunDuration,
   formatTimestamp,
@@ -15,6 +16,7 @@ import {
 } from "./agentExecutorRunHistoryFormatters";
 import {
   AGENT_EXECUTOR_LOG_PREVIEW_LIMIT,
+  AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT,
   type AgentExecutorRunDetailState,
 } from "./agentExecutorRunHistoryTypes";
 import {
@@ -30,12 +32,20 @@ import {
 type AgentExecutorRunDetailPanelProps = {
   detailState: AgentExecutorRunDetailState;
   onAttachRunContext?: () => void;
+  onAttachSectionPreview?: (
+    sectionName: string,
+    visiblePreviewText: string,
+  ) => void;
   onAttachSelectedExcerpt?: (excerptText: string) => void;
 };
+
+const ATTACH_VISIBLE_PREVIEW_TITLE =
+  "Attaches only this visible preview. Does not send automatically.";
 
 export function AgentExecutorRunDetailPanel({
   detailState,
   onAttachRunContext,
+  onAttachSectionPreview,
   onAttachSelectedExcerpt,
 }: AgentExecutorRunDetailPanelProps) {
   if (detailState.status === "idle") {
@@ -75,6 +85,7 @@ export function AgentExecutorRunDetailPanel({
     <AgentExecutorRunDetailContent
       detail={detailState.detail}
       onAttachRunContext={onAttachRunContext}
+      onAttachSectionPreview={onAttachSectionPreview}
       onAttachSelectedExcerpt={onAttachSelectedExcerpt}
     />
   );
@@ -83,10 +94,15 @@ export function AgentExecutorRunDetailPanel({
 function AgentExecutorRunDetailContent({
   detail,
   onAttachRunContext,
+  onAttachSectionPreview,
   onAttachSelectedExcerpt,
 }: {
   detail: AgentExecutorRunDetail;
   onAttachRunContext?: () => void;
+  onAttachSectionPreview?: (
+    sectionName: string,
+    visiblePreviewText: string,
+  ) => void;
   onAttachSelectedExcerpt?: (excerptText: string) => void;
 }) {
   const detailRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +112,40 @@ function AgentExecutorRunDetailContent({
   const finalText =
     detail.finalMessage ?? detail.resultContent ?? detail.resultSummary;
   const logs = detail.logs.slice(0, AGENT_EXECUTOR_LOG_PREVIEW_LIMIT);
+  const finalPreview = finalText ? visibleOutputPreview(finalText) : null;
+  const stdoutPreview = detail.stdoutPreview
+    ? visibleOutputPreview(detail.stdoutPreview)
+    : null;
+  const stderrPreview = detail.stderrPreview
+    ? visibleOutputPreview(detail.stderrPreview)
+    : null;
+  const isValidationRun = Boolean(
+    detail.validationProfile || detail.validationStatus,
+  );
+  const validationPreview =
+    isValidationRun && (stdoutPreview || stderrPreview)
+      ? [
+          stdoutPreview ? `stdout preview:\n${stdoutPreview}` : null,
+          stderrPreview ? `stderr preview:\n${stderrPreview}` : null,
+        ]
+          .filter((line): line is string => Boolean(line))
+          .join("\n\n")
+      : null;
+  const errorSummary = detail.errorMessage
+    ? [
+        `Status: ${statusLabel(summary.status)}`,
+        detail.resultStatus ? `Result status: ${detail.resultStatus}` : null,
+        detail.validationStatus
+          ? `Validation status: ${detail.validationStatus}`
+          : null,
+        detail.validationProfile
+          ? `Validation profile: ${detail.validationProfile}`
+          : null,
+        `Error message:\n${detail.errorMessage}`,
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join("\n")
+    : null;
 
   function attachSelectedExcerpt() {
     if (!onAttachSelectedExcerpt) {
@@ -119,6 +169,28 @@ function AgentExecutorRunDetailContent({
       excerpt.wasTruncated
         ? "Selected excerpt attached with truncation."
         : "Selected excerpt attached.",
+    );
+  }
+
+  function sectionAttachAction(sectionName: string, visiblePreviewText: string) {
+    if (!visiblePreviewText.trim()) {
+      return null;
+    }
+
+    return (
+      <Button
+        className="agent-executor-section-attach-button"
+        disabled={!onAttachSectionPreview}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onAttachSectionPreview?.(sectionName, visiblePreviewText);
+        }}
+        title={ATTACH_VISIBLE_PREVIEW_TITLE}
+        variant="ghost"
+      >
+        {sectionAttachButtonLabel(sectionName)}
+      </Button>
     );
   }
 
@@ -217,29 +289,51 @@ function AgentExecutorRunDetailContent({
 
       {detail.errorMessage ? (
         <div className="codex-direct-work-error-message">
-          <span className="codex-direct-work-result-label">Error message</span>
+          <div className="codex-direct-work-output-header">
+            <span className="codex-direct-work-result-label">
+              Error message
+            </span>
+            {errorSummary
+              ? sectionAttachAction("Error summary", errorSummary)
+              : null}
+          </div>
           <span className="codex-direct-work-result-value">
             {detail.errorMessage}
           </span>
         </div>
       ) : null}
 
-      {finalText ? (
+      {finalText && finalPreview ? (
         <AgentExecutorRunOutputBlock
+          action={sectionAttachAction("Final response preview", finalPreview)}
           label="Final response preview"
           value={finalText}
         />
       ) : null}
 
-      {detail.stdoutPreview ? (
+      {validationPreview ? (
+        <div
+          aria-label="Validation output preview attach"
+          className="agent-executor-section-attach-row"
+        >
+          <span className="codex-direct-work-result-label">
+            Validation output preview
+          </span>
+          {sectionAttachAction("Validation output preview", validationPreview)}
+        </div>
+      ) : null}
+
+      {detail.stdoutPreview && stdoutPreview ? (
         <AgentExecutorRunOutputDetails
+          action={sectionAttachAction("stdout preview", stdoutPreview)}
           label="stdout preview"
           value={detail.stdoutPreview}
         />
       ) : null}
 
-      {detail.stderrPreview ? (
+      {detail.stderrPreview && stderrPreview ? (
         <AgentExecutorRunOutputDetails
+          action={sectionAttachAction("stderr preview", stderrPreview)}
           label="stderr preview"
           value={detail.stderrPreview}
         />
@@ -262,4 +356,32 @@ function AgentExecutorRunDetailContent({
       ) : null}
     </div>
   );
+}
+
+function visibleOutputPreview(value: string) {
+  return previewOutput(value, AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT);
+}
+
+function sectionAttachButtonLabel(sectionName: string) {
+  if (sectionName === "Final response preview") {
+    return "Attach response";
+  }
+
+  if (sectionName === "stdout preview") {
+    return "Attach stdout";
+  }
+
+  if (sectionName === "stderr preview") {
+    return "Attach stderr";
+  }
+
+  if (sectionName === "Validation output preview") {
+    return "Attach validation";
+  }
+
+  if (sectionName === "Error summary") {
+    return "Attach error summary";
+  }
+
+  return "Attach preview";
 }

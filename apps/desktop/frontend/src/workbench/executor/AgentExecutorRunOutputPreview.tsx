@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { WidgetLogEntry } from "../../workspace/types";
 import { AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT } from "./agentExecutorRunHistoryTypes";
 import {
@@ -7,9 +8,11 @@ import {
 } from "./agentExecutorRunHistoryFormatters";
 
 export function AgentExecutorRunOutputBlock({
+  action,
   label,
   value,
 }: {
+  action?: ReactNode;
   label: string;
   value: string;
 }) {
@@ -17,6 +20,7 @@ export function AgentExecutorRunOutputBlock({
     <div className="codex-direct-work-final-message">
       <div className="codex-direct-work-output-header">
         <span className="codex-direct-work-result-label">{label}</span>
+        {action}
       </div>
       <pre className="codex-direct-work-output">
         <code>{previewOutput(value, AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT)}</code>
@@ -26,15 +30,20 @@ export function AgentExecutorRunOutputBlock({
 }
 
 export function AgentExecutorRunOutputDetails({
+  action,
   label,
   value,
 }: {
+  action?: ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <details className="codex-direct-work-output-details">
-      <summary className="codex-direct-work-output-summary">{label}</summary>
+      <summary className="codex-direct-work-output-summary">
+        <span>{label}</span>
+        {action}
+      </summary>
       <pre className="codex-direct-work-output">
         <code>{previewOutput(value, AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT)}</code>
       </pre>

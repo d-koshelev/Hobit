@@ -170,6 +170,177 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
     expect(request.contextText).not.toContain("hidden raw payload");
   });
 
+  it("attaches the visible final response preview without hidden raw detail", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+    const hiddenTail = "hidden final response tail";
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi.fn().mockResolvedValue(
+        runDetail("run_safe_123456", {
+          finalMessage: `${"a".repeat(3050)}${hiddenTail}`,
+          resultPayload: "hidden raw payload",
+          stdoutPreview: "hidden stdout should not attach",
+          stderrPreview: "hidden stderr should not attach",
+        }),
+      ),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    clickButtonAt("Attach response", 0);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Executor Final response preview");
+    expect(request.contextText).toContain("Executor visible preview");
+    expect(request.contextText).toContain("Run: run_safe_123456");
+    expect(request.contextText).toContain("Section: Final response preview");
+    expect(request.contextText).toContain("Status: completed");
+    expect(request.contextText).toContain("[Preview truncated in UI.]");
+    expect(request.contextText).not.toContain(hiddenTail);
+    expect(request.contextText).not.toContain("hidden stdout should not attach");
+    expect(request.contextText).not.toContain("hidden stderr should not attach");
+    expect(request.contextText).not.toContain("hidden raw payload");
+  });
+
+  it("attaches stdout, stderr, and validation previews from visible preview text only", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi.fn().mockResolvedValue(
+        runDetail("run_validation_123456", {
+          finalMessage: "final response should stay out",
+          stderrPreview: "validation stderr visible",
+          stdoutPreview: "validation stdout visible",
+          summary: runSummary("run_validation_123456", {
+            commandKind: "direct_work_validation",
+            mode: "direct_work_validation",
+            title: "Validation failed",
+            validationProfile: "changed",
+            validationStatus: "failed",
+          }),
+          validationProfile: "changed",
+          validationStatus: "failed",
+        }),
+      ),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_validation_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_validation_123456",
+      },
+    });
+
+    clickButtonAt("Attach stdout", 0);
+    clickButtonAt("Attach stderr", 0);
+    clickButtonAt("Attach validation", 0);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(3);
+    const stdoutRequest = onAttachContextToCoordinator.mock.calls[0][0];
+    const stderrRequest = onAttachContextToCoordinator.mock.calls[1][0];
+    const validationRequest = onAttachContextToCoordinator.mock.calls[2][0];
+
+    expect(stdoutRequest.contextText).toContain("Section: stdout preview");
+    expect(stdoutRequest.contextText).toContain("validation stdout visible");
+    expect(stdoutRequest.contextText).not.toContain("validation stderr visible");
+    expect(stdoutRequest.contextText).not.toContain(
+      "final response should stay out",
+    );
+
+    expect(stderrRequest.contextText).toContain("Section: stderr preview");
+    expect(stderrRequest.contextText).toContain("validation stderr visible");
+    expect(stderrRequest.contextText).not.toContain("validation stdout visible");
+    expect(stderrRequest.contextText).not.toContain(
+      "final response should stay out",
+    );
+
+    expect(validationRequest.contextText).toContain(
+      "Section: Validation output preview",
+    );
+    expect(validationRequest.contextText).toContain("stdout preview:");
+    expect(validationRequest.contextText).toContain("validation stdout visible");
+    expect(validationRequest.contextText).toContain("stderr preview:");
+    expect(validationRequest.contextText).toContain("validation stderr visible");
+    expect(validationRequest.contextText).not.toContain(
+      "final response should stay out",
+    );
+  });
+
+  it("does not show section attach actions for empty preview sections", async () => {
+    await renderPanel({
+      onAttachContextToCoordinator: vi.fn(),
+      onGetAgentExecutorRunDetail: vi.fn().mockResolvedValue(
+        runDetail("run_safe_123456", {
+          errorMessage: null,
+          finalMessage: null,
+          resultContent: null,
+          resultSummary: null,
+          stderrPreview: null,
+          stdoutPreview: null,
+        }),
+      ),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    expect(buttonsWithText("Attach response")).toHaveLength(0);
+    expect(buttonsWithText("Attach stdout")).toHaveLength(0);
+    expect(buttonsWithText("Attach stderr")).toHaveLength(0);
+    expect(buttonsWithText("Attach validation")).toHaveLength(0);
+    expect(buttonsWithText("Attach error summary")).toHaveLength(0);
+  });
+
+  it("caps section attachments and preserves a visible truncation note", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+    const hiddenTail = "hidden error summary tail";
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi.fn().mockResolvedValue(
+        runDetail("run_safe_123456", {
+          errorMessage: `${"x".repeat(4200)}${hiddenTail}`,
+        }),
+      ),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    clickButtonAt("Attach error summary", 0);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    const attachedPreview = request.contextText.split("Preview:\n")[1];
+    expect(attachedPreview.length).toBeLessThanOrEqual(
+      AGENT_EXECUTOR_SELECTED_EXCERPT_LIMIT,
+    );
+    expect(attachedPreview).toContain(
+      "[Excerpt truncated to 4000 characters.]",
+    );
+    expect(attachedPreview).not.toContain(hiddenTail);
+  });
+
   it("does not attach when the selection is empty or outside the run detail", async () => {
     const onAttachContextToCoordinator = vi.fn();
 
@@ -247,7 +418,10 @@ function runHistory(runs: AgentExecutorRunSummary[]): AgentExecutorRunHistory {
   };
 }
 
-function runSummary(runId: string): AgentExecutorRunSummary {
+function runSummary(
+  runId: string,
+  overrides: Partial<AgentExecutorRunSummary> = {},
+): AgentExecutorRunSummary {
   return {
     commandKind: "codex_direct_work",
     durationMs: 1200,
@@ -263,10 +437,14 @@ function runSummary(runId: string): AgentExecutorRunSummary {
     title: "Requested run",
     validationProfile: null,
     validationStatus: null,
+    ...overrides,
   };
 }
 
-function runDetail(runId: string): AgentExecutorRunDetail {
+function runDetail(
+  runId: string,
+  overrides: Partial<AgentExecutorRunDetail> = {},
+): AgentExecutorRunDetail {
   return {
     changedFilesSummary: null,
     errorMessage: null,
@@ -282,13 +460,12 @@ function runDetail(runId: string): AgentExecutorRunDetail {
     summary: runSummary(runId),
     validationProfile: null,
     validationStatus: null,
+    ...overrides,
   };
 }
 
 function clickButtonAt(text: string, index: number) {
-  const buttons = Array.from(document.querySelectorAll("button")).filter(
-    (button) => button.textContent === text,
-  );
+  const buttons = buttonsWithText(text);
   const button = buttons[index];
 
   if (!button) {
@@ -298,6 +475,12 @@ function clickButtonAt(text: string, index: number) {
   act(() => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+function buttonsWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).filter(
+    (button) => button.textContent === text,
+  );
 }
 
 function selectVisibleText(text: string) {
