@@ -13,35 +13,52 @@ Coordinator Agent behavior.
 
 The Coordinator Agent is a future Agent Chat / Coordinator surface inside a Workspace. It helps the operator reason over approved Workspace context and propose controlled actions across Hobit components.
 
-This is primarily a documentation and product/domain contract. The current Agent Chat widget has a proposal-only preview with explicit current-session approved context selection for safe current-view metadata, a desktop backend AI proposal boundary when an explicit provider is configured, local/mock fallback, and a desktop persistence path for proposal-only widget run/result artifacts. Agent Monitoring can explicitly create a review-only Agent Queue item from a valid persisted local mock proposal result. It does not implement agent runtime behavior, persisted approved context models outside the proposal result snapshot, executable action proposals, action execution, proposal approval/apply behavior, or cross-widget mutation.
+This is primarily a documentation and product/domain contract. Older Agent Chat
+/ Agent Monitoring proposal-era paths remain compatibility/reference only and
+are not the current product direction. Current Coordinator Chat behavior is
+defined by `docs/CURRENT_WIDGET_SURFACE.md`: visible current-session chat and
+proposal draft context only, `allowed_tools: []`, validated review cards, and
+no hidden context access or widget tool execution. It does not implement agent
+runtime behavior, persisted approved context models, executable action
+proposals, action execution, proposal approval/apply behavior, or cross-widget
+mutation.
 
 ## Current Status
 
-Agent Chat is currently an insertable widget with a proposal-only prompt, explicit current-session approved context selection, structured preview, a backend AI proposal boundary when an explicit HTTP provider is configured, local/mock fallback, and desktop proposal-only run/log/result persistence.
+Coordinator Chat is currently the user-facing chat/planning surface. It reuses
+the existing `interactive-agent` id/component for compatibility, keeps chat
+state in the current frontend session, can request backend-owned mock/local or
+configured HTTP JSON provider responses from visible chat/proposal context
+only, and keeps `allowed_tools: []`. Older Agent Chat proposal persistence and
+Agent Monitoring paths are retained compatibility/reference paths, not the
+preferred current surface.
 
-The current mock preview:
+The current Coordinator preview:
 
 - summarizes the operator prompt locally
-- can include operator-selected safe current-view metadata: Workspace/workbench identity, widget inventory metadata, and current global activity status
+- can include visible current-session chat and visible proposal draft summaries
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context
-- can persist the generated proposal as a structured proposal-only widget run/log/result artifact in the desktop shell
-- does not persist chat messages, persist reusable context snapshots, create Queue items by itself, execute actions, or mutate Workspace content
+- does not persist chat messages, persist reusable context snapshots, create Queue items without a separate approved proposal handoff, execute actions, or mutate Workspace content
 
 There is no implemented:
 
 - agent runtime
 - executable chat response or streaming
-- persisted approved context models outside the proposal result snapshot
-- cross-widget context access beyond selected current-view metadata
+- persisted approved context models
+- cross-widget context access beyond visible current-session chat/proposal context
 - executable action proposal engine
 - cross-widget action system
 - response parser or validator
 - automatic execution
 - coordinator UI beyond the proposal-only preview
 
-The only current Agent Queue write path is outside Agent Chat: Agent Monitoring can create a persisted `needs_review` / `pending_review` item from an already stored local mock proposal result after the operator explicitly requests it. That item is review-only and does not approve, apply, execute, or mutate the source proposal.
+Current Coordinator Chat can create a Queue task only from an approved visible
+create-Queue-task proposal and a separate explicit Create Queue task action.
+Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
+it is not the preferred current Queue creation path and does not approve,
+apply, execute, or mutate the source proposal.
 
 This contract describes future behavior only.
 

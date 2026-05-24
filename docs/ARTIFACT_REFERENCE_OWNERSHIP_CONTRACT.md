@@ -131,10 +131,11 @@ widget run/result/log storage, frontend behavior, Tauri commands, and DTO
 compatibility are unchanged by this contract.
 
 Queue task run-history visibility is defined in
-`docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`. That future Queue surface
-should use metadata-only references to Executor-owned run/result artifacts and
-must not duplicate raw prompts, stdout, stderr, final responses, diffs, logs,
-or result payloads in Queue.
+`docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md`. The current Queue surface uses
+safe metadata-only run-link references to Executor-owned run/result artifacts
+for selected-task latest run and compact history visibility. It must not
+duplicate raw prompts, stdout, stderr, final responses, diffs, logs, or result
+payloads in Queue.
 
 ## Non-Goals
 

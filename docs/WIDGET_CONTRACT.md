@@ -427,11 +427,13 @@ approval policy, timeout, and output caps. The compatibility field remains
 folder; on Windows, resolving `codex` also tries `codex.exe`, `codex.cmd`, and
 `codex.bat` from PATH without invoking a shell.
 It persists widget run/log/result artifacts and safety flags without
-auto-commit, push, automatic Queue dispatch, or Git mutation. Agent Queue is a
+auto-commit, push, hidden Queue dispatch, or Git mutation. Agent Queue is a
 singleton per Workspace and is a preview task organization/history surface;
-manual Queue-to-Executor assignment and explicit run foundations exist, but it
-does not auto-dispatch or schedule queued work. Existing persisted Agent Queue
-duplicates are not automatically removed or migrated. Coordinator Chat is a
+manual Queue-to-Executor assignment, explicit run foundations, safe run-link
+history, and operator-armed desktop-local Queue Autorun exist. Queue still has
+no backend scheduler, durable reconnect/resume, server worker, or hidden
+unarmed dispatch. Existing persisted Agent Queue duplicates are not
+automatically removed or migrated. Coordinator Chat is a
 preview chat/planning surface with local proposal cards, visible-context-only
 mock/local provider responses, validated provider proposal drafts, and a
 backend configured HTTP JSON provider path that keeps `allowed_tools: []` and
@@ -444,8 +446,9 @@ one-shot command fallback. The Git widget has a
 transient explicit repository-root input, manual desktop-only status/diff review
 through `get_git_repository_status`, grouped changed files, and explicit
 selected-file local commit UI with operator confirmation. Database / JDBC is a
-Preview connector metadata shell only; it does not collect credentials, run
-SQL, run `EXPLAIN`, format SQL, show real results, or expose Coordinator tools.
+Preview connector metadata and bounded mock/safe read-only query surface; it
+does not collect credentials, run SQL against external systems, run `EXPLAIN`,
+format SQL, show real external results, or expose Coordinator tools.
 Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script
 Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview
 surfaces are not part of the current user-facing catalog or workbench surface.

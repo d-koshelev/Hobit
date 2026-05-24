@@ -41,9 +41,10 @@ Current widget/runtime truth:
 - Coordinator Chat is a proposal/text surface. It uses visible current-session
   chat context and `allowed_tools: []`; it does not execute tools or read
   hidden context.
-- Agent Queue includes current frontend `executionPolicy` and Sequential Queue
-  Runner behavior, but the runner is current-session frontend behavior only,
-  not a durable backend scheduler.
+- Agent Queue includes current `executionPolicy`, visible Sequential Queue
+  Runner behavior, and explicit operator-armed Queue Autorun. These paths are
+  desktop-local/current-session-only and are not a durable backend scheduler,
+  reconnect/resume system, or server worker.
 - Notes supports current workspace-local list, filter, create, select, edit,
   explicit save, and pin flows. It is not a full Notebook, document model, or
   knowledge system.
@@ -181,8 +182,11 @@ Frontend may trigger actions and display live state, but durable lifecycle
 vocabulary should belong to application services and product contracts.
 
 Current Agent Queue Sequential Queue Runner behavior is frontend-driven and
-current-session-only. It stops if the Workbench UI closes or reloads. It is not
-a durable scheduler, background daemon, or enterprise task runner.
+current-session-only. Current Queue Autorun is explicit operator-armed
+desktop-local automation that runs at most one eligible assigned task at a time
+while Hobit remains open and the machine remains awake. These are not durable
+schedulers, background daemons, reconnect/resume systems, server workers, or
+enterprise task runners.
 
 Approval and execution must remain separate:
 

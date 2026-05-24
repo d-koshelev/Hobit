@@ -237,17 +237,18 @@ unless the task explicitly requests it.
 - `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md` - Queue desktop MVP readiness
   checkpoint. Read before Queue UX hardening, runner reliability work, run
   visibility/history work, dependency modeling, or durable runner design.
-- `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` - planned foundation for
-  operator-armed desktop-local Queue Autorun. It defines explicit
-  Start / Arm semantics, current-app-session limits, one-task-at-a-time
-  sequencing, stop conditions, and Agent Executor / Direct Work ownership. It
-  does not add a backend scheduler, durable runner, schema, Tauri command,
-  frontend wiring, hidden execution, server runtime, or RBAC.
+- `docs/AGENT_QUEUE_AUTORUN_CONTRACT.md` - current boundary for the
+  implemented operator-armed desktop-local Queue Autorun preview. It defines
+  explicit Start / Arm semantics, current-app-session limits,
+  one-task-at-a-time sequencing, stop conditions, and Agent Executor / Direct
+  Work ownership. The implemented preview remains desktop-local and
+  session-only; it does not add a backend scheduler, durable runner, schema,
+  hidden execution, server runtime, or RBAC.
 - `docs/QUEUE_RUN_HISTORY_VISIBILITY_CONTRACT.md` - Queue task to Agent
-  Executor run-history visibility plan. It defines safe per-task run metadata,
-  ownership boundaries, raw-output non-goals, current gaps, and future
-  implementation slices without adding schema, persistence, DTOs, runtime
-  behavior, or frontend UI.
+  Executor run-history visibility contract. It defines implemented safe
+  per-task run-link metadata, selected-task latest run and compact history
+  visibility, ownership boundaries, raw-output non-goals, and remaining future
+  slices such as a fuller history browser and ArtifactRef-backed references.
 
 ### Git
 

@@ -26,7 +26,7 @@ The frontend has an insertable Direct Work / Codex surface that reuses the exist
 
 The future Script Runner Widget contract also uses Raw Log, Overview Log, and Result Report concepts for explicit operator-controlled local script actions. Script Runner is not implemented, and script runs are tool/widget actions rather than necessarily AI agent runs. See `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
-`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. The frontend now has a narrow persisted review inbox for proposal-only Agent Chat local mock proposal results, but queue execution, response capture, response validation, and executor integration are not implemented yet.
+`docs/AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox that may link to Agent Run observability. Current Agent Queue can explicitly start assigned tasks in Agent Executor, record safe Queue task to Executor run-link metadata, show selected-task latest run and compact history rows, and run eligible assigned tasks through the explicit operator-armed Queue Autorun preview while Hobit remains open. Queue still does not own raw run details, response capture, response validation, durable scheduling, reconnect/resume, or backend worker behavior.
 
 Implemented observability today is limited to:
 

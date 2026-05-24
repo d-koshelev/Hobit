@@ -128,13 +128,15 @@ Implemented foundation:
 - The Agent Queue preview supports manual Workspace-scoped task
   create/list/read/update, visible Queue-to-Executor assignment, explicit
   assigned-task start in its assigned Agent Executor, current-session handoff,
-  final-status auto-refresh, `executionPolicy` fields, and a visible
-  frontend-driven Sequential Queue Runner for `manual`, `auto`, and
-  `after_previous_success` policy behavior. The runner is current-session-only
-  frontend behavior, not a durable backend scheduler. Agent Queue does not
-  provide durable scheduling, hidden auto-dispatch, approve/apply proposal
-  behavior, Terminal launch, Git/Notes/file mutation, automatic acceptance, or
-  response capture outside normal Agent Executor artifacts.
+  final-status auto-refresh, `executionPolicy` fields, safe selected-task
+  Executor run-link history, a visible frontend-driven Sequential Queue Runner,
+  and explicit operator-armed Queue Autorun for `manual`, `auto`, and
+  `after_previous_success` policy behavior. These runners are
+  current-session-only desktop/frontend behavior, not durable backend
+  schedulers. Agent Queue does not provide durable scheduling,
+  reconnect/resume, hidden auto-dispatch, approve/apply proposal behavior,
+  Terminal launch, Git/Notes/file mutation, automatic acceptance, or response
+  capture outside normal Agent Executor artifacts.
 - Database / JDBC is a Preview connector metadata and bounded mock/safe
   read-only query surface. It can create/list/read/update non-secret connector
   metadata, validate conservative read-only SQL, apply row/timeout caps, and
@@ -155,7 +157,9 @@ Implemented foundation:
   fallback cannot read Git status or create local commits.
 - Template Library remains deferred/reference. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution are not implemented.
 - Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
-- Recent activity shows workspace-scoped Workbench events returned with the Workbench state.
+- Recent Activity is a global app-shell drawer opened from the Workbench top
+  bar. It shows workspace-scoped Workbench events returned with the Workbench
+  state and is not widget content or Queue-owned history.
 - Widget Logs panels load persisted widget-local logs, and existing widget add/state/layout mutations emit basic logs. Terminal one-shot fallback commands and Agent Chat proposal persistence emit bounded lifecycle logs. Terminal PTY output is session-only runtime state and is not persisted as widget logs/results.
 - Agent run observability views defined in `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md` are partially implemented through Agent Executor Direct Work logs/results/history/diff/validation surfaces and retained proposal-review compatibility paths.
 - SQLite storage can persist the foundation records for Workspace, WorkspaceSession, Workbench/Preset, WidgetInstance, WidgetRun/Log/Result, SharedState, WorkbenchEvent, and workspace-local Notes.
@@ -270,7 +274,7 @@ For the full Dock, widget view mode, presence zone, and future drag-and-drop con
 
 Future Workspace-aware Coordinator Agent behavior is scoped to the active Workspace. Coordinator context access must be explicit, visible, and approved by the operator, and it must not mix context, Queue Items, Agent Runs, notes, Git summaries, templates, logs, artifacts, or decisions across unrelated Workspaces.
 
-The Coordinator may later propose cross-widget actions, but approved actions must apply through the owning Workspace component and be recorded as auditable Workspace Activity when implemented. Agent Chat / Coordinator does not currently implement approved context access beyond selected current-view metadata, persisted context models outside the proposal result snapshot, executable action proposals, action execution, proposal approval/apply behavior, Notebook editing, Git follow-up, or cross-widget mutation. The only current queue creation path is an explicit review-only Agent Monitoring action from a persisted local mock proposal result.
+The Coordinator may later propose cross-widget actions, but approved actions must apply through the owning Workspace component and be recorded as auditable Workspace Activity when implemented. Coordinator Chat does not currently implement hidden context access, persisted approved context models, executable action proposals, widget capability execution, Notebook editing, Git follow-up, or cross-widget mutation. Current Queue task creation from Coordinator Chat requires an approved visible create-Queue-task proposal plus a separate explicit Create Queue task action. Older Agent Chat / Agent Monitoring proposal-era Queue creation remains a compatibility/reference path, not the current product direction.
 
 For the full approved-context and proposal contract, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 

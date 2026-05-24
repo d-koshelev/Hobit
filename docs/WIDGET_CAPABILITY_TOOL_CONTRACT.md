@@ -525,8 +525,9 @@ state-changing or external effects.
 - Provider structured proposal drafts rendered as review cards, still no
   execution.
 - Later controlled widget capability bridge.
-- Later JDBC read-only query execution backend.
-- Later JDBC result grid UI.
+- Current bounded mock/safe JDBC read-only validation/execution remains owned
+  by the Database / JDBC widget and is not a Coordinator tool.
+- Later production JDBC runtime and richer result grid UI.
 - Later Coordinator to JDBC read-only query proposal flow.
 - Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
@@ -541,7 +542,7 @@ This contract does not implement:
 - AI provider integration
 - Coordinator runtime
 - widget tool execution
-- JDBC implementation
+- production JDBC implementation
 - Git mutation
 - Terminal or PTY work
 - Queue behavior changes

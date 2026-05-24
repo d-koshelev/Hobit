@@ -17,9 +17,11 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
 - Runtime artifact classification exists for JDBC, Terminal, Direct Work /
   Agent Executor, and Git. These classifications are internal metadata today,
   not a new artifact store.
-- Queue lifecycle/status vocabulary exists. Queue still has no backend
-  scheduler or durable runner; the visible Sequential Queue Runner remains
-  current-session frontend behavior.
+- Queue lifecycle/status vocabulary exists. The visible Sequential Queue
+  Runner remains current-session frontend behavior, and Queue Autorun now has
+  an explicit operator-armed desktop-local preview with a current-session tick.
+  Queue still has no backend scheduler, durable runner, reconnect/resume, or
+  server worker.
 - `AuditEventEnvelope` v0 exists as type and contract vocabulary.
 - `docs/AUDIT_EVENT_MAPPING_PLAN.md` maps current event-like surfaces to
   future audit readiness.
@@ -78,7 +80,8 @@ a provider.
 - capability execution;
 - permission checks, enterprise/RBAC, or organization/user model;
 - server runtime or Postgres migration;
-- backend scheduler, durable Queue runner, or auto-dispatch.
+- backend scheduler, durable Queue runner, reconnect/resume, server worker, or
+  hidden/unarmed auto-dispatch.
 
 ## Recommended Next Roadmap
 
@@ -123,4 +126,5 @@ Only after the docs and inspect-first blocks above:
 - Coordinator hidden context;
 - Context Pack provider wiring;
 - automatic Notes/artifact/log ingestion;
-- auto-dispatch or backend scheduler.
+- hidden/unarmed auto-dispatch, durable Queue runner, reconnect/resume, or
+  backend scheduler.

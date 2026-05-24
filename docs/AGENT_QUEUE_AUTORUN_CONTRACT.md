@@ -1,17 +1,18 @@
 # Agent Queue Autorun Contract
 
-Contract status: Planned foundation
+Contract status: Current Preview boundary
 
 ## Purpose
 
-This contract defines the first operator-armed Queue Autorun boundary for the
-desktop MVP.
+This contract defines the implemented operator-armed Queue Autorun boundary for
+the desktop MVP.
 
 It is not a backend scheduler, server worker, durable runner, reconnect/resume
 system, Coordinator automation path, approval bypass, or hidden execution
-system. It does not add persistence, schema, Direct Work behavior, Agent
-Executor behavior, server runtime, enterprise/RBAC, or multi-user workers by
-itself.
+system. The current preview keeps runner state in desktop process memory and
+uses existing Queue-to-Executor / Agent Executor paths. It does not add durable
+runner persistence, schema, Direct Work behavior, Agent Executor behavior,
+server runtime, enterprise/RBAC, or multi-user workers by itself.
 
 ## Product Model
 
@@ -73,7 +74,7 @@ Executor and current session configuration.
 
 ## Task Selection Rules
 
-The first Queue Autorun implementation must remain conservative:
+The current Queue Autorun implementation must remain conservative:
 
 - one selected Agent Executor;
 - one active task at a time;
@@ -181,7 +182,7 @@ rules. This contract does not add new Queue storage fields.
 
 ## Expected UX Controls
 
-The Queue Autorun UX should eventually show:
+The Queue Autorun UX should show:
 
 - selected Agent Executor;
 - execution workspace;

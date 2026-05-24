@@ -5,9 +5,9 @@
 This document records the Agent Queue desktop MVP readiness inspection.
 
 It is a Queue-focused product and architecture checkpoint. It does not add a
-backend scheduler, auto-dispatch, durable runner, server runtime,
-enterprise/RBAC, Direct Work behavior, Agent Executor behavior, schema changes,
-frontend behavior, or hidden execution.
+backend scheduler, hidden/unarmed auto-dispatch, durable runner, server
+runtime, enterprise/RBAC, Direct Work behavior, Agent Executor behavior, schema
+changes, frontend behavior, or hidden execution.
 
 ## Current Surface
 
@@ -125,7 +125,7 @@ not survive reload.
 ## Not Implemented
 
 - backend scheduler;
-- auto-dispatch without an operator-started visible runner;
+- hidden or unarmed auto-dispatch without an operator-started visible runner;
 - durable runner, reconnect, or resume;
 - multi-executor scheduling;
 - dependency graph or blocked/ready dependency model;
@@ -207,7 +207,8 @@ not survive reload.
 
 Queue is not a backend scheduler.
 
-Queue does not auto-dispatch.
+Queue does not auto-dispatch without an explicit operator-started visible
+runner, and it has no backend scheduler.
 
 Sequential Queue Runner is frontend/current-session-only.
 

@@ -47,9 +47,11 @@ catalog gating is added. Terminal preserves the bounded one-shot command path
 as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
 desktop-only status/diff review surface plus explicit selected-file local
 commit UI with operator confirmation. Agent Queue is a preview manual task queue surface
-backed by Workspace-scoped task storage/API, assignment API/UI, and a
-manual backend/API start path for assigned tasks, with no automatic dispatch,
-scheduler, or dependency behavior. Database / JDBC is a Preview connector
+backed by Workspace-scoped task storage/API, assignment API/UI, explicit
+assigned-task start, safe selected-task Executor run-link visibility, and an
+operator-armed desktop-local Queue Autorun preview. Queue has no backend
+scheduler, durable reconnect/resume, server worker, or hidden/unarmed
+auto-dispatch. Database / JDBC is a Preview connector
 metadata and mock read-only query surface backed by workspace-local JDBC
 connector metadata storage/API plus widget-owned SQL validation and bounded
 mock execution APIs; there is no credential storage, real database query
@@ -186,7 +188,7 @@ backend/runtime provider ownership, draft text and proposal output only,
 validated proposal cards, and `allowed_tools: []`. Older Agent Chat provider
 compatibility paths do not define the current Coordinator product surface.
 
-`DIRECT_MODE_AGENT_CONTRACT.md` defines the current Agent Executor path for small approved work. It keeps the model agent-agnostic, names Codex CLI as the first executor kind, and requires an explicit execution workspace path, prompt, sandbox/mode, visible run status, raw log/final response capture, changed-file review when the path is a Git repository, no hidden background execution, and no auto-commit or auto-push. Backend/tooling Codex CLI foundations now exist in `hobit-tools`: an availability/version probe for `codex --version` or `<explicit-program> --version`, a one-shot Direct Work runner that resolves the requested executable without shell invocation, builds `codex exec` with fixed argv for an explicit execution workspace path and operator prompt, captures stdout/stderr/final message, applies caps and timeout, and returns a structured result, plus a streaming `codex exec --json` runner that emits stdout/stderr/JSON/final events to a callback. The app/Tauri boundary exposes `run_codex_direct_work` for explicit Workspace, Workbench, owning `agent-run` widget instance, Codex executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps; the compatibility DTO/storage field remains `repo_root`. It persists widget run/log/result artifacts and stores no-auto-commit/no-auto-push safety flags. The app/Tauri boundary also exposes `start_codex_direct_work_stream`, which creates the run immediately, starts the streaming runner in the background, emits `direct-work://event` payloads, appends widget logs during the run, and stores the final widget result. Agent Queue can now manually start an assigned task through that same stream path via explicit frontend controls and backend/API. No automatic Agent Queue dispatch, scratch execution workspace support, Git mutation, auto-commit, auto-push, embedded PTY, or interactive Codex session is implemented yet.
+`DIRECT_MODE_AGENT_CONTRACT.md` defines the current Agent Executor path for small approved work. It keeps the model agent-agnostic, names Codex CLI as the first executor kind, and requires an explicit execution workspace path, prompt, sandbox/mode, visible run status, raw log/final response capture, changed-file review when the path is a Git repository, no hidden background execution, and no auto-commit or auto-push. Backend/tooling Codex CLI foundations now exist in `hobit-tools`: an availability/version probe for `codex --version` or `<explicit-program> --version`, a one-shot Direct Work runner that resolves the requested executable without shell invocation, builds `codex exec` with fixed argv for an explicit execution workspace path and operator prompt, captures stdout/stderr/final message, applies caps and timeout, and returns a structured result, plus a streaming `codex exec --json` runner that emits stdout/stderr/JSON/final events to a callback. The app/Tauri boundary exposes `run_codex_direct_work` for explicit Workspace, Workbench, owning `agent-run` widget instance, Codex executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps; the compatibility DTO/storage field remains `repo_root`. It persists widget run/log/result artifacts and stores no-auto-commit/no-auto-push safety flags. The app/Tauri boundary also exposes `start_codex_direct_work_stream`, which creates the run immediately, starts the streaming runner in the background, emits `direct-work://event` payloads, appends widget logs during the run, and stores the final widget result. Agent Queue can manually start an assigned task through that same stream path via explicit frontend controls and backend/API, and operator-armed Queue Autorun can start eligible assigned tasks through that path one at a time while Hobit remains open. No hidden/unarmed Agent Queue dispatch, scratch execution workspace support, Git mutation, auto-commit, auto-push, embedded PTY, or interactive Codex session is implemented yet.
 
 `DEMO_FLOW_CHECKLIST.md` defines the earlier manual pre-AI demo verification scope. It does not define the current user-facing widget set.
 
@@ -194,7 +196,7 @@ compatibility paths do not define the current Coordinator product surface.
 
 `WORKSPACE_CONTRACT.md` defines Workspace as the durable isolation boundary for distinct problems and Workbench as a surface inside a Workspace. Future multi-open Workspace UI, Workspace tabs/sidebar/windows, and multiple Workbenches per Workspace must follow the rule: different problem = different Workspace; different surface for the same problem = additional Workbench.
 
-`AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend currently exposes Agent Queue as a manual task queue UI with retained proposal-review compatibility paths; explicit frontend controls and a backend/API foundation can manually start an assigned task in its assigned Agent Executor, but no automatic dispatch, scheduler, approval/apply behavior, response capture/parser/validator, automatic acceptance, or dependency behavior is implemented yet.
+`AGENT_QUEUE_CONTRACT.md` defines Agent Queue as an operator-controlled agent command queue, command history, and review inbox. The frontend currently exposes Agent Queue as a manual task queue UI with retained proposal-review compatibility paths; explicit frontend controls and a backend/API foundation can manually start an assigned task in its assigned Agent Executor, and operator-armed Queue Autorun can continue eligible assigned tasks one at a time in the current desktop session. No backend scheduler, durable reconnect/resume, hidden/unarmed dispatch, approval/apply behavior, response capture/parser/validator, automatic acceptance, or dependency behavior is implemented yet.
 
 `AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` defines the future Agent Queue task
 model: workspace singleton queue items, statuses, dependencies, Agent Executor
@@ -202,8 +204,10 @@ capacity slots, and manual assignment direction. A manual task storage/API
 foundation now exists for create, list, read, update, assign, and clear
 operations, and the frontend consumes those task and assignment paths through a
 manual task product UI. A manual start API can route an assigned task into its
-assigned Agent Executor; scheduler behavior, dependencies, automatic dispatch,
-and automatic routing are not implemented.
+assigned Agent Executor, and the Queue Autorun preview can start eligible
+assigned tasks after an explicit operator arm action in the current desktop
+session. Scheduler behavior, dependencies, durable reconnect/resume,
+hidden/unarmed dispatch, and automatic routing are not implemented.
 
 `QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` defines the manual assignment
 boundary between Agent Queue tasks and visible Agent Executor slots. The
@@ -212,12 +216,12 @@ storage/app/Tauri/frontend API foundation can persist and clear
 scheduling, dependency resolution, Terminal launch, Git mutation, or Agent
 Executor auto-start.
 
-`QUEUE_ITEM_EXECUTION_CONTRACT.md` defines the future manual run boundary for
-starting an assigned Agent Queue task in its assigned Agent Executor. It
-requires explicit operator start, visible execution workspace handling, normal
-Agent Executor Direct Work ownership, and no automatic dispatch, scheduler,
-Terminal launch, auto-commit, push, or hidden execution. No implementation is
-added by that contract.
+`QUEUE_ITEM_EXECUTION_CONTRACT.md` defines the manual run boundary for starting
+an assigned Agent Queue task in its assigned Agent Executor. The current
+implementation follows that boundary through explicit operator start, visible
+execution workspace handling, and normal Agent Executor Direct Work ownership.
+It does not add hidden/unarmed dispatch, a scheduler, Terminal launch,
+auto-commit, push, or hidden execution.
 
 `QUEUE_ITEM_EXECUTION_POLICY_CONTRACT.md` defines the Queue item
 `executionPolicy` model and Sequential Queue Runner semantics. The current
