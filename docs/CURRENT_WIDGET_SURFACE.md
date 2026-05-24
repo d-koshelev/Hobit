@@ -218,8 +218,15 @@ and component keys may still appear in code and persistence.
   compatibility.
 - Keeps chat messages and proposal card state in local React state for the
   current widget session.
+- Shows local planning-oriented response cards for explicit planning prompts:
+  compact plan title, goal, steps, risks/notes, and suggested next actions.
+  These cards are UI-only and do not create tasks, run tools, or persist plan
+  state.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
+  Explicit planning prompts can draft one or more visible Queue task proposals
+  from the typed chat text; each still requires review, approval, and a
+  separate Create Queue task action.
 - In the Tauri desktop shell, explicit sends can use a backend-owned
   Coordinator provider response path. Mock/local is the default provider; a
   configured HTTP JSON provider can be selected by backend environment
@@ -228,8 +235,10 @@ and component keys may still appear in code and persistence.
 - Provider credentials stay backend-only. Browser/Vite fallback does not call a
   provider directly.
 - Provider/local drafts are validated before rendering. Queue task creation and
-  Note creation require approval plus a separate explicit create action. JDBC
-  suggestions remain review/copy text only and do not execute SQL.
+  Note creation require approval plus a separate explicit create action. Queue
+  task creation creates a draft/manual Queue record only; execution remains
+  Queue/Executor controlled. JDBC suggestions remain review/copy text only and
+  do not execute SQL.
 - Coordinator Chat does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, launch Agent Executor, auto-dispatch Queue items,

@@ -14,7 +14,10 @@ import {
   COORDINATOR_ACTION_PROPOSAL_REGISTRY,
   type CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
-import { generateLocalCoordinatorProposals } from "./coordinatorLocalProposalGeneration";
+import {
+  generateLocalCoordinatorProposals,
+  type CoordinatorPlanDraft,
+} from "./coordinatorLocalProposalGeneration";
 import {
   noteCreateRequestFromProposal,
   queueTaskRequestFromProposal,
@@ -35,6 +38,7 @@ import type { WidgetRenderProps } from "./types";
 
 type InteractiveAgentMessage = {
   id: string;
+  planId?: string;
   proposalIds?: string[];
   providerMeta?: CoordinatorProviderMessageMeta;
   role: "operator" | "assistant";
@@ -45,23 +49,27 @@ const INITIAL_MESSAGES: InteractiveAgentMessage[] = [];
 
 const SUGGESTED_PROMPTS = [
   {
-    label: "Plan work",
+    label: "Make a plan",
     prompt:
-      "Plan this work from the visible chat only. Ask clarifying questions before proposing Queue tasks.",
+      "Make a plan from the visible chat only. Goal: ",
   },
   {
-    label: "Create Queue tasks",
-    prompt: "Create queue task proposals from this visible request: ",
+    label: "Break this into Queue tasks",
+    prompt: "Break this into Queue tasks from visible text only. Goal: ",
   },
   {
-    label: "Review latest Queue runs",
-    prompt:
-      "Review the latest Queue run details I paste here and suggest next actions. Do not inspect Queue automatically.",
+    label: "Draft tasks for this goal",
+    prompt: "Draft tasks for this goal using only the visible chat: ",
   },
   {
-    label: "Explain current workspace",
+    label: "Review latest Queue results",
     prompt:
-      "Explain the current workspace from the visible chat only and list what context you need from me.",
+      "Review the latest Queue results I paste here and suggest next actions. Do not inspect Queue automatically.",
+  },
+  {
+    label: "Explain how to execute this safely",
+    prompt:
+      "Explain how to execute this safely from visible chat only. Do not start Queue, Executor, Terminal, Git, or JDBC actions.",
   },
 ];
 
@@ -120,6 +128,7 @@ export function InteractiveAgentPlaceholderWidget({
   const [messages, setMessages] = useState<InteractiveAgentMessage[]>(
     INITIAL_MESSAGES,
   );
+  const [plans, setPlans] = useState<Record<string, CoordinatorPlanDraft>>({});
   const [proposals, setProposals] = useState<
     Record<string, CoordinatorActionProposal>
   >({});
@@ -149,12 +158,14 @@ export function InteractiveAgentPlaceholderWidget({
     body: string,
     proposalIds?: string[],
     providerMeta?: CoordinatorProviderMessageMeta,
+    planId?: string,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
 
     return {
       id,
+      planId,
       proposalIds,
       providerMeta,
       role,
@@ -190,6 +201,7 @@ export function InteractiveAgentPlaceholderWidget({
         : coordinatorProviderFallbackMeta(
             "Provider API unavailable in this runtime. Local deterministic response only.",
           ),
+      generated.plan?.id,
     );
     const providerConversation = [...messages, operatorMessage];
 
@@ -199,6 +211,13 @@ export function InteractiveAgentPlaceholderWidget({
         ...Object.fromEntries(
           generated.proposals.map((proposal) => [proposal.id, proposal]),
         ),
+      }));
+    }
+    const generatedPlan = generated.plan;
+    if (generatedPlan) {
+      setPlans((currentPlans) => ({
+        ...currentPlans,
+        [generatedPlan.id]: generatedPlan,
       }));
     }
 
@@ -615,6 +634,10 @@ export function InteractiveAgentPlaceholderWidget({
                 Coordinator uses only this visible chat and can draft reviewable
                 Queue, Note, or JDBC suggestion cards.
               </p>
+              <p className="interactive-agent-empty-text">
+                Coordinator drafts work; Queue and Executor execute only after
+                explicit operator action.
+              </p>
               <div
                 aria-label="Coordinator suggested prompts"
                 className="interactive-agent-suggestion-list"
@@ -658,6 +681,9 @@ export function InteractiveAgentPlaceholderWidget({
                 <p className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}>
                   {message.providerMeta.detail}
                 </p>
+              ) : null}
+              {message.planId && plans[message.planId] ? (
+                <CoordinatorPlanCard plan={plans[message.planId]} />
               ) : null}
               {message.proposalIds ? (
                 <div className="coordinator-proposal-list">
@@ -739,6 +765,49 @@ function renderMessageBody(body: string): ReactNode {
 
     return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
   });
+}
+
+function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
+  return (
+    <section
+      aria-label={`Coordinator plan: ${plan.title}`}
+      className="coordinator-plan-card"
+    >
+      <div className="coordinator-plan-header">
+        <div className="coordinator-plan-title-copy">
+          <p className="coordinator-plan-kicker">Plan draft</p>
+          <h4 className="coordinator-plan-title">{plan.title}</h4>
+          <p className="coordinator-plan-goal">{plan.goal}</p>
+        </div>
+        <Badge variant="neutral">No execution</Badge>
+      </div>
+      <div className="coordinator-plan-grid">
+        <PlanList label="Steps" values={plan.steps} />
+        <PlanList label="Risks / notes" values={plan.riskNotes} />
+        <PlanList
+          label="Suggested next actions"
+          values={plan.suggestedNextActions}
+        />
+      </div>
+      <p className="coordinator-plan-note">
+        Planning is UI-only. Queue task drafts still require proposal approval
+        plus Create Queue task, and created tasks do not run from Coordinator.
+      </p>
+    </section>
+  );
+}
+
+function PlanList({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="coordinator-plan-section">
+      <p className="coordinator-plan-section-label">{label}</p>
+      <ol className="coordinator-plan-list">
+        {values.map((value) => (
+          <li key={value}>{value}</li>
+        ))}
+      </ol>
+    </div>
+  );
 }
 
 function updateProposal(

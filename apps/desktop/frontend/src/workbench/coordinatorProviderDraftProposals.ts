@@ -108,6 +108,10 @@ function normalizedInputs(
         label: "Priority",
         value: clampPriority(optionalInput(draft, "Priority")).toString(),
       },
+      {
+        label: "Policy",
+        value: normalizeExecutionPolicy(optionalInput(draft, "Policy")),
+      },
     ];
   }
 
@@ -267,4 +271,18 @@ function normalizePinned(value: string) {
   return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase())
     ? "true"
     : "false";
+}
+
+function normalizeExecutionPolicy(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "auto" ||
+    normalized === "after_previous_success" ||
+    normalized === "manual"
+  ) {
+    return normalized;
+  }
+
+  return "manual";
 }

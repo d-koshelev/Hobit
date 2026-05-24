@@ -9,6 +9,12 @@ import type {
   GenerateCoordinatorProviderResponseRequest,
 } from "../workspace/types";
 
+type CreateQueueTaskInput = Parameters<
+  NonNullable<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]["onCreateAgentQueueTask"]
+  >
+>[0];
+
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
@@ -29,13 +35,51 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
   it("renders suggested prompts and compact safety badges in the empty state", () => {
     renderWidget();
 
-    expect(document.body.textContent).toContain("Plan work");
-    expect(document.body.textContent).toContain("Create Queue tasks");
-    expect(document.body.textContent).toContain("Review latest Queue runs");
-    expect(document.body.textContent).toContain("Explain current workspace");
+    expect(document.body.textContent).toContain("Make a plan");
+    expect(document.body.textContent).toContain("Break this into Queue tasks");
+    expect(document.body.textContent).toContain("Draft tasks for this goal");
+    expect(document.body.textContent).toContain("Review latest Queue results");
+    expect(document.body.textContent).toContain(
+      "Explain how to execute this safely",
+    );
     expect(document.body.textContent).toContain("Visible context only");
     expect(document.body.textContent).toContain("Tools disabled");
     expect(document.body.textContent).toContain("No hidden context");
+    expect(document.body.textContent).toContain(
+      "Coordinator drafts work; Queue and Executor execute only after explicit operator action.",
+    );
+  });
+
+  it("clicking a planning suggestion inserts visible text only", async () => {
+    const provider = vi.fn();
+    const createQueueTask = vi.fn();
+    renderWidget({
+      onCreateAgentQueueTask: createQueueTask,
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    await clickButton("Make a plan");
+
+    expect(textareaValue()).toBe(
+      "Make a plan from the visible chat only. Goal: ",
+    );
+    expect(provider).not.toHaveBeenCalled();
+    expect(createQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("renders a local Plan card without implying execution", async () => {
+    renderWidget();
+
+    await sendMessage("Make a plan for stabilizing the visible frontend task");
+
+    expect(document.body.textContent).toContain("Plan draft");
+    expect(document.body.textContent).toContain("No execution");
+    expect(document.body.textContent).toContain(
+      "Planning is UI-only. Queue task drafts still require proposal approval plus Create Queue task",
+    );
+    expect(document.body.textContent).toContain(
+      "No Workspace, Queue, Executor, Notes, Git, JDBC, Terminal, logs, files, or artifacts were read.",
+    );
   });
 
   it("sends visible chat and proposal summaries through the provider path", async () => {
@@ -123,6 +167,102 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(buttonWithText("Create Queue task")).toBeUndefined();
     expect(createQueueTask).not.toHaveBeenCalled();
   });
+
+  it("renders Queue task draft cards from visible planning text", async () => {
+    renderWidget();
+
+    await sendMessage(
+      [
+        "Break this into Queue tasks from visible text only.",
+        "- Audit the Coordinator proposal flow",
+        "- Add a compact planning card",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Plan draft");
+    expect(document.body.textContent).toContain("Queue task proposal");
+    expect(document.body.textContent).toContain("Audit the Coordinator proposal flow");
+    expect(document.body.textContent).toContain("Add a compact planning card");
+    expect(document.body.textContent).toContain("Policy");
+    expect(document.body.textContent).toContain("manual");
+    expect(buttonWithText("Create Queue task")).toBeUndefined();
+  });
+
+  it("approval does not create or run a Queue task", async () => {
+    const createQueueTask = vi.fn();
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await sendMessage(
+      "create queue task title: Visible task prompt: Use only chat",
+    );
+    await clickButton("Approve");
+
+    expect(document.body.textContent).toContain("Approved preview");
+    expect(document.body.textContent).toContain(
+      "Approval only accepts the preview. Use Create Queue task separately to create a draft task.",
+    );
+    expect(buttonWithText("Create Queue task")).toBeDefined();
+    expect(createQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("creates a Queue task only after the explicit Create Queue task action", async () => {
+    const createQueueTask = vi.fn(async (request: CreateQueueTaskInput) => ({
+      assignedExecutorWidgetId: null,
+      createdAt: "2026-05-24T00:00:00Z",
+      description: request.description,
+      executionPolicy: request.executionPolicy,
+      priority: request.priority,
+      prompt: request.prompt,
+      queueItemId: "queue_task_1",
+      status: request.status,
+      title: request.title,
+      updatedAt: "2026-05-24T00:00:00Z",
+      workspaceId: "workspace_1",
+    }));
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await sendMessage(
+      "create queue task title: Visible task prompt: Use only chat priority: 2",
+    );
+    await clickButton("Approve");
+    await clickButton("Create Queue task");
+
+    expect(createQueueTask).toHaveBeenCalledTimes(1);
+    expect(createQueueTask.mock.calls[0][0]).toMatchObject({
+      description:
+        "create queue task title: Visible task prompt: Use only chat priority: 2",
+      executionPolicy: "manual",
+      priority: 2,
+      prompt: "Use only chat",
+      status: "draft",
+      title: "Visible task",
+    });
+    expect(document.body.textContent).toContain("Queue task created");
+    expect(document.body.textContent).toContain(
+      "It was not assigned, dispatched, run, or handed to Agent Executor.",
+    );
+  });
+
+  it("keeps Note and JDBC proposal behavior review-only before explicit actions", async () => {
+    const createNote = vi.fn();
+    renderWidget({ onCreateWorkspaceNote: createNote });
+
+    await sendMessage("create note title: Visible note body: Keep this visible");
+    expect(document.body.textContent).toContain("Note proposal");
+    expect(document.body.textContent).toContain(
+      "No existing Notes content is read or summarized.",
+    );
+    expect(buttonWithText("Create Note")).toBeUndefined();
+    expect(createNote).not.toHaveBeenCalled();
+
+    await sendMessage("prepare sql query: select * from visible_table");
+    expect(document.body.textContent).toContain("JDBC SQL suggestion");
+    expect(document.body.textContent).toContain("SQL suggestion only");
+    expect(document.body.textContent).toContain("Copy SQL");
+    expect(document.body.textContent).toContain(
+      "No JDBC connector metadata, schemas, database data, or results were read.",
+    );
+  });
 });
 
 function renderWidget(
@@ -182,6 +322,26 @@ function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
   );
+}
+
+async function clickButton(text: string) {
+  await act(async () => {
+    const button = buttonWithText(text);
+    if (!button) {
+      throw new Error(`Button not found: ${text}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function textareaValue() {
+  const textarea = document.querySelector("textarea");
+  if (!textarea) {
+    throw new Error("Message textarea not found.");
+  }
+  return textarea.value;
 }
 
 function providerResponse(

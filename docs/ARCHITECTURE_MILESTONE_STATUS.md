@@ -39,6 +39,10 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Coordinator, while Queue and Agent Executor remain supporting execution
   surfaces.
+- Coordinator Chat now has a frontend-only planning UI layer for explicit
+  visible chat prompts: compact plan cards and visible Queue task draft
+  proposal cards. Queue task creation remains explicit draft creation only,
+  and execution remains Queue/Executor controlled.
 
 ## Still Type-Only Or Contract-Only
 
@@ -64,6 +68,9 @@ explicit visible current-session chat/proposal context only. It must not
 silently ingest Notes, artifacts, evidence, knowledge, Context Packs, runtime
 logs, widget state, Git/JDBC/Terminal state, Queue state, files, environment
 values, or secrets.
+Planning cards and Queue task drafts do not change this context boundary and
+do not wire Context Packs, artifacts, logs, Queue state, Executor state, or
+widget data into provider prompts.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is

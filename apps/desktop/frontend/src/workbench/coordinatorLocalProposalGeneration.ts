@@ -7,8 +7,18 @@ import {
 } from "./coordinatorActionProposalRegistry";
 
 export type LocalProposalGenerationResult = {
+  plan: CoordinatorPlanDraft | null;
   proposals: CoordinatorActionProposal[];
   responseBody: string;
+};
+
+export type CoordinatorPlanDraft = {
+  goal: string;
+  id: string;
+  riskNotes: string[];
+  steps: string[];
+  suggestedNextActions: string[];
+  title: string;
 };
 
 const NO_PROPOSAL_RESPONSE =
@@ -17,7 +27,14 @@ const NO_PROPOSAL_RESPONSE =
 const GENERATED_PROPOSAL_RESPONSE =
   "Generated local deterministic proposal previews from your explicit message. Review or edit the visible inputs before approval; approval does not execute by itself.";
 
+const GENERATED_PLAN_RESPONSE =
+  "Generated a local plan from your explicit message. Review the steps and decide whether any draft should become a Queue task.";
+
+const GENERATED_PLAN_AND_PROPOSAL_RESPONSE =
+  "Generated a local plan and proposal previews from your explicit message. Review or edit visible fields before approval; approval does not execute by itself.";
+
 const MAX_TITLE_LENGTH = 72;
+const MAX_LOCAL_QUEUE_DRAFTS = 4;
 const LABELED_VALUE_BOUNDARY = [
   "title",
   "task title",
@@ -25,6 +42,7 @@ const LABELED_VALUE_BOUNDARY = [
   "description",
   "prompt",
   "body",
+  "goal",
   "priority",
   "question",
   "sql",
@@ -43,6 +61,9 @@ const QUEUE_INTENT_PATTERNS = [
   /\bcreate\s+(?:an?\s+)?(?:agent\s+)?queue\s+task\b/i,
   /\badd\s+(?:an?\s+)?(?:agent\s+)?queue\s+task\b/i,
   /\bmake\s+(?:an?\s+)?task\b/i,
+  /\bbreak\s+(?:this|it|that|the\s+work|this\s+work)?[\s\S]*\bqueue\s+tasks?\b/i,
+  /\bdraft\s+tasks?\s+for\b/i,
+  /\bqueue\s+task\s+drafts?\b/i,
 ];
 
 const NOTE_INTENT_PATTERNS = [
@@ -57,15 +78,35 @@ const JDBC_INTENT_PATTERNS = [
   /\bsuggest\s+(?:a\s+)?query\b/i,
 ];
 
+const PLAN_INTENT_PATTERNS = [
+  /\bmake\s+(?:a\s+)?plan\b/i,
+  /\bplan\s+(?:this|the|my|our)\b/i,
+  /\bbreak\s+(?:this|it|that|the\s+work|this\s+work)\s+(?:down|into)\b/i,
+  /\bdraft\s+tasks?\s+for\b/i,
+  /\bexplain\s+how\s+to\s+execute\s+this\s+safely\b/i,
+  /\bsuggest\s+next\s+actions\b/i,
+];
+
 export function generateLocalCoordinatorProposals(
   message: string,
   sourceMessageId: string,
 ): LocalProposalGenerationResult {
+  const visibleMessage = message.trim();
   const normalizedMessage = normalizeWhitespace(message);
+  const shouldCreatePlan =
+    matchesAny(normalizedMessage, PLAN_INTENT_PATTERNS) ||
+    matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS);
+  const plan = shouldCreatePlan
+    ? createPlanDraft(visibleMessage, sourceMessageId)
+    : null;
   const proposals: CoordinatorActionProposal[] = [];
 
   if (matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS)) {
-    proposals.push(createQueueProposal(normalizedMessage, sourceMessageId));
+    proposals.push(
+      ...queueDraftsFromMessage(visibleMessage).map((draft, index) =>
+        createQueueProposal(draft, sourceMessageId, index),
+      ),
+    );
   }
 
   if (matchesAny(normalizedMessage, NOTE_INTENT_PATTERNS)) {
@@ -79,38 +120,32 @@ export function generateLocalCoordinatorProposals(
   }
 
   return {
+    plan,
     proposals,
-    responseBody:
-      proposals.length > 0 ? GENERATED_PROPOSAL_RESPONSE : NO_PROPOSAL_RESPONSE,
+    responseBody: responseBodyFor(plan, proposals.length),
   };
 }
 
 function createQueueProposal(
-  message: string,
+  draft: QueueTaskDraft,
   sourceMessageId: string,
+  index = 0,
 ): CoordinatorActionProposal {
   const definition = proposalTypeDefinition("create-agent-queue-task");
-  const title =
-    extractLabeledValue(message, ["title", "task title"]) ||
-    derivedTitle(message, "Coordinator queue task");
+  const title = draft.title;
 
   return {
     approvalStatus: "Pending preview",
     executionStatus: "Not run",
     expectedResult:
       "A reviewed draft Queue task can be created after approval and a separate Create Queue task action, but it will not run automatically.",
-    id: `${sourceMessageId}-create-queue-task`,
+    id: `${sourceMessageId}-create-queue-task-${index}`,
     inputs: [
       { label: "Title", value: title },
-      { label: "Description", value: message },
-      {
-        label: "Prompt",
-        value: extractLabeledValue(message, ["prompt"]) || message,
-      },
-      {
-        label: "Priority",
-        value: extractLabeledValue(message, ["priority"]) || "0",
-      },
+      { label: "Description", value: draft.description },
+      { label: "Prompt", value: draft.prompt },
+      { label: "Priority", value: draft.priority },
+      { label: "Policy", value: "manual" },
     ],
     intent:
       "Create a draft Agent Queue task from explicit operator text for later manual review.",
@@ -126,6 +161,155 @@ function createQueueProposal(
     title,
     typeId: definition.typeId,
   };
+}
+
+type QueueTaskDraft = {
+  description: string;
+  priority: string;
+  prompt: string;
+  title: string;
+};
+
+function createPlanDraft(
+  message: string,
+  sourceMessageId: string,
+): CoordinatorPlanDraft {
+  const goal = planningGoal(message);
+  const localSteps = planningSteps(message);
+
+  return {
+    goal,
+    id: `${sourceMessageId}-plan`,
+    riskNotes: [
+      "Plan generated only from visible chat text.",
+      "No Workspace, Queue, Executor, Notes, Git, JDBC, Terminal, logs, files, or artifacts were read.",
+      "Queue and Executor work still requires explicit operator action.",
+    ],
+    steps: localSteps,
+    suggestedNextActions: [
+      "Edit or send a sharper prompt if the goal is too broad.",
+      "Approve any Queue task draft only after reviewing its visible prompt.",
+      "Create Queue tasks only for larger async work; creation does not run them.",
+    ],
+    title: derivedTitle(message, "Coordinator plan"),
+  };
+}
+
+function queueDraftsFromMessage(message: string): QueueTaskDraft[] {
+  const explicitTitle = extractLabeledValue(message, ["title", "task title"]);
+  const explicitPrompt = extractLabeledValue(message, ["prompt"]);
+  const explicitPriority = extractLabeledValue(message, ["priority"]) || "0";
+
+  if (explicitTitle || explicitPrompt) {
+    return [
+      {
+        description: message,
+        priority: explicitPriority,
+        prompt: explicitPrompt || message,
+        title: explicitTitle || derivedTitle(message, "Coordinator queue task"),
+      },
+    ];
+  }
+
+  const listItems = extractedTaskLines(message);
+  if (listItems.length > 0) {
+    return listItems.slice(0, MAX_LOCAL_QUEUE_DRAFTS).map((item) => ({
+      description: `Drafted from visible Coordinator chat: ${item}`,
+      priority: "0",
+      prompt: [
+        item,
+        "",
+        "Use only the task prompt and explicit operator-provided context. Do not run hidden tools, mutate Git, or assume hidden Workspace context.",
+      ].join("\n"),
+      title: derivedTitle(item, "Coordinator queue task"),
+    }));
+  }
+
+  const goal = planningGoal(message);
+  return [
+    {
+      description: `Clarify the visible goal before execution: ${goal}`,
+      priority: "0",
+      prompt: `Clarify scope, assumptions, expected changed layers, and non-goals for this visible goal: ${goal}`,
+      title: derivedTitle(`Clarify scope for ${goal}`, "Clarify scope"),
+    },
+    {
+      description: `Prepare a focused implementation block for the visible goal: ${goal}`,
+      priority: "0",
+      prompt: `Draft a small implementation block for this visible goal: ${goal}\n\nKeep execution explicit, scoped, and validation-oriented.`,
+      title: derivedTitle(
+        `Implement first slice for ${goal}`,
+        "Implement first slice",
+      ),
+    },
+    {
+      description: `Validate and review the completed work for the visible goal: ${goal}`,
+      priority: "0",
+      prompt: `Validate the completed work for this visible goal: ${goal}\n\nReport validation results and any intentionally unimplemented scope.`,
+      title: derivedTitle(`Validate ${goal}`, "Validate work"),
+    },
+  ];
+}
+
+function planningGoal(message: string) {
+  return (
+    extractLabeledValue(message, ["goal", "prompt", "description"]) ||
+    stripPlanningPrefix(message) ||
+    "the visible Coordinator request"
+  );
+}
+
+function planningSteps(message: string) {
+  const taskLines = extractedTaskLines(message);
+  if (taskLines.length > 0) {
+    return taskLines.slice(0, MAX_LOCAL_QUEUE_DRAFTS);
+  }
+
+  const goal = planningGoal(message);
+  return [
+    `Confirm the exact goal and missing context for: ${goal}`,
+    "Separate quick operator decisions from larger async Queue work.",
+    "Draft Queue tasks only for focused work blocks with visible prompts.",
+    "Run any accepted task later through Queue/Executor controls, not from Coordinator.",
+  ];
+}
+
+function extractedTaskLines(message: string) {
+  return message
+    .split(/\r?\n|;/)
+    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, "").trim())
+    .filter((line) => line.length >= 8)
+    .filter((line) => !matchesAny(line, QUEUE_INTENT_PATTERNS))
+    .filter((line) => !matchesAny(line, PLAN_INTENT_PATTERNS));
+}
+
+function stripPlanningPrefix(message: string) {
+  return message
+    .replace(/\bmake\s+(?:a\s+)?plan(?:\s+for)?\b/gi, "")
+    .replace(/\bplan\s+(?:this|the|my|our)?\b/gi, "")
+    .replace(/\bbreak\s+(?:this|it|that|the\s+work|this\s+work)\s+(?:down|into\s+queue\s+tasks?)\b/gi, "")
+    .replace(/\bdraft\s+tasks?\s+for(?:\s+this\s+goal)?\b/gi, "")
+    .replace(/\bexplain\s+how\s+to\s+execute\s+this\s+safely\b/gi, "")
+    .trim();
+}
+
+function responseBodyFor(
+  plan: CoordinatorPlanDraft | null,
+  proposalCount: number,
+) {
+  if (plan && proposalCount > 0) {
+    return GENERATED_PLAN_AND_PROPOSAL_RESPONSE;
+  }
+
+  if (plan) {
+    return GENERATED_PLAN_RESPONSE;
+  }
+
+  if (proposalCount > 0) {
+    return GENERATED_PROPOSAL_RESPONSE;
+  }
+
+  return NO_PROPOSAL_RESPONSE;
 }
 
 function createNoteProposal(

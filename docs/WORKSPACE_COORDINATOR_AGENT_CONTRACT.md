@@ -43,6 +43,10 @@ The current Coordinator preview:
 
 - summarizes the operator prompt locally
 - can include visible current-session chat and visible proposal draft summaries
+- can show local UI-only plan cards with goal, steps, risks/notes, and
+  suggested next actions from explicit visible chat text
+- can draft one or more visible Queue task proposal cards from explicit
+  planning text
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context
@@ -62,6 +66,8 @@ There is no implemented:
 
 Current Coordinator Chat can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
+Creating a Queue task is draft task creation only; it does not assign, run,
+start Queue Autorun, launch Agent Executor, or execute the task.
 Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
 it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.

@@ -15,6 +15,9 @@ export function queueTaskRequestFromProposal(
   return {
     description:
       proposalInputValue(proposal, "Description") || proposal.intent.trim(),
+    executionPolicy: queueTaskExecutionPolicy(
+      proposalInputValue(proposal, "Policy"),
+    ),
     priority: queueTaskPriority(proposalInputValue(proposal, "Priority")),
     prompt: proposalInputValue(proposal, "Prompt") || proposal.intent.trim(),
     status: "draft",
@@ -60,6 +63,20 @@ function queueTaskPriority(value: string) {
   }
 
   return Math.min(5, Math.max(0, priority));
+}
+
+function queueTaskExecutionPolicy(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "manual" ||
+    normalized === "auto" ||
+    normalized === "after_previous_success"
+  ) {
+    return normalized;
+  }
+
+  return "manual";
 }
 
 function pinnedInputValue(value: string) {
