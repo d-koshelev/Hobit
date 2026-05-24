@@ -683,6 +683,64 @@ fn insert_widget_run_log_and_result() {
 }
 
 #[test]
+fn list_latest_widget_results_for_runs_by_type_batches_and_filters_results() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+    insert_widget_run(&store);
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: "run-2",
+            widget_instance_id: "widget-1",
+            status: "completed",
+            command_kind: Some("save_note"),
+            command_payload: Some("{note:2}"),
+            started_at: Some("3"),
+            finished_at: Some("4"),
+            summary: Some("Saved second note"),
+        })
+        .expect("insert second run");
+
+    for (id, run_id, result_type, created_at) in [
+        ("result-1-old", "run-1", "wanted_result", "2"),
+        ("result-1-ignored", "run-1", "other_result", "3"),
+        ("result-1-new", "run-1", "wanted_result", "4"),
+        ("result-2", "run-2", "wanted_result", "5"),
+    ] {
+        store
+            .insert_widget_result(NewWidgetResult {
+                id,
+                run_id,
+                status: "completed",
+                result_type: Some(result_type),
+                summary: Some("Stored result"),
+                content: None,
+                payload: Some("{}"),
+                created_at: Some(created_at),
+            })
+            .expect("insert result");
+    }
+
+    let results = store
+        .list_latest_widget_results_for_runs_by_type(
+            &[
+                "run-1".to_owned(),
+                "run-2".to_owned(),
+                "missing-run".to_owned(),
+            ],
+            &["wanted_result"],
+        )
+        .expect("list latest results");
+
+    assert_eq!(
+        results.get("run-1").expect("run-1 result").id,
+        "result-1-new"
+    );
+    assert_eq!(results.get("run-2").expect("run-2 result").id, "result-2");
+    assert!(results.get("missing-run").is_none());
+}
+
+#[test]
 fn count_widget_logs_for_run_and_runs_is_scoped_to_widget() {
     let store = initialized_store();
     create_workspace_and_workbench(&store);

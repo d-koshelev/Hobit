@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::{
-    NewAgentQueueTaskRunLink, NewWidgetInstance, NewWidgetLog, SqliteStore,
+    NewAgentQueueTaskRunLink, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
+    SqliteStore,
 };
 use hobit_tools::codex_cli::{
     CodexApprovalPolicy, CodexDirectRunOutput, CodexDirectRunRequest, CodexDirectRunStatus,
@@ -74,6 +75,104 @@ fn list_agent_executor_runs_returns_direct_work_and_validation_only() {
             && run.validation_status.as_deref() == Some("passed")
             && run.has_result
     }));
+}
+
+#[test]
+fn list_agent_executor_runs_preserves_order_and_missing_result_behavior() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
+
+    insert_agent_executor_run(
+        &service,
+        "history-old",
+        &widget_id,
+        "completed",
+        Some("codex_direct_work"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/old"}"#),
+        "100",
+        Some("101"),
+        Some("Old run"),
+    );
+    insert_agent_executor_result(
+        &service,
+        "history-old-result",
+        "history-old",
+        "completed",
+        "codex_direct_work_result",
+        Some("Old result"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/old","duration_ms":7,"status":"completed"}"#),
+        "102",
+    );
+    insert_agent_executor_run(
+        &service,
+        "history-missing-result",
+        &widget_id,
+        "running",
+        Some("codex_direct_work"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/missing"}"#),
+        "200",
+        None,
+        Some("Missing result still running"),
+    );
+    insert_agent_executor_run(
+        &service,
+        "history-new-validation",
+        &widget_id,
+        "completed",
+        Some("direct_work_validation"),
+        Some(r#"{"mode":"direct_work_validation","repo_root":"C:/new","profile":"changed"}"#),
+        "300",
+        Some("301"),
+        Some("Validation run"),
+    );
+    insert_agent_executor_result(
+        &service,
+        "history-new-validation-result",
+        "history-new-validation",
+        "completed",
+        "direct_work_validation_result",
+        Some("Validation failed"),
+        Some(
+            r#"{"mode":"direct_work_validation","repo_root":"C:/new","profile":"changed","status":"failed","duration_ms":9}"#,
+        ),
+        "302",
+    );
+
+    let history = service
+        .list_agent_executor_runs(&workspace_id, &workbench_id, &widget_id, Some(10))
+        .expect("list history")
+        .expect("history");
+
+    assert_eq!(
+        run_ids(&history.runs),
+        vec![
+            "history-new-validation",
+            "history-missing-result",
+            "history-old"
+        ]
+    );
+    let missing = history
+        .runs
+        .iter()
+        .find(|run| run.run_id == "history-missing-result")
+        .expect("missing-result run");
+    assert_eq!(missing.status, "running");
+    assert_eq!(missing.result_type, None);
+    assert_eq!(missing.title, "Missing result still running");
+    assert_eq!(missing.repo_root.as_deref(), Some("C:/missing"));
+    assert_eq!(missing.mode.as_deref(), Some("direct_work"));
+    assert!(!missing.has_result);
+    assert_eq!(missing.log_count, Some(0));
+
+    let validation = history
+        .runs
+        .iter()
+        .find(|run| run.run_id == "history-new-validation")
+        .expect("validation run");
+    assert_eq!(validation.title, "Validation failed");
+    assert_eq!(validation.duration_ms, Some(9));
+    assert_eq!(validation.validation_profile.as_deref(), Some("changed"));
+    assert_eq!(validation.validation_status.as_deref(), Some("failed"));
 }
 
 #[test]
@@ -204,6 +303,76 @@ fn get_agent_executor_run_detail_returns_result_and_run_scoped_logs() {
         .logs
         .iter()
         .any(|log| log.id == "cross-widget-run-log"));
+}
+
+#[test]
+fn get_agent_executor_run_detail_preserves_preview_caps_and_error_fields() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
+    let stdout = "s".repeat(16 * 1024 + 8);
+    let stderr = "e".repeat(16 * 1024 + 4);
+    let payload = serde_json::json!({
+        "mode": "direct_work",
+        "repo_root": "C:/failing",
+        "status": "failed",
+        "stdout": stdout,
+        "stderr": stderr,
+        "duration_ms": 11,
+        "error_message": "codex failed visibly"
+    })
+    .to_string();
+
+    insert_agent_executor_run(
+        &service,
+        "history-detail-failed",
+        &widget_id,
+        "failed",
+        Some("codex_direct_work"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/failing"}"#),
+        "400",
+        Some("401"),
+        Some("Failed run"),
+    );
+    insert_agent_executor_result(
+        &service,
+        "history-detail-failed-result",
+        "history-detail-failed",
+        "failed",
+        "codex_direct_work_result",
+        Some("Codex Direct Work failed"),
+        Some(&payload),
+        "402",
+    );
+
+    let detail = service
+        .get_agent_executor_run_detail(
+            &workspace_id,
+            &workbench_id,
+            &widget_id,
+            "history-detail-failed",
+        )
+        .expect("get detail")
+        .expect("detail");
+
+    assert_eq!(detail.summary.status, "failed");
+    assert_eq!(detail.summary.duration_ms, Some(11));
+    assert_eq!(detail.result_status.as_deref(), Some("failed"));
+    assert_eq!(
+        detail.error_message.as_deref(),
+        Some("codex failed visibly")
+    );
+    assert_eq!(
+        detail.stdout_preview.as_ref().expect("stdout").len(),
+        16 * 1024
+    );
+    assert_eq!(
+        detail.stderr_preview.as_ref().expect("stderr").len(),
+        16 * 1024
+    );
+    assert!(detail
+        .result_payload
+        .as_deref()
+        .is_some_and(|payload| payload.contains("codex failed visibly")));
 }
 
 #[test]
@@ -362,6 +531,59 @@ fn add_terminal_widget(
         .expect("terminal widget")
         .id
         .clone()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_agent_executor_run(
+    service: &WorkspaceService,
+    run_id: &str,
+    widget_id: &str,
+    status: &str,
+    command_kind: Option<&str>,
+    command_payload: Option<&str>,
+    started_at: &str,
+    finished_at: Option<&str>,
+    summary: Option<&str>,
+) {
+    service
+        .store
+        .insert_widget_run(NewWidgetRun {
+            id: run_id,
+            widget_instance_id: widget_id,
+            status,
+            command_kind,
+            command_payload,
+            started_at: Some(started_at),
+            finished_at,
+            summary,
+        })
+        .expect("insert Agent Executor run");
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_agent_executor_result(
+    service: &WorkspaceService,
+    result_id: &str,
+    run_id: &str,
+    status: &str,
+    result_type: &str,
+    summary: Option<&str>,
+    payload: Option<&str>,
+    created_at: &str,
+) {
+    service
+        .store
+        .insert_widget_result(NewWidgetResult {
+            id: result_id,
+            run_id,
+            status,
+            result_type: Some(result_type),
+            summary,
+            content: None,
+            payload,
+            created_at: Some(created_at),
+        })
+        .expect("insert Agent Executor result");
 }
 
 fn run_direct_work(

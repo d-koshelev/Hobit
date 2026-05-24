@@ -19,6 +19,7 @@ use super::{
 
 const DEFAULT_AGENT_EXECUTOR_HISTORY_LIMIT: usize = 20;
 const MAX_AGENT_EXECUTOR_HISTORY_LIMIT: usize = 100;
+const AGENT_EXECUTOR_HISTORY_RESULT_BATCH_SIZE: usize = 100;
 const AGENT_EXECUTOR_RUN_DETAIL_LOG_LIMIT: usize = 100;
 const AGENT_EXECUTOR_TEXT_PREVIEW_LIMIT: usize = 16 * 1024;
 const AGENT_EXECUTOR_HISTORY_WIDGET_ERROR: &str =
@@ -45,31 +46,56 @@ impl WorkspaceService {
 
         ensure_agent_executor_widget(&widget.definition_id)?;
 
+        let result_batch_size = limit.clamp(
+            DEFAULT_AGENT_EXECUTOR_HISTORY_LIMIT,
+            AGENT_EXECUTOR_HISTORY_RESULT_BATCH_SIZE,
+        );
         let mut candidates = Vec::new();
-        for run in self
+        let mut runs = self
             .store
             .list_widget_runs_for_widget(&widget.id)?
             .into_iter()
-            .rev()
-        {
-            let results = self.store.list_widget_results(&run.id)?;
-
-            if !is_agent_executor_run(&run, &results) {
-                continue;
+            .rev();
+        loop {
+            let run_batch = runs.by_ref().take(result_batch_size).collect::<Vec<_>>();
+            if run_batch.is_empty() {
+                break;
             }
+            let run_ids = run_batch
+                .iter()
+                .map(|run| run.id.clone())
+                .collect::<Vec<_>>();
+            let latest_results = self.store.list_latest_widget_results_for_runs_by_type(
+                &run_ids,
+                &[
+                    CODEX_DIRECT_WORK_RESULT_TYPE,
+                    DIRECT_WORK_VALIDATION_RESULT_TYPE,
+                ],
+            )?;
 
-            let result = latest_agent_executor_result(&results).cloned();
-            let result_payload = result
-                .as_ref()
-                .and_then(|result| parse_json_value(result.payload.as_deref()));
-            let command_payload = parse_json_value(run.command_payload.as_deref());
+            for run in run_batch {
+                let result = latest_results.get(&run.id).cloned();
 
-            candidates.push(AgentExecutorRunCandidate {
-                run,
-                result,
-                result_payload,
-                command_payload,
-            });
+                if !is_agent_executor_run_candidate(&run, result.as_ref()) {
+                    continue;
+                }
+
+                let result_payload = result
+                    .as_ref()
+                    .and_then(|result| parse_json_value(result.payload.as_deref()));
+                let command_payload = parse_json_value(run.command_payload.as_deref());
+
+                candidates.push(AgentExecutorRunCandidate {
+                    run,
+                    result,
+                    result_payload,
+                    command_payload,
+                });
+
+                if candidates.len() >= limit {
+                    break;
+                }
+            }
 
             if candidates.len() >= limit {
                 break;
@@ -194,6 +220,10 @@ fn is_agent_executor_run(run: &WidgetRunRow, results: &[WidgetResultRow]) -> boo
         || results
             .iter()
             .any(|result| is_agent_executor_result_type(&result.result_type))
+}
+
+fn is_agent_executor_run_candidate(run: &WidgetRunRow, result: Option<&WidgetResultRow>) -> bool {
+    is_agent_executor_command(run.command_kind.as_deref()) || result.is_some()
 }
 
 fn is_agent_executor_command(command_kind: Option<&str>) -> bool {
