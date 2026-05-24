@@ -9,7 +9,13 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
 const FRONTEND_DIR = path.join(REPO_ROOT, "apps", "desktop", "frontend");
 const SMOKE_PATH = "/smoke/dev/coordinator-provider-product-smoke.html";
-const SCENARIOS = ["queue-draft", "note-draft", "jdbc-draft", "provider-error"];
+const SCENARIOS = [
+  "queue-draft",
+  "note-draft",
+  "jdbc-draft",
+  "provider-error",
+  "mvp-loop",
+];
 const JDBC_SQL = "select count(*) from smoke_table;";
 
 main().catch((error) => {
@@ -97,7 +103,7 @@ function printHelp() {
   console.log(`Usage: node scripts/hobit/smoke-coordinator-product-ui.mjs [options]
 
 Options:
-  --scenario <queue-draft|note-draft|jdbc-draft|provider-error>  Run one scenario.
+  --scenario <queue-draft|note-draft|jdbc-draft|provider-error|mvp-loop>  Run one scenario.
   --browser <path>                                               Browser executable override.
   --headed                                                       Run the browser visibly.
   --help                                                         Show this help.
@@ -126,10 +132,15 @@ async function runScenario({ browserPort, scenario, url }) {
     await waitFor(cdp, "Boolean(window.__HOBIT_COORDINATOR_PRODUCT_SMOKE__)");
     await waitForText(cdp, "Coordinator provider product smoke");
     await setClipboardStub(cdp);
-    await setFieldByLabel(cdp, "Message", promptForScenario(scenario));
-    await waitForEnabledButton(cdp, "Send");
-    await clickButton(cdp, "Send");
-    await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 1);
+
+    if (scenario === "mvp-loop") {
+      await runMvpLoopScenario(cdp);
+    } else {
+      await setFieldByLabel(cdp, "Message", promptForScenario(scenario));
+      await waitForEnabledButton(cdp, "Send");
+      await clickButton(cdp, "Send");
+      await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 1);
+    }
 
     if (scenario === "queue-draft") {
       await runQueueScenario(cdp);
@@ -137,7 +148,7 @@ async function runScenario({ browserPort, scenario, url }) {
       await runNoteScenario(cdp);
     } else if (scenario === "jdbc-draft") {
       await runJdbcScenario(cdp);
-    } else {
+    } else if (scenario === "provider-error") {
       await runProviderErrorScenario(cdp);
     }
 
@@ -148,6 +159,152 @@ async function runScenario({ browserPort, scenario, url }) {
     await cdp.close();
     await closeTarget(browserPort, target.id).catch(() => {});
   }
+}
+
+async function runMvpLoopScenario(cdp) {
+  await waitForText(cdp, "Start with a planning question or a task draft.");
+  await waitForText(cdp, "Make a plan");
+  await clickButton(cdp, "Make a plan");
+  await waitForFieldValue(
+    cdp,
+    "Message",
+    "Make a plan from the visible chat only. Goal: ",
+  );
+  await setFieldByLabel(
+    cdp,
+    "Message",
+    "Make a plan from the visible chat only. Goal: harden the Coordinator Queue Executor MVP loop",
+  );
+  await clickButton(cdp, "Send");
+  await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 1);
+  await waitForText(cdp, "Coordinator plan");
+  await waitForText(cdp, "Plan draft");
+  await waitForText(cdp, "No execution");
+
+  await setFieldByLabel(
+    cdp,
+    "Message",
+    [
+      "Break this into Queue tasks from visible text only.",
+      "- Audit the Coordinator proposal flow",
+      "- Verify Queue Executor context attach",
+    ].join("\n"),
+  );
+  await clickButton(cdp, "Send");
+  await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 2);
+  await waitForText(cdp, "Draft Queue task");
+  await waitForText(cdp, "Audit the Coordinator proposal flow");
+  await waitForText(cdp, "Verify Queue Executor context attach");
+  await waitForText(cdp, "Prompt preview");
+  await waitForText(cdp, "Priority");
+  await waitForText(cdp, "Policy");
+  await waitForText(cdp, "draft/proposed");
+  await assertButtonMissingInCard(
+    cdp,
+    "Audit the Coordinator proposal flow",
+    "Create Queue task",
+  );
+  assertEqual(
+    (await smokeSnapshot(cdp)).createQueueTaskCallCount,
+    0,
+    "Queue task creation before review",
+  );
+  await clickButton(cdp, "Approve all drafts");
+  await waitForEnabledButtonInCard(
+    cdp,
+    "Audit the Coordinator proposal flow",
+    "Create Queue task",
+  );
+  assertEqual(
+    (await smokeSnapshot(cdp)).createQueueTaskCallCount,
+    0,
+    "Queue task creation after approve all",
+  );
+  await clickButtonInCard(
+    cdp,
+    "Audit the Coordinator proposal flow",
+    "Create Queue task",
+  );
+  await waitForSnapshot(
+    cdp,
+    (snapshot) => snapshot.createQueueTaskCallCount === 1,
+  );
+  await waitForText(cdp, "Queue task created");
+
+  let snapshot = await smokeSnapshot(cdp);
+  assertEqual(snapshot.queueDispatchCallCount, 0, "Queue dispatch calls");
+  assertEqual(snapshot.executorLaunchCallCount, 0, "Executor launch calls");
+  assertEqual(snapshot.terminalCallCount, 0, "Terminal calls");
+  assertEqual(snapshot.gitCallCount, 0, "Git calls");
+
+  await waitForText(cdp, "Latest run");
+  await waitForText(cdp, "Run history");
+  await clickQueueGroupButton(cdp, "Latest run", "Attach to Coordinator");
+  await waitForCoordinatorText(cdp, "Visible attached context");
+  await waitForCoordinatorText(cdp, "Queue latest run");
+  await waitForCoordinatorText(cdp, "Queue run metadata");
+  await waitForCoordinatorText(cdp, "Run: coordinator-mvp-run-123456");
+  await assertCoordinatorExcludes(cdp, "executor-only final response body");
+  await assertCoordinatorExcludes(cdp, "executor-only stdout line");
+  await assertCoordinatorExcludes(cdp, "raw executor payload");
+  await assertCoordinatorExcludes(cdp, "C:\\Users\\Dmitry");
+  await assertCoordinatorExcludes(cdp, "sk-hobit");
+
+  const beforeAttachSend = await smokeSnapshot(cdp);
+  await clickButton(cdp, "Send");
+  await waitForSnapshot(
+    cdp,
+    (current) =>
+      current.providerCallCount === beforeAttachSend.providerCallCount + 1,
+  );
+  snapshot = await smokeSnapshot(cdp);
+  assertProviderRequestIsVisibleOnly(snapshot.lastProviderRequestJson);
+
+  await clickQueueGroupButton(cdp, "Latest run", "Open Executor");
+  await waitForText(cdp, "executor-only final response body");
+  const beforeExecutorAttach = await smokeSnapshot(cdp);
+  await clickExecutorDetailButton(cdp, "Attach to Coordinator");
+  await waitForCoordinatorText(cdp, "Executor run detail");
+  await waitForCoordinatorText(cdp, "Executor run metadata");
+  await waitForCoordinatorText(cdp, "Result status: completed");
+  await assertCoordinatorExcludes(cdp, "executor-only final response body");
+  await assertCoordinatorExcludes(cdp, "executor-only stdout line");
+  await assertCoordinatorExcludes(cdp, "raw executor payload");
+  assertEqual(
+    (await smokeSnapshot(cdp)).providerCallCount,
+    beforeExecutorAttach.providerCallCount,
+    "Provider calls after Executor metadata attach",
+  );
+
+  await clickButton(cdp, "Remove");
+  await clickButton(cdp, "Attach response");
+  await waitForCoordinatorText(cdp, "Executor Final response preview");
+  await waitForCoordinatorText(cdp, "Executor visible preview");
+  await waitForCoordinatorText(cdp, "executor-only final response body");
+  assertEqual(
+    (await smokeSnapshot(cdp)).providerCallCount,
+    beforeExecutorAttach.providerCallCount,
+    "Provider calls after Executor preview attach",
+  );
+
+  snapshot = await smokeSnapshot(cdp);
+  assertAtLeast(
+    snapshot.listQueueRunLinksCallCount,
+    1,
+    "Queue run metadata reads",
+  );
+  assertAtLeast(
+    snapshot.listExecutorRunsCallCount,
+    1,
+    "Executor history reads",
+  );
+  assertAtLeast(
+    snapshot.executorRunDetailCallCount,
+    1,
+    "Executor detail reads",
+  );
+  assertEqual(snapshot.startAssignedTaskCallCount, 0, "Queue start calls");
+  assertCommonSafety(snapshot);
 }
 
 async function runQueueScenario(cdp) {
@@ -244,6 +401,9 @@ function promptForScenario(scenario) {
   if (scenario === "jdbc-draft") {
     return "prepare sql for this visible provider smoke request";
   }
+  if (scenario === "mvp-loop") {
+    return "Make a plan from the visible chat only. Goal: harden the Coordinator Queue Executor MVP loop";
+  }
   return "ask configured provider to surface a visible error";
 }
 
@@ -254,6 +414,39 @@ function assertCommonSafety(snapshot) {
   assertEqual(snapshot.forbiddenCallCount, 0, "forbidden backend calls");
   assertEqual(snapshot.terminalCallCount, 0, "Terminal calls");
   assertEqual(snapshot.gitCallCount, 0, "Git calls");
+}
+
+function assertProviderRequestIsVisibleOnly(requestJson) {
+  assert(requestJson, "Provider request snapshot is empty");
+  const request = JSON.parse(requestJson);
+
+  assertEqual(
+    Object.keys(request).sort().join(","),
+    "operatorMessage,visibleConversation,visibleProposalDrafts",
+    "Provider request keys",
+  );
+  assertEqual(
+    Array.isArray(request.visibleConversation),
+    true,
+    "Visible conversation array",
+  );
+  assertEqual(
+    Array.isArray(request.visibleProposalDrafts),
+    true,
+    "Visible proposal drafts array",
+  );
+  assert(
+    request.operatorMessage.includes(
+      "Visible attached context (Queue latest run)",
+    ),
+    "Provider request did not include visible attached Queue metadata",
+  );
+  assert(
+    !/executor-only final response body|executor-only stdout line|raw executor payload|repoRoot|repo_root|secret|context_pack|artifact|knowledge|terminal_output|agent_executor_logs|git_status|git_diff|jdbc_metadata|jdbc_results|notes_body|filesystem|environment_variables|provider_api_key/i.test(
+      requestJson,
+    ),
+    "Provider request included hidden or raw context",
+  );
 }
 
 function startVite(port) {
@@ -479,6 +672,20 @@ async function setFieldByLabel(cdp, label, value) {
   );
 }
 
+async function waitForFieldValue(cdp, label, value) {
+  await waitFor(
+    cdp,
+    `(() => {
+      const label = [...document.querySelectorAll("label")].find(
+        (candidate) => candidate.textContent.trim() === ${JSON.stringify(label)}
+      );
+      if (!label?.htmlFor) return false;
+      const field = document.getElementById(label.htmlFor);
+      return Boolean(field && field.value === ${JSON.stringify(value)});
+    })()`,
+  );
+}
+
 async function clickButton(cdp, text) {
   await evaluate(
     cdp,
@@ -487,6 +694,36 @@ async function clickButton(cdp, text) {
         (candidate) => candidate.textContent.trim() === ${JSON.stringify(text)} && !candidate.disabled
       );
       if (!button) throw new Error("Enabled button not found: ${escapeForJs(text)}");
+      button.click();
+    })()`,
+  );
+}
+
+async function clickQueueGroupButton(cdp, heading, buttonText) {
+  await evaluate(
+    cdp,
+    `(() => {
+      ${queueExecutionGroupScript()}
+      const group = queueExecutionGroup(${JSON.stringify(heading)});
+      const button = [...group.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent.trim() === ${JSON.stringify(buttonText)} && !candidate.disabled
+      );
+      if (!button) throw new Error("Enabled Queue button not found: ${escapeForJs(heading)} / ${escapeForJs(buttonText)}");
+      button.click();
+    })()`,
+  );
+}
+
+async function clickExecutorDetailButton(cdp, buttonText) {
+  await evaluate(
+    cdp,
+    `(() => {
+      const detail = document.querySelector(".agent-executor-history-detail");
+      if (!detail) throw new Error("Executor detail panel not found.");
+      const button = [...detail.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent.trim() === ${JSON.stringify(buttonText)} && !candidate.disabled
+      );
+      if (!button) throw new Error("Enabled Executor detail button not found: ${escapeForJs(buttonText)}");
       button.click();
     })()`,
   );
@@ -536,6 +773,47 @@ async function waitForText(cdp, text) {
   );
 }
 
+async function waitForCoordinatorText(cdp, text) {
+  await waitFor(
+    cdp,
+    `widgetTextByTitle("Coordinator Chat").includes(${JSON.stringify(text)})`,
+  );
+}
+
+async function assertCoordinatorExcludes(cdp, text) {
+  const coordinatorText = await widgetText(cdp, "Coordinator Chat");
+  assert(
+    !coordinatorText.includes(text),
+    `Coordinator unexpectedly included text: ${text}`,
+  );
+}
+
+async function widgetText(cdp, title) {
+  return evaluate(cdp, `widgetTextByTitle(${JSON.stringify(title)})`);
+}
+
+function queueExecutionGroupScript() {
+  return `function queueExecutionGroup(heading) {
+    const groups = [...document.querySelectorAll(".agent-queue-execution-group")];
+    const group = groups.find((candidate) => {
+      const title = candidate.querySelector(".agent-queue-execution-group-title");
+      return title && title.textContent.trim() === heading;
+    });
+    if (!group) throw new Error("Queue group not found: " + heading);
+    return group;
+  }`;
+}
+
+function widgetTextByTitleScript() {
+  return `function widgetTextByTitle(title) {
+    const heading = [...document.querySelectorAll(".widget-title")].find(
+      (candidate) => candidate.textContent.trim() === title
+    );
+    const frame = heading?.closest(".widget-frame");
+    return frame?.textContent ?? "";
+  }`;
+}
+
 async function waitForSnapshot(cdp, predicate, timeoutMs = 5000) {
   await waitUntil(async () => predicate(await smokeSnapshot(cdp)), timeoutMs);
 }
@@ -566,7 +844,7 @@ async function waitUntil(predicate, timeoutMs = 5000) {
 async function evaluate(cdp, expression) {
   const result = await cdp.send("Runtime.evaluate", {
     awaitPromise: true,
-    expression,
+    expression: `${widgetTextByTitleScript()}\n${expression}`,
     returnByValue: true,
     userGesture: true,
   });
@@ -600,6 +878,13 @@ function assert(condition, message) {
 
 function assertEqual(actual, expected, label) {
   assert(actual === expected, `${label}: expected ${expected}, got ${actual}`);
+}
+
+function assertAtLeast(actual, expected, label) {
+  assert(
+    actual >= expected,
+    `${label}: expected at least ${expected}, got ${actual}`,
+  );
 }
 
 async function waitForHttp(url, timeoutMs = 12000) {
