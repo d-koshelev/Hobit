@@ -135,6 +135,9 @@ export function CoordinatorActionProposalCard({
     !isQueueTaskCreationPending &&
     !hasCreatedNote &&
     !hasCreatedQueueTask;
+  const queueDraft = isCreateQueueTaskProposal
+    ? queueDraftSummary(proposal)
+    : null;
 
   return (
     <section
@@ -242,6 +245,7 @@ export function CoordinatorActionProposalCard({
         </div>
       ) : (
         <>
+          {queueDraft ? <QueueDraftWorkItem draft={queueDraft} /> : null}
           <ProposalSection label="Intent" value={proposal.intent} />
           <div className="coordinator-proposal-section">
             <p className="coordinator-proposal-section-label">Visible inputs</p>
@@ -361,6 +365,57 @@ export function CoordinatorActionProposalCard({
       ) : null}
     </section>
   );
+}
+
+type QueueDraftSummary = {
+  policy: string;
+  priority: string;
+  prompt: string;
+  status: string;
+  title: string;
+};
+
+function QueueDraftWorkItem({ draft }: { draft: QueueDraftSummary }) {
+  return (
+    <section
+      aria-label={`Draft Queue task: ${draft.title}`}
+      className="coordinator-queue-draft"
+    >
+      <div className="coordinator-queue-draft-heading">
+        <div className="coordinator-queue-draft-title-copy">
+          <p className="coordinator-proposal-section-label">
+            Draft Queue task
+          </p>
+          <p className="coordinator-queue-draft-title">{draft.title}</p>
+        </div>
+        <dl className="coordinator-queue-draft-meta">
+          <ProposalMeta label="Priority" value={draft.priority} />
+          <ProposalMeta label="Policy" value={draft.policy} />
+          <ProposalMeta label="Status" value={draft.status} />
+        </dl>
+      </div>
+      <div className="coordinator-queue-draft-prompt">
+        <p className="coordinator-proposal-section-label">Prompt preview</p>
+        <p className="coordinator-proposal-section-value">{draft.prompt}</p>
+      </div>
+      <p className="coordinator-proposal-note">
+        Creates a draft task. Does not run it. Queue/Executor run work only
+        after explicit operator action.
+      </p>
+    </section>
+  );
+}
+
+function queueDraftSummary(
+  proposal: CoordinatorActionProposal,
+): QueueDraftSummary {
+  return {
+    policy: proposalInputValue(proposal, "Policy") || "manual",
+    priority: proposalInputValue(proposal, "Priority") || "0",
+    prompt: proposalInputValue(proposal, "Prompt") || proposal.intent,
+    status: proposal.createdQueueTaskId ? "draft/created" : "draft/proposed",
+    title: proposalInputValue(proposal, "Title") || proposal.title,
+  };
 }
 
 function ProposalMeta({ label, value }: { label: string; value: string }) {

@@ -72,10 +72,17 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     await sendMessage("Make a plan for stabilizing the visible frontend task");
 
+    expect(document.body.textContent).toContain("Coordinator plan");
     expect(document.body.textContent).toContain("Plan draft");
+    expect(document.body.textContent).toContain(
+      "stabilizing the visible frontend task",
+    );
+    expect(document.body.textContent).toContain(
+      "Separate quick operator decisions from larger async Queue work.",
+    );
     expect(document.body.textContent).toContain("No execution");
     expect(document.body.textContent).toContain(
-      "Planning is UI-only. Queue task drafts still require proposal approval plus Create Queue task",
+      "Plan only. Queue task drafts require approval plus Create Queue task.",
     );
     expect(document.body.textContent).toContain(
       "No Workspace, Queue, Executor, Notes, Git, JDBC, Terminal, logs, files, or artifacts were read.",
@@ -145,9 +152,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
             typeId: "create-agent-queue-task",
             visibleInputs: [
               { label: "Title", value: "Provider visible task" },
-              { label: "Description", value: "Visible provider draft." },
               { label: "Prompt", value: "Use only visible Coordinator chat." },
-              { label: "Priority", value: "1" },
             ],
           },
         ],
@@ -163,8 +168,52 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await sendMessage("plan work from visible chat");
 
     expect(document.body.textContent).toContain("Provider visible task");
+    expect(document.body.textContent).toContain("Draft Queue task");
+    expect(document.body.textContent).toContain("Priority");
+    expect(document.body.textContent).toContain("0");
+    expect(document.body.textContent).toContain("Policy");
+    expect(document.body.textContent).toContain("manual");
     expect(document.body.textContent).toContain("Pending preview");
     expect(buttonWithText("Create Queue task")).toBeUndefined();
+    expect(createQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("degrades unsafe provider drafts to assistant text without proposal actions", async () => {
+    const createQueueTask = vi.fn();
+    const provider = vi.fn(async () =>
+      providerResponse({
+        assistantText:
+          "I cannot run Terminal, Queue, Executor, Git, JDBC, or hidden tools from Coordinator.",
+        proposalDrafts: [
+          {
+            expectedResult: "Run a shell command.",
+            id: "unsafe-terminal-draft",
+            intent: "Run a Terminal command from Coordinator.",
+            riskNotes: ["Unsafe."],
+            targetCapability: "run terminal command",
+            targetWidget: "Terminal",
+            title: "Run Terminal command",
+            typeId: "create-agent-queue-task",
+            visibleInputs: [
+              { label: "Title", value: "Run Terminal command" },
+              { label: "Prompt", value: "Run dir" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWidget({
+      onCreateAgentQueueTask: createQueueTask,
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+    await sendMessage("provider should reject unsafe draft");
+
+    expect(document.body.textContent).toContain(
+      "I cannot run Terminal, Queue, Executor, Git, JDBC, or hidden tools from Coordinator.",
+    );
+    expect(document.body.textContent).not.toContain("Run Terminal command");
+    expect(buttonWithText("Approve")).toBeUndefined();
     expect(createQueueTask).not.toHaveBeenCalled();
   });
 
@@ -180,12 +229,46 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
 
     expect(document.body.textContent).toContain("Plan draft");
-    expect(document.body.textContent).toContain("Queue task proposal");
+    expect(document.body.textContent).toContain("Draft Queue task");
     expect(document.body.textContent).toContain("Audit the Coordinator proposal flow");
     expect(document.body.textContent).toContain("Add a compact planning card");
+    expect(document.body.textContent).toContain("Prompt preview");
+    expect(document.body.textContent).toContain("Priority");
     expect(document.body.textContent).toContain("Policy");
     expect(document.body.textContent).toContain("manual");
+    expect(document.body.textContent).toContain("draft/proposed");
+    expect(document.body.textContent).toContain(
+      "Creates a draft task. Does not run it.",
+    );
     expect(buttonWithText("Create Queue task")).toBeUndefined();
+  });
+
+  it("reviews multiple Queue task drafts without creating or running them", async () => {
+    const createQueueTask = vi.fn();
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await sendMessage(
+      [
+        "Break this into Queue tasks from visible text only.",
+        "- Audit the Coordinator proposal flow",
+        "- Add a compact planning card",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain(
+      "2 drafted, 0 approved, 0 created.",
+    );
+    expect(document.body.textContent).toContain(
+      "Approve all drafts is local review only.",
+    );
+
+    await clickButton("Approve all drafts");
+
+    expect(document.body.textContent).toContain(
+      "2 drafted, 2 approved, 0 created.",
+    );
+    expect(buttonsWithText("Create Queue task")).toHaveLength(2);
+    expect(createQueueTask).not.toHaveBeenCalled();
   });
 
   it("approval does not create or run a Queue task", async () => {
@@ -199,7 +282,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(document.body.textContent).toContain("Approved preview");
     expect(document.body.textContent).toContain(
-      "Approval only accepts the preview. Use Create Queue task separately to create a draft task.",
+      "Approval only accepts the draft. Use Create Queue task separately. Creates a draft task. Does not run it.",
     );
     expect(buttonWithText("Create Queue task")).toBeDefined();
     expect(createQueueTask).not.toHaveBeenCalled();
@@ -320,6 +403,12 @@ function setNativeValue(field: HTMLTextAreaElement, value: string) {
 
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+function buttonsWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).filter(
     (button) => button.textContent === text,
   );
 }

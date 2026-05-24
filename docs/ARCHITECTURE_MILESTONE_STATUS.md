@@ -40,9 +40,10 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   Coordinator, while Queue and Agent Executor remain supporting execution
   surfaces.
 - Coordinator Chat now has a frontend-only planning UI layer for explicit
-  visible chat prompts: compact plan cards and visible Queue task draft
-  proposal cards. Queue task creation remains explicit draft creation only,
-  and execution remains Queue/Executor controlled.
+  visible chat prompts: compact plan cards, visible Queue task draft proposal
+  cards, and local-only multi-draft review controls. Queue task creation
+  remains explicit draft creation only, and execution remains Queue/Executor
+  controlled.
 
 ## Still Type-Only Or Contract-Only
 

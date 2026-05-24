@@ -138,7 +138,7 @@ function createQueueProposal(
     approvalStatus: "Pending preview",
     executionStatus: "Not run",
     expectedResult:
-      "A reviewed draft Queue task can be created after approval and a separate Create Queue task action, but it will not run automatically.",
+      "A reviewed draft Queue task can be created after approval and a separate Create Queue task action. Creates a draft task. Does not run it.",
     id: `${sourceMessageId}-create-queue-task-${index}`,
     inputs: [
       { label: "Title", value: title },
@@ -150,7 +150,7 @@ function createQueueProposal(
     intent:
       "Create a draft Agent Queue task from explicit operator text for later manual review.",
     resultSummary:
-      "Generated locally from explicit chat text. No Queue task has been created yet.",
+      "Drafted locally from explicit chat text. No Queue task has been created yet.",
     riskLevel: definition.riskLevel,
     riskNotes: [
       ...definition.safetyNotes,

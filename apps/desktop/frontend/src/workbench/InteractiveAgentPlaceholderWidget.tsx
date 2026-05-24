@@ -77,7 +77,7 @@ const APPROVED_PREVIEW_SUMMARY =
   "Approved locally only. Execution bridge is not implemented, and no widget capability was invoked.";
 
 const APPROVED_QUEUE_TASK_SUMMARY =
-  "Approved locally. Review the visible inputs, then use Create Queue task. No Queue task has been created yet.";
+  "Approved locally. Use Create Queue task to create a draft task. Does not run it.";
 
 const APPROVED_NOTE_SUMMARY =
   "Approved locally. Review the visible title, body, and pinned state, then use Create Note. No Note has been created yet.";
@@ -93,6 +93,9 @@ const CREATING_NOTE_SUMMARY =
 
 const QUEUE_TASK_CREATED_SUMMARY =
   "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
+
+const QUEUE_DRAFT_REVIEW_NOTE =
+  "Approve all drafts is local review only. Create Queue task stays explicit on each approved draft.";
 
 const NOTE_CREATED_SUMMARY =
   "Workspace-local Note created. Existing Notes content was not read, summarized, or searched.";
@@ -310,30 +313,39 @@ export function InteractiveAgentPlaceholderWidget({
   function approveProposal(proposalId: string) {
     setProposals((currentProposals) => {
       const proposal = currentProposals[proposalId];
-      const isCreateQueueTaskProposal =
-        proposal?.typeId === "create-agent-queue-task";
-      const isCreateNoteProposal = proposal?.typeId === "create-note";
-      const isJdbcQuerySuggestion =
-        proposal?.typeId === "prepare-jdbc-query-suggestion";
+      if (!proposal) {
+        return currentProposals;
+      }
 
-      return updateProposal(currentProposals, proposalId, {
-        approvalStatus: "Approved preview",
-        executionError: undefined,
-        executionStatus: isCreateQueueTaskProposal
-          ? "Ready to create Queue task"
-          : isCreateNoteProposal
-            ? "Ready to create Note"
-            : isJdbcQuerySuggestion
-              ? "SQL suggestion only"
-              : "Execution bridge not implemented",
-        resultSummary: isCreateQueueTaskProposal
-          ? APPROVED_QUEUE_TASK_SUMMARY
-          : isCreateNoteProposal
-            ? APPROVED_NOTE_SUMMARY
-            : isJdbcQuerySuggestion
-              ? APPROVED_JDBC_SUGGESTION_SUMMARY
-              : APPROVED_PREVIEW_SUMMARY,
+      return updateProposal(
+        currentProposals,
+        proposalId,
+        approvedProposalPatch(proposal),
+      );
+    });
+  }
+
+  function approveAllQueueDrafts(proposalIds: string[]) {
+    setProposals((currentProposals) => {
+      let nextProposals = currentProposals;
+
+      proposalIds.forEach((proposalId) => {
+        const proposal = nextProposals[proposalId];
+        if (
+          proposal?.typeId !== "create-agent-queue-task" ||
+          proposal.createdQueueTaskId
+        ) {
+          return;
+        }
+
+        nextProposals = updateProposal(
+          nextProposals,
+          proposalId,
+          approvedProposalPatch(proposal),
+        );
       });
+
+      return nextProposals;
     });
   }
 
@@ -687,6 +699,11 @@ export function InteractiveAgentPlaceholderWidget({
               ) : null}
               {message.proposalIds ? (
                 <div className="coordinator-proposal-list">
+                  <CoordinatorProposalReviewControls
+                    onApproveAllQueueDrafts={approveAllQueueDrafts}
+                    proposalIds={message.proposalIds}
+                    proposals={proposals}
+                  />
                   {message.proposalIds.map((proposalId) => {
                     const proposal = proposals[proposalId];
 
@@ -775,11 +792,17 @@ function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
     >
       <div className="coordinator-plan-header">
         <div className="coordinator-plan-title-copy">
-          <p className="coordinator-plan-kicker">Plan draft</p>
+          <p className="coordinator-plan-kicker">Coordinator plan</p>
           <h4 className="coordinator-plan-title">{plan.title}</h4>
-          <p className="coordinator-plan-goal">{plan.goal}</p>
+          <div className="coordinator-plan-goal-block">
+            <p className="coordinator-plan-section-label">Goal</p>
+            <p className="coordinator-plan-goal">{plan.goal}</p>
+          </div>
         </div>
-        <Badge variant="neutral">No execution</Badge>
+        <div className="coordinator-plan-badges">
+          <Badge variant="info">Plan draft</Badge>
+          <Badge variant="neutral">No execution</Badge>
+        </div>
       </div>
       <div className="coordinator-plan-grid">
         <PlanList label="Steps" values={plan.steps} />
@@ -790,9 +813,72 @@ function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
         />
       </div>
       <p className="coordinator-plan-note">
-        Planning is UI-only. Queue task drafts still require proposal approval
-        plus Create Queue task, and created tasks do not run from Coordinator.
+        Plan only. Queue task drafts require approval plus Create Queue task.
+        Queue/Executor run work only after explicit operator action.
       </p>
+    </section>
+  );
+}
+
+function CoordinatorProposalReviewControls({
+  onApproveAllQueueDrafts,
+  proposalIds,
+  proposals,
+}: {
+  onApproveAllQueueDrafts: (proposalIds: string[]) => void;
+  proposalIds: string[];
+  proposals: Record<string, CoordinatorActionProposal>;
+}) {
+  const queueDraftIds = proposalIds.filter(
+    (proposalId) =>
+      proposals[proposalId]?.typeId === "create-agent-queue-task",
+  );
+
+  if (queueDraftIds.length < 2) {
+    return null;
+  }
+
+  const queueDrafts = queueDraftIds
+    .map((proposalId) => proposals[proposalId])
+    .filter((proposal): proposal is CoordinatorActionProposal =>
+      Boolean(proposal),
+    );
+  const approvedCount = queueDrafts.filter(
+    (proposal) => proposal.approvalStatus === "Approved preview",
+  ).length;
+  const createdCount = queueDrafts.filter((proposal) =>
+    Boolean(proposal.createdQueueTaskId),
+  ).length;
+  const approvableIds = queueDrafts
+    .filter((proposal) => !proposal.createdQueueTaskId)
+    .map((proposal) => proposal.id);
+  const canApproveAll =
+    approvableIds.length > 0 && approvedCount < queueDrafts.length;
+
+  return (
+    <section
+      aria-label="Queue draft review controls"
+      className="coordinator-proposal-review"
+    >
+      <div className="coordinator-proposal-review-copy">
+        <p className="coordinator-proposal-section-label">
+          Draft Queue tasks
+        </p>
+        <p className="coordinator-proposal-section-value">
+          {queueDrafts.length} drafted, {approvedCount} approved,{" "}
+          {createdCount} created.
+        </p>
+        <p className="coordinator-proposal-note">
+          {QUEUE_DRAFT_REVIEW_NOTE}
+        </p>
+      </div>
+      <Button
+        disabled={!canApproveAll}
+        onClick={() => onApproveAllQueueDrafts(approvableIds)}
+        variant="secondary"
+      >
+        Approve all drafts
+      </Button>
     </section>
   );
 }
@@ -826,6 +912,33 @@ function updateProposal(
       ...proposal,
       ...patch,
     },
+  };
+}
+
+function approvedProposalPatch(proposal: CoordinatorActionProposal) {
+  const isCreateQueueTaskProposal =
+    proposal.typeId === "create-agent-queue-task";
+  const isCreateNoteProposal = proposal.typeId === "create-note";
+  const isJdbcQuerySuggestion =
+    proposal.typeId === "prepare-jdbc-query-suggestion";
+
+  return {
+    approvalStatus: "Approved preview" as const,
+    executionError: undefined,
+    executionStatus: isCreateQueueTaskProposal
+      ? ("Ready to create Queue task" as const)
+      : isCreateNoteProposal
+        ? ("Ready to create Note" as const)
+        : isJdbcQuerySuggestion
+          ? ("SQL suggestion only" as const)
+          : ("Execution bridge not implemented" as const),
+    resultSummary: isCreateQueueTaskProposal
+      ? APPROVED_QUEUE_TASK_SUMMARY
+      : isCreateNoteProposal
+        ? APPROVED_NOTE_SUMMARY
+        : isJdbcQuerySuggestion
+          ? APPROVED_JDBC_SUGGESTION_SUMMARY
+          : APPROVED_PREVIEW_SUMMARY,
   };
 }
 

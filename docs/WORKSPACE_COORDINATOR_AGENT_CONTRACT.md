@@ -46,7 +46,9 @@ The current Coordinator preview:
 - can show local UI-only plan cards with goal, steps, risks/notes, and
   suggested next actions from explicit visible chat text
 - can draft one or more visible Queue task proposal cards from explicit
-  planning text
+  planning text, with visible title, prompt, priority, execution policy, and
+  draft/proposed status
+- can approve all visible Queue task drafts as local review state only
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue details, files, environment variables, secrets, or hidden context

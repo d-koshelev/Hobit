@@ -31,6 +31,18 @@ export function coordinatorProviderDraftProposals(
     return { proposals: [], rejectedCount: 0 };
   }
 
+  if (
+    response.allowedTools.length > 0 ||
+    !response.noToolsExecuted ||
+    !response.noMutationsPerformed ||
+    !response.noHiddenContextUsed
+  ) {
+    return {
+      proposals: [],
+      rejectedCount: response.proposalDrafts.length,
+    };
+  }
+
   let rejectedCount = 0;
   const proposals: CoordinatorActionProposal[] = [];
 
@@ -92,13 +104,20 @@ function normalizedInputs(
   definition: CoordinatorProposalTypeDefinition,
 ): CoordinatorProposalInput[] | null {
   if (definition.typeId === "create-agent-queue-task") {
-    const title = requiredInput(draft, "Title");
-    const description = requiredInput(draft, "Description");
-    const prompt = requiredInput(draft, "Prompt");
+    const prompt = inputValue(draft, ["Prompt", "Instruction", "Instructions"]);
 
-    if (!title || !description || !prompt) {
+    if (!prompt) {
       return null;
     }
+
+    const title =
+      inputValue(draft, ["Title", "Task title"]) ||
+      draft.title.trim() ||
+      defaultQueueTitle(prompt);
+    const description =
+      inputValue(draft, ["Description", "Summary"]) ||
+      draft.intent.trim() ||
+      prompt;
 
     return [
       { label: "Title", value: title },
@@ -106,11 +125,17 @@ function normalizedInputs(
       { label: "Prompt", value: prompt },
       {
         label: "Priority",
-        value: clampPriority(optionalInput(draft, "Priority")).toString(),
+        value: clampPriority(inputValue(draft, ["Priority"])).toString(),
       },
       {
         label: "Policy",
-        value: normalizeExecutionPolicy(optionalInput(draft, "Policy")),
+        value: normalizeExecutionPolicy(
+          inputValue(draft, [
+            "Policy",
+            "Execution policy",
+            "ExecutionPolicy",
+          ]),
+        ),
       },
     ];
   }
@@ -126,12 +151,12 @@ function normalizedInputs(
     return [
       { label: "Title", value: title },
       { label: "Body", value: body },
-      { label: "Pinned", value: normalizePinned(optionalInput(draft, "Pinned")) },
+      { label: "Pinned", value: normalizePinned(inputValue(draft, ["Pinned"])) },
     ];
   }
 
-  const question = optionalInput(draft, "Question") || draft.intent.trim();
-  const connectorLabel = optionalInput(draft, "Connector label");
+  const question = inputValue(draft, ["Question"]) || draft.intent.trim();
+  const connectorLabel = inputValue(draft, ["Connector label"]);
   const inputs: CoordinatorProposalInput[] = [
     { label: "Question", value: question || "Review this SQL suggestion." },
   ];
@@ -142,7 +167,9 @@ function normalizedInputs(
 
   inputs.push({
     label: "Suggested SQL text",
-    value: optionalInput(draft, "Suggested SQL text") || SQL_PLACEHOLDER,
+    value:
+      inputValue(draft, ["Suggested SQL text", "SQL", "Query"]) ||
+      SQL_PLACEHOLDER,
   });
 
   return inputs;
@@ -168,16 +195,20 @@ function requiredInput(
   draft: CoordinatorProviderProposalDraftContext,
   label: string,
 ) {
-  return optionalInput(draft, label) || "";
+  return inputValue(draft, [label]) || "";
 }
 
-function optionalInput(
+function inputValue(
   draft: CoordinatorProviderProposalDraftContext,
-  label: string,
+  labels: string[],
 ) {
   return (
     draft.visibleInputs
-      .find((input) => input.label.toLowerCase() === label.toLowerCase())
+      .find((input) =>
+        labels.some(
+          (label) => input.label.toLowerCase() === label.toLowerCase(),
+        ),
+      )
       ?.value.trim() ?? ""
   );
 }
@@ -271,6 +302,16 @@ function normalizePinned(value: string) {
   return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase())
     ? "true"
     : "false";
+}
+
+function defaultQueueTitle(prompt: string) {
+  const title = prompt.replace(/\s+/g, " ").trim();
+
+  if (!title) {
+    return "Coordinator Queue task draft";
+  }
+
+  return title.length <= 72 ? title : `${title.slice(0, 71).trim()}...`;
 }
 
 function normalizeExecutionPolicy(value: string) {

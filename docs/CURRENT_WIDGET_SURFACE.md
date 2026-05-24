@@ -225,8 +225,10 @@ and component keys may still appear in code and persistence.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals
-  from the typed chat text; each still requires review, approval, and a
-  separate Create Queue task action.
+  from the typed chat text. Draft Queue task cards show title, prompt,
+  priority, execution policy, and draft/proposed status. Multi-draft review can
+  approve all drafts locally, but each Queue task creation remains a separate
+  explicit Create Queue task action.
 - In the Tauri desktop shell, explicit sends can use a backend-owned
   Coordinator provider response path. Mock/local is the default provider; a
   configured HTTP JSON provider can be selected by backend environment

@@ -48,7 +48,7 @@ export function getProposalCardState(
       stateDescription:
         proposal.typeId === "create-note"
           ? "The approved Note handoff completed. No existing Notes content was read."
-          : "The approved Queue task handoff completed. The task was not assigned or run.",
+          : "The approved Queue task handoff created a draft task. It was not assigned or run.",
       stateLabel: "Created",
       statusDotVariant: "success",
       tone: "success",
@@ -118,7 +118,7 @@ export function getProposalCardState(
       proposal.typeId === "create-note"
         ? "Approval only accepts the preview. Use Create Note separately to write a new Note."
         : proposal.typeId === "create-agent-queue-task"
-          ? "Approval only accepts the preview. Use Create Queue task separately to create a draft task."
+          ? "Approval only accepts the draft. Use Create Queue task separately. Creates a draft task. Does not run it."
           : "Approval only accepts the preview. No capability executes from approval alone.";
 
     return {
@@ -140,7 +140,9 @@ export function getProposalCardState(
     stateDescription:
       proposal.approvalStatus === "Edited preview"
         ? "Edited locally. Review the visible fields again before approving."
-        : "Review the visible inputs. Approval does not execute or create anything by itself.",
+        : proposal.typeId === "create-agent-queue-task"
+          ? "Review the draft task. Approval does not create or run anything by itself."
+          : "Review the visible inputs. Approval does not execute or create anything by itself.",
     stateLabel:
       proposal.approvalStatus === "Edited preview" ? "Edited" : "Review",
     statusDotVariant: proposal.approvalStatus === "Edited preview" ? "info" : "warning",
@@ -182,7 +184,7 @@ export function formatProposalDetails(proposal: CoordinatorActionProposal) {
     `Result summary: ${proposal.resultSummary}`,
     "",
     proposal.typeId === "create-agent-queue-task"
-      ? "Queue task creation requires approval and a separate Create Queue task action. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
+      ? "Queue task creation requires approval and a separate Create Queue task action. Creates a draft task. Does not run it. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
       : proposal.typeId === "create-note"
         ? "Note creation requires approval and a separate Create Note action. No existing Notes content is read, and no provider runtime, Queue task, Agent Executor launch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
         : proposal.typeId === "prepare-jdbc-query-suggestion"
@@ -252,7 +254,7 @@ function executionBadgeVariant(
 
 function proposalTypeLabel(typeId: CoordinatorProposalTypeId) {
   if (typeId === "create-agent-queue-task") {
-    return "Queue task proposal";
+    return "Draft Queue task";
   }
   if (typeId === "create-note") {
     return "Note proposal";

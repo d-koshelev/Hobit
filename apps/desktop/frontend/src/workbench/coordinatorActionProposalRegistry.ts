@@ -65,8 +65,9 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
       requiredInputs: ["Title", "Description", "Prompt"],
       riskLevel: "local_write",
       safetyNotes: [
-        "Approved proposals may create a draft Queue task only after a separate create action.",
-        "Creating the task must not start execution.",
+        "Approved drafts may create a draft Queue task only after a separate Create Queue task action.",
+        "Creates a draft task. Does not run it.",
+        "Queue/Executor run work only after explicit operator action.",
         "No Queue auto-dispatch.",
       ],
       targetCapability: "create Queue task",
