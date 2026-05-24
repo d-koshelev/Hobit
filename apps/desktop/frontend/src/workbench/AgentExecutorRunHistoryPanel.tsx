@@ -230,6 +230,19 @@ export function AgentExecutorRunHistoryPanel({
                     })
                 : undefined
             }
+            onAttachSelectedExcerpt={
+              onAttachContextToCoordinator && detailState.status === "ready"
+                ? (excerptText) =>
+                    onAttachContextToCoordinator({
+                      contextText: executorSelectedExcerptAttachedContextText(
+                        detailState.detail,
+                        widgetInstanceId,
+                        excerptText,
+                      ),
+                      sourceLabel: "Executor selected excerpt",
+                    })
+                : undefined
+            }
           />
         </div>
       ) : null}
@@ -276,6 +289,20 @@ function executorRunDetailAttachedContextText(
   ]
     .filter((line): line is string => Boolean(line))
     .join("\n");
+}
+
+function executorSelectedExcerptAttachedContextText(
+  detail: AgentExecutorRunDetail,
+  widgetInstanceId: string,
+  excerptText: string,
+) {
+  return [
+    "Executor selected excerpt",
+    `Executor: Agent Executor ${shortRef(widgetInstanceId)} (${widgetInstanceId})`,
+    `Run: ${detail.summary.runId}`,
+    "Excerpt:",
+    excerptText,
+  ].join("\n");
 }
 
 function shortRef(value: string) {

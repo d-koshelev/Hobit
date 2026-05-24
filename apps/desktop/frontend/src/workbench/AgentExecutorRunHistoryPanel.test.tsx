@@ -4,6 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentExecutorRunHistoryPanel } from "./AgentExecutorRunHistoryPanel";
+import {
+  AGENT_EXECUTOR_SELECTED_EXCERPT_LIMIT,
+  boundAgentExecutorSelectedExcerpt,
+} from "./executor/agentExecutorSelectedExcerpt";
 import type {
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
@@ -133,6 +137,82 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
       /stdout|stderr|final response|diff|repoRoot|repo_root|payload|secret/i,
     );
   });
+
+  it("attaches only selected visible Executor detail text", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi
+        .fn()
+        .mockResolvedValue(runDetail("run_safe_123456")),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    selectVisibleText("Executor-owned final response");
+    clickButtonAt("Attach selected excerpt", 0);
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    const request = onAttachContextToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Executor selected excerpt");
+    expect(request.contextText).toContain("Executor selected excerpt");
+    expect(request.contextText).toContain("Run: run_safe_123456");
+    expect(request.contextText).toContain("Excerpt:");
+    expect(request.contextText).toContain("Executor-owned final response");
+    expect(request.contextText).not.toContain("stdout secret");
+    expect(request.contextText).not.toContain("hidden raw payload");
+  });
+
+  it("does not attach when the selection is empty or outside the run detail", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+
+    await renderPanel({
+      onAttachContextToCoordinator,
+      onGetAgentExecutorRunDetail: vi
+        .fn()
+        .mockResolvedValue(runDetail("run_safe_123456")),
+      onListAgentExecutorRuns: vi
+        .fn()
+        .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
+      openRunDetailRequest: {
+        executorWidgetInstanceId: "executor_visible",
+        id: 1,
+        runId: "run_safe_123456",
+      },
+    });
+
+    const outside = document.createElement("p");
+    outside.textContent = "outside visible text";
+    document.body.append(outside);
+    selectTextNode(outside.firstChild, "outside visible text");
+
+    clickButtonAt("Attach selected excerpt", 0);
+
+    expect(onAttachContextToCoordinator).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Select visible text inside this run detail first.",
+    );
+  });
+
+  it("caps selected excerpts and preserves a visible truncation note", () => {
+    const excerpt = boundAgentExecutorSelectedExcerpt("x".repeat(4100));
+
+    expect(excerpt).not.toBeNull();
+    expect(excerpt?.wasTruncated).toBe(true);
+    expect(excerpt?.text.length).toBeLessThanOrEqual(
+      AGENT_EXECUTOR_SELECTED_EXCERPT_LIMIT,
+    );
+    expect(excerpt?.text).toContain(
+      "[Excerpt truncated to 4000 characters.]",
+    );
+  });
 });
 
 async function renderPanel(
@@ -194,11 +274,11 @@ function runDetail(runId: string): AgentExecutorRunDetail {
     logs: [],
     resultContent: null,
     resultId: "result_1",
-    resultPayload: null,
+    resultPayload: "hidden raw payload",
     resultStatus: "completed",
     resultSummary: null,
-    stderrPreview: null,
-    stdoutPreview: null,
+    stderrPreview: "stdout secret should not be attached by selection",
+    stdoutPreview: "stdout secret should not be attached by selection",
     summary: runSummary(runId),
     validationProfile: null,
     validationStatus: null,
@@ -218,4 +298,39 @@ function clickButtonAt(text: string, index: number) {
   act(() => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+function selectVisibleText(text: string) {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+
+  while (node) {
+    if (node.textContent?.includes(text)) {
+      selectTextNode(node, text);
+      return;
+    }
+
+    node = walker.nextNode();
+  }
+
+  throw new Error(`Text not found: ${text}`);
+}
+
+function selectTextNode(node: Node | null, text: string) {
+  if (!node?.textContent) {
+    throw new Error(`Selection text node not found: ${text}`);
+  }
+
+  const start = node.textContent.indexOf(text);
+  if (start < 0) {
+    throw new Error(`Selection text not found in node: ${text}`);
+  }
+
+  const range = document.createRange();
+  range.setStart(node, start);
+  range.setEnd(node, start + text.length);
+
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }

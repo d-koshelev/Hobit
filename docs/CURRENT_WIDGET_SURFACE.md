@@ -71,9 +71,12 @@ and component keys may still appear in code and persistence.
 - Owns run detail, live logs, cancellation controls, final responses,
   validation capture, changed-file visibility, and run history.
 - Run history and selected run detail can attach safe run metadata to
-  Coordinator Chat as visible current-session composer context. Attach does not
-  copy raw logs, stdout/stderr, final responses, diffs, prompts, repo paths,
-  secrets, or raw payloads, and it does not send automatically.
+  Coordinator Chat as visible current-session composer context. Selected run
+  detail can also attach an explicit bounded excerpt from text the operator has
+  selected inside the visible Executor-owned detail panel. Attach does not copy
+  raw logs, stdout/stderr, final responses, diffs, prompts, repo paths,
+  secrets, or raw payloads automatically, and it does not send automatically.
+  Raw Executor detail remains Agent Executor-owned.
 - Provides read-only backend/Tauri APIs for stored Direct Work runs,
   validation runs, and explicit diff summaries.
 - Queue tasks can be assigned to visible Executor slots and explicitly started
@@ -234,12 +237,13 @@ and component keys may still appear in code and persistence.
   visible pasted text, classify the likely status as success, failure, unclear,
   or needs review, and suggest next actions.
 - Can receive explicitly attached visible run metadata from Queue latest-run,
-  Queue run-history, and Agent Executor run-history/detail controls. Attached
-  context is current-session UI state inserted into the visible composer and
-  can be edited or removed before Send. Only visible attached context is sent;
-  Attach does not auto-send, read Queue history, read Executor logs, or copy
-  raw stdout/stderr, final responses, diffs, prompts, repo paths, secrets, or
-  raw payloads.
+  Queue run-history, and Agent Executor run-history/detail controls. It can
+  also receive an operator-selected bounded excerpt from visible Agent
+  Executor-owned run detail. Attached context is current-session UI state
+  inserted into the visible composer and can be edited or removed before Send.
+  Only visible attached context is sent; Attach does not auto-send, read Queue
+  history, read Executor logs, or copy raw stdout/stderr, final responses,
+  diffs, prompts, repo paths, secrets, or raw payloads automatically.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals

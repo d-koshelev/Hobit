@@ -54,6 +54,11 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
   composer context. Attach is operator-controlled, editable/removable before
   Send, and does not copy raw logs, stdout/stderr, final responses, diffs,
   prompts, repo paths, secrets, artifacts, or raw payloads.
+- Agent Executor run detail can attach an explicit bounded excerpt selected by
+  the operator from visible Executor-owned detail text. The excerpt appears as
+  visible editable Coordinator composer context and is sent only if the
+  operator presses Send. Coordinator still does not automatically read Executor
+  logs or take ownership of raw Executor detail.
 
 ## Still Type-Only Or Contract-Only
 
@@ -84,7 +89,9 @@ change this context boundary and do not wire Context Packs, artifacts, logs,
 Queue state, Executor state, or widget data into provider prompts.
 Explicit Attach to Coordinator sends only the visible attached composer text
 after the operator presses Send; it is not hidden context compilation and does
-not read Queue history or Executor logs automatically.
+not read Queue history or Executor logs automatically. Executor selected
+excerpts are bounded visible text selected by the operator; raw Executor detail
+remains Executor-owned.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is

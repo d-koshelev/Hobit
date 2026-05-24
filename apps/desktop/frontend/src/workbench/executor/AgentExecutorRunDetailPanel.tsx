@@ -1,3 +1,5 @@
+import { useRef, useState } from "react";
+
 import { Badge } from "../../design-system/Badge";
 import { Button } from "../../design-system/Button";
 import type { AgentExecutorRunDetail } from "../../workspace/types";
@@ -16,6 +18,10 @@ import {
   type AgentExecutorRunDetailState,
 } from "./agentExecutorRunHistoryTypes";
 import {
+  boundAgentExecutorSelectedExcerpt,
+  selectedTextInsideElement,
+} from "./agentExecutorSelectedExcerpt";
+import {
   AgentExecutorRunLogs,
   AgentExecutorRunOutputBlock,
   AgentExecutorRunOutputDetails,
@@ -24,11 +30,13 @@ import {
 type AgentExecutorRunDetailPanelProps = {
   detailState: AgentExecutorRunDetailState;
   onAttachRunContext?: () => void;
+  onAttachSelectedExcerpt?: (excerptText: string) => void;
 };
 
 export function AgentExecutorRunDetailPanel({
   detailState,
   onAttachRunContext,
+  onAttachSelectedExcerpt,
 }: AgentExecutorRunDetailPanelProps) {
   if (detailState.status === "idle") {
     return (
@@ -67,6 +75,7 @@ export function AgentExecutorRunDetailPanel({
     <AgentExecutorRunDetailContent
       detail={detailState.detail}
       onAttachRunContext={onAttachRunContext}
+      onAttachSelectedExcerpt={onAttachSelectedExcerpt}
     />
   );
 }
@@ -74,38 +83,91 @@ export function AgentExecutorRunDetailPanel({
 function AgentExecutorRunDetailContent({
   detail,
   onAttachRunContext,
+  onAttachSelectedExcerpt,
 }: {
   detail: AgentExecutorRunDetail;
   onAttachRunContext?: () => void;
+  onAttachSelectedExcerpt?: (excerptText: string) => void;
 }) {
+  const detailRef = useRef<HTMLDivElement | null>(null);
+  const [selectedExcerptMessage, setSelectedExcerptMessage] =
+    useState<string | null>(null);
   const summary = detail.summary;
   const finalText =
     detail.finalMessage ?? detail.resultContent ?? detail.resultSummary;
   const logs = detail.logs.slice(0, AGENT_EXECUTOR_LOG_PREVIEW_LIMIT);
 
+  function attachSelectedExcerpt() {
+    if (!onAttachSelectedExcerpt) {
+      return;
+    }
+
+    const selectedText = selectedTextInsideElement(detailRef.current);
+    const excerpt = selectedText
+      ? boundAgentExecutorSelectedExcerpt(selectedText)
+      : null;
+
+    if (!excerpt) {
+      setSelectedExcerptMessage(
+        "Select visible text inside this run detail first.",
+      );
+      return;
+    }
+
+    onAttachSelectedExcerpt(excerpt.text);
+    setSelectedExcerptMessage(
+      excerpt.wasTruncated
+        ? "Selected excerpt attached with truncation."
+        : "Selected excerpt attached.",
+    );
+  }
+
   return (
-    <div className="agent-executor-history-detail">
+    <div className="agent-executor-history-detail" ref={detailRef}>
       <div className="agent-executor-history-detail-header">
         <div className="codex-direct-work-copy">
           <p className="codex-direct-work-title">{summary.title}</p>
           <p className="codex-direct-work-text">{runModeLabel(summary)}</p>
         </div>
-        <Badge variant={statusBadgeVariant(summary.status)}>
-          {statusLabel(summary.status)}
-        </Badge>
-        <Button
-          disabled={!onAttachRunContext}
-          onClick={() => onAttachRunContext?.()}
-          title={
-            onAttachRunContext
-              ? "Attach this safe run metadata to Coordinator Chat."
-              : "Coordinator Chat is not visible on this Workbench."
-          }
-          variant="ghost"
-        >
-          Attach to Coordinator
-        </Button>
+        <div className="agent-executor-history-detail-actions">
+          <Badge variant={statusBadgeVariant(summary.status)}>
+            {statusLabel(summary.status)}
+          </Badge>
+          <Button
+            disabled={!onAttachRunContext}
+            onClick={() => onAttachRunContext?.()}
+            title={
+              onAttachRunContext
+                ? "Attach this safe run metadata to Coordinator Chat."
+                : "Coordinator Chat is not visible on this Workbench."
+            }
+            variant="ghost"
+          >
+            Attach to Coordinator
+          </Button>
+          <Button
+            disabled={!onAttachSelectedExcerpt}
+            onClick={attachSelectedExcerpt}
+            title={
+              onAttachSelectedExcerpt
+                ? "Attach only selected visible text to Coordinator Chat."
+                : "Coordinator Chat is not visible on this Workbench."
+            }
+            variant="ghost"
+          >
+            Attach selected excerpt
+          </Button>
+        </div>
       </div>
+      <p className="codex-direct-work-review-note">
+        Only selected visible text is attached. Does not send automatically.
+        Coordinator does not read full Executor logs.
+      </p>
+      {selectedExcerptMessage ? (
+        <p className="codex-direct-work-review-note" role="status">
+          {selectedExcerptMessage}
+        </p>
+      ) : null}
 
       <StaticPreviewFieldList
         className="codex-direct-work-result-grid"

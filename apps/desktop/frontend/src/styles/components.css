@@ -798,6 +798,7 @@
 }
 
 .agent-executor-history-actions,
+.agent-executor-history-detail-actions,
 .codex-direct-work-diff-actions,
 .agent-executor-history-item-head,
 .agent-executor-history-log-meta {
@@ -923,6 +924,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.agent-executor-history-detail-actions {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .interactive-agent-status-heading {

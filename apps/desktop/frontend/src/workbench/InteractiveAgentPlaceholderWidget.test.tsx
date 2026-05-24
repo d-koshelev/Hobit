@@ -315,6 +315,58 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("allowed_tools: []");
   });
 
+  it("renders selected Executor excerpts as visible editable context before send", async () => {
+    const provider = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: Omit<
+          GenerateCoordinatorProviderResponseRequest,
+          "workspaceId" | "workbenchId" | "widgetInstanceId"
+        >,
+      ) => Promise<GenerateCoordinatorProviderResponse>
+    >(async (_widgetInstanceId, request) =>
+      providerResponse({
+        visibleContextMessageCount: request.visibleConversation.length,
+      }),
+    );
+
+    renderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: [
+          "Executor selected excerpt",
+          "Executor: Agent Executor visible (executor_visible)",
+          "Run: run_safe_123456",
+          "Excerpt:",
+          "Visible final response line selected by the operator.",
+        ].join("\n"),
+        sourceLabel: "Executor selected excerpt",
+      }),
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    expect(document.body.textContent).toContain("Visible attached context");
+    expect(document.body.textContent).toContain("Executor selected excerpt");
+    expect(textareaValue()).toContain(
+      "Visible attached context (Executor selected excerpt)",
+    );
+    expect(textareaValue()).toContain(
+      "Visible final response line selected by the operator.",
+    );
+    expect(provider).not.toHaveBeenCalled();
+
+    await clickButton("Send");
+
+    expect(provider).toHaveBeenCalledTimes(1);
+    const request = provider.mock.calls[0][1];
+    expect(request.operatorMessage).toContain(
+      "Visible final response line selected by the operator.",
+    );
+    expect(JSON.stringify(request)).not.toMatch(
+      /hidden raw detail|full executor logs|payloadJson|repo_root|secret/i,
+    );
+    expect(document.body.textContent).toContain("allowed_tools: []");
+  });
+
   it("renders provider proposal cards without creating Queue tasks before approval", async () => {
     const createQueueTask = vi.fn();
     const provider = vi.fn(async () =>
