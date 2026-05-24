@@ -176,6 +176,77 @@ fn list_agent_executor_runs_preserves_order_and_missing_result_behavior() {
 }
 
 #[test]
+fn list_agent_executor_runs_scans_additional_pages_when_newest_runs_are_filtered() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);
+
+    insert_agent_executor_run(
+        &service,
+        "paged-old",
+        &widget_id,
+        "completed",
+        Some("codex_direct_work"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/old"}"#),
+        "100",
+        Some("101"),
+        Some("Old paged run"),
+    );
+    insert_agent_executor_result(
+        &service,
+        "paged-old-result",
+        "paged-old",
+        "completed",
+        "codex_direct_work_result",
+        Some("Old paged result"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/old","duration_ms":7}"#),
+        "102",
+    );
+    insert_agent_executor_run(
+        &service,
+        "paged-new",
+        &widget_id,
+        "completed",
+        Some("codex_direct_work"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/new"}"#),
+        "110",
+        Some("111"),
+        Some("New paged run"),
+    );
+    insert_agent_executor_result(
+        &service,
+        "paged-new-result",
+        "paged-new",
+        "completed",
+        "codex_direct_work_result",
+        Some("New paged result"),
+        Some(r#"{"mode":"direct_work","repo_root":"C:/new","duration_ms":9}"#),
+        "112",
+    );
+    for index in 0..25 {
+        insert_non_executor_run(
+            &service,
+            &format!("paged-filtered-{index:02}"),
+            &widget_id,
+            &format!("2{index:02}"),
+        );
+    }
+
+    let history = service
+        .list_agent_executor_runs(&workspace_id, &workbench_id, &widget_id, Some(2))
+        .expect("list history")
+        .expect("history");
+    let limited_history = service
+        .list_agent_executor_runs(&workspace_id, &workbench_id, &widget_id, Some(1))
+        .expect("list limited history")
+        .expect("history");
+
+    assert_eq!(run_ids(&history.runs), vec!["paged-new", "paged-old"]);
+    assert_eq!(history.runs[0].title, "New paged result");
+    assert_eq!(history.runs[1].title, "Old paged result");
+    assert_eq!(run_ids(&limited_history.runs), vec!["paged-new"]);
+}
+
+#[test]
 fn list_agent_executor_runs_rejects_non_agent_executor_widget() {
     let service = initialized_service();
     let workspace = service
@@ -584,6 +655,27 @@ fn insert_agent_executor_result(
             created_at: Some(created_at),
         })
         .expect("insert Agent Executor result");
+}
+
+fn insert_non_executor_run(
+    service: &WorkspaceService,
+    run_id: &str,
+    widget_id: &str,
+    started_at: &str,
+) {
+    service
+        .store
+        .insert_widget_run(NewWidgetRun {
+            id: run_id,
+            widget_instance_id: widget_id,
+            status: "completed",
+            command_kind: Some("legacy_non_executor"),
+            command_payload: Some("{}"),
+            started_at: Some(started_at),
+            finished_at: None,
+            summary: Some("Filtered non-executor run"),
+        })
+        .expect("insert non-Executor run");
 }
 
 fn run_direct_work(

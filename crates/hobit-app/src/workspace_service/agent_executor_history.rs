@@ -20,6 +20,7 @@ use super::{
 const DEFAULT_AGENT_EXECUTOR_HISTORY_LIMIT: usize = 20;
 const MAX_AGENT_EXECUTOR_HISTORY_LIMIT: usize = 100;
 const AGENT_EXECUTOR_HISTORY_RESULT_BATCH_SIZE: usize = 100;
+const AGENT_EXECUTOR_HISTORY_RUN_PAGE_SIZE: usize = 20;
 const AGENT_EXECUTOR_RUN_DETAIL_LOG_LIMIT: usize = 100;
 const AGENT_EXECUTOR_TEXT_PREVIEW_LIMIT: usize = 16 * 1024;
 const AGENT_EXECUTOR_HISTORY_WIDGET_ERROR: &str =
@@ -50,17 +51,19 @@ impl WorkspaceService {
             DEFAULT_AGENT_EXECUTOR_HISTORY_LIMIT,
             AGENT_EXECUTOR_HISTORY_RESULT_BATCH_SIZE,
         );
+        let run_page_size = result_batch_size.max(AGENT_EXECUTOR_HISTORY_RUN_PAGE_SIZE);
+        let mut run_offset = 0;
         let mut candidates = Vec::new();
-        let mut runs = self
-            .store
-            .list_widget_runs_for_widget(&widget.id)?
-            .into_iter()
-            .rev();
         loop {
-            let run_batch = runs.by_ref().take(result_batch_size).collect::<Vec<_>>();
+            let run_batch = self.store.list_widget_runs_for_widget_desc_page(
+                &widget.id,
+                run_page_size,
+                run_offset,
+            )?;
             if run_batch.is_empty() {
                 break;
             }
+            run_offset += run_batch.len();
             let run_ids = run_batch
                 .iter()
                 .map(|run| run.id.clone())

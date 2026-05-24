@@ -142,13 +142,13 @@ Query/index match:
   `queue_task_id`, and `direct_work_run_id`; direct run id is unique and indexed
   through `idx_agent_queue_task_run_links_run_id`, so the path is adequately
   covered.
-- Agent Executor history reads all runs for one widget via
-  `WHERE widget_instance_id = ? ORDER BY started_at, id`, then walks newest
-  first in memory and batches compatible result reads with
+- Agent Executor history now reads bounded newest-first run pages via
+  `WHERE widget_instance_id = ? ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?`
+  and batches compatible result reads with
   `WHERE run_id IN (...) AND result_type IN (...) ORDER BY run_id, created_at, id`.
   Existing run/result indexes cover the filters, but not all ordering suffixes.
-  The larger remaining cost is the unbounded run-list helper, not a missing
-  result index alone.
+  The previous unbounded all-runs list and in-memory reverse path was removed
+  on 2026-05-24 without schema or DTO changes.
 - Agent Executor detail reads one run by primary key, all results for that run,
   capped recent logs for that run, and a metadata-only log count scoped by
   run/widget. Existing `run_id` and `widget_instance_id` log indexes cover the
@@ -174,10 +174,9 @@ Risks found:
 - The strongest future schema candidate is a covering Queue run-link ordering
   index such as `(workspace_id, queue_task_id, started_at, created_at, link_id)`
   if selected-task run history grows large enough to show sorting cost.
-- The strongest future query-helper candidate is Agent Executor history:
-  replace the current all-runs-for-widget helper with a descending, batched
-  run-page helper so history no longer materializes every stored run before
-  finding the requested compatible results.
+- The strongest future query-helper candidate was Agent Executor history. It
+  now has a descending run-page helper, so no schema/index change is justified
+  from static inspection alone.
 
 Recommended next action:
 
@@ -185,7 +184,7 @@ Recommended next action:
 - If performance remains visible after the completed Queue and Executor
   refactors, capture `EXPLAIN QUERY PLAN` or fixture-backed timings for Queue
   run-link latest/history and Agent Executor history before adding one narrow
-  index or the descending run-page helper.
+  index or a metadata-only history result summary query.
 
 ## Ranked Refactor Opportunities
 
@@ -206,11 +205,11 @@ Recommended next action:
    - Shape: keep current command names; consider optional limit in request DTO later, or add service/store helper that returns latest N for UI.
 
 4. Optimize Agent Executor history with aggregate log counts and bounded run query.
-   - Status: partially addressed on 2026-05-24 for aggregate log counts.
+   - Status: completed on 2026-05-24 for aggregate log counts, batched compatible result reads, and bounded newest-first run pages.
    - Impact: medium to high for executors with many runs/logs.
    - Risk: moderate backend refactor, but behavior can stay identical.
-   - Shape: add store helpers that fetch recent widget runs in descending order with limit and count logs per run with grouped SQL, instead of per-run `list_widget_logs`.
-   - Remaining follow-up: replace per-run result reads with a focused compatible query only if it can preserve result-type filtering and avoid unnecessary raw payload fetches.
+   - Shape: store helpers fetch widget runs in descending ordered pages and count logs per run with grouped SQL, instead of materializing all widget runs or reading per-run logs.
+   - Remaining follow-up: consider metadata-only JSON field extraction for history result summaries only if timings show result payload bytes remain a bottleneck.
 
 5. Optimize Agent Executor detail log count.
    - Status: completed on 2026-05-24.
@@ -250,4 +249,5 @@ This is the best next block because it directly targets the most likely user-vis
 - 2026-05-23: Partially completed the Queue mutation reload block. `useAgentQueueController` now reconciles returned task summaries locally for create, save/update, assign, and clear assignment while preserving backend-equivalent task ordering and selected-task draft state. Manual Refresh, delete, manual run start, Sequential Queue Runner run start, Executor-driven task auto-refresh, and Autorun active-task refresh still perform full task reloads because those paths either need deletion/next-selection reconciliation or do not return an updated `AgentQueueTask` summary.
 - 2026-05-24: Inspected Agent Executor history/detail query overhead. Added SQLite metadata-only log-count helpers, switched run detail from capped recent logs plus full log read to capped recent logs plus count query, and switched history from per-run full log reads to one grouped count query for returned runs. Behavior and DTO shape are unchanged: detail still returns the same result payload fields, recent log preview remains capped, history keeps safe summary fields, and Queue run-link visibility remains metadata-only.
 - 2026-05-24: Completed the remaining Agent Executor history result-read inspection. Added a SQLite helper to fetch the latest compatible result per run id in batched `IN` queries, then mapped those results in `list_agent_executor_runs`. History ordering, missing-result handling, result-type filtering, summary fields, log counts, and DTO shape remain unchanged. Raw result payload remains exposed only through Executor-owned detail reads; history still parses existing payload internally only to preserve current visible summary fields.
-- 2026-05-24: Completed the SQLite query/index audit after the Queue and Executor performance refactors. The audit found leading-index coverage on the likely hot reads and did not find enough evidence for a behavior-free schema/index change in this block. Recommended follow-up is query-plan or fixture timing evidence before adding one narrow Queue run-link ordering index or an Agent Executor descending run-page helper.
+- 2026-05-24: Completed the SQLite query/index audit after the Queue and Executor performance refactors. The audit found leading-index coverage on the likely hot reads and did not find enough evidence for a behavior-free schema/index change in this block. Recommended follow-up is query-plan or fixture timing evidence before adding one narrow Queue run-link ordering index or metadata-only Agent Executor history result summary query.
+- 2026-05-24: Completed the Agent Executor history run-page helper block. Added a bounded newest-first SQLite run-page helper ordered by `started_at DESC, id DESC`, then updated history scanning to advance through run pages until the requested compatible summaries are filled or no runs remain. History still uses the existing batched latest compatible result lookup and grouped log counts. Behavior, DTO shape, raw-payload ownership, Direct Work execution, Queue execution, and schema remain unchanged.

@@ -683,6 +683,66 @@ fn insert_widget_run_log_and_result() {
 }
 
 #[test]
+fn list_widget_runs_for_widget_desc_page_returns_newest_runs_first() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+
+    for (id, started_at) in [("run-old", "1"), ("run-new", "3"), ("run-mid", "2")] {
+        store
+            .insert_widget_run(NewWidgetRun {
+                id,
+                widget_instance_id: "widget-1",
+                status: "completed",
+                command_kind: Some("save_note"),
+                command_payload: None,
+                started_at: Some(started_at),
+                finished_at: None,
+                summary: Some("Saved note"),
+            })
+            .expect("insert run");
+    }
+
+    let first_page = store
+        .list_widget_runs_for_widget_desc_page("widget-1", 2, 0)
+        .expect("list first run page");
+    let second_page = store
+        .list_widget_runs_for_widget_desc_page("widget-1", 2, 2)
+        .expect("list second run page");
+
+    assert_eq!(run_ids(&first_page), vec!["run-new", "run-mid"]);
+    assert_eq!(run_ids(&second_page), vec!["run-old"]);
+}
+
+#[test]
+fn list_widget_runs_for_widget_desc_page_orders_started_at_ties_by_id_desc() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    insert_widget(&store);
+
+    for id in ["run-a", "run-c", "run-b"] {
+        store
+            .insert_widget_run(NewWidgetRun {
+                id,
+                widget_instance_id: "widget-1",
+                status: "completed",
+                command_kind: Some("save_note"),
+                command_payload: None,
+                started_at: Some("1"),
+                finished_at: None,
+                summary: Some("Saved note"),
+            })
+            .expect("insert tied run");
+    }
+
+    let runs = store
+        .list_widget_runs_for_widget_desc_page("widget-1", 10, 0)
+        .expect("list run page");
+
+    assert_eq!(run_ids(&runs), vec!["run-c", "run-b", "run-a"]);
+}
+
+#[test]
 fn list_latest_widget_results_for_runs_by_type_batches_and_filters_results() {
     let store = initialized_store();
     create_workspace_and_workbench(&store);
@@ -1054,4 +1114,8 @@ fn event_ids(events: &[WorkbenchEventRow]) -> Vec<&str> {
 
 fn log_ids(logs: &[WidgetLogRow]) -> Vec<&str> {
     logs.iter().map(|log| log.id.as_str()).collect()
+}
+
+fn run_ids(runs: &[WidgetRunRow]) -> Vec<&str> {
+    runs.iter().map(|run| run.id.as_str()).collect()
 }
