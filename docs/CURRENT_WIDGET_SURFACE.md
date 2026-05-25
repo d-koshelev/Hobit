@@ -314,8 +314,18 @@ destination for every Coordinator action or small operation.
   check by default. The operator can replace `~` with a project or repo folder.
   On Windows, the default Codex launch path uses `codex.cmd` through the
   shared Direct Work launch helper. Coordinator Direct Mode streams visible
-  status/log/final-result summaries in Coordinator, supports Stop when the
-  Direct Work cancellation path is available, and does not create Queue tasks.
+  status/log/final-result summaries in Coordinator, captures the Codex
+  `thread.started` `thread_id` when emitted, and keeps that explicit Codex
+  thread id in current-session Coordinator widget state. Follow-up Run with
+  Codex actions resume that explicit thread id and send only the latest
+  composer message; they do not use `--last` and do not resend the visible
+  transcript as the prompt. The operator can use the visible New Codex thread
+  action to clear the current thread id without clearing visible chat. Changing
+  the Direct Mode working directory clears the current thread id and starts a
+  new thread on the next run. Thread state is current-session only unless a
+  later persistence slice explicitly adds storage. Coordinator Direct Mode
+  supports Stop when the Direct Work cancellation path is available and does
+  not create Queue tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action. Queue
   task creation creates a draft/manual Queue record only; execution remains

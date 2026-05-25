@@ -149,6 +149,9 @@ const DIRECT_WORK_UNAVAILABLE_MESSAGE =
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
   "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
 
+const CODEX_THREAD_NOT_AVAILABLE_MESSAGE =
+  "Codex thread not available. Next Codex run starts a new thread.";
+
 const DEFAULT_COORDINATOR_CODEX_EXECUTABLE = "codex";
 const WINDOWS_COORDINATOR_CODEX_EXECUTABLE = "codex.cmd";
 
@@ -217,6 +220,11 @@ export function InteractiveAgentPlaceholderWidget({
   const [directWorkError, setDirectWorkError] = useState<string | null>(null);
   const [directWorkFinalResult, setDirectWorkFinalResult] =
     useState<string | null>(null);
+  const [currentCodexThreadId, setCurrentCodexThreadId] =
+    useState<string | null>(null);
+  const [codexThreadNotice, setCodexThreadNotice] = useState<string | null>(
+    null,
+  );
   const [directWorkLogs, setDirectWorkLogs] = useState<
     CoordinatorDirectWorkLogEntry[]
   >([]);
@@ -224,6 +232,7 @@ export function InteractiveAgentPlaceholderWidget({
   const directWorkStopListeningRef = useRef<(() => void) | null>(null);
   const directWorkCompletedDuringStartRef = useRef(false);
   const directWorkFinalMessageRef = useRef<string | null>(null);
+  const directWorkCapturedThreadIdRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const trimmedDraftLength = draft.trim().length;
   const canSend =
@@ -445,13 +454,14 @@ export function InteractiveAgentPlaceholderWidget({
     stopDirectWorkEventListening();
     directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
+    directWorkCapturedThreadIdRef.current = null;
+    const resumeThreadId = currentCodexThreadId;
+    const threadStartText = resumeThreadId
+      ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
+      : "Starting new Codex thread.";
     setMessages((currentMessages) => [
       ...currentMessages,
       createLocalMessage("operator", operatorPrompt),
-      createLocalMessage(
-        "assistant",
-        `Sent to Codex Direct Mode. Starting foreground Codex Direct Work from ${repoRoot}.`,
-      ),
     ]);
     setDraft("");
     setVisibleAttachedContext(null);
@@ -463,7 +473,7 @@ export function InteractiveAgentPlaceholderWidget({
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
@@ -473,6 +483,7 @@ export function InteractiveAgentPlaceholderWidget({
         {
           approvalPolicy: "never",
           codexExecutable: defaultCoordinatorCodexExecutable(),
+          codexThreadId: resumeThreadId,
           operatorPrompt,
           repoRoot,
           sandbox: "workspace_write",
@@ -545,6 +556,14 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function recordCoordinatorDirectWorkEvent(event: DirectWorkStreamEvent) {
+    if (event.codexThreadId) {
+      directWorkCapturedThreadIdRef.current = event.codexThreadId;
+      setCurrentCodexThreadId(event.codexThreadId);
+      setCodexThreadNotice(
+        `Thread active: ${shortCodexThreadId(event.codexThreadId)}.`,
+      );
+    }
+
     if (event.eventKind === "final_message" && event.text) {
       directWorkFinalMessageRef.current = event.text;
     }
@@ -573,6 +592,14 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkRunId(null);
     setDirectWorkFinalResult(finalResult);
     setDirectWorkError(failureReason);
+    if (
+      finalStatus === "completed" &&
+      !directWorkCapturedThreadIdRef.current
+    ) {
+      setCurrentCodexThreadId(null);
+      setCodexThreadNotice(CODEX_THREAD_NOT_AVAILABLE_MESSAGE);
+      appendCoordinatorDirectWorkLog(CODEX_THREAD_NOT_AVAILABLE_MESSAGE, "local");
+    }
     stopDirectWorkEventListening();
 
     appendCoordinatorDirectWorkTranscript(finalStatus, finalResult);
@@ -595,6 +622,26 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkFinalResult(null);
     appendCoordinatorDirectWorkLog(reason, "local");
     appendCoordinatorDirectWorkTranscript("failed", reason);
+  }
+
+  function resetCodexThread() {
+    setCurrentCodexThreadId(null);
+    setCodexThreadNotice("Codex thread reset.");
+    appendCoordinatorDirectWorkLog("Codex thread reset.", "local");
+  }
+
+  function updateDirectWorkDirectory(value: string) {
+    setDirectWorkDirectory(value);
+    if (value !== directWorkDirectory && currentCodexThreadId) {
+      setCurrentCodexThreadId(null);
+      setCodexThreadNotice(
+        "Working directory changed. Next Codex run starts a new thread.",
+      );
+      appendCoordinatorDirectWorkLog(
+        "Working directory changed. Next Codex run starts a new thread.",
+        "local",
+      );
+    }
   }
 
   function appendCoordinatorDirectWorkTranscript(
@@ -1143,10 +1190,13 @@ export function InteractiveAgentPlaceholderWidget({
             finalResult={directWorkFinalResult}
             isEnabled={isDirectModeEnabled}
             logs={directWorkLogs}
-            onDirectoryChange={setDirectWorkDirectory}
+            onDirectoryChange={updateDirectWorkDirectory}
+            onResetThread={resetCodexThread}
             onToggle={setIsDirectModeEnabled}
             runId={directWorkRunId}
             status={directWorkStatus}
+            threadId={currentCodexThreadId}
+            threadNotice={codexThreadNotice}
           />
           <label
             className="interactive-agent-label interactive-agent-label-hidden"
@@ -1210,9 +1260,12 @@ function CoordinatorDirectModePanel({
   isEnabled,
   logs,
   onDirectoryChange,
+  onResetThread,
   onToggle,
   runId,
   status,
+  threadId,
+  threadNotice,
 }: {
   directWorkDirectory: string;
   error: string | null;
@@ -1220,9 +1273,12 @@ function CoordinatorDirectModePanel({
   isEnabled: boolean;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
+  onResetThread: () => void;
   onToggle: (value: boolean) => void;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
+  threadId: string | null;
+  threadNotice: string | null;
 }) {
   const workingDirectoryInputId = useId();
   const statusVariant =
@@ -1240,6 +1296,9 @@ function CoordinatorDirectModePanel({
   const compactResult = finalResult
     ? compactDirectWorkText(finalResult)
     : null;
+  const threadStatusText = threadId
+    ? `Thread active ${shortCodexThreadId(threadId)}`
+    : "New thread";
 
   return (
     <section
@@ -1276,12 +1335,32 @@ function CoordinatorDirectModePanel({
           </>
         ) : null}
         <Badge variant={statusVariant}>{status}</Badge>
+        {isEnabled ? (
+          <>
+            <Badge variant={threadId ? "info" : "neutral"}>
+              {threadStatusText}
+            </Badge>
+            <Button
+              disabled={status === "running" || !threadId}
+              onClick={onResetThread}
+              type="button"
+              variant="ghost"
+            >
+              New Codex thread
+            </Button>
+          </>
+        ) : null}
       </div>
 
       {isEnabled ? (
         <div className="interactive-agent-direct-mode-body">
           <div className="interactive-agent-direct-mode-status" role="status">
             {runId ? <span>Run {runId}</span> : null}
+            {threadNotice ? (
+              <span className="interactive-agent-direct-mode-thread-note">
+                {threadNotice}
+              </span>
+            ) : null}
             {error ? (
               <span className="interactive-agent-direct-mode-error">
                 {error}
@@ -1666,9 +1745,19 @@ function compactDirectWorkText(text: string): string {
   return compacted.length > 180 ? `${compacted.slice(0, 177)}...` : compacted;
 }
 
+function shortCodexThreadId(threadId: string): string {
+  const trimmed = threadId.trim();
+
+  return trimmed.length > 12 ? `${trimmed.slice(0, 8)}...` : trimmed;
+}
+
 function directWorkEventText(event: DirectWorkStreamEvent): string {
   if (event.eventKind === "started") {
     return `Run ${event.runId} started.`;
+  }
+
+  if (event.codexThreadId) {
+    return `Codex thread active: ${shortCodexThreadId(event.codexThreadId)}.`;
   }
 
   if (event.eventKind === "final_message") {

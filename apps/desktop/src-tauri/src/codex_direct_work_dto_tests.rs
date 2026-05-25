@@ -24,6 +24,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
         codex_executable: "codex".to_owned(),
         repo_root: "C:/work/repo".to_owned(),
         operator_prompt: "Implement block.".to_owned(),
+        codex_thread_id: None,
         sandbox: "workspace_write".to_owned(),
         approval_policy: "on_request".to_owned(),
         skip_git_repo_check: false,
@@ -40,6 +41,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
     assert_eq!(input.codex_executable, "codex");
     assert_eq!(input.repo_root, PathBuf::from("C:/work/repo"));
     assert_eq!(input.operator_prompt, "Implement block.");
+    assert_eq!(input.codex_thread_id, None);
     assert_eq!(input.sandbox, "workspace_write");
     assert_eq!(input.approval_policy, "on_request");
     assert!(!input.skip_git_repo_check);
@@ -108,6 +110,7 @@ fn maps_start_codex_direct_work_stream_request_to_app_input() {
         codex_executable: "codex.cmd".to_owned(),
         repo_root: "C:/work/repo".to_owned(),
         operator_prompt: "Stream block.".to_owned(),
+        codex_thread_id: Some("thread_123".to_owned()),
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
         skip_git_repo_check: true,
@@ -124,6 +127,7 @@ fn maps_start_codex_direct_work_stream_request_to_app_input() {
     assert_eq!(input.codex_executable, "codex.cmd");
     assert_eq!(input.repo_root, PathBuf::from("C:/work/repo"));
     assert_eq!(input.operator_prompt, "Stream block.");
+    assert_eq!(input.codex_thread_id.as_deref(), Some("thread_123"));
     assert_eq!(input.sandbox, "workspace_write");
     assert_eq!(input.approval_policy, "never");
     assert!(input.skip_git_repo_check);
@@ -152,6 +156,7 @@ fn resolves_direct_work_home_alias_for_stream_request() {
         codex_executable: "codex".to_owned(),
         repo_root: "~".to_owned(),
         operator_prompt: "Run from home.".to_owned(),
+        codex_thread_id: None,
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
         skip_git_repo_check: true,
@@ -329,6 +334,7 @@ fn maps_direct_work_stream_event_to_tauri_payload() {
         line: None,
         text: None,
         parsed_codex_event_type: None,
+        codex_thread_id: None,
         status: Some("failed".to_owned()),
         elapsed_ms: 12,
         is_final: true,
@@ -347,6 +353,7 @@ fn maps_direct_work_stream_event_to_tauri_payload() {
     assert_eq!(dto.event_kind, "failed");
     assert_eq!(dto.status.as_deref(), Some("failed"));
     assert_eq!(dto.parsed_codex_event_type, None);
+    assert_eq!(dto.codex_thread_id, None);
     assert_eq!(dto.elapsed_ms, 12);
     assert!(dto.is_final);
     assert_eq!(dto.error_message.as_deref(), Some("codex stream failed"));
@@ -367,6 +374,7 @@ fn maps_cancelled_direct_work_stream_event_to_tauri_payload() {
         line: None,
         text: None,
         parsed_codex_event_type: None,
+        codex_thread_id: None,
         status: Some("cancelled".to_owned()),
         elapsed_ms: 14,
         is_final: true,
@@ -382,4 +390,34 @@ fn maps_cancelled_direct_work_stream_event_to_tauri_payload() {
     assert!(dto.is_final);
     assert_eq!(dto.final_status.as_deref(), Some("cancelled"));
     assert_eq!(dto.failed_stage, None);
+}
+
+#[test]
+fn maps_thread_id_direct_work_stream_event_to_tauri_payload() {
+    let dto = DirectWorkStreamEventDto::from(CodexDirectWorkStreamEventSummary {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        run_id: "run_1".to_owned(),
+        event_kind: "codex_json_event".to_owned(),
+        line: Some(r#"{"type":"thread.started","thread_id":"thread_123"}"#.to_owned()),
+        text: None,
+        parsed_codex_event_type: Some("thread.started".to_owned()),
+        codex_thread_id: Some("thread_123".to_owned()),
+        status: None,
+        elapsed_ms: 4,
+        is_final: false,
+        error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
+    });
+
+    assert_eq!(
+        dto.parsed_codex_event_type.as_deref(),
+        Some("thread.started")
+    );
+    assert_eq!(dto.codex_thread_id.as_deref(), Some("thread_123"));
+    assert!(!dto.is_final);
 }

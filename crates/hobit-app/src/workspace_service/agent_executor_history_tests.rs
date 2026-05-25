@@ -800,6 +800,7 @@ fn direct_work_input(
         codex_executable: "codex".to_owned(),
         repo_root: current_repo_root(),
         operator_prompt: "Summarize the current block.".to_owned(),
+        codex_thread_id: None,
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
         skip_git_repo_check: false,

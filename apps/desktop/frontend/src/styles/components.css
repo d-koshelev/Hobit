@@ -1069,6 +1069,10 @@
   line-height: var(--line-normal);
 }
 
+.interactive-agent-direct-mode-thread-note {
+  color: var(--color-text-secondary);
+}
+
 .interactive-agent-direct-mode-result-line {
   color: var(--color-text-secondary);
 }

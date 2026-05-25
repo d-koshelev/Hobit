@@ -54,6 +54,7 @@ impl WorkspaceService {
             program: Some(input.codex_executable.clone()),
             repo_root: input.repo_root.clone(),
             prompt: input.operator_prompt.clone(),
+            resume_thread_id: input.codex_thread_id.clone(),
             sandbox: input.sandbox,
             approval_policy: input.approval_policy,
             skip_git_repo_check: input.skip_git_repo_check,
@@ -228,6 +229,7 @@ pub(super) struct NormalizedDirectWorkInput {
     pub(super) codex_executable: String,
     pub(super) repo_root: std::path::PathBuf,
     pub(super) operator_prompt: String,
+    pub(super) codex_thread_id: Option<String>,
     pub(super) sandbox: CodexSandboxMode,
     pub(super) approval_policy: CodexApprovalPolicy,
     pub(super) skip_git_repo_check: bool,
@@ -253,6 +255,10 @@ pub(super) fn normalize_direct_work_input(
         codex_executable: required_input(&input.codex_executable, "codex executable")?.to_owned(),
         repo_root: input.repo_root,
         operator_prompt: required_input(&input.operator_prompt, "operator prompt")?.to_owned(),
+        codex_thread_id: input
+            .codex_thread_id
+            .map(|thread_id| thread_id.trim().to_owned())
+            .filter(|thread_id| !thread_id.is_empty()),
         sandbox: parse_direct_work_sandbox(&input.sandbox)?,
         approval_policy: parse_direct_work_approval_policy(&input.approval_policy)?,
         skip_git_repo_check: input.skip_git_repo_check,
@@ -379,6 +385,7 @@ fn direct_work_command_payload(input: &NormalizedDirectWorkInput) -> String {
         "repo_root": input.repo_root.display().to_string(),
         "codex_executable": &input.codex_executable,
         "operator_prompt": &input.operator_prompt,
+        "codex_thread_id": &input.codex_thread_id,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "skip_git_repo_check": input.skip_git_repo_check,
@@ -396,16 +403,18 @@ pub(super) fn direct_work_input_runtime_artifacts(
     input: &NormalizedDirectWorkInput,
 ) -> DirectWorkInputRuntimeArtifacts {
     let repo_root = input.repo_root.to_string_lossy().into_owned();
-    let mut command_parts = vec![
-        input.codex_executable.as_str(),
-        "exec",
+    let mut command_parts = vec![input.codex_executable.as_str(), "exec"];
+    if let Some(thread_id) = input.codex_thread_id.as_deref() {
+        command_parts.extend(["resume", thread_id]);
+    }
+    command_parts.extend([
         "--cd",
         repo_root.as_str(),
         "--sandbox",
         direct_work_sandbox_value(input.sandbox),
         "--ask-for-approval",
         direct_work_approval_policy_value(input.approval_policy),
-    ];
+    ]);
     if input.skip_git_repo_check {
         command_parts.push("--skip-git-repo-check");
     }
@@ -425,6 +434,7 @@ pub(super) fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInpu
         "mode": CODEX_DIRECT_WORK_MODE,
         "repo_root": input.repo_root.display().to_string(),
         "codex_executable": &input.codex_executable,
+        "codex_thread_id": &input.codex_thread_id,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "skip_git_repo_check": input.skip_git_repo_check,
@@ -477,6 +487,7 @@ fn direct_work_result_payload(
         "mode": CODEX_DIRECT_WORK_MODE,
         "repo_root": input.repo_root.display().to_string(),
         "codex_executable": &input.codex_executable,
+        "codex_thread_id": &input.codex_thread_id,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "skip_git_repo_check": input.skip_git_repo_check,

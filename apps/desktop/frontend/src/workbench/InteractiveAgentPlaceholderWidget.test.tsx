@@ -85,6 +85,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.querySelector(".interactive-agent-direct-mode-bar")).not.toBeNull();
     expect(document.body.textContent).toContain("Working dir");
     expect(textInputValue()).toBe("~");
+    expect(document.body.textContent).toContain("New thread");
     expect(document.body.textContent).toContain(
       "Runs from ~ by default. Non-git directories use Codex skip git repo check.",
     );
@@ -144,6 +145,14 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
         onEvent(directWorkEvent({ eventKind: "started", runId: "run_brain" }));
         onEvent(
           directWorkEvent({
+            codexThreadId: "thread_brain_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId: "run_brain",
+          }),
+        );
+        onEvent(
+          directWorkEvent({
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
@@ -169,6 +178,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      codexThreadId: null,
       operatorPrompt: "Make a plan while Direct Mode is enabled",
       skipGitRepoCheck: true,
     });
@@ -177,11 +187,185 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Primary action sends this message to Codex Direct Mode.",
     );
     expect(document.body.textContent).toContain(
-      "Sent to Codex Direct Mode. Starting foreground Codex Direct Work from ~.",
+      "Starting new Codex thread. Starting Codex Direct Work from ~.",
     );
     expect(document.body.textContent).toContain("Codex handled the task.");
+    expect(document.body.textContent).toContain("Thread active thread_b...");
     expect(document.body.textContent).not.toContain("Drafting from the visible chat.");
     expect(document.body.textContent).not.toContain("Coordinator plan");
+  });
+
+  it("stores the first Codex thread id and resumes it on the next Direct Mode run", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId =
+          (request as { codexThreadId?: string | null }).codexThreadId
+            ? "run_resume"
+            : "run_new";
+        onEvent(directWorkEvent({ eventKind: "started", runId }));
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_stateful_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "final_message",
+            isFinal: false,
+            runId,
+            text: `Final for ${runId}.`,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("I have 5 apples, you have 2.");
+    await clickButton("Run with Codex");
+    await setTextareaValue("How many apples do you have?");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "I have 5 apples, you have 2.",
+    });
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: "thread_stateful_123456",
+      operatorPrompt: "How many apples do you have?",
+    });
+    expect(
+      JSON.stringify(startDirectWork.mock.calls[1][1]),
+    ).not.toContain("I have 5 apples");
+    expect(document.body.textContent).toContain("Continuing Codex thread");
+    expect(document.body.textContent).toContain("Thread active thread_s...");
+  });
+
+  it("New Codex thread clears the current Direct Mode thread without clearing chat", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId =
+          (request as { codexThreadId?: string | null }).codexThreadId
+            ? "run_resume"
+            : `run_${startDirectWork.mock.calls.length}`;
+        onEvent(directWorkEvent({ eventKind: "started", runId }));
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_reset_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: `Final for ${runId}.`,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("Remember this.");
+    await clickButton("Run with Codex");
+    await clickButton("New Codex thread");
+    await setTextareaValue("Start over.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Start over.",
+    });
+    expect(document.body.textContent).toContain("Codex thread reset.");
+    expect(document.body.textContent).toContain("Remember this.");
+  });
+
+  it("changing the Direct Mode working directory clears the current Codex thread", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(directWorkEvent({ eventKind: "started", runId }));
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_directory_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: `Final for ${runId}.`,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run in home.");
+    await clickButton("Run with Codex");
+    await setTextInputValue("C:/work/project");
+    await setTextareaValue("Run in the new directory.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      repoRoot: "C:/work/project",
+    });
+    expect(document.body.textContent).toContain(
+      "Working directory changed. Next Codex run starts a new thread.",
+    );
   });
 
   it("requires a working directory before starting Direct Mode", async () => {
@@ -274,7 +458,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("completed");
     expect(document.body.textContent).toContain("Implement this directly.");
     expect(document.body.textContent).toContain(
-      "Sent to Codex Direct Mode. Starting foreground Codex Direct Work from ~.",
+      "Starting new Codex thread. Starting Codex Direct Work from ~.",
     );
     expect(document.body.textContent).toContain("Codex Direct Mode completed.");
     expect(document.body.textContent).toContain("Final Coordinator result.");
@@ -1409,6 +1593,7 @@ function directWorkEvent(
     isFinal: false,
     line: null,
     parsedCodexEventType: null,
+    codexThreadId: null,
     runId: "run_1",
     status: null,
     stderrPreview: null,

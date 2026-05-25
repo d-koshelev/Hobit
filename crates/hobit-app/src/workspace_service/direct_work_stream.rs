@@ -103,6 +103,7 @@ impl WorkspaceService {
             program: Some(input.codex_executable.clone()),
             repo_root: input.repo_root.clone(),
             prompt: input.operator_prompt.clone(),
+            resume_thread_id: input.codex_thread_id.clone(),
             sandbox: input.sandbox,
             approval_policy: input.approval_policy,
             skip_git_repo_check: input.skip_git_repo_check,
@@ -347,6 +348,7 @@ fn direct_work_stream_event_summary(
         line: event.line.clone(),
         text: event.text.clone(),
         parsed_codex_event_type: parsed_codex_event_type(event.parsed_json.as_deref()),
+        codex_thread_id: parsed_codex_thread_id(event.parsed_json.as_deref()),
         status: stream_event_status(event.kind).map(ToOwned::to_owned),
         elapsed_ms: event.elapsed_ms,
         is_final: is_final_stream_event(event.kind),
@@ -384,6 +386,7 @@ fn direct_work_stream_log_record(
             "line": &event.line,
             "text": &event.text,
             "parsed_codex_event_type": parsed_codex_event_type(event.parsed_json.as_deref()),
+            "codex_thread_id": parsed_codex_thread_id(event.parsed_json.as_deref()),
             "error_message": &event.error_message,
             "stderr_preview": &event.stderr_preview,
             "exit_code": event.exit_code,
@@ -473,6 +476,7 @@ fn direct_work_stream_command_payload(input: &NormalizedDirectWorkInput) -> Stri
         "repo_root": input.repo_root.display().to_string(),
         "codex_executable": &input.codex_executable,
         "operator_prompt": &input.operator_prompt,
+        "codex_thread_id": &input.codex_thread_id,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "skip_git_repo_check": input.skip_git_repo_check,
@@ -503,6 +507,7 @@ fn direct_work_stream_result_payload(
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
         "skip_git_repo_check": input.skip_git_repo_check,
         "operator_prompt": &input.operator_prompt,
+        "codex_thread_id": &input.codex_thread_id,
         "command_summary": &output.command_summary,
         "status": final_status,
         "codex_status": output.status.as_str(),
@@ -530,6 +535,20 @@ fn parsed_codex_event_type(parsed_json: Option<&str>) -> Option<String> {
     value
         .get("type")
         .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+}
+
+fn parsed_codex_thread_id(parsed_json: Option<&str>) -> Option<String> {
+    let value = serde_json::from_str::<Value>(parsed_json?).ok()?;
+    if value.get("type").and_then(Value::as_str) != Some("thread.started") {
+        return None;
+    }
+
+    value
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|thread_id| !thread_id.is_empty())
         .map(ToOwned::to_owned)
 }
 

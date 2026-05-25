@@ -85,7 +85,14 @@ behavior, or Coordinator context wiring.
   Coordinator. Direct Mode composer submission starts a foreground
   Coordinator-owned Codex Direct Work run instead of producing a mock/local
   assistant response for that prompt. The operator can replace `~` with a
-  project or repo folder.
+  project or repo folder. Coordinator Direct Mode captures Codex
+  `thread.started` `thread_id` events, keeps the current thread id in
+  current-session Coordinator widget state, resumes that explicit thread id for
+  follow-up Run with Codex actions, and never uses `--last`. Resume sends only
+  the latest composer message, not the full visible chat transcript. The
+  visible New Codex thread action clears the thread id, and changing the
+  working directory also clears it so the next run starts a new thread. Queue
+  and Agent Executor Direct Work behavior remains unchanged.
 
 ## Still Type-Only Or Contract-Only
 
@@ -133,7 +140,9 @@ the async/background runtime owner for queued run detail, logs, final
 responses, and history. Coordinator Direct Mode is a foreground Coordinator
 run path and does not create Queue tasks, start Queue Autorun, require an
 Agent Executor widget, change Executor repo-root/task configuration behavior,
-or auto-commit, push, reset, clean, or stash Git changes.
+resume Queue/Executor Codex threads, or auto-commit, push, reset, clean, or
+stash Git changes. Its Codex thread state is current-session Coordinator
+widget state only, not global hidden memory.
 Mock/local remains a visible fallback when Direct Mode is off or Codex is
 unavailable, and must not be presented as connected AI.
 

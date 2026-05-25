@@ -149,6 +149,7 @@ where
     let cleanup_output_file = request.output_last_message_path.is_none();
     let codex_args = build_codex_exec_json_args(
         &request.repo_root,
+        request.resume_thread_id.as_deref(),
         request.sandbox,
         request.approval_policy,
         request.skip_git_repo_check,
@@ -159,6 +160,7 @@ where
         &launch.program,
         &launch.args,
         &request.repo_root,
+        request.resume_thread_id.as_deref(),
         request.sandbox,
         request.approval_policy,
         request.skip_git_repo_check,

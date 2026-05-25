@@ -521,6 +521,7 @@ fn direct_work_input(
         codex_executable: "codex".to_owned(),
         repo_root,
         operator_prompt: operator_prompt.to_owned(),
+        codex_thread_id: None,
         sandbox: sandbox.to_owned(),
         approval_policy: approval_policy.to_owned(),
         skip_git_repo_check: false,

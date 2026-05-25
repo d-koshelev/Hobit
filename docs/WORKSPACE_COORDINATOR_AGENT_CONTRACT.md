@@ -80,9 +80,17 @@ The current Coordinator preview:
   Coordinator-owned Direct Mode runs pass Codex `--skip-git-repo-check` so the
   default home-directory mode can start from a non-Git directory. Agent
   Executor and Queue Direct Work do not skip that check by default. The
-  operator can replace `~` with a project or repo folder. Status, recent logs,
-  Stop/cancel state when available, final result summary, and failures stay
-  visible in Coordinator.
+  operator can replace `~` with a project or repo folder. The first successful
+  Codex stream captures the explicit `thread.started` `thread_id` when Codex
+  emits it, stores it as current-session Coordinator widget state, and later
+  Direct Mode sends resume requests for that explicit thread id. Direct Mode
+  does not use `--last`, and resume requests send only the latest composer
+  message rather than the full visible transcript. The operator can visibly
+  start a New Codex thread / reset the thread id, and changing the working
+  directory clears the current thread id so the next run starts fresh. Thread
+  state is current-session only unless persistence is added later. Status,
+  recent logs, Stop/cancel state when available, final result summary, and
+  failures stay visible in Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

@@ -251,6 +251,7 @@ fn direct_work_input() -> RunCodexDirectWorkInput {
         codex_executable: "codex.cmd".to_owned(),
         repo_root: PathBuf::from("C:/Users/Private/project"),
         operator_prompt: "prompt with token=secret".to_owned(),
+        codex_thread_id: None,
         sandbox: "workspace-write".to_owned(),
         approval_policy: "never".to_owned(),
         skip_git_repo_check: false,
@@ -275,6 +276,7 @@ fn stream_event(
         line: line.map(ToOwned::to_owned),
         text: text.map(ToOwned::to_owned),
         parsed_codex_event_type: None,
+        codex_thread_id: None,
         status: None,
         elapsed_ms: 12,
         is_final: matches!(

@@ -332,6 +332,7 @@ fn build_direct_work_input(
         codex_executable: input.codex_executable.clone(),
         repo_root: input.repo_root.clone(),
         operator_prompt,
+        codex_thread_id: None,
         sandbox: input.sandbox.clone(),
         approval_policy: input.approval_policy.clone(),
         skip_git_repo_check: false,

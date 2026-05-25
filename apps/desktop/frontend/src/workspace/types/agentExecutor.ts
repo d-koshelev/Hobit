@@ -11,6 +11,7 @@ export type RunCodexDirectWorkRequest = {
   codexExecutable: string;
   repoRoot: string;
   operatorPrompt: string;
+  codexThreadId?: string | null;
   sandbox: DirectWorkSandbox;
   approvalPolicy: DirectWorkApprovalPolicy;
   skipGitRepoCheck?: boolean;
@@ -180,6 +181,7 @@ export type DirectWorkStreamEvent = {
   line: string | null;
   text: string | null;
   parsedCodexEventType: string | null;
+  codexThreadId?: string | null;
   status: string | null;
   elapsedMs: number;
   isFinal: boolean;

@@ -255,6 +255,7 @@ fn codex_direct_work_stream_events_append_logs_and_emit_tauri_ready_payloads() {
                 assert_eq!(request.sandbox, CodexSandboxMode::WorkspaceWrite);
                 assert_eq!(request.approval_policy, CodexApprovalPolicy::Never);
                 assert!(!request.skip_git_repo_check);
+                assert_eq!(request.resume_thread_id, None);
 
                 emit_completed_stream_events(on_event);
                 completed_stream_output(&request, 6)
@@ -285,9 +286,107 @@ fn codex_direct_work_stream_events_append_logs_and_emit_tauri_ready_payloads() {
             .and_then(|event| event.parsed_codex_event_type.as_deref()),
         Some("thread.started")
     );
+    assert_eq!(
+        events
+            .iter()
+            .find(|event| event.event_kind == "codex_json_event")
+            .and_then(|event| event.codex_thread_id.as_deref()),
+        Some("thread_123")
+    );
     assert!(events
         .iter()
         .any(|event| event.event_kind == "completed" && event.is_final));
+}
+
+#[test]
+fn codex_direct_work_stream_missing_thread_id_still_completes_without_thread() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Run Codex stream without thread id.",
+        "workspace_write",
+        "never",
+    );
+    let start = service
+        .start_codex_direct_work_stream(input.clone())
+        .expect("start stream")
+        .expect("stream start summary");
+    let emitted_events = RefCell::new(Vec::new());
+
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            input,
+            &start.run_id,
+            |request, on_event| {
+                emit_completed_stream_events_without_thread_id(on_event);
+                completed_stream_output(&request, 3)
+            },
+            |event| emitted_events.borrow_mut().push(event),
+        )
+        .expect("run direct work stream")
+        .expect("direct work stream summary");
+    let events = emitted_events.borrow();
+
+    assert_eq!(summary.status, "completed");
+    assert_eq!(
+        events
+            .iter()
+            .find(|event| event.parsed_codex_event_type.as_deref() == Some("thread.started"))
+            .and_then(|event| event.codex_thread_id.as_deref()),
+        None
+    );
+}
+
+#[test]
+fn codex_direct_work_stream_passes_explicit_resume_thread_to_runner() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let mut input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Continue only with this latest prompt.",
+        "workspace_write",
+        "never",
+    );
+    input.codex_thread_id = Some("thread_resume_123".to_owned());
+    input.skip_git_repo_check = true;
+    let start = service
+        .start_codex_direct_work_stream(input.clone())
+        .expect("start stream")
+        .expect("stream start summary");
+
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            input,
+            &start.run_id,
+            |request, on_event| {
+                assert_eq!(
+                    request.resume_thread_id.as_deref(),
+                    Some("thread_resume_123")
+                );
+                assert_eq!(request.prompt, "Continue only with this latest prompt.");
+                assert!(request.skip_git_repo_check);
+                emit_completed_stream_events(on_event);
+                completed_stream_output(&request, 6)
+            },
+            |_| {},
+        )
+        .expect("run direct work stream")
+        .expect("direct work stream summary");
+    let payload = stream_result_payload(&service, &summary.run_id);
+
+    assert_eq!(summary.status, "completed");
+    assert_eq!(payload["codex_thread_id"], "thread_resume_123");
+    assert_eq!(
+        payload["operator_prompt"],
+        "Continue only with this latest prompt."
+    );
 }
 
 #[test]
@@ -559,6 +658,7 @@ fn direct_work_input(
         codex_executable: "codex".to_owned(),
         repo_root,
         operator_prompt: operator_prompt.to_owned(),
+        codex_thread_id: None,
         sandbox: sandbox.to_owned(),
         approval_policy: approval_policy.to_owned(),
         skip_git_repo_check: false,
@@ -608,9 +708,9 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::CodexJsonEvent,
         elapsed_ms: 4,
-        line: Some(r#"{"type":"thread.started"}"#.to_owned()),
+        line: Some(r#"{"type":"thread.started","thread_id":"thread_123"}"#.to_owned()),
         text: None,
-        parsed_json: Some(r#"{"type":"thread.started"}"#.to_owned()),
+        parsed_json: Some(r#"{"type":"thread.started","thread_id":"thread_123"}"#.to_owned()),
         error_message: None,
         stderr_preview: None,
         exit_code: None,
@@ -632,6 +732,47 @@ fn emit_completed_stream_events(on_event: &mut dyn FnMut(CodexDirectStreamEvent)
     on_event(CodexDirectStreamEvent {
         kind: CodexDirectStreamEventKind::Completed,
         elapsed_ms: 6,
+        line: None,
+        text: None,
+        parsed_json: None,
+        error_message: None,
+        stderr_preview: None,
+        exit_code: Some(0),
+        final_status: Some("completed".to_owned()),
+        failed_stage: None,
+    });
+}
+
+fn emit_completed_stream_events_without_thread_id(
+    on_event: &mut dyn FnMut(CodexDirectStreamEvent),
+) {
+    on_event(CodexDirectStreamEvent {
+        kind: CodexDirectStreamEventKind::CodexJsonEvent,
+        elapsed_ms: 1,
+        line: Some(r#"{"type":"thread.started"}"#.to_owned()),
+        text: None,
+        parsed_json: Some(r#"{"type":"thread.started"}"#.to_owned()),
+        error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
+    });
+    on_event(CodexDirectStreamEvent {
+        kind: CodexDirectStreamEventKind::FinalMessage,
+        elapsed_ms: 2,
+        line: None,
+        text: Some("Final response".to_owned()),
+        parsed_json: None,
+        error_message: None,
+        stderr_preview: None,
+        exit_code: None,
+        final_status: None,
+        failed_stage: None,
+    });
+    on_event(CodexDirectStreamEvent {
+        kind: CodexDirectStreamEventKind::Completed,
+        elapsed_ms: 3,
         line: None,
         text: None,
         parsed_json: None,

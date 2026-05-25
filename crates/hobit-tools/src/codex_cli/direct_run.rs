@@ -31,6 +31,7 @@ pub struct CodexDirectRunRequest {
     pub program: Option<String>,
     pub repo_root: PathBuf,
     pub prompt: String,
+    pub resume_thread_id: Option<String>,
     pub sandbox: CodexSandboxMode,
     pub approval_policy: CodexApprovalPolicy,
     pub skip_git_repo_check: bool,
@@ -51,6 +52,7 @@ impl CodexDirectRunRequest {
             program: None,
             repo_root: repo_root.into(),
             prompt: prompt.into(),
+            resume_thread_id: None,
             sandbox,
             approval_policy,
             skip_git_repo_check: false,
@@ -204,6 +206,7 @@ fn run_codex_direct_work_inner(
     let cleanup_output_file = request.output_last_message_path.is_none();
     let codex_args = build_codex_exec_args(
         &request.repo_root,
+        request.resume_thread_id.as_deref(),
         request.sandbox,
         request.approval_policy,
         request.skip_git_repo_check,
@@ -214,6 +217,7 @@ fn run_codex_direct_work_inner(
         &launch.program,
         &launch.args,
         &request.repo_root,
+        request.resume_thread_id.as_deref(),
         request.sandbox,
         request.approval_policy,
         request.skip_git_repo_check,
@@ -294,6 +298,7 @@ fn validate_repo_root(repo_root: &Path) -> Option<String> {
 
 fn build_codex_exec_args(
     repo_root: &Path,
+    resume_thread_id: Option<&str>,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     skip_git_repo_check: bool,
@@ -309,6 +314,10 @@ fn build_codex_exec_args(
     ];
 
     args.push("exec".to_owned());
+    if let Some(thread_id) = normalized_resume_thread_id(resume_thread_id) {
+        args.push("resume".to_owned());
+        args.push(thread_id.to_owned());
+    }
 
     if skip_git_repo_check {
         args.push("--skip-git-repo-check".to_owned());
@@ -327,6 +336,7 @@ fn safe_command_summary(
     launch_program: &str,
     launch_args: &[String],
     repo_root: &Path,
+    resume_thread_id: Option<&str>,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     skip_git_repo_check: bool,
@@ -342,6 +352,10 @@ fn safe_command_summary(
     ];
 
     expected_codex_args.push("exec".to_owned());
+    if let Some(thread_id) = normalized_resume_thread_id(resume_thread_id) {
+        expected_codex_args.push("resume".to_owned());
+        expected_codex_args.push(thread_id.to_owned());
+    }
 
     if skip_git_repo_check {
         expected_codex_args.push("--skip-git-repo-check".to_owned());
@@ -363,6 +377,12 @@ fn safe_command_summary(
         }
     }
     summary
+}
+
+fn normalized_resume_thread_id(thread_id: Option<&str>) -> Option<&str> {
+    thread_id
+        .map(str::trim)
+        .filter(|thread_id| !thread_id.is_empty())
 }
 
 fn direct_run_status(output: &crate::process::ProcessRunOutput) -> CodexDirectRunStatus {

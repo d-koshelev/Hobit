@@ -54,6 +54,7 @@ fn maps_start_assigned_agent_queue_task_summary_to_dto() {
             codex_executable: "codex".to_owned(),
             repo_root: PathBuf::from("C:/work/repo"),
             operator_prompt: "Prompt".to_owned(),
+            codex_thread_id: None,
             sandbox: "workspace_write".to_owned(),
             approval_policy: "never".to_owned(),
             skip_git_repo_check: false,

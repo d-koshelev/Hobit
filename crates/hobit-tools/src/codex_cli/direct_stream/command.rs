@@ -26,6 +26,7 @@ pub(super) fn validate_repo_root(repo_root: &Path) -> Option<String> {
 
 pub(super) fn build_codex_exec_json_args(
     repo_root: &Path,
+    resume_thread_id: Option<&str>,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     skip_git_repo_check: bool,
@@ -41,6 +42,10 @@ pub(super) fn build_codex_exec_json_args(
     ];
 
     args.push("exec".to_owned());
+    if let Some(thread_id) = normalized_resume_thread_id(resume_thread_id) {
+        args.push("resume".to_owned());
+        args.push(thread_id.to_owned());
+    }
 
     if skip_git_repo_check {
         args.push("--skip-git-repo-check".to_owned());
@@ -60,6 +65,7 @@ pub(super) fn safe_command_summary(
     launch_program: &str,
     launch_args: &[String],
     repo_root: &Path,
+    resume_thread_id: Option<&str>,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     skip_git_repo_check: bool,
@@ -75,6 +81,10 @@ pub(super) fn safe_command_summary(
     ];
 
     expected_codex_args.push("exec".to_owned());
+    if let Some(thread_id) = normalized_resume_thread_id(resume_thread_id) {
+        expected_codex_args.push("resume".to_owned());
+        expected_codex_args.push(thread_id.to_owned());
+    }
 
     if skip_git_repo_check {
         expected_codex_args.push("--skip-git-repo-check".to_owned());
@@ -97,4 +107,10 @@ pub(super) fn safe_command_summary(
         }
     }
     summary
+}
+
+fn normalized_resume_thread_id(thread_id: Option<&str>) -> Option<&str> {
+    thread_id
+        .map(str::trim)
+        .filter(|thread_id| !thread_id.is_empty())
 }

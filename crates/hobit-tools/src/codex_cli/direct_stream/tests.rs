@@ -326,6 +326,7 @@ fn built_args_put_global_options_before_exec_and_json_exec_options_after() {
 
     let args = build_codex_exec_json_args(
         &repo_root,
+        None,
         CodexSandboxMode::ReadOnly,
         CodexApprovalPolicy::Never,
         false,
@@ -368,6 +369,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
 
     let args = build_codex_exec_json_args(
         &repo_root,
+        None,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
         true,
@@ -377,6 +379,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
         "codex",
         &args,
         &repo_root,
+        None,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
         true,
@@ -457,11 +460,49 @@ fn skip_git_repo_check_request_adds_exec_arg_after_exec() {
 }
 
 #[test]
+fn resume_thread_request_builds_explicit_resume_without_last() {
+    let mut request = request_with_program(
+        temp_repo("resume-thread"),
+        "latest follow-up only",
+        direct_stream_helper(),
+    );
+    request.resume_thread_id = Some("thread_abc123".to_owned());
+    request.skip_git_repo_check = true;
+
+    let output = run_codex_direct_work_streaming(request, |_| {});
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    assert!(output
+        .final_message
+        .as_deref()
+        .unwrap()
+        .contains("exec\nresume\nthread_abc123\n--skip-git-repo-check\n--json\n"));
+    assert_eq!(
+        arg_index(&output.command_summary, "exec") + 1,
+        arg_index(&output.command_summary, "resume")
+    );
+    assert_eq!(
+        arg_index(&output.command_summary, "resume") + 1,
+        arg_index(&output.command_summary, "thread_abc123")
+    );
+    assert!(
+        arg_index(&output.command_summary, "--skip-git-repo-check")
+            > arg_index(&output.command_summary, "resume")
+    );
+    assert!(!output.command_summary.iter().any(|part| part == "--last"));
+    assert!(!output
+        .command_summary
+        .iter()
+        .any(|part| part == "latest follow-up only"));
+}
+
+#[test]
 fn executor_path_without_skip_git_repo_check_keeps_exec_json_args_unchanged() {
     let repo_root = temp_path("no-skip-argv");
     let output_last_message_path = temp_path("no-skip-argv-last").join("last.txt");
     let args = build_codex_exec_json_args(
         &repo_root,
+        None,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
         false,
@@ -517,6 +558,7 @@ exit /b 0
     let final_message_directory = temp_path("codex-cmd-final");
     fs::create_dir_all(&final_message_directory).unwrap();
     request.output_last_message_path = Some(final_message_directory.join("last.txt"));
+    request.resume_thread_id = Some("thread_windows".to_owned());
     request.skip_git_repo_check = true;
 
     let output = run_codex_direct_work_streaming_inner(
@@ -535,8 +577,16 @@ exit /b 0
         helper.to_string_lossy().into_owned()
     );
     assert!(output.command_summary.iter().any(|part| part == "exec"));
+    assert_eq!(
+        arg_index(&output.command_summary, "exec") + 1,
+        arg_index(&output.command_summary, "resume")
+    );
+    assert_eq!(
+        arg_index(&output.command_summary, "resume") + 1,
+        arg_index(&output.command_summary, "thread_windows")
+    );
     assert!(
-        arg_index(&output.command_summary, "exec")
+        arg_index(&output.command_summary, "resume")
             < arg_index(&output.command_summary, "--skip-git-repo-check")
     );
     assert_eq!(

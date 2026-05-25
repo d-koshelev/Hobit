@@ -90,6 +90,7 @@ type TauriDirectWorkStreamEvent = {
   line: string | null;
   text: string | null;
   parsed_codex_event_type: string | null;
+  codex_thread_id?: string | null;
   status: string | null;
   elapsed_ms: number;
   is_final: boolean;
@@ -113,6 +114,7 @@ export async function runCodexDirectWork(
         codex_executable: request.codexExecutable,
         repo_root: request.repoRoot,
         operator_prompt: request.operatorPrompt,
+        codex_thread_id: request.codexThreadId ?? null,
         sandbox: request.sandbox,
         approval_policy: request.approvalPolicy,
         skip_git_repo_check: request.skipGitRepoCheck ?? false,
@@ -201,6 +203,7 @@ export async function startCodexDirectWorkStream(
           codex_executable: request.codexExecutable,
           repo_root: request.repoRoot,
           operator_prompt: request.operatorPrompt,
+          codex_thread_id: request.codexThreadId ?? null,
           sandbox: request.sandbox,
           approval_policy: request.approvalPolicy,
           skip_git_repo_check: request.skipGitRepoCheck ?? false,
@@ -322,6 +325,7 @@ function normalizeDirectWorkStreamEvent(
     line: event.line,
     text: event.text,
     parsedCodexEventType: event.parsed_codex_event_type,
+    codexThreadId: event.codex_thread_id ?? null,
     status: event.status,
     elapsedMs: event.elapsed_ms,
     isFinal: event.is_final,
