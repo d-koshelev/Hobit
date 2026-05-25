@@ -308,12 +308,13 @@ fn build_codex_exec_args(
         approval_policy.as_cli_arg().to_owned(),
     ];
 
+    args.push("exec".to_owned());
+
     if skip_git_repo_check {
         args.push("--skip-git-repo-check".to_owned());
     }
 
     args.extend([
-        "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),
@@ -340,12 +341,13 @@ fn safe_command_summary(
         approval_policy.as_cli_arg().to_owned(),
     ];
 
+    expected_codex_args.push("exec".to_owned());
+
     if skip_git_repo_check {
         expected_codex_args.push("--skip-git-repo-check".to_owned());
     }
 
     expected_codex_args.extend([
-        "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),

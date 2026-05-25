@@ -140,15 +140,15 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
             "workspace-write".to_owned(),
             "--ask-for-approval".to_owned(),
             "on-request".to_owned(),
-            "--skip-git-repo-check".to_owned(),
             "exec".to_owned(),
+            "--skip-git-repo-check".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
             "<operator-prompt-stdin>".to_owned(),
         ]
     );
     assert!(arg_index(&summary, "--ask-for-approval") < arg_index(&summary, "exec"));
-    assert!(arg_index(&summary, "--skip-git-repo-check") < arg_index(&summary, "exec"));
+    assert!(arg_index(&summary, "--skip-git-repo-check") > arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--sandbox") < arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--cd") < arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--output-last-message") > arg_index(&summary, "exec"));
@@ -182,7 +182,7 @@ fn args_are_passed_without_shell_concatenation() {
 }
 
 #[test]
-fn skip_git_repo_check_request_adds_global_codex_arg_before_exec() {
+fn skip_git_repo_check_request_adds_exec_arg_after_exec() {
     let mut request = request_with_program(
         temp_repo("skip-git-check"),
         "skip-git-check",
@@ -194,11 +194,31 @@ fn skip_git_repo_check_request_adds_global_codex_arg_before_exec() {
 
     assert_eq!(output.status, CodexDirectRunStatus::Completed);
     let final_message = output.final_message.unwrap();
-    assert!(final_message.contains("--skip-git-repo-check\nexec\n"));
+    assert!(final_message.contains("exec\n--skip-git-repo-check\n--output-last-message\n"));
     assert!(
         arg_index(&output.command_summary, "--skip-git-repo-check")
-            < arg_index(&output.command_summary, "exec")
+            > arg_index(&output.command_summary, "exec")
     );
+    assert_no_skip_git_repo_check_before_exec(&output.command_summary);
+}
+
+#[test]
+fn executor_path_without_skip_git_repo_check_keeps_exec_args_unchanged() {
+    let repo_root = temp_path("no-skip-argv");
+    let output_last_message_path = temp_path("no-skip-argv-last").join("last.txt");
+    let args = build_codex_exec_args(
+        &repo_root,
+        CodexSandboxMode::WorkspaceWrite,
+        CodexApprovalPolicy::OnRequest,
+        false,
+        &output_last_message_path,
+    );
+
+    assert_eq!(
+        arg_index(&args, "exec") + 1,
+        arg_index(&args, "--output-last-message")
+    );
+    assert!(!args.iter().any(|arg| arg == "--skip-git-repo-check"));
 }
 
 #[test]
@@ -247,6 +267,7 @@ exit /b 0
     let final_message_directory = temp_path("codex-cmd-final");
     fs::create_dir_all(&final_message_directory).unwrap();
     request.output_last_message_path = Some(final_message_directory.join("last.txt"));
+    request.skip_git_repo_check = true;
 
     let output = run_codex_direct_work_inner(request, Some(directory.as_os_str()));
 
@@ -259,6 +280,14 @@ exit /b 0
         helper.to_string_lossy().into_owned()
     );
     assert!(output.command_summary.iter().any(|part| part == "exec"));
+    assert!(
+        arg_index(&output.command_summary, "exec")
+            < arg_index(&output.command_summary, "--skip-git-repo-check")
+    );
+    assert_eq!(
+        arg_index(&output.command_summary, "--skip-git-repo-check") + 1,
+        arg_index(&output.command_summary, "--output-last-message")
+    );
     assert!(!output
         .command_summary
         .iter()
@@ -486,6 +515,13 @@ fn arg_index(args: &[String], arg: &str) -> usize {
     args.iter()
         .position(|item| item == arg)
         .unwrap_or_else(|| panic!("missing arg: {arg}"))
+}
+
+fn assert_no_skip_git_repo_check_before_exec(args: &[String]) {
+    let exec_index = arg_index(args, "exec");
+    assert!(!args[..exec_index]
+        .iter()
+        .any(|arg| arg == "--skip-git-repo-check"));
 }
 
 fn request_with_program(

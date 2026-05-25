@@ -369,7 +369,11 @@ mod tests {
     fn launch_wraps_windows_cmd_shim_with_cmd_exe_and_keeps_args_separate() {
         let launch = codex_launch_command(
             "C:/Users/Dmitry/AppData/Roaming/npm/codex.cmd",
-            vec!["exec".to_owned(), "--json".to_owned()],
+            vec![
+                "exec".to_owned(),
+                "--skip-git-repo-check".to_owned(),
+                "--json".to_owned(),
+            ],
         );
 
         assert_eq!(launch.program, "cmd.exe");
@@ -380,10 +384,15 @@ mod tests {
                 "/C".to_owned(),
                 "C:/Users/Dmitry/AppData/Roaming/npm/codex.cmd".to_owned(),
                 "exec".to_owned(),
+                "--skip-git-repo-check".to_owned(),
                 "--json".to_owned(),
             ]
         );
         assert!(!launch.args.iter().any(|arg| arg == "codex exec"));
+        assert!(arg_index(&launch.args, "exec") < arg_index(&launch.args, "--skip-git-repo-check"));
+        assert!(
+            arg_index(&launch.args, "--skip-git-repo-check") < arg_index(&launch.args, "--json")
+        );
     }
 
     #[test]
@@ -427,5 +436,11 @@ mod tests {
             .as_nanos();
 
         format!("{}-{nanos}", std::process::id())
+    }
+
+    fn arg_index(args: &[String], arg: &str) -> usize {
+        args.iter()
+            .position(|item| item == arg)
+            .unwrap_or_else(|| panic!("missing arg: {arg}"))
     }
 }
