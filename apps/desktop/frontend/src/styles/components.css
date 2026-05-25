@@ -1158,8 +1158,8 @@
 }
 
 .interactive-agent-provider-meta-success {
-  border-left-color: var(--color-success);
-  background: var(--color-success-soft);
+  border-left-color: var(--color-border-subtle);
+  background: transparent;
 }
 
 .interactive-agent-provider-meta-pending,

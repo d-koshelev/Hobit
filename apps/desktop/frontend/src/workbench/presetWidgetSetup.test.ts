@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceWorkbenchState } from "../workspace/types";
-import { coordinatorWorkspacePreset } from "./presets";
+import {
+  COORDINATOR_NOTES_LAYOUT_GAP,
+  DEFAULT_COORDINATOR_CHAT_HEIGHT,
+  DEFAULT_COORDINATOR_CHAT_WIDTH,
+  DEFAULT_NOTES_HEIGHT,
+  DEFAULT_NOTES_WIDTH,
+  coordinatorWorkspacePreset,
+} from "./presets";
 import { applyPresetWidgetsToWorkspaceState } from "./presetWidgetSetup";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -83,8 +90,8 @@ describe("preset widget setup", () => {
     ).toEqual([
       {
         alwaysOnTop: false,
-        dockHeight: 560,
-        dockWidth: 840,
+        dockHeight: DEFAULT_COORDINATOR_CHAT_HEIGHT,
+        dockWidth: DEFAULT_COORDINATOR_CHAT_WIDTH,
         dockX: 0,
         dockY: 0,
         isVisible: true,
@@ -96,9 +103,9 @@ describe("preset widget setup", () => {
       },
       {
         alwaysOnTop: false,
-        dockHeight: 560,
-        dockWidth: 360,
-        dockX: 864,
+        dockHeight: DEFAULT_NOTES_HEIGHT,
+        dockWidth: DEFAULT_NOTES_WIDTH,
+        dockX: DEFAULT_COORDINATOR_CHAT_WIDTH + COORDINATOR_NOTES_LAYOUT_GAP,
         dockY: 0,
         isVisible: true,
         layoutMode: "docked",

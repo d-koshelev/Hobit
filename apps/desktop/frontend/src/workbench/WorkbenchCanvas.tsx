@@ -151,11 +151,14 @@ export function WorkbenchCanvas({
   const canvasShellClass = isLayoutEditing
     ? "canvas-shell canvas-shell-layout-editing"
     : "canvas-shell";
-  const layoutSurfaceStyle = widgetLayoutSurfaceStyle(
-    renderedVisibleWidgets,
-    dockedDragPositions,
-    dockedResizeSizes,
-  );
+  const layoutSurfaceStyle = {
+    ...widgetLayoutSurfaceStyle(
+      renderedVisibleWidgets,
+      dockedDragPositions,
+      dockedResizeSizes,
+    ),
+    ...(isLayoutEditing ? {} : { minHeight: "100%" }),
+  };
   const canvasGridStyle = workbenchCanvasGridStyle(gridSize);
   useEffect(() => {
     dockedDragPositionsRef.current = dockedDragPositions;

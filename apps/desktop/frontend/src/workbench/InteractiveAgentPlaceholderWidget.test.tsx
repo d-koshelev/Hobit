@@ -136,7 +136,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(providerDetails).not.toBeNull();
     expect(providerDetails?.open).toBe(false);
     expect(providerDetails?.querySelector("summary")?.textContent).toBe(
-      "Coordinator details",
+      "Provider details",
     );
     expect(
       providerDetails?.querySelector(".interactive-agent-provider-row"),
@@ -144,8 +144,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(responseDetails).not.toBeNull();
     expect(responseDetails?.open).toBe(false);
     expect(responseDetails?.querySelector("summary")?.textContent).toBe(
-      "mock-local details",
+      "Details",
     );
+    expect(document.body.textContent).not.toContain("mock-local details");
   });
 
   it("clicking a planning suggestion inserts visible text only", async () => {

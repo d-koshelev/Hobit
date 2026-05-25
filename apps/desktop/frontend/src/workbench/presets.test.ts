@@ -44,11 +44,15 @@ describe("workbench presets", () => {
     expect(notes.definitionId).toBe(NOTES_WIDGET_DEFINITION_ID);
     expect(coordinatorWorkspacePreset.widgets).toHaveLength(2);
     expect(coordinator.layout.width).toBe(DEFAULT_COORDINATOR_CHAT_WIDTH);
-    expect(coordinator.layout.height).toBeGreaterThanOrEqual(520);
+    expect(coordinator.layout.height).toBeGreaterThanOrEqual(640);
+    expect(coordinator.layout.height).toBeLessThanOrEqual(700);
     expect(coordinator.layout.height).toBe(DEFAULT_COORDINATOR_CHAT_HEIGHT);
     expect(notes.layout.width).toBe(DEFAULT_NOTES_WIDTH);
     expect(notes.layout.height).toBe(DEFAULT_NOTES_HEIGHT);
     expect(coordinator.layout.width).toBeGreaterThan(notes.layout.width);
+    expect(coordinator.layout.width * coordinator.layout.height).toBeGreaterThan(
+      notes.layout.width * notes.layout.height,
+    );
   });
 
   it("places Notes beside Coordinator Chat on a normal desktop layout", () => {
@@ -61,6 +65,7 @@ describe("workbench presets", () => {
     expect(notes.layout.x).toBe(
       coordinator.layout.width + COORDINATOR_NOTES_LAYOUT_GAP,
     );
+    expect(coordinator.layout.height).toBe(notes.layout.height);
   });
 
   it("keeps the default Coordinator and Notes layout side by side when the canvas is wide enough", () => {
@@ -78,6 +83,7 @@ describe("workbench presets", () => {
       coordinator.layout.width + COORDINATOR_NOTES_LAYOUT_GAP,
     );
     expect(coordinator.layout.width).toBeGreaterThan(notes.layout.width);
+    expect(coordinator.layout.y).toBe(notes.layout.y);
   });
 
   it("stacks Coordinator Chat before Notes only for narrow canvas widths", () => {

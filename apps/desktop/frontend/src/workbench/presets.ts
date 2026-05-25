@@ -9,9 +9,9 @@ export const EMPTY_WORKBENCH_PRESET_ID = "empty";
 export const COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH = 984;
 export const COORDINATOR_NOTES_LAYOUT_GAP = 24;
 export const DEFAULT_COORDINATOR_CHAT_WIDTH = 840;
-export const DEFAULT_COORDINATOR_CHAT_HEIGHT = 560;
+export const DEFAULT_COORDINATOR_CHAT_HEIGHT = 672;
 export const DEFAULT_NOTES_WIDTH = 360;
-export const DEFAULT_NOTES_HEIGHT = 560;
+export const DEFAULT_NOTES_HEIGHT = 672;
 
 export const coordinatorWorkspacePreset: WorkbenchPreset = {
   id: COORDINATOR_WORKSPACE_PRESET_ID,

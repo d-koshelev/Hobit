@@ -671,7 +671,7 @@ export function InteractiveAgentPlaceholderWidget({
               aria-label="Coordinator provider details"
               className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
             >
-              <summary>Coordinator details</summary>
+              <summary>Provider details</summary>
               <div className="interactive-agent-provider-row">
                 <span className="interactive-agent-status-label">Provider</span>
                 <Badge
@@ -765,8 +765,11 @@ export function InteractiveAgentPlaceholderWidget({
                 <details
                   className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
                 >
-                  <summary>{message.providerMeta.label} details</summary>
-                  <p>{message.providerMeta.detail}</p>
+                  <summary>Details</summary>
+                  <p>
+                    Provider: {message.providerMeta.label}.{" "}
+                    {message.providerMeta.detail}
+                  </p>
                 </details>
               ) : null}
               {message.planId && plans[message.planId] ? (

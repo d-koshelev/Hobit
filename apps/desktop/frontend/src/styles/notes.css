@@ -7,7 +7,10 @@
 }
 
 .notes-product-shell-empty {
+  align-content: start;
+  align-items: start;
   grid-template-columns: 1fr;
+  justify-items: center;
 }
 
 .notes-list-pane,
@@ -201,6 +204,7 @@
 }
 
 .notes-empty-state-compact {
+  width: min(100%, 320px);
   min-height: 0;
   padding: var(--space-sm);
 }
