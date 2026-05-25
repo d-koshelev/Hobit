@@ -98,6 +98,8 @@
 }
 
 .workspace-pill {
+  flex: 0 0 auto;
+  min-width: 92px;
   max-width: 220px;
   min-height: 28px;
   overflow: hidden;
@@ -113,6 +115,7 @@
   overflow: hidden;
   color: var(--color-text-secondary);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .global-activity-indicator.badge {

@@ -65,7 +65,48 @@ export function coordinatorProviderAssistantText(
     return localFallback;
   }
 
-  return response.assistantText;
+  return coordinatorProviderDisplayText(response, localFallback);
+}
+
+function coordinatorProviderDisplayText(
+  response: NonNullable<CoordinatorProviderResponse>,
+  localFallback: string,
+) {
+  const text = response.assistantText.trim();
+
+  if (!text) {
+    return localFallback;
+  }
+
+  if (response.providerKind === "mock-local") {
+    if (
+      /Mock Coordinator provider response|I received your explicit message|allowed_tools/i.test(
+        text,
+      )
+    ) {
+      return mockLocalDisplayText(response, localFallback);
+    }
+  }
+
+  return text
+    .replace(/\bTools are disabled with allowed_tools:\s*\[\],?\s*/gi, "")
+    .replace(/\ballowed_tools was empty and\s*/gi, "")
+    .trim();
+}
+
+function mockLocalDisplayText(
+  response: NonNullable<CoordinatorProviderResponse>,
+  localFallback: string,
+) {
+  if (response.proposalDrafts.length > 0) {
+    return "I drafted reviewable cards from the visible chat. Review the cards below before approving or creating anything.";
+  }
+
+  if (localFallback.trim()) {
+    return localFallback;
+  }
+
+  return "I can help plan the work, draft tasks, or review visible pasted results.";
 }
 
 export function coordinatorProviderPendingMeta(

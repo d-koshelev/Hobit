@@ -36,7 +36,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     renderWidget();
 
     expect(document.body.textContent).toContain("Make a plan");
-    expect(document.body.textContent).toContain("Break this into Queue tasks");
+    expect(document.body.textContent).toContain("Break into Queue tasks");
     expect(document.body.textContent).toContain("Draft tasks for this goal");
     expect(document.body.textContent).toContain("Review pasted Queue result");
     expect(document.body.textContent).toContain("Explain this Executor failure");
@@ -52,12 +52,43 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "Coordinator drafts work; Queue and Executor execute only after explicit operator action.",
     );
-    expect(document.body.textContent).toContain(
-      "Review uses visible chat text only. Paste results here to analyze them.",
+    expect(
+      document.querySelector('[aria-label="Coordinator suggested prompts"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".interactive-agent-empty")?.textContent,
+    ).not.toContain("Workspace");
+  });
+
+  it("keeps mock/local provider debug text out of the normal assistant body", async () => {
+    const provider = vi.fn(async () =>
+      providerResponse({
+        assistantText:
+          'Mock Coordinator provider response. I received your explicit message: "hello". Tools are disabled with allowed_tools: [], and no hidden Workspace context was used.',
+        providerKind: "mock-local",
+        visibleContextMessageCount: 1,
+      }),
     );
-    expect(document.body.textContent).toContain(
-      "Coordinator does not read Executor logs unless you paste or explicitly share them.",
+
+    renderWidget({ onGenerateCoordinatorProviderResponse: provider });
+    await sendMessage("hello");
+
+    const assistantBodies = Array.from(
+      document.querySelectorAll(
+        ".interactive-agent-message-assistant .interactive-agent-message-body",
+      ),
     );
+    const visibleAssistantBody =
+      assistantBodies[assistantBodies.length - 1]?.textContent ?? "";
+
+    expect(visibleAssistantBody).not.toContain(
+      "Mock Coordinator provider response",
+    );
+    expect(visibleAssistantBody).not.toContain(
+      "I received your explicit message",
+    );
+    expect(visibleAssistantBody).not.toContain("allowed_tools");
+    expect(document.body.textContent).toContain("allowed_tools: []");
   });
 
   it("clicking a planning suggestion inserts visible text only", async () => {

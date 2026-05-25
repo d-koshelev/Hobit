@@ -56,7 +56,7 @@ const SUGGESTED_PROMPTS = [
       "Make a plan from the visible chat only. Goal: ",
   },
   {
-    label: "Break this into Queue tasks",
+    label: "Break into Queue tasks",
     prompt: "Break this into Queue tasks from visible text only. Goal: ",
   },
   {
@@ -244,7 +244,7 @@ export function InteractiveAgentPlaceholderWidget({
     const assistantMessage = createLocalMessage(
       "assistant",
       onGenerateCoordinatorProviderResponse
-        ? "Drafting a mock/local provider response from visible chat."
+        ? "Drafting a response from visible chat."
         : generated.responseBody,
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
       onGenerateCoordinatorProviderResponse
@@ -650,57 +650,58 @@ export function InteractiveAgentPlaceholderWidget({
               <div className="interactive-agent-title-copy">
                 <p className="interactive-agent-kicker">Coordinator Chat</p>
                 <h3 className="interactive-agent-title">
-                  Plan, decide, and prepare controlled work
+                  Plan work, draft tasks, review results
                 </h3>
               </div>
-              <div
-                aria-label="Coordinator provider status"
-                className="interactive-agent-provider-row"
-              >
-                <span className="interactive-agent-status-label">Provider</span>
-                <Badge
-                  variant={
-                    isProviderPending
-                      ? "warning"
-                      : providerModeLabel === "Provider error"
-                        ? "error"
-                        : providerModeLabel === "Provider timeout" ||
-                            providerModeLabel === "Invalid provider response" ||
-                            providerModeLabel === "Network failure" ||
-                            providerModeLabel === "Request too large"
-                          ? "warning"
-                          : providerModeLabel === "Not configured" ||
-                              providerModeLabel.includes("unavailable")
-                            ? "warning"
-                            : providerModeLabel === "Local fallback"
-                              ? "neutral"
-                              : "info"
-                  }
-                >
-                  {isProviderPending ? "Drafting" : providerModeLabel}
-                </Badge>
-                <span className="interactive-agent-status-label">Model</span>
-                <Badge variant="neutral">Backend selected</Badge>
-                <span className="interactive-agent-status-label">Status</span>
+              <div className="interactive-agent-header-badges">
                 <Badge variant={isProviderPending ? "warning" : "success"}>
                   {isProviderPending ? "Drafting" : "Ready"}
                 </Badge>
+                <div
+                  aria-label="Coordinator safety boundaries"
+                  className="interactive-agent-provider-badges"
+                >
+                  <Badge variant="neutral">Visible context only</Badge>
+                  <Badge variant="neutral">Tools disabled</Badge>
+                  <Badge variant="neutral">No hidden context</Badge>
+                </div>
               </div>
             </div>
             <div
-              aria-label="Coordinator safety boundaries"
-              className="interactive-agent-provider-badges"
+              aria-label="Coordinator provider status"
+              className="interactive-agent-provider-row"
             >
-              <Badge variant="neutral">Visible context only</Badge>
-              <Badge variant="neutral">Tools disabled</Badge>
-              <Badge variant="neutral">No hidden context</Badge>
+              <span className="interactive-agent-status-label">Provider</span>
+              <Badge
+                variant={
+                  isProviderPending
+                    ? "warning"
+                    : providerModeLabel === "Provider error"
+                      ? "error"
+                      : providerModeLabel === "Provider timeout" ||
+                          providerModeLabel === "Invalid provider response" ||
+                          providerModeLabel === "Network failure" ||
+                          providerModeLabel === "Request too large"
+                        ? "warning"
+                        : providerModeLabel === "Not configured" ||
+                            providerModeLabel.includes("unavailable")
+                          ? "warning"
+                          : providerModeLabel === "Local fallback"
+                            ? "neutral"
+                            : "info"
+                }
+              >
+                {isProviderPending ? "Drafting" : providerModeLabel}
+              </Badge>
+              <span className="interactive-agent-status-label">Model</span>
+              <Badge variant="neutral">Backend selected</Badge>
+              <details className="interactive-agent-provider-disclosure">
+                <summary>Supported local proposals</summary>
+                <p className="interactive-agent-text">
+                  {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue and Note handoffs require approval plus a separate create action; JDBC suggestions do not execute SQL.
+                </p>
+              </details>
             </div>
-            <details className="interactive-agent-provider-disclosure">
-              <summary>Supported local proposals</summary>
-              <p className="interactive-agent-text">
-                {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue and Note handoffs require approval plus a separate create action; JDBC suggestions do not execute SQL.
-              </p>
-            </details>
           </div>
         </section>
 
@@ -723,14 +724,6 @@ export function InteractiveAgentPlaceholderWidget({
               <p className="interactive-agent-empty-text">
                 Coordinator drafts work; Queue and Executor execute only after
                 explicit operator action.
-              </p>
-              <p className="interactive-agent-empty-text">
-                Review uses visible chat text only. Paste results here to
-                analyze them.
-              </p>
-              <p className="interactive-agent-empty-text">
-                Coordinator does not read Executor logs unless you paste or
-                explicitly share them.
               </p>
               <div
                 aria-label="Coordinator suggested prompts"
@@ -772,9 +765,12 @@ export function InteractiveAgentPlaceholderWidget({
                 {renderMessageBody(message.body)}
               </div>
               {message.providerMeta ? (
-                <p className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}>
-                  {message.providerMeta.detail}
-                </p>
+                <details
+                  className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
+                >
+                  <summary>Response details</summary>
+                  <p>{message.providerMeta.detail}</p>
+                </details>
               ) : null}
               {message.planId && plans[message.planId] ? (
                 <CoordinatorPlanCard plan={plans[message.planId]} />
@@ -852,7 +848,10 @@ export function InteractiveAgentPlaceholderWidget({
               </p>
             </section>
           ) : null}
-          <label className="interactive-agent-label" htmlFor={textareaId}>
+          <label
+            className="interactive-agent-label interactive-agent-label-hidden"
+            htmlFor={textareaId}
+          >
             Message
           </label>
           <textarea
