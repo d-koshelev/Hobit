@@ -51,7 +51,7 @@ Current preview surfaces:
 - Workspace Agent
 - Agent Queue
 - Database / JDBC
-- Skill Library
+- Skill Library / Knowledge
 - Runbook
 
 The current catalog uses these preferred user-facing names. Compatibility IDs
@@ -61,7 +61,7 @@ and component keys may still appear in code and persistence.
 
 New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Queue,
-Agent Executor, Git, Terminal, Database / JDBC, Skill Library, and Runbook
+Agent Executor, Git, Terminal, Database / JDBC, Skill Library / Knowledge, and Runbook
 remain optional widgets added when needed.
 
 Empty Workbench remains available as an advanced/manual start mode. Existing
@@ -386,17 +386,29 @@ Workspace Agent is the foreground interactive agent surface.
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,
   and hidden Workspace Agent-triggered SQL execution remain Deferred.
 
-### Skill Library
+### Skill Library / Knowledge
 
-- Current preview workspace-local Skill Library widget.
+- Current preview workspace-local Skill Library / Knowledge widget. It uses the
+  existing Skill Library widget identity and adds a Documents tab.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
+- Provides explicit workspace-local Knowledge Document create, list, read,
+  update, delete, and search flows through separate Knowledge Document APIs.
 - Desktop/Tauri persists Skills through local SQLite-backed workspace Skill
   APIs. Browser/Vite development mode uses a frontend-only, non-persistent
   in-memory Skill API for create/list/read/update/delete UI iteration.
+- Desktop/Tauri persists Knowledge Documents through local SQLite-backed
+  workspace Knowledge Document APIs. Browser/Vite development mode uses a
+  frontend-only, non-persistent in-memory Knowledge Document API for UI
+  iteration.
 - Skill records are text fields for reusable work instructions: title, when to
   use, prerequisites, steps, validation, risks, tags, and review status.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
+- Knowledge Documents are workspace-local plain-text/Markdown reference records
+  with title, source label, content, tags, enabled flag, and deterministic text
+  chunks. No binary parsing, PDF/DOCX ingestion, embeddings, vector database,
+  Evidence store, Context Pack builder, global/team sharing, server runtime, or
+  RBAC is implemented.
 - Skill Library is workspace-local and operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
@@ -407,9 +419,16 @@ Workspace Agent is the foreground interactive agent surface.
 - Skill Library does not auto-search Skills for Workspace Agent, does not silently
   include Skills in provider prompts, and does not create hidden provider
   context.
-- Skill Library does not implement Knowledge Items, Evidence links, Context
-  Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook execution,
-  tool execution, global/team sharing, RBAC, or server runtime behavior.
+- Workspace Agent-owned Codex runs automatically check enabled workspace-local
+  Knowledge Documents before Run with Codex using the latest composer message
+  as the search query. Matching snippets are capped, included visibly in the
+  Direct Work details, and added to the Codex prompt only for that run. No
+  disabled documents, Skills, Notes, files, logs, or hidden Workspace context
+  are searched by this path.
+- Skill Library / Knowledge does not implement Knowledge Items, Evidence links,
+  Context Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook
+  execution, tool execution, global/team sharing, RBAC, embeddings/vector DB,
+  PDF/DOCX parsing, or server runtime behavior.
 
 ### Runbook
 

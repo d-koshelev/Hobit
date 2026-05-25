@@ -1179,6 +1179,29 @@
   white-space: pre-wrap;
 }
 
+.interactive-agent-workspace-knowledge-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.interactive-agent-workspace-knowledge-item {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+}
+
+.interactive-agent-workspace-knowledge-item pre {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  margin: var(--space-xs) 0 0;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .interactive-agent-message-list {
   align-content: start;
   flex: 1;

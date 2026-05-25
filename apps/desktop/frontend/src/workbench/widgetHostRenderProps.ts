@@ -115,7 +115,13 @@ export function widgetHostRenderProps({
       ? widgetActions.createWorkspaceNote
       : undefined,
     onCreateSkill: isSkillLibrary ? widgetActions.createSkill : undefined,
+    onCreateKnowledgeDocument: isSkillLibrary
+      ? widgetActions.createKnowledgeDocument
+      : undefined,
     onDeleteSkill: isSkillLibrary ? widgetActions.deleteSkill : undefined,
+    onDeleteKnowledgeDocument: isSkillLibrary
+      ? widgetActions.deleteKnowledgeDocument
+      : undefined,
     onDirectWorkGitReviewRequested: isAgentExecutor
       ? directWorkGitReview.requestReview
       : undefined,
@@ -155,6 +161,9 @@ export function widgetHostRenderProps({
       ? widgetActions.getWorkspaceNote
       : undefined,
     onGetSkill: isSkillLibrary ? widgetActions.getSkill : undefined,
+    onGetKnowledgeDocument: isSkillLibrary
+      ? widgetActions.getKnowledgeDocument
+      : undefined,
     onListAgentExecutorRuns: isAgentExecutor
       ? widgetActions.listAgentExecutorRuns
       : undefined,
@@ -168,6 +177,9 @@ export function widgetHostRenderProps({
       ? widgetActions.listWorkspaceNotes
       : undefined,
     onListSkills: isSkillLibrary ? widgetActions.listSkills : undefined,
+    onListKnowledgeDocuments: isSkillLibrary
+      ? widgetActions.listKnowledgeDocuments
+      : undefined,
     onLoadLogs: widgetActions.listWidgetLogs,
     onRunCodexDirectWork: isAgentExecutor
       ? widgetActions.runCodexDirectWork
@@ -222,6 +234,9 @@ export function widgetHostRenderProps({
     onStartCodexDirectWorkStream: isAgentExecutor || isInteractiveAgent
       ? widgetActions.startCodexDirectWorkStream
       : undefined,
+    onSearchKnowledgeDocuments: isInteractiveAgent
+      ? widgetActions.searchKnowledgeDocuments
+      : undefined,
     onUpdateAgentQueueTask: isAgentQueue
       ? widgetActions.updateAgentQueueTask
       : undefined,
@@ -237,6 +252,9 @@ export function widgetHostRenderProps({
       ? widgetActions.updateWorkspaceNote
       : undefined,
     onUpdateSkill: isSkillLibrary ? widgetActions.updateSkill : undefined,
+    onUpdateKnowledgeDocument: isSkillLibrary
+      ? widgetActions.updateKnowledgeDocument
+      : undefined,
     queueTaskAutoRefreshRequest: isAgentQueue
       ? directWorkRunHandoff.queueTaskAutoRefreshRequest
       : undefined,

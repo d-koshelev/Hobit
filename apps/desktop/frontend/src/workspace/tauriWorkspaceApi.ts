@@ -70,6 +70,14 @@ import {
   listSkills,
   updateSkill,
 } from "./tauriWorkspaceSkillsApi";
+import {
+  createKnowledgeDocument,
+  deleteKnowledgeDocument,
+  getKnowledgeDocument,
+  listKnowledgeDocuments,
+  searchKnowledgeDocuments,
+  updateKnowledgeDocument,
+} from "./tauriWorkspaceKnowledgeDocumentsApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
@@ -100,6 +108,12 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getSkill,
   updateSkill,
   deleteSkill,
+  createKnowledgeDocument,
+  listKnowledgeDocuments,
+  getKnowledgeDocument,
+  updateKnowledgeDocument,
+  deleteKnowledgeDocument,
+  searchKnowledgeDocuments,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,

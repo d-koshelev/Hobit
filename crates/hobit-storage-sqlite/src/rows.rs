@@ -178,6 +178,41 @@ pub struct SkillRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnowledgeDocumentRow {
+    pub knowledge_document_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub source_label: String,
+    pub content: String,
+    pub tags: String,
+    pub enabled: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnowledgeDocumentChunkRow {
+    pub chunk_id: String,
+    pub knowledge_document_id: String,
+    pub workspace_id: String,
+    pub chunk_index: i64,
+    pub text: String,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnowledgeDocumentSearchResultRow {
+    pub knowledge_document_id: String,
+    pub document_title: String,
+    pub source_label: String,
+    pub tags: String,
+    pub chunk_id: String,
+    pub chunk_index: i64,
+    pub text: String,
+    pub score: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JdbcConnectorRow {
     pub connector_id: String,
     pub workspace_id: String,

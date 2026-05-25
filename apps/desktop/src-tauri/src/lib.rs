@@ -45,6 +45,8 @@ mod jdbc_query_commands;
 mod jdbc_query_dto;
 #[cfg(test)]
 mod jdbc_query_dto_tests;
+mod knowledge_documents_commands;
+mod knowledge_documents_dto;
 mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
@@ -125,6 +127,12 @@ pub fn run() {
             skills_commands::get_skill,
             skills_commands::update_skill,
             skills_commands::delete_skill,
+            knowledge_documents_commands::create_knowledge_document,
+            knowledge_documents_commands::list_knowledge_documents,
+            knowledge_documents_commands::get_knowledge_document,
+            knowledge_documents_commands::update_knowledge_document,
+            knowledge_documents_commands::delete_knowledge_document,
+            knowledge_documents_commands::search_knowledge_documents,
             jdbc_connector_commands::create_jdbc_connector,
             jdbc_connector_commands::list_jdbc_connectors,
             jdbc_connector_commands::get_jdbc_connector,

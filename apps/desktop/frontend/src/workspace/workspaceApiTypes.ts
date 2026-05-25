@@ -29,11 +29,13 @@ import type {
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
   CreateGitCommitRequest,
+  CreateKnowledgeDocumentRequest,
   CreateWorkspaceNoteRequest,
   CreateSkillRequest,
   CreateWorkspaceRequest,
   CreateTerminalPtySessionRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteKnowledgeDocumentRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
@@ -52,13 +54,17 @@ import type {
   GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
   GetGitRepositoryStatusRequest,
+  GetKnowledgeDocumentRequest,
   GetWorkspaceNoteRequest,
   GetSkillRequest,
   GitCommitResponse,
   GitRepositoryStatus,
+  KnowledgeDocument,
+  KnowledgeDocumentSearchResult,
   ListAgentExecutorRunsRequest,
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
+  ListKnowledgeDocumentsRequest,
   ListTerminalPtySessionsRequest,
   ListWorkspaceNotesRequest,
   ListSkillsRequest,
@@ -71,6 +77,7 @@ import type {
   RunDirectWorkValidationResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  SearchKnowledgeDocumentsRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -80,6 +87,7 @@ import type {
   TerminalPtySession,
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateKnowledgeDocumentRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   UpdateWorkspaceNoteRequest,
@@ -127,6 +135,24 @@ export type WorkspaceApi = {
   getSkill: (request: GetSkillRequest) => Promise<Skill | null>;
   updateSkill: (request: UpdateSkillRequest) => Promise<Skill | null>;
   deleteSkill: (request: DeleteSkillRequest) => Promise<boolean>;
+  createKnowledgeDocument: (
+    request: CreateKnowledgeDocumentRequest,
+  ) => Promise<KnowledgeDocument>;
+  listKnowledgeDocuments: (
+    request: ListKnowledgeDocumentsRequest,
+  ) => Promise<KnowledgeDocument[]>;
+  getKnowledgeDocument: (
+    request: GetKnowledgeDocumentRequest,
+  ) => Promise<KnowledgeDocument | null>;
+  updateKnowledgeDocument: (
+    request: UpdateKnowledgeDocumentRequest,
+  ) => Promise<KnowledgeDocument | null>;
+  deleteKnowledgeDocument: (
+    request: DeleteKnowledgeDocumentRequest,
+  ) => Promise<boolean>;
+  searchKnowledgeDocuments: (
+    request: SearchKnowledgeDocumentsRequest,
+  ) => Promise<KnowledgeDocumentSearchResult[]>;
   createJdbcConnector: (
     request: CreateJdbcConnectorRequest,
   ) => Promise<JdbcConnector>;

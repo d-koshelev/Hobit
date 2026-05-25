@@ -208,6 +208,29 @@ pub struct SkillUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewKnowledgeDocument<'a> {
+    pub knowledge_document_id: &'a str,
+    pub workspace_id: &'a str,
+    pub title: &'a str,
+    pub source_label: &'a str,
+    pub content: &'a str,
+    pub tags: &'a str,
+    pub enabled: bool,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnowledgeDocumentUpdate<'a> {
+    pub title: &'a str,
+    pub source_label: &'a str,
+    pub content: &'a str,
+    pub tags: &'a str,
+    pub enabled: bool,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewJdbcConnector<'a> {
     pub connector_id: &'a str,
     pub workspace_id: &'a str,

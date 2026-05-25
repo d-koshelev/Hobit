@@ -8,6 +8,7 @@ import type {
   DirectWorkStreamEvent,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
+  KnowledgeDocumentSearchResult,
 } from "../workspace/types";
 
 type CreateQueueTaskInput = Parameters<
@@ -415,6 +416,112 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(runButton).toBeDefined();
     expect(runButton?.hasAttribute("disabled")).toBe(true);
     expect(startDirectWork).not.toHaveBeenCalled();
+  });
+
+  it("adds retrieved workspace knowledge visibly to the Codex prompt", async () => {
+    const searchKnowledge = vi.fn(async () => [
+      knowledgeResult({
+        chunkId: "chunk_api_1",
+        documentTitle: "API guide",
+        snippet: "Use the workspace-local API reference.",
+      }),
+      knowledgeResult({
+        chunkId: "chunk_runbook_1",
+        documentTitle: "Runbook guide",
+        snippet: "Validate with the documented smoke command.",
+      }),
+    ]);
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            text: "Codex used visible knowledge if relevant.",
+          }),
+        );
+        return {
+          runId: "run_knowledge",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await toggleDirectMode();
+    await setTextareaValue("Use the API docs for this task.");
+    await clickButton("Run with Codex");
+
+    expect(searchKnowledge).toHaveBeenCalledWith({
+      limit: 5,
+      query: "Use the API docs for this task.",
+    });
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    const request = startDirectWork.mock.calls[0][1] as {
+      operatorPrompt: string;
+    };
+    expect(request.operatorPrompt).toContain(
+      "Workspace knowledge found for this request:",
+    );
+    expect(request.operatorPrompt).toContain("[Doc: API guide, chunk 1]");
+    expect(request.operatorPrompt).toContain(
+      "Use the workspace-local API reference.",
+    );
+    expect(request.operatorPrompt).toContain("User request:");
+    expect(request.operatorPrompt).toContain("Use the API docs for this task.");
+    expect(JSON.stringify(request)).not.toMatch(/notes body|filesystem|disabled/i);
+    expect(document.body.textContent).toContain("Used knowledge: 2 snippets");
+    expect(document.body.textContent).toContain("API guide, chunk 1");
+  });
+
+  it("shows no-match knowledge checks without augmenting the Codex prompt", async () => {
+    const searchKnowledge = vi.fn(async () => []);
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            text: "No matching workspace knowledge.",
+          }),
+        );
+        return {
+          runId: "run_no_knowledge",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await toggleDirectMode();
+    await setTextareaValue("No document should match.");
+    await clickButton("Run with Codex");
+
+    expect(searchKnowledge).toHaveBeenCalledTimes(1);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      operatorPrompt: "No document should match.",
+    });
+    expect(document.body.textContent).toContain(
+      "Workspace knowledge checked: no matches",
+    );
   });
 
   it("starts Workspace Agent Codex from the composer without creating Queue work or Autorun", async () => {
@@ -1801,6 +1908,22 @@ function directWorkEvent(
     widgetInstanceId: "coordinator_widget",
     workbenchId: "workbench_1",
     workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function knowledgeResult(
+  overrides: Partial<KnowledgeDocumentSearchResult>,
+): KnowledgeDocumentSearchResult {
+  return {
+    chunkId: "chunk_1",
+    chunkIndex: 0,
+    documentTitle: "Knowledge doc",
+    knowledgeDocumentId: "doc_1",
+    score: 10,
+    snippet: "Knowledge snippet.",
+    sourceLabel: "Workspace document",
+    tags: "docs",
     ...overrides,
   };
 }

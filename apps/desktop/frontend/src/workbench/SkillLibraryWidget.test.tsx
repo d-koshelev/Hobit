@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SkillLibraryWidget } from "./SkillLibraryWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
-import type { Skill } from "../workspace/types";
+import type { KnowledgeDocument, Skill } from "../workspace/types";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -34,7 +34,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("No skills yet.");
     expect(document.body.textContent).toContain("Workspace-local.");
     expect(document.body.textContent).toContain(
-      "Not sent to Workspace Agent automatically.",
+      "Skills attach explicitly.",
     );
     expect(document.body.textContent).toContain(
       "Skills are not sent to Workspace Agent unless explicitly attached.",
@@ -221,6 +221,98 @@ describe("SkillLibraryWidget", () => {
     expect(deleteSkill).toHaveBeenCalledWith({ skillId: "skill_created" });
     expect(document.body.textContent).toContain("No skills yet.");
   });
+
+  it("renders Documents tab and creates, saves, and deletes a document", async () => {
+    let documents: KnowledgeDocument[] = [];
+    const createKnowledgeDocument = vi.fn(async (request) => {
+      const document = knowledgeDocumentFixture({
+        ...request,
+        knowledgeDocumentId: "doc_created",
+      });
+      documents = [document];
+      return document;
+    });
+    const updateKnowledgeDocument = vi.fn(async (request) => {
+      const document = knowledgeDocumentFixture({
+        ...request,
+        knowledgeDocumentId: request.knowledgeDocumentId,
+      });
+      documents = [document];
+      return document;
+    });
+    const deleteKnowledgeDocument = vi.fn(async () => {
+      documents = [];
+      return true;
+    });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderWidget({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onDeleteKnowledgeDocument: deleteKnowledgeDocument,
+      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
+        documents.find(
+          (document) =>
+            document.knowledgeDocumentId === knowledgeDocumentId,
+        ) ?? null,
+      ),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onUpdateKnowledgeDocument: updateKnowledgeDocument,
+    });
+
+    await flush();
+    await clickButton("Documents");
+
+    expect(document.body.textContent).toContain("No documents yet.");
+    expect(document.body.textContent).toContain(
+      "Workspace Agent can search enabled workspace documents.",
+    );
+
+    await changeInput('input[placeholder="Untitled document"]', "API docs");
+    await changeInput('input[placeholder="README.md or pasted docs"]', "README.md");
+    await changeInput('input[placeholder="api, onboarding"]', "api, docs");
+    await changeTextarea(0, "Use this API reference for onboarding.");
+    await clickButton("Save document");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "Use this API reference for onboarding.",
+        enabled: true,
+        sourceLabel: "README.md",
+        tags: "api, docs",
+        title: "API docs",
+      }),
+    );
+    expect(document.body.textContent).toContain("API docs");
+
+    await changeInput('input[placeholder="Untitled document"]', "Updated API docs");
+    await clickButton("Save document");
+
+    expect(updateKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        knowledgeDocumentId: "doc_created",
+        title: "Updated API docs",
+      }),
+    );
+
+    await clickButton("Delete");
+
+    expect(deleteKnowledgeDocument).toHaveBeenCalledWith({
+      knowledgeDocumentId: "doc_created",
+    });
+    expect(document.body.textContent).toContain("No documents yet.");
+  });
+
+  it("keeps existing Skills tab available after adding Documents tab", async () => {
+    renderWidget();
+
+    await flush();
+    await clickButton("Documents");
+    await clickButton("Skills");
+
+    expect(document.body.textContent).toContain("No skills yet.");
+    expect(buttonWithText("New skill")).toBeDefined();
+  });
 });
 
 function renderWidget(
@@ -341,6 +433,25 @@ function skillFixture(
     updatedAt: "2026-05-24T00:00:00Z",
     validation: "",
     whenToUse: "",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function knowledgeDocumentFixture(
+  overrides: Partial<KnowledgeDocument> & {
+    title?: string;
+  } = {},
+): KnowledgeDocument {
+  return {
+    content: "",
+    createdAt: "2026-05-24T00:00:00Z",
+    enabled: true,
+    knowledgeDocumentId: "doc_1",
+    sourceLabel: "Workspace document",
+    tags: "",
+    title: "Document",
+    updatedAt: "2026-05-24T00:00:00Z",
     workspaceId: "workspace_1",
     ...overrides,
   };

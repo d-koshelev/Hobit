@@ -31,8 +31,10 @@ behavior, or Workspace Agent context wiring.
 - Artifact Reference / Ownership v0 exists as metadata-only refs.
 - Knowledge / Skills / Evidence / Context Pack product boundaries are
   documented.
-- Minimal Skill Library MVP exists as workspace-local operator-authored Skill
-  CRUD with local SQLite storage, narrow Tauri APIs, and a preview widget.
+- Minimal Skill Library / Knowledge MVP exists as workspace-local
+  operator-authored Skill CRUD plus workspace-local plain-text/Markdown
+  Knowledge Document CRUD/search with local SQLite storage, deterministic
+  chunks, narrow Tauri APIs, and a preview widget.
 - Knowledge / Evidence core refs v0 exist as type-only Rust refs.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Workspace Agent context boundary inspection confirmed current provider requests
@@ -77,6 +79,11 @@ behavior, or Workspace Agent context wiring.
   selected Skill's title, when to use, prerequisites, steps, validation, risks,
   tags, and review status, and it is sent to the provider only if the operator
   presses Send.
+- Workspace Agent-owned Codex runs automatically check enabled workspace-local
+  Knowledge Documents before Run with Codex. Retrieval uses the latest composer
+  message as the lexical query, returns capped snippets, shows the used
+  knowledge/no-match state in Direct Work details, and adds matching snippets
+  only to that run's Codex prompt.
 - Workspace Agent Direct Mode v0 exists as a local desktop foreground Codex Direct
   Work path owned by Workspace Agent. It is off by default, uses the current
   composer message only after the operator enables Direct Mode and clicks the
@@ -106,12 +113,11 @@ behavior, or Workspace Agent context wiring.
 - Capability Action / Approval / Causation v0 does not create approval records
   or workflow state.
 - `ArtifactRef` is metadata-only and unresolved by default.
-- Knowledge and Evidence refs do not create a knowledge store, evidence store,
-  resolver, ingestion path, or UI.
-- Skill Library storage/API/UI does not create Knowledge Items, Evidence,
-  Context Packs, Artifact links, Runbook execution, Workspace Agent context
-  eligibility, provider prompt wiring, hidden memory, global/team sharing, or
-  RBAC.
+- Knowledge and Evidence refs do not create Knowledge Item storage, evidence
+  storage, resolver, ingestion path, or UI.
+- Skill Library / Knowledge storage/API/UI does not create Knowledge Items,
+  Evidence, Context Packs, Artifact links, Runbook execution, hidden memory,
+  global/team sharing, embeddings/vector DB, PDF/DOCX parsing, or RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
   Workspace Agent context wiring, provider prompt wiring, or sharing behavior.
 
@@ -157,13 +163,15 @@ sent to a provider.
 
 - artifact store;
 - evidence store;
-- knowledge store;
+- full Knowledge Item store beyond workspace-local plain-text Knowledge Documents;
 - Context Pack UI or storage;
 - Context Pack provider wiring;
 - hidden prompt augmentation;
 - Workspace Agent hidden context access;
 - hidden Workspace Agent Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;
+- embeddings/vector DB;
+- PDF/DOCX parsing or binary document ingestion;
 - audit emission or persistence;
 - approval workflow persistence;
 - capability execution;

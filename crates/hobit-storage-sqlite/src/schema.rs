@@ -166,6 +166,27 @@ CREATE TABLE IF NOT EXISTS skills (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS knowledge_documents (
+    knowledge_document_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    title TEXT NOT NULL,
+    source_label TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tags TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_document_chunks (
+    chunk_id TEXT PRIMARY KEY,
+    knowledge_document_id TEXT NOT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE CASCADE,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    chunk_index INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS jdbc_connectors (
     connector_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -245,6 +266,18 @@ CREATE INDEX IF NOT EXISTS idx_skills_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_skills_workspace_ordering
     ON skills(workspace_id, updated_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_workspace_id
+    ON knowledge_documents(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_workspace_ordering
+    ON knowledge_documents(workspace_id, updated_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_document_id
+    ON knowledge_document_chunks(knowledge_document_id);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_workspace_id
+    ON knowledge_document_chunks(workspace_id);
 
 CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_id
     ON jdbc_connectors(workspace_id);

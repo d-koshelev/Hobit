@@ -16,14 +16,15 @@ mod rows;
 mod time;
 
 pub use inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate, NewAgentQueueItem,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewJdbcConnector, NewSharedStateObject, NewSkill,
-    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
-    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
-    WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate,
+    KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask, NewAgentQueueTaskRunLink,
+    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
+    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
+    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 pub use rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
     SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
     WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,

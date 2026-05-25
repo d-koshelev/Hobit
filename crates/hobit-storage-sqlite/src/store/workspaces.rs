@@ -86,6 +86,16 @@ impl SqliteStore {
 
     pub fn delete_workspace_and_local_data(&self, workspace_id: &str) -> Result<()> {
         self.connection.execute(
+            "DELETE FROM knowledge_document_chunks
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
+            "DELETE FROM knowledge_documents
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
             "DELETE FROM jdbc_connectors
              WHERE workspace_id = ?1",
             params![workspace_id],

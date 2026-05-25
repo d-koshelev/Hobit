@@ -1,13 +1,14 @@
 use hobit_storage_sqlite::{
-    AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
-    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueTaskRow, JdbcConnectorRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
-    AgentQueueTaskSummary, JdbcConnectorSummary, SharedStateObjectSummary, SkillSummary,
-    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
+    AgentQueueTaskSummary, JdbcConnectorSummary, KnowledgeDocumentSearchResultSummary,
+    KnowledgeDocumentSummary, SharedStateObjectSummary, SkillSummary, WidgetInstanceSummary,
+    WidgetLogSummary, WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -128,6 +129,36 @@ pub(super) fn skill_summary(row: SkillRow) -> SkillSummary {
         review_status: row.review_status,
         created_at: row.created_at,
         updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn knowledge_document_summary(row: KnowledgeDocumentRow) -> KnowledgeDocumentSummary {
+    KnowledgeDocumentSummary {
+        knowledge_document_id: row.knowledge_document_id,
+        workspace_id: row.workspace_id,
+        title: row.title,
+        source_label: row.source_label,
+        content: row.content,
+        tags: row.tags,
+        enabled: row.enabled,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn knowledge_document_search_result_summary(
+    row: KnowledgeDocumentSearchResultRow,
+    snippet: String,
+) -> KnowledgeDocumentSearchResultSummary {
+    KnowledgeDocumentSearchResultSummary {
+        knowledge_document_id: row.knowledge_document_id,
+        document_title: row.document_title,
+        source_label: row.source_label,
+        tags: row.tags,
+        chunk_id: row.chunk_id,
+        chunk_index: row.chunk_index,
+        snippet,
+        score: row.score,
     }
 }
 

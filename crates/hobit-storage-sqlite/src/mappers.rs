@@ -4,8 +4,9 @@ use rusqlite::Result;
 
 use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
-    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, SharedStateObjectRow, SkillRow,
+    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 
@@ -198,6 +199,33 @@ pub(crate) fn skill_row(row: &rusqlite::Row<'_>) -> Result<SkillRow> {
         review_status: row.get(9)?,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
+    })
+}
+
+pub(crate) fn knowledge_document_row(row: &rusqlite::Row<'_>) -> Result<KnowledgeDocumentRow> {
+    Ok(KnowledgeDocumentRow {
+        knowledge_document_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        title: row.get(2)?,
+        source_label: row.get(3)?,
+        content: row.get(4)?,
+        tags: row.get(5)?,
+        enabled: i64_to_bool(row.get(6)?),
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+    })
+}
+
+pub(crate) fn knowledge_document_chunk_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<KnowledgeDocumentChunkRow> {
+    Ok(KnowledgeDocumentChunkRow {
+        chunk_id: row.get(0)?,
+        knowledge_document_id: row.get(1)?,
+        workspace_id: row.get(2)?,
+        chunk_index: row.get(3)?,
+        text: row.get(4)?,
+        created_at: row.get(5)?,
     })
 }
 

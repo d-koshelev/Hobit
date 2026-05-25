@@ -9,8 +9,10 @@ import {
   createGitCommit,
   createJdbcConnector,
   createSkill as unsupportedCreateSkill,
+  createKnowledgeDocument as unsupportedCreateKnowledgeDocument,
   deleteAgentQueueTask,
   deleteSkill as unsupportedDeleteSkill,
+  deleteKnowledgeDocument as unsupportedDeleteKnowledgeDocument,
   createWorkspaceNote as unsupportedCreateWorkspaceNote,
   deleteWidgetInstanceFromWorkbench,
   deleteWorkspace,
@@ -28,6 +30,7 @@ import {
   getGitRepositoryStatus,
   getJdbcConnector,
   getSkill as unsupportedGetSkill,
+  getKnowledgeDocument as unsupportedGetKnowledgeDocument,
   getTerminalPtySession,
   getWorkspaceNote as unsupportedGetWorkspaceNote,
   killTerminalPtySession,
@@ -36,6 +39,7 @@ import {
   listAgentQueueTasks,
   listJdbcConnectors,
   listSkills as unsupportedListSkills,
+  listKnowledgeDocuments as unsupportedListKnowledgeDocuments,
   listTerminalPtySessions,
   listWorkspaceNotes as unsupportedListWorkspaceNotes,
   listenToDirectWorkStreamEvents,
@@ -52,10 +56,20 @@ import {
   updateAgentQueueTask,
   updateJdbcConnector,
   updateSkill as unsupportedUpdateSkill,
+  updateKnowledgeDocument as unsupportedUpdateKnowledgeDocument,
   updateWorkspaceNote as unsupportedUpdateWorkspaceNote,
   validateJdbcReadOnlySql,
   writeTerminalPtySession,
+  searchKnowledgeDocuments as unsupportedSearchKnowledgeDocuments,
 } from "./memoryUnsupportedWorkspaceApi";
+import {
+  createKnowledgeDocument as createMemoryKnowledgeDocument,
+  deleteKnowledgeDocument as deleteMemoryKnowledgeDocument,
+  getKnowledgeDocument as getMemoryKnowledgeDocument,
+  listKnowledgeDocuments as listMemoryKnowledgeDocuments,
+  searchKnowledgeDocuments as searchMemoryKnowledgeDocuments,
+  updateKnowledgeDocument as updateMemoryKnowledgeDocument,
+} from "./memoryWorkspaceKnowledgeDocumentsApi";
 import {
   createWorkspaceNote as createMemoryWorkspaceNote,
   getWorkspaceNote as getMemoryWorkspaceNote,
@@ -118,6 +132,23 @@ const memorySkillsApi = import.meta.env.DEV
       updateSkill: unsupportedUpdateSkill,
       deleteSkill: unsupportedDeleteSkill,
     };
+const memoryKnowledgeDocumentsApi = import.meta.env.DEV
+  ? {
+      createKnowledgeDocument: createMemoryKnowledgeDocument,
+      listKnowledgeDocuments: listMemoryKnowledgeDocuments,
+      getKnowledgeDocument: getMemoryKnowledgeDocument,
+      updateKnowledgeDocument: updateMemoryKnowledgeDocument,
+      deleteKnowledgeDocument: deleteMemoryKnowledgeDocument,
+      searchKnowledgeDocuments: searchMemoryKnowledgeDocuments,
+    }
+  : {
+      createKnowledgeDocument: unsupportedCreateKnowledgeDocument,
+      listKnowledgeDocuments: unsupportedListKnowledgeDocuments,
+      getKnowledgeDocument: unsupportedGetKnowledgeDocument,
+      updateKnowledgeDocument: unsupportedUpdateKnowledgeDocument,
+      deleteKnowledgeDocument: unsupportedDeleteKnowledgeDocument,
+      searchKnowledgeDocuments: unsupportedSearchKnowledgeDocuments,
+    };
 let fallbackId = 1;
 
 export const memoryWorkspaceApi: WorkspaceApi = {
@@ -136,6 +167,12 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getSkill: memorySkillsApi.getSkill,
   updateSkill: memorySkillsApi.updateSkill,
   deleteSkill: memorySkillsApi.deleteSkill,
+  createKnowledgeDocument: memoryKnowledgeDocumentsApi.createKnowledgeDocument,
+  listKnowledgeDocuments: memoryKnowledgeDocumentsApi.listKnowledgeDocuments,
+  getKnowledgeDocument: memoryKnowledgeDocumentsApi.getKnowledgeDocument,
+  updateKnowledgeDocument: memoryKnowledgeDocumentsApi.updateKnowledgeDocument,
+  deleteKnowledgeDocument: memoryKnowledgeDocumentsApi.deleteKnowledgeDocument,
+  searchKnowledgeDocuments: memoryKnowledgeDocumentsApi.searchKnowledgeDocuments,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,

@@ -16,6 +16,43 @@
   padding: var(--space-sm) var(--space-md);
 }
 
+.skill-library-summary-secondary {
+  background: var(--color-nested-surface);
+}
+
+.skill-library-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.skill-library-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.skill-library-tab:hover,
+.skill-library-tab-active {
+  color: var(--color-text-primary);
+}
+
+.skill-library-tab-active {
+  border-bottom-color: var(--color-border-strong);
+}
+
+.skill-library-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+}
+
 .skill-library-layout {
   display: grid;
   gap: var(--space-md);
@@ -87,6 +124,11 @@
   min-width: 0;
 }
 
+.skill-checkbox-field {
+  align-items: center;
+  flex-direction: row;
+}
+
 .skill-field-wide,
 .skill-editor-actions,
 .skill-attach-note,
@@ -100,6 +142,11 @@
 
 .skill-textarea {
   min-height: 88px;
+  resize: vertical;
+}
+
+.skill-document-textarea {
+  min-height: 260px;
   resize: vertical;
 }
 

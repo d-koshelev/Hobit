@@ -9,15 +9,16 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate, NewAgentQueueItem,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewJdbcConnector, NewSharedStateObject, NewSkill,
-    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
-    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
-    WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate,
+    KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask, NewAgentQueueTaskRunLink,
+    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
+    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
+    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
     SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
     WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
@@ -29,6 +30,7 @@ mod agent_queue_task_run_links;
 mod agent_queue_tasks;
 mod events;
 mod jdbc_connectors;
+mod knowledge_documents;
 mod notes;
 mod sessions;
 mod shared_state;
@@ -46,6 +48,8 @@ mod agent_queue_task_run_links_tests;
 mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod jdbc_connectors_tests;
+#[cfg(test)]
+mod knowledge_documents_tests;
 #[cfg(test)]
 mod notes_tests;
 #[cfg(test)]

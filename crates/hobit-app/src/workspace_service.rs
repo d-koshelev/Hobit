@@ -36,6 +36,7 @@ mod jdbc_query_types;
 mod jdbc_runtime;
 mod jdbc_runtime_config;
 mod jdbc_sidecar_protocol;
+mod knowledge_documents;
 mod logs;
 mod mapping;
 mod notes;
@@ -99,6 +100,8 @@ mod jdbc_runtime_tests;
 #[cfg(test)]
 mod jdbc_sidecar_protocol_tests;
 #[cfg(test)]
+mod knowledge_documents_tests;
+#[cfg(test)]
 mod notes_tests;
 #[cfg(test)]
 mod skills_tests;
@@ -158,18 +161,20 @@ pub use types::{
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateSkillInput,
-    CreateWorkspaceNoteInput, DeleteSkillInput, DirectWorkValidationRunSummary,
-    ForceKillCodexDirectWorkRunInput, GenerateAgentChatAiProposalInput, GitBranchStatusSummary,
-    GitCommitCommandSummary, GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary,
-    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
-    RunTerminalCommandInput, SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
-    UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary,
-    WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput,
-    WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateKnowledgeDocumentInput,
+    CreateSkillInput, CreateWorkspaceNoteInput, DeleteKnowledgeDocumentInput, DeleteSkillInput,
+    DirectWorkValidationRunSummary, ForceKillCodexDirectWorkRunInput,
+    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitCommitCommandSummary,
+    GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary, GitLastCommitSummary,
+    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, KnowledgeDocumentSearchResultSummary,
+    KnowledgeDocumentSummary, PersistAgentChatProposalInput, RunCodexDirectWorkInput,
+    RunDirectWorkValidationInput, RunTerminalCommandInput, SearchKnowledgeDocumentsInput,
+    SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
+    UpdateKnowledgeDocumentInput, UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout,
+    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput,
+    WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary,
+    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);

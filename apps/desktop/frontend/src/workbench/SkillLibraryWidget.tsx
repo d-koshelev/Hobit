@@ -3,10 +3,15 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import type { Skill, SkillReviewStatus } from "../workspace/types";
+import type {
+  KnowledgeDocument,
+  Skill,
+  SkillReviewStatus,
+} from "../workspace/types";
 import type { WidgetRenderProps } from "./types";
 
 const DEFAULT_SKILL_TITLE = "Untitled skill";
+const DEFAULT_DOCUMENT_TITLE = "Untitled document";
 const REVIEW_STATUS_OPTIONS: Array<{
   label: string;
   value: SkillReviewStatus;
@@ -29,6 +34,17 @@ type SkillDraft = {
   reviewStatus: SkillReviewStatus;
 };
 
+type KnowledgeSurfaceTab = "skills" | "documents";
+
+type KnowledgeDocumentDraft = {
+  knowledgeDocumentId: string | null;
+  title: string;
+  sourceLabel: string;
+  content: string;
+  tags: string;
+  enabled: boolean;
+};
+
 const EMPTY_DRAFT: SkillDraft = {
   skillId: null,
   title: DEFAULT_SKILL_TITLE,
@@ -41,6 +57,15 @@ const EMPTY_DRAFT: SkillDraft = {
   reviewStatus: "draft",
 };
 
+const EMPTY_DOCUMENT_DRAFT: KnowledgeDocumentDraft = {
+  knowledgeDocumentId: null,
+  title: DEFAULT_DOCUMENT_TITLE,
+  sourceLabel: "Workspace document",
+  content: "",
+  tags: "",
+  enabled: true,
+};
+
 export function SkillLibraryWidget({
   frameActions,
   frameMoveEnabled,
@@ -48,12 +73,17 @@ export function SkillLibraryWidget({
   instance,
   logRefreshToken,
   onCreateSkill,
+  onCreateKnowledgeDocument,
+  onDeleteKnowledgeDocument,
   onDeleteSkill,
+  onGetKnowledgeDocument,
   onGetSkill,
+  onListKnowledgeDocuments,
   onListSkills,
   onLoadLogs,
   onAttachContextToCoordinator,
   onStartFrameMove,
+  onUpdateKnowledgeDocument,
   onUpdateSkill,
   title,
 }: WidgetRenderProps) {
@@ -65,19 +95,44 @@ export function SkillLibraryWidget({
   const risksInputId = useId();
   const tagsInputId = useId();
   const statusInputId = useId();
+  const documentTitleInputId = useId();
+  const documentSourceInputId = useId();
+  const documentTagsInputId = useId();
+  const documentEnabledInputId = useId();
+  const documentContentInputId = useId();
   const apiAvailable = Boolean(
     onCreateSkill && onDeleteSkill && onGetSkill && onListSkills && onUpdateSkill,
   );
+  const documentApiAvailable = Boolean(
+    onCreateKnowledgeDocument &&
+      onDeleteKnowledgeDocument &&
+      onGetKnowledgeDocument &&
+      onListKnowledgeDocuments &&
+      onUpdateKnowledgeDocument,
+  );
+  const [activeTab, setActiveTab] = useState<KnowledgeSurfaceTab>("skills");
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [draft, setDraft] = useState<SkillDraft>(EMPTY_DRAFT);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [selectedDocument, setSelectedDocument] =
+    useState<KnowledgeDocument | null>(null);
+  const [documentDraft, setDocumentDraft] =
+    useState<KnowledgeDocumentDraft>(EMPTY_DOCUMENT_DRAFT);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingDocument, setIsSavingDocument] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingDocument, setIsDeletingDocument] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isSelectingDocument, setIsSelectingDocument] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [documentMessage, setDocumentMessage] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
   const isNewDraft = !draft.skillId;
+  const isNewDocumentDraft = !documentDraft.knowledgeDocumentId;
   const isDirty = useMemo(
     () =>
       isNewDraft
@@ -95,6 +150,20 @@ export function SkillLibraryWidget({
           ),
     [draft, isNewDraft, selectedSkill],
   );
+  const isDocumentDirty = useMemo(
+    () =>
+      isNewDocumentDraft
+        ? hasDocumentDraftContent(documentDraft)
+        : Boolean(
+            selectedDocument &&
+              (documentDraft.title !== selectedDocument.title ||
+                documentDraft.sourceLabel !== selectedDocument.sourceLabel ||
+                documentDraft.content !== selectedDocument.content ||
+                documentDraft.tags !== selectedDocument.tags ||
+                documentDraft.enabled !== selectedDocument.enabled),
+          ),
+    [documentDraft, isNewDocumentDraft, selectedDocument],
+  );
   const canAttachToCoordinator = Boolean(
     selectedSkill && !isDirty && onAttachContextToCoordinator,
   );
@@ -103,6 +172,11 @@ export function SkillLibraryWidget({
     void loadSkills(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiAvailable]);
+
+  useEffect(() => {
+    void loadDocuments(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentApiAvailable]);
 
   async function loadSkills(preferredSkillId: string | null) {
     if (!apiAvailable || !onListSkills || !onGetSkill) {
@@ -149,6 +223,55 @@ export function SkillLibraryWidget({
     }
   }
 
+  async function loadDocuments(preferredDocumentId: string | null) {
+    if (
+      !documentApiAvailable ||
+      !onListKnowledgeDocuments ||
+      !onGetKnowledgeDocument
+    ) {
+      setDocuments([]);
+      clearDocumentDraft();
+      setDocumentError("Knowledge Document API is not available in this runtime.");
+      setIsLoadingDocuments(false);
+      return;
+    }
+
+    setIsLoadingDocuments(true);
+    setDocumentError(null);
+    setDocumentMessage(null);
+
+    try {
+      const loadedDocuments = await onListKnowledgeDocuments();
+      setDocuments(loadedDocuments);
+      const preferredExists = loadedDocuments.some(
+        (document) => document.knowledgeDocumentId === preferredDocumentId,
+      );
+      const documentIdToSelect = preferredExists
+        ? preferredDocumentId
+        : loadedDocuments[0]?.knowledgeDocumentId;
+
+      if (!documentIdToSelect) {
+        clearDocumentDraft();
+        return;
+      }
+
+      const detail = await onGetKnowledgeDocument(documentIdToSelect);
+      if (!detail) {
+        clearDocumentDraft();
+        setDocumentError("The selected document could not be found.");
+        return;
+      }
+
+      setSelectedDocumentDraft(detail);
+    } catch (loadError) {
+      setDocuments([]);
+      clearDocumentDraft();
+      setDocumentError(errorToMessage(loadError, "Unable to load documents."));
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  }
+
   function startNewSkill() {
     if (isDirty) {
       setMessage("Save or discard the current skill before creating another.");
@@ -159,6 +282,20 @@ export function SkillLibraryWidget({
     setDraft({ ...EMPTY_DRAFT });
     setMessage(null);
     setError(null);
+  }
+
+  function startNewDocument() {
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard the current document before creating another.",
+      );
+      return;
+    }
+
+    setSelectedDocument(null);
+    setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
+    setDocumentMessage(null);
+    setDocumentError(null);
   }
 
   async function selectSkill(skillId: string) {
@@ -192,6 +329,48 @@ export function SkillLibraryWidget({
       setError(errorToMessage(selectError, "Unable to open skill."));
     } finally {
       setIsSelecting(false);
+    }
+  }
+
+  async function selectDocument(knowledgeDocumentId: string) {
+    if (
+      !onGetKnowledgeDocument ||
+      selectedDocument?.knowledgeDocumentId === knowledgeDocumentId ||
+      isSelectingDocument
+    ) {
+      return;
+    }
+
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard the current document before selecting another.",
+      );
+      return;
+    }
+
+    setIsSelectingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const detail = await onGetKnowledgeDocument(knowledgeDocumentId);
+      if (!detail) {
+        setDocumentError("The selected document could not be found.");
+        return;
+      }
+
+      setSelectedDocumentDraft(detail);
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((document) =>
+          document.knowledgeDocumentId === detail.knowledgeDocumentId
+            ? detail
+            : document,
+        ),
+      );
+    } catch (selectError) {
+      setDocumentError(errorToMessage(selectError, "Unable to open document."));
+    } finally {
+      setIsSelectingDocument(false);
     }
   }
 
@@ -240,6 +419,51 @@ export function SkillLibraryWidget({
     }
   }
 
+  async function saveDocument() {
+    if (!onCreateKnowledgeDocument || !onUpdateKnowledgeDocument || isSavingDocument) {
+      return;
+    }
+
+    const documentTitle = documentDraft.title.trim();
+    if (!documentTitle) {
+      setDocumentMessage("Title is required before saving.");
+      return;
+    }
+
+    setIsSavingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const request = {
+        title: documentTitle,
+        sourceLabel: documentDraft.sourceLabel,
+        content: documentDraft.content,
+        tags: documentDraft.tags,
+        enabled: documentDraft.enabled,
+      };
+      const savedDocument = documentDraft.knowledgeDocumentId
+        ? await onUpdateKnowledgeDocument({
+            knowledgeDocumentId: documentDraft.knowledgeDocumentId,
+            ...request,
+          })
+        : await onCreateKnowledgeDocument(request);
+
+      if (!savedDocument) {
+        setDocumentError("The selected document could not be found.");
+        return;
+      }
+
+      setSelectedDocumentDraft(savedDocument);
+      await loadDocuments(savedDocument.knowledgeDocumentId);
+      setDocumentMessage("Document saved.");
+    } catch (saveError) {
+      setDocumentError(errorToMessage(saveError, "Unable to save document."));
+    } finally {
+      setIsSavingDocument(false);
+    }
+  }
+
   async function deleteSelectedSkill() {
     if (!draft.skillId || !onDeleteSkill || isDeleting) {
       return;
@@ -272,6 +496,44 @@ export function SkillLibraryWidget({
     }
   }
 
+  async function deleteSelectedDocument() {
+    if (
+      !documentDraft.knowledgeDocumentId ||
+      !onDeleteKnowledgeDocument ||
+      isDeletingDocument
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${documentDraft.title.trim() || DEFAULT_DOCUMENT_TITLE}" from this workspace?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const deleted = await onDeleteKnowledgeDocument({
+        knowledgeDocumentId: documentDraft.knowledgeDocumentId,
+      });
+      if (!deleted) {
+        setDocumentError("The selected document could not be found.");
+        return;
+      }
+
+      await loadDocuments(null);
+      setDocumentMessage("Document deleted.");
+    } catch (deleteError) {
+      setDocumentError(errorToMessage(deleteError, "Unable to delete document."));
+    } finally {
+      setIsDeletingDocument(false);
+    }
+  }
+
   function discardDraft() {
     if (selectedSkill) {
       setSelectedDraft(selectedSkill);
@@ -280,6 +542,16 @@ export function SkillLibraryWidget({
     }
     setMessage(null);
     setError(null);
+  }
+
+  function discardDocumentDraft() {
+    if (selectedDocument) {
+      setSelectedDocumentDraft(selectedDocument);
+    } else {
+      setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
+    }
+    setDocumentMessage(null);
+    setDocumentError(null);
   }
 
   function attachSelectedSkillToCoordinator() {
@@ -310,9 +582,26 @@ export function SkillLibraryWidget({
     });
   }
 
+  function setSelectedDocumentDraft(document: KnowledgeDocument) {
+    setSelectedDocument(document);
+    setDocumentDraft({
+      knowledgeDocumentId: document.knowledgeDocumentId,
+      title: document.title,
+      sourceLabel: document.sourceLabel,
+      content: document.content,
+      tags: document.tags,
+      enabled: document.enabled,
+    });
+  }
+
   function clearDraft() {
     setSelectedSkill(null);
     setDraft({ ...EMPTY_DRAFT });
+  }
+
+  function clearDocumentDraft() {
+    setSelectedDocument(null);
+    setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
   }
 
   const statusBadge = (
@@ -326,11 +615,17 @@ export function SkillLibraryWidget({
       actions={
         <>
           <Button
-            disabled={!apiAvailable || isLoading}
-            onClick={startNewSkill}
+            disabled={
+              activeTab === "skills"
+                ? !apiAvailable || isLoading
+                : !documentApiAvailable || isLoadingDocuments
+            }
+            onClick={
+              activeTab === "skills" ? startNewSkill : startNewDocument
+            }
             variant="secondary"
           >
-            New skill
+            {activeTab === "skills" ? "New skill" : "New document"}
           </Button>
           {frameActions}
         </>
@@ -346,9 +641,47 @@ export function SkillLibraryWidget({
       <div className="skill-library-shell">
         <div className="skill-library-summary">
           <span>Workspace-local.</span>
-          <span>Not sent to Workspace Agent automatically.</span>
-          <span>Skills are not sent to Workspace Agent unless explicitly attached.</span>
+          <span>Skills attach explicitly.</span>
+          <span>Enabled documents are searched for Workspace Agent runs.</span>
         </div>
+
+        <div className="skill-library-tabs" role="tablist" aria-label="Knowledge surface tabs">
+          <button
+            aria-selected={activeTab === "skills"}
+            className={[
+              "skill-library-tab",
+              activeTab === "skills" ? "skill-library-tab-active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setActiveTab("skills")}
+            role="tab"
+            type="button"
+          >
+            Skills
+          </button>
+          <button
+            aria-selected={activeTab === "documents"}
+            className={[
+              "skill-library-tab",
+              activeTab === "documents" ? "skill-library-tab-active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setActiveTab("documents")}
+            role="tab"
+            type="button"
+          >
+            Documents
+          </button>
+        </div>
+
+        {activeTab === "skills" ? (
+          <div className="skill-library-tab-panel" role="tabpanel">
+            <div className="skill-library-summary skill-library-summary-secondary">
+              <span>Operator-authored procedures.</span>
+          <span>Skills are not sent to Workspace Agent unless explicitly attached.</span>
+            </div>
 
         {isLoading ? (
           <EmptyState
@@ -530,6 +863,202 @@ export function SkillLibraryWidget({
             </section>
           </div>
         )}
+          </div>
+        ) : (
+          <div className="skill-library-tab-panel" role="tabpanel">
+            <div className="skill-library-summary skill-library-summary-secondary">
+              <span>Plain-text or Markdown reference documents.</span>
+              <span>
+                Workspace Agent can search enabled workspace documents. Used documents are shown in the answer context.
+              </span>
+            </div>
+            {isLoadingDocuments ? (
+              <EmptyState
+                text="Workspace-local documents are loading from desktop storage."
+                title="Loading documents."
+              />
+            ) : documentError && documents.length === 0 ? (
+              <EmptyState text={documentError} title="Documents unavailable." />
+            ) : (
+              <div className="skill-library-layout">
+                <aside className="skill-list-pane" aria-label="Documents">
+                  {documents.length === 0 ? (
+                    <EmptyState
+                      text="Add the first workspace-local reference document for this workspace."
+                      title="No documents yet."
+                    />
+                  ) : (
+                    <div className="skill-list">
+                      {documents.map((document) => (
+                        <button
+                          className={[
+                            "skill-list-row",
+                            selectedDocument?.knowledgeDocumentId ===
+                            document.knowledgeDocumentId
+                              ? "skill-list-row-selected"
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          disabled={isSelectingDocument}
+                          key={document.knowledgeDocumentId}
+                          onClick={() =>
+                            void selectDocument(document.knowledgeDocumentId)
+                          }
+                          type="button"
+                        >
+                          <span className="skill-list-title">
+                            {document.title}
+                          </span>
+                          <span className="skill-list-meta">
+                            {document.enabled ? "Enabled" : "Disabled"}
+                            {document.tags ? ` - ${document.tags}` : ""}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </aside>
+
+                <section
+                  className="skill-editor-pane"
+                  aria-label="Selected document"
+                >
+                  <div className="skill-editor">
+                    <label className="skill-field skill-field-wide">
+                      <span>Title</span>
+                      <input
+                        className="input"
+                        id={documentTitleInputId}
+                        onChange={(event) =>
+                          setDocumentDraftField(
+                            "title",
+                            event.currentTarget.value,
+                          )
+                        }
+                        placeholder={DEFAULT_DOCUMENT_TITLE}
+                        value={documentDraft.title}
+                      />
+                    </label>
+
+                    <label className="skill-field">
+                      <span>Source label</span>
+                      <input
+                        className="input"
+                        id={documentSourceInputId}
+                        onChange={(event) =>
+                          setDocumentDraftField(
+                            "sourceLabel",
+                            event.currentTarget.value,
+                          )
+                        }
+                        placeholder="README.md or pasted docs"
+                        value={documentDraft.sourceLabel}
+                      />
+                    </label>
+
+                    <label className="skill-field">
+                      <span>Tags</span>
+                      <input
+                        className="input"
+                        id={documentTagsInputId}
+                        onChange={(event) =>
+                          setDocumentDraftField(
+                            "tags",
+                            event.currentTarget.value,
+                          )
+                        }
+                        placeholder="api, onboarding"
+                        value={documentDraft.tags}
+                      />
+                    </label>
+
+                    <label className="skill-field skill-checkbox-field">
+                      <input
+                        checked={documentDraft.enabled}
+                        id={documentEnabledInputId}
+                        onChange={(event) =>
+                          setDocumentDraftField(
+                            "enabled",
+                            event.currentTarget.checked,
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <span>Searchable by Workspace Agent</span>
+                    </label>
+
+                    <label className="skill-field skill-field-wide">
+                      <span>Content</span>
+                      <textarea
+                        className="input skill-document-textarea"
+                        id={documentContentInputId}
+                        onChange={(event) =>
+                          setDocumentDraftField(
+                            "content",
+                            event.currentTarget.value,
+                          )
+                        }
+                        value={documentDraft.content}
+                      />
+                    </label>
+
+                    <div className="skill-editor-actions">
+                      <Button
+                        disabled={
+                          !documentApiAvailable ||
+                          !isDocumentDirty ||
+                          isSavingDocument ||
+                          isDeletingDocument
+                        }
+                        onClick={() => void saveDocument()}
+                        variant="primary"
+                      >
+                        {isSavingDocument ? "Saving" : "Save document"}
+                      </Button>
+                      <Button
+                        disabled={
+                          !isDocumentDirty ||
+                          isSavingDocument ||
+                          isDeletingDocument
+                        }
+                        onClick={discardDocumentDraft}
+                        variant="secondary"
+                      >
+                        Discard
+                      </Button>
+                      <Button
+                        disabled={
+                          !documentDraft.knowledgeDocumentId ||
+                          isSavingDocument ||
+                          isDeletingDocument
+                        }
+                        onClick={() => void deleteSelectedDocument()}
+                        variant="ghost"
+                      >
+                        {isDeletingDocument ? "Deleting" : "Delete"}
+                      </Button>
+                    </div>
+                    <p className="skill-attach-note">
+                      Enabled saved documents may be searched before Run with Codex. Disabled documents are ignored.
+                    </p>
+                    {documentMessage ? (
+                      <p className="skill-message">{documentMessage}</p>
+                    ) : null}
+                    {documentError ? (
+                      <p
+                        className="skill-message skill-message-error"
+                        role="alert"
+                      >
+                        {documentError}
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </WidgetFrame>
   );
@@ -541,6 +1070,15 @@ export function SkillLibraryWidget({
     setDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
     setMessage(null);
     setError(null);
+  }
+
+  function setDocumentDraftField<Key extends keyof KnowledgeDocumentDraft>(
+    key: Key,
+    value: KnowledgeDocumentDraft[Key],
+  ) {
+    setDocumentDraft((currentDraft) => ({ ...currentDraft, [key]: value }));
+    setDocumentMessage(null);
+    setDocumentError(null);
   }
 }
 
@@ -613,6 +1151,16 @@ function hasDraftContent(draft: SkillDraft) {
       draft.validation.trim() ||
       draft.risks.trim() ||
       draft.tags.trim(),
+  );
+}
+
+function hasDocumentDraftContent(draft: KnowledgeDocumentDraft) {
+  return Boolean(
+    draft.title.trim() !== DEFAULT_DOCUMENT_TITLE ||
+      draft.sourceLabel.trim() !== "Workspace document" ||
+      draft.content.trim() ||
+      draft.tags.trim() ||
+      !draft.enabled,
   );
 }
 

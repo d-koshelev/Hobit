@@ -70,6 +70,48 @@ export const deleteSkill: WorkspaceApi["deleteSkill"] = async (_request) => {
   );
 };
 
+export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document persistence is only available in the Tauri desktop shell. Browser fallback cannot persist knowledge documents.",
+    );
+  };
+
+export const listKnowledgeDocuments: WorkspaceApi["listKnowledgeDocuments"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document persistence is only available in the Tauri desktop shell. Browser fallback cannot read knowledge documents.",
+    );
+  };
+
+export const getKnowledgeDocument: WorkspaceApi["getKnowledgeDocument"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document persistence is only available in the Tauri desktop shell. Browser fallback cannot read knowledge documents.",
+    );
+  };
+
+export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document persistence is only available in the Tauri desktop shell. Browser fallback cannot update knowledge documents.",
+    );
+  };
+
+export const deleteKnowledgeDocument: WorkspaceApi["deleteKnowledgeDocument"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document persistence is only available in the Tauri desktop shell. Browser fallback cannot delete knowledge documents.",
+    );
+  };
+
+export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge Document search is only available in the Tauri desktop shell. Browser fallback cannot search knowledge documents.",
+    );
+  };
+
 export const createJdbcConnector: WorkspaceApi["createJdbcConnector"] = async (
   _request,
 ) => {

@@ -67,6 +67,12 @@ The current Workspace Agent preview:
 - can receive an explicitly attached selected Skill from Skill Library as
   visible editable composer context containing only title, when to use,
   prerequisites, steps, validation, risks, tags, and review status
+- can automatically search enabled workspace-local Knowledge Documents before
+  an explicit Run with Codex. The latest composer message is the query; results
+  are lexical, capped, visible in Direct Work details, and added only to that
+  run's Codex prompt. This does not search Skills, Notes, hidden files,
+  disabled documents, logs, Queue history, Executor artifacts, Evidence,
+  Context Packs, global/team knowledge, or remote services.
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status
@@ -103,9 +109,10 @@ The current Workspace Agent preview:
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
   details or run history, Executor logs/results/artifacts, Skill Library
-  records, files, environment variables, secrets, Context Packs, or hidden
-  context; Attach to Workspace Agent sends only the visible metadata, selected
-  excerpt, selected Skill fields, or bounded visible preview section the
+  Skill records, disabled Knowledge Documents, files, environment variables,
+  secrets, Context Packs, or hidden context; Attach to Workspace Agent sends
+  only the visible metadata, selected excerpt, selected Skill fields, or
+  bounded visible preview section the
   operator attached, not raw payloads, full Executor logs, hidden Skill
   metadata, or unrelated Workspace state
 - does not persist chat messages, persist reusable context snapshots, create

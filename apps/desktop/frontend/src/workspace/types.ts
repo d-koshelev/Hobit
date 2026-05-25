@@ -4,6 +4,7 @@ export * from "./types/agentQueue";
 export * from "./types/core";
 export * from "./types/coordinatorProvider";
 export * from "./types/git";
+export * from "./types/knowledgeDocuments";
 export * from "./types/notes";
 export * from "./types/skills";
 export * from "./types/terminal";

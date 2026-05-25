@@ -39,6 +39,7 @@ import type { WidgetRenderProps } from "./types";
 import type {
   DirectWorkStreamEvent,
   DirectWorkStreamEventKind,
+  KnowledgeDocumentSearchResult,
 } from "../workspace/types";
 
 type InteractiveAgentMessage = {
@@ -174,6 +175,27 @@ type CoordinatorDirectWorkLogEntry = {
   text: string;
 };
 
+type WorkspaceKnowledgeLookupStatus =
+  | "idle"
+  | "checked"
+  | "matched"
+  | "failed"
+  | "unavailable";
+
+type WorkspaceKnowledgeLookup = {
+  error: string | null;
+  query: string;
+  results: KnowledgeDocumentSearchResult[];
+  status: WorkspaceKnowledgeLookupStatus;
+};
+
+const EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP: WorkspaceKnowledgeLookup = {
+  error: null,
+  query: "",
+  results: [],
+  status: "idle",
+};
+
 export function InteractiveAgentPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -184,6 +206,7 @@ export function InteractiveAgentPlaceholderWidget({
   onCreateWorkspaceNote,
   coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
+  onSearchKnowledgeDocuments,
   onCancelCodexDirectWorkRun,
   onLoadLogs,
   onStartCodexDirectWorkStream,
@@ -236,6 +259,8 @@ export function InteractiveAgentPlaceholderWidget({
   const [directWorkLogs, setDirectWorkLogs] = useState<
     CoordinatorDirectWorkLogEntry[]
   >([]);
+  const [workspaceKnowledgeLookup, setWorkspaceKnowledgeLookup] =
+    useState<WorkspaceKnowledgeLookup>(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
   const [isDirectWorkStopPending, setIsDirectWorkStopPending] = useState(false);
   const directWorkStopListeningRef = useRef<(() => void) | null>(null);
   const directWorkCompletedDuringStartRef = useRef(false);
@@ -467,6 +492,12 @@ export function InteractiveAgentPlaceholderWidget({
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
     const resumeThreadId = currentCodexThreadId;
+    const knowledgeLookup =
+      await searchWorkspaceKnowledgeForDirectWork(operatorPrompt);
+    const promptForCodex =
+      knowledgeLookup.results.length > 0
+        ? codexPromptWithWorkspaceKnowledge(operatorPrompt, knowledgeLookup.results)
+        : operatorPrompt;
     const threadStartText = resumeThreadId
       ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
       : "Starting new Codex thread.";
@@ -485,7 +516,9 @@ export function InteractiveAgentPlaceholderWidget({
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} ${workspaceKnowledgeLogText(
+          knowledgeLookup,
+        )} Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
@@ -496,7 +529,7 @@ export function InteractiveAgentPlaceholderWidget({
           approvalPolicy: "never",
           codexExecutable: defaultCoordinatorCodexExecutable(),
           codexThreadId: resumeThreadId,
-          operatorPrompt,
+          operatorPrompt: promptForCodex,
           repoRoot,
           sandbox: "workspace_write",
           skipGitRepoCheck: true,
@@ -533,6 +566,49 @@ export function InteractiveAgentPlaceholderWidget({
       appendCoordinatorDirectWorkTranscript("failed", message);
     } finally {
       window.setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  }
+
+  async function searchWorkspaceKnowledgeForDirectWork(
+    operatorPrompt: string,
+  ): Promise<WorkspaceKnowledgeLookup> {
+    const query = operatorPrompt.trim();
+    if (!query) {
+      const lookup = { ...EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP, query };
+      setWorkspaceKnowledgeLookup(lookup);
+      return lookup;
+    }
+
+    if (!onSearchKnowledgeDocuments) {
+      const lookup: WorkspaceKnowledgeLookup = {
+        error: null,
+        query,
+        results: [],
+        status: "unavailable",
+      };
+      setWorkspaceKnowledgeLookup(lookup);
+      return lookup;
+    }
+
+    try {
+      const results = await onSearchKnowledgeDocuments({ limit: 5, query });
+      const lookup: WorkspaceKnowledgeLookup = {
+        error: null,
+        query,
+        results,
+        status: results.length > 0 ? "matched" : "checked",
+      };
+      setWorkspaceKnowledgeLookup(lookup);
+      return lookup;
+    } catch (error) {
+      const lookup: WorkspaceKnowledgeLookup = {
+        error: errorToMessage(error, "Knowledge search failed."),
+        query,
+        results: [],
+        status: "failed",
+      };
+      setWorkspaceKnowledgeLookup(lookup);
+      return lookup;
     }
   }
 
@@ -1199,6 +1275,7 @@ export function InteractiveAgentPlaceholderWidget({
             directWorkDirectory={directWorkDirectory}
             error={directWorkError}
             finalResult={directWorkFinalResult}
+            knowledgeLookup={workspaceKnowledgeLookup}
             logs={directWorkLogs}
             onDirectoryChange={updateDirectWorkDirectory}
             onResetThread={resetCodexThread}
@@ -1321,6 +1398,7 @@ function CoordinatorDirectModePanel({
   directWorkDirectory,
   error,
   finalResult,
+  knowledgeLookup,
   logs,
   onDirectoryChange,
   onResetThread,
@@ -1333,6 +1411,7 @@ function CoordinatorDirectModePanel({
   directWorkDirectory: string;
   error: string | null;
   finalResult: string | null;
+  knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
@@ -1452,6 +1531,12 @@ function CoordinatorDirectModePanel({
             </div>
           </details>
           <details className="interactive-agent-direct-mode-details">
+            <summary>{workspaceKnowledgeSummaryText(knowledgeLookup)}</summary>
+            <div className="interactive-agent-direct-mode-detail-body">
+              <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
+            </div>
+          </details>
+          <details className="interactive-agent-direct-mode-details">
             <summary>Safety/context details</summary>
             <div className="interactive-agent-direct-mode-detail-body">
               <p className="interactive-agent-direct-mode-help">
@@ -1489,6 +1574,64 @@ function renderMessageBody(body: string): ReactNode {
 
     return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
   });
+}
+
+function WorkspaceKnowledgeLookupDetails({
+  lookup,
+}: {
+  lookup: WorkspaceKnowledgeLookup;
+}) {
+  if (lookup.status === "idle") {
+    return (
+      <p className="interactive-agent-direct-mode-help">
+        Workspace knowledge will be checked before Run with Codex.
+      </p>
+    );
+  }
+
+  if (lookup.status === "unavailable") {
+    return (
+      <p className="interactive-agent-direct-mode-help">
+        Workspace knowledge search is not available in this runtime.
+      </p>
+    );
+  }
+
+  if (lookup.status === "failed") {
+    return (
+      <p className="interactive-agent-direct-mode-warning">
+        Workspace knowledge search failed: {lookup.error}
+      </p>
+    );
+  }
+
+  if (lookup.results.length === 0) {
+    return (
+      <p className="interactive-agent-direct-mode-help">
+        Workspace knowledge checked: no matches.
+      </p>
+    );
+  }
+
+  return (
+    <div className="interactive-agent-workspace-knowledge-list">
+      {lookup.results.slice(0, 5).map((result) => (
+        <section
+          className="interactive-agent-workspace-knowledge-item"
+          key={result.chunkId}
+        >
+          <p className="interactive-agent-status-label">
+            {result.documentTitle}, chunk {result.chunkIndex + 1}
+          </p>
+          <p className="interactive-agent-direct-mode-help">
+            {result.sourceLabel}
+            {result.tags ? ` - ${result.tags}` : ""}
+          </p>
+          <pre>{result.snippet}</pre>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 function coordinatorAttachedContextBlock(context: {
@@ -1846,6 +1989,70 @@ function compactDirectWorkText(text: string): string {
   const compacted = text.replace(/\s+/g, " ").trim();
 
   return compacted.length > 180 ? `${compacted.slice(0, 177)}...` : compacted;
+}
+
+function workspaceKnowledgeSummaryText(lookup: WorkspaceKnowledgeLookup) {
+  if (lookup.status === "matched") {
+    return `Used knowledge: ${lookup.results.length} snippets`;
+  }
+
+  if (lookup.status === "checked") {
+    return "Workspace knowledge checked: no matches";
+  }
+
+  if (lookup.status === "failed") {
+    return "Workspace knowledge check failed";
+  }
+
+  if (lookup.status === "unavailable") {
+    return "Workspace knowledge not available";
+  }
+
+  return "Workspace knowledge";
+}
+
+function workspaceKnowledgeLogText(lookup: WorkspaceKnowledgeLookup) {
+  if (lookup.status === "matched") {
+    return `Used knowledge: ${lookup.results.length} snippets.`;
+  }
+
+  if (lookup.status === "checked") {
+    return "Workspace knowledge checked: no matches.";
+  }
+
+  if (lookup.status === "failed") {
+    return "Workspace knowledge check failed; continuing without it.";
+  }
+
+  if (lookup.status === "unavailable") {
+    return "Workspace knowledge not available.";
+  }
+
+  return "";
+}
+
+function codexPromptWithWorkspaceKnowledge(
+  operatorPrompt: string,
+  results: KnowledgeDocumentSearchResult[],
+) {
+  const knowledgeBlock = results
+    .slice(0, 5)
+    .map((result) =>
+      [
+        `[Doc: ${result.documentTitle}, chunk ${result.chunkIndex + 1}]`,
+        result.snippet,
+      ].join("\n"),
+    )
+    .join("\n\n");
+
+  return [
+    "Workspace knowledge found for this request:",
+    knowledgeBlock,
+    "Use this only if relevant. If it does not help, ignore it.",
+    "",
+    "User request:",
+    operatorPrompt,
+  ].join("\n");
 }
 
 function shortCodexThreadId(threadId: string): string {
