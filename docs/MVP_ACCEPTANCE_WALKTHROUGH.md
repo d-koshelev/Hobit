@@ -16,6 +16,14 @@ surface checks, see `scripts/hobit/DESKTOP_SMOKE_CHECKLIST.md`. For the
 Queue-specific readiness checkpoint, see
 `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md`.
 
+The target architecture treats Coordinator as the primary foreground AI agent
+for Workspace work through controlled capabilities. This walkthrough verifies
+only the current MVP subset: Coordinator Chat planning/review, visible
+attachments, Skill attach, Queue/Executor metadata and preview attach, pasted
+result review, and explicit Queue/Executor async execution. It must not be
+read as proof that direct Coordinator filesystem, command, SSH, JDBC, Git, or
+provider tool execution exists.
+
 ## Result Legend
 
 - `[ ]` not attempted
@@ -137,6 +145,10 @@ Notes:
 - [ ] Queue Autorun starts only from explicit visible Queue controls.
 - [ ] No tool execution, Terminal control, Git mutation, JDBC execution, file
   mutation, server runtime, or RBAC behavior is presented as implemented.
+- [ ] Executor is presented as the async/background worker for Queue tasks, not
+  as the only agent that can ever do Workspace work.
+- [ ] Widgets are presented as current UI surfaces and future capability
+  providers, without implying current hidden Coordinator capability access.
 
 Notes:
 

@@ -3,13 +3,16 @@
 ## Purpose
 
 This contract defines how Hobit widgets expose controlled capabilities/tools to
-Coordinator Chat.
+Coordinator.
 
-Coordinator Chat is the primary operator-facing AI surface, but Coordinator
-must not gain hidden access to all Workspace data or bypass widget boundaries.
-The goal is to make Coordinator useful by letting it work through explicit,
-widget-defined capability boundaries with clear risk, approval, context, and
-observability rules.
+Coordinator is the primary foreground AI agent and operator-facing work
+surface. Chat is the primary interaction model, not the capability limit.
+Coordinator must eventually be able to use all approved Workspace
+functionality through explicit capability providers, but it must not gain
+hidden access to all Workspace data or bypass widget boundaries. The goal is
+to make Coordinator useful by letting it work through explicit, widget-defined
+capability boundaries with clear risk, approval, context, and observability
+rules.
 
 This document is docs/contracts only. It does not implement frontend UI,
 backend or Tauri commands, storage/schema changes, Coordinator runtime, AI
@@ -19,8 +22,8 @@ or Runbook work.
 
 ## One-Sentence Rule
 
-Coordinator can use widget capabilities only through explicit widget-defined
-tool boundaries.
+Coordinator can use Workspace capabilities only through explicit
+widget-defined or Workspace-defined tool boundaries.
 
 ## What A Widget Capability Is
 
@@ -37,6 +40,10 @@ A capability has:
 
 Examples:
 
+- Read selected Workspace files
+- Propose/apply file edit with diff preview
+- Run approved validation command
+- Run approved Terminal or SSH command
 - Git status read
 - Git diff summary read
 - Create local Git commit
@@ -44,6 +51,8 @@ Examples:
 - Start assigned Queue task
 - Create Note
 - Run read-only SQL through JDBC
+- Attach selected Skill guidance
+- Read Executor run metadata or selected result excerpt
 
 A capability belongs to the widget that exposes it. Coordinator may request or
 propose use of that capability, but it does not own the widget internals.
@@ -63,6 +72,38 @@ A widget capability is not:
 Coordinator must not treat widget capability access as permission to inspect
 all widget state, logs, results, files, credentials, repositories, notes,
 queues, or external systems.
+
+## Capability Providers
+
+Widgets are not only UI panels. In the target architecture they are UI
+surfaces plus capability providers for Coordinator:
+
+- Filesystem/code capability provider: selected file and directory reads,
+  diff-preview edit proposals, approved edit apply, and code review over
+  approved context.
+- JDBC widget: database connector metadata, approved read-only SQL, capped
+  result samples, explain output when implemented, and database result
+  context.
+- Terminal / SSH: command and remote execution capabilities with explicit
+  target, working directory or remote scope, command preview, caps, and
+  confirmation/policy.
+- Git widget: status, diff, commit-message assistance, and approval-gated
+  local commit capabilities.
+- Skill Library / Knowledge: selected Skill lookup/attach/use and future
+  approved Knowledge context.
+- Notes: selected note read/update/create and summary-save capabilities.
+- Agent Queue: task creation, status, assignment, delegation, and async work
+  organization capabilities.
+- Agent Executor: run/review/result capabilities for queued/background
+  execution, including safe run metadata and selected excerpts.
+- Run history: safe run-link metadata, selected result summaries, and future
+  approved Raw/Overview/Result views.
+- Future Artifacts / Evidence: approved source-backed context and result
+  references.
+
+Each provider owns its policy, inputs, output classification, logs/results,
+and failure display. Coordinator requests or proposes provider capabilities;
+it does not become the hidden owner of provider internals.
 
 ## Capability Descriptor Model
 
@@ -120,6 +161,27 @@ Examples:
 Risk levels are not just labels. They determine default confirmation,
 autonomy, context exposure, UI warning, and audit expectations.
 
+## Safety And Action Levels
+
+Capability descriptors must also map to operator-facing action levels:
+
+- Safe read: bounded metadata, selected summaries, selected visible text, or
+  capped previews with no secrets or sensitive raw payloads.
+- Sensitive read: selected source files, raw logs, raw command output, database
+  rows, full diffs, large Notes, or other material requiring explicit
+  inclusion, capping, and redaction rules.
+- Mutation: local file edits, Notes updates, Queue task changes, Git local
+  commits, artifact/evidence updates, or other Workspace-local state changes.
+- Remote/database action: JDBC execution, SSH, remote commands, external APIs,
+  or other external-system reads/writes.
+- Async execution: delegation to Queue/Agent Executor or future durable runner
+  starts.
+
+The Workspace/project boundary must be explicit before file, Git, command,
+Terminal, SSH, database, or Executor work. Dangerous actions require
+confirmation or an explicit future policy. Queue Autorun starts remain
+operator-explicit.
+
 ## Autonomy And Confirmation Model
 
 Capabilities must declare how they interact with Coordinator autonomy.
@@ -151,11 +213,27 @@ Some capabilities always require explicit confirmation:
 - destructive actions
 - write SQL
 - Terminal command execution
+- SSH command execution
+- file mutation
+- Queue/Executor async execution starts
 - Workspace deletion
 - widget deletion
 
 Future autonomy policy may become more expressive, but it must not silently
 weaken these boundaries.
+
+## Coordinator Modes
+
+Coordinator capability use should identify the active mode:
+
+- Chat / Reasoning mode.
+- Workspace Read mode.
+- Workspace Action mode.
+- Command / Validation mode.
+- Async Delegation mode through Queue/Executor.
+
+Mode labels are product semantics for future UX and audit. They do not grant
+permission by themselves.
 
 ## Context Exposure Policy
 
@@ -163,6 +241,7 @@ A capability must define what data is sent to AI.
 
 Coordinator must not automatically receive:
 
+- all files
 - all notes
 - all logs
 - all Queue tasks
@@ -249,7 +328,8 @@ Current and future Agent Executor capabilities include:
 
 Boundaries:
 
-- Agent Executor is the execution surface.
+- Agent Executor is the async/background execution surface for Queue/Executor
+  work.
 - Coordinator may propose a task for Agent Executor.
 - Coordinator may create a Queue task for later Executor work through Agent
   Queue capability boundaries.
@@ -260,6 +340,10 @@ Boundaries:
 
 Agent Executor owns live execution visibility: logs, result, diff, validation,
 history, and stop/cancel.
+
+Executor is the async/background worker for bounded Queue tasks. It does not
+define the maximum capability set available to Coordinator for foreground
+interactive work.
 
 ## Agent Queue Capabilities
 
@@ -275,9 +359,10 @@ Current and future Agent Queue capabilities include:
 
 Boundaries:
 
-- Queue is task organization.
-- No scheduler.
-- No auto-dispatch.
+- Queue is task organization for promoted, larger, delayed, long-running, or
+  overnight work.
+- No backend scheduler.
+- No hidden or unarmed auto-dispatch.
 - No hidden execution.
 - Queue does not show live logs.
 - Agent Executor owns execution visibility.
@@ -325,7 +410,7 @@ Boundaries:
 - No automatic provider sharing.
 - No hidden note mutation.
 
-## Terminal Capabilities
+## Terminal / SSH Capabilities
 
 Terminal is currently a PTY-first manual operator shell with a bounded
 one-shot command runner retained as a collapsed legacy fallback.
@@ -341,8 +426,12 @@ Boundaries:
 - Terminal output must not become hidden Coordinator context.
 - Future PTY sessions must be visible in the owning Terminal widget and scoped
   to an explicit execution workspace / working directory.
+- SSH is a future capability surface. It must require explicit remote target,
+  command preview, credential/secret isolation, output caps, and approval or
+  policy before any remote command runs.
 
-Terminal remains a manual operator surface, not a Coordinator execution backend.
+Terminal and SSH are capability providers only when future policy and UI make
+their actions explicit, visible, attributable, capped, and reviewable.
 
 ## JDBC Capabilities
 
@@ -374,7 +463,44 @@ metadata model and Preview metadata UI exist, but SQL execution and Coordinator
 capability use remain contract-gated. The JDBC product and safety model is
 defined in `docs/JDBC_WIDGET_CONTRACT.md`.
 
-## Coordinator Chat Capabilities
+## Skill Library / Knowledge Capabilities
+
+Current and future Skill Library / Knowledge capabilities include:
+
+- list or search approved Skills later
+- read selected Skill
+- attach selected Skill to Coordinator
+- use selected Skill guidance in the current request
+- promote reviewed Knowledge or Evidence later
+
+Boundaries:
+
+- Skills and Knowledge are not hidden AI memory.
+- Coordinator may use only selected or approved Skill/Knowledge context.
+- Secret-bearing or sensitive Knowledge must not enter prompts.
+- Skill selection/use must remain visible and attributable.
+
+## Filesystem / Code Capabilities
+
+Future filesystem and code capabilities include:
+
+- read selected file
+- read bounded directory summary
+- propose file edit with diff preview
+- apply approved file edit
+- review approved code or diff
+- run approved validation command against an explicit Workspace/project root
+
+Boundaries:
+
+- No silent unbounded scanning.
+- No hidden file reads.
+- No silent mutation.
+- Workspace/project root must be explicit.
+- Diffs must be previewed before apply.
+- Command and validation output must be capped and classified.
+
+## Coordinator Capabilities
 
 Coordinator itself may have capabilities:
 
@@ -526,11 +652,24 @@ state-changing or external effects.
   execution.
 - Later controlled widget capability bridge.
 - Current bounded mock/safe JDBC read-only validation/execution remains owned
-  by the Database / JDBC widget and is not a Coordinator tool.
+  by the Database / JDBC widget and is not a Coordinator tool today.
 - Later production JDBC runtime and richer result grid UI.
 - Later Coordinator to JDBC read-only query proposal flow.
 - Evidence/Sources storage/API foundation.
 - AI context/token economy contract.
+
+## Coordinator Capability Roadmap
+
+Near-term target sequence:
+
+1. Coordinator capability registry.
+2. Coordinator read selected Workspace files.
+3. Coordinator propose/apply file edits with diff preview.
+4. Coordinator command/validation action.
+5. Coordinator JDBC widget capability.
+6. Coordinator SSH/Terminal capability.
+7. Policy/approval model.
+8. Background delegation through Queue/Executor.
 
 ## Non-Goals
 
@@ -542,6 +681,11 @@ This contract does not implement:
 - AI provider integration
 - Coordinator runtime
 - widget tool execution
+- direct Coordinator filesystem read/write capability
+- direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
+  artifact capability execution
+- unified policy/approval UI
+- audit emission or persistence
 - production JDBC implementation
 - Git mutation
 - Terminal or PTY work

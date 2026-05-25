@@ -14,8 +14,21 @@ changes, frontend behavior, or hidden execution.
 Agent Queue is a preview manual task organization and async execution-support
 surface for workspace-local work. It is for promoted/larger work blocks that
 need assignment, sequencing, current-session runner support, or later review;
-it is not the default place for every Coordinator idea, quick decision, or
-small operator action.
+it is not the default place for every Coordinator idea, quick decision, file
+edit, validation step, or small operator action.
+
+The product role distinction is:
+
+- Coordinator is the primary foreground AI agent and central operator-facing
+  work surface for interactive Workspace work through controlled
+  capabilities.
+- Queue is the organization and delegation surface for promoted, larger,
+  delayed, long-running, or overnight work.
+- Agent Executor is the async/background worker for bounded Queue task prompts
+  and owns queued execution logs, results, review state, and run history.
+
+Executor is not the only agent that can do work and does not define
+Coordinator's future foreground capability set.
 
 Currently working:
 
@@ -138,7 +151,8 @@ not survive reload.
 - Queue-owned raw run details;
 - bulk task import;
 - Coordinator-driven Queue execution;
-- treating every Coordinator idea or small operation as a Queue task;
+- treating every Coordinator idea, file edit, validation step, or small
+  operation as a Queue task;
 - Terminal launch;
 - Git mutation, auto-commit, or push;
 - validation auto-run between tasks;
@@ -212,8 +226,12 @@ not survive reload.
 Queue is not a backend scheduler.
 
 Queue is not the Coordinator work surface and should not replace
-Coordinator-led planning, reasoning, task drafting, review, or
-decision-making.
+Coordinator-led foreground work, planning, reasoning, task drafting, review,
+or decision-making.
+
+Executor is the Queue/background worker. It does not limit Coordinator's
+future ability to use approved Workspace capabilities directly in the
+foreground.
 
 Queue does not auto-dispatch without an explicit operator-started visible
 runner, and it has no backend scheduler.

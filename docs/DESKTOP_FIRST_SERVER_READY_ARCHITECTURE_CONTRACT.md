@@ -40,7 +40,9 @@ Current widget/runtime truth:
 
 - Coordinator Chat is a proposal/text surface. It uses visible current-session
   chat context and `allowed_tools: []`; it does not execute tools or read
-  hidden context.
+  hidden context. Target architecture treats Coordinator as the foreground AI
+  agent that can eventually use Workspace capabilities through explicit
+  provider boundaries, but that target is not implemented today.
 - Agent Queue includes current `executionPolicy`, visible Sequential Queue
   Runner behavior, and explicit operator-armed Queue Autorun. These paths are
   desktop-local/current-session-only and are not a durable backend scheduler,
@@ -124,6 +126,13 @@ explicit, visible, risk-labeled, and approval-aware. Coordinator or provider
 output must not bypass operator approval or invoke widget capabilities
 silently.
 
+Widgets are UI surfaces plus capability providers. Future providers include
+filesystem/code, JDBC, Terminal/SSH, Git, Skill Library/Knowledge, Notes,
+Queue, Agent Executor, run history, and Artifacts/Evidence. Coordinator is the
+foreground consumer of those capabilities; Agent Executor is the
+async/background worker for bounded Queue tasks. Capability ownership must
+remain with the providing widget or Workspace service boundary.
+
 The current codebase has a Workspace Capability Boundary v0 type-only model in
 `crates/hobit-app/src/capabilities/`, further described by
 `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md`. Those types do not register
@@ -199,6 +208,13 @@ Approval and execution must remain separate:
 Agent Executor runs remain explicit operator-controlled Direct Work runs.
 Queue assignment is not execution. Coordinator proposal review is not
 execution.
+
+Future Coordinator foreground work and Queue/Executor async work must remain
+distinct. Coordinator may eventually do approved interactive file, command,
+validation, database, Git, Notes, Skill/Knowledge, and artifact/evidence work
+through capabilities. Executor receives bounded Queue prompts for larger,
+delayed, long-running, or overnight work and owns queued execution
+logs/results/history.
 
 ## Event And Audit Envelope Readiness
 
@@ -327,6 +343,9 @@ This contract does not implement or authorize:
 - hidden autonomous tool execution
 - hidden context ingestion
 - Coordinator tool execution
+- direct Coordinator filesystem read/write capability
+- direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
+  artifact capability execution
 - durable Agent Queue scheduling
 - real external JDBC execution or credential handling
 - broad Git repository automation

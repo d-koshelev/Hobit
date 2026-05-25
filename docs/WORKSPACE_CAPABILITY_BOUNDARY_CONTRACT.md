@@ -34,13 +34,29 @@ The v0 model can describe future capability boundaries with:
 
 These types are vocabulary only. Creating a capability boundary value does not
 register a capability, execute a capability, persist a record, enforce a
-permission, emit an audit event, or expose a tool to Coordinator Chat.
+ permission, emit an audit event, or expose a tool to Coordinator.
+
+The target product model treats Coordinator as the primary foreground AI agent
+inside a Workspace. Capability boundaries are how Coordinator may eventually
+use Workspace functionality without becoming a hidden filesystem scanner,
+command runner, database client, Git mutator, or background scheduler.
+Executor remains the async/background worker for bounded Queue tasks; Executor
+ownership of queued logs/results/history does not limit Coordinator's future
+foreground capability set.
 
 ## Boundary Rules
 
 Capabilities are scoped to explicit Workspace, Workbench, Widget, and
 capability refs. A widget capability belongs to the widget that exposes it.
 Coordinator or provider output must not bypass the owning widget boundary.
+
+Widgets are UI surfaces plus capability providers. Examples include Database /
+JDBC for database capabilities, Terminal / SSH for command and remote
+execution capabilities, Git for status/diff/commit capabilities, Skill Library
+/ Knowledge for selected Skill and knowledge context, Notes for workspace
+notes, Queue for task creation/status/delegation, Agent Executor for
+run/review/result capabilities, run history for safe run references, and
+future Artifacts/Evidence for source-backed context.
 
 Approval, proposal, and execution are separate concepts:
 
@@ -99,6 +115,28 @@ The default posture is conservative:
 - produced artifacts are not AI-context-eligible by default;
 - produced artifacts are not evidence-eligible by default.
 
+## Coordinator Modes And Action Levels
+
+Future Coordinator capability use should identify the active mode:
+
+- Chat / Reasoning mode.
+- Workspace Read mode.
+- Workspace Action mode.
+- Command / Validation mode.
+- Async Delegation mode through Queue/Executor.
+
+Future capability action levels:
+
+- Safe read.
+- Sensitive read.
+- Mutation.
+- Remote/database action.
+- Async execution.
+
+These are vocabulary only in this contract. They do not create a registry,
+grant permissions, execute tools, start Queue/Executor work, or emit audit
+records.
+
 ## Context, Artifacts, And Summaries
 
 Capability summaries are safe metadata only. They must not store raw prompts,
@@ -131,9 +169,10 @@ exists today.
 
 Current Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes, and
 Runbook behavior is unchanged by this contract. Coordinator may be the central
-operator work surface, but this vocabulary does not give it hidden context,
-tool execution, permission enforcement, or a path around widget-owned
-approval/execution boundaries.
+operator work surface and target foreground AI agent, but this vocabulary does
+not give it hidden context, file access, command execution, SSH, JDBC
+execution, Git mutation, permission enforcement, audit emission, or a path
+around widget-owned approval/execution boundaries.
 
 ## Non-Goals
 

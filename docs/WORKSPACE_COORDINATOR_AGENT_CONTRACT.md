@@ -2,22 +2,21 @@
 
 ## Purpose
 
-This contract defines the future Workspace-aware Coordinator Agent behavior for Hobit.
+This contract defines the target Workspace-aware Coordinator Agent behavior for Hobit.
 
-This area is deferred/reference from the active roadmap. For current
-Coordinator Chat direction, use `docs/ACTIVE_CONTRACT_INDEX.md`,
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`, and
-`docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`. Do not use this document as
-implementation guidance unless a block explicitly targets Workspace-aware
-Coordinator Agent behavior.
+This is a docs/product-architecture contract. It does not implement
+Coordinator file access, tool execution, provider tool mode, storage/schema
+changes, Tauri commands, queue behavior changes, server runtime, RBAC, or
+runtime behavior. For current implemented Coordinator Chat behavior, use
+`docs/CURRENT_WIDGET_SURFACE.md`.
 
-The Coordinator Agent is a future extension of the Coordinator surface inside
-a Workspace. The current product direction treats Coordinator as the central
-chat-based operator work surface: the place for planning, reasoning, task
-drafting, outcome review, and deciding what should be promoted to Queue or
-sent through an Executor path. Future Workspace-aware behavior may help the
-operator reason over approved Workspace context and propose controlled actions
-across Hobit components.
+The Coordinator Agent is the primary foreground AI agent inside a Workspace.
+It is the central operator-facing work surface. Chat is the interaction model,
+not the capability limit. The target Coordinator can perform interactive work
+inside the Workspace through controlled capabilities: filesystem and code
+editing, code review, command and validation work, Terminal and SSH actions,
+Git review/control, JDBC/database work, Notes, Skill Library/Knowledge,
+Queue, Agent Executor, run history, and future Artifacts/Evidence.
 
 This is primarily a documentation and product/domain contract. Older Agent Chat
 / Agent Monitoring proposal-era paths remain compatibility/reference only and
@@ -31,7 +30,8 @@ mutation.
 
 ## Current Status
 
-Coordinator Chat is currently the central user-facing chat-based work surface.
+Coordinator Chat is currently the central user-facing chat-based work surface
+and compatibility foundation for the future foreground Coordinator Agent.
 It reuses the existing `interactive-agent` id/component for compatibility,
 keeps chat state in the current frontend session, can request backend-owned
 mock/local or configured HTTP JSON provider responses from visible
@@ -85,7 +85,14 @@ The current Coordinator preview:
 
 There is no implemented:
 
-- agent runtime
+- direct Coordinator filesystem read/write capability
+- direct command or SSH execution from Coordinator
+- direct JDBC capability execution from Coordinator
+- direct Git mutation from Coordinator
+- unified permission or policy UI
+- full provider tool mode
+- audit emission or persistence
+- foreground agent runtime beyond the current chat/proposal/attachment preview
 - executable chat response or streaming
 - persisted approved context models
 - cross-widget context access beyond visible current-session chat/proposal context
@@ -93,7 +100,7 @@ There is no implemented:
 - cross-widget action system
 - response parser or validator
 - automatic execution
-- coordinator UI beyond the proposal-only preview
+- coordinator UI beyond the current chat/proposal/attachment preview
 
 Current Coordinator Chat can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
@@ -103,7 +110,12 @@ Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
 it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.
 
-This contract describes future behavior only.
+The current Queue/Executor async execution path exists independently of
+Coordinator direct capability execution: Queue tasks can be assigned to a
+visible Agent Executor and explicitly started, and Queue Autorun can be
+explicitly armed from Queue under its current-session limits.
+
+This contract describes target behavior only beyond the current preview.
 
 The first real AI/provider slice is further bounded by
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`. That contract defines the
@@ -113,12 +125,19 @@ first AI integration.
 
 ## Role
 
-The Workspace-aware Coordinator Agent is a future coordination extension for
+The Workspace-aware Coordinator Agent is the foreground interactive agent for
 one active Workspace.
 
 It may eventually:
 
 - read explicitly approved Workspace and widget context
+- read selected Workspace files and project state within an approved boundary
+- propose and apply approved file edits with diff preview
+- perform code review over approved files, diffs, validation output, and run
+  results
+- run approved commands, validation, Terminal, or SSH actions through explicit
+  capability boundaries
+- use approved JDBC/database capabilities through the Database / JDBC widget
 - help the operator reason about the current work
 - decompose broad requests into small efficient blocks
 - draft tasks and decide which work is large enough to promote to Queue
@@ -137,6 +156,76 @@ It is not:
 - a replacement for operator approval
 - a generic chatbot with unrestricted Workspace access
 - a shortcut around widget, tool, Git, queue, template, note, or execution contracts
+
+## Coordinator Versus Executor
+
+Coordinator is the foreground interactive agent. It works with the operator in
+the active Workspace, can eventually use all approved Workspace capabilities,
+and decides when a piece of work should remain interactive or be delegated.
+
+Agent Executor is the async/background worker for bounded Queue task prompts.
+It owns queued execution logs, results, run history, cancellation, and review
+visibility for Executor runs. Executor is not the only agent that can do work
+and must not be treated as the capability ceiling for Coordinator.
+
+Agent Queue is for promoted, larger, delayed, long-running, or overnight work.
+Creating a Queue Item does not launch execution, accept work, mutate Git,
+write files, or apply changes automatically.
+
+## Coordinator Modes
+
+Target Coordinator modes:
+
+- Chat / Reasoning mode: conversation, clarification, planning, result review,
+  and decision support.
+- Workspace Read mode: approved reads of selected files, Notes, Git summaries,
+  JDBC connector/result context, Queue tasks, Executor run summaries, Skills,
+  Knowledge, Artifacts, Evidence, or widget state.
+- Workspace Action mode: approved local mutations such as file edits, Notes
+  updates, Queue task changes, Git local actions, or artifact/evidence updates.
+- Command / Validation mode: approved command, validation, Terminal, SSH, or
+  tool actions with explicit target, working directory or remote scope, caps,
+  and visible logs/results.
+- Async Delegation mode: promotion of larger or long-running work through
+  Queue and Agent Executor.
+
+Current Coordinator Chat implements only chat/reasoning, proposal drafts,
+visible attachments, Skill attach, Queue/Executor metadata attach, selected
+Executor excerpt / preview attach, pasted result review, and explicit
+proposal handoff for the supported safe proposal types.
+
+## Safety And Action Levels
+
+Future capability use must classify every Coordinator action:
+
+- Safe read: bounded metadata, selected summaries, selected visible text, or
+  capped previews with no secrets or sensitive raw payloads.
+- Sensitive read: selected source files, raw logs, raw outputs, database rows,
+  large Notes, diffs, credentials-adjacent metadata, or other material that
+  requires explicit inclusion, capping, and redaction rules.
+- Mutation: local changes such as file edits, Notes updates, Queue task
+  changes, Git local commits, or artifact/evidence updates.
+- Remote/database action: JDBC queries, SSH commands, remote commands,
+  external API calls, or other external-system effects.
+- Async execution: Queue/Executor delegation or future durable runner starts.
+
+The Workspace/project boundary is required. Actions must be visible,
+attributable, logged or log-ready, and tied to the owning capability. Dangerous
+actions require confirmation or an explicit future policy. There must be no
+silent unbounded scanning, silent mutation, silent remote or database
+execution, secret leakage into provider prompts, or hidden Queue/Autorun
+starts.
+
+## Near-Term Roadmap
+
+1. Coordinator capability registry.
+2. Coordinator read selected Workspace files.
+3. Coordinator propose/apply file edits with diff preview.
+4. Coordinator command/validation action.
+5. Coordinator JDBC widget capability.
+6. Coordinator SSH/Terminal capability.
+7. Policy/approval model.
+8. Background delegation through Queue/Executor.
 
 ## Core Principle
 
@@ -168,13 +257,17 @@ Future Coordinator context access must be scoped, visible, minimal, and operator
 Possible approved context sources include:
 
 - Workspace metadata
+- selected Workspace files or directories within an approved project boundary
 - selected Notebook tab or selected Notebook content
 - Agent Queue summary or selected queue item
 - Agent Run Result Report, Overview Log, or approved Raw Log summary
 - Git Widget status summary and changed-file summary
+- JDBC connector metadata, query text, or capped results approved for context
+- Skill Library selected Skill records
 - Template Library selected templates
 - Workspace Activity summary
 - widget state, results, or logs explicitly selected by the operator
+- future Artifacts/Evidence explicitly approved as AI-readable context
 
 Rules:
 
@@ -193,25 +286,43 @@ Each widget should expose only intentional context surfaces. Widgets must not be
 
 Examples:
 
+- Filesystem/code may expose selected files, bounded directory listings,
+  proposed diffs, and approved apply-edit operations.
 - Notebook may expose selected text, the active tab, or selected tab text.
 - Git Widget may expose repository status summary and changed files, not raw repository contents by default.
 - Agent Queue may expose queue item metadata, request summaries, decisions, and result summaries.
 - Agent Run may expose Result Report, Overview Log, and Raw Log only when approved. Raw Log should not be included by default.
 - Template Library may expose selected template definitions, selected previews, or applied template snapshots.
 - Terminal output may expose run summaries or selected logs only with explicit approval when a real Terminal runtime exists.
+- SSH may expose selected connection targets, command previews, and capped
+  output only with explicit approval and secret-safe handling when SSH exists.
+- JDBC may expose selected connector metadata, query previews, capped results,
+  and explain output only through the JDBC widget capability boundary.
+- Skill Library may expose selected Skill guidance only after operator attach
+  or approved context selection.
 - Script Runner output may expose configured run summaries or selected logs only with explicit approval when Script Runner exists.
 - Workspace Activity may expose high-level events, not hidden full context from every widget.
 
-Cross-widget use of context must be visible and operator-controlled. A widget may contribute context through Workbench state and events, but it must not directly couple itself to Agent Chat or another widget.
+Cross-widget use of context must be visible and operator-controlled. A widget may contribute context through Workbench state and events, but it must not directly couple itself to Coordinator Chat or another widget.
 
 ## Proposed Action Model
 
-The Coordinator must not directly mutate widgets or Workspace state.
+The Coordinator must not silently or unilaterally mutate widgets or Workspace
+state.
 
-It creates proposed actions. Approved proposals are later applied by the owning component, service, or widget path.
+It creates proposed actions or approved capability action requests. Approved
+mutations are applied through the owning component, service, or widget path.
 
 Future conceptual action examples include:
 
+- `readSelectedWorkspaceFiles`
+- `proposeFileEdit`
+- `applyApprovedFileEdit`
+- `runValidationCommand`
+- `runTerminalCommand`
+- `runSshCommand`
+- `runApprovedJdbcQuery`
+- `readSkill`
 - `createAgentQueueItems`
 - `updateNotebookTab`
 - `appendNotebookNote`
@@ -337,6 +448,19 @@ No automatic push, merge, or Git mutation.
 
 For Agent Queue rules, see `docs/AGENT_QUEUE_CONTRACT.md`.
 
+## Relationship To Agent Executor
+
+Agent Executor is the background/async worker for Queue-owned execution. It
+receives bounded Queue task prompts, runs them through the explicit Executor
+runtime path, and owns queued execution logs, results, review state, and run
+history.
+
+Coordinator may review approved Executor metadata, selected excerpts, preview
+sections, Result Reports, Overview Logs, and Raw Log excerpts when the operator
+selects or approves them. Coordinator may delegate larger work to Queue and
+Executor, but Executor ownership of async runs does not limit Coordinator's
+foreground Workspace capability set.
+
 ## Relationship To Notebook
 
 Notebook can be a source of tasks, notes, review comments, snippets, JSON, diagrams, and follow-up ideas.
@@ -428,7 +552,7 @@ Rules:
 
 ## Future UI Direction
 
-Future Agent Chat / Coordinator UI should show:
+Future Coordinator UI should show:
 
 - active context set
 - what the Coordinator can read
@@ -450,12 +574,25 @@ Example UI flow:
 6. Agent Queue receives items.
 7. Workspace Activity records the event.
 
-The UI must avoid making Agent Chat look like an unrestricted command channel.
+The UI must avoid making Coordinator look like an unrestricted command channel.
+
+It must also avoid making Coordinator look like a passive chat box. The target
+surface should show the current Coordinator mode, approved context set,
+available capability providers, pending approvals, action status, and links to
+the owning widgets for logs/results.
 
 ## Future Permission Model
 
 Future permissions may include:
 
+- read selected Workspace file
+- read selected Workspace directory summary
+- propose file edit
+- apply approved file edit
+- run approved validation command
+- run approved Terminal command
+- run approved SSH command
+- run approved JDBC query
 - read selected widget state
 - read selected Notebook tab
 - read selected Notebook text
@@ -482,6 +619,8 @@ Long-lived permissions must remain visible and revocable when implemented. One-t
 - No hidden context access.
 - No hidden mutation.
 - No hidden execution.
+- No silent unbounded filesystem scanning.
+- No silent remote, SSH, Terminal, command, or database execution.
 - No secret injection.
 - No automatic acceptance.
 - No automatic Git mutation.
@@ -503,12 +642,17 @@ This contract does not implement:
 - storage schema or migrations
 - Tauri commands
 - Workspace API changes
-- executable Agent Chat runtime
+- executable Coordinator runtime
 - agent runtime
-- hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Agent Chat provider boundary
+- hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Coordinator provider boundary
+- direct Coordinator filesystem read/write capability
+- direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
+  artifact capability execution
 - chat message persistence
 - persisted or cross-widget context access implementation beyond selected current-view metadata
 - context permission UI
+- unified policy/approval UI
+- audit emission or persistence
 - executable action proposal engine
 - action execution engine
 - Coordinator-driven Agent Queue item creation beyond the explicit review-only item path from persisted local mock proposal results

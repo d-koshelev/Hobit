@@ -6,10 +6,17 @@ Hobit is an AI Workbench for precise, fast, and efficient work with AI agents.
 
 It is not just an agent runner. Hobit is an operator-controlled environment for planning, preparing, executing, validating, reviewing, and continuing AI-assisted work.
 
-The Coordinator is the central operator work surface. It is chat-based, but it
-is not merely a chat widget: it is where the operator plans, reasons, drafts
-tasks, reviews outcomes, and decides which work should be promoted to Queue or
-sent to an Executor path.
+The Coordinator is the primary foreground AI agent and central operator work
+surface. It is chat-based as an interaction model, but chat is not its
+capability limit: the target Coordinator can perform interactive Workspace
+work through controlled capabilities for reading, coding, review, file edits,
+commands and validation, database work, task orchestration, evidence review,
+and delegation.
+
+Agent Executor is the async/background execution worker for bounded Queue
+tasks. Queue is for promoted, larger, delayed, or overnight work. Executor does
+not define the outer limit of what Coordinator can eventually do in the
+foreground.
 
 AI agents execute focused tasks.
 Hobit makes that work structured, repeatable, safe, observable, and fast.
@@ -24,13 +31,15 @@ Hobit structures the work around AI agents. It does not replace the operator, hi
 
 - Operator-controlled, not hidden automation.
 - Structured requests, not ad-hoc prompts.
-- Coordinator-first work: plan, reason, draft, review, and decide in the
-  central work surface.
-- Focused executor tasks, not endless agent threads.
+- Coordinator-first foreground work: plan, reason, read approved Workspace
+  context, propose or apply approved edits, run approved validation, review
+  results, and orchestrate next steps from the central work surface.
+- Focused executor tasks for async/background Queue work, not endless agent
+  threads.
 - Queue for promoted/larger async work blocks, not every idea or small
   operation.
 - Agent Executor as the runtime slot that owns run detail, logs, final
-  responses, and execution visibility.
+  responses, and execution visibility for Queue/Executor work.
 - Small efficient blocks, not over-broad multi-layer tasks by default.
 - Progressive widget disclosure: Minimal first, Operational when useful, Full / Expert only when intentionally expanded.
 - Reusable Request Templates and Response Templates as product direction.
@@ -38,8 +47,9 @@ Hobit structures the work around AI agents. It does not replace the operator, hi
 - Observable work through activity, logs, artifacts, and history.
 - Resumable Workspaces for continuing work later.
 - Isolated Workspaces for unrelated problems, with multiple Workbenches only as surfaces for the same problem.
-- Widgets as work surfaces around agent work.
-- AI suggests or executes within bounded tasks; Hobit structures and validates the work.
+- Widgets as work surfaces and capability providers around agent work.
+- AI suggests or executes through visible, bounded, policy-aware capabilities;
+  Hobit structures and validates the work.
 
 ## What Hobit Is Not
 
@@ -61,7 +71,7 @@ This positioning is a product contract and direction statement.
 
 The current repository does not implement hidden automatic agent execution, Request Template editing, Response Template editing, response validation, rich coordinator/executor UI, or scratch execution workspace support.
 
-Current implemented behavior remains the Empty Workbench shell, Workspace lifecycle foundation, Widget Catalog foundation, persisted widget state/layout foundation, widget-local Logs panel foundation, app-shell Recent Activity drawer, and the current user-facing widget set summarized in `docs/CURRENT_WIDGET_SURFACE.md`: Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes. Coordinator Chat currently reuses the existing `interactive-agent` widget id/component as the Coordinator compatibility surface and is the central chat-based operator work surface for planning, task drafting, review, and decision-making. It has visible-context-only mock/local provider responses, validated provider proposal drafts, and a backend-owned configured HTTP JSON provider call path that keeps `allowed_tools: []` and sends no hidden context. Agent Queue is the explicit operator-controlled async execution pipeline for promoted/larger work blocks; it is not the default destination for every idea or small operation. Agent Executor is the Ready Direct Work / Codex runtime slot backed by the existing `agent-run` widget identity and backend/Tauri Codex Direct Work commands that own run detail, logs, final responses, and persisted run/log/result artifacts without Git mutation, auto-commit, or auto-push. Current Codex Direct Work requires an explicit execution workspace path; the compatibility field remains `repo_root` and today expects an existing repository or local project folder. Terminal is a desktop PTY-first manual shell surface with Windows-only live PTY support today and a collapsed explicit one-shot command fallback for persisted Terminal widget instances. Git supports manual desktop-only read-only status refresh for an explicit transient repository root and explicit selected-file local commit support. Notes persists Workspace-local notes through explicit save. Agent Queue has manual task planning, visible Executor assignment, explicit assigned-task start, safe selected-task Executor run-link history, `executionPolicy` fields, a visible frontend-driven Sequential Queue Runner, and explicit operator-armed Queue Autorun. Queue runner behavior is current-session-only; it has no durable backend scheduler, reconnect/resume, server worker, hidden unarmed dispatch, or Coordinator-triggered execution. Database / JDBC is a Preview connector metadata and bounded mock/safe read-only query surface with conservative read-only SQL validation plus bounded mock/safe execution; it has no real external database execution or credential handling. Runbook is a local/manual steps MVP with local state and notes/evidence only. Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator surfaces are not current user-facing catalog surfaces. Provider settings UI, secrets UI, direct HTTPS vendor adapter, template storage/editing/request generation/response validation, durable queue scheduling, Git push/reset/clean/stash/fetch, scratch execution workspace support, and hidden automatic agent execution are not implemented.
+Current implemented behavior remains the Empty Workbench shell, Workspace lifecycle foundation, Widget Catalog foundation, persisted widget state/layout foundation, widget-local Logs panel foundation, app-shell Recent Activity drawer, and the current user-facing widget set summarized in `docs/CURRENT_WIDGET_SURFACE.md`: Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, Notes, and Skill Library. Coordinator Chat currently reuses the existing `interactive-agent` widget id/component as the Coordinator compatibility surface and is the central chat-based operator work surface for planning, task drafting, review, and decision-making. It has visible-context-only mock/local provider responses, validated provider proposal drafts, visible attachments, Skill attach, Queue/Executor result metadata attach, Executor selected excerpt / preview attach, pasted result review, and a backend-owned configured HTTP JSON provider call path that keeps `allowed_tools: []` and sends no hidden context. Agent Queue is the explicit operator-controlled async execution pipeline for promoted/larger work blocks; it is not the default destination for every idea or small operation. Agent Executor is the Ready Direct Work / Codex runtime slot backed by the existing `agent-run` widget identity and backend/Tauri Codex Direct Work commands that own run detail, logs, final responses, and persisted run/log/result artifacts without Git mutation, auto-commit, or auto-push. Current Codex Direct Work requires an explicit execution workspace path; the compatibility field remains `repo_root` and today expects an existing repository or local project folder. Terminal is a desktop PTY-first manual shell surface with Windows-only live PTY support today and a collapsed explicit one-shot command fallback for persisted Terminal widget instances. Git supports manual desktop-only read-only status refresh for an explicit transient repository root and explicit selected-file local commit support. Notes persists Workspace-local notes through explicit save. Agent Queue has manual task planning, visible Executor assignment, explicit assigned-task start, safe selected-task Executor run-link history, `executionPolicy` fields, a visible frontend-driven Sequential Queue Runner, and explicit operator-armed Queue Autorun. Queue runner behavior is current-session-only; it has no durable backend scheduler, reconnect/resume, server worker, hidden unarmed dispatch, or Coordinator-triggered execution. Database / JDBC is a Preview connector metadata and bounded mock/safe read-only query surface with conservative read-only SQL validation plus bounded mock/safe execution; it has no real external database execution or credential handling. Runbook is a local/manual steps MVP with local state and notes/evidence only. Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator surfaces are not current user-facing catalog surfaces. Direct Coordinator filesystem read/write capability, command or SSH execution, JDBC capability execution, Git mutation, unified permission/policy UI, full provider tool mode, audit emission/persistence, provider settings UI, secrets UI, direct HTTPS vendor adapter, template storage/editing/request generation/response validation, durable queue scheduling, Git push/reset/clean/stash/fetch, scratch execution workspace support, and hidden automatic agent execution are not implemented.
 
 ## Related Contracts
 

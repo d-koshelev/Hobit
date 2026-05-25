@@ -69,6 +69,24 @@ empty Workspaces show a recovery action to add Coordinator Chat plus Notes
 without running agents, creating Queue tasks, reading hidden context, or
 changing runtime behavior.
 
+## Coordinator Target Architecture Note
+
+Current behavior in this document remains authoritative for what is implemented
+today. Target architecture now treats Coordinator as the primary foreground AI
+agent and central operator-facing work surface for interactive Workspace work.
+Chat is the interaction model, not the capability limit.
+
+Future Coordinator capabilities may include approved Workspace reads, coding
+and code review, file edits with diff preview, command and validation actions,
+Terminal/SSH, Git, JDBC/database work, Notes, Skill Library/Knowledge, Queue,
+Agent Executor, run history, and future Artifacts/Evidence. Those capabilities
+are not implemented by this inventory unless explicitly listed as current
+behavior below.
+
+Agent Executor is the async/background worker for bounded Queue tasks. Queue is
+for promoted, larger, delayed, or overnight work; it is not the default
+destination for every Coordinator action or small operation.
+
 ## Current Ready Surfaces
 
 ### Agent Executor
@@ -235,7 +253,8 @@ changing runtime behavior.
 
 ### Coordinator Chat
 
-- Current preview central operator work surface shown as Coordinator Chat.
+- Current preview central operator work surface shown as Coordinator Chat and
+  compatibility foundation for the target foreground Coordinator Agent.
 - It is chat-based, but not merely a chat widget: the operator uses it for
   planning, reasoning, task drafting, outcome review, and deciding what should
   become Queue or Executor work.
@@ -289,7 +308,8 @@ changing runtime behavior.
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, fetch Queue run history, read Executor logs or
   artifacts, launch Agent Executor, auto-dispatch Queue items, mutate files,
-  mutate Git, run SQL, call JDBC connectors, run Terminal commands, or execute
+  edit code, run validation, use SSH, mutate Git, run SQL, call JDBC
+  connectors, run Terminal commands, emit/persist audit events, or execute
   broad widget capability tools.
 
 ### Database / JDBC

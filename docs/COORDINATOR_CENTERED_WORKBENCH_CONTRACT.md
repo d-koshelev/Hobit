@@ -5,8 +5,11 @@
 This contract defines Hobit's Coordinator-centered product model.
 
 Hobit is not just a canvas of independent widgets. Hobit is a Workbench where
-the operator works primarily through Coordinator Chat, and widgets expose
-controlled capabilities, tools, and proxy surfaces.
+the operator works primarily through Coordinator, the foreground AI agent and
+central operator-facing work surface. Coordinator uses chat as the primary
+interaction model, but chat is not the capability boundary. Widgets expose
+controlled capabilities, tools, and proxy surfaces that Coordinator can use
+only through explicit policy, context, approval, and observability boundaries.
 
 This document is docs/contracts only. It does not implement frontend UI,
 backend or Tauri commands, storage/schema changes, AI provider integration,
@@ -16,22 +19,29 @@ PTY work, or Runbook work.
 
 ## One-Sentence Product Model
 
-Coordinator understands and plans. Widgets expose controlled capabilities.
-Queue organizes executable tasks. Agent Executors execute tasks and provide
-visibility. Operator controls autonomy and approvals.
+Coordinator is the foreground interactive AI agent. Widgets expose controlled
+Workspace capabilities. Queue organizes promoted async work. Agent Executors
+run queued/background tasks and provide execution visibility. Operator controls
+context, autonomy, approvals, and acceptance.
 
 ## Coordinator Role
 
-Coordinator Chat is the main operator-facing AI chat.
+Coordinator is the main operator-facing foreground AI agent for one active
+Workspace.
 
 Coordinator can:
 
 - understand a problem
 - ask clarifying questions
+- reason over approved Workspace context
+- perform interactive Workspace work through controlled capabilities
+- propose or execute approved coding, code review, file, command, validation,
+  database, Git, Notes, Skill/Knowledge, Queue, Executor, run-history, and
+  future Artifact/Evidence actions
 - propose investigation steps
 - propose widget actions
 - interpret widget results
-- create Agent Queue tasks
+- create Agent Queue tasks when work should become async/background work
 - summarize evidence and next steps
 
 Coordinator must not:
@@ -46,12 +56,36 @@ Coordinator must not:
 - auto-dispatch Queue tasks
 - auto-commit or push
 
-Coordinator is a planner, interpreter, and action proposer. It is not an
-unrestricted background automation channel.
+Coordinator is not only a planner, interpreter, or task drafter. Coordinator
+is the foreground agent surface for interactive work. It is not an
+unrestricted background automation channel, hidden scanner, or shortcut around
+widget-owned capability boundaries.
+
+## Coordinator Modes
+
+Future Coordinator work should be described in explicit modes:
+
+- Chat / Reasoning mode: conversation, clarification, planning, analysis,
+  result review, and decision support.
+- Workspace Read mode: approved reads of selected Workspace context such as
+  files, Notes, Git summaries, JDBC metadata/results, Queue tasks, Executor run
+  summaries, Skills, Knowledge, Artifacts, or Evidence.
+- Workspace Action mode: approved local mutations such as file edits, Notes
+  edits, Queue task changes, Git local actions, or future artifact/evidence
+  updates through owning capability providers.
+- Command / Validation mode: approved command, Terminal, SSH, validation, or
+  tool actions with explicit target, working directory, caps, and result
+  visibility.
+- Async Delegation mode: promotion of larger, delayed, overnight, or
+  long-running work to Queue and Agent Executor.
+
+These modes are target architecture. Current Coordinator Chat implements only
+the visible chat/proposal/attachment subset described in
+`docs/CURRENT_WIDGET_SURFACE.md`.
 
 ## Widget Capability Model
 
-Widgets are controlled tool/proxy surfaces.
+Widgets are controlled tool/proxy surfaces and Workspace capability providers.
 
 Each widget may expose selected capabilities to Coordinator. A widget capability
 must remain explicit, scoped, and approval-aware where risk requires it.
@@ -117,7 +151,33 @@ Agent Executor may expose:
 - show logs, result, diff, validation, and history
 - stop run
 
-Agent Executor owns live execution visibility.
+Agent Executor owns live execution visibility for queued/background Executor
+work. It is not the only place where AI-assisted work can happen; it is the
+async/background worker path for bounded Queue tasks.
+
+### Skill Library / Knowledge Capabilities
+
+Skill Library and future Knowledge surfaces may expose:
+
+- list or search approved Skills
+- read selected Skill content
+- attach selected Skill guidance to Coordinator
+- promote reviewed knowledge or evidence later
+
+Skill and Knowledge content must not become hidden provider prompt context.
+
+### Filesystem And Code Capabilities
+
+Future file/code capabilities may expose:
+
+- read selected files or directories within the approved Workspace/project
+  boundary
+- propose file edits with diff preview
+- apply approved edits
+- run code review over approved files or diffs
+
+No silent unbounded scanning, hidden file reads, or silent file mutation is
+allowed.
 
 ### Terminal Capabilities
 
@@ -126,6 +186,11 @@ one-shot command fallback.
 
 Coordinator must not control Terminal PTY or the legacy one-shot fallback in
 the MVP.
+
+Future Terminal or SSH capabilities may expose approved command and remote
+execution actions, but only with explicit target, command preview, working
+directory or remote host scope, output caps, confirmation/policy, and visible
+logs/results.
 
 ## Coordinator And Agent Queue
 
@@ -136,10 +201,13 @@ future explicit autonomy policy.
 
 Agent Queue does not replace Coordinator. Agent Queue is not a chat. Agent
 Queue does not reason. Agent Queue does not auto-dispatch in the current model.
+Queue is for promoted, larger, delayed, long-running, or overnight work. It is
+not the default destination for every Coordinator action, every file edit, or
+every quick validation step.
 
 ## Coordinator And Agent Executor
 
-Agent Executor executes tasks.
+Agent Executor is the async/background worker for Queue tasks.
 
 Coordinator may propose a task for Agent Executor. Coordinator may create a
 Queue item for execution. Coordinator must not silently launch Executor work
@@ -159,8 +227,32 @@ Coordinator owns:
 - conversation
 - planning
 - interpretation
+- foreground interactive work through approved capabilities
 - task proposal
 - summary
+
+Executor ownership of queued/background logs and results does not limit
+Coordinator's future foreground capability set.
+
+## Safety And Action Levels
+
+Capability use must classify the requested action before context is read or
+work begins:
+
+- Safe read: low-risk bounded metadata or selected content that excludes
+  secrets and sensitive raw payloads.
+- Sensitive read: selected files, logs, raw output, database rows, secrets-adjacent
+  metadata, or other context that requires explicit inclusion and redaction
+  rules.
+- Mutation: local state changes such as file edits, Notes changes, Queue task
+  updates, Git local commit, or artifact/evidence updates.
+- Remote/database action: JDBC, SSH, remote command, external API, or other
+  external-system action.
+- Async execution: work delegated to Queue/Executor or future durable runners.
+
+Dangerous actions require confirmation or a future explicit policy. Queue
+Autorun and Executor starts remain explicit. Secret values must not enter
+provider prompts, logs, proposal cards, or ordinary context.
 
 ## Coordinator And JDBC
 
@@ -297,7 +389,7 @@ approval. Nothing may execute invisibly. If the first UI slice is frontend-only
 and inert, Approve must clearly mean "approve this draft/preview" or remain
 disabled until an execution bridge exists.
 
-Initial safe proposal types:
+Initial implemented safe proposal types:
 
 - Create Agent Queue task from explicit Coordinator/operator text. This creates
   a task only after operator approval; it does not start execution.
@@ -315,6 +407,10 @@ Do not use the first implementation slice for:
 - Agent Executor run launch
 - hidden context compilation
 - Queue auto-dispatch
+
+This first implementation boundary does not define Coordinator's long-term
+capability ceiling. It only defines what the current provider/proposal slice is
+allowed to do today.
 
 Terminal command proposals are future-only and require a separate safety
 contract before any UI or runtime work. Coordinator must not control Terminal
@@ -517,13 +613,14 @@ Flow:
 
 ## Recommended Next Blocks
 
-- Provider error/cancellation hardening and structured draft UX smoke with
-  tools disabled and explicit visible context only.
-- Later controlled widget capability bridge.
-- Later Coordinator to JDBC read-only query proposal flow after JDBC execution
-  and result review are contract-ready.
-- Evidence/Sources storage/API foundation.
-- AI context/token economy contract.
+1. Coordinator capability registry.
+2. Coordinator read selected Workspace files.
+3. Coordinator propose/apply file edits with diff preview.
+4. Coordinator command/validation action.
+5. Coordinator JDBC widget capability.
+6. Coordinator SSH/Terminal capability.
+7. Policy/approval model.
+8. Background delegation through Queue/Executor.
 
 ## Non-Goals
 

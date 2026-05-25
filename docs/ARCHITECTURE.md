@@ -28,14 +28,18 @@ The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
 user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat,
-Database / JDBC, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the
+Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the
 existing `interactive-agent` widget id/component for compatibility and is the
-central chat-based operator work surface for planning, reasoning, task
-drafting, outcome review, and deciding what should be promoted to Queue or
-sent through an Executor path. Agent Executor reuses the existing `agent-run`
+current central chat-based operator work surface for planning, reasoning, task
+drafting, outcome review, visible attachment review, and deciding what should
+be promoted to Queue or sent through an Executor path. The target architecture
+treats Coordinator as the primary foreground AI agent for interactive
+Workspace work through controlled capabilities; chat is the interaction model,
+not the capability limit. Agent Executor reuses the existing `agent-run`
 widget identity for persistence compatibility, shows each widget instance as a
-visible execution slot, owns run detail/logs/final responses, and keeps the
-current Codex CLI Direct Work behavior: explicit Workspace, Workbench, owning
+visible async/background execution slot for Queue/Executor work, owns run
+detail/logs/final responses, and keeps the current Codex CLI Direct Work
+behavior: explicit Workspace, Workbench, owning
 widget instance, executable, execution workspace path, operator prompt,
 sandbox, approval policy, timeout, and output caps. The
 compatibility field remains `repo_root` and currently expects an existing
@@ -73,12 +77,17 @@ remain mock-default. The loader surfaces safe status only and does not expose
 raw paths or credential values to frontend DTOs. A JDK-gated backend activation
 test can compile and run the Java sidecar `mock_read_only` protocol through
 explicit `JdbcRuntimeConfig`, and skips cleanly when a JDK is unavailable.
-Coordinator-centered product direction is represented by Coordinator Chat as
-the central chat-based work surface, with frontend action proposal cards and a
-backend-owned provider response path for explicit chat sends. Mock/local is
-the default provider. The provider path uses visible current-session chat
-context and `allowed_tools: []`; it can return validated safe structured
-proposal drafts as review cards only. An explicitly configured
+Coordinator-centered product direction is represented today by Coordinator
+Chat as the central chat-based work surface, with frontend action proposal
+cards, visible attachments, and a backend-owned provider response path for
+explicit chat sends. The broader target Coordinator model is a foreground
+agent capable of approved Workspace reads, coding/code review, file edits,
+commands/validation, Terminal/SSH, Git, JDBC/database work, Notes, Skill
+Library/Knowledge, Queue, Executor, run-history, and future
+Artifacts/Evidence through capability providers. Mock/local is the default
+provider. The current provider path uses visible current-session chat context
+and `allowed_tools: []`; it can return validated safe structured proposal
+drafts as review cards only. An explicitly configured
 HTTP JSON provider can be selected from backend environment configuration and
 can call a configured `http://` endpoint without exposing credential values to
 frontend state, prompts, logs, proposal cards, or serialized responses. A
@@ -93,8 +102,11 @@ through the existing Queue task API only after a separate operator create
 action; it does not assign, dispatch, run, or hand the task to Agent Executor.
 An approved create-Note proposal can create a workspace-local Note through the
 existing Notes create API using only visible title, body, and pinned inputs. No
-hidden context access, hidden Notes reads, hidden widget reads, or broad tool
-execution is implemented, and unsupported or unsafe provider drafts are
+hidden context access, hidden Notes reads, hidden widget reads, direct
+Coordinator filesystem read/write, command or SSH execution, JDBC capability
+execution, Git mutation, unified permission/policy UI, provider tool mode,
+audit emission/persistence, or broad tool execution is implemented, and
+unsupported or unsafe provider drafts are
 rejected or degraded before rendering. Runbook has a local/manual steps MVP.
 There is no
 Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
@@ -153,10 +165,11 @@ proposal-era API paths. It does not define current preferred widget names,
 current widget behavior, future Coordinator architecture, or product roadmap.
 
 `COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` defines the updated product
-model: Coordinator Chat is the central chat-based operator work surface;
-widgets expose controlled capabilities; Agent Queue organizes promoted/larger
-async work blocks; Agent Executors execute tasks and provide run visibility;
-the operator controls autonomy and approvals.
+model: Coordinator is the primary foreground AI agent and central
+operator-facing work surface; widgets expose controlled Workspace
+capabilities; Agent Queue organizes promoted/larger async work blocks; Agent
+Executors run queued/background tasks and provide execution visibility; the
+operator controls context, autonomy, approvals, and acceptance.
 
 `WIDGET_CAPABILITY_TOOL_CONTRACT.md` defines the product and technical boundary
 for those widget capabilities: capability descriptors, risk levels, autonomy
@@ -182,10 +195,11 @@ execution, credentials, production sidecar runtime, `EXPLAIN`, and Coordinator
 runtime remain Deferred.
 
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
-the Coordinator-centered update: Coordinator Chat handles conversation and
-planning, Agent Queue organizes tasks and executor history, Agent Executor runs
-one task and shows execution, and Runbook remains a deferred procedural
-surface.
+the Coordinator-centered update: current Coordinator Chat handles the
+implemented conversation/planning/review subset, target Coordinator is the
+foreground Workspace agent, Agent Queue organizes promoted async tasks and
+executor history, Agent Executor runs queued/background tasks and shows
+execution, and Runbook remains a deferred procedural surface.
 
 `AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no automatic execution, Queue execution, response validation engine, or required Coordinator product surface is implemented yet.
 
@@ -201,7 +215,11 @@ compatibility paths do not define the current Coordinator product surface.
 
 `DEMO_FLOW_CHECKLIST.md` defines the earlier manual pre-AI demo verification scope. It does not define the current user-facing widget set.
 
-`WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines the deferred future Workspace-aware Coordinator Agent model for explicitly approved context reading and previewed cross-widget action proposals. It is contract-first and not a current user-facing surface.
+`WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines the target Workspace-aware
+Coordinator Agent model for the foreground Coordinator, approved context
+reading, approved action modes, widget capability use, safety/action levels,
+and async delegation through Queue/Executor. It is contract-first and does not
+add current runtime behavior.
 
 `WORKSPACE_CONTRACT.md` defines Workspace as the durable isolation boundary for distinct problems and Workbench as a surface inside a Workspace. Future multi-open Workspace UI, Workspace tabs/sidebar/windows, and multiple Workbenches per Workspace must follow the rule: different problem = different Workspace; different surface for the same problem = additional Workbench.
 
@@ -325,7 +343,7 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
 The current user-facing catalog exposes Ready templates for Agent Executor,
 Git, Terminal, and Notes, plus Preview templates for Coordinator Chat, Agent
-Queue, Database / JDBC, and Runbook. Coordinator Chat uses the current
+Queue, Database / JDBC, Skill Library, and Runbook. Coordinator Chat uses the current
 `interactive-agent` compatibility/local-chat placeholder as the central
 operator work surface. Agent Executor reuses the existing `agent-run`
 definition id for persistence compatibility.
@@ -558,11 +576,11 @@ The Empty Workbench is rendered from preset data and new Workspaces currently st
 `WidgetHost` remains the mapping layer from persisted widget instances to React
 components. The current frontend registry contains Agent Executor, Agent Queue,
 Coordinator Chat through the existing `interactive-agent` renderer,
-Database / JDBC, Runbook, Git, Terminal, and Notes renderers.
+Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes renderers.
 
 The Widget Catalog has frontend-local template metadata for current surfaces.
 Ready templates are Agent Executor, Git, Terminal, and Notes. Preview templates
-are Agent Queue, Coordinator Chat, Database / JDBC, and Runbook. There is no
+are Agent Queue, Coordinator Chat, Database / JDBC, Skill Library, and Runbook. There is no
 Planned section in the current user-facing catalog, no runtime widget loading,
 and no real capability widget insertion beyond those available
 templates/placeholders through the Tauri bridge yet.
@@ -728,12 +746,15 @@ durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
 The current app has Agent Executor, Agent Queue, Coordinator Chat, Database /
-JDBC, Runbook, Git, Terminal, and Notes widgets.
-Coordinator Chat is the central chat-based operator work surface and has local
-current-session chat state through the existing `interactive-agent`
+JDBC, Skill Library, Runbook, Git, Terminal, and Notes widgets.
+Coordinator Chat is the current central chat-based operator work surface and
+compatibility foundation for the target foreground Coordinator Agent. It has
+local current-session chat state through the existing `interactive-agent`
 compatibility component, deterministic local proposal generation from explicit
-chat text, and an explicit approved-proposal bridge for creating draft Queue
-tasks and workspace-local Notes only. Agent Queue has a preview async task
+chat text, visible attachments, Skill attach, Queue/Executor result metadata
+attach, Executor selected excerpt / preview attach, pasted result review, and
+an explicit approved-proposal bridge for creating draft Queue tasks and
+workspace-local Notes only. Agent Queue has a preview async task
 product UI backed by manual task storage/API only for promoted/larger work
 blocks. Agent Executor keeps backend/Tauri Codex Direct Work run/result
 persistence for the existing `agent-run` owner, requires an explicit execution
@@ -804,7 +825,7 @@ The current repository state is documentation, repository hygiene, a root Rust
 workspace including the Tauri shell, core Rust domain/storage/application
 crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget
 Catalog with Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC,
-Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
+Skill Library, Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,
 Codex Direct Work run/result persistence for the `agent-run` owner,

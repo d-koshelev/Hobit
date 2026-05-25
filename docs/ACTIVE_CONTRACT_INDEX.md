@@ -157,8 +157,14 @@ unless the task explicitly requests it.
 
 - `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` - read for Coordinator,
   cross-widget, autonomy, context, or product-model work. Coordinator is the
-  central chat-based operator work surface; Queue and Executor are supporting
-  execution surfaces.
+  primary foreground AI agent and central operator-facing work surface. Chat is
+  the interaction model, not the capability limit. Queue organizes promoted
+  async work, and Executor is the queued/background worker.
+- `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` - read for target
+  Workspace-aware Coordinator capability architecture, Coordinator modes,
+  safety/action levels, widget capability use, and Queue/Executor role
+  boundaries. It is docs-only target architecture and does not add current
+  runtime behavior.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Coordinator or future
   AI surfaces use widgets through controlled capabilities.
 - `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
@@ -321,7 +327,6 @@ unless a block explicitly names the area:
 - `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`
 - `docs/TEMPLATE_CONTRACT.md`
 - `docs/AGENT_RUNTIME_CONTRACT.md`
-- `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`
 
 Do not read deferred contracts for ordinary Coordinator, Queue, Executor, Git,
 Notes, JDBC, or refactor work unless the requested block depends on that
@@ -361,6 +366,7 @@ These documents should not override the Coordinator-centered model or
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
 - Coordinator/JDBC work: read
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`,
+  `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
   `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and
   `docs/JDBC_WIDGET_CONTRACT.md`. Add
   `docs/EVIDENCE_SOURCES_CONTRACT.md` when the work touches result sharing,
