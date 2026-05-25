@@ -10,7 +10,10 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::codex_cli::{resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM};
+use crate::codex_cli::{
+    executable::{actionable_codex_launch_error, codex_launch_command},
+    resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM,
+};
 
 use super::direct_run::{
     DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES,
@@ -144,14 +147,16 @@ where
         .clone()
         .unwrap_or_else(unique_output_last_message_path);
     let cleanup_output_file = request.output_last_message_path.is_none();
-    let args = build_codex_exec_json_args(
+    let codex_args = build_codex_exec_json_args(
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
         &output_last_message_path,
     );
+    let launch = codex_launch_command(&resolution.program, codex_args);
     let command_summary = safe_command_summary(
-        &resolution.program,
+        &launch.program,
+        &launch.args,
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
@@ -169,8 +174,8 @@ where
         .stderr_cap_bytes
         .unwrap_or(DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES);
 
-    let mut child = match Command::new(&resolution.program)
-        .args(&args)
+    let mut child = match Command::new(&launch.program)
+        .args(&launch.args)
         .current_dir(&request.repo_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -183,7 +188,7 @@ where
                 started_at,
                 request,
                 command_summary,
-                format!("could not start codex exec: {error}"),
+                actionable_codex_launch_error(&format!("could not start codex exec: {error}")),
                 &mut on_event,
             )
         }

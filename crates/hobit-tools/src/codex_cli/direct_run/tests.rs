@@ -112,8 +112,15 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
     let repo_root_arg = repo_root.to_string_lossy().into_owned();
     let output_last_message_arg = output_last_message_path.to_string_lossy().into_owned();
 
+    let args = build_codex_exec_args(
+        &repo_root,
+        CodexSandboxMode::WorkspaceWrite,
+        CodexApprovalPolicy::OnRequest,
+        &output_last_message_path,
+    );
     let summary = safe_command_summary(
         "codex",
+        &args,
         &repo_root,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
@@ -219,12 +226,38 @@ exit /b 0
     let output = run_codex_direct_work_inner(request, Some(directory.as_os_str()));
 
     assert_eq!(output.status, CodexDirectRunStatus::Completed);
+    assert_eq!(output.command_summary[0], "cmd.exe");
+    assert_eq!(output.command_summary[1], "/D");
+    assert_eq!(output.command_summary[2], "/C");
     assert_eq!(
-        output.command_summary[0],
+        output.command_summary[3],
         helper.to_string_lossy().into_owned()
     );
+    assert!(output.command_summary.iter().any(|part| part == "exec"));
+    assert!(!output
+        .command_summary
+        .iter()
+        .any(|part| part == "codex exec"));
     assert!(output.stdout.contains("helper stdout"));
     assert!(output.stderr.contains("helper stderr"));
+}
+
+#[test]
+fn user_provided_executable_path_is_preserved() {
+    let helper = direct_run_helper();
+    let output = run_codex_direct_work(request_with_program(
+        temp_repo("explicit-helper-preserved"),
+        "success",
+        helper.clone(),
+    ));
+
+    assert_eq!(output.status, CodexDirectRunStatus::Completed);
+    assert_eq!(output.command_summary[0], helper);
+    assert!(output.command_summary.iter().any(|part| part == "exec"));
+    assert!(!output
+        .command_summary
+        .iter()
+        .any(|part| part == "codex exec"));
 }
 
 #[test]

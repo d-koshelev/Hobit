@@ -96,9 +96,11 @@ pub fn probe_codex_cli(request: CodexCliProbeRequest) -> CodexCliProbeOutput {
         }
     };
 
+    let launch =
+        executable::codex_launch_command(&resolution.program, vec!["--version".to_owned()]);
     let output = run_process_once(ProcessRunRequest {
-        program: resolution.program.clone(),
-        args: vec!["--version".to_owned()],
+        program: launch.program,
+        args: launch.args,
         stdin: None,
         working_directory: std::env::temp_dir(),
         timeout_ms: request
@@ -143,7 +145,7 @@ fn extract_version(output: &str) -> Option<String> {
 
 fn probe_error_message(program: &str, output: &crate::process::ProcessRunOutput) -> String {
     if let Some(message) = output.error_message.as_deref() {
-        return message.to_owned();
+        return executable::actionable_codex_launch_error(message);
     }
 
     match output.status {

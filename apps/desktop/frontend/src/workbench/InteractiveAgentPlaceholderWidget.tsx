@@ -149,6 +149,9 @@ const DIRECT_WORK_UNAVAILABLE_MESSAGE =
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
   "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
 
+const DEFAULT_COORDINATOR_CODEX_EXECUTABLE = "codex";
+const WINDOWS_COORDINATOR_CODEX_EXECUTABLE = "codex.cmd";
+
 type CoordinatorDirectWorkStatus =
   | "idle"
   | "running"
@@ -469,7 +472,7 @@ export function InteractiveAgentPlaceholderWidget({
         instance.id,
         {
           approvalPolicy: "never",
-          codexExecutable: "codex",
+          codexExecutable: defaultCoordinatorCodexExecutable(),
           operatorPrompt,
           repoRoot,
           sandbox: "workspace_write",
@@ -1642,6 +1645,17 @@ function directWorkDirectoryResolutionText(directory: string): string {
   }
 
   return "Codex starts in this path.";
+}
+
+function defaultCoordinatorCodexExecutable(): string {
+  if (typeof navigator === "undefined") {
+    return DEFAULT_COORDINATOR_CODEX_EXECUTABLE;
+  }
+
+  const platformText = `${navigator.userAgent} ${navigator.platform}`;
+  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
+    ? WINDOWS_COORDINATOR_CODEX_EXECUTABLE
+    : DEFAULT_COORDINATOR_CODEX_EXECUTABLE;
 }
 
 function compactDirectWorkText(text: string): string {

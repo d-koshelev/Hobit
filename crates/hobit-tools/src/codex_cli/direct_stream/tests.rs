@@ -328,8 +328,15 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
     let repo_root_arg = repo_root.to_string_lossy().into_owned();
     let output_last_message_arg = output_last_message_path.to_string_lossy().into_owned();
 
+    let args = build_codex_exec_json_args(
+        &repo_root,
+        CodexSandboxMode::WorkspaceWrite,
+        CodexApprovalPolicy::OnRequest,
+        &output_last_message_path,
+    );
     let summary = safe_command_summary(
         "codex",
+        &args,
         &repo_root,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
@@ -440,10 +447,18 @@ exit /b 0
     );
 
     assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    assert_eq!(output.command_summary[0], "cmd.exe");
+    assert_eq!(output.command_summary[1], "/D");
+    assert_eq!(output.command_summary[2], "/C");
     assert_eq!(
-        output.command_summary[0],
+        output.command_summary[3],
         helper.to_string_lossy().into_owned()
     );
+    assert!(output.command_summary.iter().any(|part| part == "exec"));
+    assert!(!output
+        .command_summary
+        .iter()
+        .any(|part| part == "codex exec"));
     assert!(output.stdout_collected.contains("helper stdout"));
     assert!(output.stderr_collected.contains("helper stderr"));
 }

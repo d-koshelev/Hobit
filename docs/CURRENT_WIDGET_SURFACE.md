@@ -96,6 +96,9 @@ destination for every Coordinator action or small operation.
   compatibility.
 - Starts one operator-provided task from visible inputs: prompt, execution
   workspace path, sandbox, approval policy, and Codex executable options.
+- On Windows, the shared Codex launch helper resolves the default `codex`
+  request to `codex.cmd` and launches `.cmd`/`.bat` shims through `cmd.exe /C`
+  while keeping `exec` and the remaining Codex arguments separate.
 - Shows run state, live logs/streaming where available, stop/cancel/force-kill
   controls, final result output, changed-files summary, Git read-only handoff,
   validation capture, and read-only run/detail/history views.
@@ -306,9 +309,10 @@ destination for every Coordinator action or small operation.
   assistant response. The working directory field defaults to `~`, and
   resolves `~` in the Tauri/backend path to the current user's home directory
   before launching Codex. The operator can replace `~` with a project or repo
-  folder. Coordinator Direct Mode streams visible status/log/final-result
-  summaries in Coordinator, supports Stop when the Direct Work cancellation
-  path is available, and does not create Queue tasks.
+  folder. On Windows, the default Codex launch path uses `codex.cmd` through the
+  shared Direct Work launch helper. Coordinator Direct Mode streams visible
+  status/log/final-result summaries in Coordinator, supports Stop when the
+  Direct Work cancellation path is available, and does not create Queue tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action. Queue
   task creation creates a draft/manual Queue record only; execution remains

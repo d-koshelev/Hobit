@@ -46,14 +46,14 @@ pub(super) fn build_codex_exec_json_args(
 }
 
 pub(super) fn safe_command_summary(
-    program: &str,
+    launch_program: &str,
+    launch_args: &[String],
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    vec![
-        program.to_owned(),
+    let expected_codex_args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
@@ -64,6 +64,17 @@ pub(super) fn safe_command_summary(
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "<operator-prompt-stdin>".to_owned(),
-    ]
+        "-".to_owned(),
+    ];
+    debug_assert!(launch_args.ends_with(&expected_codex_args));
+
+    let mut summary = Vec::with_capacity(1 + launch_args.len());
+    summary.push(launch_program.to_owned());
+    summary.extend(launch_args.iter().cloned());
+    if summary.last().map(String::as_str) == Some("-") {
+        if let Some(last) = summary.last_mut() {
+            *last = "<operator-prompt-stdin>".to_owned();
+        }
+    }
+    summary
 }

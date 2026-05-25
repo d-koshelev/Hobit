@@ -234,7 +234,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(startDirectWork.mock.calls[0][0]).toBe("coordinator_widget");
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       approvalPolicy: "never",
-      codexExecutable: "codex",
+      codexExecutable: expectedCoordinatorCodexExecutable(),
       operatorPrompt: "Implement this directly.",
       repoRoot: "~",
       sandbox: "workspace_write",
@@ -1325,4 +1325,11 @@ function directWorkEvent(
     workspaceId: "workspace_1",
     ...overrides,
   };
+}
+
+function expectedCoordinatorCodexExecutable() {
+  const platformText = `${navigator.userAgent} ${navigator.platform}`;
+  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
+    ? "codex.cmd"
+    : "codex";
 }

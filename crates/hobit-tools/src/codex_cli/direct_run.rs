@@ -12,7 +12,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::codex_cli::{resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM};
+use crate::codex_cli::{
+    executable::{actionable_codex_launch_error, codex_launch_command},
+    resolve_codex_executable, DEFAULT_CODEX_CLI_PROGRAM,
+};
 use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 
 pub const DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS: u64 = 10 * 60 * 1_000;
@@ -194,14 +197,16 @@ fn run_codex_direct_work_inner(
         .clone()
         .unwrap_or_else(unique_output_last_message_path);
     let cleanup_output_file = request.output_last_message_path.is_none();
-    let args = build_codex_exec_args(
+    let codex_args = build_codex_exec_args(
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
         &output_last_message_path,
     );
+    let launch = codex_launch_command(&resolution.program, codex_args);
     let command_summary = safe_command_summary(
-        &resolution.program,
+        &launch.program,
+        &launch.args,
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
@@ -209,8 +214,8 @@ fn run_codex_direct_work_inner(
     );
 
     let process_output = run_process_once(ProcessRunRequest {
-        program: resolution.program,
-        args,
+        program: launch.program,
+        args: launch.args,
         stdin: Some(request.prompt.clone()),
         working_directory: request.repo_root.clone(),
         timeout_ms: request
@@ -301,14 +306,14 @@ fn build_codex_exec_args(
 }
 
 fn safe_command_summary(
-    program: &str,
+    launch_program: &str,
+    launch_args: &[String],
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    vec![
-        program.to_owned(),
+    let expected_codex_args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
@@ -318,8 +323,19 @@ fn safe_command_summary(
         "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "<operator-prompt-stdin>".to_owned(),
-    ]
+        "-".to_owned(),
+    ];
+    debug_assert!(launch_args.ends_with(&expected_codex_args));
+
+    let mut summary = Vec::with_capacity(1 + launch_args.len());
+    summary.push(launch_program.to_owned());
+    summary.extend(launch_args.iter().cloned());
+    if summary.last().map(String::as_str) == Some("-") {
+        if let Some(last) = summary.last_mut() {
+            *last = "<operator-prompt-stdin>".to_owned();
+        }
+    }
+    summary
 }
 
 fn direct_run_status(output: &crate::process::ProcessRunOutput) -> CodexDirectRunStatus {
@@ -335,7 +351,7 @@ fn direct_run_status(output: &crate::process::ProcessRunOutput) -> CodexDirectRu
 
 fn direct_run_error_message(output: &crate::process::ProcessRunOutput) -> Option<String> {
     if let Some(message) = output.error_message.as_deref() {
-        return Some(message.to_owned());
+        return Some(actionable_codex_launch_error(message));
     }
 
     match output.status {
