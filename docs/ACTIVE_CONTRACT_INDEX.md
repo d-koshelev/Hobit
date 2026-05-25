@@ -82,6 +82,9 @@ of truth for their domains.
 - `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md` - high-level
   current Workbench surface smoke map tied to
   `docs/CURRENT_WIDGET_SURFACE.md`.
+- `docs/MVP_ACCEPTANCE_WALKTHROUGH.md` - manual Coordinator-centered MVP
+  acceptance walkthrough covering Coordinator planning, Skill attachment,
+  Queue execution, Executor review, and visible-context safety checks.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
