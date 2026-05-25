@@ -149,6 +149,12 @@ const DIRECT_WORK_UNAVAILABLE_MESSAGE =
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
   "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
 
+const DIRECT_WORK_DIRECTORY_ACCESS_DENIED_MESSAGE =
+  "Working directory access denied. Choose another folder.";
+
+const DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING =
+  "Codex could not access this working directory. Choose a project folder or scratch workspace.";
+
 const CODEX_THREAD_NOT_AVAILABLE_MESSAGE =
   "Codex thread not available. Next Codex run starts a new thread.";
 
@@ -218,6 +224,9 @@ export function InteractiveAgentPlaceholderWidget({
     useState<CoordinatorDirectWorkStatus>("idle");
   const [directWorkRunId, setDirectWorkRunId] = useState<string | null>(null);
   const [directWorkError, setDirectWorkError] = useState<string | null>(null);
+  const [directWorkWarning, setDirectWorkWarning] = useState<string | null>(
+    null,
+  );
   const [directWorkFinalResult, setDirectWorkFinalResult] =
     useState<string | null>(null);
   const [currentCodexThreadId, setCurrentCodexThreadId] =
@@ -232,6 +241,7 @@ export function InteractiveAgentPlaceholderWidget({
   const directWorkStopListeningRef = useRef<(() => void) | null>(null);
   const directWorkCompletedDuringStartRef = useRef(false);
   const directWorkFinalMessageRef = useRef<string | null>(null);
+  const directWorkAccessDeniedRef = useRef(false);
   const directWorkCapturedThreadIdRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const trimmedDraftLength = draft.trim().length;
@@ -454,6 +464,7 @@ export function InteractiveAgentPlaceholderWidget({
     stopDirectWorkEventListening();
     directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
+    directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
     const resumeThreadId = currentCodexThreadId;
     const threadStartText = resumeThreadId
@@ -468,6 +479,7 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkStatus("running");
     setDirectWorkRunId(null);
     setDirectWorkError(null);
+    setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
     setDirectWorkLogs([
       {
@@ -516,6 +528,7 @@ export function InteractiveAgentPlaceholderWidget({
       stopDirectWorkEventListening();
       setDirectWorkStatus("failed");
       setDirectWorkError(message);
+      setDirectWorkWarning(null);
       appendCoordinatorDirectWorkLog(message, "local");
       appendCoordinatorDirectWorkTranscript("failed", message);
     } finally {
@@ -556,6 +569,10 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function recordCoordinatorDirectWorkEvent(event: DirectWorkStreamEvent) {
+    if (directWorkEventHasAccessDenied(event)) {
+      directWorkAccessDeniedRef.current = true;
+    }
+
     if (event.codexThreadId) {
       directWorkCapturedThreadIdRef.current = event.codexThreadId;
       setCurrentCodexThreadId(event.codexThreadId);
@@ -566,6 +583,11 @@ export function InteractiveAgentPlaceholderWidget({
 
     if (event.eventKind === "final_message" && event.text) {
       directWorkFinalMessageRef.current = event.text;
+    }
+
+    const codexAgentMessage = codexAgentMessageFromEvent(event);
+    if (codexAgentMessage) {
+      directWorkFinalMessageRef.current = codexAgentMessage;
     }
 
     appendCoordinatorDirectWorkLog(
@@ -580,9 +602,17 @@ export function InteractiveAgentPlaceholderWidget({
     directWorkCompletedDuringStartRef.current = true;
     const finalStatus = coordinatorDirectWorkStatusFromEvent(event);
     const failureReason =
-      finalStatus === "failed" ? directWorkFailureReason(event) : null;
+      finalStatus === "failed"
+        ? directWorkFailureReason(event, directWorkAccessDeniedRef.current)
+        : null;
+    const failureWarning =
+      finalStatus === "failed" &&
+      directWorkFailureIsAccessDenied(event, directWorkAccessDeniedRef.current)
+        ? DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING
+        : null;
+    const finalAgentMessage = directWorkFinalMessageRef.current;
     const finalResult =
-      directWorkFinalMessageRef.current ??
+      finalAgentMessage ??
       event.text ??
       failureReason ??
       event.stderrPreview ??
@@ -592,6 +622,7 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkRunId(null);
     setDirectWorkFinalResult(finalResult);
     setDirectWorkError(failureReason);
+    setDirectWorkWarning(failureWarning);
     if (
       finalStatus === "completed" &&
       !directWorkCapturedThreadIdRef.current
@@ -602,7 +633,11 @@ export function InteractiveAgentPlaceholderWidget({
     }
     stopDirectWorkEventListening();
 
-    appendCoordinatorDirectWorkTranscript(finalStatus, finalResult);
+    appendCoordinatorDirectWorkTranscript(
+      finalStatus,
+      finalResult,
+      Boolean(finalAgentMessage),
+    );
   }
 
   function appendCoordinatorDirectWorkLog(
@@ -619,6 +654,7 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkStatus("failed");
     setDirectWorkRunId(null);
     setDirectWorkError(reason);
+    setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
     appendCoordinatorDirectWorkLog(reason, "local");
     appendCoordinatorDirectWorkTranscript("failed", reason);
@@ -647,12 +683,15 @@ export function InteractiveAgentPlaceholderWidget({
   function appendCoordinatorDirectWorkTranscript(
     status: CoordinatorDirectWorkStatus,
     reason: string,
+    useDirectBody = false,
   ) {
     setMessages((currentMessages) => [
       ...currentMessages,
       createLocalMessage(
         "assistant",
-        status === "failed"
+        status === "failed" && useDirectBody
+          ? reason
+          : status === "failed"
           ? directWorkFailureTranscriptBody(reason)
           : status === "completed"
             ? `Codex Direct Mode completed.\n\n${reason}`
@@ -1197,6 +1236,7 @@ export function InteractiveAgentPlaceholderWidget({
             status={directWorkStatus}
             threadId={currentCodexThreadId}
             threadNotice={codexThreadNotice}
+            warning={directWorkWarning}
           />
           <label
             className="interactive-agent-label interactive-agent-label-hidden"
@@ -1266,6 +1306,7 @@ function CoordinatorDirectModePanel({
   status,
   threadId,
   threadNotice,
+  warning,
 }: {
   directWorkDirectory: string;
   error: string | null;
@@ -1279,6 +1320,7 @@ function CoordinatorDirectModePanel({
   status: CoordinatorDirectWorkStatus;
   threadId: string | null;
   threadNotice: string | null;
+  warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
   const statusVariant =
@@ -1293,6 +1335,8 @@ function CoordinatorDirectModePanel({
             : "neutral";
   const latestLog = logs[logs.length - 1]?.text ?? null;
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
+  const scratchSuggestion =
+    directWorkScratchWorkspaceSuggestion(directWorkDirectory);
   const compactResult = finalResult
     ? compactDirectWorkText(finalResult)
     : null;
@@ -1354,6 +1398,13 @@ function CoordinatorDirectModePanel({
 
       {isEnabled ? (
         <div className="interactive-agent-direct-mode-body">
+          <p className="interactive-agent-direct-mode-help">
+            <span>~ resolves to your user home.</span>
+            <span>
+              If access is denied, choose a project folder or scratch workspace.
+            </span>
+            {scratchSuggestion ? <span>Try: {scratchSuggestion}</span> : null}
+          </p>
           <div className="interactive-agent-direct-mode-status" role="status">
             {runId ? <span>Run {runId}</span> : null}
             {threadNotice ? (
@@ -1364,6 +1415,11 @@ function CoordinatorDirectModePanel({
             {error ? (
               <span className="interactive-agent-direct-mode-error">
                 {error}
+              </span>
+            ) : null}
+            {warning ? (
+              <span className="interactive-agent-direct-mode-warning">
+                {warning}
               </span>
             ) : null}
             {compactResult ? (
@@ -1699,13 +1755,27 @@ function coordinatorDirectWorkStatusFromEvent(
   return "failed";
 }
 
-function directWorkFailureReason(event: DirectWorkStreamEvent): string {
+function directWorkFailureReason(
+  event: DirectWorkStreamEvent,
+  accessDeniedSeen: boolean,
+): string {
+  if (directWorkFailureIsAccessDenied(event, accessDeniedSeen)) {
+    return DIRECT_WORK_DIRECTORY_ACCESS_DENIED_MESSAGE;
+  }
+
   return (
     event.errorMessage ??
     event.stderrPreview ??
     event.text ??
     DIRECT_WORK_FALLBACK_FAILURE_MESSAGE
   );
+}
+
+function directWorkFailureIsAccessDenied(
+  event: DirectWorkStreamEvent,
+  accessDeniedSeen: boolean,
+): boolean {
+  return accessDeniedSeen || directWorkEventHasAccessDenied(event);
 }
 
 function directWorkFailureTranscriptBody(reason: string): string {
@@ -1726,6 +1796,27 @@ function directWorkDirectoryResolutionText(directory: string): string {
   }
 
   return "Non-git directories use Codex skip git repo check.";
+}
+
+function directWorkScratchWorkspaceSuggestion(directory: string): string | null {
+  const trimmedDirectory = directory.trim();
+
+  if (!trimmedDirectory) {
+    return null;
+  }
+
+  if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
+    return "~/Documents/hobit-coordinator-scratch";
+  }
+
+  const windowsHomeMatch = trimmedDirectory.match(
+    /^([A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/]+)/,
+  );
+  if (windowsHomeMatch) {
+    return `${windowsHomeMatch[1]}\\Documents\\hobit-coordinator-scratch`;
+  }
+
+  return null;
 }
 
 function defaultCoordinatorCodexExecutable(): string {
@@ -1773,6 +1864,106 @@ function directWorkEventText(event: DirectWorkStreamEvent): string {
     event.line ??
     event.parsedCodexEventType ??
     event.eventKind.replace(/_/g, " ")
+  );
+}
+
+function codexAgentMessageFromEvent(
+  event: DirectWorkStreamEvent,
+): string | null {
+  if (event.eventKind !== "codex_json_event") {
+    return null;
+  }
+
+  if (
+    event.text?.trim() &&
+    (event.parsedCodexEventType === "agent_message" ||
+      event.parsedCodexEventType === "item.completed")
+  ) {
+    return event.text.trim();
+  }
+
+  if (!event.line?.trim()) {
+    return null;
+  }
+
+  try {
+    const value = JSON.parse(event.line) as unknown;
+    return codexAgentMessageFromJson(value);
+  } catch {
+    return null;
+  }
+}
+
+function codexAgentMessageFromJson(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (value.type === "agent_message") {
+    return stringFromUnknown(value.text) ?? stringFromUnknown(value.message);
+  }
+
+  if (value.type !== "item.completed" || !isRecord(value.item)) {
+    return null;
+  }
+
+  if (value.item.type !== "agent_message") {
+    return null;
+  }
+
+  return (
+    stringFromUnknown(value.item.text) ??
+    stringFromUnknown(value.item.message) ??
+    stringFromUnknown(value.item.content) ??
+    textFromCodexContentArray(value.item.content)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function stringFromUnknown(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function textFromCodexContentArray(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const text = value
+    .map((entry) =>
+      isRecord(entry)
+        ? stringFromUnknown(entry.text) ?? stringFromUnknown(entry.content)
+        : stringFromUnknown(entry),
+    )
+    .filter((entry): entry is string => Boolean(entry))
+    .join("\n")
+    .trim();
+
+  return text || null;
+}
+
+function directWorkEventHasAccessDenied(event: DirectWorkStreamEvent): boolean {
+  return [
+    event.errorMessage,
+    event.stderrPreview,
+    event.text,
+    event.line,
+  ].some((value) => directWorkTextHasAccessDenied(value));
+}
+
+function directWorkTextHasAccessDenied(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const text = value.toLocaleLowerCase();
+  return (
+    text.includes("unauthorizedaccessexception") ||
+    (text.includes("access to the path") && text.includes("is denied")) ||
+    text.includes("access is denied")
   );
 }
 

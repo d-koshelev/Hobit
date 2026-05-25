@@ -324,8 +324,13 @@ destination for every Coordinator action or small operation.
   the Direct Mode working directory clears the current thread id and starts a
   new thread on the next run. Thread state is current-session only unless a
   later persistence slice explicitly adds storage. Coordinator Direct Mode
-  supports Stop when the Direct Work cancellation path is available and does
-  not create Queue tasks.
+  shows compact helper copy that `~` resolves to the current user's home
+  directory and suggests choosing a project folder or scratch workspace if
+  access is denied. Access-denied command failures inside Codex are surfaced as
+  working-directory warnings while preserving any final Codex agent message as
+  the visible assistant response. Coordinator Direct Mode supports Stop when
+  the Direct Work cancellation path is available and does not create Queue
+  tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action. Queue
   task creation creates a draft/manual Queue record only; execution remains

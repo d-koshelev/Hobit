@@ -1026,6 +1026,7 @@
 
 .interactive-agent-direct-mode-label,
 .interactive-agent-direct-mode-path,
+.interactive-agent-direct-mode-help,
 .interactive-agent-direct-mode-status {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -1055,6 +1056,14 @@
   min-width: 0;
 }
 
+.interactive-agent-direct-mode-help {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .interactive-agent-direct-mode-status {
   display: flex;
   flex-wrap: wrap;
@@ -1065,6 +1074,13 @@
 .interactive-agent-direct-mode-error {
   margin: 0;
   color: var(--color-error);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.interactive-agent-direct-mode-warning {
+  margin: 0;
+  color: var(--color-warning);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
 }
