@@ -37,7 +37,58 @@ describe("SkillLibraryWidget", () => {
       "Not sent to Coordinator automatically.",
     );
     expect(document.body.textContent).toContain(
-      "Future attach/share will be explicit.",
+      "Skills are not sent to Coordinator unless explicitly attached.",
+    );
+  });
+
+  it("attaches the selected Skill to Coordinator as visible allowed fields only", async () => {
+    const skill = skillFixture({
+      prerequisites: "Reviewed working tree",
+      reviewStatus: "reviewed",
+      risks: "Validation may be slow",
+      skillId: "skill_visible",
+      steps: "Run typecheck\nRun focused tests",
+      tags: "frontend, review",
+      title: "Frontend review",
+      validation: "npm test passes",
+      whenToUse: "Before merging frontend changes",
+    });
+    const attachToCoordinator = vi.fn();
+
+    renderWidget({
+      onAttachContextToCoordinator: attachToCoordinator,
+      onGetSkill: vi.fn(async () => skill),
+      onListSkills: vi.fn(async () => [skill]),
+    });
+
+    await flush();
+
+    expect(attachToCoordinator).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Shares this visible Skill with Coordinator. Does not send automatically.",
+    );
+
+    await clickButton("Attach to Coordinator");
+
+    expect(attachToCoordinator).toHaveBeenCalledTimes(1);
+    const request = attachToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Skill Library / Skill");
+    expect(request.contextText).toContain("Skill Library Skill");
+    expect(request.contextText).toContain("Title: Frontend review");
+    expect(request.contextText).toContain(
+      "When to use:\nBefore merging frontend changes",
+    );
+    expect(request.contextText).toContain("Prerequisites:\nReviewed working tree");
+    expect(request.contextText).toContain("Steps:\nRun typecheck\nRun focused tests");
+    expect(request.contextText).toContain("Validation:\nnpm test passes");
+    expect(request.contextText).toContain("Risks:\nValidation may be slow");
+    expect(request.contextText).toContain("Tags: frontend, review");
+    expect(request.contextText).toContain("Review status: Reviewed");
+    expect(request.contextText).not.toMatch(
+      /skill_visible|workspace_1|createdAt|updatedAt|created_at|updated_at/i,
+    );
+    expect(document.body.textContent).toContain(
+      "Skill attached to Coordinator as visible context.",
     );
   });
 

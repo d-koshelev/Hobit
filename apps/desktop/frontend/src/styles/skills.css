@@ -67,6 +67,7 @@
 
 .skill-list-meta,
 .skill-message,
+.skill-attach-note,
 .skill-field span {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -88,8 +89,13 @@
 
 .skill-field-wide,
 .skill-editor-actions,
+.skill-attach-note,
 .skill-message {
   grid-column: 1 / -1;
+}
+
+.skill-attach-note {
+  margin: 0;
 }
 
 .skill-textarea {

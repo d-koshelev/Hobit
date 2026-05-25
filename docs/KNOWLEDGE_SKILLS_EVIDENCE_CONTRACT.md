@@ -19,11 +19,16 @@ Hobit currently has no implemented evidence store.
 
 Hobit currently has a Minimal Skill Library widget for workspace-local,
 operator-authored Skill records only. It supports explicit create/list/read/
-update/delete of simple text Skill records with review status and tags.
+update/delete of simple text Skill records with review status and tags. The
+operator can explicitly attach the selected Skill to Coordinator Chat as
+visible current-session composer context.
 
 The Skill Library MVP is not a Knowledge store, Evidence store, Context Pack
 builder, Runbook executor, AI memory layer, provider prompt source, global/team
-knowledge system, or Coordinator context provider.
+knowledge system, or hidden Coordinator context provider. Skills are not
+searched, selected, or sent to Coordinator or a provider unless the operator
+uses the explicit visible attach action and then sends visible Coordinator
+text.
 
 The current Rust reference vocabulary lives in
 `crates/hobit-app/src/knowledge/`. It is mostly type-only scaffolding for
@@ -50,9 +55,11 @@ artifact store, evidence store, knowledge store, resolver, or AI-readable
 context pipeline.
 
 Coordinator Chat does not silently ingest Knowledge, Skills, Notes, artifacts,
-logs, runtime output, Git diffs, SQL, Terminal output, or provider text.
-Current Coordinator provider requests use visible current-session chat context
-and `allowed_tools: []`.
+logs, runtime output, Git diffs, SQL, Terminal output, or provider text. Skill
+attachments are visible editable composer text only and include only the
+selected Skill's title, when-to-use, prerequisites, steps, validation, risks,
+tags, and review status. Current Coordinator provider requests use visible
+current-session chat context and `allowed_tools: []`.
 
 ## Core Concepts
 
@@ -258,7 +265,7 @@ This contract does not add:
 - hidden Workspace scanning;
 - automatic Notes, artifact, log, result, provider, Git, SQL, or Terminal
   ingestion;
-- Coordinator context wiring;
+- hidden Coordinator context wiring;
 - capability execution;
 - approval workflow;
 - audit persistence or emission;
@@ -266,7 +273,8 @@ This contract does not add:
 - enterprise/RBAC behavior;
 - permissions;
 - schema changes beyond Skill Library MVP storage;
-- frontend behavior changes beyond Skill Library MVP UI;
+- frontend behavior changes beyond Skill Library MVP UI and explicit selected
+  Skill attach to Coordinator;
 - Tauri commands or DTO changes beyond Skill Library MVP CRUD;
 - Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes, or Runbook
   behavior changes.

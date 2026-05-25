@@ -367,6 +367,76 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("allowed_tools: []");
   });
 
+  it("renders attached Skill context visibly and sends it only after Send", async () => {
+    const provider = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: Omit<
+          GenerateCoordinatorProviderResponseRequest,
+          "workspaceId" | "workbenchId" | "widgetInstanceId"
+        >,
+      ) => Promise<GenerateCoordinatorProviderResponse>
+    >(async (_widgetInstanceId, request) =>
+      providerResponse({
+        visibleContextMessageCount: request.visibleConversation.length,
+      }),
+    );
+
+    renderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: [
+          "Skill Library Skill",
+          "Title: Frontend review",
+          "When to use:",
+          "Before merging frontend changes",
+          "Prerequisites:",
+          "Reviewed working tree",
+          "Steps:",
+          "Run typecheck",
+          "Run focused tests",
+          "Validation:",
+          "npm test passes",
+          "Risks:",
+          "Validation may be slow",
+          "Tags: frontend, review",
+          "Review status: Reviewed",
+        ].join("\n"),
+        sourceLabel: "Skill Library / Skill",
+      }),
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    expect(document.body.textContent).toContain("Visible attached context");
+    expect(document.body.textContent).toContain("Skill Library / Skill");
+    expect(textareaValue()).toContain(
+      "Visible attached context (Skill Library / Skill)",
+    );
+    expect(textareaValue()).toContain("Title: Frontend review");
+    expect(textareaValue()).toContain("Steps:\nRun typecheck\nRun focused tests");
+    expect(provider).not.toHaveBeenCalled();
+
+    await clickButton("Send");
+
+    expect(provider).toHaveBeenCalledTimes(1);
+    const request = provider.mock.calls[0][1];
+    expect(request.operatorMessage).toContain(
+      "Visible attached context (Skill Library / Skill)",
+    );
+    expect(request.operatorMessage).toContain("Skill Library Skill");
+    expect(request.operatorMessage).toContain("Review status: Reviewed");
+    expect(request.visibleConversation).toEqual([
+      {
+        body: request.operatorMessage,
+        id: "local-1",
+        role: "operator",
+      },
+    ]);
+    expect(JSON.stringify(request)).not.toMatch(
+      /skillId|workspaceId|createdAt|updatedAt|hidden|context pack|evidence/i,
+    );
+    expect(document.body.textContent).toContain("allowed_tools: []");
+  });
+
   it("renders Executor preview sections as visible editable context before send", async () => {
     const provider = vi.fn<
       (

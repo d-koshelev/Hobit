@@ -60,6 +60,9 @@ The current Coordinator preview:
   output, and error summary previews, only after the operator clicks the
   section attach action; raw Executor detail remains Executor-owned and is not
   read automatically
+- can receive an explicitly attached selected Skill from Skill Library as
+  visible editable composer context containing only title, when to use,
+  prerequisites, steps, validation, risks, tags, and review status
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status
@@ -70,10 +73,12 @@ The current Coordinator preview:
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
-  details or run history, Executor logs/results/artifacts, files, environment
-  variables, secrets, Context Packs, or hidden context; Attach to Coordinator
-  sends only the visible metadata, selected excerpt, or bounded visible preview
-  section the operator attached, not raw payloads or full Executor logs
+  details or run history, Executor logs/results/artifacts, Skill Library
+  records, files, environment variables, secrets, Context Packs, or hidden
+  context; Attach to Coordinator sends only the visible metadata, selected
+  excerpt, selected Skill fields, or bounded visible preview section the
+  operator attached, not raw payloads, full Executor logs, hidden Skill
+  metadata, or unrelated Workspace state
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
   Autorun, launch Agent Executor, execute actions, or mutate Workspace content

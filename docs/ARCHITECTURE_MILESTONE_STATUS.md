@@ -66,6 +66,11 @@ behavior, or Coordinator context wiring.
   summary previews. Each attach requires an operator click, lands as visible
   editable Coordinator composer context, and does not copy full raw Executor
   logs or transfer raw detail ownership to Coordinator.
+- Skill Library can explicitly attach the selected Skill to Coordinator Chat
+  as visible editable composer context. The attachment includes only the
+  selected Skill's title, when to use, prerequisites, steps, validation, risks,
+  tags, and review status, and it is sent to the provider only if the operator
+  presses Send.
 
 ## Still Type-Only Or Contract-Only
 
@@ -100,10 +105,12 @@ change this context boundary and do not wire Context Packs, artifacts, logs,
 Queue state, Executor state, or widget data into provider prompts.
 Explicit Attach to Coordinator sends only the visible attached composer text
 after the operator presses Send; it is not hidden context compilation and does
-not read Queue history or Executor logs automatically. Executor selected
-excerpts are bounded visible text selected by the operator; raw Executor detail
-remains Executor-owned. Executor preview-section attaches are also bounded to
-visible previews and require explicit operator section actions.
+not read Queue history, Executor logs, or Skill Library records automatically.
+Executor selected excerpts are bounded visible text selected by the operator;
+raw Executor detail remains Executor-owned. Executor preview-section attaches
+are also bounded to visible previews and require explicit operator section
+actions. Skill attaches are selected visible Skill fields only and do not wire
+Skill search, Context Packs, Evidence, or hidden provider prompt injection.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is
@@ -123,6 +130,7 @@ sent to a provider.
 - Context Pack provider wiring;
 - hidden prompt augmentation;
 - Coordinator hidden context access;
+- automatic Skill search or hidden Skill prompt injection;
 - audit emission or persistence;
 - approval workflow persistence;
 - capability execution;
@@ -155,8 +163,9 @@ sent to a provider.
 
 Only after the docs and inspect-first blocks above:
 
-1. Explicit Attach Skill/Knowledge to Coordinator design, with visible review
-   and no hidden provider send.
+1. Explicit Attach Knowledge to Coordinator design, with visible review and no
+   hidden provider send. The Skill attach MVP already exists for selected
+   Skill fields only.
 2. Explicit operator-selected Context Pack preview UI with no provider send.
 3. Narrow metadata-only Knowledge item draft flow.
 4. Narrow Evidence review draft flow that references `ArtifactRef` without

@@ -243,12 +243,14 @@ and component keys may still appear in code and persistence.
   Queue run-history, and Agent Executor run-history/detail controls. It can
   also receive an operator-selected bounded excerpt from visible Agent
   Executor-owned run detail, and bounded Executor run-detail preview sections
-  explicitly attached by the operator. Attached context is current-session UI
-  state inserted into the visible composer and can be edited or removed before
-  Send. Only visible attached context is sent; Attach does not auto-send, read
-  Queue history, read Executor logs, or copy raw stdout/stderr, full final
-  responses, diffs, prompts, repo paths, secrets, or raw payloads
-  automatically.
+  explicitly attached by the operator. Skill Library can explicitly attach the
+  selected Skill's visible title, when-to-use, prerequisites, steps,
+  validation, risks, tags, and review status. Attached context is
+  current-session UI state inserted into the visible composer and can be edited
+  or removed before Send. Only visible attached context is sent; Attach does
+  not auto-send, search Skills, read Queue history, read Executor logs, or copy
+  raw stdout/stderr, full final responses, diffs, prompts, repo paths, secrets,
+  hidden metadata, or raw payloads automatically.
 - Can generate deterministic local proposal cards for safe preview types:
   create Agent Queue task, create Note, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals
@@ -317,8 +319,13 @@ and component keys may still appear in code and persistence.
 - Skill Library is workspace-local and operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Coordinator or provider prompts automatically.
-- Attach/share with Coordinator is not implemented. Any future sharing must be
-  explicit, visible, reviewable, and attributable.
+- Can explicitly attach the selected Skill to Coordinator Chat as visible
+  current-session composer context. The attachment includes only title, when to
+  use, prerequisites, steps, validation, risks, tags, and review status. It is
+  editable/removable before Send and does not send automatically.
+- Skill Library does not auto-search Skills for Coordinator, does not silently
+  include Skills in provider prompts, and does not create hidden provider
+  context.
 - Skill Library does not implement Knowledge Items, Evidence links, Context
   Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook execution,
   tool execution, global/team sharing, RBAC, or server runtime behavior.

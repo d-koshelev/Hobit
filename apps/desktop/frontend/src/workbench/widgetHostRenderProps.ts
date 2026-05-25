@@ -203,7 +203,8 @@ export function widgetHostRenderProps({
       ? widgetActions.listTerminalPtySessions
       : undefined,
     onAttachContextToCoordinator:
-      (isAgentQueue || isAgentExecutor) && onAttachContextToCoordinator
+      (isAgentQueue || isAgentExecutor || isSkillLibrary) &&
+      onAttachContextToCoordinator
         ? onAttachContextToCoordinator
         : undefined,
     onStartAssignedAgentQueueTask: isAgentQueue
