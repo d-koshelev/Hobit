@@ -54,8 +54,11 @@ export function WorkbenchTopBar({
           </div>
         </div>
 
-        <Badge className="workspace-pill" variant="neutral">
-          <span className="workspace-context-label">Workspace</span>
+        <Badge
+          aria-label={`Workspace ${viewState.workspace.title}`}
+          className="workspace-pill"
+          variant="neutral"
+        >
           <span className="workspace-context-title">
             {viewState.workspace.title}
           </span>

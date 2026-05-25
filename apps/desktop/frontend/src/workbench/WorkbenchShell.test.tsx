@@ -15,6 +15,7 @@ const workspaceApiMocks = vi.hoisted(() => ({
   getAgentQueueTask: vi.fn(),
   listAgentQueueTaskRunLinks: vi.fn(),
   listAgentQueueTasks: vi.fn(),
+  updateWidgetInstanceLayout: vi.fn(),
 }));
 
 vi.mock("../workspace/workspaceApi", async (importOriginal) => {
@@ -28,6 +29,7 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
     getAgentQueueTask: workspaceApiMocks.getAgentQueueTask,
     listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
     listAgentQueueTasks: workspaceApiMocks.listAgentQueueTasks,
+    updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
   };
 });
 
@@ -141,6 +143,19 @@ describe("WorkbenchShell empty canvas recovery", () => {
           widgetDefinitionIds: ["interactive-agent", "notes"],
         }),
       );
+    workspaceApiMocks.updateWidgetInstanceLayout
+      .mockResolvedValueOnce(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: ["interactive-agent"],
+          usePresetLayout: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: ["interactive-agent", "notes"],
+          usePresetLayout: true,
+        }),
+      );
 
     renderShell(workbenchViewState(), onViewStateChange);
 
@@ -152,6 +167,9 @@ describe("WorkbenchShell empty canvas recovery", () => {
     });
 
     expect(workspaceApiMocks.addWidgetInstanceToWorkbench).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledTimes(
       2,
     );
     expect(
@@ -167,6 +185,28 @@ describe("WorkbenchShell empty canvas recovery", () => {
     ).toEqual(["interactive-agent", "notes"]);
     expect(onViewStateChange.mock.calls[0][0].workbench.preset.title).toBe(
       "Coordinator Workspace",
+    );
+  });
+});
+
+describe("WorkbenchShell workspace title", () => {
+  it("shows the workspace title without a visible Workspace prefix", () => {
+    renderShell(
+      workbenchViewState({
+        workspace: {
+          description: null,
+          id: "workspace_1",
+          status: "open",
+          title: "Untitled",
+        },
+      }),
+    );
+
+    expect(
+      document.querySelector(".workspace-context-title")?.textContent,
+    ).toBe("Untitled");
+    expect(document.querySelector(".workspace-pill")?.textContent).toBe(
+      "Untitled",
     );
   });
 });
@@ -191,8 +231,10 @@ function renderShell(
 
 function workspaceWorkbenchState({
   widgetDefinitionIds,
+  usePresetLayout = false,
 }: {
   widgetDefinitionIds: string[];
+  usePresetLayout?: boolean;
 }) {
   const baseViewState = workbenchViewState();
 
@@ -206,25 +248,29 @@ function workspaceWorkbenchState({
       presetOriginId: null,
       workspaceId: baseViewState.workspace.id,
     },
-    widgetInstances: widgetDefinitionIds.map((definitionId, index) => ({
-      alwaysOnTop: false,
-      category: "core",
-      config: "{}",
-      definitionId,
-      dockHeight: 240,
-      dockWidth: 360,
-      dockX: 0,
-      dockY: index * 256,
-      id: `widget_${index + 1}`,
-      isVisible: true,
-      layoutMode: "docked",
-      popoutHeight: null,
-      popoutWidth: null,
-      popoutX: null,
-      popoutY: null,
-      state: "{}",
-      title: definitionId === "interactive-agent" ? "Coordinator Chat" : "Notes",
-    })),
+    widgetInstances: widgetDefinitionIds.map((definitionId, index) => {
+      const isCoordinator = definitionId === "interactive-agent";
+
+      return {
+        alwaysOnTop: false,
+        category: "core",
+        config: "{}",
+        definitionId,
+        dockHeight: usePresetLayout ? 560 : 240,
+        dockWidth: usePresetLayout ? (isCoordinator ? 840 : 360) : 360,
+        dockX: usePresetLayout ? (isCoordinator ? 0 : 864) : 0,
+        dockY: usePresetLayout ? 0 : index * 256,
+        id: `widget_${index + 1}`,
+        isVisible: true,
+        layoutMode: "docked",
+        popoutHeight: null,
+        popoutWidth: null,
+        popoutX: null,
+        popoutY: null,
+        state: "{}",
+        title: isCoordinator ? "Coordinator Chat" : "Notes",
+      };
+    }),
     sharedStateObjects: [],
     recentEvents: baseViewState.recentEvents,
   };

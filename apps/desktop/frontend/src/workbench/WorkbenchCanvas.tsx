@@ -4,6 +4,7 @@ import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
 import { WorkbenchEmptyCanvas } from "./WorkbenchEmptyCanvas";
 import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
+import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import {
@@ -103,6 +104,9 @@ export function WorkbenchCanvas({
     useState<DockedSizeMap>({});
   const [popoutPositions, setPopoutPositions] =
     useState<PopoutPositionMap>({});
+  const [layoutSurfaceWidth, setLayoutSurfaceWidth] = useState<number | null>(
+    null,
+  );
   const [activeDockedDrag, setActiveDockedDrag] = useState<ActiveDockedDrag | null>(null);
   const [activeDockedResize, setActiveDockedResize] =
     useState<ActiveDockedResize | null>(null);
@@ -137,11 +141,18 @@ export function WorkbenchCanvas({
   const directWorkRunHandoff = useDirectWorkRunHandoff();
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
+  const renderedVisibleWidgets = isLayoutEditing
+    ? visibleWidgets
+    : coordinatorNotesWidgetsForCanvasWidth({
+        canvasWidth: layoutSurfaceWidth,
+        presetId: viewState.workbench.preset.id,
+        widgets: visibleWidgets,
+      });
   const canvasShellClass = isLayoutEditing
     ? "canvas-shell canvas-shell-layout-editing"
     : "canvas-shell";
   const layoutSurfaceStyle = widgetLayoutSurfaceStyle(
-    visibleWidgets,
+    renderedVisibleWidgets,
     dockedDragPositions,
     dockedResizeSizes,
   );
@@ -157,6 +168,38 @@ export function WorkbenchCanvas({
   useEffect(() => {
     widgetActionsRef.current = widgetActions;
   }, [widgetActions]);
+
+  useEffect(() => {
+    const surface = layoutSurfaceRef.current;
+
+    if (!surface) {
+      return;
+    }
+
+    const observedSurface = surface;
+
+    function updateSurfaceWidth() {
+      setLayoutSurfaceWidth(observedSurface.getBoundingClientRect().width);
+    }
+
+    updateSurfaceWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateSurfaceWidth);
+
+      return () => {
+        window.removeEventListener("resize", updateSurfaceWidth);
+      };
+    }
+
+    const resizeObserver = new ResizeObserver(updateSurfaceWidth);
+
+    resizeObserver.observe(observedSurface);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [visibleWidgets.length]);
 
   useEffect(() => {
     const visibleWidgetIds = visibleWidgetIdSet(visibleWidgets);
@@ -686,7 +729,7 @@ export function WorkbenchCanvas({
           ref={layoutSurfaceRef}
           style={layoutSurfaceStyle}
         >
-          {visibleWidgets.map((widget) => {
+          {renderedVisibleWidgets.map((widget) => {
             const isPoppedOut = poppedOutWidgetIds.includes(widget.id);
             const isDragging = activeDockedDrag?.widgetInstanceId === widget.id;
             const isResizing =

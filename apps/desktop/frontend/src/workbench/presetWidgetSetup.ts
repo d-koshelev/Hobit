@@ -1,6 +1,9 @@
-import { addWidgetInstanceToWorkbench } from "../workspace/workspaceApi";
+import {
+  addWidgetInstanceToWorkbench,
+  updateWidgetInstanceLayout,
+} from "../workspace/workspaceApi";
 import type { WorkspaceWorkbenchState } from "../workspace/types";
-import type { WidgetDefinitionId, WorkbenchPreset } from "./types";
+import type { WidgetDefinitionId, WidgetLayout, WorkbenchPreset } from "./types";
 import { getWidgetDefinition } from "./widgetRegistry";
 
 type AddPresetWidgetsTarget = {
@@ -68,7 +71,48 @@ export async function addPresetWidgetsToWorkbench(
 
     latestWorkbenchState = nextWorkbenchState;
     existingWidgetDefinitionIds.add(widget.definitionId);
+
+    const createdWidget = nextWorkbenchState.widgetInstances.find(
+      (candidate) => candidate.definitionId === widget.definitionId,
+    );
+
+    if (!createdWidget) {
+      throw new Error("Preset widget could not be found after creation.");
+    }
+
+    const layoutWorkbenchState = await updateWidgetInstanceLayout({
+      workspaceId: target.workspaceId,
+      workbenchId: target.workbenchId,
+      widgetInstanceId: createdWidget.id,
+      layout: presetWidgetLayoutUpdate(widget.layout, createdWidget.isVisible),
+    });
+
+    if (!layoutWorkbenchState) {
+      throw new Error("Preset widget layout could not be applied.");
+    }
+
+    latestWorkbenchState = layoutWorkbenchState;
   }
 
   return latestWorkbenchState;
+}
+
+function presetWidgetLayoutUpdate(
+  layout: WidgetLayout,
+  isVisible: boolean,
+) {
+  return {
+    alwaysOnTop:
+      layout.mode === "popped-out" ? (layout.popout?.alwaysOnTop ?? false) : false,
+    dockHeight: layout.height,
+    dockWidth: layout.width,
+    dockX: layout.x,
+    dockY: layout.y,
+    isVisible,
+    layoutMode: layout.mode === "popped-out" ? "popped_out" : layout.mode,
+    popoutHeight: layout.popout?.height ?? null,
+    popoutWidth: layout.popout?.width ?? null,
+    popoutX: layout.popout?.x ?? null,
+    popoutY: layout.popout?.y ?? null,
+  };
 }

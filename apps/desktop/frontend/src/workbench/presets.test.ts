@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_WORKSPACE_NAME } from "../workspace/useWorkspaceFlow";
 import {
+  COORDINATOR_NOTES_LAYOUT_GAP,
+  COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH,
+  DEFAULT_COORDINATOR_CHAT_HEIGHT,
+  DEFAULT_COORDINATOR_CHAT_WIDTH,
+  DEFAULT_NOTES_HEIGHT,
+  DEFAULT_NOTES_WIDTH,
+  coordinatorNotesWidgetsForCanvasWidth,
   coordinatorWorkspacePreset,
   defaultWorkbenchPreset,
   emptyWorkbenchPreset,
@@ -27,6 +34,67 @@ describe("workbench presets", () => {
       INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
       NOTES_WIDGET_DEFINITION_ID,
     ]);
+  });
+
+  it("places Coordinator Chat as the larger primary default widget", () => {
+    const coordinator = coordinatorWorkspacePreset.widgets[0];
+    const notes = coordinatorWorkspacePreset.widgets[1];
+
+    expect(coordinator.definitionId).toBe(INTERACTIVE_AGENT_WIDGET_DEFINITION_ID);
+    expect(notes.definitionId).toBe(NOTES_WIDGET_DEFINITION_ID);
+    expect(coordinatorWorkspacePreset.widgets).toHaveLength(2);
+    expect(coordinator.layout.width).toBe(DEFAULT_COORDINATOR_CHAT_WIDTH);
+    expect(coordinator.layout.height).toBeGreaterThanOrEqual(520);
+    expect(coordinator.layout.height).toBe(DEFAULT_COORDINATOR_CHAT_HEIGHT);
+    expect(notes.layout.width).toBe(DEFAULT_NOTES_WIDTH);
+    expect(notes.layout.height).toBe(DEFAULT_NOTES_HEIGHT);
+    expect(coordinator.layout.width).toBeGreaterThan(notes.layout.width);
+  });
+
+  it("places Notes beside Coordinator Chat on a normal desktop layout", () => {
+    const coordinator = coordinatorWorkspacePreset.widgets[0];
+    const notes = coordinatorWorkspacePreset.widgets[1];
+
+    expect(coordinator.layout.x).toBe(0);
+    expect(coordinator.layout.y).toBe(0);
+    expect(notes.layout.y).toBe(0);
+    expect(notes.layout.x).toBe(
+      coordinator.layout.width + COORDINATOR_NOTES_LAYOUT_GAP,
+    );
+  });
+
+  it("keeps the default Coordinator and Notes layout side by side when the canvas is wide enough", () => {
+    const widgets = coordinatorNotesWidgetsForCanvasWidth({
+      canvasWidth: 1200,
+      presetId: coordinatorWorkspacePreset.id,
+      widgets: coordinatorWorkspacePreset.widgets,
+    });
+    const coordinator = widgets[0];
+    const notes = widgets[1];
+
+    expect(coordinator.layout.x).toBe(0);
+    expect(notes.layout.y).toBe(0);
+    expect(notes.layout.x).toBe(
+      coordinator.layout.width + COORDINATOR_NOTES_LAYOUT_GAP,
+    );
+    expect(coordinator.layout.width).toBeGreaterThan(notes.layout.width);
+  });
+
+  it("stacks Coordinator Chat before Notes only for narrow canvas widths", () => {
+    const widgets = coordinatorNotesWidgetsForCanvasWidth({
+      canvasWidth: COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH - 1,
+      presetId: coordinatorWorkspacePreset.id,
+      widgets: coordinatorWorkspacePreset.widgets,
+    });
+    const coordinator = widgets[0];
+    const notes = widgets[1];
+
+    expect(coordinator.layout.x).toBe(0);
+    expect(coordinator.layout.y).toBe(0);
+    expect(notes.layout.x).toBe(0);
+    expect(notes.layout.y).toBe(
+      DEFAULT_COORDINATOR_CHAT_HEIGHT + COORDINATOR_NOTES_LAYOUT_GAP,
+    );
   });
 
   it("does not add Queue or Executor by default", () => {
