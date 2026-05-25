@@ -77,14 +77,17 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     renderWidget();
 
     expect(checkboxWithLabel("Direct Mode")?.checked).toBe(false);
+    expect(buttonWithText("Start Direct Work")).toBeUndefined();
 
     await toggleDirectMode();
 
-    expect(document.body.textContent).toContain("Working directory");
+    expect(document.querySelector(".interactive-agent-direct-mode-bar")).not.toBeNull();
+    expect(document.body.textContent).toContain("Working dir");
     expect(textInputValue()).toBe("~");
     expect(document.body.textContent).toContain(
-      "Default ~ resolves in the desktop backend to the current user home before Codex starts.",
+      '"~" resolves to your user home before Codex starts.',
     );
+    expect(buttonWithText("Start Direct Work")).toBeDefined();
   });
 
   it("message send still behaves like chat when Direct Mode is off", async () => {
@@ -94,6 +97,20 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await sendMessage("Make a plan for visible work");
 
     expect(startDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Coordinator plan");
+  });
+
+  it("Send remains normal chat when Direct Mode is enabled", async () => {
+    const startDirectWork = vi.fn();
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await sendMessage("Make a plan while Direct Mode is enabled");
+
+    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Send stays normal chat. Start Direct Work uses the current composer message.",
+    );
     expect(document.body.textContent).toContain("Coordinator plan");
   });
 
@@ -108,8 +125,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(startDirectWork).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
-      "Coordinator Direct Mode requires a working directory.",
+      "Working directory is required before Direct Work can start.",
     );
+    expect(document.body.textContent).toContain("Direct Work failed");
     expect(document.body.textContent).toContain("failed");
   });
 
@@ -169,6 +187,76 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(startQueueAutorun).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("completed");
     expect(document.body.textContent).toContain("Final Coordinator result.");
+  });
+
+  it("shows Direct Work failure reasons and safe fallback in the compact status", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_failed" }));
+        onEvent(
+          directWorkEvent({
+            eventKind: "failed",
+            finalStatus: "failed",
+            isFinal: true,
+            runId: "run_failed",
+            errorMessage: "codex executable not found",
+          }),
+        );
+        return {
+          runId: "run_failed",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run and fail with a clear reason.");
+    await clickButton("Start Direct Work");
+
+    expect(document.body.textContent).toContain("codex executable not found");
+    expect(document.body.textContent).toContain(
+      "Direct Work failed: codex executable not found",
+    );
+  });
+
+  it("shows a safe Direct Work failure fallback when no backend reason is returned", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_failed" }));
+        onEvent(
+          directWorkEvent({
+            eventKind: "failed",
+            finalStatus: "failed",
+            isFinal: true,
+            runId: "run_failed",
+          }),
+        );
+        return {
+          runId: "run_failed",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run and fail without a clear reason.");
+    await clickButton("Start Direct Work");
+
+    expect(document.body.textContent).toContain(
+      "Direct Work failed. Check Codex availability, working directory, or logs.",
+    );
   });
 
   it("Stop button calls the existing Direct Work cancellation path", async () => {
@@ -295,7 +383,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(responseDetails).not.toBeNull();
     expect(responseDetails?.open).toBe(false);
     expect(responseDetails?.querySelector("summary")?.textContent).toBe(
-      "Response boundary",
+      "Details",
     );
     expect(document.body.textContent).not.toContain("mock-local details");
   });

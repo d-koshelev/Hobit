@@ -137,6 +137,18 @@ const STATIC_PROPOSAL_TYPE_SUMMARY =
     (proposalType) => proposalType.displayName,
   ).join(", ");
 
+const DIRECT_WORK_EMPTY_DIRECTORY_MESSAGE =
+  "Working directory is required before Direct Work can start.";
+
+const DIRECT_WORK_EMPTY_PROMPT_MESSAGE =
+  "Direct Work uses the current composer message as the prompt. Type the task, then choose Start Direct Work.";
+
+const DIRECT_WORK_UNAVAILABLE_MESSAGE =
+  "Coordinator Direct Mode is only available in the Tauri desktop shell.";
+
+const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
+  "Direct Work failed. Check Codex availability, working directory, or logs.";
+
 type CoordinatorDirectWorkStatus =
   | "idle"
   | "running"
@@ -404,27 +416,17 @@ export function InteractiveAgentPlaceholderWidget({
     const repoRoot = directWorkDirectory.trim();
 
     if (!repoRoot) {
-      setDirectWorkStatus("failed");
-      setDirectWorkError("Coordinator Direct Mode requires a working directory.");
-      setDirectWorkFinalResult(null);
+      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_EMPTY_DIRECTORY_MESSAGE);
       return;
     }
 
     if (!operatorPrompt) {
-      setDirectWorkStatus("failed");
-      setDirectWorkError(
-        "Coordinator Direct Mode uses the current composer message as the prompt.",
-      );
-      setDirectWorkFinalResult(null);
+      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_EMPTY_PROMPT_MESSAGE);
       return;
     }
 
     if (!onStartCodexDirectWorkStream) {
-      setDirectWorkStatus("failed");
-      setDirectWorkError(
-        "Coordinator Direct Mode is only available in the Tauri desktop shell.",
-      );
-      setDirectWorkFinalResult(null);
+      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_UNAVAILABLE_MESSAGE);
       return;
     }
 
@@ -471,13 +473,12 @@ export function InteractiveAgentPlaceholderWidget({
         "local",
       );
     } catch (error) {
+      const message = errorToMessage(error, "Unable to start Direct Work.");
       stopDirectWorkEventListening();
       setDirectWorkStatus("failed");
-      setDirectWorkError(errorToMessage(error, "Unable to start Direct Work."));
-      appendCoordinatorDirectWorkLog(
-        errorToMessage(error, "Unable to start Direct Work."),
-        "local",
-      );
+      setDirectWorkError(message);
+      appendCoordinatorDirectWorkLog(message, "local");
+      appendCoordinatorDirectWorkTranscript("failed", message);
     }
   }
 
@@ -528,18 +529,24 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     const finalStatus = coordinatorDirectWorkStatusFromEvent(event);
+    const failureReason =
+      finalStatus === "failed" ? directWorkFailureReason(event) : null;
     const finalResult =
       directWorkFinalMessageRef.current ??
       event.text ??
-      event.errorMessage ??
+      failureReason ??
       event.stderrPreview ??
       `Codex Direct Work ended with status ${event.finalStatus ?? finalStatus}.`;
 
     setDirectWorkStatus(finalStatus);
     setDirectWorkRunId(null);
     setDirectWorkFinalResult(finalResult);
-    setDirectWorkError(event.errorMessage ?? null);
+    setDirectWorkError(failureReason);
     stopDirectWorkEventListening();
+
+    if (failureReason) {
+      appendCoordinatorDirectWorkTranscript("failed", failureReason);
+    }
   }
 
   function appendCoordinatorDirectWorkLog(
@@ -550,6 +557,30 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkLogs((currentLogs) =>
       [...currentLogs, { id, kind, text }].slice(-6),
     );
+  }
+
+  function recordCoordinatorDirectWorkLocalFailure(reason: string) {
+    setDirectWorkStatus("failed");
+    setDirectWorkRunId(null);
+    setDirectWorkError(reason);
+    setDirectWorkFinalResult(null);
+    appendCoordinatorDirectWorkLog(reason, "local");
+    appendCoordinatorDirectWorkTranscript("failed", reason);
+  }
+
+  function appendCoordinatorDirectWorkTranscript(
+    status: CoordinatorDirectWorkStatus,
+    reason: string,
+  ) {
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createLocalMessage(
+        "assistant",
+        status === "failed"
+          ? directWorkFailureTranscriptBody(reason)
+          : `Direct Work ${status}. ${reason}`,
+      ),
+    ]);
   }
 
   function stopDirectWorkEventListening() {
@@ -912,23 +943,6 @@ export function InteractiveAgentPlaceholderWidget({
           </div>
         </section>
 
-        <CoordinatorDirectModePanel
-          canStart={canStartDirectWork}
-          canStop={canStopDirectWork}
-          directWorkDirectory={directWorkDirectory}
-          error={directWorkError}
-          finalResult={directWorkFinalResult}
-          isEnabled={isDirectModeEnabled}
-          isStopPending={isDirectWorkStopPending}
-          logs={directWorkLogs}
-          onDirectoryChange={setDirectWorkDirectory}
-          onStart={() => void startCoordinatorDirectWork()}
-          onStop={() => void stopCoordinatorDirectWork()}
-          onToggle={setIsDirectModeEnabled}
-          runId={directWorkRunId}
-          status={directWorkStatus}
-        />
-
         <div
           aria-label="Local Coordinator Chat transcript"
           aria-live="polite"
@@ -987,7 +1001,7 @@ export function InteractiveAgentPlaceholderWidget({
                 <details
                   className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
                 >
-                  <summary>Response boundary</summary>
+                  <summary>Details</summary>
                   <p>
                     Source: {message.providerMeta.label}.{" "}
                     {message.providerMeta.detail}
@@ -1069,6 +1083,17 @@ export function InteractiveAgentPlaceholderWidget({
               </p>
             </section>
           ) : null}
+          <CoordinatorDirectModePanel
+            directWorkDirectory={directWorkDirectory}
+            error={directWorkError}
+            finalResult={directWorkFinalResult}
+            isEnabled={isDirectModeEnabled}
+            logs={directWorkLogs}
+            onDirectoryChange={setDirectWorkDirectory}
+            onToggle={setIsDirectModeEnabled}
+            runId={directWorkRunId}
+            status={directWorkStatus}
+          />
           <label
             className="interactive-agent-label interactive-agent-label-hidden"
             htmlFor={textareaId}
@@ -1086,11 +1111,35 @@ export function InteractiveAgentPlaceholderWidget({
           />
           <div className="interactive-agent-action-row">
             <p className="interactive-agent-note">
-              Only visible chat and attachments are sent. No tools run.
+              {isDirectModeEnabled
+                ? "Send stays normal chat. Start Direct Work uses the current composer message."
+                : "Only visible chat and attachments are sent. No tools run."}
             </p>
-            <Button disabled={!canSend} type="submit" variant="primary">
-              {isProviderPending ? "Drafting" : "Send"}
-            </Button>
+            <div className="interactive-agent-composer-actions">
+              {isDirectModeEnabled ? (
+                <Button
+                  disabled={!canStartDirectWork}
+                  onClick={() => void startCoordinatorDirectWork()}
+                  type="button"
+                  variant="secondary"
+                >
+                  Start Direct Work
+                </Button>
+              ) : null}
+              {canStopDirectWork ? (
+                <Button
+                  disabled={isDirectWorkStopPending}
+                  onClick={() => void stopCoordinatorDirectWork()}
+                  type="button"
+                  variant="secondary"
+                >
+                  {isDirectWorkStopPending ? "Stopping" : "Stop"}
+                </Button>
+              ) : null}
+              <Button disabled={!canSend} type="submit" variant="primary">
+                {isProviderPending ? "Drafting" : "Send"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
@@ -1099,32 +1148,22 @@ export function InteractiveAgentPlaceholderWidget({
 }
 
 function CoordinatorDirectModePanel({
-  canStart,
-  canStop,
   directWorkDirectory,
   error,
   finalResult,
   isEnabled,
-  isStopPending,
   logs,
   onDirectoryChange,
-  onStart,
-  onStop,
   onToggle,
   runId,
   status,
 }: {
-  canStart: boolean;
-  canStop: boolean;
   directWorkDirectory: string;
   error: string | null;
   finalResult: string | null;
   isEnabled: boolean;
-  isStopPending: boolean;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
-  onStart: () => void;
-  onStop: () => void;
   onToggle: (value: boolean) => void;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
@@ -1140,13 +1179,18 @@ function CoordinatorDirectModePanel({
           : status === "running"
             ? "info"
             : "neutral";
+  const latestLog = logs[logs.length - 1]?.text ?? null;
+  const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
+  const compactResult = finalResult
+    ? compactDirectWorkText(finalResult)
+    : null;
 
   return (
     <section
       aria-label="Coordinator Direct Mode"
       className="interactive-agent-direct-mode"
     >
-      <div className="interactive-agent-direct-mode-header">
+      <div className="interactive-agent-direct-mode-bar">
         <label className="interactive-agent-direct-mode-toggle">
           <input
             checked={isEnabled}
@@ -1155,73 +1199,67 @@ function CoordinatorDirectModePanel({
           />
           <span>Direct Mode</span>
         </label>
+        {isEnabled ? (
+          <>
+            <span className="interactive-agent-direct-mode-label">
+              Working dir
+            </span>
+            <input
+              aria-label="Direct Work working directory"
+              autoComplete="off"
+              className="input interactive-agent-direct-mode-input"
+              id={workingDirectoryInputId}
+              onChange={(event) => onDirectoryChange(event.currentTarget.value)}
+              spellCheck={false}
+              type="text"
+              value={directWorkDirectory}
+            />
+            <span className="interactive-agent-direct-mode-path">
+              {resolutionText}
+            </span>
+          </>
+        ) : null}
         <Badge variant={statusVariant}>{status}</Badge>
       </div>
 
       {isEnabled ? (
         <div className="interactive-agent-direct-mode-body">
-          <div className="interactive-agent-direct-mode-controls">
-            <div className="interactive-agent-direct-mode-field">
-              <label
-                className="interactive-agent-label"
-                htmlFor={workingDirectoryInputId}
-              >
-                Working directory
-              </label>
-              <input
-                autoComplete="off"
-                className="input"
-                id={workingDirectoryInputId}
-                onChange={(event) =>
-                  onDirectoryChange(event.currentTarget.value)
-                }
-                spellCheck={false}
-                type="text"
-                value={directWorkDirectory}
-              />
-              <p className="interactive-agent-note">
-                Default ~ resolves in the desktop backend to the current user
-                home before Codex starts. Replace it with a project folder when
-                needed.
-              </p>
-            </div>
-            <div className="interactive-agent-direct-mode-actions">
-              <Button disabled={!canStart} onClick={onStart} variant="primary">
-                Start Direct Work
-              </Button>
-              {canStop ? (
-                <Button
-                  disabled={isStopPending}
-                  onClick={onStop}
-                  variant="secondary"
-                >
-                  {isStopPending ? "Stopping" : "Stop"}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
           <div className="interactive-agent-direct-mode-status" role="status">
-            {runId ? (
-              <p className="interactive-agent-note">Run: {runId}</p>
-            ) : null}
+            {runId ? <span>Run {runId}</span> : null}
             {error ? (
-              <p className="interactive-agent-direct-mode-error">{error}</p>
+              <span className="interactive-agent-direct-mode-error">
+                {error}
+              </span>
             ) : null}
-            {logs.length > 0 ? (
-              <ul className="interactive-agent-direct-mode-log">
-                {logs.map((entry) => (
-                  <li key={entry.id}>{entry.text}</li>
-                ))}
-              </ul>
+            {compactResult ? (
+              <span className="interactive-agent-direct-mode-result-line">
+                Final: {compactResult}
+              </span>
             ) : null}
-            {finalResult ? (
-              <div className="interactive-agent-direct-mode-result">
-                <p className="interactive-agent-status-label">Final result</p>
-                <pre>{finalResult}</pre>
-              </div>
+            {!error && !compactResult && latestLog ? (
+              <span>Latest: {compactDirectWorkText(latestLog)}</span>
             ) : null}
           </div>
+          {logs.length > 0 || finalResult ? (
+            <details className="interactive-agent-direct-mode-details">
+              <summary>Direct Work details</summary>
+              {logs.length > 0 ? (
+                <ul className="interactive-agent-direct-mode-log">
+                  {logs.map((entry) => (
+                    <li key={entry.id}>{entry.text}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {finalResult ? (
+                <div className="interactive-agent-direct-mode-result">
+                  <p className="interactive-agent-status-label">
+                    Final result
+                  </p>
+                  <pre>{finalResult}</pre>
+                </div>
+              ) : null}
+            </details>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -1524,6 +1562,41 @@ function coordinatorDirectWorkStatusFromEvent(
   }
 
   return "failed";
+}
+
+function directWorkFailureReason(event: DirectWorkStreamEvent): string {
+  return (
+    event.errorMessage ??
+    event.stderrPreview ??
+    event.text ??
+    DIRECT_WORK_FALLBACK_FAILURE_MESSAGE
+  );
+}
+
+function directWorkFailureTranscriptBody(reason: string): string {
+  return reason === DIRECT_WORK_FALLBACK_FAILURE_MESSAGE
+    ? reason
+    : `Direct Work failed: ${reason}`;
+}
+
+function directWorkDirectoryResolutionText(directory: string): string {
+  const trimmedDirectory = directory.trim();
+
+  if (!trimmedDirectory) {
+    return "Required before start.";
+  }
+
+  if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
+    return '"~" resolves to your user home before Codex starts.';
+  }
+
+  return "Codex starts in this path.";
+}
+
+function compactDirectWorkText(text: string): string {
+  const compacted = text.replace(/\s+/g, " ").trim();
+
+  return compacted.length > 180 ? `${compacted.slice(0, 177)}...` : compacted;
 }
 
 function directWorkEventText(event: DirectWorkStreamEvent): string {
