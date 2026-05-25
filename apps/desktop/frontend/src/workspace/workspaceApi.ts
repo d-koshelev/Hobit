@@ -9,5 +9,6 @@ export * from "./workspaceApiDirectWork";
 export * from "./workspaceApiGit";
 export * from "./workspaceApiJdbc";
 export * from "./workspaceApiNotes";
+export * from "./workspaceApiSkills";
 export * from "./workspaceApiTerminal";
 export * from "./workspaceApiWidgets";

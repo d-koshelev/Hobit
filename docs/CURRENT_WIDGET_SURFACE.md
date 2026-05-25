@@ -15,9 +15,9 @@ Host/deployment architecture guardrails are defined in
 `docs/DESKTOP_FIRST_SERVER_READY_ARCHITECTURE_CONTRACT.md`; this widget
 inventory does not add server, enterprise, or shared knowledge runtime
 behavior.
-Future Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
-`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`; that contract does not add
-current widget behavior.
+Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`; current Skill Library behavior
+is limited to the MVP described below.
 
 ## Status Model
 
@@ -51,6 +51,7 @@ Current preview surfaces:
 - Coordinator Chat
 - Agent Queue
 - Database / JDBC
+- Skill Library
 - Runbook
 
 The current catalog uses these preferred user-facing names. Compatibility IDs
@@ -301,6 +302,26 @@ and component keys may still appear in code and persistence.
   behavior. Production JDBC execution, credential expansion, write SQL,
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,
   and hidden Coordinator-triggered SQL execution remain Deferred.
+
+### Skill Library
+
+- Current preview workspace-local Skill Library widget.
+- Provides explicit operator-authored Skill record create, list, read, update,
+  delete, review-status, and tags flows through workspace Skill APIs.
+- Desktop/Tauri persists Skills through local SQLite-backed workspace Skill
+  APIs. Browser/Vite development mode uses a frontend-only, non-persistent
+  in-memory Skill API for create/list/read/update/delete UI iteration.
+- Skill records are text fields for reusable work instructions: title, when to
+  use, prerequisites, steps, validation, risks, tags, and review status.
+- Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
+- Skill Library is workspace-local and operator-authored. It is not Evidence,
+  not a Context Pack, not a Runbook executor, not hidden AI memory, and not
+  sent to Coordinator or provider prompts automatically.
+- Attach/share with Coordinator is not implemented. Any future sharing must be
+  explicit, visible, reviewable, and attributable.
+- Skill Library does not implement Knowledge Items, Evidence links, Context
+  Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook execution,
+  tool execution, global/team sharing, RBAC, or server runtime behavior.
 
 ### Runbook
 

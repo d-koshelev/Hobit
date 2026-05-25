@@ -4,7 +4,7 @@ use rusqlite::Result;
 
 use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
-    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
     WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
@@ -181,6 +181,23 @@ pub(crate) fn workspace_note_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceNot
         archived: i64_to_bool(row.get(5)?),
         created_at: row.get(6)?,
         updated_at: row.get(7)?,
+    })
+}
+
+pub(crate) fn skill_row(row: &rusqlite::Row<'_>) -> Result<SkillRow> {
+    Ok(SkillRow {
+        skill_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        title: row.get(2)?,
+        when_to_use: row.get(3)?,
+        prerequisites: row.get(4)?,
+        steps: row.get(5)?,
+        validation: row.get(6)?,
+        risks: row.get(7)?,
+        tags: row.get(8)?,
+        review_status: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
     })
 }
 

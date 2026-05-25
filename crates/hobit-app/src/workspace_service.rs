@@ -40,6 +40,7 @@ mod logs;
 mod mapping;
 mod notes;
 mod runs;
+mod skills;
 mod terminal;
 mod terminal_artifacts;
 mod terminal_pty;
@@ -100,6 +101,8 @@ mod jdbc_sidecar_protocol_tests;
 #[cfg(test)]
 mod notes_tests;
 #[cfg(test)]
+mod skills_tests;
+#[cfg(test)]
 mod terminal_artifacts_tests;
 #[cfg(test)]
 mod terminal_pty_tests;
@@ -155,17 +158,18 @@ pub use types::{
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateWorkspaceNoteInput,
-    DirectWorkValidationRunSummary, ForceKillCodexDirectWorkRunInput,
-    GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitCommitCommandSummary,
-    GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary, GitLastCommitSummary,
-    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
-    RunCodexDirectWorkInput, RunDirectWorkValidationInput, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, UpdateWorkspaceNoteInput,
-    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary,
-    WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary, WidgetRunWithResultsSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceNoteSummary,
-    WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateSkillInput,
+    CreateWorkspaceNoteInput, DeleteSkillInput, DirectWorkValidationRunSummary,
+    ForceKillCodexDirectWorkRunInput, GenerateAgentChatAiProposalInput, GitBranchStatusSummary,
+    GitCommitCommandSummary, GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary,
+    GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
+    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
+    UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary,
+    WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput,
+    WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);

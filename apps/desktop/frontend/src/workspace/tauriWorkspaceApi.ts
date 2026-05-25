@@ -63,6 +63,13 @@ import {
   listWorkspaceNotes,
   updateWorkspaceNote,
 } from "./tauriWorkspaceNotesApi";
+import {
+  createSkill,
+  deleteSkill,
+  getSkill,
+  listSkills,
+  updateSkill,
+} from "./tauriWorkspaceSkillsApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
@@ -88,6 +95,11 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   listWorkspaceNotes,
   getWorkspaceNote,
   updateWorkspaceNote,
+  createSkill,
+  listSkills,
+  getSkill,
+  updateSkill,
+  deleteSkill,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,

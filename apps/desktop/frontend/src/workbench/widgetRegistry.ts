@@ -16,6 +16,8 @@ export const NOTES_WIDGET_DEFINITION_ID = "notes";
 export const NOTES_PLACEHOLDER_COMPONENT_KEY = "notes-placeholder";
 export const RUNBOOK_WIDGET_DEFINITION_ID = "runbook";
 export const RUNBOOK_PLACEHOLDER_COMPONENT_KEY = "runbook-placeholder";
+export const SKILL_LIBRARY_WIDGET_DEFINITION_ID = "skill-library";
+export const SKILL_LIBRARY_COMPONENT_KEY = "skill-library-widget";
 export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
@@ -59,6 +61,16 @@ export const widgetRegistry: WidgetDefinition[] = [
     defaultTitle: "Runbook",
     defaultConfig: {},
     componentKey: RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
+  },
+  {
+    id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+    title: "Skill Library",
+    category: "knowledge",
+    description:
+      "Workspace-local operator-authored reusable work instructions.",
+    defaultTitle: "Skill Library",
+    defaultConfig: {},
+    componentKey: SKILL_LIBRARY_COMPONENT_KEY,
   },
   {
     id: GIT_WIDGET_DEFINITION_ID,

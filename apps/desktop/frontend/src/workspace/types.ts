@@ -5,5 +5,6 @@ export * from "./types/core";
 export * from "./types/coordinatorProvider";
 export * from "./types/git";
 export * from "./types/notes";
+export * from "./types/skills";
 export * from "./types/terminal";
 export * from "./jdbcQueryTypes";

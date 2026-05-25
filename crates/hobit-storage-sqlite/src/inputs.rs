@@ -179,6 +179,35 @@ pub struct WorkspaceNoteUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewSkill<'a> {
+    pub skill_id: &'a str,
+    pub workspace_id: &'a str,
+    pub title: &'a str,
+    pub when_to_use: &'a str,
+    pub prerequisites: &'a str,
+    pub steps: &'a str,
+    pub validation: &'a str,
+    pub risks: &'a str,
+    pub tags: &'a str,
+    pub review_status: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SkillUpdate<'a> {
+    pub title: &'a str,
+    pub when_to_use: &'a str,
+    pub prerequisites: &'a str,
+    pub steps: &'a str,
+    pub validation: &'a str,
+    pub risks: &'a str,
+    pub tags: &'a str,
+    pub review_status: &'a str,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewJdbcConnector<'a> {
     pub connector_id: &'a str,
     pub workspace_id: &'a str,

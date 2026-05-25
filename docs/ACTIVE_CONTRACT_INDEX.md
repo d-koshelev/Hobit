@@ -44,9 +44,9 @@ a process/status document only. It does not override product contracts,
 
 `docs/ARCHITECTURE_MILESTONE_STATUS.md` is the current checkpoint after the
 desktop/server-ready, runtime artifact, audit, capability, artifact,
-knowledge/evidence, and Context Pack foundation refactor series. It is a
-status/roadmap note only and does not add behavior, storage, schema, UI,
-Coordinator context wiring, audit emission, server runtime, or RBAC.
+knowledge/evidence, Context Pack foundation refactor series, and Minimal Skill
+Library MVP. It is a status/roadmap note and does not add behavior beyond that
+MVP, Coordinator context wiring, audit emission, server runtime, or RBAC.
 
 `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` is the Compatibility /
 pending-retirement source of truth for retained Agent Chat, Agent Monitoring,
@@ -176,13 +176,14 @@ unless the task explicitly requests it.
   not add an artifact store, artifact persistence, schema changes, audit
   emission, evidence store, knowledge store, runtime wiring, frontend
   behavior, server runtime, or RBAC.
-- `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` - read for future Knowledge,
-  Skills, Evidence, Context Pack, and Runbook boundaries. Current Rust refs
-  live in `crates/hobit-app/src/knowledge/` and
-  `crates/hobit-app/src/context_packs/` as type scaffolding only. They do not
-  add a knowledge store, evidence store, Context Pack store, Skills widget,
-  context ingestion, Coordinator/provider context wiring, prompt changes,
-  runtime behavior, schema changes, server runtime, or RBAC.
+- `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` - read for Knowledge, Skills,
+  Evidence, Context Pack, and Runbook boundaries. The current Minimal Skill
+  Library MVP is workspace-local operator-authored Skill CRUD only. Current
+  Rust refs live in `crates/hobit-app/src/knowledge/` and
+  `crates/hobit-app/src/context_packs/` mostly as type scaffolding. They do
+  not add a knowledge store, evidence store, Context Pack store, context
+  ingestion, Coordinator/provider context wiring, prompt changes, server
+  runtime, or RBAC.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
   what the recent foundation series completed, what remains type-only, and

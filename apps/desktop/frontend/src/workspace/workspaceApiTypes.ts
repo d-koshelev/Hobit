@@ -30,12 +30,14 @@ import type {
   CreateAgentQueueTaskRequest,
   CreateGitCommitRequest,
   CreateWorkspaceNoteRequest,
+  CreateSkillRequest,
   CreateWorkspaceRequest,
   CreateTerminalPtySessionRequest,
   DeleteAgentQueueTaskRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
+  DeleteSkillRequest,
   DirectWorkStreamEvent,
   ForceKillCodexDirectWorkRunRequest,
   ForceKillCodexDirectWorkRunResponse,
@@ -51,6 +53,7 @@ import type {
   GetAgentQueueTaskRequest,
   GetGitRepositoryStatusRequest,
   GetWorkspaceNoteRequest,
+  GetSkillRequest,
   GitCommitResponse,
   GitRepositoryStatus,
   ListAgentExecutorRunsRequest,
@@ -58,6 +61,7 @@ import type {
   ListAgentQueueTasksRequest,
   ListTerminalPtySessionsRequest,
   ListWorkspaceNotesRequest,
+  ListSkillsRequest,
   ListWidgetLogsRequest,
   PersistAgentChatProposalRequest,
   PersistAgentChatProposalResponse,
@@ -79,9 +83,11 @@ import type {
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   UpdateWorkspaceNoteRequest,
+  UpdateSkillRequest,
   WidgetLogEntry,
   WriteTerminalPtySessionRequest,
   WorkspaceNote,
+  Skill,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -116,6 +122,11 @@ export type WorkspaceApi = {
   updateWorkspaceNote: (
     request: UpdateWorkspaceNoteRequest,
   ) => Promise<WorkspaceNote | null>;
+  createSkill: (request: CreateSkillRequest) => Promise<Skill>;
+  listSkills: (request: ListSkillsRequest) => Promise<Skill[]>;
+  getSkill: (request: GetSkillRequest) => Promise<Skill | null>;
+  updateSkill: (request: UpdateSkillRequest) => Promise<Skill | null>;
+  deleteSkill: (request: DeleteSkillRequest) => Promise<boolean>;
   createJdbcConnector: (
     request: CreateJdbcConnectorRequest,
   ) => Promise<JdbcConnector>;

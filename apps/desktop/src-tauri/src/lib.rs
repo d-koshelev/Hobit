@@ -49,6 +49,10 @@ mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
 mod notes_dto_tests;
+mod skills_commands;
+mod skills_dto;
+#[cfg(test)]
+mod skills_dto_tests;
 mod terminal_pty;
 mod terminal_pty_artifacts;
 #[cfg(test)]
@@ -116,6 +120,11 @@ pub fn run() {
             notes_commands::list_workspace_notes,
             notes_commands::get_workspace_note,
             notes_commands::update_workspace_note,
+            skills_commands::create_skill,
+            skills_commands::list_skills,
+            skills_commands::get_skill,
+            skills_commands::update_skill,
+            skills_commands::delete_skill,
             jdbc_connector_commands::create_jdbc_connector,
             jdbc_connector_commands::list_jdbc_connectors,
             jdbc_connector_commands::get_jdbc_connector,

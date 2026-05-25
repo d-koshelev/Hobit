@@ -162,6 +162,22 @@ pub struct WorkspaceNoteRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SkillRow {
+    pub skill_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub when_to_use: String,
+    pub prerequisites: String,
+    pub steps: String,
+    pub validation: String,
+    pub risks: String,
+    pub tags: String,
+    pub review_status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JdbcConnectorRow {
     pub connector_id: String,
     pub workspace_id: String,

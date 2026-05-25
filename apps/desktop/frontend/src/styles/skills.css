@@ -1,0 +1,118 @@
+.skill-library-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+}
+
+.skill-library-summary {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.skill-library-layout {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: minmax(180px, 0.35fr) minmax(320px, 0.65fr);
+  min-height: 0;
+}
+
+.skill-list-pane,
+.skill-editor-pane {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  min-height: 0;
+}
+
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 520px;
+  overflow: auto;
+  padding: var(--space-sm);
+}
+
+.skill-list-row {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  text-align: left;
+}
+
+.skill-list-row:not(:disabled):hover {
+  background: var(--color-nested-surface);
+}
+
+.skill-list-row-selected {
+  background: var(--color-nested-surface);
+  border-color: var(--color-border-strong);
+}
+
+.skill-list-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.skill-list-meta,
+.skill-message,
+.skill-field span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.skill-editor {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--space-md);
+}
+
+.skill-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.skill-field-wide,
+.skill-editor-actions,
+.skill-message {
+  grid-column: 1 / -1;
+}
+
+.skill-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.skill-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.skill-message-error {
+  color: var(--color-error);
+}
+
+@media (max-width: 920px) {
+  .skill-library-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-editor {
+    grid-template-columns: 1fr;
+  }
+}

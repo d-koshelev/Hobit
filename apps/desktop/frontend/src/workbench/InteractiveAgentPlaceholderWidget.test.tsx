@@ -258,7 +258,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     ]);
     expect(request.visibleProposalDrafts).toHaveLength(1);
     expect(JSON.stringify(request)).not.toMatch(
-      /terminal_output|agent_executor_logs|git_status|git_diff|jdbc_metadata|jdbc_results|notes_body|filesystem|environment_variables|provider_api_key/i,
+      /terminal_output|agent_executor_logs|git_status|git_diff|jdbc_metadata|jdbc_results|notes_body|skill|knowledge|filesystem|environment_variables|provider_api_key/i,
     );
     expect(document.body.textContent).toContain("allowed_tools: []");
     expect(document.body.textContent).toContain("const tools = [];");

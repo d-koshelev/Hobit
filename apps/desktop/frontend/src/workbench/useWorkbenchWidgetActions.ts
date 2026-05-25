@@ -32,6 +32,10 @@ import {
   type WorkspaceNoteWidgetActions,
 } from "./workspaceNoteWidgetActions";
 import {
+  createWorkspaceSkillActions,
+  type WorkspaceSkillWidgetActions,
+} from "./workspaceSkillWidgetActions";
+import {
   createWorkspaceWidgetActions,
   type WorkspaceWidgetActions,
 } from "./workspaceWidgetActions";
@@ -44,6 +48,7 @@ type UseWorkbenchWidgetActionsOptions = {
 
 export type WorkbenchWidgetActions = WorkspaceWidgetActions &
   WorkspaceNoteWidgetActions &
+  WorkspaceSkillWidgetActions &
   AgentQueueTaskWidgetActions &
   JdbcConnectorWidgetActions &
   CoordinatorProviderWidgetActions &
@@ -90,6 +95,7 @@ export function useWorkbenchWidgetActions({
       viewState,
     }),
     ...createWorkspaceNoteActions(viewState),
+    ...createWorkspaceSkillActions(viewState),
     ...agentQueueTaskActions,
     ...createJdbcConnectorActions(viewState),
     ...createCoordinatorProviderActions(viewState),

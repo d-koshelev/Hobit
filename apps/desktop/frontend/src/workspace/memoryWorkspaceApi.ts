@@ -8,7 +8,9 @@ import {
   createAgentQueueTask,
   createGitCommit,
   createJdbcConnector,
+  createSkill as unsupportedCreateSkill,
   deleteAgentQueueTask,
+  deleteSkill as unsupportedDeleteSkill,
   createWorkspaceNote as unsupportedCreateWorkspaceNote,
   deleteWidgetInstanceFromWorkbench,
   deleteWorkspace,
@@ -25,6 +27,7 @@ import {
   getAgentQueueTask,
   getGitRepositoryStatus,
   getJdbcConnector,
+  getSkill as unsupportedGetSkill,
   getTerminalPtySession,
   getWorkspaceNote as unsupportedGetWorkspaceNote,
   killTerminalPtySession,
@@ -32,6 +35,7 @@ import {
   listAgentExecutorRuns,
   listAgentQueueTasks,
   listJdbcConnectors,
+  listSkills as unsupportedListSkills,
   listTerminalPtySessions,
   listWorkspaceNotes as unsupportedListWorkspaceNotes,
   listenToDirectWorkStreamEvents,
@@ -47,6 +51,7 @@ import {
   stopTerminalPtySession,
   updateAgentQueueTask,
   updateJdbcConnector,
+  updateSkill as unsupportedUpdateSkill,
   updateWorkspaceNote as unsupportedUpdateWorkspaceNote,
   validateJdbcReadOnlySql,
   writeTerminalPtySession,
@@ -57,6 +62,13 @@ import {
   listWorkspaceNotes as listMemoryWorkspaceNotes,
   updateWorkspaceNote as updateMemoryWorkspaceNote,
 } from "./memoryWorkspaceNotesApi";
+import {
+  createSkill as createMemorySkill,
+  deleteSkill as deleteMemorySkill,
+  getSkill as getMemorySkill,
+  listSkills as listMemorySkills,
+  updateSkill as updateMemorySkill,
+} from "./memoryWorkspaceSkillsApi";
 import type {
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
@@ -91,6 +103,21 @@ const memoryNotesApi = import.meta.env.DEV
       getWorkspaceNote: unsupportedGetWorkspaceNote,
       updateWorkspaceNote: unsupportedUpdateWorkspaceNote,
     };
+const memorySkillsApi = import.meta.env.DEV
+  ? {
+      createSkill: createMemorySkill,
+      listSkills: listMemorySkills,
+      getSkill: getMemorySkill,
+      updateSkill: updateMemorySkill,
+      deleteSkill: deleteMemorySkill,
+    }
+  : {
+      createSkill: unsupportedCreateSkill,
+      listSkills: unsupportedListSkills,
+      getSkill: unsupportedGetSkill,
+      updateSkill: unsupportedUpdateSkill,
+      deleteSkill: unsupportedDeleteSkill,
+    };
 let fallbackId = 1;
 
 export const memoryWorkspaceApi: WorkspaceApi = {
@@ -104,6 +131,11 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   listWorkspaceNotes: memoryNotesApi.listWorkspaceNotes,
   getWorkspaceNote: memoryNotesApi.getWorkspaceNote,
   updateWorkspaceNote: memoryNotesApi.updateWorkspaceNote,
+  createSkill: memorySkillsApi.createSkill,
+  listSkills: memorySkillsApi.listSkills,
+  getSkill: memorySkillsApi.getSkill,
+  updateSkill: memorySkillsApi.updateSkill,
+  deleteSkill: memorySkillsApi.deleteSkill,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,

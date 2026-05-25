@@ -7,6 +7,7 @@ import {
   JDBC_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
   RUNBOOK_WIDGET_DEFINITION_ID,
+  SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
 } from "./widgetRegistry";
 
@@ -16,7 +17,8 @@ export type WidgetCatalogCategory =
   | "productivity"
   | "tools"
   | "codebase"
-  | "database";
+  | "database"
+  | "knowledge";
 
 export type WidgetCatalogTemplateStatus = "available";
 export type WidgetCatalogSection = "ready" | "preview";
@@ -110,6 +112,21 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Autosave, tags, archive, and delete not implemented",
     ],
     futureWidgetDefinitionId: NOTES_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+    title: "Skill Library",
+    category: "knowledge",
+    description:
+      "Workspace-local library for operator-authored reusable work instructions.",
+    section: "preview",
+    status: "available",
+    capabilitySummary: [
+      "Create, edit, list, and delete Skill records",
+      "Workspace-local and operator-authored",
+      "Not sent to Coordinator automatically",
+    ],
+    futureWidgetDefinitionId: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   },
   {
     id: AGENT_QUEUE_WIDGET_DEFINITION_ID,

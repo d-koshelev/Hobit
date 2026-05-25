@@ -151,6 +151,21 @@ CREATE TABLE IF NOT EXISTS notes (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS skills (
+    skill_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    title TEXT NOT NULL,
+    when_to_use TEXT NOT NULL,
+    prerequisites TEXT NOT NULL,
+    steps TEXT NOT NULL,
+    validation TEXT NOT NULL,
+    risks TEXT NOT NULL,
+    tags TEXT NOT NULL,
+    review_status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS jdbc_connectors (
     connector_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -224,6 +239,12 @@ CREATE INDEX IF NOT EXISTS idx_notes_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_notes_workspace_ordering
     ON notes(workspace_id, archived, pinned, updated_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_skills_workspace_id
+    ON skills(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_skills_workspace_ordering
+    ON skills(workspace_id, updated_at, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_id
     ON jdbc_connectors(workspace_id);

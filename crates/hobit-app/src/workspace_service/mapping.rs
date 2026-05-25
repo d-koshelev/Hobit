@@ -1,13 +1,13 @@
 use hobit_storage_sqlite::{
-    AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    AgentQueueTaskRow, JdbcConnectorRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
+    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
     WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
-    AgentQueueTaskSummary, JdbcConnectorSummary, SharedStateObjectSummary, WidgetInstanceSummary,
-    WidgetLogSummary, WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
+    AgentQueueTaskSummary, JdbcConnectorSummary, SharedStateObjectSummary, SkillSummary,
+    WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -109,6 +109,23 @@ pub(super) fn workspace_note_summary(row: WorkspaceNoteRow) -> WorkspaceNoteSumm
         body: row.body,
         pinned: row.pinned,
         archived: row.archived,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn skill_summary(row: SkillRow) -> SkillSummary {
+    SkillSummary {
+        skill_id: row.skill_id,
+        workspace_id: row.workspace_id,
+        title: row.title,
+        when_to_use: row.when_to_use,
+        prerequisites: row.prerequisites,
+        steps: row.steps,
+        validation: row.validation,
+        risks: row.risks,
+        tags: row.tags,
+        review_status: row.review_status,
         created_at: row.created_at,
         updated_at: row.updated_at,
     }

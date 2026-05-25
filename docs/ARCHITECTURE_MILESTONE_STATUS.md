@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This checkpoint summarizes the architecture foundation refactor series before
-Knowledge, Skills, Evidence, Artifact, or Context Pack UI work begins.
+This checkpoint summarizes the architecture foundation refactor series and the
+first Minimal Skill Library product slice.
 
-It is a docs-only status note. It does not add behavior, storage, schema,
-Tauri commands, DTOs, frontend UI, audit emission, server runtime,
-enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
+It is a status note. It does not add behavior beyond the implemented Minimal
+Skill Library MVP, audit emission, server runtime, enterprise/RBAC, scheduler
+behavior, or Coordinator context wiring.
 
 ## Completed Foundation
 
@@ -31,6 +31,8 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
 - Artifact Reference / Ownership v0 exists as metadata-only refs.
 - Knowledge / Skills / Evidence / Context Pack product boundaries are
   documented.
+- Minimal Skill Library MVP exists as workspace-local operator-authored Skill
+  CRUD with local SQLite storage, narrow Tauri APIs, and a preview widget.
 - Knowledge / Evidence core refs v0 exist as type-only Rust refs.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Coordinator context boundary inspection confirmed current provider requests
@@ -77,6 +79,10 @@ enterprise/RBAC, scheduler behavior, or Coordinator context wiring.
 - `ArtifactRef` is metadata-only and unresolved by default.
 - Knowledge and Evidence refs do not create a knowledge store, evidence store,
   resolver, ingestion path, or UI.
+- Skill Library storage/API/UI does not create Knowledge Items, Evidence,
+  Context Packs, Artifact links, Runbook execution, Coordinator context
+  eligibility, provider prompt wiring, hidden memory, global/team sharing, or
+  RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
   Coordinator context wiring, provider prompt wiring, or sharing behavior.
 
@@ -103,17 +109,16 @@ Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is
 the runtime owner for run detail, logs, final responses, and history.
 
-Artifacts, Evidence, Knowledge, Context Packs, audit events, capability
-actions, and approvals are separate concepts. A ref existing does not mean the
-thing is persisted, resolvable, safe to share, approved, executable, or sent to
-a provider.
+Artifacts, Evidence, Knowledge, Skills, Context Packs, audit events,
+capability actions, and approvals are separate concepts. A Skill record
+existing does not mean it is evidence, AI context, a Runbook, executable, or
+sent to a provider.
 
 ## Not Implemented
 
 - artifact store;
 - evidence store;
 - knowledge store;
-- Skills widget;
 - Context Pack UI or storage;
 - Context Pack provider wiring;
 - hidden prompt augmentation;
@@ -150,8 +155,8 @@ a provider.
 
 Only after the docs and inspect-first blocks above:
 
-1. Smallest Knowledge / Skills UI skeleton with no ingestion and no provider
-   wiring.
+1. Explicit Attach Skill/Knowledge to Coordinator design, with visible review
+   and no hidden provider send.
 2. Explicit operator-selected Context Pack preview UI with no provider send.
 3. Narrow metadata-only Knowledge item draft flow.
 4. Narrow Evidence review draft flow that references `ArtifactRef` without
@@ -166,6 +171,7 @@ Only after the docs and inspect-first blocks above:
 - artifact store;
 - evidence store;
 - knowledge store;
+- full Knowledge/Skills system beyond Minimal Skill Library MVP;
 - Coordinator hidden context;
 - Context Pack provider wiring;
 - automatic Notes/artifact/log ingestion;

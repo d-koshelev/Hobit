@@ -22,7 +22,9 @@ import type {
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateGitCommitRequest,
+  CreateSkillRequest,
   CreateWorkspaceNoteRequest,
+  DeleteSkillRequest,
   DirectWorkStreamEvent,
   DeleteAgentQueueTaskRequest,
   ForceKillCodexDirectWorkRunResponse,
@@ -46,8 +48,10 @@ import type {
   TerminalPtySession,
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateSkillRequest,
   UpdateWorkspaceNoteRequest,
   WorkspaceNote,
+  Skill,
   WriteTerminalPtySessionRequest,
 } from "../workspace/types";
 import type {
@@ -135,6 +139,12 @@ export type WidgetRenderProps = {
   onCreateWorkspaceNote?: (
     request: Omit<CreateWorkspaceNoteRequest, "workspaceId">,
   ) => Promise<WorkspaceNote>;
+  onCreateSkill?: (
+    request: Omit<CreateSkillRequest, "workspaceId">,
+  ) => Promise<Skill>;
+  onDeleteSkill?: (
+    request: Omit<DeleteSkillRequest, "workspaceId">,
+  ) => Promise<boolean>;
   onGenerateCoordinatorProviderResponse?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<
@@ -178,6 +188,7 @@ export type WidgetRenderProps = {
   ) => Promise<GitRepositoryStatus | null>;
   onGetJdbcConnector?: (connectorId: string) => Promise<JdbcConnector | null>;
   onGetWorkspaceNote?: (noteId: string) => Promise<WorkspaceNote | null>;
+  onGetSkill?: (skillId: string) => Promise<Skill | null>;
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
     limit?: number,
@@ -185,6 +196,7 @@ export type WidgetRenderProps = {
   onListAgentQueueTasks?: () => Promise<AgentQueueTask[]>;
   onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
   onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
+  onListSkills?: () => Promise<Skill[]>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
@@ -311,6 +323,9 @@ export type WidgetRenderProps = {
   onUpdateWorkspaceNote?: (
     request: Omit<UpdateWorkspaceNoteRequest, "workspaceId">,
   ) => Promise<WorkspaceNote | null>;
+  onUpdateSkill?: (
+    request: Omit<UpdateSkillRequest, "workspaceId">,
+  ) => Promise<Skill | null>;
   queueTaskAutoRefreshRequest?: DirectWorkQueueTaskAutoRefreshRequest | null;
   title: string;
 };

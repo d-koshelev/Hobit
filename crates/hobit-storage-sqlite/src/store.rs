@@ -10,14 +10,15 @@ use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
     AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate, NewAgentQueueItem,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewJdbcConnector, NewSharedStateObject,
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewJdbcConnector, NewSharedStateObject, NewSkill,
     NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
-    NewWorkspaceSession, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
-    SharedStateObjectRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
     WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
@@ -31,6 +32,7 @@ mod jdbc_connectors;
 mod notes;
 mod sessions;
 mod shared_state;
+mod skills;
 mod widget_instances;
 mod widget_logs;
 mod widget_results;
@@ -46,6 +48,8 @@ mod agent_queue_tasks_tests;
 mod jdbc_connectors_tests;
 #[cfg(test)]
 mod notes_tests;
+#[cfg(test)]
+mod skills_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

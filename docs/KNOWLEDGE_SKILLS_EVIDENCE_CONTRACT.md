@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This contract defines Hobit's future Knowledge, Skills, Evidence, Context
-Pack, and Runbook boundaries.
+This contract defines Hobit's Knowledge, Skills, Evidence, Context Pack, and
+Runbook boundaries.
 
-It is a docs-only architecture contract. It does not implement a knowledge
-store, evidence store, Skills widget, context pack runtime, storage schema,
-migrations, frontend behavior, Tauri commands, DTOs, Coordinator context
-wiring, audit emission, server runtime, enterprise/RBAC behavior, permissions,
-or runtime behavior changes.
+It is primarily an architecture contract. The current implemented product slice
+is only the Minimal Skill Library MVP described here. This contract does not
+implement a knowledge store, evidence store, Context Pack runtime,
+Coordinator context wiring, audit emission, server runtime, enterprise/RBAC
+behavior, permissions, or broad runtime behavior changes.
 
 ## Current Status
 
@@ -17,13 +17,21 @@ Hobit currently has no implemented knowledge store.
 
 Hobit currently has no implemented evidence store.
 
-Hobit currently has no implemented Skills widget.
+Hobit currently has a Minimal Skill Library widget for workspace-local,
+operator-authored Skill records only. It supports explicit create/list/read/
+update/delete of simple text Skill records with review status and tags.
+
+The Skill Library MVP is not a Knowledge store, Evidence store, Context Pack
+builder, Runbook executor, AI memory layer, provider prompt source, global/team
+knowledge system, or Coordinator context provider.
 
 The current Rust reference vocabulary lives in
-`crates/hobit-app/src/knowledge/`. It is type-only scaffolding for
+`crates/hobit-app/src/knowledge/`. It is mostly type-only scaffolding for
 Knowledge, Skill, Runbook, Evidence, Evidence Source, and Knowledge/Evidence
-links. It does not implement stores, resolvers, context packs, UI,
-Coordinator wiring, schema changes, or runtime behavior.
+links. The implemented Skill Library storage/API/UI is separate workspace-local
+MVP behavior and does not make these refs resolvable context. The refs do not
+implement a Knowledge store, Evidence store, Context Pack store, resolver,
+Coordinator wiring, or runtime behavior.
 
 The current Context Pack Rust reference vocabulary lives in
 `crates/hobit-app/src/context_packs/`. It is type-only scaffolding for explicit
@@ -41,10 +49,10 @@ Artifacts currently exist as reference vocabulary only through
 artifact store, evidence store, knowledge store, resolver, or AI-readable
 context pipeline.
 
-Coordinator Chat does not silently ingest Knowledge, Notes, artifacts, logs,
-runtime output, Git diffs, SQL, Terminal output, or provider text. Current
-Coordinator provider requests use visible current-session chat context and
-`allowed_tools: []`.
+Coordinator Chat does not silently ingest Knowledge, Skills, Notes, artifacts,
+logs, runtime output, Git diffs, SQL, Terminal output, or provider text.
+Current Coordinator provider requests use visible current-session chat context
+and `allowed_tools: []`.
 
 ## Core Concepts
 
@@ -233,8 +241,9 @@ desktop-first, server-ready architecture guardrails and the need to keep
 Knowledge, Skills, Evidence, and artifacts distinct.
 
 `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for current
-implemented widget behavior. This contract does not add current Knowledge,
-Evidence, Skills, Context Pack, or Runbook engine behavior.
+implemented widget behavior, including the Minimal Skill Library widget. This
+contract does not add current Knowledge Item, Evidence, Context Pack, or
+Runbook engine behavior beyond that Skill Library MVP.
 
 ## Explicit Non-Goals
 
@@ -242,7 +251,7 @@ This contract does not add:
 
 - knowledge store;
 - evidence store;
-- Skills widget;
+- full Knowledge/Skills system beyond the Minimal Skill Library MVP;
 - Context Pack UI or runtime;
 - automatic context ingestion;
 - hidden prompt augmentation;
@@ -256,8 +265,8 @@ This contract does not add:
 - server runtime;
 - enterprise/RBAC behavior;
 - permissions;
-- schema changes or migrations;
-- frontend behavior changes;
-- Tauri commands or DTO changes;
+- schema changes beyond Skill Library MVP storage;
+- frontend behavior changes beyond Skill Library MVP UI;
+- Tauri commands or DTO changes beyond Skill Library MVP CRUD;
 - Queue, Direct Work, Terminal, Git, JDBC, Coordinator, Notes, or Runbook
   behavior changes.

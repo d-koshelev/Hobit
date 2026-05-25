@@ -17,6 +17,7 @@ import {
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   JDBC_WIDGET_COMPONENT_KEY,
   NOTES_PLACEHOLDER_COMPONENT_KEY,
+  SKILL_LIBRARY_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
@@ -58,6 +59,7 @@ export function widgetHostRenderProps({
     componentKey === INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY;
   const isJdbc = componentKey === JDBC_WIDGET_COMPONENT_KEY;
   const isNotes = componentKey === NOTES_PLACEHOLDER_COMPONENT_KEY;
+  const isSkillLibrary = componentKey === SKILL_LIBRARY_COMPONENT_KEY;
   const isTerminal = componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY;
 
   return {
@@ -112,6 +114,8 @@ export function widgetHostRenderProps({
     onCreateWorkspaceNote: isNotes || isInteractiveAgent
       ? widgetActions.createWorkspaceNote
       : undefined,
+    onCreateSkill: isSkillLibrary ? widgetActions.createSkill : undefined,
+    onDeleteSkill: isSkillLibrary ? widgetActions.deleteSkill : undefined,
     onDirectWorkGitReviewRequested: isAgentExecutor
       ? directWorkGitReview.requestReview
       : undefined,
@@ -150,6 +154,7 @@ export function widgetHostRenderProps({
     onGetWorkspaceNote: isNotes
       ? widgetActions.getWorkspaceNote
       : undefined,
+    onGetSkill: isSkillLibrary ? widgetActions.getSkill : undefined,
     onListAgentExecutorRuns: isAgentExecutor
       ? widgetActions.listAgentExecutorRuns
       : undefined,
@@ -162,6 +167,7 @@ export function widgetHostRenderProps({
     onListWorkspaceNotes: isNotes
       ? widgetActions.listWorkspaceNotes
       : undefined,
+    onListSkills: isSkillLibrary ? widgetActions.listSkills : undefined,
     onLoadLogs: widgetActions.listWidgetLogs,
     onRunCodexDirectWork: isAgentExecutor
       ? widgetActions.runCodexDirectWork
@@ -229,6 +235,7 @@ export function widgetHostRenderProps({
     onUpdateWorkspaceNote: isNotes
       ? widgetActions.updateWorkspaceNote
       : undefined,
+    onUpdateSkill: isSkillLibrary ? widgetActions.updateSkill : undefined,
     queueTaskAutoRefreshRequest: isAgentQueue
       ? directWorkRunHandoff.queueTaskAutoRefreshRequest
       : undefined,
