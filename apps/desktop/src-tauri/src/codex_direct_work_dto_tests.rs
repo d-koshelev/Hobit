@@ -140,6 +140,45 @@ fn maps_start_codex_direct_work_stream_response_to_dto() {
 }
 
 #[test]
+fn resolves_direct_work_home_alias_for_stream_request() {
+    let request = StartCodexDirectWorkStreamRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "coordinator_1".to_owned(),
+        codex_executable: "codex".to_owned(),
+        repo_root: "~".to_owned(),
+        operator_prompt: "Run from home.".to_owned(),
+        sandbox: "workspace_write".to_owned(),
+        approval_policy: "never".to_owned(),
+        timeout_ms: None,
+        stdout_cap_bytes: None,
+        stderr_cap_bytes: None,
+    };
+
+    let input = RunCodexDirectWorkInput::from(request);
+
+    assert_ne!(input.repo_root, PathBuf::from("~"));
+    assert!(input.repo_root.is_absolute());
+}
+
+#[test]
+fn resolves_direct_work_home_alias_with_explicit_home_helper() {
+    let home = PathBuf::from("C:/Users/Dmitry");
+
+    assert_eq!(
+        crate::codex_direct_work_dto::resolve_direct_work_path_with_home("~", Some(home.clone()),),
+        home,
+    );
+    assert_eq!(
+        crate::codex_direct_work_dto::resolve_direct_work_path_with_home(
+            "~/project",
+            Some(PathBuf::from("C:/Users/Dmitry")),
+        ),
+        PathBuf::from("C:/Users/Dmitry").join("project"),
+    );
+}
+
+#[test]
 fn maps_run_direct_work_validation_request_to_app_input() {
     let request = RunDirectWorkValidationRequest {
         workspace_id: "ws_1".to_owned(),

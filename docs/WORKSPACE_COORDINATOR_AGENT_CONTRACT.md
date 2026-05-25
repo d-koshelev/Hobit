@@ -70,6 +70,13 @@ The current Coordinator preview:
   text when the visible result suggests follow-up work; creation remains a
   separate explicit Create Queue task action
 - can approve all visible Queue task drafts as local review state only
+- can start an explicit local desktop Coordinator Direct Mode Codex run from
+  the current composer message after Direct Mode is enabled and the operator
+  clicks Start Direct Work. The working directory field defaults to `~`, the
+  Tauri/backend path resolves `~` to the current user's home directory before
+  launching Codex, and the operator can replace it with a project or repo
+  folder. Status, recent logs, Stop/cancel state when available, and final
+  result summary stay visible in Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
@@ -81,12 +88,17 @@ The current Coordinator preview:
   metadata, or unrelated Workspace state
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
-  Autorun, launch Agent Executor, execute actions, or mutate Workspace content
+  Autorun, launch Agent Executor, or run hidden actions. Coordinator Direct
+  Mode is the explicit foreground exception: it can let Codex read files, write
+  code, and run commands inside the operator-provided working directory without
+  creating Queue tasks or using Agent Executor.
 
 There is no implemented:
 
-- direct Coordinator filesystem read/write capability
-- direct command or SSH execution from Coordinator
+- direct Coordinator filesystem read/write capability outside explicit
+  Coordinator Direct Mode
+- direct command or SSH execution from Coordinator outside explicit
+  Coordinator Direct Mode
 - direct JDBC capability execution from Coordinator
 - direct Git mutation from Coordinator
 - unified permission or policy UI
@@ -106,6 +118,9 @@ Current Coordinator Chat can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
 Creating a Queue task is draft task creation only; it does not assign, run,
 start Queue Autorun, launch Agent Executor, or execute the task.
+Coordinator Direct Mode does not create Queue tasks, does not start Queue
+Autorun, and does not change Agent Executor repo-root/task configuration
+behavior.
 Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
 it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.
@@ -461,6 +476,11 @@ selects or approves them. Coordinator may delegate larger work to Queue and
 Executor, but Executor ownership of async runs does not limit Coordinator's
 foreground Workspace capability set.
 
+Current Coordinator Direct Mode reuses the Codex Direct Work runtime as a
+foreground Coordinator-owned run. It does not require a visible Agent Executor
+widget, does not change Agent Executor's explicit repo-root/task configuration
+behavior, and does not create Queue tasks or start Queue Autorun.
+
 ## Relationship To Notebook
 
 Notebook can be a source of tasks, notes, review comments, snippets, JSON, diagrams, and follow-up ideas.
@@ -645,9 +665,11 @@ This contract does not implement:
 - executable Coordinator runtime
 - agent runtime
 - hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Coordinator provider boundary
-- direct Coordinator filesystem read/write capability
+- direct Coordinator filesystem read/write capability outside the explicit
+  local desktop Direct Mode MVP
 - direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
-  artifact capability execution
+  artifact capability execution outside the explicit local desktop Direct Mode
+  MVP
 - chat message persistence
 - persisted or cross-widget context access implementation beyond selected current-view metadata
 - context permission UI

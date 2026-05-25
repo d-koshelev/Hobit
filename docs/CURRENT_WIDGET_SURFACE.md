@@ -299,6 +299,14 @@ destination for every Coordinator action or small operation.
   draft summaries, compact safety instructions, and `allowed_tools: []`.
 - Provider credentials stay backend-only. Browser/Vite fallback does not call a
   provider directly.
+- Provides an explicit local desktop Coordinator Direct Mode MVP. Direct Mode
+  is off by default, uses the current composer message only after the operator
+  clicks Start Direct Work, defaults the working directory field to `~`, and
+  resolves `~` in the Tauri/backend path to the current user's home directory
+  before launching Codex. The operator can replace `~` with a project or repo
+  folder. Coordinator Direct Mode streams visible status/log/final-result
+  summaries in Coordinator, supports Stop when the Direct Work cancellation
+  path is available, and does not create Queue tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action. Queue
   task creation creates a draft/manual Queue record only; execution remains
@@ -307,10 +315,13 @@ destination for every Coordinator action or small operation.
 - Coordinator Chat does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, fetch Queue run history, read Executor logs or
-  artifacts, launch Agent Executor, auto-dispatch Queue items, mutate files,
-  edit code, run validation, use SSH, mutate Git, run SQL, call JDBC
-  connectors, run Terminal commands, emit/persist audit events, or execute
-  broad widget capability tools.
+  artifacts, launch Agent Executor, auto-dispatch Queue items, create Queue
+  tasks automatically, start Queue Autorun, run validation, use SSH, mutate
+  Git, run SQL, call JDBC connectors, run Terminal commands, emit/persist audit
+  events, or execute broad widget capability tools. Coordinator Direct Mode may
+  let Codex read files, write code, and run commands inside the explicit
+  operator-provided working directory, but Hobit still performs no automatic
+  commit, push, reset, clean, stash, or Queue/Executor handoff.
 
 ### Database / JDBC
 

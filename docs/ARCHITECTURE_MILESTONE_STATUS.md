@@ -75,6 +75,13 @@ behavior, or Coordinator context wiring.
   selected Skill's title, when to use, prerequisites, steps, validation, risks,
   tags, and review status, and it is sent to the provider only if the operator
   presses Send.
+- Coordinator Direct Mode v0 exists as a local desktop foreground Codex Direct
+  Work path owned by Coordinator Chat. It is off by default, uses the current
+  composer message only after Start Direct Work, defaults its working directory
+  input to `~`, resolves `~` to the current user's home directory in the
+  Tauri/backend path before launch, and shows visible status, recent logs,
+  Stop/cancel state when available, and final result summary in Coordinator.
+  The operator can replace `~` with a project or repo folder.
 
 ## Still Type-Only Or Contract-Only
 
@@ -118,7 +125,11 @@ Skill search, Context Packs, Evidence, or hidden provider prompt injection.
 
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is
-the runtime owner for run detail, logs, final responses, and history.
+the async/background runtime owner for queued run detail, logs, final
+responses, and history. Coordinator Direct Mode is a foreground Coordinator
+run path and does not create Queue tasks, start Queue Autorun, require an
+Agent Executor widget, change Executor repo-root/task configuration behavior,
+or auto-commit, push, reset, clean, or stash Git changes.
 
 Artifacts, Evidence, Knowledge, Skills, Context Packs, audit events,
 capability actions, and approvals are separate concepts. A Skill record
@@ -134,6 +145,7 @@ sent to a provider.
 - Context Pack provider wiring;
 - hidden prompt augmentation;
 - Coordinator hidden context access;
+- hidden Coordinator Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;
 - audit emission or persistence;
 - approval workflow persistence;
@@ -142,6 +154,8 @@ sent to a provider.
 - server runtime or Postgres migration;
 - backend scheduler, durable Queue runner, reconnect/resume, server worker, or
   hidden/unarmed auto-dispatch.
+- Coordinator Direct Mode triggered Queue Autorun, Queue task creation, Agent
+  Executor launch, server runtime, RBAC, or automatic Git mutation.
 
 ## Recommended Next Roadmap
 

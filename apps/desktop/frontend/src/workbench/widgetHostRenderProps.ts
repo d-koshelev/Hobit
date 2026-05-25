@@ -89,7 +89,7 @@ export function widgetHostRenderProps({
     onAttachToCodexDirectWorkStream: isAgentExecutor
       ? widgetActions.attachToCodexDirectWorkStream
       : undefined,
-    onCancelCodexDirectWorkRun: isAgentExecutor
+    onCancelCodexDirectWorkRun: isAgentExecutor || isInteractiveAgent
       ? widgetActions.cancelCodexDirectWorkRun
       : undefined,
     onForceKillCodexDirectWorkRun: isAgentExecutor
@@ -219,7 +219,7 @@ export function widgetHostRenderProps({
     onGetAgentQueueRunnerSnapshot: isAgentQueue
       ? widgetActions.getAgentQueueRunnerSnapshot
       : undefined,
-    onStartCodexDirectWorkStream: isAgentExecutor
+    onStartCodexDirectWorkStream: isAgentExecutor || isInteractiveAgent
       ? widgetActions.startCodexDirectWorkStream
       : undefined,
     onUpdateAgentQueueTask: isAgentQueue

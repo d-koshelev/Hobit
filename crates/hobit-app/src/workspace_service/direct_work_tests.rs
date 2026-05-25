@@ -99,6 +99,48 @@ fn codex_direct_work_for_valid_widget_creates_run_logs_result_and_response() {
 }
 
 #[test]
+fn codex_direct_work_for_coordinator_widget_creates_run_without_queue_or_git_mutation() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let summary = service
+        .run_codex_direct_work_with_runner(
+            direct_work_input(
+                &workspace_id,
+                &workbench_id,
+                &widget_id,
+                current_repo_root(),
+                "Implement directly from Coordinator.",
+                "workspace_write",
+                "never",
+            ),
+            |request| completed_output(&request),
+        )
+        .expect("run coordinator direct work")
+        .expect("coordinator direct work summary");
+    let logs = service
+        .list_widget_logs(&workspace_id, &workbench_id, &widget_id, 20)
+        .expect("list logs")
+        .expect("widget logs");
+
+    assert_eq!(summary.status, "completed");
+    assert_eq!(summary.mode, "direct_work");
+    assert!(summary.no_auto_commit);
+    assert!(summary.no_auto_push);
+    assert!(!summary.git_mutations_performed_by_hobit);
+    assert_eq!(
+        widget_log_messages(&logs),
+        vec![
+            "Widget added",
+            "Direct Work requested",
+            "Codex process starting",
+            "Codex process completed",
+            "No commit/push performed",
+        ]
+    );
+}
+
+#[test]
 fn codex_direct_work_rejects_non_allowed_widget_without_run_log_or_result() {
     let service = initialized_service();
     let workspace = service
@@ -429,6 +471,30 @@ fn add_direct_work_widget(service: &WorkspaceService) -> (String, String, String
             "core",
         )
         .expect("add agent monitoring widget")
+        .expect("state after add");
+    let widget_id = state.widget_instances[0].id.clone();
+
+    (workspace.id, workbench_id, widget_id)
+}
+
+fn add_coordinator_widget(service: &WorkspaceService) -> (String, String, String) {
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id")
+        .to_owned();
+    let state = service
+        .add_widget_instance_to_workbench(
+            &workspace.id,
+            &workbench_id,
+            COORDINATOR_CHAT_WIDGET_DEFINITION_ID,
+            "Coordinator Chat",
+            "core",
+        )
+        .expect("add coordinator widget")
         .expect("state after add");
     let widget_id = state.widget_instances[0].id.clone();
 

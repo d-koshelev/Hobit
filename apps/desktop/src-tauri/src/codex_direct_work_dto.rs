@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use hobit_app::{
     CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary,
@@ -164,7 +164,7 @@ impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
             workbench_id: request.workbench_id,
             widget_instance_id: request.widget_instance_id,
             codex_executable: request.codex_executable,
-            repo_root: PathBuf::from(request.repo_root),
+            repo_root: resolve_direct_work_path(&request.repo_root),
             operator_prompt: request.operator_prompt,
             sandbox: request.sandbox,
             approval_policy: request.approval_policy,
@@ -182,7 +182,7 @@ impl From<StartCodexDirectWorkStreamRequest> for RunCodexDirectWorkInput {
             workbench_id: request.workbench_id,
             widget_instance_id: request.widget_instance_id,
             codex_executable: request.codex_executable,
-            repo_root: PathBuf::from(request.repo_root),
+            repo_root: resolve_direct_work_path(&request.repo_root),
             operator_prompt: request.operator_prompt,
             sandbox: request.sandbox,
             approval_policy: request.approval_policy,
@@ -191,6 +191,48 @@ impl From<StartCodexDirectWorkStreamRequest> for RunCodexDirectWorkInput {
             stderr_cap_bytes: request.stderr_cap_bytes,
         }
     }
+}
+
+pub(crate) fn resolve_direct_work_path(path: &str) -> PathBuf {
+    resolve_direct_work_path_with_home(path, current_user_home_dir())
+}
+
+pub(crate) fn resolve_direct_work_path_with_home(path: &str, home_dir: Option<PathBuf>) -> PathBuf {
+    if path == "~" {
+        return home_dir.unwrap_or_else(|| PathBuf::from(path));
+    }
+
+    let Some(rest) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) else {
+        return PathBuf::from(path);
+    };
+
+    match home_dir {
+        Some(home_dir) => home_dir.join(Path::new(rest)),
+        None => PathBuf::from(path),
+    }
+}
+
+fn current_user_home_dir() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            let drive = std::env::var_os("HOMEDRIVE")?;
+            let path = std::env::var_os("HOMEPATH")?;
+            if drive.is_empty() || path.is_empty() {
+                return None;
+            }
+            Some(PathBuf::from(format!(
+                "{}{}",
+                drive.to_string_lossy(),
+                path.to_string_lossy()
+            )))
+        })
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        })
 }
 
 impl From<RunDirectWorkValidationRequest> for RunDirectWorkValidationInput {

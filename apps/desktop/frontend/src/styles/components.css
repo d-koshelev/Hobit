@@ -992,6 +992,95 @@
   margin-top: var(--space-xs);
 }
 
+.interactive-agent-direct-mode {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-widget-surface-raised) 78%, transparent);
+  padding: var(--space-sm);
+}
+
+.interactive-agent-direct-mode-header,
+.interactive-agent-direct-mode-controls,
+.interactive-agent-direct-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.interactive-agent-direct-mode-header {
+  justify-content: space-between;
+}
+
+.interactive-agent-direct-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 760;
+  line-height: var(--line-tight);
+}
+
+.interactive-agent-direct-mode-body,
+.interactive-agent-direct-mode-field,
+.interactive-agent-direct-mode-status {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.interactive-agent-direct-mode-controls {
+  align-items: flex-end;
+}
+
+.interactive-agent-direct-mode-field {
+  flex: 1 1 260px;
+}
+
+.interactive-agent-direct-mode-actions {
+  flex: 0 0 auto;
+}
+
+.interactive-agent-direct-mode-error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.interactive-agent-direct-mode-log {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.interactive-agent-direct-mode-result {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.interactive-agent-direct-mode-result pre {
+  max-height: 150px;
+  margin: 0;
+  overflow: auto;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  white-space: pre-wrap;
+}
+
 .interactive-agent-message-list {
   align-content: start;
   flex: 1;

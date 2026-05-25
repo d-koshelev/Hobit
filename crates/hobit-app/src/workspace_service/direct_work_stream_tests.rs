@@ -63,6 +63,39 @@ fn codex_direct_work_stream_start_creates_running_run_and_initial_logs() {
 }
 
 #[test]
+fn codex_direct_work_stream_start_allows_coordinator_widget_owner() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+
+    let start = service
+        .start_codex_direct_work_stream(direct_work_input(
+            &workspace_id,
+            &workbench_id,
+            &widget_id,
+            current_repo_root(),
+            "Stream Codex from Coordinator.",
+            "workspace_write",
+            "never",
+        ))
+        .expect("start coordinator direct work stream")
+        .expect("stream start summary");
+    let logs = service
+        .list_widget_logs(&workspace_id, &workbench_id, &widget_id, 20)
+        .expect("list logs")
+        .expect("widget logs");
+
+    assert_eq!(start.status, "started");
+    assert_eq!(
+        widget_log_messages(&logs),
+        vec![
+            "Widget added",
+            "Direct Work stream requested",
+            "Codex process starting",
+        ]
+    );
+}
+
+#[test]
 fn codex_direct_work_stream_start_rejects_non_allowed_widget_without_leaks() {
     let service = initialized_service();
     let workspace = service
@@ -467,6 +500,30 @@ fn add_direct_work_widget(service: &WorkspaceService) -> (String, String, String
             "core",
         )
         .expect("add agent monitoring widget")
+        .expect("state after add");
+    let widget_id = state.widget_instances[0].id.clone();
+
+    (workspace.id, workbench_id, widget_id)
+}
+
+fn add_coordinator_widget(service: &WorkspaceService) -> (String, String, String) {
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id")
+        .to_owned();
+    let state = service
+        .add_widget_instance_to_workbench(
+            &workspace.id,
+            &workbench_id,
+            COORDINATOR_CHAT_WIDGET_DEFINITION_ID,
+            "Coordinator Chat",
+            "core",
+        )
+        .expect("add coordinator widget")
         .expect("state after add");
     let widget_id = state.widget_instances[0].id.clone();
 

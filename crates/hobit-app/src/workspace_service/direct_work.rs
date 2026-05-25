@@ -17,7 +17,8 @@ use super::{
     runs::widget_run_status_value,
     validation::{required_input, validate_widget_ownership, validate_widget_run_ownership},
     CodexDirectWorkRunSummary, RunCodexDirectWorkInput, WorkspaceService,
-    AGENT_RUN_WIDGET_DEFINITION_ID, WIDGET_LOG_INFO_LEVEL, WIDGET_RUN_STARTED_STATUS,
+    AGENT_RUN_WIDGET_DEFINITION_ID, COORDINATOR_CHAT_WIDGET_DEFINITION_ID, WIDGET_LOG_INFO_LEVEL,
+    WIDGET_RUN_STARTED_STATUS,
 };
 
 pub(super) const CODEX_DIRECT_WORK_COMMAND_KIND: &str = "codex_direct_work";
@@ -289,6 +290,7 @@ fn parse_direct_work_approval_policy(
 
 pub(super) fn can_initiate_direct_work(definition_id: &str) -> bool {
     definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
+        || definition_id == COORDINATOR_CHAT_WIDGET_DEFINITION_ID
 }
 
 pub(super) fn append_direct_work_log(

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
 import type {
+  DirectWorkStreamEvent,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
 } from "../workspace/types";
@@ -35,6 +36,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
   it("renders suggested prompts and compact safety badges in the empty state", () => {
     renderWidget();
 
+    expect(document.body.textContent).toContain("Direct Mode");
+    expect(document.body.textContent).toContain("idle");
+    expect(document.body.textContent).not.toContain("Working directory");
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break into Queue tasks");
     expect(document.body.textContent).toContain("Draft tasks for this goal");
@@ -67,6 +71,142 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(
       document.querySelector(".interactive-agent-empty")?.textContent,
     ).not.toContain("Workspace");
+  });
+
+  it("shows Direct Mode off by default with home as the default working directory when enabled", async () => {
+    renderWidget();
+
+    expect(checkboxWithLabel("Direct Mode")?.checked).toBe(false);
+
+    await toggleDirectMode();
+
+    expect(document.body.textContent).toContain("Working directory");
+    expect(textInputValue()).toBe("~");
+    expect(document.body.textContent).toContain(
+      "Default ~ resolves in the desktop backend to the current user home before Codex starts.",
+    );
+  });
+
+  it("message send still behaves like chat when Direct Mode is off", async () => {
+    const startDirectWork = vi.fn();
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await sendMessage("Make a plan for visible work");
+
+    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Coordinator plan");
+  });
+
+  it("requires a working directory before starting Direct Mode", async () => {
+    const startDirectWork = vi.fn();
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextInputValue("");
+    await setTextareaValue("Implement a focused change.");
+    await clickButton("Start Direct Work");
+
+    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Coordinator Direct Mode requires a working directory.",
+    );
+    expect(document.body.textContent).toContain("failed");
+  });
+
+  it("starts Coordinator Direct Mode from the composer without creating Queue work or Autorun", async () => {
+    const createQueueTask = vi.fn();
+    const startQueueAutorun = vi.fn();
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_1" }));
+        onEvent(
+          directWorkEvent({
+            eventKind: "final_message",
+            isFinal: false,
+            runId: "run_1",
+            text: "Final Coordinator result.",
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId: "run_1",
+          }),
+        );
+        return {
+          runId: "run_1",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onCreateAgentQueueTask: createQueueTask,
+      onStartAgentQueueRunnerSession: startQueueAutorun,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await toggleDirectMode();
+    await setTextareaValue("Implement this directly.");
+    await clickButton("Start Direct Work");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(startDirectWork.mock.calls[0][0]).toBe("coordinator_widget");
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      approvalPolicy: "never",
+      codexExecutable: "codex",
+      operatorPrompt: "Implement this directly.",
+      repoRoot: "~",
+      sandbox: "workspace_write",
+    });
+    expect(createQueueTask).not.toHaveBeenCalled();
+    expect(startQueueAutorun).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("completed");
+    expect(document.body.textContent).toContain("Final Coordinator result.");
+  });
+
+  it("Stop button calls the existing Direct Work cancellation path", async () => {
+    const cancelDirectWork = vi.fn(async () => ({
+      cancellationRequested: true,
+      message: "Cancellation requested.",
+      runId: "run_stop",
+      status: "cancellation_requested",
+    }));
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_stop" }));
+        return {
+          runId: "run_stop",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onCancelCodexDirectWorkRun: cancelDirectWork,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run until stopped.");
+    await clickButton("Start Direct Work");
+    await clickButton("Stop");
+
+    expect(cancelDirectWork).toHaveBeenCalledWith(
+      "coordinator_widget",
+      "run_stop",
+    );
+    expect(document.body.textContent).toContain("Cancellation requested.");
   });
 
   it("keeps mock/local provider debug text out of the normal assistant body", async () => {
@@ -869,6 +1009,14 @@ function setNativeValue(field: HTMLTextAreaElement, value: string) {
   descriptor?.set?.call(field, value);
 }
 
+function setNativeInputValue(field: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
+}
+
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
@@ -879,6 +1027,46 @@ function buttonsWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).filter(
     (button) => button.textContent === text,
   );
+}
+
+function checkboxWithLabel(text: string) {
+  return Array.from(document.querySelectorAll("label")).find((label) =>
+    label.textContent?.includes(text),
+  )?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+}
+
+async function toggleDirectMode() {
+  const checkbox = checkboxWithLabel("Direct Mode");
+  if (!checkbox) {
+    throw new Error("Direct Mode checkbox not found.");
+  }
+
+  await act(async () => {
+    checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+function textInput() {
+  const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+  if (!input) {
+    throw new Error("Text input not found.");
+  }
+  return input;
+}
+
+function textInputValue() {
+  return textInput().value;
+}
+
+async function setTextInputValue(value: string) {
+  const input = textInput();
+
+  await act(async () => {
+    setNativeInputValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 async function clickButton(text: string) {
@@ -962,5 +1150,29 @@ function attachedContextRequest(overrides: {
     id: 1,
     sourceLabel: overrides.sourceLabel,
     targetCoordinatorWidgetInstanceId: "coordinator_widget",
+  };
+}
+
+function directWorkEvent(
+  overrides: Partial<DirectWorkStreamEvent>,
+): DirectWorkStreamEvent {
+  return {
+    elapsedMs: 0,
+    errorMessage: null,
+    eventKind: "started",
+    exitCode: null,
+    failedStage: null,
+    finalStatus: null,
+    isFinal: false,
+    line: null,
+    parsedCodexEventType: null,
+    runId: "run_1",
+    status: null,
+    stderrPreview: null,
+    text: null,
+    widgetInstanceId: "coordinator_widget",
+    workbenchId: "workbench_1",
+    workspaceId: "workspace_1",
+    ...overrides,
   };
 }
