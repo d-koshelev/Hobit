@@ -72,7 +72,7 @@ export function WorkbenchShell({
         );
       }
     } catch (error) {
-      console.error("Failed to add Coordinator workspace widgets.", error);
+      console.error("Failed to add Workspace Agent workspace widgets.", error);
     }
   }
 

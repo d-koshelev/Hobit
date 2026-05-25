@@ -3,7 +3,7 @@
 ## Purpose
 
 This checklist prepares a manual MVP acceptance walkthrough for the current
-Coordinator-centered Hobit flow.
+Workspace Agent Hobit flow.
 
 It is a validation checklist only. It does not add product behavior, backend
 behavior, Tauri commands, DTOs, schema/storage changes, Queue Autorun behavior,
@@ -16,12 +16,14 @@ surface checks, see `scripts/hobit/DESKTOP_SMOKE_CHECKLIST.md`. For the
 Queue-specific readiness checkpoint, see
 `docs/AGENT_QUEUE_DESKTOP_MVP_READINESS.md`.
 
-The target architecture treats Coordinator as the primary foreground AI agent
-for Workspace work through controlled capabilities. This walkthrough verifies
-only the current MVP subset: Coordinator Chat planning/review, visible
+The target architecture treats Workspace Agent as the foreground interactive AI
+agent widget for Workspace work through controlled capabilities. Multiple
+Workspace Agent widgets can exist in one Workspace, each with independent
+context/thread/working-directory state. This walkthrough verifies only the
+current MVP subset: Workspace Agent planning/review, visible
 attachments, Skill attach, Queue/Executor metadata and preview attach, pasted
 result review, and explicit Queue/Executor async execution. It must not be
-read as proof that direct Coordinator filesystem, command, SSH, JDBC, Git, or
+read as proof that direct Workspace Agent filesystem, command, SSH, JDBC, Git, or
 provider tool execution exists.
 
 ## Result Legend
@@ -38,7 +40,7 @@ provider tool execution exists.
   `scripts/hobit/desktop-smoke-readiness.ps1 -Reset`, then launch with the
   printed `HOBIT_DATABASE_PATH`.
 - [ ] Create or open a disposable Workspace.
-- [ ] Add or open Coordinator Chat.
+- [ ] Add or open Workspace Agent.
 - [ ] Add or open Skill Library.
 - [ ] Add or open Agent Queue.
 - [ ] Add or open Agent Executor.
@@ -48,9 +50,9 @@ Notes:
 ```text
 ```
 
-## B. Coordinator Planning
+## B. Workspace Agent Planning
 
-- [ ] In Coordinator Chat, use the suggested planning prompt or type an
+- [ ] In Workspace Agent, use the suggested planning prompt or type an
   explicit planning request.
 - [ ] Verify a Plan card appears from visible chat text.
 - [ ] Verify Queue task draft cards appear when the planning prompt calls for
@@ -71,9 +73,9 @@ Notes:
   validation, risks, tags, and review status.
 - [ ] Save the Skill.
 - [ ] Edit the selected Skill but leave at least one change unsaved.
-- [ ] Attach the saved Skill to Coordinator Chat.
+- [ ] Attach the saved Skill to Workspace Agent.
 - [ ] Verify unsaved edits are not attached.
-- [ ] Verify visible attached Skill context appears in the Coordinator
+- [ ] Verify visible attached Skill context appears in the Workspace Agent
   composer.
 - [ ] Verify attached context is editable or removable before Send.
 - [ ] Verify attaching a Skill does not automatically Send.
@@ -85,7 +87,7 @@ Notes:
 
 ## D. Queue Execution
 
-- [ ] Create a Queue task from a Coordinator draft through the explicit
+- [ ] Create a Queue task from a Workspace Agent draft through the explicit
   `Create Queue task` action.
 - [ ] Verify the task appears in Agent Queue.
 - [ ] Assign the task to a visible Agent Executor slot.
@@ -96,7 +98,7 @@ Notes:
 - [ ] Verify Queue execution is operator-triggered and visible.
 - [ ] Verify Agent Executor owns live execution state, raw run details, logs,
   final response, stop/cancel controls, and run history.
-- [ ] Verify Queue does not silently dispatch tasks from Coordinator.
+- [ ] Verify Queue does not silently dispatch tasks from Workspace Agent.
 
 Notes:
 
@@ -109,13 +111,13 @@ Notes:
 - [ ] Verify Queue run history shows only safe metadata: link/run refs, source,
   status, timestamps, and review status.
 - [ ] Open or focus the Agent Executor run detail from the safe Queue link.
-- [ ] Attach safe run metadata to Coordinator Chat.
+- [ ] Attach safe run metadata to Workspace Agent.
 - [ ] Attach a selected Agent Executor excerpt or visible preview section to
-  Coordinator Chat.
-- [ ] Verify attached run context is visible in the Coordinator composer.
+  Workspace Agent.
+- [ ] Verify attached run context is visible in the Workspace Agent composer.
 - [ ] Verify attached run context is editable or removable before Send.
-- [ ] Paste or send visible result text to Coordinator Chat.
-- [ ] Verify Coordinator can review only the pasted or attached visible result
+- [ ] Paste or send visible result text to Workspace Agent.
+- [ ] Verify Workspace Agent can review only the pasted or attached visible result
   text.
 
 Notes:
@@ -125,10 +127,10 @@ Notes:
 
 ## F. Safety Assertions
 
-- [ ] Coordinator does not auto-read Skills.
-- [ ] Coordinator does not auto-read Queue history.
-- [ ] Coordinator does not auto-read Agent Executor logs.
-- [ ] Coordinator provider requests keep `allowed_tools: []`.
+- [ ] Workspace Agent does not auto-read Skills.
+- [ ] Workspace Agent does not auto-read Queue history.
+- [ ] Workspace Agent does not auto-read Agent Executor logs.
+- [ ] Workspace Agent provider requests keep `allowed_tools: []`.
 - [ ] No hidden Context Pack context is sent.
 - [ ] No hidden Artifact, Knowledge, Notes, Git, JDBC, Terminal, or filesystem
   context is sent.
@@ -138,17 +140,17 @@ Notes:
   editable/removable before Send.
 - [ ] Queue and Executor attachments include only safe visible metadata,
   selected excerpts, or explicitly attached visible preview sections.
-- [ ] Coordinator does not launch Agent Executor.
-- [ ] Coordinator does not assign Queue tasks.
-- [ ] Coordinator does not start Queue tasks.
-- [ ] Coordinator does not arm or start Queue Autorun.
+- [ ] Workspace Agent does not launch Agent Executor.
+- [ ] Workspace Agent does not assign Queue tasks.
+- [ ] Workspace Agent does not start Queue tasks.
+- [ ] Workspace Agent does not arm or start Queue Autorun.
 - [ ] Queue Autorun starts only from explicit visible Queue controls.
 - [ ] No tool execution, Terminal control, Git mutation, JDBC execution, file
   mutation, server runtime, or RBAC behavior is presented as implemented.
 - [ ] Executor is presented as the async/background worker for Queue tasks, not
   as the only agent that can ever do Workspace work.
 - [ ] Widgets are presented as current UI surfaces and future capability
-  providers, without implying current hidden Coordinator capability access.
+  providers, without implying current hidden Workspace Agent capability access.
 
 Notes:
 
@@ -183,7 +185,7 @@ Desktop launch:
 WebView interaction:
 
 A. Setup: [ ] pass [ ] partial [ ] fail [ ] not attempted
-B. Coordinator planning: [ ] pass [ ] partial [ ] fail [ ] not attempted
+B. Workspace Agent planning: [ ] pass [ ] partial [ ] fail [ ] not attempted
 C. Skill Library support: [ ] pass [ ] partial [ ] fail [ ] not attempted
 D. Queue execution: [ ] pass [ ] partial [ ] fail [ ] not attempted
 E. Run review: [ ] pass [ ] partial [ ] fail [ ] not attempted

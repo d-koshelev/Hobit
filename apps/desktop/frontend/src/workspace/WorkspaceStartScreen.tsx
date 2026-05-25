@@ -62,7 +62,7 @@ export function WorkspaceStartScreen({
                 New Workspace
               </h1>
               <p className="workspace-start-text">
-                Name a workspace and start with Coordinator Chat and Notes.
+                Name a workspace and start with Workspace Agent and Notes.
                 Add Queue, Executor, Git, Terminal, or JDBC only when this work
                 needs them.
               </p>
@@ -109,12 +109,12 @@ export function WorkspaceStartScreen({
                         <span className="preset-choice-title">
                           {isEmptyPreset
                             ? "Start empty"
-                            : "Start with Coordinator"}
+                            : "Start with Workspace Agent"}
                         </span>
                         <span className="preset-choice-text">
                           {isEmptyPreset
                             ? "Advanced manual mode with no default widgets. Use the Widget Catalog after opening."
-                            : "Creates Coordinator Chat and Notes as the default MVP workspace."}
+                            : "Creates Workspace Agent and Notes as the default MVP workspace."}
                         </span>
                       </span>
                       <Badge variant={isSelected ? "success" : "neutral"}>

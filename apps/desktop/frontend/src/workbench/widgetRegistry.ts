@@ -44,11 +44,11 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-    title: "Coordinator Chat",
+    title: "Workspace Agent",
     category: "core",
     description:
-      "Primary operator chat for planning and future widget-capability coordination. Local placeholder only.",
-    defaultTitle: "Coordinator Chat",
+      "Foreground interactive AI agent for planning, task drafting, and result review.",
+    defaultTitle: "Workspace Agent",
     defaultConfig: {},
     componentKey: INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   },

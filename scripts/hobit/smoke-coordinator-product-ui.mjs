@@ -108,8 +108,8 @@ Options:
   --headed                                                       Run the browser visibly.
   --help                                                         Show this help.
 
-The smoke starts Vite, opens the committed Coordinator smoke page through Chrome
-DevTools Protocol, and clicks the real Coordinator proposal-card controls. It
+The smoke starts Vite, opens the committed Workspace Agent smoke page through Chrome
+DevTools Protocol, and clicks the real Workspace Agent proposal-card controls. It
 uses mocked frontend actions shaped like backend-validated provider responses;
 the configured HTTP provider path is covered by smoke-coordinator-provider.mjs.`);
 }
@@ -130,7 +130,7 @@ async function runScenario({ browserPort, scenario, url }) {
     });
 
     await waitFor(cdp, "Boolean(window.__HOBIT_COORDINATOR_PRODUCT_SMOKE__)");
-    await waitForText(cdp, "Coordinator provider product smoke");
+    await waitForText(cdp, "Workspace Agent provider product smoke");
     await setClipboardStub(cdp);
 
     if (scenario === "mvp-loop") {
@@ -173,11 +173,11 @@ async function runMvpLoopScenario(cdp) {
   await setFieldByLabel(
     cdp,
     "Message",
-    "Make a plan from the visible chat only. Goal: harden the Coordinator Queue Executor MVP loop",
+    "Make a plan from the visible chat only. Goal: harden the Workspace Agent Queue Executor MVP loop",
   );
   await clickButton(cdp, "Send");
   await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 1);
-  await waitForText(cdp, "Coordinator plan");
+  await waitForText(cdp, "Workspace Agent plan");
   await waitForText(cdp, "Plan draft");
   await waitForText(cdp, "No execution");
 
@@ -186,14 +186,14 @@ async function runMvpLoopScenario(cdp) {
     "Message",
     [
       "Break this into Queue tasks from visible text only.",
-      "- Audit the Coordinator proposal flow",
+      "- Audit the Workspace Agent proposal flow",
       "- Verify Queue Executor context attach",
     ].join("\n"),
   );
   await clickButton(cdp, "Send");
   await waitForSnapshot(cdp, (snapshot) => snapshot.providerCallCount === 2);
   await waitForText(cdp, "Draft Queue task");
-  await waitForText(cdp, "Audit the Coordinator proposal flow");
+  await waitForText(cdp, "Audit the Workspace Agent proposal flow");
   await waitForText(cdp, "Verify Queue Executor context attach");
   await waitForText(cdp, "Prompt preview");
   await waitForText(cdp, "Priority");
@@ -201,7 +201,7 @@ async function runMvpLoopScenario(cdp) {
   await waitForText(cdp, "draft/proposed");
   await assertButtonMissingInCard(
     cdp,
-    "Audit the Coordinator proposal flow",
+    "Audit the Workspace Agent proposal flow",
     "Create Queue task",
   );
   assertEqual(
@@ -212,7 +212,7 @@ async function runMvpLoopScenario(cdp) {
   await clickButton(cdp, "Approve all drafts");
   await waitForEnabledButtonInCard(
     cdp,
-    "Audit the Coordinator proposal flow",
+    "Audit the Workspace Agent proposal flow",
     "Create Queue task",
   );
   assertEqual(
@@ -222,7 +222,7 @@ async function runMvpLoopScenario(cdp) {
   );
   await clickButtonInCard(
     cdp,
-    "Audit the Coordinator proposal flow",
+    "Audit the Workspace Agent proposal flow",
     "Create Queue task",
   );
   await waitForSnapshot(
@@ -239,7 +239,7 @@ async function runMvpLoopScenario(cdp) {
 
   await waitForText(cdp, "Latest run");
   await waitForText(cdp, "Run history");
-  await clickQueueGroupButton(cdp, "Latest run", "Attach to Coordinator");
+  await clickQueueGroupButton(cdp, "Latest run", "Attach to Workspace Agent");
   await waitForCoordinatorText(cdp, "Visible attached context");
   await waitForCoordinatorText(cdp, "Queue latest run");
   await waitForCoordinatorText(cdp, "Queue run metadata");
@@ -263,7 +263,7 @@ async function runMvpLoopScenario(cdp) {
   await clickQueueGroupButton(cdp, "Latest run", "Open Executor");
   await waitForText(cdp, "executor-only final response body");
   const beforeExecutorAttach = await smokeSnapshot(cdp);
-  await clickExecutorDetailButton(cdp, "Attach to Coordinator");
+  await clickExecutorDetailButton(cdp, "Attach to Workspace Agent");
   await waitForCoordinatorText(cdp, "Executor run detail");
   await waitForCoordinatorText(cdp, "Executor run metadata");
   await waitForCoordinatorText(cdp, "Result status: completed");
@@ -402,7 +402,7 @@ function promptForScenario(scenario) {
     return "prepare sql for this visible provider smoke request";
   }
   if (scenario === "mvp-loop") {
-    return "Make a plan from the visible chat only. Goal: harden the Coordinator Queue Executor MVP loop";
+    return "Make a plan from the visible chat only. Goal: harden the Workspace Agent Queue Executor MVP loop";
   }
   return "ask configured provider to surface a visible error";
 }
@@ -751,7 +751,7 @@ async function waitForEnabledButtonInCard(cdp, cardTitle, buttonText) {
 
 function cardButtonExpression(cardTitle, buttonText, mode) {
   return `(() => {
-    const card = [...document.querySelectorAll("[aria-label^='Coordinator action proposal:']")]
+    const card = [...document.querySelectorAll("[aria-label^='Workspace Agent action proposal:']")]
       .find((candidate) => candidate.textContent.includes(${JSON.stringify(cardTitle)}));
     if (!card) {
       ${mode === "exists" ? "return false;" : `throw new Error("Proposal card not found: ${escapeForJs(cardTitle)}");`}
@@ -776,12 +776,12 @@ async function waitForText(cdp, text) {
 async function waitForCoordinatorText(cdp, text) {
   await waitFor(
     cdp,
-    `widgetTextByTitle("Coordinator Chat").includes(${JSON.stringify(text)})`,
+    `widgetTextByTitle("Workspace Agent").includes(${JSON.stringify(text)})`,
   );
 }
 
 async function assertCoordinatorExcludes(cdp, text) {
-  const coordinatorText = await widgetText(cdp, "Coordinator Chat");
+  const coordinatorText = await widgetText(cdp, "Workspace Agent");
   assert(
     !coordinatorText.includes(text),
     `Coordinator unexpectedly included text: ${text}`,

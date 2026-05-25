@@ -123,7 +123,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       forceKillCodexDirectWorkRun: this.unsupported,
       generateCoordinatorProviderResponse: async () => {
         this.coordinatorCallCount += 1;
-        throw new Error("Coordinator provider must not run during JDBC smoke.");
+        throw new Error("Workspace Agent provider must not run during JDBC smoke.");
       },
       getAgentExecutorDiffSummary: this.unsupported,
       getAgentExecutorRunDetail: this.unsupported,

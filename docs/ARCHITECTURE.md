@@ -27,15 +27,18 @@ and does not add runtime behavior.
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
-user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat,
-Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes. Coordinator Chat reuses the
-existing `interactive-agent` widget id/component for compatibility and is the
-current central chat-based operator work surface for planning, reasoning, task
-drafting, outcome review, visible attachment review, and deciding what should
-be promoted to Queue or sent through an Executor path. The target architecture
-treats Coordinator as the primary foreground AI agent for interactive
+user-facing widget set is Agent Executor, Agent Queue, Workspace Agent,
+Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes. Workspace Agent reuses the
+existing `interactive-agent` widget id/component for compatibility and is a
+foreground chat-based AI agent widget for planning, reasoning, task drafting,
+outcome review, visible attachment review, and deciding what should be
+promoted to Queue or sent through an Executor path. The target architecture
+treats Workspace Agent as the foreground AI agent surface for interactive
 Workspace work through controlled capabilities; chat is the interaction model,
-not the capability limit. Agent Executor reuses the existing `agent-run`
+not the capability limit. Multiple Workspace Agent widgets can exist in one
+Workspace, each with independent context, thread state, and working directory.
+Coordinator was the previous user-facing name for this surface and remains a
+legacy compatibility term. Agent Executor reuses the existing `agent-run`
 widget identity for persistence compatibility, shows each widget instance as a
 visible async/background execution slot for Queue/Executor work, owns run
 detail/logs/final responses, and keeps the current Codex CLI Direct Work
@@ -58,14 +61,14 @@ execution-support surface for promoted/larger work blocks backed by
 Workspace-scoped task storage/API, assignment API/UI, explicit assigned-task
 start, safe selected-task Executor run-link visibility, and an operator-armed
 desktop-local Queue Autorun preview. Queue is not the default destination for
-every Coordinator idea or small operator action and has no backend scheduler,
+every Workspace Agent idea or small operator action and has no backend scheduler,
 durable reconnect/resume, server worker, or hidden/unarmed auto-dispatch.
 Database / JDBC is a Preview connector
 metadata and mock read-only query surface backed by workspace-local JDBC
 connector metadata storage/API plus widget-owned SQL validation and bounded
 mock execution APIs; there is no credential storage, real database query
 execution, production Java sidecar runtime, `EXPLAIN`, AI SQL assistance, or
-Coordinator JDBC tool runtime. A backend adapter boundary now separates the
+Workspace Agent JDBC tool runtime. A backend adapter boundary now separates the
 active `MockReadOnlyJdbcAdapter` from a future Java sidecar runtime; the
 sidecar adapter is opt-in/test-only and does not load credentials, drivers, or
 open database connections. A dependency-free Java sidecar scaffold exists under
@@ -77,10 +80,10 @@ remain mock-default. The loader surfaces safe status only and does not expose
 raw paths or credential values to frontend DTOs. A JDK-gated backend activation
 test can compile and run the Java sidecar `mock_read_only` protocol through
 explicit `JdbcRuntimeConfig`, and skips cleanly when a JDK is unavailable.
-Coordinator-centered product direction is represented today by Coordinator
-Chat as the central chat-based work surface, with frontend action proposal
+Workspace Agent product direction is represented today by Workspace Agent
+as a foreground chat-based work surface, with frontend action proposal
 cards, visible attachments, and a backend-owned provider response path for
-explicit chat sends. The broader target Coordinator model is a foreground
+explicit chat sends. The broader target Workspace Agent model is a foreground
 agent capable of approved Workspace reads, coding/code review, file edits,
 commands/validation, Terminal/SSH, Git, JDBC/database work, Notes, Skill
 Library/Knowledge, Queue, Executor, run-history, and future
@@ -103,7 +106,7 @@ action; it does not assign, dispatch, run, or hand the task to Agent Executor.
 An approved create-Note proposal can create a workspace-local Note through the
 existing Notes create API using only visible title, body, and pinned inputs. No
 hidden context access, hidden Notes reads, hidden widget reads, direct
-Coordinator filesystem read/write, command or SSH execution, JDBC capability
+Workspace Agent filesystem read/write, command or SSH execution, JDBC capability
 execution, Git mutation, unified permission/policy UI, provider tool mode,
 audit emission/persistence, or broad tool execution is implemented, and
 unsupported or unsafe provider drafts are
@@ -128,7 +131,7 @@ update or report it.
 
 `PRODUCT_POSITIONING.md` defines Hobit's core positioning as an
 operator-controlled AI Workbench for precise, fast, and efficient work with AI
-agents, with Coordinator as the central operator work surface. Future
+agents, with Workspace Agent as the foreground interactive agent surface. Future
 architecture must not drift toward a generic hidden automation or agent-runner
 system.
 
@@ -164,12 +167,12 @@ pending-retirement status for retained Agent Chat, Agent Monitoring, and
 proposal-era API paths. It does not define current preferred widget names,
 current widget behavior, future Coordinator architecture, or product roadmap.
 
-`COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` defines the updated product
-model: Coordinator is the primary foreground AI agent and central
-operator-facing work surface; widgets expose controlled Workspace
-capabilities; Agent Queue organizes promoted/larger async work blocks; Agent
-Executors run queued/background tasks and provide execution visibility; the
-operator controls context, autonomy, approvals, and acceptance.
+`COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` is the legacy-named active
+product-model contract: Workspace Agent is a foreground interactive AI agent
+widget; widgets expose controlled Workspace capabilities; Agent Queue
+organizes promoted/larger async work blocks; Agent Executors run
+queued/background tasks and provide execution visibility; the operator controls
+context, autonomy, approvals, and acceptance.
 
 `WIDGET_CAPABILITY_TOOL_CONTRACT.md` defines the product and technical boundary
 for those widget capabilities: capability descriptors, risk levels, autonomy
@@ -181,42 +184,41 @@ tools.
 `EVIDENCE_SOURCES_CONTRACT.md` defines the future trust layer for sources,
 captured evidence, AI interpretation, provenance, capping, redaction, and
 explicit AI-context approval. It is contract-only and does not implement
-frontend UI, backend or Tauri commands, storage/schema changes, Coordinator
+frontend UI, backend or Tauri commands, storage/schema changes, Workspace Agent
 runtime, AI provider integration, widget tool execution, or evidence capture.
 
 `JDBC_WIDGET_CONTRACT.md` defines the Database/JDBC Current Preview behavior
 and safety model: connector metadata boundaries, bounded mock/safe read-only
 SQL validation/execution, query limits, secret isolation, production-runtime
-deferrals, and Coordinator SQL execution boundaries. The current
+deferrals, and Workspace Agent SQL execution boundaries. The current
 implementation foundation adds workspace-local connector metadata storage/API,
 a Preview connector metadata UI, and a widget-owned mock/safe read-only SQL
 validation/execution path with bounded sample results; production database
-execution, credentials, production sidecar runtime, `EXPLAIN`, and Coordinator
+execution, credentials, production sidecar runtime, `EXPLAIN`, and Workspace Agent
 runtime remain Deferred.
 
-`AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model after
-the Coordinator-centered update: current Coordinator Chat handles the
-implemented conversation/planning/review subset, target Coordinator is the
-foreground Workspace agent, Agent Queue organizes promoted async tasks and
+`AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model:
+Workspace Agent handles the implemented conversation/planning/review subset as
+the foreground Workspace agent, Agent Queue organizes promoted async tasks and
 executor history, Agent Executor runs queued/background tasks and shows
 execution, and Runbook remains a deferred procedural surface.
 
-`AGENT_OPERATING_MODEL.md` defines the future coordinator/executor operating model for agent-assisted block work. It is a contract only; no automatic execution, Queue execution, response validation engine, or required Coordinator product surface is implemented yet.
+`AGENT_OPERATING_MODEL.md` defines the future agent/executor operating model for agent-assisted block work. It is a contract only; no automatic execution, Queue execution, response validation engine, or required Workspace Agent product surface is implemented yet.
 
 `AGENT_WORK_EFFICIENCY_CONTRACT.md` defines small focused blocks, execution budgets, validation profile plans, and stop/split rules for efficient agent work. It is docs-only and does not implement runtime behavior, UI, storage, Tauri commands, queue execution, or validation script behavior.
 
-`AI_INTEGRATION_READINESS_CONTRACT.md` defines the current Coordinator
+`AI_INTEGRATION_READINESS_CONTRACT.md` defines the current Workspace Agent
 provider/runtime readiness boundary: explicit visible context only,
 backend/runtime provider ownership, draft text and proposal output only,
 validated proposal cards, and `allowed_tools: []`. Older Agent Chat provider
-compatibility paths do not define the current Coordinator product surface.
+compatibility paths do not define the current Workspace Agent product surface.
 
 `DIRECT_MODE_AGENT_CONTRACT.md` defines the current Agent Executor path for small approved work. It keeps the model agent-agnostic, names Codex CLI as the first executor kind, and requires an explicit execution workspace path, prompt, sandbox/mode, visible run status, raw log/final response capture, changed-file review when the path is a Git repository, no hidden background execution, and no auto-commit or auto-push. Backend/tooling Codex CLI foundations now exist in `hobit-tools`: an availability/version probe for `codex --version` or `<explicit-program> --version`, a one-shot Direct Work runner that resolves the requested executable without shell invocation, builds `codex exec` with fixed argv for an explicit execution workspace path and operator prompt, captures stdout/stderr/final message, applies caps and timeout, and returns a structured result, plus a streaming `codex exec --json` runner that emits stdout/stderr/JSON/final events to a callback. The app/Tauri boundary exposes `run_codex_direct_work` for explicit Workspace, Workbench, owning `agent-run` widget instance, Codex executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps; the compatibility DTO/storage field remains `repo_root`. It persists widget run/log/result artifacts and stores no-auto-commit/no-auto-push safety flags. The app/Tauri boundary also exposes `start_codex_direct_work_stream`, which creates the run immediately, starts the streaming runner in the background, emits `direct-work://event` payloads, appends widget logs during the run, and stores the final widget result. Agent Queue can manually start an assigned task through that same stream path via explicit frontend controls and backend/API, and operator-armed Queue Autorun can start eligible assigned tasks through that path one at a time while Hobit remains open. No hidden/unarmed Agent Queue dispatch, scratch execution workspace support, Git mutation, auto-commit, auto-push, embedded PTY, or interactive Codex session is implemented yet.
 
 `DEMO_FLOW_CHECKLIST.md` defines the earlier manual pre-AI demo verification scope. It does not define the current user-facing widget set.
 
-`WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` defines the target Workspace-aware
-Coordinator Agent model for the foreground Coordinator, approved context
+`WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` is the legacy-named target
+Workspace-aware Workspace Agent contract for approved context
 reading, approved action modes, widget capability use, safety/action levels,
 and async delegation through Queue/Executor. It is contract-first and does not
 add current runtime behavior.
@@ -258,10 +260,10 @@ bounded by `CURRENT_WIDGET_SURFACE.md`.
 
 `INTERACTIVE_AGENT_WIDGET_CONTRACT.md` now remains compatibility context for
 the existing Interactive Agent widget id and local chat foundation. Near-term
-product work should reposition that surface as Coordinator Chat instead of
+product work should reposition that surface as Workspace Agent instead of
 adding a second separate chat concept.
 
-`RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Coordinator Chat, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.
+`RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Workspace Agent, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.
 
 `AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has an insertable Agent Executor surface backed by Codex Direct Work artifacts. Full frontend runtime log viewing, Terminal result monitoring, arbitrary widget result monitoring, overview summarizers, response validation, broader executor integration, and real agent runtime UI are not implemented yet.
 
@@ -342,8 +344,8 @@ The Empty Workbench shell intentionally renders no concrete widgets by default. 
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
 The current user-facing catalog exposes Ready templates for Agent Executor,
-Git, Terminal, and Notes, plus Preview templates for Coordinator Chat, Agent
-Queue, Database / JDBC, Skill Library, and Runbook. Coordinator Chat uses the current
+Git, Terminal, and Notes, plus Preview templates for Workspace Agent, Agent
+Queue, Database / JDBC, Skill Library, and Runbook. Workspace Agent uses the current
 `interactive-agent` compatibility/local-chat placeholder as the central
 operator work surface. Agent Executor reuses the existing `agent-run`
 definition id for persistence compatibility.
@@ -355,14 +357,14 @@ JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not
 shown in the current catalog or workbench surface.
 
 There is no general shell execution outside the explicit Terminal PTY and
-legacy one-shot fallback surfaces, script execution, executable Coordinator
-runtime, Workspace-aware Coordinator action runtime, executable proposal
+legacy one-shot fallback surfaces, script execution, executable Workspace Agent
+runtime, Workspace-aware agent action runtime, executable proposal
 behavior, Agent Queue scheduler/automatic dispatch/runtime, Terminal result
 monitoring, arbitrary widget result monitoring, Template Library runtime, template
 storage/editing/request generation/response validation, Git behavior beyond
 manual desktop-only status/diff review and selected-file local commit for an
 explicit transient repository root, real capability widget insertion beyond
-Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Agent Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
 Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
 mode behavior,
 persisted presence zones beyond current canvas/floating presentation, preset
@@ -457,7 +459,7 @@ results or sanitized validation/runtime errors; they do not execute SQL against
 external systems.
 
 The `generate_coordinator_provider_response` Tauri command is called only from
-Coordinator Chat after an explicit operator message. It validates
+Workspace Agent after an explicit operator message. It validates
 Workspace/Workbench/current `interactive-agent` widget ownership, builds a
 request from visible current-session chat messages and visible local proposal
 draft summaries only, sets `allowed_tools: []`, and uses a backend-selected
@@ -564,7 +566,7 @@ This milestone uses Tauri workspace commands in desktop mode and an in-memory
 frontend fallback in browser mode. It loads persisted Workbench summary state
 before entering the Workbench, but it does not implement runtime restoration,
 widget runtime reconstruction, real capability widget insertion beyond Agent
-Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
 Terminal, and Notes, or persisted browser fallback state.
 
 ## Current Frontend Widget Milestone
@@ -575,12 +577,12 @@ The Empty Workbench is rendered from preset data and new Workspaces currently st
 
 `WidgetHost` remains the mapping layer from persisted widget instances to React
 components. The current frontend registry contains Agent Executor, Agent Queue,
-Coordinator Chat through the existing `interactive-agent` renderer,
+Workspace Agent through the existing `interactive-agent` renderer,
 Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes renderers.
 
 The Widget Catalog has frontend-local template metadata for current surfaces.
 Ready templates are Agent Executor, Git, Terminal, and Notes. Preview templates
-are Agent Queue, Coordinator Chat, Database / JDBC, Skill Library, and Runbook. There is no
+are Agent Queue, Workspace Agent, Database / JDBC, Skill Library, and Runbook. There is no
 Planned section in the current user-facing catalog, no runtime widget loading,
 and no real capability widget insertion beyond those available
 templates/placeholders through the Tauri bridge yet.
@@ -599,18 +601,18 @@ Markdown renderer, Mermaid or diagram renderer, rendered block preview system,
 text formatting tool surface, autosave flow, folder/tag system, archive/delete
 UI, sync/import/export, or AI-in-Notes implementation.
 
-The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently Windows-only; non-Windows desktop live PTY creation returns an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Coordinator control, or Script Runner behavior.
+The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently Windows-only; non-Windows desktop live PTY creation returns an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or Script Runner behavior.
 
 The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It is the runtime execution slot for Direct Work and Queue-started assigned tasks. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it owns run detail, logs, final responses, history, and persisted widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
 
-The Agent Queue widget is a preview async task organization and execution-support surface for promoted/larger work blocks. It is not the default place for every Coordinator idea, small task, or quick operator action. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
+The Agent Queue widget is a preview async task organization and execution-support surface for promoted/larger work blocks. It is not the default place for every Workspace Agent idea, small task, or quick operator action. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
-Coordinator Chat is the central chat-based operator work surface using the
+Workspace Agent is a foreground chat-based agent work surface using the
 existing Interactive Agent compatibility component. It is where the operator
 plans, reasons, drafts tasks, reviews outcomes, and decides what should become
 Queue or Executor work. Its compatibility contract is defined in
 `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`. The current frontend shows
-deterministic local action proposal cards attached to the initial Coordinator
+deterministic local action proposal cards attached to the initial Workspace Agent
 message for safe preview types: create Agent Queue task, create Note, and
 prepare JDBC query suggestion text without execution. A local deterministic
 parser can also create those same proposal types from explicit operator chat
@@ -691,7 +693,7 @@ PTY process handles and session buffers are owned by desktop runtime state, not 
 streaming Codex Direct Work orchestration paths for an allowed `agent-run`
 widget owner, creating widget run/log/result records around the `hobit-tools`
 Codex runners outside storage transactions and emitting Tauri stream events for
-the streaming path. It includes a Coordinator Chat provider adapter foundation
+the streaming path. It includes a Workspace Agent provider adapter foundation
 for current `interactive-agent` widgets: request DTOs, visible-context
 validation, `allowed_tools: []`, response/proposal-draft normalization, safe
 draft validation, and no storage persistence. The desktop runtime supplies the
@@ -709,7 +711,7 @@ connect to real databases, or execute SQL against external systems. It does not
 restore runtime state, provide
 Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history,
 automatically dispatch tasks, approve/apply proposals, execute real JDBC
-queries, create scratch execution workspaces, make external Coordinator
+queries, create scratch execution workspaces, make external Workspace Agent
 provider network calls, or add automatic agent behavior.
 
 ## Workspace Model Boundary
@@ -722,9 +724,9 @@ Full runtime restore is not implemented yet. There is no event replay, widget
 runtime reconstruction, preset editor, real Dock behavior, widget
 Full/Compact/Indicator view mode behavior, persisted presence zone model, full
 drag/drop layout editor, real capability widget insertion beyond Agent
-Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
+Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
 Terminal, and Notes, Terminal tabs/splits/history, executable
-Coordinator runtime, automatic Agent Queue dispatch or real scheduler behavior
+Workspace Agent runtime, automatic Agent Queue dispatch or real scheduler behavior
 beyond explicit assigned-task starts, Template Library execution, Git behavior
 beyond manual status/diff review and selected-file local commit, or automatic
 agent runtime behavior.
@@ -745,10 +747,10 @@ behavior is Deferred unless explicitly scoped. Source text must remain the
 durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
-The current app has Agent Executor, Agent Queue, Coordinator Chat, Database /
+The current app has Agent Executor, Agent Queue, Workspace Agent, Database /
 JDBC, Skill Library, Runbook, Git, Terminal, and Notes widgets.
-Coordinator Chat is the current central chat-based operator work surface and
-compatibility foundation for the target foreground Coordinator Agent. It has
+Workspace Agent is the current foreground chat-based agent work surface and
+compatibility foundation for the target foreground Workspace Agent. It has
 local current-session chat state through the existing `interactive-agent`
 compatibility component, deterministic local proposal generation from explicit
 chat text, visible attachments, Skill attach, Queue/Executor result metadata
@@ -775,7 +777,7 @@ flow, AI-in-Notes behavior, Agent Queue automatic execution/response
 capture/validation, real external JDBC SQL execution, Template Library runtime,
 template storage/editing/request generation/response validation, Git behavior
 beyond status/diff review and selected-file local commit, or executable
-Coordinator runtime in the current repository.
+Workspace Agent runtime in the current repository.
 
 ## Intended Repository Layout
 
@@ -824,7 +826,7 @@ crates/
 The current repository state is documentation, repository hygiene, a root Rust
 workspace including the Tauri shell, core Rust domain/storage/application
 crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget
-Catalog with Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC,
+Catalog with Agent Executor, Agent Queue, Workspace Agent, Database / JDBC,
 Skill Library, Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,

@@ -15,13 +15,13 @@ export const DEFAULT_NOTES_HEIGHT = 672;
 
 export const coordinatorWorkspacePreset: WorkbenchPreset = {
   id: COORDINATOR_WORKSPACE_PRESET_ID,
-  title: "Coordinator Workspace",
-  description: "Coordinator Chat with Notes as the lightweight companion.",
+  title: "Workspace Agent Workspace",
+  description: "Workspace Agent with Notes as the lightweight companion.",
   widgets: [
     {
       id: "preset_coordinator_chat",
       definitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-      title: "Coordinator Chat",
+      title: "Workspace Agent",
       config: {},
       state: {},
       layout: {

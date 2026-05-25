@@ -32,7 +32,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
+describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   it("renders suggested prompts and compact safety badges in the empty state", () => {
     renderWidget();
 
@@ -61,10 +61,10 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("tools disabled");
     expect(
       document.querySelector(".widget-title")?.textContent,
-    ).toBe("Coordinator Chat");
+    ).toBe("Workspace Agent");
     expect(
       document.querySelector(".widget-content")?.textContent,
-    ).not.toContain("Coordinator Chat");
+    ).not.toContain("Workspace Agent");
     expect(document.body.textContent).toContain(
       "Plan work, draft tasks, review results",
     );
@@ -72,7 +72,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Drafts stay inert until you approve them and use the separate create or copy action.",
     );
     expect(
-      document.querySelector('[aria-label="Coordinator suggested prompts"]'),
+      document.querySelector('[aria-label="Workspace Agent suggested prompts"]'),
     ).not.toBeNull();
     expect(
       document.querySelector(".interactive-agent-empty")?.textContent,
@@ -99,7 +99,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "If access is denied, choose a project folder or scratch workspace.",
     );
     expect(document.body.textContent).toContain(
-      "Try: /Documents/hobit-coordinator-scratch",
+      "Try: /Documents/hobit-workspace-agent-scratch",
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
@@ -117,7 +117,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(startDirectWork).not.toHaveBeenCalled();
     expect(provider).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain("Coordinator plan");
+    expect(document.body.textContent).toContain("Workspace Agent plan");
   });
 
   it("renders transcript bubbles without visible speaker labels", async () => {
@@ -139,12 +139,12 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(operatorBubble?.getAttribute("aria-label")).toBe("User message");
     expect(assistantBubble?.getAttribute("aria-label")).toBe(
-      "Coordinator message",
+      "Workspace Agent message",
     );
     expect(operatorBubble?.textContent).toContain("Operator visible request.");
     expect(assistantBubble?.textContent).toContain("Assistant visible answer.");
     expect(operatorBubble?.textContent).not.toContain("You");
-    expect(assistantBubble?.textContent).not.toContain("Coordinator Chat");
+    expect(assistantBubble?.textContent).not.toContain("Workspace Agent");
   });
 
   it("Codex makes the primary composer action run without calling the chat provider", async () => {
@@ -210,7 +210,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(lastAssistantMessageText()).not.toContain("Starting Codex Direct Work");
     expect(lastAssistantMessageText()).not.toContain("Codex Direct Mode completed");
     expect(document.body.textContent).not.toContain("Drafting from the visible chat.");
-    expect(document.body.textContent).not.toContain("Coordinator plan");
+    expect(document.body.textContent).not.toContain("Workspace Agent plan");
   });
 
   it("stores the first Codex thread id and resumes it on the next Codex run", async () => {
@@ -417,7 +417,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(startDirectWork).not.toHaveBeenCalled();
   });
 
-  it("starts Coordinator Codex from the composer without creating Queue work or Autorun", async () => {
+  it("starts Workspace Agent Codex from the composer without creating Queue work or Autorun", async () => {
     const createQueueTask = vi.fn();
     const startQueueAutorun = vi.fn();
     const provider = vi.fn(async () => providerResponse());
@@ -433,7 +433,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
             eventKind: "final_message",
             isFinal: false,
             runId: "run_1",
-            text: "Final Coordinator result.",
+            text: "Final Workspace Agent result.",
           }),
         );
         onEvent(
@@ -480,7 +480,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "Starting new Codex thread. Starting Codex Direct Work from ~.",
     );
-    expect(document.body.textContent).toContain("Final Coordinator result.");
+    expect(document.body.textContent).toContain("Final Workspace Agent result.");
     expect(document.body.textContent).not.toContain("Codex Direct Mode completed.");
 
     const operatorMessages = document.querySelectorAll(
@@ -497,7 +497,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
-    ).toContain("Final Coordinator result.");
+    ).toContain("Final Workspace Agent result.");
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
     ).not.toContain("Sent to Codex Direct Mode");
@@ -515,7 +515,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
-    ).not.toContain("Coordinator Chat");
+    ).not.toContain("Workspace Agent");
   });
 
   it("shows Direct Work failure reasons and safe fallback in the compact status", async () => {
@@ -570,9 +570,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     ).toContain("Run ended with failed.");
   });
 
-  it("shows trusted-directory Codex failures as actionable Coordinator Codex copy", async () => {
+  it("shows trusted-directory Codex failures as actionable Workspace Agent Codex copy", async () => {
     const trustedDirectoryMessage =
-      "codex exec --json exited with code 1: stderr: Codex refused this directory. Coordinator Codex should run with skip git repo check or choose a trusted Git project. stderr: Not inside a trusted directory and --skip-git-repo-check was not specified; could not read final message file `last.txt`: file missing";
+      "codex exec --json exited with code 1: stderr: Codex refused this directory. Workspace Agent Codex should run with skip git repo check or choose a trusted Git project. stderr: Not inside a trusted directory and --skip-git-repo-check was not specified; could not read final message file `last.txt`: file missing";
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -605,7 +605,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await clickButton("Run with Codex");
 
     expect(document.body.textContent).toContain(
-      "Codex refused this directory. Coordinator Codex should run with skip git repo check or choose a trusted Git project.",
+      "Codex refused this directory. Workspace Agent Codex should run with skip git repo check or choose a trusted Git project.",
     );
     expect(document.body.textContent).toContain(
       "Not inside a trusted directory and --skip-git-repo-check was not specified",
@@ -832,7 +832,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     const provider = vi.fn(async () =>
       providerResponse({
         assistantText:
-          'Mock Coordinator provider response. I received your explicit message: "hello". Tools are disabled with allowed_tools: [], and no hidden Workspace context was used.',
+          'Mock Workspace Agent provider response. I received your explicit message: "hello". Tools are disabled with allowed_tools: [], and no hidden Workspace context was used.',
         providerKind: "mock-local",
         visibleContextMessageCount: 1,
       }),
@@ -850,7 +850,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       assistantBodies[assistantBodies.length - 1]?.textContent ?? "";
 
     expect(visibleAssistantBody).not.toContain(
-      "Mock Coordinator provider response",
+      "Mock Workspace Agent provider response",
     );
     expect(visibleAssistantBody).not.toContain(
       "I received your explicit message",
@@ -1001,7 +1001,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     await sendMessage("Make a plan for stabilizing the visible frontend task");
 
-    expect(document.body.textContent).toContain("Coordinator plan");
+    expect(document.body.textContent).toContain("Workspace Agent plan");
     expect(document.body.textContent).toContain("Plan draft");
     expect(document.body.textContent).toContain(
       "stabilizing the visible frontend task",
@@ -1039,7 +1039,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Review uses visible chat text only; no hidden Queue or Executor logs were read.",
     );
     expect(document.body.textContent).toContain(
-      "Review only. Coordinator does not read Queue history, Executor logs, or artifacts unless you paste or explicitly share them.",
+      "Review only. Workspace Agent does not read Queue history, Executor logs, or artifacts unless you paste or explicitly share them.",
     );
     expect(document.body.textContent).toContain("No execution");
     expect(buttonWithText("Approve")).toBeUndefined();
@@ -1375,7 +1375,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
             typeId: "create-agent-queue-task",
             visibleInputs: [
               { label: "Title", value: "Provider visible task" },
-              { label: "Prompt", value: "Use only visible Coordinator chat." },
+              { label: "Prompt", value: "Use only visible Workspace Agent chat." },
             ],
           },
         ],
@@ -1446,14 +1446,14 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await sendMessage(
       [
         "Break this into Queue tasks from visible text only.",
-        "- Audit the Coordinator proposal flow",
+        "- Audit the Workspace Agent proposal flow",
         "- Add a compact planning card",
       ].join("\n"),
     );
 
     expect(document.body.textContent).toContain("Plan draft");
     expect(document.body.textContent).toContain("Draft Queue task");
-    expect(document.body.textContent).toContain("Audit the Coordinator proposal flow");
+    expect(document.body.textContent).toContain("Audit the Workspace Agent proposal flow");
     expect(document.body.textContent).toContain("Add a compact planning card");
     expect(document.body.textContent).toContain("Prompt preview");
     expect(document.body.textContent).toContain("Priority");
@@ -1473,7 +1473,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await sendMessage(
       [
         "Break this into Queue tasks from visible text only.",
-        "- Audit the Coordinator proposal flow",
+        "- Audit the Workspace Agent proposal flow",
         "- Add a compact planning card",
       ].join("\n"),
     );
@@ -1586,7 +1586,7 @@ function renderWidget(
         config={{}}
         definition={definition()}
         instance={instance()}
-        title="Coordinator Chat"
+        title="Workspace Agent"
         {...overrides}
       />,
     );
@@ -1662,7 +1662,7 @@ async function toggleDirectMode() {
 
 function agentPicker() {
   return document.querySelector<HTMLSelectElement>(
-    'select[aria-label="Coordinator agent"]',
+    'select[aria-label="Workspace Agent picker"]',
   );
 }
 
@@ -1741,10 +1741,10 @@ function definition(): WidgetDefinition {
     category: "core",
     componentKey: "interactive-agent",
     defaultConfig: {},
-    defaultTitle: "Coordinator Chat",
-    description: "Coordinator Chat",
+    defaultTitle: "Workspace Agent",
+    description: "Workspace Agent",
     id: "interactive-agent",
-    title: "Coordinator Chat",
+    title: "Workspace Agent",
   };
 }
 
@@ -1763,7 +1763,7 @@ function instance(): WidgetInstance {
       y: 0,
     },
     state: {},
-    title: "Coordinator Chat",
+    title: "Workspace Agent",
     visible: true,
   };
 }

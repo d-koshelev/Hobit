@@ -1,35 +1,42 @@
-# Coordinator-Centered Workbench Contract
+# Workspace Agent Workbench Contract
 
 ## Purpose
 
-This contract defines Hobit's Coordinator-centered product model.
+This legacy-named contract defines Hobit's Workspace Agent product model.
+Coordinator was the previous user-facing name for the Workspace Agent surface.
+The filename remains unchanged for compatibility with existing references.
 
 Hobit is not just a canvas of independent widgets. Hobit is a Workbench where
-the operator works primarily through Coordinator, the foreground AI agent and
-central operator-facing work surface. Coordinator uses chat as the primary
-interaction model, but chat is not the capability boundary. Widgets expose
-controlled capabilities, tools, and proxy surfaces that Coordinator can use
+the operator works through one or more Workspace Agent widgets: foreground
+interactive AI agents for Workspace work. Workspace Agent uses chat as the
+primary interaction model, but chat is not the capability boundary. Multiple
+Workspace Agents can exist in one Workspace, and each agent has independent
+current-session context/thread state and working directory. Widgets expose
+controlled capabilities, tools, and proxy surfaces that Workspace Agent can use
 only through explicit policy, context, approval, and observability boundaries.
 
 This document is docs/contracts only. It does not implement frontend UI,
 backend or Tauri commands, storage/schema changes, AI provider integration,
-Coordinator runtime, widget tool execution, JDBC implementation, Queue
+Workspace Agent runtime, widget tool execution, JDBC implementation, Queue
 execution changes, Agent Executor runtime changes, Git mutation, Terminal or
 PTY work, or Runbook work.
 
 ## One-Sentence Product Model
 
-Coordinator is the foreground interactive AI agent. Widgets expose controlled
-Workspace capabilities. Queue organizes promoted async work. Agent Executors
-run queued/background tasks and provide execution visibility. Operator controls
-context, autonomy, approvals, and acceptance.
+Workspace Agent is the foreground interactive AI agent widget. Widgets expose
+controlled Workspace capabilities. Queue organizes promoted async work. Agent
+Executors run queued/background tasks and provide execution visibility.
+Executor is not the only agent that can do work; it is the background worker
+for queued tasks. Operator controls context, autonomy, approvals, and
+acceptance.
 
-## Coordinator Role
+## Workspace Agent Role
 
-Coordinator is the main operator-facing foreground AI agent for one active
-Workspace.
+Workspace Agent is a foreground AI agent widget for one active Workspace.
+Multiple Workspace Agent widgets may be open in the same Workspace when the
+operator wants independent agent threads for different problems.
 
-Coordinator can:
+Workspace Agent can:
 
 - understand a problem
 - ask clarifying questions
@@ -44,7 +51,7 @@ Coordinator can:
 - create Agent Queue tasks when work should become async/background work
 - summarize evidence and next steps
 
-Coordinator must not:
+Workspace Agent must not:
 
 - silently access every widget
 - silently read all Workspace data
@@ -56,7 +63,7 @@ Coordinator must not:
 - auto-dispatch Queue tasks
 - auto-commit or push
 
-Coordinator is not only a planner, interpreter, or task drafter. Coordinator
+Workspace Agent is not only a planner, interpreter, or task drafter. Workspace Agent
 is the foreground agent surface for interactive work. It is not an
 unrestricted background automation channel, hidden scanner, or shortcut around
 widget-owned capability boundaries.
@@ -79,7 +86,7 @@ Future Coordinator work should be described in explicit modes:
 - Async Delegation mode: promotion of larger, delayed, overnight, or
   long-running work to Queue and Agent Executor.
 
-These modes are target architecture. Current Coordinator Chat implements only
+These modes are target architecture. Current Workspace Agent implements only
 the visible chat/proposal/attachment subset described in
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
@@ -140,7 +147,7 @@ Agent Queue may expose:
 - assign executor
 - start assigned task only through an explicit run action
 
-Queue is not the Coordinator and must not become a hidden scheduler.
+Queue is not Workspace Agent and must not become a hidden scheduler.
 
 ### Agent Executor Capabilities
 
@@ -192,25 +199,25 @@ execution actions, but only with explicit target, command preview, working
 directory or remote host scope, output caps, confirmation/policy, and visible
 logs/results.
 
-## Coordinator And Agent Queue
+## Workspace Agent And Agent Queue
 
 Agent Queue is task organization for Agent Executors.
 
-Coordinator may create Queue tasks after operator approval or according to a
+Workspace Agent may create Queue tasks after operator approval or according to a
 future explicit autonomy policy.
 
-Agent Queue does not replace Coordinator. Agent Queue is not a chat. Agent
+Agent Queue does not replace Workspace Agent. Agent Queue is not a chat. Agent
 Queue does not reason. Agent Queue does not auto-dispatch in the current model.
 Queue is for promoted, larger, delayed, long-running, or overnight work. It is
-not the default destination for every Coordinator action, every file edit, or
+not the default destination for every Workspace Agent action, every file edit, or
 every quick validation step.
 
-## Coordinator And Agent Executor
+## Workspace Agent And Agent Executor
 
 Agent Executor is the async/background worker for Queue tasks.
 
-Coordinator may propose a task for Agent Executor. Coordinator may create a
-Queue item for execution. Coordinator must not silently launch Executor work
+Workspace Agent may propose a task for Agent Executor. Workspace Agent may create a
+Queue item for execution. Workspace Agent must not silently launch Executor work
 without visible policy and action.
 
 Agent Executor owns:
@@ -222,7 +229,7 @@ Agent Executor owns:
 - history
 - stop/cancel
 
-Coordinator owns:
+Workspace Agent owns:
 
 - conversation
 - planning
@@ -232,7 +239,7 @@ Coordinator owns:
 - summary
 
 Executor ownership of queued/background logs and results does not limit
-Coordinator's future foreground capability set.
+Workspace Agent's future foreground capability set.
 
 ## Safety And Action Levels
 
@@ -318,7 +325,7 @@ Coordinator proposes actions. Operator approves.
 
 ### Guided
 
-Coordinator may perform low-risk read-only actions under policy. Risky actions
+Workspace Agent may perform low-risk read-only actions under policy. Risky actions
 require approval.
 
 ### Autonomous Bounded
@@ -373,7 +380,7 @@ schema, frontend type, Rust type, Tauri command, runtime registry, provider
 tool schema, or widget capability implementation in this block.
 
 Coordinator action proposals should be visible as message-associated action
-cards in Coordinator Chat. A card should show the proposal title, target
+cards in Workspace Agent. A card should show the proposal title, target
 widget, target capability, intent, input preview, risk/safety notes, expected
 result, approval status, execution status, and result summary when one exists.
 
@@ -408,7 +415,7 @@ Do not use the first implementation slice for:
 - hidden context compilation
 - Queue auto-dispatch
 
-This first implementation boundary does not define Coordinator's long-term
+This first implementation boundary does not define Workspace Agent's long-term
 capability ceiling. It only defines what the current provider/proposal slice is
 allowed to do today.
 
@@ -496,7 +503,7 @@ A future context pack should show:
 The first Coordinator provider runtime must be drafting-only.
 
 Provider input may include only the explicit operator chat message, visible
-current-session Coordinator Chat messages, visible proposal draft context that
+current-session Workspace Agent messages, visible proposal draft context that
 the operator can inspect, and compact safe system/product instructions. It must
 not include hidden widget state, Terminal output, Agent Executor logs/results,
 Git diffs/status, JDBC connector metadata/results/secrets, Notes bodies,
@@ -527,7 +534,7 @@ proposals:
   execution, and hidden context compilation are not supported in the first
   provider slice.
 
-Provider calls must be visible user-triggered Coordinator Chat actions. Widget
+Provider calls must be visible user-triggered Workspace Agent actions. Widget
 changes must not trigger background provider calls. Provider errors, network
 failures, timeouts, invalid responses, not-configured external provider
 selection, and unsupported configuration must be visible. External provider
@@ -567,17 +574,17 @@ This contract does not implement audit storage.
 
 ## Reposition Interactive Agent
 
-Near-term direction: Interactive Agent should become Coordinator Chat.
+Near-term direction: Interactive Agent should become Workspace Agent.
 
 Do not keep two separate primary chat concepts in the current product.
 
-The user-facing title is Coordinator Chat. The internal widget id may remain
-temporarily as `interactive-agent` for compatibility.
+The user-facing title is Workspace Agent. The internal widget id remains
+`interactive-agent` for compatibility.
 
-The current local chat is the minimal Coordinator Chat UI foundation. It can
+The current local chat is the minimal Workspace Agent UI foundation. It can
 request backend-owned mock/local provider responses or a configured HTTP JSON
 provider response from visible chat context only, with `allowed_tools: []`.
-Provider proposal drafts are validated before rendering. Coordinator Chat
+Provider proposal drafts are validated before rendering. Workspace Agent
 still does not execute widget tools, compile hidden context, or perform
 Workspace actions directly.
 
@@ -608,7 +615,7 @@ Flow:
 3. Coordinator proposes read-only SQL.
 4. JDBC widget executes the approved query.
 5. Coordinator interprets the result.
-6. Coordinator may create a Queue task for engineering follow-up.
+6. Workspace Agent may create a Queue task for engineering follow-up.
 7. Agent Executor may execute that task if the operator starts it.
 
 ## Recommended Next Blocks

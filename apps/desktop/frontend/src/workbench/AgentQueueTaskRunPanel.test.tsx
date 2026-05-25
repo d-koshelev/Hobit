@@ -149,7 +149,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       onAttachContextToCoordinator,
     });
 
-    clickFirstButton("Attach to Coordinator");
+    clickFirstButton("Attach to Workspace Agent");
 
     expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
     const request = onAttachContextToCoordinator.mock.calls[0][0];
@@ -209,7 +209,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       ]),
     });
 
-    clickFirstButton("Attach to Coordinator");
+    clickFirstButton("Attach to Workspace Agent");
 
     expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
     const request = onAttachContextToCoordinator.mock.calls[0][0];

@@ -129,7 +129,7 @@ describe("WorkbenchShell global activity", () => {
 });
 
 describe("WorkbenchShell empty canvas recovery", () => {
-  it("adds Coordinator Chat and Notes from the empty workbench CTA", async () => {
+  it("adds Workspace Agent and Notes from the empty workbench CTA", async () => {
     const onViewStateChange = vi.fn();
 
     workspaceApiMocks.addWidgetInstanceToWorkbench
@@ -160,7 +160,7 @@ describe("WorkbenchShell empty canvas recovery", () => {
     renderShell(workbenchViewState(), onViewStateChange);
 
     await act(async () => {
-      buttonWithText("Add Coordinator + Notes").dispatchEvent(
+      buttonWithText("Add Workspace Agent + Notes").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       await Promise.resolve();
@@ -184,7 +184,7 @@ describe("WorkbenchShell empty canvas recovery", () => {
       ),
     ).toEqual(["interactive-agent", "notes"]);
     expect(onViewStateChange.mock.calls[0][0].workbench.preset.title).toBe(
-      "Coordinator Workspace",
+      "Workspace Agent Workspace",
     );
   });
 });
@@ -268,7 +268,7 @@ function workspaceWorkbenchState({
         popoutX: null,
         popoutY: null,
         state: "{}",
-        title: isCoordinator ? "Coordinator Chat" : "Notes",
+        title: isCoordinator ? "Workspace Agent" : "Notes",
       };
     }),
     sharedStateObjects: [],

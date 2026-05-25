@@ -288,7 +288,7 @@ class CoordinatorProviderProductSmokeRuntime {
 
   private unsupported(): never {
     this.forbiddenCallCount += 1;
-    throw new Error("Unsupported Coordinator product smoke action.");
+        throw new Error("Unsupported Workspace Agent product smoke action.");
   }
 
   private forbidden<T>(value: T): T {
@@ -335,7 +335,7 @@ function SmokeWorkbench() {
 
   return (
     <main className="app-shell">
-      <h1>Coordinator provider product smoke</h1>
+      <h1>Workspace Agent provider product smoke</h1>
       <div className="workbench">
         <div className="workbench-content">
           <WorkbenchCanvas
@@ -418,7 +418,7 @@ function proposalDraftForScenario(
       visibleInputs: [
         { label: "Title", value: "Investigate visible provider smoke task" },
         { label: "Description", value: "Created by fake provider smoke only." },
-        { label: "Prompt", value: "Use only visible Coordinator chat text." },
+        { label: "Prompt", value: "Use only visible Workspace Agent chat text." },
         { label: "Priority", value: "2" },
       ],
     };
@@ -487,16 +487,16 @@ function smokeViewState(): WorkbenchViewState {
     workbench: {
       id: WORKBENCH_ID,
       preset: {
-        description: "Coordinator provider product smoke",
+        description: "Workspace Agent provider product smoke",
         id: "preset-coordinator-provider-product-smoke",
-        title: "Coordinator Provider Product Smoke",
+        title: "Workspace Agent Provider Product Smoke",
       },
     },
     workspace: {
       description: "Mocked frontend smoke workspace",
       id: WORKSPACE_ID,
       status: "active",
-      title: "Coordinator Provider Product Smoke",
+      title: "Workspace Agent Provider Product Smoke",
     },
   };
 }
@@ -508,7 +508,7 @@ function coordinatorWidget(): WidgetInstance {
     id: COORDINATOR_WIDGET_ID,
     layout: dockedLayout(0, 24, 24, 900, 860),
     state: {},
-    title: "Coordinator Chat",
+    title: "Workspace Agent",
     visible: true,
   };
 }
@@ -547,7 +547,7 @@ function mvpQueueTask(): AgentQueueTask {
     prompt: "Review the visible MVP loop result and report status.",
     queueItemId: MVP_QUEUE_ITEM_ID,
     status: "completed",
-    title: "Review Coordinator MVP loop result",
+    title: "Review Workspace Agent MVP loop result",
     updatedAt: "2026-05-24T10:04:00.000Z",
     workspaceId: WORKSPACE_ID,
   };
@@ -610,7 +610,7 @@ function mvpRunDetail(): AgentExecutorRunDetail {
       runId: MVP_RUN_ID,
       startedAt: "2026-05-24T10:00:00.000Z",
       status: "completed",
-      title: "Review Coordinator MVP loop result",
+      title: "Review Workspace Agent MVP loop result",
       validationProfile: null,
       validationStatus: null,
     },

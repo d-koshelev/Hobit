@@ -18,7 +18,7 @@ Covered current surfaces:
 - Git
 - Notes
 - Database / JDBC
-- Coordinator Chat
+- Workspace Agent
 - Terminal
 - Runbook
 
@@ -98,7 +98,7 @@ documented isolated `HOBIT_DATABASE_PATH` workflow.
   drive or observe the Tauri WebView. This is not a real desktop UI smoke pass.
 - Manual checklist items verified:
   `[ ]` None. Leave the Workspace, Queue-to-Executor, Git, Notes, JDBC,
-  Coordinator Chat, Terminal, and Runbook UI items unchecked until an operator
+  Workspace Agent, Terminal, and Runbook UI items unchecked until an operator
   verifies them in the real desktop window.
 
 ### Block 223 - 2026-05-19
@@ -146,7 +146,7 @@ be claimed.
 - A real UI smoke pass requires an operator or automation harness that can
   observe the Tauri desktop window and perform WebView actions.
 - Do not mark Workspace, Widget Catalog, Queue-to-Executor, Git, Notes, JDBC,
-  Coordinator Chat, Terminal, or Runbook items as passed from process output,
+  Workspace Agent, Terminal, or Runbook items as passed from process output,
   mocked browser smoke, or SQLite file presence alone.
 - When WebView interaction is unavailable, record the blocker here and use
   `node scripts/hobit/smoke-queue-executor-ui.mjs` only as mocked frontend
@@ -250,9 +250,9 @@ Notes:
 ```text
 ```
 
-## Coordinator Chat Smoke
+## Workspace Agent Smoke
 
-- `[ ]` Add Coordinator Chat.
+- `[ ]` Add Workspace Agent.
 - `[ ]` Send a local placeholder message.
 - `[ ]` Verify the assistant response is local placeholder behavior only.
 - `[ ]` Verify no provider, tools, hidden context access, Queue integration,

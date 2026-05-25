@@ -634,12 +634,12 @@ function RunHistorySummary({
                   }
                   title={
                     onAttachContextToCoordinator
-                      ? "Attach this safe run metadata to Coordinator Chat."
-                      : "Coordinator Chat is not visible on this Workbench."
+                      ? "Attach this safe run metadata to Workspace Agent."
+                      : "Workspace Agent is not visible on this Workbench."
                   }
                   variant="ghost"
                 >
-                  Attach to Coordinator
+                  Attach to Workspace Agent
                 </Button>
                 {!executorSlot ? <span>Executor not visible</span> : null}
               </div>
@@ -746,12 +746,12 @@ function LatestRunSummary({
           }
           title={
             onAttachContextToCoordinator
-              ? "Attach this safe run metadata to Coordinator Chat."
-              : "Coordinator Chat is not visible on this Workbench."
+              ? "Attach this safe run metadata to Workspace Agent."
+              : "Workspace Agent is not visible on this Workbench."
           }
           variant="ghost"
         >
-          Attach to Coordinator
+          Attach to Workspace Agent
         </Button>
         <Button onClick={() => onRefresh()} variant="ghost">
           Refresh

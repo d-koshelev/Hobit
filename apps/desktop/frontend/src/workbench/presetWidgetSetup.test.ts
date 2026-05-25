@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe("preset widget setup", () => {
-  it("creates Coordinator Chat and Notes for the default workspace preset", async () => {
+  it("creates Workspace Agent and Notes for the default workspace preset", async () => {
     workspaceApiMocks.addWidgetInstanceToWorkbench
       .mockResolvedValueOnce(
         workspaceState({
@@ -218,7 +218,7 @@ function workspaceState({
         state: "{}",
         title:
           definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID
-            ? "Coordinator Chat"
+            ? "Workspace Agent"
             : "Notes",
       };
     }),

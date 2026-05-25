@@ -12,7 +12,7 @@ import {
 } from "./widgetRegistry";
 
 describe("widgetHostRenderProps", () => {
-  it("exposes Attach to Coordinator only for explicit attach-capable widgets", () => {
+  it("exposes Attach to Workspace Agent only for explicit attach-capable widgets", () => {
     const attach = vi.fn();
 
     expect(renderPropsFor(SKILL_LIBRARY_COMPONENT_KEY, attach).onAttachContextToCoordinator).toBe(attach);

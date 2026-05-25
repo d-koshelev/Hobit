@@ -7,7 +7,7 @@ first Minimal Skill Library product slice.
 
 It is a status note. It does not add behavior beyond the implemented Minimal
 Skill Library MVP, audit emission, server runtime, enterprise/RBAC, scheduler
-behavior, or Coordinator context wiring.
+behavior, or Workspace Agent context wiring.
 
 ## Completed Foundation
 
@@ -35,59 +35,61 @@ behavior, or Coordinator context wiring.
   CRUD with local SQLite storage, narrow Tauri APIs, and a preview widget.
 - Knowledge / Evidence core refs v0 exist as type-only Rust refs.
 - Context Pack refs v0 exist as type-only Rust refs.
-- Coordinator context boundary inspection confirmed current provider requests
+- Workspace Agent context boundary inspection confirmed current provider requests
   remain visible-context-only with `allowed_tools: []`.
-- Coordinator product positioning is central-work-surface first: planning,
+- Workspace Agent product positioning is foreground-agent first: planning,
   reasoning, task drafting, outcome review, and promotion decisions happen in
-  Coordinator, while Queue and Agent Executor remain supporting execution
-  surfaces.
-- The default new Workspace now starts as an `Untitled` Coordinator Workspace
-  with Coordinator Chat and Notes. Empty Workbench remains available as an
-  advanced/manual mode, and existing empty Workspaces can add Coordinator Chat
+  Workspace Agent, while Queue and Agent Executor remain async/background
+  execution surfaces.
+- Multiple Workspace Agent widgets can exist in one Workspace. Each owns its
+  own visible context/thread/working-directory state.
+- The default new Workspace now starts as an `Untitled` Workspace Agent Workspace
+  with Workspace Agent and Notes. Empty Workbench remains available as an
+  advanced/manual mode, and existing empty Workspaces can add Workspace Agent
   plus Notes through an explicit recovery action.
-- Coordinator Chat now has a frontend-only planning UI layer for explicit
+- Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation
   remains explicit draft creation only, and execution remains Queue/Executor
   controlled.
-- Coordinator Chat can locally review explicitly pasted Queue, Executor, or
+- Workspace Agent can locally review explicitly pasted Queue, Executor, or
   validation result text in visible chat. Outcome-review cards use only the
   pasted text, may draft follow-up Queue task proposals, and do not fetch
   Executor logs, Queue run history, artifacts, files, Context Packs, or hidden
   widget state. Follow-up Queue tasks remain explicit draft creation only.
 - Queue latest-run/history rows and Agent Executor run-history/detail controls
-  can attach safe run metadata to Coordinator Chat as visible current-session
+  can attach safe run metadata to Workspace Agent as visible current-session
   composer context. Attach is operator-controlled, editable/removable before
   Send, and does not copy raw logs, stdout/stderr, final responses, diffs,
   prompts, repo paths, secrets, artifacts, or raw payloads.
 - Agent Executor run detail can attach an explicit bounded excerpt selected by
   the operator from visible Executor-owned detail text. The excerpt appears as
-  visible editable Coordinator composer context and is sent only if the
-  operator presses Send. Coordinator still does not automatically read Executor
+  visible editable Workspace Agent composer context and is sent only if the
+  operator presses Send. Workspace Agent still does not automatically read Executor
   logs or take ownership of raw Executor detail.
 - Agent Executor run detail can also attach explicit bounded visible preview
   sections for final response, stdout, stderr, validation output, and error
   summary previews. Each attach requires an operator click, lands as visible
-  editable Coordinator composer context, and does not copy full raw Executor
-  logs or transfer raw detail ownership to Coordinator.
-- Skill Library can explicitly attach the selected Skill to Coordinator Chat
+  editable Workspace Agent composer context, and does not copy full raw Executor
+  logs or transfer raw detail ownership to Workspace Agent.
+- Skill Library can explicitly attach the selected Skill to Workspace Agent
   as visible editable composer context. The attachment includes only the
   selected Skill's title, when to use, prerequisites, steps, validation, risks,
   tags, and review status, and it is sent to the provider only if the operator
   presses Send.
-- Coordinator Direct Mode v0 exists as a local desktop foreground Codex Direct
-  Work path owned by Coordinator Chat. It is off by default, uses the current
+- Workspace Agent Direct Mode v0 exists as a local desktop foreground Codex Direct
+  Work path owned by Workspace Agent. It is off by default, uses the current
   composer message only after the operator enables Direct Mode and clicks the
   Run with Codex primary composer action, defaults its working directory input
   to `~`, resolves `~` to the current user's home directory in the
   Tauri/backend path before launch, and shows visible status, recent logs,
   Stop/cancel state when available, final result summary, and failures in
-  Coordinator. Direct Mode composer submission starts a foreground
-  Coordinator-owned Codex Direct Work run instead of producing a mock/local
+  Workspace Agent. Direct Mode composer submission starts a foreground
+  Workspace Agent-owned Codex Direct Work run instead of producing a mock/local
   assistant response for that prompt. The operator can replace `~` with a
-  project or repo folder. Coordinator Direct Mode captures Codex
+  project or repo folder. Workspace Agent Direct Mode captures Codex
   `thread.started` `thread_id` events, keeps the current thread id in
-  current-session Coordinator widget state, resumes that explicit thread id for
+  current-session Workspace Agent widget state, resumes that explicit thread id for
   follow-up Run with Codex actions, and never uses `--last`. Resume sends only
   the latest composer message, not the full visible chat transcript. The
   visible New Codex thread action clears the thread id, and changing the
@@ -100,24 +102,24 @@ behavior, or Coordinator context wiring.
 - Audit Envelope v0 does not emit or persist audit events.
 - Audit mapping is a plan, not a runtime.
 - Capability Boundary v0 does not execute capabilities, enforce permissions,
-  implement RBAC, or expose tools to Coordinator.
+  implement RBAC, or expose tools to Workspace Agent.
 - Capability Action / Approval / Causation v0 does not create approval records
   or workflow state.
 - `ArtifactRef` is metadata-only and unresolved by default.
 - Knowledge and Evidence refs do not create a knowledge store, evidence store,
   resolver, ingestion path, or UI.
 - Skill Library storage/API/UI does not create Knowledge Items, Evidence,
-  Context Packs, Artifact links, Runbook execution, Coordinator context
+  Context Packs, Artifact links, Runbook execution, Workspace Agent context
   eligibility, provider prompt wiring, hidden memory, global/team sharing, or
   RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
-  Coordinator context wiring, provider prompt wiring, or sharing behavior.
+  Workspace Agent context wiring, provider prompt wiring, or sharing behavior.
 
 ## Do Not Overclaim
 
 The current desktop app remains the only real host/runtime path today.
 
-Coordinator Chat is the central chat-based operator work surface, but it uses
+Workspace Agent is a foreground chat-based agent work surface, but it uses
 explicit visible current-session chat/proposal context only. It must not
 silently ingest Notes, artifacts, evidence, knowledge, Context Packs, runtime
 logs, widget state, Git/JDBC/Terminal state, Queue state, files, environment
@@ -125,7 +127,7 @@ values, or secrets.
 Planning cards, pasted-result review cards, and Queue task drafts do not
 change this context boundary and do not wire Context Packs, artifacts, logs,
 Queue state, Executor state, or widget data into provider prompts.
-Explicit Attach to Coordinator sends only the visible attached composer text
+Explicit Attach to Workspace Agent sends only the visible attached composer text
 after the operator presses Send; it is not hidden context compilation and does
 not read Queue history, Executor logs, or Skill Library records automatically.
 Executor selected excerpts are bounded visible text selected by the operator;
@@ -137,11 +139,11 @@ Skill search, Context Packs, Evidence, or hidden provider prompt injection.
 Queue is a supporting async execution pipeline for promoted/larger work
 blocks, not the default place for every idea or small task. Agent Executor is
 the async/background runtime owner for queued run detail, logs, final
-responses, and history. Coordinator Direct Mode is a foreground Coordinator
+responses, and history. Workspace Agent Direct Mode is a foreground agent
 run path and does not create Queue tasks, start Queue Autorun, require an
 Agent Executor widget, change Executor repo-root/task configuration behavior,
 resume Queue/Executor Codex threads, or auto-commit, push, reset, clean, or
-stash Git changes. Its Codex thread state is current-session Coordinator
+stash Git changes. Its Codex thread state is current-session Workspace Agent
 widget state only, not global hidden memory.
 Mock/local remains a visible fallback when Direct Mode is off or Codex is
 unavailable, and must not be presented as connected AI.
@@ -159,8 +161,8 @@ sent to a provider.
 - Context Pack UI or storage;
 - Context Pack provider wiring;
 - hidden prompt augmentation;
-- Coordinator hidden context access;
-- hidden Coordinator Direct Mode starts;
+- Workspace Agent hidden context access;
+- hidden Workspace Agent Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;
 - audit emission or persistence;
 - approval workflow persistence;
@@ -169,7 +171,7 @@ sent to a provider.
 - server runtime or Postgres migration;
 - backend scheduler, durable Queue runner, reconnect/resume, server worker, or
   hidden/unarmed auto-dispatch.
-- Coordinator Direct Mode triggered Queue Autorun, Queue task creation, Agent
+- Workspace Agent Direct Mode triggered Queue Autorun, Queue task creation, Agent
   Executor launch, server runtime, RBAC, or automatic Git mutation.
 
 ## Recommended Next Roadmap
@@ -180,11 +182,11 @@ sent to a provider.
 2. Knowledge / Skills UI design contract, docs-only.
 3. Knowledge store storage design, docs-only and no implementation.
 4. Evidence review workflow contract, docs-only.
-5. Coordinator explicit context selection UX contract, docs-only.
+5. Workspace Agent explicit context selection UX contract, docs-only.
 
 ### B. Safe Inspect-First Audits
 
-1. Re-check Coordinator/provider request construction after any context UI
+1. Re-check Workspace Agent/provider request construction after any context UI
    design work.
 2. Inspect Notes, widget logs/results, and runtime artifact surfaces before
    any Knowledge ingestion proposal.
@@ -196,7 +198,7 @@ sent to a provider.
 
 Only after the docs and inspect-first blocks above:
 
-1. Explicit Attach Knowledge to Coordinator design, with visible review and no
+1. Explicit Attach Knowledge to Workspace Agent design, with visible review and no
    hidden provider send. The Skill attach MVP already exists for selected
    Skill fields only.
 2. Explicit operator-selected Context Pack preview UI with no provider send.
@@ -214,7 +216,7 @@ Only after the docs and inspect-first blocks above:
 - evidence store;
 - knowledge store;
 - full Knowledge/Skills system beyond Minimal Skill Library MVP;
-- Coordinator hidden context;
+- Workspace Agent hidden context;
 - Context Pack provider wiring;
 - automatic Notes/artifact/log ingestion;
 - hidden/unarmed auto-dispatch, durable Queue runner, reconnect/resume, or

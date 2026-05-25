@@ -144,7 +144,7 @@ const DIRECT_WORK_EMPTY_PROMPT_MESSAGE =
   "Direct Work uses the current composer message as the prompt. Type the task, then choose Run with Codex.";
 
 const DIRECT_WORK_UNAVAILABLE_MESSAGE =
-  "Coordinator Codex is only available in the Tauri desktop shell.";
+  "Workspace Agent Codex is only available in the Tauri desktop shell.";
 
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
   "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
@@ -509,7 +509,7 @@ export function InteractiveAgentPlaceholderWidget({
 
       if (!session) {
         throw new Error(
-          "Coordinator Direct Work was not accepted for this widget.",
+          "Workspace Agent Direct Work was not accepted for this widget.",
         );
       }
 
@@ -996,7 +996,7 @@ export function InteractiveAgentPlaceholderWidget({
     >
       <div className="interactive-agent-chat">
         <section
-          aria-label="Coordinator Chat status"
+          aria-label="Workspace Agent status"
           className="interactive-agent-status"
         >
           <div className="interactive-agent-status-copy">
@@ -1008,7 +1008,7 @@ export function InteractiveAgentPlaceholderWidget({
               </div>
             </div>
             <details
-              aria-label="Coordinator provider details"
+              aria-label="Workspace Agent provider details"
               className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
             >
               <summary>Response setup</summary>
@@ -1054,7 +1054,7 @@ export function InteractiveAgentPlaceholderWidget({
         </section>
 
         <div
-          aria-label="Local Coordinator Chat transcript"
+          aria-label="Local Workspace Agent transcript"
           aria-live="polite"
           className="interactive-agent-message-list"
           ref={messageListRef}
@@ -1066,15 +1066,16 @@ export function InteractiveAgentPlaceholderWidget({
                 Start with a planning question or a task draft.
               </p>
               <p className="interactive-agent-empty-text">
-                Coordinator works from visible chat and explicit attachments. It
-                can draft reviewable Queue, Note, or JDBC suggestion cards.
+                Workspace Agent works from visible chat and explicit
+                attachments. Multiple agents can work independently in the same
+                workspace.
               </p>
               <p className="interactive-agent-empty-text">
                 Drafts stay inert until you approve them and use the separate
                 create or copy action.
               </p>
               <div
-                aria-label="Coordinator suggested prompts"
+                aria-label="Workspace Agent suggested prompts"
                 className="interactive-agent-suggestion-list"
               >
                 {SUGGESTED_PROMPTS.map((suggestion) => (
@@ -1095,7 +1096,7 @@ export function InteractiveAgentPlaceholderWidget({
               aria-label={
                 message.role === "operator"
                   ? "User message"
-                  : "Coordinator message"
+                  : "Workspace Agent message"
               }
               className={`interactive-agent-message interactive-agent-message-${message.role}${
                 message.providerMeta
@@ -1272,7 +1273,7 @@ function CoordinatorAgentHeaderStatus({
       <label className="interactive-agent-agent-picker">
         <span>Agent</span>
         <select
-          aria-label="Coordinator agent"
+          aria-label="Workspace Agent picker"
           className="input interactive-agent-agent-select"
           defaultValue="codex"
           disabled
@@ -1355,7 +1356,7 @@ function CoordinatorDirectModePanel({
 
   return (
     <section
-      aria-label="Coordinator Codex controls"
+      aria-label="Workspace Agent Codex controls"
       className="interactive-agent-direct-mode"
     >
       <div className="interactive-agent-direct-mode-bar">
@@ -1527,7 +1528,7 @@ function CoordinatorReviewCard({
 
   return (
     <section
-      aria-label={`Coordinator outcome review: ${review.title}`}
+      aria-label={`Workspace Agent outcome review: ${review.title}`}
       className={`coordinator-review-card coordinator-review-card-${review.statusInterpretation.replace(
         /\s+/g,
         "-",
@@ -1563,8 +1564,8 @@ function CoordinatorReviewCard({
         />
       </div>
       <p className="coordinator-review-note">
-        Review only. Coordinator does not read Queue history, Executor logs, or
-        artifacts unless you paste or explicitly share them.
+        Review only. Workspace Agent does not read Queue history, Executor
+        logs, or artifacts unless you paste or explicitly share them.
       </p>
     </section>
   );
@@ -1573,12 +1574,12 @@ function CoordinatorReviewCard({
 function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
   return (
     <section
-      aria-label={`Coordinator plan: ${plan.title}`}
+      aria-label={`Workspace Agent plan: ${plan.title}`}
       className="coordinator-plan-card"
     >
       <div className="coordinator-plan-header">
         <div className="coordinator-plan-title-copy">
-          <p className="coordinator-plan-kicker">Coordinator plan</p>
+          <p className="coordinator-plan-kicker">Workspace Agent plan</p>
           <h4 className="coordinator-plan-title">{plan.title}</h4>
           <div className="coordinator-plan-goal-block">
             <p className="coordinator-plan-section-label">Goal</p>
@@ -1817,14 +1818,14 @@ function directWorkScratchWorkspaceSuggestion(directory: string): string | null 
   }
 
   if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
-    return "/Documents/hobit-coordinator-scratch";
+    return "/Documents/hobit-workspace-agent-scratch";
   }
 
   const windowsHomeMatch = trimmedDirectory.match(
     /^([A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/]+)/,
   );
   if (windowsHomeMatch) {
-    return "/Documents/hobit-coordinator-scratch";
+    return "/Documents/hobit-workspace-agent-scratch";
   }
 
   return null;

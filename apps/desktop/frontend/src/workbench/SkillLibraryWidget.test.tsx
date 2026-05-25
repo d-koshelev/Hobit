@@ -34,14 +34,14 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("No skills yet.");
     expect(document.body.textContent).toContain("Workspace-local.");
     expect(document.body.textContent).toContain(
-      "Not sent to Coordinator automatically.",
+      "Not sent to Workspace Agent automatically.",
     );
     expect(document.body.textContent).toContain(
-      "Skills are not sent to Coordinator unless explicitly attached.",
+      "Skills are not sent to Workspace Agent unless explicitly attached.",
     );
   });
 
-  it("attaches the selected Skill to Coordinator as visible allowed fields only", async () => {
+  it("attaches the selected Skill to Workspace Agent as visible allowed fields only", async () => {
     const skill = skillFixture({
       prerequisites: "Reviewed working tree",
       reviewStatus: "reviewed",
@@ -68,7 +68,7 @@ describe("SkillLibraryWidget", () => {
       "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically.",
     );
 
-    await clickButton("Attach to Coordinator");
+    await clickButton("Attach to Workspace Agent");
 
     expect(attachToCoordinator).toHaveBeenCalledTimes(1);
     const request = attachToCoordinator.mock.calls[0][0];
@@ -88,11 +88,11 @@ describe("SkillLibraryWidget", () => {
       /skill_visible|workspace_1|createdAt|updatedAt|created_at|updated_at/i,
     );
     expect(document.body.textContent).toContain(
-      "Skill attached to Coordinator as visible context.",
+      "Skill attached to Workspace Agent as visible context.",
     );
   });
 
-  it("does not show Attach to Coordinator when Coordinator is not visible", async () => {
+  it("does not show Attach to Workspace Agent when Workspace Agent is not visible", async () => {
     const skill = skillFixture({
       skillId: "skill_saved",
       title: "Saved Skill",
@@ -106,9 +106,9 @@ describe("SkillLibraryWidget", () => {
 
     await flush();
 
-    expect(buttonWithText("Attach to Coordinator")).toBeUndefined();
+    expect(buttonWithText("Attach to Workspace Agent")).toBeUndefined();
     expect(document.body.textContent).toContain(
-      "Add Coordinator Chat to attach saved Skills as visible context.",
+      "Add Workspace Agent to attach saved Skills as visible context.",
     );
   });
 
@@ -137,13 +137,13 @@ describe("SkillLibraryWidget", () => {
     await flush();
     await changeTextarea(2, "Unsaved edited step");
 
-    const attachButton = buttonWithText("Attach to Coordinator");
+    const attachButton = buttonWithText("Attach to Workspace Agent");
     expect(attachButton).toBeDefined();
     expect(attachButton?.disabled).toBe(true);
     expect(attachToCoordinator).not.toHaveBeenCalled();
 
     await clickButton("Save skill");
-    await clickButton("Attach to Coordinator");
+    await clickButton("Attach to Workspace Agent");
 
     expect(attachToCoordinator).toHaveBeenCalledTimes(1);
     const request = attachToCoordinator.mock.calls[0][0];

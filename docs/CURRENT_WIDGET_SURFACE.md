@@ -48,7 +48,7 @@ Current ready surfaces:
 
 Current preview surfaces:
 
-- Coordinator Chat
+- Workspace Agent
 - Agent Queue
 - Database / JDBC
 - Skill Library
@@ -60,32 +60,37 @@ and component keys may still appear in code and persistence.
 ## Current Default Workspace
 
 New Workspaces use the default name `Untitled` and open into the
-Coordinator-centered MVP surface: Coordinator Chat plus Notes. Agent Queue,
+Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Queue,
 Agent Executor, Git, Terminal, Database / JDBC, Skill Library, and Runbook
 remain optional widgets added when needed.
 
 Empty Workbench remains available as an advanced/manual start mode. Existing
-empty Workspaces show a recovery action to add Coordinator Chat plus Notes
+empty Workspaces show a recovery action to add Workspace Agent plus Notes
 without running agents, creating Queue tasks, reading hidden context, or
 changing runtime behavior.
 
-## Coordinator Target Architecture Note
+## Workspace Agent Target Architecture Note
 
 Current behavior in this document remains authoritative for what is implemented
-today. Target architecture now treats Coordinator as the primary foreground AI
-agent and central operator-facing work surface for interactive Workspace work.
-Chat is the interaction model, not the capability limit.
+today. Target architecture now treats Workspace Agent as a foreground
+interactive AI agent widget for Workspace work. Multiple Workspace Agent
+widgets can exist in one Workspace, and each agent has independent
+current-session context, conversation/thread state, and working directory.
+Chat is the interaction model, not the capability limit. Coordinator was the
+previous name for this Workspace Agent surface and remains only a legacy term
+for compatibility IDs, command names, and older contract filenames.
 
-Future Coordinator capabilities may include approved Workspace reads, coding
+Future Workspace Agent capabilities may include approved Workspace reads, coding
 and code review, file edits with diff preview, command and validation actions,
 Terminal/SSH, Git, JDBC/database work, Notes, Skill Library/Knowledge, Queue,
 Agent Executor, run history, and future Artifacts/Evidence. Those capabilities
 are not implemented by this inventory unless explicitly listed as current
 behavior below.
 
-Agent Executor is the async/background worker for bounded Queue tasks. Queue is
-for promoted, larger, delayed, or overnight work; it is not the default
-destination for every Coordinator action or small operation.
+Queue is the async task pipeline for promoted, larger, delayed, or overnight
+work. Agent Executor is a background worker for queued tasks and owns queued
+run detail/logs/results. Executor is not the only agent that can do work;
+Workspace Agent is the foreground interactive agent surface.
 
 ## Current Ready Surfaces
 
@@ -105,7 +110,7 @@ destination for every Coordinator action or small operation.
 - Owns run detail, live logs, cancellation controls, final responses,
   validation capture, changed-file visibility, and run history.
 - Run history and selected run detail can attach safe run metadata to
-  Coordinator Chat as visible current-session composer context. Selected run
+  Workspace Agent as visible current-session composer context. Selected run
   detail can also attach an explicit bounded excerpt from text the operator has
   selected inside the visible Executor-owned detail panel, or explicitly attach
   bounded visible preview sections such as final response, stdout, stderr,
@@ -143,7 +148,7 @@ destination for every Coordinator action or small operation.
   working directory, cols/rows, stdin sends, manual refresh/polling, resize,
   Stop, Kill with confirmation, and Close.
 - PTY output is a bounded session-only buffer. It is not persisted as widget
-  logs/results and is not sent to Coordinator Chat, Queue, Agent Executor,
+  logs/results and is not sent to Workspace Agent, Queue, Agent Executor,
   Git, Notes, JDBC, or Evidence/Sources.
 - PTY session support is currently Windows-only in shipped backend code.
   Non-Windows desktop builds compile but live PTY creation returns an
@@ -156,7 +161,7 @@ destination for every Coordinator action or small operation.
   and shows final stdout/stderr output.
 - Terminal does not implement tabs, split panes, persistent command history,
   persistent transcripts, shell profiles, environment/secrets support,
-  Agent-triggered execution, Queue-triggered execution, Coordinator control, or
+  Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or
   Script Runner behavior.
 
 ### Notes
@@ -177,7 +182,7 @@ destination for every Coordinator action or small operation.
 - `docs/NOTES_WIDGET_CONTRACT.md` is authoritative for the current Notes widget
   boundary. `docs/NOTES_WIDGET_PRODUCT_CONTRACT.md` is authoritative for Notes
   product planning and next-slice boundaries.
-- Coordinator Chat can create a new workspace-local Note only from an approved
+- Workspace Agent can create a new workspace-local Note only from an approved
   visible create-Note proposal and a separate explicit Create Note action.
   Existing Notes content is not read, searched, summarized, or sent to agents.
 - The older widget-local draft state shaped as `{ "body": "..." }` may still be
@@ -196,7 +201,7 @@ destination for every Coordinator action or small operation.
 - Uses the `agent-queue` widget definition id.
 - Intended for promoted/larger work blocks that need async organization,
   assignment, sequencing, or later review. It is not the default destination
-  for every Coordinator idea, small decision, or quick operator action.
+  for every Workspace Agent idea, small decision, or quick operator action.
 - Provides workspace-local task create, list, read, update, delete, filter,
   select, and explicit save flows for title, description, prompt, status, and
   priority.
@@ -216,7 +221,7 @@ destination for every Coordinator action or small operation.
   Executor-owned run detail selection. Selected task details also show a
   compact recent run-history summary from the same safe run-link metadata,
   capped to a small list with a count. Latest-run and recent run-history rows
-  can attach this same safe metadata to Coordinator Chat as visible
+  can attach this same safe metadata to Workspace Agent as visible
   current-session composer context; attach is operator-controlled, does not
   send automatically, and does not copy raw Executor payloads.
   Queue does not copy or render raw prompts, stdout/stderr, logs, final
@@ -251,18 +256,21 @@ destination for every Coordinator action or small operation.
 - Does not provide a backend scheduler, durable runner persistence,
   multi-executor parallel scheduling, retries, dependency graph execution,
   automatic acceptance, response capture outside Direct Work artifacts,
-  response validation, Coordinator automation, Notes mutation, Terminal launch,
+  response validation, Workspace Agent automation, Notes mutation, Terminal launch,
   or Git mutation.
 
-### Coordinator Chat
+### Workspace Agent
 
-- Current preview central operator work surface shown as Coordinator Chat and
-  compatibility foundation for the target foreground Coordinator Agent.
+- Current preview foreground interactive AI agent widget shown as Workspace
+  Agent and compatibility foundation for the target foreground agent surface.
 - It is chat-based, but not merely a chat widget: the operator uses it for
   planning, reasoning, task drafting, outcome review, and deciding what should
   become Queue or Executor work.
+- Multiple Workspace Agent widgets can exist in one Workspace. Each widget
+  instance owns its current-session visible chat, proposal card state, Codex
+  thread id, and working directory independently.
 - Uses the existing `interactive-agent` widget definition id/component key for
-  compatibility.
+  compatibility. Do not rename this id without an explicit migration.
 - Keeps chat messages and proposal card state in local React state for the
   current widget session.
 - Shows local planning-oriented response cards for explicit planning prompts:
@@ -296,28 +304,28 @@ destination for every Coordinator action or small operation.
   visible result text. Queue task creation remains explicit and creates a draft
   task only; it does not assign, start, run, or arm Queue Autorun.
 - In the Tauri desktop shell, explicit sends can use a backend-owned
-  Coordinator provider response path. Mock/local is the default provider; a
+  Workspace Agent provider response path. Mock/local is the default provider; a
   configured HTTP JSON provider can be selected by backend environment
   variables. Requests include visible current-session chat, visible proposal
   draft summaries, compact safety instructions, and `allowed_tools: []`.
 - Provider credentials stay backend-only. Browser/Vite fallback does not call a
   provider directly.
-- Presents Codex as the current foreground Coordinator agent when the desktop
+- Presents Codex as the current foreground Workspace Agent when the desktop
   Codex bridge is available. The primary composer action is Run with Codex and
-  sends the current composer message to a foreground Coordinator-owned Codex
+  sends the current composer message to a foreground Workspace Agent-owned Codex
   Direct Work run instead of generating a mock/local assistant response. Direct
   Work remains the implementation/execution path, not the primary UI concept.
   The working directory field defaults to `~`, and resolves `~` in the
   Tauri/backend path to the current user's home directory before launching
-  Codex. Coordinator-owned Direct Work runs pass Codex `--skip-git-repo-check`
+  Codex. Workspace Agent-owned Direct Work runs pass Codex `--skip-git-repo-check`
   so the default home-directory mode can start from a non-Git directory; Agent
   Executor and Queue Direct Work do not skip that check by default. The
   operator can replace `~` with a project or repo folder.
   On Windows, the default Codex launch path uses `codex.cmd` through the
-  shared Direct Work launch helper. Coordinator-owned Codex runs stream visible
-  status/log/final-result summaries in Coordinator, captures the Codex
+  shared Direct Work launch helper. Workspace Agent-owned Codex runs stream visible
+  status/log/final-result summaries in Workspace Agent, captures the Codex
   `thread.started` `thread_id` when emitted, and keeps that explicit Codex
-  thread id in current-session Coordinator widget state. Follow-up Run with
+  thread id in current-session Workspace Agent widget state. Follow-up Run with
   Codex actions resume that explicit thread id and send only the latest
   composer message; they do not use `--last` and do not resend the visible
   transcript as the prompt. The operator can use the visible New thread action
@@ -326,12 +334,12 @@ destination for every Coordinator action or small operation.
   new thread on the next run. Thread state is current-session only unless a
   later persistence slice explicitly adds storage. Normal chat transcript shows
   operator prompts and Codex final responses; Direct Work lifecycle details
-  stay available in the collapsed Direct Work details/status area. Coordinator
+  stay available in the collapsed Direct Work details/status area. Workspace Agent
   shows compact helper copy that `~` resolves to the current user's
   home directory and suggests choosing a project folder or scratch workspace if
   access is denied. Access-denied command failures inside Codex are surfaced as
   working-directory warnings while preserving any final Codex agent message as
-  the visible assistant response. Coordinator Codex runs support Stop when
+  the visible assistant response. Workspace Agent Codex runs support Stop when
   the Direct Work cancellation path is available and does not create Queue
   tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
@@ -342,13 +350,13 @@ destination for every Coordinator action or small operation.
 - Mock/local remains an explicit fallback when Codex is unavailable or the
   fallback chat path is used. The UI must not present mock/local fallback as
   connected AI.
-- Coordinator Chat does not persist chat sessions, read hidden Workspace
+- Workspace Agent does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, fetch Queue run history, read Executor logs or
   artifacts, launch Agent Executor, auto-dispatch Queue items, create Queue
   tasks automatically, start Queue Autorun, run validation, use SSH, mutate
   Git, run SQL, call JDBC connectors, run Terminal commands, emit/persist audit
-  events, or execute broad widget capability tools. Coordinator-owned Codex runs may
+  events, or execute broad widget capability tools. Workspace Agent-owned Codex runs may
   let Codex read files, write code, and run commands inside the explicit
   operator-provided working directory, but Hobit still performs no automatic
   commit, push, reset, clean, stash, or Queue/Executor handoff.
@@ -370,13 +378,13 @@ destination for every Coordinator action or small operation.
   runtime remains mock-only.
 - The current widget does not collect credentials, store passwords or tokens,
   test real database connections, run SQL against external systems, run
-  `EXPLAIN`, format SQL, provide AI query assistance, expose a Coordinator
+  `EXPLAIN`, format SQL, provide AI query assistance, expose a Workspace Agent
   JDBC execution tool, launch Terminal, mutate Git, or affect Agent Queue or
   Agent Executor behavior.
 - This bounded mock/safe read-only path is accepted as Current Preview
   behavior. Production JDBC execution, credential expansion, write SQL,
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,
-  and hidden Coordinator-triggered SQL execution remain Deferred.
+  and hidden Workspace Agent-triggered SQL execution remain Deferred.
 
 ### Skill Library
 
@@ -391,12 +399,12 @@ destination for every Coordinator action or small operation.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
 - Skill Library is workspace-local and operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
-  sent to Coordinator or provider prompts automatically.
-- Can explicitly attach the selected Skill to Coordinator Chat as visible
+  sent to Workspace Agent or provider prompts automatically.
+- Can explicitly attach the selected Skill to Workspace Agent as visible
   current-session composer context. The attachment includes only title, when to
   use, prerequisites, steps, validation, risks, tags, and review status. It is
   editable/removable before Send and does not send automatically.
-- Skill Library does not auto-search Skills for Coordinator, does not silently
+- Skill Library does not auto-search Skills for Workspace Agent, does not silently
   include Skills in provider prompts, and does not create hidden provider
   context.
 - Skill Library does not implement Knowledge Items, Evidence links, Context
@@ -411,15 +419,16 @@ destination for every Coordinator action or small operation.
 - Step states are `pending`, `running`, `done`, `failed`, `skipped`, and
   `blocked`.
 - Does not persist runbooks, edit/build templates, execute steps, launch Agent
-  Executor, create Queue items, integrate with Coordinator Chat, execute
+  Executor, create Queue items, integrate with Workspace Agent, execute
   Terminal commands, mutate files, or mutate Git.
 
 ## Compatibility / Deprecated Surfaces
 
 - `agent-run` remains the internal Agent Executor definition id for persisted
   compatibility. Do not rename it in cleanup tasks.
-- `interactive-agent` remains the internal Coordinator Chat definition id and
-  component key for persisted compatibility. Do not rename it in cleanup tasks.
+- `interactive-agent` remains the internal Workspace Agent definition id and
+  component key for persisted compatibility. Coordinator Chat was the previous
+  user-facing name for this surface. Do not rename the id in cleanup tasks.
 - Placeholder-named components such as `AgentRunPlaceholderWidget`,
   `AgentQueuePlaceholderWidget`, `InteractiveAgentPlaceholderWidget`, and
   `NotesPlaceholderWidget` may contain current product UI. The names are
@@ -462,7 +471,7 @@ or surfaced unless explicitly requested by a future task:
 - full Notebook
 - real Runbook engine
 - real JDBC connector runtime with credentials or external database execution
-- real Coordinator widget capability execution
+- real Workspace Agent widget capability execution
 - Terminal catalog gating on unsupported platforms
 - Linux/macOS Terminal PTY support
 - Evidence/Sources capture and AI context packs
@@ -492,12 +501,12 @@ Use them through Vite dev URLs under `/smoke/dev/`.
   either retire/delete the old paths or keep narrowed compatibility APIs.
 - JDBC read-only execution: completed for Phase 1 docs. The shipped bounded
   mock/safe read-only query UI is Current Preview; production JDBC execution
-  and hidden Coordinator-triggered SQL remain Deferred.
+  and hidden Workspace Agent-triggered SQL remain Deferred.
 - Terminal platform support: completed for Phase 1 docs. Live PTY support is
   Windows-only in shipped backend code; non-Windows live PTY creation is
   unsupported. Catalog gating and Linux/macOS PTY support remain Deferred.
 - Smoke HTML root cleanup: completed. The remaining smoke follow-ups are
   checklist discipline, current behavior smoke checklists, and optional e2e
   automation later.
-- Coordinator / Queue / Executor naming and responsibility cleanup remains
-  deferred until current codebase cleanup and Notes stabilization are complete.
+- Remaining legacy Coordinator compatibility names in code and filenames are
+  retained until an explicit migration/refactor block.

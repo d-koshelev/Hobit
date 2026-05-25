@@ -389,6 +389,6 @@ export const generateAgentChatAiProposal: WorkspaceApi["generateAgentChatAiPropo
 export const generateCoordinatorProviderResponse: WorkspaceApi["generateCoordinatorProviderResponse"] =
   async (_request) => {
     throw new Error(
-      "Coordinator mock provider responses are only available through the Tauri desktop backend. Browser fallback keeps Coordinator Chat deterministic and local.",
+      "Workspace Agent mock provider responses are only available through the Tauri desktop backend. Browser fallback keeps Workspace Agent deterministic and local.",
     );
   };

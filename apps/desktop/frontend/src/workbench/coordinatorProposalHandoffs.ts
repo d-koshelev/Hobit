@@ -24,7 +24,7 @@ export function queueTaskRequestFromProposal(
     title:
       proposalInputValue(proposal, "Title") ||
       proposal.title.replace(/^Preview:\s*/i, "").trim() ||
-      "Coordinator proposal",
+      "Workspace Agent proposal",
   };
 }
 
@@ -40,7 +40,7 @@ export function noteCreateRequestFromProposal(
     title:
       proposalInputValue(proposal, "Title") ||
       proposal.title.replace(/^Preview:\s*/i, "").trim() ||
-      "Coordinator note",
+      "Workspace Agent note",
   };
 }
 

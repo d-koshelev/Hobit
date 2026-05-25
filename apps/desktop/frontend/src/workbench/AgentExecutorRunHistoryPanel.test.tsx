@@ -93,7 +93,7 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
         .mockResolvedValue(runHistory([runSummary("run_safe_123456")])),
     });
 
-    clickButtonAt("Attach to Coordinator", 0);
+    clickButtonAt("Attach to Workspace Agent", 0);
 
     expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
     const request = onAttachContextToCoordinator.mock.calls[0][0];
@@ -125,7 +125,7 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
       },
     });
 
-    clickButtonAt("Attach to Coordinator", 1);
+    clickButtonAt("Attach to Workspace Agent", 1);
 
     expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
     const request = onAttachContextToCoordinator.mock.calls[0][0];

@@ -20,7 +20,7 @@ const PROVIDER_DRAFT_SUMMARY =
 
 const SQL_PLACEHOLDER = [
   "-- Edit this visible SQL suggestion before use.",
-  "-- Coordinator did not inspect connectors, schemas, or database data.",
+  "-- Workspace Agent did not inspect connectors, schemas, or database data.",
 ].join("\n");
 
 export function coordinatorProviderDraftProposals(
@@ -308,7 +308,7 @@ function defaultQueueTitle(prompt: string) {
   const title = prompt.replace(/\s+/g, " ").trim();
 
   if (!title) {
-    return "Coordinator Queue task draft";
+    return "Workspace Agent Queue task draft";
   }
 
   return title.length <= 72 ? title : `${title.slice(0, 71).trim()}...`;

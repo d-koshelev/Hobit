@@ -210,20 +210,20 @@ function AgentExecutorRunDetailContent({
             onClick={() => onAttachRunContext?.()}
             title={
               onAttachRunContext
-                ? "Attach this safe run metadata to Coordinator Chat."
-                : "Coordinator Chat is not visible on this Workbench."
+                ? "Attach this safe run metadata to Workspace Agent."
+                : "Workspace Agent is not visible on this Workbench."
             }
             variant="ghost"
           >
-            Attach to Coordinator
+            Attach to Workspace Agent
           </Button>
           <Button
             disabled={!onAttachSelectedExcerpt}
             onClick={attachSelectedExcerpt}
             title={
               onAttachSelectedExcerpt
-                ? "Attach only selected visible text to Coordinator Chat."
-                : "Coordinator Chat is not visible on this Workbench."
+                ? "Attach only selected visible text to Workspace Agent."
+                : "Workspace Agent is not visible on this Workbench."
             }
             variant="ghost"
           >
@@ -233,7 +233,7 @@ function AgentExecutorRunDetailContent({
       </div>
       <p className="codex-direct-work-review-note">
         Only selected visible text is attached. Does not send automatically.
-        Coordinator does not read full Executor logs.
+        Workspace Agent does not read full Executor logs.
       </p>
       {selectedExcerptMessage ? (
         <p className="codex-direct-work-review-note" role="status">

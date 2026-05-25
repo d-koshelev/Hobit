@@ -291,7 +291,7 @@ export function SkillLibraryWidget({
       contextText: skillCoordinatorContextText(selectedSkill),
       sourceLabel: "Skill Library / Skill",
     });
-    setMessage("Skill attached to Coordinator as visible context.");
+    setMessage("Skill attached to Workspace Agent as visible context.");
     setError(null);
   }
 
@@ -346,8 +346,8 @@ export function SkillLibraryWidget({
       <div className="skill-library-shell">
         <div className="skill-library-summary">
           <span>Workspace-local.</span>
-          <span>Not sent to Coordinator automatically.</span>
-          <span>Skills are not sent to Coordinator unless explicitly attached.</span>
+          <span>Not sent to Workspace Agent automatically.</span>
+          <span>Skills are not sent to Workspace Agent unless explicitly attached.</span>
         </div>
 
         {isLoading ? (
@@ -484,12 +484,12 @@ export function SkillLibraryWidget({
                       onClick={attachSelectedSkillToCoordinator}
                       title={
                         isDirty
-                          ? "Save this Skill before attaching it to Coordinator."
-                          : "Shares this saved Skill with Coordinator. Does not send automatically."
+                          ? "Save this Skill before attaching it to Workspace Agent."
+                          : "Shares this saved Skill with Workspace Agent. Does not send automatically."
                       }
                       variant="secondary"
                     >
-                      Attach to Coordinator
+                      Attach to Workspace Agent
                     </Button>
                   ) : null}
                   <Button
@@ -517,7 +517,7 @@ export function SkillLibraryWidget({
                 <p className="skill-attach-note">
                   {onAttachContextToCoordinator
                     ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
-                    : "Add Coordinator Chat to attach saved Skills as visible context."}
+                    : "Add Workspace Agent to attach saved Skills as visible context."}
                 </p>
 
                 {message ? <p className="skill-message">{message}</p> : null}

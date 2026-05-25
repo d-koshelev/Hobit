@@ -46,15 +46,15 @@ a process/status document only. It does not override product contracts,
 desktop/server-ready, runtime artifact, audit, capability, artifact,
 knowledge/evidence, Context Pack foundation refactor series, and Minimal Skill
 Library MVP. It is a status/roadmap note and does not add behavior beyond that
-MVP, Coordinator context wiring, audit emission, server runtime, or RBAC.
+MVP, Workspace Agent context wiring, audit emission, server runtime, or RBAC.
 
 `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` is the Compatibility /
 pending-retirement source of truth for retained Agent Chat, Agent Monitoring,
 and proposal-era API status. It is not the source of truth for current widget
-behavior, current preferred widget names, or Coordinator / Queue / Executor
+behavior, current preferred widget names, or Workspace Agent / Queue / Executor
 naming. Current widget behavior remains governed by
-`docs/CURRENT_WIDGET_SURFACE.md`, and Coordinator / Queue / Executor naming
-cleanup remains deferred.
+`docs/CURRENT_WIDGET_SURFACE.md`. Legacy Coordinator compatibility names may
+remain in code and filenames until explicit migration/refactor work.
 
 Testing and smoke checklist docs are process docs only. They do not override
 product contracts, do not add current behavior, and do not expand the global
@@ -82,8 +82,8 @@ of truth for their domains.
 - `docs/testing/WORKBENCH_CURRENT_SURFACE_SMOKE_CHECKLIST.md` - high-level
   current Workbench surface smoke map tied to
   `docs/CURRENT_WIDGET_SURFACE.md`.
-- `docs/MVP_ACCEPTANCE_WALKTHROUGH.md` - manual Coordinator-centered MVP
-  acceptance walkthrough covering Coordinator planning, Skill attachment,
+- `docs/MVP_ACCEPTANCE_WALKTHROUGH.md` - manual Workspace Agent MVP
+  acceptance walkthrough covering Workspace Agent planning, Skill attachment,
   Queue execution, Executor review, and visible-context safety checks.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
@@ -96,7 +96,7 @@ of truth for their domains.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - foundation refactor checkpoint,
   type-only/contract-only boundaries, non-goals, and next roadmap groupings.
 
-Phase 1 does not include new Notes features, Notebook features, Coordinator /
+Phase 1 does not include new Notes features, Notebook features, Workspace Agent /
 Queue / Executor redesign, component renames, storage migrations, runtime
 behavior changes, or automatic agent orchestration changes.
 
@@ -155,17 +155,18 @@ unless the task explicitly requests it.
 
 ## Core Active Contracts
 
-- `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` - read for Coordinator,
-  cross-widget, autonomy, context, or product-model work. Coordinator is the
-  primary foreground AI agent and central operator-facing work surface. Chat is
-  the interaction model, not the capability limit. Queue organizes promoted
-  async work, and Executor is the queued/background worker.
-- `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` - read for target
-  Workspace-aware Coordinator capability architecture, Coordinator modes,
+- `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` - legacy-named active
+  contract for Workspace Agent, cross-widget, autonomy, context, or
+  product-model work. Coordinator was the previous name for the Workspace
+  Agent surface. Workspace Agent is a foreground interactive AI agent widget;
+  multiple Workspace Agents may exist in one Workspace. Queue organizes
+  promoted async work, and Executor is the queued/background worker.
+- `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` - legacy-named contract for
+  target Workspace Agent capability architecture, agent modes,
   safety/action levels, widget capability use, and Queue/Executor role
   boundaries. It is docs-only target architecture and does not add current
   runtime behavior.
-- `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Coordinator or future
+- `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Workspace Agent or future
   AI surfaces use widgets through controlled capabilities.
 - `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
   Capability Boundary v0 vocabulary. It is type scaffolding only and does not
@@ -178,7 +179,7 @@ unless the task explicitly requests it.
   persistence, server runtime, organizations, or RBAC.
 - `docs/AUDIT_EVENT_MAPPING_PLAN.md` - read for future audit adoption
   readiness across current Workspace, widget, Queue, Direct Work, Terminal,
-  Git, JDBC, Coordinator, Notes, and Runbook surfaces. It is a mapping plan
+  Git, JDBC, Workspace Agent, Notes, and Runbook surfaces. It is a mapping plan
   only and does not add audit persistence or event emission.
 - `docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md` - read for Artifact
   Reference / Ownership v0 vocabulary. It is type scaffolding only and does
@@ -191,7 +192,7 @@ unless the task explicitly requests it.
   Rust refs live in `crates/hobit-app/src/knowledge/` and
   `crates/hobit-app/src/context_packs/` mostly as type scaffolding. They do
   not add a knowledge store, evidence store, Context Pack store, context
-  ingestion, Coordinator/provider context wiring, prompt changes, server
+  ingestion, Workspace Agent/provider context wiring, prompt changes, server
   runtime, or RBAC.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
@@ -215,7 +216,7 @@ unless the task explicitly requests it.
   and visual polish blocks.
 - `docs/TOOL_ACTION_CONTRACT.md` - read for explicit, visible, approval-aware
   action modeling.
-- `docs/AI_INTEGRATION_READINESS_CONTRACT.md` - read before Coordinator
+- `docs/AI_INTEGRATION_READINESS_CONTRACT.md` - read before Workspace Agent
   provider/runtime work; it defines the first provider slice boundary with
   explicit visible context only and `allowed_tools: []`.
 
@@ -235,7 +236,7 @@ unless the task explicitly requests it.
 - `docs/AGENT_QUEUE_CONTRACT.md` - older queue/review boundary context.
 - `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` - current task organization,
   status, assignment, and future dependency model. Queue is for
-  promoted/larger async work blocks, not every Coordinator idea or small
+  promoted/larger async work blocks, not every Workspace Agent idea or small
   operator action.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
@@ -287,8 +288,8 @@ unless the task explicitly requests it.
 - `docs/JDBC_WIDGET_CONTRACT.md` - Database / JDBC Current Preview behavior
   and boundaries, including connector metadata, bounded mock/safe read-only SQL
   validation/execution, secret isolation, production-runtime deferrals, and
-  Coordinator SQL execution boundaries. It is not a source of truth for
-  production JDBC runtime, broad database automation, or hidden Coordinator
+  Workspace Agent SQL execution boundaries. It is not a source of truth for
+  production JDBC runtime, broad database automation, or hidden Workspace Agent
   execution.
 
 ### Evidence / Sources
@@ -328,17 +329,17 @@ unless a block explicitly names the area:
 - `docs/TEMPLATE_CONTRACT.md`
 - `docs/AGENT_RUNTIME_CONTRACT.md`
 
-Do not read deferred contracts for ordinary Coordinator, Queue, Executor, Git,
+Do not read deferred contracts for ordinary Workspace Agent, Queue, Executor, Git,
 Notes, JDBC, or refactor work unless the requested block depends on that
 surface.
 
 ## Superseded Or Compatibility References
 
-These documents should not override the Coordinator-centered model or
+These documents should not override the Workspace Agent model or
 `docs/CURRENT_WIDGET_SURFACE.md`:
 
 - `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md` - superseded as a product
-  direction by Coordinator Chat, but still useful for compatibility with the
+  direction by Workspace Agent, but still useful for compatibility with the
   existing `interactive-agent` widget id/component.
 - `docs/AGENT_CHAT_MONITORING_COMPATIBILITY_CONTRACT.md` - source of truth
   only for Agent Chat / Agent Monitoring / proposal-era API Compatibility /
@@ -364,7 +365,7 @@ These documents should not override the Coordinator-centered model or
 - Queue work: read `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
-- Coordinator/JDBC work: read
+- Workspace Agent/JDBC work: read
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`,
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
   `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and
@@ -395,6 +396,6 @@ Update this index when:
 - a domain becomes deferred;
 - a contract is superseded;
 - the current widget surface changes;
-- the Coordinator-centered model changes.
+- the Workspace Agent model changes.
 
 Do not update this index for every small UI or code change.

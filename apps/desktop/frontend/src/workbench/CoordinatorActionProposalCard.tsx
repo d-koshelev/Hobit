@@ -141,7 +141,7 @@ export function CoordinatorActionProposalCard({
 
   return (
     <section
-      aria-label={`Coordinator action proposal: ${proposal.title}`}
+      aria-label={`Workspace Agent action proposal: ${proposal.title}`}
       className={`coordinator-proposal-card coordinator-proposal-card-${cardState.tone}`}
     >
       <div className="coordinator-proposal-header">

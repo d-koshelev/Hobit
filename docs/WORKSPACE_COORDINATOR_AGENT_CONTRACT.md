@@ -1,18 +1,22 @@
-# Workspace Coordinator Agent Contract
+# Workspace Agent Contract
 
 ## Purpose
 
-This contract defines the target Workspace-aware Coordinator Agent behavior for Hobit.
+This legacy-named contract defines the target Workspace Agent behavior for Hobit.
+Coordinator was the previous user-facing name for the Workspace Agent surface.
+The filename remains unchanged for compatibility with existing references.
 
 This is a docs/product-architecture contract. It does not implement
-Coordinator file access, tool execution, provider tool mode, storage/schema
+Workspace Agent file access, tool execution, provider tool mode, storage/schema
 changes, Tauri commands, queue behavior changes, server runtime, RBAC, or
-runtime behavior. For current implemented Coordinator Chat behavior, use
+runtime behavior. For current implemented Workspace Agent behavior, use
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
-The Coordinator Agent is the primary foreground AI agent inside a Workspace.
-It is the central operator-facing work surface. Chat is the interaction model,
-not the capability limit. The target Coordinator can perform interactive work
+Workspace Agent is the foreground interactive AI agent widget inside a
+Workspace. Multiple Workspace Agent widgets can exist in one Workspace; each
+has independent current-session context/thread state and working directory.
+Chat is the interaction model, not the capability limit. The target Workspace
+Agent can perform interactive work
 inside the Workspace through controlled capabilities: filesystem and code
 editing, code review, command and validation work, Terminal and SSH actions,
 Git review/control, JDBC/database work, Notes, Skill Library/Knowledge,
@@ -20,7 +24,7 @@ Queue, Agent Executor, run history, and future Artifacts/Evidence.
 
 This is primarily a documentation and product/domain contract. Older Agent Chat
 / Agent Monitoring proposal-era paths remain compatibility/reference only and
-are not the current product direction. Current Coordinator Chat behavior is
+are not the current product direction. Current Workspace Agent behavior is
 defined by `docs/CURRENT_WIDGET_SURFACE.md`: visible current-session chat and
 proposal draft context only, `allowed_tools: []`, validated review cards, and
 no hidden context access or widget tool execution. It does not implement agent
@@ -30,8 +34,8 @@ mutation.
 
 ## Current Status
 
-Coordinator Chat is currently the central user-facing chat-based work surface
-and compatibility foundation for the future foreground Coordinator Agent.
+Workspace Agent is currently the user-facing foreground chat-based agent
+surface and compatibility foundation for the future foreground agent.
 It reuses the existing `interactive-agent` id/component for compatibility,
 keeps chat state in the current frontend session, can request backend-owned
 mock/local or configured HTTP JSON provider responses from visible
@@ -39,7 +43,7 @@ chat/proposal context only, and keeps `allowed_tools: []`. Older Agent Chat
 proposal persistence and Agent Monitoring paths are retained
 compatibility/reference paths, not the preferred current surface.
 
-The current Coordinator preview:
+The current Workspace Agent preview:
 
 - summarizes the operator prompt locally
 - can include visible current-session chat and visible proposal draft summaries
@@ -70,21 +74,21 @@ The current Coordinator preview:
   text when the visible result suggests follow-up work; creation remains a
   separate explicit Create Queue task action
 - can approve all visible Queue task drafts as local review state only
-- can start an explicit local desktop Coordinator Codex run from the current
+- can start an explicit local desktop Workspace Agent Codex run from the current
   composer message when the desktop Codex bridge is available and the operator
   clicks the Run with Codex primary composer action. Codex is presented as the
-  foreground Coordinator agent. Direct Work remains the implementation/
+  foreground Workspace Agent. Direct Work remains the implementation/
   execution path: normal composer submission starts a foreground
-  Coordinator-owned Codex Direct Work run and does not generate a mock/local
+  Workspace Agent-owned Codex Direct Work run and does not generate a mock/local
   assistant response for the same prompt. The working directory field defaults
   to `~`, the Tauri/backend path resolves `~` to the current user's home
-  directory before launching Codex, and Coordinator-owned Direct Work runs pass
+  directory before launching Codex, and Workspace Agent-owned Direct Work runs pass
   Codex `--skip-git-repo-check` so the default home-directory mode can start
   from a non-Git directory. Agent Executor and Queue Direct Work do not skip
   that check by default. The operator can replace `~` with a project or repo
   folder. The first successful Codex stream captures the explicit
   `thread.started` `thread_id` when Codex emits it, stores it as
-  current-session Coordinator widget state, and later Codex runs send resume
+  current-session Workspace Agent widget state, and later Codex runs send resume
   requests for that explicit thread id. Resume requests do not use `--last`
   and send only the latest composer message rather than the full visible
   transcript. The operator can visibly start a new thread / reset the thread
@@ -94,13 +98,13 @@ The current Coordinator preview:
   Codex final responses; Direct Work lifecycle details remain available in the
   collapsed Direct Work details/status area. Status, recent logs, Stop/cancel
   state when available, final result summary, and failures stay visible in
-  Coordinator.
+  Workspace Agent.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
   details or run history, Executor logs/results/artifacts, Skill Library
   records, files, environment variables, secrets, Context Packs, or hidden
-  context; Attach to Coordinator sends only the visible metadata, selected
+  context; Attach to Workspace Agent sends only the visible metadata, selected
   excerpt, selected Skill fields, or bounded visible preview section the
   operator attached, not raw payloads, full Executor logs, hidden Skill
   metadata, or unrelated Workspace state
@@ -113,12 +117,12 @@ The current Coordinator preview:
 
 There is no implemented:
 
-- direct Coordinator filesystem read/write capability outside explicit
-  Coordinator-owned Codex runs
-- direct command or SSH execution from Coordinator outside explicit
-  Coordinator-owned Codex runs
-- direct JDBC capability execution from Coordinator
-- direct Git mutation from Coordinator
+- direct Workspace Agent filesystem read/write capability outside explicit
+  Workspace Agent-owned Codex runs
+- direct command or SSH execution from Workspace Agent outside explicit
+  Workspace Agent-owned Codex runs
+- direct JDBC capability execution from Workspace Agent
+- direct Git mutation from Workspace Agent
 - unified permission or policy UI
 - full provider tool mode
 - audit emission or persistence
@@ -132,11 +136,11 @@ There is no implemented:
 - automatic execution
 - coordinator UI beyond the current chat/proposal/attachment preview
 
-Current Coordinator Chat can create a Queue task only from an approved visible
+Current Workspace Agent can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
 Creating a Queue task is draft task creation only; it does not assign, run,
 start Queue Autorun, launch Agent Executor, or execute the task.
-Coordinator-owned Codex runs do not create Queue tasks, do not start Queue
+Workspace Agent-owned Codex runs do not create Queue tasks, do not start Queue
 Autorun, and do not change Agent Executor repo-root/task configuration
 behavior.
 Mock/local is an explicit local fallback, not connected AI, and remains
@@ -146,7 +150,7 @@ it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.
 
 The current Queue/Executor async execution path exists independently of
-Coordinator direct capability execution: Queue tasks can be assigned to a
+Workspace Agent direct capability execution: Queue tasks can be assigned to a
 visible Agent Executor and explicitly started, and Queue Autorun can be
 explicitly armed from Queue under its current-session limits.
 
@@ -224,7 +228,7 @@ Target Coordinator modes:
 - Async Delegation mode: promotion of larger or long-running work through
   Queue and Agent Executor.
 
-Current Coordinator Chat implements only chat/reasoning, proposal drafts,
+Current Workspace Agent implements only chat/reasoning, proposal drafts,
 visible attachments, Skill attach, Queue/Executor metadata attach, selected
 Executor excerpt / preview attach, pasted result review, and explicit
 proposal handoff for the supported safe proposal types.
@@ -338,7 +342,7 @@ Examples:
 - Script Runner output may expose configured run summaries or selected logs only with explicit approval when Script Runner exists.
 - Workspace Activity may expose high-level events, not hidden full context from every widget.
 
-Cross-widget use of context must be visible and operator-controlled. A widget may contribute context through Workbench state and events, but it must not directly couple itself to Coordinator Chat or another widget.
+Cross-widget use of context must be visible and operator-controlled. A widget may contribute context through Workbench state and events, but it must not directly couple itself to Workspace Agent or another widget.
 
 ## Proposed Action Model
 
@@ -490,31 +494,31 @@ receives bounded Queue task prompts, runs them through the explicit Executor
 runtime path, and owns queued execution logs, results, review state, and run
 history.
 
-Coordinator may review approved Executor metadata, selected excerpts, preview
+Workspace Agent may review approved Executor metadata, selected excerpts, preview
 sections, Result Reports, Overview Logs, and Raw Log excerpts when the operator
-selects or approves them. Coordinator may delegate larger work to Queue and
-Executor, but Executor ownership of async runs does not limit Coordinator's
+selects or approves them. Workspace Agent may delegate larger work to Queue and
+Executor, but Executor ownership of async runs does not limit Workspace Agent's
 foreground Workspace capability set.
 
-Current Coordinator-owned Codex runs reuse the Codex Direct Work runtime as a
-foreground Coordinator-owned run. Direct Work remains the execution path, not
+Current Workspace Agent-owned Codex runs reuse the Codex Direct Work runtime as a
+foreground Workspace Agent-owned run. Direct Work remains the execution path, not
 the primary UI concept. This does not require a visible Agent Executor widget,
 does not change Agent Executor's explicit repo-root/task configuration
 behavior, and does not create Queue tasks or start Queue Autorun.
 Queue and Agent Executor remain the async/background path for promoted or
-larger work; Coordinator Codex is the foreground brain/work action.
+larger work; Workspace Agent Codex is the foreground brain/work action.
 
 ## Relationship To Notebook
 
 Notebook can be a source of tasks, notes, review comments, snippets, JSON, diagrams, and follow-up ideas.
 
-The Coordinator may help transform Notebook content into proposed Queue Items, summaries, follow-up blocks, review notes, or approved Notebook edits.
+Workspace Agent may help transform Notebook content into proposed Queue Items, summaries, follow-up blocks, review notes, or approved Notebook edits.
 
 Rules:
 
 - Notebook content must not be read by default.
 - Selected Notebook context must be visible or reviewable.
-- Coordinator must not rewrite Notebook content without approval.
+- Workspace Agent must not rewrite Notebook content without approval.
 - AI-assisted Notebook edits must be previewed and approved.
 - Notebook source text remains the source of truth.
 

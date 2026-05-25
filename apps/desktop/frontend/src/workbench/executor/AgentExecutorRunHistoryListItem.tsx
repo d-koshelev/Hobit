@@ -62,12 +62,12 @@ export function AgentExecutorRunHistoryListItem({
           onClick={() => onAttachRunContext?.(run)}
           title={
             onAttachRunContext
-              ? "Attach this safe run metadata to Coordinator Chat."
-              : "Coordinator Chat is not visible on this Workbench."
+              ? "Attach this safe run metadata to Workspace Agent."
+              : "Workspace Agent is not visible on this Workbench."
           }
           variant="ghost"
         >
-          Attach to Coordinator
+          Attach to Workspace Agent
         </Button>
       </span>
     </div>

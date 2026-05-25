@@ -236,7 +236,7 @@ function createPlanDraft(
       "Approve any Queue task draft only after reviewing its visible prompt.",
       "Create Queue tasks only for larger async work; creation does not run them.",
     ],
-    title: derivedTitle(message, "Coordinator plan"),
+    title: derivedTitle(message, "Workspace Agent plan"),
   };
 }
 
@@ -389,7 +389,7 @@ function nextActionsFor(
 
   return [
     "Paste the final status, failed command, or validation summary.",
-    "Ask Coordinator again after the visible result text is complete.",
+    "Ask Workspace Agent again after the visible result text is complete.",
     "Avoid creating Queue work until the outcome is clear.",
   ];
 }
@@ -417,7 +417,7 @@ function queueDraftFromOutcomeReview(
         : "Follow up pasted result review";
 
   return {
-    description: `Follow-up drafted from visible Coordinator outcome review: ${review.observedSummary}`,
+    description: `Follow-up drafted from visible Workspace Agent outcome review: ${review.observedSummary}`,
     priority: review.statusInterpretation === "failure" ? "2" : "1",
     prompt: [
       "Review the visible pasted outcome below and propose the smallest safe follow-up.",
@@ -441,7 +441,7 @@ function queueDraftsFromMessage(message: string): QueueTaskDraft[] {
         description: message,
         priority: explicitPriority,
         prompt: explicitPrompt || message,
-        title: explicitTitle || derivedTitle(message, "Coordinator queue task"),
+        title: explicitTitle || derivedTitle(message, "Workspace Agent queue task"),
       },
     ];
   }
@@ -449,14 +449,14 @@ function queueDraftsFromMessage(message: string): QueueTaskDraft[] {
   const listItems = extractedTaskLines(message);
   if (listItems.length > 0) {
     return listItems.slice(0, MAX_LOCAL_QUEUE_DRAFTS).map((item) => ({
-      description: `Drafted from visible Coordinator chat: ${item}`,
+      description: `Drafted from visible Workspace Agent chat: ${item}`,
       priority: "0",
       prompt: [
         item,
         "",
         "Use only the task prompt and explicit operator-provided context. Do not run hidden tools, mutate Git, or assume hidden Workspace context.",
       ].join("\n"),
-      title: derivedTitle(item, "Coordinator queue task"),
+      title: derivedTitle(item, "Workspace Agent queue task"),
     }));
   }
 
@@ -490,7 +490,7 @@ function planningGoal(message: string) {
   return (
     extractLabeledValue(message, ["goal", "prompt", "description"]) ||
     stripPlanningPrefix(message) ||
-    "the visible Coordinator request"
+    "the visible Workspace Agent request"
   );
 }
 
@@ -505,7 +505,7 @@ function planningSteps(message: string) {
     `Confirm the exact goal and missing context for: ${goal}`,
     "Separate quick operator decisions from larger async Queue work.",
     "Draft Queue tasks only for focused work blocks with visible prompts.",
-    "Run any accepted task later through Queue/Executor controls, not from Coordinator.",
+    "Run any accepted task later through Queue/Executor controls, not from Workspace Agent.",
   ];
 }
 
@@ -575,7 +575,7 @@ function createNoteProposal(
   const definition = proposalTypeDefinition("create-note");
   const title =
     extractLabeledValue(message, ["title", "note title"]) ||
-    derivedTitle(message, "Coordinator note");
+    derivedTitle(message, "Workspace Agent note");
 
   return {
     approvalStatus: "Pending preview",
@@ -659,7 +659,7 @@ function proposalTypeDefinition(
   );
 
   if (!definition) {
-    throw new Error(`Missing Coordinator proposal type: ${typeId}`);
+    throw new Error(`Missing Workspace Agent proposal type: ${typeId}`);
   }
 
   return definition;
@@ -718,7 +718,7 @@ function startsWithReadOnlySql(value: string) {
 function jdbcSqlPlaceholder() {
   return [
     "-- Edit this visible SQL suggestion before use.",
-    "-- Coordinator did not inspect connectors, schemas, or database data.",
+    "-- Workspace Agent did not inspect connectors, schemas, or database data.",
   ].join("\n");
 }
 

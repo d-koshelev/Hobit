@@ -24,7 +24,7 @@ export function createCoordinatorProviderActions(
     generateCoordinatorProviderResponse: (widgetInstanceId, request) => {
       const workbenchId = requireOpenWorkbench(
         viewState,
-        "request a Coordinator provider response",
+        "request a Workspace Agent provider response",
       );
       return generateCoordinatorProviderResponse({
         workspaceId: viewState.workspace.id,

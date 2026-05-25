@@ -27,12 +27,12 @@ export function WorkbenchEmptyCanvas({
           <div className="empty-workbench-content">
             <h1 className="empty-workbench-title">Your workbench is empty</h1>
             <p className="empty-workbench-text">
-              Start with Coordinator Chat and Notes, or add individual widgets
+              Start with Workspace Agent and Notes, or add individual widgets
               for a manual workbench.
             </p>
             <div className="empty-workbench-actions">
               <Button onClick={onStartCoordinatorWorkspace} variant="primary">
-                Add Coordinator + Notes
+                Add Workspace Agent + Notes
               </Button>
               <Button onClick={onOpenWidgetCatalog} variant="secondary">
                 + Add Widget

@@ -26,7 +26,7 @@ describe("workbench presets", () => {
     expect(DEFAULT_WORKSPACE_NAME).toBe("Untitled");
   });
 
-  it("uses Coordinator Chat and Notes as the default workspace preset", () => {
+  it("uses Workspace Agent and Notes as the default workspace preset", () => {
     expect(defaultWorkbenchPreset).toBe(coordinatorWorkspacePreset);
     expect(
       coordinatorWorkspacePreset.widgets.map((widget) => widget.definitionId),
@@ -36,7 +36,7 @@ describe("workbench presets", () => {
     ]);
   });
 
-  it("places Coordinator Chat as the larger primary default widget", () => {
+  it("places Workspace Agent as the larger primary default widget", () => {
     const coordinator = coordinatorWorkspacePreset.widgets[0];
     const notes = coordinatorWorkspacePreset.widgets[1];
 
@@ -55,7 +55,7 @@ describe("workbench presets", () => {
     );
   });
 
-  it("places Notes beside Coordinator Chat on a normal desktop layout", () => {
+  it("places Notes beside Workspace Agent on a normal desktop layout", () => {
     const coordinator = coordinatorWorkspacePreset.widgets[0];
     const notes = coordinatorWorkspacePreset.widgets[1];
 
@@ -80,7 +80,7 @@ describe("workbench presets", () => {
     );
   });
 
-  it("does not stretch Coordinator Chat to fill locked mode at normal desktop width", () => {
+  it("does not stretch Workspace Agent to fill locked mode at normal desktop width", () => {
     const widgets = coordinatorNotesWidgetsForCanvasWidth({
       canvasWidth: 1440,
       presetId: coordinatorWorkspacePreset.id,
@@ -97,7 +97,7 @@ describe("workbench presets", () => {
     expect(coordinator.layout.y).toBe(notes.layout.y);
   });
 
-  it("stacks Coordinator Chat before Notes only for narrow canvas widths", () => {
+  it("stacks Workspace Agent before Notes only for narrow canvas widths", () => {
     const widgets = coordinatorNotesWidgetsForCanvasWidth({
       canvasWidth: COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH - 1,
       presetId: coordinatorWorkspacePreset.id,
@@ -166,7 +166,7 @@ describe("workbench presets", () => {
           NOTES_WIDGET_DEFINITION_ID,
         ],
       }).title,
-    ).toBe("Coordinator Workspace");
+    ).toBe("Workspace Agent Workspace");
 
     expect(
       workbenchPresetForOriginOrWidgets({

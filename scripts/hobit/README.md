@@ -236,7 +236,7 @@ credentials with this fake local helper.
 
 ### `smoke-coordinator-provider.mjs`
 
-Runs the configured Coordinator provider product smoke against the local fake
+Runs the configured Workspace Agent provider product smoke against the local fake
 HTTP provider:
 
 ```powershell
@@ -253,7 +253,7 @@ Coordinator review cards; no actions are executed.
 
 ### `smoke-coordinator-product-ui.mjs`
 
-Runs the mocked frontend Coordinator product handoff smoke:
+Runs the mocked frontend Workspace Agent product handoff smoke:
 
 ```powershell
 node scripts/hobit/smoke-coordinator-product-ui.mjs

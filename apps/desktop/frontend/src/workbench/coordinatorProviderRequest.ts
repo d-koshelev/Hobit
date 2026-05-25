@@ -80,7 +80,7 @@ function coordinatorProviderDisplayText(
 
   if (response.providerKind === "mock-local") {
     if (
-      /Mock Coordinator provider response|I received your explicit message|allowed_tools/i.test(
+      /Mock (?:Coordinator|Workspace Agent) provider response|I received your explicit message|allowed_tools/i.test(
         text,
       )
     ) {
@@ -108,7 +108,7 @@ function mockLocalDisplayText(
 
 function sanitizedProviderText(text: string) {
   return text
-    .replace(/\bMock Coordinator provider response\.?\s*/gi, "")
+    .replace(/\bMock (?:Coordinator|Workspace Agent) provider response\.?\s*/gi, "")
     .replace(/\bI received your explicit message:\s*"[^"]*"\.?\s*/gi, "")
     .replace(/\bTools are disabled with allowed_tools:\s*\[\],?\s*/gi, "")
     .replace(/\ballowed_tools was empty and\s*/gi, "")

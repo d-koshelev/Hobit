@@ -166,8 +166,8 @@ export function JdbcReadOnlyQueryPanel({
         <div>
           <p className="jdbc-pane-title">Read-only SQL</p>
           <p className="jdbc-pane-subtitle">
-            Operator-triggered mock execution only. Coordinator suggestions can
-            be copied here, but Coordinator cannot run SQL.
+            Operator-triggered mock execution only. Workspace Agent suggestions
+            can be copied here, but Workspace Agent cannot run SQL.
           </p>
         </div>
         <div className="jdbc-summary-badges">

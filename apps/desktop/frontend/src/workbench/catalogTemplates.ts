@@ -124,7 +124,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     capabilitySummary: [
       "Create, edit, list, and delete Skill records",
       "Workspace-local and operator-authored",
-      "Not sent to Coordinator automatically",
+      "Not sent to Workspace Agent automatically",
     ],
     futureWidgetDefinitionId: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   },
@@ -154,22 +154,22 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     capabilitySummary: [
       "Workspace-local connector metadata",
       "No credentials, SQL execution, EXPLAIN, or result grid",
-      "Future Coordinator proxy through approved read-only capabilities",
+      "Future Workspace Agent proxy through approved read-only capabilities",
     ],
     futureWidgetDefinitionId: JDBC_WIDGET_DEFINITION_ID,
   },
   {
     id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-    title: "Coordinator Chat",
+    title: "Workspace Agent",
     category: "core",
     description:
-      "Primary operator chat for planning, asking, and coordinating work through widget capabilities.",
+      "Foreground interactive AI agent for planning, task drafting, and result review.",
     section: "preview",
     status: "available",
     capabilitySummary: [
-      "Local chat placeholder",
-      "No AI provider connected yet",
-      "No widget tools or workspace actions yet",
+      "Plan work, draft tasks, review results",
+      "Independent current-session context and working directory",
+      "No hidden widget tools or workspace actions",
     ],
     futureWidgetDefinitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   },
