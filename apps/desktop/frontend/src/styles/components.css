@@ -1005,7 +1005,6 @@
 }
 
 .interactive-agent-title,
-.interactive-agent-kicker,
 .interactive-agent-text,
 .interactive-agent-empty-title,
 .interactive-agent-empty-text,
@@ -1016,7 +1015,6 @@
   margin: 0;
 }
 
-.interactive-agent-kicker,
 .interactive-agent-title,
 .interactive-agent-empty-title,
 .interactive-agent-message-role,

@@ -49,6 +49,15 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Visible context only");
     expect(document.body.textContent).toContain("Tools disabled");
     expect(document.body.textContent).toContain("No hidden context");
+    expect(
+      document.querySelector(".widget-title")?.textContent,
+    ).toBe("Coordinator Chat");
+    expect(
+      document.querySelector(".widget-content")?.textContent,
+    ).not.toContain("Coordinator Chat");
+    expect(document.body.textContent).toContain(
+      "Plan work, draft tasks, review results",
+    );
     expect(document.body.textContent).toContain(
       "Coordinator drafts work; Queue and Executor execute only after explicit operator action.",
     );
@@ -136,11 +145,13 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(providerDetails).not.toBeNull();
     expect(providerDetails?.open).toBe(false);
     expect(providerDetails?.querySelector("summary")?.textContent).toBe(
-      "Provider details",
+      "Details",
     );
     expect(
       providerDetails?.querySelector(".interactive-agent-provider-row"),
     ).not.toBeNull();
+    expect(providerDetails?.textContent).toContain("Response");
+    expect(providerDetails?.textContent).toContain("Setup");
     expect(responseDetails).not.toBeNull();
     expect(responseDetails?.open).toBe(false);
     expect(responseDetails?.querySelector("summary")?.textContent).toBe(

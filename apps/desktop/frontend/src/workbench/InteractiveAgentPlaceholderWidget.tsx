@@ -648,7 +648,6 @@ export function InteractiveAgentPlaceholderWidget({
           <div className="interactive-agent-status-copy">
             <div className="interactive-agent-status-heading">
               <div className="interactive-agent-title-copy">
-                <p className="interactive-agent-kicker">Coordinator Chat</p>
                 <h3 className="interactive-agent-title">
                   Plan work, draft tasks, review results
                 </h3>
@@ -671,9 +670,9 @@ export function InteractiveAgentPlaceholderWidget({
               aria-label="Coordinator provider details"
               className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
             >
-              <summary>Provider details</summary>
+              <summary>Details</summary>
               <div className="interactive-agent-provider-row">
-                <span className="interactive-agent-status-label">Provider</span>
+                <span className="interactive-agent-status-label">Response</span>
                 <Badge
                   variant={
                     isProviderPending
@@ -695,7 +694,7 @@ export function InteractiveAgentPlaceholderWidget({
                 >
                   {isProviderPending ? "Drafting" : providerModeLabel}
                 </Badge>
-                <span className="interactive-agent-status-label">Model</span>
+                <span className="interactive-agent-status-label">Setup</span>
                 <Badge variant="neutral">Backend selected</Badge>
               </div>
               <p className="interactive-agent-text">
