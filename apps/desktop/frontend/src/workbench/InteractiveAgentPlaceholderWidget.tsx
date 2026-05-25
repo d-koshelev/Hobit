@@ -141,13 +141,13 @@ const DIRECT_WORK_EMPTY_DIRECTORY_MESSAGE =
   "Working directory is required before Direct Work can start.";
 
 const DIRECT_WORK_EMPTY_PROMPT_MESSAGE =
-  "Direct Work uses the current composer message as the prompt. Type the task, then choose Start Direct Work.";
+  "Direct Work uses the current composer message as the prompt. Type the task, then choose Run with Codex.";
 
 const DIRECT_WORK_UNAVAILABLE_MESSAGE =
   "Coordinator Direct Mode is only available in the Tauri desktop shell.";
 
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
-  "Direct Work failed. Check Codex availability, working directory, or logs.";
+  "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
 
 type CoordinatorDirectWorkStatus =
   | "idle"
@@ -205,7 +205,7 @@ export function InteractiveAgentPlaceholderWidget({
   } | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
   const [providerModeLabel, setProviderModeLabel] =
-    useState("Mock/local provider");
+    useState("Mock/local fallback");
   const [isDirectModeEnabled, setIsDirectModeEnabled] = useState(false);
   const [directWorkDirectory, setDirectWorkDirectory] = useState("~");
   const [directWorkStatus, setDirectWorkStatus] =
@@ -219,13 +219,17 @@ export function InteractiveAgentPlaceholderWidget({
   >([]);
   const [isDirectWorkStopPending, setIsDirectWorkStopPending] = useState(false);
   const directWorkStopListeningRef = useRef<(() => void) | null>(null);
+  const directWorkCompletedDuringStartRef = useRef(false);
   const directWorkFinalMessageRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
-  const canSend = draft.trim().length > 0 && !isProviderPending;
+  const trimmedDraftLength = draft.trim().length;
+  const canSend =
+    !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
   const canStartDirectWork =
     isDirectModeEnabled &&
     directWorkStatus !== "running" &&
-    Boolean(onStartCodexDirectWorkStream);
+    !isProviderPending &&
+    trimmedDraftLength > 0;
   const canStopDirectWork =
     directWorkStatus === "running" &&
     Boolean(directWorkRunId) &&
@@ -282,6 +286,11 @@ export function InteractiveAgentPlaceholderWidget({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isDirectModeEnabled) {
+      await startCoordinatorDirectWork();
+      return;
+    }
 
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || isProviderPending) {
@@ -431,7 +440,18 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     stopDirectWorkEventListening();
+    directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createLocalMessage("operator", operatorPrompt),
+      createLocalMessage(
+        "assistant",
+        `Sent to Codex Direct Mode. Starting foreground Codex Direct Work from ${repoRoot}.`,
+      ),
+    ]);
+    setDraft("");
+    setVisibleAttachedContext(null);
     setDirectWorkStatus("running");
     setDirectWorkRunId(null);
     setDirectWorkError(null);
@@ -466,12 +486,16 @@ export function InteractiveAgentPlaceholderWidget({
         );
       }
 
-      directWorkStopListeningRef.current = session.stopListening;
-      setDirectWorkRunId(session.runId);
-      appendCoordinatorDirectWorkLog(
-        `Direct Work run ${session.runId} started.`,
-        "local",
-      );
+      if (directWorkCompletedDuringStartRef.current) {
+        session.stopListening();
+      } else {
+        directWorkStopListeningRef.current = session.stopListening;
+        setDirectWorkRunId(session.runId);
+        appendCoordinatorDirectWorkLog(
+          `Direct Work run ${session.runId} started.`,
+          "local",
+        );
+      }
     } catch (error) {
       const message = errorToMessage(error, "Unable to start Direct Work.");
       stopDirectWorkEventListening();
@@ -479,6 +503,8 @@ export function InteractiveAgentPlaceholderWidget({
       setDirectWorkError(message);
       appendCoordinatorDirectWorkLog(message, "local");
       appendCoordinatorDirectWorkTranscript("failed", message);
+    } finally {
+      window.setTimeout(() => textareaRef.current?.focus(), 0);
     }
   }
 
@@ -528,6 +554,7 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
+    directWorkCompletedDuringStartRef.current = true;
     const finalStatus = coordinatorDirectWorkStatusFromEvent(event);
     const failureReason =
       finalStatus === "failed" ? directWorkFailureReason(event) : null;
@@ -544,9 +571,7 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkError(failureReason);
     stopDirectWorkEventListening();
 
-    if (failureReason) {
-      appendCoordinatorDirectWorkTranscript("failed", failureReason);
-    }
+    appendCoordinatorDirectWorkTranscript(finalStatus, finalResult);
   }
 
   function appendCoordinatorDirectWorkLog(
@@ -578,7 +603,9 @@ export function InteractiveAgentPlaceholderWidget({
         "assistant",
         status === "failed"
           ? directWorkFailureTranscriptBody(reason)
-          : `Direct Work ${status}. ${reason}`,
+          : status === "completed"
+            ? `Codex Direct Mode completed.\n\n${reason}`
+            : `Codex Direct Mode ${status}. ${reason}`,
       ),
     ]);
   }
@@ -874,7 +901,11 @@ export function InteractiveAgentPlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="info">Primary AI</Badge>}
+      status={
+        <Badge variant={isDirectModeEnabled ? "info" : "neutral"}>
+          {isDirectModeEnabled ? "Codex Direct Mode" : "Mock/local fallback"}
+        </Badge>
+      }
       title={title}
     >
       <div className="interactive-agent-chat">
@@ -890,8 +921,20 @@ export function InteractiveAgentPlaceholderWidget({
                 </h3>
               </div>
               <div className="interactive-agent-header-badges">
-                <Badge variant={isProviderPending ? "warning" : "success"}>
-                  {isProviderPending ? "Drafting" : "Ready"}
+                <Badge
+                  variant={
+                    isProviderPending
+                      ? "warning"
+                      : isDirectModeEnabled
+                        ? "info"
+                        : "neutral"
+                  }
+                >
+                  {isProviderPending
+                    ? "Drafting"
+                    : isDirectModeEnabled
+                      ? "Codex Direct Mode"
+                      : "Mock/local fallback"}
                 </Badge>
                 <div
                   aria-label="Coordinator safety boundaries"
@@ -924,7 +967,8 @@ export function InteractiveAgentPlaceholderWidget({
                           : providerModeLabel === "Not configured" ||
                               providerModeLabel.includes("unavailable")
                             ? "warning"
-                            : providerModeLabel === "Local fallback"
+                            : providerModeLabel === "Local fallback" ||
+                                providerModeLabel === "Mock/local fallback"
                               ? "neutral"
                               : "info"
                   }
@@ -934,6 +978,11 @@ export function InteractiveAgentPlaceholderWidget({
                 <span className="interactive-agent-status-label">Setup</span>
                 <Badge variant="neutral">Backend selected</Badge>
               </div>
+              <p className="interactive-agent-text">
+                Mock/local fallback is deterministic local behavior, not a
+                connected AI provider. Enable Direct Mode to make the primary
+                composer action run Codex in the foreground.
+              </p>
               <p className="interactive-agent-text">
                 Supported review cards: {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue
                 and Note cards require approval plus a separate create action;
@@ -1112,20 +1161,10 @@ export function InteractiveAgentPlaceholderWidget({
           <div className="interactive-agent-action-row">
             <p className="interactive-agent-note">
               {isDirectModeEnabled
-                ? "Send stays normal chat. Start Direct Work uses the current composer message."
-                : "Only visible chat and attachments are sent. No tools run."}
+                ? "Primary action sends this message to Codex Direct Mode. No mock/local chat response is generated."
+                : "Send uses mock/local fallback unless a provider is configured. No tools run."}
             </p>
             <div className="interactive-agent-composer-actions">
-              {isDirectModeEnabled ? (
-                <Button
-                  disabled={!canStartDirectWork}
-                  onClick={() => void startCoordinatorDirectWork()}
-                  type="button"
-                  variant="secondary"
-                >
-                  Start Direct Work
-                </Button>
-              ) : null}
               {canStopDirectWork ? (
                 <Button
                   disabled={isDirectWorkStopPending}
@@ -1136,8 +1175,20 @@ export function InteractiveAgentPlaceholderWidget({
                   {isDirectWorkStopPending ? "Stopping" : "Stop"}
                 </Button>
               ) : null}
-              <Button disabled={!canSend} type="submit" variant="primary">
-                {isProviderPending ? "Drafting" : "Send"}
+              <Button
+                disabled={
+                  isDirectModeEnabled ? !canStartDirectWork : !canSend
+                }
+                type="submit"
+                variant="primary"
+              >
+                {isDirectModeEnabled
+                  ? directWorkStatus === "running"
+                    ? "Running with Codex"
+                    : "Run with Codex"
+                  : isProviderPending
+                    ? "Drafting"
+                    : "Send"}
               </Button>
             </div>
           </div>

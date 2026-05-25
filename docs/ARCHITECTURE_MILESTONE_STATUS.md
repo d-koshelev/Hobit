@@ -77,11 +77,15 @@ behavior, or Coordinator context wiring.
   presses Send.
 - Coordinator Direct Mode v0 exists as a local desktop foreground Codex Direct
   Work path owned by Coordinator Chat. It is off by default, uses the current
-  composer message only after Start Direct Work, defaults its working directory
-  input to `~`, resolves `~` to the current user's home directory in the
+  composer message only after the operator enables Direct Mode and clicks the
+  Run with Codex primary composer action, defaults its working directory input
+  to `~`, resolves `~` to the current user's home directory in the
   Tauri/backend path before launch, and shows visible status, recent logs,
-  Stop/cancel state when available, and final result summary in Coordinator.
-  The operator can replace `~` with a project or repo folder.
+  Stop/cancel state when available, final result summary, and failures in
+  Coordinator. Direct Mode composer submission starts a foreground
+  Coordinator-owned Codex Direct Work run instead of producing a mock/local
+  assistant response for that prompt. The operator can replace `~` with a
+  project or repo folder.
 
 ## Still Type-Only Or Contract-Only
 
@@ -130,6 +134,8 @@ responses, and history. Coordinator Direct Mode is a foreground Coordinator
 run path and does not create Queue tasks, start Queue Autorun, require an
 Agent Executor widget, change Executor repo-root/task configuration behavior,
 or auto-commit, push, reset, clean, or stash Git changes.
+Mock/local remains a visible fallback when Direct Mode is off or Codex is
+unavailable, and must not be presented as connected AI.
 
 Artifacts, Evidence, Knowledge, Skills, Context Packs, audit events,
 capability actions, and approvals are separate concepts. A Skill record

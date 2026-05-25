@@ -300,8 +300,10 @@ destination for every Coordinator action or small operation.
 - Provider credentials stay backend-only. Browser/Vite fallback does not call a
   provider directly.
 - Provides an explicit local desktop Coordinator Direct Mode MVP. Direct Mode
-  is off by default, uses the current composer message only after the operator
-  clicks Start Direct Work, defaults the working directory field to `~`, and
+  is off by default. When enabled, the primary composer action becomes Run with
+  Codex and sends the current composer message to a foreground
+  Coordinator-owned Codex Direct Work run instead of generating a mock/local
+  assistant response. The working directory field defaults to `~`, and
   resolves `~` in the Tauri/backend path to the current user's home directory
   before launching Codex. The operator can replace `~` with a project or repo
   folder. Coordinator Direct Mode streams visible status/log/final-result
@@ -312,6 +314,8 @@ destination for every Coordinator action or small operation.
   task creation creates a draft/manual Queue record only; execution remains
   Queue/Executor controlled. JDBC suggestions remain review/copy text only and
   do not execute SQL.
+- Mock/local remains an explicit fallback when Direct Mode is off or Codex is
+  unavailable. The UI must not present mock/local fallback as connected AI.
 - Coordinator Chat does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, fetch Queue run history, read Executor logs or

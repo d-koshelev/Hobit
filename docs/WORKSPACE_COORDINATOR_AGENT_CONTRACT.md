@@ -72,11 +72,14 @@ The current Coordinator preview:
 - can approve all visible Queue task drafts as local review state only
 - can start an explicit local desktop Coordinator Direct Mode Codex run from
   the current composer message after Direct Mode is enabled and the operator
-  clicks Start Direct Work. The working directory field defaults to `~`, the
-  Tauri/backend path resolves `~` to the current user's home directory before
-  launching Codex, and the operator can replace it with a project or repo
-  folder. Status, recent logs, Stop/cancel state when available, and final
-  result summary stay visible in Coordinator.
+  clicks the Run with Codex primary composer action. In Direct Mode, normal
+  composer submission starts a foreground Coordinator-owned Codex Direct Work
+  run and does not generate a mock/local assistant response for the same
+  prompt. The working directory field defaults to `~`, the Tauri/backend path
+  resolves `~` to the current user's home directory before launching Codex, and
+  the operator can replace it with a project or repo folder. Status, recent
+  logs, Stop/cancel state when available, final result summary, and failures
+  stay visible in Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
@@ -121,6 +124,9 @@ start Queue Autorun, launch Agent Executor, or execute the task.
 Coordinator Direct Mode does not create Queue tasks, does not start Queue
 Autorun, and does not change Agent Executor repo-root/task configuration
 behavior.
+When Direct Mode is disabled, Send remains the normal visible chat/provider
+path. Mock/local is an explicit local fallback, not connected AI, and remains
+available when Direct Mode is off or Codex is unavailable.
 Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
 it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.
@@ -480,6 +486,8 @@ Current Coordinator Direct Mode reuses the Codex Direct Work runtime as a
 foreground Coordinator-owned run. It does not require a visible Agent Executor
 widget, does not change Agent Executor's explicit repo-root/task configuration
 behavior, and does not create Queue tasks or start Queue Autorun.
+Queue and Agent Executor remain the async/background path for promoted or
+larger work; Coordinator Direct Mode is the foreground brain/work action.
 
 ## Relationship To Notebook
 
