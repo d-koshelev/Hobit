@@ -78,9 +78,6 @@ export function SkillLibraryWidget({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isNewDraft = !draft.skillId;
-  const canAttachToCoordinator = Boolean(
-    draft.skillId && onAttachContextToCoordinator,
-  );
   const isDirty = useMemo(
     () =>
       isNewDraft
@@ -97,6 +94,9 @@ export function SkillLibraryWidget({
                 draft.reviewStatus !== selectedSkill.reviewStatus),
           ),
     [draft, isNewDraft, selectedSkill],
+  );
+  const canAttachToCoordinator = Boolean(
+    selectedSkill && !isDirty && onAttachContextToCoordinator,
   );
 
   useEffect(() => {
@@ -283,12 +283,12 @@ export function SkillLibraryWidget({
   }
 
   function attachSelectedSkillToCoordinator() {
-    if (!draft.skillId || !onAttachContextToCoordinator) {
+    if (!selectedSkill || isDirty || !onAttachContextToCoordinator) {
       return;
     }
 
     onAttachContextToCoordinator({
-      contextText: skillCoordinatorContextText(draft),
+      contextText: skillCoordinatorContextText(selectedSkill),
       sourceLabel: "Skill Library / Skill",
     });
     setMessage("Skill attached to Coordinator as visible context.");
@@ -474,22 +474,24 @@ export function SkillLibraryWidget({
                 />
 
                 <div className="skill-editor-actions">
-                  <Button
-                    disabled={
-                      !canAttachToCoordinator ||
-                      isSaving ||
-                      isDeleting
-                    }
-                    onClick={attachSelectedSkillToCoordinator}
-                    title={
-                      onAttachContextToCoordinator
-                        ? "Shares this visible Skill with Coordinator. Does not send automatically."
-                        : "Coordinator Chat is not visible on this Workbench."
-                    }
-                    variant="secondary"
-                  >
-                    Attach to Coordinator
-                  </Button>
+                  {onAttachContextToCoordinator ? (
+                    <Button
+                      disabled={
+                        !canAttachToCoordinator ||
+                        isSaving ||
+                        isDeleting
+                      }
+                      onClick={attachSelectedSkillToCoordinator}
+                      title={
+                        isDirty
+                          ? "Save this Skill before attaching it to Coordinator."
+                          : "Shares this saved Skill with Coordinator. Does not send automatically."
+                      }
+                      variant="secondary"
+                    >
+                      Attach to Coordinator
+                    </Button>
+                  ) : null}
                   <Button
                     disabled={!apiAvailable || !isDirty || isSaving || isDeleting}
                     onClick={() => void saveSkill()}
@@ -513,8 +515,9 @@ export function SkillLibraryWidget({
                   </Button>
                 </div>
                 <p className="skill-attach-note">
-                  Shares this visible Skill with Coordinator. Does not send
-                  automatically.
+                  {onAttachContextToCoordinator
+                    ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
+                    : "Add Coordinator Chat to attach saved Skills as visible context."}
                 </p>
 
                 {message ? <p className="skill-message">{message}</p> : null}
@@ -541,7 +544,19 @@ export function SkillLibraryWidget({
   }
 }
 
-function skillCoordinatorContextText(skill: SkillDraft) {
+function skillCoordinatorContextText(
+  skill: Pick<
+    Skill,
+    | "prerequisites"
+    | "reviewStatus"
+    | "risks"
+    | "steps"
+    | "tags"
+    | "title"
+    | "validation"
+    | "whenToUse"
+  >,
+) {
   return [
     "Skill Library Skill",
     `Title: ${visibleSkillValue(skill.title)}`,

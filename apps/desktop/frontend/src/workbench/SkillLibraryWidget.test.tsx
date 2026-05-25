@@ -65,7 +65,7 @@ describe("SkillLibraryWidget", () => {
 
     expect(attachToCoordinator).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
-      "Shares this visible Skill with Coordinator. Does not send automatically.",
+      "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically.",
     );
 
     await clickButton("Attach to Coordinator");
@@ -90,6 +90,65 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain(
       "Skill attached to Coordinator as visible context.",
     );
+  });
+
+  it("does not show Attach to Coordinator when Coordinator is not visible", async () => {
+    const skill = skillFixture({
+      skillId: "skill_saved",
+      title: "Saved Skill",
+      whenToUse: "Use from the Skill Library only",
+    });
+
+    renderWidget({
+      onGetSkill: vi.fn(async () => skill),
+      onListSkills: vi.fn(async () => [skill]),
+    });
+
+    await flush();
+
+    expect(buttonWithText("Attach to Coordinator")).toBeUndefined();
+    expect(document.body.textContent).toContain(
+      "Add Coordinator Chat to attach saved Skills as visible context.",
+    );
+  });
+
+  it("attaches only the selected saved Skill after unsaved edits are saved", async () => {
+    const attachToCoordinator = vi.fn();
+    let skill = skillFixture({
+      skillId: "skill_saved",
+      steps: "Saved step",
+      title: "Saved Skill",
+    });
+    const updateSkill = vi.fn(async (request) => {
+      skill = skillFixture({
+        ...request,
+        skillId: request.skillId,
+      });
+      return skill;
+    });
+
+    renderWidget({
+      onAttachContextToCoordinator: attachToCoordinator,
+      onGetSkill: vi.fn(async () => skill),
+      onListSkills: vi.fn(async () => [skill]),
+      onUpdateSkill: updateSkill,
+    });
+
+    await flush();
+    await changeTextarea(2, "Unsaved edited step");
+
+    const attachButton = buttonWithText("Attach to Coordinator");
+    expect(attachButton).toBeDefined();
+    expect(attachButton?.disabled).toBe(true);
+    expect(attachToCoordinator).not.toHaveBeenCalled();
+
+    await clickButton("Save skill");
+    await clickButton("Attach to Coordinator");
+
+    expect(attachToCoordinator).toHaveBeenCalledTimes(1);
+    const request = attachToCoordinator.mock.calls[0][0];
+    expect(request.contextText).toContain("Steps:\nUnsaved edited step");
+    expect(request.contextText).not.toContain("Saved step");
   });
 
   it("creates, edits, saves, and deletes an operator-authored skill", async () => {
@@ -198,9 +257,7 @@ async function flush() {
 
 async function clickButton(text: string) {
   await act(async () => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.textContent === text,
-    );
+    const button = buttonWithText(text);
     if (!button) {
       throw new Error(`Button not found: ${text}`);
     }
@@ -208,6 +265,12 @@ async function clickButton(text: string) {
     await Promise.resolve();
     await Promise.resolve();
   });
+}
+
+function buttonWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === text,
+  );
 }
 
 async function changeInput(selector: string, value: string) {
