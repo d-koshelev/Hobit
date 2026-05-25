@@ -135,8 +135,10 @@ class CoordinatorProviderProductSmokeRuntime {
         return this.lastCreatedQueueTask;
       },
       deleteAgentQueueTask: async () => this.forbidden(false),
+      deleteSkill: this.unsupported,
       createGitCommit: this.gitUnsupported,
       createJdbcConnector: this.jdbcUnsupported,
+      createSkill: this.unsupported,
       createTerminalPtySession: this.terminalUnsupported,
       createWorkspaceNote: async (request) => {
         this.createNoteCallCount += 1;
@@ -168,6 +170,7 @@ class CoordinatorProviderProductSmokeRuntime {
         this.queueTasks.find((task) => task.queueItemId === queueItemId) ?? null,
       getGitRepositoryStatus: this.gitUnsupported,
       getJdbcConnector: this.jdbcUnsupported,
+      getSkill: this.unsupported,
       getTerminalPtySession: this.terminalUnsupported,
       getWorkspaceNote: async () => {
         this.noteReadCallCount += 1;
@@ -184,6 +187,7 @@ class CoordinatorProviderProductSmokeRuntime {
       },
       listAgentQueueTasks: async () => this.queueTasks,
       listJdbcConnectors: this.jdbcUnsupported,
+      listSkills: this.unsupported,
       listTerminalPtySessions: this.terminalUnsupported,
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => {
@@ -206,6 +210,7 @@ class CoordinatorProviderProductSmokeRuntime {
       stopTerminalPtySession: this.terminalUnsupported,
       updateAgentQueueTask: async () => this.forbidden(null),
       updateJdbcConnector: this.jdbcUnsupported,
+      updateSkill: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => this.forbidden(null),

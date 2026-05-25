@@ -91,11 +91,13 @@ class JdbcReadOnlyUiSmokeRuntime {
       closeTerminalPtySession: this.unsupported,
       createAgentQueueTask: this.unsupported,
       deleteAgentQueueTask: this.unsupported,
+      deleteSkill: this.unsupported,
       createGitCommit: this.unsupported,
       createJdbcConnector: async () => {
         this.createConnectorCallCount += 1;
         return smokeConnector("created-smoke-connector", "Created smoke connector");
       },
+      createSkill: this.unsupported,
       createTerminalPtySession: this.unsupported,
       createWorkspaceNote: this.unsupported,
       executeJdbcReadOnlyQuery: async (_widgetInstanceId, request) => {
@@ -133,6 +135,7 @@ class JdbcReadOnlyUiSmokeRuntime {
         this.getConnectorCallCount += 1;
         return this.connectorById(connectorId);
       },
+      getSkill: this.unsupported,
       getTerminalPtySession: this.unsupported,
       getWorkspaceNote: this.unsupported,
       killTerminalPtySession: this.unsupported,
@@ -143,6 +146,7 @@ class JdbcReadOnlyUiSmokeRuntime {
         this.connectorListCallCount += 1;
         return this.connectors();
       },
+      listSkills: this.unsupported,
       listTerminalPtySessions: async () => [],
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => [],
@@ -162,6 +166,7 @@ class JdbcReadOnlyUiSmokeRuntime {
         this.updateConnectorCallCount += 1;
         return null;
       },
+      updateSkill: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: this.unsupported,

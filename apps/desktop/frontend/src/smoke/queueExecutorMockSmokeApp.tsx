@@ -162,8 +162,10 @@ class QueueExecutorSmokeRuntime {
 
         return false;
       },
+      deleteSkill: this.unsupported,
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
+      createSkill: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
       executeJdbcReadOnlyQuery: this.unsupported,
@@ -184,6 +186,7 @@ class QueueExecutorSmokeRuntime {
         this.findTask(queueItemId) ?? this.cloneTask(),
       getGitRepositoryStatus: async () => null,
       getJdbcConnector: this.unsupported,
+      getSkill: this.unsupported,
       getTerminalPtySession: async () => this.forbidden(null),
       getWorkspaceNote: async () => null,
       killTerminalPtySession: async () => this.forbidden(null),
@@ -211,6 +214,7 @@ class QueueExecutorSmokeRuntime {
         return this.queueTasks();
       },
       listJdbcConnectors: this.unsupported,
+      listSkills: this.unsupported,
       listTerminalPtySessions: async () => [],
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => [],
@@ -252,6 +256,7 @@ class QueueExecutorSmokeRuntime {
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
       updateJdbcConnector: this.unsupported,
+      updateSkill: this.unsupported,
       updateWidgetLayout: async () => undefined,
       updateWidgetState: async () => undefined,
       updateWorkspaceNote: async () => null,
