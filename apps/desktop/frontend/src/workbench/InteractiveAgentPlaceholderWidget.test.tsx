@@ -59,7 +59,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Plan work, draft tasks, review results",
     );
     expect(document.body.textContent).toContain(
-      "Coordinator drafts work; Queue and Executor execute only after explicit operator action.",
+      "Drafts stay inert until you approve them and use the separate create or copy action.",
     );
     expect(
       document.querySelector('[aria-label="Coordinator suggested prompts"]'),
@@ -145,7 +145,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(providerDetails).not.toBeNull();
     expect(providerDetails?.open).toBe(false);
     expect(providerDetails?.querySelector("summary")?.textContent).toBe(
-      "Details",
+      "Response setup",
     );
     expect(
       providerDetails?.querySelector(".interactive-agent-provider-row"),
@@ -155,7 +155,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(responseDetails).not.toBeNull();
     expect(responseDetails?.open).toBe(false);
     expect(responseDetails?.querySelector("summary")?.textContent).toBe(
-      "Details",
+      "Response boundary",
     );
     expect(document.body.textContent).not.toContain("mock-local details");
   });
@@ -214,7 +214,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Queue latest run");
     expect(document.body.textContent).toContain("Queue run metadata");
     expect(document.body.textContent).toContain(
-      "Only visible attached context is sent.",
+      "Included in the message below. Edit or remove it before Send.",
     );
     expect(textareaValue()).toContain(
       "Visible attached context (Queue latest run)",
@@ -394,6 +394,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
 
     expect(provider).not.toHaveBeenCalled();
 
+    await setTextareaValue(
+      `${textareaValue()}\nOperator note: review only the attached visible metadata.`,
+    );
     await clickButton("Send");
 
     expect(provider).toHaveBeenCalledTimes(1);
@@ -402,6 +405,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Visible attached context (Executor run history row)",
     );
     expect(request.operatorMessage).toContain("Executor run metadata");
+    expect(request.operatorMessage).toContain(
+      "Operator note: review only the attached visible metadata.",
+    );
     expect(request.visibleConversation).toEqual([
       {
         body: request.operatorMessage,
@@ -829,16 +835,7 @@ function renderWidget(
 }
 
 async function sendMessage(message: string) {
-  const textarea = document.querySelector("textarea");
-  if (!textarea) {
-    throw new Error("Message textarea not found.");
-  }
-
-  await act(async () => {
-    setNativeValue(textarea, message);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    textarea.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  await setTextareaValue(message);
 
   await act(async () => {
     const sendButton = buttonWithText("Send");
@@ -848,6 +845,19 @@ async function sendMessage(message: string) {
     sendButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
+  });
+}
+
+async function setTextareaValue(message: string) {
+  const textarea = document.querySelector("textarea");
+  if (!textarea) {
+    throw new Error("Message textarea not found.");
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, message);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 

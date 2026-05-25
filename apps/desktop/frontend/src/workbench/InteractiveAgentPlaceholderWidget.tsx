@@ -244,7 +244,7 @@ export function InteractiveAgentPlaceholderWidget({
     const assistantMessage = createLocalMessage(
       "assistant",
       onGenerateCoordinatorProviderResponse
-        ? "Drafting a response from visible chat."
+        ? "Drafting from the visible chat."
         : generated.responseBody,
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
       onGenerateCoordinatorProviderResponse
@@ -343,7 +343,7 @@ export function InteractiveAgentPlaceholderWidget({
       patchMessage(assistantMessage.id, {
         body: generated.responseBody,
         providerMeta: coordinatorProviderErrorMeta(
-          `Mock/local provider request failed visibly: ${message}`,
+          `Provider request failed visibly: ${message} Local response remained in use.`,
         ),
       });
     } finally {
@@ -670,7 +670,7 @@ export function InteractiveAgentPlaceholderWidget({
               aria-label="Coordinator provider details"
               className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
             >
-              <summary>Details</summary>
+              <summary>Response setup</summary>
               <div className="interactive-agent-provider-row">
                 <span className="interactive-agent-status-label">Response</span>
                 <Badge
@@ -698,9 +698,9 @@ export function InteractiveAgentPlaceholderWidget({
                 <Badge variant="neutral">Backend selected</Badge>
               </div>
               <p className="interactive-agent-text">
-                Supported local proposals: {STATIC_PROPOSAL_TYPE_SUMMARY}.
-                Queue and Note handoffs require approval plus a separate create
-                action; JDBC suggestions do not execute SQL.
+                Supported review cards: {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue
+                and Note cards require approval plus a separate create action;
+                JDBC cards stay copy-only.
               </p>
             </details>
           </div>
@@ -719,12 +719,12 @@ export function InteractiveAgentPlaceholderWidget({
                 Start with a planning question or a task draft.
               </p>
               <p className="interactive-agent-empty-text">
-                Coordinator uses only this visible chat and can draft reviewable
-                Queue, Note, or JDBC suggestion cards.
+                Coordinator works from visible chat and explicit attachments. It
+                can draft reviewable Queue, Note, or JDBC suggestion cards.
               </p>
               <p className="interactive-agent-empty-text">
-                Coordinator drafts work; Queue and Executor execute only after
-                explicit operator action.
+                Drafts stay inert until you approve them and use the separate
+                create or copy action.
               </p>
               <div
                 aria-label="Coordinator suggested prompts"
@@ -764,9 +764,9 @@ export function InteractiveAgentPlaceholderWidget({
                 <details
                   className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
                 >
-                  <summary>Details</summary>
+                  <summary>Response boundary</summary>
                   <p>
-                    Provider: {message.providerMeta.label}.{" "}
+                    Source: {message.providerMeta.label}.{" "}
                     {message.providerMeta.detail}
                   </p>
                 </details>
@@ -842,8 +842,7 @@ export function InteractiveAgentPlaceholderWidget({
                 {visibleAttachedContext.contextText}
               </pre>
               <p className="interactive-agent-attached-context-note">
-                Only visible attached context is sent. Edit the message before
-                sending.
+                Included in the message below. Edit or remove it before Send.
               </p>
             </section>
           ) : null}
@@ -857,14 +856,14 @@ export function InteractiveAgentPlaceholderWidget({
             className="input interactive-agent-input"
             id={textareaId}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder="Ask Coordinator to plan, draft tasks, or prepare a review card."
+            placeholder="Plan work, draft Queue tasks, review pasted results, or ask what to do next."
             ref={textareaRef}
-            rows={2}
+            rows={3}
             value={draft}
           />
           <div className="interactive-agent-action-row">
             <p className="interactive-agent-note">
-              Visible chat only. Tools disabled.
+              Only visible chat and attachments are sent. No tools run.
             </p>
             <Button disabled={!canSend} type="submit" variant="primary">
               {isProviderPending ? "Drafting" : "Send"}

@@ -88,10 +88,7 @@ function coordinatorProviderDisplayText(
     }
   }
 
-  return text
-    .replace(/\bTools are disabled with allowed_tools:\s*\[\],?\s*/gi, "")
-    .replace(/\ballowed_tools was empty and\s*/gi, "")
-    .trim();
+  return sanitizedProviderText(text) || localFallback;
 }
 
 function mockLocalDisplayText(
@@ -107,6 +104,17 @@ function mockLocalDisplayText(
   }
 
   return "I can help plan work, draft Queue tasks, or review pasted results. This workspace does not have a live time tool connected.";
+}
+
+function sanitizedProviderText(text: string) {
+  return text
+    .replace(/\bMock Coordinator provider response\.?\s*/gi, "")
+    .replace(/\bI received your explicit message:\s*"[^"]*"\.?\s*/gi, "")
+    .replace(/\bTools are disabled with allowed_tools:\s*\[\],?\s*/gi, "")
+    .replace(/\ballowed_tools was empty and\s*/gi, "")
+    .replace(/\ballowed_tools:\s*\[\]\.?,?\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function coordinatorProviderPendingMeta(
