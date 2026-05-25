@@ -99,8 +99,8 @@
 
 .workspace-pill {
   flex: 0 0 auto;
-  min-width: 92px;
-  max-width: 220px;
+  min-width: 112px;
+  max-width: 260px;
   min-height: 28px;
   overflow: hidden;
 }

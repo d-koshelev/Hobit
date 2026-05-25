@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe("NotesPlaceholderWidget empty state", () => {
-  it("renders the compact empty state and creates a note from New note", async () => {
+  it("renders the compact empty state and creates a note from the header New note action", async () => {
     const createdNote = note({
       body: "",
       noteId: "note_1",
@@ -51,11 +51,13 @@ describe("NotesPlaceholderWidget empty state", () => {
 
     expect(document.body.textContent).toContain("No notes yet.");
     expect(document.body.textContent).toContain(
-      "Create a note to capture workspace context.",
+      "Create one from the header to capture workspace context.",
     );
     expect(document.querySelector(".notes-empty-state-compact")).not.toBeNull();
+    expect(document.querySelector(".notes-empty-state-action")).toBeNull();
+    expect(buttonsWithText("New note")).toHaveLength(1);
 
-    await clickNotesEmptyStateAction();
+    await clickButton("New note");
     await flushEffects();
 
     expect(onCreateWorkspaceNote).toHaveBeenCalledTimes(1);
@@ -89,17 +91,27 @@ function renderWidget(
   });
 }
 
-async function clickNotesEmptyStateAction() {
+async function clickButton(text: string) {
   await act(async () => {
-    const button = document.querySelector<HTMLButtonElement>(
-      ".notes-empty-state-action",
-    );
+    const button = buttonWithText(text);
     if (!button) {
-      throw new Error("Notes empty-state action not found.");
+      throw new Error(`Button not found: ${text}`);
     }
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
   });
+}
+
+function buttonWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+function buttonsWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).filter(
+    (button) => button.textContent === text,
+  );
 }
 
 async function flushEffects() {

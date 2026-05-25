@@ -106,7 +106,7 @@ function mockLocalDisplayText(
     return localFallback;
   }
 
-  return "I can help plan the work, draft tasks, or review visible pasted results.";
+  return "I can help plan work, draft Queue tasks, or review pasted results. This workspace does not have a live time tool connected.";
 }
 
 export function coordinatorProviderPendingMeta(

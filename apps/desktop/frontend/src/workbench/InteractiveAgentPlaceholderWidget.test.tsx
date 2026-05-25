@@ -91,6 +91,63 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("allowed_tools: []");
   });
 
+  it("renders the local fallback as assistant copy without debug wording", async () => {
+    renderWidget();
+    await sendMessage("what time is it?");
+
+    const assistantBodies = Array.from(
+      document.querySelectorAll(
+        ".interactive-agent-message-assistant .interactive-agent-message-body",
+      ),
+    );
+    const visibleAssistantBody =
+      assistantBodies[assistantBodies.length - 1]?.textContent ?? "";
+
+    expect(visibleAssistantBody).toContain(
+      "I can help plan work, draft Queue tasks, or review pasted results.",
+    );
+    expect(visibleAssistantBody).toContain(
+      "This workspace does not have a live time tool connected.",
+    );
+    expect(visibleAssistantBody).not.toContain(
+      "Local deterministic fallback did not detect",
+    );
+    expect(visibleAssistantBody).not.toContain("proposal");
+    expect(visibleAssistantBody).not.toContain("allowed_tools");
+  });
+
+  it("keeps provider and response details collapsed in secondary UI", async () => {
+    const provider = vi.fn(async () =>
+      providerResponse({
+        visibleContextMessageCount: 1,
+      }),
+    );
+
+    renderWidget({ onGenerateCoordinatorProviderResponse: provider });
+    await sendMessage("hello");
+
+    const providerDetails = document.querySelector<HTMLDetailsElement>(
+      ".interactive-agent-provider-secondary",
+    );
+    const responseDetails = document.querySelector<HTMLDetailsElement>(
+      ".interactive-agent-provider-meta",
+    );
+
+    expect(providerDetails).not.toBeNull();
+    expect(providerDetails?.open).toBe(false);
+    expect(providerDetails?.querySelector("summary")?.textContent).toBe(
+      "Coordinator details",
+    );
+    expect(
+      providerDetails?.querySelector(".interactive-agent-provider-row"),
+    ).not.toBeNull();
+    expect(responseDetails).not.toBeNull();
+    expect(responseDetails?.open).toBe(false);
+    expect(responseDetails?.querySelector("summary")?.textContent).toBe(
+      "mock-local details",
+    );
+  });
+
   it("clicking a planning suggestion inserts visible text only", async () => {
     const provider = vi.fn();
     const createQueueTask = vi.fn();

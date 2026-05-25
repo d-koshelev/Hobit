@@ -33,22 +33,22 @@ export type CoordinatorOutcomeReviewDraft = {
 };
 
 const NO_PROPOSAL_RESPONSE =
-  "Local deterministic fallback did not detect a supported proposal intent in your explicit message.";
+  "I can help plan work, draft Queue tasks, or review pasted results. This workspace does not have a live time tool connected.";
 
 const GENERATED_PROPOSAL_RESPONSE =
-  "Generated local deterministic proposal previews from your explicit message. Review or edit the visible inputs before approval; approval does not execute by itself.";
+  "I drafted reviewable proposal cards from your message. Review or edit the visible inputs before approval; approval does not execute by itself.";
 
 const GENERATED_PLAN_RESPONSE =
-  "Generated a local plan from your explicit message. Review the steps and decide whether any draft should become a Queue task.";
+  "I drafted a plan from the visible chat. Review the steps and decide whether any work should become a Queue task.";
 
 const GENERATED_PLAN_AND_PROPOSAL_RESPONSE =
-  "Generated a local plan and proposal previews from your explicit message. Review or edit visible fields before approval; approval does not execute by itself.";
+  "I drafted a plan and reviewable proposal cards from the visible chat. Review or edit visible fields before approval; approval does not execute by itself.";
 
 const GENERATED_REVIEW_RESPONSE =
-  "Generated a local outcome review from your explicit pasted text. No Queue, Executor, validation logs, files, artifacts, or hidden context were read.";
+  "I reviewed the pasted result text and summarized what it appears to show. No Queue, Executor, validation logs, files, artifacts, or hidden context were read.";
 
 const GENERATED_REVIEW_AND_PROPOSAL_RESPONSE =
-  "Generated a local outcome review and follow-up Queue task draft from your explicit pasted text. Review or edit visible fields before approval; approval does not execute by itself.";
+  "I reviewed the pasted result text and drafted a follow-up Queue task card. Review or edit visible fields before approval; approval does not execute by itself.";
 
 const MAX_TITLE_LENGTH = 72;
 const MAX_LOCAL_QUEUE_DRAFTS = 4;

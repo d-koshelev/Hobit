@@ -68,7 +68,7 @@ export function notesSingleState({
 
   if (noteCount === 0) {
     return {
-      text: "Create a note to capture workspace context.",
+      text: "Create one from the header to capture workspace context.",
       title: "No notes yet.",
     };
   }

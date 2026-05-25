@@ -98,20 +98,7 @@ export function NotesPlaceholderWidget({
       {singleState ? (
         <div className="notes-product-shell notes-product-shell-empty">
           <NotesEmptyState
-            actionDisabled={isCreating || isLoading || !apiAvailable}
-            actionLabel={
-              !isLoading && !loadError && notes.length === 0
-                ? isCreating
-                  ? "Creating"
-                  : "New note"
-                : undefined
-            }
             compact
-            onAction={
-              !isLoading && !loadError && notes.length === 0
-                ? createNote
-                : undefined
-            }
             role={loadError ? "alert" : undefined}
             text={singleState.text}
             title={singleState.title}

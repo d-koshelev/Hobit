@@ -667,41 +667,43 @@ export function InteractiveAgentPlaceholderWidget({
                 </div>
               </div>
             </div>
-            <div
-              aria-label="Coordinator provider status"
-              className="interactive-agent-provider-row"
+            <details
+              aria-label="Coordinator provider details"
+              className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
             >
-              <span className="interactive-agent-status-label">Provider</span>
-              <Badge
-                variant={
-                  isProviderPending
-                    ? "warning"
-                    : providerModeLabel === "Provider error"
-                      ? "error"
-                      : providerModeLabel === "Provider timeout" ||
-                          providerModeLabel === "Invalid provider response" ||
-                          providerModeLabel === "Network failure" ||
-                          providerModeLabel === "Request too large"
-                        ? "warning"
-                        : providerModeLabel === "Not configured" ||
-                            providerModeLabel.includes("unavailable")
+              <summary>Coordinator details</summary>
+              <div className="interactive-agent-provider-row">
+                <span className="interactive-agent-status-label">Provider</span>
+                <Badge
+                  variant={
+                    isProviderPending
+                      ? "warning"
+                      : providerModeLabel === "Provider error"
+                        ? "error"
+                        : providerModeLabel === "Provider timeout" ||
+                            providerModeLabel === "Invalid provider response" ||
+                            providerModeLabel === "Network failure" ||
+                            providerModeLabel === "Request too large"
                           ? "warning"
-                          : providerModeLabel === "Local fallback"
-                            ? "neutral"
-                            : "info"
-                }
-              >
-                {isProviderPending ? "Drafting" : providerModeLabel}
-              </Badge>
-              <span className="interactive-agent-status-label">Model</span>
-              <Badge variant="neutral">Backend selected</Badge>
-              <details className="interactive-agent-provider-disclosure">
-                <summary>Supported local proposals</summary>
-                <p className="interactive-agent-text">
-                  {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue and Note handoffs require approval plus a separate create action; JDBC suggestions do not execute SQL.
-                </p>
-              </details>
-            </div>
+                          : providerModeLabel === "Not configured" ||
+                              providerModeLabel.includes("unavailable")
+                            ? "warning"
+                            : providerModeLabel === "Local fallback"
+                              ? "neutral"
+                              : "info"
+                  }
+                >
+                  {isProviderPending ? "Drafting" : providerModeLabel}
+                </Badge>
+                <span className="interactive-agent-status-label">Model</span>
+                <Badge variant="neutral">Backend selected</Badge>
+              </div>
+              <p className="interactive-agent-text">
+                Supported local proposals: {STATIC_PROPOSAL_TYPE_SUMMARY}.
+                Queue and Note handoffs require approval plus a separate create
+                action; JDBC suggestions do not execute SQL.
+              </p>
+            </details>
           </div>
         </section>
 
@@ -755,11 +757,6 @@ export function InteractiveAgentPlaceholderWidget({
                 <p className="interactive-agent-message-role">
                   {message.role === "operator" ? "You" : "Coordinator Chat"}
                 </p>
-                {message.providerMeta ? (
-                  <Badge variant={message.providerMeta.badgeVariant}>
-                    {message.providerMeta.label}
-                  </Badge>
-                ) : null}
               </div>
               <div className="interactive-agent-message-body">
                 {renderMessageBody(message.body)}
@@ -768,7 +765,7 @@ export function InteractiveAgentPlaceholderWidget({
                 <details
                   className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
                 >
-                  <summary>Response details</summary>
+                  <summary>{message.providerMeta.label} details</summary>
                   <p>{message.providerMeta.detail}</p>
                 </details>
               ) : null}
@@ -860,7 +857,7 @@ export function InteractiveAgentPlaceholderWidget({
             onChange={(event) => setDraft(event.currentTarget.value)}
             placeholder="Ask Coordinator to plan, draft tasks, or prepare a review card."
             ref={textareaRef}
-            rows={3}
+            rows={2}
             value={draft}
           />
           <div className="interactive-agent-action-row">
