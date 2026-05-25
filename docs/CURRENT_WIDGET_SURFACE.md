@@ -302,18 +302,19 @@ destination for every Coordinator action or small operation.
   draft summaries, compact safety instructions, and `allowed_tools: []`.
 - Provider credentials stay backend-only. Browser/Vite fallback does not call a
   provider directly.
-- Provides an explicit local desktop Coordinator Direct Mode MVP. Direct Mode
-  is off by default. When enabled, the primary composer action becomes Run with
-  Codex and sends the current composer message to a foreground
-  Coordinator-owned Codex Direct Work run instead of generating a mock/local
-  assistant response. The working directory field defaults to `~`, and
-  resolves `~` in the Tauri/backend path to the current user's home directory
-  before launching Codex. Coordinator-owned Direct Mode runs pass Codex
-  `--skip-git-repo-check` so the default home-directory mode can start from a
-  non-Git directory; Agent Executor and Queue Direct Work do not skip that
-  check by default. The operator can replace `~` with a project or repo folder.
+- Presents Codex as the current foreground Coordinator agent when the desktop
+  Codex bridge is available. The primary composer action is Run with Codex and
+  sends the current composer message to a foreground Coordinator-owned Codex
+  Direct Work run instead of generating a mock/local assistant response. Direct
+  Work remains the implementation/execution path, not the primary UI concept.
+  The working directory field defaults to `~`, and resolves `~` in the
+  Tauri/backend path to the current user's home directory before launching
+  Codex. Coordinator-owned Direct Work runs pass Codex `--skip-git-repo-check`
+  so the default home-directory mode can start from a non-Git directory; Agent
+  Executor and Queue Direct Work do not skip that check by default. The
+  operator can replace `~` with a project or repo folder.
   On Windows, the default Codex launch path uses `codex.cmd` through the
-  shared Direct Work launch helper. Coordinator Direct Mode streams visible
+  shared Direct Work launch helper. Coordinator-owned Codex runs stream visible
   status/log/final-result summaries in Coordinator, captures the Codex
   `thread.started` `thread_id` when emitted, and keeps that explicit Codex
   thread id in current-session Coordinator widget state. Follow-up Run with
@@ -321,16 +322,16 @@ destination for every Coordinator action or small operation.
   composer message; they do not use `--last` and do not resend the visible
   transcript as the prompt. The operator can use the visible New thread action
   to clear the current thread id without clearing visible chat. Changing
-  the Direct Mode working directory clears the current thread id and starts a
+  the Codex working directory clears the current thread id and starts a
   new thread on the next run. Thread state is current-session only unless a
   later persistence slice explicitly adds storage. Normal chat transcript shows
   operator prompts and Codex final responses; Direct Work lifecycle details
   stay available in the collapsed Direct Work details/status area. Coordinator
-  Direct Mode shows compact helper copy that `~` resolves to the current user's
+  shows compact helper copy that `~` resolves to the current user's
   home directory and suggests choosing a project folder or scratch workspace if
   access is denied. Access-denied command failures inside Codex are surfaced as
   working-directory warnings while preserving any final Codex agent message as
-  the visible assistant response. Coordinator Direct Mode supports Stop when
+  the visible assistant response. Coordinator Codex runs support Stop when
   the Direct Work cancellation path is available and does not create Queue
   tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
@@ -338,15 +339,16 @@ destination for every Coordinator action or small operation.
   task creation creates a draft/manual Queue record only; execution remains
   Queue/Executor controlled. JDBC suggestions remain review/copy text only and
   do not execute SQL.
-- Mock/local remains an explicit fallback when Direct Mode is off or Codex is
-  unavailable. The UI must not present mock/local fallback as connected AI.
+- Mock/local remains an explicit fallback when Codex is unavailable or the
+  fallback chat path is used. The UI must not present mock/local fallback as
+  connected AI.
 - Coordinator Chat does not persist chat sessions, read hidden Workspace
   context, inspect widget state, read Notes, read Terminal output, read Git
   diffs, read JDBC metadata, fetch Queue run history, read Executor logs or
   artifacts, launch Agent Executor, auto-dispatch Queue items, create Queue
   tasks automatically, start Queue Autorun, run validation, use SSH, mutate
   Git, run SQL, call JDBC connectors, run Terminal commands, emit/persist audit
-  events, or execute broad widget capability tools. Coordinator Direct Mode may
+  events, or execute broad widget capability tools. Coordinator-owned Codex runs may
   let Codex read files, write code, and run commands inside the explicit
   operator-provided working directory, but Hobit still performs no automatic
   commit, push, reset, clean, stash, or Queue/Executor handoff.

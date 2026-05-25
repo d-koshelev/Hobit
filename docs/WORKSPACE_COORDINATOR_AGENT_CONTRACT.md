@@ -70,29 +70,31 @@ The current Coordinator preview:
   text when the visible result suggests follow-up work; creation remains a
   separate explicit Create Queue task action
 - can approve all visible Queue task drafts as local review state only
-- can start an explicit local desktop Coordinator Direct Mode Codex run from
-  the current composer message after Direct Mode is enabled and the operator
-  clicks the Run with Codex primary composer action. In Direct Mode, normal
-  composer submission starts a foreground Coordinator-owned Codex Direct Work
-  run and does not generate a mock/local assistant response for the same
-  prompt. The working directory field defaults to `~`, the Tauri/backend path
-  resolves `~` to the current user's home directory before launching Codex, and
-  Coordinator-owned Direct Mode runs pass Codex `--skip-git-repo-check` so the
-  default home-directory mode can start from a non-Git directory. Agent
-  Executor and Queue Direct Work do not skip that check by default. The
-  operator can replace `~` with a project or repo folder. The first successful
-  Codex stream captures the explicit `thread.started` `thread_id` when Codex
-  emits it, stores it as current-session Coordinator widget state, and later
-  Direct Mode sends resume requests for that explicit thread id. Direct Mode
-  does not use `--last`, and resume requests send only the latest composer
-  message rather than the full visible transcript. The operator can visibly
-  start a new thread / reset the thread id, and changing the working directory
-  clears the current thread id so the next run starts fresh. Thread state is
-  current-session only unless persistence is added later. Normal transcript
-  entries show user prompts and Codex final responses; Direct Work lifecycle
-  details remain available in the collapsed Direct Work details/status area.
-  Status, recent logs, Stop/cancel state when available, final result summary,
-  and failures stay visible in Coordinator.
+- can start an explicit local desktop Coordinator Codex run from the current
+  composer message when the desktop Codex bridge is available and the operator
+  clicks the Run with Codex primary composer action. Codex is presented as the
+  foreground Coordinator agent. Direct Work remains the implementation/
+  execution path: normal composer submission starts a foreground
+  Coordinator-owned Codex Direct Work run and does not generate a mock/local
+  assistant response for the same prompt. The working directory field defaults
+  to `~`, the Tauri/backend path resolves `~` to the current user's home
+  directory before launching Codex, and Coordinator-owned Direct Work runs pass
+  Codex `--skip-git-repo-check` so the default home-directory mode can start
+  from a non-Git directory. Agent Executor and Queue Direct Work do not skip
+  that check by default. The operator can replace `~` with a project or repo
+  folder. The first successful Codex stream captures the explicit
+  `thread.started` `thread_id` when Codex emits it, stores it as
+  current-session Coordinator widget state, and later Codex runs send resume
+  requests for that explicit thread id. Resume requests do not use `--last`
+  and send only the latest composer message rather than the full visible
+  transcript. The operator can visibly start a new thread / reset the thread
+  id, and changing the working directory clears the current thread id so the
+  next run starts fresh. Thread state is current-session only unless
+  persistence is added later. Normal transcript entries show user prompts and
+  Codex final responses; Direct Work lifecycle details remain available in the
+  collapsed Direct Work details/status area. Status, recent logs, Stop/cancel
+  state when available, final result summary, and failures stay visible in
+  Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
@@ -104,17 +106,17 @@ The current Coordinator preview:
   metadata, or unrelated Workspace state
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
-  Autorun, launch Agent Executor, or run hidden actions. Coordinator Direct
-  Mode is the explicit foreground exception: it can let Codex read files, write
-  code, and run commands inside the operator-provided working directory without
-  creating Queue tasks or using Agent Executor.
+  Autorun, launch Agent Executor, or run hidden actions. Coordinator-owned
+  Codex runs are the explicit foreground exception: they can let Codex read
+  files, write code, and run commands inside the operator-provided working
+  directory without creating Queue tasks or using Agent Executor.
 
 There is no implemented:
 
 - direct Coordinator filesystem read/write capability outside explicit
-  Coordinator Direct Mode
+  Coordinator-owned Codex runs
 - direct command or SSH execution from Coordinator outside explicit
-  Coordinator Direct Mode
+  Coordinator-owned Codex runs
 - direct JDBC capability execution from Coordinator
 - direct Git mutation from Coordinator
 - unified permission or policy UI
@@ -134,12 +136,11 @@ Current Coordinator Chat can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
 Creating a Queue task is draft task creation only; it does not assign, run,
 start Queue Autorun, launch Agent Executor, or execute the task.
-Coordinator Direct Mode does not create Queue tasks, does not start Queue
-Autorun, and does not change Agent Executor repo-root/task configuration
+Coordinator-owned Codex runs do not create Queue tasks, do not start Queue
+Autorun, and do not change Agent Executor repo-root/task configuration
 behavior.
-When Direct Mode is disabled, Send remains the normal visible chat/provider
-path. Mock/local is an explicit local fallback, not connected AI, and remains
-available when Direct Mode is off or Codex is unavailable.
+Mock/local is an explicit local fallback, not connected AI, and remains
+available when Codex is unavailable or the fallback chat path is used.
 Older Agent Monitoring proposal-to-Queue behavior remains compatibility only;
 it is not the preferred current Queue creation path and does not approve,
 apply, execute, or mutate the source proposal.
@@ -495,12 +496,13 @@ selects or approves them. Coordinator may delegate larger work to Queue and
 Executor, but Executor ownership of async runs does not limit Coordinator's
 foreground Workspace capability set.
 
-Current Coordinator Direct Mode reuses the Codex Direct Work runtime as a
-foreground Coordinator-owned run. It does not require a visible Agent Executor
-widget, does not change Agent Executor's explicit repo-root/task configuration
+Current Coordinator-owned Codex runs reuse the Codex Direct Work runtime as a
+foreground Coordinator-owned run. Direct Work remains the execution path, not
+the primary UI concept. This does not require a visible Agent Executor widget,
+does not change Agent Executor's explicit repo-root/task configuration
 behavior, and does not create Queue tasks or start Queue Autorun.
 Queue and Agent Executor remain the async/background path for promoted or
-larger work; Coordinator Direct Mode is the foreground brain/work action.
+larger work; Coordinator Codex is the foreground brain/work action.
 
 ## Relationship To Notebook
 
@@ -686,11 +688,11 @@ This contract does not implement:
 - executable Coordinator runtime
 - agent runtime
 - hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Coordinator provider boundary
-- direct Coordinator filesystem read/write capability outside the explicit
-  local desktop Direct Mode MVP
+- direct Coordinator filesystem read/write capability outside explicit
+  local desktop Coordinator-owned Codex runs
 - direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
-  artifact capability execution outside the explicit local desktop Direct Mode
-  MVP
+  artifact capability execution outside explicit local desktop
+  Coordinator-owned Codex runs
 - chat message persistence
 - persisted or cross-widget context access implementation beyond selected current-view metadata
 - context permission UI

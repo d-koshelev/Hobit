@@ -144,7 +144,7 @@ const DIRECT_WORK_EMPTY_PROMPT_MESSAGE =
   "Direct Work uses the current composer message as the prompt. Type the task, then choose Run with Codex.";
 
 const DIRECT_WORK_UNAVAILABLE_MESSAGE =
-  "Coordinator Direct Mode is only available in the Tauri desktop shell.";
+  "Coordinator Codex is only available in the Tauri desktop shell.";
 
 const DIRECT_WORK_FALLBACK_FAILURE_MESSAGE =
   "Codex Direct Work failed. Check Codex CLI availability, login, working directory, or logs.";
@@ -218,7 +218,6 @@ export function InteractiveAgentPlaceholderWidget({
   const [isProviderPending, setIsProviderPending] = useState(false);
   const [providerModeLabel, setProviderModeLabel] =
     useState("Mock/local fallback");
-  const [isDirectModeEnabled, setIsDirectModeEnabled] = useState(false);
   const [directWorkDirectory, setDirectWorkDirectory] = useState("~");
   const [directWorkStatus, setDirectWorkStatus] =
     useState<CoordinatorDirectWorkStatus>("idle");
@@ -245,6 +244,7 @@ export function InteractiveAgentPlaceholderWidget({
   const directWorkCapturedThreadIdRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const trimmedDraftLength = draft.trim().length;
+  const isDirectModeEnabled = Boolean(onStartCodexDirectWorkStream);
   const canSend =
     !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
   const canStartDirectWork =
@@ -990,9 +990,7 @@ export function InteractiveAgentPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={
-        <Badge variant={isDirectModeEnabled ? "info" : "neutral"}>
-          {isDirectModeEnabled ? "Codex Direct Mode" : "Mock/local fallback"}
-        </Badge>
+        <CoordinatorAgentHeaderStatus status={directWorkStatus} />
       }
       title={title}
     >
@@ -1007,31 +1005,6 @@ export function InteractiveAgentPlaceholderWidget({
                 <h3 className="interactive-agent-title">
                   Plan work, draft tasks, review results
                 </h3>
-              </div>
-              <div className="interactive-agent-header-badges">
-                <Badge
-                  variant={
-                    isProviderPending
-                      ? "warning"
-                      : isDirectModeEnabled
-                        ? "info"
-                        : "neutral"
-                  }
-                >
-                  {isProviderPending
-                    ? "Drafting"
-                    : isDirectModeEnabled
-                      ? "Codex Direct Mode"
-                      : "Mock/local fallback"}
-                </Badge>
-                <div
-                  aria-label="Coordinator safety boundaries"
-                  className="interactive-agent-provider-badges"
-                >
-                  <Badge variant="neutral">Visible context only</Badge>
-                  <Badge variant="neutral">Tools disabled</Badge>
-                  <Badge variant="neutral">No hidden context</Badge>
-                </div>
               </div>
             </div>
             <details
@@ -1067,9 +1040,9 @@ export function InteractiveAgentPlaceholderWidget({
                 <Badge variant="neutral">Backend selected</Badge>
               </div>
               <p className="interactive-agent-text">
-                Mock/local fallback is deterministic local behavior, not a
-                connected AI provider. Enable Direct Mode to make the primary
-                composer action run Codex in the foreground.
+                Runs with Codex from the selected working directory when the
+                desktop Codex bridge is available. Provider fallback stays
+                chat-only and uses visible context with no tools.
               </p>
               <p className="interactive-agent-text">
                 Supported review cards: {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue
@@ -1225,11 +1198,9 @@ export function InteractiveAgentPlaceholderWidget({
             directWorkDirectory={directWorkDirectory}
             error={directWorkError}
             finalResult={directWorkFinalResult}
-            isEnabled={isDirectModeEnabled}
             logs={directWorkLogs}
             onDirectoryChange={updateDirectWorkDirectory}
             onResetThread={resetCodexThread}
-            onToggle={setIsDirectModeEnabled}
             runId={directWorkRunId}
             status={directWorkStatus}
             threadId={currentCodexThreadId}
@@ -1254,7 +1225,7 @@ export function InteractiveAgentPlaceholderWidget({
           <div className="interactive-agent-action-row">
             <p className="interactive-agent-note">
               {isDirectModeEnabled
-                ? "Primary action sends this message to Codex Direct Mode. No mock/local chat response is generated."
+                ? "Runs with Codex from the selected working directory."
                 : "Send uses mock/local fallback unless a provider is configured. No tools run."}
             </p>
             <div className="interactive-agent-composer-actions">
@@ -1291,15 +1262,67 @@ export function InteractiveAgentPlaceholderWidget({
   );
 }
 
+function CoordinatorAgentHeaderStatus({
+  status,
+}: {
+  status: CoordinatorDirectWorkStatus;
+}) {
+  return (
+    <div className="interactive-agent-frame-status">
+      <label className="interactive-agent-agent-picker">
+        <span>Agent</span>
+        <select
+          aria-label="Coordinator agent"
+          className="input interactive-agent-agent-select"
+          defaultValue="codex"
+          disabled
+        >
+          <option value="codex">Codex</option>
+        </select>
+      </label>
+      <span className="interactive-agent-frame-status-label">Status</span>
+      <Badge variant={coordinatorHeaderStatusVariant(status)}>
+        {coordinatorHeaderStatusLabel(status)}
+      </Badge>
+    </div>
+  );
+}
+
+function coordinatorHeaderStatusLabel(
+  status: CoordinatorDirectWorkStatus,
+): string {
+  if (status === "running") {
+    return "Running";
+  }
+
+  if (status === "failed") {
+    return "Failed";
+  }
+
+  return "Ready";
+}
+
+function coordinatorHeaderStatusVariant(
+  status: CoordinatorDirectWorkStatus,
+): "success" | "info" | "error" {
+  if (status === "running") {
+    return "info";
+  }
+
+  if (status === "failed") {
+    return "error";
+  }
+
+  return "success";
+}
+
 function CoordinatorDirectModePanel({
   directWorkDirectory,
   error,
   finalResult,
-  isEnabled,
   logs,
   onDirectoryChange,
   onResetThread,
-  onToggle,
   runId,
   status,
   threadId,
@@ -1309,11 +1332,9 @@ function CoordinatorDirectModePanel({
   directWorkDirectory: string;
   error: string | null;
   finalResult: string | null;
-  isEnabled: boolean;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
-  onToggle: (value: boolean) => void;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
   threadId: string | null;
@@ -1321,16 +1342,6 @@ function CoordinatorDirectModePanel({
   warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
-  const statusVariant =
-    status === "completed"
-      ? "success"
-      : status === "failed"
-        ? "error"
-        : status === "cancelled"
-          ? "warning"
-          : status === "running"
-            ? "info"
-            : "neutral";
   const latestLog = logs[logs.length - 1]?.text ?? null;
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
@@ -1344,104 +1355,91 @@ function CoordinatorDirectModePanel({
 
   return (
     <section
-      aria-label="Coordinator Direct Mode"
+      aria-label="Coordinator Codex controls"
       className="interactive-agent-direct-mode"
     >
       <div className="interactive-agent-direct-mode-bar">
-        <label className="interactive-agent-direct-mode-toggle">
-          <input
-            checked={isEnabled}
-            onChange={(event) => onToggle(event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span>Direct Mode</span>
-        </label>
-        {isEnabled ? (
-          <>
-            <span className="interactive-agent-direct-mode-label">
-              Working dir
-            </span>
-            <input
-              aria-label="Direct Work working directory"
-              autoComplete="off"
-              className="input interactive-agent-direct-mode-input"
-              id={workingDirectoryInputId}
-              onChange={(event) => onDirectoryChange(event.currentTarget.value)}
-              spellCheck={false}
-              type="text"
-              value={directWorkDirectory}
-            />
-            <span className="interactive-agent-direct-mode-path">
-              {resolutionText}
-            </span>
-          </>
-        ) : null}
-        <Badge variant={statusVariant}>{status}</Badge>
-        {isEnabled ? (
-          <span
-            aria-label="Direct Mode thread controls"
-            className="interactive-agent-direct-mode-thread-controls"
-          >
-            <Badge variant={threadId ? "info" : "neutral"}>
-              {threadStatusText}
-            </Badge>
-            <Button
-              disabled={status === "running" || !threadId}
-              onClick={onResetThread}
-              type="button"
-              variant="ghost"
-            >
-              New thread
-            </Button>
+        <label className="interactive-agent-direct-mode-field">
+          <span className="interactive-agent-direct-mode-label">
+            Working dir
           </span>
-        ) : null}
+          <input
+            aria-label="Working directory"
+            autoComplete="off"
+            className="input interactive-agent-direct-mode-input"
+            id={workingDirectoryInputId}
+            onChange={(event) => onDirectoryChange(event.currentTarget.value)}
+            spellCheck={false}
+            type="text"
+            value={directWorkDirectory}
+          />
+        </label>
+        <span
+          aria-label="Codex thread controls"
+          className="interactive-agent-direct-mode-thread-controls"
+        >
+          <Badge variant={threadId ? "info" : "neutral"}>
+            {threadStatusText}
+          </Badge>
+          <Button
+            disabled={status === "running" || !threadId}
+            onClick={onResetThread}
+            type="button"
+            variant="ghost"
+          >
+            New thread
+          </Button>
+        </span>
       </div>
 
-      {isEnabled ? (
-        <div className="interactive-agent-direct-mode-body">
-          <p className="interactive-agent-direct-mode-help">
-            <span>
-              ~ resolves to your user home. If access is denied, choose a
-              project folder or scratch workspace.
+      <div className="interactive-agent-direct-mode-body">
+        <div className="interactive-agent-direct-mode-status" role="status">
+          {runId ? <span>Run {runId}</span> : null}
+          {threadNotice ? (
+            <span className="interactive-agent-direct-mode-thread-note">
+              {threadNotice}
             </span>
-            {scratchSuggestion ? <span>Try: {scratchSuggestion}</span> : null}
-          </p>
-          <div className="interactive-agent-direct-mode-status" role="status">
-            {runId ? <span>Run {runId}</span> : null}
-            {threadNotice ? (
-              <span className="interactive-agent-direct-mode-thread-note">
-                {threadNotice}
-              </span>
-            ) : null}
-            {error ? (
-              <span className="interactive-agent-direct-mode-error">
-                {error}
-              </span>
-            ) : null}
-            {warning ? (
-              <span className="interactive-agent-direct-mode-warning">
-                {warning}
-              </span>
-            ) : null}
-            {compactResult ? (
-              <span className="interactive-agent-direct-mode-result-line">
-                Final: {compactResult}
-              </span>
-            ) : null}
-            {!error && !compactResult && latestLog ? (
-              <span>Latest: {compactDirectWorkText(latestLog)}</span>
-            ) : null}
-          </div>
-          {logs.length > 0 || finalResult ? (
-            <details className="interactive-agent-direct-mode-details">
-              <summary>Direct Work details</summary>
+          ) : null}
+          {error ? (
+            <span className="interactive-agent-direct-mode-error">
+              {error}
+            </span>
+          ) : null}
+          {warning ? (
+            <span className="interactive-agent-direct-mode-warning">
+              {warning}
+            </span>
+          ) : null}
+          {compactResult ? (
+            <span className="interactive-agent-direct-mode-result-line">
+              Final: {compactResult}
+            </span>
+          ) : null}
+          {!error && !compactResult && latestLog ? (
+            <span>Latest: {compactDirectWorkText(latestLog)}</span>
+          ) : null}
+        </div>
+        <div className="interactive-agent-direct-mode-disclosures">
+          <details className="interactive-agent-direct-mode-details">
+            <summary>Direct Work details</summary>
+            <div className="interactive-agent-direct-mode-detail-body">
+              <p className="interactive-agent-direct-mode-help">
+                <span>{resolutionText}</span>
+                {scratchSuggestion ? (
+                  <span>Try: {scratchSuggestion}</span>
+                ) : null}
+              </p>
               {logs.length > 0 ? (
                 <ul className="interactive-agent-direct-mode-log">
                   {logs.map((entry) => (
                     <li key={entry.id}>{entry.text}</li>
                   ))}
                 </ul>
-              ) : null}
+              ) : (
+                <p className="interactive-agent-direct-mode-help">
+                  No run details yet.
+                </p>
+              )}
               {finalResult ? (
                 <div className="interactive-agent-direct-mode-result">
                   <p className="interactive-agent-status-label">
@@ -1450,10 +1448,22 @@ function CoordinatorDirectModePanel({
                   <pre>{finalResult}</pre>
                 </div>
               ) : null}
-            </details>
-          ) : null}
+            </div>
+          </details>
+          <details className="interactive-agent-direct-mode-details">
+            <summary>Safety/context details</summary>
+            <div className="interactive-agent-direct-mode-detail-body">
+              <p className="interactive-agent-direct-mode-help">
+                ~ resolves to your user home. If access is denied, choose a
+                project folder or scratch workspace.
+              </p>
+              <p className="interactive-agent-direct-mode-help">
+                Provider requests use visible context only with tools disabled.
+              </p>
+            </div>
+          </details>
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }

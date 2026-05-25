@@ -36,9 +36,16 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
   it("renders suggested prompts and compact safety badges in the empty state", () => {
     renderWidget();
 
-    expect(document.body.textContent).toContain("Direct Mode");
-    expect(document.body.textContent).toContain("idle");
-    expect(document.body.textContent).not.toContain("Working directory");
+    expect(document.body.textContent).not.toContain("Direct Mode");
+    expect(document.body.textContent).not.toContain("Codex Direct Mode");
+    expect(checkboxWithLabel("Direct Mode")).toBeUndefined();
+    expect(document.body.textContent).toContain("Agent");
+    expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Status");
+    expect(document.body.textContent).toContain("Ready");
+    expect(agentPicker()?.value).toBe("codex");
+    expect(agentPicker()?.disabled).toBe(true);
+    expect(textInputValue()).toBe("~");
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break into Queue tasks");
     expect(document.body.textContent).toContain("Draft tasks for this goal");
@@ -50,9 +57,8 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "Explain how to execute this safely",
     );
-    expect(document.body.textContent).toContain("Visible context only");
-    expect(document.body.textContent).toContain("Tools disabled");
-    expect(document.body.textContent).toContain("No hidden context");
+    expect(document.body.textContent).toContain("visible context only");
+    expect(document.body.textContent).toContain("tools disabled");
     expect(
       document.querySelector(".widget-title")?.textContent,
     ).toBe("Coordinator Chat");
@@ -73,14 +79,11 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     ).not.toContain("Workspace");
   });
 
-  it("shows Direct Mode off by default with home as the default working directory when enabled", async () => {
-    renderWidget();
+  it("shows Codex as the default agent with home as the default working directory", async () => {
+    renderWidget({ onStartCodexDirectWorkStream: vi.fn() });
 
-    expect(checkboxWithLabel("Direct Mode")?.checked).toBe(false);
+    expect(checkboxWithLabel("Direct Mode")).toBeUndefined();
     expect(buttonWithText("Start Direct Work")).toBeUndefined();
-    expect(buttonWithText("Run with Codex")).toBeUndefined();
-
-    await toggleDirectMode();
 
     expect(document.querySelector(".interactive-agent-direct-mode-bar")).not.toBeNull();
     expect(document.body.textContent).toContain("Working dir");
@@ -99,9 +102,10 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Try: /Documents/hobit-coordinator-scratch",
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
+    expect(document.body.textContent).not.toContain("Codex Direct Mode");
   });
 
-  it("message send still behaves like chat when Direct Mode is off", async () => {
+  it("message send still behaves like chat when the Codex bridge is unavailable", async () => {
     const startDirectWork = vi.fn();
     const provider = vi.fn(async () => providerResponse());
     renderWidget({
@@ -143,7 +147,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(assistantBubble?.textContent).not.toContain("Coordinator Chat");
   });
 
-  it("Direct Mode makes the primary composer action run Codex without calling the chat provider", async () => {
+  it("Codex makes the primary composer action run without calling the chat provider", async () => {
     const provider = vi.fn(async () => providerResponse());
     const startDirectWork = vi.fn(
       async (
@@ -182,18 +186,18 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     });
 
     await toggleDirectMode();
-    await setTextareaValue("Make a plan while Direct Mode is enabled");
+    await setTextareaValue("Make a plan while Codex is active");
     await clickButton("Run with Codex");
 
     expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Make a plan while Direct Mode is enabled",
+      operatorPrompt: "Make a plan while Codex is active",
       skipGitRepoCheck: true,
     });
     expect(provider).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
-      "Primary action sends this message to Codex Direct Mode.",
+      "Runs with Codex from the selected working directory.",
     );
     expect(document.body.textContent).toContain(
       "Starting new Codex thread. Starting Codex Direct Work from ~.",
@@ -209,7 +213,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).not.toContain("Coordinator plan");
   });
 
-  it("stores the first Codex thread id and resumes it on the next Direct Mode run", async () => {
+  it("stores the first Codex thread id and resumes it on the next Codex run", async () => {
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -276,7 +280,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Thread active thread_s...");
   });
 
-  it("New thread clears the current Direct Mode thread without clearing chat", async () => {
+  it("New thread clears the current Codex thread without clearing chat", async () => {
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -332,7 +336,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).not.toContain("New Codex thread");
   });
 
-  it("changing the Direct Mode working directory clears the current Codex thread", async () => {
+  it("changing the working directory clears the current Codex thread", async () => {
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -384,7 +388,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
   });
 
-  it("requires a working directory before starting Direct Mode", async () => {
+  it("requires a working directory before starting Codex", async () => {
     const startDirectWork = vi.fn();
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
 
@@ -401,7 +405,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("failed");
   });
 
-  it("Direct Mode enabled with an empty composer does not start Codex", async () => {
+  it("Codex with an empty composer does not start", async () => {
     const startDirectWork = vi.fn();
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
 
@@ -413,7 +417,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(startDirectWork).not.toHaveBeenCalled();
   });
 
-  it("starts Coordinator Direct Mode from the composer without creating Queue work or Autorun", async () => {
+  it("starts Coordinator Codex from the composer without creating Queue work or Autorun", async () => {
     const createQueueTask = vi.fn();
     const startQueueAutorun = vi.fn();
     const provider = vi.fn(async () => providerResponse());
@@ -566,9 +570,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     ).toContain("Run ended with failed.");
   });
 
-  it("shows trusted-directory Codex failures as actionable Coordinator Direct Mode copy", async () => {
+  it("shows trusted-directory Codex failures as actionable Coordinator Codex copy", async () => {
     const trustedDirectoryMessage =
-      "codex exec --json exited with code 1: stderr: Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project. stderr: Not inside a trusted directory and --skip-git-repo-check was not specified; could not read final message file `last.txt`: file missing";
+      "codex exec --json exited with code 1: stderr: Codex refused this directory. Coordinator Codex should run with skip git repo check or choose a trusted Git project. stderr: Not inside a trusted directory and --skip-git-repo-check was not specified; could not read final message file `last.txt`: file missing";
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -601,14 +605,14 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await clickButton("Run with Codex");
 
     expect(document.body.textContent).toContain(
-      "Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project.",
+      "Codex refused this directory. Coordinator Codex should run with skip git repo check or choose a trusted Git project.",
     );
     expect(document.body.textContent).toContain(
       "Not inside a trusted directory and --skip-git-repo-check was not specified",
     );
   });
 
-  it("maps access denied command output to an actionable Direct Mode error", async () => {
+  it("maps access denied command output to an actionable Codex error", async () => {
     const createQueueTask = vi.fn();
     const startQueueAutorun = vi.fn();
     const startDirectWork = vi.fn(
@@ -1651,15 +1655,15 @@ function checkboxWithLabel(text: string) {
 }
 
 async function toggleDirectMode() {
-  const checkbox = checkboxWithLabel("Direct Mode");
-  if (!checkbox) {
-    throw new Error("Direct Mode checkbox not found.");
-  }
-
   await act(async () => {
-    checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
   });
+}
+
+function agentPicker() {
+  return document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Coordinator agent"]',
+  );
 }
 
 function textInput() {
