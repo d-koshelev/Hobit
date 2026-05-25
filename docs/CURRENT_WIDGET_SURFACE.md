@@ -308,8 +308,11 @@ destination for every Coordinator action or small operation.
   Coordinator-owned Codex Direct Work run instead of generating a mock/local
   assistant response. The working directory field defaults to `~`, and
   resolves `~` in the Tauri/backend path to the current user's home directory
-  before launching Codex. The operator can replace `~` with a project or repo
-  folder. On Windows, the default Codex launch path uses `codex.cmd` through the
+  before launching Codex. Coordinator-owned Direct Mode runs pass Codex
+  `--skip-git-repo-check` so the default home-directory mode can start from a
+  non-Git directory; Agent Executor and Queue Direct Work do not skip that
+  check by default. The operator can replace `~` with a project or repo folder.
+  On Windows, the default Codex launch path uses `codex.cmd` through the
   shared Direct Work launch helper. Coordinator Direct Mode streams visible
   status/log/final-result summaries in Coordinator, supports Stop when the
   Direct Work cancellation path is available, and does not create Queue tasks.

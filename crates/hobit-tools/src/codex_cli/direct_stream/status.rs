@@ -1,6 +1,9 @@
 use super::CodexDirectStreamStatus;
 
 const FINAL_STDERR_EVENT_PREVIEW_LIMIT: usize = 2_000;
+const TRUSTED_DIRECTORY_ERROR: &str =
+    "Not inside a trusted directory and --skip-git-repo-check was not specified";
+const TRUSTED_DIRECTORY_ACTIONABLE_ERROR: &str = "Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project.";
 
 pub(super) fn direct_stream_status(
     cancelled: bool,
@@ -43,6 +46,10 @@ pub(super) fn direct_stream_error_message(
 
             if let Some(detail) = compact_output_detail(stderr) {
                 message.push_str(": stderr: ");
+                if detail.contains(TRUSTED_DIRECTORY_ERROR) {
+                    message.push_str(TRUSTED_DIRECTORY_ACTIONABLE_ERROR);
+                    message.push_str(" stderr: ");
+                }
                 message.push_str(&detail);
             } else if let Some(detail) = compact_output_detail(stdout) {
                 message.push_str(": stdout: ");

@@ -503,6 +503,7 @@ pub struct RunCodexDirectWorkInput {
     pub operator_prompt: String,
     pub sandbox: String,
     pub approval_policy: String,
+    pub skip_git_repo_check: bool,
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,

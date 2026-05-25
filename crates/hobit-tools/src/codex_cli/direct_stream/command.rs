@@ -28,21 +28,31 @@ pub(super) fn build_codex_exec_json_args(
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
+    skip_git_repo_check: bool,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    vec![
+    let mut args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+    ];
+
+    if skip_git_repo_check {
+        args.push("--skip-git-repo-check".to_owned());
+    }
+
+    args.extend([
         "exec".to_owned(),
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),
-    ]
+    ]);
+
+    args
 }
 
 pub(super) fn safe_command_summary(
@@ -51,21 +61,29 @@ pub(super) fn safe_command_summary(
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
+    skip_git_repo_check: bool,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    let expected_codex_args = vec![
+    let mut expected_codex_args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+    ];
+
+    if skip_git_repo_check {
+        expected_codex_args.push("--skip-git-repo-check".to_owned());
+    }
+
+    expected_codex_args.extend([
         "exec".to_owned(),
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),
-    ];
+    ]);
     debug_assert!(launch_args.ends_with(&expected_codex_args));
 
     let mut summary = Vec::with_capacity(1 + launch_args.len());

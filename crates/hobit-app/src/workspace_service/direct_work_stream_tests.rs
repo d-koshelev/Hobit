@@ -51,6 +51,7 @@ fn codex_direct_work_stream_start_creates_running_run_and_initial_logs() {
     assert_eq!(run.status, "running");
     assert_eq!(run.command_kind.as_deref(), Some("codex_direct_work"));
     assert_eq!(command_payload["streaming"], true);
+    assert_eq!(command_payload["skip_git_repo_check"], false);
     assert_eq!(command_payload["operator_prompt"], "Stream Codex.");
     assert_eq!(
         widget_log_messages(&logs),
@@ -66,17 +67,19 @@ fn codex_direct_work_stream_start_creates_running_run_and_initial_logs() {
 fn codex_direct_work_stream_start_allows_coordinator_widget_owner() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let mut input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Stream Codex from Coordinator.",
+        "workspace_write",
+        "never",
+    );
+    input.skip_git_repo_check = true;
 
     let start = service
-        .start_codex_direct_work_stream(direct_work_input(
-            &workspace_id,
-            &workbench_id,
-            &widget_id,
-            current_repo_root(),
-            "Stream Codex from Coordinator.",
-            "workspace_write",
-            "never",
-        ))
+        .start_codex_direct_work_stream(input)
         .expect("start coordinator direct work stream")
         .expect("stream start summary");
     let logs = service
@@ -85,6 +88,15 @@ fn codex_direct_work_stream_start_allows_coordinator_widget_owner() {
         .expect("widget logs");
 
     assert_eq!(start.status, "started");
+    let run = service
+        .store
+        .get_widget_run(&start.run_id)
+        .expect("get run")
+        .expect("run row");
+    let command_payload: Value =
+        serde_json::from_str(run.command_payload.as_deref().expect("command payload"))
+            .expect("command payload json");
+    assert_eq!(command_payload["skip_git_repo_check"], true);
     assert_eq!(
         widget_log_messages(&logs),
         vec![
@@ -242,6 +254,7 @@ fn codex_direct_work_stream_events_append_logs_and_emit_tauri_ready_payloads() {
                 assert_eq!(request.prompt, "Run Codex stream.");
                 assert_eq!(request.sandbox, CodexSandboxMode::WorkspaceWrite);
                 assert_eq!(request.approval_policy, CodexApprovalPolicy::Never);
+                assert!(!request.skip_git_repo_check);
 
                 emit_completed_stream_events(on_event);
                 completed_stream_output(&request, 6)
@@ -548,6 +561,7 @@ fn direct_work_input(
         operator_prompt: operator_prompt.to_owned(),
         sandbox: sandbox.to_owned(),
         approval_policy: approval_policy.to_owned(),
+        skip_git_repo_check: false,
         timeout_ms: Some(2_000),
         stdout_cap_bytes: Some(16 * 1024),
         stderr_cap_bytes: Some(8 * 1024),

@@ -26,6 +26,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
         operator_prompt: "Implement block.".to_owned(),
         sandbox: "workspace_write".to_owned(),
         approval_policy: "on_request".to_owned(),
+        skip_git_repo_check: false,
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
@@ -41,6 +42,7 @@ fn maps_run_codex_direct_work_request_to_app_input() {
     assert_eq!(input.operator_prompt, "Implement block.");
     assert_eq!(input.sandbox, "workspace_write");
     assert_eq!(input.approval_policy, "on_request");
+    assert!(!input.skip_git_repo_check);
     assert_eq!(input.timeout_ms, Some(10));
     assert_eq!(input.stdout_cap_bytes, Some(11));
     assert_eq!(input.stderr_cap_bytes, Some(12));
@@ -108,6 +110,7 @@ fn maps_start_codex_direct_work_stream_request_to_app_input() {
         operator_prompt: "Stream block.".to_owned(),
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
+        skip_git_repo_check: true,
         timeout_ms: Some(20),
         stdout_cap_bytes: Some(21),
         stderr_cap_bytes: Some(22),
@@ -123,6 +126,7 @@ fn maps_start_codex_direct_work_stream_request_to_app_input() {
     assert_eq!(input.operator_prompt, "Stream block.");
     assert_eq!(input.sandbox, "workspace_write");
     assert_eq!(input.approval_policy, "never");
+    assert!(input.skip_git_repo_check);
     assert_eq!(input.timeout_ms, Some(20));
     assert_eq!(input.stdout_cap_bytes, Some(21));
     assert_eq!(input.stderr_cap_bytes, Some(22));
@@ -150,6 +154,7 @@ fn resolves_direct_work_home_alias_for_stream_request() {
         operator_prompt: "Run from home.".to_owned(),
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
+        skip_git_repo_check: true,
         timeout_ms: None,
         stdout_cap_bytes: None,
         stderr_cap_bytes: None,
@@ -159,6 +164,7 @@ fn resolves_direct_work_home_alias_for_stream_request() {
 
     assert_ne!(input.repo_root, PathBuf::from("~"));
     assert!(input.repo_root.is_absolute());
+    assert!(input.skip_git_repo_check);
 }
 
 #[test]

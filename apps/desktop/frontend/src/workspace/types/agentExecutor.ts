@@ -13,6 +13,7 @@ export type RunCodexDirectWorkRequest = {
   operatorPrompt: string;
   sandbox: DirectWorkSandbox;
   approvalPolicy: DirectWorkApprovalPolicy;
+  skipGitRepoCheck?: boolean;
   timeoutMs?: number | null;
   stdoutCapBytes?: number | null;
   stderrCapBytes?: number | null;

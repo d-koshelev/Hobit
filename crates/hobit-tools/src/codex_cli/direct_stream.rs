@@ -151,6 +151,7 @@ where
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
+        request.skip_git_repo_check,
         &output_last_message_path,
     );
     let launch = codex_launch_command(&resolution.program, codex_args);
@@ -160,6 +161,7 @@ where
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
+        request.skip_git_repo_check,
         &output_last_message_path,
     );
     let timeout = Duration::from_millis(

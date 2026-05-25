@@ -802,6 +802,7 @@ fn direct_work_input(
         operator_prompt: "Summarize the current block.".to_owned(),
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
+        skip_git_repo_check: false,
         timeout_ms: Some(2_000),
         stdout_cap_bytes: Some(16 * 1024),
         stderr_cap_bytes: Some(8 * 1024),

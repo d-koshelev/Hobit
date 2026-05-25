@@ -77,9 +77,12 @@ The current Coordinator preview:
   run and does not generate a mock/local assistant response for the same
   prompt. The working directory field defaults to `~`, the Tauri/backend path
   resolves `~` to the current user's home directory before launching Codex, and
-  the operator can replace it with a project or repo folder. Status, recent
-  logs, Stop/cancel state when available, final result summary, and failures
-  stay visible in Coordinator.
+  Coordinator-owned Direct Mode runs pass Codex `--skip-git-repo-check` so the
+  default home-directory mode can start from a non-Git directory. Agent
+  Executor and Queue Direct Work do not skip that check by default. The
+  operator can replace `~` with a project or repo folder. Status, recent logs,
+  Stop/cancel state when available, final result summary, and failures stay
+  visible in Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

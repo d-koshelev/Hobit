@@ -56,6 +56,7 @@ impl WorkspaceService {
             prompt: input.operator_prompt.clone(),
             sandbox: input.sandbox,
             approval_policy: input.approval_policy,
+            skip_git_repo_check: input.skip_git_repo_check,
             timeout_ms: Some(input.timeout_ms),
             stdout_cap_bytes: Some(input.stdout_cap_bytes),
             stderr_cap_bytes: Some(input.stderr_cap_bytes),
@@ -229,6 +230,7 @@ pub(super) struct NormalizedDirectWorkInput {
     pub(super) operator_prompt: String,
     pub(super) sandbox: CodexSandboxMode,
     pub(super) approval_policy: CodexApprovalPolicy,
+    pub(super) skip_git_repo_check: bool,
     pub(super) timeout_ms: u64,
     pub(super) stdout_cap_bytes: usize,
     pub(super) stderr_cap_bytes: usize,
@@ -253,6 +255,7 @@ pub(super) fn normalize_direct_work_input(
         operator_prompt: required_input(&input.operator_prompt, "operator prompt")?.to_owned(),
         sandbox: parse_direct_work_sandbox(&input.sandbox)?,
         approval_policy: parse_direct_work_approval_policy(&input.approval_policy)?,
+        skip_git_repo_check: input.skip_git_repo_check,
         timeout_ms: input
             .timeout_ms
             .unwrap_or(DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS),
@@ -378,6 +381,7 @@ fn direct_work_command_payload(input: &NormalizedDirectWorkInput) -> String {
         "operator_prompt": &input.operator_prompt,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
+        "skip_git_repo_check": input.skip_git_repo_check,
         "timeout_ms": input.timeout_ms,
         "stdout_cap_bytes": input.stdout_cap_bytes,
         "stderr_cap_bytes": input.stderr_cap_bytes,
@@ -392,7 +396,7 @@ pub(super) fn direct_work_input_runtime_artifacts(
     input: &NormalizedDirectWorkInput,
 ) -> DirectWorkInputRuntimeArtifacts {
     let repo_root = input.repo_root.to_string_lossy().into_owned();
-    let command_parts = [
+    let mut command_parts = vec![
         input.codex_executable.as_str(),
         "exec",
         "--cd",
@@ -401,8 +405,11 @@ pub(super) fn direct_work_input_runtime_artifacts(
         direct_work_sandbox_value(input.sandbox),
         "--ask-for-approval",
         direct_work_approval_policy_value(input.approval_policy),
-        "<operator-prompt-stdin>",
     ];
+    if input.skip_git_repo_check {
+        command_parts.push("--skip-git-repo-check");
+    }
+    command_parts.push("<operator-prompt-stdin>");
 
     DirectWorkInputRuntimeArtifacts::from_input(
         &input.operator_prompt,
@@ -420,6 +427,7 @@ pub(super) fn direct_work_requested_log_payload(input: &NormalizedDirectWorkInpu
         "codex_executable": &input.codex_executable,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
+        "skip_git_repo_check": input.skip_git_repo_check,
         "timeout_ms": input.timeout_ms,
         "stdout_cap_bytes": input.stdout_cap_bytes,
         "stderr_cap_bytes": input.stderr_cap_bytes,
@@ -471,6 +479,7 @@ fn direct_work_result_payload(
         "codex_executable": &input.codex_executable,
         "sandbox": direct_work_sandbox_value(input.sandbox),
         "approval_policy": direct_work_approval_policy_value(input.approval_policy),
+        "skip_git_repo_check": input.skip_git_repo_check,
         "operator_prompt": &input.operator_prompt,
         "command_summary": &output.command_summary,
         "status": final_status,

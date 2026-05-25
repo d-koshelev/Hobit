@@ -476,6 +476,7 @@ export function InteractiveAgentPlaceholderWidget({
           operatorPrompt,
           repoRoot,
           sandbox: "workspace_write",
+          skipGitRepoCheck: true,
           stderrCapBytes: null,
           stdoutCapBytes: null,
           timeoutMs: null,
@@ -1641,10 +1642,10 @@ function directWorkDirectoryResolutionText(directory: string): string {
   }
 
   if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
-    return '"~" resolves to your user home before Codex starts.';
+    return "Runs from ~ by default. Non-git directories use Codex skip git repo check.";
   }
 
-  return "Codex starts in this path.";
+  return "Non-git directories use Codex skip git repo check.";
 }
 
 function defaultCoordinatorCodexExecutable(): string {

@@ -20,6 +20,8 @@ pub(crate) struct RunCodexDirectWorkRequest {
     pub operator_prompt: String,
     pub sandbox: String,
     pub approval_policy: String,
+    #[serde(default)]
+    pub skip_git_repo_check: bool,
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
@@ -35,6 +37,8 @@ pub(crate) struct StartCodexDirectWorkStreamRequest {
     pub operator_prompt: String,
     pub sandbox: String,
     pub approval_policy: String,
+    #[serde(default)]
+    pub skip_git_repo_check: bool,
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
@@ -168,6 +172,7 @@ impl From<RunCodexDirectWorkRequest> for RunCodexDirectWorkInput {
             operator_prompt: request.operator_prompt,
             sandbox: request.sandbox,
             approval_policy: request.approval_policy,
+            skip_git_repo_check: request.skip_git_repo_check,
             timeout_ms: request.timeout_ms,
             stdout_cap_bytes: request.stdout_cap_bytes,
             stderr_cap_bytes: request.stderr_cap_bytes,
@@ -186,6 +191,7 @@ impl From<StartCodexDirectWorkStreamRequest> for RunCodexDirectWorkInput {
             operator_prompt: request.operator_prompt,
             sandbox: request.sandbox,
             approval_policy: request.approval_policy,
+            skip_git_repo_check: request.skip_git_repo_check,
             timeout_ms: request.timeout_ms,
             stdout_cap_bytes: request.stdout_cap_bytes,
             stderr_cap_bytes: request.stderr_cap_bytes,

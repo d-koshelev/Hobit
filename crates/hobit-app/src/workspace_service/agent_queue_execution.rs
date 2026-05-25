@@ -334,6 +334,7 @@ fn build_direct_work_input(
         operator_prompt,
         sandbox: input.sandbox.clone(),
         approval_policy: input.approval_policy.clone(),
+        skip_git_repo_check: false,
         timeout_ms: input.timeout_ms,
         stdout_cap_bytes: input.stdout_cap_bytes,
         stderr_cap_bytes: input.stderr_cap_bytes,

@@ -86,7 +86,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Working dir");
     expect(textInputValue()).toBe("~");
     expect(document.body.textContent).toContain(
-      '"~" resolves to your user home before Codex starts.',
+      "Runs from ~ by default. Non-git directories use Codex skip git repo check.",
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
   });
@@ -143,6 +143,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       operatorPrompt: "Make a plan while Direct Mode is enabled",
+      skipGitRepoCheck: true,
     });
     expect(provider).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
@@ -238,6 +239,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       operatorPrompt: "Implement this directly.",
       repoRoot: "~",
       sandbox: "workspace_write",
+      skipGitRepoCheck: true,
     });
     expect(createQueueTask).not.toHaveBeenCalled();
     expect(startQueueAutorun).not.toHaveBeenCalled();
@@ -284,6 +286,48 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("codex executable not found");
     expect(document.body.textContent).toContain(
       "Codex Direct Work failed: codex executable not found",
+    );
+  });
+
+  it("shows trusted-directory Codex failures as actionable Coordinator Direct Mode copy", async () => {
+    const trustedDirectoryMessage =
+      "codex exec --json exited with code 1: stderr: Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project. stderr: Not inside a trusted directory and --skip-git-repo-check was not specified; could not read final message file `last.txt`: file missing";
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_failed" }));
+        onEvent(
+          directWorkEvent({
+            eventKind: "failed",
+            finalStatus: "failed",
+            isFinal: true,
+            runId: "run_failed",
+            errorMessage: trustedDirectoryMessage,
+            stderrPreview:
+              "Not inside a trusted directory and --skip-git-repo-check was not specified",
+          }),
+        );
+        return {
+          runId: "run_failed",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run from home.");
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain(
+      "Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project.",
+    );
+    expect(document.body.textContent).toContain(
+      "Not inside a trusted directory and --skip-git-repo-check was not specified",
     );
   });
 

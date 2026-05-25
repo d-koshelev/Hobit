@@ -56,6 +56,7 @@ fn maps_start_assigned_agent_queue_task_summary_to_dto() {
             operator_prompt: "Prompt".to_owned(),
             sandbox: "workspace_write".to_owned(),
             approval_policy: "never".to_owned(),
+            skip_git_repo_check: false,
             timeout_ms: Some(10),
             stdout_cap_bytes: Some(11),
             stderr_cap_bytes: Some(12),

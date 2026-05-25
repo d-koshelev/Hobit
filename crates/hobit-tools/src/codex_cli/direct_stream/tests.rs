@@ -253,6 +253,43 @@ fn nonzero_exit_returns_failed_with_stderr_preserved() {
 }
 
 #[test]
+fn trusted_directory_failure_keeps_stderr_primary_and_adds_actionable_message() {
+    let mut events = Vec::new();
+    let output = run_codex_direct_work_streaming(
+        request_with_program(
+            temp_repo("trusted-directory-error"),
+            "trusted-directory-error",
+            direct_stream_helper(),
+        ),
+        |event| events.push(event),
+    );
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Failed);
+    assert_eq!(output.exit_code, Some(1));
+    let error_message = output.error_message.as_deref().unwrap_or_default();
+    assert!(error_message.contains(
+        "Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project."
+    ));
+    assert!(error_message
+        .contains("Not inside a trusted directory and --skip-git-repo-check was not specified"));
+    assert!(error_message.contains("could not read final message file"));
+    assert!(
+        error_message.find("Codex refused this directory")
+            < error_message.find("could not read final message file")
+    );
+    let failed_event = events
+        .iter()
+        .find(|event| event.kind == CodexDirectStreamEventKind::Failed)
+        .expect("failed event should be emitted");
+    assert_eq!(failed_event.error_message.as_deref(), Some(error_message));
+    assert!(failed_event
+        .stderr_preview
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Not inside a trusted directory and --skip-git-repo-check was not specified"));
+}
+
+#[test]
 fn missing_executable_failed_event_includes_process_start_stage() {
     let mut events = Vec::new();
     let output = run_codex_direct_work_streaming(
@@ -291,6 +328,7 @@ fn built_args_put_global_options_before_exec_and_json_exec_options_after() {
         &repo_root,
         CodexSandboxMode::ReadOnly,
         CodexApprovalPolicy::Never,
+        false,
         &output_last_message_path,
     );
 
@@ -332,6 +370,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
         &repo_root,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
+        true,
         &output_last_message_path,
     );
     let summary = safe_command_summary(
@@ -340,6 +379,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
         &repo_root,
         CodexSandboxMode::WorkspaceWrite,
         CodexApprovalPolicy::OnRequest,
+        true,
         &output_last_message_path,
     );
 
@@ -353,6 +393,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
             "workspace-write".to_owned(),
             "--ask-for-approval".to_owned(),
             "on-request".to_owned(),
+            "--skip-git-repo-check".to_owned(),
             "exec".to_owned(),
             "--json".to_owned(),
             "--output-last-message".to_owned(),
@@ -361,6 +402,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
         ]
     );
     assert!(arg_index(&summary, "--ask-for-approval") < arg_index(&summary, "exec"));
+    assert!(arg_index(&summary, "--skip-git-repo-check") < arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--sandbox") < arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--cd") < arg_index(&summary, "exec"));
     assert!(arg_index(&summary, "--json") > arg_index(&summary, "exec"));
@@ -391,6 +433,26 @@ fn args_are_passed_without_shell_concatenation() {
         .command_summary
         .iter()
         .any(|part| part == "<operator-prompt-stdin>"));
+}
+
+#[test]
+fn skip_git_repo_check_request_adds_global_codex_arg_before_exec() {
+    let mut request = request_with_program(
+        temp_repo("skip-git-check"),
+        "skip-git-check",
+        direct_stream_helper(),
+    );
+    request.skip_git_repo_check = true;
+
+    let output = run_codex_direct_work_streaming(request, |_| {});
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    let final_message = output.final_message.unwrap();
+    assert!(final_message.contains("--skip-git-repo-check\nexec\n--json\n"));
+    assert!(
+        arg_index(&output.command_summary, "--skip-git-repo-check")
+            < arg_index(&output.command_summary, "exec")
+    );
 }
 
 #[test]
@@ -621,6 +683,11 @@ fn main() {
         eprintln!("helper stderr failure");
         std::fs::write(output_path, "failed final").unwrap();
         std::process::exit(17);
+    }
+
+    if prompt == "trusted-directory-error" {
+        eprintln!("Not inside a trusted directory and --skip-git-repo-check was not specified");
+        std::process::exit(1);
     }
 
     println!("helper stdout");

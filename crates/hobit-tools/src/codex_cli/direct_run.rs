@@ -21,6 +21,9 @@ use crate::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
 pub const DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS: u64 = 10 * 60 * 1_000;
 pub const DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES: usize = 256 * 1024;
 pub const DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES: usize = 128 * 1024;
+const TRUSTED_DIRECTORY_ERROR: &str =
+    "Not inside a trusted directory and --skip-git-repo-check was not specified";
+const TRUSTED_DIRECTORY_ACTIONABLE_ERROR: &str = "Codex refused this directory. Coordinator Direct Mode should run with skip git repo check or choose a trusted Git project.";
 
 /// Direct Work request for a one-shot `codex exec` invocation.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,6 +33,7 @@ pub struct CodexDirectRunRequest {
     pub prompt: String,
     pub sandbox: CodexSandboxMode,
     pub approval_policy: CodexApprovalPolicy,
+    pub skip_git_repo_check: bool,
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
@@ -49,6 +53,7 @@ impl CodexDirectRunRequest {
             prompt: prompt.into(),
             sandbox,
             approval_policy,
+            skip_git_repo_check: false,
             timeout_ms: None,
             stdout_cap_bytes: None,
             stderr_cap_bytes: None,
@@ -201,6 +206,7 @@ fn run_codex_direct_work_inner(
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
+        request.skip_git_repo_check,
         &output_last_message_path,
     );
     let launch = codex_launch_command(&resolution.program, codex_args);
@@ -210,6 +216,7 @@ fn run_codex_direct_work_inner(
         &request.repo_root,
         request.sandbox,
         request.approval_policy,
+        request.skip_git_repo_check,
         &output_last_message_path,
     );
 
@@ -289,20 +296,30 @@ fn build_codex_exec_args(
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
+    skip_git_repo_check: bool,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    vec![
+    let mut args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+    ];
+
+    if skip_git_repo_check {
+        args.push("--skip-git-repo-check".to_owned());
+    }
+
+    args.extend([
         "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),
-    ]
+    ]);
+
+    args
 }
 
 fn safe_command_summary(
@@ -311,20 +328,28 @@ fn safe_command_summary(
     repo_root: &Path,
     sandbox: CodexSandboxMode,
     approval_policy: CodexApprovalPolicy,
+    skip_git_repo_check: bool,
     output_last_message_path: &Path,
 ) -> Vec<String> {
-    let expected_codex_args = vec![
+    let mut expected_codex_args = vec![
         "--cd".to_owned(),
         repo_root.to_string_lossy().into_owned(),
         "--sandbox".to_owned(),
         sandbox.as_cli_arg().to_owned(),
         "--ask-for-approval".to_owned(),
         approval_policy.as_cli_arg().to_owned(),
+    ];
+
+    if skip_git_repo_check {
+        expected_codex_args.push("--skip-git-repo-check".to_owned());
+    }
+
+    expected_codex_args.extend([
         "exec".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
         "-".to_owned(),
-    ];
+    ]);
     debug_assert!(launch_args.ends_with(&expected_codex_args));
 
     let mut summary = Vec::with_capacity(1 + launch_args.len());
@@ -367,6 +392,10 @@ fn direct_run_error_message(output: &crate::process::ProcessRunOutput) -> Option
 
             if let Some(detail) = stderr_detail.as_deref() {
                 message.push_str(": stderr: ");
+                if detail.contains(TRUSTED_DIRECTORY_ERROR) {
+                    message.push_str(TRUSTED_DIRECTORY_ACTIONABLE_ERROR);
+                    message.push_str(" stderr: ");
+                }
                 message.push_str(detail);
             } else if let Some(detail) = stdout_detail.as_deref() {
                 message.push_str(": stdout: ");

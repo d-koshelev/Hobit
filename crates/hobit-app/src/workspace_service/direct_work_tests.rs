@@ -38,6 +38,7 @@ fn codex_direct_work_for_valid_widget_creates_run_logs_result_and_response() {
                 assert_eq!(request.prompt, "Implement the focused block.");
                 assert_eq!(request.sandbox, CodexSandboxMode::WorkspaceWrite);
                 assert_eq!(request.approval_policy, CodexApprovalPolicy::OnRequest);
+                assert!(!request.skip_git_repo_check);
                 assert_eq!(request.timeout_ms, Some(2_000));
                 assert_eq!(request.stdout_cap_bytes, Some(16 * 1024));
                 assert_eq!(request.stderr_cap_bytes, Some(8 * 1024));
@@ -102,20 +103,22 @@ fn codex_direct_work_for_valid_widget_creates_run_logs_result_and_response() {
 fn codex_direct_work_for_coordinator_widget_creates_run_without_queue_or_git_mutation() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let mut input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Implement directly from Coordinator.",
+        "workspace_write",
+        "never",
+    );
+    input.skip_git_repo_check = true;
 
     let summary = service
-        .run_codex_direct_work_with_runner(
-            direct_work_input(
-                &workspace_id,
-                &workbench_id,
-                &widget_id,
-                current_repo_root(),
-                "Implement directly from Coordinator.",
-                "workspace_write",
-                "never",
-            ),
-            |request| completed_output(&request),
-        )
+        .run_codex_direct_work_with_runner(input, |request| {
+            assert!(request.skip_git_repo_check);
+            completed_output(&request)
+        })
         .expect("run coordinator direct work")
         .expect("coordinator direct work summary");
     let logs = service
@@ -398,6 +401,7 @@ fn codex_direct_work_result_json_records_executor_mode_safety_and_policy_fields(
     assert_eq!(payload["mode"], "direct_work");
     assert_eq!(payload["sandbox"], "read_only");
     assert_eq!(payload["approval_policy"], "untrusted");
+    assert_eq!(payload["skip_git_repo_check"], false);
     assert_eq!(
         payload["operator_prompt"],
         "Run Codex with read-only sandbox."
@@ -519,6 +523,7 @@ fn direct_work_input(
         operator_prompt: operator_prompt.to_owned(),
         sandbox: sandbox.to_owned(),
         approval_policy: approval_policy.to_owned(),
+        skip_git_repo_check: false,
         timeout_ms: Some(2_000),
         stdout_cap_bytes: Some(16 * 1024),
         stderr_cap_bytes: Some(8 * 1024),
