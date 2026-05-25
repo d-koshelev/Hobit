@@ -86,11 +86,13 @@ The current Coordinator preview:
   Direct Mode sends resume requests for that explicit thread id. Direct Mode
   does not use `--last`, and resume requests send only the latest composer
   message rather than the full visible transcript. The operator can visibly
-  start a New Codex thread / reset the thread id, and changing the working
-  directory clears the current thread id so the next run starts fresh. Thread
-  state is current-session only unless persistence is added later. Status,
-  recent logs, Stop/cancel state when available, final result summary, and
-  failures stay visible in Coordinator.
+  start a new thread / reset the thread id, and changing the working directory
+  clears the current thread id so the next run starts fresh. Thread state is
+  current-session only unless persistence is added later. Normal transcript
+  entries show user prompts and Codex final responses; Direct Work lifecycle
+  details remain available in the collapsed Direct Work details/status area.
+  Status, recent logs, Stop/cancel state when available, final result summary,
+  and failures stay visible in Coordinator.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

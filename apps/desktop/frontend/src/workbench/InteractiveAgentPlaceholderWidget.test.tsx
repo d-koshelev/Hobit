@@ -85,10 +85,10 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.querySelector(".interactive-agent-direct-mode-bar")).not.toBeNull();
     expect(document.body.textContent).toContain("Working dir");
     expect(textInputValue()).toBe("~");
+    expect(document.body.textContent).toContain("No active thread");
     expect(document.body.textContent).toContain("New thread");
-    expect(document.body.textContent).toContain(
-      "Runs from ~ by default. Non-git directories use Codex skip git repo check.",
-    );
+    expect(buttonsWithText("New thread")).toHaveLength(1);
+    expect(document.body.textContent).not.toContain("New Codex thread");
     expect(document.body.textContent).toContain(
       "~ resolves to your user home.",
     );
@@ -96,7 +96,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "If access is denied, choose a project folder or scratch workspace.",
     );
     expect(document.body.textContent).toContain(
-      "Try: ~/Documents/hobit-coordinator-scratch",
+      "Try: /Documents/hobit-coordinator-scratch",
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
   });
@@ -200,6 +200,11 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
     expect(document.body.textContent).toContain("Codex handled the task.");
     expect(document.body.textContent).toContain("Thread active thread_b...");
+    expect(lastAssistantMessageText()).toBe("Codex handled the task.");
+    expect(lastAssistantMessageText()).not.toContain("Sent to Codex Direct Mode");
+    expect(lastAssistantMessageText()).not.toContain("Starting foreground Codex Direct Work");
+    expect(lastAssistantMessageText()).not.toContain("Starting Codex Direct Work");
+    expect(lastAssistantMessageText()).not.toContain("Codex Direct Mode completed");
     expect(document.body.textContent).not.toContain("Drafting from the visible chat.");
     expect(document.body.textContent).not.toContain("Coordinator plan");
   });
@@ -271,7 +276,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Thread active thread_s...");
   });
 
-  it("New Codex thread clears the current Direct Mode thread without clearing chat", async () => {
+  it("New thread clears the current Direct Mode thread without clearing chat", async () => {
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -312,7 +317,7 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     await toggleDirectMode();
     await setTextareaValue("Remember this.");
     await clickButton("Run with Codex");
-    await clickButton("New Codex thread");
+    await clickButton("New thread");
     await setTextareaValue("Start over.");
     await clickButton("Run with Codex");
 
@@ -323,6 +328,8 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     });
     expect(document.body.textContent).toContain("Codex thread reset.");
     expect(document.body.textContent).toContain("Remember this.");
+    expect(buttonsWithText("New thread")).toHaveLength(1);
+    expect(document.body.textContent).not.toContain("New Codex thread");
   });
 
   it("changing the Direct Mode working directory clears the current Codex thread", async () => {
@@ -469,8 +476,8 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "Starting new Codex thread. Starting Codex Direct Work from ~.",
     );
-    expect(document.body.textContent).toContain("Codex Direct Mode completed.");
     expect(document.body.textContent).toContain("Final Coordinator result.");
+    expect(document.body.textContent).not.toContain("Codex Direct Mode completed.");
 
     const operatorMessages = document.querySelectorAll(
       '[data-testid="interactive-agent-message-operator"]',
@@ -487,6 +494,18 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
     ).toContain("Final Coordinator result.");
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Sent to Codex Direct Mode");
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Starting foreground Codex Direct Work");
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Starting Codex Direct Work");
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Codex Direct Mode completed");
     expect(operatorMessages[operatorMessages.length - 1]?.textContent).not.toContain(
       "You",
     );
@@ -529,6 +548,22 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain(
       "Codex Direct Work failed: codex executable not found",
     );
+    expect(lastAssistantMessageText()).toBe(
+      "Direct Work failed: codex executable not found",
+    );
+    expect(
+      document.querySelector<HTMLDetailsElement>(
+        ".interactive-agent-direct-mode-details",
+      )?.open,
+    ).toBe(false);
+    expect(
+      document.querySelector(".interactive-agent-direct-mode-details")
+        ?.textContent,
+    ).toContain("Run run_failed started.");
+    expect(
+      document.querySelector(".interactive-agent-direct-mode-details")
+        ?.textContent,
+    ).toContain("Run ended with failed.");
   });
 
   it("shows trusted-directory Codex failures as actionable Coordinator Direct Mode copy", async () => {
@@ -625,6 +660,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
       "Codex could not access this working directory. Choose a project folder or scratch workspace.",
     );
     expect(document.body.textContent).toContain("Direct Work failed");
+    expect(lastAssistantMessageText()).toBe(
+      "Direct Work failed: Working directory access denied. Choose another folder.",
+    );
     expect(createQueueTask).not.toHaveBeenCalled();
     expect(startQueueAutorun).not.toHaveBeenCalled();
   });
@@ -709,6 +747,9 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
     ).not.toContain("codex exec --json exited");
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Codex Direct Mode completed");
   });
 
   it("shows a safe Direct Work failure fallback when no backend reason is returned", async () => {
@@ -1661,6 +1702,14 @@ function textareaValue() {
     throw new Error("Message textarea not found.");
   }
   return textarea.value;
+}
+
+function lastAssistantMessageText() {
+  const assistantMessages = document.querySelectorAll(
+    '[data-testid="interactive-agent-message-assistant"]',
+  );
+  const lastMessage = assistantMessages[assistantMessages.length - 1];
+  return lastMessage?.textContent ?? "";
 }
 
 function providerResponse(

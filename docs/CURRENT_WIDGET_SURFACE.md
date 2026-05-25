@@ -319,13 +319,15 @@ destination for every Coordinator action or small operation.
   thread id in current-session Coordinator widget state. Follow-up Run with
   Codex actions resume that explicit thread id and send only the latest
   composer message; they do not use `--last` and do not resend the visible
-  transcript as the prompt. The operator can use the visible New Codex thread
-  action to clear the current thread id without clearing visible chat. Changing
+  transcript as the prompt. The operator can use the visible New thread action
+  to clear the current thread id without clearing visible chat. Changing
   the Direct Mode working directory clears the current thread id and starts a
   new thread on the next run. Thread state is current-session only unless a
-  later persistence slice explicitly adds storage. Coordinator Direct Mode
-  shows compact helper copy that `~` resolves to the current user's home
-  directory and suggests choosing a project folder or scratch workspace if
+  later persistence slice explicitly adds storage. Normal chat transcript shows
+  operator prompts and Codex final responses; Direct Work lifecycle details
+  stay available in the collapsed Direct Work details/status area. Coordinator
+  Direct Mode shows compact helper copy that `~` resolves to the current user's
+  home directory and suggests choosing a project folder or scratch workspace if
   access is denied. Access-denied command failures inside Codex are surfaced as
   working-directory warnings while preserving any final Codex agent message as
   the visible assistant response. Coordinator Direct Mode supports Stop when

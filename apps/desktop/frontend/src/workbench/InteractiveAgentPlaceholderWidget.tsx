@@ -685,18 +685,16 @@ export function InteractiveAgentPlaceholderWidget({
     reason: string,
     useDirectBody = false,
   ) {
+    const body =
+      status === "completed" || useDirectBody
+        ? reason
+        : status === "failed"
+          ? directWorkFailureTranscriptBody(reason)
+          : reason;
+
     setMessages((currentMessages) => [
       ...currentMessages,
-      createLocalMessage(
-        "assistant",
-        status === "failed" && useDirectBody
-          ? reason
-          : status === "failed"
-          ? directWorkFailureTranscriptBody(reason)
-          : status === "completed"
-            ? `Codex Direct Mode completed.\n\n${reason}`
-            : `Codex Direct Mode ${status}. ${reason}`,
-      ),
+      createLocalMessage("assistant", body),
     ]);
   }
 
@@ -1342,7 +1340,7 @@ function CoordinatorDirectModePanel({
     : null;
   const threadStatusText = threadId
     ? `Thread active ${shortCodexThreadId(threadId)}`
-    : "New thread";
+    : "No active thread";
 
   return (
     <section
@@ -1380,7 +1378,10 @@ function CoordinatorDirectModePanel({
         ) : null}
         <Badge variant={statusVariant}>{status}</Badge>
         {isEnabled ? (
-          <>
+          <span
+            aria-label="Direct Mode thread controls"
+            className="interactive-agent-direct-mode-thread-controls"
+          >
             <Badge variant={threadId ? "info" : "neutral"}>
               {threadStatusText}
             </Badge>
@@ -1390,18 +1391,18 @@ function CoordinatorDirectModePanel({
               type="button"
               variant="ghost"
             >
-              New Codex thread
+              New thread
             </Button>
-          </>
+          </span>
         ) : null}
       </div>
 
       {isEnabled ? (
         <div className="interactive-agent-direct-mode-body">
           <p className="interactive-agent-direct-mode-help">
-            <span>~ resolves to your user home.</span>
             <span>
-              If access is denied, choose a project folder or scratch workspace.
+              ~ resolves to your user home. If access is denied, choose a
+              project folder or scratch workspace.
             </span>
             {scratchSuggestion ? <span>Try: {scratchSuggestion}</span> : null}
           </p>
@@ -1792,10 +1793,10 @@ function directWorkDirectoryResolutionText(directory: string): string {
   }
 
   if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
-    return "Runs from ~ by default. Non-git directories use Codex skip git repo check.";
+    return "~ resolves to your user home.";
   }
 
-  return "Non-git directories use Codex skip git repo check.";
+  return "Using selected working directory.";
 }
 
 function directWorkScratchWorkspaceSuggestion(directory: string): string | null {
@@ -1806,14 +1807,14 @@ function directWorkScratchWorkspaceSuggestion(directory: string): string | null 
   }
 
   if (trimmedDirectory === "~" || /^~[\\/]/.test(trimmedDirectory)) {
-    return "~/Documents/hobit-coordinator-scratch";
+    return "/Documents/hobit-coordinator-scratch";
   }
 
   const windowsHomeMatch = trimmedDirectory.match(
     /^([A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/]+)/,
   );
   if (windowsHomeMatch) {
-    return `${windowsHomeMatch[1]}\\Documents\\hobit-coordinator-scratch`;
+    return "/Documents/hobit-coordinator-scratch";
   }
 
   return null;

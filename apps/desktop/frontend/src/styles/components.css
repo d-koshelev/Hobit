@@ -1024,6 +1024,12 @@
   line-height: var(--line-tight);
 }
 
+.interactive-agent-direct-mode-thread-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .interactive-agent-direct-mode-label,
 .interactive-agent-direct-mode-path,
 .interactive-agent-direct-mode-help,
