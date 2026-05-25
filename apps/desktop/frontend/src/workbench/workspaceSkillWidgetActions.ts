@@ -5,10 +5,24 @@ import {
   listSkills,
   updateSkill,
 } from "../workspace/workspaceApi";
+import {
+  createKnowledgeDocument,
+  deleteKnowledgeDocument,
+  getKnowledgeDocument,
+  listKnowledgeDocuments,
+  searchKnowledgeDocuments,
+  updateKnowledgeDocument,
+} from "../workspace/workspaceApiKnowledgeDocuments";
 import type {
+  CreateKnowledgeDocumentRequest,
   CreateSkillRequest,
+  DeleteKnowledgeDocumentRequest,
   DeleteSkillRequest,
+  KnowledgeDocument,
+  KnowledgeDocumentSearchResult,
+  SearchKnowledgeDocumentsRequest,
   Skill,
+  UpdateKnowledgeDocumentRequest,
   UpdateSkillRequest,
 } from "../workspace/types";
 import type { WorkbenchViewState } from "./types";
@@ -16,6 +30,22 @@ import type { WorkbenchViewState } from "./types";
 export type SkillCreateRequest = Omit<CreateSkillRequest, "workspaceId">;
 export type SkillUpdateRequest = Omit<UpdateSkillRequest, "workspaceId">;
 export type SkillDeleteRequest = Omit<DeleteSkillRequest, "workspaceId">;
+export type KnowledgeDocumentCreateRequest = Omit<
+  CreateKnowledgeDocumentRequest,
+  "workspaceId"
+>;
+export type KnowledgeDocumentUpdateRequest = Omit<
+  UpdateKnowledgeDocumentRequest,
+  "workspaceId"
+>;
+export type KnowledgeDocumentDeleteRequest = Omit<
+  DeleteKnowledgeDocumentRequest,
+  "workspaceId"
+>;
+export type KnowledgeDocumentSearchRequest = Omit<
+  SearchKnowledgeDocumentsRequest,
+  "workspaceId"
+>;
 
 export type WorkspaceSkillWidgetActions = {
   createSkill: (request: SkillCreateRequest) => Promise<Skill>;
@@ -23,6 +53,22 @@ export type WorkspaceSkillWidgetActions = {
   getSkill: (skillId: string) => Promise<Skill | null>;
   updateSkill: (request: SkillUpdateRequest) => Promise<Skill | null>;
   deleteSkill: (request: SkillDeleteRequest) => Promise<boolean>;
+  createKnowledgeDocument?: (
+    request: KnowledgeDocumentCreateRequest,
+  ) => Promise<KnowledgeDocument>;
+  listKnowledgeDocuments?: () => Promise<KnowledgeDocument[]>;
+  getKnowledgeDocument?: (
+    knowledgeDocumentId: string,
+  ) => Promise<KnowledgeDocument | null>;
+  updateKnowledgeDocument?: (
+    request: KnowledgeDocumentUpdateRequest,
+  ) => Promise<KnowledgeDocument | null>;
+  deleteKnowledgeDocument?: (
+    request: KnowledgeDocumentDeleteRequest,
+  ) => Promise<boolean>;
+  searchKnowledgeDocuments?: (
+    request: KnowledgeDocumentSearchRequest,
+  ) => Promise<KnowledgeDocumentSearchResult[]>;
 };
 
 export function createWorkspaceSkillActions(
@@ -59,6 +105,47 @@ export function createWorkspaceSkillActions(
     deleteSkill: (request) => {
       requireOpenWorkbench(viewState, "delete skills");
       return deleteSkill({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    createKnowledgeDocument: (request) => {
+      requireOpenWorkbench(viewState, "create knowledge documents");
+      return createKnowledgeDocument({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    listKnowledgeDocuments: () => {
+      requireOpenWorkbench(viewState, "read knowledge documents");
+      return listKnowledgeDocuments({
+        workspaceId: viewState.workspace.id,
+      });
+    },
+    getKnowledgeDocument: (knowledgeDocumentId) => {
+      requireOpenWorkbench(viewState, "read knowledge documents");
+      return getKnowledgeDocument({
+        workspaceId: viewState.workspace.id,
+        knowledgeDocumentId,
+      });
+    },
+    updateKnowledgeDocument: (request) => {
+      requireOpenWorkbench(viewState, "update knowledge documents");
+      return updateKnowledgeDocument({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    deleteKnowledgeDocument: (request) => {
+      requireOpenWorkbench(viewState, "delete knowledge documents");
+      return deleteKnowledgeDocument({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    searchKnowledgeDocuments: (request) => {
+      requireOpenWorkbench(viewState, "search knowledge documents");
+      return searchKnowledgeDocuments({
         workspaceId: viewState.workspace.id,
         ...request,
       });

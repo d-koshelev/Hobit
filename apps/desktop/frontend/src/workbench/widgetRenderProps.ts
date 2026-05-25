@@ -22,9 +22,11 @@ import type {
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateGitCommitRequest,
+  CreateKnowledgeDocumentRequest,
   CreateSkillRequest,
   CreateWorkspaceNoteRequest,
   DeleteSkillRequest,
+  DeleteKnowledgeDocumentRequest,
   DirectWorkStreamEvent,
   DeleteAgentQueueTaskRequest,
   ForceKillCodexDirectWorkRunResponse,
@@ -32,6 +34,8 @@ import type {
   GenerateCoordinatorProviderResponseRequest,
   GitCommitResponse,
   GitRepositoryStatus,
+  KnowledgeDocument,
+  KnowledgeDocumentSearchResult,
   CreateTerminalPtySessionRequest,
   ListTerminalPtySessionsRequest,
   RunCodexDirectWorkRequest,
@@ -41,6 +45,7 @@ import type {
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   ResizeTerminalPtySessionRequest,
+  SearchKnowledgeDocumentsRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -49,6 +54,7 @@ import type {
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
   UpdateSkillRequest,
+  UpdateKnowledgeDocumentRequest,
   UpdateWorkspaceNoteRequest,
   WorkspaceNote,
   Skill,
@@ -145,6 +151,12 @@ export type WidgetRenderProps = {
   onDeleteSkill?: (
     request: Omit<DeleteSkillRequest, "workspaceId">,
   ) => Promise<boolean>;
+  onCreateKnowledgeDocument?: (
+    request: Omit<CreateKnowledgeDocumentRequest, "workspaceId">,
+  ) => Promise<KnowledgeDocument>;
+  onDeleteKnowledgeDocument?: (
+    request: Omit<DeleteKnowledgeDocumentRequest, "workspaceId">,
+  ) => Promise<boolean>;
   onGenerateCoordinatorProviderResponse?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<
@@ -189,6 +201,9 @@ export type WidgetRenderProps = {
   onGetJdbcConnector?: (connectorId: string) => Promise<JdbcConnector | null>;
   onGetWorkspaceNote?: (noteId: string) => Promise<WorkspaceNote | null>;
   onGetSkill?: (skillId: string) => Promise<Skill | null>;
+  onGetKnowledgeDocument?: (
+    knowledgeDocumentId: string,
+  ) => Promise<KnowledgeDocument | null>;
   onListAgentExecutorRuns?: (
     widgetInstanceId: WidgetInstanceId,
     limit?: number,
@@ -197,6 +212,7 @@ export type WidgetRenderProps = {
   onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
   onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
   onListSkills?: () => Promise<Skill[]>;
+  onListKnowledgeDocuments?: () => Promise<KnowledgeDocument[]>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
@@ -326,6 +342,12 @@ export type WidgetRenderProps = {
   onUpdateSkill?: (
     request: Omit<UpdateSkillRequest, "workspaceId">,
   ) => Promise<Skill | null>;
+  onUpdateKnowledgeDocument?: (
+    request: Omit<UpdateKnowledgeDocumentRequest, "workspaceId">,
+  ) => Promise<KnowledgeDocument | null>;
+  onSearchKnowledgeDocuments?: (
+    request: Omit<SearchKnowledgeDocumentsRequest, "workspaceId">,
+  ) => Promise<KnowledgeDocumentSearchResult[]>;
   queueTaskAutoRefreshRequest?: DirectWorkQueueTaskAutoRefreshRequest | null;
   title: string;
 };
