@@ -57,6 +57,18 @@ Current preview surfaces:
 The current catalog uses these preferred user-facing names. Compatibility IDs
 and component keys may still appear in code and persistence.
 
+## Current Default Workspace
+
+New Workspaces use the default name `Untitled` and open into the
+Coordinator-centered MVP surface: Coordinator Chat plus Notes. Agent Queue,
+Agent Executor, Git, Terminal, Database / JDBC, Skill Library, and Runbook
+remain optional widgets added when needed.
+
+Empty Workbench remains available as an advanced/manual start mode. Existing
+empty Workspaces show a recovery action to add Coordinator Chat plus Notes
+without running agents, creating Queue tasks, reading hidden context, or
+changing runtime behavior.
+
 ## Current Ready Surfaces
 
 ### Agent Executor

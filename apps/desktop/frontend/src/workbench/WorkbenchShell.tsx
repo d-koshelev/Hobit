@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
+import { coordinatorWorkspacePreset } from "./presets";
+import { addPresetWidgetsToWorkbench } from "./presetWidgetSetup";
 import { useCurrentSessionActivity } from "./useCurrentSessionActivity";
 import { useWorkbenchWidgetActions } from "./useWorkbenchWidgetActions";
 import { WorkbenchActivity } from "./WorkbenchActivity";
@@ -7,6 +9,7 @@ import { WorkbenchCanvas } from "./WorkbenchCanvas";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WorkbenchTopBar } from "./WorkbenchTopBar";
 import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
+import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 import { DEFAULT_WORKBENCH_GRID_SIZE } from "./workbenchLayoutGeometry";
 import { AGENT_QUEUE_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
@@ -44,6 +47,35 @@ export function WorkbenchShell({
     }
   }
 
+  async function startCoordinatorWorkspace() {
+    const workbenchId = viewState.workbench.id;
+
+    if (!workbenchId) {
+      return;
+    }
+
+    try {
+      const workbenchState = await addPresetWidgetsToWorkbench(
+        {
+          existingWidgetDefinitionIds: viewState.widgets.map(
+            (widget) => widget.definitionId,
+          ),
+          workbenchId,
+          workspaceId: viewState.workspace.id,
+        },
+        coordinatorWorkspacePreset,
+      );
+
+      if (workbenchState) {
+        onViewStateChange(
+          createWorkbenchViewStateFromWorkspaceState(workbenchState),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to add Coordinator workspace widgets.", error);
+    }
+  }
+
   return (
     <main className="app-shell">
       <div className="workbench">
@@ -70,6 +102,7 @@ export function WorkbenchShell({
             gridSize={gridSize}
             layoutMode={layoutMode}
             onOpenWidgetCatalog={openWidgetCatalog}
+            onStartCoordinatorWorkspace={() => void startCoordinatorWorkspace()}
             viewState={viewState}
             widgetActions={widgetActions}
           />

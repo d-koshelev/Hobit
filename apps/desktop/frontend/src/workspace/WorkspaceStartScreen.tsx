@@ -25,7 +25,9 @@ export function WorkspaceStartScreen({
     openRecentWorkspace,
     recentWorkspaces,
     selectedPreset,
+    setSelectedPresetId,
     setWorkspaceName,
+    workbenchPresets,
     workspaceName,
   } = useWorkspaceFlow({ onOpenWorkspace });
 
@@ -60,8 +62,9 @@ export function WorkspaceStartScreen({
                 New Workspace
               </h1>
               <p className="workspace-start-text">
-                Name a workspace and start with the intentional Empty
-                Workbench. Add only the widgets this work needs after it opens.
+                Name a workspace and start with Coordinator Chat and Notes.
+                Add Queue, Executor, Git, Terminal, or JDBC only when this work
+                needs them.
               </p>
             </div>
 
@@ -80,22 +83,51 @@ export function WorkspaceStartScreen({
 
             <fieldset className="preset-field">
               <legend className="workspace-label">Start mode</legend>
-              <div
-                aria-label={`${selectedPreset.title} start mode`}
-                className="preset-choice"
-                role="group"
-              >
-                <span className="preset-choice-copy">
-                  <span className="preset-choice-title">Start empty</span>
-                  <span className="preset-choice-text">
-                    Creates the {selectedPreset.title} with no default widgets.
-                    Use the Widget Catalog after opening to add capabilities.
-                  </span>
-                </span>
-                <Badge variant="success">
-                  <StatusDot variant="success" />
-                  Current default
-                </Badge>
+              <div className="preset-choice-list">
+                {workbenchPresets.map((preset) => {
+                  const isSelected = preset.id === selectedPreset.id;
+                  const isEmptyPreset = preset.widgets.length === 0;
+
+                  return (
+                    <label
+                      className={
+                        isSelected
+                          ? "preset-choice preset-choice-selected"
+                          : "preset-choice"
+                      }
+                      key={preset.id}
+                    >
+                      <input
+                        checked={isSelected}
+                        disabled={isCreatingWorkspace}
+                        name="workspace-preset"
+                        onChange={() => setSelectedPresetId(preset.id)}
+                        type="radio"
+                        value={preset.id}
+                      />
+                      <span className="preset-choice-copy">
+                        <span className="preset-choice-title">
+                          {isEmptyPreset
+                            ? "Start empty"
+                            : "Start with Coordinator"}
+                        </span>
+                        <span className="preset-choice-text">
+                          {isEmptyPreset
+                            ? "Advanced manual mode with no default widgets. Use the Widget Catalog after opening."
+                            : "Creates Coordinator Chat and Notes as the default MVP workspace."}
+                        </span>
+                      </span>
+                      <Badge variant={isSelected ? "success" : "neutral"}>
+                        {isSelected ? <StatusDot variant="success" /> : null}
+                        {isSelected
+                          ? "Selected"
+                          : isEmptyPreset
+                            ? "Manual"
+                            : "Default"}
+                      </Badge>
+                    </label>
+                  );
+                })}
               </div>
             </fieldset>
 

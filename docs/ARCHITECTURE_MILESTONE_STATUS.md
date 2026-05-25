@@ -41,6 +41,10 @@ behavior, or Coordinator context wiring.
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Coordinator, while Queue and Agent Executor remain supporting execution
   surfaces.
+- The default new Workspace now starts as an `Untitled` Coordinator Workspace
+  with Coordinator Chat and Notes. Empty Workbench remains available as an
+  advanced/manual mode, and existing empty Workspaces can add Coordinator Chat
+  plus Notes through an explicit recovery action.
 - Coordinator Chat now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

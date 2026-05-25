@@ -85,6 +85,11 @@
   border: 0;
 }
 
+.preset-choice-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
 .workspace-label {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
@@ -108,9 +113,25 @@
   text-align: left;
 }
 
+.preset-choice:has(input:not(:disabled)) {
+  cursor: pointer;
+}
+
+.preset-choice-selected {
+  border-color: var(--color-primary-hairline);
+  background: var(--color-primary-soft);
+}
+
+.preset-choice input {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
 .preset-choice-copy {
   display: grid;
   min-width: 0;
+  flex: 1 1 auto;
   gap: var(--space-xs);
 }
 

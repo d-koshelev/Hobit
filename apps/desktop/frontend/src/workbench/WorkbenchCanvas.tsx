@@ -56,6 +56,7 @@ type WorkbenchCanvasProps = {
   gridSize: WorkbenchGridSize;
   layoutMode: WorkbenchLayoutMode;
   onOpenWidgetCatalog: () => void;
+  onStartCoordinatorWorkspace?: () => void;
   viewState: WorkbenchViewState;
   widgetActions: WorkbenchWidgetInstanceActions;
 };
@@ -90,6 +91,7 @@ export function WorkbenchCanvas({
   gridSize,
   layoutMode,
   onOpenWidgetCatalog,
+  onStartCoordinatorWorkspace,
   viewState,
   widgetActions,
 }: WorkbenchCanvasProps) {
@@ -665,6 +667,9 @@ export function WorkbenchCanvas({
         canvasLabel={canvasLabel}
         canvasShellClass={canvasShellClass}
         onOpenWidgetCatalog={onOpenWidgetCatalog}
+        onStartCoordinatorWorkspace={
+          onStartCoordinatorWorkspace ?? onOpenWidgetCatalog
+        }
       />
     );
   }

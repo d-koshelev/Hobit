@@ -6,6 +6,7 @@ type WorkbenchEmptyCanvasProps = {
   canvasLabel: string;
   canvasShellClass: string;
   onOpenWidgetCatalog: () => void;
+  onStartCoordinatorWorkspace: () => void;
 };
 
 export function WorkbenchEmptyCanvas({
@@ -13,6 +14,7 @@ export function WorkbenchEmptyCanvas({
   canvasLabel,
   canvasShellClass,
   onOpenWidgetCatalog,
+  onStartCoordinatorWorkspace,
 }: WorkbenchEmptyCanvasProps) {
   return (
     <section
@@ -25,11 +27,17 @@ export function WorkbenchEmptyCanvas({
           <div className="empty-workbench-content">
             <h1 className="empty-workbench-title">Your workbench is empty</h1>
             <p className="empty-workbench-text">
-              Add widgets to compose your AI workspace.
+              Start with Coordinator Chat and Notes, or add individual widgets
+              for a manual workbench.
             </p>
-            <Button onClick={onOpenWidgetCatalog} variant="primary">
-              + Add Widget
-            </Button>
+            <div className="empty-workbench-actions">
+              <Button onClick={onStartCoordinatorWorkspace} variant="primary">
+                Add Coordinator + Notes
+              </Button>
+              <Button onClick={onOpenWidgetCatalog} variant="secondary">
+                + Add Widget
+              </Button>
+            </div>
           </div>
         </div>
       </div>

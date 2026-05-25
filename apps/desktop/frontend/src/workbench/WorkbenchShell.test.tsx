@@ -10,6 +10,7 @@ import type {
 } from "../workspace/types";
 
 const workspaceApiMocks = vi.hoisted(() => ({
+  addWidgetInstanceToWorkbench: vi.fn(),
   getAgentQueueRunnerSnapshot: vi.fn(),
   getAgentQueueTask: vi.fn(),
   listAgentQueueTaskRunLinks: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
 
   return {
     ...actual,
+    addWidgetInstanceToWorkbench: workspaceApiMocks.addWidgetInstanceToWorkbench,
     getAgentQueueRunnerSnapshot: workspaceApiMocks.getAgentQueueRunnerSnapshot,
     getAgentQueueTask: workspaceApiMocks.getAgentQueueTask,
     listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
@@ -124,7 +126,55 @@ describe("WorkbenchShell global activity", () => {
   });
 });
 
-function renderShell(viewState = workbenchViewState()) {
+describe("WorkbenchShell empty canvas recovery", () => {
+  it("adds Coordinator Chat and Notes from the empty workbench CTA", async () => {
+    const onViewStateChange = vi.fn();
+
+    workspaceApiMocks.addWidgetInstanceToWorkbench
+      .mockResolvedValueOnce(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: ["interactive-agent"],
+        }),
+      )
+      .mockResolvedValueOnce(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: ["interactive-agent", "notes"],
+        }),
+      );
+
+    renderShell(workbenchViewState(), onViewStateChange);
+
+    await act(async () => {
+      buttonWithText("Add Coordinator + Notes").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(
+      workspaceApiMocks.addWidgetInstanceToWorkbench.mock.calls.map(
+        ([request]) => request.definitionId,
+      ),
+    ).toEqual(["interactive-agent", "notes"]);
+    expect(onViewStateChange).toHaveBeenCalledTimes(1);
+    expect(
+      onViewStateChange.mock.calls[0][0].widgets.map(
+        (widget: WorkbenchViewState["widgets"][number]) => widget.definitionId,
+      ),
+    ).toEqual(["interactive-agent", "notes"]);
+    expect(onViewStateChange.mock.calls[0][0].workbench.preset.title).toBe(
+      "Coordinator Workspace",
+    );
+  });
+});
+
+function renderShell(
+  viewState = workbenchViewState(),
+  onViewStateChange: (viewState: WorkbenchViewState) => void = () => undefined,
+) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -132,11 +182,52 @@ function renderShell(viewState = workbenchViewState()) {
   act(() => {
     root?.render(
       <WorkbenchShell
-        onViewStateChange={() => undefined}
+        onViewStateChange={onViewStateChange}
         viewState={viewState}
       />,
     );
   });
+}
+
+function workspaceWorkbenchState({
+  widgetDefinitionIds,
+}: {
+  widgetDefinitionIds: string[];
+}) {
+  const baseViewState = workbenchViewState();
+
+  return {
+    workspace: {
+      ...baseViewState.workspace,
+      workbenchId: baseViewState.workbench.id,
+    },
+    workbench: {
+      id: baseViewState.workbench.id ?? "workbench_1",
+      presetOriginId: null,
+      workspaceId: baseViewState.workspace.id,
+    },
+    widgetInstances: widgetDefinitionIds.map((definitionId, index) => ({
+      alwaysOnTop: false,
+      category: "core",
+      config: "{}",
+      definitionId,
+      dockHeight: 240,
+      dockWidth: 360,
+      dockX: 0,
+      dockY: index * 256,
+      id: `widget_${index + 1}`,
+      isVisible: true,
+      layoutMode: "docked",
+      popoutHeight: null,
+      popoutWidth: null,
+      popoutX: null,
+      popoutY: null,
+      state: "{}",
+      title: definitionId === "interactive-agent" ? "Coordinator Chat" : "Notes",
+    })),
+    sharedStateObjects: [],
+    recentEvents: baseViewState.recentEvents,
+  };
 }
 
 function buttonWithText(text: string) {

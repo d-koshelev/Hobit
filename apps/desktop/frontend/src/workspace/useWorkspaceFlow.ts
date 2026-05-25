@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { emptyWorkbenchPreset } from "../workbench/presets";
+import {
+  defaultWorkbenchPreset,
+  workbenchPresets,
+} from "../workbench/presets";
+import { applyPresetWidgetsToWorkspaceState } from "../workbench/presetWidgetSetup";
 import { createWorkbenchViewStateFromWorkspaceState } from "../workbench/viewState";
 import {
   createWorkspace as createWorkspaceCommand,
@@ -11,7 +15,7 @@ import {
 import type { WorkspaceStartSelection } from "./selection";
 import type { WorkspaceSummary } from "./types";
 
-export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
+export const DEFAULT_WORKSPACE_NAME = "Untitled";
 
 type UseWorkspaceFlowOptions = {
   onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
@@ -33,7 +37,12 @@ export function useWorkspaceFlow({
     null,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const selectedPreset = emptyWorkbenchPreset;
+  const [selectedPresetId, setSelectedPresetId] = useState(
+    defaultWorkbenchPreset.id,
+  );
+  const selectedPreset =
+    workbenchPresets.find((preset) => preset.id === selectedPresetId) ??
+    defaultWorkbenchPreset;
 
   useEffect(() => {
     let shouldUpdate = true;
@@ -84,12 +93,17 @@ export function useWorkspaceFlow({
         return;
       }
 
-      const workbenchState = await getWorkspaceWorkbenchState(workspace.id);
+      let workbenchState = await getWorkspaceWorkbenchState(workspace.id);
 
       if (!workbenchState) {
         setErrorMessage("Workbench state could not be loaded.");
         return;
       }
+
+      workbenchState = await applyPresetWidgetsToWorkspaceState(
+        workbenchState,
+        selectedPreset,
+      );
 
       onOpenWorkspace({
         preset: selectedPreset,
@@ -171,7 +185,9 @@ export function useWorkspaceFlow({
     openRecentWorkspace,
     recentWorkspaces,
     selectedPreset,
+    setSelectedPresetId,
     setWorkspaceName,
+    workbenchPresets,
     workspaceName,
   };
 }

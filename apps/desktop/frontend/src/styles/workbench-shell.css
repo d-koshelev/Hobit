@@ -276,6 +276,13 @@
   line-height: var(--line-normal);
 }
 
+.empty-workbench-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 .widget-layout-surface {
   position: relative;
   flex: 1;

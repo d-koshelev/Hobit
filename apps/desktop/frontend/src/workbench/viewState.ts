@@ -1,5 +1,5 @@
 import type { WorkspaceWorkbenchState } from "../workspace/types";
-import { emptyWorkbenchPreset } from "./presets";
+import { workbenchPresetForOriginOrWidgets } from "./presets";
 import type {
   WidgetGeometry,
   WidgetLayout,
@@ -47,6 +47,13 @@ export function createWorkbenchViewStateFromSelection(
 export function createWorkbenchViewStateFromWorkspaceState(
   state: WorkspaceWorkbenchState,
 ): WorkbenchViewState {
+  const preset = workbenchPresetForOriginOrWidgets({
+    presetOriginId: state.workbench?.presetOriginId,
+    widgetDefinitionIds: state.widgetInstances.map(
+      (widgetInstance) => widgetInstance.definitionId,
+    ),
+  });
+
   return {
     workspace: {
       id: state.workspace.id,
@@ -57,10 +64,9 @@ export function createWorkbenchViewStateFromWorkspaceState(
     workbench: {
       id: state.workbench?.id ?? state.workspace.workbenchId,
       preset: {
-        id: (state.workbench?.presetOriginId ??
-          emptyWorkbenchPreset.id) as WorkbenchPresetId,
-        title: emptyWorkbenchPreset.title,
-        description: emptyWorkbenchPreset.description,
+        id: preset.id as WorkbenchPresetId | null,
+        title: preset.title,
+        description: preset.description,
       },
     },
     widgets: state.widgetInstances.map((widgetInstance, index) => {
