@@ -139,37 +139,9 @@ export function coordinatorNotesWidgetsForCanvasWidth({
     return widgets;
   }
 
-  if (canvasWidth < COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH) {
-    return widgets.map((widget) => {
-      if (widget.id === coordinator.id) {
-        return {
-          ...widget,
-          layout: {
-            ...widget.layout,
-            height: DEFAULT_COORDINATOR_CHAT_HEIGHT,
-            width: canvasWidth,
-            x: 0,
-            y: 0,
-          },
-        };
-      }
-
-      return {
-        ...widget,
-        layout: {
-          ...widget.layout,
-          height: DEFAULT_NOTES_HEIGHT,
-          width: canvasWidth,
-          x: 0,
-          y: DEFAULT_COORDINATOR_CHAT_HEIGHT + COORDINATOR_NOTES_LAYOUT_GAP,
-        },
-      };
-    });
+  if (canvasWidth >= COORDINATOR_NOTES_SIDE_BY_SIDE_MIN_WIDTH) {
+    return widgets;
   }
-
-  const notesWidth = clamp(Math.round(canvasWidth * 0.3), 320, 420);
-  const coordinatorWidth =
-    canvasWidth - notesWidth - COORDINATOR_NOTES_LAYOUT_GAP;
 
   return widgets.map((widget) => {
     if (widget.id === coordinator.id) {
@@ -178,7 +150,7 @@ export function coordinatorNotesWidgetsForCanvasWidth({
         layout: {
           ...widget.layout,
           height: DEFAULT_COORDINATOR_CHAT_HEIGHT,
-          width: coordinatorWidth,
+          width: canvasWidth,
           x: 0,
           y: 0,
         },
@@ -190,9 +162,9 @@ export function coordinatorNotesWidgetsForCanvasWidth({
       layout: {
         ...widget.layout,
         height: DEFAULT_NOTES_HEIGHT,
-        width: notesWidth,
-        x: coordinatorWidth + COORDINATOR_NOTES_LAYOUT_GAP,
-        y: 0,
+        width: canvasWidth,
+        x: 0,
+        y: DEFAULT_COORDINATOR_CHAT_HEIGHT + COORDINATOR_NOTES_LAYOUT_GAP,
       },
     };
   });
@@ -219,8 +191,4 @@ function hasDefaultCoordinatorNotesGeometry(widgets: WidgetInstance[]) {
     notes.layout.width === DEFAULT_NOTES_WIDTH &&
     notes.layout.height === DEFAULT_NOTES_HEIGHT
   );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

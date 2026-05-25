@@ -68,21 +68,32 @@ describe("workbench presets", () => {
     expect(coordinator.layout.height).toBe(notes.layout.height);
   });
 
-  it("keeps the default Coordinator and Notes layout side by side when the canvas is wide enough", () => {
+  it("keeps locked default Coordinator and Notes geometry the same as edit geometry at normal desktop width", () => {
     const widgets = coordinatorNotesWidgetsForCanvasWidth({
-      canvasWidth: 1200,
+      canvasWidth: 1440,
+      presetId: coordinatorWorkspacePreset.id,
+      widgets: coordinatorWorkspacePreset.widgets,
+    });
+
+    expect(widgets.map((widget) => widget.layout)).toEqual(
+      coordinatorWorkspacePreset.widgets.map((widget) => widget.layout),
+    );
+  });
+
+  it("does not stretch Coordinator Chat to fill locked mode at normal desktop width", () => {
+    const widgets = coordinatorNotesWidgetsForCanvasWidth({
+      canvasWidth: 1440,
       presetId: coordinatorWorkspacePreset.id,
       widgets: coordinatorWorkspacePreset.widgets,
     });
     const coordinator = widgets[0];
     const notes = widgets[1];
 
-    expect(coordinator.layout.x).toBe(0);
-    expect(notes.layout.y).toBe(0);
+    expect(coordinator.layout.width).toBe(DEFAULT_COORDINATOR_CHAT_WIDTH);
+    expect(notes.layout.width).toBe(DEFAULT_NOTES_WIDTH);
     expect(notes.layout.x).toBe(
-      coordinator.layout.width + COORDINATOR_NOTES_LAYOUT_GAP,
+      DEFAULT_COORDINATOR_CHAT_WIDTH + COORDINATOR_NOTES_LAYOUT_GAP,
     );
-    expect(coordinator.layout.width).toBeGreaterThan(notes.layout.width);
     expect(coordinator.layout.y).toBe(notes.layout.y);
   });
 
@@ -100,6 +111,31 @@ describe("workbench presets", () => {
     expect(notes.layout.x).toBe(0);
     expect(notes.layout.y).toBe(
       DEFAULT_COORDINATOR_CHAT_HEIGHT + COORDINATOR_NOTES_LAYOUT_GAP,
+    );
+  });
+
+  it("respects persisted widget geometry in locked mode when the layout is not the default preset geometry", () => {
+    const persistedWidgets = coordinatorWorkspacePreset.widgets.map(
+      (widget, index) => ({
+        ...widget,
+        layout: {
+          ...widget.layout,
+          height: index === 0 ? 600 : 540,
+          width: index === 0 ? 720 : 300,
+          x: index === 0 ? 48 : 792,
+          y: index === 0 ? 24 : 48,
+        },
+      }),
+    );
+
+    const widgets = coordinatorNotesWidgetsForCanvasWidth({
+      canvasWidth: 1440,
+      presetId: coordinatorWorkspacePreset.id,
+      widgets: persistedWidgets,
+    });
+
+    expect(widgets.map((widget) => widget.layout)).toEqual(
+      persistedWidgets.map((widget) => widget.layout),
     );
   });
 
