@@ -1035,18 +1035,19 @@ export function InteractiveAgentPlaceholderWidget({
           ) : null}
           {messages.map((message) => (
             <article
+              aria-label={
+                message.role === "operator"
+                  ? "User message"
+                  : "Coordinator message"
+              }
               className={`interactive-agent-message interactive-agent-message-${message.role}${
                 message.providerMeta
                   ? ` interactive-agent-message-${message.providerMeta.tone}`
                   : ""
               }`}
+              data-testid={`interactive-agent-message-${message.role}`}
               key={message.id}
             >
-              <div className="interactive-agent-message-heading">
-                <p className="interactive-agent-message-role">
-                  {message.role === "operator" ? "You" : "Coordinator Chat"}
-                </p>
-              </div>
               <div className="interactive-agent-message-body">
                 {renderMessageBody(message.body)}
               </div>

@@ -923,7 +923,6 @@
 }
 
 .interactive-agent-status-heading,
-.interactive-agent-message-heading,
 .interactive-agent-provider-row,
 .interactive-agent-header-badges,
 .interactive-agent-provider-badges {
@@ -1135,7 +1134,6 @@
 .interactive-agent-text,
 .interactive-agent-empty-title,
 .interactive-agent-empty-text,
-.interactive-agent-message-role,
 .interactive-agent-message-body p,
 .interactive-agent-label,
 .interactive-agent-note {
@@ -1144,7 +1142,6 @@
 
 .interactive-agent-title,
 .interactive-agent-empty-title,
-.interactive-agent-message-role,
 .interactive-agent-label {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);

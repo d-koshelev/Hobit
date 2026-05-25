@@ -106,6 +106,33 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     expect(document.body.textContent).toContain("Coordinator plan");
   });
 
+  it("renders transcript bubbles without visible speaker labels", async () => {
+    const provider = vi.fn(async () =>
+      providerResponse({ assistantText: "Assistant visible answer." }),
+    );
+    renderWidget({ onGenerateCoordinatorProviderResponse: provider });
+
+    await sendMessage("Operator visible request.");
+
+    const operatorMessages = document.querySelectorAll(
+      '[data-testid="interactive-agent-message-operator"]',
+    );
+    const assistantMessages = document.querySelectorAll(
+      '[data-testid="interactive-agent-message-assistant"]',
+    );
+    const operatorBubble = operatorMessages[operatorMessages.length - 1];
+    const assistantBubble = assistantMessages[assistantMessages.length - 1];
+
+    expect(operatorBubble?.getAttribute("aria-label")).toBe("User message");
+    expect(assistantBubble?.getAttribute("aria-label")).toBe(
+      "Coordinator message",
+    );
+    expect(operatorBubble?.textContent).toContain("Operator visible request.");
+    expect(assistantBubble?.textContent).toContain("Assistant visible answer.");
+    expect(operatorBubble?.textContent).not.toContain("You");
+    expect(assistantBubble?.textContent).not.toContain("Coordinator Chat");
+  });
+
   it("Direct Mode makes the primary composer action run Codex without calling the chat provider", async () => {
     const provider = vi.fn(async () => providerResponse());
     const startDirectWork = vi.fn(
@@ -251,6 +278,28 @@ describe("InteractiveAgentPlaceholderWidget Coordinator Chat UI", () => {
     );
     expect(document.body.textContent).toContain("Codex Direct Mode completed.");
     expect(document.body.textContent).toContain("Final Coordinator result.");
+
+    const operatorMessages = document.querySelectorAll(
+      '[data-testid="interactive-agent-message-operator"]',
+    );
+    const assistantMessages = document.querySelectorAll(
+      '[data-testid="interactive-agent-message-assistant"]',
+    );
+
+    expect(operatorMessages.length).toBeGreaterThan(0);
+    expect(assistantMessages.length).toBeGreaterThan(0);
+    expect(operatorMessages[operatorMessages.length - 1]?.textContent).toContain(
+      "Implement this directly.",
+    );
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).toContain("Final Coordinator result.");
+    expect(operatorMessages[operatorMessages.length - 1]?.textContent).not.toContain(
+      "You",
+    );
+    expect(
+      assistantMessages[assistantMessages.length - 1]?.textContent,
+    ).not.toContain("Coordinator Chat");
   });
 
   it("shows Direct Work failure reasons and safe fallback in the compact status", async () => {
