@@ -1,6 +1,5 @@
 import {
   type FormEvent,
-  type ReactNode,
   useEffect,
   useId,
   useRef,
@@ -10,7 +9,6 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
-import { CoordinatorActionProposalCard } from "./CoordinatorActionProposalCard";
 import {
   COORDINATOR_ACTION_PROPOSAL_REGISTRY,
   type CoordinatorActionProposal,
@@ -71,15 +69,15 @@ import {
 } from "./WorkspaceAgentDirectModePanel";
 import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContextPanel";
 import {
-  CoordinatorPlanCard,
-  CoordinatorReviewCard,
-} from "./WorkspaceAgentPlanReviewCards";
-import {
   appendWorkspaceAgentVisibleContextBlock,
   removeWorkspaceAgentVisibleContextFromDraft,
   workspaceAgentVisibleContextBlock,
   type WorkspaceAgentVisibleContext,
 } from "./workspaceAgentVisibleContext";
+import {
+  WorkspaceAgentTranscript,
+  type WorkspaceAgentTranscriptMessage,
+} from "./WorkspaceAgentTranscript";
 import {
   approveProposal as approveProposalState,
   approveQueueDraftProposals,
@@ -90,21 +88,12 @@ import {
   failedProposalPatch,
   proposalCreatedPatch,
   proposalCreatingPatch,
-  queueDraftReviewState,
   rejectProposalPatch,
   updateProposal,
 } from "./workspaceAgentProposalState";
 import type { DirectWorkStreamEvent } from "../workspace/types";
 
-type InteractiveAgentMessage = {
-  id: string;
-  planId?: string;
-  proposalIds?: string[];
-  providerMeta?: CoordinatorProviderMessageMeta;
-  reviewId?: string;
-  role: "operator" | "assistant";
-  body: string;
-};
+type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
 const INITIAL_MESSAGES: InteractiveAgentMessage[] = [];
 
@@ -153,9 +142,6 @@ const SUGGESTED_PROMPTS = [
       "Explain how to execute this safely from visible chat only. Do not start Queue, Executor, Terminal, Git, or JDBC actions.",
   },
 ];
-
-const QUEUE_DRAFT_REVIEW_NOTE =
-  "Approve all drafts is local review only. Create Queue task stays explicit on each approved draft.";
 
 const STATIC_PROPOSAL_TYPE_SUMMARY =
   COORDINATOR_ACTION_PROPOSAL_REGISTRY.map(
@@ -1334,125 +1320,32 @@ export function InteractiveAgentPlaceholderWidget({
           </div>
         </section>
 
-        <div
-          aria-label="Local Workspace Agent transcript"
-          aria-live="polite"
-          className="interactive-agent-message-list"
-          ref={messageListRef}
-          role="log"
-        >
-          {messages.length === 0 ? (
-            <div className="interactive-agent-empty">
-              <p className="interactive-agent-empty-title">
-                Start with a planning question or a task draft.
-              </p>
-              <p className="interactive-agent-empty-text">
-                Workspace Agent works from visible chat and explicit
-                attachments. Multiple agents can work independently in the same
-                workspace.
-              </p>
-              <p className="interactive-agent-empty-text">
-                Drafts stay inert until you approve them and use the separate
-                create or copy action.
-              </p>
-              <div
-                aria-label="Workspace Agent suggested prompts"
-                className="interactive-agent-suggestion-list"
-              >
-                {SUGGESTED_PROMPTS.map((suggestion) => (
-                  <button
-                    className="interactive-agent-suggestion"
-                    key={suggestion.label}
-                    onClick={() => useSuggestedPrompt(suggestion.prompt)}
-                    type="button"
-                  >
-                    {suggestion.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {messages.map((message) => (
-            <article
-              aria-label={
-                message.role === "operator"
-                  ? "User message"
-                  : "Workspace Agent message"
-              }
-              className={`interactive-agent-message interactive-agent-message-${message.role}${
-                message.providerMeta
-                  ? ` interactive-agent-message-${message.providerMeta.tone}`
-                  : ""
-              }`}
-              data-testid={`interactive-agent-message-${message.role}`}
-              key={message.id}
-            >
-              <div className="interactive-agent-message-body">
-                {renderMessageBody(message.body)}
-              </div>
-              {message.providerMeta ? (
-                <details
-                  className={`interactive-agent-provider-meta interactive-agent-provider-meta-${message.providerMeta.tone}`}
-                >
-                  <summary>Details</summary>
-                  <p>
-                    Source: {message.providerMeta.label}.{" "}
-                    {message.providerMeta.detail}
-                  </p>
-                </details>
-              ) : null}
-              {message.planId && plans[message.planId] ? (
-                <CoordinatorPlanCard plan={plans[message.planId]} />
-              ) : null}
-              {message.reviewId && reviews[message.reviewId] ? (
-                <CoordinatorReviewCard review={reviews[message.reviewId]} />
-              ) : null}
-              {message.proposalIds ? (
-                <div className="coordinator-proposal-list">
-                  <CoordinatorProposalReviewControls
-                    onApproveAllQueueDrafts={approveAllQueueDrafts}
-                    proposalIds={message.proposalIds}
-                    proposals={proposals}
-                  />
-                  {message.proposalIds.map((proposalId) => {
-                    const proposal = proposals[proposalId];
-
-                    return proposal ? (
-                      <CoordinatorActionProposalCard
-                        key={proposal.id}
-                        isKnowledgeDocumentCreationPending={creatingKnowledgeDocumentProposalIds.has(
-                          proposal.id,
-                        )}
-                        isNoteCreationPending={creatingNoteProposalIds.has(
-                          proposal.id,
-                        )}
-                        isQueueTaskCreationPending={creatingQueueProposalIds.has(
-                          proposal.id,
-                        )}
-                        onApprove={approveProposal}
-                        onCreateKnowledgeDocument={(proposalId) =>
-                          void createKnowledgeDocumentFromProposal(proposalId)
-                        }
-                        onCreateNote={(proposalId) =>
-                          void createNoteFromProposal(proposalId)
-                        }
-                        onCreateQueueTask={(proposalId) =>
-                          void createQueueTaskFromProposal(proposalId)
-                        }
-                        onCreateSkill={(proposalId) =>
-                          void createSkillFromProposal(proposalId)
-                        }
-                        onEdit={editProposal}
-                        onReject={rejectProposal}
-                        proposal={proposal}
-                      />
-                    ) : null;
-                  })}
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </div>
+        <WorkspaceAgentTranscript
+          creatingKnowledgeDocumentProposalIds={
+            creatingKnowledgeDocumentProposalIds
+          }
+          creatingNoteProposalIds={creatingNoteProposalIds}
+          creatingQueueProposalIds={creatingQueueProposalIds}
+          messages={messages}
+          onApproveAllQueueDrafts={approveAllQueueDrafts}
+          onApproveProposal={approveProposal}
+          onCreateKnowledgeDocument={(proposalId) =>
+            void createKnowledgeDocumentFromProposal(proposalId)
+          }
+          onCreateNote={(proposalId) => void createNoteFromProposal(proposalId)}
+          onCreateQueueTask={(proposalId) =>
+            void createQueueTaskFromProposal(proposalId)
+          }
+          onCreateSkill={(proposalId) => void createSkillFromProposal(proposalId)}
+          onEditProposal={editProposal}
+          onRejectProposal={rejectProposal}
+          onSuggestionClick={useSuggestedPrompt}
+          plans={plans}
+          proposals={proposals}
+          reviews={reviews}
+          suggestedPrompts={SUGGESTED_PROMPTS}
+          transcriptRef={messageListRef}
+        />
 
         <form className="interactive-agent-composer" onSubmit={handleSubmit}>
           <WorkspaceAgentVisibleContextPanel
@@ -1525,72 +1418,6 @@ export function InteractiveAgentPlaceholderWidget({
         </form>
       </div>
     </WidgetFrame>
-  );
-}
-
-function renderMessageBody(body: string): ReactNode {
-  const segments = body.split(/```/);
-
-  if (segments.length === 1) {
-    return <p>{body}</p>;
-  }
-
-  return segments.map((segment, index) => {
-    const key = `${index}-${segment.slice(0, 12)}`;
-    if (index % 2 === 1) {
-      const code = segment.replace(/^[\w-]+\n/, "").trim();
-      return (
-        <pre className="interactive-agent-code-block" key={key}>
-          <code>{code}</code>
-        </pre>
-      );
-    }
-
-    return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
-  });
-}
-
-function CoordinatorProposalReviewControls({
-  onApproveAllQueueDrafts,
-  proposalIds,
-  proposals,
-}: {
-  onApproveAllQueueDrafts: (proposalIds: string[]) => void;
-  proposalIds: string[];
-  proposals: Record<string, CoordinatorActionProposal>;
-}) {
-  const reviewState = queueDraftReviewState(proposalIds, proposals);
-
-  if (reviewState.queueDraftCount < 2) {
-    return null;
-  }
-
-  return (
-    <section
-      aria-label="Queue draft review controls"
-      className="coordinator-proposal-review"
-    >
-      <div className="coordinator-proposal-review-copy">
-        <p className="coordinator-proposal-section-label">
-          Draft Queue tasks
-        </p>
-        <p className="coordinator-proposal-section-value">
-          {reviewState.queueDraftCount} drafted,{" "}
-          {reviewState.approvedCount} approved, {reviewState.createdCount}{" "}
-          created.
-        </p>
-        <p className="coordinator-proposal-note">
-          {QUEUE_DRAFT_REVIEW_NOTE}
-        </p>
-      </div>
-      <Button
-        disabled={!reviewState.canApproveAll}
-        onClick={() => onApproveAllQueueDrafts(reviewState.approvableIds)}
-        variant="secondary"
-      >
-        Approve all drafts
-      </Button>
-    </section>
   );
 }
 
