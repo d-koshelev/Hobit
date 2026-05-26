@@ -73,7 +73,14 @@ describe("ThemePicker", () => {
     expect(document.documentElement.dataset.hobitTheme).toBe("discord-dark");
     expect(document.documentElement.dataset.hobitThemeMode).toBe("dark");
     expect(rootStyle("--hb-accent-primary")).toBe("#5865F2");
-    expect(rootStyle("--hb-bg-app")).toBe("#1e1f22");
+    expect(rootStyle("--hb-accent-primary-subtle")).toBe("#404249");
+    expect(rootStyle("--hb-bg-app")).toBe("#313338");
+    expect(rootStyle("--hb-bg-canvas")).toBe("#313338");
+    expect(rootStyle("--hb-bg-topbar")).toBe("#1e1f22");
+    expect(rootStyle("--hb-surface-input")).toBe("#1e1f22");
+    expect(rootStyle("--hb-surface-output")).toBe("#111214");
+    expect(rootStyle("--hb-surface-panel")).toBe("#2b2d31");
+    expect(rootStyle("--hb-surface-panel-raised")).toBe("#313338");
     expect(rootStyle("--hb-surface-widget")).toBe("#2b2d31");
     expect(rootStyle("--hb-surface-widget-raised")).toBe("#313338");
     expect(rootStyle("--hb-text-primary")).toBe("#dbdee1");
@@ -96,7 +103,7 @@ describe("ThemePicker", () => {
     await flushEffects();
 
     expect(document.documentElement.dataset.hobitTheme).toBe("discord-dark");
-    expect(rootStyle("--hb-bg-app")).toBe("#1e1f22");
+    expect(rootStyle("--hb-bg-app")).toBe("#313338");
     expect(storedTheme()?.selectedThemeId).toBe("discord-dark");
   });
 

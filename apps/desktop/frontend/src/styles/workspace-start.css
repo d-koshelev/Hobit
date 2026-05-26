@@ -141,8 +141,8 @@
 }
 
 .preset-choice-selected {
-  border-color: var(--color-primary-hairline);
-  background: var(--color-primary-soft);
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
 }
 
 .preset-choice input {
@@ -268,7 +268,7 @@
 
 .workspace-recent-row:has(.workspace-open-trigger:not(:disabled):hover) {
   border-color: var(--color-border-strong);
-  background: var(--color-overlay-surface);
+  background: var(--color-hover-surface);
 }
 
 .workspace-recent-row:has(.workspace-open-trigger:disabled) {

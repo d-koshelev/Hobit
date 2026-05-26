@@ -8,6 +8,9 @@
   --color-io-surface: var(--hb-surface-output);
   --color-overlay-surface: var(--hb-surface-panel-raised);
   --color-input-surface: var(--hb-surface-input);
+  --color-hover-surface: var(--color-overlay-surface);
+  --color-selected-surface: var(--color-primary-soft);
+  --color-selected-border: var(--color-primary-hairline);
 
   --color-border-subtle: var(--hb-border-subtle);
   --color-border: var(--hb-border-default);
@@ -75,4 +78,15 @@
 
   --line-tight: 1.2;
   --line-normal: 1.5;
+}
+
+:root[data-hobit-theme="discord-dark"] {
+  --color-on-primary: #ffffff;
+  --color-hover-surface: #404249;
+  --color-selected-surface: #404249;
+  --color-selected-border: var(--color-border-strong);
+  --workbench-grid-dot:
+    color-mix(in srgb, var(--color-border-strong) 16%, transparent);
+  --focus-ring:
+    0 0 0 2px color-mix(in srgb, var(--color-primary) 72%, transparent);
 }

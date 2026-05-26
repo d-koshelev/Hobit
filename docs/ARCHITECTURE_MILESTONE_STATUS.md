@@ -60,7 +60,8 @@ behavior, or Workspace Agent context wiring.
   creation panel, and the desktop default window size is larger for the MVP
   workbench/start layout.
 - The frontend has local interface theme support with built-in presets,
-  including Discord Dark, and a small custom theme option. Theme application
+  including a Discord Dark preset tuned to a layered gray Discord-like palette,
+  and a small custom theme option. Theme application
   writes existing CSS token variables in the browser, persists as a local UI
   preference, and is not Workspace-scoped, server-synced, team-shared, or
   connected to backend/runtime behavior.

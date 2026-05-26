@@ -134,12 +134,12 @@
 }
 
 .skill-list-row:not(:disabled):hover {
-  background: var(--color-nested-surface);
+  background: var(--color-hover-surface);
 }
 
 .skill-list-row-selected {
-  background: var(--color-nested-surface);
-  border-color: var(--color-border-strong);
+  background: var(--color-selected-surface);
+  border-color: var(--color-selected-border);
 }
 
 .skill-list-title {

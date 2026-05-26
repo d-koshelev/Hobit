@@ -66,8 +66,8 @@
 }
 
 .layout-mode-toggle .button[aria-pressed="true"] {
-  border-color: var(--color-primary-hairline);
-  background: var(--color-primary-soft);
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
   color: var(--color-primary);
 }
 

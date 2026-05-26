@@ -77,10 +77,12 @@ payloads, or Executor output.
 
 The frontend supports local interface theme presets from the Start Screen and
 Workbench top bar, including Dark / Default, Light, Midnight, Discord Dark,
-Graphite, and Forest. The current theme choice is a local UI preference
-persisted in browser/desktop local storage under a stable frontend key. The
-custom theme option is intentionally small: it edits accent, background,
-surface, raised surface, text, muted text, and border colors only. Theme
+Graphite, and Forest. Discord Dark uses a Discord-like layered gray palette
+with a restrained blurple accent. The current theme choice is a local UI
+preference persisted in browser/desktop local storage under a stable frontend
+key. The custom theme option is intentionally small: it edits accent,
+background, surface, raised surface, text, muted text, and border colors only.
+Theme
 preferences are not Workspace data, are not synced across users or teams, and
 do not add backend, storage, widget, Queue, Executor, Knowledge, or runtime
 behavior.

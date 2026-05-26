@@ -43,7 +43,7 @@
 
 .button:not(:disabled):hover {
   border-color: var(--color-border-strong);
-  background: var(--color-overlay-surface);
+  background: var(--color-hover-surface);
 }
 
 .button-primary:not(:disabled):hover {
@@ -861,7 +861,7 @@
 .agent-executor-history-item:hover,
 .agent-executor-history-item:focus-visible,
 .agent-executor-history-item-selected {
-  border-color: var(--color-primary);
+  border-color: var(--color-selected-border);
 }
 
 .agent-executor-history-detail {
@@ -1295,8 +1295,8 @@
 
 .interactive-agent-suggestion:hover,
 .interactive-agent-suggestion:focus-visible {
-  border-color: var(--color-primary-hairline);
-  background: var(--color-primary-soft);
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
   color: var(--color-primary);
 }
 
@@ -2915,8 +2915,8 @@
 
 .theme-preset-option:hover,
 .theme-preset-option[aria-pressed="true"] {
-  border-color: var(--color-primary-hairline);
-  background: var(--color-primary-soft);
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
   color: var(--color-text-primary);
 }
 
