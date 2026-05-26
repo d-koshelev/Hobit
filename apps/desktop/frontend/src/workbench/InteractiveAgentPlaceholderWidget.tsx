@@ -13,12 +13,6 @@ import {
   type CoordinatorOutcomeReviewDraft,
   type CoordinatorPlanDraft,
 } from "./coordinatorLocalProposalGeneration";
-import {
-  knowledgeDocumentCreateRequestFromProposal,
-  noteCreateRequestFromProposal,
-  queueTaskRequestFromProposal,
-  skillCreateRequestFromProposal,
-} from "./coordinatorProposalHandoffs";
 import { coordinatorProviderDraftProposals } from "./coordinatorProviderDraftProposals";
 import {
   coordinatorProviderAssistantText,
@@ -84,16 +78,16 @@ import {
 import {
   approveProposal as approveProposalState,
   approveQueueDraftProposals,
-  canStartProposalCreation,
-  createNotApprovedFailurePatch,
-  createUnavailableFailurePatch,
   editProposalPatch,
-  failedProposalPatch,
-  proposalCreatedPatch,
-  proposalCreatingPatch,
   rejectProposalPatch,
   updateProposal,
 } from "./workspaceAgentProposalState";
+import {
+  runCreateKnowledgeDocumentProposal,
+  runCreateNoteProposal,
+  runCreateQueueTaskProposal,
+  runCreateSkillProposal,
+} from "./workspaceAgentProposalCreationActions";
 import type { DirectWorkStreamEvent } from "../workspace/types";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
@@ -862,334 +856,47 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   async function createQueueTaskFromProposal(proposalId: string) {
-    if (creatingQueueProposalIds.has(proposalId)) {
-      return;
-    }
-
-    const proposal = proposals[proposalId];
-    if (!proposal || proposal.typeId !== "create-agent-queue-task") {
-      return;
-    }
-
-    if (proposal.createdQueueTaskId) {
-      return;
-    }
-
-    if (!canStartProposalCreation(proposal, "queueTask")) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createNotApprovedFailurePatch("queueTask"),
-        ),
-      );
-      return;
-    }
-
-    if (!onCreateAgentQueueTask) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createUnavailableFailurePatch("queueTask"),
-        ),
-      );
-      return;
-    }
-
-    setCreatingQueueProposalIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      nextIds.add(proposalId);
-      return nextIds;
+    await runCreateQueueTaskProposal({
+      onCreateAgentQueueTask,
+      pendingProposalIds: creatingQueueProposalIds,
+      proposalId,
+      proposals,
+      setPendingProposalIds: setCreatingQueueProposalIds,
+      setProposals,
     });
-    setProposals((currentProposals) =>
-      updateProposal(
-        currentProposals,
-        proposalId,
-        proposalCreatingPatch("queueTask"),
-      ),
-    );
-
-    try {
-      const task = await onCreateAgentQueueTask(
-        queueTaskRequestFromProposal(proposal),
-      );
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          proposalCreatedPatch("queueTask", {
-            id: task.queueItemId,
-            status: task.status,
-            title: task.title,
-          }),
-        ),
-      );
-    } catch (error) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          failedProposalPatch(
-            "queueTask",
-            errorToMessage(error, "Unable to create Queue task."),
-          ),
-        ),
-      );
-    } finally {
-      setCreatingQueueProposalIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.delete(proposalId);
-        return nextIds;
-      });
-    }
   }
 
   async function createNoteFromProposal(proposalId: string) {
-    if (creatingNoteProposalIds.has(proposalId)) {
-      return;
-    }
-
-    const proposal = proposals[proposalId];
-    if (!proposal || proposal.typeId !== "create-note") {
-      return;
-    }
-
-    if (proposal.createdNoteId) {
-      return;
-    }
-
-    if (!canStartProposalCreation(proposal, "note")) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createNotApprovedFailurePatch("note"),
-        ),
-      );
-      return;
-    }
-
-    if (!onCreateWorkspaceNote) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createUnavailableFailurePatch("note"),
-        ),
-      );
-      return;
-    }
-
-    setCreatingNoteProposalIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      nextIds.add(proposalId);
-      return nextIds;
+    await runCreateNoteProposal({
+      onCreateWorkspaceNote,
+      pendingProposalIds: creatingNoteProposalIds,
+      proposalId,
+      proposals,
+      setPendingProposalIds: setCreatingNoteProposalIds,
+      setProposals,
     });
-    setProposals((currentProposals) =>
-      updateProposal(
-        currentProposals,
-        proposalId,
-        proposalCreatingPatch("note"),
-      ),
-    );
-
-    try {
-      const note = await onCreateWorkspaceNote(
-        noteCreateRequestFromProposal(proposal),
-      );
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          proposalCreatedPatch("note", {
-            id: note.noteId,
-            title: note.title,
-          }),
-        ),
-      );
-    } catch (error) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          failedProposalPatch(
-            "note",
-            errorToMessage(error, "Unable to create Note."),
-          ),
-        ),
-      );
-    } finally {
-      setCreatingNoteProposalIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.delete(proposalId);
-        return nextIds;
-      });
-    }
   }
 
   async function createKnowledgeDocumentFromProposal(proposalId: string) {
-    if (creatingKnowledgeDocumentProposalIds.has(proposalId)) {
-      return;
-    }
-
-    const proposal = proposals[proposalId];
-    if (!proposal || proposal.typeId !== "create-knowledge-document") {
-      return;
-    }
-
-    if (proposal.createdKnowledgeDocumentId) {
-      return;
-    }
-
-    if (!canStartProposalCreation(proposal, "knowledgeDocument")) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createNotApprovedFailurePatch("knowledgeDocument"),
-        ),
-      );
-      return;
-    }
-
-    if (!onCreateKnowledgeDocument) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createUnavailableFailurePatch("knowledgeDocument"),
-        ),
-      );
-      return;
-    }
-
-    setCreatingKnowledgeDocumentProposalIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      nextIds.add(proposalId);
-      return nextIds;
+    await runCreateKnowledgeDocumentProposal({
+      onCreateKnowledgeDocument,
+      pendingProposalIds: creatingKnowledgeDocumentProposalIds,
+      proposalId,
+      proposals,
+      setPendingProposalIds: setCreatingKnowledgeDocumentProposalIds,
+      setProposals,
     });
-    setProposals((currentProposals) =>
-      updateProposal(
-        currentProposals,
-        proposalId,
-        proposalCreatingPatch("knowledgeDocument"),
-      ),
-    );
-
-    try {
-      const document = await onCreateKnowledgeDocument(
-        knowledgeDocumentCreateRequestFromProposal(proposal),
-      );
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          proposalCreatedPatch("knowledgeDocument", {
-            id: document.knowledgeDocumentId,
-            title: document.title,
-          }),
-        ),
-      );
-    } catch (error) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          failedProposalPatch(
-            "knowledgeDocument",
-            errorToMessage(error, "Unable to create Knowledge Document."),
-          ),
-        ),
-      );
-    } finally {
-      setCreatingKnowledgeDocumentProposalIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.delete(proposalId);
-        return nextIds;
-      });
-    }
   }
 
   async function createSkillFromProposal(proposalId: string) {
-    if (creatingSkillProposalIds.has(proposalId)) {
-      return;
-    }
-
-    const proposal = proposals[proposalId];
-    if (!proposal || proposal.typeId !== "create-skill") {
-      return;
-    }
-
-    if (proposal.createdSkillId) {
-      return;
-    }
-
-    if (!canStartProposalCreation(proposal, "skill")) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createNotApprovedFailurePatch("skill"),
-        ),
-      );
-      return;
-    }
-
-    if (!onCreateSkill) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          createUnavailableFailurePatch("skill"),
-        ),
-      );
-      return;
-    }
-
-    setCreatingSkillProposalIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      nextIds.add(proposalId);
-      return nextIds;
+    await runCreateSkillProposal({
+      onCreateSkill,
+      pendingProposalIds: creatingSkillProposalIds,
+      proposalId,
+      proposals,
+      setPendingProposalIds: setCreatingSkillProposalIds,
+      setProposals,
     });
-    setProposals((currentProposals) =>
-      updateProposal(
-        currentProposals,
-        proposalId,
-        proposalCreatingPatch("skill"),
-      ),
-    );
-
-    try {
-      const skill = await onCreateSkill(skillCreateRequestFromProposal(proposal));
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          proposalCreatedPatch("skill", {
-            id: skill.skillId,
-            title: skill.title,
-          }),
-        ),
-      );
-    } catch (error) {
-      setProposals((currentProposals) =>
-        updateProposal(
-          currentProposals,
-          proposalId,
-          failedProposalPatch(
-            "skill",
-            errorToMessage(error, "Unable to create Skill."),
-          ),
-        ),
-      );
-    } finally {
-      setCreatingSkillProposalIds((currentIds) => {
-        const nextIds = new Set(currentIds);
-        nextIds.delete(proposalId);
-        return nextIds;
-      });
-    }
   }
 
   return (
