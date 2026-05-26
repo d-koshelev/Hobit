@@ -60,6 +60,20 @@
   min-height: 0;
 }
 
+.skill-document-import {
+  align-items: end;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.skill-document-import-path {
+  min-width: 0;
+}
+
 .skill-list-pane,
 .skill-editor-pane {
   border: 1px solid var(--color-border-subtle);
@@ -162,6 +176,11 @@
 
 @media (max-width: 920px) {
   .skill-library-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-document-import {
+    align-items: stretch;
     grid-template-columns: 1fr;
   }
 

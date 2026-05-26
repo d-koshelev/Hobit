@@ -303,6 +303,58 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("No documents yet.");
   });
 
+  it("imports an explicit text or Markdown file through Knowledge Document creation", async () => {
+    let documents: KnowledgeDocument[] = [];
+    const createKnowledgeDocument = vi.fn(async (request) => {
+      const document = knowledgeDocumentFixture({
+        ...request,
+        knowledgeDocumentId: "doc_imported",
+      });
+      documents = [document];
+      return document;
+    });
+    const readImportFile = vi.fn(async () => ({
+      content: "# Imported\n\nUse this imported reference.",
+      fileName: "README.md",
+      title: "README",
+    }));
+
+    renderWidget({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
+        documents.find(
+          (document) =>
+            document.knowledgeDocumentId === knowledgeDocumentId,
+        ) ?? null,
+      ),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onReadKnowledgeDocumentImportFile: readImportFile,
+    });
+
+    await flush();
+    await clickButton("Documents");
+    await changeInput(
+      'input[placeholder="Path to .txt, .md, or .markdown file"]',
+      "C:\\docs\\README.md",
+    );
+    await clickButton("Import .txt/.md");
+
+    expect(readImportFile).toHaveBeenCalledWith({
+      path: "C:\\docs\\README.md",
+    });
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "# Imported\n\nUse this imported reference.",
+        enabled: true,
+        sourceLabel: "README.md",
+        tags: "",
+        title: "README",
+      }),
+    );
+    expect(document.body.textContent).toContain("Imported document");
+    expect(document.body.textContent).toContain("README");
+  });
+
   it("keeps existing Skills tab available after adding Documents tab", async () => {
     renderWidget();
 

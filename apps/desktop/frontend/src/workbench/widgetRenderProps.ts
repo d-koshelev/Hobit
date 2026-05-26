@@ -35,6 +35,7 @@ import type {
   GitCommitResponse,
   GitRepositoryStatus,
   KnowledgeDocument,
+  KnowledgeDocumentImportFile,
   KnowledgeDocumentSearchResult,
   CreateTerminalPtySessionRequest,
   ListTerminalPtySessionsRequest,
@@ -45,6 +46,7 @@ import type {
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   ResizeTerminalPtySessionRequest,
+  ReadKnowledgeDocumentImportFileRequest,
   SearchKnowledgeDocumentsRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -213,6 +215,9 @@ export type WidgetRenderProps = {
   onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
   onListSkills?: () => Promise<Skill[]>;
   onListKnowledgeDocuments?: () => Promise<KnowledgeDocument[]>;
+  onReadKnowledgeDocumentImportFile?: (
+    request: ReadKnowledgeDocumentImportFileRequest,
+  ) => Promise<KnowledgeDocumentImportFile>;
   onLoadLogs?: (widgetInstanceId: WidgetInstanceId) => Promise<WidgetLogEntry[]>;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,

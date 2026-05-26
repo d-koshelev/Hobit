@@ -13,13 +13,16 @@ import {
   searchKnowledgeDocuments,
   updateKnowledgeDocument,
 } from "../workspace/workspaceApiKnowledgeDocuments";
+import { readKnowledgeDocumentImportFile } from "../workspace/workspaceApiKnowledgeDocumentImport";
 import type {
   CreateKnowledgeDocumentRequest,
   CreateSkillRequest,
   DeleteKnowledgeDocumentRequest,
   DeleteSkillRequest,
+  KnowledgeDocumentImportFile,
   KnowledgeDocument,
   KnowledgeDocumentSearchResult,
+  ReadKnowledgeDocumentImportFileRequest,
   SearchKnowledgeDocumentsRequest,
   Skill,
   UpdateKnowledgeDocumentRequest,
@@ -46,6 +49,8 @@ export type KnowledgeDocumentSearchRequest = Omit<
   SearchKnowledgeDocumentsRequest,
   "workspaceId"
 >;
+export type KnowledgeDocumentImportFileRequest =
+  ReadKnowledgeDocumentImportFileRequest;
 
 export type WorkspaceSkillWidgetActions = {
   createSkill: (request: SkillCreateRequest) => Promise<Skill>;
@@ -69,6 +74,9 @@ export type WorkspaceSkillWidgetActions = {
   searchKnowledgeDocuments?: (
     request: KnowledgeDocumentSearchRequest,
   ) => Promise<KnowledgeDocumentSearchResult[]>;
+  readKnowledgeDocumentImportFile?: (
+    request: KnowledgeDocumentImportFileRequest,
+  ) => Promise<KnowledgeDocumentImportFile>;
 };
 
 export function createWorkspaceSkillActions(
@@ -149,6 +157,10 @@ export function createWorkspaceSkillActions(
         workspaceId: viewState.workspace.id,
         ...request,
       });
+    },
+    readKnowledgeDocumentImportFile: (request) => {
+      requireOpenWorkbench(viewState, "import knowledge documents");
+      return readKnowledgeDocumentImportFile(request);
     },
   };
 }

@@ -37,6 +37,16 @@ export type SearchKnowledgeDocumentsRequest = {
   limit?: number | null;
 };
 
+export type ReadKnowledgeDocumentImportFileRequest = {
+  path: string;
+};
+
+export type KnowledgeDocumentImportFile = {
+  fileName: string;
+  title: string;
+  content: string;
+};
+
 export type KnowledgeDocument = {
   knowledgeDocumentId: string;
   workspaceId: string;

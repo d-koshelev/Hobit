@@ -418,6 +418,10 @@ Workspace Agent is the foreground interactive agent surface.
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit workspace-local Knowledge Document create, list, read,
   update, delete, and search flows through separate Knowledge Document APIs.
+- Provides explicit operator-triggered import of one plain text or Markdown
+  file (`.txt`, `.md`, `.markdown`) into a workspace-local Knowledge Document.
+  Imported content is stored through the same Knowledge Document create path as
+  manually authored documents.
 - Workspace Agent can create new workspace-local Knowledge Documents and Skills
   only from approved visible catalog proposal drafts plus a separate explicit
   create action. Drafts use visible conversation/assistant text only and do not
@@ -435,9 +439,10 @@ Workspace Agent is the foreground interactive agent surface.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
 - Knowledge Documents are workspace-local plain-text/Markdown reference records
   with title, source label, content, tags, enabled flag, and deterministic text
-  chunks. No binary parsing, PDF/DOCX ingestion, embeddings, vector database,
-  Evidence store, Context Pack builder, global/team sharing, server runtime, or
-  RBAC is implemented.
+  chunks. Import is limited to explicit single-file plain text/Markdown reads.
+  No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
+  embeddings, vector database, Evidence store, Context Pack builder,
+  global/team sharing, server runtime, or RBAC is implemented.
 - Skill Library is workspace-local and operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
@@ -457,7 +462,8 @@ Workspace Agent is the foreground interactive agent surface.
 - Skill Library / Knowledge does not implement Knowledge Items, Evidence links,
   Context Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook
   execution, tool execution, global/team sharing, RBAC, embeddings/vector DB,
-  PDF/DOCX parsing, or server runtime behavior.
+  PDF/DOCX parsing, folder scanning, filesystem watchers, hidden ingestion, or
+  server runtime behavior.
 
 ### Runbook
 

@@ -81,6 +81,7 @@ export function SkillLibraryWidget({
   onListKnowledgeDocuments,
   onListSkills,
   onLoadLogs,
+  onReadKnowledgeDocumentImportFile,
   onAttachContextToCoordinator,
   onStartFrameMove,
   onUpdateKnowledgeDocument,
@@ -100,6 +101,7 @@ export function SkillLibraryWidget({
   const documentTagsInputId = useId();
   const documentEnabledInputId = useId();
   const documentContentInputId = useId();
+  const documentImportPathInputId = useId();
   const apiAvailable = Boolean(
     onCreateSkill && onDeleteSkill && onGetSkill && onListSkills && onUpdateSkill,
   );
@@ -125,8 +127,10 @@ export function SkillLibraryWidget({
   const [isSavingDocument, setIsSavingDocument] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
+  const [isImportingDocument, setIsImportingDocument] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
+  const [documentImportPath, setDocumentImportPath] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
@@ -534,6 +538,55 @@ export function SkillLibraryWidget({
     }
   }
 
+  async function importDocumentFromPath() {
+    if (
+      !onReadKnowledgeDocumentImportFile ||
+      !onCreateKnowledgeDocument ||
+      isImportingDocument
+    ) {
+      return;
+    }
+
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard the current document before importing another.",
+      );
+      return;
+    }
+
+    const path = documentImportPath.trim();
+    if (!path) {
+      setDocumentMessage("Path is required before importing.");
+      return;
+    }
+
+    setIsImportingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const importedFile = await onReadKnowledgeDocumentImportFile({ path });
+      const importedDocument = await onCreateKnowledgeDocument({
+        title: importedFile.title,
+        sourceLabel: importedFile.fileName,
+        content: importedFile.content,
+        tags: "",
+        enabled: true,
+      });
+
+      setSelectedDocumentDraft(importedDocument);
+      await loadDocuments(importedDocument.knowledgeDocumentId);
+      setDocumentImportPath("");
+      setDocumentMessage("Imported document");
+    } catch (importError) {
+      setDocumentError(
+        errorToMessage(importError, "Unable to import document."),
+      );
+    } finally {
+      setIsImportingDocument(false);
+    }
+  }
+
   function discardDraft() {
     if (selectedSkill) {
       setSelectedDraft(selectedSkill);
@@ -871,6 +924,40 @@ export function SkillLibraryWidget({
               <span>
                 Workspace Agent can search enabled workspace documents. Used documents are shown in the answer context.
               </span>
+            </div>
+            <div className="skill-document-import">
+              <label className="skill-field skill-document-import-path">
+                <span>Import path</span>
+                <input
+                  className="input"
+                  id={documentImportPathInputId}
+                  onChange={(event) => {
+                    setDocumentImportPath(event.currentTarget.value);
+                    setDocumentMessage(null);
+                    setDocumentError(null);
+                  }}
+                  placeholder="Path to .txt, .md, or .markdown file"
+                  value={documentImportPath}
+                />
+              </label>
+              <Button
+                disabled={
+                  !documentApiAvailable ||
+                  !onReadKnowledgeDocumentImportFile ||
+                  isImportingDocument ||
+                  isSavingDocument ||
+                  isDeletingDocument
+                }
+                onClick={() => void importDocumentFromPath()}
+                title={
+                  onReadKnowledgeDocumentImportFile
+                    ? "Imports one explicit .txt, .md, or .markdown file into this workspace."
+                    : "Import from path is only available in the Tauri desktop shell."
+                }
+                variant="secondary"
+              >
+                {isImportingDocument ? "Importing" : "Import .txt/.md"}
+              </Button>
             </div>
             {isLoadingDocuments ? (
               <EmptyState

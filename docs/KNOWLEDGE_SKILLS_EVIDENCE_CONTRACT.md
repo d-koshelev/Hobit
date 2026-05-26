@@ -15,9 +15,11 @@ enterprise/RBAC behavior, permissions, or broad runtime behavior changes.
 
 Hobit currently has workspace-local Knowledge Documents for plain-text or
 Markdown reference material explicitly added through the Skill Library /
-Knowledge widget. Documents are chunked deterministically and searched with
-bounded lexical search only. This is not a Knowledge Item/Evidence/Context Pack
-store and is not global/team knowledge.
+Knowledge widget. The widget supports manual document authoring and explicit
+single-file import for `.txt`, `.md`, and `.markdown` files. Documents are
+chunked deterministically and searched with bounded lexical search only. This
+is not a Knowledge Item/Evidence/Context Pack store and is not global/team
+knowledge.
 
 Hobit currently has no implemented evidence store.
 
@@ -26,8 +28,9 @@ workspace-local operator-authored Skill records and Knowledge Documents. It
 supports explicit create/list/read/update/delete of simple text Skill records
 with review status and tags, and explicit create/list/read/update/delete/search
 of Knowledge Documents with title, source label, content, tags, enabled flag,
-and chunks. The operator can explicitly attach the selected Skill to Workspace
-Agent as visible current-session composer context.
+and chunks. Explicit text/Markdown import creates Knowledge Documents through
+the same document create path. The operator can explicitly attach the selected
+Skill to Workspace Agent as visible current-session composer context.
 Workspace Agent can also draft visible catalog creation proposals from explicit
 visible conversation content or safe `hobit-catalog-action` fenced JSON in
 visible assistant/Codex text. Creating the proposed Knowledge Document or Skill
@@ -280,6 +283,8 @@ This contract does not add:
 - full Knowledge Item store beyond workspace-local plain-text Knowledge Documents;
 - embeddings/vector database;
 - PDF/DOCX parsing or binary ingestion;
+- folder scanning, recursive ingestion, filesystem watchers, or hidden file
+  ingestion;
 - evidence store;
 - full Knowledge/Skills system beyond the Minimal Skill Library MVP;
 - Context Pack UI or runtime;

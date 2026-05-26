@@ -182,6 +182,9 @@ export function widgetHostRenderProps({
     onListKnowledgeDocuments: isSkillLibrary
       ? widgetActions.listKnowledgeDocuments
       : undefined,
+    onReadKnowledgeDocumentImportFile: isSkillLibrary
+      ? widgetActions.readKnowledgeDocumentImportFile
+      : undefined,
     onLoadLogs: widgetActions.listWidgetLogs,
     onRunCodexDirectWork: isAgentExecutor
       ? widgetActions.runCodexDirectWork
