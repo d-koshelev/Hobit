@@ -44,6 +44,7 @@ describe("ThemePicker", () => {
     expect(document.body.textContent).toContain("Dark / Default");
     expect(document.body.textContent).toContain("Light");
     expect(document.body.textContent).toContain("Midnight");
+    expect(document.body.textContent).toContain("Discord Dark");
     expect(document.body.textContent).toContain("Graphite");
     expect(document.body.textContent).toContain("Forest");
   });
@@ -59,6 +60,44 @@ describe("ThemePicker", () => {
     expect(document.documentElement.dataset.hobitTheme).toBe("light");
     expect(rootStyle("--hb-bg-app")).toBe("#f4f7fb");
     expect(storedTheme()?.selectedThemeId).toBe("light");
+  });
+
+  it("applies and persists Discord Dark theme variables", async () => {
+    renderThemePicker();
+    await flushEffects();
+
+    clickButton("Theme");
+    clickButton("Discord Dark");
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitTheme).toBe("discord-dark");
+    expect(document.documentElement.dataset.hobitThemeMode).toBe("dark");
+    expect(rootStyle("--hb-accent-primary")).toBe("#5865F2");
+    expect(rootStyle("--hb-bg-app")).toBe("#1e1f22");
+    expect(rootStyle("--hb-surface-widget")).toBe("#2b2d31");
+    expect(rootStyle("--hb-surface-widget-raised")).toBe("#313338");
+    expect(rootStyle("--hb-text-primary")).toBe("#dbdee1");
+    expect(rootStyle("--hb-text-muted")).toBe("#949ba4");
+    expect(rootStyle("--hb-border-default")).toBe("#3f4147");
+    expect(storedTheme()?.selectedThemeId).toBe("discord-dark");
+  });
+
+  it("loads persisted Discord Dark preference", async () => {
+    window.localStorage.setItem(
+      THEME_STORAGE_KEY,
+      JSON.stringify({
+        customTheme: defaultCustomThemeStorage(),
+        selectedThemeId: "discord-dark",
+        version: 1,
+      }),
+    );
+
+    renderThemePicker();
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitTheme).toBe("discord-dark");
+    expect(rootStyle("--hb-bg-app")).toBe("#1e1f22");
+    expect(storedTheme()?.selectedThemeId).toBe("discord-dark");
   });
 
   it("saves and applies a custom theme", async () => {
@@ -104,6 +143,21 @@ describe("ThemePicker", () => {
     expect(storedTheme()?.selectedThemeId).toBe(DEFAULT_THEME_ID);
   });
 });
+
+function defaultCustomThemeStorage() {
+  return {
+    basedOn: DEFAULT_THEME_ID,
+    values: {
+      accent: "#4a84ff",
+      background: "#0b1320",
+      border: "#2d3b52",
+      mutedText: "#8d97aa",
+      surface: "#141d2c",
+      surfaceElevated: "#182234",
+      text: "#f3f6fb",
+    },
+  };
+}
 
 function TestThemePicker() {
   const theme = useAppTheme();

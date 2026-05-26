@@ -76,12 +76,14 @@ creation central. The Start Screen does not expose raw logs, prompts, result
 payloads, or Executor output.
 
 The frontend supports local interface theme presets from the Start Screen and
-Workbench top bar. The current theme choice is a local UI preference persisted
-in browser/desktop local storage under a stable frontend key. The custom theme
-option is intentionally small: it edits accent, background, surface, raised
-surface, text, muted text, and border colors only. Theme preferences are not
-Workspace data, are not synced across users or teams, and do not add backend,
-storage, widget, Queue, Executor, Knowledge, or runtime behavior.
+Workbench top bar, including Dark / Default, Light, Midnight, Discord Dark,
+Graphite, and Forest. The current theme choice is a local UI preference
+persisted in browser/desktop local storage under a stable frontend key. The
+custom theme option is intentionally small: it edits accent, background,
+surface, raised surface, text, muted text, and border colors only. Theme
+preferences are not Workspace data, are not synced across users or teams, and
+do not add backend, storage, widget, Queue, Executor, Knowledge, or runtime
+behavior.
 
 Empty Workbench remains available as an advanced/manual start mode. Existing
 empty Workspaces show a recovery action to add Workspace Agent plus Notes

@@ -59,11 +59,11 @@ behavior, or Workspace Agent context wiring.
   continuation panel when they exist, keeps New Workspace as a secondary
   creation panel, and the desktop default window size is larger for the MVP
   workbench/start layout.
-- The frontend has local interface theme support with built-in presets and a
-  small custom theme option. Theme application writes existing CSS token
-  variables in the browser, persists as a local UI preference, and is not
-  Workspace-scoped, server-synced, team-shared, or connected to backend/runtime
-  behavior.
+- The frontend has local interface theme support with built-in presets,
+  including Discord Dark, and a small custom theme option. Theme application
+  writes existing CSS token variables in the browser, persists as a local UI
+  preference, and is not Workspace-scoped, server-synced, team-shared, or
+  connected to backend/runtime behavior.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation
