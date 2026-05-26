@@ -306,12 +306,21 @@ Workspace Agent is the foreground interactive agent surface.
   raw stdout/stderr, full final responses, diffs, prompts, repo paths, secrets,
   hidden metadata, or raw payloads automatically.
 - Can generate deterministic local proposal cards for safe preview types:
-  create Agent Queue task, create Note, and prepare JDBC query suggestion text.
+  create Agent Queue task, create Note, create Knowledge Document, create
+  Skill, and prepare JDBC query suggestion text.
   Explicit planning prompts can draft one or more visible Queue task proposals
   from the typed chat text. Draft Queue task cards show title, prompt,
   priority, execution policy, and draft/proposed status. Multi-draft review can
   approve all drafts locally, but each Queue task creation remains a separate
   explicit Create Queue task action.
+- Can draft visible Skill Library / Knowledge catalog proposal cards from
+  explicit operator text or safe `hobit-catalog-action` fenced JSON blocks in
+  visible assistant/Codex text. Knowledge Document drafts show title, source
+  label, content, tags, and enabled state. Skill drafts show title, when to
+  use, prerequisites, steps, validation, risks, tags, and review status.
+  Creating either record requires approval plus a separate explicit Create
+  Document or Create Skill action, uses only visible conversation content, and
+  writes only workspace-local Skill Library / Knowledge records.
 - Outcome review may draft follow-up Queue task proposal cards from the pasted
   visible result text. Queue task creation remains explicit and creates a draft
   task only; it does not assign, start, run, or arm Queue Autorun.
@@ -357,10 +366,11 @@ Workspace Agent is the foreground interactive agent surface.
   the Direct Work cancellation path is available and does not create Queue
   tasks.
 - Provider/local drafts are validated before rendering. Queue task creation and
-  Note creation require approval plus a separate explicit create action. Queue
-  task creation creates a draft/manual Queue record only; execution remains
-  Queue/Executor controlled. JDBC suggestions remain review/copy text only and
-  do not execute SQL.
+  Note creation require approval plus a separate explicit create action.
+  Knowledge Document and Skill creation require approval plus separate explicit
+  catalog create actions. Queue task creation creates a draft/manual Queue
+  record only; execution remains Queue/Executor controlled. JDBC suggestions
+  remain review/copy text only and do not execute SQL.
 - Mock/local remains an explicit fallback when Codex is unavailable or the
   fallback chat path is used. The UI must not present mock/local fallback as
   connected AI.
@@ -408,6 +418,11 @@ Workspace Agent is the foreground interactive agent surface.
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit workspace-local Knowledge Document create, list, read,
   update, delete, and search flows through separate Knowledge Document APIs.
+- Workspace Agent can create new workspace-local Knowledge Documents and Skills
+  only from approved visible catalog proposal drafts plus a separate explicit
+  create action. Drafts use visible conversation/assistant text only and do not
+  read Notes, files, logs, Queue/Executor output, Git/JDBC/Terminal state,
+  Evidence, Context Packs, global/team knowledge, or hidden Workspace context.
 - Desktop/Tauri persists Skills through local SQLite-backed workspace Skill
   APIs. Browser/Vite development mode uses a frontend-only, non-persistent
   in-memory Skill API for create/list/read/update/delete UI iteration.

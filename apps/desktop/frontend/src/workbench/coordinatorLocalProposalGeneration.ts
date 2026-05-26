@@ -5,6 +5,7 @@ import {
   type CoordinatorProposalTypeId,
   type CoordinatorProposalTypeDefinition,
 } from "./coordinatorActionProposalRegistry";
+import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 
 export type LocalProposalGenerationResult = {
   plan: CoordinatorPlanDraft | null;
@@ -134,6 +135,13 @@ export function generateLocalCoordinatorProposals(
     ? createPlanDraft(visibleMessage, sourceMessageId)
     : null;
   const proposals: CoordinatorActionProposal[] = [];
+  const catalogProposals = catalogActionProposalsFromText(
+    visibleMessage,
+    sourceMessageId,
+    { includePlainTextIntents: true },
+  );
+
+  proposals.push(...catalogProposals);
 
   if (matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS)) {
     proposals.push(

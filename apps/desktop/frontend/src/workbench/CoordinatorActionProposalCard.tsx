@@ -20,22 +20,30 @@ type ProposalPatch = {
 };
 
 type CoordinatorActionProposalCardProps = {
+  isKnowledgeDocumentCreationPending?: boolean;
   isNoteCreationPending?: boolean;
   isQueueTaskCreationPending?: boolean;
+  isSkillCreationPending?: boolean;
   onApprove: (proposalId: string) => void;
+  onCreateKnowledgeDocument?: (proposalId: string) => void;
   onCreateNote?: (proposalId: string) => void;
   onCreateQueueTask?: (proposalId: string) => void;
+  onCreateSkill?: (proposalId: string) => void;
   onEdit: (proposalId: string, patch: ProposalPatch) => void;
   onReject: (proposalId: string) => void;
   proposal: CoordinatorActionProposal;
 };
 
 export function CoordinatorActionProposalCard({
+  isKnowledgeDocumentCreationPending = false,
   isNoteCreationPending = false,
   isQueueTaskCreationPending = false,
+  isSkillCreationPending = false,
   onApprove,
+  onCreateKnowledgeDocument,
   onCreateNote,
   onCreateQueueTask,
+  onCreateSkill,
   onEdit,
   onReject,
   proposal,
@@ -117,8 +125,15 @@ export function CoordinatorActionProposalCard({
   }
 
   const hasCreatedNote = Boolean(proposal.createdNoteId);
+  const hasCreatedKnowledgeDocument = Boolean(
+    proposal.createdKnowledgeDocumentId,
+  );
   const hasCreatedQueueTask = Boolean(proposal.createdQueueTaskId);
+  const hasCreatedSkill = Boolean(proposal.createdSkillId);
+  const isCreateKnowledgeDocumentProposal =
+    proposal.typeId === "create-knowledge-document";
   const isCreateNoteProposal = proposal.typeId === "create-note";
+  const isCreateSkillProposal = proposal.typeId === "create-skill";
   const isJdbcQuerySuggestion =
     proposal.typeId === "prepare-jdbc-query-suggestion";
   const isCreateQueueTaskProposal =
@@ -128,12 +143,22 @@ export function CoordinatorActionProposalCard({
   const cardState = getProposalCardState(proposal);
   const canCreateNote =
     isCreateNoteProposal && isApproved && !hasCreatedNote;
+  const canCreateKnowledgeDocument =
+    isCreateKnowledgeDocumentProposal &&
+    isApproved &&
+    !hasCreatedKnowledgeDocument;
+  const canCreateSkill =
+    isCreateSkillProposal && isApproved && !hasCreatedSkill;
   const canCreateQueueTask =
     isCreateQueueTaskProposal && isApproved && !hasCreatedQueueTask;
   const canChangeReviewState =
+    !isKnowledgeDocumentCreationPending &&
     !isNoteCreationPending &&
     !isQueueTaskCreationPending &&
+    !isSkillCreationPending &&
+    !hasCreatedKnowledgeDocument &&
     !hasCreatedNote &&
+    !hasCreatedSkill &&
     !hasCreatedQueueTask;
   const queueDraft = isCreateQueueTaskProposal
     ? queueDraftSummary(proposal)
@@ -341,6 +366,33 @@ export function CoordinatorActionProposalCard({
                 {isQueueTaskCreationPending
                   ? "Creating Queue task"
                   : "Create Queue task"}
+              </Button>
+            ) : null}
+            {canCreateKnowledgeDocument ||
+            isKnowledgeDocumentCreationPending ? (
+              <Button
+                disabled={
+                  !canCreateKnowledgeDocument ||
+                  isKnowledgeDocumentCreationPending ||
+                  !onCreateKnowledgeDocument
+                }
+                onClick={() => onCreateKnowledgeDocument?.(proposal.id)}
+                variant="primary"
+              >
+                {isKnowledgeDocumentCreationPending
+                  ? "Creating Document"
+                  : "Create Document"}
+              </Button>
+            ) : null}
+            {canCreateSkill || isSkillCreationPending ? (
+              <Button
+                disabled={
+                  !canCreateSkill || isSkillCreationPending || !onCreateSkill
+                }
+                onClick={() => onCreateSkill?.(proposal.id)}
+                variant="primary"
+              >
+                {isSkillCreationPending ? "Creating Skill" : "Create Skill"}
               </Button>
             ) : null}
             {isJdbcQuerySuggestion ? (

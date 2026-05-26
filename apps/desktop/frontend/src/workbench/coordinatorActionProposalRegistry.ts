@@ -1,5 +1,7 @@
 export type CoordinatorProposalTypeId =
   | "create-agent-queue-task"
+  | "create-knowledge-document"
+  | "create-skill"
   | "create-note"
   | "prepare-jdbc-query-suggestion";
 
@@ -15,6 +17,14 @@ export type CoordinatorProposalExecutionStatus =
   | "Creating Queue task"
   | "Queue task created"
   | "Queue task creation failed"
+  | "Ready to create Knowledge document"
+  | "Creating Knowledge document"
+  | "Knowledge document created"
+  | "Knowledge document creation failed"
+  | "Ready to create Skill"
+  | "Creating Skill"
+  | "Skill created"
+  | "Skill creation failed"
   | "Ready to create Note"
   | "Creating Note"
   | "Note created"
@@ -29,10 +39,14 @@ export type CoordinatorProposalInput = {
 
 export type CoordinatorActionProposal = {
   approvalStatus: CoordinatorProposalApprovalStatus;
+  createdKnowledgeDocumentId?: string;
+  createdKnowledgeDocumentTitle?: string;
   createdNoteId?: string;
   createdNoteTitle?: string;
   createdQueueTaskId?: string;
   createdQueueTaskTitle?: string;
+  createdSkillId?: string;
+  createdSkillTitle?: string;
   executionError?: string;
   executionStatus: CoordinatorProposalExecutionStatus;
   expectedResult: string;
@@ -73,6 +87,39 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
       targetCapability: "create Queue task",
       targetWidget: "Agent Queue",
       typeId: "create-agent-queue-task",
+    },
+    {
+      displayName: "Create Knowledge Document",
+      requiredInputs: ["Title", "Source label", "Content"],
+      riskLevel: "local_write",
+      safetyNotes: [
+        "Approved drafts may create a workspace-local Knowledge Document only after a separate Create Document action.",
+        "Creates a plain-text workspace document from visible conversation content only.",
+        "No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read.",
+      ],
+      targetCapability: "create Knowledge Document",
+      targetWidget: "Skill Library / Knowledge",
+      typeId: "create-knowledge-document",
+    },
+    {
+      displayName: "Create Skill",
+      requiredInputs: [
+        "Title",
+        "When to use",
+        "Prerequisites",
+        "Steps",
+        "Validation",
+        "Risks",
+      ],
+      riskLevel: "local_write",
+      safetyNotes: [
+        "Approved drafts may create a workspace-local Skill only after a separate Create Skill action.",
+        "Creates reusable procedure text from visible conversation content only.",
+        "No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read.",
+      ],
+      targetCapability: "create Skill",
+      targetWidget: "Skill Library / Knowledge",
+      typeId: "create-skill",
     },
     {
       displayName: "Create Note",

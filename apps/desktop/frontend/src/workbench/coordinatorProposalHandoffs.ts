@@ -9,6 +9,14 @@ export type WorkspaceNoteCreateRequest = Parameters<
   NonNullable<WidgetRenderProps["onCreateWorkspaceNote"]>
 >[0];
 
+export type KnowledgeDocumentCreateRequest = Parameters<
+  NonNullable<WidgetRenderProps["onCreateKnowledgeDocument"]>
+>[0];
+
+export type SkillCreateRequest = Parameters<
+  NonNullable<WidgetRenderProps["onCreateSkill"]>
+>[0];
+
 export function queueTaskRequestFromProposal(
   proposal: CoordinatorActionProposal,
 ): QueueTaskCreateRequest {
@@ -41,6 +49,43 @@ export function noteCreateRequestFromProposal(
       proposalInputValue(proposal, "Title") ||
       proposal.title.replace(/^Preview:\s*/i, "").trim() ||
       "Workspace Agent note",
+  };
+}
+
+export function knowledgeDocumentCreateRequestFromProposal(
+  proposal: CoordinatorActionProposal,
+): KnowledgeDocumentCreateRequest {
+  return {
+    content: proposalInputValue(proposal, "Content") || proposal.intent.trim(),
+    enabled: enabledInputValue(proposalInputValue(proposal, "Enabled")),
+    sourceLabel:
+      proposalInputValue(proposal, "Source label") ||
+      "Workspace Agent conversation",
+    tags: proposalInputValue(proposal, "Tags"),
+    title:
+      proposalInputValue(proposal, "Title") ||
+      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
+      "Workspace knowledge",
+  };
+}
+
+export function skillCreateRequestFromProposal(
+  proposal: CoordinatorActionProposal,
+): SkillCreateRequest {
+  return {
+    prerequisites: proposalInputValue(proposal, "Prerequisites"),
+    reviewStatus: reviewStatusInputValue(
+      proposalInputValue(proposal, "Review status"),
+    ),
+    risks: proposalInputValue(proposal, "Risks"),
+    steps: proposalInputValue(proposal, "Steps") || proposal.intent.trim(),
+    tags: proposalInputValue(proposal, "Tags"),
+    title:
+      proposalInputValue(proposal, "Title") ||
+      proposal.title.replace(/^Preview:\s*/i, "").trim() ||
+      "Workspace skill",
+    validation: proposalInputValue(proposal, "Validation"),
+    whenToUse: proposalInputValue(proposal, "When to use"),
   };
 }
 
@@ -81,4 +126,29 @@ function queueTaskExecutionPolicy(value: string) {
 
 function pinnedInputValue(value: string) {
   return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase());
+}
+
+function enabledInputValue(value: string) {
+  return !["false", "no", "disabled", "0"].includes(
+    value.trim().toLowerCase(),
+  );
+}
+
+function reviewStatusInputValue(value: string): SkillCreateRequest["reviewStatus"] {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "draft" ||
+    normalized === "needs_review" ||
+    normalized === "reviewed" ||
+    normalized === "deprecated"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "needs review") {
+    return "needs_review";
+  }
+
+  return "draft";
 }

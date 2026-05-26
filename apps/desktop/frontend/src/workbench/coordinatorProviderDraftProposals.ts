@@ -155,6 +155,55 @@ function normalizedInputs(
     ];
   }
 
+  if (definition.typeId === "create-knowledge-document") {
+    const title = requiredInput(draft, "Title") || draft.title.trim();
+    const content = requiredInput(draft, "Content");
+
+    if (!title || !content) {
+      return null;
+    }
+
+    return [
+      { label: "Title", value: title },
+      {
+        label: "Source label",
+        value:
+          inputValue(draft, ["Source label", "Source"]) ||
+          "Workspace Agent conversation",
+      },
+      { label: "Content", value: content },
+      { label: "Tags", value: inputValue(draft, ["Tags"]) },
+      {
+        label: "Enabled",
+        value: normalizeEnabled(inputValue(draft, ["Enabled"])),
+      },
+    ];
+  }
+
+  if (definition.typeId === "create-skill") {
+    const title = requiredInput(draft, "Title") || draft.title.trim();
+    const steps = inputValue(draft, ["Steps"]);
+    const whenToUse = inputValue(draft, ["When to use", "WhenToUse"]);
+
+    if (!title || (!steps && !whenToUse)) {
+      return null;
+    }
+
+    return [
+      { label: "Title", value: title },
+      { label: "When to use", value: whenToUse },
+      { label: "Prerequisites", value: inputValue(draft, ["Prerequisites"]) },
+      { label: "Steps", value: steps },
+      { label: "Validation", value: inputValue(draft, ["Validation"]) },
+      { label: "Risks", value: inputValue(draft, ["Risks"]) },
+      { label: "Tags", value: inputValue(draft, ["Tags"]) },
+      {
+        label: "Review status",
+        value: normalizeReviewStatus(inputValue(draft, ["Review status"])),
+      },
+    ];
+  }
+
   const question = inputValue(draft, ["Question"]) || draft.intent.trim();
   const connectorLabel = inputValue(draft, ["Connector label"]);
   const inputs: CoordinatorProposalInput[] = [
@@ -269,6 +318,12 @@ function defaultExpectedResult(typeId: CoordinatorProposalTypeId) {
   if (typeId === "create-note") {
     return "A workspace-local Note can be created only after approval plus a separate Create Note action.";
   }
+  if (typeId === "create-knowledge-document") {
+    return "A workspace-local Knowledge Document can be created only after approval plus a separate Create Document action.";
+  }
+  if (typeId === "create-skill") {
+    return "A workspace-local Skill can be created only after approval plus a separate Create Skill action.";
+  }
   return "A SQL suggestion can be reviewed and copied, but it cannot execute SQL.";
 }
 
@@ -278,6 +333,12 @@ function defaultIntent(typeId: CoordinatorProposalTypeId) {
   }
   if (typeId === "create-note") {
     return "Create a workspace-local Note from visible chat text.";
+  }
+  if (typeId === "create-knowledge-document") {
+    return "Create a workspace-local Knowledge Document from visible chat text.";
+  }
+  if (typeId === "create-skill") {
+    return "Create a workspace-local Skill from visible chat text.";
   }
   return "Prepare non-executing SQL suggestion text.";
 }
@@ -302,6 +363,31 @@ function normalizePinned(value: string) {
   return ["true", "yes", "pinned", "1"].includes(value.trim().toLowerCase())
     ? "true"
     : "false";
+}
+
+function normalizeEnabled(value: string) {
+  return ["false", "no", "disabled", "0"].includes(value.trim().toLowerCase())
+    ? "false"
+    : "true";
+}
+
+function normalizeReviewStatus(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "needs_review" ||
+    normalized === "reviewed" ||
+    normalized === "deprecated" ||
+    normalized === "draft"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "needs review") {
+    return "needs_review";
+  }
+
+  return "draft";
 }
 
 function defaultQueueTitle(prompt: string) {

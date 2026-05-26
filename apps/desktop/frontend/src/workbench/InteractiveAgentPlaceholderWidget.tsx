@@ -9,6 +9,7 @@ import {
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import { CoordinatorActionProposalCard } from "./CoordinatorActionProposalCard";
 import {
   COORDINATOR_ACTION_PROPOSAL_REGISTRY,
@@ -20,8 +21,10 @@ import {
   type CoordinatorPlanDraft,
 } from "./coordinatorLocalProposalGeneration";
 import {
+  knowledgeDocumentCreateRequestFromProposal,
   noteCreateRequestFromProposal,
   queueTaskRequestFromProposal,
+  skillCreateRequestFromProposal,
 } from "./coordinatorProposalHandoffs";
 import { coordinatorProviderDraftProposals } from "./coordinatorProviderDraftProposals";
 import {
@@ -118,8 +121,20 @@ const CREATING_QUEUE_TASK_SUMMARY =
 const CREATING_NOTE_SUMMARY =
   "Creating a workspace-local Note from the visible approved proposal inputs.";
 
+const CREATING_KNOWLEDGE_DOCUMENT_SUMMARY =
+  "Creating a workspace-local Knowledge Document from the visible approved proposal inputs.";
+
+const CREATING_SKILL_SUMMARY =
+  "Creating a workspace-local Skill from the visible approved proposal inputs.";
+
 const QUEUE_TASK_CREATED_SUMMARY =
   "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
+
+const KNOWLEDGE_DOCUMENT_CREATED_SUMMARY =
+  "Workspace-local Knowledge Document created from visible approved content only.";
+
+const SKILL_CREATED_SUMMARY =
+  "Workspace-local Skill created from visible approved content only.";
 
 const QUEUE_DRAFT_REVIEW_NOTE =
   "Approve all drafts is local review only. Create Queue task stays explicit on each approved draft.";
@@ -212,6 +227,8 @@ export function InteractiveAgentPlaceholderWidget({
   instance,
   logRefreshToken,
   onCreateAgentQueueTask,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   onCreateWorkspaceNote,
   coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
@@ -240,7 +257,14 @@ export function InteractiveAgentPlaceholderWidget({
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  const [
+    creatingKnowledgeDocumentProposalIds,
+    setCreatingKnowledgeDocumentProposalIds,
+  ] = useState<ReadonlySet<string>>(() => new Set());
   const [creatingNoteProposalIds, setCreatingNoteProposalIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [creatingSkillProposalIds, setCreatingSkillProposalIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
@@ -453,25 +477,35 @@ export function InteractiveAgentPlaceholderWidget({
         providerResponse,
         assistantMessage.id,
       );
+      const assistantText = coordinatorProviderAssistantText(
+        providerResponse,
+        generated.responseBody,
+      );
+      const providerCatalogProposals = providerResponseAllowsCatalogDrafts(
+        providerResponse,
+      )
+        ? catalogActionProposalsFromText(assistantText, assistantMessage.id)
+        : [];
       setProviderModeLabel(coordinatorProviderModeLabel(providerResponse));
-      const providerProposalIds = providerDrafts.proposals.map(
+      const providerProposals = [
+        ...providerDrafts.proposals,
+        ...providerCatalogProposals,
+      ];
+      const providerProposalIds = providerProposals.map(
         (proposal) => proposal.id,
       );
 
-      if (providerDrafts.proposals.length > 0) {
+      if (providerProposals.length > 0) {
         setProposals((currentProposals) => ({
           ...currentProposals,
           ...Object.fromEntries(
-            providerDrafts.proposals.map((proposal) => [proposal.id, proposal]),
+            providerProposals.map((proposal) => [proposal.id, proposal]),
           ),
         }));
       }
 
       patchMessage(assistantMessage.id, {
-        body: coordinatorProviderAssistantText(
-          providerResponse,
-          generated.responseBody,
-        ),
+        body: assistantText,
         providerMeta: coordinatorProviderResponseMeta(providerResponse),
         proposalIds:
           providerProposalIds.length > 0
@@ -831,7 +865,9 @@ export function InteractiveAgentPlaceholderWidget({
     setReviews({});
     setProposals({});
     setCreatingQueueProposalIds(new Set());
+    setCreatingKnowledgeDocumentProposalIds(new Set());
     setCreatingNoteProposalIds(new Set());
+    setCreatingSkillProposalIds(new Set());
     setDraft("");
     setVisibleAttachedContext(null);
     setIsProviderPending(false);
@@ -861,10 +897,25 @@ export function InteractiveAgentPlaceholderWidget({
           ? directWorkFailureTranscriptBody(reason)
           : reason;
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      createLocalMessage("assistant", body),
-    ]);
+    const assistantMessage = createLocalMessage("assistant", body);
+    const catalogProposals = catalogActionProposalsFromText(
+      body,
+      assistantMessage.id,
+    );
+
+    if (catalogProposals.length > 0) {
+      setProposals((currentProposals) => ({
+        ...currentProposals,
+        ...Object.fromEntries(
+          catalogProposals.map((proposal) => [proposal.id, proposal]),
+        ),
+      }));
+      assistantMessage.proposalIds = catalogProposals.map(
+        (proposal) => proposal.id,
+      );
+    }
+
+    setMessages((currentMessages) => [...currentMessages, assistantMessage]);
   }
 
   function stopDirectWorkEventListening() {
@@ -966,22 +1017,33 @@ export function InteractiveAgentPlaceholderWidget({
       const proposal = currentProposals[proposalId];
       const isCreateQueueTaskProposal =
         proposal?.typeId === "create-agent-queue-task";
+      const isCreateKnowledgeDocumentProposal =
+        proposal?.typeId === "create-knowledge-document";
       const isCreateNoteProposal = proposal?.typeId === "create-note";
+      const isCreateSkillProposal = proposal?.typeId === "create-skill";
       const isJdbcQuerySuggestion =
         proposal?.typeId === "prepare-jdbc-query-suggestion";
 
       return updateProposal(currentProposals, proposalId, {
         ...patch,
         approvalStatus: "Edited preview",
+        createdKnowledgeDocumentId: undefined,
+        createdKnowledgeDocumentTitle: undefined,
         createdNoteId: undefined,
         createdNoteTitle: undefined,
         createdQueueTaskId: undefined,
         createdQueueTaskTitle: undefined,
+        createdSkillId: undefined,
+        createdSkillTitle: undefined,
         executionError: undefined,
         executionStatus: isCreateQueueTaskProposal
           ? "Not run"
+          : isCreateKnowledgeDocumentProposal
+            ? "Not run"
           : isCreateNoteProposal
             ? "Not run"
+            : isCreateSkillProposal
+              ? "Not run"
             : isJdbcQuerySuggestion
               ? "SQL suggestion only"
               : "Execution bridge not implemented",
@@ -1150,6 +1212,167 @@ export function InteractiveAgentPlaceholderWidget({
     }
   }
 
+  async function createKnowledgeDocumentFromProposal(proposalId: string) {
+    if (creatingKnowledgeDocumentProposalIds.has(proposalId)) {
+      return;
+    }
+
+    const proposal = proposals[proposalId];
+    if (!proposal || proposal.typeId !== "create-knowledge-document") {
+      return;
+    }
+
+    if (proposal.approvalStatus !== "Approved preview") {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError:
+            "Approve this proposal before creating a Knowledge Document.",
+          executionStatus: "Knowledge document creation failed",
+          resultSummary: "No Knowledge Document was created.",
+        }),
+      );
+      return;
+    }
+
+    if (proposal.createdKnowledgeDocumentId) {
+      return;
+    }
+
+    if (!onCreateKnowledgeDocument) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError:
+            "Knowledge Document creation is unavailable in this runtime.",
+          executionStatus: "Knowledge document creation failed",
+          resultSummary: "No Knowledge Document was created.",
+        }),
+      );
+      return;
+    }
+
+    setCreatingKnowledgeDocumentProposalIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(proposalId);
+      return nextIds;
+    });
+    setProposals((currentProposals) =>
+      updateProposal(currentProposals, proposalId, {
+        executionError: undefined,
+        executionStatus: "Creating Knowledge document",
+        resultSummary: CREATING_KNOWLEDGE_DOCUMENT_SUMMARY,
+      }),
+    );
+
+    try {
+      const document = await onCreateKnowledgeDocument(
+        knowledgeDocumentCreateRequestFromProposal(proposal),
+      );
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          createdKnowledgeDocumentId: document.knowledgeDocumentId,
+          createdKnowledgeDocumentTitle: document.title,
+          executionError: undefined,
+          executionStatus: "Knowledge document created",
+          resultSummary: `${KNOWLEDGE_DOCUMENT_CREATED_SUMMARY} Created document "${document.title}" (${document.knowledgeDocumentId}).`,
+        }),
+      );
+    } catch (error) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: errorToMessage(
+            error,
+            "Unable to create Knowledge Document.",
+          ),
+          executionStatus: "Knowledge document creation failed",
+          resultSummary: "No Knowledge Document was created.",
+        }),
+      );
+    } finally {
+      setCreatingKnowledgeDocumentProposalIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(proposalId);
+        return nextIds;
+      });
+    }
+  }
+
+  async function createSkillFromProposal(proposalId: string) {
+    if (creatingSkillProposalIds.has(proposalId)) {
+      return;
+    }
+
+    const proposal = proposals[proposalId];
+    if (!proposal || proposal.typeId !== "create-skill") {
+      return;
+    }
+
+    if (proposal.approvalStatus !== "Approved preview") {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: "Approve this proposal before creating a Skill.",
+          executionStatus: "Skill creation failed",
+          resultSummary: "No Skill was created.",
+        }),
+      );
+      return;
+    }
+
+    if (proposal.createdSkillId) {
+      return;
+    }
+
+    if (!onCreateSkill) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: "Skill creation is unavailable in this runtime.",
+          executionStatus: "Skill creation failed",
+          resultSummary: "No Skill was created.",
+        }),
+      );
+      return;
+    }
+
+    setCreatingSkillProposalIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(proposalId);
+      return nextIds;
+    });
+    setProposals((currentProposals) =>
+      updateProposal(currentProposals, proposalId, {
+        executionError: undefined,
+        executionStatus: "Creating Skill",
+        resultSummary: CREATING_SKILL_SUMMARY,
+      }),
+    );
+
+    try {
+      const skill = await onCreateSkill(skillCreateRequestFromProposal(proposal));
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          createdSkillId: skill.skillId,
+          createdSkillTitle: skill.title,
+          executionError: undefined,
+          executionStatus: "Skill created",
+          resultSummary: `${SKILL_CREATED_SUMMARY} Created skill "${skill.title}" (${skill.skillId}).`,
+        }),
+      );
+    } catch (error) {
+      setProposals((currentProposals) =>
+        updateProposal(currentProposals, proposalId, {
+          executionError: errorToMessage(error, "Unable to create Skill."),
+          executionStatus: "Skill creation failed",
+          resultSummary: "No Skill was created.",
+        }),
+      );
+    } finally {
+      setCreatingSkillProposalIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(proposalId);
+        return nextIds;
+      });
+    }
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -1308,6 +1531,9 @@ export function InteractiveAgentPlaceholderWidget({
                     return proposal ? (
                       <CoordinatorActionProposalCard
                         key={proposal.id}
+                        isKnowledgeDocumentCreationPending={creatingKnowledgeDocumentProposalIds.has(
+                          proposal.id,
+                        )}
                         isNoteCreationPending={creatingNoteProposalIds.has(
                           proposal.id,
                         )}
@@ -1315,11 +1541,17 @@ export function InteractiveAgentPlaceholderWidget({
                           proposal.id,
                         )}
                         onApprove={approveProposal}
+                        onCreateKnowledgeDocument={(proposalId) =>
+                          void createKnowledgeDocumentFromProposal(proposalId)
+                        }
                         onCreateNote={(proposalId) =>
                           void createNoteFromProposal(proposalId)
                         }
                         onCreateQueueTask={(proposalId) =>
                           void createQueueTaskFromProposal(proposalId)
+                        }
+                        onCreateSkill={(proposalId) =>
+                          void createSkillFromProposal(proposalId)
                         }
                         onEdit={editProposal}
                         onReject={rejectProposal}
@@ -1657,7 +1889,7 @@ function renderMessageBody(body: string): ReactNode {
   return segments.map((segment, index) => {
     const key = `${index}-${segment.slice(0, 12)}`;
     if (index % 2 === 1) {
-      const code = segment.replace(/^\w+\n/, "").trim();
+      const code = segment.replace(/^[\w-]+\n/, "").trim();
       return (
         <pre className="interactive-agent-code-block" key={key}>
           <code>{code}</code>
@@ -1960,10 +2192,28 @@ function updateProposal(
   };
 }
 
+function providerResponseAllowsCatalogDrafts(
+  response: Awaited<
+    ReturnType<NonNullable<WidgetRenderProps["onGenerateCoordinatorProviderResponse"]>>
+  >,
+) {
+  return Boolean(
+    response &&
+      response.providerStatus === "completed" &&
+      response.allowedTools.length === 0 &&
+      response.noToolsExecuted &&
+      response.noMutationsPerformed &&
+      response.noHiddenContextUsed,
+  );
+}
+
 function approvedProposalPatch(proposal: CoordinatorActionProposal) {
   const isCreateQueueTaskProposal =
     proposal.typeId === "create-agent-queue-task";
+  const isCreateKnowledgeDocumentProposal =
+    proposal.typeId === "create-knowledge-document";
   const isCreateNoteProposal = proposal.typeId === "create-note";
+  const isCreateSkillProposal = proposal.typeId === "create-skill";
   const isJdbcQuerySuggestion =
     proposal.typeId === "prepare-jdbc-query-suggestion";
 
@@ -1972,15 +2222,23 @@ function approvedProposalPatch(proposal: CoordinatorActionProposal) {
     executionError: undefined,
     executionStatus: isCreateQueueTaskProposal
       ? ("Ready to create Queue task" as const)
+      : isCreateKnowledgeDocumentProposal
+        ? ("Ready to create Knowledge document" as const)
       : isCreateNoteProposal
         ? ("Ready to create Note" as const)
+        : isCreateSkillProposal
+          ? ("Ready to create Skill" as const)
         : isJdbcQuerySuggestion
           ? ("SQL suggestion only" as const)
           : ("Execution bridge not implemented" as const),
     resultSummary: isCreateQueueTaskProposal
       ? APPROVED_QUEUE_TASK_SUMMARY
+      : isCreateKnowledgeDocumentProposal
+        ? "Approved locally. Review the visible title, source, content, tags, and enabled flag, then use Create Document. No document has been created yet."
       : isCreateNoteProposal
         ? APPROVED_NOTE_SUMMARY
+        : isCreateSkillProposal
+          ? "Approved locally. Review the visible Skill fields, then use Create Skill. No Skill has been created yet."
         : isJdbcQuerySuggestion
           ? APPROVED_JDBC_SUGGESTION_SUMMARY
           : APPROVED_PREVIEW_SUMMARY,

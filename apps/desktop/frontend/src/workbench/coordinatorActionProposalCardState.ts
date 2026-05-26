@@ -48,7 +48,11 @@ export function getProposalCardState(
       stateDescription:
         proposal.typeId === "create-note"
           ? "The approved Note handoff completed. No existing Notes content was read."
-          : "The approved Queue task handoff created a draft task. It was not assigned or run.",
+          : proposal.typeId === "create-knowledge-document"
+            ? "The approved Knowledge Document handoff created a workspace-local document from visible content."
+            : proposal.typeId === "create-skill"
+              ? "The approved Skill handoff created a workspace-local reusable procedure from visible content."
+              : "The approved Queue task handoff created a draft task. It was not assigned or run.",
       stateLabel: "Created",
       statusDotVariant: "success",
       tone: "success",
@@ -117,6 +121,10 @@ export function getProposalCardState(
     const stateDescription =
       proposal.typeId === "create-note"
         ? "Approval only accepts the preview. Use Create Note separately to write a new Note."
+        : proposal.typeId === "create-knowledge-document"
+          ? "Approval only accepts the preview. Use Create Document separately to write workspace knowledge."
+          : proposal.typeId === "create-skill"
+            ? "Approval only accepts the preview. Use Create Skill separately to write a workspace Skill."
         : proposal.typeId === "create-agent-queue-task"
           ? "Approval only accepts the draft. Use Create Queue task separately. Creates a draft task. Does not run it."
           : "Approval only accepts the preview. No capability executes from approval alone.";
@@ -177,6 +185,12 @@ export function formatProposalDetails(proposal: CoordinatorActionProposal) {
     proposal.createdQueueTaskId
       ? `Created Queue task: ${proposal.createdQueueTaskTitle ?? "Queue task"} (${proposal.createdQueueTaskId})`
       : null,
+    proposal.createdKnowledgeDocumentId
+      ? `Created Knowledge Document: ${proposal.createdKnowledgeDocumentTitle ?? "Knowledge Document"} (${proposal.createdKnowledgeDocumentId})`
+      : null,
+    proposal.createdSkillId
+      ? `Created Skill: ${proposal.createdSkillTitle ?? "Skill"} (${proposal.createdSkillId})`
+      : null,
     proposal.createdNoteId
       ? `Created Note: ${proposal.createdNoteTitle ?? "Note"} (${proposal.createdNoteId})`
       : null,
@@ -185,6 +199,10 @@ export function formatProposalDetails(proposal: CoordinatorActionProposal) {
     "",
     proposal.typeId === "create-agent-queue-task"
       ? "Queue task creation requires approval and a separate Create Queue task action. Creates a draft task. Does not run it. No provider runtime, Agent Executor launch, Queue auto-dispatch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
+      : proposal.typeId === "create-knowledge-document"
+        ? "Knowledge Document creation requires approval and a separate Create Document action. It writes only visible approved fields to workspace-local Knowledge. No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read."
+        : proposal.typeId === "create-skill"
+          ? "Skill creation requires approval and a separate Create Skill action. It writes only visible approved fields to workspace-local Skills. No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read."
       : proposal.typeId === "create-note"
         ? "Note creation requires approval and a separate Create Note action. No existing Notes content is read, and no provider runtime, Queue task, Agent Executor launch, Terminal command, Git mutation, or JDBC SQL execution is triggered."
         : proposal.typeId === "prepare-jdbc-query-suggestion"
@@ -228,18 +246,29 @@ function approvalBadgeVariant(
 function executionBadgeVariant(
   status: CoordinatorProposalExecutionStatus,
 ): BadgeVariant {
-  if (status === "Queue task created" || status === "Note created") {
+  if (
+    status === "Queue task created" ||
+    status === "Note created" ||
+    status === "Knowledge document created" ||
+    status === "Skill created"
+  ) {
     return "success";
   }
   if (
     status === "Queue task creation failed" ||
-    status === "Note creation failed"
+    status === "Note creation failed" ||
+    status === "Knowledge document creation failed" ||
+    status === "Skill creation failed"
   ) {
     return "error";
   }
   if (
     status === "Ready to create Queue task" ||
     status === "Creating Queue task" ||
+    status === "Ready to create Knowledge document" ||
+    status === "Creating Knowledge document" ||
+    status === "Ready to create Skill" ||
+    status === "Creating Skill" ||
     status === "Ready to create Note" ||
     status === "Creating Note" ||
     status === "SQL suggestion only"
@@ -258,6 +287,12 @@ function proposalTypeLabel(typeId: CoordinatorProposalTypeId) {
   }
   if (typeId === "create-note") {
     return "Note proposal";
+  }
+  if (typeId === "create-knowledge-document") {
+    return "Knowledge Document draft";
+  }
+  if (typeId === "create-skill") {
+    return "Skill draft";
   }
   return "JDBC SQL suggestion";
 }
@@ -291,9 +326,29 @@ function getProposalResult(
     };
   }
 
+  if (proposal.createdKnowledgeDocumentId) {
+    return {
+      detail: `${proposal.createdKnowledgeDocumentTitle ?? "Knowledge Document"} (${proposal.createdKnowledgeDocumentId})`,
+      summary: proposal.resultSummary,
+      title: "Created Knowledge Document",
+      tone: "success",
+    };
+  }
+
+  if (proposal.createdSkillId) {
+    return {
+      detail: `${proposal.createdSkillTitle ?? "Skill"} (${proposal.createdSkillId})`,
+      summary: proposal.resultSummary,
+      title: "Created Skill",
+      tone: "success",
+    };
+  }
+
   if (
     proposal.executionStatus === "Creating Queue task" ||
-    proposal.executionStatus === "Creating Note"
+    proposal.executionStatus === "Creating Note" ||
+    proposal.executionStatus === "Creating Knowledge document" ||
+    proposal.executionStatus === "Creating Skill"
   ) {
     return {
       detail: proposal.resultSummary,

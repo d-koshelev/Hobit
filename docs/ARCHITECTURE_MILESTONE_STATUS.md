@@ -85,6 +85,13 @@ behavior, or Workspace Agent context wiring.
   selected Skill's title, when to use, prerequisites, steps, validation, risks,
   tags, and review status, and it is sent to the provider only if the operator
   presses Send.
+- Workspace Agent can draft visible Knowledge Document and Skill creation
+  proposals from visible conversation content or visible `hobit-catalog-action`
+  fenced JSON blocks in assistant/Codex text. Creation remains a separate
+  operator action after approval, writes only workspace-local Skill Library /
+  Knowledge records, and does not scan or ingest Notes, files, Executor logs,
+  Queue history, Git/JDBC/Terminal state, Evidence, Context Packs, global/team
+  knowledge, embeddings, or binary documents.
 - Workspace Agent-owned Codex runs automatically check enabled workspace-local
   Knowledge Documents before Run with Codex. Retrieval uses the latest composer
   message as the lexical query, returns capped snippets, shows the used

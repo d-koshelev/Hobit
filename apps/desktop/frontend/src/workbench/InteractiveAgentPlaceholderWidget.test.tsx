@@ -8,12 +8,28 @@ import type {
   DirectWorkStreamEvent,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
+  KnowledgeDocument,
   KnowledgeDocumentSearchResult,
+  Skill,
 } from "../workspace/types";
 
 type CreateQueueTaskInput = Parameters<
   NonNullable<
     Parameters<typeof InteractiveAgentPlaceholderWidget>[0]["onCreateAgentQueueTask"]
+  >
+>[0];
+
+type CreateKnowledgeDocumentInput = Parameters<
+  NonNullable<
+    Parameters<
+      typeof InteractiveAgentPlaceholderWidget
+    >[0]["onCreateKnowledgeDocument"]
+  >
+>[0];
+
+type CreateSkillInput = Parameters<
+  NonNullable<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]["onCreateSkill"]
   >
 >[0];
 
@@ -2069,6 +2085,211 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "No JDBC connector metadata, schemas, database data, or results were read.",
     );
   });
+
+  it("drafts and creates a Knowledge Document from visible conversation text only", async () => {
+    const createKnowledgeDocument = vi.fn(
+      async (request: CreateKnowledgeDocumentInput) =>
+        knowledgeDocumentFixture({
+          ...request,
+          knowledgeDocumentId: "doc_visible",
+        }),
+    );
+
+    renderWidget({ onCreateKnowledgeDocument: createKnowledgeDocument });
+
+    await sendMessage(
+      [
+        "Here is documentation, add it to knowledge.",
+        "Title: Falcon deployment notes",
+        "Tags: falcon, deployment",
+        "Content: Deploy Falcon from the release branch after validation.",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Knowledge Document draft");
+    expect(document.body.textContent).toContain("Falcon deployment notes");
+    expect(document.body.textContent).toContain(
+      "Deploy Falcon from the release branch after validation.",
+    );
+    expect(buttonWithText("Create Document")).toBeUndefined();
+    expect(createKnowledgeDocument).not.toHaveBeenCalled();
+
+    await clickButton("Approve");
+    await clickButton("Create Document");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledTimes(1);
+    expect(createKnowledgeDocument.mock.calls[0][0]).toMatchObject({
+      content: "Deploy Falcon from the release branch after validation.",
+      enabled: true,
+      sourceLabel: "Workspace Agent conversation",
+      tags: "falcon, deployment",
+      title: "Falcon deployment notes",
+    });
+    expect(document.body.textContent).toContain("Knowledge Document created");
+    expect(document.body.textContent).toContain("visible approved content only");
+  });
+
+  it("drafts and creates a Skill from visible conversation text only", async () => {
+    const createSkill = vi.fn(async (request: CreateSkillInput) =>
+      skillFixture({
+        ...request,
+        skillId: "skill_visible",
+      }),
+    );
+
+    renderWidget({ onCreateSkill: createSkill });
+
+    await sendMessage(
+      [
+        "Turn this into a skill.",
+        "Title: Falcon deploy procedure",
+        "When to use: Before Falcon production deployment",
+        "Steps: Run validation, deploy release, verify health checks",
+        "Validation: Health checks pass",
+        "Risks: Rollback may be required",
+        "Tags: falcon, deploy",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Skill draft");
+    expect(document.body.textContent).toContain("Falcon deploy procedure");
+    expect(buttonWithText("Create Skill")).toBeUndefined();
+    expect(createSkill).not.toHaveBeenCalled();
+
+    await clickButton("Approve");
+    await clickButton("Create Skill");
+
+    expect(createSkill).toHaveBeenCalledTimes(1);
+    expect(createSkill.mock.calls[0][0]).toMatchObject({
+      prerequisites: "",
+      reviewStatus: "draft",
+      risks: "Rollback may be required",
+      steps: "Run validation, deploy release, verify health checks",
+      tags: "falcon, deploy",
+      title: "Falcon deploy procedure",
+      validation: "Health checks pass",
+      whenToUse: "Before Falcon production deployment",
+    });
+    expect(document.body.textContent).toContain("Skill created");
+    expect(document.body.textContent).toContain("visible approved content only");
+  });
+
+  it("renders provider fenced catalog action blocks as visible drafts before save", async () => {
+    const createKnowledgeDocument = vi.fn(
+      async (request: CreateKnowledgeDocumentInput) =>
+        knowledgeDocumentFixture({
+          ...request,
+          knowledgeDocumentId: "doc_provider",
+        }),
+    );
+    const provider = vi.fn(async () =>
+      providerResponse({
+        assistantText: [
+          "I drafted a catalog action from visible text.",
+          "```hobit-catalog-action",
+          JSON.stringify({
+            content: "Provider visible deployment content.",
+            enabled: true,
+            source_label: "Workspace Agent conversation",
+            tags: ["provider", "deployment"],
+            title: "Provider deployment notes",
+            type: "create_knowledge_document",
+          }),
+          "```",
+        ].join("\n"),
+      }),
+    );
+
+    renderWidget({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onGenerateCoordinatorProviderResponse: provider,
+    });
+
+    await sendMessage("Remember this as workspace knowledge.");
+
+    expect(document.body.textContent).toContain("Provider deployment notes");
+    expect(document.body.textContent).toContain("Knowledge Document draft");
+    expect(document.body.textContent).toContain("Provider visible deployment content.");
+    expect(createKnowledgeDocument).not.toHaveBeenCalled();
+  });
+
+  it("renders Codex fenced catalog action blocks as visible drafts before save", async () => {
+    const createSkill = vi.fn(async (request: CreateSkillInput) =>
+      skillFixture({
+        ...request,
+        skillId: "skill_codex",
+      }),
+    );
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(
+          directWorkEvent({
+            eventKind: "final_message",
+            isFinal: false,
+            text: [
+              "Drafted from visible content.",
+              "```hobit-catalog-action",
+              JSON.stringify({
+                prerequisites: "Release branch selected",
+                review_status: "draft",
+                risks: "Rollback may be needed",
+                steps: "Run deploy\nCheck health",
+                tags: ["codex", "deploy"],
+                title: "Codex deploy skill",
+                type: "create_skill",
+                validation: "Health checks pass",
+                when_to_use: "Before deployment",
+              }),
+              "```",
+            ].join("\n"),
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+          }),
+        );
+        return {
+          runId: "run_catalog",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+
+    renderWidget({
+      onCreateSkill: createSkill,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await setTextareaValue("Turn this into a skill with Codex.");
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain("Codex deploy skill");
+    expect(document.body.textContent).toContain("Skill draft");
+    expect(buttonWithText("Create Skill")).toBeUndefined();
+
+    await clickButton("Approve");
+    await clickButton("Create Skill");
+
+    expect(createSkill).toHaveBeenCalledTimes(1);
+    expect(createSkill.mock.calls[0][0]).toMatchObject({
+      prerequisites: "Release branch selected",
+      reviewStatus: "draft",
+      risks: "Rollback may be needed",
+      steps: "Run deploy\nCheck health",
+      tags: "codex, deploy",
+      title: "Codex deploy skill",
+      validation: "Health checks pass",
+      whenToUse: "Before deployment",
+    });
+  });
 });
 
 function renderWidget(
@@ -2386,6 +2607,48 @@ function knowledgeResult(
     snippet: "Knowledge snippet.",
     sourceLabel: "Workspace document",
     tags: "docs",
+    ...overrides,
+  };
+}
+
+function skillFixture(
+  overrides: Partial<Skill> & {
+    reviewStatus?: Skill["reviewStatus"];
+    title?: string;
+  } = {},
+): Skill {
+  return {
+    createdAt: "2026-05-24T00:00:00Z",
+    prerequisites: "",
+    reviewStatus: "draft",
+    risks: "",
+    skillId: "skill_1",
+    steps: "",
+    tags: "",
+    title: "Skill",
+    updatedAt: "2026-05-24T00:00:00Z",
+    validation: "",
+    whenToUse: "",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function knowledgeDocumentFixture(
+  overrides: Partial<KnowledgeDocument> & {
+    title?: string;
+  } = {},
+): KnowledgeDocument {
+  return {
+    content: "",
+    createdAt: "2026-05-24T00:00:00Z",
+    enabled: true,
+    knowledgeDocumentId: "doc_1",
+    sourceLabel: "Workspace Agent conversation",
+    tags: "",
+    title: "Document",
+    updatedAt: "2026-05-24T00:00:00Z",
+    workspaceId: "workspace_1",
     ...overrides,
   };
 }

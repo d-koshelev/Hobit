@@ -28,6 +28,11 @@ with review status and tags, and explicit create/list/read/update/delete/search
 of Knowledge Documents with title, source label, content, tags, enabled flag,
 and chunks. The operator can explicitly attach the selected Skill to Workspace
 Agent as visible current-session composer context.
+Workspace Agent can also draft visible catalog creation proposals from explicit
+visible conversation content or safe `hobit-catalog-action` fenced JSON in
+visible assistant/Codex text. Creating the proposed Knowledge Document or Skill
+requires operator approval plus a separate explicit create action, writes only
+workspace-local catalog records, and does not read hidden Workspace data.
 
 The Skill Library / Knowledge MVP is not an Evidence store, Context Pack
 builder, Runbook executor, hidden AI memory layer, global/team knowledge
@@ -72,6 +77,10 @@ enabled-document-only, capped, visible, and lexical; it does not search hidden
 filesystem content, Notes, disabled documents, Skills, global/team knowledge,
 Evidence, or Context Packs. Current provider requests use visible
 current-session chat context and `allowed_tools: []`.
+Catalog proposal drafting uses only visible conversation text or visible
+assistant/Codex fenced catalog action blocks. It does not scan the filesystem,
+auto-ingest Notes, Executor logs, Git/JDBC/Terminal/Queue data, global/team
+knowledge, Evidence, Context Packs, embeddings, or binary documents.
 
 ## Core Concepts
 

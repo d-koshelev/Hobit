@@ -114,8 +114,10 @@ export function widgetHostRenderProps({
     onCreateWorkspaceNote: isNotes || isInteractiveAgent
       ? widgetActions.createWorkspaceNote
       : undefined,
-    onCreateSkill: isSkillLibrary ? widgetActions.createSkill : undefined,
-    onCreateKnowledgeDocument: isSkillLibrary
+    onCreateSkill: isSkillLibrary || isInteractiveAgent
+      ? widgetActions.createSkill
+      : undefined,
+    onCreateKnowledgeDocument: isSkillLibrary || isInteractiveAgent
       ? widgetActions.createKnowledgeDocument
       : undefined,
     onDeleteSkill: isSkillLibrary ? widgetActions.deleteSkill : undefined,
