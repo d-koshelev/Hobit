@@ -16,6 +16,13 @@ import {
   WorkspaceAgentProposalList,
   type WorkspaceAgentProposalPatch,
 } from "./WorkspaceAgentProposalList";
+import type {
+  WorkspaceAgentSuggestedPrompt,
+} from "./workspaceAgentSuggestedPrompts";
+
+export type {
+  WorkspaceAgentSuggestedPrompt,
+} from "./workspaceAgentSuggestedPrompts";
 
 export type WorkspaceAgentTranscriptMessage = {
   id: string;
@@ -25,11 +32,6 @@ export type WorkspaceAgentTranscriptMessage = {
   reviewId?: string;
   role: "operator" | "assistant";
   body: string;
-};
-
-export type WorkspaceAgentSuggestedPrompt = {
-  label: string;
-  prompt: string;
 };
 
 export function WorkspaceAgentTranscript({

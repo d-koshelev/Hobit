@@ -6,7 +6,6 @@ import {
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import {
-  COORDINATOR_ACTION_PROPOSAL_REGISTRY,
   type CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
 import {
@@ -75,6 +74,10 @@ import {
   type WorkspaceAgentTranscriptMessage,
 } from "./WorkspaceAgentTranscript";
 import {
+  WORKSPACE_AGENT_PROPOSAL_TYPE_SUMMARY,
+  WORKSPACE_AGENT_SUGGESTED_PROMPTS,
+} from "./workspaceAgentSuggestedPrompts";
+import {
   approveProposal as approveProposalState,
   approveQueueDraftProposals,
   canStartProposalCreation,
@@ -92,57 +95,6 @@ import type { DirectWorkStreamEvent } from "../workspace/types";
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
 const INITIAL_MESSAGES: InteractiveAgentMessage[] = [];
-
-const SUGGESTED_PROMPTS = [
-  {
-    label: "Make a plan",
-    prompt:
-      "Make a plan from the visible chat only. Goal: ",
-  },
-  {
-    label: "Break into Queue tasks",
-    prompt: "Break this into Queue tasks from visible text only. Goal: ",
-  },
-  {
-    label: "Draft tasks for this goal",
-    prompt: "Draft tasks for this goal using only the visible chat: ",
-  },
-  {
-    label: "Review pasted Queue result",
-    prompt:
-      "Review pasted Queue result using visible chat text only. Paste result here: ",
-  },
-  {
-    label: "Explain this Executor failure",
-    prompt:
-      "Explain this Executor failure using visible chat text only. Paste failure here: ",
-  },
-  {
-    label: "Turn this result into next steps",
-    prompt:
-      "Turn this result into next steps using visible chat text only. Paste result here: ",
-  },
-  {
-    label: "Draft follow-up Queue tasks",
-    prompt:
-      "Draft follow-up Queue tasks from this pasted result using visible chat text only. Paste result here: ",
-  },
-  {
-    label: "Summarize validation output",
-    prompt:
-      "Summarize validation output using visible chat text only. Paste validation output here: ",
-  },
-  {
-    label: "Explain how to execute this safely",
-    prompt:
-      "Explain how to execute this safely from visible chat only. Do not start Queue, Executor, Terminal, Git, or JDBC actions.",
-  },
-];
-
-const STATIC_PROPOSAL_TYPE_SUMMARY =
-  COORDINATOR_ACTION_PROPOSAL_REGISTRY.map(
-    (proposalType) => proposalType.displayName,
-  ).join(", ");
 
 export function InteractiveAgentPlaceholderWidget({
   frameActions,
@@ -1253,7 +1205,7 @@ export function InteractiveAgentPlaceholderWidget({
         <WorkspaceAgentStatusPanel
           isProviderPending={isProviderPending}
           providerModeLabel={providerModeLabel}
-          supportedProposalTypeSummary={STATIC_PROPOSAL_TYPE_SUMMARY}
+          supportedProposalTypeSummary={WORKSPACE_AGENT_PROPOSAL_TYPE_SUMMARY}
         />
 
         <WorkspaceAgentTranscript
@@ -1279,7 +1231,7 @@ export function InteractiveAgentPlaceholderWidget({
           plans={plans}
           proposals={proposals}
           reviews={reviews}
-          suggestedPrompts={SUGGESTED_PROMPTS}
+          suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
         />
 
