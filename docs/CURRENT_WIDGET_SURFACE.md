@@ -269,6 +269,10 @@ Workspace Agent is the foreground interactive agent surface.
 - Multiple Workspace Agent widgets can exist in one Workspace. Each widget
   instance owns its current-session visible chat, proposal card state, Codex
   thread id, and working directory independently.
+- Codex thread state is current-session only and scoped to the active
+  Workspace Agent widget, workspace, and working directory. New Workspaces and
+  new Workspace Agent widgets start with no active thread and do not reuse
+  Codex threads from other Workspaces or agents.
 - Uses the existing `interactive-agent` widget definition id/component key for
   compatibility. Do not rename this id without an explicit migration.
 - Keeps chat messages and proposal card state in local React state for the
@@ -329,10 +333,12 @@ Workspace Agent is the foreground interactive agent surface.
   Codex actions resume that explicit thread id and send only the latest
   composer message; they do not use `--last` and do not resend the visible
   transcript as the prompt. The operator can use the visible New thread action
-  to clear the current thread id without clearing visible chat. Changing
-  the Codex working directory clears the current thread id and starts a
-  new thread on the next run. Thread state is current-session only unless a
-  later persistence slice explicitly adds storage. Normal chat transcript shows
+  to clear the current thread id and visible carried context without clearing
+  visible chat. Changing the Codex working directory clears the current thread
+  id and starts a new thread on the next run. Explicit visible context transfer
+  must remain visible and removable before Run with Codex. Thread state is
+  current-session only unless a later persistence slice explicitly adds
+  storage. Normal chat transcript shows
   operator prompts and Codex final responses; Direct Work lifecycle details
   stay available in the collapsed Direct Work details/status area. Workspace Agent
   shows compact helper copy that `~` resolves to the current user's

@@ -196,6 +196,15 @@ const EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP: WorkspaceKnowledgeLookup = {
   status: "idle",
 };
 
+type CodexThreadScope = {
+  threadId: string;
+  widgetInstanceId: string;
+  workingDirectory: string;
+  workspaceId: string;
+};
+
+type ActiveDirectWorkRunScope = Omit<CodexThreadScope, "threadId">;
+
 export function InteractiveAgentPlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -212,6 +221,7 @@ export function InteractiveAgentPlaceholderWidget({
   onStartCodexDirectWorkStream,
   onStartFrameMove,
   title,
+  workspaceId,
 }: WidgetRenderProps) {
   const textareaId = useId();
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -251,8 +261,8 @@ export function InteractiveAgentPlaceholderWidget({
   );
   const [directWorkFinalResult, setDirectWorkFinalResult] =
     useState<string | null>(null);
-  const [currentCodexThreadId, setCurrentCodexThreadId] =
-    useState<string | null>(null);
+  const [currentCodexThread, setCurrentCodexThread] =
+    useState<CodexThreadScope | null>(null);
   const [codexThreadNotice, setCodexThreadNotice] = useState<string | null>(
     null,
   );
@@ -267,7 +277,17 @@ export function InteractiveAgentPlaceholderWidget({
   const directWorkFinalMessageRef = useRef<string | null>(null);
   const directWorkAccessDeniedRef = useRef(false);
   const directWorkCapturedThreadIdRef = useRef<string | null>(null);
+  const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
   const directWorkLogSequenceRef = useRef(0);
+  const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
+  const sessionScopeKey = `${workspaceScopeId}\u0000${instance.id}`;
+  const sessionScopeKeyRef = useRef(sessionScopeKey);
+  const currentCodexThreadId = codexThreadIdForScope(
+    currentCodexThread,
+    workspaceScopeId,
+    instance.id,
+    directWorkDirectory.trim(),
+  );
   const trimmedDraftLength = draft.trim().length;
   const isDirectModeEnabled = Boolean(onStartCodexDirectWorkStream);
   const canSend =
@@ -290,6 +310,15 @@ export function InteractiveAgentPlaceholderWidget({
 
     messageList.scrollTop = messageList.scrollHeight;
   }, [messages.length, isProviderPending]);
+
+  useEffect(() => {
+    if (sessionScopeKeyRef.current === sessionScopeKey) {
+      return;
+    }
+
+    sessionScopeKeyRef.current = sessionScopeKey;
+    resetCurrentSessionState();
+  }, [sessionScopeKey]);
 
   useEffect(() => {
     if (!coordinatorAttachedContextRequest) {
@@ -491,7 +520,20 @@ export function InteractiveAgentPlaceholderWidget({
     directWorkFinalMessageRef.current = null;
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
-    const resumeThreadId = currentCodexThreadId;
+    directWorkRunScopeRef.current = {
+      widgetInstanceId: instance.id,
+      workingDirectory: repoRoot,
+      workspaceId: workspaceScopeId,
+    };
+    const resumeThreadId = codexThreadIdForScope(
+      currentCodexThread,
+      workspaceScopeId,
+      instance.id,
+      repoRoot,
+    );
+    if (currentCodexThread && !resumeThreadId) {
+      setCurrentCodexThread(null);
+    }
     const knowledgeLookup =
       await searchWorkspaceKnowledgeForDirectWork(operatorPrompt);
     const promptForCodex =
@@ -645,13 +687,25 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function recordCoordinatorDirectWorkEvent(event: DirectWorkStreamEvent) {
+    if (!directWorkEventBelongsToCurrentAgent(event, workspaceId, instance.id)) {
+      return;
+    }
+
     if (directWorkEventHasAccessDenied(event)) {
       directWorkAccessDeniedRef.current = true;
     }
 
     if (event.codexThreadId) {
+      const runScope = directWorkRunScopeRef.current ?? {
+        widgetInstanceId: instance.id,
+        workingDirectory: directWorkDirectory.trim(),
+        workspaceId: workspaceScopeId,
+      };
       directWorkCapturedThreadIdRef.current = event.codexThreadId;
-      setCurrentCodexThreadId(event.codexThreadId);
+      setCurrentCodexThread({
+        ...runScope,
+        threadId: event.codexThreadId,
+      });
       setCodexThreadNotice(
         `Thread active: ${shortCodexThreadId(event.codexThreadId)}.`,
       );
@@ -703,7 +757,7 @@ export function InteractiveAgentPlaceholderWidget({
       finalStatus === "completed" &&
       !directWorkCapturedThreadIdRef.current
     ) {
-      setCurrentCodexThreadId(null);
+      setCurrentCodexThread(null);
       setCodexThreadNotice(CODEX_THREAD_NOT_AVAILABLE_MESSAGE);
       appendCoordinatorDirectWorkLog(CODEX_THREAD_NOT_AVAILABLE_MESSAGE, "local");
     }
@@ -714,6 +768,7 @@ export function InteractiveAgentPlaceholderWidget({
       finalResult,
       Boolean(finalAgentMessage),
     );
+    directWorkRunScopeRef.current = null;
   }
 
   function appendCoordinatorDirectWorkLog(
@@ -737,23 +792,61 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function resetCodexThread() {
-    setCurrentCodexThreadId(null);
+    setCurrentCodexThread(null);
     setCodexThreadNotice("Codex thread reset.");
+    setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
+    setDirectWorkError(null);
+    setDirectWorkWarning(null);
+    setDirectWorkFinalResult(null);
+    removeVisibleAttachedContext();
     appendCoordinatorDirectWorkLog("Codex thread reset.", "local");
   }
 
   function updateDirectWorkDirectory(value: string) {
     setDirectWorkDirectory(value);
     if (value !== directWorkDirectory && currentCodexThreadId) {
-      setCurrentCodexThreadId(null);
+      setCurrentCodexThread(null);
       setCodexThreadNotice(
         "Working directory changed. Next Codex run starts a new thread.",
       );
+      setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
       appendCoordinatorDirectWorkLog(
         "Working directory changed. Next Codex run starts a new thread.",
         "local",
       );
     }
+  }
+
+  function resetCurrentSessionState() {
+    stopDirectWorkEventListening();
+    nextMessageId.current = 1;
+    directWorkCompletedDuringStartRef.current = false;
+    directWorkFinalMessageRef.current = null;
+    directWorkAccessDeniedRef.current = false;
+    directWorkCapturedThreadIdRef.current = null;
+    directWorkRunScopeRef.current = null;
+    directWorkLogSequenceRef.current = 0;
+    setMessages(INITIAL_MESSAGES);
+    setPlans({});
+    setReviews({});
+    setProposals({});
+    setCreatingQueueProposalIds(new Set());
+    setCreatingNoteProposalIds(new Set());
+    setDraft("");
+    setVisibleAttachedContext(null);
+    setIsProviderPending(false);
+    setProviderModeLabel("Mock/local fallback");
+    setDirectWorkDirectory("~");
+    setDirectWorkStatus("idle");
+    setDirectWorkRunId(null);
+    setDirectWorkError(null);
+    setDirectWorkWarning(null);
+    setDirectWorkFinalResult(null);
+    setCurrentCodexThread(null);
+    setCodexThreadNotice(null);
+    setDirectWorkLogs([]);
+    setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
+    setIsDirectWorkStopPending(false);
   }
 
   function appendCoordinatorDirectWorkTranscript(
@@ -2059,6 +2152,39 @@ function shortCodexThreadId(threadId: string): string {
   const trimmed = threadId.trim();
 
   return trimmed.length > 12 ? `${trimmed.slice(0, 8)}...` : trimmed;
+}
+
+function codexThreadIdForScope(
+  thread: CodexThreadScope | null,
+  workspaceId: string,
+  widgetInstanceId: string,
+  workingDirectory: string,
+): string | null {
+  if (!thread) {
+    return null;
+  }
+
+  if (
+    thread.workspaceId !== workspaceId ||
+    thread.widgetInstanceId !== widgetInstanceId ||
+    thread.workingDirectory !== workingDirectory
+  ) {
+    return null;
+  }
+
+  return thread.threadId;
+}
+
+function directWorkEventBelongsToCurrentAgent(
+  event: DirectWorkStreamEvent,
+  workspaceId: string | undefined,
+  widgetInstanceId: string,
+) {
+  if (workspaceId?.trim() && event.workspaceId !== workspaceId.trim()) {
+    return false;
+  }
+
+  return event.widgetInstanceId === widgetInstanceId;
 }
 
 function directWorkEventText(event: DirectWorkStreamEvent): string {

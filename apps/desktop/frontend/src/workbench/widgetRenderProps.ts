@@ -350,4 +350,5 @@ export type WidgetRenderProps = {
   ) => Promise<KnowledgeDocumentSearchResult[]>;
   queueTaskAutoRefreshRequest?: DirectWorkQueueTaskAutoRefreshRequest | null;
   title: string;
+  workspaceId?: string;
 };

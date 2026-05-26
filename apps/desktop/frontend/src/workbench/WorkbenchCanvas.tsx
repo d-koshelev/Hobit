@@ -795,6 +795,7 @@ export function WorkbenchCanvas({
                         onStartPopoutDrag={startPopoutDrag}
                         presentationMode="popped-out"
                         widgetActions={widgetActions}
+                        workspaceId={viewState.workspace.id}
                       />
                     </div>
                   </>
@@ -822,6 +823,7 @@ export function WorkbenchCanvas({
                       onStartPopoutDrag={startPopoutDrag}
                       presentationMode="docked"
                       widgetActions={widgetActions}
+                      workspaceId={viewState.workspace.id}
                     />
                     {isLayoutEditing && widget.layout.mode === "docked" ? (
                       <WorkbenchResizeHandles

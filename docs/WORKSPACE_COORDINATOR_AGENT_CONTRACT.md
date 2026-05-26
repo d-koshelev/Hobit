@@ -15,6 +15,10 @@ runtime behavior. For current implemented Workspace Agent behavior, use
 Workspace Agent is the foreground interactive AI agent widget inside a
 Workspace. Multiple Workspace Agent widgets can exist in one Workspace; each
 has independent current-session context/thread state and working directory.
+New Workspaces and new Workspace Agent widgets start with no active Codex
+thread and must not reuse threads from other Workspaces or agents. Codex thread
+state is scoped to the current Workspace Agent widget, Workspace, and working
+directory for the current frontend session only.
 Chat is the interaction model, not the capability limit. The target Workspace
 Agent can perform interactive work
 inside the Workspace through controlled capabilities: filesystem and code
@@ -98,13 +102,15 @@ The current Workspace Agent preview:
   requests for that explicit thread id. Resume requests do not use `--last`
   and send only the latest composer message rather than the full visible
   transcript. The operator can visibly start a new thread / reset the thread
-  id, and changing the working directory clears the current thread id so the
-  next run starts fresh. Thread state is current-session only unless
-  persistence is added later. Normal transcript entries show user prompts and
-  Codex final responses; Direct Work lifecycle details remain available in the
-  collapsed Direct Work details/status area. Status, recent logs, Stop/cancel
-  state when available, final result summary, and failures stay visible in
-  Workspace Agent.
+  id, which clears the active thread and carried context unless the operator
+  explicitly selects visible context transfer again before Run with Codex.
+  Changing the working directory clears the current thread id so the next run
+  starts fresh. Thread state is current-session only unless persistence is
+  added later. Normal transcript entries show user prompts and Codex final
+  responses; Direct Work lifecycle details remain available in the collapsed
+  Direct Work details/status area. Status, recent logs, Stop/cancel state when
+  available, final result summary, and failures stay visible in Workspace
+  Agent.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

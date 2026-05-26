@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -281,6 +281,221 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("Thread active thread_s...");
   });
 
+  it("keeps Codex thread ids independent across two Workspace Agent widgets", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const threadId =
+          widgetInstanceId === "coordinator_widget_a"
+            ? "thread_agent_a_123456"
+            : "thread_agent_b_123456";
+        const runId = `run_${widgetInstanceId}_${startDirectWork.mock.calls.length}`;
+        onEvent(
+          directWorkEvent({
+            codexThreadId: threadId,
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+            widgetInstanceId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: `Final for ${widgetInstanceId}.`,
+            widgetInstanceId,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+
+    renderWidgetTree(
+      <>
+        <div data-testid="agent-a">
+          <InteractiveAgentPlaceholderWidget
+            config={{}}
+            definition={definition()}
+            instance={instance({ id: "coordinator_widget_a" })}
+            onStartCodexDirectWorkStream={startDirectWork}
+            title="Workspace Agent A"
+            workspaceId="workspace_1"
+          />
+        </div>
+        <div data-testid="agent-b">
+          <InteractiveAgentPlaceholderWidget
+            config={{}}
+            definition={definition()}
+            instance={instance({ id: "coordinator_widget_b" })}
+            onStartCodexDirectWorkStream={startDirectWork}
+            title="Workspace Agent B"
+            workspaceId="workspace_1"
+          />
+        </div>
+      </>,
+    );
+
+    await setTextareaValueIn('[data-testid="agent-a"]', "Agent A first run.");
+    await clickButtonIn('[data-testid="agent-a"]', "Run with Codex");
+    await setTextareaValueIn('[data-testid="agent-b"]', "Agent B first run.");
+    await clickButtonIn('[data-testid="agent-b"]', "Run with Codex");
+    await setTextareaValueIn('[data-testid="agent-a"]', "Agent A follow-up.");
+    await clickButtonIn('[data-testid="agent-a"]', "Run with Codex");
+    await setTextareaValueIn('[data-testid="agent-b"]', "Agent B follow-up.");
+    await clickButtonIn('[data-testid="agent-b"]', "Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(4);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Agent A first run.",
+    });
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Agent B first run.",
+    });
+    expect(startDirectWork.mock.calls[2][1]).toMatchObject({
+      codexThreadId: "thread_agent_a_123456",
+      operatorPrompt: "Agent A follow-up.",
+    });
+    expect(startDirectWork.mock.calls[3][1]).toMatchObject({
+      codexThreadId: "thread_agent_b_123456",
+      operatorPrompt: "Agent B follow-up.",
+    });
+  });
+
+  it("switching workspace clears the active Codex thread", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_workspace_a_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+            workspaceId: "workspace_a",
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: "Workspace A final.",
+            workspaceId: "workspace_a",
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_a",
+    });
+
+    await setTextareaValue("Workspace A first run.");
+    await clickButton("Run with Codex");
+    expect(document.body.textContent).toContain("Thread active thread_w...");
+
+    await rerenderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_b",
+    });
+
+    expect(document.body.textContent).toContain("No active thread");
+    expect(document.body.textContent).not.toContain("Thread active thread_w...");
+
+    await setTextareaValue("Workspace B first run.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Workspace B first run.",
+    });
+  });
+
+  it("switching Workspace Agent widget instance clears the active Codex thread", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_agent_original_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+            widgetInstanceId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: "Widget final.",
+            widgetInstanceId,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      instance: instance({ id: "coordinator_widget_a" }),
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_1",
+    });
+
+    await setTextareaValue("Widget A first run.");
+    await clickButton("Run with Codex");
+
+    await rerenderWidget({
+      instance: instance({ id: "coordinator_widget_b" }),
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_1",
+    });
+
+    expect(document.body.textContent).toContain("No active thread");
+
+    await setTextareaValue("Widget B first run.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[1][0]).toBe("coordinator_widget_b");
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Widget B first run.",
+    });
+  });
+
   it("New thread clears the current Codex thread without clearing chat", async () => {
     const startDirectWork = vi.fn(
       async (
@@ -332,9 +547,100 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       operatorPrompt: "Start over.",
     });
     expect(document.body.textContent).toContain("Codex thread reset.");
+    expect(document.body.textContent).toContain("No active thread");
     expect(document.body.textContent).toContain("Remember this.");
     expect(buttonsWithText("New thread")).toHaveLength(1);
     expect(document.body.textContent).not.toContain("New Codex thread");
+  });
+
+  it("New thread clears visible carried context and old knowledge before the next run", async () => {
+    const searchKnowledge = vi
+      .fn()
+      .mockResolvedValueOnce([
+        knowledgeResult({
+          documentTitle: "Falcon code",
+          snippet: "The secret smoke code for Falcon is BLUE-RAVEN-42.",
+        }),
+      ])
+      .mockResolvedValueOnce([]);
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_context_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: "Falcon answer handled.",
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_1",
+    });
+
+    await setTextareaValue("What is the Falcon smoke code?");
+    await clickButton("Run with Codex");
+    expect(
+      (startDirectWork.mock.calls[0][1] as { operatorPrompt: string })
+        .operatorPrompt,
+    ).toContain("BLUE-RAVEN-42");
+
+    await rerenderWidget({
+      coordinatorAttachedContextRequest: attachedContextRequest({
+        contextText: "Carryover should be removable: BLUE-RAVEN-42",
+        sourceLabel: "Manual context",
+      }),
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_1",
+    });
+    expect(textareaValue()).toContain("BLUE-RAVEN-42");
+
+    await clickButton("New thread");
+
+    expect(textareaValue()).not.toContain("BLUE-RAVEN-42");
+    expect(document.body.textContent).toContain("No active thread");
+    expect(document.body.textContent).not.toContain(
+      "Falcon code, chunk 1",
+    );
+
+    await setTextareaValue("Ask again without workspace knowledge.");
+    await clickButton("Run with Codex");
+
+    const nextRequest = startDirectWork.mock.calls[1][1] as {
+      codexThreadId: string | null;
+      operatorPrompt: string;
+    };
+    expect(nextRequest.codexThreadId).toBeNull();
+    expect(nextRequest.operatorPrompt).toBe(
+      "Ask again without workspace knowledge.",
+    );
+    expect(nextRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
+    expect(document.body.textContent).toContain(
+      "Workspace knowledge checked: no matches",
+    );
   });
 
   it("changing the working directory clears the current Codex thread", async () => {
@@ -519,6 +825,93 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       operatorPrompt: "No document should match.",
     });
+    expect(document.body.textContent).toContain(
+      "Workspace knowledge checked: no matches",
+    );
+  });
+
+  it("does not leak Falcon knowledge through a resumed thread in a new workspace", async () => {
+    const searchKnowledge = vi
+      .fn()
+      .mockResolvedValueOnce([
+        knowledgeResult({
+          documentTitle: "Falcon smoke",
+          snippet: "The secret smoke code for Falcon is BLUE-RAVEN-42.",
+        }),
+      ])
+      .mockResolvedValueOnce([]);
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const workspaceForRun =
+          startDirectWork.mock.calls.length === 1
+            ? "workspace_a"
+            : "workspace_b";
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_falcon_a_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+            workspaceId: workspaceForRun,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text:
+              workspaceForRun === "workspace_a"
+                ? "The secret smoke code for Falcon is BLUE-RAVEN-42."
+                : "No workspace-local Falcon knowledge was found.",
+            workspaceId: workspaceForRun,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_a",
+    });
+
+    await setTextareaValue("What is the Falcon smoke code?");
+    await clickButton("Run with Codex");
+    expect(document.body.textContent).toContain("Thread active thread_f...");
+    expect(document.body.textContent).toContain("BLUE-RAVEN-42");
+
+    await rerenderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceId: "workspace_b",
+    });
+
+    expect(document.body.textContent).toContain("No active thread");
+    expect(document.body.textContent).not.toContain("BLUE-RAVEN-42");
+
+    await setTextareaValue("What is the Falcon smoke code?");
+    await clickButton("Run with Codex");
+
+    const workspaceBRequest = startDirectWork.mock.calls[1][1] as {
+      codexThreadId: string | null;
+      operatorPrompt: string;
+    };
+    expect(workspaceBRequest.codexThreadId).toBeNull();
+    expect(workspaceBRequest.operatorPrompt).toBe(
+      "What is the Falcon smoke code?",
+    );
+    expect(workspaceBRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
     expect(document.body.textContent).toContain(
       "Workspace knowledge checked: no matches",
     );
@@ -1687,17 +2080,55 @@ function renderWidget(
   document.body.append(container);
   root = createRoot(container);
 
-  act(() => {
-    root?.render(
-      <InteractiveAgentPlaceholderWidget
-        config={{}}
-        definition={definition()}
-        instance={instance()}
-        title="Workspace Agent"
-        {...overrides}
-      />,
-    );
+  renderWidgetIntoRoot(overrides);
+}
+
+async function rerenderWidget(
+  overrides: Partial<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]
+  > = {},
+) {
+  await act(async () => {
+    root?.render(widgetElement(overrides));
+    await Promise.resolve();
+    await Promise.resolve();
   });
+}
+
+function renderWidgetIntoRoot(
+  overrides: Partial<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]
+  > = {},
+) {
+  act(() => {
+    root?.render(widgetElement(overrides));
+  });
+}
+
+function renderWidgetTree(element: ReactNode) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+
+  act(() => {
+    root?.render(element);
+  });
+}
+
+function widgetElement(
+  overrides: Partial<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]
+  > = {},
+) {
+  return (
+    <InteractiveAgentPlaceholderWidget
+      config={{}}
+      definition={definition()}
+      instance={instance()}
+      title="Workspace Agent"
+      {...overrides}
+    />
+  );
 }
 
 async function sendMessage(message: string) {
@@ -1781,6 +2212,36 @@ function textInput() {
   return input;
 }
 
+async function setTextareaValueIn(selector: string, message: string) {
+  const rootElement = document.querySelector(selector);
+  const textarea = rootElement?.querySelector("textarea");
+  if (!textarea) {
+    throw new Error(`Message textarea not found in ${selector}.`);
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, message);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function clickButtonIn(selector: string, text: string) {
+  const rootElement = document.querySelector(selector);
+  const button = Array.from(rootElement?.querySelectorAll("button") ?? []).find(
+    (button) => button.textContent === text,
+  );
+  if (!button) {
+    throw new Error(`Button not found in ${selector}: ${text}`);
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 function textInputValue() {
   return textInput().value;
 }
@@ -1855,7 +2316,7 @@ function definition(): WidgetDefinition {
   };
 }
 
-function instance(): WidgetInstance {
+function instance(overrides: Partial<WidgetInstance> = {}): WidgetInstance {
   return {
     config: {},
     definitionId: "interactive-agent",
@@ -1872,6 +2333,7 @@ function instance(): WidgetInstance {
     state: {},
     title: "Workspace Agent",
     visible: true,
+    ...overrides,
   };
 }
 

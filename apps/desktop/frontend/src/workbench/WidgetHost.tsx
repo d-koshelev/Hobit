@@ -94,6 +94,7 @@ type WidgetHostProps = {
   ) => void;
   presentationMode: WidgetPresentationMode;
   widgetActions: WorkbenchWidgetInstanceActions;
+  workspaceId: string;
 };
 
 export function WidgetHost({
@@ -113,6 +114,7 @@ export function WidgetHost({
   onStartPopoutDrag,
   presentationMode,
   widgetActions,
+  workspaceId,
 }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
   const frameTitle = definition
@@ -249,6 +251,7 @@ export function WidgetHost({
       {...renderProps}
       onStartFrameMove={startDockedDrag}
       title={title}
+      workspaceId={workspaceId}
     />
   );
 }
