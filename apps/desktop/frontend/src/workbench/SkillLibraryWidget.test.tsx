@@ -286,13 +286,18 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("API docs");
 
     await changeInput('input[placeholder="Untitled document"]', "Updated API docs");
+    await changeCheckbox("Searchable by Workspace Agent", false);
     await clickButton("Save document");
 
     expect(updateKnowledgeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
+        enabled: false,
         knowledgeDocumentId: "doc_created",
         title: "Updated API docs",
       }),
+    );
+    expect(document.body.textContent).toContain(
+      "Enabled saved documents may be searched before Run with Codex. Disabled documents are ignored.",
     );
 
     await clickButton("Delete");
@@ -321,6 +326,7 @@ describe("SkillLibraryWidget", () => {
 
     renderWidget({
       onCreateKnowledgeDocument: createKnowledgeDocument,
+      onDeleteKnowledgeDocument: vi.fn(async () => true),
       onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
         documents.find(
           (document) =>
@@ -329,6 +335,9 @@ describe("SkillLibraryWidget", () => {
       ),
       onListKnowledgeDocuments: vi.fn(async () => documents),
       onReadKnowledgeDocumentImportFile: readImportFile,
+      onUpdateKnowledgeDocument: vi.fn(async (request) =>
+        knowledgeDocumentFixture(request),
+      ),
     });
 
     await flush();
@@ -413,12 +422,14 @@ async function clickButton(text: string) {
 
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === text,
+    (candidate) => !isHidden(candidate) && candidate.textContent === text,
   );
 }
 
 async function changeInput(selector: string, value: string) {
-  const input = document.querySelector<HTMLInputElement>(selector);
+  const input = Array.from(
+    document.querySelectorAll<HTMLInputElement>(selector),
+  ).find((candidate) => !isHidden(candidate));
   if (!input) {
     throw new Error(`Input not found: ${selector}`);
   }
@@ -431,7 +442,9 @@ async function changeInput(selector: string, value: string) {
 }
 
 async function changeTextarea(index: number, value: string) {
-  const textarea = document.querySelectorAll("textarea")[index];
+  const textarea = Array.from(document.querySelectorAll("textarea")).filter(
+    (candidate) => !isHidden(candidate),
+  )[index];
   if (!textarea) {
     throw new Error(`Textarea not found: ${index}`);
   }
@@ -444,7 +457,9 @@ async function changeTextarea(index: number, value: string) {
 }
 
 async function changeSelect(value: string) {
-  const select = document.querySelector("select");
+  const select = Array.from(document.querySelectorAll("select")).find(
+    (candidate) => !isHidden(candidate),
+  );
   if (!select) {
     throw new Error("Review status select not found.");
   }
@@ -453,6 +468,25 @@ async function changeSelect(value: string) {
     setNativeValue(select, value);
     select.dispatchEvent(new Event("input", { bubbles: true }));
     select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function changeCheckbox(labelText: string, checked: boolean) {
+  const labels = Array.from(document.querySelectorAll("label")).filter(
+    (candidate) =>
+      !isHidden(candidate) && candidate.textContent?.includes(labelText),
+  );
+  const checkbox = labels
+    .flatMap((label) => Array.from(label.querySelectorAll("input")))
+    .find((input) => input.type === "checkbox");
+  if (!checkbox) {
+    throw new Error(`Checkbox not found: ${labelText}`);
+  }
+
+  await act(async () => {
+    setNativeChecked(checkbox, checked);
+    checkbox.dispatchEvent(new Event("input", { bubbles: true }));
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 
@@ -465,6 +499,18 @@ function setNativeValue(
     "value",
   );
   descriptor?.set?.call(field, value);
+}
+
+function setNativeChecked(field: HTMLInputElement, checked: boolean) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(field),
+    "checked",
+  );
+  descriptor?.set?.call(field, checked);
+}
+
+function isHidden(element: Element) {
+  return Boolean(element.closest("[hidden]"));
 }
 
 function skillFixture(

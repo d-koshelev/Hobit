@@ -53,6 +53,10 @@
   min-height: 0;
 }
 
+.skill-library-tab-panel[hidden] {
+  display: none;
+}
+
 .skill-library-layout {
   display: grid;
   gap: var(--space-md);
