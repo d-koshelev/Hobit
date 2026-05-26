@@ -1,12 +1,9 @@
 import {
-  type FormEvent,
   useEffect,
-  useId,
   useRef,
   useState,
 } from "react";
 import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import {
@@ -65,9 +62,8 @@ import {
 } from "./workspaceAgentDirectWorkModel";
 import {
   CoordinatorAgentHeaderStatus,
-  WorkspaceAgentDirectModePanel,
 } from "./WorkspaceAgentDirectModePanel";
-import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContextPanel";
+import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
 import {
   appendWorkspaceAgentVisibleContextBlock,
   removeWorkspaceAgentVisibleContextFromDraft,
@@ -168,7 +164,6 @@ export function InteractiveAgentPlaceholderWidget({
   title,
   workspaceId,
 }: WidgetRenderProps) {
-  const textareaId = useId();
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const nextMessageId = useRef(1);
@@ -312,14 +307,7 @@ export function InteractiveAgentPlaceholderWidget({
     };
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (isDirectModeEnabled) {
-      await startCoordinatorDirectWork();
-      return;
-    }
-
+  async function sendCoordinatorMessage() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || isProviderPending) {
       return;
@@ -1347,75 +1335,39 @@ export function InteractiveAgentPlaceholderWidget({
           transcriptRef={messageListRef}
         />
 
-        <form className="interactive-agent-composer" onSubmit={handleSubmit}>
-          <WorkspaceAgentVisibleContextPanel
-            context={visibleAttachedContext}
-            onRemove={removeVisibleAttachedContext}
-          />
-          <WorkspaceAgentDirectModePanel
-            directWorkDirectory={directWorkDirectory}
-            error={directWorkError}
-            finalResult={directWorkFinalResult}
-            knowledgeLookup={workspaceKnowledgeLookup}
-            logs={directWorkLogs}
-            onDirectoryChange={updateDirectWorkDirectory}
-            onResetThread={resetCodexThread}
-            runId={directWorkRunId}
-            status={directWorkStatus}
-            threadId={currentCodexThreadId}
-            threadNotice={codexThreadNotice}
-            warning={directWorkWarning}
-          />
-          <label
-            className="interactive-agent-label interactive-agent-label-hidden"
-            htmlFor={textareaId}
-          >
-            Message
-          </label>
-          <textarea
-            className="input interactive-agent-input"
-            id={textareaId}
-            onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder="Plan work, draft Queue tasks, review pasted results, or ask what to do next."
-            ref={textareaRef}
-            rows={3}
-            value={draft}
-          />
-          <div className="interactive-agent-action-row">
-            <p className="interactive-agent-note">
-              {isDirectModeEnabled
-                ? "Runs with Codex from the selected working directory."
-                : "Send uses mock/local fallback unless a provider is configured. No tools run."}
-            </p>
-            <div className="interactive-agent-composer-actions">
-              {canStopDirectWork ? (
-                <Button
-                  disabled={isDirectWorkStopPending}
-                  onClick={() => void stopCoordinatorDirectWork()}
-                  type="button"
-                  variant="secondary"
-                >
-                  {isDirectWorkStopPending ? "Stopping" : "Stop"}
-                </Button>
-              ) : null}
-              <Button
-                disabled={
-                  isDirectModeEnabled ? !canStartDirectWork : !canSend
+        <WorkspaceAgentComposer
+          canSend={canSend}
+          directMode={
+            isDirectModeEnabled
+              ? {
+                  canStartDirectWork,
+                  canStopDirectWork,
+                  directWorkDirectory,
+                  error: directWorkError,
+                  finalResult: directWorkFinalResult,
+                  isStopPending: isDirectWorkStopPending,
+                  knowledgeLookup: workspaceKnowledgeLookup,
+                  logs: directWorkLogs,
+                  onDirectoryChange: updateDirectWorkDirectory,
+                  onResetThread: resetCodexThread,
+                  onStopDirectWork: () => void stopCoordinatorDirectWork(),
+                  runId: directWorkRunId,
+                  status: directWorkStatus,
+                  threadId: currentCodexThreadId,
+                  threadNotice: codexThreadNotice,
+                  warning: directWorkWarning,
                 }
-                type="submit"
-                variant="primary"
-              >
-                {isDirectModeEnabled
-                  ? directWorkStatus === "running"
-                    ? "Running with Codex"
-                    : "Run with Codex"
-                  : isProviderPending
-                    ? "Drafting"
-                    : "Send"}
-              </Button>
-            </div>
-          </div>
-        </form>
+              : null
+          }
+          draft={draft}
+          isProviderPending={isProviderPending}
+          onMessageChange={setDraft}
+          onRemoveVisibleContext={removeVisibleAttachedContext}
+          onRunWithCodex={startCoordinatorDirectWork}
+          onSend={sendCoordinatorMessage}
+          textareaRef={textareaRef}
+          visibleAttachedContext={visibleAttachedContext}
+        />
       </div>
     </WidgetFrame>
   );
