@@ -71,12 +71,13 @@ The current Workspace Agent preview:
 - can receive an explicitly attached selected Skill from Skill Library as
   visible editable composer context containing only title, when to use,
   prerequisites, steps, validation, risks, tags, and review status
-- can automatically search enabled workspace-local Knowledge Documents before
-  an explicit Run with Codex. The latest composer message is the query; results
-  are lexical, capped, visible in Direct Work details, and added only to that
-  run's Codex prompt. This does not search Skills, Notes, hidden files,
-  disabled documents, logs, Queue history, Executor artifacts, Evidence,
-  Context Packs, global/team knowledge, or remote services.
+- can automatically search enabled workspace-local Knowledge Documents plus
+  enabled local-global Knowledge Documents before an explicit Run with Codex.
+  The latest composer message is the query; results are lexical, capped,
+  visible in Direct Work details with Workspace/Global scope labels, and added
+  only to that run's Codex prompt. This does not search Skills, Notes, hidden
+  files, disabled documents, logs, Queue history, Executor artifacts,
+  Evidence, Context Packs, team/server knowledge, or remote services.
 - can draft one or more visible Queue task proposal cards from explicit
   planning text, with visible title, prompt, priority, execution policy, and
   draft/proposed status

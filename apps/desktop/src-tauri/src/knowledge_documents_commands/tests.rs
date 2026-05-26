@@ -10,6 +10,7 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
     let created = create_knowledge_document_blocking(
         CreateKnowledgeDocumentRequest {
             workspace_id: workspace_id.clone(),
+            scope: None,
             title: "Deploy guide".to_owned(),
             source_label: "Manual paste".to_owned(),
             content: "Blue green deploys need validation.".to_owned(),
@@ -21,6 +22,7 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
     .expect("create document");
 
     assert_eq!(created.workspace_id, workspace_id);
+    assert_eq!(created.scope, "workspace");
     assert_eq!(created.title, "Deploy guide");
     assert!(created.enabled);
 
@@ -67,6 +69,7 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
         UpdateKnowledgeDocumentRequest {
             workspace_id: workspace_id.clone(),
             knowledge_document_id: created.knowledge_document_id.clone(),
+            scope: None,
             title: "Rollback guide".to_owned(),
             source_label: "README.md".to_owned(),
             content: "Rollback needs snapshots.".to_owned(),
@@ -113,6 +116,7 @@ fn create_knowledge_document_command_helper_rejects_unknown_workspace() {
     let error = create_knowledge_document_blocking(
         CreateKnowledgeDocumentRequest {
             workspace_id: "missing-workspace".to_owned(),
+            scope: None,
             title: "Doc".to_owned(),
             source_label: "".to_owned(),
             content: "".to_owned(),
@@ -124,6 +128,54 @@ fn create_knowledge_document_command_helper_rejects_unknown_workspace() {
     .expect_err("unknown workspace rejected");
 
     assert!(error.contains("workspace not found: missing-workspace"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn knowledge_document_command_helpers_include_global_scope_in_list_and_search() {
+    let db_path = unique_test_db_path();
+    let first_workspace_id = create_workspace_in_test_db(&db_path);
+    let second_workspace_id = create_workspace_in_test_db(&db_path);
+
+    let global = create_knowledge_document_blocking(
+        CreateKnowledgeDocumentRequest {
+            workspace_id: first_workspace_id,
+            scope: Some("global".to_owned()),
+            title: "Global Vertica EON troubleshooting".to_owned(),
+            source_label: "Global paste".to_owned(),
+            content: "Global EON troubleshooting needle.".to_owned(),
+            tags: "global".to_owned(),
+            enabled: true,
+        },
+        db_path.clone(),
+    )
+    .expect("create global document");
+
+    assert_eq!(global.scope, "global");
+
+    let listed = list_knowledge_documents_blocking(
+        ListKnowledgeDocumentsRequest {
+            workspace_id: second_workspace_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("list second workspace documents");
+    assert!(listed.iter().any(|document| document.knowledge_document_id
+        == global.knowledge_document_id
+        && document.scope == "global"));
+
+    let results = search_knowledge_documents_blocking(
+        SearchKnowledgeDocumentsRequest {
+            workspace_id: second_workspace_id,
+            query: "needle".to_owned(),
+            limit: Some(5),
+        },
+        db_path.clone(),
+    )
+    .expect("search second workspace");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].scope, "global");
+
     remove_test_db_files(&db_path);
 }
 

@@ -168,7 +168,8 @@ CREATE TABLE IF NOT EXISTS skills (
 
 CREATE TABLE IF NOT EXISTS knowledge_documents (
     knowledge_document_id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    workspace_id TEXT NULL REFERENCES workspaces(id),
+    scope TEXT NOT NULL DEFAULT 'workspace',
     title TEXT NOT NULL,
     source_label TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -181,7 +182,8 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
 CREATE TABLE IF NOT EXISTS knowledge_document_chunks (
     chunk_id TEXT PRIMARY KEY,
     knowledge_document_id TEXT NOT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE CASCADE,
-    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    workspace_id TEXT NULL REFERENCES workspaces(id),
+    scope TEXT NOT NULL DEFAULT 'workspace',
     chunk_index INTEGER NOT NULL,
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
@@ -313,4 +315,10 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_task_started
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_run_id
     ON agent_queue_task_run_links(direct_work_run_id);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
+    ON knowledge_documents(scope);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_scope
+    ON knowledge_document_chunks(scope);
 "#;

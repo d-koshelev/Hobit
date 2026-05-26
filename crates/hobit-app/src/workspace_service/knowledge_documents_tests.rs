@@ -15,6 +15,7 @@ fn create_workspace(service: &WorkspaceService, title: &str) -> WorkspaceSummary
 fn create_document_input(workspace_id: String) -> CreateKnowledgeDocumentInput {
     CreateKnowledgeDocumentInput {
         workspace_id,
+        scope: None,
         title: "Deploy guide".to_owned(),
         source_label: "Manual paste".to_owned(),
         content: "Blue green deployment requires validation.".to_owned(),
@@ -33,6 +34,7 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
         .expect("create document");
 
     assert_eq!(document.workspace_id, workspace.id);
+    assert_eq!(document.scope, "workspace");
     assert_eq!(document.title, "Deploy guide");
     assert_eq!(document.source_label, "Manual paste");
     assert_eq!(document.tags, "deploy, release");
@@ -70,6 +72,7 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
         .update_knowledge_document(UpdateKnowledgeDocumentInput {
             workspace_id: workspace.id.clone(),
             knowledge_document_id: document.knowledge_document_id.clone(),
+            scope: None,
             title: "Rollback guide".to_owned(),
             source_label: "".to_owned(),
             content: "Rollback needs database snapshots.".to_owned(),
@@ -142,6 +145,62 @@ fn knowledge_document_search_is_workspace_scoped_and_capped() {
 }
 
 #[test]
+fn global_knowledge_documents_are_visible_and_searchable_across_workspaces() {
+    let service = initialized_service();
+    let first = create_workspace(&service, "First workspace");
+    let second = create_workspace(&service, "Second workspace");
+
+    let mut first_input = create_document_input(first.id.clone());
+    first_input.title = "Workspace Falcon deployment notes".to_owned();
+    first_input.content = "Falcon workspace-only deployment needle.".to_owned();
+    let workspace_document = service
+        .create_knowledge_document(first_input)
+        .expect("create workspace document");
+
+    let mut global_input = create_document_input(first.id.clone());
+    global_input.scope = Some("global".to_owned());
+    global_input.title = "Global Vertica EON troubleshooting".to_owned();
+    global_input.source_label = "Global paste".to_owned();
+    global_input.content = "Vertica EON global troubleshooting needle.".to_owned();
+    let global_document = service
+        .create_knowledge_document(global_input)
+        .expect("create global document");
+
+    assert_eq!(global_document.scope, "global");
+
+    let second_list = service
+        .list_knowledge_documents(&second.id)
+        .expect("list second workspace documents");
+    assert!(second_list
+        .iter()
+        .any(|document| document.knowledge_document_id == global_document.knowledge_document_id));
+    assert!(
+        !second_list
+            .iter()
+            .any(|document| document.knowledge_document_id
+                == workspace_document.knowledge_document_id)
+    );
+
+    let second_results = service
+        .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+            workspace_id: second.id,
+            query: "needle".to_owned(),
+            limit: Some(10),
+        })
+        .expect("search second workspace");
+
+    assert!(second_results
+        .iter()
+        .any(
+            |result| result.knowledge_document_id == global_document.knowledge_document_id
+                && result.scope == "global"
+        ));
+    assert!(!second_results
+        .iter()
+        .any(|result| result.knowledge_document_id == workspace_document.knowledge_document_id));
+}
+
+#[test]
 fn knowledge_document_search_result_shape_and_snippet_cap_are_preserved() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Knowledge workspace");
@@ -204,6 +263,7 @@ fn knowledge_document_methods_reject_unknown_and_cross_workspace_access() {
         .update_knowledge_document(UpdateKnowledgeDocumentInput {
             workspace_id: second.id.clone(),
             knowledge_document_id: document.knowledge_document_id.clone(),
+            scope: None,
             title: "Other".to_owned(),
             source_label: "Other".to_owned(),
             content: "Other".to_owned(),

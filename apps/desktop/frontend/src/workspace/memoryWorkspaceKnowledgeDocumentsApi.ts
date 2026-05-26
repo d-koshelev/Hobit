@@ -2,6 +2,7 @@ import type { KnowledgeDocument, KnowledgeDocumentSearchResult } from "./types";
 import type { WorkspaceApi } from "./workspaceApiTypes";
 
 const documentsByWorkspaceId = new Map<string, KnowledgeDocument[]>();
+const globalDocuments: KnowledgeDocument[] = [];
 let nextDocumentId = 1;
 
 export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
@@ -9,7 +10,8 @@ export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
     const now = new Date().toISOString();
     const document: KnowledgeDocument = {
       knowledgeDocumentId: `dev_memory_kdoc_${nextDocumentId++}`,
-      workspaceId: request.workspaceId,
+      workspaceId: request.scope === "global" ? "" : request.workspaceId,
+      scope: request.scope ?? "workspace",
       title: request.title,
       sourceLabel: request.sourceLabel,
       content: request.content,
@@ -19,20 +21,24 @@ export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
       updatedAt: now,
     };
 
-    const documents = getWorkspaceDocuments(request.workspaceId);
-    documentsByWorkspaceId.set(request.workspaceId, [document, ...documents]);
+    if (document.scope === "global") {
+      globalDocuments.unshift(document);
+    } else {
+      const documents = getWorkspaceDocuments(request.workspaceId);
+      documentsByWorkspaceId.set(request.workspaceId, [document, ...documents]);
+    }
     return cloneDocument(document);
   };
 
 export const listKnowledgeDocuments: WorkspaceApi["listKnowledgeDocuments"] =
   async (request) => {
-    return getSortedWorkspaceDocuments(request.workspaceId).map(cloneDocument);
+    return getSortedVisibleDocuments(request.workspaceId).map(cloneDocument);
   };
 
 export const getKnowledgeDocument: WorkspaceApi["getKnowledgeDocument"] =
   async (request) => {
     const document =
-      getWorkspaceDocuments(request.workspaceId).find(
+      getVisibleDocuments(request.workspaceId).find(
         (candidate) =>
           candidate.knowledgeDocumentId === request.knowledgeDocumentId,
       ) ?? null;
@@ -42,8 +48,11 @@ export const getKnowledgeDocument: WorkspaceApi["getKnowledgeDocument"] =
 
 export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
   async (request) => {
-    const documents = getWorkspaceDocuments(request.workspaceId);
-    const documentIndex = documents.findIndex(
+    const currentDocuments = getMutableDocumentsForId(
+      request.workspaceId,
+      request.knowledgeDocumentId,
+    );
+    const documentIndex = currentDocuments.findIndex(
       (document) =>
         document.knowledgeDocumentId === request.knowledgeDocumentId,
     );
@@ -52,9 +61,12 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
       return null;
     }
 
-    const currentDocument = documents[documentIndex];
+    const currentDocument = currentDocuments[documentIndex];
+    const nextScope = request.scope ?? currentDocument.scope;
     const updatedDocument: KnowledgeDocument = {
       ...currentDocument,
+      workspaceId: nextScope === "global" ? "" : request.workspaceId,
+      scope: nextScope,
       title: request.title,
       sourceLabel: request.sourceLabel,
       content: request.content,
@@ -62,19 +74,29 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
       enabled: request.enabled,
       updatedAt: new Date().toISOString(),
     };
-    documentsByWorkspaceId.set(
-      request.workspaceId,
-      documents.map((document, index) =>
-        index === documentIndex ? updatedDocument : document,
-      ),
-    );
+    currentDocuments.splice(documentIndex, 1);
+    if (updatedDocument.scope === "global") {
+      globalDocuments.unshift(updatedDocument);
+    } else {
+      const documents = getWorkspaceDocuments(request.workspaceId);
+      documentsByWorkspaceId.set(request.workspaceId, [
+        updatedDocument,
+        ...documents.filter(
+          (document) =>
+            document.knowledgeDocumentId !== updatedDocument.knowledgeDocumentId,
+        ),
+      ]);
+    }
 
     return cloneDocument(updatedDocument);
   };
 
 export const deleteKnowledgeDocument: WorkspaceApi["deleteKnowledgeDocument"] =
   async (request) => {
-    const documents = getWorkspaceDocuments(request.workspaceId);
+    const documents = getMutableDocumentsForId(
+      request.workspaceId,
+      request.knowledgeDocumentId,
+    );
     const nextDocuments = documents.filter(
       (document) =>
         document.knowledgeDocumentId !== request.knowledgeDocumentId,
@@ -84,7 +106,11 @@ export const deleteKnowledgeDocument: WorkspaceApi["deleteKnowledgeDocument"] =
       return false;
     }
 
-    documentsByWorkspaceId.set(request.workspaceId, nextDocuments);
+    if (documents === globalDocuments) {
+      globalDocuments.splice(0, globalDocuments.length, ...nextDocuments);
+    } else {
+      documentsByWorkspaceId.set(request.workspaceId, nextDocuments);
+    }
     return true;
   };
 
@@ -95,12 +121,13 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
       return [];
     }
 
-    const results = getWorkspaceDocuments(request.workspaceId)
+    const results = getVisibleDocuments(request.workspaceId)
       .filter((document) => document.enabled)
       .flatMap((document) =>
         chunkDocumentContent(document.content).map((snippet, index) => ({
           knowledgeDocumentId: document.knowledgeDocumentId,
           documentTitle: document.title,
+          scope: document.scope,
           sourceLabel: document.sourceLabel,
           tags: document.tags,
           chunkId: `${document.knowledgeDocumentId}_chunk_${index}`,
@@ -120,8 +147,23 @@ function getWorkspaceDocuments(workspaceId: string) {
   return documentsByWorkspaceId.get(workspaceId) ?? [];
 }
 
-function getSortedWorkspaceDocuments(workspaceId: string) {
-  return [...getWorkspaceDocuments(workspaceId)].sort(compareDocuments);
+function getVisibleDocuments(workspaceId: string) {
+  return [...getWorkspaceDocuments(workspaceId), ...globalDocuments];
+}
+
+function getSortedVisibleDocuments(workspaceId: string) {
+  return getVisibleDocuments(workspaceId).sort(compareDocuments);
+}
+
+function getMutableDocumentsForId(
+  workspaceId: string,
+  knowledgeDocumentId: string,
+) {
+  return globalDocuments.some(
+    (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+  )
+    ? globalDocuments
+    : getWorkspaceDocuments(workspaceId);
 }
 
 function compareDocuments(left: KnowledgeDocument, right: KnowledgeDocument) {

@@ -221,6 +221,7 @@ export function codexPromptWithWorkspaceKnowledge(
     .map((result) =>
       [
         `[Doc: ${result.documentTitle}, chunk ${result.chunkIndex + 1}]`,
+        `Scope: ${knowledgeScopeLabel(result.scope)}`,
         result.snippet,
       ].join("\n"),
     )
@@ -234,6 +235,10 @@ export function codexPromptWithWorkspaceKnowledge(
     "User request:",
     operatorPrompt,
   ].join("\n");
+}
+
+export function knowledgeScopeLabel(scope: KnowledgeDocumentSearchResult["scope"]) {
+  return scope === "global" ? "Global" : "Workspace";
 }
 
 export function shortCodexThreadId(threadId: string): string {

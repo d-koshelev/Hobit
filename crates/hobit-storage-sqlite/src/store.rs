@@ -118,6 +118,7 @@ impl SqliteStore {
 
     fn upgrade_schema(&self) -> Result<()> {
         self.upgrade_widget_logs_schema()?;
+        self.upgrade_knowledge_documents_schema()?;
         self.ensure_column(
             "widget_results",
             "result_type",
@@ -135,6 +136,107 @@ impl SqliteStore {
             "execution_policy TEXT NOT NULL DEFAULT 'manual'",
         )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
+        Ok(())
+    }
+
+    fn upgrade_knowledge_documents_schema(&self) -> Result<()> {
+        let document_columns = self.table_columns("knowledge_documents")?;
+        let chunk_columns = self.table_columns("knowledge_document_chunks")?;
+        let document_has_scope = document_columns.iter().any(|column| column.name == "scope");
+        let chunks_have_scope = chunk_columns.iter().any(|column| column.name == "scope");
+        let document_workspace_not_null = document_columns
+            .iter()
+            .find(|column| column.name == "workspace_id")
+            .is_some_and(|column| column.not_null);
+        let chunk_workspace_not_null = chunk_columns
+            .iter()
+            .find(|column| column.name == "workspace_id")
+            .is_some_and(|column| column.not_null);
+
+        if document_has_scope
+            && chunks_have_scope
+            && !document_workspace_not_null
+            && !chunk_workspace_not_null
+        {
+            return Ok(());
+        }
+
+        let document_scope_expression = if document_has_scope {
+            "COALESCE(scope, 'workspace')"
+        } else {
+            "'workspace'"
+        };
+        let chunk_scope_expression = if chunks_have_scope {
+            "COALESCE(scope, 'workspace')"
+        } else {
+            "'workspace'"
+        };
+
+        let sql = format!(
+            r#"
+            ALTER TABLE knowledge_document_chunks RENAME TO knowledge_document_chunks_legacy;
+            ALTER TABLE knowledge_documents RENAME TO knowledge_documents_legacy;
+
+            CREATE TABLE knowledge_documents (
+                knowledge_document_id TEXT PRIMARY KEY,
+                workspace_id TEXT NULL REFERENCES workspaces(id),
+                scope TEXT NOT NULL DEFAULT 'workspace',
+                title TEXT NOT NULL,
+                source_label TEXT NOT NULL,
+                content TEXT NOT NULL,
+                tags TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE knowledge_document_chunks (
+                chunk_id TEXT PRIMARY KEY,
+                knowledge_document_id TEXT NOT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE CASCADE,
+                workspace_id TEXT NULL REFERENCES workspaces(id),
+                scope TEXT NOT NULL DEFAULT 'workspace',
+                chunk_index INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            INSERT INTO knowledge_documents (
+                knowledge_document_id, workspace_id, scope, title, source_label,
+                content, tags, enabled, created_at, updated_at
+            )
+            SELECT
+                knowledge_document_id,
+                workspace_id,
+                {document_scope_expression},
+                title,
+                source_label,
+                content,
+                tags,
+                enabled,
+                created_at,
+                updated_at
+            FROM knowledge_documents_legacy;
+
+            INSERT INTO knowledge_document_chunks (
+                chunk_id, knowledge_document_id, workspace_id, scope,
+                chunk_index, text, created_at
+            )
+            SELECT
+                chunk_id,
+                knowledge_document_id,
+                workspace_id,
+                {chunk_scope_expression},
+                chunk_index,
+                text,
+                created_at
+            FROM knowledge_document_chunks_legacy;
+
+            DROP TABLE knowledge_document_chunks_legacy;
+            DROP TABLE knowledge_documents_legacy;
+            "#
+        );
+
+        self.connection.execute_batch(&sql)?;
         Ok(())
     }
 

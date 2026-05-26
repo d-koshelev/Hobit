@@ -158,6 +158,7 @@ pub(super) fn knowledge_document_summary(row: KnowledgeDocumentRow) -> Knowledge
     KnowledgeDocumentSummary {
         knowledge_document_id: row.knowledge_document_id,
         workspace_id: row.workspace_id,
+        scope: row.scope,
         title: row.title,
         source_label: row.source_label,
         content: row.content,
@@ -175,6 +176,7 @@ pub(super) fn knowledge_document_search_result_summary(
     KnowledgeDocumentSearchResultSummary {
         knowledge_document_id: row.knowledge_document_id,
         document_title: row.document_title,
+        scope: row.scope,
         source_label: row.source_label,
         tags: row.tags,
         chunk_id: row.chunk_id,

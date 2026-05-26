@@ -213,13 +213,14 @@ pub(crate) fn knowledge_document_row(row: &rusqlite::Row<'_>) -> Result<Knowledg
     Ok(KnowledgeDocumentRow {
         knowledge_document_id: row.get(0)?,
         workspace_id: row.get(1)?,
-        title: row.get(2)?,
-        source_label: row.get(3)?,
-        content: row.get(4)?,
-        tags: row.get(5)?,
-        enabled: i64_to_bool(row.get(6)?),
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        scope: row.get(2)?,
+        title: row.get(3)?,
+        source_label: row.get(4)?,
+        content: row.get(5)?,
+        tags: row.get(6)?,
+        enabled: i64_to_bool(row.get(7)?),
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 
@@ -230,9 +231,10 @@ pub(crate) fn knowledge_document_chunk_row(
         chunk_id: row.get(0)?,
         knowledge_document_id: row.get(1)?,
         workspace_id: row.get(2)?,
-        chunk_index: row.get(3)?,
-        text: row.get(4)?,
-        created_at: row.get(5)?,
+        scope: row.get(3)?,
+        chunk_index: row.get(4)?,
+        text: row.get(5)?,
+        created_at: row.get(6)?,
     })
 }
 

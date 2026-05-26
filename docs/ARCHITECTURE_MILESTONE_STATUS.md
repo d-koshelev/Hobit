@@ -32,9 +32,10 @@ behavior, or Workspace Agent context wiring.
 - Knowledge / Skills / Evidence / Context Pack product boundaries are
   documented.
 - Minimal Skill Library / Knowledge MVP exists as workspace-local
-  operator-authored Skill CRUD plus workspace-local plain-text/Markdown
-  Knowledge Document CRUD/search with local SQLite storage, deterministic
-  chunks, narrow Tauri APIs, and a preview widget.
+  operator-authored Skill CRUD plus scoped plain-text/Markdown Knowledge
+  Document CRUD/search with local SQLite storage, deterministic chunks, narrow
+  Tauri APIs, and a preview widget. Knowledge Documents can be workspace-local
+  or local-global within this desktop database.
 - Knowledge / Evidence core refs v0 exist as type-only Rust refs.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Workspace Agent context boundary inspection confirmed current provider requests
@@ -88,14 +89,15 @@ behavior, or Workspace Agent context wiring.
 - Workspace Agent can draft visible Knowledge Document and Skill creation
   proposals from visible conversation content or visible `hobit-catalog-action`
   fenced JSON blocks in assistant/Codex text. Creation remains a separate
-  operator action after approval, writes only workspace-local Skill Library /
+  operator action after approval, defaults to workspace-local Skill Library /
   Knowledge records, and does not scan or ingest Notes, files, Executor logs,
-  Queue history, Git/JDBC/Terminal state, Evidence, Context Packs, global/team
+  Queue history, Git/JDBC/Terminal state, Evidence, Context Packs, team/server
   knowledge, embeddings, or binary documents.
 - Workspace Agent-owned Codex runs automatically check enabled workspace-local
-  Knowledge Documents before Run with Codex. Retrieval uses the latest composer
-  message as the lexical query, returns capped snippets, shows the used
-  knowledge/no-match state in Direct Work details, and adds matching snippets
+  Knowledge Documents plus enabled local-global Knowledge Documents before Run
+  with Codex. Retrieval uses the latest composer message as the lexical query,
+  returns capped snippets, shows the used knowledge/no-match state in Direct
+  Work details with Workspace/Global scope labels, and adds matching snippets
   only to that run's Codex prompt.
 - Workspace Agent Direct Mode v0 exists as a local desktop foreground Codex Direct
   Work path owned by Workspace Agent. It is off by default, uses the current
@@ -130,7 +132,7 @@ behavior, or Workspace Agent context wiring.
   storage, resolver, ingestion path, or UI.
 - Skill Library / Knowledge storage/API/UI does not create Knowledge Items,
   Evidence, Context Packs, Artifact links, Runbook execution, hidden memory,
-  global/team sharing, embeddings/vector DB, PDF/DOCX parsing, or RBAC.
+  team/server sharing, embeddings/vector DB, PDF/DOCX parsing, or RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
   Workspace Agent context wiring, provider prompt wiring, or sharing behavior.
 
@@ -176,7 +178,7 @@ sent to a provider.
 
 - artifact store;
 - evidence store;
-- full Knowledge Item store beyond workspace-local plain-text Knowledge Documents;
+- full Knowledge Item store beyond scoped plain-text Knowledge Documents;
 - Context Pack UI or storage;
 - Context Pack provider wiring;
 - hidden prompt augmentation;

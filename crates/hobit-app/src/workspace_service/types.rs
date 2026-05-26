@@ -416,6 +416,7 @@ pub struct SkillSummary {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CreateKnowledgeDocumentInput {
     pub workspace_id: String,
+    pub scope: Option<String>,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -427,6 +428,7 @@ pub struct CreateKnowledgeDocumentInput {
 pub struct UpdateKnowledgeDocumentInput {
     pub workspace_id: String,
     pub knowledge_document_id: String,
+    pub scope: Option<String>,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -451,6 +453,7 @@ pub struct SearchKnowledgeDocumentsInput {
 pub struct KnowledgeDocumentSummary {
     pub knowledge_document_id: String,
     pub workspace_id: String,
+    pub scope: String,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -464,6 +467,7 @@ pub struct KnowledgeDocumentSummary {
 pub struct KnowledgeDocumentSearchResultSummary {
     pub knowledge_document_id: String,
     pub document_title: String,
+    pub scope: String,
     pub source_label: String,
     pub tags: String,
     pub chunk_id: String,

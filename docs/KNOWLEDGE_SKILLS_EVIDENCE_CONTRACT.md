@@ -6,52 +6,55 @@ This contract defines Hobit's Knowledge, Skills, Evidence, Context Pack, and
 Runbook boundaries.
 
 It is primarily an architecture contract. The current implemented product
-slice is the Minimal Skill Library MVP plus workspace-local plain-text
-Knowledge Documents described here. This contract does not implement an
+slice is the Minimal Skill Library MVP plus scoped plain-text Knowledge
+Documents described here. This contract does not implement an
 Evidence store, Context Pack runtime, audit emission, server runtime,
 enterprise/RBAC behavior, permissions, or broad runtime behavior changes.
 
 ## Current Status
 
-Hobit currently has workspace-local Knowledge Documents for plain-text or
-Markdown reference material explicitly added through the Skill Library /
-Knowledge widget. The widget supports manual document authoring and explicit
-single-file import for `.txt`, `.md`, and `.markdown` files. Documents are
-chunked deterministically and searched with bounded lexical search only. This
-is not a Knowledge Item/Evidence/Context Pack store and is not global/team
-knowledge.
+Hobit currently has workspace-local and local-global Knowledge Documents for
+plain-text or Markdown reference material explicitly added through the Skill
+Library / Knowledge widget. Workspace documents belong to one Workspace only.
+Global documents are local-user/global records available across Workspaces in
+this desktop database. The widget supports manual document authoring and
+explicit single-file import for `.txt`, `.md`, and `.markdown` files.
+Documents are chunked deterministically and searched with bounded lexical
+search only. This is not a Knowledge Item/Evidence/Context Pack store and is
+not team/server knowledge.
 
 Hobit currently has no implemented evidence store.
 
 Hobit currently has a Minimal Skill Library / Knowledge widget for
-workspace-local operator-authored Skill records and Knowledge Documents. It
+workspace-local operator-authored Skill records and scoped Knowledge Documents. It
 supports explicit create/list/read/update/delete of simple text Skill records
 with review status and tags, and explicit create/list/read/update/delete/search
 of Knowledge Documents with title, source label, content, tags, enabled flag,
-and chunks. Explicit text/Markdown import creates Knowledge Documents through
-the same document create path. The operator can explicitly attach the selected
-Skill to Workspace Agent as visible current-session composer context.
+scope, and chunks. Explicit text/Markdown import creates Knowledge Documents
+through the same document create path. The operator can explicitly attach the
+selected Skill to Workspace Agent as visible current-session composer context.
 Workspace Agent can also draft visible catalog creation proposals from explicit
 visible conversation content or safe `hobit-catalog-action` fenced JSON in
 visible assistant/Codex text. Creating the proposed Knowledge Document or Skill
-requires operator approval plus a separate explicit create action, writes only
+requires operator approval plus a separate explicit create action, defaults to
 workspace-local catalog records, and does not read hidden Workspace data.
 
 The Skill Library / Knowledge MVP is not an Evidence store, Context Pack
-builder, Runbook executor, hidden AI memory layer, global/team knowledge
+builder, Runbook executor, hidden AI memory layer, team/server knowledge
 system, or hidden Workspace Agent context provider. Skills are not searched,
 selected, or sent to Workspace Agent or a provider unless the operator uses the
 explicit visible attach action and then sends visible Workspace Agent text.
-Enabled Knowledge Documents may be automatically searched by Workspace Agent
-before an explicit Run with Codex. Retrieved snippets are capped, visible in
-the Direct Work details, and added only to that run's Codex prompt.
+Enabled workspace-local and enabled local-global Knowledge Documents may be
+automatically searched by Workspace Agent before an explicit Run with Codex.
+Retrieved snippets are capped, visible in the Direct Work details with
+Workspace/Global scope labels, and added only to that run's Codex prompt.
 
 The current Rust reference vocabulary lives in
 `crates/hobit-app/src/knowledge/`. It is mostly type-only scaffolding for
 Knowledge, Skill, Runbook, Evidence, Evidence Source, and Knowledge/Evidence
 links. The implemented Skill Library storage/API/UI is separate workspace-local
-MVP behavior, and Knowledge Documents are separate workspace-local plain-text
-records. These refs do not implement Knowledge Item storage, Evidence storage,
+MVP behavior, and Knowledge Documents are separate scoped plain-text records.
+These refs do not implement Knowledge Item storage, Evidence storage,
 Context Pack storage, a resolver, Workspace Agent capability wiring, or broad
 runtime behavior.
 
@@ -75,14 +78,15 @@ Workspace Agent does not silently ingest Skills, Notes, artifacts, logs,
 runtime output, Git diffs, SQL, Terminal output, files, or provider text. Skill
 attachments are visible editable composer text only and include only the
 selected Skill's title, when-to-use, prerequisites, steps, validation, risks,
-tags, and review status. Knowledge Document retrieval is workspace-local,
-enabled-document-only, capped, visible, and lexical; it does not search hidden
-filesystem content, Notes, disabled documents, Skills, global/team knowledge,
-Evidence, or Context Packs. Current provider requests use visible
-current-session chat context and `allowed_tools: []`.
+tags, and review status. Knowledge Document retrieval checks enabled documents
+for the active Workspace plus enabled local-global documents; it is capped,
+visible, lexical, and labels each used snippet as Workspace or Global. It does
+not search hidden filesystem content, Notes, disabled documents, Skills,
+team/server knowledge, Evidence, or Context Packs. Current provider requests
+use visible current-session chat context and `allowed_tools: []`.
 Catalog proposal drafting uses only visible conversation text or visible
 assistant/Codex fenced catalog action blocks. It does not scan the filesystem,
-auto-ingest Notes, Executor logs, Git/JDBC/Terminal/Queue data, global/team
+auto-ingest Notes, Executor logs, Git/JDBC/Terminal/Queue data, team/server
 knowledge, Evidence, Context Packs, embeddings, or binary documents.
 
 ## Core Concepts
@@ -280,7 +284,7 @@ Runbook engine behavior beyond that Skill Library MVP.
 
 This contract does not add:
 
-- full Knowledge Item store beyond workspace-local plain-text Knowledge Documents;
+- full Knowledge Item store beyond scoped plain-text Knowledge Documents;
 - embeddings/vector database;
 - PDF/DOCX parsing or binary ingestion;
 - folder scanning, recursive ingestion, filesystem watchers, or hidden file
@@ -302,7 +306,7 @@ This contract does not add:
 - permissions;
 - schema changes beyond Skill Library MVP storage;
 - frontend behavior changes beyond Skill Library / Knowledge MVP UI,
-  workspace-local document search, and explicit selected Skill attach to
+  scoped document search, and explicit selected Skill attach to
   Workspace Agent;
 - Tauri commands or DTO changes beyond Skill Library MVP CRUD;
 - Queue, Direct Work, Terminal, Git, JDBC, Workspace Agent, Notes, or Runbook

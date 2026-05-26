@@ -24,6 +24,7 @@ fn create_document(
         .create_knowledge_document(NewKnowledgeDocument {
             knowledge_document_id: document_id,
             workspace_id,
+            scope: None,
             title,
             source_label: "Manual paste",
             content,
@@ -49,6 +50,7 @@ fn create_document_with_metadata(
         .create_knowledge_document(NewKnowledgeDocument {
             knowledge_document_id: document_id,
             workspace_id,
+            scope: None,
             title,
             source_label,
             content,
@@ -76,6 +78,7 @@ fn create_list_get_update_and_delete_knowledge_document() {
 
     assert_eq!(document.knowledge_document_id, "doc-1");
     assert_eq!(document.workspace_id, "workspace-1");
+    assert_eq!(document.scope, "workspace");
     assert_eq!(document.title, "Deploy Guide");
     assert_eq!(document.source_label, "Manual paste");
     assert_eq!(document.tags, "deploy, runbook");
@@ -96,6 +99,7 @@ fn create_list_get_update_and_delete_knowledge_document() {
             "workspace-1",
             "doc-1",
             KnowledgeDocumentUpdate {
+                scope: None,
                 title: "Updated",
                 source_label: "README.md",
                 content: "Updated rollback procedure.",
@@ -149,6 +153,7 @@ fn chunks_are_created_updated_and_deleted_with_document() {
             "workspace-1",
             "doc-1",
             KnowledgeDocumentUpdate {
+                scope: None,
                 title: "Chunked",
                 source_label: "Manual paste",
                 content: "Replacement content about rollback.",
@@ -233,6 +238,45 @@ fn disabled_documents_are_not_searched() {
 }
 
 #[test]
+fn create_global_document_and_list_with_workspace_documents() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    let workspace_document = create_document(
+        &store,
+        "workspace-1",
+        "doc-workspace",
+        "Workspace deploy guide",
+        "Workspace-specific deployment notes.",
+        true,
+    );
+    let global_document = store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-global",
+            workspace_id: "workspace-1",
+            scope: Some("global"),
+            title: "Global Vertica EON troubleshooting",
+            source_label: "Global paste",
+            content: "Global EON troubleshooting content.",
+            tags: "global, eon",
+            enabled: true,
+            created_at: Some("2"),
+            updated_at: Some("2"),
+        })
+        .expect("create global document");
+
+    assert_eq!(global_document.workspace_id, "");
+    assert_eq!(global_document.scope, "global");
+
+    let listed = store
+        .list_knowledge_documents_for_workspace("workspace-1")
+        .expect("list all visible documents");
+    assert_eq!(listed.len(), 2);
+    assert!(listed.contains(&workspace_document));
+    assert!(listed.contains(&global_document));
+}
+
+#[test]
 fn lexical_search_finds_title_tag_source_and_content_matches() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
@@ -299,6 +343,117 @@ fn search_is_workspace_scoped() {
         .expect("search documents");
 
     assert!(results.is_empty());
+}
+
+#[test]
+fn search_includes_global_documents_for_each_workspace_without_cross_workspace_leaks() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-a");
+    create_workspace(&store, "workspace-b");
+    create_document(
+        &store,
+        "workspace-a",
+        "doc-a",
+        "Falcon deployment notes",
+        "Falcon workspace A needle.",
+        true,
+    );
+    create_document(
+        &store,
+        "workspace-b",
+        "doc-b",
+        "Bison deployment notes",
+        "Bison workspace B needle.",
+        true,
+    );
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-global",
+            workspace_id: "workspace-a",
+            scope: Some("global"),
+            title: "Global Vertica EON troubleshooting",
+            source_label: "Global paste",
+            content: "Global EON needle.",
+            tags: "global",
+            enabled: true,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create global document");
+
+    let workspace_a_results = store
+        .search_knowledge_documents("workspace-a", "needle", 10)
+        .expect("search workspace a");
+    let workspace_b_results = store
+        .search_knowledge_documents("workspace-b", "needle", 10)
+        .expect("search workspace b");
+
+    assert!(workspace_a_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-a" && result.scope == "workspace"));
+    assert!(workspace_a_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-global" && result.scope == "global"));
+    assert!(!workspace_a_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-b"));
+    assert!(workspace_b_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-b" && result.scope == "workspace"));
+    assert!(workspace_b_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-global" && result.scope == "global"));
+    assert!(!workspace_b_results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-a"));
+}
+
+#[test]
+fn disabled_and_deleted_global_documents_are_not_searched() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-global-disabled",
+            workspace_id: "workspace-1",
+            scope: Some("global"),
+            title: "Disabled global",
+            source_label: "Global paste",
+            content: "disabledglobal needle.",
+            tags: "",
+            enabled: false,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create disabled global document");
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-global-delete",
+            workspace_id: "workspace-1",
+            scope: Some("global"),
+            title: "Deleted global",
+            source_label: "Global paste",
+            content: "deletedglobal needle.",
+            tags: "",
+            enabled: true,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create deleted global document");
+
+    assert!(store
+        .delete_knowledge_document("workspace-1", "doc-global-delete")
+        .expect("delete global document"));
+
+    let results = store
+        .search_knowledge_documents("workspace-1", "disabledglobal deletedglobal", 10)
+        .expect("search global documents");
+
+    assert!(results.is_empty());
+    assert!(store
+        .list_knowledge_document_chunks("workspace-1", "doc-global-delete")
+        .expect("list deleted global chunks")
+        .is_empty());
 }
 
 #[test]

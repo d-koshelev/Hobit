@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
 pub(crate) struct CreateKnowledgeDocumentRequest {
     pub workspace_id: String,
+    #[serde(default)]
+    pub scope: Option<String>,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -30,6 +32,8 @@ pub(crate) struct GetKnowledgeDocumentRequest {
 pub(crate) struct UpdateKnowledgeDocumentRequest {
     pub workspace_id: String,
     pub knowledge_document_id: String,
+    #[serde(default)]
+    pub scope: Option<String>,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -54,6 +58,7 @@ pub(crate) struct SearchKnowledgeDocumentsRequest {
 pub(crate) struct KnowledgeDocumentDto {
     pub knowledge_document_id: String,
     pub workspace_id: String,
+    pub scope: String,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -67,6 +72,7 @@ pub(crate) struct KnowledgeDocumentDto {
 pub(crate) struct KnowledgeDocumentSearchResultDto {
     pub knowledge_document_id: String,
     pub document_title: String,
+    pub scope: String,
     pub source_label: String,
     pub tags: String,
     pub chunk_id: String,
@@ -79,6 +85,7 @@ impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
     fn from(request: CreateKnowledgeDocumentRequest) -> Self {
         Self {
             workspace_id: request.workspace_id,
+            scope: request.scope,
             title: request.title,
             source_label: request.source_label,
             content: request.content,
@@ -93,6 +100,7 @@ impl From<UpdateKnowledgeDocumentRequest> for UpdateKnowledgeDocumentInput {
         Self {
             workspace_id: request.workspace_id,
             knowledge_document_id: request.knowledge_document_id,
+            scope: request.scope,
             title: request.title,
             source_label: request.source_label,
             content: request.content,
@@ -126,6 +134,7 @@ impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
         Self {
             knowledge_document_id: summary.knowledge_document_id,
             workspace_id: summary.workspace_id,
+            scope: summary.scope,
             title: summary.title,
             source_label: summary.source_label,
             content: summary.content,
@@ -142,6 +151,7 @@ impl From<KnowledgeDocumentSearchResultSummary> for KnowledgeDocumentSearchResul
         Self {
             knowledge_document_id: summary.knowledge_document_id,
             document_title: summary.document_title,
+            scope: summary.scope,
             source_label: summary.source_label,
             tags: summary.tags,
             chunk_id: summary.chunk_id,

@@ -21,6 +21,8 @@ export type SkillLibraryDocumentsPanelHandle = {
   startNewDocument: () => void;
 };
 
+type KnowledgeDocumentScopeFilter = "workspace" | "global" | "all";
+
 export type SkillLibraryDocumentsToolbarState = {
   isNewDisabled: boolean;
 };
@@ -70,11 +72,23 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [isImportingDocument, setIsImportingDocument] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
   const [documentImportPath, setDocumentImportPath] = useState("");
+  const [documentImportScope, setDocumentImportScope] =
+    useState<KnowledgeDocumentDraft["scope"]>("workspace");
+  const [scopeFilter, setScopeFilter] =
+    useState<KnowledgeDocumentScopeFilter>("all");
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const isDocumentDirty = useMemo(
     () => isKnowledgeDocumentDraftDirty(documentDraft, selectedDocument),
     [documentDraft, selectedDocument],
+  );
+  const visibleDocuments = useMemo(
+    () =>
+      documents.filter(
+        (document) =>
+          scopeFilter === "all" || document.scope === scopeFilter,
+      ),
+    [documents, scopeFilter],
   );
 
   useEffect(() => {
@@ -213,6 +227,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
 
     try {
       const request = {
+        scope: documentDraft.scope,
         title: documentTitle,
         sourceLabel: documentDraft.sourceLabel,
         content: documentDraft.content,
@@ -309,6 +324,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       const importedFile = await onReadKnowledgeDocumentImportFile({ path });
       const importedDocument = await onCreateKnowledgeDocument({
         title: importedFile.title,
+        scope: documentImportScope,
         sourceLabel: importedFile.fileName,
         content: importedFile.content,
         tags: "",
@@ -318,6 +334,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       setSelectedDocumentDraft(importedDocument);
       await loadDocuments(importedDocument.knowledgeDocumentId);
       setDocumentImportPath("");
+      setDocumentImportScope("workspace");
       setDocumentMessage("Imported document");
     } catch (importError) {
       setDocumentError(
@@ -362,9 +379,27 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       <div className="skill-library-summary skill-library-summary-secondary">
         <span>Plain-text or Markdown reference documents.</span>
         <span>
-          Workspace Agent can search enabled workspace documents. Used documents
-          are shown in the answer context.
+          Workspace Agent can search enabled workspace and global documents.
+          Used documents show scope in the answer context.
         </span>
+      </div>
+      <div className="skill-scope-filter" aria-label="Document scope filter">
+        {(["workspace", "global", "all"] as const).map((filter) => (
+          <button
+            aria-pressed={scopeFilter === filter}
+            className={[
+              "skill-scope-filter-button",
+              scopeFilter === filter ? "skill-scope-filter-button-active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            key={filter}
+            onClick={() => setScopeFilter(filter)}
+            type="button"
+          >
+            {scopeFilterLabel(filter)}
+          </button>
+        ))}
       </div>
       <div className="skill-document-import">
         <label className="skill-field skill-document-import-path">
@@ -379,6 +414,23 @@ export const SkillLibraryDocumentsPanel = forwardRef<
             placeholder="Path to .txt, .md, or .markdown file"
             value={documentImportPath}
           />
+        </label>
+        <label className="skill-field skill-document-import-scope">
+          <span>Import as</span>
+          <select
+            className="input"
+            onChange={(event) =>
+              setDocumentImportScope(
+                event.currentTarget.value === "global"
+                  ? "global"
+                  : "workspace",
+              )
+            }
+            value={documentImportScope}
+          >
+            <option value="workspace">Workspace document</option>
+            <option value="global">Global document</option>
+          </select>
         </label>
         <Button
           disabled={
@@ -409,14 +461,14 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       ) : (
         <div className="skill-library-layout">
           <aside className="skill-list-pane" aria-label="Documents">
-            {documents.length === 0 ? (
+            {visibleDocuments.length === 0 ? (
               <EmptyState
-                text="Add the first workspace-local reference document for this workspace."
+                text={emptyDocumentText(scopeFilter)}
                 title="No documents yet."
               />
             ) : (
               <div className="skill-list">
-                {documents.map((document) => (
+                {visibleDocuments.map((document) => (
                   <button
                     className={[
                       "skill-list-row",
@@ -434,7 +486,12 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                     }
                     type="button"
                   >
-                    <span className="skill-list-title">{document.title}</span>
+                    <span className="skill-list-title-row">
+                      <span className="skill-list-title">{document.title}</span>
+                      <span className="skill-scope-badge">
+                        {knowledgeDocumentScopeLabel(document.scope)}
+                      </span>
+                    </span>
                     <span className="skill-list-meta">
                       {document.enabled ? "Enabled" : "Disabled"}
                       {document.tags ? ` - ${document.tags}` : ""}
@@ -457,6 +514,25 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                   placeholder={DEFAULT_DOCUMENT_TITLE}
                   value={documentDraft.title}
                 />
+              </label>
+
+              <label className="skill-field">
+                <span>Scope</span>
+                <select
+                  className="input"
+                  onChange={(event) =>
+                    setDocumentDraftField(
+                      "scope",
+                      event.currentTarget.value === "global"
+                        ? "global"
+                        : "workspace",
+                    )
+                  }
+                  value={documentDraft.scope}
+                >
+                  <option value="workspace">Workspace</option>
+                  <option value="global">Global</option>
+                </select>
               </label>
 
               <label className="skill-field">
@@ -543,8 +619,8 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 </Button>
               </div>
               <p className="skill-attach-note">
-                Enabled saved documents may be searched before Run with Codex.
-                Disabled documents are ignored.
+                Enabled saved workspace and global documents may be searched
+                before Run with Codex. Disabled documents are ignored.
               </p>
               {documentMessage ? (
                 <p className="skill-message">{documentMessage}</p>
@@ -568,4 +644,32 @@ function errorToMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function scopeFilterLabel(filter: KnowledgeDocumentScopeFilter) {
+  switch (filter) {
+    case "workspace":
+      return "Workspace";
+    case "global":
+      return "Global";
+    case "all":
+    default:
+      return "All";
+  }
+}
+
+function knowledgeDocumentScopeLabel(scope: KnowledgeDocument["scope"]) {
+  return scope === "global" ? "Global" : "Workspace";
+}
+
+function emptyDocumentText(filter: KnowledgeDocumentScopeFilter) {
+  if (filter === "global") {
+    return "Add the first local-global reference document for this desktop database.";
+  }
+
+  if (filter === "workspace") {
+    return "Add the first workspace-local reference document for this workspace.";
+  }
+
+  return "Add the first workspace-local or local-global reference document.";
 }

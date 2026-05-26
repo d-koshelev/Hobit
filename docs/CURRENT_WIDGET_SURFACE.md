@@ -412,21 +412,23 @@ Workspace Agent is the foreground interactive agent surface.
 
 ### Skill Library / Knowledge
 
-- Current preview workspace-local Skill Library / Knowledge widget. It uses the
+- Current preview Skill Library / Knowledge widget. It uses the
   existing Skill Library widget identity and adds a Documents tab.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
-- Provides explicit workspace-local Knowledge Document create, list, read,
-  update, delete, and search flows through separate Knowledge Document APIs.
+- Provides explicit Knowledge Document create, list, read, update, delete, and
+  search flows through separate Knowledge Document APIs. Knowledge Documents
+  can be workspace-local or local-global.
 - Provides explicit operator-triggered import of one plain text or Markdown
-  file (`.txt`, `.md`, `.markdown`) into a workspace-local Knowledge Document.
+  file (`.txt`, `.md`, `.markdown`) into a workspace-local or local-global
+  Knowledge Document.
   Imported content is stored through the same Knowledge Document create path as
   manually authored documents.
 - Workspace Agent can create new workspace-local Knowledge Documents and Skills
   only from approved visible catalog proposal drafts plus a separate explicit
   create action. Drafts use visible conversation/assistant text only and do not
   read Notes, files, logs, Queue/Executor output, Git/JDBC/Terminal state,
-  Evidence, Context Packs, global/team knowledge, or hidden Workspace context.
+  Evidence, Context Packs, team/server knowledge, or hidden Workspace context.
 - Desktop/Tauri persists Skills through local SQLite-backed workspace Skill
   APIs. Browser/Vite development mode uses a frontend-only, non-persistent
   in-memory Skill API for create/list/read/update/delete UI iteration.
@@ -437,12 +439,15 @@ Workspace Agent is the foreground interactive agent surface.
 - Skill records are text fields for reusable work instructions: title, when to
   use, prerequisites, steps, validation, risks, tags, and review status.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
-- Knowledge Documents are workspace-local plain-text/Markdown reference records
-  with title, source label, content, tags, enabled flag, and deterministic text
-  chunks. Import is limited to explicit single-file plain text/Markdown reads.
+- Knowledge Documents are plain-text/Markdown reference records with title,
+  source label, content, tags, enabled flag, scope, and deterministic text
+  chunks. Workspace-scoped documents belong only to one Workspace. Global
+  documents are local-user/global records available across Workspaces in this
+  desktop database. Import is limited to explicit single-file plain
+  text/Markdown reads.
   No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
   embeddings, vector database, Evidence store, Context Pack builder,
-  global/team sharing, server runtime, or RBAC is implemented.
+  team/server sharing, server runtime, or RBAC is implemented.
 - Skill Library is workspace-local and operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
@@ -454,14 +459,15 @@ Workspace Agent is the foreground interactive agent surface.
   include Skills in provider prompts, and does not create hidden provider
   context.
 - Workspace Agent-owned Codex runs automatically check enabled workspace-local
-  Knowledge Documents before Run with Codex using the latest composer message
-  as the search query. Matching snippets are capped, included visibly in the
-  Direct Work details, and added to the Codex prompt only for that run. No
-  disabled documents, Skills, Notes, files, logs, or hidden Workspace context
-  are searched by this path.
+  Knowledge Documents plus enabled local-global Knowledge Documents before Run
+  with Codex using the latest composer message as the search query. Matching
+  snippets are capped, included visibly in the Direct Work details with
+  Workspace/Global scope labels, and added to the Codex prompt only for that
+  run. No disabled documents, Skills, Notes, files, logs, or hidden Workspace
+  context are searched by this path.
 - Skill Library / Knowledge does not implement Knowledge Items, Evidence links,
   Context Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook
-  execution, tool execution, global/team sharing, RBAC, embeddings/vector DB,
+  execution, tool execution, team/server sharing, RBAC, embeddings/vector DB,
   PDF/DOCX parsing, folder scanning, filesystem watchers, hidden ingestion, or
   server runtime behavior.
 

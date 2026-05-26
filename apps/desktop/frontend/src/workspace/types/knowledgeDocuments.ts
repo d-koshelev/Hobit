@@ -1,5 +1,8 @@
+export type KnowledgeDocumentScope = "workspace" | "global";
+
 export type CreateKnowledgeDocumentRequest = {
   workspaceId: string;
+  scope?: KnowledgeDocumentScope;
   title: string;
   sourceLabel: string;
   content: string;
@@ -19,6 +22,7 @@ export type GetKnowledgeDocumentRequest = {
 export type UpdateKnowledgeDocumentRequest = {
   workspaceId: string;
   knowledgeDocumentId: string;
+  scope?: KnowledgeDocumentScope;
   title: string;
   sourceLabel: string;
   content: string;
@@ -50,6 +54,7 @@ export type KnowledgeDocumentImportFile = {
 export type KnowledgeDocument = {
   knowledgeDocumentId: string;
   workspaceId: string;
+  scope: KnowledgeDocumentScope;
   title: string;
   sourceLabel: string;
   content: string;
@@ -62,6 +67,7 @@ export type KnowledgeDocument = {
 export type KnowledgeDocumentSearchResult = {
   knowledgeDocumentId: string;
   documentTitle: string;
+  scope: KnowledgeDocumentScope;
   sourceLabel: string;
   tags: string;
   chunkId: string;

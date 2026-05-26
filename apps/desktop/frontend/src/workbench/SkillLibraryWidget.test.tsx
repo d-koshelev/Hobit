@@ -265,7 +265,7 @@ describe("SkillLibraryWidget", () => {
 
     expect(document.body.textContent).toContain("No documents yet.");
     expect(document.body.textContent).toContain(
-      "Workspace Agent can search enabled workspace documents.",
+      "Workspace Agent can search enabled workspace and global documents.",
     );
 
     await changeInput('input[placeholder="Untitled document"]', "API docs");
@@ -278,6 +278,7 @@ describe("SkillLibraryWidget", () => {
       expect.objectContaining({
         content: "Use this API reference for onboarding.",
         enabled: true,
+        scope: "workspace",
         sourceLabel: "README.md",
         tags: "api, docs",
         title: "API docs",
@@ -293,6 +294,7 @@ describe("SkillLibraryWidget", () => {
       expect.objectContaining({
         enabled: false,
         knowledgeDocumentId: "doc_created",
+        scope: "workspace",
         title: "Updated API docs",
       }),
     );
@@ -355,6 +357,7 @@ describe("SkillLibraryWidget", () => {
       expect.objectContaining({
         content: "# Imported\n\nUse this imported reference.",
         enabled: true,
+        scope: "workspace",
         sourceLabel: "README.md",
         tags: "",
         title: "README",
@@ -362,6 +365,71 @@ describe("SkillLibraryWidget", () => {
     );
     expect(document.body.textContent).toContain("Imported document");
     expect(document.body.textContent).toContain("README");
+  });
+
+  it("creates a global document and imports as a global document", async () => {
+    let documents: KnowledgeDocument[] = [];
+    const createKnowledgeDocument = vi.fn(async (request) => {
+      const document = knowledgeDocumentFixture({
+        ...request,
+        knowledgeDocumentId:
+          request.scope === "global" ? "doc_global" : "doc_workspace",
+      });
+      documents = [document, ...documents];
+      return document;
+    });
+    const readImportFile = vi.fn(async () => ({
+      content: "# Global\n\nUse this global reference.",
+      fileName: "GLOBAL.md",
+      title: "GLOBAL",
+    }));
+
+    renderWidget({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onDeleteKnowledgeDocument: vi.fn(async () => true),
+      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
+        documents.find(
+          (document) =>
+            document.knowledgeDocumentId === knowledgeDocumentId,
+        ) ?? null,
+      ),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onReadKnowledgeDocumentImportFile: readImportFile,
+      onUpdateKnowledgeDocument: vi.fn(async (request) =>
+        knowledgeDocumentFixture(request),
+      ),
+    });
+
+    await flush();
+    await clickButton("Documents");
+    await changeSelectByLabel("Scope", "global");
+    await changeInput('input[placeholder="Untitled document"]', "Global docs");
+    await changeTextarea(0, "Global troubleshooting reference.");
+    await clickButton("Save document");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "global",
+        title: "Global docs",
+      }),
+    );
+    expect(document.body.textContent).toContain("Global");
+
+    await changeInput(
+      'input[placeholder="Path to .txt, .md, or .markdown file"]',
+      "C:\\docs\\GLOBAL.md",
+    );
+    await changeSelectByLabel("Import as", "global");
+    await clickButton("Import .txt/.md");
+
+    expect(createKnowledgeDocument).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content: "# Global\n\nUse this global reference.",
+        scope: "global",
+        sourceLabel: "GLOBAL.md",
+        title: "GLOBAL",
+      }),
+    );
   });
 
   it("keeps existing Skills tab available after adding Documents tab", async () => {
@@ -471,6 +539,23 @@ async function changeSelect(value: string) {
   });
 }
 
+async function changeSelectByLabel(labelText: string, value: string) {
+  const label = Array.from(document.querySelectorAll("label")).find(
+    (candidate) =>
+      !isHidden(candidate) && candidate.textContent?.includes(labelText),
+  );
+  const select = label?.querySelector("select");
+  if (!select) {
+    throw new Error(`Select not found: ${labelText}`);
+  }
+
+  await act(async () => {
+    setNativeValue(select, value);
+    select.dispatchEvent(new Event("input", { bubbles: true }));
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 async function changeCheckbox(labelText: string, checked: boolean) {
   const labels = Array.from(document.querySelectorAll("label")).filter(
     (candidate) =>
@@ -546,6 +631,7 @@ function knowledgeDocumentFixture(
     createdAt: "2026-05-24T00:00:00Z",
     enabled: true,
     knowledgeDocumentId: "doc_1",
+    scope: "workspace",
     sourceLabel: "Workspace document",
     tags: "",
     title: "Document",

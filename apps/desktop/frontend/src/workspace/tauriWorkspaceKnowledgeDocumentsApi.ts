@@ -13,6 +13,7 @@ import type {
 type TauriKnowledgeDocument = {
   knowledge_document_id: string;
   workspace_id: string;
+  scope?: string | null;
   title: string;
   source_label: string;
   content: string;
@@ -25,6 +26,7 @@ type TauriKnowledgeDocument = {
 type TauriKnowledgeDocumentSearchResult = {
   knowledge_document_id: string;
   document_title: string;
+  scope?: string | null;
   source_label: string;
   tags: string;
   chunk_id: string;
@@ -86,6 +88,7 @@ export async function updateKnowledgeDocument(
       request: {
         workspace_id: request.workspaceId,
         knowledge_document_id: request.knowledgeDocumentId,
+        scope: request.scope ?? "workspace",
         title: request.title,
         source_label: request.sourceLabel,
         content: request.content,
@@ -131,6 +134,7 @@ function toTauriCreateKnowledgeDocumentRequest(
 ) {
   return {
     workspace_id: request.workspaceId,
+    scope: request.scope ?? "workspace",
     title: request.title,
     source_label: request.sourceLabel,
     content: request.content,
@@ -145,6 +149,7 @@ function normalizeKnowledgeDocument(
   return {
     knowledgeDocumentId: document.knowledge_document_id,
     workspaceId: document.workspace_id,
+    scope: normalizeKnowledgeDocumentScope(document.scope),
     title: document.title,
     sourceLabel: document.source_label,
     content: document.content,
@@ -161,6 +166,7 @@ function normalizeKnowledgeDocumentSearchResult(
   return {
     knowledgeDocumentId: result.knowledge_document_id,
     documentTitle: result.document_title,
+    scope: normalizeKnowledgeDocumentScope(result.scope),
     sourceLabel: result.source_label,
     tags: result.tags,
     chunkId: result.chunk_id,
@@ -168,4 +174,8 @@ function normalizeKnowledgeDocumentSearchResult(
     snippet: result.snippet,
     score: result.score,
   };
+}
+
+function normalizeKnowledgeDocumentScope(scope: string | null | undefined) {
+  return scope === "global" ? "global" : "workspace";
 }

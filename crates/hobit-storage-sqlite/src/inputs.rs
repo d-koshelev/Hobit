@@ -211,6 +211,7 @@ pub struct SkillUpdate<'a> {
 pub struct NewKnowledgeDocument<'a> {
     pub knowledge_document_id: &'a str,
     pub workspace_id: &'a str,
+    pub scope: Option<&'a str>,
     pub title: &'a str,
     pub source_label: &'a str,
     pub content: &'a str,
@@ -222,6 +223,7 @@ pub struct NewKnowledgeDocument<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KnowledgeDocumentUpdate<'a> {
+    pub scope: Option<&'a str>,
     pub title: &'a str,
     pub source_label: &'a str,
     pub content: &'a str,

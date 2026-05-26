@@ -188,6 +188,7 @@ pub struct SkillRow {
 pub struct KnowledgeDocumentRow {
     pub knowledge_document_id: String,
     pub workspace_id: String,
+    pub scope: String,
     pub title: String,
     pub source_label: String,
     pub content: String,
@@ -202,6 +203,7 @@ pub struct KnowledgeDocumentChunkRow {
     pub chunk_id: String,
     pub knowledge_document_id: String,
     pub workspace_id: String,
+    pub scope: String,
     pub chunk_index: i64,
     pub text: String,
     pub created_at: String,
@@ -211,6 +213,7 @@ pub struct KnowledgeDocumentChunkRow {
 pub struct KnowledgeDocumentSearchResultRow {
     pub knowledge_document_id: String,
     pub document_title: String,
+    pub scope: String,
     pub source_label: String,
     pub tags: String,
     pub chunk_id: String,

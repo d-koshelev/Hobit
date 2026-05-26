@@ -1,5 +1,6 @@
 import type {
   KnowledgeDocument,
+  KnowledgeDocumentScope,
   Skill,
   SkillReviewStatus,
 } from "../workspace/types";
@@ -33,6 +34,7 @@ export type KnowledgeSurfaceTab = "skills" | "documents";
 
 export type KnowledgeDocumentDraft = {
   knowledgeDocumentId: string | null;
+  scope: KnowledgeDocumentScope;
   title: string;
   sourceLabel: string;
   content: string;
@@ -54,6 +56,7 @@ export const EMPTY_SKILL_DRAFT: SkillDraft = {
 
 export const EMPTY_DOCUMENT_DRAFT: KnowledgeDocumentDraft = {
   knowledgeDocumentId: null,
+  scope: "workspace",
   title: DEFAULT_DOCUMENT_TITLE,
   sourceLabel: "Workspace document",
   content: "",
@@ -80,6 +83,7 @@ export function knowledgeDocumentDraftFromDocument(
 ): KnowledgeDocumentDraft {
   return {
     knowledgeDocumentId: document.knowledgeDocumentId,
+    scope: document.scope,
     title: document.title,
     sourceLabel: document.sourceLabel,
     content: document.content,
@@ -105,6 +109,7 @@ export function hasKnowledgeDocumentDraftContent(
 ) {
   return Boolean(
     draft.title.trim() !== DEFAULT_DOCUMENT_TITLE ||
+      draft.scope !== "workspace" ||
       draft.sourceLabel.trim() !== "Workspace document" ||
       draft.content.trim() ||
       draft.tags.trim() ||
@@ -140,6 +145,7 @@ export function isKnowledgeDocumentDraftDirty(
     : Boolean(
         selectedDocument &&
           (draft.title !== selectedDocument.title ||
+            draft.scope !== selectedDocument.scope ||
             draft.sourceLabel !== selectedDocument.sourceLabel ||
             draft.content !== selectedDocument.content ||
             draft.tags !== selectedDocument.tags ||

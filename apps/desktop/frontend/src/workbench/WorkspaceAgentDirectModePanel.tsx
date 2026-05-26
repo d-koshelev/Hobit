@@ -5,6 +5,7 @@ import {
   compactDirectWorkText,
   directWorkDirectoryResolutionText,
   directWorkScratchWorkspaceSuggestion,
+  knowledgeScopeLabel,
   shortCodexThreadId,
   workspaceKnowledgeSummaryText,
   type CoordinatorDirectWorkLogEntry,
@@ -217,7 +218,8 @@ function WorkspaceKnowledgeLookupDetails({
           key={result.chunkId}
         >
           <p className="interactive-agent-status-label">
-            {result.documentTitle}, chunk {result.chunkIndex + 1}
+            {knowledgeScopeLabel(result.scope)} {result.documentTitle}, chunk{" "}
+            {result.chunkIndex + 1}
           </p>
           <p className="interactive-agent-direct-mode-help">
             {result.sourceLabel}

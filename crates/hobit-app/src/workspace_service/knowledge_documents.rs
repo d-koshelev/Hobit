@@ -33,6 +33,7 @@ impl WorkspaceService {
                 let document = store.create_knowledge_document(NewKnowledgeDocument {
                     knowledge_document_id: &knowledge_document_id,
                     workspace_id: &input.workspace_id,
+                    scope: Some(&input.scope),
                     title: &input.title,
                     source_label: &input.source_label,
                     content: &input.content,
@@ -101,6 +102,7 @@ impl WorkspaceService {
                 &input.knowledge_document_id,
                 KnowledgeDocumentUpdate {
                     title: &input.title,
+                    scope: Some(&input.scope),
                     source_label: &input.source_label,
                     content: &input.content,
                     tags: &input.tags,
@@ -186,7 +188,7 @@ impl WorkspaceService {
             return Ok(());
         };
 
-        if document.workspace_id != workspace_id {
+        if document.scope != "global" && document.workspace_id != workspace_id {
             return Err(WorkspaceServiceError::InvalidInput(format!(
                 "knowledge document does not belong to workspace: {knowledge_document_id}"
             )));
@@ -204,6 +206,7 @@ struct NormalizedCreateKnowledgeDocumentInput {
     content: String,
     tags: String,
     enabled: bool,
+    scope: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -215,6 +218,7 @@ struct NormalizedUpdateKnowledgeDocumentInput {
     content: String,
     tags: String,
     enabled: bool,
+    scope: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -233,6 +237,7 @@ fn normalize_create_knowledge_document_input(
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
+        scope: normalize_scope(input.scope),
     })
 }
 
@@ -250,6 +255,7 @@ fn normalize_update_knowledge_document_input(
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
+        scope: normalize_scope(input.scope),
     })
 }
 
@@ -280,6 +286,13 @@ fn normalize_tags(tags: String) -> String {
         .filter(|tag| !tag.is_empty())
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn normalize_scope(scope: Option<String>) -> String {
+    match scope.as_deref().map(str::trim) {
+        Some("global") => "global".to_owned(),
+        _ => "workspace".to_owned(),
+    }
 }
 
 fn required_owned(value: String, label: &str) -> Result<String, WorkspaceServiceError> {

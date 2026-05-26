@@ -111,9 +111,9 @@ export function SkillLibraryWidget({
     >
       <div className="skill-library-shell">
         <div className="skill-library-summary">
-          <span>Workspace-local.</span>
+          <span>Workspace and local-global documents.</span>
           <span>Skills attach explicitly.</span>
-          <span>Enabled documents are searched for Workspace Agent runs.</span>
+          <span>Enabled documents are searched visibly for Workspace Agent runs.</span>
         </div>
 
         <div

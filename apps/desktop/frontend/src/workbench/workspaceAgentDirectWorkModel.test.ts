@@ -191,8 +191,9 @@ describe("workspaceAgentDirectWorkModel", () => {
     const prompt = codexPromptWithWorkspaceKnowledge("Refactor this", results);
 
     expect(prompt).toContain("Workspace knowledge found for this request:");
-    expect(prompt).toContain("[Doc: Doc 1, chunk 1]\nSnippet 1");
-    expect(prompt).toContain("[Doc: Doc 5, chunk 5]\nSnippet 5");
+    expect(prompt).toContain("[Doc: Doc 1, chunk 1]\nScope: Workspace\nSnippet 1");
+    expect(prompt).toContain("Scope: Workspace");
+    expect(prompt).toContain("[Doc: Doc 5, chunk 5]\nScope: Workspace\nSnippet 5");
     expect(prompt).not.toContain("Doc 6");
     expect(prompt).toContain("User request:\nRefactor this");
   });
@@ -303,6 +304,7 @@ function knowledgeResult(index: number): KnowledgeDocumentSearchResult {
     score: 1,
     snippet: `Snippet ${displayIndex}`,
     sourceLabel: "source",
+    scope: "workspace",
     tags: "",
   };
 }

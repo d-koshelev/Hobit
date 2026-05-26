@@ -795,6 +795,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Workspace knowledge found for this request:",
     );
     expect(request.operatorPrompt).toContain("[Doc: API guide, chunk 1]");
+    expect(request.operatorPrompt).toContain("Scope: Workspace");
     expect(request.operatorPrompt).toContain(
       "Use the workspace-local API reference.",
     );
@@ -802,7 +803,64 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(request.operatorPrompt).toContain("Use the API docs for this task.");
     expect(JSON.stringify(request)).not.toMatch(/notes body|filesystem|disabled/i);
     expect(document.body.textContent).toContain("Used knowledge: 2 snippets");
-    expect(document.body.textContent).toContain("API guide, chunk 1");
+    expect(document.body.textContent).toContain("Workspace API guide, chunk 1");
+  });
+
+  it("shows global and workspace scope for used knowledge details and prompt context", async () => {
+    const searchKnowledge = vi.fn(async () => [
+      knowledgeResult({
+        chunkId: "chunk_workspace_1",
+        documentTitle: "Falcon deployment notes",
+        scope: "workspace",
+        snippet: "Use workspace Falcon deployment notes.",
+      }),
+      knowledgeResult({
+        chunkId: "chunk_global_1",
+        documentTitle: "Vertica EON troubleshooting",
+        scope: "global",
+        snippet: "Use global Vertica EON troubleshooting.",
+      }),
+    ]);
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            text: "Codex used scoped knowledge if relevant.",
+          }),
+        );
+        return {
+          runId: "run_scoped_knowledge",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({
+      onSearchKnowledgeDocuments: searchKnowledge,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await setTextareaValue("Use Falcon and EON docs.");
+    await clickButton("Run with Codex");
+
+    const request = startDirectWork.mock.calls[0][1] as {
+      operatorPrompt: string;
+    };
+    expect(request.operatorPrompt).toContain("Scope: Workspace");
+    expect(request.operatorPrompt).toContain("Scope: Global");
+    expect(document.body.textContent).toContain(
+      "Workspace Falcon deployment notes, chunk 1",
+    );
+    expect(document.body.textContent).toContain(
+      "Global Vertica EON troubleshooting, chunk 1",
+    );
   });
 
   it("shows no-match knowledge checks without augmenting the Codex prompt", async () => {
@@ -2606,6 +2664,7 @@ function knowledgeResult(
     score: 10,
     snippet: "Knowledge snippet.",
     sourceLabel: "Workspace document",
+    scope: "workspace",
     tags: "docs",
     ...overrides,
   };
@@ -2644,6 +2703,7 @@ function knowledgeDocumentFixture(
     createdAt: "2026-05-24T00:00:00Z",
     enabled: true,
     knowledgeDocumentId: "doc_1",
+    scope: "workspace",
     sourceLabel: "Workspace Agent conversation",
     tags: "",
     title: "Document",
