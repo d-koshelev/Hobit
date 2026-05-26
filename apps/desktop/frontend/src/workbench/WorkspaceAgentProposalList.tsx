@@ -4,7 +4,7 @@ import type {
   CoordinatorProposalInput,
 } from "./coordinatorActionProposalRegistry";
 import { CoordinatorActionProposalCard } from "./CoordinatorActionProposalCard";
-import { queueDraftReviewState } from "./workspaceAgentProposalState";
+import { queueDraftReviewState } from "./workspaceAgentProposalDisplayState";
 
 export type WorkspaceAgentProposalPatch = {
   expectedResult: string;

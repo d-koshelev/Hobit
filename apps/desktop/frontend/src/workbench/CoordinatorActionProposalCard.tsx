@@ -12,7 +12,7 @@ import {
   proposalActionState,
   proposalInputValue,
   type ProposalResultDisplay,
-} from "./workspaceAgentProposalState";
+} from "./workspaceAgentProposalDisplayState";
 
 type ProposalPatch = {
   expectedResult: string;

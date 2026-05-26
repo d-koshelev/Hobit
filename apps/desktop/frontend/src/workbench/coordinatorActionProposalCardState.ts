@@ -6,4 +6,4 @@ export {
   type ProposalCardState,
   type ProposalCardTone,
   type ProposalResultDisplay,
-} from "./workspaceAgentProposalState";
+} from "./workspaceAgentProposalDisplayState";

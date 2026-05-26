@@ -9,8 +9,6 @@ import {
   canStartProposalCreation,
   editProposalPatch,
   failedProposalPatch,
-  getProposalCardState,
-  proposalActionState,
   proposalCreatedPatch,
   rejectProposalPatch,
   safeDefaultProposalState,
@@ -42,9 +40,6 @@ describe("workspaceAgentProposalState", () => {
     });
     expect(approved.createdQueueTaskId).toBeUndefined();
     expect(canStartProposalCreation(approved, "queueTask")).toBe(true);
-    expect(getProposalCardState(approved).stateDescription).toContain(
-      "Use Create Queue task separately",
-    );
   });
 
   it("rejects and edits proposals locally without running actions", () => {
@@ -57,7 +52,6 @@ describe("workspaceAgentProposalState", () => {
       approvalStatus: "Rejected preview",
       executionStatus: "Not run",
     });
-    expect(getProposalCardState(rejected).stateLabel).toBe("Rejected");
 
     const edited = {
       ...proposalFixture("create-knowledge-document", {
@@ -79,28 +73,28 @@ describe("workspaceAgentProposalState", () => {
     });
   });
 
-  it("allows create actions only after approval for write proposal families", () => {
+  it("allows creation only after approval for write proposal families", () => {
     const queue = proposalFixture("create-agent-queue-task");
     const note = proposalFixture("create-note");
     const document = proposalFixture("create-knowledge-document");
     const skill = proposalFixture("create-skill");
 
-    expect(proposalActionState(queue).canCreateQueueTask).toBe(false);
-    expect(proposalActionState(note).canCreateNote).toBe(false);
-    expect(proposalActionState(document).canCreateKnowledgeDocument).toBe(false);
-    expect(proposalActionState(skill).canCreateSkill).toBe(false);
+    expect(canStartProposalCreation(queue, "queueTask")).toBe(false);
+    expect(canStartProposalCreation(note, "note")).toBe(false);
+    expect(canStartProposalCreation(document, "knowledgeDocument")).toBe(false);
+    expect(canStartProposalCreation(skill, "skill")).toBe(false);
 
     expect(
-      proposalActionState({
-        ...document,
-        ...approveProposal({ [document.id]: document }, document.id)[document.id],
-      }).canCreateKnowledgeDocument,
+      canStartProposalCreation(
+        approveProposal({ [document.id]: document }, document.id)[document.id],
+        "knowledgeDocument",
+      ),
     ).toBe(true);
     expect(
-      proposalActionState({
-        ...skill,
-        ...approveProposal({ [skill.id]: skill }, skill.id)[skill.id],
-      }).canCreateSkill,
+      canStartProposalCreation(
+        approveProposal({ [skill.id]: skill }, skill.id)[skill.id],
+        "skill",
+      ),
     ).toBe(true);
   });
 
@@ -117,9 +111,7 @@ describe("workspaceAgentProposalState", () => {
       }),
     };
 
-    expect(proposalActionState(created).canCreateSkill).toBe(false);
     expect(canStartProposalCreation(created, "skill")).toBe(false);
-    expect(getProposalCardState(created).stateLabel).toBe("Created");
   });
 
   it("records failure while keeping approved proposals retryable", () => {
@@ -137,7 +129,6 @@ describe("workspaceAgentProposalState", () => {
       executionError: "Write failed.",
       executionStatus: "Knowledge document creation failed",
     });
-    expect(getProposalCardState(failed).stateLabel).toBe("Failed");
     expect(canStartProposalCreation(failed, "knowledgeDocument")).toBe(true);
   });
 
@@ -150,12 +141,10 @@ describe("workspaceAgentProposalState", () => {
     ];
 
     expect(approved.executionStatus).toBe("Execution bridge not implemented");
-    expect(proposalActionState(approved)).toMatchObject({
-      canCreateKnowledgeDocument: false,
-      canCreateNote: false,
-      canCreateQueueTask: false,
-      canCreateSkill: false,
-    });
+    expect(canStartProposalCreation(approved, "queueTask")).toBe(false);
+    expect(canStartProposalCreation(approved, "note")).toBe(false);
+    expect(canStartProposalCreation(approved, "knowledgeDocument")).toBe(false);
+    expect(canStartProposalCreation(approved, "skill")).toBe(false);
   });
 
   it("preserves Queue, Note, and JDBC proposal semantics", () => {
@@ -172,21 +161,12 @@ describe("workspaceAgentProposalState", () => {
       "proposal",
     ).proposal;
 
-    expect(proposalActionState(queue)).toMatchObject({
-      canCreateQueueTask: true,
-      isCreateQueueTaskProposal: true,
-    });
-    expect(proposalActionState(note)).toMatchObject({
-      canCreateNote: true,
-      isCreateNoteProposal: true,
-    });
-    expect(proposalActionState(jdbc)).toMatchObject({
-      canCreateKnowledgeDocument: false,
-      canCreateNote: false,
-      canCreateQueueTask: false,
-      canCreateSkill: false,
-      isJdbcQuerySuggestion: true,
-    });
+    expect(canStartProposalCreation(queue, "queueTask")).toBe(true);
+    expect(canStartProposalCreation(note, "note")).toBe(true);
+    expect(canStartProposalCreation(jdbc, "queueTask")).toBe(false);
+    expect(canStartProposalCreation(jdbc, "note")).toBe(false);
+    expect(canStartProposalCreation(jdbc, "knowledgeDocument")).toBe(false);
+    expect(canStartProposalCreation(jdbc, "skill")).toBe(false);
     expect(jdbc.executionStatus).toBe("SQL suggestion only");
   });
 
