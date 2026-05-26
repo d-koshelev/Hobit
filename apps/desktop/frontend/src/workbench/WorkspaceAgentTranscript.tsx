@@ -1,21 +1,21 @@
 import type { Ref } from "react";
-import { Button } from "../design-system/Button";
 import type {
   CoordinatorActionProposal,
-  CoordinatorProposalInput,
 } from "./coordinatorActionProposalRegistry";
-import { CoordinatorActionProposalCard } from "./CoordinatorActionProposalCard";
 import type {
   CoordinatorOutcomeReviewDraft,
   CoordinatorPlanDraft,
 } from "./coordinatorLocalProposalGeneration";
 import type { CoordinatorProviderMessageMeta } from "./coordinatorProviderRequest";
-import { queueDraftReviewState } from "./workspaceAgentProposalState";
 import {
   CoordinatorPlanCard,
   CoordinatorReviewCard,
 } from "./WorkspaceAgentPlanReviewCards";
 import { WorkspaceAgentMessageBubble } from "./WorkspaceAgentMessageBubble";
+import {
+  WorkspaceAgentProposalList,
+  type WorkspaceAgentProposalPatch,
+} from "./WorkspaceAgentProposalList";
 
 export type WorkspaceAgentTranscriptMessage = {
   id: string;
@@ -31,15 +31,6 @@ export type WorkspaceAgentSuggestedPrompt = {
   label: string;
   prompt: string;
 };
-
-type ProposalPatch = {
-  expectedResult: string;
-  inputs: CoordinatorProposalInput[];
-  intent: string;
-};
-
-const QUEUE_DRAFT_REVIEW_NOTE =
-  "Approve all drafts is local review only. Create Queue task stays explicit on each approved draft.";
 
 export function WorkspaceAgentTranscript({
   creatingKnowledgeDocumentProposalIds,
@@ -71,7 +62,10 @@ export function WorkspaceAgentTranscript({
   onCreateNote: (proposalId: string) => void;
   onCreateQueueTask: (proposalId: string) => void;
   onCreateSkill: (proposalId: string) => void;
-  onEditProposal: (proposalId: string, patch: ProposalPatch) => void;
+  onEditProposal: (
+    proposalId: string,
+    patch: WorkspaceAgentProposalPatch,
+  ) => void;
   onRejectProposal: (proposalId: string) => void;
   onSuggestionClick: (prompt: string) => void;
   plans: Record<string, CoordinatorPlanDraft>;
@@ -108,43 +102,23 @@ export function WorkspaceAgentTranscript({
             <CoordinatorReviewCard review={reviews[message.reviewId]} />
           ) : null}
           {message.proposalIds ? (
-            <div className="coordinator-proposal-list">
-              <CoordinatorProposalReviewControls
-                onApproveAllQueueDrafts={onApproveAllQueueDrafts}
-                proposalIds={message.proposalIds}
-                proposals={proposals}
-              />
-              {message.proposalIds.map((proposalId) => {
-                const proposal = proposals[proposalId];
-
-                return proposal ? (
-                  <CoordinatorActionProposalCard
-                    key={proposal.id}
-                    isKnowledgeDocumentCreationPending={creatingKnowledgeDocumentProposalIds.has(
-                      proposal.id,
-                    )}
-                    isNoteCreationPending={creatingNoteProposalIds.has(
-                      proposal.id,
-                    )}
-                    isQueueTaskCreationPending={creatingQueueProposalIds.has(
-                      proposal.id,
-                    )}
-                    onApprove={onApproveProposal}
-                    onCreateKnowledgeDocument={(proposalId) =>
-                      onCreateKnowledgeDocument(proposalId)
-                    }
-                    onCreateNote={(proposalId) => onCreateNote(proposalId)}
-                    onCreateQueueTask={(proposalId) =>
-                      onCreateQueueTask(proposalId)
-                    }
-                    onCreateSkill={(proposalId) => onCreateSkill(proposalId)}
-                    onEdit={onEditProposal}
-                    onReject={onRejectProposal}
-                    proposal={proposal}
-                  />
-                ) : null;
-              })}
-            </div>
+            <WorkspaceAgentProposalList
+              creatingKnowledgeDocumentProposalIds={
+                creatingKnowledgeDocumentProposalIds
+              }
+              creatingNoteProposalIds={creatingNoteProposalIds}
+              creatingQueueProposalIds={creatingQueueProposalIds}
+              onApproveAllQueueDrafts={onApproveAllQueueDrafts}
+              onApproveProposal={onApproveProposal}
+              onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+              onCreateNote={onCreateNote}
+              onCreateQueueTask={onCreateQueueTask}
+              onCreateSkill={onCreateSkill}
+              onEditProposal={onEditProposal}
+              onRejectProposal={onRejectProposal}
+              proposalIds={message.proposalIds}
+              proposals={proposals}
+            />
           ) : null}
         </WorkspaceAgentMessageBubble>
       ))}
@@ -188,44 +162,5 @@ function WorkspaceAgentTranscriptEmptyState({
         ))}
       </div>
     </div>
-  );
-}
-
-function CoordinatorProposalReviewControls({
-  onApproveAllQueueDrafts,
-  proposalIds,
-  proposals,
-}: {
-  onApproveAllQueueDrafts: (proposalIds: string[]) => void;
-  proposalIds: string[];
-  proposals: Record<string, CoordinatorActionProposal>;
-}) {
-  const reviewState = queueDraftReviewState(proposalIds, proposals);
-
-  if (reviewState.queueDraftCount < 2) {
-    return null;
-  }
-
-  return (
-    <section
-      aria-label="Queue draft review controls"
-      className="coordinator-proposal-review"
-    >
-      <div className="coordinator-proposal-review-copy">
-        <p className="coordinator-proposal-section-label">Draft Queue tasks</p>
-        <p className="coordinator-proposal-section-value">
-          {reviewState.queueDraftCount} drafted, {reviewState.approvedCount}{" "}
-          approved, {reviewState.createdCount} created.
-        </p>
-        <p className="coordinator-proposal-note">{QUEUE_DRAFT_REVIEW_NOTE}</p>
-      </div>
-      <Button
-        disabled={!reviewState.canApproveAll}
-        onClick={() => onApproveAllQueueDrafts(reviewState.approvableIds)}
-        variant="secondary"
-      >
-        Approve all drafts
-      </Button>
-    </section>
   );
 }
