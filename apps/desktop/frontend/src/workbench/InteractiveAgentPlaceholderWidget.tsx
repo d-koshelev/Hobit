@@ -3,7 +3,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Badge } from "../design-system/Badge";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import {
@@ -60,10 +59,11 @@ import {
   type CoordinatorDirectWorkStatus,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
-import {
-  CoordinatorAgentHeaderStatus,
-} from "./WorkspaceAgentDirectModePanel";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
+import {
+  WorkspaceAgentHeaderStatus,
+  WorkspaceAgentStatusPanel,
+} from "./WorkspaceAgentStatusPanel";
 import {
   appendWorkspaceAgentVisibleContextBlock,
   removeWorkspaceAgentVisibleContextFromDraft,
@@ -1245,68 +1245,16 @@ export function InteractiveAgentPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={
-        <CoordinatorAgentHeaderStatus status={directWorkStatus} />
+        <WorkspaceAgentHeaderStatus status={directWorkStatus} />
       }
       title={title}
     >
       <div className="interactive-agent-chat">
-        <section
-          aria-label="Workspace Agent status"
-          className="interactive-agent-status"
-        >
-          <div className="interactive-agent-status-copy">
-            <div className="interactive-agent-status-heading">
-              <div className="interactive-agent-title-copy">
-                <h3 className="interactive-agent-title">
-                  Plan work, draft tasks, review results
-                </h3>
-              </div>
-            </div>
-            <details
-              aria-label="Workspace Agent provider details"
-              className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
-            >
-              <summary>Response setup</summary>
-              <div className="interactive-agent-provider-row">
-                <span className="interactive-agent-status-label">Response</span>
-                <Badge
-                  variant={
-                    isProviderPending
-                      ? "warning"
-                      : providerModeLabel === "Provider error"
-                        ? "error"
-                        : providerModeLabel === "Provider timeout" ||
-                            providerModeLabel === "Invalid provider response" ||
-                            providerModeLabel === "Network failure" ||
-                            providerModeLabel === "Request too large"
-                          ? "warning"
-                          : providerModeLabel === "Not configured" ||
-                              providerModeLabel.includes("unavailable")
-                            ? "warning"
-                            : providerModeLabel === "Local fallback" ||
-                                providerModeLabel === "Mock/local fallback"
-                              ? "neutral"
-                              : "info"
-                  }
-                >
-                  {isProviderPending ? "Drafting" : providerModeLabel}
-                </Badge>
-                <span className="interactive-agent-status-label">Setup</span>
-                <Badge variant="neutral">Backend selected</Badge>
-              </div>
-              <p className="interactive-agent-text">
-                Runs with Codex from the selected working directory when the
-                desktop Codex bridge is available. Provider fallback stays
-                chat-only and uses visible context with no tools.
-              </p>
-              <p className="interactive-agent-text">
-                Supported review cards: {STATIC_PROPOSAL_TYPE_SUMMARY}. Queue
-                and Note cards require approval plus a separate create action;
-                JDBC cards stay copy-only.
-              </p>
-            </details>
-          </div>
-        </section>
+        <WorkspaceAgentStatusPanel
+          isProviderPending={isProviderPending}
+          providerModeLabel={providerModeLabel}
+          supportedProposalTypeSummary={STATIC_PROPOSAL_TYPE_SUMMARY}
+        />
 
         <WorkspaceAgentTranscript
           creatingKnowledgeDocumentProposalIds={

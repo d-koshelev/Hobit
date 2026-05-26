@@ -12,60 +12,6 @@ import {
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
 
-export function CoordinatorAgentHeaderStatus({
-  status,
-}: {
-  status: CoordinatorDirectWorkStatus;
-}) {
-  return (
-    <div className="interactive-agent-frame-status">
-      <label className="interactive-agent-agent-picker">
-        <span>Agent</span>
-        <select
-          aria-label="Workspace Agent picker"
-          className="input interactive-agent-agent-select"
-          defaultValue="codex"
-          disabled
-        >
-          <option value="codex">Codex</option>
-        </select>
-      </label>
-      <span className="interactive-agent-frame-status-label">Status</span>
-      <Badge variant={coordinatorHeaderStatusVariant(status)}>
-        {coordinatorHeaderStatusLabel(status)}
-      </Badge>
-    </div>
-  );
-}
-
-function coordinatorHeaderStatusLabel(
-  status: CoordinatorDirectWorkStatus,
-): string {
-  if (status === "running") {
-    return "Running";
-  }
-
-  if (status === "failed") {
-    return "Failed";
-  }
-
-  return "Ready";
-}
-
-function coordinatorHeaderStatusVariant(
-  status: CoordinatorDirectWorkStatus,
-): "success" | "info" | "error" {
-  if (status === "running") {
-    return "info";
-  }
-
-  if (status === "failed") {
-    return "error";
-  }
-
-  return "success";
-}
-
 export function WorkspaceAgentDirectModePanel({
   directWorkDirectory,
   error,
