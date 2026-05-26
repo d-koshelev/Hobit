@@ -68,6 +68,18 @@ describe("App workspace lifecycle", () => {
 
     expect(document.body.textContent).toContain("Recent Workspaces");
     expect(document.body.textContent).toContain("Lifecycle Workspace");
+    expect(document.body.textContent).toContain("Theme");
+    expect(document.body.textContent).toContain("New Workspace");
+    expect(document.body.textContent).toContain("Start with Workspace Agent");
+    expect(document.body.textContent).toContain("Start empty");
+    expect(document.body.textContent).toContain("Widgets: 5");
+    expect(document.body.textContent).toContain("Agents: 1");
+    expect(document.body.textContent).toContain("Notes: 2");
+    expect(document.body.textContent).toContain("Docs: 1");
+    expect(document.body.textContent).toContain("Queue: 3");
+    expect(sectionByLabel("recent-workspaces-title").compareDocumentPosition(
+      sectionByLabel("new-workspace-title"),
+    )).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     await act(async () => {
       buttonWithText("Open").dispatchEvent(
@@ -77,6 +89,7 @@ describe("App workspace lifecycle", () => {
     });
     await flushEffects();
 
+    expect(workspaceApiMocks.openWorkspace).toHaveBeenCalledWith(workspace.id);
     expect(document.body.textContent).toContain("Close workspace");
     expect(document.body.textContent).toContain("Lifecycle Workspace");
 
@@ -119,6 +132,11 @@ describe("App workspace lifecycle", () => {
 
     renderApp();
     await flushEffects();
+
+    expect(document.body.textContent).toContain("No recent workspaces yet.");
+    expect(sectionByLabel("new-workspace-title").compareDocumentPosition(
+      sectionByLabel("recent-workspaces-title"),
+    )).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     await act(async () => {
       buttonWithText("Create Workspace").dispatchEvent(
@@ -225,6 +243,16 @@ function buttonWithText(text: string) {
   }
 
   return button;
+}
+
+function sectionByLabel(labelId: string) {
+  const section = document.querySelector(`[aria-labelledby="${labelId}"]`);
+
+  if (!section) {
+    throw new Error(`Section not found: ${labelId}`);
+  }
+
+  return section;
 }
 
 async function flushEffects() {

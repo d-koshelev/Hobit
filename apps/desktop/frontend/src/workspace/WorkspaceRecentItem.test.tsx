@@ -29,7 +29,7 @@ describe("WorkspaceRecentItem", () => {
         updatedAt: "2026-05-25T20:34:00.000Z",
         widgetCount: 2,
         workspaceAgentCount: 1,
-        noteCount: 0,
+        noteCount: 2,
         skillCount: 1,
         knowledgeDocumentCount: 3,
         queueTaskCount: 1,
@@ -42,10 +42,25 @@ describe("WorkspaceRecentItem", () => {
     expect(document.body.textContent).toContain("Last opened:");
     expect(document.body.textContent).toContain("Widgets: 2");
     expect(document.body.textContent).toContain("Agents: 1");
+    expect(document.body.textContent).toContain("Notes: 2");
     expect(document.body.textContent).toContain("Skills: 1");
     expect(document.body.textContent).toContain("Docs: 3");
     expect(document.body.textContent).toContain("Queue: 1");
     expect(document.body.textContent).not.toContain("active");
+  });
+
+  it("opens the selected workspace from the compact action", () => {
+    const onOpenWorkspace = vi.fn();
+    const workspace = workspaceSummary();
+    renderRecentItem(workspace, undefined, onOpenWorkspace);
+
+    act(() => {
+      buttonWithText("Open").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onOpenWorkspace).toHaveBeenCalledWith(workspace);
   });
 
   it("uses Updated when last opened is unavailable", () => {
@@ -100,8 +115,10 @@ describe("WorkspaceRecentItem", () => {
 
 function renderRecentItem(
   workspace = workspaceSummary(),
-  onDeleteWorkspace: (workspace: WorkspaceSummary) => Promise<void> = () =>
-    Promise.resolve(),
+  onDeleteWorkspace:
+    | ((workspace: WorkspaceSummary) => Promise<void>)
+    | undefined = undefined,
+  onOpenWorkspace: (workspace: WorkspaceSummary) => void = () => undefined,
 ) {
   container = document.createElement("div");
   document.body.append(container);
@@ -113,8 +130,8 @@ function renderRecentItem(
         isDeleting={false}
         isDisabled={false}
         isOpening={false}
-        onDeleteWorkspace={onDeleteWorkspace}
-        onOpenWorkspace={() => undefined}
+        onDeleteWorkspace={onDeleteWorkspace ?? (() => Promise.resolve())}
+        onOpenWorkspace={onOpenWorkspace}
         workspace={workspace}
       />,
     );

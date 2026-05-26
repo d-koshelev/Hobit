@@ -55,7 +55,10 @@ behavior, or Workspace Agent context wiring.
   include created/last-opened metadata and compact safe counts for widgets,
   Workspace Agents, notes, skills/documents, and Queue tasks; summaries do not
   include raw logs, prompts, Executor output, provider payloads, or result
-  payloads.
+  payloads. The Start Screen prioritizes recent Workspaces as the primary
+  continuation panel when they exist, keeps New Workspace as a secondary
+  creation panel, and the desktop default window size is larger for the MVP
+  workbench/start layout.
 - The frontend has local interface theme support with built-in presets and a
   small custom theme option. Theme application writes existing CSS token
   variables in the browser, persists as a local UI preference, and is not

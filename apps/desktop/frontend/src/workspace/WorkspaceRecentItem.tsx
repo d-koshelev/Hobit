@@ -63,10 +63,8 @@ export function WorkspaceRecentItem({
     <div className="workspace-recent-entry">
       <div className="workspace-recent-row">
         <div className="workspace-recent-item">
-          <span className="workspace-recent-item-copy">
-            <span className="workspace-recent-item-title">
-              {workspace.title}
-            </span>
+          <div className="workspace-recent-item-copy">
+            <h3 className="workspace-recent-item-title">{workspace.title}</h3>
             {workspace.description ? (
               <span className="workspace-recent-item-text">
                 {workspace.description}
@@ -88,28 +86,32 @@ export function WorkspaceRecentItem({
                 ))}
               </span>
             ) : null}
-          </span>
+          </div>
         </div>
 
-        <Button
-          aria-label={`Open ${workspace.title}`}
-          className="workspace-open-trigger"
-          disabled={isDisabled || isOpening || isDeleting || isConfirmingDelete}
-          onClick={() => onOpenWorkspace(workspace)}
-          variant="primary"
-        >
-          {isOpening ? "Opening..." : "Open"}
-        </Button>
-        <Button
-          aria-expanded={isConfirmingDelete}
-          aria-label={`Delete ${workspace.title}`}
-          className="workspace-delete-trigger"
-          disabled={deleteControlsDisabled}
-          onClick={openDeleteConfirmation}
-          variant="ghost"
-        >
-          Delete
-        </Button>
+        <div className="workspace-recent-actions">
+          <Button
+            aria-label={`Open ${workspace.title}`}
+            className="workspace-open-trigger"
+            disabled={
+              isDisabled || isOpening || isDeleting || isConfirmingDelete
+            }
+            onClick={() => onOpenWorkspace(workspace)}
+            variant="primary"
+          >
+            {isOpening ? "Opening..." : "Open"}
+          </Button>
+          <Button
+            aria-expanded={isConfirmingDelete}
+            aria-label={`Delete ${workspace.title}`}
+            className="workspace-delete-trigger"
+            disabled={deleteControlsDisabled}
+            onClick={openDeleteConfirmation}
+            variant="ghost"
+          >
+            Delete
+          </Button>
+        </div>
       </div>
 
       {isConfirmingDelete ? (

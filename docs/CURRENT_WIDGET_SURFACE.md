@@ -69,8 +69,11 @@ Workspace Start Screen. Close is navigation only: it does not delete the
 Workspace, remove widgets, clear persisted notes/tasks/runs/results, or change
 Workspace deletion semantics. The Start Screen recent Workspace list shows
 created and last-opened metadata plus compact safe counts such as widgets,
-Workspace Agents, notes, skills/documents, and Queue tasks; it does not expose
-raw logs, prompts, result payloads, or Executor output.
+Workspace Agents, notes, skills/documents, and Queue tasks, and it is the
+primary Start Screen panel when recent Workspaces exist. New Workspace remains
+available as a secondary creation panel, while an empty recent list keeps
+creation central. The Start Screen does not expose raw logs, prompts, result
+payloads, or Executor output.
 
 The frontend supports local interface theme presets from the Start Screen and
 Workbench top bar. The current theme choice is a local UI preference persisted
