@@ -56,6 +56,11 @@ behavior, or Workspace Agent context wiring.
   Workspace Agents, notes, skills/documents, and Queue tasks; summaries do not
   include raw logs, prompts, Executor output, provider payloads, or result
   payloads.
+- The frontend has local interface theme support with built-in presets and a
+  small custom theme option. Theme application writes existing CSS token
+  variables in the browser, persists as a local UI preference, and is not
+  Workspace-scoped, server-synced, team-shared, or connected to backend/runtime
+  behavior.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

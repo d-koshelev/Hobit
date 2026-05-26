@@ -2,6 +2,8 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Select } from "../design-system/Select";
 import { StatusDot } from "../design-system/StatusDot";
+import { ThemePicker } from "../theme/ThemePicker";
+import type { AppThemeController } from "../theme/useAppTheme";
 import {
   GlobalActivityIndicator,
   type GlobalActivityStatus,
@@ -25,6 +27,7 @@ type WorkbenchTopBarProps = {
   onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
   onToggleActivityPanel: () => void;
+  theme: AppThemeController;
   viewState: WorkbenchViewState;
 };
 
@@ -40,6 +43,7 @@ export function WorkbenchTopBar({
   onLayoutModeChange,
   onOpenWidgetCatalog,
   onToggleActivityPanel,
+  theme,
   viewState,
 }: WorkbenchTopBarProps) {
   const presetId = viewState.workbench.preset.id ?? "";
@@ -84,6 +88,7 @@ export function WorkbenchTopBar({
       </div>
 
       <div className="topbar-right" aria-label="Workbench controls">
+        <ThemePicker theme={theme} />
         <GlobalActivityIndicator status={activityStatus} />
         <Button
           aria-controls={activityPanelId}

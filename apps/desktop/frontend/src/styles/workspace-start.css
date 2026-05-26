@@ -23,6 +23,12 @@
   padding: var(--space-md) 0 var(--space-lg);
 }
 
+.workspace-start-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .workspace-start-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);

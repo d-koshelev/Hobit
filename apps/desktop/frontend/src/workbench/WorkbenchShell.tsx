@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { AppThemeController } from "../theme/useAppTheme";
+import { listTerminalPtySessions } from "../workspace/workspaceApi";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import { coordinatorWorkspacePreset } from "./presets";
 import { addPresetWidgetsToWorkbench } from "./presetWidgetSetup";
@@ -12,17 +14,18 @@ import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 import { DEFAULT_WORKBENCH_GRID_SIZE } from "./workbenchLayoutGeometry";
 import { AGENT_QUEUE_WIDGET_DEFINITION_ID } from "./widgetRegistry";
-import { listTerminalPtySessions } from "../workspace/workspaceApi";
 
 type WorkbenchShellProps = {
   onCloseWorkspace?: () => void;
   onViewStateChange: (viewState: WorkbenchViewState) => void;
+  theme: AppThemeController;
   viewState: WorkbenchViewState;
 };
 
 export function WorkbenchShell({
   onCloseWorkspace,
   onViewStateChange,
+  theme,
   viewState,
 }: WorkbenchShellProps) {
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
@@ -143,6 +146,7 @@ export function WorkbenchShell({
           onToggleActivityPanel={() =>
             setIsActivityPanelOpen((current) => !current)
           }
+          theme={theme}
           viewState={viewState}
         />
         {closeWorkspaceMessage ? (

@@ -3,16 +3,20 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import { StatusDot } from "../design-system/StatusDot";
+import { ThemePicker } from "../theme/ThemePicker";
+import type { AppThemeController } from "../theme/useAppTheme";
 import type { WorkspaceStartSelection } from "./selection";
 import { useWorkspaceFlow } from "./useWorkspaceFlow";
 import { WorkspaceRecentItem } from "./WorkspaceRecentItem";
 
 type WorkspaceStartScreenProps = {
   onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
+  theme: AppThemeController;
 };
 
 export function WorkspaceStartScreen({
   onOpenWorkspace,
+  theme,
 }: WorkspaceStartScreenProps) {
   const {
     createWorkspace,
@@ -52,7 +56,10 @@ export function WorkspaceStartScreen({
               <div className="brand-subtitle">AI Workbench</div>
             </div>
           </div>
-          <Badge variant="neutral">Workspace Shell</Badge>
+          <div className="workspace-start-header-actions">
+            <ThemePicker theme={theme} />
+            <Badge variant="neutral">Workspace Shell</Badge>
+          </div>
         </header>
 
         <div className="workspace-start-layout">

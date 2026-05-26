@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { AppThemeController } from "../theme/useAppTheme";
 import { WorkbenchShell } from "./WorkbenchShell";
 import type { WorkbenchViewState } from "./types";
 import type {
@@ -286,10 +287,39 @@ function renderShell(
       <WorkbenchShell
         onCloseWorkspace={onCloseWorkspace}
         onViewStateChange={onViewStateChange}
+        theme={themeController()}
         viewState={viewState}
       />,
     );
   });
+}
+
+function themeController(): AppThemeController {
+  return {
+    customTheme: {
+      basedOn: "dark-default",
+      values: {
+        accent: "#4a84ff",
+        background: "#0b1320",
+        border: "#2d3b52",
+        mutedText: "#8d97aa",
+        surface: "#141d2c",
+        surfaceElevated: "#182234",
+        text: "#f3f6fb",
+      },
+    },
+    resetCustomTheme: vi.fn(),
+    resolvedTheme: {
+      id: "dark-default",
+      mode: "dark",
+      name: "Dark / Default",
+      variables: {} as AppThemeController["resolvedTheme"]["variables"],
+    },
+    selectedThemeId: "dark-default",
+    selectCustomTheme: vi.fn(),
+    selectPresetTheme: vi.fn(),
+    updateCustomThemeValue: vi.fn(),
+  };
 }
 
 function workspaceWorkbenchState({
