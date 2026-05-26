@@ -142,6 +142,42 @@ fn knowledge_document_search_is_workspace_scoped_and_capped() {
 }
 
 #[test]
+fn knowledge_document_search_result_shape_and_snippet_cap_are_preserved() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge workspace");
+    let mut input = create_document_input(workspace.id.clone());
+    input.title = "Long guide".to_owned();
+    input.source_label = "Operator paste".to_owned();
+    input.tags = "guide".to_owned();
+    input.content = format!("needle {}", "longword ".repeat(250));
+    let document = service
+        .create_knowledge_document(input)
+        .expect("create document");
+
+    let results = service
+        .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+            workspace_id: workspace.id,
+            query: "needle".to_owned(),
+            limit: Some(5),
+        })
+        .expect("search documents");
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(
+        results[0].knowledge_document_id,
+        document.knowledge_document_id
+    );
+    assert_eq!(results[0].document_title, "Long guide");
+    assert_eq!(results[0].source_label, "Operator paste");
+    assert_eq!(results[0].tags, "guide");
+    assert!(results[0].chunk_id.ends_with("_chunk_0000"));
+    assert_eq!(results[0].chunk_index, 0);
+    assert_eq!(results[0].snippet.chars().count(), 900);
+    assert!(results[0].snippet.ends_with("..."));
+    assert!(results[0].score > 0);
+}
+
+#[test]
 fn knowledge_document_methods_reject_unknown_and_cross_workspace_access() {
     let service = initialized_service();
     let first = create_workspace(&service, "First workspace");

@@ -31,6 +31,7 @@ mod agent_queue_tasks;
 mod events;
 mod jdbc_connectors;
 mod knowledge_documents;
+mod knowledge_search;
 mod notes;
 mod sessions;
 mod shared_state;

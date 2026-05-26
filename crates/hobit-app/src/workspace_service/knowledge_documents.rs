@@ -3,6 +3,7 @@ use hobit_storage_sqlite::{KnowledgeDocumentUpdate, NewKnowledgeDocument};
 use crate::WorkspaceServiceError;
 
 use super::{
+    knowledge_document_search::{bounded_knowledge_snippet, normalized_knowledge_search_limit},
     mapping::{knowledge_document_search_result_summary, knowledge_document_summary},
     placeholder_id, placeholder_timestamp,
     validation::required_input,
@@ -10,10 +11,6 @@ use super::{
     KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
     UpdateKnowledgeDocumentInput, WorkspaceService,
 };
-
-const DEFAULT_KNOWLEDGE_SEARCH_LIMIT: usize = 5;
-const MAX_KNOWLEDGE_SEARCH_LIMIT: usize = 20;
-const MAX_KNOWLEDGE_SNIPPET_CHARS: usize = 900;
 
 impl WorkspaceService {
     pub fn create_knowledge_document(
@@ -158,17 +155,14 @@ impl WorkspaceService {
             )));
         }
 
-        let limit = input
-            .limit
-            .unwrap_or(DEFAULT_KNOWLEDGE_SEARCH_LIMIT)
-            .clamp(1, MAX_KNOWLEDGE_SEARCH_LIMIT);
+        let limit = normalized_knowledge_search_limit(input.limit);
 
         Ok(self
             .store
             .search_knowledge_documents(&workspace_id, &query, limit)?
             .into_iter()
             .map(|row| {
-                let snippet = bounded_snippet(&row.text);
+                let snippet = bounded_knowledge_snippet(&row.text);
                 knowledge_document_search_result_summary(row, snippet)
             })
             .collect())
@@ -290,20 +284,6 @@ fn normalize_tags(tags: String) -> String {
 
 fn required_owned(value: String, label: &str) -> Result<String, WorkspaceServiceError> {
     required_input(&value, label).map(str::to_owned)
-}
-
-fn bounded_snippet(text: &str) -> String {
-    let compacted = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if compacted.chars().count() <= MAX_KNOWLEDGE_SNIPPET_CHARS {
-        return compacted;
-    }
-
-    let mut snippet = compacted
-        .chars()
-        .take(MAX_KNOWLEDGE_SNIPPET_CHARS.saturating_sub(3))
-        .collect::<String>();
-    snippet.push_str("...");
-    snippet
 }
 
 fn map_storage_knowledge_document_error(

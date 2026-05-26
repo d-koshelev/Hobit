@@ -36,6 +36,7 @@ mod jdbc_query_types;
 mod jdbc_runtime;
 mod jdbc_runtime_config;
 mod jdbc_sidecar_protocol;
+mod knowledge_document_search;
 mod knowledge_documents;
 mod logs;
 mod mapping;

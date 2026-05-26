@@ -35,6 +35,31 @@ fn create_document(
         .expect("create knowledge document")
 }
 
+fn create_document_with_metadata(
+    store: &SqliteStore,
+    workspace_id: &str,
+    document_id: &str,
+    title: &str,
+    source_label: &str,
+    content: &str,
+    tags: &str,
+    enabled: bool,
+) -> KnowledgeDocumentRow {
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: document_id,
+            workspace_id,
+            title,
+            source_label,
+            content,
+            tags,
+            enabled,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create knowledge document")
+}
+
 #[test]
 fn create_list_get_update_and_delete_knowledge_document() {
     let store = initialized_store();
@@ -150,6 +175,44 @@ fn chunks_are_created_updated_and_deleted_with_document() {
 }
 
 #[test]
+fn chunking_is_deterministic_for_equivalent_line_endings() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    create_document(
+        &store,
+        "workspace-1",
+        "doc-lf",
+        "LF",
+        "Heading\n\nFirst paragraph.\n\nSecond paragraph.",
+        true,
+    );
+    create_document(
+        &store,
+        "workspace-1",
+        "doc-crlf",
+        "CRLF",
+        "Heading\r\n\r\nFirst paragraph.\r\n\r\nSecond paragraph.",
+        true,
+    );
+
+    let lf_chunks = store
+        .list_knowledge_document_chunks("workspace-1", "doc-lf")
+        .expect("list lf chunks")
+        .into_iter()
+        .map(|chunk| chunk.text)
+        .collect::<Vec<_>>();
+    let crlf_chunks = store
+        .list_knowledge_document_chunks("workspace-1", "doc-crlf")
+        .expect("list crlf chunks")
+        .into_iter()
+        .map(|chunk| chunk.text)
+        .collect::<Vec<_>>();
+
+    assert_eq!(lf_chunks, crlf_chunks);
+}
+
+#[test]
 fn disabled_documents_are_not_searched() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
@@ -189,18 +252,31 @@ fn lexical_search_finds_title_tag_source_and_content_matches() {
         "The failover checklist has validation steps.",
         true,
     );
+    create_document_with_metadata(
+        &store,
+        "workspace-1",
+        "doc-source",
+        "Source only",
+        "Operator manual",
+        "General content.",
+        "",
+        true,
+    );
 
     let results = store
-        .search_knowledge_documents("workspace-1", "incident failover deploy", 5)
+        .search_knowledge_documents("workspace-1", "incident failover deploy operator", 5)
         .expect("search documents");
 
-    assert_eq!(results.len(), 2);
+    assert_eq!(results.len(), 3);
     assert!(results
         .iter()
         .any(|result| result.knowledge_document_id == "doc-title"));
     assert!(results
         .iter()
         .any(|result| result.knowledge_document_id == "doc-content"));
+    assert!(results
+        .iter()
+        .any(|result| result.knowledge_document_id == "doc-source"));
     assert!(results.iter().all(|result| result.score > 0));
 }
 
@@ -226,6 +302,34 @@ fn search_is_workspace_scoped() {
 }
 
 #[test]
+fn deleted_documents_and_chunks_are_not_searched() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_document(
+        &store,
+        "workspace-1",
+        "doc-delete",
+        "Delete",
+        "Needle appears here.",
+        true,
+    );
+
+    store
+        .delete_knowledge_document("workspace-1", "doc-delete")
+        .expect("delete document");
+
+    let results = store
+        .search_knowledge_documents("workspace-1", "needle", 5)
+        .expect("search documents");
+
+    assert!(results.is_empty());
+    assert!(store
+        .list_knowledge_document_chunks("workspace-1", "doc-delete")
+        .expect("list deleted chunks")
+        .is_empty());
+}
+
+#[test]
 fn search_result_caps_are_enforced() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
@@ -245,6 +349,39 @@ fn search_result_caps_are_enforced() {
         .expect("search documents");
 
     assert_eq!(results.len(), 3);
+}
+
+#[test]
+fn search_result_ordering_is_stable_by_score_title_and_chunk() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    for (document_id, title) in [
+        ("doc-beta", "Beta deploy"),
+        ("doc-alpha", "Alpha deploy"),
+        ("doc-gamma", "Gamma deploy"),
+    ] {
+        create_document(
+            &store,
+            "workspace-1",
+            document_id,
+            title,
+            "deploy keyword",
+            true,
+        );
+    }
+
+    let results = store
+        .search_knowledge_documents("workspace-1", "deploy", 10)
+        .expect("search documents");
+
+    assert_eq!(
+        results
+            .iter()
+            .map(|result| result.knowledge_document_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["doc-alpha", "doc-beta", "doc-gamma"]
+    );
 }
 
 #[test]
