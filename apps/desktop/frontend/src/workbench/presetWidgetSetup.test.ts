@@ -173,11 +173,22 @@ function workspaceState({
 } = {}): WorkspaceWorkbenchState {
   return {
     workspace: {
+      createdAt: "2026-05-25T10:00:00.000Z",
       description: null,
       id: "workspace_1",
+      knowledgeDocumentCount: 0,
+      lastOpenedAt: null,
+      noteCount: 0,
+      queueTaskCount: 0,
+      skillCount: 0,
       status: "active",
       title: "Untitled",
+      updatedAt: "2026-05-25T10:00:00.000Z",
+      widgetCount: widgetDefinitionIds.length,
       workbenchId: "workbench_1",
+      workspaceAgentCount: widgetDefinitionIds.filter(
+        (definitionId) => definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+      ).length,
     },
     workbench: {
       id: "workbench_1",

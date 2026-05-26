@@ -18,7 +18,9 @@ type WorkbenchTopBarProps = {
   activityStatus: GlobalActivityStatus;
   gridSize: WorkbenchGridSize;
   isActivityPanelOpen: boolean;
+  isClosingWorkspace?: boolean;
   layoutMode: WorkbenchLayoutMode;
+  onCloseWorkspace?: () => void;
   onGridSizeChange: (gridSize: WorkbenchGridSize) => void;
   onLayoutModeChange: (layoutMode: WorkbenchLayoutMode) => void;
   onOpenWidgetCatalog: () => void;
@@ -31,7 +33,9 @@ export function WorkbenchTopBar({
   activityStatus,
   gridSize,
   isActivityPanelOpen,
+  isClosingWorkspace = false,
   layoutMode,
+  onCloseWorkspace,
   onGridSizeChange,
   onLayoutModeChange,
   onOpenWidgetCatalog,
@@ -67,6 +71,16 @@ export function WorkbenchTopBar({
         <Select aria-label="Current workbench preset" value={presetId} disabled>
           <option value={presetId}>{presetTitle}</option>
         </Select>
+        {onCloseWorkspace ? (
+          <Button
+            className="close-workspace-action"
+            disabled={isClosingWorkspace}
+            onClick={onCloseWorkspace}
+            variant="ghost"
+          >
+            {isClosingWorkspace ? "Checking..." : "Close workspace"}
+          </Button>
+        ) : null}
       </div>
 
       <div className="topbar-right" aria-label="Workbench controls">

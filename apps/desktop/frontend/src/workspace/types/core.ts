@@ -3,6 +3,15 @@ export type WorkspaceSummary = {
   title: string;
   description: string | null;
   status: string;
+  createdAt: string;
+  updatedAt: string;
+  lastOpenedAt: string | null;
+  widgetCount: number;
+  workspaceAgentCount: number;
+  noteCount: number;
+  skillCount: number;
+  knowledgeDocumentCount: number;
+  queueTaskCount: number;
   workbenchId: string | null;
 };
 

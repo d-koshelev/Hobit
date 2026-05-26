@@ -13,6 +13,7 @@ const workspaceApiMocks = vi.hoisted(() => ({
   addWidgetInstanceToWorkbench: vi.fn(),
   getAgentQueueRunnerSnapshot: vi.fn(),
   getAgentQueueTask: vi.fn(),
+  listTerminalPtySessions: vi.fn(),
   listAgentQueueTaskRunLinks: vi.fn(),
   listAgentQueueTasks: vi.fn(),
   updateWidgetInstanceLayout: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
     getAgentQueueTask: workspaceApiMocks.getAgentQueueTask,
     listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
     listAgentQueueTasks: workspaceApiMocks.listAgentQueueTasks,
+    listTerminalPtySessions: workspaceApiMocks.listTerminalPtySessions,
     updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
   };
 });
@@ -211,9 +213,69 @@ describe("WorkbenchShell workspace title", () => {
   });
 });
 
+describe("WorkbenchShell close workspace", () => {
+  it("shows a close workspace action and calls the close handler", async () => {
+    const onCloseWorkspace = vi.fn();
+    workspaceApiMocks.listTerminalPtySessions.mockResolvedValue([]);
+
+    renderShell(workbenchViewState(), () => undefined, onCloseWorkspace);
+
+    await awaitAct(() => {
+      buttonWithText("Close workspace").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onCloseWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not require Workspace Agent direct mode state for start screen navigation", async () => {
+    const onCloseWorkspace = vi.fn();
+    workspaceApiMocks.listTerminalPtySessions.mockResolvedValue([]);
+
+    renderShell(
+      workbenchViewState({
+        widgets: [
+          {
+            config: {},
+            definitionId: "interactive-agent",
+            id: "widget_agent_1",
+            layout: {
+              area: "main",
+              height: 560,
+              mode: "docked",
+              order: 0,
+              width: 840,
+              x: 0,
+              y: 0,
+            },
+            state: {
+              codexDirectModeEnabled: true,
+              codexThreadId: "thread_1",
+            },
+            title: "Workspace Agent",
+            visible: true,
+          },
+        ],
+      }),
+      () => undefined,
+      onCloseWorkspace,
+    );
+
+    await awaitAct(() => {
+      buttonWithText("Close workspace").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(onCloseWorkspace).toHaveBeenCalledTimes(1);
+  });
+});
+
 function renderShell(
   viewState = workbenchViewState(),
   onViewStateChange: (viewState: WorkbenchViewState) => void = () => undefined,
+  onCloseWorkspace?: () => void,
 ) {
   container = document.createElement("div");
   document.body.append(container);
@@ -222,6 +284,7 @@ function renderShell(
   act(() => {
     root?.render(
       <WorkbenchShell
+        onCloseWorkspace={onCloseWorkspace}
         onViewStateChange={onViewStateChange}
         viewState={viewState}
       />,
@@ -391,6 +454,13 @@ async function flushShellEffects() {
     await Promise.resolve();
   });
   await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+function awaitAct(action: () => void) {
+  return act(async () => {
+    action();
     await Promise.resolve();
   });
 }

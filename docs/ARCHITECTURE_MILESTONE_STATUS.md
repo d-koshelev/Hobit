@@ -49,6 +49,12 @@ behavior, or Workspace Agent context wiring.
   with Workspace Agent and Notes. Empty Workbench remains available as an
   advanced/manual mode, and existing empty Workspaces can add Workspace Agent
   plus Notes through an explicit recovery action.
+- The Workbench top bar can close the current Workspace view and return to the
+  Workspace Start Screen without deleting data. Recent Workspace summaries now
+  include created/last-opened metadata and compact safe counts for widgets,
+  Workspace Agents, notes, skills/documents, and Queue tasks; summaries do not
+  include raw logs, prompts, Executor output, provider payloads, or result
+  payloads.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

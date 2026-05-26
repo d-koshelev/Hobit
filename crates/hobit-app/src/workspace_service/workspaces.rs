@@ -51,12 +51,10 @@ impl WorkspaceService {
         &self,
         workspace_id: &str,
     ) -> Result<Option<WorkspaceSummary>, WorkspaceServiceError> {
-        let Some(workspace) = self.store.get_workspace(workspace_id)? else {
-            return Ok(None);
-        };
-
-        let workbench_id = self.first_workbench_id(&workspace.id)?;
-        Ok(Some(workspace_summary(&workspace, workbench_id)))
+        Ok(self
+            .store
+            .get_workspace_summary_with_workbench(workspace_id)?
+            .map(workspace_summary_row))
     }
 
     pub fn list_workspaces(&self) -> Result<Vec<WorkspaceSummary>, WorkspaceServiceError> {
@@ -148,17 +146,5 @@ impl WorkspaceService {
             status: session.status,
             active_widget_id: session.active_widget_id,
         }))
-    }
-
-    fn first_workbench_id(
-        &self,
-        workspace_id: &str,
-    ) -> Result<Option<String>, WorkspaceServiceError> {
-        Ok(self
-            .store
-            .list_workspace_workbenches(workspace_id)?
-            .into_iter()
-            .next()
-            .map(|workbench| workbench.id))
     }
 }

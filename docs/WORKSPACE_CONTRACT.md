@@ -104,6 +104,16 @@ The current implementation has the Workspace foundation in place, but not the fu
 Implemented foundation:
 
 - The Workspace Start Screen lets the user create a Workspace or open an existing Workspace.
+- The Workbench top bar includes a Close Workspace action that returns to the
+  Workspace Start Screen. Closing a Workspace is not deletion: it does not
+  remove Hobit-persisted Workspace data, widgets, notes, Queue tasks, runs,
+  results, logs, repository files, or local folders.
+- The Workspace Start Screen recent Workspace list shows Workspace name,
+  created metadata, last-opened metadata when a WorkspaceSession exists, and
+  compact safe counts such as widgets, Workspace Agents, notes, skills,
+  Knowledge Documents, and Queue tasks. Summaries must stay lightweight and
+  must not expose raw logs, prompts, Executor result payloads, stdout/stderr,
+  provider payloads, or hidden context.
 - In the Tauri desktop shell, Workspace lifecycle and Workbench state loading use Tauri commands backed by `hobit-app` and `hobit-storage-sqlite`.
 - The desktop path can delete one Workspace and its Hobit-persisted Workspace-local records from SQLite, including workspace-local notes, through a confirmation-gated Workspace Start Screen action. The deletion path does not delete filesystem files, repository roots, Git repositories, global app configuration, or provider configuration, and the Tauri command rejects deletion while a Direct Work run is active for that Workspace.
 - In browser/Vite development, the same frontend workspace API boundary uses an in-memory fallback. Browser fallback state is not persisted.
@@ -442,6 +452,15 @@ Current foundation: Hobit loads the persisted Workbench summary and renders it a
 ### Continue Recent Workspace
 
 The user selects a recent Workspace and Hobit starts a new WorkspaceSession from the saved Workspace state.
+
+### Close Workspace
+
+The user closes the current Workbench view and returns to the Workspace Start
+Screen. Current foundation: Close Workspace is a UI navigation action only. It
+clears the current open-Workspace view state, keeps durable Workspace data
+intact, and leaves deletion available only through the existing confirmation
+flow. If current-session local runs or active Terminal PTY sessions are visible
+to the current app session, close is blocked until the operator stops them.
 
 ### Choose Preset
 

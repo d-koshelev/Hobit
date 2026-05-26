@@ -29,7 +29,14 @@ pub(crate) fn workspace_summary_row(row: &rusqlite::Row<'_>) -> Result<Workspace
         status: row.get(3)?,
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
-        workbench_id: row.get(6)?,
+        last_opened_at: row.get(6)?,
+        widget_count: row.get(7)?,
+        workspace_agent_count: row.get(8)?,
+        note_count: row.get(9)?,
+        skill_count: row.get(10)?,
+        knowledge_document_count: row.get(11)?,
+        queue_task_count: row.get(12)?,
+        workbench_id: row.get(13)?,
     })
 }
 

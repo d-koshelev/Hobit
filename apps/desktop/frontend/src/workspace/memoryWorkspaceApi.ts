@@ -104,6 +104,7 @@ const AGENT_QUEUE_ALREADY_EXISTS_MESSAGE =
 const PLACEHOLDER_WIDGET_DOCK_HEIGHT = 240;
 const PLACEHOLDER_WIDGET_DOCK_GAP = 16;
 const RECENT_EVENT_LIMIT = 100;
+const WORKSPACE_AGENT_WIDGET_DEFINITION_ID = "interactive-agent";
 const memoryNotesApi = import.meta.env.DEV
   ? {
       createWorkspaceNote: createMemoryWorkspaceNote,
@@ -236,11 +237,21 @@ async function createWorkspace(
 
   const id = `fallback_ws_${fallbackId++}`;
   const workbenchId = `fallback_wb_${fallbackId++}`;
+  const now = new Date().toISOString();
   const workspace: WorkspaceSummary = {
     id,
     title,
     description: request.description ?? null,
     status: "active",
+    createdAt: now,
+    updatedAt: now,
+    lastOpenedAt: null,
+    widgetCount: 0,
+    workspaceAgentCount: 0,
+    noteCount: 0,
+    skillCount: 0,
+    knowledgeDocumentCount: 0,
+    queueTaskCount: 0,
     workbenchId,
   };
 
@@ -291,6 +302,10 @@ async function openWorkspace(
   const state = fallbackWorkbenchStates.get(workspace.id);
 
   if (state) {
+    const openedAt = new Date().toISOString();
+    workspace.lastOpenedAt = openedAt;
+    workspace.updatedAt = openedAt;
+    syncWorkspaceStats(workspace, state);
     appendRecentEvent(state, "workspace_opened", "Workspace opened");
   }
 
@@ -365,6 +380,7 @@ async function addWidgetInstanceToWorkbench(
       state: "{}",
     },
   ];
+  syncWorkspaceStats(state.workspace, state);
   appendRecentEvent(state, "widget_instance_added", "Widget instance added");
 
   return cloneWorkspaceWorkbenchState(state);
@@ -533,4 +549,14 @@ function cloneWorkspaceWorkbenchState(
     })),
     recentEvents: state.recentEvents.map((event) => ({ ...event })),
   };
+}
+
+function syncWorkspaceStats(
+  workspace: WorkspaceSummary,
+  state: WorkspaceWorkbenchState,
+) {
+  workspace.widgetCount = state.widgetInstances.length;
+  workspace.workspaceAgentCount = state.widgetInstances.filter(
+    (widget) => widget.definitionId === WORKSPACE_AGENT_WIDGET_DEFINITION_ID,
+  ).length;
 }

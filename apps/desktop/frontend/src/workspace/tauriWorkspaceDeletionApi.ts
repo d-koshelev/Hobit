@@ -10,6 +10,15 @@ type TauriWorkspaceSummary = {
   title: string;
   description: string | null;
   status: string;
+  created_at: string;
+  updated_at: string;
+  last_opened_at: string | null;
+  widget_count: number;
+  workspace_agent_count: number;
+  note_count: number;
+  skill_count: number;
+  knowledge_document_count: number;
+  queue_task_count: number;
   workbench_id: string | null;
 };
 
@@ -48,6 +57,15 @@ function normalizeWorkspaceSummary(
     title: workspace.title,
     description: workspace.description,
     status: workspace.status,
+    createdAt: workspace.created_at,
+    updatedAt: workspace.updated_at,
+    lastOpenedAt: workspace.last_opened_at,
+    widgetCount: workspace.widget_count,
+    workspaceAgentCount: workspace.workspace_agent_count,
+    noteCount: workspace.note_count,
+    skillCount: workspace.skill_count,
+    knowledgeDocumentCount: workspace.knowledge_document_count,
+    queueTaskCount: workspace.queue_task_count,
     workbenchId: workspace.workbench_id,
   };
 }

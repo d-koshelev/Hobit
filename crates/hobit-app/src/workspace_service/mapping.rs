@@ -28,6 +28,15 @@ pub(super) fn workspace_summary(
         title: row.title.clone(),
         description: row.description.clone(),
         status: row.status.clone(),
+        created_at: row.created_at.clone(),
+        updated_at: row.updated_at.clone(),
+        last_opened_at: None,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 0,
         workbench_id,
     }
 }
@@ -38,8 +47,21 @@ pub(super) fn workspace_summary_row(row: WorkspaceSummaryRow) -> WorkspaceSummar
         title: row.title,
         description: row.description,
         status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        last_opened_at: row.last_opened_at,
+        widget_count: count_to_usize(row.widget_count),
+        workspace_agent_count: count_to_usize(row.workspace_agent_count),
+        note_count: count_to_usize(row.note_count),
+        skill_count: count_to_usize(row.skill_count),
+        knowledge_document_count: count_to_usize(row.knowledge_document_count),
+        queue_task_count: count_to_usize(row.queue_task_count),
         workbench_id: row.workbench_id,
     }
+}
+
+fn count_to_usize(count: i64) -> usize {
+    usize::try_from(count).unwrap_or(0)
 }
 
 pub(super) fn widget_instance_summary(row: WidgetInstanceRow) -> WidgetInstanceSummary {

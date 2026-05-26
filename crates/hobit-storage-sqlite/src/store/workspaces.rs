@@ -59,6 +59,42 @@ impl SqliteStore {
                 workspaces.created_at,
                 workspaces.updated_at,
                 (
+                    SELECT MAX(workspace_sessions.opened_at)
+                    FROM workspace_sessions
+                    WHERE workspace_sessions.workspace_id = workspaces.id
+                ) AS last_opened_at,
+                (
+                    SELECT COUNT(*)
+                    FROM widget_instances
+                    WHERE widget_instances.workspace_id = workspaces.id
+                ) AS widget_count,
+                (
+                    SELECT COUNT(*)
+                    FROM widget_instances
+                    WHERE widget_instances.workspace_id = workspaces.id
+                        AND widget_instances.definition_id = 'interactive-agent'
+                ) AS workspace_agent_count,
+                (
+                    SELECT COUNT(*)
+                    FROM notes
+                    WHERE notes.workspace_id = workspaces.id
+                ) AS note_count,
+                (
+                    SELECT COUNT(*)
+                    FROM skills
+                    WHERE skills.workspace_id = workspaces.id
+                ) AS skill_count,
+                (
+                    SELECT COUNT(*)
+                    FROM knowledge_documents
+                    WHERE knowledge_documents.workspace_id = workspaces.id
+                ) AS knowledge_document_count,
+                (
+                    SELECT COUNT(*)
+                    FROM agent_queue_tasks
+                    WHERE agent_queue_tasks.workspace_id = workspaces.id
+                ) AS queue_task_count,
+                (
                     SELECT workspace_workbenches.id
                     FROM workspace_workbenches
                     WHERE workspace_workbenches.workspace_id = workspaces.id
@@ -71,6 +107,70 @@ impl SqliteStore {
 
         let rows = statement.query_map([], workspace_summary_row)?;
         rows.collect()
+    }
+
+    pub fn get_workspace_summary_with_workbench(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<WorkspaceSummaryRow>> {
+        self.connection
+            .query_row(
+                "SELECT
+                    workspaces.id,
+                    workspaces.title,
+                    workspaces.description,
+                    workspaces.status,
+                    workspaces.created_at,
+                    workspaces.updated_at,
+                    (
+                        SELECT MAX(workspace_sessions.opened_at)
+                        FROM workspace_sessions
+                        WHERE workspace_sessions.workspace_id = workspaces.id
+                    ) AS last_opened_at,
+                    (
+                        SELECT COUNT(*)
+                        FROM widget_instances
+                        WHERE widget_instances.workspace_id = workspaces.id
+                    ) AS widget_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM widget_instances
+                        WHERE widget_instances.workspace_id = workspaces.id
+                            AND widget_instances.definition_id = 'interactive-agent'
+                    ) AS workspace_agent_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM notes
+                        WHERE notes.workspace_id = workspaces.id
+                    ) AS note_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM skills
+                        WHERE skills.workspace_id = workspaces.id
+                    ) AS skill_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM knowledge_documents
+                        WHERE knowledge_documents.workspace_id = workspaces.id
+                    ) AS knowledge_document_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM agent_queue_tasks
+                        WHERE agent_queue_tasks.workspace_id = workspaces.id
+                    ) AS queue_task_count,
+                    (
+                        SELECT workspace_workbenches.id
+                        FROM workspace_workbenches
+                        WHERE workspace_workbenches.workspace_id = workspaces.id
+                        ORDER BY workspace_workbenches.created_at, workspace_workbenches.id
+                        LIMIT 1
+                    ) AS workbench_id
+                 FROM workspaces
+                 WHERE workspaces.id = ?1",
+                params![workspace_id],
+                workspace_summary_row,
+            )
+            .optional()
     }
 
     pub fn touch_workspace(&self, workspace_id: &str) -> Result<()> {

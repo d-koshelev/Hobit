@@ -12,12 +12,17 @@ export default function App() {
     setWorkbenchViewState(selection.viewState);
   }
 
+  function closeWorkspace() {
+    setWorkbenchViewState(null);
+  }
+
   if (!workbenchViewState) {
     return <WorkspaceStartScreen onOpenWorkspace={openWorkspace} />;
   }
 
   return (
     <WorkbenchShell
+      onCloseWorkspace={closeWorkspace}
       onViewStateChange={setWorkbenchViewState}
       viewState={workbenchViewState}
     />

@@ -26,11 +26,69 @@ fn create_empty_workspace_creates_workspace_and_workbench() {
     assert_eq!(summary.title, "Incident");
     assert_eq!(summary.description.as_deref(), Some("Investigate"));
     assert_eq!(summary.status, "active");
+    assert_eq!(summary.last_opened_at, None);
+    assert_eq!(summary.widget_count, 0);
+    assert_eq!(summary.workspace_agent_count, 0);
     assert_eq!(workbenches.len(), 1);
     assert_eq!(workbench_id, workbenches[0].id);
     assert!(widgets.is_empty());
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind, "workspace_created");
+}
+
+#[test]
+fn workspace_summary_includes_created_opened_and_safe_stats() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+
+    service
+        .add_widget_instance_to_workbench(
+            &workspace.id,
+            workbench_id,
+            "interactive-agent",
+            "Workspace Agent",
+            "core",
+        )
+        .expect("add workspace agent");
+    service
+        .create_workspace_note(CreateWorkspaceNoteInput {
+            workspace_id: workspace.id.clone(),
+            title: "Note".to_owned(),
+            body: "Stored note body is not part of workspace summaries.".to_owned(),
+            pinned: false,
+        })
+        .expect("create note");
+    service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            title: "Task".to_owned(),
+            description: "Description stays out of summaries.".to_owned(),
+            prompt: "Prompt stays out of summaries.".to_owned(),
+            status: "draft".to_owned(),
+            priority: 0,
+            execution_policy: None,
+        })
+        .expect("create queue task");
+
+    service
+        .open_workspace(&workspace.id)
+        .expect("open workspace")
+        .expect("session summary");
+
+    let summary = service
+        .get_workspace_summary(&workspace.id)
+        .expect("get workspace summary")
+        .expect("workspace summary");
+
+    assert_eq!(summary.created_at, workspace.created_at);
+    assert!(summary.last_opened_at.is_some());
+    assert_eq!(summary.widget_count, 1);
+    assert_eq!(summary.workspace_agent_count, 1);
+    assert_eq!(summary.note_count, 1);
+    assert_eq!(summary.queue_task_count, 1);
 }
 
 #[test]
@@ -153,6 +211,32 @@ fn open_workspace_creates_workspace_session() {
     assert_eq!(stored_session.id, session.id);
     assert_eq!(stored_session.workspace_id, session.workspace_id);
     assert!(events.iter().any(|event| event.kind == "workspace_opened"));
+}
+
+#[test]
+fn opening_workspace_updates_last_opened_at() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+
+    let before_open = service
+        .get_workspace_summary(&workspace.id)
+        .expect("get workspace summary")
+        .expect("workspace summary");
+    assert_eq!(before_open.last_opened_at, None);
+
+    service
+        .open_workspace(&workspace.id)
+        .expect("open workspace")
+        .expect("session summary");
+
+    let after_open = service
+        .get_workspace_summary(&workspace.id)
+        .expect("get workspace summary")
+        .expect("workspace summary");
+
+    assert!(after_open.last_opened_at.is_some());
 }
 
 #[test]

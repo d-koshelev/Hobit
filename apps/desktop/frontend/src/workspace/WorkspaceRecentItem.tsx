@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import type { WorkspaceSummary } from "./types";
@@ -26,6 +25,8 @@ export function WorkspaceRecentItem({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const typedNameMatches = confirmationName.trim() === workspace.title.trim();
   const deleteControlsDisabled = isDisabled || isOpening || isDeleting;
+  const metadataRows = workspaceMetadataRows(workspace);
+  const stats = workspaceStats(workspace);
 
   function openDeleteConfirmation() {
     setIsConfirmingDelete(true);
@@ -61,13 +62,7 @@ export function WorkspaceRecentItem({
   return (
     <div className="workspace-recent-entry">
       <div className="workspace-recent-row">
-        <button
-          aria-label={`Open ${workspace.title}`}
-          className="workspace-recent-item"
-          disabled={isDisabled || isOpening || isDeleting || isConfirmingDelete}
-          onClick={() => onOpenWorkspace(workspace)}
-          type="button"
-        >
+        <div className="workspace-recent-item">
           <span className="workspace-recent-item-copy">
             <span className="workspace-recent-item-title">
               {workspace.title}
@@ -77,10 +72,34 @@ export function WorkspaceRecentItem({
                 {workspace.description}
               </span>
             ) : null}
+            <span className="workspace-recent-metadata">
+              {metadataRows.map((row) => (
+                <span key={row.label}>
+                  {row.label}: {row.value}
+                </span>
+              ))}
+            </span>
+            {stats.length > 0 ? (
+              <span className="workspace-recent-stats">
+                {stats.map((stat) => (
+                  <span key={stat.label}>
+                    {stat.label}: {stat.value}
+                  </span>
+                ))}
+              </span>
+            ) : null}
           </span>
-          <Badge variant="neutral">{workspace.status}</Badge>
-        </button>
+        </div>
 
+        <Button
+          aria-label={`Open ${workspace.title}`}
+          className="workspace-open-trigger"
+          disabled={isDisabled || isOpening || isDeleting || isConfirmingDelete}
+          onClick={() => onOpenWorkspace(workspace)}
+          variant="primary"
+        >
+          {isOpening ? "Opening..." : "Open"}
+        </Button>
         <Button
           aria-expanded={isConfirmingDelete}
           aria-label={`Delete ${workspace.title}`}
@@ -147,6 +166,96 @@ export function WorkspaceRecentItem({
       ) : null}
     </div>
   );
+}
+
+function workspaceMetadataRows(workspace: WorkspaceSummary) {
+  return [
+    {
+      label: "Created",
+      value: formatWorkspaceDate(workspace.createdAt, "date"),
+    },
+    workspace.lastOpenedAt
+      ? {
+          label: "Last opened",
+          value: formatWorkspaceDate(workspace.lastOpenedAt, "date-time"),
+        }
+      : {
+          label: "Updated",
+          value: formatWorkspaceDate(workspace.updatedAt, "date-time"),
+        },
+  ];
+}
+
+function workspaceStats(workspace: WorkspaceSummary) {
+  return [
+    { label: "Widgets", value: workspace.widgetCount },
+    { label: "Agents", value: workspace.workspaceAgentCount },
+    { label: "Notes", value: workspace.noteCount },
+    { label: "Skills", value: workspace.skillCount },
+    { label: "Docs", value: workspace.knowledgeDocumentCount },
+    { label: "Queue", value: workspace.queueTaskCount },
+  ].filter((stat) => stat.value > 0 || stat.label === "Widgets");
+}
+
+function formatWorkspaceDate(
+  value: string,
+  mode: "date" | "date-time",
+) {
+  const date = parseWorkspaceTimestamp(value);
+
+  if (!date) {
+    return "Unknown";
+  }
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+
+  if (mode === "date-time" && isToday) {
+    return `today ${new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date)}`;
+  }
+
+  if (mode === "date-time") {
+    return new Intl.DateTimeFormat(undefined, {
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function parseWorkspaceTimestamp(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(trimmedValue)) {
+    const [secondsPart, fractionPart = ""] = trimmedValue.split(".");
+    const seconds = Number(secondsPart);
+    const milliseconds = Number(
+      `${fractionPart.slice(0, 3).padEnd(3, "0") || "0"}`,
+    );
+
+    if (Number.isFinite(seconds) && Number.isFinite(milliseconds)) {
+      return new Date(seconds * 1000 + milliseconds);
+    }
+  }
+
+  const date = new Date(trimmedValue);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function workspaceDeletionErrorMessage(error: unknown) {

@@ -137,6 +137,15 @@ pub(crate) struct WorkspaceSummaryDto {
     pub title: String,
     pub description: Option<String>,
     pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub last_opened_at: Option<String>,
+    pub widget_count: usize,
+    pub workspace_agent_count: usize,
+    pub note_count: usize,
+    pub skill_count: usize,
+    pub knowledge_document_count: usize,
+    pub queue_task_count: usize,
     pub workbench_id: Option<String>,
 }
 
@@ -339,6 +348,15 @@ impl From<WorkspaceSummary> for WorkspaceSummaryDto {
             title: summary.title,
             description: summary.description,
             status: summary.status,
+            created_at: summary.created_at,
+            updated_at: summary.updated_at,
+            last_opened_at: summary.last_opened_at,
+            widget_count: summary.widget_count,
+            workspace_agent_count: summary.workspace_agent_count,
+            note_count: summary.note_count,
+            skill_count: summary.skill_count,
+            knowledge_document_count: summary.knowledge_document_count,
+            queue_task_count: summary.queue_task_count,
             workbench_id: summary.workbench_id,
         }
     }

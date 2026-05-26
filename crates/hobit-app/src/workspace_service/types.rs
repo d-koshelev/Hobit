@@ -6,6 +6,15 @@ pub struct WorkspaceSummary {
     pub title: String,
     pub description: Option<String>,
     pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub last_opened_at: Option<String>,
+    pub widget_count: usize,
+    pub workspace_agent_count: usize,
+    pub note_count: usize,
+    pub skill_count: usize,
+    pub knowledge_document_count: usize,
+    pub queue_task_count: usize,
     pub workbench_id: Option<String>,
 }
 

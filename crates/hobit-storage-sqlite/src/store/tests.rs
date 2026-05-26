@@ -338,6 +338,185 @@ fn list_workspace_summaries_with_workbench_returns_first_workbench_without_dupli
 }
 
 #[test]
+fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
+    let store = initialized_store();
+
+    store
+        .create_workspace("workspace-1", "Primary", None, "active")
+        .expect("create workspace");
+    store
+        .create_workspace_workbench("workbench-1", "workspace-1", None)
+        .expect("create workbench");
+    store
+        .create_workspace("workspace-2", "Other", None, "active")
+        .expect("create other workspace");
+    store
+        .create_workspace_workbench("workbench-2", "workspace-2", None)
+        .expect("create other workbench");
+    store
+        .create_workspace_session(NewWorkspaceSession {
+            id: "session-1",
+            workspace_id: "workspace-1",
+            status: "open",
+            opened_at: Some("10"),
+            closed_at: None,
+            active_widget_id: None,
+            current_focus_kind: None,
+            current_focus_ref: None,
+        })
+        .expect("create older session");
+    store
+        .create_workspace_session(NewWorkspaceSession {
+            id: "session-2",
+            workspace_id: "workspace-1",
+            status: "open",
+            opened_at: Some("20"),
+            closed_at: None,
+            active_widget_id: None,
+            current_focus_kind: None,
+            current_focus_ref: None,
+        })
+        .expect("create newer session");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "agent-1",
+            workspace_id: "workspace-1",
+            workbench_id: "workbench-1",
+            definition_id: "interactive-agent",
+            title: "Workspace Agent",
+            category: "core",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert workspace agent");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "notes-widget-1",
+            workspace_id: "workspace-1",
+            workbench_id: "workbench-1",
+            definition_id: "notes",
+            title: "Notes",
+            category: "notes",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(256),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert notes widget");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "other-agent",
+            workspace_id: "workspace-2",
+            workbench_id: "workbench-2",
+            definition_id: "interactive-agent",
+            title: "Other Workspace Agent",
+            category: "core",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert other workspace agent");
+    store
+        .create_note(NewWorkspaceNote {
+            note_id: "note-1",
+            workspace_id: "workspace-1",
+            title: "Note",
+            body: "Body",
+            pinned: false,
+            archived: false,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create note");
+    store
+        .create_skill(NewSkill {
+            skill_id: "skill-1",
+            workspace_id: "workspace-1",
+            title: "Skill",
+            when_to_use: "",
+            prerequisites: "",
+            steps: "",
+            validation: "",
+            risks: "",
+            tags: "",
+            review_status: "draft",
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create skill");
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-1",
+            workspace_id: "workspace-1",
+            title: "Doc",
+            source_label: "manual",
+            content: "Content",
+            tags: "",
+            enabled: true,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create document");
+    store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-1",
+            workspace_id: "workspace-1",
+            title: "Task",
+            description: "",
+            prompt: "Prompt",
+            status: "draft",
+            priority: 0,
+            execution_policy: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+
+    let summary = store
+        .get_workspace_summary_with_workbench("workspace-1")
+        .expect("get workspace summary")
+        .expect("workspace summary");
+
+    assert_eq!(summary.last_opened_at.as_deref(), Some("20"));
+    assert_eq!(summary.widget_count, 2);
+    assert_eq!(summary.workspace_agent_count, 1);
+    assert_eq!(summary.note_count, 1);
+    assert_eq!(summary.skill_count, 1);
+    assert_eq!(summary.knowledge_document_count, 1);
+    assert_eq!(summary.queue_task_count, 1);
+}
+
+#[test]
 fn touch_workspace_updates_updated_at() {
     let store = initialized_store();
     store

@@ -12,18 +12,25 @@ import type { WorkbenchLayoutMode, WorkbenchViewState } from "./types";
 import { createWorkbenchViewStateFromWorkspaceState } from "./viewState";
 import { DEFAULT_WORKBENCH_GRID_SIZE } from "./workbenchLayoutGeometry";
 import { AGENT_QUEUE_WIDGET_DEFINITION_ID } from "./widgetRegistry";
+import { listTerminalPtySessions } from "../workspace/workspaceApi";
 
 type WorkbenchShellProps = {
+  onCloseWorkspace?: () => void;
   onViewStateChange: (viewState: WorkbenchViewState) => void;
   viewState: WorkbenchViewState;
 };
 
 export function WorkbenchShell({
+  onCloseWorkspace,
   onViewStateChange,
   viewState,
 }: WorkbenchShellProps) {
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
   const [isActivityPanelOpen, setIsActivityPanelOpen] = useState(false);
+  const [closeWorkspaceMessage, setCloseWorkspaceMessage] = useState<
+    string | null
+  >(null);
+  const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
   const [layoutMode, setLayoutMode] =
     useState<WorkbenchLayoutMode>("locked");
   const [gridSize, setGridSize] = useState(DEFAULT_WORKBENCH_GRID_SIZE);
@@ -76,6 +83,47 @@ export function WorkbenchShell({
     }
   }
 
+  async function closeWorkspace() {
+    if (currentSessionActivity.status.kind === "running") {
+      setCloseWorkspaceMessage(
+        "Stop active local runs before closing this workspace.",
+      );
+      return;
+    }
+
+    const workbenchId = viewState.workbench.id;
+
+    if (workbenchId) {
+      setIsClosingWorkspace(true);
+
+      try {
+        const terminalSessions = await listTerminalPtySessions({
+          workbenchId,
+          workspaceId: viewState.workspace.id,
+        });
+        const hasActiveTerminalSession = terminalSessions.some(
+          (session) =>
+            session.endedAt === null &&
+            (session.status === "running" || session.status === "stopping"),
+        );
+
+        if (hasActiveTerminalSession) {
+          setCloseWorkspaceMessage(
+            "Stop active local runs before closing this workspace.",
+          );
+          return;
+        }
+      } catch {
+        // Browser fallback cannot inspect local PTY sessions.
+      } finally {
+        setIsClosingWorkspace(false);
+      }
+    }
+
+    setCloseWorkspaceMessage(null);
+    onCloseWorkspace?.();
+  }
+
   return (
     <main className="app-shell">
       <div className="workbench">
@@ -86,6 +134,10 @@ export function WorkbenchShell({
           isActivityPanelOpen={isActivityPanelOpen}
           layoutMode={layoutMode}
           onGridSizeChange={setGridSize}
+          isClosingWorkspace={isClosingWorkspace}
+          onCloseWorkspace={
+            onCloseWorkspace ? () => void closeWorkspace() : undefined
+          }
           onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}
           onToggleActivityPanel={() =>
@@ -93,6 +145,11 @@ export function WorkbenchShell({
           }
           viewState={viewState}
         />
+        {closeWorkspaceMessage ? (
+          <p className="workbench-close-message" role="alert">
+            {closeWorkspaceMessage}
+          </p>
+        ) : null}
         <div
           className={`workbench-content${
             isWidgetCatalogOpen ? " workbench-content-catalog-open" : ""

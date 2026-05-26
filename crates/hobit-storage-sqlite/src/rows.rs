@@ -18,6 +18,13 @@ pub struct WorkspaceSummaryRow {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+    pub last_opened_at: Option<String>,
+    pub widget_count: i64,
+    pub workspace_agent_count: i64,
+    pub note_count: i64,
+    pub skill_count: i64,
+    pub knowledge_document_count: i64,
+    pub queue_task_count: i64,
     pub workbench_id: Option<String>,
 }
 

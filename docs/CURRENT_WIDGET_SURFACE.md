@@ -64,6 +64,14 @@ Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Queue,
 Agent Executor, Git, Terminal, Database / JDBC, Skill Library / Knowledge, and Runbook
 remain optional widgets added when needed.
 
+An opened Workspace can be closed from the Workbench top bar to return to the
+Workspace Start Screen. Close is navigation only: it does not delete the
+Workspace, remove widgets, clear persisted notes/tasks/runs/results, or change
+Workspace deletion semantics. The Start Screen recent Workspace list shows
+created and last-opened metadata plus compact safe counts such as widgets,
+Workspace Agents, notes, skills/documents, and Queue tasks; it does not expose
+raw logs, prompts, result payloads, or Executor output.
+
 Empty Workbench remains available as an advanced/manual start mode. Existing
 empty Workspaces show a recovery action to add Workspace Agent plus Notes
 without running agents, creating Queue tasks, reading hidden context, or
