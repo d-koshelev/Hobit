@@ -69,6 +69,20 @@ import {
   type CoordinatorDirectWorkStatus,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
+import {
+  approveProposal as approveProposalState,
+  approveQueueDraftProposals,
+  canStartProposalCreation,
+  createNotApprovedFailurePatch,
+  createUnavailableFailurePatch,
+  editProposalPatch,
+  failedProposalPatch,
+  proposalCreatedPatch,
+  proposalCreatingPatch,
+  queueDraftReviewState,
+  rejectProposalPatch,
+  updateProposal,
+} from "./workspaceAgentProposalState";
 import type { DirectWorkStreamEvent } from "../workspace/types";
 
 type InteractiveAgentMessage = {
@@ -129,50 +143,8 @@ const SUGGESTED_PROMPTS = [
   },
 ];
 
-const APPROVED_PREVIEW_SUMMARY =
-  "Approved locally only. Execution bridge is not implemented, and no widget capability was invoked.";
-
-const APPROVED_QUEUE_TASK_SUMMARY =
-  "Approved locally. Use Create Queue task to create a draft task. Does not run it.";
-
-const APPROVED_NOTE_SUMMARY =
-  "Approved locally. Review the visible title, body, and pinned state, then use Create Note. No Note has been created yet.";
-
-const APPROVED_JDBC_SUGGESTION_SUMMARY =
-  "Approved locally as a non-executing SQL suggestion. Use Copy SQL for manual review. No connector is accessed and no SQL is executed.";
-
-const CREATING_QUEUE_TASK_SUMMARY =
-  "Creating a draft Agent Queue task from the visible approved proposal inputs.";
-
-const CREATING_NOTE_SUMMARY =
-  "Creating a workspace-local Note from the visible approved proposal inputs.";
-
-const CREATING_KNOWLEDGE_DOCUMENT_SUMMARY =
-  "Creating a workspace-local Knowledge Document from the visible approved proposal inputs.";
-
-const CREATING_SKILL_SUMMARY =
-  "Creating a workspace-local Skill from the visible approved proposal inputs.";
-
-const QUEUE_TASK_CREATED_SUMMARY =
-  "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
-
-const KNOWLEDGE_DOCUMENT_CREATED_SUMMARY =
-  "Workspace-local Knowledge Document created from visible approved content only.";
-
-const SKILL_CREATED_SUMMARY =
-  "Workspace-local Skill created from visible approved content only.";
-
 const QUEUE_DRAFT_REVIEW_NOTE =
   "Approve all drafts is local review only. Create Queue task stays explicit on each approved draft.";
-
-const NOTE_CREATED_SUMMARY =
-  "Workspace-local Note created. Existing Notes content was not read, summarized, or searched.";
-
-const REJECTED_PREVIEW_SUMMARY =
-  "Rejected locally only. No widget capability was invoked.";
-
-const EDITED_PREVIEW_SUMMARY =
-  "Edited locally only. Review this preview again before any future handoff.";
 
 const STATIC_PROPOSAL_TYPE_SUMMARY =
   COORDINATOR_ACTION_PROPOSAL_REGISTRY.map(
@@ -916,52 +888,20 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function approveProposal(proposalId: string) {
-    setProposals((currentProposals) => {
-      const proposal = currentProposals[proposalId];
-      if (!proposal) {
-        return currentProposals;
-      }
-
-      return updateProposal(
-        currentProposals,
-        proposalId,
-        approvedProposalPatch(proposal),
-      );
-    });
+    setProposals((currentProposals) =>
+      approveProposalState(currentProposals, proposalId),
+    );
   }
 
   function approveAllQueueDrafts(proposalIds: string[]) {
-    setProposals((currentProposals) => {
-      let nextProposals = currentProposals;
-
-      proposalIds.forEach((proposalId) => {
-        const proposal = nextProposals[proposalId];
-        if (
-          proposal?.typeId !== "create-agent-queue-task" ||
-          proposal.createdQueueTaskId
-        ) {
-          return;
-        }
-
-        nextProposals = updateProposal(
-          nextProposals,
-          proposalId,
-          approvedProposalPatch(proposal),
-        );
-      });
-
-      return nextProposals;
-    });
+    setProposals((currentProposals) =>
+      approveQueueDraftProposals(currentProposals, proposalIds),
+    );
   }
 
   function rejectProposal(proposalId: string) {
     setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
-        approvalStatus: "Rejected preview",
-        executionError: undefined,
-        executionStatus: "Not run",
-        resultSummary: REJECTED_PREVIEW_SUMMARY,
-      }),
+      updateProposal(currentProposals, proposalId, rejectProposalPatch()),
     );
   }
 
@@ -974,40 +914,11 @@ export function InteractiveAgentPlaceholderWidget({
   ) {
     setProposals((currentProposals) => {
       const proposal = currentProposals[proposalId];
-      const isCreateQueueTaskProposal =
-        proposal?.typeId === "create-agent-queue-task";
-      const isCreateKnowledgeDocumentProposal =
-        proposal?.typeId === "create-knowledge-document";
-      const isCreateNoteProposal = proposal?.typeId === "create-note";
-      const isCreateSkillProposal = proposal?.typeId === "create-skill";
-      const isJdbcQuerySuggestion =
-        proposal?.typeId === "prepare-jdbc-query-suggestion";
-
-      return updateProposal(currentProposals, proposalId, {
-        ...patch,
-        approvalStatus: "Edited preview",
-        createdKnowledgeDocumentId: undefined,
-        createdKnowledgeDocumentTitle: undefined,
-        createdNoteId: undefined,
-        createdNoteTitle: undefined,
-        createdQueueTaskId: undefined,
-        createdQueueTaskTitle: undefined,
-        createdSkillId: undefined,
-        createdSkillTitle: undefined,
-        executionError: undefined,
-        executionStatus: isCreateQueueTaskProposal
-          ? "Not run"
-          : isCreateKnowledgeDocumentProposal
-            ? "Not run"
-          : isCreateNoteProposal
-            ? "Not run"
-            : isCreateSkillProposal
-              ? "Not run"
-            : isJdbcQuerySuggestion
-              ? "SQL suggestion only"
-              : "Execution bridge not implemented",
-        resultSummary: EDITED_PREVIEW_SUMMARY,
-      });
+      return updateProposal(
+        currentProposals,
+        proposalId,
+        editProposalPatch(proposal, patch),
+      );
     });
   }
 
@@ -1021,29 +932,28 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    if (proposal.approvalStatus !== "Approved preview") {
-      setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: "Approve this proposal before creating a Queue task.",
-          executionStatus: "Queue task creation failed",
-          resultSummary: "No Queue task was created.",
-        }),
-      );
+    if (proposal.createdQueueTaskId) {
       return;
     }
 
-    if (proposal.createdQueueTaskId) {
+    if (!canStartProposalCreation(proposal, "queueTask")) {
+      setProposals((currentProposals) =>
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createNotApprovedFailurePatch("queueTask"),
+        ),
+      );
       return;
     }
 
     if (!onCreateAgentQueueTask) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError:
-            "Agent Queue task creation is unavailable in this runtime.",
-          executionStatus: "Queue task creation failed",
-          resultSummary: "No Queue task was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createUnavailableFailurePatch("queueTask"),
+        ),
       );
       return;
     }
@@ -1054,11 +964,11 @@ export function InteractiveAgentPlaceholderWidget({
       return nextIds;
     });
     setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
-        executionError: undefined,
-        executionStatus: "Creating Queue task",
-        resultSummary: CREATING_QUEUE_TASK_SUMMARY,
-      }),
+      updateProposal(
+        currentProposals,
+        proposalId,
+        proposalCreatingPatch("queueTask"),
+      ),
     );
 
     try {
@@ -1066,21 +976,26 @@ export function InteractiveAgentPlaceholderWidget({
         queueTaskRequestFromProposal(proposal),
       );
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          createdQueueTaskId: task.queueItemId,
-          createdQueueTaskTitle: task.title,
-          executionError: undefined,
-          executionStatus: "Queue task created",
-          resultSummary: `${QUEUE_TASK_CREATED_SUMMARY} Created task "${task.title}" (${task.queueItemId}) with status ${task.status}.`,
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          proposalCreatedPatch("queueTask", {
+            id: task.queueItemId,
+            status: task.status,
+            title: task.title,
+          }),
+        ),
       );
     } catch (error) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: errorToMessage(error, "Unable to create Queue task."),
-          executionStatus: "Queue task creation failed",
-          resultSummary: "No Queue task was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          failedProposalPatch(
+            "queueTask",
+            errorToMessage(error, "Unable to create Queue task."),
+          ),
+        ),
       );
     } finally {
       setCreatingQueueProposalIds((currentIds) => {
@@ -1101,29 +1016,28 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    if (proposal.approvalStatus !== "Approved preview") {
-      setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: "Approve this proposal before creating a Note.",
-          executionStatus: "Note creation failed",
-          resultSummary: "No Note was created.",
-        }),
-      );
+    if (proposal.createdNoteId) {
       return;
     }
 
-    if (proposal.createdNoteId) {
+    if (!canStartProposalCreation(proposal, "note")) {
+      setProposals((currentProposals) =>
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createNotApprovedFailurePatch("note"),
+        ),
+      );
       return;
     }
 
     if (!onCreateWorkspaceNote) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError:
-            "Workspace Note creation is unavailable in this runtime.",
-          executionStatus: "Note creation failed",
-          resultSummary: "No Note was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createUnavailableFailurePatch("note"),
+        ),
       );
       return;
     }
@@ -1134,11 +1048,11 @@ export function InteractiveAgentPlaceholderWidget({
       return nextIds;
     });
     setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
-        executionError: undefined,
-        executionStatus: "Creating Note",
-        resultSummary: CREATING_NOTE_SUMMARY,
-      }),
+      updateProposal(
+        currentProposals,
+        proposalId,
+        proposalCreatingPatch("note"),
+      ),
     );
 
     try {
@@ -1146,21 +1060,25 @@ export function InteractiveAgentPlaceholderWidget({
         noteCreateRequestFromProposal(proposal),
       );
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          createdNoteId: note.noteId,
-          createdNoteTitle: note.title,
-          executionError: undefined,
-          executionStatus: "Note created",
-          resultSummary: `${NOTE_CREATED_SUMMARY} Created note "${note.title}" (${note.noteId}).`,
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          proposalCreatedPatch("note", {
+            id: note.noteId,
+            title: note.title,
+          }),
+        ),
       );
     } catch (error) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: errorToMessage(error, "Unable to create Note."),
-          executionStatus: "Note creation failed",
-          resultSummary: "No Note was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          failedProposalPatch(
+            "note",
+            errorToMessage(error, "Unable to create Note."),
+          ),
+        ),
       );
     } finally {
       setCreatingNoteProposalIds((currentIds) => {
@@ -1181,30 +1099,28 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    if (proposal.approvalStatus !== "Approved preview") {
-      setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError:
-            "Approve this proposal before creating a Knowledge Document.",
-          executionStatus: "Knowledge document creation failed",
-          resultSummary: "No Knowledge Document was created.",
-        }),
-      );
+    if (proposal.createdKnowledgeDocumentId) {
       return;
     }
 
-    if (proposal.createdKnowledgeDocumentId) {
+    if (!canStartProposalCreation(proposal, "knowledgeDocument")) {
+      setProposals((currentProposals) =>
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createNotApprovedFailurePatch("knowledgeDocument"),
+        ),
+      );
       return;
     }
 
     if (!onCreateKnowledgeDocument) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError:
-            "Knowledge Document creation is unavailable in this runtime.",
-          executionStatus: "Knowledge document creation failed",
-          resultSummary: "No Knowledge Document was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createUnavailableFailurePatch("knowledgeDocument"),
+        ),
       );
       return;
     }
@@ -1215,11 +1131,11 @@ export function InteractiveAgentPlaceholderWidget({
       return nextIds;
     });
     setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
-        executionError: undefined,
-        executionStatus: "Creating Knowledge document",
-        resultSummary: CREATING_KNOWLEDGE_DOCUMENT_SUMMARY,
-      }),
+      updateProposal(
+        currentProposals,
+        proposalId,
+        proposalCreatingPatch("knowledgeDocument"),
+      ),
     );
 
     try {
@@ -1227,24 +1143,25 @@ export function InteractiveAgentPlaceholderWidget({
         knowledgeDocumentCreateRequestFromProposal(proposal),
       );
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          createdKnowledgeDocumentId: document.knowledgeDocumentId,
-          createdKnowledgeDocumentTitle: document.title,
-          executionError: undefined,
-          executionStatus: "Knowledge document created",
-          resultSummary: `${KNOWLEDGE_DOCUMENT_CREATED_SUMMARY} Created document "${document.title}" (${document.knowledgeDocumentId}).`,
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          proposalCreatedPatch("knowledgeDocument", {
+            id: document.knowledgeDocumentId,
+            title: document.title,
+          }),
+        ),
       );
     } catch (error) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: errorToMessage(
-            error,
-            "Unable to create Knowledge Document.",
+        updateProposal(
+          currentProposals,
+          proposalId,
+          failedProposalPatch(
+            "knowledgeDocument",
+            errorToMessage(error, "Unable to create Knowledge Document."),
           ),
-          executionStatus: "Knowledge document creation failed",
-          resultSummary: "No Knowledge Document was created.",
-        }),
+        ),
       );
     } finally {
       setCreatingKnowledgeDocumentProposalIds((currentIds) => {
@@ -1265,28 +1182,28 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    if (proposal.approvalStatus !== "Approved preview") {
-      setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: "Approve this proposal before creating a Skill.",
-          executionStatus: "Skill creation failed",
-          resultSummary: "No Skill was created.",
-        }),
-      );
+    if (proposal.createdSkillId) {
       return;
     }
 
-    if (proposal.createdSkillId) {
+    if (!canStartProposalCreation(proposal, "skill")) {
+      setProposals((currentProposals) =>
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createNotApprovedFailurePatch("skill"),
+        ),
+      );
       return;
     }
 
     if (!onCreateSkill) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: "Skill creation is unavailable in this runtime.",
-          executionStatus: "Skill creation failed",
-          resultSummary: "No Skill was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          createUnavailableFailurePatch("skill"),
+        ),
       );
       return;
     }
@@ -1297,31 +1214,35 @@ export function InteractiveAgentPlaceholderWidget({
       return nextIds;
     });
     setProposals((currentProposals) =>
-      updateProposal(currentProposals, proposalId, {
-        executionError: undefined,
-        executionStatus: "Creating Skill",
-        resultSummary: CREATING_SKILL_SUMMARY,
-      }),
+      updateProposal(
+        currentProposals,
+        proposalId,
+        proposalCreatingPatch("skill"),
+      ),
     );
 
     try {
       const skill = await onCreateSkill(skillCreateRequestFromProposal(proposal));
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          createdSkillId: skill.skillId,
-          createdSkillTitle: skill.title,
-          executionError: undefined,
-          executionStatus: "Skill created",
-          resultSummary: `${SKILL_CREATED_SUMMARY} Created skill "${skill.title}" (${skill.skillId}).`,
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          proposalCreatedPatch("skill", {
+            id: skill.skillId,
+            title: skill.title,
+          }),
+        ),
       );
     } catch (error) {
       setProposals((currentProposals) =>
-        updateProposal(currentProposals, proposalId, {
-          executionError: errorToMessage(error, "Unable to create Skill."),
-          executionStatus: "Skill creation failed",
-          resultSummary: "No Skill was created.",
-        }),
+        updateProposal(
+          currentProposals,
+          proposalId,
+          failedProposalPatch(
+            "skill",
+            errorToMessage(error, "Unable to create Skill."),
+          ),
+        ),
       );
     } finally {
       setCreatingSkillProposalIds((currentIds) => {
@@ -2065,31 +1986,11 @@ function CoordinatorProposalReviewControls({
   proposalIds: string[];
   proposals: Record<string, CoordinatorActionProposal>;
 }) {
-  const queueDraftIds = proposalIds.filter(
-    (proposalId) =>
-      proposals[proposalId]?.typeId === "create-agent-queue-task",
-  );
+  const reviewState = queueDraftReviewState(proposalIds, proposals);
 
-  if (queueDraftIds.length < 2) {
+  if (reviewState.queueDraftCount < 2) {
     return null;
   }
-
-  const queueDrafts = queueDraftIds
-    .map((proposalId) => proposals[proposalId])
-    .filter((proposal): proposal is CoordinatorActionProposal =>
-      Boolean(proposal),
-    );
-  const approvedCount = queueDrafts.filter(
-    (proposal) => proposal.approvalStatus === "Approved preview",
-  ).length;
-  const createdCount = queueDrafts.filter((proposal) =>
-    Boolean(proposal.createdQueueTaskId),
-  ).length;
-  const approvableIds = queueDrafts
-    .filter((proposal) => !proposal.createdQueueTaskId)
-    .map((proposal) => proposal.id);
-  const canApproveAll =
-    approvableIds.length > 0 && approvedCount < queueDrafts.length;
 
   return (
     <section
@@ -2101,16 +2002,17 @@ function CoordinatorProposalReviewControls({
           Draft Queue tasks
         </p>
         <p className="coordinator-proposal-section-value">
-          {queueDrafts.length} drafted, {approvedCount} approved,{" "}
-          {createdCount} created.
+          {reviewState.queueDraftCount} drafted,{" "}
+          {reviewState.approvedCount} approved, {reviewState.createdCount}{" "}
+          created.
         </p>
         <p className="coordinator-proposal-note">
           {QUEUE_DRAFT_REVIEW_NOTE}
         </p>
       </div>
       <Button
-        disabled={!canApproveAll}
-        onClick={() => onApproveAllQueueDrafts(approvableIds)}
+        disabled={!reviewState.canApproveAll}
+        onClick={() => onApproveAllQueueDrafts(reviewState.approvableIds)}
         variant="secondary"
       >
         Approve all drafts
@@ -2132,25 +2034,6 @@ function PlanList({ label, values }: { label: string; values: string[] }) {
   );
 }
 
-function updateProposal(
-  proposals: Record<string, CoordinatorActionProposal>,
-  proposalId: string,
-  patch: Partial<CoordinatorActionProposal>,
-) {
-  const proposal = proposals[proposalId];
-  if (!proposal) {
-    return proposals;
-  }
-
-  return {
-    ...proposals,
-    [proposalId]: {
-      ...proposal,
-      ...patch,
-    },
-  };
-}
-
 function providerResponseAllowsCatalogDrafts(
   response: Awaited<
     ReturnType<NonNullable<WidgetRenderProps["onGenerateCoordinatorProviderResponse"]>>
@@ -2164,44 +2047,6 @@ function providerResponseAllowsCatalogDrafts(
       response.noMutationsPerformed &&
       response.noHiddenContextUsed,
   );
-}
-
-function approvedProposalPatch(proposal: CoordinatorActionProposal) {
-  const isCreateQueueTaskProposal =
-    proposal.typeId === "create-agent-queue-task";
-  const isCreateKnowledgeDocumentProposal =
-    proposal.typeId === "create-knowledge-document";
-  const isCreateNoteProposal = proposal.typeId === "create-note";
-  const isCreateSkillProposal = proposal.typeId === "create-skill";
-  const isJdbcQuerySuggestion =
-    proposal.typeId === "prepare-jdbc-query-suggestion";
-
-  return {
-    approvalStatus: "Approved preview" as const,
-    executionError: undefined,
-    executionStatus: isCreateQueueTaskProposal
-      ? ("Ready to create Queue task" as const)
-      : isCreateKnowledgeDocumentProposal
-        ? ("Ready to create Knowledge document" as const)
-      : isCreateNoteProposal
-        ? ("Ready to create Note" as const)
-        : isCreateSkillProposal
-          ? ("Ready to create Skill" as const)
-        : isJdbcQuerySuggestion
-          ? ("SQL suggestion only" as const)
-          : ("Execution bridge not implemented" as const),
-    resultSummary: isCreateQueueTaskProposal
-      ? APPROVED_QUEUE_TASK_SUMMARY
-      : isCreateKnowledgeDocumentProposal
-        ? "Approved locally. Review the visible title, source, content, tags, and enabled flag, then use Create Document. No document has been created yet."
-      : isCreateNoteProposal
-        ? APPROVED_NOTE_SUMMARY
-        : isCreateSkillProposal
-          ? "Approved locally. Review the visible Skill fields, then use Create Skill. No Skill has been created yet."
-        : isJdbcQuerySuggestion
-          ? APPROVED_JDBC_SUGGESTION_SUMMARY
-          : APPROVED_PREVIEW_SUMMARY,
-  };
 }
 
 function errorToMessage(error: unknown, fallback: string): string {

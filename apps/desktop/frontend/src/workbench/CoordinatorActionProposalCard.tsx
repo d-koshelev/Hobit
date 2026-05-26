@@ -9,9 +9,10 @@ import {
   formatProposalDetails,
   getProposalCardState,
   isSqlSuggestionInput,
+  proposalActionState,
   proposalInputValue,
   type ProposalResultDisplay,
-} from "./coordinatorActionProposalCardState";
+} from "./workspaceAgentProposalState";
 
 type ProposalPatch = {
   expectedResult: string;
@@ -124,43 +125,15 @@ export function CoordinatorActionProposalCard({
     }
   }
 
-  const hasCreatedNote = Boolean(proposal.createdNoteId);
-  const hasCreatedKnowledgeDocument = Boolean(
-    proposal.createdKnowledgeDocumentId,
-  );
-  const hasCreatedQueueTask = Boolean(proposal.createdQueueTaskId);
-  const hasCreatedSkill = Boolean(proposal.createdSkillId);
-  const isCreateKnowledgeDocumentProposal =
-    proposal.typeId === "create-knowledge-document";
-  const isCreateNoteProposal = proposal.typeId === "create-note";
-  const isCreateSkillProposal = proposal.typeId === "create-skill";
-  const isJdbcQuerySuggestion =
-    proposal.typeId === "prepare-jdbc-query-suggestion";
-  const isCreateQueueTaskProposal =
-    proposal.typeId === "create-agent-queue-task";
-  const isApproved = proposal.approvalStatus === "Approved preview";
   const sqlSuggestion = proposalInputValue(proposal, "Suggested SQL text");
   const cardState = getProposalCardState(proposal);
-  const canCreateNote =
-    isCreateNoteProposal && isApproved && !hasCreatedNote;
-  const canCreateKnowledgeDocument =
-    isCreateKnowledgeDocumentProposal &&
-    isApproved &&
-    !hasCreatedKnowledgeDocument;
-  const canCreateSkill =
-    isCreateSkillProposal && isApproved && !hasCreatedSkill;
-  const canCreateQueueTask =
-    isCreateQueueTaskProposal && isApproved && !hasCreatedQueueTask;
-  const canChangeReviewState =
-    !isKnowledgeDocumentCreationPending &&
-    !isNoteCreationPending &&
-    !isQueueTaskCreationPending &&
-    !isSkillCreationPending &&
-    !hasCreatedKnowledgeDocument &&
-    !hasCreatedNote &&
-    !hasCreatedSkill &&
-    !hasCreatedQueueTask;
-  const queueDraft = isCreateQueueTaskProposal
+  const actions = proposalActionState(proposal, {
+    isKnowledgeDocumentCreationPending,
+    isNoteCreationPending,
+    isQueueTaskCreationPending,
+    isSkillCreationPending,
+  });
+  const queueDraft = actions.isCreateQueueTaskProposal
     ? queueDraftSummary(proposal)
     : null;
 
@@ -322,30 +295,32 @@ export function CoordinatorActionProposalCard({
         ) : (
           <>
             <Button
-              disabled={!canChangeReviewState || isApproved}
+              disabled={!actions.canChangeReviewState || actions.isApproved}
               onClick={() => onApprove(proposal.id)}
               variant="primary"
             >
-              {isApproved ? "Approved" : "Approve"}
+              {actions.isApproved ? "Approved" : "Approve"}
             </Button>
             <Button
-              disabled={!canChangeReviewState}
+              disabled={!actions.canChangeReviewState}
               onClick={() => onReject(proposal.id)}
               variant="secondary"
             >
               Reject
             </Button>
             <Button
-              disabled={!canChangeReviewState}
+              disabled={!actions.canChangeReviewState}
               onClick={beginEdit}
               variant="secondary"
             >
               Edit
             </Button>
-            {canCreateNote || isNoteCreationPending ? (
+            {actions.canCreateNote || isNoteCreationPending ? (
               <Button
                 disabled={
-                  !canCreateNote || isNoteCreationPending || !onCreateNote
+                  !actions.canCreateNote ||
+                  isNoteCreationPending ||
+                  !onCreateNote
                 }
                 onClick={() => onCreateNote?.(proposal.id)}
                 variant="primary"
@@ -353,10 +328,10 @@ export function CoordinatorActionProposalCard({
                 {isNoteCreationPending ? "Creating Note" : "Create Note"}
               </Button>
             ) : null}
-            {canCreateQueueTask || isQueueTaskCreationPending ? (
+            {actions.canCreateQueueTask || isQueueTaskCreationPending ? (
               <Button
                 disabled={
-                  !canCreateQueueTask ||
+                  !actions.canCreateQueueTask ||
                   isQueueTaskCreationPending ||
                   !onCreateQueueTask
                 }
@@ -368,11 +343,11 @@ export function CoordinatorActionProposalCard({
                   : "Create Queue task"}
               </Button>
             ) : null}
-            {canCreateKnowledgeDocument ||
+            {actions.canCreateKnowledgeDocument ||
             isKnowledgeDocumentCreationPending ? (
               <Button
                 disabled={
-                  !canCreateKnowledgeDocument ||
+                  !actions.canCreateKnowledgeDocument ||
                   isKnowledgeDocumentCreationPending ||
                   !onCreateKnowledgeDocument
                 }
@@ -384,10 +359,12 @@ export function CoordinatorActionProposalCard({
                   : "Create Document"}
               </Button>
             ) : null}
-            {canCreateSkill || isSkillCreationPending ? (
+            {actions.canCreateSkill || isSkillCreationPending ? (
               <Button
                 disabled={
-                  !canCreateSkill || isSkillCreationPending || !onCreateSkill
+                  !actions.canCreateSkill ||
+                  isSkillCreationPending ||
+                  !onCreateSkill
                 }
                 onClick={() => onCreateSkill?.(proposal.id)}
                 variant="primary"
@@ -395,7 +372,7 @@ export function CoordinatorActionProposalCard({
                 {isSkillCreationPending ? "Creating Skill" : "Create Skill"}
               </Button>
             ) : null}
-            {isJdbcQuerySuggestion ? (
+            {actions.isJdbcQuerySuggestion ? (
               <Button
                 disabled={!sqlSuggestion}
                 onClick={() => void copySqlSuggestion()}
