@@ -31,6 +31,10 @@ import {
   coordinatorProviderProposalDraftContext,
   coordinatorProviderResponseMeta,
 } from "./coordinatorProviderRequest";
+import {
+  errorToMessage,
+  providerResponseAllowsCatalogDrafts,
+} from "./workspaceAgentProviderGuards";
 import type { WidgetRenderProps } from "./types";
 import {
   CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
@@ -1271,27 +1275,4 @@ export function InteractiveAgentPlaceholderWidget({
       </div>
     </WidgetFrame>
   );
-}
-
-function providerResponseAllowsCatalogDrafts(
-  response: Awaited<
-    ReturnType<NonNullable<WidgetRenderProps["onGenerateCoordinatorProviderResponse"]>>
-  >,
-) {
-  return Boolean(
-    response &&
-      response.providerStatus === "completed" &&
-      response.allowedTools.length === 0 &&
-      response.noToolsExecuted &&
-      response.noMutationsPerformed &&
-      response.noHiddenContextUsed,
-  );
-}
-
-function errorToMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
 }
