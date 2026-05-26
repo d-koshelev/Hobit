@@ -69,10 +69,17 @@ import {
   CoordinatorAgentHeaderStatus,
   WorkspaceAgentDirectModePanel,
 } from "./WorkspaceAgentDirectModePanel";
+import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContextPanel";
 import {
   CoordinatorPlanCard,
   CoordinatorReviewCard,
 } from "./WorkspaceAgentPlanReviewCards";
+import {
+  appendWorkspaceAgentVisibleContextBlock,
+  removeWorkspaceAgentVisibleContextFromDraft,
+  workspaceAgentVisibleContextBlock,
+  type WorkspaceAgentVisibleContext,
+} from "./workspaceAgentVisibleContext";
 import {
   approveProposal as approveProposalState,
   approveQueueDraftProposals,
@@ -203,10 +210,8 @@ export function InteractiveAgentPlaceholderWidget({
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
-  const [visibleAttachedContext, setVisibleAttachedContext] = useState<{
-    contextText: string;
-    sourceLabel: string;
-  } | null>(null);
+  const [visibleAttachedContext, setVisibleAttachedContext] =
+    useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
   const [providerModeLabel, setProviderModeLabel] =
     useState("Mock/local fallback");
@@ -288,10 +293,12 @@ export function InteractiveAgentPlaceholderWidget({
       contextText: coordinatorAttachedContextRequest.contextText,
       sourceLabel: coordinatorAttachedContextRequest.sourceLabel,
     };
-    const attachmentBlock = coordinatorAttachedContextBlock(attachedContext);
+    const attachmentBlock = workspaceAgentVisibleContextBlock(attachedContext);
 
     setVisibleAttachedContext(attachedContext);
-    setDraft((currentDraft) => appendDraftBlock(currentDraft, attachmentBlock));
+    setDraft((currentDraft) =>
+      appendWorkspaceAgentVisibleContextBlock(currentDraft, attachmentBlock),
+    );
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }, [coordinatorAttachedContextRequest?.id]);
 
@@ -868,13 +875,11 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    const attachmentBlock = coordinatorAttachedContextBlock(
-      visibleAttachedContext,
-    );
     setDraft((currentDraft) =>
-      currentDraft.includes(attachmentBlock)
-        ? currentDraft.replace(attachmentBlock, "").trimStart()
-        : currentDraft,
+      removeWorkspaceAgentVisibleContextFromDraft(
+        currentDraft,
+        visibleAttachedContext,
+      ),
     );
     setVisibleAttachedContext(null);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
@@ -1450,36 +1455,10 @@ export function InteractiveAgentPlaceholderWidget({
         </div>
 
         <form className="interactive-agent-composer" onSubmit={handleSubmit}>
-          {visibleAttachedContext ? (
-            <section
-              aria-label="Visible attached context"
-              className="interactive-agent-attached-context"
-            >
-              <div className="interactive-agent-attached-context-header">
-                <div>
-                  <p className="interactive-agent-attached-context-kicker">
-                    Visible attached context
-                  </p>
-                  <p className="interactive-agent-attached-context-source">
-                    {visibleAttachedContext.sourceLabel}
-                  </p>
-                </div>
-                <Button
-                  onClick={removeVisibleAttachedContext}
-                  type="button"
-                  variant="ghost"
-                >
-                  Remove
-                </Button>
-              </div>
-              <pre className="interactive-agent-attached-context-body">
-                {visibleAttachedContext.contextText}
-              </pre>
-              <p className="interactive-agent-attached-context-note">
-                Included in the message below. Edit or remove it before Send.
-              </p>
-            </section>
-          ) : null}
+          <WorkspaceAgentVisibleContextPanel
+            context={visibleAttachedContext}
+            onRemove={removeVisibleAttachedContext}
+          />
           <WorkspaceAgentDirectModePanel
             directWorkDirectory={directWorkDirectory}
             error={directWorkError}
@@ -1569,27 +1548,6 @@ function renderMessageBody(body: string): ReactNode {
 
     return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
   });
-}
-
-function coordinatorAttachedContextBlock(context: {
-  contextText: string;
-  sourceLabel: string;
-}) {
-  return [
-    `Visible attached context (${context.sourceLabel})`,
-    context.contextText,
-    "Only visible attached context is sent.",
-  ].join("\n");
-}
-
-function appendDraftBlock(currentDraft: string, block: string) {
-  const trimmedDraft = currentDraft.trim();
-
-  if (!trimmedDraft) {
-    return block;
-  }
-
-  return `${trimmedDraft}\n\n${block}`;
 }
 
 function CoordinatorProposalReviewControls({
