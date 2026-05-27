@@ -1034,21 +1034,29 @@
 }
 
 .interactive-agent-direct-mode-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: var(--space-xs);
+  min-width: 0;
+}
+
+.interactive-agent-direct-mode-working-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-xs);
+  min-width: 0;
 }
 
 .interactive-agent-direct-mode-field {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
   gap: var(--space-xs);
-  min-width: min(100%, 300px);
+  min-width: 0;
 }
 
 .interactive-agent-direct-mode-thread-controls {
   display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
 }
@@ -1068,10 +1076,24 @@
 }
 
 .interactive-agent-direct-mode-input {
-  width: min(100%, 180px);
+  width: 100%;
+  min-width: 0;
   min-height: 28px;
   padding: 0 var(--space-sm);
   font-family: var(--font-mono);
+}
+
+.interactive-agent-direct-mode-copy-button.button {
+  min-height: 28px;
+  padding: 0 var(--space-sm);
+}
+
+.interactive-agent-direct-mode-thread-badge {
+  max-width: min(100%, 260px);
+}
+
+.interactive-agent-direct-mode-copy-status {
+  color: var(--color-success);
 }
 
 .interactive-agent-direct-mode-path {

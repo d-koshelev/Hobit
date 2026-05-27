@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
@@ -41,6 +41,7 @@ export function WorkspaceAgentDirectModePanel({
   warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const latestLog = logs[logs.length - 1]?.text ?? null;
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
@@ -51,6 +52,25 @@ export function WorkspaceAgentDirectModePanel({
   const threadStatusText = threadId
     ? `Thread active ${shortCodexThreadId(threadId)}`
     : "No active thread";
+  const threadTitle = threadId
+    ? `Codex thread id: ${threadId}`
+    : "No active Codex thread.";
+
+  async function copyValue(value: string, successMessage: string) {
+    setCopyStatus(null);
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setCopyStatus("Clipboard unavailable.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus(successMessage);
+    } catch {
+      setCopyStatus("Copy failed.");
+    }
+  }
 
   return (
     <section
@@ -58,41 +78,87 @@ export function WorkspaceAgentDirectModePanel({
       className="interactive-agent-direct-mode"
     >
       <div className="interactive-agent-direct-mode-bar">
-        <label className="interactive-agent-direct-mode-field">
-          <span className="interactive-agent-direct-mode-label">
-            Working dir
-          </span>
-          <input
-            aria-label="Working directory"
-            autoComplete="off"
-            className="input interactive-agent-direct-mode-input"
-            id={workingDirectoryInputId}
-            onChange={(event) => onDirectoryChange(event.currentTarget.value)}
-            spellCheck={false}
-            type="text"
-            value={directWorkDirectory}
-          />
-        </label>
-        <span
+        <div className="interactive-agent-direct-mode-working-row">
+          <label
+            className="interactive-agent-direct-mode-field"
+            htmlFor={workingDirectoryInputId}
+          >
+            <span className="interactive-agent-direct-mode-label">
+              Working dir
+            </span>
+            <input
+              aria-label="Working directory"
+              autoComplete="off"
+              className="input interactive-agent-direct-mode-input"
+              id={workingDirectoryInputId}
+              onChange={(event) => onDirectoryChange(event.currentTarget.value)}
+              spellCheck={false}
+              title={directWorkDirectory || "Working directory"}
+              type="text"
+              value={directWorkDirectory}
+            />
+          </label>
+          <Button
+            aria-label="Copy working directory"
+            className="interactive-agent-direct-mode-copy-button"
+            disabled={!directWorkDirectory}
+            onClick={() =>
+              void copyValue(
+                directWorkDirectory,
+                "Copied working directory.",
+              )
+            }
+            title="Copy working directory"
+            type="button"
+            variant="ghost"
+          >
+            Copy
+          </Button>
+        </div>
+        <div
           aria-label="Codex thread controls"
           className="interactive-agent-direct-mode-thread-controls"
         >
-          <Badge variant={threadId ? "info" : "neutral"}>
+          <Badge
+            className="interactive-agent-direct-mode-thread-badge"
+            title={threadTitle}
+            variant={threadId ? "info" : "neutral"}
+          >
             {threadStatusText}
           </Badge>
+          {threadId ? (
+            <Button
+              aria-label="Copy Codex thread id"
+              className="interactive-agent-direct-mode-copy-button"
+              onClick={() =>
+                void copyValue(threadId, "Copied Codex thread id.")
+              }
+              title="Copy Codex thread id"
+              type="button"
+              variant="ghost"
+            >
+              Copy
+            </Button>
+          ) : null}
           <Button
             disabled={status === "running" || !threadId}
             onClick={onResetThread}
+            title={threadId ? "Start a new Codex thread" : "No active thread"}
             type="button"
             variant="ghost"
           >
             New thread
           </Button>
-        </span>
+        </div>
       </div>
 
       <div className="interactive-agent-direct-mode-body">
         <div className="interactive-agent-direct-mode-status" role="status">
+          {copyStatus ? (
+            <span className="interactive-agent-direct-mode-copy-status">
+              {copyStatus}
+            </span>
+          ) : null}
           {runId ? <span>Run {runId}</span> : null}
           {threadNotice ? (
             <span className="interactive-agent-direct-mode-thread-note">
