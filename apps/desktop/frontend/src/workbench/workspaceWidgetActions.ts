@@ -21,6 +21,8 @@ import {
 import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
 
+const CATALOG_WIDGET_PLACEMENT_GAP = 24;
+
 export type WorkspaceWidgetActions = {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
   listWidgetLogs: (
@@ -57,6 +59,10 @@ export function createWorkspaceWidgetActions({
     }
 
     try {
+      const layout = catalogWidgetLayout(viewState, template);
+      const existingWidgetIds = new Set(
+        viewState.widgets.map((widget) => widget.id),
+      );
       const workbenchState = await addWidgetInstanceToWorkbench({
         workspaceId: viewState.workspace.id,
         workbenchId: viewState.workbench.id,
@@ -69,7 +75,37 @@ export function createWorkspaceWidgetActions({
         return false;
       }
 
-      applyWorkbenchState(workbenchState);
+      const createdWidget = findCreatedWidget(
+        workbenchState,
+        existingWidgetIds,
+        template.futureWidgetDefinitionId ?? template.id,
+      );
+
+      if (!createdWidget) {
+        applyWorkbenchState(workbenchState);
+        return true;
+      }
+
+      const layoutWorkbenchState = await updateWidgetInstanceLayout({
+        workspaceId: viewState.workspace.id,
+        workbenchId: viewState.workbench.id,
+        widgetInstanceId: createdWidget.id,
+        layout: {
+          alwaysOnTop: false,
+          dockHeight: layout.height,
+          dockWidth: layout.width,
+          dockX: layout.x,
+          dockY: layout.y,
+          isVisible: createdWidget.isVisible,
+          layoutMode: "docked",
+          popoutHeight: null,
+          popoutWidth: null,
+          popoutX: null,
+          popoutY: null,
+        },
+      });
+
+      applyWorkbenchState(layoutWorkbenchState ?? workbenchState);
       return true;
     } catch (error) {
       console.error("Failed to add widget instance.", error);
@@ -183,4 +219,42 @@ export function createWorkspaceWidgetActions({
 
 function persistedLayoutMode(mode: WidgetLayout["mode"]) {
   return mode === "popped-out" ? "popped_out" : mode;
+}
+
+function catalogWidgetLayout(
+  viewState: WorkbenchViewState,
+  template: WidgetCatalogTemplate,
+) {
+  const dockedWidgets = viewState.widgets.filter(
+    (widget) => widget.visible && widget.layout.mode === "docked",
+  );
+  const nextY = dockedWidgets.reduce(
+    (bottom, widget) =>
+      Math.max(bottom, widget.layout.y + widget.layout.height),
+    0,
+  );
+
+  return {
+    height: template.layoutDefaults.defaultHeight,
+    width: template.layoutDefaults.defaultWidth,
+    x: 0,
+    y: dockedWidgets.length === 0 ? 0 : nextY + CATALOG_WIDGET_PLACEMENT_GAP,
+  };
+}
+
+function findCreatedWidget(
+  workbenchState: WorkspaceWorkbenchState,
+  existingWidgetIds: Set<string>,
+  definitionId: string,
+) {
+  return (
+    workbenchState.widgetInstances.find(
+      (widget) =>
+        !existingWidgetIds.has(widget.id) &&
+        widget.definitionId === definitionId,
+    ) ??
+    [...workbenchState.widgetInstances]
+      .reverse()
+      .find((widget) => widget.definitionId === definitionId)
+  );
 }

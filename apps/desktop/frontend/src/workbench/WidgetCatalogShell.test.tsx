@@ -118,6 +118,63 @@ describe("widgetCatalogTemplates", () => {
     ]);
   });
 
+  it("exposes widget-specific default and minimum layout metadata", () => {
+    expect(templateFor(INTERACTIVE_AGENT_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 672,
+      defaultWidth: 840,
+      minHeight: 480,
+      minWidth: 672,
+    });
+    expect(templateFor(TERMINAL_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 816,
+      minHeight: 432,
+      minWidth: 672,
+    });
+    expect(templateFor(AGENT_ACTIVITY_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 600,
+      minHeight: 432,
+      minWidth: 480,
+    });
+    expect(templateFor(AGENT_RUN_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 672,
+      minHeight: 480,
+      minWidth: 576,
+    });
+    expect(templateFor(NOTES_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 552,
+      defaultWidth: 480,
+      minHeight: 432,
+      minWidth: 384,
+    });
+    expect(templateFor(SKILL_LIBRARY_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 744,
+      minHeight: 480,
+      minWidth: 576,
+    });
+    expect(templateFor(GIT_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 768,
+      minHeight: 456,
+      minWidth: 576,
+    });
+    expect(templateFor(JDBC_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 768,
+      minHeight: 456,
+      minWidth: 576,
+    });
+    expect(templateFor(AGENT_QUEUE_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 552,
+      defaultWidth: 672,
+      minHeight: 432,
+      minWidth: 528,
+    });
+  });
+
   it("keeps preview/planned status honest", () => {
     expect(templateFor(AGENT_QUEUE_WIDGET_DEFINITION_ID).readiness).toBe(
       "preview",

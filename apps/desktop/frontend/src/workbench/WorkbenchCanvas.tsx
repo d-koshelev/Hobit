@@ -529,6 +529,10 @@ export function WorkbenchCanvas({
       surfaceRect,
       position,
       gridSize,
+      {
+        minHeight: widget.layout.minHeight,
+        minWidth: widget.layout.minWidth,
+      },
     );
 
     setDockedResizeSizes((currentSizes) => ({
@@ -566,6 +570,10 @@ export function WorkbenchCanvas({
       resizePointerY: resize.pointerY,
       surfaceRect,
       gridSize,
+      minimumSize: {
+        minHeight: resize.layout.minHeight,
+        minWidth: resize.layout.minWidth,
+      },
     });
   }
 

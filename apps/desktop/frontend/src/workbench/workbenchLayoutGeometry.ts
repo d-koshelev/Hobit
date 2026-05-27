@@ -16,6 +16,11 @@ export type DockedSize = {
   width: number;
 };
 
+export type DockedMinimumSize = {
+  minHeight?: number;
+  minWidth?: number;
+};
+
 export type ResizeDirection = "right" | "bottom" | "bottom-right";
 
 export type DockedPositionMap = Partial<
@@ -149,13 +154,14 @@ export function clampDockedSize(
   surfaceRect: LayoutSurfaceRect,
   position: DockedPosition,
   gridSize: WorkbenchGridSize = DEFAULT_WORKBENCH_GRID_SIZE,
+  minimumSize: DockedMinimumSize = {},
 ): DockedSize {
   const minWidth = snapMinimumToWorkbenchGrid(
-    DOCKED_WIDGET_MIN_WIDTH,
+    Math.max(DOCKED_WIDGET_MIN_WIDTH, minimumSize.minWidth ?? 0),
     gridSize,
   );
   const minHeight = snapMinimumToWorkbenchGrid(
-    DOCKED_WIDGET_MIN_HEIGHT,
+    Math.max(DOCKED_WIDGET_MIN_HEIGHT, minimumSize.minHeight ?? 0),
     gridSize,
   );
   const maxWidth = Math.max(
@@ -229,9 +235,11 @@ export function nextDockedResizeSize({
   resizePointerY,
   surfaceRect,
   gridSize = DEFAULT_WORKBENCH_GRID_SIZE,
+  minimumSize = {},
 }: {
   direction: ResizeDirection;
   gridSize?: WorkbenchGridSize;
+  minimumSize?: DockedMinimumSize;
   originalSize: DockedSize;
   pointerX: number;
   pointerY: number;
@@ -255,7 +263,13 @@ export function nextDockedResizeSize({
     nextSize.height += deltaY;
   }
 
-  return clampDockedSize(nextSize, surfaceRect, position, gridSize);
+  return clampDockedSize(
+    nextSize,
+    surfaceRect,
+    position,
+    gridSize,
+    minimumSize,
+  );
 }
 
 export function removeWidgetPosition(

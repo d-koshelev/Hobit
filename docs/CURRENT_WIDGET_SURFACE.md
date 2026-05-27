@@ -96,6 +96,12 @@ The optional top-bar layout lock freezes docked widget movement and resize
 handles when the operator wants to avoid accidental rearrangement. Widget
 removal remains explicit and confirmation-gated; arranging widgets does not
 make deletion a one-click action.
+Widgets added from the catalog use widget-specific default docked sizes so the
+new surface is usable immediately. The defaults are persisted only for newly
+inserted widgets and default-preset setup; existing saved widget positions and
+sizes are not rewritten. Widget minimum-size metadata is used by the current
+frontend resize clamp, and UI scale remains separate from grid/widget geometry
+and layout persistence.
 
 Empty Workbench remains available as an advanced/manual start mode. Existing
 empty Workspaces show a recovery action to add Workspace Agent plus Notes

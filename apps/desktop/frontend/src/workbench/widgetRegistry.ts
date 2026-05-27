@@ -1,4 +1,8 @@
-import type { WidgetDefinition, WidgetDefinitionId } from "./types";
+import type {
+  WidgetDefinition,
+  WidgetDefinitionId,
+  WidgetLayoutDefaults,
+} from "./types";
 
 export const AGENT_ACTIVITY_WIDGET_DEFINITION_ID = "agent-activity";
 export const AGENT_ACTIVITY_COMPONENT_KEY = "agent-activity-widget";
@@ -23,6 +27,79 @@ export const SKILL_LIBRARY_COMPONENT_KEY = "skill-library-widget";
 export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
+export const FALLBACK_WIDGET_LAYOUT_DEFAULTS: WidgetLayoutDefaults = {
+  defaultWidth: 360,
+  defaultHeight: 240,
+  minWidth: 336,
+  minHeight: 240,
+};
+
+export const widgetLayoutDefaultsByDefinitionId: Record<
+  WidgetDefinitionId,
+  WidgetLayoutDefaults
+> = {
+  [AGENT_ACTIVITY_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 600,
+    defaultHeight: 600,
+    minWidth: 480,
+    minHeight: 432,
+  },
+  [AGENT_QUEUE_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 672,
+    defaultHeight: 552,
+    minWidth: 528,
+    minHeight: 432,
+  },
+  [AGENT_RUN_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 672,
+    defaultHeight: 600,
+    minWidth: 576,
+    minHeight: 480,
+  },
+  [GIT_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 768,
+    defaultHeight: 600,
+    minWidth: 576,
+    minHeight: 456,
+  },
+  [INTERACTIVE_AGENT_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 840,
+    defaultHeight: 672,
+    minWidth: 672,
+    minHeight: 480,
+  },
+  [JDBC_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 768,
+    defaultHeight: 600,
+    minWidth: 576,
+    minHeight: 456,
+  },
+  [NOTES_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 480,
+    defaultHeight: 552,
+    minWidth: 384,
+    minHeight: 432,
+  },
+  [RUNBOOK_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 600,
+    defaultHeight: 552,
+    minWidth: 432,
+    minHeight: 384,
+  },
+  [SKILL_LIBRARY_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 744,
+    defaultHeight: 600,
+    minWidth: 576,
+    minHeight: 480,
+  },
+  [TERMINAL_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 816,
+    defaultHeight: 600,
+    minWidth: 672,
+    minHeight: 432,
+  },
+};
+
 export const widgetRegistry: WidgetDefinition[] = [
   {
     id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
@@ -31,6 +108,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     description: "Readable timeline of current-session agent work.",
     defaultTitle: "Agent Activity",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[AGENT_ACTIVITY_WIDGET_DEFINITION_ID],
     componentKey: AGENT_ACTIVITY_COMPONENT_KEY,
   },
   {
@@ -41,6 +120,8 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Runs explicit async/background tasks and shows execution, logs, results, changed files, and validation.",
     defaultTitle: "Agent Executor",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[AGENT_RUN_WIDGET_DEFINITION_ID],
     componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -51,6 +132,8 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Preview surface for promoted async tasks, assignments, and executor run history.",
     defaultTitle: "Agent Queue",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[AGENT_QUEUE_WIDGET_DEFINITION_ID],
     componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -61,6 +144,10 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Foreground AI agent for chat, coding, reviews, and visible workspace work.",
     defaultTitle: "Workspace Agent",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[
+        INTERACTIVE_AGENT_WIDGET_DEFINITION_ID
+      ],
     componentKey: INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -71,6 +158,8 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Preview surface for procedural steps with explicit operator-managed state.",
     defaultTitle: "Runbook",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[RUNBOOK_WIDGET_DEFINITION_ID],
     componentKey: RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -80,6 +169,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     description: "Workspace and global documents plus reusable procedures.",
     defaultTitle: "Knowledge / Skills",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[SKILL_LIBRARY_WIDGET_DEFINITION_ID],
     componentKey: SKILL_LIBRARY_COMPONENT_KEY,
   },
   {
@@ -89,6 +180,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     description: "Review changes, diffs, history, and create local commits.",
     defaultTitle: "Git",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[GIT_WIDGET_DEFINITION_ID],
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -99,6 +192,8 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Preview connector metadata and bounded mock read-only query surface.",
     defaultTitle: "Database / JDBC",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[JDBC_WIDGET_DEFINITION_ID],
     componentKey: JDBC_WIDGET_COMPONENT_KEY,
   },
   {
@@ -109,6 +204,8 @@ export const widgetRegistry: WidgetDefinition[] = [
       "Classic terminal surface for explicit desktop working directories.",
     defaultTitle: "Terminal",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[TERMINAL_WIDGET_DEFINITION_ID],
     componentKey: TERMINAL_PLACEHOLDER_COMPONENT_KEY,
   },
   {
@@ -118,6 +215,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     description: "Capture workspace notes and context.",
     defaultTitle: "Notes",
     defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[NOTES_WIDGET_DEFINITION_ID],
     componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
   },
 ];
@@ -128,6 +227,10 @@ export const userFacingWidgetDefinitionIds = new Set<WidgetDefinitionId>(
 
 export function getWidgetDefinition(id: WidgetDefinitionId) {
   return widgetRegistry.find((definition) => definition.id === id);
+}
+
+export function getWidgetLayoutDefaults(id: WidgetDefinitionId) {
+  return widgetLayoutDefaultsByDefinitionId[id] ?? FALLBACK_WIDGET_LAYOUT_DEFAULTS;
 }
 
 export function isUserFacingWidgetDefinition(id: WidgetDefinitionId) {

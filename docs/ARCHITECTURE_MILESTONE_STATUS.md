@@ -75,6 +75,11 @@ behavior, or Workspace Agent context wiring.
   drag and right/bottom/corner resize handles. The top bar has an optional
   layout lock that freezes movement and resize handles, while widget removal
   remains confirmation-gated.
+- Catalog-added widgets now use widget-specific default docked sizes and
+  minimum-size metadata for the frontend resize clamp. These defaults apply to
+  newly inserted widgets and default-preset setup only; existing saved widget
+  layouts are preserved. UI scale remains separate from Workbench grid size,
+  widget coordinates, widget dimensions, and layout persistence.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

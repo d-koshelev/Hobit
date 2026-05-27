@@ -32,6 +32,13 @@ export type WidgetGeometry = {
   maxHeight?: number;
 };
 
+export type WidgetLayoutDefaults = {
+  defaultWidth: number;
+  defaultHeight: number;
+  minWidth: number;
+  minHeight: number;
+};
+
 export type WidgetLayout = WidgetGeometry & {
   area: string;
   mode: WidgetLayoutMode;
@@ -49,6 +56,7 @@ export type WidgetDefinition = {
   description: string;
   defaultTitle: string;
   defaultConfig: Record<string, unknown>;
+  layoutDefaults?: WidgetLayoutDefaults;
   componentKey: string;
 };
 

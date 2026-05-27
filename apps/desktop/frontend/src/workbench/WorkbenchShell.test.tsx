@@ -9,6 +9,15 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
 } from "../workspace/types";
+import {
+  AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
+  GIT_WIDGET_DEFINITION_ID,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  NOTES_WIDGET_DEFINITION_ID,
+  SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+  TERMINAL_WIDGET_DEFINITION_ID,
+} from "./widgetRegistry";
 
 const workspaceApiMocks = vi.hoisted(() => ({
   addWidgetInstanceToWorkbench: vi.fn(),
@@ -218,6 +227,220 @@ describe("WorkbenchShell workspace title", () => {
 });
 
 describe("WorkbenchShell widget layout controls", () => {
+  it.each([
+    [
+      "Workspace Agent",
+      INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+      { width: 840, height: 672 },
+    ],
+    ["Terminal", TERMINAL_WIDGET_DEFINITION_ID, { width: 816, height: 600 }],
+    [
+      "Agent Activity",
+      AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
+      { width: 600, height: 600 },
+    ],
+    [
+      "Agent Executor",
+      AGENT_RUN_WIDGET_DEFINITION_ID,
+      { width: 672, height: 600 },
+    ],
+    [
+      "Notes",
+      NOTES_WIDGET_DEFINITION_ID,
+      { width: 480, height: 552 },
+    ],
+    [
+      "Knowledge / Skills",
+      SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+      { width: 744, height: 600 },
+    ],
+    ["Git", GIT_WIDGET_DEFINITION_ID, { width: 768, height: 600 }],
+  ])(
+    "adds %s from the catalog with its usable default size",
+    async (_title, definitionId, expectedSize) => {
+      workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValue(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: [definitionId],
+        }),
+      );
+      workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+        workspaceWorkbenchState({
+          widgetDefinitionIds: [definitionId],
+        }),
+      );
+
+      renderShell();
+
+      await awaitAct(() => {
+        buttonWithText("+ Add Widget").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await awaitAct(() => {
+        buttonInCatalogCard(definitionId).dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      await flushShellEffects();
+
+      expect(workspaceApiMocks.addWidgetInstanceToWorkbench).toHaveBeenCalledWith(
+        expect.objectContaining({
+          definitionId,
+        }),
+      );
+      expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layout: expect.objectContaining({
+            dockHeight: expectedSize.height,
+            dockWidth: expectedSize.width,
+            dockX: 0,
+            dockY: 0,
+          }),
+          widgetInstanceId: "widget_1",
+        }),
+      );
+    },
+  );
+
+  it("places a newly added catalog widget below existing docked widgets", async () => {
+    workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [TERMINAL_WIDGET_DEFINITION_ID],
+      }),
+    );
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [TERMINAL_WIDGET_DEFINITION_ID],
+      }),
+    );
+
+    renderShell(
+      workbenchViewState({
+        widgets: [notesWidget()],
+      }),
+    );
+
+    await awaitAct(() => {
+      buttonWithText("+ Add Widget").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await awaitAct(() => {
+      buttonInCatalogCard(TERMINAL_WIDGET_DEFINITION_ID).dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 600,
+          dockWidth: 816,
+          dockX: 0,
+          dockY: 264,
+        }),
+      }),
+    );
+  });
+
+  it("does not rewrite existing saved widget geometry on render", async () => {
+    renderShell(
+      workbenchViewState({
+        widgets: [
+          {
+            ...notesWidget(),
+            layout: {
+              ...notesWidget().layout,
+              height: 200,
+              width: 320,
+              x: 48,
+              y: 72,
+            },
+          },
+        ],
+      }),
+    );
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+  });
+
+  it("keeps catalog default layout units independent from UI scale", async () => {
+    workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [NOTES_WIDGET_DEFINITION_ID],
+      }),
+    );
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [NOTES_WIDGET_DEFINITION_ID],
+      }),
+    );
+
+    renderShell(undefined, () => undefined, undefined, themeController({ uiScale: 1.5 }));
+
+    await awaitAct(() => {
+      buttonWithText("+ Add Widget").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await awaitAct(() => {
+      buttonInCatalogCard(NOTES_WIDGET_DEFINITION_ID).dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 552,
+          dockWidth: 480,
+        }),
+      }),
+    );
+  });
+
+  it("clamps resize to widget-specific minimum size when metadata is present", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [INTERACTIVE_AGENT_WIDGET_DEFINITION_ID],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [workspaceAgentWidget()],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithLabel("Resize widget").dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 840, clientY: 672 }),
+      );
+    });
+    await flushShellEffects();
+    await awaitAct(() => {
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 120, clientY: 160 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointerup", { clientX: 120, clientY: 160 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 480,
+          dockWidth: 672,
+        }),
+      }),
+    );
+  });
+
   it("starts unlocked with widgets movable and resizable by default", async () => {
     workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
       workspaceWorkbenchState({
@@ -434,6 +657,7 @@ function renderShell(
   viewState = workbenchViewState(),
   onViewStateChange: (viewState: WorkbenchViewState) => void = () => undefined,
   onCloseWorkspace?: () => void,
+  theme: AppThemeController = themeController(),
 ) {
   container = document.createElement("div");
   document.body.append(container);
@@ -444,14 +668,16 @@ function renderShell(
       <WorkbenchShell
         onCloseWorkspace={onCloseWorkspace}
         onViewStateChange={onViewStateChange}
-        theme={themeController()}
+        theme={theme}
         viewState={viewState}
       />,
     );
   });
 }
 
-function themeController(): AppThemeController {
+function themeController(
+  overrides: Partial<AppThemeController> = {},
+): AppThemeController {
   return {
     customTheme: {
       basedOn: "dark-default",
@@ -478,6 +704,7 @@ function themeController(): AppThemeController {
     selectUiScale: vi.fn(),
     uiScale: 1,
     updateCustomThemeValue: vi.fn(),
+    ...overrides,
   };
 }
 
@@ -549,6 +776,18 @@ function buttonWithLabel(label: string, required = true) {
 
   if (!button && required) {
     throw new Error(`Button not found: ${label}`);
+  }
+
+  return button;
+}
+
+function buttonInCatalogCard(widgetDefinitionId: string) {
+  const button = document.querySelector<HTMLButtonElement>(
+    `[data-catalog-template-id="${widgetDefinitionId}"] button`,
+  );
+
+  if (!button) {
+    throw new Error(`Catalog card button not found: ${widgetDefinitionId}`);
   }
 
   return button;
@@ -677,6 +916,28 @@ function notesWidget(): WorkbenchViewState["widgets"][number] {
     },
     state: {},
     title: "Notes",
+    visible: true,
+  };
+}
+
+function workspaceAgentWidget(): WorkbenchViewState["widgets"][number] {
+  return {
+    config: {},
+    definitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+    id: "widget_agent_1",
+    layout: {
+      area: "main",
+      height: 672,
+      minHeight: 480,
+      minWidth: 672,
+      mode: "docked",
+      order: 0,
+      width: 840,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Workspace Agent",
     visible: true,
   };
 }

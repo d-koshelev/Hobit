@@ -1,4 +1,8 @@
-import type { WidgetCategory, WidgetDefinitionId } from "./types";
+import type {
+  WidgetCategory,
+  WidgetDefinitionId,
+  WidgetLayoutDefaults,
+} from "./types";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -10,6 +14,7 @@ import {
   RUNBOOK_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
+  getWidgetLayoutDefaults,
 } from "./widgetRegistry";
 
 export type WidgetCatalogCategory =
@@ -29,6 +34,7 @@ export type WidgetCatalogTemplate = {
   description: string;
   readiness: WidgetCatalogReadiness;
   availability: WidgetCatalogTemplateAvailability;
+  layoutDefaults: WidgetLayoutDefaults;
   capabilitySummary: string[];
   futureWidgetDefinitionId?: WidgetDefinitionId;
 };
@@ -77,6 +83,9 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Foreground AI agent for chat, coding, reviews, and visible workspace work.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(
+      INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+    ),
     capabilitySummary: [
       "Chat, planning, coding, and review",
       "Explicit working directory and visible context",
@@ -93,6 +102,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Readable timeline of current-session agent work.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(AGENT_ACTIVITY_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Workspace Agent and Executor activity",
       "Current-session events only",
@@ -109,6 +119,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Organize async tasks, assignments, and executor history.",
     readiness: "preview",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(AGENT_QUEUE_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Manual task planning and assignment",
       "Explicit assigned-task starts",
@@ -125,6 +136,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Run explicit async/background tasks and review results.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(AGENT_RUN_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Codex Direct Work execution slot",
       "Live logs, result, changed files, and validation",
@@ -140,6 +152,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     description: "Workspace and global documents plus reusable procedures.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(SKILL_LIBRARY_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Skills and workspace/global documents",
       "Plain text or Markdown import",
@@ -155,6 +168,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     description: "Capture workspace notes and context.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(NOTES_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Create, list, edit, and pin notes",
       "Explicit Save action",
@@ -170,6 +184,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     description: "Review changes, diffs, history, and create local commits.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(GIT_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Changes, Diff, History, and Commit",
       "Explicit repository root",
@@ -186,6 +201,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Run local terminal commands from an explicit working directory.",
     readiness: "ready",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(TERMINAL_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Classic terminal surface",
       "Explicit shell and working directory",
@@ -202,6 +218,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Manage connector metadata and test bounded read-only SQL.",
     readiness: "preview",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(JDBC_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Workspace-local connector metadata",
       "Mock/safe read-only query preview",
@@ -217,6 +234,7 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     description: "Track manual procedural steps and local notes.",
     readiness: "preview",
     availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(RUNBOOK_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Built-in sample runbook",
       "Manual step states",

@@ -8,6 +8,7 @@ import type {
   WorkbenchPresetId,
   WorkbenchViewState,
 } from "./types";
+import { getWidgetLayoutDefaults } from "./widgetRegistry";
 
 type WorkbenchSelectionViewInput = {
   preset: WorkbenchPreset;
@@ -38,7 +39,10 @@ export function createWorkbenchViewStateFromSelection(
         description: selection.preset.description,
       },
     },
-    widgets: [...selection.preset.widgets],
+    widgets: selection.preset.widgets.map((widget) => ({
+      ...widget,
+      layout: widgetLayoutWithDefaults(widget.definitionId, widget.layout),
+    })),
     sharedStateObjects: [],
     recentEvents: [],
   };
@@ -71,6 +75,9 @@ export function createWorkbenchViewStateFromWorkspaceState(
     },
     widgets: state.widgetInstances.map((widgetInstance, index) => {
       const mode = normalizeWidgetLayoutMode(widgetInstance.layoutMode);
+      const layoutDefaults = getWidgetLayoutDefaults(
+        widgetInstance.definitionId,
+      );
       const dockLayout: WidgetLayout = {
         area: "main",
         mode,
@@ -79,6 +86,8 @@ export function createWorkbenchViewStateFromWorkspaceState(
         y: widgetInstance.dockY ?? index,
         width: widgetInstance.dockWidth ?? 360,
         height: widgetInstance.dockHeight ?? 240,
+        minWidth: layoutDefaults?.minWidth,
+        minHeight: layoutDefaults?.minHeight,
       };
       const popout = normalizePopoutGeometry(widgetInstance, dockLayout, mode);
 
@@ -117,6 +126,19 @@ function normalizeWidgetLayoutMode(layoutMode: string): WidgetLayoutMode {
   }
 
   return "docked";
+}
+
+function widgetLayoutWithDefaults(
+  definitionId: string,
+  layout: WidgetLayout,
+): WidgetLayout {
+  const layoutDefaults = getWidgetLayoutDefaults(definitionId);
+
+  return {
+    ...layout,
+    minWidth: layout.minWidth ?? layoutDefaults?.minWidth,
+    minHeight: layout.minHeight ?? layoutDefaults?.minHeight,
+  };
 }
 
 function normalizePopoutGeometry(
