@@ -895,8 +895,7 @@
 }
 
 .interactive-agent-status {
-  border-bottom: 1px solid var(--color-border-subtle);
-  padding: 0 0 var(--space-xs);
+  padding: 0;
 }
 
 .interactive-agent-action-row {

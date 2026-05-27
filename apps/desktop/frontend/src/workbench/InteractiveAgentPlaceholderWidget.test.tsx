@@ -82,9 +82,13 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(
       document.querySelector(".widget-content")?.textContent,
     ).not.toContain("Workspace Agent");
-    expect(document.body.textContent).toContain(
+    expect(document.body.textContent).not.toContain(
       "Plan work, draft tasks, review results",
     );
+    expect(document.body.textContent).not.toContain("Response setup");
+    expect(document.body.textContent).not.toContain("Backend selected");
+    expect(document.body.textContent).not.toContain("Mock/local fallback");
+    expect(document.body.textContent).not.toContain("Supported review cards");
     expect(document.body.textContent).toContain(
       "Drafts stay inert until you approve them and use the separate create or copy action.",
     );
@@ -1458,7 +1462,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(visibleAssistantBody).not.toContain("allowed_tools");
   });
 
-  it("keeps provider and response details collapsed in secondary UI", async () => {
+  it("keeps agent diagnostics and response details collapsed in secondary UI", async () => {
     const provider = vi.fn(async () =>
       providerResponse({
         visibleContextMessageCount: 1,
@@ -1478,13 +1482,18 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(providerDetails).not.toBeNull();
     expect(providerDetails?.open).toBe(false);
     expect(providerDetails?.querySelector("summary")?.textContent).toBe(
-      "Response setup",
+      "Agent details",
     );
     expect(
       providerDetails?.querySelector(".interactive-agent-provider-row"),
     ).not.toBeNull();
-    expect(providerDetails?.textContent).toContain("Response");
-    expect(providerDetails?.textContent).toContain("Setup");
+    expect(providerDetails?.textContent).toContain("Chat response");
+    expect(providerDetails?.textContent).toContain("Runtime");
+    expect(providerDetails?.textContent).toContain("Backend");
+    expect(document.body.textContent).not.toContain("Response setup");
+    expect(document.body.textContent).not.toContain("Backend selected");
+    expect(document.body.textContent).not.toContain("Mock/local fallback");
+    expect(document.body.textContent).not.toContain("Supported review cards");
     expect(responseDetails).not.toBeNull();
     expect(responseDetails?.open).toBe(false);
     expect(responseDetails?.querySelector("summary")?.textContent).toBe(

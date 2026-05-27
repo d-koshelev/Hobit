@@ -45,44 +45,36 @@ export function WorkspaceAgentStatusPanel({
       aria-label="Workspace Agent status"
       className="interactive-agent-status"
     >
-      <div className="interactive-agent-status-copy">
-        <div className="interactive-agent-status-heading">
-          <div className="interactive-agent-title-copy">
-            <h3 className="interactive-agent-title">
-              Plan work, draft tasks, review results
-            </h3>
-          </div>
+      <details
+        aria-label="Workspace Agent provider details"
+        className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
+      >
+        <summary>Agent details</summary>
+        <div className="interactive-agent-provider-row">
+          <span className="interactive-agent-status-label">Chat response</span>
+          <Badge
+            variant={workspaceAgentProviderBadgeVariant(
+              providerModeLabel,
+              isProviderPending,
+            )}
+          >
+            {isProviderPending
+              ? "Drafting"
+              : workspaceAgentProviderDisplayLabel(providerModeLabel)}
+          </Badge>
+          <span className="interactive-agent-status-label">Runtime</span>
+          <Badge variant="neutral">Backend</Badge>
         </div>
-        <details
-          aria-label="Workspace Agent provider details"
-          className="interactive-agent-provider-disclosure interactive-agent-provider-secondary"
-        >
-          <summary>Response setup</summary>
-          <div className="interactive-agent-provider-row">
-            <span className="interactive-agent-status-label">Response</span>
-            <Badge
-              variant={workspaceAgentProviderBadgeVariant(
-                providerModeLabel,
-                isProviderPending,
-              )}
-            >
-              {isProviderPending ? "Drafting" : providerModeLabel}
-            </Badge>
-            <span className="interactive-agent-status-label">Setup</span>
-            <Badge variant="neutral">Backend selected</Badge>
-          </div>
-          <p className="interactive-agent-text">
-            Runs with Codex from the selected working directory when the desktop
-            Codex bridge is available. Provider fallback stays chat-only and
-            uses visible context with no tools.
-          </p>
-          <p className="interactive-agent-text">
-            Supported review cards: {supportedProposalTypeSummary}. Queue and
-            Note cards require approval plus a separate create action; JDBC
-            cards stay copy-only.
-          </p>
-        </details>
-      </div>
+        <p className="interactive-agent-text">
+          Codex runs from the selected working directory when available.
+          Fallback chat stays visible context only with tools disabled.
+        </p>
+        <p className="interactive-agent-text">
+          Review cards available: {supportedProposalTypeSummary}. Queue and
+          Note cards require approval plus a separate create action; JDBC cards
+          stay copy-only.
+        </p>
+      </details>
     </section>
   );
 }
@@ -151,4 +143,15 @@ function workspaceAgentProviderBadgeVariant(
   }
 
   return "info";
+}
+
+function workspaceAgentProviderDisplayLabel(providerModeLabel: string): string {
+  if (
+    providerModeLabel === "Local fallback" ||
+    providerModeLabel === "Mock/local fallback"
+  ) {
+    return "Local chat fallback";
+  }
+
+  return providerModeLabel;
 }

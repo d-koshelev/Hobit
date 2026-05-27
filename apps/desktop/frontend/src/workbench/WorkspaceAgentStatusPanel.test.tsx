@@ -42,7 +42,7 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(document.body.textContent).toContain("Failed");
   });
 
-  it("renders response setup details without duplicate Direct Mode labels", () => {
+  it("keeps provider diagnostics collapsed behind Agent details", () => {
     render(
       <WorkspaceAgentStatusPanel
         isProviderPending={false}
@@ -54,14 +54,21 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(
       document.querySelector('[aria-label="Workspace Agent status"]'),
     ).not.toBeNull();
-    expect(
-      document.querySelector('[aria-label="Workspace Agent provider details"]'),
-    ).not.toBeNull();
-    expect(document.body.textContent).toContain("Response setup");
-    expect(document.body.textContent).toContain("Backend selected");
-    expect(document.body.textContent).toContain(
-      "Provider fallback stays chat-only and uses visible context with no tools.",
+    const details = document.querySelector<HTMLDetailsElement>(
+      '[aria-label="Workspace Agent provider details"]',
     );
+    expect(details).not.toBeNull();
+    expect(details?.open).toBe(false);
+    expect(details?.querySelector("summary")?.textContent).toBe(
+      "Agent details",
+    );
+    expect(details?.textContent).toContain("Local chat fallback");
+    expect(details?.textContent).toContain("Backend");
+    expect(details?.textContent).toContain("Review cards available");
+    expect(document.body.textContent).not.toContain("Response setup");
+    expect(document.body.textContent).not.toContain("Backend selected");
+    expect(document.body.textContent).not.toContain("Mock/local fallback");
+    expect(document.body.textContent).not.toContain("Supported review cards");
     expect(document.body.textContent).not.toContain("Direct Mode");
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
   });
