@@ -249,20 +249,21 @@
 .terminal-run-notice {
   display: grid;
   gap: var(--space-xs);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-nested-surface);
-  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-left: 2px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-nested-surface) 42%, transparent);
+  padding: var(--space-xs) var(--space-sm);
 }
 
 .terminal-run-notice-info {
-  border-color: var(--color-info);
-  background: var(--color-info-soft);
+  border-left-color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info-soft) 54%, transparent);
 }
 
 .terminal-run-notice-error {
-  border-color: var(--color-error);
-  background: var(--color-error-soft);
+  border-left-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error-soft) 58%, transparent);
 }
 
 .terminal-run-notice-info .terminal-run-notice-title {
