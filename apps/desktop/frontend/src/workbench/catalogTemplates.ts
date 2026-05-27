@@ -1,4 +1,4 @@
-import type { WidgetDefinitionId } from "./types";
+import type { WidgetCategory, WidgetDefinitionId } from "./types";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -13,196 +13,214 @@ import {
 } from "./widgetRegistry";
 
 export type WidgetCatalogCategory =
-  | "observability"
-  | "core"
-  | "workflow"
-  | "productivity"
-  | "tools"
-  | "codebase"
-  | "database"
-  | "knowledge";
+  | "agents"
+  | "knowledge"
+  | "developer-tools"
+  | "operations";
 
-export type WidgetCatalogTemplateStatus = "available";
-export type WidgetCatalogSection = "ready" | "preview";
+export type WidgetCatalogTemplateAvailability = "available" | "disabled";
+export type WidgetCatalogReadiness = "ready" | "preview" | "planned";
 
 export type WidgetCatalogTemplate = {
   id: string;
   title: string;
-  category: WidgetCatalogCategory;
+  catalogCategory: WidgetCatalogCategory;
+  category: WidgetCategory;
   description: string;
-  section: WidgetCatalogSection;
-  status: WidgetCatalogTemplateStatus;
+  readiness: WidgetCatalogReadiness;
+  availability: WidgetCatalogTemplateAvailability;
   capabilitySummary: string[];
   futureWidgetDefinitionId?: WidgetDefinitionId;
 };
 
-export const widgetCatalogSectionLabels: Record<WidgetCatalogSection, string> =
+export const widgetCatalogCategoryLabels: Record<WidgetCatalogCategory, string> =
   {
-    ready: "Ready",
-    preview: "Preview",
+    agents: "Agents",
+    knowledge: "Knowledge",
+    "developer-tools": "Developer Tools",
+    operations: "Operations / Planned",
   };
 
-export const widgetCatalogSectionDescriptions: Record<
-  WidgetCatalogSection,
+export const widgetCatalogCategoryDescriptions: Record<
+  WidgetCatalogCategory,
   string
 > = {
-  ready: "Current kept workbench surfaces.",
-  preview: "Near-term placeholders that do not execute work yet.",
+  agents: "Foreground, async, and observable agent work.",
+  knowledge: "Saved context and reusable procedures.",
+  "developer-tools": "Code, shell, and database surfaces.",
+  operations: "Manual procedural work and future operations surfaces.",
 };
 
-export const widgetCatalogSectionOrder: WidgetCatalogSection[] = [
-  "ready",
-  "preview",
+export const widgetCatalogCategoryOrder: WidgetCatalogCategory[] = [
+  "agents",
+  "knowledge",
+  "developer-tools",
+  "operations",
 ];
+
+export const widgetCatalogReadinessLabels: Record<
+  WidgetCatalogReadiness,
+  string
+> = {
+  ready: "Ready / MVP",
+  preview: "Preview",
+  planned: "Planned",
+};
 
 export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
   {
+    id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+    title: "Workspace Agent",
+    catalogCategory: "agents",
+    category: "core",
+    description:
+      "Foreground AI agent for chat, coding, reviews, and visible workspace work.",
+    readiness: "ready",
+    availability: "available",
+    capabilitySummary: [
+      "Chat, planning, coding, and review",
+      "Explicit working directory and visible context",
+      "No hidden widget tools or automatic queue starts",
+    ],
+    futureWidgetDefinitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  },
+  {
     id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
     title: "Agent Activity",
+    catalogCategory: "agents",
     category: "observability",
     description:
-      "Readable current-session timeline for Workspace Agent and Agent Executor activity.",
-    section: "ready",
-    status: "available",
+      "Readable timeline of current-session agent work.",
+    readiness: "ready",
+    availability: "available",
     capabilitySummary: [
-      "Current-session readable activity timeline",
-      "Workspace Agent Direct Work events",
+      "Workspace Agent and Executor activity",
+      "Current-session events only",
       "Raw event previews stay collapsed",
     ],
     futureWidgetDefinitionId: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   },
   {
+    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    title: "Agent Queue",
+    catalogCategory: "agents",
+    category: "workflow",
+    description:
+      "Organize async tasks, assignments, and executor history.",
+    readiness: "preview",
+    availability: "available",
+    capabilitySummary: [
+      "Manual task planning and assignment",
+      "Explicit assigned-task starts",
+      "Session-only runner preview",
+    ],
+    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  },
+  {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
     title: "Agent Executor",
+    catalogCategory: "agents",
     category: "core",
     description:
-      "Runs one task and shows live execution, logs, result, changed files, and validation.",
-    section: "ready",
-    status: "available",
+      "Run explicit async/background tasks and review results.",
+    readiness: "ready",
+    availability: "available",
     capabilitySummary: [
-      "Current provider is Codex CLI",
-      "Codex Direct Work requires an explicit execution workspace",
-      "Explicit prompt, sandbox, and approval policy",
-      "No auto-commit, push, automatic dispatch, or Git mutation",
+      "Codex Direct Work execution slot",
+      "Live logs, result, changed files, and validation",
+      "No auto-commit, push, or hidden dispatch",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },
   {
+    id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+    title: "Knowledge / Skills",
+    catalogCategory: "knowledge",
+    category: "knowledge",
+    description: "Workspace and global documents plus reusable procedures.",
+    readiness: "ready",
+    availability: "available",
+    capabilitySummary: [
+      "Skills and workspace/global documents",
+      "Plain text or Markdown import",
+      "Workspace Agent document retrieval is visible",
+    ],
+    futureWidgetDefinitionId: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: NOTES_WIDGET_DEFINITION_ID,
+    title: "Notes",
+    catalogCategory: "knowledge",
+    category: "notes",
+    description: "Capture workspace notes and context.",
+    readiness: "ready",
+    availability: "available",
+    capabilitySummary: [
+      "Create, list, edit, and pin notes",
+      "Explicit Save action",
+      "Plain source text remains the record",
+    ],
+    futureWidgetDefinitionId: NOTES_WIDGET_DEFINITION_ID,
+  },
+  {
     id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
+    catalogCategory: "developer-tools",
     category: "codebase",
-    description:
-      "Developer Git review panel for status, changes, selected-file diff, history, and explicit local commit.",
-    section: "ready",
-    status: "available",
+    description: "Review changes, diffs, history, and create local commits.",
+    readiness: "ready",
+    availability: "available",
     capabilitySummary: [
-      "Desktop read-only status, diff, and history",
-      "Grouped changed-file review",
-      "Explicit local commit only; no push, reset, clean, or stash",
+      "Changes, Diff, History, and Commit",
+      "Explicit repository root",
+      "No push, reset, clean, or stash",
     ],
     futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
   },
   {
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
-    category: "tools",
+    catalogCategory: "developer-tools",
+    category: "tool",
     description:
-      "Classic manual terminal surface for explicit desktop PTY sessions.",
-    section: "ready",
-    status: "available",
+      "Run local terminal commands from an explicit working directory.",
+    readiness: "ready",
+    availability: "available",
     capabilitySummary: [
-      "Explicit working directory and shell",
+      "Classic terminal surface",
+      "Explicit shell and working directory",
       "Session-only output buffer",
-      "Advanced PTY settings and one-shot fallback are collapsed",
     ],
     futureWidgetDefinitionId: TERMINAL_WIDGET_DEFINITION_ID,
   },
   {
-    id: NOTES_WIDGET_DEFINITION_ID,
-    title: "Notes",
-    category: "productivity",
-    description: "Workspace-local multi-note capture surface.",
-    section: "ready",
-    status: "available",
-    capabilitySummary: [
-      "Create, list, edit, and pin workspace notes",
-      "Explicit Save action",
-      "Autosave, tags, archive, and delete not implemented",
-    ],
-    futureWidgetDefinitionId: NOTES_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
-    title: "Skill Library",
-    category: "knowledge",
-    description:
-      "Workspace-local library for operator-authored reusable work instructions.",
-    section: "preview",
-    status: "available",
-    capabilitySummary: [
-      "Create, edit, list, and delete Skill records",
-      "Workspace-local and operator-authored",
-      "Not sent to Workspace Agent automatically",
-    ],
-    futureWidgetDefinitionId: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    title: "Agent Queue",
-    category: "workflow",
-    description:
-      "Organizes tasks and executor history with explicit assigned-task starts.",
-    section: "preview",
-    status: "available",
-    capabilitySummary: [
-      "Manual task planning and assignment",
-      "Explicit assigned-task start only",
-      "No automatic acceptance or Git mutation",
-    ],
-    futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  },
-  {
     id: JDBC_WIDGET_DEFINITION_ID,
     title: "Database / JDBC",
+    catalogCategory: "developer-tools",
     category: "database",
     description:
-      "Controlled database connector surface. Configure connector metadata now; SQL execution, EXPLAIN, formatting, and AI query assistance are pending.",
-    section: "preview",
-    status: "available",
+      "Manage connector metadata and test bounded read-only SQL.",
+    readiness: "preview",
+    availability: "available",
     capabilitySummary: [
       "Workspace-local connector metadata",
-      "No credentials, SQL execution, EXPLAIN, or result grid",
-      "Future Workspace Agent proxy through approved read-only capabilities",
+      "Mock/safe read-only query preview",
+      "No credentials or production database execution",
     ],
     futureWidgetDefinitionId: JDBC_WIDGET_DEFINITION_ID,
   },
   {
-    id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-    title: "Workspace Agent",
-    category: "core",
-    description:
-      "Foreground interactive AI agent for planning, task drafting, and result review.",
-    section: "preview",
-    status: "available",
-    capabilitySummary: [
-      "Plan work, draft tasks, review results",
-      "Independent current-session context and working directory",
-      "No hidden widget tools or workspace actions",
-    ],
-    futureWidgetDefinitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-  },
-  {
     id: RUNBOOK_WIDGET_DEFINITION_ID,
     title: "Runbook",
+    catalogCategory: "operations",
     category: "workflow",
-    description:
-      "Step-based procedural work placeholder with explicit step states.",
-    section: "preview",
-    status: "available",
+    description: "Track manual procedural steps and local notes.",
+    readiness: "preview",
+    availability: "available",
     capabilitySummary: [
-      "Pending, running, done, failed, skipped, and blocked states",
-      "Notes and evidence direction per step",
-      "Editing, builders, and agent-assisted steps are future work",
+      "Built-in sample runbook",
+      "Manual step states",
+      "No step execution or builder yet",
     ],
     futureWidgetDefinitionId: RUNBOOK_WIDGET_DEFINITION_ID,
   },

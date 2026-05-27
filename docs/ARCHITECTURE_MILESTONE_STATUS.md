@@ -3,10 +3,10 @@
 ## Purpose
 
 This checkpoint summarizes the architecture foundation refactor series and the
-first Minimal Skill Library product slice.
+first Knowledge / Skills product slice.
 
-It is a status note. It does not add behavior beyond the implemented Minimal
-Skill Library MVP, audit emission, server runtime, enterprise/RBAC, scheduler
+It is a status note. It does not add behavior beyond the implemented
+Knowledge / Skills MVP, audit emission, server runtime, enterprise/RBAC, scheduler
 behavior, or Workspace Agent context wiring.
 
 ## Completed Foundation
@@ -31,11 +31,12 @@ behavior, or Workspace Agent context wiring.
 - Artifact Reference / Ownership v0 exists as metadata-only refs.
 - Knowledge / Skills / Evidence / Context Pack product boundaries are
   documented.
-- Minimal Skill Library / Knowledge MVP exists as workspace-local
-  operator-authored Skill CRUD plus scoped plain-text/Markdown Knowledge
-  Document CRUD/search with local SQLite storage, deterministic chunks, narrow
-  Tauri APIs, and a preview widget. Knowledge Documents can be workspace-local
-  or local-global within this desktop database.
+- Knowledge / Skills MVP exists as workspace-local operator-authored Skill
+  CRUD plus scoped plain-text/Markdown Knowledge Document CRUD/search with
+  local SQLite storage, deterministic chunks, narrow Tauri APIs, and a current
+  catalog widget. Knowledge Documents can be workspace-local or local-global
+  within this desktop database. The retained widget definition id is
+  `skill-library` for persistence compatibility.
 - Knowledge / Evidence core refs v0 exist as type-only Rust refs.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Workspace Agent context boundary inspection confirmed current provider requests
@@ -95,7 +96,7 @@ behavior, or Workspace Agent context wiring.
   summary previews. Each attach requires an operator click, lands as visible
   editable Workspace Agent composer context, and does not copy full raw Executor
   logs or transfer raw detail ownership to Workspace Agent.
-- Skill Library can explicitly attach the selected Skill to Workspace Agent
+- Knowledge / Skills can explicitly attach the selected Skill to Workspace Agent
   as visible editable composer context. The attachment includes only the
   selected Skill's title, when to use, prerequisites, steps, validation, risks,
   tags, and review status, and it is sent to the provider only if the operator
@@ -103,8 +104,8 @@ behavior, or Workspace Agent context wiring.
 - Workspace Agent can draft visible Knowledge Document and Skill creation
   proposals from visible conversation content or visible `hobit-catalog-action`
   fenced JSON blocks in assistant/Codex text. Creation remains a separate
-  operator action after approval, defaults to workspace-local Skill Library /
-  Knowledge records, and does not scan or ingest Notes, files, Executor logs,
+  operator action after approval, defaults to workspace-local Knowledge /
+  Skills records, and does not scan or ingest Notes, files, Executor logs,
   Queue history, Git/JDBC/Terminal state, Evidence, Context Packs, team/server
   knowledge, embeddings, or binary documents.
 - Workspace Agent-owned Codex runs automatically check enabled workspace-local
@@ -152,7 +153,7 @@ behavior, or Workspace Agent context wiring.
 - `ArtifactRef` is metadata-only and unresolved by default.
 - Knowledge and Evidence refs do not create Knowledge Item storage, evidence
   storage, resolver, ingestion path, or UI.
-- Skill Library / Knowledge storage/API/UI does not create Knowledge Items,
+- Knowledge / Skills storage/API/UI does not create Knowledge Items,
   Evidence, Context Packs, Artifact links, Runbook execution, hidden memory,
   team/server sharing, embeddings/vector DB, PDF/DOCX parsing, or RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
@@ -172,7 +173,7 @@ change this context boundary and do not wire Context Packs, artifacts, logs,
 Queue state, Executor state, or widget data into provider prompts.
 Explicit Attach to Workspace Agent sends only the visible attached composer text
 after the operator presses Send; it is not hidden context compilation and does
-not read Queue history, Executor logs, or Skill Library records automatically.
+not read Queue history, Executor logs, or Knowledge / Skills records automatically.
 Executor selected excerpts are bounded visible text selected by the operator;
 raw Executor detail remains Executor-owned. Executor preview-section attaches
 are also bounded to visible previews and require explicit operator section
@@ -263,7 +264,7 @@ Only after the docs and inspect-first blocks above:
 - artifact store;
 - evidence store;
 - knowledge store;
-- full Knowledge/Skills system beyond Minimal Skill Library MVP;
+- full Knowledge / Skills system beyond the current MVP;
 - Workspace Agent hidden context;
 - Context Pack provider wiring;
 - automatic Notes/artifact/log ingestion;

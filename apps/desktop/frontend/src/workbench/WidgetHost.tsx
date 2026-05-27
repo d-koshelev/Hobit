@@ -48,6 +48,7 @@ import {
   NOTES_PLACEHOLDER_COMPONENT_KEY,
   RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
   SKILL_LIBRARY_COMPONENT_KEY,
+  SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
 
@@ -284,6 +285,13 @@ function displayWidgetTitle(
     return definition.defaultTitle;
   }
 
+  if (
+    definition.id === SKILL_LIBRARY_WIDGET_DEFINITION_ID &&
+    isLegacySkillLibraryTitle(instance.title)
+  ) {
+    return definition.defaultTitle;
+  }
+
   return instance.title || definition.defaultTitle;
 }
 
@@ -297,6 +305,10 @@ function isLegacyAgentRunTitle(title: string) {
 
 function isLegacyInteractiveAgentTitle(title: string) {
   return title === "Interactive Agent";
+}
+
+function isLegacySkillLibraryTitle(title: string) {
+  return title === "Skill Library";
 }
 
 function widgetFrameStyle(

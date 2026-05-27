@@ -52,7 +52,7 @@ export function createWorkspaceWidgetActions({
   viewState,
 }: WorkspaceWidgetActionOptions): WorkspaceWidgetActions {
   async function addWidgetTemplate(template: WidgetCatalogTemplate) {
-    if (template.status !== "available" || !viewState.workbench.id) {
+    if (template.availability !== "available" || !viewState.workbench.id) {
       return false;
     }
 

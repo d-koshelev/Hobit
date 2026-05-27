@@ -217,7 +217,7 @@ function proposalBase(
       riskLevel: "local_write",
       riskNotes: ["Requires separate Create Document action."],
       targetCapability: "create Knowledge Document",
-      targetWidget: "Skill Library / Knowledge",
+      targetWidget: "Knowledge / Skills",
       title: "Document draft",
       typeId,
     };
@@ -244,7 +244,7 @@ function proposalBase(
       riskLevel: "local_write",
       riskNotes: ["Requires separate Create Skill action."],
       targetCapability: "create Skill",
-      targetWidget: "Skill Library / Knowledge",
+      targetWidget: "Knowledge / Skills",
       title: "Skill draft",
       typeId,
     };

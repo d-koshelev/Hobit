@@ -98,7 +98,7 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
         "No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read.",
       ],
       targetCapability: "create Knowledge Document",
-      targetWidget: "Skill Library / Knowledge",
+      targetWidget: "Knowledge / Skills",
       typeId: "create-knowledge-document",
     },
     {
@@ -118,7 +118,7 @@ export const COORDINATOR_ACTION_PROPOSAL_REGISTRY: CoordinatorProposalTypeDefini
         "No Notes, files, logs, Git, JDBC, Terminal, Queue, Executor, Evidence, Context Pack, global, or team data is read.",
       ],
       targetCapability: "create Skill",
-      targetWidget: "Skill Library / Knowledge",
+      targetWidget: "Knowledge / Skills",
       typeId: "create-skill",
     },
     {

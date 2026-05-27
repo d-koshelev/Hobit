@@ -16,8 +16,8 @@ Host/deployment architecture guardrails are defined in
 inventory does not add server, enterprise, or shared knowledge runtime
 behavior.
 Knowledge, Skills, Evidence, and Context Pack boundaries are defined in
-`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`; current Skill Library behavior
-is limited to the MVP described below.
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`; current Knowledge / Skills
+behavior is limited to the MVP described below.
 
 ## Status Model
 
@@ -39,20 +39,20 @@ widget behavior.
 
 ## Current User-Facing Catalog
 
-Current ready surfaces:
+Current Ready / MVP catalog surfaces:
 
+- Workspace Agent
 - Agent Activity
 - Agent Executor
 - Git
 - Terminal
 - Notes
+- Knowledge / Skills
 
 Current preview surfaces:
 
-- Workspace Agent
 - Agent Queue
 - Database / JDBC
-- Skill Library / Knowledge
 - Runbook
 
 The current catalog uses these preferred user-facing names. Compatibility IDs
@@ -62,7 +62,7 @@ and component keys may still appear in code and persistence.
 
 New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
-Agent Queue, Agent Executor, Git, Terminal, Database / JDBC, Skill Library / Knowledge, and Runbook
+Agent Queue, Agent Executor, Git, Terminal, Database / JDBC, Knowledge / Skills, and Runbook
 remain optional widgets added when needed.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
@@ -109,7 +109,7 @@ for compatibility IDs, command names, and older contract filenames.
 
 Future Workspace Agent capabilities may include approved Workspace reads, coding
 and code review, file edits with diff preview, command and validation actions,
-Terminal/SSH, Git, JDBC/database work, Notes, Skill Library/Knowledge, Queue,
+Terminal/SSH, Git, JDBC/database work, Notes, Knowledge / Skills, Queue,
 Agent Executor, run history, and future Artifacts/Evidence. Those capabilities
 are not implemented by this inventory unless explicitly listed as current
 behavior below.
@@ -344,7 +344,7 @@ Workspace Agent is the foreground interactive agent surface.
   Queue run-history, and Agent Executor run-history/detail controls. It can
   also receive an operator-selected bounded excerpt from visible Agent
   Executor-owned run detail, and bounded Executor run-detail preview sections
-  explicitly attached by the operator. Skill Library can explicitly attach the
+  explicitly attached by the operator. Knowledge / Skills can explicitly attach the
   selected Skill's visible title, when-to-use, prerequisites, steps,
   validation, risks, tags, and review status. Attached context is
   current-session UI state inserted into the visible composer and can be edited
@@ -360,14 +360,14 @@ Workspace Agent is the foreground interactive agent surface.
   priority, execution policy, and draft/proposed status. Multi-draft review can
   approve all drafts locally, but each Queue task creation remains a separate
   explicit Create Queue task action.
-- Can draft visible Skill Library / Knowledge catalog proposal cards from
+- Can draft visible Knowledge / Skills catalog proposal cards from
   explicit operator text or safe `hobit-catalog-action` fenced JSON blocks in
   visible assistant/Codex text. Knowledge Document drafts show title, source
   label, content, tags, and enabled state. Skill drafts show title, when to
   use, prerequisites, steps, validation, risks, tags, and review status.
   Creating either record requires approval plus a separate explicit Create
   Document or Create Skill action, uses only visible conversation content, and
-  writes only workspace-local Skill Library / Knowledge records.
+  writes only workspace-local Knowledge / Skills records.
 - Outcome review may draft follow-up Queue task proposal cards from the pasted
   visible result text. Queue task creation remains explicit and creates a draft
   task only; it does not assign, start, run, or arm Queue Autorun.
@@ -465,10 +465,11 @@ Workspace Agent is the foreground interactive agent surface.
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,
   and hidden Workspace Agent-triggered SQL execution remain Deferred.
 
-### Skill Library / Knowledge
+### Knowledge / Skills
 
-- Current preview Skill Library / Knowledge widget. It uses the
-  existing Skill Library widget identity and adds a Documents tab.
+- Current Ready / MVP Knowledge / Skills widget. It uses the
+  existing `skill-library` widget identity for persistence compatibility and
+  provides Skills plus a Documents tab.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit Knowledge Document create, list, read, update, delete, and
@@ -503,14 +504,14 @@ Workspace Agent is the foreground interactive agent surface.
   No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
   embeddings, vector database, Evidence store, Context Pack builder,
   team/server sharing, server runtime, or RBAC is implemented.
-- Skill Library is workspace-local and operator-authored. It is not Evidence,
+- Knowledge / Skills is operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
 - Can explicitly attach the selected Skill to Workspace Agent as visible
   current-session composer context. The attachment includes only title, when to
   use, prerequisites, steps, validation, risks, tags, and review status. It is
   editable/removable before Send and does not send automatically.
-- Skill Library does not auto-search Skills for Workspace Agent, does not silently
+- Knowledge / Skills does not auto-search Skills for Workspace Agent, does not silently
   include Skills in provider prompts, and does not create hidden provider
   context.
 - Workspace Agent-owned Codex runs automatically check enabled workspace-local
@@ -520,7 +521,7 @@ Workspace Agent is the foreground interactive agent surface.
   Workspace/Global scope labels, and added to the Codex prompt only for that
   run. No disabled documents, Skills, Notes, files, logs, or hidden Workspace
   context are searched by this path.
-- Skill Library / Knowledge does not implement Knowledge Items, Evidence links,
+- Knowledge / Skills does not implement Knowledge Items, Evidence links,
   Context Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook
   execution, tool execution, team/server sharing, RBAC, embeddings/vector DB,
   PDF/DOCX parsing, folder scanning, filesystem watchers, hidden ingestion, or
@@ -544,6 +545,9 @@ Workspace Agent is the foreground interactive agent surface.
 - `interactive-agent` remains the internal Workspace Agent definition id and
   component key for persisted compatibility. Coordinator Chat was the previous
   user-facing name for this surface. Do not rename the id in cleanup tasks.
+- `skill-library` remains the internal Knowledge / Skills definition id and
+  component key for persisted compatibility. Skill Library was the earlier
+  user-facing title for this surface. Do not rename the id in cleanup tasks.
 - Placeholder-named components such as `AgentRunPlaceholderWidget`,
   `AgentQueuePlaceholderWidget`, `InteractiveAgentPlaceholderWidget`, and
   `NotesPlaceholderWidget` may contain current product UI. The names are

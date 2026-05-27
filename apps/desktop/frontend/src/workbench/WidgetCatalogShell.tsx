@@ -1,12 +1,13 @@
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
-  widgetCatalogSectionDescriptions,
-  widgetCatalogSectionLabels,
-  widgetCatalogSectionOrder,
+  widgetCatalogCategoryDescriptions,
+  widgetCatalogCategoryLabels,
+  widgetCatalogCategoryOrder,
+  widgetCatalogReadinessLabels,
   widgetCatalogTemplates,
+  type WidgetCatalogReadiness,
   type WidgetCatalogTemplate,
-  type WidgetCatalogSection,
 } from "./catalogTemplates";
 
 type WidgetCatalogShellProps = {
@@ -28,11 +29,11 @@ export function WidgetCatalogShell({
     return null;
   }
 
-  const templateGroups = widgetCatalogSectionOrder
-    .map((section) => ({
-      section,
+  const templateGroups = widgetCatalogCategoryOrder
+    .map((catalogCategory) => ({
+      catalogCategory,
       templates: widgetCatalogTemplates.filter(
-        (template) => template.section === section,
+        (template) => template.catalogCategory === catalogCategory,
       ),
     }))
     .filter((group) => group.templates.length > 0);
@@ -50,7 +51,7 @@ export function WidgetCatalogShell({
               Widget Catalog
             </h2>
             <p className="widget-catalog-subtitle">
-              Choose from the current kept workbench surfaces.
+              Add tools to this workspace.
             </p>
           </div>
           <Button onClick={onClose} variant="ghost">
@@ -63,17 +64,17 @@ export function WidgetCatalogShell({
             <section
               className={[
                 "catalog-template-group",
-                `catalog-template-group-${group.section}`,
+                `catalog-template-group-${group.catalogCategory}`,
               ].join(" ")}
-              key={group.section}
+              key={group.catalogCategory}
             >
               <div className="catalog-template-group-header">
                 <div className="catalog-template-group-heading">
                   <h3 className="catalog-template-group-title">
-                    {widgetCatalogSectionLabels[group.section]}
+                    {widgetCatalogCategoryLabels[group.catalogCategory]}
                   </h3>
                   <p className="catalog-template-group-description">
-                    {widgetCatalogSectionDescriptions[group.section]}
+                    {widgetCatalogCategoryDescriptions[group.catalogCategory]}
                   </p>
                 </div>
               </div>
@@ -111,7 +112,7 @@ function CatalogTemplateCard({
   unavailableMessage,
 }: CatalogTemplateCardProps) {
   const canAddTemplate =
-    template.status === "available" &&
+    template.availability === "available" &&
     unavailableMessage === undefined &&
     onAddTemplate !== undefined;
 
@@ -120,12 +121,15 @@ function CatalogTemplateCard({
       className={`catalog-template-card${
         unavailableMessage ? " catalog-template-card-unavailable" : ""
       }`}
+      data-catalog-category={template.catalogCategory}
+      data-catalog-readiness={template.readiness}
+      data-catalog-template-id={template.futureWidgetDefinitionId ?? template.id}
     >
       <div className="catalog-template-card-main">
         <div className="catalog-template-card-header">
           <h4 className="catalog-template-title">{template.title}</h4>
-          <Badge variant={sectionBadgeVariant(template.section)}>
-            {sectionLabel(template.section)}
+          <Badge variant={readinessBadgeVariant(template.readiness)}>
+            {readinessLabel(template.readiness)}
           </Badge>
         </div>
         <p className="catalog-template-description">{template.description}</p>
@@ -150,7 +154,9 @@ function CatalogTemplateCard({
         variant="secondary"
       >
         {unavailableMessage?.actionLabel ??
-          (template.status === "available" ? "Add widget" : "Not available")}
+          (template.availability === "available"
+            ? "Add widget"
+            : "Not available")}
       </Button>
     </article>
   );
@@ -161,16 +167,16 @@ type CatalogTemplateUnavailableMessage = {
   reason: string;
 };
 
-function sectionLabel(section: WidgetCatalogSection) {
-  return widgetCatalogSectionLabels[section];
+function readinessLabel(readiness: WidgetCatalogReadiness) {
+  return widgetCatalogReadinessLabels[readiness];
 }
 
-function sectionBadgeVariant(section: WidgetCatalogSection) {
-  if (section === "ready") {
+function readinessBadgeVariant(readiness: WidgetCatalogReadiness) {
+  if (readiness === "ready") {
     return "success";
   }
 
-  if (section === "preview") {
+  if (readiness === "preview") {
     return "info";
   }
 

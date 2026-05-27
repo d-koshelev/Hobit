@@ -28,8 +28,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
     title: "Agent Activity",
     category: "observability",
-    description:
-      "Readable current-session timeline for Workspace Agent and Agent Executor activity.",
+    description: "Readable timeline of current-session agent work.",
     defaultTitle: "Agent Activity",
     defaultConfig: {},
     componentKey: AGENT_ACTIVITY_COMPONENT_KEY,
@@ -39,7 +38,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Agent Executor",
     category: "core",
     description:
-      "Runs one explicit task and shows execution, logs, result, changed files, and validation.",
+      "Runs explicit async/background tasks and shows execution, logs, results, changed files, and validation.",
     defaultTitle: "Agent Executor",
     defaultConfig: {},
     componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
@@ -49,7 +48,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Agent Queue",
     category: "workflow",
     description:
-      "Preview surface for queued tasks and executor history; dispatch is not implemented.",
+      "Preview surface for promoted async tasks, assignments, and executor run history.",
     defaultTitle: "Agent Queue",
     defaultConfig: {},
     componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -59,7 +58,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Workspace Agent",
     category: "core",
     description:
-      "Foreground interactive AI agent for planning, task drafting, and result review.",
+      "Foreground AI agent for chat, coding, reviews, and visible workspace work.",
     defaultTitle: "Workspace Agent",
     defaultConfig: {},
     componentKey: INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
@@ -76,11 +75,10 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,
-    title: "Skill Library",
+    title: "Knowledge / Skills",
     category: "knowledge",
-    description:
-      "Workspace-local operator-authored reusable work instructions.",
-    defaultTitle: "Skill Library",
+    description: "Workspace and global documents plus reusable procedures.",
+    defaultTitle: "Knowledge / Skills",
     defaultConfig: {},
     componentKey: SKILL_LIBRARY_COMPONENT_KEY,
   },
@@ -88,8 +86,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
     category: "codebase",
-    description:
-      "Developer Git review surface for status, changes, selected-file diff, history, and explicit local commit.",
+    description: "Review changes, diffs, history, and create local commits.",
     defaultTitle: "Git",
     defaultConfig: {},
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
@@ -99,7 +96,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Database / JDBC",
     category: "database",
     description:
-      "Preview surface for workspace-local database connector metadata. SQL execution is pending.",
+      "Preview connector metadata and bounded mock read-only query surface.",
     defaultTitle: "Database / JDBC",
     defaultConfig: {},
     componentKey: JDBC_WIDGET_COMPONENT_KEY,
@@ -109,7 +106,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Terminal",
     category: "tool",
     description:
-      "Classic manual terminal surface with collapsed PTY settings and legacy fallback.",
+      "Classic terminal surface for explicit desktop working directories.",
     defaultTitle: "Terminal",
     defaultConfig: {},
     componentKey: TERMINAL_PLACEHOLDER_COMPONENT_KEY,
@@ -118,7 +115,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: NOTES_WIDGET_DEFINITION_ID,
     title: "Notes",
     category: "notes",
-    description: "Workspace-local notes list and editor.",
+    description: "Capture workspace notes and context.",
     defaultTitle: "Notes",
     defaultConfig: {},
     componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
