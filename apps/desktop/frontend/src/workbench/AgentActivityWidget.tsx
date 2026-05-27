@@ -37,13 +37,13 @@ export function AgentActivityWidget({
               Current-session timeline
             </h3>
             <p className="agent-activity-widget-text">
-              Workspace Agent and Agent Executor activity appears here while
-              Hobit is open.
+              Compact activity rows auto-follow while Hobit is open.
             </p>
           </div>
           <Badge variant="neutral">{scopedEvents.length} events</Badge>
         </div>
         <AgentActivityPanel
+          compact
           emptyText="Run a Workspace Agent task to see activity."
           events={scopedEvents}
         />

@@ -1260,7 +1260,7 @@
 
 .agent-activity-widget {
   display: grid;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -1273,8 +1273,6 @@
 }
 
 .agent-activity-widget-copy,
-.agent-activity-panel,
-.agent-activity-event-body,
 .agent-activity-event-raw {
   display: grid;
   min-width: 0;
@@ -1284,7 +1282,8 @@
 .agent-activity-widget-title,
 .agent-activity-widget-text,
 .agent-activity-event-summary,
-.agent-activity-event-source {
+.agent-activity-event-source,
+.agent-activity-event-metadata {
   margin: 0;
 }
 
@@ -1307,9 +1306,15 @@
 }
 
 .agent-activity-panel {
+  display: grid;
+  max-height: min(520px, 64vh);
+  min-width: 0;
+  gap: 3px;
   margin: 0;
+  overflow: auto;
   padding: 0;
   list-style: none;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 .agent-activity-panel-compact {
@@ -1317,54 +1322,82 @@
 }
 
 .agent-activity-event {
+  display: block;
+  min-width: 0;
+}
+
+.agent-activity-event-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-sm);
-  border-left: 1px solid var(--color-border-subtle);
-  padding: 0 0 var(--space-sm) var(--space-sm);
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: calc(var(--space-xs) / 2) var(--space-xs);
+  text-align: left;
 }
 
-.agent-activity-event:last-child {
-  padding-bottom: 0;
+.agent-activity-event-row:hover,
+.agent-activity-event-row:focus-visible {
+  border-color: var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-surface-raised) 68%, transparent);
 }
 
-.agent-activity-event > .status-dot {
-  margin-top: 5px;
-}
-
-.agent-activity-event-header,
-.agent-activity-event-title-row {
+.agent-activity-event-copy {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
 }
 
-.agent-activity-event-header {
-  justify-content: space-between;
+.agent-activity-event-title,
+.agent-activity-event-summary,
+.agent-activity-event-time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.agent-activity-event-title,
-.agent-activity-event-source {
-  overflow-wrap: anywhere;
+.agent-activity-event-title {
+  flex: 0 0 auto;
+}
+
+.agent-activity-event-summary {
+  flex: 1 1 auto;
+}
+
+.agent-activity-event-status {
+  flex: 0 0 auto;
+}
+
+.agent-activity-event-time {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.agent-activity-event-details,
+.agent-activity-event-detail-block {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
 }
 
 .agent-activity-event-details {
-  min-width: 0;
-}
-
-.agent-activity-event-details summary {
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-tight);
+  margin: 0 0 var(--space-xs) 19px;
+  border-left: 1px solid var(--color-border-subtle);
+  padding: var(--space-xs) 0 var(--space-xs) var(--space-sm);
 }
 
 .agent-activity-event-detail-text {
-  max-height: 180px;
-  margin: var(--space-xs) 0 0;
+  max-height: 160px;
+  margin: 0;
   overflow: auto;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
@@ -1376,6 +1409,32 @@
   line-height: var(--line-normal);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.agent-activity-event-metadata {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-activity-event-metadata div {
+  display: inline-flex;
+  min-width: 0;
+  gap: calc(var(--space-xs) / 2);
+}
+
+.agent-activity-event-metadata dt {
+  color: var(--color-text-secondary);
+  font-weight: 720;
+}
+
+.agent-activity-event-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .interactive-agent-message-list {

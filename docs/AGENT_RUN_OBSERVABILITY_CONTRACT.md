@@ -60,7 +60,12 @@ started, thread started, turn started, command running, command finished or
 failed, response prepared, and run completed or failed. It does not change
 Codex execution, thread resume, Queue/Executor runtime behavior, backend DTOs,
 storage schema, or persistence. Raw JSON/event previews and technical details
-remain collapsed by default.
+remain collapsed by default. The current Agent Activity UI presents these
+events as a compact readable timeline with one-line rows by default. Rows can
+be expanded for command, summary, details, raw preview, output preview, and
+run/source metadata when present. The timeline auto-follows the newest activity
+while the operator is already near the bottom and stops following when the
+operator scrolls away.
 
 First real AI/provider calls must follow
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: every call should produce a

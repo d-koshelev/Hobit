@@ -28,6 +28,13 @@ describe("agentActivityModel", () => {
         summary: "Agent started working on the prompt.",
         title: "Started turn",
       });
+    expect(activityFromEvent(codexJsonEvent({ type: "turn.completed" })))
+      .toMatchObject({
+        severity: "success",
+        status: "completed",
+        summary: "Agent turn completed.",
+        title: "Completed turn",
+      });
     expect(
       activityFromEvent(
         directWorkEvent({
@@ -56,7 +63,9 @@ describe("agentActivityModel", () => {
         }),
       ),
     ).toMatchObject({
+      command: "git status --short",
       summary: "Running git status --short",
+      status: "running",
       title: "Ran command",
     });
 
@@ -72,7 +81,9 @@ describe("agentActivityModel", () => {
         }),
       ),
     ).toMatchObject({
+      command: "cargo check",
       severity: "success",
+      status: "completed",
       summary: "cargo check finished.",
       title: "Command finished",
     });
@@ -90,7 +101,9 @@ describe("agentActivityModel", () => {
     );
 
     expect(failed).toMatchObject({
-      severity: "warning",
+      command: "npm run build",
+      outputPreview: "raw stdout should not be in summary",
+      severity: "error",
       status: "failed",
       summary: "npm run build failed.",
       title: "Command failed",

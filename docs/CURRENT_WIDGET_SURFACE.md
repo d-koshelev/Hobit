@@ -141,10 +141,18 @@ Workspace Agent is the foreground interactive agent surface.
 - Shows current-session readable activity events published by Workspace Agent
   Codex runs and Agent Executor streaming Direct Work runs while Hobit remains
   open.
+- Renders events as a compact readable timeline by default: each row shows a
+  semantic status dot, short title, optional short summary, lifecycle status,
+  and timestamp.
+- Auto-follows the newest activity while the operator is at the bottom of the
+  timeline, and pauses follow behavior when the operator scrolls away.
 - Timeline events include run start, thread start, turn start, command start,
   command finish/failure, response preparation, and run completion/failure when
   those events are present in the existing stream.
-- Raw event previews and technical details are collapsed per event by default.
+- Rows expand on click for command, summary, details, raw preview, output
+  preview, and run/source metadata when present.
+- Raw event previews and technical details remain collapsed per event by
+  default.
 - It does not persist activity, read stored Executor detail automatically,
   expose full stdout/stderr/JSON in the normal view, create Queue tasks,
   execute work, change Codex execution semantics, or change Queue/Executor

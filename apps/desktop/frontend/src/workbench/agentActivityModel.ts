@@ -15,8 +15,10 @@ export type AgentActivitySeverity =
   | "error";
 
 export type AgentActivityEvent = {
+  command?: string;
   details?: string;
   id: string;
+  outputPreview?: string;
   rawPreview?: string;
   runId: string;
   severity: AgentActivitySeverity;
@@ -41,6 +43,7 @@ export type AgentActivityEventInput = {
 const RAW_PREVIEW_LIMIT = 360;
 const TEXT_PREVIEW_LIMIT = 180;
 const COMMAND_PREVIEW_LIMIT = 140;
+const OUTPUT_PREVIEW_LIMIT = 1000;
 
 export function agentActivityEventFromDirectWorkStreamEvent({
   event,
@@ -96,7 +99,13 @@ function readableDirectWorkActivity(
   event: DirectWorkStreamEvent,
 ): Pick<
   AgentActivityEvent,
-  "details" | "severity" | "status" | "summary" | "title"
+  | "command"
+  | "details"
+  | "outputPreview"
+  | "severity"
+  | "status"
+  | "summary"
+  | "title"
 > | null {
   if (event.eventKind === "started") {
     return activity("running", "info", "Started run", "Direct Work accepted.");
@@ -164,7 +173,7 @@ function readableDirectWorkActivity(
 
   if (eventType === "turn.completed") {
     return activity(
-      "running",
+      "completed",
       "success",
       "Completed turn",
       "Agent turn completed.",
@@ -192,6 +201,8 @@ function readableItemStarted(payload: JsonRecord | null) {
       "info",
       "Ran command",
       command ? `Running ${command}` : "Running command.",
+      undefined,
+      commandActivityExtras(command, item),
     );
   }
 
@@ -208,8 +219,8 @@ function readableItemCompleted(payload: JsonRecord | null) {
 
   if (type === "agent_message") {
     return activity(
-      "running",
-      "info",
+      "completed",
+      "success",
       "Prepared response",
       "Agent response is ready.",
     );
@@ -220,23 +231,26 @@ function readableItemCompleted(payload: JsonRecord | null) {
     if (commandExecutionFailed(item)) {
       return activity(
         "failed",
-        "warning",
+        "error",
         "Command failed",
         command ? `${command} failed.` : "Command failed.",
         commandFailureDetails(item),
+        commandActivityExtras(command, item),
       );
     }
 
     return activity(
-      "running",
+      "completed",
       "success",
       "Command finished",
       command ? `${command} finished.` : "Command finished.",
+      undefined,
+      commandActivityExtras(command, item),
     );
   }
 
   if (itemLooksLikeRead(item)) {
-    return activity("running", "success", "Read files", "File read completed.");
+    return activity("completed", "success", "Read files", "File read completed.");
   }
 
   return null;
@@ -248,8 +262,10 @@ function activity(
   title: string,
   summary?: string,
   details?: string,
+  extras: Pick<AgentActivityEvent, "command" | "outputPreview"> = {},
 ) {
   return {
+    ...extras,
     details,
     severity,
     status,
@@ -407,6 +423,35 @@ function commandExecutionFailed(item: JsonRecord | null) {
     status.includes("error") ||
     Boolean(item.error || item.error_message)
   );
+}
+
+function commandActivityExtras(command: string | null, item: JsonRecord | null) {
+  const outputPreview = commandOutputPreview(item);
+  const extras: Pick<AgentActivityEvent, "command" | "outputPreview"> = {};
+
+  if (command) {
+    extras.command = command;
+  }
+
+  if (outputPreview) {
+    extras.outputPreview = outputPreview;
+  }
+
+  return extras;
+}
+
+function commandOutputPreview(item: JsonRecord | null) {
+  if (!item) {
+    return undefined;
+  }
+
+  const output =
+    stringValue(item.output) ??
+    stringValue(item.stdout) ??
+    stringValue(item.stderr) ??
+    stringValue(item.text);
+
+  return output ? compactText(output, OUTPUT_PREVIEW_LIMIT) : undefined;
 }
 
 function itemLooksLikeRead(item: JsonRecord | null) {
