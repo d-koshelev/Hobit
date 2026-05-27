@@ -7,16 +7,17 @@ This contract defines the Hobit Git Widget / Git Plugin as a visual review and c
 The full future Git review cockpit is not implemented yet. This document is a
 product/domain contract. The current frontend has an insertable Git widget with
 a transient explicit repository-root input, a manual desktop-only read-only
-status refresh through `get_git_repository_status`, compact status/diff review
-surfaces, grouped changed files, and an explicit local commit UI owned by Git
-Widget. Local commit creation is selected-file based, uses an
+status refresh through `get_git_repository_status`, compact Changes / Diff /
+History / Commit sections, grouped changed files, bounded selected-file diff
+review, recent history, and an explicit local commit UI owned by Git Widget.
+Local commit creation is selected-file based, uses an
 operator-provided message, and requires operator confirmation. Agent Executor
 also has a read-only backend/Tauri diff summary API and compact frontend diff
 summary UI for an explicit repository root. These foundations do not add
-repository root/status persistence, log/show operations, validation
-association, Git-response association, storage schema changes, polling,
-watching, fetch, push, reset, clean, checkout, restore, rebase, merge, patch
-apply, auto-commit, Agent Executor auto-commit, or broader runtime behavior.
+repository root/status persistence, validation association, Git-response
+association, storage schema changes, polling, watching, fetch, push, reset,
+clean, checkout/switch branch, restore, rebase, merge, patch apply,
+auto-commit, Agent Executor auto-commit, or broader runtime behavior.
 
 Current and future explicit local commit support must also follow
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
@@ -424,8 +425,8 @@ Raw command output may be available in expandable detail sections or widget-loca
 
 This contract does not implement:
 
-- Git log/show UI and full diff review beyond the current bounded status/diff
-  surfaces
+- Full Git show UI, commit graph, patch staging, or diff review beyond the
+  current bounded selected-file diff and recent history surfaces
 - storage schema or migrations
 - full `hobit-core` Git domain model
 - full Git review React UI beyond the current compact status, changed-files,
@@ -450,18 +451,19 @@ desktop-only read-only Git status snapshot through the Tauri
 `get_git_repository_status` command. The result is rendered as a compact visual
 status/diff surface with branch, clean/dirty state, counts, ahead/behind data
 when available, warnings, last commit data when available, and a grouped
-changed-files summary.
+changed-files summary. The widget can also read a bounded selected-file diff
+and recent history through Git-widget-owned read-only Tauri commands.
 
 The visible Git Widget surface has read-only repository review plus explicit
 local-only commit controls. The repository root and refreshed status stay in
 local React state only; they are not persisted, restored, polled, watched,
 validated into Workspace state, or reused after reopening. Browser/Vite
-fallback keeps the widget insertable but cannot read local Git status or create
-local commits. Agent Executor has a read-only diff summary API and compact
-frontend diff summary UI for an explicit repository root; untracked file patch
-previews are not included in that MVP. Git review beyond these manual
-status/diff surfaces and the explicit local commit flow remains future optional
-capability work.
+fallback keeps the widget insertable but cannot read local Git status, diffs,
+history, or create local commits. Agent Executor has a read-only diff summary
+API and compact frontend diff summary UI for an explicit repository root;
+untracked file patch previews are not included in that MVP. Git review beyond
+these manual status/selected-diff/history surfaces and the explicit local
+commit flow remains future optional capability work.
 
 The backend/Tauri/frontend implementation also includes an explicit local
 commit flow for Git Widget ownership. It requires explicit selected files, an
@@ -474,8 +476,8 @@ Not implemented:
 
 - repository root/status persistence
 - polling or background watching
-- Git Widget log/show UI and full per-file diff expansion beyond the current
-  bounded status/diff surfaces
+- Full commit show UI, commit graph, and patch-level diff/stage controls beyond
+  the current bounded selected-file diff and recent history surfaces
 - validation association or Git-response association
 - general staging UI, unstaging UI, push, revert, reset, clean, stash, or other
   Git controls beyond the explicit selected-file local commit flow

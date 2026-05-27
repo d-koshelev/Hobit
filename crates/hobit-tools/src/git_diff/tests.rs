@@ -144,6 +144,109 @@ fn command_summary_uses_safe_program_and_args_without_mutating_commands() {
     }
 }
 
+#[test]
+fn selected_file_diff_returns_read_only_patch() {
+    let repo = TempGitRepo::new();
+    fs::write(repo.path().join("tracked.txt"), "one\nchanged\n").expect("modify tracked");
+
+    let diff = read_git_file_diff(GitFileDiffRequest {
+        repo_root: repo.path().to_path_buf(),
+        path: "tracked.txt".to_owned(),
+        max_patch_bytes: None,
+    })
+    .expect("file diff");
+
+    assert_eq!(diff.status, GitFileDiffStatus::Available);
+    assert!(diff
+        .patch
+        .as_deref()
+        .is_some_and(|patch| patch.contains("unstaged diff") && patch.contains("+changed")));
+    for command in &diff.command_summary {
+        assert_eq!(command.program, "git");
+        assert!(!command.args.iter().any(|arg| {
+            matches!(
+                arg.as_str(),
+                "add" | "commit" | "push" | "reset" | "clean" | "checkout" | "restore"
+            )
+        }));
+    }
+}
+
+#[test]
+fn selected_untracked_file_returns_graceful_untracked_status() {
+    let repo = TempGitRepo::new();
+    fs::write(repo.path().join("scratch.txt"), "scratch\n").expect("write untracked");
+
+    let diff = read_git_file_diff(GitFileDiffRequest {
+        repo_root: repo.path().to_path_buf(),
+        path: "scratch.txt".to_owned(),
+        max_patch_bytes: None,
+    })
+    .expect("file diff");
+
+    assert_eq!(diff.status, GitFileDiffStatus::Untracked);
+    assert_eq!(diff.patch, None);
+    assert!(diff.error_message.is_some());
+}
+
+#[test]
+fn selected_file_diff_caps_large_output() {
+    let repo = TempGitRepo::new();
+    fs::write(
+        repo.path().join("tracked.txt"),
+        "one\nvery long replacement line\nanother long replacement line\n",
+    )
+    .expect("modify tracked");
+
+    let diff = read_git_file_diff(GitFileDiffRequest {
+        repo_root: repo.path().to_path_buf(),
+        path: "tracked.txt".to_owned(),
+        max_patch_bytes: Some(32),
+    })
+    .expect("file diff");
+
+    assert_eq!(diff.status, GitFileDiffStatus::TooLarge);
+    assert!(diff.patch_truncated);
+    assert!(diff.patch.as_deref().is_some_and(|patch| patch.len() <= 32));
+}
+
+#[test]
+fn selected_file_diff_rejects_absolute_or_parent_paths() {
+    let repo = TempGitRepo::new();
+
+    let parent_error = read_git_file_diff(GitFileDiffRequest {
+        repo_root: repo.path().to_path_buf(),
+        path: "../outside.txt".to_owned(),
+        max_patch_bytes: None,
+    })
+    .expect_err("reject parent path");
+
+    assert!(matches!(parent_error, GitDiffError::Unknown(_)));
+}
+
+#[test]
+fn recent_log_returns_structured_entries_without_mutating_commands() {
+    let repo = TempGitRepo::new();
+
+    let log = read_git_log(GitLogRequest {
+        repo_root: repo.path().to_path_buf(),
+        limit: Some(10),
+    })
+    .expect("git log");
+
+    assert_eq!(log.entries.len(), 1);
+    assert_eq!(log.entries[0].subject, "initial");
+    assert!(!log.entries[0].hash.is_empty());
+    assert_eq!(log.command_summary[0].program, "git");
+    assert!(log.command_summary[0].args.iter().any(|arg| arg == "log"));
+    assert!(!log.command_summary[0].args.iter().any(|arg| {
+        matches!(
+            arg.as_str(),
+            "add" | "commit" | "push" | "reset" | "clean" | "checkout" | "restore"
+        )
+    }));
+}
+
 fn request(repo_root: &Path) -> GitDiffSummaryRequest {
     GitDiffSummaryRequest {
         repo_root: repo_root.to_path_buf(),

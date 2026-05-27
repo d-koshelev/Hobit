@@ -53,11 +53,15 @@ import type {
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
+  GetGitFileDiffRequest,
+  GetGitLogRequest,
   GetGitRepositoryStatusRequest,
   GetKnowledgeDocumentRequest,
   GetWorkspaceNoteRequest,
   GetSkillRequest,
   GitCommitResponse,
+  GitFileDiff,
+  GitLog,
   GitRepositoryStatus,
   KnowledgeDocument,
   KnowledgeDocumentSearchResult,
@@ -242,6 +246,10 @@ export type WorkspaceApi = {
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;
+  getGitFileDiff: (
+    request: GetGitFileDiffRequest,
+  ) => Promise<GitFileDiff | null>;
+  getGitLog: (request: GetGitLogRequest) => Promise<GitLog | null>;
   createGitCommit: (
     request: CreateGitCommitRequest,
   ) => Promise<GitCommitResponse | null>;

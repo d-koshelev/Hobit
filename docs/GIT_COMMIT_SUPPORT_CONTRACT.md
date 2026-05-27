@@ -29,10 +29,12 @@ The current foundation:
 - reads the commit hash with `git rev-parse HEAD` after success
 - returns structured stdout, stderr, exit code, duration, command summary,
   commit hash, branch, included files, message, status, and safety flags
+- presents commit as the secondary Commit section inside the Git widget's
+  Changes / Diff / History / Commit review flow
 
 It does not persist a Git action artifact yet. Git Widget commit UI is
 local-only and selected-file based; it does not push, reset, clean, stash,
-fetch, poll, watch, or auto-commit.
+checkout/switch branch, fetch, poll, watch, or auto-commit.
 
 ## One-Sentence Rule
 

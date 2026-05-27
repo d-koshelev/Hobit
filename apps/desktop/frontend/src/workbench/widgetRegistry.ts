@@ -77,7 +77,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Git",
     category: "codebase",
     description:
-      "Manual read-only Git status placeholder for an explicit transient repository root.",
+      "Developer Git review surface for status, changes, selected-file diff, history, and explicit local commit.",
     defaultTitle: "Git",
     defaultConfig: {},
     componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,

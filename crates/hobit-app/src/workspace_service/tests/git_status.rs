@@ -170,3 +170,129 @@ fn get_git_repository_status_rejects_empty_repository_root() {
 
     assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
 }
+
+#[test]
+fn get_git_file_diff_for_valid_git_widget_reads_without_writes() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id");
+    let state_after_add = service
+        .add_widget_instance_to_workbench(&workspace.id, workbench_id, "git", "Git", "git")
+        .expect("add Git widget")
+        .expect("state after add");
+    let widget_id = state_after_add.widget_instances[0].id.clone();
+    let event_count = service
+        .store
+        .list_workbench_events(&workspace.id)
+        .expect("list events")
+        .len();
+    let called_request = RefCell::new(None);
+
+    let diff = service
+        .get_git_file_diff_with_reader(
+            &workspace.id,
+            workbench_id,
+            &widget_id,
+            "repo-root",
+            "src/lib.rs",
+            Some(2048),
+            |request| {
+                *called_request.borrow_mut() = Some(request);
+                Ok(hobit_tools::git_diff::GitFileDiffResult {
+                    repo_root: "repo-root".to_owned(),
+                    path: "src/lib.rs".to_owned(),
+                    status: hobit_tools::git_diff::GitFileDiffStatus::Available,
+                    patch: Some("diff --git a/src/lib.rs b/src/lib.rs".to_owned()),
+                    patch_truncated: false,
+                    error_message: None,
+                    command_summary: vec![hobit_tools::git_diff::GitDiffCommandSummary {
+                        program: "git".to_owned(),
+                        args: vec![
+                            "-C".to_owned(),
+                            "repo-root".to_owned(),
+                            "diff".to_owned(),
+                            "--".to_owned(),
+                            "src/lib.rs".to_owned(),
+                        ],
+                    }],
+                })
+            },
+        )
+        .expect("read file diff")
+        .expect("file diff");
+    let events_after_read = service
+        .store
+        .list_workbench_events(&workspace.id)
+        .expect("list events")
+        .len();
+    let request = called_request.into_inner().expect("request seen");
+
+    assert_eq!(request.repo_root, PathBuf::from("repo-root"));
+    assert_eq!(request.path, "src/lib.rs");
+    assert_eq!(request.max_patch_bytes, Some(2048));
+    assert_eq!(diff.status, "available");
+    assert_eq!(diff.path, "src/lib.rs");
+    assert!(diff
+        .patch
+        .as_deref()
+        .is_some_and(|patch| patch.contains("diff --git")));
+    assert_eq!(events_after_read, event_count);
+}
+
+#[test]
+fn get_git_log_for_valid_git_widget_reads_without_writes() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id");
+    let state_after_add = service
+        .add_widget_instance_to_workbench(&workspace.id, workbench_id, "git", "Git", "git")
+        .expect("add Git widget")
+        .expect("state after add");
+    let widget_id = state_after_add.widget_instances[0].id.clone();
+    let called_request = RefCell::new(None);
+
+    let log = service
+        .get_git_log_with_reader(
+            &workspace.id,
+            workbench_id,
+            &widget_id,
+            "repo-root",
+            Some(30),
+            |request| {
+                *called_request.borrow_mut() = Some(request);
+                Ok(hobit_tools::git_diff::GitLogResult {
+                    repo_root: "repo-root".to_owned(),
+                    entries: vec![hobit_tools::git_diff::GitLogEntry {
+                        hash: "abcdef123456".to_owned(),
+                        short_hash: "abcdef1".to_owned(),
+                        subject: "initial".to_owned(),
+                        author: "Hobit".to_owned(),
+                        date: "2026-05-27T10:00:00Z".to_owned(),
+                    }],
+                    command_summary: vec![hobit_tools::git_diff::GitDiffCommandSummary {
+                        program: "git".to_owned(),
+                        args: vec!["-C".to_owned(), "repo-root".to_owned(), "log".to_owned()],
+                    }],
+                })
+            },
+        )
+        .expect("read git log")
+        .expect("git log");
+    let request = called_request.into_inner().expect("request seen");
+
+    assert_eq!(request.repo_root, PathBuf::from("repo-root"));
+    assert_eq!(request.limit, Some(30));
+    assert_eq!(log.entries[0].short_hash, "abcdef1");
+    assert_eq!(log.entries[0].subject, "initial");
+    assert_eq!(log.command_summary[0].program, "git");
+}

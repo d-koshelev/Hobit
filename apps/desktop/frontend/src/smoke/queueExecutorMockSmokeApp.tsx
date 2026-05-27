@@ -184,6 +184,8 @@ class QueueExecutorSmokeRuntime {
       },
       getAgentQueueTask: async (queueItemId) =>
         this.findTask(queueItemId) ?? this.cloneTask(),
+      getGitFileDiff: async () => null,
+      getGitLog: async () => null,
       getGitRepositoryStatus: async () => null,
       getJdbcConnector: this.unsupported,
       getSkill: this.unsupported,

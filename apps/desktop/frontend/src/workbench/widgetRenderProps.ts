@@ -33,6 +33,8 @@ import type {
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
   GitCommitResponse,
+  GitFileDiff,
+  GitLog,
   GitRepositoryStatus,
   KnowledgeDocument,
   KnowledgeDocumentImportFile,
@@ -200,6 +202,15 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  onGetGitFileDiff?: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+    path: string,
+  ) => Promise<GitFileDiff | null>;
+  onGetGitLog?: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<GitLog | null>;
   onGetJdbcConnector?: (connectorId: string) => Promise<JdbcConnector | null>;
   onGetWorkspaceNote?: (noteId: string) => Promise<WorkspaceNote | null>;
   onGetSkill?: (skillId: string) => Promise<Skill | null>;

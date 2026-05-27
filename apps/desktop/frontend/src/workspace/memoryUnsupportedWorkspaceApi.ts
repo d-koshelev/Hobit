@@ -299,6 +299,20 @@ export const getGitRepositoryStatus: WorkspaceApi["getGitRepositoryStatus"] =
     );
   };
 
+export const getGitFileDiff: WorkspaceApi["getGitFileDiff"] = async (
+  _request,
+) => {
+  throw new Error(
+    "Git file diff is only available in the Tauri desktop shell. Browser fallback cannot read local Git diffs.",
+  );
+};
+
+export const getGitLog: WorkspaceApi["getGitLog"] = async (_request) => {
+  throw new Error(
+    "Git history is only available in the Tauri desktop shell. Browser fallback cannot read local Git history.",
+  );
+};
+
 export const createGitCommit: WorkspaceApi["createGitCommit"] = async (
   _request,
 ) => {

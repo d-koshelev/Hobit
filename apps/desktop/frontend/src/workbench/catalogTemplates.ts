@@ -75,13 +75,13 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     title: "Git",
     category: "codebase",
     description:
-      "Manual read-only status snapshot for an explicit transient repository root.",
+      "Developer Git review panel for status, changes, selected-file diff, history, and explicit local commit.",
     section: "ready",
     status: "available",
     capabilitySummary: [
-      "Desktop read-only refresh",
-      "Grouped changed files summary",
-      "No Git mutations, diff, log, or persistence",
+      "Desktop read-only status, diff, and history",
+      "Grouped changed-file review",
+      "Explicit local commit only; no push, reset, clean, or stash",
     ],
     futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
   },

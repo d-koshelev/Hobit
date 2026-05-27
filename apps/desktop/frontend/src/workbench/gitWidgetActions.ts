@@ -1,9 +1,13 @@
 import {
   createGitCommit,
+  getGitFileDiff,
+  getGitLog,
   getGitRepositoryStatus,
 } from "../workspace/workspaceApi";
 import type {
   CreateGitCommitRequest,
+  GitFileDiff,
+  GitLog,
   GitCommitResponse,
   GitRepositoryStatus,
 } from "../workspace/types";
@@ -28,6 +32,15 @@ export type GitWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     repositoryRoot: string,
   ) => Promise<GitRepositoryStatus | null>;
+  getGitFileDiff: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+    path: string,
+  ) => Promise<GitFileDiff | null>;
+  getGitLog: (
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) => Promise<GitLog | null>;
 };
 
 type GitWidgetActionOptions = {
@@ -89,8 +102,52 @@ export function createGitWidgetActions({
     return response;
   }
 
+  async function loadGitFileDiff(
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+    path: string,
+  ) {
+    const workbenchId = requireOpenWorkbench(viewState, "read Git diff");
+    requireWidget(
+      viewState,
+      widgetInstanceId,
+      "Git diff could not be loaded for this widget.",
+    );
+
+    return getGitFileDiff({
+      workspaceId: viewState.workspace.id,
+      workbenchId,
+      widgetInstanceId,
+      repositoryRoot,
+      path,
+      maxPatchBytes: 65536,
+    });
+  }
+
+  async function loadGitLog(
+    widgetInstanceId: WidgetInstanceId,
+    repositoryRoot: string,
+  ) {
+    const workbenchId = requireOpenWorkbench(viewState, "read Git history");
+    requireWidget(
+      viewState,
+      widgetInstanceId,
+      "Git history could not be loaded for this widget.",
+    );
+
+    return getGitLog({
+      workspaceId: viewState.workspace.id,
+      workbenchId,
+      widgetInstanceId,
+      repositoryRoot,
+      limit: 30,
+    });
+  }
+
   return {
     createGitCommit: createGitCommitForWidget,
+    getGitFileDiff: loadGitFileDiff,
+    getGitLog: loadGitLog,
     getGitRepositoryStatus: loadGitRepositoryStatus,
   };
 }

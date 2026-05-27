@@ -528,6 +528,33 @@ pub struct GitLastCommitSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitFileDiffSummary {
+    pub repo_root: String,
+    pub path: String,
+    pub status: String,
+    pub patch: Option<String>,
+    pub patch_truncated: bool,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<GitDiffCommandSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitLogSummary {
+    pub repo_root: String,
+    pub entries: Vec<GitLogEntrySummary>,
+    pub command_summary: Vec<GitDiffCommandSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitLogEntrySummary {
+    pub hash: String,
+    pub short_hash: String,
+    pub subject: String,
+    pub author: String,
+    pub date: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CreateGitCommitInput {
     pub workspace_id: String,
     pub workbench_id: String,

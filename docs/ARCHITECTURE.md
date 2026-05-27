@@ -650,12 +650,14 @@ mode, builder, Queue integration, or agent-assisted steps.
 The Git widget has a transient explicit repository-root input. In the Tauri
 desktop path, it manually refreshes a read-only status snapshot through
 `get_git_repository_status`, backed by `hobit-tools`, and renders compact
-branch/clean-dirty/count/ahead-behind/warning/last-commit data plus grouped
-changed files. It also exposes explicit selected-file local commit UI with an
-operator-provided message and operator confirmation. The repository root and
-refreshed status are local React state only. Browser/Vite fallback cannot read
-Git status or create local commits. Repository root/status persistence,
-polling, watching, fetch, log/show UI, validation association, push,
+branch/clean-dirty/count/ahead-behind data plus grouped changed files. It can
+also load a bounded selected-file diff and recent Git history through
+Git-widget-owned read-only Tauri commands. It exposes explicit selected-file
+local commit UI with an operator-provided message and operator confirmation.
+The repository root, refreshed status, selected diff, and recent history are
+local React state only. Browser/Vite fallback cannot read Git status, diffs,
+history, or create local commits. Repository root/status persistence, polling,
+watching, fetch, validation association, push, checkout/switch branch,
 revert/reset, clean, stash, Agent Executor auto-commit, and broader Git
 mutations are not implemented.
 

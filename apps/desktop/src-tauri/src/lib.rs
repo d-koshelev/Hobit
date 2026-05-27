@@ -37,6 +37,9 @@ mod direct_work_host_artifacts_tests;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
+mod git_review_dto;
+#[cfg(test)]
+mod git_review_dto_tests;
 mod jdbc_connector_commands;
 mod jdbc_connector_dto;
 #[cfg(test)]
@@ -119,6 +122,8 @@ pub fn run() {
             workspace_commands::create_agent_queue_item_from_proposal,
             workspace_commands::get_agent_queue_snapshot,
             workspace_commands::get_git_repository_status,
+            workspace_commands::get_git_file_diff,
+            workspace_commands::get_git_log,
             workspace_commands::create_git_commit,
             notes_commands::create_workspace_note,
             notes_commands::list_workspace_notes,

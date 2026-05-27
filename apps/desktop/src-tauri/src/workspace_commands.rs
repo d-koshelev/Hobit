@@ -36,6 +36,7 @@ use crate::direct_work_host_artifacts::{
     DirectWorkHostStreamEventRuntimeArtifact,
 };
 use crate::git_commit_dto::{CreateGitCommitRequest, GitCommitResponseDto};
+use crate::git_review_dto::{GetGitFileDiffRequest, GetGitLogRequest, GitFileDiffDto, GitLogDto};
 use crate::workspace_dto::{
     AddWidgetInstanceToWorkbenchRequest, AgentMonitoringSnapshotDto, CreateWorkspaceRequest,
     DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
@@ -677,6 +678,63 @@ pub(crate) fn get_git_repository_status(
             &request.repository_root,
         )
         .map(|status| status.map(GitRepositoryStatusDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_git_file_diff(
+    request: GetGitFileDiffRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<GitFileDiffDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || get_git_file_diff_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn get_git_file_diff_blocking(
+    request: GetGitFileDiffRequest,
+    db_path: PathBuf,
+) -> Result<Option<GitFileDiffDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_git_file_diff(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            &request.repository_root,
+            &request.path,
+            request.max_patch_bytes,
+        )
+        .map(|diff| diff.map(GitFileDiffDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_git_log(
+    request: GetGitLogRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<GitLogDto>, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || get_git_log_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn get_git_log_blocking(
+    request: GetGitLogRequest,
+    db_path: PathBuf,
+) -> Result<Option<GitLogDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_git_log(
+            &request.workspace_id,
+            &request.workbench_id,
+            &request.widget_instance_id,
+            &request.repository_root,
+            request.limit,
+        )
+        .map(|log| log.map(GitLogDto::from))
         .map_err(command_error)
 }
 

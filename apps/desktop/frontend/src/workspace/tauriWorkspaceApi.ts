@@ -34,6 +34,7 @@ import {
 } from "./tauriCodexDirectWorkApi";
 import { generateCoordinatorProviderResponse } from "./tauriCoordinatorProviderApi";
 import { createGitCommit } from "./tauriGitCommitApi";
+import { getGitFileDiff, getGitLog } from "./tauriGitReviewApi";
 import { getGitRepositoryStatus } from "./tauriGitStatusApi";
 import {
   createJdbcConnector,
@@ -145,6 +146,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   stopAgentQueueRunnerSession,
   getAgentQueueRunnerSnapshot,
   getGitRepositoryStatus,
+  getGitFileDiff,
+  getGitLog,
   createGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,

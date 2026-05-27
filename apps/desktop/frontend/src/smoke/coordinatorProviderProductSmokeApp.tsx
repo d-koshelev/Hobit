@@ -168,6 +168,8 @@ class CoordinatorProviderProductSmokeRuntime {
       getAgentQueueRunnerSnapshot: async () => this.runnerSnapshot(),
       getAgentQueueTask: async (queueItemId) =>
         this.queueTasks.find((task) => task.queueItemId === queueItemId) ?? null,
+      getGitFileDiff: this.gitUnsupported,
+      getGitLog: this.gitUnsupported,
       getGitRepositoryStatus: this.gitUnsupported,
       getJdbcConnector: this.jdbcUnsupported,
       getSkill: this.unsupported,

@@ -1,8 +1,27 @@
+import type { GitDiffCommandSummary } from "./agentExecutor";
+
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
   workbenchId: string;
   widgetInstanceId: string;
   repositoryRoot: string;
+};
+
+export type GetGitFileDiffRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repositoryRoot: string;
+  path: string;
+  maxPatchBytes?: number | null;
+};
+
+export type GetGitLogRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  repositoryRoot: string;
+  limit?: number | null;
 };
 
 export type CreateGitCommitRequest = {
@@ -39,6 +58,31 @@ export type GitCommitCommandSummary = {
   program: string;
   args: string[];
 };
+
+export type GitFileDiff = {
+  repoRoot: string;
+  path: string;
+  status: string;
+  patch: string | null;
+  patchTruncated: boolean;
+  errorMessage: string | null;
+  commandSummary: GitDiffCommandSummary[];
+};
+
+export type GitLog = {
+  repoRoot: string;
+  entries: GitLogEntry[];
+  commandSummary: GitDiffCommandSummary[];
+};
+
+export type GitLogEntry = {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  author: string;
+  date: string;
+};
+
 
 export type GitRepositoryStatus = {
   branch: GitBranchStatus | null;

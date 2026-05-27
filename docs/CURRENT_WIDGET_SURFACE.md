@@ -156,15 +156,17 @@ Workspace Agent is the foreground interactive agent surface.
 
 - Current desktop Git review/control widget for an explicit operator-provided
   repository root.
-- Reads a manual read-only status snapshot and grouped changed-file data in the
-  Tauri desktop shell.
+- Reads a manual read-only status snapshot, grouped changed-file data,
+  selected-file diff, and recent Git history in the Tauri desktop shell.
+- The compact widget surface is organized as Changes, Diff, History, and
+  Commit sections. Selecting a changed file opens its read-only diff review.
 - Supports explicit selected-file local commit with an operator-provided
   message and operator confirmation.
 - Browser/Vite fallback keeps the widget insertable but cannot perform real
   Git reads.
 - Does not persist repository roots, poll, watch, fetch, push, reset, clean,
-  stash, show log/history UI, revert files, auto-commit Agent Executor output,
-  or mutate Git outside the explicit local commit path.
+  stash, checkout/switch branches, revert files, auto-commit Agent Executor
+  output, or mutate Git outside the explicit local commit path.
 
 ### Terminal
 

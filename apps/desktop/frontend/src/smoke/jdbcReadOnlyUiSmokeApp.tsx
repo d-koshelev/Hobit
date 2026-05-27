@@ -130,6 +130,8 @@ class JdbcReadOnlyUiSmokeRuntime {
       getAgentQueueTaskLatestRunLink: async () => null,
       getAgentQueueRunnerSnapshot: this.unsupported,
       getAgentQueueTask: this.unsupported,
+      getGitFileDiff: this.unsupported,
+      getGitLog: this.unsupported,
       getGitRepositoryStatus: this.unsupported,
       getJdbcConnector: async (connectorId) => {
         this.getConnectorCallCount += 1;

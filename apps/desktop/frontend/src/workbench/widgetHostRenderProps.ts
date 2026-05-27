@@ -155,6 +155,8 @@ export function widgetHostRenderProps({
       : undefined,
     onOpenAgentExecutorRun: isAgentQueue ? onOpenAgentExecutorRun : undefined,
     onGetGitRepositoryStatus: widgetActions.getGitRepositoryStatus,
+    onGetGitFileDiff: isGit ? widgetActions.getGitFileDiff : undefined,
+    onGetGitLog: isGit ? widgetActions.getGitLog : undefined,
     onGenerateCoordinatorProviderResponse: isInteractiveAgent
       ? widgetActions.generateCoordinatorProviderResponse
       : undefined,
