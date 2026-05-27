@@ -3,7 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
-import { EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP } from "./workspaceAgentDirectWorkModel";
+import {
+  EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+  EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
+} from "./workspaceAgentDirectWorkModel";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -112,6 +115,7 @@ function ComposerHarness({
       directMode={
         directModeEnabled
           ? {
+              activitySummary: EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
               canStartDirectWork: canAct,
               canStopDirectWork: false,
               directWorkDirectory: "~",

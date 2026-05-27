@@ -10,10 +10,12 @@ import {
   workspaceKnowledgeSummaryText,
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
+  type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
 
 export function WorkspaceAgentDirectModePanel({
+  activitySummary,
   directWorkDirectory,
   error,
   finalResult,
@@ -27,6 +29,7 @@ export function WorkspaceAgentDirectModePanel({
   threadNotice,
   warning,
 }: {
+  activitySummary: WorkspaceAgentActivitySummary;
   directWorkDirectory: string;
   error: string | null;
   finalResult: string | null;
@@ -49,6 +52,11 @@ export function WorkspaceAgentDirectModePanel({
   const compactResult = finalResult
     ? compactDirectWorkText(finalResult)
     : null;
+  const activityLabel = workspaceAgentActivityLabel(activitySummary.status);
+  const activityText =
+    activitySummary.status === "completed"
+      ? `${activitySummary.stepCount} ${pluralizeStep(activitySummary.stepCount)}`
+      : activitySummary.shortText;
   const threadStatusText = threadId
     ? `Thread active ${shortCodexThreadId(threadId)}`
     : "No active thread";
@@ -153,6 +161,19 @@ export function WorkspaceAgentDirectModePanel({
       </div>
 
       <div className="interactive-agent-direct-mode-body">
+        {activityLabel && activityText ? (
+          <div
+            aria-label="Workspace Agent activity summary"
+            className={`interactive-agent-activity-line interactive-agent-activity-line-${activitySummary.severity}`}
+          >
+            <span className="interactive-agent-activity-label">
+              {activityLabel}
+            </span>
+            <span className="interactive-agent-activity-text">
+              {activityText}
+            </span>
+          </div>
+        ) : null}
         <div className="interactive-agent-direct-mode-status" role="status">
           {copyStatus ? (
             <span className="interactive-agent-direct-mode-copy-status">
@@ -237,6 +258,28 @@ export function WorkspaceAgentDirectModePanel({
       </div>
     </section>
   );
+}
+
+function workspaceAgentActivityLabel(
+  status: WorkspaceAgentActivitySummary["status"],
+) {
+  if (status === "running") {
+    return "Codex is running";
+  }
+
+  if (status === "completed") {
+    return "Completed";
+  }
+
+  if (status === "failed") {
+    return "Failed";
+  }
+
+  return null;
+}
+
+function pluralizeStep(count: number) {
+  return count === 1 ? "step" : "steps";
 }
 
 function WorkspaceKnowledgeLookupDetails({

@@ -7,6 +7,7 @@ import { Button } from "../design-system/Button";
 import {
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
+  type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
 import { WorkspaceAgentDirectModePanel } from "./WorkspaceAgentDirectModePanel";
@@ -14,6 +15,7 @@ import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContex
 import type { WorkspaceAgentVisibleContext } from "./workspaceAgentVisibleContext";
 
 type WorkspaceAgentComposerDirectMode = {
+  activitySummary: WorkspaceAgentActivitySummary;
   canStartDirectWork: boolean;
   canStopDirectWork: boolean;
   directWorkDirectory: string;
@@ -77,6 +79,7 @@ export function WorkspaceAgentComposer({
       />
       {directMode ? (
         <WorkspaceAgentDirectModePanel
+          activitySummary={directMode.activitySummary}
           directWorkDirectory={directMode.directWorkDirectory}
           error={directMode.error}
           finalResult={directMode.finalResult}

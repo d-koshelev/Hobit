@@ -108,10 +108,13 @@ The current Workspace Agent preview:
   Changing the working directory clears the current thread id so the next run
   starts fresh. Thread state is current-session only unless persistence is
   added later. Normal transcript entries show user prompts and Codex final
-  responses; Direct Work lifecycle details remain available in the collapsed
-  Direct Work details/status area. Status, recent logs, Stop/cancel state when
-  available, final result summary, and failures stay visible in Workspace
-  Agent.
+  responses. Workspace Agent shows one compact live activity line during Codex
+  runs, such as the current command, file-read phase, or response preparation
+  step; completed and failed runs keep that summary compact. Direct Work
+  lifecycle details and raw technical data remain available in the collapsed
+  Direct Work details/status area. A fuller readable Agent Activity widget is
+  planned separately. Status, recent logs, Stop/cancel state when available,
+  final result summary, and failures stay visible in Workspace Agent.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

@@ -7,6 +7,7 @@ import type {
 import {
   DIRECT_WORK_DIRECTORY_ACCESS_DENIED_MESSAGE,
   DIRECT_WORK_FALLBACK_FAILURE_MESSAGE,
+  EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
   codexAgentMessageFromEvent,
   codexPromptWithWorkspaceKnowledge,
   codexThreadIdForScope,
@@ -23,7 +24,9 @@ import {
   shortCodexThreadId,
   workspaceKnowledgeLogText,
   workspaceKnowledgeSummaryText,
+  workspaceAgentActivitySummaryFromEvent,
   type CodexThreadScope,
+  type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
 
@@ -266,7 +269,164 @@ describe("workspaceAgentDirectWorkModel", () => {
     expect(codexAgentMessageFromEvent(directWorkEvent({ eventKind: "stdout_line" })))
       .toBeNull();
   });
+
+  it("maps command_execution started to a readable running command activity", () => {
+    const summary = activityFromEvents([
+      codexJsonEvent({
+        item: {
+          args: ["status", "--short"],
+          command: "git",
+          type: "command_execution",
+        },
+        type: "item.started",
+      }),
+    ]);
+
+    expect(summary).toMatchObject({
+      latestTitle: "Running command: git status --short",
+      severity: "info",
+      shortText: "Running command: git status --short",
+      status: "running",
+      stepCount: 1,
+    });
+  });
+
+  it("maps command_execution completed to a readable finished command activity", () => {
+    const summary = activityFromEvents([
+      codexJsonEvent({
+        item: {
+          args: ["check"],
+          command: "cargo",
+          exit_code: 0,
+          type: "command_execution",
+        },
+        type: "item.completed",
+      }),
+    ]);
+
+    expect(summary).toMatchObject({
+      latestTitle: "Finished command: cargo check",
+      severity: "success",
+      shortText: "Finished command: cargo check",
+      status: "running",
+      stepCount: 1,
+    });
+  });
+
+  it("maps failed command_execution to failed activity without raw JSON", () => {
+    const summary = activityFromEvents([
+      codexJsonEvent({
+        item: {
+          command: "npm run build --prefix apps/desktop/frontend",
+          exit_code: 1,
+          stderr: "raw build output",
+          type: "command_execution",
+        },
+        type: "item.completed",
+      }),
+    ]);
+
+    expect(summary.status).toBe("failed");
+    expect(summary.severity).toBe("warning");
+    expect(summary.shortText).toBe(
+      "Command failed: npm run build --prefix apps/desktop/frontend",
+    );
+    expect(summary.shortText).not.toContain("raw build output");
+  });
+
+  it("maps agent_message activity to preparing response", () => {
+    const summary = activityFromEvents([
+      codexJsonEvent({
+        item: {
+          text: "Final answer body should stay in the transcript path.",
+          type: "agent_message",
+        },
+        type: "item.completed",
+      }),
+    ]);
+
+    expect(summary).toMatchObject({
+      latestTitle: "Preparing response",
+      shortText: "Preparing response",
+      status: "running",
+      stepCount: 1,
+    });
+  });
+
+  it("shows completed run activity with completed step count", () => {
+    const summary = activityFromEvents([
+      codexJsonEvent({ type: "thread.started" }),
+      codexJsonEvent({ type: "turn.started" }),
+      codexJsonEvent({
+        item: { command: "git status", type: "command_execution" },
+        type: "item.started",
+      }),
+      codexJsonEvent({
+        item: {
+          command: "git status",
+          exit_code: 0,
+          type: "command_execution",
+        },
+        type: "item.completed",
+      }),
+      codexJsonEvent({
+        item: { text: "Done", type: "agent_message" },
+        type: "item.completed",
+      }),
+      codexJsonEvent({ type: "turn.completed" }),
+      directWorkEvent({
+        eventKind: "completed",
+        finalStatus: "completed",
+        isFinal: true,
+      }),
+    ]);
+
+    expect(summary.status).toBe("completed");
+    expect(summary.severity).toBe("success");
+    expect(summary.shortText).toBe("Completed");
+    expect(summary.stepCount).toBe(6);
+  });
+
+  it("shows failed run activity with compact failure summary", () => {
+    const summary = workspaceAgentActivitySummaryFromEvent(
+      EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+      directWorkEvent({
+        eventKind: "failed",
+        errorMessage:
+          "shell snapshot failed while reading environment variables that should not be exposed",
+        finalStatus: "failed",
+        isFinal: true,
+      }),
+      {
+        failureReason:
+          "shell snapshot failed while reading environment variables that should not be exposed",
+      },
+    );
+
+    expect(summary).toMatchObject({
+      severity: "error",
+      shortText: "Codex environment error",
+      status: "failed",
+      stepCount: 0,
+    });
+  });
 });
+
+function activityFromEvents(events: DirectWorkStreamEvent[]) {
+  return events.reduce<WorkspaceAgentActivitySummary>(
+    (summary, event) => workspaceAgentActivitySummaryFromEvent(summary, event),
+    EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+  );
+}
+
+function codexJsonEvent(payload: Record<string, unknown>): DirectWorkStreamEvent {
+  return directWorkEvent({
+    eventKind: "codex_json_event",
+    line: JSON.stringify(payload),
+    parsedCodexEventType:
+      typeof payload.type === "string" ? payload.type : null,
+  });
+}
 
 function directWorkEvent(
   overrides: Partial<DirectWorkStreamEvent> = {},

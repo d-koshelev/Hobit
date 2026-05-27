@@ -3,7 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceAgentDirectModePanel } from "./WorkspaceAgentDirectModePanel";
-import { EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP } from "./workspaceAgentDirectWorkModel";
+import {
+  EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+  EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
+} from "./workspaceAgentDirectWorkModel";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -104,6 +107,36 @@ describe("WorkspaceAgentDirectModePanel", () => {
 
     expect(onResetThread).toHaveBeenCalledTimes(1);
   });
+
+  it("renders one compact activity line while keeping raw details collapsed", () => {
+    renderPanel({
+      activitySummary: {
+        latestTitle: "Running command: git status",
+        severity: "info",
+        shortText: "Running command: git status",
+        status: "running",
+        stepCount: 2,
+      },
+      logs: [
+        {
+          id: "raw-1",
+          kind: "codex_json_event",
+          text: "item.started command_execution",
+        },
+      ],
+      runId: "run_activity",
+      status: "running",
+    });
+
+    expect(document.body.textContent).toContain(
+      "Codex is runningRunning command: git status",
+    );
+    const details = document.querySelector<HTMLDetailsElement>(
+      ".interactive-agent-direct-mode-details",
+    );
+    expect(details?.open).toBe(false);
+    expect(details?.textContent).toContain("item.started command_execution");
+  });
 });
 
 type RenderPanelOptions = Partial<
@@ -113,6 +146,7 @@ type RenderPanelOptions = Partial<
 function renderPanel(options: RenderPanelOptions = {}) {
   render(
     <WorkspaceAgentDirectModePanel
+      activitySummary={EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY}
       directWorkDirectory="~"
       error={null}
       finalResult={null}

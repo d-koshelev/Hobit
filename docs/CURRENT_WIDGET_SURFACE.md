@@ -373,7 +373,9 @@ Workspace Agent is the foreground interactive agent surface.
   path uses `codex` directly. Missing home-directory resolution for `~`
   returns a visible launch error instead of silently using the repository.
   Workspace Agent-owned Codex runs stream visible
-  status/log/final-result summaries in Workspace Agent, captures the Codex
+  status/log/final-result summaries in Workspace Agent, shows a compact
+  one-line live activity summary such as the current command or response
+  preparation step while a run is active, captures the Codex
   `thread.started` `thread_id` when emitted, and keeps that explicit Codex
   thread id in current-session Workspace Agent widget state. Follow-up Run with
   Codex actions resume that explicit thread id and send only the latest
@@ -385,8 +387,10 @@ Workspace Agent is the foreground interactive agent surface.
   must remain visible and removable before Run with Codex. Thread state is
   current-session only unless a later persistence slice explicitly adds
   storage. Normal chat transcript shows
-  operator prompts and Codex final responses; Direct Work lifecycle details
-  stay available in the collapsed Direct Work details/status area. Workspace Agent
+  operator prompts and Codex final responses; Direct Work lifecycle details and
+  raw technical data stay available in the collapsed Direct Work details/status
+  area. The fuller readable Agent Activity widget remains planned separately.
+  Workspace Agent
   shows compact helper copy that `~` resolves to the current user's
   home directory and suggests choosing a project folder or scratch workspace if
   access is denied. Access-denied command failures inside Codex are surfaced as

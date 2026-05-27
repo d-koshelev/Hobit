@@ -37,6 +37,7 @@ import {
   DIRECT_WORK_EMPTY_PROMPT_MESSAGE,
   DIRECT_WORK_UNAVAILABLE_MESSAGE,
   EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
+  EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
   codexAgentMessageFromEvent,
   codexPromptWithWorkspaceKnowledge,
   codexThreadIdForScope,
@@ -54,7 +55,11 @@ import {
   type CodexThreadScope,
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
+  type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
+  workspaceAgentActivitySummaryForLocalFailure,
+  workspaceAgentActivitySummaryForLocalStart,
+  workspaceAgentActivitySummaryFromEvent,
 } from "./workspaceAgentDirectWorkModel";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
 import {
@@ -164,6 +169,10 @@ export function InteractiveAgentPlaceholderWidget({
   const [directWorkLogs, setDirectWorkLogs] = useState<
     CoordinatorDirectWorkLogEntry[]
   >([]);
+  const [directWorkActivitySummary, setDirectWorkActivitySummary] =
+    useState<WorkspaceAgentActivitySummary>(
+      EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+    );
   const [workspaceKnowledgeLookup, setWorkspaceKnowledgeLookup] =
     useState<WorkspaceKnowledgeLookup>(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
   const [isDirectWorkStopPending, setIsDirectWorkStopPending] = useState(false);
@@ -454,6 +463,11 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkError(null);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkActivitySummary(
+      workspaceAgentActivitySummaryForLocalStart(
+        resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
+      ),
+    );
     setDirectWorkLogs([
       {
         id: "direct-local-starting",
@@ -504,6 +518,9 @@ export function InteractiveAgentPlaceholderWidget({
       setDirectWorkStatus("failed");
       setDirectWorkError(message);
       setDirectWorkWarning(null);
+      setDirectWorkActivitySummary((currentSummary) =>
+        workspaceAgentActivitySummaryForLocalFailure(currentSummary, message),
+      );
       appendCoordinatorDirectWorkLog(message, "local");
       appendCoordinatorDirectWorkTranscript("failed", message);
     } finally {
@@ -626,6 +643,11 @@ export function InteractiveAgentPlaceholderWidget({
     );
 
     if (!event.isFinal) {
+      setDirectWorkActivitySummary((currentSummary) =>
+        workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
+          accessDeniedSeen: directWorkAccessDeniedRef.current,
+        }),
+      );
       return;
     }
 
@@ -653,6 +675,12 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkFinalResult(finalResult);
     setDirectWorkError(failureReason);
     setDirectWorkWarning(failureWarning);
+    setDirectWorkActivitySummary((currentSummary) =>
+      workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
+        accessDeniedSeen: directWorkAccessDeniedRef.current,
+        failureReason,
+      }),
+    );
     if (
       finalStatus === "completed" &&
       !directWorkCapturedThreadIdRef.current
@@ -687,6 +715,9 @@ export function InteractiveAgentPlaceholderWidget({
     setDirectWorkError(reason);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkActivitySummary((currentSummary) =>
+      workspaceAgentActivitySummaryForLocalFailure(currentSummary, reason),
+    );
     appendCoordinatorDirectWorkLog(reason, "local");
     appendCoordinatorDirectWorkTranscript("failed", reason);
   }
@@ -747,6 +778,7 @@ export function InteractiveAgentPlaceholderWidget({
     setCurrentCodexThread(null);
     setCodexThreadNotice(null);
     setDirectWorkLogs([]);
+    setDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
     setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
     setIsDirectWorkStopPending(false);
   }
@@ -951,6 +983,7 @@ export function InteractiveAgentPlaceholderWidget({
           directMode={
             isDirectModeEnabled
               ? {
+                  activitySummary: directWorkActivitySummary,
                   canStartDirectWork,
                   canStopDirectWork,
                   directWorkDirectory,

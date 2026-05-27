@@ -234,6 +234,57 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).not.toContain("Workspace Agent plan");
   });
 
+  it("shows one-line live activity without adding activity to the transcript", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(directWorkEvent({ eventKind: "started", runId: "run_live" }));
+        onEvent(
+          directWorkEvent({
+            eventKind: "codex_json_event",
+            isFinal: false,
+            line: JSON.stringify({
+              item: {
+                args: ["status"],
+                command: "git",
+                type: "command_execution",
+              },
+              type: "item.started",
+            }),
+            parsedCodexEventType: "item.started",
+            runId: "run_live",
+          }),
+        );
+        return {
+          runId: "run_live",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await setTextareaValue("Check repo status.");
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain(
+      "Codex is runningRunning command: git status",
+    );
+    const assistantMessages = document.querySelectorAll(
+      '[data-testid="interactive-agent-message-assistant"]',
+    );
+    expect(assistantMessages).toHaveLength(0);
+    expect(lastOperatorMessageText()).toBe("Check repo status.");
+    const details = document.querySelector<HTMLDetailsElement>(
+      ".interactive-agent-direct-mode-details",
+    );
+    expect(details?.open).toBe(false);
+    expect(details?.textContent).toContain("item.started");
+  });
+
   it("stores the first Codex thread id and resumes it on the next Codex run", async () => {
     const startDirectWork = vi.fn(
       async (
@@ -2569,6 +2620,14 @@ function lastAssistantMessageText() {
     '[data-testid="interactive-agent-message-assistant"]',
   );
   const lastMessage = assistantMessages[assistantMessages.length - 1];
+  return lastMessage?.textContent ?? "";
+}
+
+function lastOperatorMessageText() {
+  const operatorMessages = document.querySelectorAll(
+    '[data-testid="interactive-agent-message-operator"]',
+  );
+  const lastMessage = operatorMessages[operatorMessages.length - 1];
   return lastMessage?.textContent ?? "";
 }
 
