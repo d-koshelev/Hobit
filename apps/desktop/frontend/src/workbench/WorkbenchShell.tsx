@@ -35,7 +35,7 @@ export function WorkbenchShell({
   >(null);
   const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
   const [layoutMode, setLayoutMode] =
-    useState<WorkbenchLayoutMode>("locked");
+    useState<WorkbenchLayoutMode>("editing");
   const [gridSize, setGridSize] = useState(DEFAULT_WORKBENCH_GRID_SIZE);
   const currentSessionActivity = useCurrentSessionActivity();
   const openWidgetCatalog = () => setIsWidgetCatalogOpen(true);

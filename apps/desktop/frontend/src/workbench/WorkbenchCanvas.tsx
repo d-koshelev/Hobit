@@ -155,9 +155,7 @@ export function WorkbenchCanvas({
         presetId: viewState.workbench.preset.id,
         widgets: visibleWidgets,
       });
-  const canvasShellClass = isLayoutEditing
-    ? "canvas-shell canvas-shell-layout-editing"
-    : "canvas-shell";
+  const canvasShellClass = "canvas-shell";
   const layoutSurfaceStyle = {
     ...widgetLayoutSurfaceStyle(
       renderedVisibleWidgets,

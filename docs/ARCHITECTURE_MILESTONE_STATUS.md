@@ -71,6 +71,10 @@ behavior, or Workspace Agent context wiring.
   preference applied through CSS variables for typography, controls, spacing,
   and widget chrome. It is separate from workbench grid size, persisted widget
   coordinates, and layout geometry, and it is not server/team synced.
+- Workbench widgets are movable and resizable by default using docked header
+  drag and right/bottom/corner resize handles. The top bar has an optional
+  layout lock that freezes movement and resize handles, while widget removal
+  remains confirmation-gated.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

@@ -48,6 +48,11 @@ export function WorkbenchTopBar({
 }: WorkbenchTopBarProps) {
   const presetId = viewState.workbench.preset.id ?? "";
   const presetTitle = viewState.workbench.preset.title;
+  const isLayoutLocked = layoutMode === "locked";
+  const layoutModeLabel = isLayoutLocked ? "Layout locked" : "Layout unlocked";
+  const layoutModeDescription = isLayoutLocked
+    ? "Layout locked. Activate to unlock widget move and resize."
+    : "Layout unlocked. Widgets can be moved and resized. Activate to lock layout.";
 
   return (
     <header className="workbench-topbar">
@@ -99,26 +104,18 @@ export function WorkbenchTopBar({
         >
           Activity
         </Button>
-        <div
-          aria-label="Workbench layout mode"
+        <Button
+          aria-label={layoutModeDescription}
+          aria-pressed={isLayoutLocked}
           className="layout-mode-toggle"
-          role="group"
+          onClick={() =>
+            onLayoutModeChange(isLayoutLocked ? "editing" : "locked")
+          }
+          title={layoutModeDescription}
+          variant={isLayoutLocked ? "secondary" : "ghost"}
         >
-          <Button
-            aria-pressed={layoutMode === "locked"}
-            onClick={() => onLayoutModeChange("locked")}
-            variant={layoutMode === "locked" ? "secondary" : "ghost"}
-          >
-            Layout locked
-          </Button>
-          <Button
-            aria-pressed={layoutMode === "editing"}
-            onClick={() => onLayoutModeChange("editing")}
-            variant={layoutMode === "editing" ? "secondary" : "ghost"}
-          >
-            Edit layout
-          </Button>
-        </div>
+          {layoutModeLabel}
+        </Button>
         <label className="grid-size-control">
           <span className="grid-size-label">Grid</span>
           <Select

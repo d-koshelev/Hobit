@@ -166,7 +166,11 @@ Implemented foundation:
   auto-commit, and broader Git mutations are not implemented. Browser/Vite
   fallback cannot read Git status or create local commits.
 - Template Library remains deferred/reference. Template storage, template editing, request generation, response capture, response parsing, response validation, executor launch/integration, Git-response association, and agent execution are not implemented.
-- Existing persisted docked widget sizes and positions render, and a frontend-only layout lock/edit-mode foundation is in place. Docked widgets can be moved by header drag and resized with right, bottom, and bottom-right handles in edit mode.
+- Existing persisted docked widget sizes and positions render. Docked widgets
+  are movable by header drag and resizable with right, bottom, and bottom-right
+  handles by default. The optional frontend-only layout lock freezes docked
+  widget movement and resize handles. Widget removal remains explicit and
+  confirmation-gated.
 - Recent Activity is a global app-shell drawer opened from the Workbench top
   bar. It shows workspace-scoped Workbench events returned with the Workbench
   state and is not widget content or Queue-owned history.
@@ -472,7 +476,7 @@ Current foundation: the default Empty Workbench path exists. Full preset selecti
 
 The user adds, removes, moves, resizes, docks, floats in the workspace, or configures widgets inside the Workspace. A future true external popout may move a widget into a separate Tauri/OS window. These changes update the Workspace state, not the original Preset.
 
-Current foundation: the data model, storage primitives, Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes insertion paths, Notes widget-state save, workspace-local notes create/list/read/update API, workspace-local JDBC connector metadata create/list/read/update API, Git manual desktop-only read-only status refresh, manual Agent Queue task/assignment/assigned-run APIs, persisted widget layout update plumbing, frontend-only layout lock/edit-mode foundation with docked header-drag move and right/bottom/corner resize handles, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Older proposal-review artifact paths remain retained compatibility paths. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond existing available widgets/placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
+Current foundation: the data model, storage primitives, Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes insertion paths, Notes widget-state save, workspace-local notes create/list/read/update API, workspace-local JDBC connector metadata create/list/read/update API, Git manual desktop-only read-only status refresh, manual Agent Queue task/assignment/assigned-run APIs, persisted widget layout update plumbing, default docked header-drag move and right/bottom/corner resize handles with an optional frontend-only layout lock, confirmation-gated widget removal, frontend-only in-app floating widget mode with ghost placeholder and Dock back behavior, workspace activity events, and widget-local log reads/writes exist. Older proposal-review artifact paths remain retained compatibility paths. The current floating mode is not a separate OS window and is not persisted as external popout geometry. Real capability widget insertion beyond existing available widgets/placeholders, full drag-and-drop layout editing, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top behavior, and preset editing are future work.
 
 ### Save Layout as Preset
 

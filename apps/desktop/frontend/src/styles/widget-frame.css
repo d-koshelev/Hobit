@@ -29,15 +29,11 @@
 }
 
 .widget-frame-editing {
-  border-color: color-mix(
-    in srgb,
-    var(--color-primary) 68%,
-    var(--color-border)
-  );
+  border-color: color-mix(in srgb, var(--color-border-subtle) 70%, transparent);
   box-shadow:
-    0 18px 48px color-mix(in srgb, var(--color-app-bg) 46%, transparent),
-    0 0 0 1px var(--color-primary),
-    inset 0 1px 0 var(--color-primary-hairline);
+    0 16px 40px color-mix(in srgb, var(--color-app-bg) 34%, transparent),
+    inset 0 1px 0
+      color-mix(in srgb, var(--color-border-subtle) 32%, transparent);
 }
 
 .widget-layout-item-dragging .widget-frame-editing,
@@ -82,8 +78,16 @@
   border-radius: var(--radius-sm);
   background: var(--color-primary-hairline);
   content: "";
-  opacity: 0.76;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.widget-header-movable:hover::before,
+.widget-header-movable:focus-within::before,
+.widget-layout-item-dragging .widget-header-movable::before,
+.widget-layout-item-resizing .widget-header-movable::before {
+  opacity: 0.76;
 }
 
 .widget-heading {

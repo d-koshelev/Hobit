@@ -91,6 +91,12 @@ widget coordinates, and layout persistence. Theme and UI scale preferences are
 not Workspace data, are not synced across users or teams, and do not add
 backend, storage, widget, Queue, Executor, Knowledge, or runtime behavior.
 
+Workbench widgets are movable and resizable by default after a Workspace opens.
+The optional top-bar layout lock freezes docked widget movement and resize
+handles when the operator wants to avoid accidental rearrangement. Widget
+removal remains explicit and confirmation-gated; arranging widgets does not
+make deletion a one-click action.
+
 Empty Workbench remains available as an advanced/manual start mode. Existing
 empty Workspaces show a recovery action to add Workspace Agent plus Notes
 without running agents, creating Queue tasks, reading hidden context, or

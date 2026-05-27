@@ -12,6 +12,7 @@ import type {
 
 const workspaceApiMocks = vi.hoisted(() => ({
   addWidgetInstanceToWorkbench: vi.fn(),
+  deleteWidgetInstanceFromWorkbench: vi.fn(),
   getAgentQueueRunnerSnapshot: vi.fn(),
   getAgentQueueTask: vi.fn(),
   listTerminalPtySessions: vi.fn(),
@@ -27,6 +28,8 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
   return {
     ...actual,
     addWidgetInstanceToWorkbench: workspaceApiMocks.addWidgetInstanceToWorkbench,
+    deleteWidgetInstanceFromWorkbench:
+      workspaceApiMocks.deleteWidgetInstanceFromWorkbench,
     getAgentQueueRunnerSnapshot: workspaceApiMocks.getAgentQueueRunnerSnapshot,
     getAgentQueueTask: workspaceApiMocks.getAgentQueueTask,
     listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
@@ -214,6 +217,160 @@ describe("WorkbenchShell workspace title", () => {
   });
 });
 
+describe("WorkbenchShell widget layout controls", () => {
+  it("starts unlocked with widgets movable and resizable by default", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: ["notes"],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [notesWidget()],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    expect(document.body.textContent).toContain("Layout unlocked");
+    expect(document.body.textContent).not.toContain("Edit layout");
+    expect(document.querySelector(".widget-header-movable")).not.toBeNull();
+    expect(buttonWithLabel("Resize widget")).not.toBeNull();
+
+    await awaitAct(() => {
+      document
+        .querySelector(".widget-header")
+        ?.dispatchEvent(pointerEvent("pointerdown", { clientX: 10, clientY: 10 }));
+    });
+    await flushShellEffects();
+    await awaitAct(() => {
+      window.dispatchEvent(pointerEvent("pointermove", { clientX: 130, clientY: 82 }));
+      window.dispatchEvent(pointerEvent("pointerup", { clientX: 130, clientY: 82 }));
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockX: 120,
+          dockY: 72,
+          dockHeight: 240,
+          dockWidth: 360,
+        }),
+        widgetInstanceId: "widget_notes_1",
+      }),
+    );
+  });
+
+  it("persists widget size after resize", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: ["notes"],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [notesWidget()],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithLabel("Resize widget").dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 360, clientY: 240 }),
+      );
+    });
+    await flushShellEffects();
+    await awaitAct(() => {
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 480, clientY: 360 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointerup", { clientX: 480, clientY: 360 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 360,
+          dockWidth: 480,
+          dockX: 0,
+          dockY: 0,
+        }),
+        widgetInstanceId: "widget_notes_1",
+      }),
+    );
+  });
+
+  it("locks layout from the optional top bar toggle", async () => {
+    renderShell(
+      workbenchViewState({
+        widgets: [notesWidget()],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithText("Layout unlocked").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(document.body.textContent).toContain("Layout locked");
+    expect(document.querySelector(".widget-header-movable")).toBeNull();
+    expect(buttonWithLabel("Resize widget", false)).toBeNull();
+
+    await awaitAct(() => {
+      document
+        .querySelector(".widget-header")
+        ?.dispatchEvent(pointerEvent("pointerdown", { clientX: 10, clientY: 10 }));
+      window.dispatchEvent(pointerEvent("pointermove", { clientX: 130, clientY: 82 }));
+      window.dispatchEvent(pointerEvent("pointerup", { clientX: 130, clientY: 82 }));
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+  });
+
+  it("keeps widget removal behind confirmation", async () => {
+    workspaceApiMocks.deleteWidgetInstanceFromWorkbench.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [notesWidget()],
+      }),
+    );
+
+    await awaitAct(() => {
+      buttonWithText("Remove").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(
+      document.querySelector("[aria-label='Remove widget confirmation']"),
+    ).not.toBeNull();
+    expect(workspaceApiMocks.deleteWidgetInstanceFromWorkbench).not.toHaveBeenCalled();
+
+    await awaitAct(() => {
+      buttonWithText("Remove widget").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.deleteWidgetInstanceFromWorkbench).toHaveBeenCalledWith(
+      expect.objectContaining({
+        widgetInstanceId: "widget_notes_1",
+      }),
+    );
+  });
+});
+
 describe("WorkbenchShell close workspace", () => {
   it("shows a close workspace action and calls the close handler", async () => {
     const onCloseWorkspace = vi.fn();
@@ -383,6 +540,69 @@ function buttonWithText(text: string) {
   return button;
 }
 
+function buttonWithLabel(label: string): HTMLButtonElement;
+function buttonWithLabel(label: string, required: false): HTMLButtonElement | null;
+function buttonWithLabel(label: string, required = true) {
+  const button = document.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
+
+  if (!button && required) {
+    throw new Error(`Button not found: ${label}`);
+  }
+
+  return button;
+}
+
+function pointerEvent(
+  type: string,
+  {
+    button = 0,
+    clientX,
+    clientY,
+    isPrimary = true,
+  }: {
+    button?: number;
+    clientX: number;
+    clientY: number;
+    isPrimary?: boolean;
+  },
+) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button,
+    cancelable: true,
+    clientX,
+    clientY,
+  });
+
+  Object.defineProperty(event, "isPrimary", { value: isPrimary });
+  Object.defineProperty(event, "pointerId", { value: 1 });
+
+  return event;
+}
+
+function setLayoutSurfaceRect() {
+  const surface = document.querySelector<HTMLElement>(".widget-layout-surface");
+
+  if (!surface) {
+    throw new Error("Widget layout surface not found.");
+  }
+
+  surface.getBoundingClientRect = () =>
+    ({
+      bottom: 900,
+      height: 900,
+      left: 0,
+      right: 1200,
+      toJSON: () => ({}),
+      top: 0,
+      width: 1200,
+      x: 0,
+      y: 0,
+    }) as DOMRect;
+}
+
 function workbenchViewState(
   overrides: Partial<WorkbenchViewState> = {},
 ): WorkbenchViewState {
@@ -437,6 +657,26 @@ function agentQueueWidget(): WorkbenchViewState["widgets"][number] {
     },
     state: {},
     title: "Agent Queue",
+    visible: true,
+  };
+}
+
+function notesWidget(): WorkbenchViewState["widgets"][number] {
+  return {
+    config: {},
+    definitionId: "notes",
+    id: "widget_notes_1",
+    layout: {
+      area: "main",
+      height: 240,
+      mode: "docked",
+      order: 0,
+      width: 360,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Notes",
     visible: true,
   };
 }
