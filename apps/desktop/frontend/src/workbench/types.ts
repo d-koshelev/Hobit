@@ -1,6 +1,7 @@
 import type { GitRepositoryStatus } from "../workspace/types";
 
 export type WidgetCategory =
+  | "observability"
   | "core"
   | "tool"
   | "codebase"

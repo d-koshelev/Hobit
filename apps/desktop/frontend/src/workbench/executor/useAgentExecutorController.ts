@@ -22,6 +22,7 @@ import {
 } from "../CodexDirectWorkLiveLog";
 import type { CodexDirectWorkPanelProps } from "../CodexDirectWorkPanelTypes";
 import type { CodexDirectWorkRequestDraft } from "../CodexDirectWorkTypes";
+import { agentActivityEventFromDirectWorkStreamEvent } from "../agentActivityModel";
 import type { DirectWorkRunHandoff } from "../types";
 import { useAgentExecutorRunHistoryRefresh } from "../useAgentExecutorRunHistoryRefresh";
 import { useCodexDirectWorkQueueHandoff } from "../useCodexDirectWorkQueueHandoff";
@@ -35,6 +36,7 @@ export function useAgentExecutorController({
   onCancelCodexDirectWorkRun,
   onForceKillCodexDirectWorkRun,
   onGetAgentExecutorRunDetail,
+  onPublishAgentActivityEvents,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
@@ -348,6 +350,16 @@ export function useAgentExecutorController({
 
   function recordStreamEvent(event: DirectWorkStreamEvent) {
     const receivedAtMs = Date.now();
+    const activityEvent = agentActivityEventFromDirectWorkStreamEvent({
+      event,
+      receivedAtMs,
+      sourceKind: "agent-executor",
+      sourceLabel: "Agent Executor",
+    });
+
+    if (activityEvent) {
+      onPublishAgentActivityEvents?.([activityEvent]);
+    }
 
     setLiveLogEntries((currentEntries) =>
       cappedLiveLogEntries([

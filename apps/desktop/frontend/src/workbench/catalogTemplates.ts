@@ -1,5 +1,6 @@
 import type { WidgetDefinitionId } from "./types";
 import {
+  AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
@@ -12,6 +13,7 @@ import {
 } from "./widgetRegistry";
 
 export type WidgetCatalogCategory =
+  | "observability"
   | "core"
   | "workflow"
   | "productivity"
@@ -54,6 +56,21 @@ export const widgetCatalogSectionOrder: WidgetCatalogSection[] = [
 ];
 
 export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
+  {
+    id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
+    title: "Agent Activity",
+    category: "observability",
+    description:
+      "Readable current-session timeline for Workspace Agent and Agent Executor activity.",
+    section: "ready",
+    status: "available",
+    capabilitySummary: [
+      "Current-session readable activity timeline",
+      "Workspace Agent Direct Work events",
+      "Raw event previews stay collapsed",
+    ],
+    futureWidgetDefinitionId: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
+  },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
     title: "Agent Executor",

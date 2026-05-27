@@ -3,6 +3,10 @@ import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
 import { WorkbenchEmptyCanvas } from "./WorkbenchEmptyCanvas";
+import {
+  mergeAgentActivityEvents,
+  type AgentActivityEvent,
+} from "./agentActivityModel";
 import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
@@ -115,6 +119,9 @@ export function WorkbenchCanvas({
   const agentExecutorRunOpenRequestIdRef = useRef(0);
   const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
     useState<AgentExecutorRunOpenRequest | null>(null);
+  const [agentActivityEvents, setAgentActivityEvents] = useState<
+    AgentActivityEvent[]
+  >([]);
   const coordinatorAttachedContextRequestIdRef = useRef(0);
   const [
     coordinatorAttachedContextRequest,
@@ -171,6 +178,10 @@ export function WorkbenchCanvas({
   useEffect(() => {
     widgetActionsRef.current = widgetActions;
   }, [widgetActions]);
+
+  useEffect(() => {
+    setAgentActivityEvents([]);
+  }, [viewState.workspace.id]);
 
   useEffect(() => {
     const surface = layoutSurfaceRef.current;
@@ -706,6 +717,19 @@ export function WorkbenchCanvas({
     });
   }
 
+  function publishAgentActivityEvents(events: AgentActivityEvent[]) {
+    const workspaceId = viewState.workspace.id;
+    const scopedEvents = events.filter((event) => event.workspaceId === workspaceId);
+
+    if (scopedEvents.length === 0) {
+      return;
+    }
+
+    setAgentActivityEvents((currentEvents) =>
+      mergeAgentActivityEvents(currentEvents, scopedEvents),
+    );
+  }
+
   if (visibleWidgets.length === 0) {
     return (
       <WorkbenchEmptyCanvas
@@ -771,6 +795,7 @@ export function WorkbenchCanvas({
                       )}
                     >
                       <WidgetHost
+                        agentActivityEvents={agentActivityEvents}
                         agentExecutorSlots={agentExecutorSlots}
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
@@ -789,6 +814,9 @@ export function WorkbenchCanvas({
                             ? attachContextToCoordinator
                             : undefined
                         }
+                        onPublishAgentActivityEvents={
+                          publishAgentActivityEvents
+                        }
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
@@ -802,6 +830,7 @@ export function WorkbenchCanvas({
                 ) : (
                   <div className="widget-docked-surface">
                     <WidgetHost
+                      agentActivityEvents={agentActivityEvents}
                       agentExecutorSlots={agentExecutorSlots}
                       agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
                       coordinatorAttachedContextRequest={
@@ -817,6 +846,7 @@ export function WorkbenchCanvas({
                       onAttachContextToCoordinator={
                         coordinatorWidget ? attachContextToCoordinator : undefined
                       }
+                      onPublishAgentActivityEvents={publishAgentActivityEvents}
                       onOpenAgentExecutorRun={openAgentExecutorRun}
                       onPopOut={popOutWidget}
                       onStartDockedDrag={startDockedDrag}

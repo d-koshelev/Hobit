@@ -37,6 +37,8 @@ The future Script Runner Widget contract also uses Raw Log, Overview Log, and Re
 
 Implemented observability today is limited to:
 
+- Agent Activity widget current-session readable timeline events for Workspace
+  Agent Codex runs and Agent Executor streaming Direct Work runs
 - widget-local Logs panels
 - persisted widget logs for widget add/state/layout mutations
 - Terminal one-shot command run/result artifacts
@@ -51,6 +53,14 @@ Implemented observability today is limited to:
 - workspace-scoped Recent activity summaries
 
 Those foundations are not full agent run observability yet.
+
+The Agent Activity MVP is frontend-only and current-session only. It maps
+existing Direct Work stream events into readable timeline entries such as run
+started, thread started, turn started, command running, command finished or
+failed, response prepared, and run completed or failed. It does not change
+Codex execution, thread resume, Queue/Executor runtime behavior, backend DTOs,
+storage schema, or persistence. Raw JSON/event previews and technical details
+remain collapsed by default.
 
 First real AI/provider calls must follow
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: every call should produce a
@@ -69,6 +79,12 @@ Executor diff summary API can summarize explicit-root Git changes for future
 UI without creating runs, results, queue items, or Git mutations. Full Raw /
 Overview / Result views remain future work. Codex CLI is the first planned
 executor kind, but the observability model must remain executor-agnostic.
+
+Workspace Agent Direct Work keeps the chat transcript final-conversation
+focused: normal chat shows operator messages and final Codex responses, while
+the live one-line activity summary and Agent Activity timeline show execution
+progress separately. Agent Activity is the readable current-session timeline;
+raw Direct Work details remain collapsed in their owning surfaces.
 
 ## Core Model
 
@@ -321,8 +337,10 @@ remaining Git review state.
 Direct Work runs are executor/task runs and must be observable here. Current
 implementation persists the raw stdout/stderr, final message, command summary,
 status, duration, and no-auto-commit/no-auto-push flags as widget result JSON,
-with lifecycle widget logs. A dedicated Agent Monitoring Direct Work view is
-future work.
+with lifecycle widget logs. The Agent Activity MVP maps current-session
+streaming Direct Work events from Workspace Agent and Agent Executor into a
+readable timeline without persisting that timeline. A dedicated persisted full
+Raw / Overview / Result Direct Work view remains future work.
 
 Expected Direct Work mapping:
 

@@ -1,6 +1,7 @@
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
+import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
@@ -11,6 +12,7 @@ import type {
   WidgetRenderProps,
 } from "./types";
 import {
+  AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
@@ -22,6 +24,7 @@ import {
 } from "./widgetRegistry";
 
 type WidgetHostRenderPropsOptions = {
+  agentActivityEvents: AgentActivityEvent[];
   agentExecutorSlots: AgentExecutorSlot[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   componentKey: string;
@@ -36,10 +39,12 @@ type WidgetHostRenderPropsOptions = {
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
+  onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   widgetActions: WorkbenchWidgetInstanceActions;
 };
 
 export function widgetHostRenderProps({
+  agentActivityEvents,
   agentExecutorSlots,
   agentExecutorRunOpenRequest,
   componentKey,
@@ -50,8 +55,10 @@ export function widgetHostRenderProps({
   instanceId,
   onAttachContextToCoordinator,
   onOpenAgentExecutorRun,
+  onPublishAgentActivityEvents,
   widgetActions,
 }: WidgetHostRenderPropsOptions): Partial<WidgetRenderProps> {
+  const isAgentActivity = componentKey === AGENT_ACTIVITY_COMPONENT_KEY;
   const isAgentExecutor = componentKey === AGENT_RUN_PLACEHOLDER_COMPONENT_KEY;
   const isAgentQueue = componentKey === AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY;
   const isGit = componentKey === GIT_PLACEHOLDER_COMPONENT_KEY;
@@ -63,6 +70,7 @@ export function widgetHostRenderProps({
   const isTerminal = componentKey === TERMINAL_PLACEHOLDER_COMPONENT_KEY;
 
   return {
+    agentActivityEvents: isAgentActivity ? agentActivityEvents : undefined,
     agentExecutorSlots,
     agentExecutorRunOpenRequest: isAgentExecutor
       ? agentExecutorRunOpenRequest
@@ -226,6 +234,9 @@ export function widgetHostRenderProps({
       onAttachContextToCoordinator
         ? onAttachContextToCoordinator
         : undefined,
+    onPublishAgentActivityEvents: isAgentExecutor || isInteractiveAgent
+      ? onPublishAgentActivityEvents
+      : undefined,
     onStartAssignedAgentQueueTask: isAgentQueue
       ? widgetActions.startAssignedAgentQueueTask
       : undefined,

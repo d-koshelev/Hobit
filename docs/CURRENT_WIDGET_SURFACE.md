@@ -41,6 +41,7 @@ widget behavior.
 
 Current ready surfaces:
 
+- Agent Activity
 - Agent Executor
 - Git
 - Terminal
@@ -60,8 +61,8 @@ and component keys may still appear in code and persistence.
 ## Current Default Workspace
 
 New Workspaces use the default name `Untitled` and open into the
-Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Queue,
-Agent Executor, Git, Terminal, Database / JDBC, Skill Library / Knowledge, and Runbook
+Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
+Agent Queue, Agent Executor, Git, Terminal, Database / JDBC, Skill Library / Knowledge, and Runbook
 remain optional widgets added when needed.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
@@ -116,6 +117,23 @@ run detail/logs/results. Executor is not the only agent that can do work;
 Workspace Agent is the foreground interactive agent surface.
 
 ## Current Ready Surfaces
+
+### Agent Activity
+
+- Current frontend MVP observability widget for human-readable agent execution
+  timelines.
+- Uses the `agent-activity` widget definition id.
+- Shows current-session readable activity events published by Workspace Agent
+  Codex runs and Agent Executor streaming Direct Work runs while Hobit remains
+  open.
+- Timeline events include run start, thread start, turn start, command start,
+  command finish/failure, response preparation, and run completion/failure when
+  those events are present in the existing stream.
+- Raw event previews and technical details are collapsed per event by default.
+- It does not persist activity, read stored Executor detail automatically,
+  expose full stdout/stderr/JSON in the normal view, create Queue tasks,
+  execute work, change Codex execution semantics, or change Queue/Executor
+  runtime behavior.
 
 ### Agent Executor
 
@@ -389,9 +407,10 @@ Workspace Agent is the foreground interactive agent surface.
   storage. Normal chat transcript shows
   operator prompts and Codex final responses; Direct Work lifecycle details and
   raw technical data stay available in the collapsed Direct Work details/status
-  area. The fuller readable Agent Activity widget remains planned separately.
-  Workspace Agent
-  shows compact helper copy that `~` resolves to the current user's
+  area. Workspace Agent also publishes current-session readable activity events
+  to the Agent Activity widget without inserting those events into chat. Agent
+  Activity keeps raw event previews collapsed by default. Workspace Agent shows
+  compact helper copy that `~` resolves to the current user's
   home directory and suggests choosing a project folder or scratch workspace if
   access is denied. Access-denied command failures inside Codex are surfaced as
   working-directory warnings while preserving any final Codex agent message as

@@ -11,6 +11,7 @@ import type {
   CodexDirectWorkRequestDraft,
   CodexDirectWorkStreamSession,
 } from "./CodexDirectWorkTypes";
+import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   AgentExecutorRunOpenRequest,
   CoordinatorAttachedContextInput,
@@ -41,6 +42,7 @@ export type CodexDirectWorkPanelProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onRunCodexDirectWork?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,

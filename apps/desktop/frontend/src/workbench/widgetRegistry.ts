@@ -1,5 +1,7 @@
 import type { WidgetDefinition, WidgetDefinitionId } from "./types";
 
+export const AGENT_ACTIVITY_WIDGET_DEFINITION_ID = "agent-activity";
+export const AGENT_ACTIVITY_COMPONENT_KEY = "agent-activity-widget";
 export const AGENT_QUEUE_WIDGET_DEFINITION_ID = "agent-queue";
 export const AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY =
   "agent-queue-placeholder";
@@ -22,6 +24,16 @@ export const TERMINAL_WIDGET_DEFINITION_ID = "terminal";
 export const TERMINAL_PLACEHOLDER_COMPONENT_KEY = "terminal-placeholder";
 
 export const widgetRegistry: WidgetDefinition[] = [
+  {
+    id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
+    title: "Agent Activity",
+    category: "observability",
+    description:
+      "Readable current-session timeline for Workspace Agent and Agent Executor activity.",
+    defaultTitle: "Agent Activity",
+    defaultConfig: {},
+    componentKey: AGENT_ACTIVITY_COMPONENT_KEY,
+  },
   {
     id: AGENT_RUN_WIDGET_DEFINITION_ID,
     title: "Agent Executor",

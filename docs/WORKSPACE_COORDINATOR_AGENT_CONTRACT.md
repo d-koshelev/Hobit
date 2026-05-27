@@ -112,9 +112,11 @@ The current Workspace Agent preview:
   runs, such as the current command, file-read phase, or response preparation
   step; completed and failed runs keep that summary compact. Direct Work
   lifecycle details and raw technical data remain available in the collapsed
-  Direct Work details/status area. A fuller readable Agent Activity widget is
-  planned separately. Status, recent logs, Stop/cancel state when available,
-  final result summary, and failures stay visible in Workspace Agent.
+  Direct Work details/status area. Workspace Agent publishes current-session
+  readable timeline events to the Agent Activity widget without inserting those
+  events into chat. Agent Activity keeps raw event previews collapsed by
+  default. Status, recent logs, Stop/cancel state when available, final result
+  summary, and failures stay visible in Workspace Agent.
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue

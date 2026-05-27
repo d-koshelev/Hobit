@@ -94,6 +94,7 @@ import {
   runCreateSkillProposal,
 } from "./workspaceAgentProposalCreationActions";
 import type { DirectWorkStreamEvent } from "../workspace/types";
+import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -114,6 +115,7 @@ export function InteractiveAgentPlaceholderWidget({
   onSearchKnowledgeDocuments,
   onCancelCodexDirectWorkRun,
   onLoadLogs,
+  onPublishAgentActivityEvents,
   onStartCodexDirectWorkStream,
   onStartFrameMove,
   title,
@@ -606,6 +608,15 @@ export function InteractiveAgentPlaceholderWidget({
   function recordCoordinatorDirectWorkEvent(event: DirectWorkStreamEvent) {
     if (!directWorkEventBelongsToCurrentAgent(event, workspaceId, instance.id)) {
       return;
+    }
+
+    const activityEvent = agentActivityEventFromDirectWorkStreamEvent({
+      event,
+      sourceKind: "workspace-agent",
+      sourceLabel: "Workspace Agent",
+    });
+    if (activityEvent) {
+      onPublishAgentActivityEvents?.([activityEvent]);
     }
 
     if (directWorkEventHasAccessDenied(event)) {

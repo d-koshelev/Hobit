@@ -29,6 +29,7 @@ export function AgentRunPlaceholderWidget({
   onCancelCodexDirectWorkRun,
   onForceKillCodexDirectWorkRun,
   onAttachToCodexDirectWorkStream,
+  onPublishAgentActivityEvents,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
   onStartCodexDirectWorkStream,
@@ -73,6 +74,7 @@ export function AgentRunPlaceholderWidget({
           onAttachContextToCoordinator={onAttachContextToCoordinator}
           onCancelCodexDirectWorkRun={onCancelCodexDirectWorkRun}
           onForceKillCodexDirectWorkRun={onForceKillCodexDirectWorkRun}
+          onPublishAgentActivityEvents={onPublishAgentActivityEvents}
           onRunCodexDirectWork={onRunCodexDirectWork}
           onRunDirectWorkValidation={onRunDirectWorkValidation}
           onStartCodexDirectWorkStream={onStartCodexDirectWorkStream}

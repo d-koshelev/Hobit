@@ -235,6 +235,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
   it("shows one-line live activity without adding activity to the transcript", async () => {
+    const publishActivityEvents = vi.fn();
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -265,7 +266,10 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
         };
       },
     );
-    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+    renderWidget({
+      onPublishAgentActivityEvents: publishActivityEvents,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
 
     await setTextareaValue("Check repo status.");
     await clickButton("Run with Codex");
@@ -283,6 +287,19 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     );
     expect(details?.open).toBe(false);
     expect(details?.textContent).toContain("item.started");
+    expect(publishActivityEvents).toHaveBeenCalled();
+    expect(
+      publishActivityEvents.mock.calls.flatMap((call) => call[0]),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          runId: "run_live",
+          sourceKind: "workspace-agent",
+          summary: "Running git status",
+          title: "Ran command",
+        }),
+      ]),
+    );
   });
 
   it("stores the first Codex thread id and resumes it on the next Codex run", async () => {

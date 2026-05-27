@@ -7,6 +7,7 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { AgentActivityWidget } from "./AgentActivityWidget";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
@@ -17,6 +18,7 @@ import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
 import { SkillLibraryWidget } from "./SkillLibraryWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import { WidgetRemoveAction } from "./WidgetRemoveAction";
+import type { AgentActivityEvent } from "./agentActivityModel";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type {
@@ -34,6 +36,7 @@ import type {
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import {
+  AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_WIDGET_DEFINITION_ID,
@@ -49,6 +52,7 @@ import {
 } from "./widgetRegistry";
 
 const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
+  [AGENT_ACTIVITY_COMPONENT_KEY]: AgentActivityWidget,
   [AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]: AgentQueuePlaceholderWidget,
   [AGENT_RUN_PLACEHOLDER_COMPONENT_KEY]: AgentRunPlaceholderWidget,
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
@@ -69,6 +73,7 @@ type WidgetHostProps = {
     width: number;
   };
   hasGitWidget: boolean;
+  agentActivityEvents: AgentActivityEvent[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
@@ -82,6 +87,7 @@ type WidgetHostProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
     pointerX: number,
@@ -102,6 +108,7 @@ export function WidgetHost({
   directWorkRunHandoff,
   dockedSize,
   hasGitWidget,
+  agentActivityEvents,
   agentExecutorRunOpenRequest,
   coordinatorAttachedContextRequest,
   agentExecutorSlots,
@@ -110,6 +117,7 @@ export function WidgetHost({
   onDockBack,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
+  onPublishAgentActivityEvents,
   onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
@@ -205,6 +213,7 @@ export function WidgetHost({
   const Component = widgetComponents[definition.componentKey];
   const title = frameTitle;
   const renderProps = widgetHostRenderProps({
+    agentActivityEvents,
     agentExecutorSlots,
     agentExecutorRunOpenRequest,
     componentKey: definition.componentKey,
@@ -215,6 +224,7 @@ export function WidgetHost({
     instanceId: instance.id,
     onAttachContextToCoordinator,
     onOpenAgentExecutorRun,
+    onPublishAgentActivityEvents,
     widgetActions,
   });
 

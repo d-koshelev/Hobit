@@ -64,6 +64,7 @@ import type {
   Skill,
   WriteTerminalPtySessionRequest,
 } from "../workspace/types";
+import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   AgentExecutorSlot,
   AgentExecutorRunOpenRequest,
@@ -85,6 +86,7 @@ import type {
 } from "./types";
 
 export type WidgetRenderProps = {
+  agentActivityEvents?: AgentActivityEvent[];
   agentExecutorSlots?: AgentExecutorSlot[];
   config: Record<string, unknown>;
   definition: WidgetDefinition;
@@ -309,6 +311,7 @@ export type WidgetRenderProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
