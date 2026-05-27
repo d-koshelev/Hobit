@@ -9,8 +9,10 @@ use crate::terminal_pty_unsupported::TerminalPtyPlatformSession;
 #[cfg(windows)]
 use crate::terminal_pty_windows::TerminalPtyPlatformSession;
 
+#[cfg(windows)]
+use crate::terminal_pty_artifacts::pty_output_artifact;
 use crate::terminal_pty_artifacts::{
-    classify_runtime_error_passthrough, pty_output_artifact, TerminalPtyCommandRuntimeArtifacts,
+    classify_runtime_error_passthrough, TerminalPtyCommandRuntimeArtifacts,
     TerminalPtyRuntimeBoundarySummary,
 };
 
@@ -18,6 +20,7 @@ const DEFAULT_COLS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES: usize = 64 * 1024;
 const MAX_OUTPUT_BUFFER_CAP_BYTES: usize = 1024 * 1024;
+#[cfg(any(windows, test))]
 const TERMINAL_STREAM_KIND: &str = "terminal";
 const STOP_SEQUENCE: &[u8] = b"exit\r\n";
 
@@ -523,6 +526,7 @@ impl SharedOutputBuffer {
         }
     }
 
+    #[cfg(windows)]
     pub(super) fn push_terminal_output(&self, bytes: &[u8]) {
         let dropped_or_capped = self
             .inner
@@ -545,6 +549,7 @@ struct TerminalPtyOutputBuffer {
     cap_bytes: usize,
     total_buffered_bytes: usize,
     dropped_bytes: usize,
+    #[cfg(any(windows, test))]
     next_sequence: u64,
 }
 
@@ -555,10 +560,12 @@ impl TerminalPtyOutputBuffer {
             cap_bytes,
             total_buffered_bytes: 0,
             dropped_bytes: 0,
+            #[cfg(any(windows, test))]
             next_sequence: 1,
         }
     }
 
+    #[cfg(any(windows, test))]
     fn push(&mut self, stream_kind: &str, bytes: &[u8]) -> bool {
         let mut dropped_or_capped = false;
         if self.cap_bytes == 0 {

@@ -98,6 +98,7 @@ pub(crate) fn local_path_artifact(path: &Path) -> RuntimeArtifactSummary {
         .with_byte_count(path.as_os_str().to_string_lossy().len())
 }
 
+#[cfg(any(windows, test))]
 pub(crate) fn pty_output_artifact(
     byte_count: usize,
     dropped_or_capped: bool,
