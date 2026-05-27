@@ -514,6 +514,22 @@ fn executor_path_without_skip_git_repo_check_keeps_exec_json_args_unchanged() {
 }
 
 #[test]
+fn default_final_message_file_uses_os_temp_directory() {
+    let output = run_codex_direct_work_streaming(
+        request_with_program(
+            temp_repo("default-final-temp"),
+            "final",
+            direct_stream_helper(),
+        ),
+        |_| {},
+    );
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    let final_path = command_arg_after(&output.command_summary, "--output-last-message");
+    assert!(PathBuf::from(final_path).starts_with(std::env::temp_dir()));
+}
+
+#[test]
 fn multiline_prompt_is_written_to_stdin() {
     let prompt = "first line\nsecond line\nDo not commit.";
     let output = run_codex_direct_work_streaming(
@@ -628,6 +644,12 @@ fn arg_index(args: &[String], arg: &str) -> usize {
     args.iter()
         .position(|item| item == arg)
         .unwrap_or_else(|| panic!("missing arg: {arg}"))
+}
+
+fn command_arg_after<'a>(args: &'a [String], arg: &str) -> &'a str {
+    args.get(arg_index(args, arg) + 1)
+        .map(String::as_str)
+        .unwrap_or_else(|| panic!("missing value after arg: {arg}"))
 }
 
 fn assert_no_skip_git_repo_check_before_exec(args: &[String]) {

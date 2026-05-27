@@ -548,6 +548,19 @@ fn missing_output_last_message_file_is_reported_without_panicking() {
     assert!(output.stdout.contains("helper stdout"));
 }
 
+#[test]
+fn default_final_message_file_uses_os_temp_directory() {
+    let output = run_codex_direct_work(request_with_program(
+        temp_repo("default-final-temp"),
+        "success",
+        direct_run_helper(),
+    ));
+
+    assert_eq!(output.status, CodexDirectRunStatus::Completed);
+    let final_path = command_arg_after(&output.command_summary, "--output-last-message");
+    assert!(PathBuf::from(final_path).starts_with(std::env::temp_dir()));
+}
+
 fn assert_approval_policy_arg(policy: CodexApprovalPolicy, expected: &str) {
     let mut request = request_with_program(temp_repo(expected), "success", direct_run_helper());
     request.approval_policy = policy;
@@ -565,6 +578,12 @@ fn arg_index(args: &[String], arg: &str) -> usize {
     args.iter()
         .position(|item| item == arg)
         .unwrap_or_else(|| panic!("missing arg: {arg}"))
+}
+
+fn command_arg_after<'a>(args: &'a [String], arg: &str) -> &'a str {
+    args.get(arg_index(args, arg) + 1)
+        .map(String::as_str)
+        .unwrap_or_else(|| panic!("missing value after arg: {arg}"))
 }
 
 fn assert_no_skip_git_repo_check_before_exec(args: &[String]) {

@@ -39,6 +39,10 @@ provider tool execution exists.
 - [ ] Use an isolated database when needed:
   `scripts/hobit/desktop-smoke-readiness.ps1 -Reset`, then launch with the
   printed `HOBIT_DATABASE_PATH`.
+- [ ] On Linux, use `scripts/hobit/validate.sh --profile full` for repository
+  validation and launch the Tauri desktop shell with the same isolated
+  `HOBIT_DATABASE_PATH` idea. Codex Direct Work should use `codex` by default
+  on Unix/Linux; Windows should keep `codex.cmd`.
 - [ ] Create or open a disposable Workspace.
 - [ ] Add or open Workspace Agent.
 - [ ] Add or open Skill Library.
@@ -168,6 +172,9 @@ Notes:
 - [ ] No RBAC exists.
 - [ ] Manual visible Tauri WebView smoke is still required if the current
   environment cannot operate or observe the desktop UI.
+- [ ] Linux desktop compatibility is a baseline only until a real Linux
+  Tauri/WebView smoke confirms launch, Codex Direct Work, Knowledge import,
+  Queue/Executor handoff, and unsupported Terminal PTY behavior on Linux.
 
 Notes:
 

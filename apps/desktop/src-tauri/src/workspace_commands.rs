@@ -23,7 +23,9 @@ use crate::app_state::{
     AppState, DirectWorkActiveRun, DirectWorkActiveRunRegistry, TerminalPtySessionRegistry,
 };
 use crate::codex_direct_work_dto::{
-    CancelCodexDirectWorkRunRequest, CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
+    try_run_codex_direct_work_input_from_request,
+    try_run_codex_direct_work_input_from_stream_request, CancelCodexDirectWorkRunRequest,
+    CancelCodexDirectWorkRunResponseDto, DirectWorkStreamEventDto,
     ForceKillCodexDirectWorkRunRequest, ForceKillCodexDirectWorkRunResponseDto,
     RunCodexDirectWorkRequest, RunCodexDirectWorkResponseDto, RunDirectWorkValidationRequest,
     RunDirectWorkValidationResponseDto, StartCodexDirectWorkStreamRequest,
@@ -358,7 +360,7 @@ fn run_codex_direct_work_blocking(
     request: RunCodexDirectWorkRequest,
     db_path: PathBuf,
 ) -> Result<Option<RunCodexDirectWorkResponseDto>, String> {
-    let input: hobit_app::RunCodexDirectWorkInput = request.into();
+    let input = try_run_codex_direct_work_input_from_request(request)?;
     let _host_start_artifacts = DirectWorkHostStartRuntimeArtifacts::from_input(&input);
     let service = workspace_service(&db_path)?;
     service
@@ -399,7 +401,7 @@ pub(crate) async fn start_codex_direct_work_stream(
 ) -> Result<Option<StartCodexDirectWorkStreamResponseDto>, String> {
     let db_path = state.db_path().to_path_buf();
     let active_runs = state.direct_work_active_runs();
-    let input: hobit_app::RunCodexDirectWorkInput = request.into();
+    let input = try_run_codex_direct_work_input_from_stream_request(request)?;
     let _host_start_artifacts = DirectWorkHostStartRuntimeArtifacts::from_input(&input);
     let start = tauri::async_runtime::spawn_blocking({
         let db_path = db_path.clone();

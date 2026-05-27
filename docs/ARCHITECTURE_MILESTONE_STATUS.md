@@ -126,6 +126,14 @@ behavior, or Workspace Agent context wiring.
   visible New Codex thread action clears the thread id, and changing the
   working directory also clears it so the next run starts a new thread. Queue
   and Agent Executor Direct Work behavior remains unchanged.
+- Linux desktop compatibility baseline exists for the current local desktop
+  model. Codex CLI launch resolution is platform-aware: Windows keeps
+  `codex.cmd` and `.cmd`/`.bat` wrapper support through `cmd.exe /D /C`, while
+  Unix/Linux defaults to `codex` and runs explicit executable paths directly.
+  Direct Work `~` resolution uses the platform home environment and returns a
+  clear error when home is unavailable. Final-message files use the OS temp
+  directory. This baseline is not Linux packaging/release validation, and real
+  Linux manual desktop smoke is still required.
 
 ## Still Type-Only Or Contract-Only
 
@@ -205,6 +213,9 @@ sent to a provider.
   hidden/unarmed auto-dispatch.
 - Workspace Agent Direct Mode triggered Queue Autorun, Queue task creation, Agent
   Executor launch, server runtime, RBAC, or automatic Git mutation.
+- Linux packaging or release validation.
+- Linux/macOS live Terminal PTY support; non-Windows live PTY creation remains
+  unsupported until a future explicit platform-support block.
 
 ## Recommended Next Roadmap
 

@@ -23,6 +23,27 @@ fn read_import_file_accepts_markdown_and_derives_safe_metadata() {
     remove_temp_file(path);
 }
 
+#[cfg(unix)]
+#[test]
+fn read_import_file_accepts_unix_absolute_markdown_path() {
+    let path = unique_temp_path("LINUX.markdown");
+    fs::write(&path, "Portable text").expect("write markdown file");
+    let path_text = path.to_string_lossy().to_string();
+    assert!(path_text.starts_with('/'));
+
+    let imported =
+        read_knowledge_document_import_file_blocking(ReadKnowledgeDocumentImportFileRequest {
+            path: path_text,
+        })
+        .expect("read import file");
+
+    assert_eq!(imported.file_name, "LINUX.markdown");
+    assert_eq!(imported.title, "LINUX");
+    assert_eq!(imported.content, "Portable text");
+
+    remove_temp_file(path);
+}
+
 #[test]
 fn read_import_file_rejects_unsupported_extension() {
     let path = unique_temp_path("guide.pdf");

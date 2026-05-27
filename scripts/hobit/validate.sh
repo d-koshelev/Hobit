@@ -6,6 +6,8 @@ show_help() {
 Usage: scripts/hobit/validate.sh [--profile fast|changed|full]
 
 Runs a Hobit validation profile from the repository root.
+Use this wrapper for Unix/Linux development validation. It does not perform
+Linux desktop UI smoke or packaging validation.
 
 Profiles:
   fast     Quick iteration: frontend typecheck, cargo check, changed file sizes, git diff --check.

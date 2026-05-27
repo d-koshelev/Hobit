@@ -30,12 +30,19 @@ impl fmt::Display for CodexExecutableResolutionError {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CodexHostPlatform {
+    Windows,
+    Unix,
+}
+
 pub(crate) fn resolve_codex_executable(
     requested_program: &str,
 ) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
     let path_env = env::var_os("PATH");
     let appdata_env = env::var_os("APPDATA");
-    resolve_codex_executable_with_env(
+    resolve_codex_executable_with_env_for_platform(
+        current_platform(),
         requested_program,
         path_env.as_deref(),
         appdata_env.as_deref(),
@@ -46,10 +53,16 @@ pub(crate) fn resolve_codex_executable_with_path(
     requested_program: &str,
     path_env: Option<&OsStr>,
 ) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
-    resolve_codex_executable_with_env(requested_program, path_env, None)
+    resolve_codex_executable_with_env_for_platform(
+        current_platform(),
+        requested_program,
+        path_env,
+        None,
+    )
 }
 
-fn resolve_codex_executable_with_env(
+fn resolve_codex_executable_with_env_for_platform(
+    platform: CodexHostPlatform,
     requested_program: &str,
     path_env: Option<&OsStr>,
     appdata_env: Option<&OsStr>,
@@ -77,7 +90,7 @@ fn resolve_codex_executable_with_env(
     let mut candidates_tried = Vec::new();
     let mut seen_candidates = HashSet::new();
 
-    for candidate in codex_executable_candidates(&requested_program, appdata_env) {
+    for candidate in codex_executable_candidates(platform, &requested_program, appdata_env) {
         if !seen_candidates.insert(candidate.clone()) {
             continue;
         }
@@ -94,20 +107,23 @@ fn resolve_codex_executable_with_env(
     }
 
     Err(CodexExecutableResolutionError {
-        message: codex_resolution_error_message(&requested_program, &candidates_tried),
+        message: codex_resolution_error_message(platform, &requested_program, &candidates_tried),
         requested_program,
         candidates_tried,
     })
 }
 
 fn codex_executable_candidates(
+    platform: CodexHostPlatform,
     requested_program: &str,
     appdata_env: Option<&OsStr>,
 ) -> Vec<String> {
-    if cfg!(windows) && is_default_codex_program_name(requested_program) {
+    if platform == CodexHostPlatform::Windows && is_default_codex_program_name(requested_program) {
         let mut candidates = vec!["codex.cmd".to_owned()];
 
-        if let Some(candidate) = windows_npm_codex_cmd_candidate(requested_program, appdata_env) {
+        if let Some(candidate) =
+            windows_npm_codex_cmd_candidate(platform, requested_program, appdata_env)
+        {
             candidates.push(candidate);
         }
 
@@ -119,7 +135,9 @@ fn codex_executable_candidates(
         return candidates;
     }
 
-    let mut candidates = if cfg!(windows) && Path::new(requested_program).extension().is_none() {
+    let mut candidates = if platform == CodexHostPlatform::Windows
+        && Path::new(requested_program).extension().is_none()
+    {
         vec![
             requested_program.to_owned(),
             format!("{requested_program}.exe"),
@@ -130,7 +148,9 @@ fn codex_executable_candidates(
         vec![requested_program.to_owned()]
     };
 
-    if let Some(candidate) = windows_npm_codex_cmd_candidate(requested_program, appdata_env) {
+    if let Some(candidate) =
+        windows_npm_codex_cmd_candidate(platform, requested_program, appdata_env)
+    {
         candidates.push(candidate);
     }
 
@@ -141,7 +161,15 @@ pub(crate) fn codex_launch_command(
     resolved_program: &str,
     codex_args: Vec<String>,
 ) -> CodexLaunchCommand {
-    if cfg!(windows) && is_windows_command_script(resolved_program) {
+    codex_launch_command_for_platform(current_platform(), resolved_program, codex_args)
+}
+
+fn codex_launch_command_for_platform(
+    platform: CodexHostPlatform,
+    resolved_program: &str,
+    codex_args: Vec<String>,
+) -> CodexLaunchCommand {
+    if platform == CodexHostPlatform::Windows && is_windows_command_script(resolved_program) {
         let mut args = vec![
             "/D".to_owned(),
             "/C".to_owned(),
@@ -177,10 +205,11 @@ fn is_default_codex_program_name(requested_program: &str) -> bool {
 }
 
 fn windows_npm_codex_cmd_candidate(
+    platform: CodexHostPlatform,
     requested_program: &str,
     appdata_env: Option<&OsStr>,
 ) -> Option<String> {
-    if !cfg!(windows) || contains_path_separator(requested_program) {
+    if platform != CodexHostPlatform::Windows || contains_path_separator(requested_program) {
         return None;
     }
 
@@ -264,7 +293,11 @@ fn is_windows_bad_exe_format_message(message: &str) -> bool {
     lower.contains("os error 193") || lower.contains("not a valid win32 application")
 }
 
-fn codex_resolution_error_message(requested_program: &str, candidates_tried: &[String]) -> String {
+fn codex_resolution_error_message(
+    platform: CodexHostPlatform,
+    requested_program: &str,
+    candidates_tried: &[String],
+) -> String {
     let candidates = if candidates_tried.is_empty() {
         "none".to_owned()
     } else {
@@ -274,7 +307,7 @@ fn codex_resolution_error_message(requested_program: &str, candidates_tried: &[S
         "could not resolve Codex executable `{requested_program}`. Candidates tried: {candidates}. Searched PATH without invoking a shell."
     );
 
-    if cfg!(windows) {
+    if platform == CodexHostPlatform::Windows {
         message.push_str(
             " On Windows, check `where codex`, `where codex.cmd`, or set a full Codex executable path.",
         );
@@ -283,30 +316,41 @@ fn codex_resolution_error_message(requested_program: &str, candidates_tried: &[S
     message
 }
 
+fn current_platform() -> CodexHostPlatform {
+    if cfg!(windows) {
+        CodexHostPlatform::Windows
+    } else {
+        CodexHostPlatform::Unix
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[cfg(windows)]
     #[test]
-    fn resolving_codex_on_windows_path_finds_codex_cmd_helper() {
+    fn windows_default_codex_request_finds_codex_cmd_helper_first() {
         let directory = temp_directory("windows-path-cmd");
         fs::create_dir_all(&directory).unwrap();
         fs::write(directory.join("codex"), "not the default windows helper").unwrap();
         let helper = directory.join("codex.cmd");
         fs::write(&helper, "@echo off\r\necho codex-cli 0.0.0\r\n").unwrap();
 
-        let resolution = resolve_codex_executable_with_path("codex", Some(directory.as_os_str()))
-            .expect("resolve codex.cmd from PATH");
+        let resolution = resolve_for_platform(
+            CodexHostPlatform::Windows,
+            "codex",
+            Some(directory.as_os_str()),
+            None,
+        )
+        .expect("resolve codex.cmd from PATH");
 
         assert_eq!(resolution.requested_program, "codex");
         assert_eq!(resolution.program, helper.to_string_lossy().into_owned());
         assert_eq!(resolution.candidates_tried, vec!["codex.cmd"]);
     }
 
-    #[cfg(windows)]
     #[test]
     fn resolving_windows_codex_requests_check_appdata_npm_fallback() {
         let appdata = temp_directory("windows-appdata");
@@ -326,7 +370,8 @@ mod tests {
                 vec!["codex.cmd".to_owned(), helper_candidate.clone()],
             ),
         ] {
-            let resolution = resolve_codex_executable_with_env(
+            let resolution = resolve_for_platform(
+                CodexHostPlatform::Windows,
                 requested_program,
                 None,
                 Some(appdata.as_os_str()),
@@ -337,6 +382,28 @@ mod tests {
             assert_eq!(resolution.program, helper_candidate);
             assert_eq!(resolution.candidates_tried, expected_candidates);
         }
+    }
+
+    #[test]
+    fn unix_default_codex_request_finds_codex_without_cmd_default() {
+        let directory = temp_directory("unix-path-codex");
+        fs::create_dir_all(&directory).unwrap();
+        let codex = directory.join("codex");
+        let codex_cmd = directory.join("codex.cmd");
+        fs::write(&codex, "codex cli").unwrap();
+        fs::write(&codex_cmd, "windows helper").unwrap();
+
+        let resolution = resolve_for_platform(
+            CodexHostPlatform::Unix,
+            "codex",
+            Some(directory.as_os_str()),
+            None,
+        )
+        .expect("resolve codex from PATH on unix");
+
+        assert_eq!(resolution.requested_program, "codex");
+        assert_eq!(resolution.program, codex.to_string_lossy().into_owned());
+        assert_eq!(resolution.candidates_tried, vec!["codex"]);
     }
 
     #[test]
@@ -364,10 +431,10 @@ mod tests {
         assert!(error.message.contains("separate argv entry"));
     }
 
-    #[cfg(windows)]
     #[test]
     fn launch_wraps_windows_cmd_shim_with_cmd_exe_and_keeps_args_separate() {
-        let launch = codex_launch_command(
+        let launch = codex_launch_command_for_platform(
+            CodexHostPlatform::Windows,
             "C:/Users/Dmitry/AppData/Roaming/npm/codex.cmd",
             vec![
                 "exec".to_owned(),
@@ -393,6 +460,57 @@ mod tests {
         assert!(
             arg_index(&launch.args, "--skip-git-repo-check") < arg_index(&launch.args, "--json")
         );
+    }
+
+    #[test]
+    fn launch_wraps_windows_bat_shim_with_cmd_exe_and_keeps_args_separate() {
+        let launch = codex_launch_command_for_platform(
+            CodexHostPlatform::Windows,
+            "C:/Users/Dmitry/AppData/Roaming/npm/codex.bat",
+            vec!["exec".to_owned(), "-".to_owned()],
+        );
+
+        assert_eq!(launch.program, "cmd.exe");
+        assert_eq!(
+            launch.args,
+            vec![
+                "/D".to_owned(),
+                "/C".to_owned(),
+                "C:/Users/Dmitry/AppData/Roaming/npm/codex.bat".to_owned(),
+                "exec".to_owned(),
+                "-".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn unix_launch_runs_explicit_path_directly_without_cmd_exe() {
+        let launch = codex_launch_command_for_platform(
+            CodexHostPlatform::Unix,
+            "/usr/local/bin/codex",
+            vec!["exec".to_owned(), "--skip-git-repo-check".to_owned()],
+        );
+
+        assert_eq!(launch.program, "/usr/local/bin/codex");
+        assert_eq!(
+            launch.args,
+            vec!["exec".to_owned(), "--skip-git-repo-check".to_owned()]
+        );
+    }
+
+    #[test]
+    fn unix_launch_does_not_wrap_cmd_or_bat_names() {
+        for program in ["/opt/codex.cmd", "/opt/codex.bat"] {
+            let launch = codex_launch_command_for_platform(
+                CodexHostPlatform::Unix,
+                program,
+                vec!["exec".to_owned()],
+            );
+
+            assert_eq!(launch.program, program);
+            assert_eq!(launch.args, vec!["exec".to_owned()]);
+            assert_ne!(launch.program, "cmd.exe");
+        }
     }
 
     #[test]
@@ -442,5 +560,19 @@ mod tests {
         args.iter()
             .position(|item| item == arg)
             .unwrap_or_else(|| panic!("missing arg: {arg}"))
+    }
+
+    fn resolve_for_platform(
+        platform: CodexHostPlatform,
+        requested_program: &str,
+        path_env: Option<&OsStr>,
+        appdata_env: Option<&OsStr>,
+    ) -> Result<CodexExecutableResolution, CodexExecutableResolutionError> {
+        resolve_codex_executable_with_env_for_platform(
+            platform,
+            requested_program,
+            path_env,
+            appdata_env,
+        )
     }
 }

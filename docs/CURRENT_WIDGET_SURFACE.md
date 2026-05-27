@@ -124,9 +124,12 @@ Workspace Agent is the foreground interactive agent surface.
   compatibility.
 - Starts one operator-provided task from visible inputs: prompt, execution
   workspace path, sandbox, approval policy, and Codex executable options.
-- On Windows, the shared Codex launch helper resolves the default `codex`
-  request to `codex.cmd` and launches `.cmd`/`.bat` shims through `cmd.exe /C`
-  while keeping `exec` and the remaining Codex arguments separate.
+- The shared Codex launch helper is platform-aware. On Windows, the default
+  path keeps `codex.cmd` support and launches `.cmd`/`.bat` shims through
+  `cmd.exe /D /C` while keeping `exec` and the remaining Codex arguments
+  separate. On Unix/Linux, the default executable is `codex`, explicit paths
+  such as `/usr/local/bin/codex` run directly, and no `cmd.exe` wrapper is
+  used.
 - Shows run state, live logs/streaming where available, stop/cancel/force-kill
   controls, final result output, changed-files summary, Git read-only handoff,
   validation capture, and read-only run/detail/history views.
@@ -358,7 +361,10 @@ Workspace Agent is the foreground interactive agent surface.
   Executor and Queue Direct Work do not skip that check by default. The
   operator can replace `~` with a project or repo folder.
   On Windows, the default Codex launch path uses `codex.cmd` through the
-  shared Direct Work launch helper. Workspace Agent-owned Codex runs stream visible
+  shared Direct Work launch helper. On Unix/Linux, the default Codex launch
+  path uses `codex` directly. Missing home-directory resolution for `~`
+  returns a visible launch error instead of silently using the repository.
+  Workspace Agent-owned Codex runs stream visible
   status/log/final-result summaries in Workspace Agent, captures the Codex
   `thread.started` `thread_id` when emitted, and keeps that explicit Codex
   thread id in current-session Workspace Agent widget state. Follow-up Run with

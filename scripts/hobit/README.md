@@ -55,7 +55,8 @@ scripts/hobit/validate.sh --help
 ```
 
 Uses `npm` instead of `npm.cmd` and supports the same profiles as the
-PowerShell wrapper.
+PowerShell wrapper. This is the Unix/Linux development validation path; it does
+not claim Linux desktop UI smoke or packaging validation by itself.
 
 ## Validation Profiles
 

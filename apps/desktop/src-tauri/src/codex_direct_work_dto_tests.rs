@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 use hobit_app::{
     CancelCodexDirectWorkRunInput, CodexDirectWorkCancellationSummary,
@@ -187,6 +187,55 @@ fn resolves_direct_work_home_alias_with_explicit_home_helper() {
         ),
         PathBuf::from("C:/Users/Dmitry").join("project"),
     );
+}
+
+#[test]
+fn resolves_unix_home_from_home_before_windows_userprofile() {
+    let home = crate::codex_direct_work_dto::current_user_home_dir_from_env(
+        crate::codex_direct_work_dto::HomeDirectoryPlatform::Unix,
+        Some(OsString::from("C:/Users/WindowsUser")),
+        None,
+        None,
+        Some(OsString::from("/home/linux-user")),
+    );
+
+    assert_eq!(home, Some(PathBuf::from("/home/linux-user")));
+}
+
+#[test]
+fn resolves_windows_home_from_userprofile_before_home() {
+    let home = crate::codex_direct_work_dto::current_user_home_dir_from_env(
+        crate::codex_direct_work_dto::HomeDirectoryPlatform::Windows,
+        Some(OsString::from("C:/Users/WindowsUser")),
+        None,
+        None,
+        Some(OsString::from("/home/linux-user")),
+    );
+
+    assert_eq!(home, Some(PathBuf::from("C:/Users/WindowsUser")));
+}
+
+#[test]
+fn resolves_windows_home_from_drive_and_path_when_userprofile_missing() {
+    let home = crate::codex_direct_work_dto::current_user_home_dir_from_env(
+        crate::codex_direct_work_dto::HomeDirectoryPlatform::Windows,
+        None,
+        Some(OsString::from("C:")),
+        Some(OsString::from("\\Users\\Fallback")),
+        None,
+    );
+
+    assert_eq!(home, Some(PathBuf::from("C:\\Users\\Fallback")));
+}
+
+#[test]
+fn unresolved_home_alias_returns_clear_error() {
+    let error =
+        crate::codex_direct_work_dto::resolve_direct_work_path_with_home_result("~/project", None)
+            .expect_err("missing home should error");
+
+    assert!(error.contains("Could not resolve `~`"));
+    assert!(error.contains("home directory"));
 }
 
 #[test]
