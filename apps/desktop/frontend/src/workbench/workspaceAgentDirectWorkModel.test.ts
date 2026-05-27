@@ -202,7 +202,7 @@ describe("workspaceAgentDirectWorkModel", () => {
   });
 
   it("formats stream event log text and compact thread ids", () => {
-    expect(shortCodexThreadId("thread-1234567890")).toBe("thread-...");
+    expect(shortCodexThreadId("thread-1234567890")).toBe("thread-1...");
     expect(shortCodexThreadId("thread-1")).toBe("thread-1");
     expect(directWorkEventText(directWorkEvent({ eventKind: "started" }))).toBe(
       "Run run-1 started.",
@@ -214,7 +214,7 @@ describe("workspaceAgentDirectWorkModel", () => {
           eventKind: "stdout_line",
         }),
       ),
-    ).toBe("Codex thread active: thread-....");
+    ).toBe("Codex thread active: thread-1....");
     expect(
       directWorkEventText(directWorkEvent({ eventKind: "final_message" })),
     ).toBe("Final response received.");

@@ -250,10 +250,18 @@ function setColorInput(label: string, value: string) {
   }
 
   act(() => {
-    input.value = value;
+    setNativeInputValue(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
+}
+
+function setNativeInputValue(field: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
 }
 
 function buttonWithText(text: string) {

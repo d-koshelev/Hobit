@@ -62,7 +62,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("Ready");
     expect(agentPicker()?.value).toBe("codex");
     expect(agentPicker()?.disabled).toBe(true);
-    expect(textInputValue()).toBe("~");
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break into Queue tasks");
     expect(document.body.textContent).toContain("Draft tasks for this goal");
@@ -79,9 +78,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(
       document.querySelector(".widget-title")?.textContent,
     ).toBe("Workspace Agent");
-    expect(
-      document.querySelector(".widget-content")?.textContent,
-    ).not.toContain("Workspace Agent");
     expect(document.body.textContent).not.toContain(
       "Plan work, draft tasks, review results",
     );
@@ -97,7 +93,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     ).not.toBeNull();
     expect(
       document.querySelector(".interactive-agent-empty")?.textContent,
-    ).not.toContain("Workspace");
+    ).toContain("Workspace Agent works from visible chat and explicit attachments.");
   });
 
   it("shows Codex as the default agent with home as the default working directory", async () => {
@@ -129,10 +125,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   it("message send still behaves like chat when the Codex bridge is unavailable", async () => {
     const startDirectWork = vi.fn();
     const provider = vi.fn(async () => providerResponse());
-    renderWidget({
-      onGenerateCoordinatorProviderResponse: provider,
-      onStartCodexDirectWorkStream: startDirectWork,
-    });
+    renderWidget({ onGenerateCoordinatorProviderResponse: provider });
 
     await sendMessage("Make a plan for visible work");
 
@@ -221,7 +214,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Runs with Codex from the selected working directory.",
     );
     expect(document.body.textContent).toContain(
-      "Starting new Codex thread. Starting Codex Direct Work from ~.",
+      "Starting new Codex thread. Workspace knowledge not available. Starting Codex Direct Work from ~.",
     );
     expect(document.body.textContent).toContain("Codex handled the task.");
     expect(document.body.textContent).toContain("Thread active thread_b...");
@@ -626,6 +619,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await setTextareaValue("Remember this.");
     await clickButton("Run with Codex");
     await clickButton("New thread");
+    expect(document.body.textContent).toContain("Codex thread reset.");
+    expect(document.body.textContent).toContain("No active thread");
+
     await setTextareaValue("Start over.");
     await clickButton("Run with Codex");
 
@@ -634,8 +630,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       codexThreadId: null,
       operatorPrompt: "Start over.",
     });
-    expect(document.body.textContent).toContain("Codex thread reset.");
-    expect(document.body.textContent).toContain("No active thread");
     expect(document.body.textContent).toContain("Remember this.");
     expect(buttonsWithText("New thread")).toHaveLength(1);
     expect(document.body.textContent).not.toContain("New Codex thread");
@@ -770,6 +764,10 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await setTextareaValue("Run in home.");
     await clickButton("Run with Codex");
     await setTextInputValue("C:/work/project");
+    expect(document.body.textContent).toContain(
+      "Working directory changed. Next Codex run starts a new thread.",
+    );
+
     await setTextareaValue("Run in the new directory.");
     await clickButton("Run with Codex");
 
@@ -778,9 +776,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       codexThreadId: null,
       repoRoot: "C:/work/project",
     });
-    expect(document.body.textContent).toContain(
-      "Working directory changed. Next Codex run starts a new thread.",
-    );
   });
 
   it("requires a working directory before starting Codex", async () => {
@@ -1079,7 +1074,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "final_message",
             isFinal: false,
             runId: "run_1",
-            text: "Final Workspace Agent result.",
+            text: "Final foreground result.",
           }),
         );
         onEvent(
@@ -1124,9 +1119,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("completed");
     expect(document.body.textContent).toContain("Implement this directly.");
     expect(document.body.textContent).toContain(
-      "Starting new Codex thread. Starting Codex Direct Work from ~.",
+      "Starting new Codex thread. Workspace knowledge not available. Starting Codex Direct Work from ~.",
     );
-    expect(document.body.textContent).toContain("Final Workspace Agent result.");
+    expect(document.body.textContent).toContain("Final foreground result.");
     expect(document.body.textContent).not.toContain("Codex Direct Mode completed.");
 
     const operatorMessages = document.querySelectorAll(
@@ -1143,7 +1138,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     );
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
-    ).toContain("Final Workspace Agent result.");
+    ).toContain("Final foreground result.");
     expect(
       assistantMessages[assistantMessages.length - 1]?.textContent,
     ).not.toContain("Sent to Codex Direct Mode");
@@ -1196,7 +1191,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     expect(document.body.textContent).toContain("codex executable not found");
     expect(document.body.textContent).toContain(
-      "Codex Direct Work failed: codex executable not found",
+      "Direct Work failed: codex executable not found",
     );
     expect(lastAssistantMessageText()).toBe(
       "Direct Work failed: codex executable not found",
@@ -2561,9 +2556,11 @@ function agentPicker() {
 }
 
 function textInput() {
-  const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+  const input = document.querySelector<HTMLInputElement>(
+    'input[aria-label="Working directory"]',
+  );
   if (!input) {
-    throw new Error("Text input not found.");
+    throw new Error("Working directory input not found.");
   }
   return input;
 }

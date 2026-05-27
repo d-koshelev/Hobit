@@ -105,7 +105,7 @@ describe("TerminalPlaceholderWidget classic surface", () => {
 
     renderWidget({ onCreateTerminalPtySession });
 
-    await changeInput("C:\\path\\to\\workspace", "C:\\repo");
+    await changeInput(".terminal-shell-working-directory-input", "C:\\repo");
     await clickButton("Start");
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(1);
@@ -147,7 +147,7 @@ describe("TerminalPlaceholderWidget classic surface", () => {
 
     renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
 
-    await changeInput("C:\\path\\to\\workspace", "C:\\repo");
+    await changeInput(".terminal-shell-working-directory-input", "C:\\repo");
     await clickButton("Start");
     await changeTextarea("Type a command", "echo hello");
     await clickButton("Send");
@@ -201,20 +201,27 @@ async function clickText(text: string) {
     if (!element) {
       throw new Error(`Clickable text not found: ${text}`);
     }
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    if (element instanceof HTMLElement && element.tagName === "SUMMARY") {
+      const details = element.closest("details");
+      if (!details) {
+        throw new Error(`Details owner not found: ${text}`);
+      }
+      details.open = !details.open;
+      details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    } else {
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
     await Promise.resolve();
   });
 }
 
-async function changeInput(placeholder: string, value: string) {
+async function changeInput(selector: string, value: string) {
   await act(async () => {
-    const input = Array.from(document.querySelectorAll("input")).find(
-      (candidate) => candidate.placeholder === placeholder,
-    );
+    const input = document.querySelector<HTMLInputElement>(selector);
     if (!input) {
-      throw new Error(`Input not found: ${placeholder}`);
+      throw new Error(`Input not found: ${selector}`);
     }
-    input.value = value;
+    setNativeInputValue(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await Promise.resolve();
@@ -229,7 +236,7 @@ async function changeTextarea(placeholder: string, value: string) {
     if (!textarea) {
       throw new Error(`Textarea not found: ${placeholder}`);
     }
-    textarea.value = value;
+    setNativeTextareaValue(textarea, value);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     textarea.dispatchEvent(new Event("change", { bubbles: true }));
     await Promise.resolve();
@@ -240,6 +247,22 @@ function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
   );
+}
+
+function setNativeInputValue(field: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
+}
+
+function setNativeTextareaValue(field: HTMLTextAreaElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
 }
 
 function definition(): WidgetDefinition {

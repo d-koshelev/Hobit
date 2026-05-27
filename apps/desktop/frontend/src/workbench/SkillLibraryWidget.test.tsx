@@ -32,7 +32,9 @@ describe("SkillLibraryWidget", () => {
     await flush();
 
     expect(document.body.textContent).toContain("No skills yet.");
-    expect(document.body.textContent).toContain("Workspace-local.");
+    expect(document.body.textContent).toContain(
+      "Workspace and local-global documents.",
+    );
     expect(document.body.textContent).toContain(
       "Skills attach explicitly.",
     );
@@ -299,7 +301,7 @@ describe("SkillLibraryWidget", () => {
       }),
     );
     expect(document.body.textContent).toContain(
-      "Enabled saved documents may be searched before Run with Codex. Disabled documents are ignored.",
+      "Enabled saved workspace and global documents may be searched before Run with Codex. Disabled documents are ignored.",
     );
 
     await clickButton("Delete");
@@ -569,9 +571,9 @@ async function changeCheckbox(labelText: string, checked: boolean) {
   }
 
   await act(async () => {
-    setNativeChecked(checkbox, checked);
-    checkbox.dispatchEvent(new Event("input", { bubbles: true }));
-    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    if (checkbox.checked !== checked) {
+      checkbox.click();
+    }
   });
 }
 

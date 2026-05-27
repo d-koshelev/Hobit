@@ -97,8 +97,9 @@ describe("WorkspaceRecentItem", () => {
         throw new Error("Delete confirmation input not found.");
       }
 
-      input.value = "Lifecycle Workspace";
+      setNativeInputValue(input, "Lifecycle Workspace");
       input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
       await Promise.resolve();
     });
 
@@ -170,4 +171,12 @@ function buttonWithText(text: string) {
   }
 
   return button;
+}
+
+function setNativeInputValue(field: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
 }

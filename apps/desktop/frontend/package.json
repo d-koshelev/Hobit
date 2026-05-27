@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build --configLoader native",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --configLoader native --pool threads",
     "typecheck": "tsc -b",
     "tauri:dev": "cd ../src-tauri && tauri dev",
     "tauri:build": "cd ../src-tauri && tauri build"

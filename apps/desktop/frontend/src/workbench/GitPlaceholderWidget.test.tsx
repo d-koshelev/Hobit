@@ -80,6 +80,7 @@ describe("GitPlaceholderWidget", () => {
     await clickText("Diff");
     expect(document.body.textContent).toContain("No file selected");
 
+    await clickText("Changes");
     await clickText("README.md");
     expect(document.body.textContent).toContain("Untracked file");
 
@@ -168,8 +169,9 @@ async function refreshRepository() {
   }
 
   await act(async () => {
-    input.value = "C:\\repo";
+    setNativeInputValue(input, "C:\\repo");
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await clickText("Refresh");
 }
@@ -192,6 +194,14 @@ function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
   );
+}
+
+function setNativeInputValue(field: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  descriptor?.set?.call(field, value);
 }
 
 function definition(): WidgetDefinition {
