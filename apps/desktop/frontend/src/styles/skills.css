@@ -12,8 +12,8 @@
   color: var(--color-text-muted);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--field-gap);
+  padding: var(--scaled-space-sm) var(--panel-padding);
 }
 
 .skill-library-summary-secondary {
@@ -34,7 +34,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   font: inherit;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--scaled-space-sm) var(--panel-padding);
 }
 
 .skill-library-tab:hover,
@@ -71,7 +71,7 @@
   display: grid;
   gap: var(--space-sm);
   grid-template-columns: minmax(0, 1fr) minmax(160px, auto) auto;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--scaled-space-sm) var(--panel-padding);
 }
 
 .skill-document-import-path {
@@ -96,7 +96,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   font: inherit;
-  padding: var(--space-xs) var(--space-sm);
+  padding: var(--scaled-space-xs) var(--control-padding-x-sm);
 }
 
 .skill-scope-filter-button:hover,
@@ -176,7 +176,7 @@
   display: grid;
   gap: var(--space-md);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: var(--space-md);
+  padding: var(--panel-padding);
 }
 
 .skill-field {

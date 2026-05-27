@@ -10,6 +10,12 @@ import {
   normalizeThemeColor,
   saveThemePreference,
 } from "./themeStorage";
+import {
+  loadUiScalePreference,
+  normalizeUiScale,
+  saveUiScalePreference,
+  type UiScaleValue,
+} from "./uiScale";
 import type {
   CustomTheme,
   EditableThemeVariable,
@@ -24,6 +30,8 @@ export type AppThemeController = {
   selectedThemeId: string;
   selectPresetTheme: (themeId: string) => void;
   selectCustomTheme: () => void;
+  selectUiScale: (scale: UiScaleValue) => void;
+  uiScale: UiScaleValue;
   updateCustomThemeValue: (
     variable: EditableThemeVariable,
     value: string,
@@ -33,6 +41,9 @@ export type AppThemeController = {
 export function useAppTheme(): AppThemeController {
   const [themePreference, setThemePreference] = useState<StoredThemePreference>(
     () => loadThemePreference(),
+  );
+  const [uiScale, setUiScale] = useState<UiScaleValue>(() =>
+    loadUiScalePreference(),
   );
   const resolvedTheme = useMemo(
     () =>
@@ -48,6 +59,11 @@ export function useAppTheme(): AppThemeController {
     saveThemePreference(themePreference);
   }, [resolvedTheme, themePreference]);
 
+  useEffect(() => {
+    applyUiScale(uiScale);
+    saveUiScalePreference(uiScale);
+  }, [uiScale]);
+
   function commitThemePreference(
     selectedThemeId: string,
     customTheme: CustomTheme,
@@ -61,6 +77,10 @@ export function useAppTheme(): AppThemeController {
 
   function selectCustomTheme() {
     commitThemePreference(CUSTOM_THEME_ID, themePreference.customTheme);
+  }
+
+  function selectUiScale(scale: UiScaleValue) {
+    setUiScale(normalizeUiScale(scale));
   }
 
   function resetCustomTheme(presetId = themePreference.customTheme.basedOn) {
@@ -98,6 +118,8 @@ export function useAppTheme(): AppThemeController {
     selectedThemeId: themePreference.selectedThemeId,
     selectCustomTheme,
     selectPresetTheme,
+    selectUiScale,
+    uiScale,
     updateCustomThemeValue,
   };
 }
@@ -116,4 +138,20 @@ function applyTheme(theme: ResolvedTheme): void {
   for (const [variable, value] of Object.entries(theme.variables)) {
     root.style.setProperty(variable, value);
   }
+}
+
+function applyUiScale(scale: UiScaleValue): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const normalizedScale = normalizeUiScale(scale);
+  const root = document.documentElement;
+
+  root.dataset.hobitUiScale = String(normalizedScale);
+  root.style.setProperty("--ui-scale", String(normalizedScale));
+  root.style.setProperty(
+    "--ui-scale-percent",
+    `${Math.round(normalizedScale * 100)}%`,
+  );
 }

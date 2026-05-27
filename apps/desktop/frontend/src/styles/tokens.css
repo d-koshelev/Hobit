@@ -45,12 +45,21 @@
   --font-mono:
     "SFMono-Regular", Consolas, "Liberation Mono", "Courier New", monospace;
 
+  --ui-scale: 1;
+  --ui-scale-percent: 100%;
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
   --space-2xl: 32px;
+
+  --scaled-space-xs: calc(4px * var(--ui-scale));
+  --scaled-space-sm: calc(8px * var(--ui-scale));
+  --scaled-space-md: calc(12px * var(--ui-scale));
+  --scaled-space-lg: calc(16px * var(--ui-scale));
+  --scaled-space-xl: calc(24px * var(--ui-scale));
 
   --workbench-grid-step: 24px;
   --workbench-grid-dot:
@@ -69,12 +78,30 @@
   --shadow-elevated: 0 0 0 1px var(--color-border);
   --focus-ring: 0 0 0 2px var(--color-primary-quiet);
 
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
+  --font-size-xs: calc(12px * var(--ui-scale));
+  --font-size-sm: calc(13px * var(--ui-scale));
+  --font-size-base: calc(14px * var(--ui-scale));
+  --font-size-lg: calc(16px * var(--ui-scale));
+  --font-size-xl: calc(20px * var(--ui-scale));
+  --font-size-2xl: calc(24px * var(--ui-scale));
+
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-md: var(--font-size-base);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+
+  --control-height-sm: calc(28px * var(--ui-scale));
+  --control-height-md: calc(34px * var(--ui-scale));
+  --control-height-lg: calc(38px * var(--ui-scale));
+  --control-padding-x: calc(12px * var(--ui-scale));
+  --control-padding-x-sm: calc(8px * var(--ui-scale));
+  --panel-padding: calc(12px * var(--ui-scale));
+  --field-gap: calc(8px * var(--ui-scale));
+  --badge-height: calc(22px * var(--ui-scale));
+  --widget-header-padding-x: calc(12px * var(--ui-scale));
+  --widget-header-padding-y: calc(8px * var(--ui-scale));
 
   --line-tight: 1.2;
   --line-normal: 1.5;

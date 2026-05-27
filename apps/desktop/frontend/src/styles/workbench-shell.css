@@ -22,14 +22,14 @@
 
 .workbench-topbar {
   display: flex;
-  min-height: 44px;
+  min-height: calc(44px * var(--ui-scale));
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  gap: var(--space-md);
+  gap: var(--field-gap);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-topbar-bg);
-  padding: var(--space-xs) var(--space-lg);
+  padding: var(--scaled-space-xs) var(--scaled-space-lg);
 }
 
 .topbar-left,
@@ -60,9 +60,9 @@
 }
 
 .layout-mode-toggle .button {
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   border-color: transparent;
-  padding: 0 var(--space-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .layout-mode-toggle .button[aria-pressed="true"] {
@@ -73,7 +73,7 @@
 
 .grid-size-control {
   display: inline-flex;
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   align-items: center;
   gap: var(--space-xs);
   color: var(--color-text-muted);
@@ -87,21 +87,21 @@
 
 .grid-size-select.select {
   min-width: 86px;
-  min-height: 28px;
-  padding: 0 var(--space-sm);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .topbar-left .select {
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   flex: 0 1 220px;
   min-width: 168px;
   max-width: 240px;
-  padding: 0 var(--space-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .close-workspace-action.button {
-  min-height: 28px;
-  padding: 0 var(--space-sm);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .workbench-close-message {
@@ -118,7 +118,7 @@
   flex: 0 0 auto;
   min-width: 112px;
   max-width: 260px;
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   overflow: hidden;
 }
 
@@ -137,13 +137,13 @@
 
 .global-activity-indicator.badge {
   max-width: 260px;
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   overflow: hidden;
 }
 
 .global-activity-toggle.button {
-  min-height: 28px;
-  padding: 0 var(--space-sm);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .global-activity-label,
@@ -557,8 +557,8 @@
 }
 
 .workbench-activity-close.button {
-  min-height: 28px;
-  padding: 0 var(--space-sm);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
 }
 
 .workbench-activity-list {
@@ -606,4 +606,20 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 1180px) {
+  .workbench-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .topbar-left,
+  .topbar-right {
+    flex-wrap: wrap;
+  }
+
+  .topbar-right {
+    justify-content: flex-start;
+  }
 }

@@ -95,7 +95,7 @@
     var(--color-io-surface) 88%,
     var(--color-app-bg)
   );
-  padding: var(--space-sm);
+  padding: var(--scaled-space-sm);
 }
 
 .terminal-shell-output-toolbar {
@@ -182,7 +182,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-widget-surface-raised);
-  padding: var(--space-sm);
+  padding: var(--scaled-space-sm);
 }
 
 .terminal-pty-stdin-row {
@@ -219,7 +219,7 @@
     var(--color-io-surface)
   );
   color: var(--color-text-primary);
-  padding: var(--space-md);
+  padding: var(--panel-padding);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: var(--line-normal);

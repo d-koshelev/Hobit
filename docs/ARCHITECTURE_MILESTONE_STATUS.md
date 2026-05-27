@@ -65,6 +65,11 @@ behavior, or Workspace Agent context wiring.
   writes existing CSS token variables in the browser, persists as a local UI
   preference, and is not Workspace-scoped, server-synced, team-shared, or
   connected to backend/runtime behavior.
+- The frontend has local UI scale presets for laptop/high-DPI usability: 90%,
+  100%, 110%, 125%, and 150%. UI scale is a frontend-local localStorage
+  preference applied through CSS variables for typography, controls, spacing,
+  and widget chrome. It is separate from workbench grid size, persisted widget
+  coordinates, and layout geometry, and it is not server/team synced.
 - Workspace Agent now has a frontend-only planning UI layer for explicit
   visible chat prompts: compact plan cards, visible Queue task draft proposal
   cards, and local-only multi-draft review controls. Queue task creation

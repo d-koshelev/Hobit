@@ -318,6 +318,8 @@ function themeController(): AppThemeController {
     selectedThemeId: "dark-default",
     selectCustomTheme: vi.fn(),
     selectPresetTheme: vi.fn(),
+    selectUiScale: vi.fn(),
+    uiScale: 1,
     updateCustomThemeValue: vi.fn(),
   };
 }

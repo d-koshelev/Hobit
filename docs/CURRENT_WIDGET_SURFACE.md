@@ -83,10 +83,13 @@ with a restrained blurple accent. The current theme choice is a local UI
 preference persisted in browser/desktop local storage under a stable frontend
 key. The custom theme option is intentionally small: it edits accent,
 background, surface, raised surface, text, muted text, and border colors only.
-Theme
-preferences are not Workspace data, are not synced across users or teams, and
-do not add backend, storage, widget, Queue, Executor, Knowledge, or runtime
-behavior.
+The same Appearance UI also supports local UI scale presets: 90%, 100%, 110%,
+125%, and 150%, with 100% as the default. UI scale is a frontend-local
+preference persisted in local storage, applies through CSS variables for text,
+controls, and widget chrome, and remains separate from workbench grid size,
+widget coordinates, and layout persistence. Theme and UI scale preferences are
+not Workspace data, are not synced across users or teams, and do not add
+backend, storage, widget, Queue, Executor, Knowledge, or runtime behavior.
 
 Empty Workbench remains available as an advanced/manual start mode. Existing
 empty Workspaces show a recovery action to add Workspace Agent plus Notes

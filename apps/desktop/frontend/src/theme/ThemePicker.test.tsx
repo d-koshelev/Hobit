@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ThemePicker } from "./ThemePicker";
 import { CUSTOM_THEME_ID, DEFAULT_THEME_ID } from "./themePresets";
 import { THEME_STORAGE_KEY } from "./themeStorage";
+import { UI_SCALE_STORAGE_KEY } from "./uiScale";
 import { useAppTheme } from "./useAppTheme";
 
 let root: Root | null = null;
@@ -22,6 +23,7 @@ afterEach(() => {
   document.body.innerHTML = "";
   document.documentElement.removeAttribute("data-hobit-theme");
   document.documentElement.removeAttribute("data-hobit-theme-mode");
+  document.documentElement.removeAttribute("data-hobit-ui-scale");
   document.documentElement.removeAttribute("style");
   window.localStorage.clear();
 });
@@ -47,6 +49,54 @@ describe("ThemePicker", () => {
     expect(document.body.textContent).toContain("Discord Dark");
     expect(document.body.textContent).toContain("Graphite");
     expect(document.body.textContent).toContain("Forest");
+  });
+
+  it("uses 100% UI scale by default", async () => {
+    renderThemePicker();
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitUiScale).toBe("1");
+    expect(rootStyle("--ui-scale")).toBe("1");
+    expect(window.localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBe("1");
+  });
+
+  it("renders UI scale options", async () => {
+    renderThemePicker();
+    await flushEffects();
+
+    clickButton("Theme");
+
+    expect(document.body.textContent).toContain("UI scale");
+    expect(document.body.textContent).toContain("90%");
+    expect(document.body.textContent).toContain("100%");
+    expect(document.body.textContent).toContain("110%");
+    expect(document.body.textContent).toContain("125%");
+    expect(document.body.textContent).toContain("150%");
+  });
+
+  it("persists selected UI scale and updates root variables", async () => {
+    renderThemePicker();
+    await flushEffects();
+
+    clickButton("Theme");
+    clickButton("125%");
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitUiScale).toBe("1.25");
+    expect(rootStyle("--ui-scale")).toBe("1.25");
+    expect(rootStyle("--ui-scale-percent")).toBe("125%");
+    expect(window.localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBe("1.25");
+  });
+
+  it("falls back to 100% UI scale when stored scale is invalid", async () => {
+    window.localStorage.setItem(UI_SCALE_STORAGE_KEY, "2");
+
+    renderThemePicker();
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitUiScale).toBe("1");
+    expect(rootStyle("--ui-scale")).toBe("1");
+    expect(window.localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBe("1");
   });
 
   it("persists a selected preset and updates theme variables", async () => {

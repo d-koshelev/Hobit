@@ -16,7 +16,7 @@
     var(--color-widget-surface-raised) 72%,
     transparent
   );
-  padding: var(--space-xs);
+  padding: var(--scaled-space-xs);
 }
 
 .agent-queue-task-list-pane,
@@ -146,9 +146,9 @@
 }
 
 .agent-queue-filter-select {
-  min-height: 32px;
+  min-height: var(--control-height-md);
   max-width: 142px;
-  padding-block: 4px;
+  padding-block: var(--scaled-space-xs);
 }
 
 .agent-queue-task-list {
@@ -276,7 +276,7 @@
 .agent-queue-title-input,
 .agent-queue-status-select,
 .agent-queue-priority-input {
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 
 .agent-queue-description-input {
@@ -518,7 +518,7 @@
 
 .agent-queue-assignment-select,
 .agent-queue-run-select {
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 
 .agent-queue-assignment-note,
@@ -677,7 +677,7 @@
   border-radius: var(--radius-md);
   background: var(--color-overlay-surface);
   box-shadow: var(--shadow-elevated);
-  padding: var(--space-md);
+  padding: var(--panel-padding);
 }
 
 .agent-queue-create-dialog-header,
