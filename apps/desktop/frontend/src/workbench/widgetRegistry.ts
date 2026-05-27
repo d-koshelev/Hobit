@@ -96,7 +96,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tool",
-    description: "One-shot local command widget for the desktop shell.",
+    description:
+      "Classic manual terminal surface with collapsed PTY settings and legacy fallback.",
     defaultTitle: "Terminal",
     defaultConfig: {},
     componentKey: TERMINAL_PLACEHOLDER_COMPONENT_KEY,

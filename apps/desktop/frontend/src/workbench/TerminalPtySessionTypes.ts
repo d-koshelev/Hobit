@@ -1,6 +1,8 @@
 import type {
   CreateTerminalPtySessionRequest,
   ResizeTerminalPtySessionRequest,
+  RunTerminalCommandRequest,
+  RunTerminalCommandResponse,
   TerminalPtySession,
   TerminalPtySessionActionRequest,
   WriteTerminalPtySessionRequest,
@@ -37,6 +39,13 @@ export type TerminalPtySessionPanelProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
   ) => Promise<TerminalPtySession | null>;
+  onRunTerminalCommand?: (
+    widgetInstanceId: WidgetInstanceId,
+    command: Omit<
+      RunTerminalCommandRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<RunTerminalCommandResponse | null>;
   onStopTerminalPtySession?: TerminalPtyAction;
   onWriteTerminalPtySession?: (
     widgetInstanceId: WidgetInstanceId,

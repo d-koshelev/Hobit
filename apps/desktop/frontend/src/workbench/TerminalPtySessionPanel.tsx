@@ -16,6 +16,7 @@ import {
   positiveIntegerInputError,
   TerminalNotice,
   TerminalNumberField,
+  TerminalRunCommandPanel,
 } from "./TerminalRunCommandPanel";
 import {
   isTerminalPtyActive,
@@ -43,10 +44,12 @@ export function TerminalPtySessionPanel({
   onGetTerminalPtySession,
   onKillTerminalPtySession,
   onResizeTerminalPtySession,
+  onRunTerminalCommand,
   onStopTerminalPtySession,
   onWriteTerminalPtySession,
 }: TerminalPtySessionPanelProps) {
   const panelTitleId = useId();
+  const settingsTitleId = useId();
   const shellInputId = useId();
   const shellArgsInputId = useId();
   const workingDirectoryInputId = useId();
@@ -73,6 +76,8 @@ export function TerminalPtySessionPanel({
   const [isClosing, setIsClosing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [killConfirmOpen, setKillConfirmOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -89,6 +94,9 @@ export function TerminalPtySessionPanel({
   const activeSession = Boolean(session && isTerminalPtyActive(session));
   const hasOpenSession = Boolean(session && session.status !== "closed");
   const statusView = terminalPtyStatusView(session, errorMessage, isStarting);
+  const shellLabel = session?.shell || shell || "powershell.exe";
+  const workingDirectoryLabel =
+    session?.workingDirectory || workingDirectory || "Not selected";
   const visibleOutput = useMemo(
     () => terminalPtyVisibleOutput(session, clearedThroughSequence),
     [clearedThroughSequence, session],
@@ -110,8 +118,10 @@ export function TerminalPtySessionPanel({
     activeSession &&
     !numericInputError &&
     !isResizing;
-  const canStop = Boolean(onStopTerminalPtySession) && activeSession && !isStopping;
-  const canKill = Boolean(onKillTerminalPtySession) && activeSession && !isKilling;
+  const canStop =
+    Boolean(onStopTerminalPtySession) && activeSession && !isStopping;
+  const canKill =
+    Boolean(onKillTerminalPtySession) && activeSession && !isKilling;
   const canClose =
     Boolean(onCloseTerminalPtySession) &&
     Boolean(session) &&
@@ -380,288 +390,353 @@ export function TerminalPtySessionPanel({
 
   return (
     <section aria-labelledby={panelTitleId} className="terminal-pty-panel">
-      <div className="terminal-command-header">
-        <div className="terminal-command-copy">
-          <h3 className="terminal-command-title" id={panelTitleId}>
-            PTY session
-          </h3>
-          <p className="terminal-command-text">
-            Start a visible manual shell inside an explicit execution workspace.
-          </p>
-          <p className="terminal-command-boundary">
-            No command history, tabs, splits, persistence, AI execution, or
-            hidden background sessions.
-          </p>
-        </div>
-        <Badge variant={statusView.variant}>{statusView.label}</Badge>
-      </div>
-
-      <div className="terminal-command-main-grid">
-        <div className="terminal-command-field">
-          <label className="terminal-command-label" htmlFor={shellInputId}>
-            Shell executable
-          </label>
-          <Input
-            autoCapitalize="off"
-            autoComplete="off"
-            disabled={activeSession || isStarting}
-            id={shellInputId}
-            onChange={(event) => setShellDraft(event.target.value)}
-            placeholder="powershell.exe"
-            spellCheck={false}
-            type="text"
-            value={shellDraft}
-          />
-        </div>
-
-        <div className="terminal-command-field">
-          <label
-            className="terminal-command-label"
-            htmlFor={workingDirectoryInputId}
-          >
-            Execution workspace
-          </label>
-          <Input
-            autoComplete="off"
-            disabled={activeSession || isStarting}
-            id={workingDirectoryInputId}
-            onChange={(event) => setWorkingDirectoryDraft(event.target.value)}
-            placeholder="C:\\path\\to\\workspace"
-            spellCheck={false}
-            type="text"
-            value={workingDirectoryDraft}
-          />
-        </div>
-
-        <div className="terminal-command-field terminal-command-field-wide">
-          <label className="terminal-command-label" htmlFor={shellArgsInputId}>
-            Shell args
-          </label>
-          <textarea
-            autoCapitalize="off"
-            autoComplete="off"
-            className="input terminal-command-args-textarea"
-            disabled={activeSession || isStarting}
-            id={shellArgsInputId}
-            onChange={(event) => setShellArgsDraft(event.target.value)}
-            placeholder="-NoLogo"
-            spellCheck={false}
-            value={shellArgsDraft}
-          />
-          <p className="terminal-command-note">
-            Optional. One argument per line. Typed commands are interpreted by
-            the selected shell.
-          </p>
+      <div className="terminal-shell">
+        <div className="terminal-shell-header">
+          <div className="terminal-shell-title-row">
+            <h3 className="terminal-shell-title" id={panelTitleId}>
+              Terminal
+            </h3>
+            <Badge variant={statusView.variant}>{statusView.label}</Badge>
+          </div>
+          <div className="terminal-shell-meta" aria-label="Terminal context">
+            <label
+              className="terminal-shell-working-directory"
+              htmlFor={workingDirectoryInputId}
+            >
+              <span className="terminal-shell-meta-label">
+                Working directory
+              </span>
+              <Input
+                autoComplete="off"
+                className="terminal-shell-working-directory-input"
+                disabled={activeSession || isStarting}
+                id={workingDirectoryInputId}
+                onChange={(event) =>
+                  setWorkingDirectoryDraft(event.target.value)
+                }
+                placeholder="C:\\path\\to\\workspace"
+                spellCheck={false}
+                type="text"
+                value={workingDirectoryDraft}
+              />
+            </label>
+            <span className="terminal-shell-meta-item">
+              <span className="terminal-shell-meta-label">Shell</span>
+              <span className="terminal-shell-meta-value">{shellLabel}</span>
+            </span>
+          </div>
+          <div className="terminal-shell-actions">
+            {!hasOpenSession ? (
+              <Button
+                disabled={!canStart}
+                onClick={startSession}
+                variant="primary"
+              >
+                {isStarting ? "Starting..." : "Start"}
+              </Button>
+            ) : null}
+            {activeSession ? (
+              <Button
+                disabled={!canStop}
+                onClick={stopSession}
+                variant="secondary"
+              >
+                {isStopping ? "Stopping..." : "Stop"}
+              </Button>
+            ) : null}
+            {canClose ? (
+              <Button
+                disabled={!canClose}
+                onClick={closeSession}
+                variant="secondary"
+              >
+                {isClosing ? "Closing..." : "Close"}
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="terminal-command-controls terminal-command-field-wide">
-          <TerminalNumberField
-            error={colsError}
-            id={colsInputId}
-            label="Columns"
-            onChange={setColsDraft}
-            value={colsDraft}
+        {errorMessage ? (
+          <TerminalNotice
+            message={errorMessage}
+            title={
+              isUnsupportedError(errorMessage) ? "Unsupported" : "Terminal error"
+            }
+            variant={isUnsupportedError(errorMessage) ? "info" : "error"}
           />
-          <TerminalNumberField
-            error={rowsError}
-            id={rowsInputId}
-            label="Rows"
-            onChange={setRowsDraft}
-            value={rowsDraft}
+        ) : null}
+
+        {!workingDirectory && !activeSession ? (
+          <TerminalNotice
+            message="Terminal runs local commands in the selected working directory."
+            title="Working directory required"
+            variant="info"
           />
-          <TerminalNumberField
-            error={outputCapError}
-            id={outputCapInputId}
-            label="Output cap bytes"
-            onChange={setOutputCapDraft}
-            value={outputCapDraft}
-          />
-        </div>
+        ) : null}
 
         {numericInputError ? (
           <p className="terminal-command-validation" role="alert">
             {numericInputError}
           </p>
         ) : null}
-      </div>
 
-      <div className="terminal-pty-actions">
-        <Button disabled={!canStart} onClick={startSession} variant="primary">
-          {isStarting
-            ? "Starting..."
-            : hasOpenSession
-              ? "Close session first"
-              : "Start session"}
-        </Button>
-        <Button
-          disabled={!canResize}
-          onClick={resizeSession}
-          variant="secondary"
-        >
-          {isResizing ? "Resizing..." : "Apply size"}
-        </Button>
-        <Button
-          disabled={
-            !session ||
-            session.status === "closed" ||
-            !onGetTerminalPtySession ||
-            isRefreshing
-          }
-          onClick={() => void refreshSession(false)}
-          variant="secondary"
-        >
-          {isRefreshing ? "Refreshing..." : "Refresh output"}
-        </Button>
-        <Button disabled={!canStop} onClick={stopSession} variant="secondary">
-          {isStopping ? "Stopping..." : "Stop"}
-        </Button>
-        <span className="terminal-pty-kill-action">
-          <Button
-            className="terminal-pty-kill-button"
-            disabled={!canKill}
-            onClick={() => setKillConfirmOpen(true)}
-            variant="secondary"
-          >
-            Kill
-          </Button>
-          {killConfirmOpen ? (
-            <span className="terminal-pty-kill-confirm" role="alert">
-              <span className="terminal-run-notice-title">
-                Force terminate session?
-              </span>
-              <span className="terminal-run-notice-text">
-                Kill stops only the owned shell process. File changes already
-                written by commands are not rolled back.
-              </span>
-              <span className="terminal-pty-kill-confirm-actions">
-                <Button
-                  className="terminal-pty-kill-button"
-                  disabled={isKilling}
-                  onClick={killSession}
-                  variant="secondary"
-                >
-                  {isKilling ? "Killing..." : "Confirm kill"}
-                </Button>
-                <Button
-                  disabled={isKilling}
-                  onClick={() => setKillConfirmOpen(false)}
-                  variant="ghost"
-                >
-                  Cancel
-                </Button>
-              </span>
+        <div className="terminal-shell-output-panel">
+          <div className="terminal-shell-output-toolbar">
+            <span className="terminal-shell-path" title={workingDirectoryLabel}>
+              {workingDirectoryLabel}
             </span>
-          ) : null}
-        </span>
-        <Button disabled={!canClose} onClick={closeSession} variant="secondary">
-          {isClosing ? "Closing..." : "Close"}
-        </Button>
-      </div>
-
-      {!workingDirectory && !activeSession ? (
-        <TerminalNotice
-          message="Provide an explicit execution workspace before starting a PTY session. Hobit does not default Terminal sessions to home, Documents, Downloads, or drive roots."
-          title="Not configured"
-          variant="info"
-        />
-      ) : null}
-
-      {activeSession ? (
-        <TerminalNotice
-          message="Output is read from the bounded backend session buffer by periodic refresh. Event streaming, tabs, splits, command history, and transcript persistence are not implemented."
-          title="Session output"
-          variant="info"
-        />
-      ) : null}
-
-      {session && activeSession ? (
-        <TerminalNotice
-          message="Stop asks the shell to exit gracefully. Kill force terminates the owned shell process and does not roll back written files."
-          title="Stop and kill boundary"
-          variant="info"
-        />
-      ) : null}
-
-      {errorMessage ? (
-        <TerminalNotice
-          message={errorMessage}
-          title={isUnsupportedError(errorMessage) ? "Unsupported" : "PTY request failed"}
-          variant={isUnsupportedError(errorMessage) ? "info" : "error"}
-        />
-      ) : null}
-
-      <TerminalPtySessionSummary session={session} />
-
-      <div className="terminal-pty-stdin-row">
-        <label className="terminal-command-label" htmlFor={stdinInputId}>
-          Stdin
-        </label>
-        <textarea
-          autoCapitalize="off"
-          autoComplete="off"
-          className="input terminal-pty-stdin"
-          disabled={!activeSession || isSending}
-          id={stdinInputId}
-          onChange={(event) => setStdinDraft(event.target.value)}
-          onKeyDown={handleStdinKeyDown}
-          placeholder="echo hello"
-          spellCheck={false}
-          value={stdinDraft}
-        />
-        <div className="terminal-pty-actions">
-          <Button disabled={!canSend} onClick={sendStdinLine} variant="primary">
-            {isSending ? "Sending..." : "Send line"}
-          </Button>
-          <p className="terminal-command-note">
-            Enter sends one line. Shift+Enter inserts a newline.
-          </p>
-        </div>
-      </div>
-
-      <div className="terminal-result-card terminal-pty-output-card">
-        <div className="terminal-result-header">
-          <div className="terminal-result-copy">
-            <h3 className="terminal-result-title">Session buffer</h3>
-            <p className="terminal-result-text">
-              Runtime-only PTY output. The backend buffer is bounded and not
-              persisted.
-            </p>
+            <span className="terminal-shell-output-actions">
+              <Button
+                disabled={
+                  !session ||
+                  session.status === "closed" ||
+                  !onGetTerminalPtySession ||
+                  isRefreshing
+                }
+                onClick={() => void refreshSession(false)}
+                variant="secondary"
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+              <Button
+                disabled={!visibleOutput}
+                onClick={copyVisibleOutput}
+                variant="secondary"
+              >
+                Copy
+              </Button>
+              <Button
+                disabled={!session || maxOutputSequence(session) === 0}
+                onClick={clearVisibleOutput}
+                variant="secondary"
+              >
+                Clear
+              </Button>
+            </span>
           </div>
-          <span className="terminal-pty-actions">
-            <Button
-              disabled={!visibleOutput}
-              onClick={copyVisibleOutput}
-              variant="secondary"
-            >
-              Copy
-            </Button>
-            <Button
-              disabled={!session || maxOutputSequence(session) === 0}
-              onClick={clearVisibleOutput}
-              variant="secondary"
-            >
-              Clear
-            </Button>
-          </span>
+          {copyStatus ? (
+            <p className="terminal-command-note" role="status">
+              {copyStatus}
+            </p>
+          ) : null}
+          {session?.output.droppedBytes ? (
+            <p className="terminal-command-validation">
+              {session.output.droppedBytes} output bytes were dropped by the
+              bounded backend buffer.
+            </p>
+          ) : null}
+          <pre aria-label="Terminal PTY output" className="terminal-pty-output">
+            <code>
+              {visibleOutput || "Start a terminal session to run commands."}
+            </code>
+          </pre>
         </div>
-        {copyStatus ? (
-          <p className="terminal-command-note" role="status">
-            {copyStatus}
-          </p>
-        ) : null}
-        {session?.output.droppedBytes ? (
-          <p className="terminal-command-validation">
-            {session.output.droppedBytes} output bytes were dropped by the
-            bounded backend buffer.
-          </p>
-        ) : null}
-        <pre aria-label="Terminal PTY output" className="terminal-pty-output">
-          <code>
-            {visibleOutput ||
-              "Start a session to see shell output. Use Refresh output if the session is idle between automatic refreshes."}
-          </code>
-        </pre>
+
+        <div className="terminal-prompt-row">
+          <label className="terminal-prompt-label" htmlFor={stdinInputId}>
+            &gt;
+          </label>
+          <textarea
+            autoCapitalize="off"
+            autoComplete="off"
+            className="input terminal-pty-stdin"
+            disabled={!activeSession || isSending}
+            id={stdinInputId}
+            onChange={(event) => setStdinDraft(event.target.value)}
+            onKeyDown={handleStdinKeyDown}
+            placeholder="Type a command"
+            spellCheck={false}
+            value={stdinDraft}
+          />
+          <Button disabled={!canSend} onClick={sendStdinLine} variant="primary">
+            {isSending ? "Sending..." : "Send"}
+          </Button>
+        </div>
       </div>
+
+      <details
+        aria-labelledby={settingsTitleId}
+        className="terminal-settings"
+        onToggle={(event) => {
+          if (event.currentTarget !== event.target) {
+            return;
+          }
+          setSettingsOpen(event.currentTarget.open);
+        }}
+      >
+        <summary className="terminal-settings-summary" id={settingsTitleId}>
+          Terminal settings
+        </summary>
+        {settingsOpen ? (
+          <div className="terminal-settings-body">
+            <p className="terminal-command-note">
+              No persistent sessions yet. Configure shell and PTY settings
+              here.
+            </p>
+
+            <div className="terminal-command-main-grid">
+              <div className="terminal-command-field">
+                <label className="terminal-command-label" htmlFor={shellInputId}>
+                  Shell executable
+                </label>
+                <Input
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  disabled={activeSession || isStarting}
+                  id={shellInputId}
+                  onChange={(event) => setShellDraft(event.target.value)}
+                  placeholder="powershell.exe"
+                  spellCheck={false}
+                  type="text"
+                  value={shellDraft}
+                />
+              </div>
+
+              <div className="terminal-command-field">
+                <TerminalNumberField
+                  error={outputCapError}
+                  id={outputCapInputId}
+                  label="Output cap bytes"
+                  onChange={setOutputCapDraft}
+                  value={outputCapDraft}
+                />
+              </div>
+
+              <div className="terminal-command-field terminal-command-field-wide">
+                <label
+                  className="terminal-command-label"
+                  htmlFor={shellArgsInputId}
+                >
+                  Shell args
+                </label>
+                <textarea
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  className="input terminal-command-args-textarea"
+                  disabled={activeSession || isStarting}
+                  id={shellArgsInputId}
+                  onChange={(event) => setShellArgsDraft(event.target.value)}
+                  placeholder="-NoLogo"
+                  spellCheck={false}
+                  value={shellArgsDraft}
+                />
+                <p className="terminal-command-note">
+                  Optional. One argument per line. Typed commands are
+                  interpreted by the selected shell.
+                </p>
+              </div>
+
+              <div className="terminal-command-controls terminal-command-field-wide">
+                <TerminalNumberField
+                  error={colsError}
+                  id={colsInputId}
+                  label="Columns"
+                  onChange={setColsDraft}
+                  value={colsDraft}
+                />
+                <TerminalNumberField
+                  error={rowsError}
+                  id={rowsInputId}
+                  label="Rows"
+                  onChange={setRowsDraft}
+                  value={rowsDraft}
+                />
+                <div className="terminal-command-field">
+                  <span className="terminal-command-label">Session size</span>
+                  <Button
+                    disabled={!canResize}
+                    onClick={resizeSession}
+                    variant="secondary"
+                  >
+                    {isResizing ? "Resizing..." : "Apply size"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <TerminalPtySessionSummary session={session} />
+
+            <div className="terminal-settings-safety">
+              <p className="terminal-command-note">
+                Output is a bounded runtime-only buffer and is not persisted.
+                Enter sends one line; Shift+Enter inserts a newline.
+              </p>
+              <div className="terminal-pty-actions">
+                <span className="terminal-pty-kill-action">
+                  <Button
+                    className="terminal-pty-kill-button"
+                    disabled={!canKill}
+                    onClick={() => setKillConfirmOpen(true)}
+                    variant="secondary"
+                  >
+                    Kill
+                  </Button>
+                  {killConfirmOpen ? (
+                    <span className="terminal-pty-kill-confirm" role="alert">
+                      <span className="terminal-run-notice-title">
+                        Force terminate session?
+                      </span>
+                      <span className="terminal-run-notice-text">
+                        Kill stops only the owned shell process. File changes
+                        already written by commands are not rolled back.
+                      </span>
+                      <span className="terminal-pty-kill-confirm-actions">
+                        <Button
+                          className="terminal-pty-kill-button"
+                          disabled={isKilling}
+                          onClick={killSession}
+                          variant="secondary"
+                        >
+                          {isKilling ? "Killing..." : "Confirm kill"}
+                        </Button>
+                        <Button
+                          disabled={isKilling}
+                          onClick={() => setKillConfirmOpen(false)}
+                          variant="ghost"
+                        >
+                          Cancel
+                        </Button>
+                      </span>
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            </div>
+
+            <details
+              className="terminal-legacy-runner"
+              onToggle={(event) => {
+                if (event.currentTarget !== event.target) {
+                  return;
+                }
+                setLegacyFallbackOpen(event.currentTarget.open);
+              }}
+            >
+              <summary className="terminal-legacy-runner-summary">
+                Legacy one-shot command fallback
+              </summary>
+              <p className="terminal-legacy-runner-copy">
+                Compatibility path for one bounded program/argv run. PTY
+                sessions are the normal Terminal surface.
+              </p>
+              {legacyFallbackOpen ? (
+                activeSession ? (
+                  <TerminalNotice
+                    message="Stop or kill the active terminal session before using the legacy one-shot command fallback."
+                    title="Terminal session active"
+                    variant="info"
+                  />
+                ) : (
+                  <TerminalRunCommandPanel
+                    instance={instance}
+                    onRunTerminalCommand={onRunTerminalCommand}
+                  />
+                )
+              ) : null}
+            </details>
+          </div>
+        ) : null}
+      </details>
     </section>
   );
 }

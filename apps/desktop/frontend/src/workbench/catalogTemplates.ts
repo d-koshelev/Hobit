@@ -89,13 +89,14 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     id: TERMINAL_WIDGET_DEFINITION_ID,
     title: "Terminal",
     category: "tools",
-    description: "Desktop one-shot local command runner, not an interactive shell.",
+    description:
+      "Classic manual terminal surface for explicit desktop PTY sessions.",
     section: "ready",
     status: "available",
     capabilitySummary: [
-      "Explicit program plus argv",
-      "Final stdout/stderr result",
-      "No shell, PTY, streaming, or command history",
+      "Explicit working directory and shell",
+      "Session-only output buffer",
+      "Advanced PTY settings and one-shot fallback are collapsed",
     ],
     futureWidgetDefinitionId: TERMINAL_WIDGET_DEFINITION_ID,
   },
