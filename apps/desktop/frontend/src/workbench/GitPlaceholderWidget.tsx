@@ -5,7 +5,6 @@ import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { isTauriRuntime } from "../workspace/tauriEnvironment";
 import type {
-  GitCommitResponse,
   GitFileDiff,
   GitLog,
   GitRepositoryStatus,
@@ -13,15 +12,13 @@ import type {
 import {
   GitStatusErrorNotice,
 } from "./GitPlaceholderSections";
-import { GitWidgetCommitPanel } from "./GitWidgetCommitPanel";
+import { GitChangesPanel } from "./GitChangesPanel";
+import { GitCommitPanel } from "./GitCommitPanel";
+import { GitDiffPanel } from "./GitDiffPanel";
+import { GitHistoryPanel } from "./GitHistoryPanel";
 import {
   aheadBehindLabel,
   branchLabel,
-  gitChangedFileGroups,
-  gitChangedFilePathLabel,
-  gitChangeAreaLabel,
-  gitChangeKindBadgeVariant,
-  gitChangeKindLabel,
   gitFrameStatusView,
   gitStatusErrorViewFromCategory,
   gitStatusErrorViewFromUnknown,
@@ -373,34 +370,34 @@ export function GitPlaceholderWidget({
       }} />
 
       {activeTab === "changes" ? (
-        <GitChangesTab
+        <GitChangesPanel
+          changedFiles={gitStatus?.changedFiles ?? null}
           onSelectFile={(path) => void selectChangedFile(path)}
           selectedFilePath={selectedFilePath}
-          status={gitStatus}
         />
       ) : null}
 
       {activeTab === "diff" ? (
-        <GitDiffTab
-          diff={fileDiff}
+        <GitDiffPanel
+          diffResult={fileDiff}
           error={diffError}
-          isLoading={isLoadingDiff}
-          onRefresh={() => void loadFileDiff()}
+          isLoadingDiff={isLoadingDiff}
+          onRefreshDiff={() => void loadFileDiff()}
           selectedFilePath={selectedFilePath}
         />
       ) : null}
 
       {activeTab === "history" ? (
-        <GitHistoryTab
+        <GitHistoryPanel
           error={historyError}
-          isLoading={isLoadingHistory}
-          log={gitLog}
-          onRefresh={() => void loadHistory()}
+          historyEntries={gitLog?.entries ?? null}
+          isLoadingHistory={isLoadingHistory}
+          onRefreshHistory={() => void loadHistory()}
         />
       ) : null}
 
       {activeTab === "commit" ? (
-        <GitCommitTab
+        <GitCommitPanel
           onCreateGitCommit={createGitCommit}
           onRefreshStatusAfterCommit={refreshStatusAfterCommit}
           repositoryRoot={statusRepositoryRoot}
@@ -500,228 +497,6 @@ function GitTabs({
           {tab.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function GitChangesTab({
-  onSelectFile,
-  selectedFilePath,
-  status,
-}: {
-  onSelectFile: (path: string) => void;
-  selectedFilePath: string | null;
-  status: GitRepositoryStatus | null;
-}) {
-  if (!status) {
-    return <GitEmptyState title="No repository loaded" text="Enter a repo path and refresh." />;
-  }
-
-  const groups = gitChangedFileGroups(status.changedFiles).filter(
-    (group) => group.files.length > 0,
-  );
-
-  return (
-    <section className="git-tab-panel" role="tabpanel">
-      <div className="git-panel-header">
-        <h3 className="git-panel-title">Changes</h3>
-        <Badge variant={status.changedFiles.length > 0 ? "warning" : "success"}>
-          {status.changedFiles.length} changed files
-        </Badge>
-      </div>
-      {status.changedFiles.length === 0 ? (
-        <GitEmptyState title="No local changes" text="Working tree is clean." />
-      ) : (
-        <div className="git-review-file-groups">
-          {groups.map((group) => (
-            <section className="git-review-file-group" key={group.key}>
-              <div className="git-review-file-group-header">
-                <h4 className="git-review-file-group-title">{group.title}</h4>
-                <Badge variant={group.badgeVariant}>{group.files.length}</Badge>
-              </div>
-              <div className="git-review-file-list">
-                {group.files.map((file, index) => (
-                  <button
-                    className={`git-review-file-row${
-                      selectedFilePath === file.path ? " git-review-file-row-selected" : ""
-                    }`}
-                    key={`${file.area}-${file.kind}-${file.path}-${index}`}
-                    onClick={() => onSelectFile(file.path)}
-                    type="button"
-                  >
-                    <code className="git-review-file-path">
-                      {gitChangedFilePathLabel(file)}
-                    </code>
-                    <span className="git-review-file-meta">
-                      <Badge variant={gitChangeKindBadgeVariant(file.kind)}>
-                        {gitChangeKindLabel(file.kind)}
-                      </Badge>
-                      <Badge variant="neutral">{gitChangeAreaLabel(file.area)}</Badge>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function GitDiffTab({
-  diff,
-  error,
-  isLoading,
-  onRefresh,
-  selectedFilePath,
-}: {
-  diff: GitFileDiff | null;
-  error: string | null;
-  isLoading: boolean;
-  onRefresh: () => void;
-  selectedFilePath: string | null;
-}) {
-  return (
-    <section className="git-tab-panel git-diff-panel" role="tabpanel">
-      <div className="git-panel-header">
-        <div className="git-panel-copy">
-          <h3 className="git-panel-title">Diff</h3>
-          <p className="git-panel-subtitle">
-            {selectedFilePath ?? "Select a changed file"}
-          </p>
-        </div>
-        <Button disabled={!selectedFilePath || isLoading} onClick={onRefresh} variant="secondary">
-          {isLoading ? "Loading..." : "Reload diff"}
-        </Button>
-      </div>
-      {!selectedFilePath ? (
-        <GitEmptyState title="No file selected" text="Choose a changed file to review its diff." />
-      ) : error ? (
-        <GitEmptyState title="Diff unavailable" text={error} tone="error" />
-      ) : isLoading ? (
-        <GitEmptyState title="Loading diff" text="Reading selected-file diff." />
-      ) : diff?.patch ? (
-        <>
-          {diff.errorMessage ? (
-            <p className="git-inline-status">{diff.errorMessage}</p>
-          ) : null}
-          <pre className="git-diff-output">
-            <code>{diff.patch}</code>
-          </pre>
-        </>
-      ) : diff ? (
-        <GitEmptyState
-          title={diff.status === "untracked" ? "Untracked file" : "No diff output"}
-          text={diff.errorMessage ?? "Git returned no patch for this file."}
-        />
-      ) : (
-        <GitEmptyState title="No diff loaded" text="Select a changed file from Changes." />
-      )}
-    </section>
-  );
-}
-
-function GitHistoryTab({
-  error,
-  isLoading,
-  log,
-  onRefresh,
-}: {
-  error: string | null;
-  isLoading: boolean;
-  log: GitLog | null;
-  onRefresh: () => void;
-}) {
-  return (
-    <section className="git-tab-panel" role="tabpanel">
-      <div className="git-panel-header">
-        <h3 className="git-panel-title">History</h3>
-        <Button disabled={isLoading} onClick={onRefresh} variant="secondary">
-          {isLoading ? "Loading..." : "Refresh history"}
-        </Button>
-      </div>
-      {error ? (
-        <GitEmptyState title="History unavailable" text={error} tone="error" />
-      ) : isLoading ? (
-        <GitEmptyState title="Loading history" text="Reading recent commits." />
-      ) : !log ? (
-        <GitEmptyState title="History not loaded" text="Open History to load recent commits." />
-      ) : log.entries.length === 0 ? (
-        <GitEmptyState title="No commits" text="Git returned no recent commits." />
-      ) : (
-        <div className="git-history-list">
-          {log.entries.map((entry) => (
-            <article className="git-history-row" key={entry.hash}>
-              <code className="git-history-hash">{entry.shortHash}</code>
-              <div className="git-history-main">
-                <h4 className="git-history-subject">{entry.subject}</h4>
-                <p className="git-history-meta">
-                  {entry.author} · {entry.date}
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function GitCommitTab({
-  onCreateGitCommit,
-  onRefreshStatusAfterCommit,
-  repositoryRoot,
-  status,
-}: {
-  onCreateGitCommit: (request: {
-    commitMessage: string;
-    includedFiles: string[];
-    repoRoot: string;
-  }) => Promise<GitCommitResponse | null>;
-  onRefreshStatusAfterCommit: () => Promise<void>;
-  repositoryRoot: string | null;
-  status: GitRepositoryStatus | null;
-}) {
-  if (!status) {
-    return (
-      <section className="git-tab-panel" role="tabpanel">
-        <GitEmptyState title="Commit unavailable" text="Load a repository status first." />
-      </section>
-    );
-  }
-
-  if (status.changedFiles.length === 0) {
-    return (
-      <section className="git-tab-panel" role="tabpanel">
-        <GitEmptyState title="No local changes" text="Nothing to commit." />
-      </section>
-    );
-  }
-
-  return (
-    <GitWidgetCommitPanel
-      onCreateGitCommit={onCreateGitCommit}
-      onRefreshStatusAfterCommit={onRefreshStatusAfterCommit}
-      repositoryRoot={repositoryRoot}
-      status={status}
-    />
-  );
-}
-
-function GitEmptyState({
-  text,
-  title,
-  tone = "neutral",
-}: {
-  text: string;
-  title: string;
-  tone?: "neutral" | "error";
-}) {
-  return (
-    <div className={`git-empty-state git-empty-state-${tone}`}>
-      <p className="git-empty-title">{title}</p>
-      <p className="git-empty-text">{text}</p>
     </div>
   );
 }
