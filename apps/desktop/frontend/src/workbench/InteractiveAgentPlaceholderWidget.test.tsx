@@ -865,6 +865,26 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     });
   });
 
+  it("selecting a Linux working directory with Browse does not start Codex automatically", async () => {
+    const startDirectWork = vi.fn();
+    const selectWorkspaceDirectory = vi.fn(
+      async () => "/home/dmitry/work/browsed",
+    );
+    renderWidget({
+      onSelectWorkspaceDirectory: selectWorkspaceDirectory,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await clickButton("Browse");
+
+    expect(selectWorkspaceDirectory).toHaveBeenCalledTimes(1);
+    expect(textInputValue()).toBe("/home/dmitry/work/browsed");
+    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain(
+      "Starting new Codex thread",
+    );
+  });
+
   it("requires a working directory before starting Codex", async () => {
     const startDirectWork = vi.fn();
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });

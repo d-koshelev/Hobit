@@ -28,6 +28,46 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("Workspace directory API adapters", () => {
+  it("uses the narrow Tauri directory picker command", async () => {
+    const invoke = vi.fn(async () => "C:/work/selected");
+    const { tauriWorkspaceApi } = await loadTauriWorkspaceApi(invoke);
+
+    const selectedDirectory = await tauriWorkspaceApi.selectWorkspaceDirectory();
+
+    expect(selectedDirectory).toBe("C:/work/selected");
+    expect(invoke).toHaveBeenCalledWith("select_workspace_directory");
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null when the Tauri directory picker is canceled", async () => {
+    const invoke = vi.fn(async () => null);
+    const { tauriWorkspaceApi } = await loadTauriWorkspaceApi(invoke);
+
+    await expect(tauriWorkspaceApi.selectWorkspaceDirectory()).resolves.toBe(
+      null,
+    );
+  });
+
+  it("accepts Linux absolute directory paths returned by the desktop picker", async () => {
+    const invoke = vi.fn(async () => "/home/dmitry/work/hobit");
+    const { tauriWorkspaceApi } = await loadTauriWorkspaceApi(invoke);
+
+    await expect(tauriWorkspaceApi.selectWorkspaceDirectory()).resolves.toBe(
+      "/home/dmitry/work/hobit",
+    );
+  });
+
+  it("keeps the browser memory fallback as a no-op directory picker", async () => {
+    vi.resetModules();
+    const { memoryWorkspaceApi } = await import("../workspace/memoryWorkspaceApi");
+
+    await expect(memoryWorkspaceApi.selectWorkspaceDirectory()).resolves.toBe(
+      null,
+    );
+  });
+});
+
 describe("WorkspaceAgentDirectModePanel", () => {
   it("renders the full working directory value and title", () => {
     const directory =
@@ -65,6 +105,18 @@ describe("WorkspaceAgentDirectModePanel", () => {
     await clickButtonByLabel("Browse for working directory");
 
     expect(onDirectoryChange).toHaveBeenCalledWith("C:/work/selected");
+  });
+
+  it("accepts Linux directory paths through the existing Browse callback", async () => {
+    const onDirectoryChange = vi.fn();
+    const onSelectWorkspaceDirectory = vi.fn(
+      async () => "/home/dmitry/work/hobit",
+    );
+    renderPanel({ onDirectoryChange, onSelectWorkspaceDirectory });
+
+    await clickButtonByLabel("Browse for working directory");
+
+    expect(onDirectoryChange).toHaveBeenCalledWith("/home/dmitry/work/hobit");
   });
 
   it("leaves the working directory unchanged when Browse is canceled", async () => {
@@ -337,4 +389,27 @@ async function setInputValue(value: string) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
+}
+
+async function loadTauriWorkspaceApi(
+  invoke: (command: string, args?: unknown) => Promise<unknown>,
+) {
+  vi.resetModules();
+  vi.doMock("@tauri-apps/api/core", () => ({
+    invoke,
+  }));
+  vi.doMock("@tauri-apps/api/event", () => ({
+    listen: vi.fn(),
+  }));
+  vi.doMock("@tauri-apps/api/path", () => ({
+    homeDir: vi.fn(),
+  }));
+
+  try {
+    return await import("../workspace/tauriWorkspaceApi");
+  } finally {
+    vi.doUnmock("@tauri-apps/api/core");
+    vi.doUnmock("@tauri-apps/api/event");
+    vi.doUnmock("@tauri-apps/api/path");
+  }
 }

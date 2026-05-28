@@ -421,9 +421,14 @@ Workspace Agent is the foreground interactive agent surface.
   so the default home-directory mode can start from a non-Git directory; Agent
   Executor and Queue Direct Work do not skip that check by default. The
   operator can replace `~` by typing a project or repo folder or by using the
-  Browse control to select one directory. Browse only returns the selected
-  directory path for the working directory field; it does not scan the folder,
-  persist it, or start a run.
+  Browse control to select one directory on supported desktop platforms where
+  a directory dialog backend is available. The working directory can still be
+  typed manually when Browse is unavailable or canceled. Browse only returns
+  the selected directory path for the working directory field; it does not
+  scan the folder, persist it, or start a run. The current bundled desktop
+  directory picker remains the Windows native picker; non-Windows builds
+  report a clear unsupported Browse error until the official Tauri dialog
+  plugin or another supported backend is available.
   On Windows, the default Codex launch path uses `codex.cmd` through the
   shared Direct Work launch helper. On Unix/Linux, the default Codex launch
   path uses `codex` directly. Missing home-directory resolution for `~`

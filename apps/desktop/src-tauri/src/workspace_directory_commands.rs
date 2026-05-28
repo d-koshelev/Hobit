@@ -61,7 +61,7 @@ fn select_workspace_directory_impl() -> Result<Option<String>, String> {
 #[cfg(not(windows))]
 fn select_workspace_directory_impl() -> Result<Option<String>, String> {
     Err(
-        "Workspace Agent directory Browse is only available in the Windows desktop shell."
+        "Workspace Agent directory Browse is unavailable because this desktop build has no supported directory dialog backend. Type the working directory manually."
             .to_string(),
     )
 }
@@ -78,4 +78,35 @@ fn wide_path_to_string(value: &[u16]) -> String {
         .position(|code_unit| *code_unit == 0)
         .unwrap_or(value.len());
     String::from_utf16_lossy(&value[..end])
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(not(windows))]
+    #[test]
+    fn non_windows_directory_picker_reports_clear_unsupported_behavior() {
+        let error = super::select_workspace_directory_impl()
+            .expect_err("non-Windows builds do not have a bundled picker yet");
+
+        assert!(error.contains("no supported directory dialog backend"));
+        assert!(error.contains("Type the working directory manually"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_directory_path_conversion_preserves_selected_path() {
+        let path = super::wide_path_to_string(&[
+            'C' as u16,
+            ':' as u16,
+            '\\' as u16,
+            'w' as u16,
+            'o' as u16,
+            'r' as u16,
+            'k' as u16,
+            0,
+            'x' as u16,
+        ]);
+
+        assert_eq!(path, "C:\\work");
+    }
 }
