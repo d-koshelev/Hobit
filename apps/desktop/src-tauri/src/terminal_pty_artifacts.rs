@@ -98,7 +98,7 @@ pub(crate) fn local_path_artifact(path: &Path) -> RuntimeArtifactSummary {
         .with_byte_count(path.as_os_str().to_string_lossy().len())
 }
 
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "linux", test))]
 pub(crate) fn pty_output_artifact(
     byte_count: usize,
     dropped_or_capped: bool,
@@ -168,5 +168,6 @@ fn pty_status_kind(
 
 fn is_unsupported_pty_error(error_message: &str) -> bool {
     error_message.contains("supported only on Windows desktop")
+        || error_message.contains("supported only on Windows and Linux desktop")
         || error_message.contains("unsupported on this platform")
 }

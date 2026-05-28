@@ -61,15 +61,15 @@ Current backend foundation:
   widget owners.
 - The backend foundation can create, write stdin, resize, stop, kill, close,
   get, and list sessions.
-- Shipped live PTY session support is currently Windows-only through the
-  Windows ConPTY backend.
-- Non-Windows desktop builds may compile, but live PTY creation is unsupported
-  and returns an explicit unsupported-platform error instead of pretending
-  Terminal PTY is fully available.
-- For Phase 1, the accepted decision is a docs-only Windows-only limitation.
-  Catalog gating on unsupported platforms is Deferred.
-- Linux/macOS PTY implementation and broader cross-platform Terminal PTY
-  support are Deferred.
+- Shipped live PTY session support is currently implemented for Windows
+  through the Windows ConPTY backend and for Linux through a native Unix PTY
+  backend.
+- Other desktop platform builds may compile, but live PTY creation is
+  unsupported and returns an explicit unsupported-platform error instead of
+  pretending Terminal PTY is fully available.
+- Catalog gating on unsupported platforms is Deferred.
+- macOS PTY implementation and broader cross-platform Terminal PTY support are
+  Deferred.
 - PTY output/history remains session-only and is not persisted to storage.
 - The frontend Terminal widget consumes the PTY command foundation as its
   normal visible Terminal surface.
@@ -371,12 +371,13 @@ Initial platform expectations:
   does not normalize shell-specific quoting.
 - Path handling should preserve literal working-directory paths and surface
   startup errors clearly.
-- Non-Windows desktop builds may compile, but live PTY creation is unsupported
-  and must surface an explicit unsupported-platform error.
+- Linux desktop builds use the Linux PTY backend. Other non-Windows desktop
+  builds may compile, but live PTY creation is unsupported and must surface an
+  explicit unsupported-platform error.
 - Catalog gating or clearer unavailable UI on unsupported platforms is
   Deferred.
-- Linux/macOS PTY implementation is Deferred and must not be claimed as
-  Current until implemented and accepted by active contracts.
+- macOS PTY implementation is Deferred and must not be claimed as Current until
+  implemented and accepted by active contracts.
 
 ## Relationship To Agent Executor
 
@@ -589,13 +590,13 @@ before the backing behavior exists.
 
 ## Recommended Follow-Up Blocks
 
-- Completed for current Windows-only preview: Terminal PTY backend foundation
+- Completed for current Windows/Linux preview: Terminal PTY backend foundation
   and frontend shell UI exist for explicit Terminal widget owners.
-- Completed for Phase 1 docs: Windows-only live PTY limitation is accepted as
-  sufficient; non-Windows live PTY creation remains unsupported.
+- Completed for Phase 1 docs: Windows live PTY support was accepted first.
+- Completed: Linux live PTY backend support.
 - Later  Optional catalog gating or clearer unavailable UI on unsupported
   platforms.
-- Later  Optional Linux/macOS PTY implementation.
+- Later  Optional macOS PTY implementation.
 - Later  Terminal PTY output/lifecycle event bridge hardening.
 - Block 243  Terminal stop/kill hardening.
 - Block 244  Terminal PTY smoke/manual verification.
@@ -611,7 +612,7 @@ before the backing behavior exists.
 
 The current PTY foundation still does not implement:
 
-- Linux/macOS live PTY support.
+- macOS live PTY support.
 - Cross-platform Terminal PTY support.
 - Catalog gating for unsupported platforms.
 - Event-streamed output/lifecycle bridge hardening.

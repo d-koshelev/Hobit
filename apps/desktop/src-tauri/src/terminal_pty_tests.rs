@@ -68,7 +68,7 @@ fn terminal_pty_rejects_unknown_session_actions() {
         .is_none());
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 #[test]
 fn terminal_pty_create_reports_unsupported_platform_without_session() {
     let manager = TerminalPtySessionManager::default();
@@ -87,11 +87,11 @@ fn terminal_pty_create_reports_unsupported_platform_without_session() {
         })
         .expect_err("unsupported platform should reject PTY creation");
 
-    assert!(error.contains("supported only on Windows desktop"));
+    assert!(error.contains("supported only on Windows and Linux desktop"));
     assert!(manager.list_sessions(filter()).is_empty());
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 #[test]
 fn terminal_pty_rejects_cross_scope_session_actions() {
     let manager = TerminalPtySessionManager::default();
@@ -127,7 +127,7 @@ fn terminal_pty_rejects_cross_scope_session_actions() {
     assert_eq!(closed.status, "closed");
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 #[test]
 fn terminal_pty_resize_write_kill_and_close_lifecycle() {
     let manager = TerminalPtySessionManager::default();
@@ -168,7 +168,7 @@ fn terminal_pty_resize_write_kill_and_close_lifecycle() {
     assert!(manager.list_sessions(filter()).is_empty());
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 #[test]
 fn terminal_pty_stop_marks_session_stopping_without_targeting_pid() {
     let manager = TerminalPtySessionManager::default();
@@ -192,21 +192,102 @@ fn timeout_helper_sleeps() {
     thread::sleep(Duration::from_millis(500));
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "linux")]
+#[test]
+fn terminal_pty_linux_shell_round_trip_and_resize() {
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    let manager = TerminalPtySessionManager::default();
+    let session = manager
+        .create_session(TerminalPtyCreateRequest {
+            workspace_id: "ws".to_owned(),
+            workbench_id: "wb".to_owned(),
+            widget_instance_id: "wid".to_owned(),
+            shell: "/bin/sh".to_owned(),
+            shell_args: Vec::new(),
+            working_directory: std::env::current_dir().expect("current dir"),
+            cols: Some(80),
+            rows: Some(24),
+            output_buffer_cap_bytes: Some(4096),
+        })
+        .expect("create Linux terminal PTY session");
+
+    let resized = manager
+        .resize_session(TerminalPtyResizeRequest {
+            scope: session_scope(&session.session_id),
+            cols: 100,
+            rows: 30,
+        })
+        .expect("resize")
+        .expect("known session");
+    assert_eq!((resized.cols, resized.rows), (100, 30));
+
+    manager
+        .write_stdin(TerminalPtyWriteRequest {
+            scope: session_scope(&session.session_id),
+            data: "printf hello\r\nexit\r\n".to_owned(),
+        })
+        .expect("write");
+
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut latest = session;
+    while Instant::now() < deadline {
+        latest = manager
+            .get_session(session_scope(&latest.session_id))
+            .expect("known session");
+        if latest
+            .output
+            .chunks
+            .iter()
+            .any(|chunk| chunk.text.contains("hello"))
+            && latest.status == "exited"
+        {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    assert!(
+        latest
+            .output
+            .chunks
+            .iter()
+            .any(|chunk| chunk.text.contains("hello")),
+        "expected PTY output to contain hello, got {:?}",
+        latest.output.chunks
+    );
+
+    let closed = manager
+        .close_session(session_scope(&latest.session_id))
+        .expect("close")
+        .expect("closed session");
+    assert_eq!(closed.status, "closed");
+}
+
+#[cfg(any(windows, target_os = "linux"))]
 fn create_long_lived_session(
     manager: &TerminalPtySessionManager,
 ) -> crate::terminal_pty::TerminalPtySessionSnapshot {
+    #[cfg(windows)]
+    let (shell, shell_args) = (
+        current_test_exe(),
+        vec![
+            "--exact".to_owned(),
+            "terminal_pty_tests::timeout_helper_sleeps".to_owned(),
+            "--nocapture".to_owned(),
+        ],
+    );
+    #[cfg(target_os = "linux")]
+    let (shell, shell_args) = ("/bin/sh".to_owned(), vec!["-i".to_owned()]);
+
     manager
         .create_session(TerminalPtyCreateRequest {
             workspace_id: "ws".to_owned(),
             workbench_id: "wb".to_owned(),
             widget_instance_id: "wid".to_owned(),
-            shell: current_test_exe(),
-            shell_args: vec![
-                "--exact".to_owned(),
-                "terminal_pty_tests::timeout_helper_sleeps".to_owned(),
-                "--nocapture".to_owned(),
-            ],
+            shell,
+            shell_args,
             working_directory: std::env::current_dir().expect("current dir"),
             cols: Some(80),
             rows: Some(24),
@@ -215,7 +296,7 @@ fn create_long_lived_session(
         .expect("create long-lived terminal PTY session")
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn session_scope(session_id: &str) -> TerminalPtySessionScope {
     TerminalPtySessionScope {
         workspace_id: "ws".to_owned(),

@@ -1312,6 +1312,7 @@ version = "0.1.0"
 dependencies = [
  "hobit-app",
  "hobit-storage-sqlite",
+ "libc",
  "serde",
  "serde_json",
  "tauri",

@@ -12,7 +12,10 @@ impl TerminalPtyPlatformSession {
         _size: TerminalPtySize,
         _output: SharedOutputBuffer,
     ) -> Result<Self, String> {
-        Err("Terminal PTY sessions are currently supported only on Windows desktop".to_owned())
+        Err(
+            "Terminal PTY sessions are currently supported only on Windows and Linux desktop"
+                .to_owned(),
+        )
     }
 
     pub(crate) fn write_stdin(&mut self, _bytes: &[u8]) -> Result<(), String> {

@@ -237,7 +237,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       cols: 80,
       outputBufferCapBytes: 65536,
       rows: 24,
-      shell: "powershell.exe",
+      shell: "",
       shellArgs: [],
       workingDirectory: "~",
     });
@@ -278,7 +278,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       cols: 80,
       outputBufferCapBytes: 65536,
       rows: 24,
-      shell: "powershell.exe",
+      shell: "",
       shellArgs: [],
       workingDirectory: "C:\\repo",
     });

@@ -37,7 +37,8 @@ import {
   terminalPtyVisibleOutput,
 } from "./TerminalPtySessionView";
 
-const DEFAULT_SHELL = "powershell.exe";
+const DEFAULT_SHELL = "";
+const DEFAULT_SHELL_LABEL = "Default shell";
 const DEFAULT_COLS = "80";
 const DEFAULT_ROWS = "24";
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES = "65536";
@@ -101,7 +102,7 @@ export function TerminalPtySessionPanel({
   const activeSession = Boolean(session && isTerminalPtyActive(session));
   const hasOpenSession = Boolean(session && session.status !== "closed");
   const statusView = terminalPtyStatusView(session, errorMessage, isStarting);
-  const shellLabel = session?.shell || shell || "powershell.exe";
+  const shellLabel = session?.shell || shell || DEFAULT_SHELL_LABEL;
   const workingDirectoryLabel =
     session?.workingDirectory || workingDirectory || "Not selected";
   const visibleOutput = useMemo(
@@ -112,7 +113,6 @@ export function TerminalPtySessionPanel({
     Boolean(onCreateTerminalPtySession) &&
     !hasOpenSession &&
     !isStarting &&
-    shell.length > 0 &&
     workingDirectory.length > 0 &&
     !numericInputError;
   const canResize =
@@ -165,10 +165,6 @@ export function TerminalPtySessionPanel({
 
     if (!workingDirectory) {
       setErrorMessage("Execution workspace / working directory is required.");
-      return;
-    }
-    if (!shell) {
-      setErrorMessage("Shell executable is required.");
       return;
     }
     if (numericInputError) {
@@ -604,11 +600,14 @@ export function TerminalPtySessionPanel({
                   disabled={activeSession || isStarting}
                   id={shellInputId}
                   onChange={(event) => setShellDraft(event.target.value)}
-                  placeholder="powershell.exe"
+                  placeholder={DEFAULT_SHELL_LABEL}
                   spellCheck={false}
                   type="text"
                   value={shellDraft}
                 />
+                <p className="terminal-command-note">
+                  Leave blank to use the platform default shell.
+                </p>
               </div>
 
               <div className="terminal-command-field">

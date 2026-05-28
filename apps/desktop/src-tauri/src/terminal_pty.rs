@@ -4,12 +4,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+use crate::terminal_pty_linux::TerminalPtyPlatformSession;
+#[cfg(not(any(windows, target_os = "linux")))]
 use crate::terminal_pty_unsupported::TerminalPtyPlatformSession;
 #[cfg(windows)]
 use crate::terminal_pty_windows::TerminalPtyPlatformSession;
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 use crate::terminal_pty_artifacts::pty_output_artifact;
 use crate::terminal_pty_artifacts::{
     classify_runtime_error_passthrough, TerminalPtyCommandRuntimeArtifacts,
@@ -20,7 +22,7 @@ const DEFAULT_COLS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES: usize = 64 * 1024;
 const MAX_OUTPUT_BUFFER_CAP_BYTES: usize = 1024 * 1024;
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "linux", test))]
 const TERMINAL_STREAM_KIND: &str = "terminal";
 const STOP_SEQUENCE: &[u8] = b"exit\r\n";
 
@@ -526,7 +528,7 @@ impl SharedOutputBuffer {
         }
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     pub(super) fn push_terminal_output(&self, bytes: &[u8]) {
         let dropped_or_capped = self
             .inner
@@ -549,7 +551,7 @@ struct TerminalPtyOutputBuffer {
     cap_bytes: usize,
     total_buffered_bytes: usize,
     dropped_bytes: usize,
-    #[cfg(any(windows, test))]
+    #[cfg(any(windows, target_os = "linux", test))]
     next_sequence: u64,
 }
 
@@ -560,12 +562,12 @@ impl TerminalPtyOutputBuffer {
             cap_bytes,
             total_buffered_bytes: 0,
             dropped_bytes: 0,
-            #[cfg(any(windows, test))]
+            #[cfg(any(windows, target_os = "linux", test))]
             next_sequence: 1,
         }
     }
 
-    #[cfg(any(windows, test))]
+    #[cfg(any(windows, target_os = "linux", test))]
     fn push(&mut self, stream_kind: &str, bytes: &[u8]) -> bool {
         let mut dropped_or_capped = false;
         if self.cap_bytes == 0 {
@@ -620,7 +622,7 @@ fn normalize_create_request(
     let workspace_id = required_string(request.workspace_id, "workspace id")?;
     let workbench_id = required_string(request.workbench_id, "workbench id")?;
     let widget_instance_id = required_string(request.widget_instance_id, "widget instance id")?;
-    let shell = required_string(request.shell, "terminal shell")?;
+    let shell = normalize_shell(request.shell)?;
     let working_directory = request.working_directory;
     if working_directory.as_os_str().is_empty() {
         return Err("terminal PTY working directory must not be empty".to_owned());
@@ -670,6 +672,45 @@ fn validate_size(cols: u16, rows: u16) -> Result<TerminalPtySize, String> {
     }
 
     Ok(TerminalPtySize { cols, rows })
+}
+
+fn normalize_shell(value: String) -> Result<String, String> {
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        Ok(default_terminal_shell())
+    } else {
+        Ok(value)
+    }
+}
+
+#[cfg(windows)]
+fn default_terminal_shell() -> String {
+    "powershell.exe".to_owned()
+}
+
+#[cfg(target_os = "linux")]
+fn default_terminal_shell() -> String {
+    default_linux_shell_from_parts(
+        std::env::var("SHELL").ok().as_deref(),
+        std::path::Path::new("/bin/bash").is_file(),
+    )
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn default_linux_shell_from_parts(shell_env: Option<&str>, bash_exists: bool) -> String {
+    let shell = shell_env.map(str::trim).unwrap_or_default();
+    if !shell.is_empty() {
+        return shell.to_owned();
+    }
+    if bash_exists {
+        return "/bin/bash".to_owned();
+    }
+    "/bin/sh".to_owned()
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn default_terminal_shell() -> String {
+    "unsupported".to_owned()
 }
 
 fn required_string(value: String, label: &str) -> Result<String, String> {
@@ -734,5 +775,19 @@ mod tests {
         assert_eq!(snapshot.total_buffered_bytes, 4);
         assert_eq!(snapshot.dropped_bytes, 6);
         assert_eq!(snapshot.chunks[0].text, "7890");
+    }
+
+    #[test]
+    fn terminal_pty_default_linux_shell_prefers_shell_env() {
+        assert_eq!(
+            default_linux_shell_from_parts(Some("/usr/bin/zsh"), true),
+            "/usr/bin/zsh"
+        );
+    }
+
+    #[test]
+    fn terminal_pty_default_linux_shell_falls_back_to_bash_then_sh() {
+        assert_eq!(default_linux_shell_from_parts(None, true), "/bin/bash");
+        assert_eq!(default_linux_shell_from_parts(Some(""), false), "/bin/sh");
     }
 }

@@ -236,11 +236,11 @@ Workspace Agent is the foreground interactive agent surface.
 - PTY output is a bounded session-only buffer. It is not persisted as widget
   logs/results and is not sent to Workspace Agent, Queue, Agent Executor,
   Git, Notes, JDBC, or Evidence/Sources.
-- PTY session support is currently Windows-only in shipped backend code.
-  Non-Windows desktop builds compile but live PTY creation returns an
-  unsupported-platform error. Treat non-Windows live PTY sessions as
-  unsupported until platform support or catalog gating is implemented; the
-  xterm frontend does not change that backend limitation.
+- PTY session support is currently implemented for Windows desktop through
+  ConPTY and for Linux desktop through a native Unix PTY backend. Other
+  desktop platforms compile but live PTY creation returns an
+  unsupported-platform error until platform support or catalog gating is
+  implemented.
 - Browser/Vite fallback cannot run local processes.
 - The legacy one-shot fallback is a Compatibility path. It remains available
   only behind the collapsed fallback UI, uses explicit program, argv, working
@@ -629,7 +629,7 @@ or surfaced unless explicitly requested by a future task:
 - real JDBC connector runtime with credentials or external database execution
 - real Workspace Agent widget capability execution
 - Terminal catalog gating on unsupported platforms
-- Linux/macOS Terminal PTY support
+- macOS Terminal PTY support
 - Evidence/Sources capture and AI context packs
 - true external OS/Tauri widget popout windows
 - Dock rails, Compact/Indicator modes, presence-zone persistence, snapping,
@@ -659,8 +659,9 @@ Use them through Vite dev URLs under `/smoke/dev/`.
   mock/safe read-only query UI is Current Preview; production JDBC execution
   and hidden Workspace Agent-triggered SQL remain Deferred.
 - Terminal platform support: completed for Phase 1 docs. Live PTY support is
-  Windows-only in shipped backend code; non-Windows live PTY creation is
-  unsupported. Catalog gating and Linux/macOS PTY support remain Deferred.
+  implemented for Windows and Linux desktop builds. Other desktop platforms
+  return an unsupported-platform error. Catalog gating and macOS PTY support
+  remain Deferred.
 - Smoke HTML root cleanup: completed. The remaining smoke follow-ups are
   checklist discipline, current behavior smoke checklists, and optional e2e
   automation later.

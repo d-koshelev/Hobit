@@ -66,9 +66,11 @@ mod terminal_pty_artifacts;
 mod terminal_pty_artifacts_tests;
 mod terminal_pty_commands;
 mod terminal_pty_dto;
+#[cfg(target_os = "linux")]
+mod terminal_pty_linux;
 #[cfg(test)]
 mod terminal_pty_tests;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 mod terminal_pty_unsupported;
 #[cfg(windows)]
 mod terminal_pty_windows;

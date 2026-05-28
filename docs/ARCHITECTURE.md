@@ -53,10 +53,10 @@ wraps `.cmd`/`.bat` shims with `cmd.exe /D /C`, while Unix/Linux defaults to
 `codex` and runs explicit executable paths directly without a shell wrapper.
 Terminal has a visible desktop PTY session
 surface for explicit Terminal widget owners, but shipped backend PTY session
-support is currently Windows-only; non-Windows desktop builds return an
-unsupported-platform error for live PTY creation until platform support or
-catalog gating is added. Terminal preserves the bounded one-shot command path
-as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
+support is currently implemented for Windows and Linux; other desktop builds
+return an unsupported-platform error for live PTY creation until platform
+support or catalog gating is added. Terminal preserves the bounded one-shot
+command path as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
 desktop-only status/diff review surface plus explicit selected-file local
 commit UI with operator confirmation. Agent Queue is a preview async
 execution-support surface for promoted/larger work blocks backed by
@@ -603,7 +603,7 @@ Markdown renderer, Mermaid or diagram renderer, rendered block preview system,
 text formatting tool surface, autosave flow, folder/tag system, archive/delete
 UI, sync/import/export, or AI-in-Notes implementation.
 
-The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently Windows-only; non-Windows desktop live PTY creation returns an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or Script Runner behavior.
+The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently implemented for Windows and Linux; other desktop platforms return an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or Script Runner behavior.
 
 The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It is the runtime execution slot for Direct Work and Queue-started assigned tasks. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it owns run detail, logs, final responses, history, and persisted widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
 
@@ -692,7 +692,8 @@ bounded one-shot Terminal command orchestration path for persisted Terminal
 widget instances only, creating widget run/log/result records around the shared
 process adapter. It also validates explicit Terminal widget ownership for the
 desktop PTY session foundation; live PTY backend support is currently
-Windows-only and non-Windows creation returns an unsupported-platform error.
+implemented for Windows and Linux, and other desktop platform creation returns
+an unsupported-platform error.
 PTY process handles and session buffers are owned by desktop runtime state, not storage. It also includes one-shot and
 streaming Codex Direct Work orchestration paths for an allowed `agent-run`
 widget owner, creating widget run/log/result records around the `hobit-tools`
@@ -773,7 +774,7 @@ The Git widget supports manual desktop status/diff review and explicit
 selected-file local commit with operator confirmation for a transient explicit
 repository root. Terminal supports a visible desktop PTY session surface plus a
 collapsed legacy one-shot command fallback in the current frontend, with live
-PTY backend support currently Windows-only.
+PTY backend support currently implemented for Windows and Linux.
 There is no Notebook tab model, text formatting tool surface, folder UI,
 Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block
 preview system, autosave, archive/delete UI, tags, sync, Knowledge ingestion
