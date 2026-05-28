@@ -1008,7 +1008,7 @@
 
 .interactive-agent-direct-mode-working-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: var(--space-xs);
   min-width: 0;
@@ -1050,6 +1050,7 @@
   font-family: var(--font-mono);
 }
 
+.interactive-agent-direct-mode-browse-button.button,
 .interactive-agent-direct-mode-copy-button.button {
   min-height: 28px;
   padding: 0 var(--space-sm);
