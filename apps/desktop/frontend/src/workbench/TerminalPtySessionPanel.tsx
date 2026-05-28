@@ -1,24 +1,22 @@
 import {
-  forwardRef,
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal as XtermTerminal } from "@xterm/xterm";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import {
   DEFAULT_TERMINAL_WORKING_DIRECTORY,
-  type TerminalPtyOutputChunk,
   type TerminalPtySession,
 } from "../workspace/types";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
+import {
+  TerminalXtermSurface,
+  type TerminalXtermSurfaceHandle,
+} from "./TerminalXtermSurface";
 import {
   errorToMessage,
   parsePositiveIntegerInput,
@@ -532,15 +530,14 @@ export function TerminalPtySessionPanel({
             </p>
           ) : null}
           <TerminalXtermSurface
-            activeSession={activeSession}
             clearedThroughSequence={clearedThroughSequence}
+            isInputEnabled={activeSession}
             onFitDimensions={handleXtermFitDimensions}
-            onRawInput={(data) => void sendRawStdin(data)}
-            onResizeDimensions={(cols, rows) =>
-              void resizeSessionToXterm(cols, rows)
-            }
+            onInputData={(data) => void sendRawStdin(data)}
+            onResize={(cols, rows) => void resizeSessionToXterm(cols, rows)}
+            outputChunks={session?.output.chunks ?? []}
             ref={terminalSurfaceRef}
-            session={session}
+            sessionId={session?.sessionId ?? null}
           />
         </div>
       </div>
@@ -757,254 +754,4 @@ export function TerminalPtySessionPanel({
       </details>
     </section>
   );
-}
-
-type TerminalXtermSurfaceHandle = {
-  clear: () => void;
-  fit: () => void;
-  focus: () => void;
-  getVisibleText: () => string;
-};
-
-type TerminalXtermSurfaceProps = {
-  activeSession: boolean;
-  clearedThroughSequence: number;
-  onFitDimensions: (cols: number, rows: number) => void;
-  onRawInput: (data: string) => void;
-  onResizeDimensions: (cols: number, rows: number) => void;
-  session: TerminalPtySession | null;
-};
-
-const TerminalXtermSurface = forwardRef<
-  TerminalXtermSurfaceHandle,
-  TerminalXtermSurfaceProps
->(function TerminalXtermSurface(
-  {
-    activeSession,
-    clearedThroughSequence,
-    onFitDimensions,
-    onRawInput,
-    onResizeDimensions,
-    session,
-  },
-  ref,
-) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const terminalRef = useRef<XtermTerminal | null>(null);
-  const lastSessionIdRef = useRef<string | null>(null);
-  const lastWrittenSequenceRef = useRef(0);
-  const lastResizeKeyRef = useRef("");
-  const resizeInFlightRef = useRef(false);
-  const latestHandlersRef = useRef({
-    activeSession,
-    onFitDimensions,
-    onRawInput,
-    onResizeDimensions,
-  });
-
-  latestHandlersRef.current = {
-    activeSession,
-    onFitDimensions,
-    onRawInput,
-    onResizeDimensions,
-  };
-
-  const fitAndReport = useCallback(() => {
-    const terminal = terminalRef.current;
-    const fitAddon = fitAddonRef.current;
-    if (!terminal || !fitAddon) {
-      return;
-    }
-
-    try {
-      fitAddon.fit();
-    } catch {
-      return;
-    }
-
-    const cols = terminal.cols;
-    const rows = terminal.rows;
-    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) {
-      return;
-    }
-
-    latestHandlersRef.current.onFitDimensions(cols, rows);
-
-    const resizeKey = `${lastSessionIdRef.current ?? "none"}:${cols}x${rows}`;
-    if (
-      !latestHandlersRef.current.activeSession ||
-      resizeInFlightRef.current ||
-      resizeKey === lastResizeKeyRef.current
-    ) {
-      return;
-    }
-
-    resizeInFlightRef.current = true;
-    lastResizeKeyRef.current = resizeKey;
-    Promise.resolve(latestHandlersRef.current.onResizeDimensions(cols, rows))
-      .finally(() => {
-        resizeInFlightRef.current = false;
-        terminal.focus();
-      });
-  }, []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      clear() {
-        terminalRef.current?.clear();
-      },
-      fit() {
-        fitAndReport();
-      },
-      focus() {
-        terminalRef.current?.focus();
-      },
-      getVisibleText() {
-        const buffer = terminalRef.current?.buffer.active;
-        if (!buffer) {
-          return "";
-        }
-
-        const lines: string[] = [];
-        for (let index = 0; index < buffer.length; index += 1) {
-          const line = buffer.getLine(index);
-          if (line) {
-            lines.push(line.translateToString(true));
-          }
-        }
-
-        return lines.join("\n");
-      },
-    }),
-    [fitAndReport],
-  );
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    const terminal = new XtermTerminal({
-      cursorBlink: true,
-      scrollback: 1000,
-      theme: terminalTheme(container),
-    });
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(container);
-
-    const dataSubscription = terminal.onData((data) => {
-      if (!latestHandlersRef.current.activeSession) {
-        return;
-      }
-
-      latestHandlersRef.current.onRawInput(data);
-      terminal.focus();
-    });
-
-    terminalRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-    window.setTimeout(fitAndReport, 0);
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(() => fitAndReport());
-    resizeObserver?.observe(container);
-    window.addEventListener("resize", fitAndReport);
-
-    return () => {
-      window.removeEventListener("resize", fitAndReport);
-      resizeObserver?.disconnect();
-      dataSubscription.dispose();
-      fitAddon.dispose();
-      terminal.dispose();
-      terminalRef.current = null;
-      fitAddonRef.current = null;
-    };
-  }, [fitAndReport]);
-
-  useEffect(() => {
-    const terminal = terminalRef.current;
-    if (!terminal) {
-      return;
-    }
-
-    if (!session) {
-      if (lastSessionIdRef.current) {
-        terminal.clear();
-      }
-      lastSessionIdRef.current = null;
-      lastWrittenSequenceRef.current = 0;
-      return;
-    }
-
-    if (lastSessionIdRef.current !== session.sessionId) {
-      terminal.clear();
-      lastSessionIdRef.current = session.sessionId;
-      lastWrittenSequenceRef.current = clearedThroughSequence;
-      lastResizeKeyRef.current = "";
-      fitAndReport();
-    }
-
-    const baseline = Math.max(
-      lastWrittenSequenceRef.current,
-      clearedThroughSequence,
-    );
-    const chunksToWrite = session.output.chunks.filter(
-      (chunk) => chunk.sequence > baseline,
-    );
-
-    for (const chunk of chunksToWrite) {
-      terminal.write(chunk.text);
-    }
-
-    if (chunksToWrite.length > 0) {
-      lastWrittenSequenceRef.current = maxChunkSequence(chunksToWrite);
-    } else {
-      lastWrittenSequenceRef.current = Math.max(
-        lastWrittenSequenceRef.current,
-        clearedThroughSequence,
-      );
-    }
-  }, [clearedThroughSequence, fitAndReport, session]);
-
-  return (
-    <div className="terminal-xterm-shell">
-      <div
-        aria-label="Terminal PTY output"
-        className="terminal-xterm-surface"
-        ref={containerRef}
-      />
-      {!session ? (
-        <div className="terminal-xterm-placeholder">
-          Start a terminal session to run commands.
-        </div>
-      ) : null}
-    </div>
-  );
-});
-
-function maxChunkSequence(chunks: TerminalPtyOutputChunk[]) {
-  return chunks.reduce(
-    (maxSequence, chunk) => Math.max(maxSequence, chunk.sequence),
-    0,
-  );
-}
-
-function terminalTheme(container: HTMLElement) {
-  const styles = window.getComputedStyle(container);
-  return {
-    background: cssVar(styles, "--color-io-surface"),
-    foreground: cssVar(styles, "--color-text-primary"),
-    cursor: cssVar(styles, "--color-text-primary"),
-    selectionBackground: cssVar(styles, "--color-accent-muted"),
-  };
-}
-
-function cssVar(styles: CSSStyleDeclaration, name: string) {
-  return styles.getPropertyValue(name).trim() || undefined;
 }
