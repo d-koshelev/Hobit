@@ -10,6 +10,33 @@ export type RunTerminalCommandRequest = {
   stderrCapBytes?: number | null;
 };
 
+export const DEFAULT_TERMINAL_WORKING_DIRECTORY = "~";
+
+export function isHomeRelativeTerminalWorkingDirectory(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue === "~" || /^~[\\/]/.test(trimmedValue);
+}
+
+export function resolveTerminalWorkingDirectoryWithHome(
+  value: string,
+  homeDirectory: string,
+) {
+  const trimmedValue = value.trim();
+  if (trimmedValue === "~") {
+    return homeDirectory;
+  }
+
+  const rest = trimmedValue.replace(/^~[\\/]/, "");
+  if (!rest) {
+    return homeDirectory;
+  }
+
+  const separator = homeDirectory.includes("\\") ? "\\" : "/";
+  const normalizedHome = homeDirectory.replace(/[\\/]+$/, "");
+  const normalizedRest = rest.replace(/[\\/]+/g, separator);
+  return `${normalizedHome}${separator}${normalizedRest}`;
+}
+
 export type RunTerminalCommandResponse = {
   runId: string;
   status: string;

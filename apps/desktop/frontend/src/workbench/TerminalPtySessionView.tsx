@@ -57,7 +57,11 @@ export function terminalPtyVisibleOutput(
   return session.output.chunks
     .filter((chunk) => chunk.sequence > clearedThroughSequence)
     .map((chunk) => chunk.text)
-    .join("");
+    .join("")
+    .replace(/\x1B\][^\x07]*(?:\x07|\x1B\\)/g, "")
+    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1B[@-_]/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 export function maxOutputSequence(session: TerminalPtySession | null) {

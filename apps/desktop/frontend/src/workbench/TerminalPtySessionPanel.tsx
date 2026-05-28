@@ -2,13 +2,17 @@ import {
   type KeyboardEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
-import type { TerminalPtySession } from "../workspace/types";
+import {
+  DEFAULT_TERMINAL_WORKING_DIRECTORY,
+  type TerminalPtySession,
+} from "../workspace/types";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
 import {
   errorToMessage,
@@ -34,6 +38,7 @@ const DEFAULT_ROWS = "24";
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES = "65536";
 const POLL_INTERVAL_MS = 1250;
 const INPUT_NEWLINE = "\r\n";
+const OUTPUT_FOLLOW_THRESHOLD_PX = 32;
 
 export function TerminalPtySessionPanel({
   instance,
@@ -48,7 +53,6 @@ export function TerminalPtySessionPanel({
   onStopTerminalPtySession,
   onWriteTerminalPtySession,
 }: TerminalPtySessionPanelProps) {
-  const panelTitleId = useId();
   const settingsTitleId = useId();
   const shellInputId = useId();
   const shellArgsInputId = useId();
@@ -57,9 +61,12 @@ export function TerminalPtySessionPanel({
   const rowsInputId = useId();
   const outputCapInputId = useId();
   const stdinInputId = useId();
+  const outputRef = useRef<HTMLPreElement | null>(null);
   const [shellDraft, setShellDraft] = useState(DEFAULT_SHELL);
   const [shellArgsDraft, setShellArgsDraft] = useState("");
-  const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState("");
+  const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState(
+    DEFAULT_TERMINAL_WORKING_DIRECTORY,
+  );
   const [colsDraft, setColsDraft] = useState(DEFAULT_COLS);
   const [rowsDraft, setRowsDraft] = useState(DEFAULT_ROWS);
   const [outputCapDraft, setOutputCapDraft] = useState(
@@ -78,6 +85,7 @@ export function TerminalPtySessionPanel({
   const [killConfirmOpen, setKillConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
+  const [autoFollowOutput, setAutoFollowOutput] = useState(true);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -148,6 +156,19 @@ export function TerminalPtySessionPanel({
 
     return () => window.clearInterval(interval);
   }, [onGetTerminalPtySession, session?.sessionId, session?.status]);
+
+  useLayoutEffect(() => {
+    if (!autoFollowOutput) {
+      return;
+    }
+
+    const outputElement = outputRef.current;
+    if (!outputElement) {
+      return;
+    }
+
+    outputElement.scrollTop = outputElement.scrollHeight;
+  }, [autoFollowOutput, visibleOutput]);
 
   async function startSession() {
     if (!onCreateTerminalPtySession || isStarting) {
@@ -388,41 +409,34 @@ export function TerminalPtySessionPanel({
     void sendStdinLine();
   }
 
+  function handleOutputScroll() {
+    const outputElement = outputRef.current;
+    if (!outputElement) {
+      return;
+    }
+
+    setAutoFollowOutput(isScrolledNearBottom(outputElement));
+  }
+
   return (
-    <section aria-labelledby={panelTitleId} className="terminal-pty-panel">
+    <section aria-label="Terminal session" className="terminal-pty-panel">
       <div className="terminal-shell">
         <div className="terminal-shell-header">
-          <div className="terminal-shell-title-row">
-            <h3 className="terminal-shell-title" id={panelTitleId}>
-              Terminal
-            </h3>
-            <Badge variant={statusView.variant}>{statusView.label}</Badge>
-          </div>
           <div className="terminal-shell-meta" aria-label="Terminal context">
-            <label
-              className="terminal-shell-working-directory"
-              htmlFor={workingDirectoryInputId}
-            >
-              <span className="terminal-shell-meta-label">
-                Working directory
-              </span>
-              <Input
-                autoComplete="off"
-                className="terminal-shell-working-directory-input"
-                disabled={activeSession || isStarting}
-                id={workingDirectoryInputId}
-                onChange={(event) =>
-                  setWorkingDirectoryDraft(event.target.value)
-                }
-                placeholder="C:\\path\\to\\workspace"
-                spellCheck={false}
-                type="text"
-                value={workingDirectoryDraft}
-              />
-            </label>
             <span className="terminal-shell-meta-item">
-              <span className="terminal-shell-meta-label">Shell</span>
-              <span className="terminal-shell-meta-value">{shellLabel}</span>
+              <span className="terminal-shell-meta-label">cwd</span>
+              <span
+                className="terminal-shell-meta-value"
+                title={workingDirectoryLabel}
+              >
+                {workingDirectoryLabel}
+              </span>
+            </span>
+            <span className="terminal-shell-meta-item">
+              <span className="terminal-shell-meta-label">shell</span>
+              <span className="terminal-shell-meta-value" title={shellLabel}>
+                {shellLabel}
+              </span>
             </span>
           </div>
           <div className="terminal-shell-actions">
@@ -525,7 +539,12 @@ export function TerminalPtySessionPanel({
               bounded backend buffer.
             </p>
           ) : null}
-          <pre aria-label="Terminal PTY output" className="terminal-pty-output">
+          <pre
+            aria-label="Terminal PTY output"
+            className="terminal-pty-output"
+            onScroll={handleOutputScroll}
+            ref={outputRef}
+          >
             <code>
               {visibleOutput || "Start a terminal session to run commands."}
             </code>
@@ -575,6 +594,30 @@ export function TerminalPtySessionPanel({
             </p>
 
             <div className="terminal-command-main-grid">
+              <div className="terminal-command-field terminal-command-field-wide">
+                <label
+                  className="terminal-command-label"
+                  htmlFor={workingDirectoryInputId}
+                >
+                  Working directory
+                </label>
+                <Input
+                  autoComplete="off"
+                  disabled={activeSession || isStarting}
+                  id={workingDirectoryInputId}
+                  onChange={(event) =>
+                    setWorkingDirectoryDraft(event.target.value)
+                  }
+                  placeholder="~"
+                  spellCheck={false}
+                  type="text"
+                  value={workingDirectoryDraft}
+                />
+                <p className="terminal-command-note">
+                  Default `~` uses your user home in desktop sessions.
+                </p>
+              </div>
+
               <div className="terminal-command-field">
                 <label className="terminal-command-label" htmlFor={shellInputId}>
                   Shell executable
@@ -739,4 +782,10 @@ export function TerminalPtySessionPanel({
       </details>
     </section>
   );
+}
+
+function isScrolledNearBottom(element: HTMLElement) {
+  const remainingScroll =
+    element.scrollHeight - element.scrollTop - element.clientHeight;
+  return remainingScroll <= OUTPUT_FOLLOW_THRESHOLD_PX;
 }

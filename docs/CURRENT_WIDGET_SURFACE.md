@@ -217,11 +217,19 @@ Workspace Agent is the foreground interactive agent surface.
 - PTY UI accepts an explicit shell executable, optional shell argv, explicit
   working directory, cols/rows, stdin sends, manual refresh/polling, resize,
   Stop, Kill with confirmation, and Close.
-- The normal visible Terminal UI shows compact status, working directory,
-  shell, a large monospace output buffer, and a prompt-style command input.
-  Shell executable, shell args, cols/rows, output cap bytes, runtime-only
-  buffer details, and the compatibility fallback are accessible from Terminal
-  settings and are collapsed by default.
+- The normal visible Terminal UI shows compact shell and working-directory
+  context, a large monospace output buffer, prompt-style command input, and
+  explicit Start/Stop controls. The editable working directory defaults to
+  `~`, is available in collapsed Terminal settings, and resolves to the
+  current user's home directory before the desktop PTY create request reaches
+  the backend. Shell executable, shell args, cols/rows, output cap bytes,
+  runtime-only buffer details, and the compatibility fallback are also
+  accessible from Terminal settings and are collapsed by default.
+- PTY output is display-filtered in the frontend to strip unsupported ANSI and
+  control sequences while preserving normal text and line breaks. The raw
+  session-only backend buffer remains unchanged. The visible output follows
+  newest content while the operator is near the bottom and pauses follow
+  behavior when the operator scrolls away.
 - PTY output is a bounded session-only buffer. It is not persisted as widget
   logs/results and is not sent to Workspace Agent, Queue, Agent Executor,
   Git, Notes, JDBC, or Evidence/Sources.

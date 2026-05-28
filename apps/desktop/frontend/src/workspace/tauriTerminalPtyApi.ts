@@ -1,4 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { homeDir } from "@tauri-apps/api/path";
+import {
+  isHomeRelativeTerminalWorkingDirectory,
+  resolveTerminalWorkingDirectoryWithHome,
+} from "./types";
 import type {
   CreateTerminalPtySessionRequest,
   ListTerminalPtySessionsRequest,
@@ -45,6 +50,9 @@ type TauriTerminalPtyOutputChunk = {
 export async function createTerminalPtySession(
   request: CreateTerminalPtySessionRequest,
 ): Promise<TerminalPtySession | null> {
+  const workingDirectory = await resolveTerminalPtyWorkingDirectoryForRequest(
+    request.workingDirectory,
+  );
   const response = await invoke<TauriTerminalPtySession | null>(
     "create_terminal_pty_session",
     {
@@ -54,7 +62,7 @@ export async function createTerminalPtySession(
         widget_instance_id: request.widgetInstanceId,
         shell: request.shell,
         shell_args: request.shellArgs,
-        working_directory: request.workingDirectory,
+        working_directory: workingDirectory,
         cols: request.cols ?? null,
         rows: request.rows ?? null,
         output_buffer_cap_bytes: request.outputBufferCapBytes ?? null,
@@ -199,4 +207,33 @@ function normalizeTerminalPtyOutputChunk(
     text: response.text,
     byteLen: response.byte_len,
   };
+}
+
+async function resolveTerminalPtyWorkingDirectoryForRequest(
+  workingDirectory: string,
+) {
+  if (!isHomeRelativeTerminalWorkingDirectory(workingDirectory)) {
+    return workingDirectory;
+  }
+
+  try {
+    return resolveTerminalWorkingDirectoryWithHome(
+      workingDirectory,
+      await homeDir(),
+    );
+  } catch (error) {
+    throw new Error(
+      `Could not resolve Terminal working directory \`~\`: ${errorToMessage(error)}`,
+    );
+  }
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return "home directory is unavailable.";
 }
