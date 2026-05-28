@@ -2,12 +2,103 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const xtermMockState = vi.hoisted(() => ({
+  fitAddons: [] as Array<{ dispose: ReturnType<typeof vi.fn>; fit: ReturnType<typeof vi.fn> }>,
+  terminals: [] as Array<{
+    bufferText: string;
+    cols: number;
+    dispose: ReturnType<typeof vi.fn>;
+    disposed: boolean;
+    emitData: (data: string) => void;
+    focus: ReturnType<typeof vi.fn>;
+    loadAddon: ReturnType<typeof vi.fn>;
+    open: ReturnType<typeof vi.fn>;
+    rows: number;
+    write: ReturnType<typeof vi.fn>;
+  }>,
+}));
+
+vi.mock("@xterm/xterm", () => {
+  class Terminal {
+    bufferText = "";
+    cols = 80;
+    rows = 24;
+    disposed = false;
+    private dataHandler: ((data: string) => void) | null = null;
+
+    constructor() {
+      xtermMockState.terminals.push(this);
+    }
+
+    get buffer() {
+      const lines = this.bufferText.split(/\r?\n/);
+      return {
+        active: {
+          getLine: (index: number) => {
+            const line = lines[index];
+            return line === undefined
+              ? undefined
+              : { translateToString: () => line };
+          },
+          length: lines.length,
+        },
+      };
+    }
+
+    loadAddon = vi.fn();
+
+    open = vi.fn((container: HTMLElement) => {
+      container.setAttribute("data-xterm-open", "true");
+    });
+
+    onData(handler: (data: string) => void) {
+      this.dataHandler = handler;
+      return { dispose: vi.fn() };
+    }
+
+    write = vi.fn((data: string) => {
+      this.bufferText += data;
+    });
+
+    clear = vi.fn(() => {
+      this.bufferText = "";
+    });
+
+    focus = vi.fn();
+
+    dispose = vi.fn(() => {
+      this.disposed = true;
+    });
+
+    emitData(data: string) {
+      this.dataHandler?.(data);
+    }
+  }
+
+  return { Terminal };
+});
+
+vi.mock("@xterm/addon-fit", () => {
+  class FitAddon {
+    dispose = vi.fn();
+    fit = vi.fn();
+
+    constructor() {
+      xtermMockState.fitAddons.push(this);
+    }
+  }
+
+  return { FitAddon };
+});
+
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
 import { resolveTerminalWorkingDirectoryWithHome } from "../workspace/types";
 import type {
   CreateTerminalPtySessionRequest,
+  ResizeTerminalPtySessionRequest,
   TerminalPtySession,
+  TerminalPtySessionActionRequest,
   WriteTerminalPtySessionRequest,
 } from "../workspace/types";
 
@@ -15,8 +106,16 @@ type CreatePtyInput = Omit<
   CreateTerminalPtySessionRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
+type ResizePtyInput = Omit<
+  ResizeTerminalPtySessionRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
 type WritePtyInput = Omit<
   WriteTerminalPtySessionRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+type PtyActionInput = Omit<
+  TerminalPtySessionActionRequest,
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
@@ -33,11 +132,13 @@ afterEach(() => {
   root = null;
   container = null;
   document.body.innerHTML = "";
+  xtermMockState.fitAddons.length = 0;
+  xtermMockState.terminals.length = 0;
   vi.restoreAllMocks();
 });
 
-describe("TerminalPlaceholderWidget classic surface", () => {
-  it("renders the compact terminal surface with settings collapsed by default", () => {
+describe("TerminalPlaceholderWidget xterm surface", () => {
+  it("renders the xterm terminal surface with settings collapsed by default", () => {
     renderWidget();
 
     expect(document.body.textContent).toContain("Terminal");
@@ -52,10 +153,14 @@ describe("TerminalPlaceholderWidget classic surface", () => {
       document.querySelector('[aria-label="Terminal PTY output"]'),
     ).not.toBeNull();
     expect(
+      document.querySelector('[data-xterm-open="true"]'),
+    ).not.toBeNull();
+    expect(
       document.querySelector<HTMLTextAreaElement>(
         'textarea[placeholder="Type a command"]',
       ),
-    ).not.toBeNull();
+    ).toBeNull();
+    expect(buttonWithText("Send")).toBeUndefined();
     expect(buttonWithText("Start")).not.toBeNull();
 
     expect(document.body.textContent).toContain("Terminal settings");
@@ -68,6 +173,21 @@ describe("TerminalPlaceholderWidget classic surface", () => {
     expect(document.body.textContent).not.toContain(
       "Legacy one-shot command fallback",
     );
+  });
+
+  it("creates and disposes the xterm Terminal with the PTY panel lifecycle", () => {
+    renderWidget();
+
+    expect(xtermMockState.terminals).toHaveLength(1);
+    const terminal = latestTerminal();
+    expect(terminal.open).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root?.unmount();
+    });
+
+    expect(terminal.dispose).toHaveBeenCalledTimes(1);
+    expect(terminal.disposed).toBe(true);
   });
 
   it("keeps PTY settings and legacy fallback accessible inside settings", async () => {
@@ -163,14 +283,15 @@ describe("TerminalPlaceholderWidget classic surface", () => {
       workingDirectory: "C:\\repo",
     });
     expect(document.body.textContent).toContain("Running");
-    expect(document.body.textContent).toContain("Windows PowerShell");
     expect(document.querySelector(".terminal-shell")?.textContent).not.toContain(
       "Running",
     );
     expect(buttonWithText("Stop")).not.toBeNull();
   });
 
-  it("strips ANSI and control sequences from displayed PTY output", async () => {
+  it("writes raw PTY output to xterm without frontend ANSI stripping", async () => {
+    const rawOutput =
+      "\x1B[m\x1B[?25l\x1B[93mhello\x1B[0m\r\nnormal output\x07\r\n";
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
@@ -178,8 +299,7 @@ describe("TerminalPlaceholderWidget classic surface", () => {
       ) => Promise<TerminalPtySession>
     >(async () =>
       terminalSession({
-        outputText:
-          "\x1B[m\x1B[?25l\x1B[93mhello\x1B[0m\r\nnormal output\x07\r\n",
+        outputText: rawOutput,
         status: "running",
         workingDirectory: "C:\\repo",
       }),
@@ -191,15 +311,10 @@ describe("TerminalPlaceholderWidget classic surface", () => {
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Start");
 
-    const output = ptyOutput();
-    expect(output.textContent).toContain("hello");
-    expect(output.textContent).toContain("normal output");
-    expect(output.textContent).not.toContain("[?25l");
-    expect(output.textContent).not.toContain("[93m");
-    expect(output.textContent).not.toContain("\x07");
+    expect(latestTerminal().write).toHaveBeenCalledWith(rawOutput);
   });
 
-  it("sends prompt input through the existing write callback shape", async () => {
+  it("sends raw xterm input through the existing write callback shape", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
@@ -226,26 +341,29 @@ describe("TerminalPlaceholderWidget classic surface", () => {
     await clickText("Terminal settings");
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Start");
-    await changeTextarea("Type a command", "echo hello");
-    await clickButton("Send");
+
+    await act(async () => {
+      latestTerminal().emitData("echo hello\r");
+      await Promise.resolve();
+    });
 
     expect(onWriteTerminalPtySession).toHaveBeenCalledTimes(1);
     expect(onWriteTerminalPtySession.mock.calls[0][0]).toBe("terminal_widget");
     expect(onWriteTerminalPtySession.mock.calls[0][1]).toEqual({
-      data: "echo hello\r\n",
+      data: "echo hello\r",
       sessionId: "pty_1",
     });
-    expect(document.body.textContent).toContain("hello");
+    expect(latestTerminal().write).toHaveBeenCalledWith("echo hello\r\nhello\r\n");
   });
 
-  it("auto-follows new output while scrolled near the bottom", async () => {
+  it("sends control, escape, and arrow-key sequences as raw xterm data", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
         request: CreatePtyInput,
       ) => Promise<TerminalPtySession>
     >(async () =>
-      terminalSession({ outputText: "ready\r\n", workingDirectory: "C:\\repo" }),
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
     );
     const onWriteTerminalPtySession = vi.fn<
       (
@@ -253,11 +371,7 @@ describe("TerminalPlaceholderWidget classic surface", () => {
         request: WritePtyInput,
       ) => Promise<TerminalPtySession>
     >(async () =>
-      terminalSession({
-        outputText: "ready\r\nlatest line\r\n",
-        status: "running",
-        workingDirectory: "C:\\repo",
-      }),
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
     );
 
     renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
@@ -266,55 +380,160 @@ describe("TerminalPlaceholderWidget classic surface", () => {
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Start");
 
-    const output = ptyOutput();
-    setScrollableOutput(output, { clientHeight: 100, scrollHeight: 420 });
-    output.scrollTop = 300;
+    await act(async () => {
+      latestTerminal().emitData("\x03");
+      latestTerminal().emitData("\x1B");
+      latestTerminal().emitData("\x1B[A");
+      await Promise.resolve();
+    });
 
-    await changeTextarea("Type a command", "echo latest");
-    await clickButton("Send");
-
-    expect(output.scrollTop).toBe(420);
-    expect(output.textContent).toContain("latest line");
+    expect(onWriteTerminalPtySession.mock.calls.map((call) => call[1].data)).toEqual([
+      "\x03",
+      "\x1B",
+      "\x1B[A",
+    ]);
+    expect(latestTerminal().focus).toHaveBeenCalled();
   });
 
-  it("pauses output auto-follow when the user scrolls away from the bottom", async () => {
+  it("does not send PTY input before the operator starts a session", async () => {
+    const onWriteTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: WritePtyInput,
+      ) => Promise<TerminalPtySession>
+    >();
+
+    renderWidget({ onWriteTerminalPtySession });
+
+    await act(async () => {
+      latestTerminal().emitData("dir\r");
+      await Promise.resolve();
+    });
+
+    expect(onWriteTerminalPtySession).not.toHaveBeenCalled();
+  });
+
+  it("fits xterm and sends the fitted columns and rows through the resize callback", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
         request: CreatePtyInput,
       ) => Promise<TerminalPtySession>
     >(async () =>
-      terminalSession({ outputText: "ready\r\n", workingDirectory: "C:\\repo" }),
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
     );
-    const onWriteTerminalPtySession = vi.fn<
+    const onResizeTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
-        request: WritePtyInput,
+        request: ResizePtyInput,
       ) => Promise<TerminalPtySession>
     >(async () =>
       terminalSession({
-        outputText: "ready\r\nlatest line\r\n",
+        cols: 100,
+        rows: 32,
         status: "running",
         workingDirectory: "C:\\repo",
       }),
     );
 
-    renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
+    renderWidget({ onCreateTerminalPtySession, onResizeTerminalPtySession });
 
     await clickText("Terminal settings");
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Start");
 
-    const output = ptyOutput();
-    setScrollableOutput(output, { clientHeight: 100, scrollHeight: 420 });
-    output.scrollTop = 0;
-    output.dispatchEvent(new Event("scroll", { bubbles: true }));
+    latestTerminal().cols = 100;
+    latestTerminal().rows = 32;
+    window.dispatchEvent(new Event("resize"));
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    await changeTextarea("Type a command", "echo latest");
-    await clickButton("Send");
+    const latestFitAddon =
+      xtermMockState.fitAddons[xtermMockState.fitAddons.length - 1];
+    expect(latestFitAddon?.fit).toHaveBeenCalled();
+    expect(onResizeTerminalPtySession).toHaveBeenCalledWith("terminal_widget", {
+      cols: 100,
+      rows: 32,
+      sessionId: "pty_1",
+    });
+  });
 
-    expect(output.scrollTop).toBe(0);
-    expect(output.textContent).toContain("latest line");
+  it("preserves Stop and Close request shapes", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
+    );
+    const onStopTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: PtyActionInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "stopped", workingDirectory: "C:\\repo" }),
+    );
+    const onCloseTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: PtyActionInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "closed", workingDirectory: "C:\\repo" }),
+    );
+
+    renderWidget({
+      onCloseTerminalPtySession,
+      onCreateTerminalPtySession,
+      onStopTerminalPtySession,
+    });
+
+    await clickText("Terminal settings");
+    await changeInputByLabel("Working directory", "C:\\repo");
+    await clickButton("Start");
+    await clickButton("Stop");
+    await clickButton("Close");
+
+    expect(onStopTerminalPtySession).toHaveBeenCalledWith("terminal_widget", {
+      sessionId: "pty_1",
+    });
+    expect(onCloseTerminalPtySession).toHaveBeenCalledWith("terminal_widget", {
+      sessionId: "pty_1",
+    });
+  });
+
+  it("copies visible terminal text from the xterm buffer and clears only the frontend display", async () => {
+    const writeText = vi.fn<(_: string) => Promise<void>>(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({
+        outputText: "ready\r\nPS C:\\repo> ",
+        status: "running",
+        workingDirectory: "C:\\repo",
+      }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession });
+
+    await clickText("Terminal settings");
+    await changeInputByLabel("Working directory", "C:\\repo");
+    await clickButton("Start");
+    await clickButton("Copy");
+    await clickButton("Clear");
+
+    expect(writeText).toHaveBeenCalledWith("ready\nPS C:\\repo>");
+    expect(latestTerminal().bufferText).toBe("");
   });
 });
 
@@ -384,21 +603,6 @@ async function changeInputByLabel(labelText: string, value: string) {
   });
 }
 
-async function changeTextarea(placeholder: string, value: string) {
-  await act(async () => {
-    const textarea = Array.from(document.querySelectorAll("textarea")).find(
-      (candidate) => candidate.placeholder === placeholder,
-    );
-    if (!textarea) {
-      throw new Error(`Textarea not found: ${placeholder}`);
-    }
-    setNativeTextareaValue(textarea, value);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    textarea.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-  });
-}
-
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
@@ -413,31 +617,7 @@ function inputWithLabel(labelText: string) {
     return null;
   }
   const id = label.getAttribute("for");
-  return id ? document.getElementById(id) as HTMLInputElement | null : null;
-}
-
-function ptyOutput() {
-  const output = document.querySelector<HTMLPreElement>(
-    '[aria-label="Terminal PTY output"]',
-  );
-  if (!output) {
-    throw new Error("Terminal PTY output not found.");
-  }
-  return output;
-}
-
-function setScrollableOutput(
-  output: HTMLPreElement,
-  dimensions: { clientHeight: number; scrollHeight: number },
-) {
-  Object.defineProperty(output, "clientHeight", {
-    configurable: true,
-    value: dimensions.clientHeight,
-  });
-  Object.defineProperty(output, "scrollHeight", {
-    configurable: true,
-    value: dimensions.scrollHeight,
-  });
+  return id ? (document.getElementById(id) as HTMLInputElement | null) : null;
 }
 
 function setNativeInputValue(field: HTMLInputElement, value: string) {
@@ -448,12 +628,12 @@ function setNativeInputValue(field: HTMLInputElement, value: string) {
   descriptor?.set?.call(field, value);
 }
 
-function setNativeTextareaValue(field: HTMLTextAreaElement, value: string) {
-  const descriptor = Object.getOwnPropertyDescriptor(
-    HTMLTextAreaElement.prototype,
-    "value",
-  );
-  descriptor?.set?.call(field, value);
+function latestTerminal() {
+  const terminal = xtermMockState.terminals[xtermMockState.terminals.length - 1];
+  if (!terminal) {
+    throw new Error("Mock xterm Terminal was not created.");
+  }
+  return terminal;
 }
 
 function definition(): WidgetDefinition {
@@ -489,11 +669,15 @@ function instance(): WidgetInstance {
 }
 
 function terminalSession({
+  cols = 80,
   outputText = "",
+  rows = 24,
   status = "running",
   workingDirectory = "C:\\repo",
 }: {
+  cols?: number;
   outputText?: string;
+  rows?: number;
   status?: string;
   workingDirectory?: string;
 } = {}): TerminalPtySession {
@@ -516,8 +700,8 @@ function terminalSession({
       droppedBytes: 0,
       totalBufferedBytes: outputText.length,
     },
-    rows: 24,
-    cols: 80,
+    rows,
+    cols,
     sessionId: "pty_1",
     shell: "powershell.exe",
     shellArgs: [],

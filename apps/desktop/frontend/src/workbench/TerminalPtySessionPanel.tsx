@@ -1,16 +1,21 @@
 import {
-  type KeyboardEvent,
+  forwardRef,
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal as XtermTerminal } from "@xterm/xterm";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import {
   DEFAULT_TERMINAL_WORKING_DIRECTORY,
+  type TerminalPtyOutputChunk,
   type TerminalPtySession,
 } from "../workspace/types";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
@@ -37,8 +42,6 @@ const DEFAULT_COLS = "80";
 const DEFAULT_ROWS = "24";
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES = "65536";
 const POLL_INTERVAL_MS = 1250;
-const INPUT_NEWLINE = "\r\n";
-const OUTPUT_FOLLOW_THRESHOLD_PX = 32;
 
 export function TerminalPtySessionPanel({
   instance,
@@ -60,8 +63,7 @@ export function TerminalPtySessionPanel({
   const colsInputId = useId();
   const rowsInputId = useId();
   const outputCapInputId = useId();
-  const stdinInputId = useId();
-  const outputRef = useRef<HTMLPreElement | null>(null);
+  const terminalSurfaceRef = useRef<TerminalXtermSurfaceHandle | null>(null);
   const [shellDraft, setShellDraft] = useState(DEFAULT_SHELL);
   const [shellArgsDraft, setShellArgsDraft] = useState("");
   const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState(
@@ -72,11 +74,9 @@ export function TerminalPtySessionPanel({
   const [outputCapDraft, setOutputCapDraft] = useState(
     DEFAULT_OUTPUT_BUFFER_CAP_BYTES,
   );
-  const [stdinDraft, setStdinDraft] = useState("");
   const [session, setSession] = useState<TerminalPtySession | null>(null);
   const [clearedThroughSequence, setClearedThroughSequence] = useState(0);
   const [isStarting, setIsStarting] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isKilling, setIsKilling] = useState(false);
@@ -85,7 +85,6 @@ export function TerminalPtySessionPanel({
   const [killConfirmOpen, setKillConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
-  const [autoFollowOutput, setAutoFollowOutput] = useState(true);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -116,11 +115,6 @@ export function TerminalPtySessionPanel({
     shell.length > 0 &&
     workingDirectory.length > 0 &&
     !numericInputError;
-  const canSend =
-    Boolean(onWriteTerminalPtySession) &&
-    activeSession &&
-    stdinDraft.length > 0 &&
-    !isSending;
   const canResize =
     Boolean(onResizeTerminalPtySession) &&
     activeSession &&
@@ -158,17 +152,8 @@ export function TerminalPtySessionPanel({
   }, [onGetTerminalPtySession, session?.sessionId, session?.status]);
 
   useLayoutEffect(() => {
-    if (!autoFollowOutput) {
-      return;
-    }
-
-    const outputElement = outputRef.current;
-    if (!outputElement) {
-      return;
-    }
-
-    outputElement.scrollTop = outputElement.scrollHeight;
-  }, [autoFollowOutput, visibleOutput]);
+    terminalSurfaceRef.current?.fit();
+  }, [session?.sessionId, session?.status]);
 
   async function startSession() {
     if (!onCreateTerminalPtySession || isStarting) {
@@ -226,27 +211,25 @@ export function TerminalPtySessionPanel({
     }
   }
 
-  async function sendStdinLine() {
-    if (!session || !onWriteTerminalPtySession || !canSend) {
+  async function sendRawStdin(data: string) {
+    if (!session || !onWriteTerminalPtySession || !activeSession) {
       return;
     }
 
     setErrorMessage(null);
-    setIsSending(true);
 
     try {
       const response = await onWriteTerminalPtySession(instance.id, {
         sessionId: session.sessionId,
-        data: `${stdinDraft}${INPUT_NEWLINE}`,
+        data,
       });
-      setStdinDraft("");
       applySessionResponse(response);
     } catch (error) {
       setErrorMessage(
         errorToMessage(error, "Unable to send input to Terminal PTY session."),
       );
     } finally {
-      setIsSending(false);
+      terminalSurfaceRef.current?.focus();
     }
   }
 
@@ -383,39 +366,52 @@ export function TerminalPtySessionPanel({
 
   function clearVisibleOutput() {
     setClearedThroughSequence(maxOutputSequence(session));
+    terminalSurfaceRef.current?.clear();
     setCopyStatus(null);
   }
 
   async function copyVisibleOutput() {
-    if (!visibleOutput) {
+    const xtermText = terminalSurfaceRef.current?.getVisibleText().trimEnd();
+    const outputToCopy = xtermText || visibleOutput;
+
+    if (!outputToCopy) {
       setCopyStatus("No output to copy.");
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(visibleOutput);
+      await navigator.clipboard.writeText(outputToCopy);
       setCopyStatus("Output copied.");
     } catch {
       setCopyStatus("Copy failed.");
     }
   }
 
-  function handleStdinKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== "Enter" || event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    void sendStdinLine();
+  function handleXtermFitDimensions(cols: number, rows: number) {
+    setColsDraft(String(cols));
+    setRowsDraft(String(rows));
   }
 
-  function handleOutputScroll() {
-    const outputElement = outputRef.current;
-    if (!outputElement) {
+  async function resizeSessionToXterm(cols: number, rows: number) {
+    if (!session || !onResizeTerminalPtySession || !activeSession) {
       return;
     }
 
-    setAutoFollowOutput(isScrolledNearBottom(outputElement));
+    setErrorMessage(null);
+    setIsResizing(true);
+
+    try {
+      const response = await onResizeTerminalPtySession(instance.id, {
+        sessionId: session.sessionId,
+        cols,
+        rows,
+      });
+      applySessionResponse(response);
+    } catch (error) {
+      setErrorMessage(errorToMessage(error, "Unable to resize PTY session."));
+    } finally {
+      setIsResizing(false);
+    }
   }
 
   return (
@@ -539,37 +535,17 @@ export function TerminalPtySessionPanel({
               bounded backend buffer.
             </p>
           ) : null}
-          <pre
-            aria-label="Terminal PTY output"
-            className="terminal-pty-output"
-            onScroll={handleOutputScroll}
-            ref={outputRef}
-          >
-            <code>
-              {visibleOutput || "Start a terminal session to run commands."}
-            </code>
-          </pre>
-        </div>
-
-        <div className="terminal-prompt-row">
-          <label className="terminal-prompt-label" htmlFor={stdinInputId}>
-            &gt;
-          </label>
-          <textarea
-            autoCapitalize="off"
-            autoComplete="off"
-            className="input terminal-pty-stdin"
-            disabled={!activeSession || isSending}
-            id={stdinInputId}
-            onChange={(event) => setStdinDraft(event.target.value)}
-            onKeyDown={handleStdinKeyDown}
-            placeholder="Type a command"
-            spellCheck={false}
-            value={stdinDraft}
+          <TerminalXtermSurface
+            activeSession={activeSession}
+            clearedThroughSequence={clearedThroughSequence}
+            onFitDimensions={handleXtermFitDimensions}
+            onRawInput={(data) => void sendRawStdin(data)}
+            onResizeDimensions={(cols, rows) =>
+              void resizeSessionToXterm(cols, rows)
+            }
+            ref={terminalSurfaceRef}
+            session={session}
           />
-          <Button disabled={!canSend} onClick={sendStdinLine} variant="primary">
-            {isSending ? "Sending..." : "Send"}
-          </Button>
         </div>
       </div>
 
@@ -702,7 +678,7 @@ export function TerminalPtySessionPanel({
             <div className="terminal-settings-safety">
               <p className="terminal-command-note">
                 Output is a bounded runtime-only buffer and is not persisted.
-                Enter sends one line; Shift+Enter inserts a newline.
+                Keyboard input is sent directly to the active PTY session.
               </p>
               <div className="terminal-pty-actions">
                 <span className="terminal-pty-kill-action">
@@ -784,8 +760,252 @@ export function TerminalPtySessionPanel({
   );
 }
 
-function isScrolledNearBottom(element: HTMLElement) {
-  const remainingScroll =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
-  return remainingScroll <= OUTPUT_FOLLOW_THRESHOLD_PX;
+type TerminalXtermSurfaceHandle = {
+  clear: () => void;
+  fit: () => void;
+  focus: () => void;
+  getVisibleText: () => string;
+};
+
+type TerminalXtermSurfaceProps = {
+  activeSession: boolean;
+  clearedThroughSequence: number;
+  onFitDimensions: (cols: number, rows: number) => void;
+  onRawInput: (data: string) => void;
+  onResizeDimensions: (cols: number, rows: number) => void;
+  session: TerminalPtySession | null;
+};
+
+const TerminalXtermSurface = forwardRef<
+  TerminalXtermSurfaceHandle,
+  TerminalXtermSurfaceProps
+>(function TerminalXtermSurface(
+  {
+    activeSession,
+    clearedThroughSequence,
+    onFitDimensions,
+    onRawInput,
+    onResizeDimensions,
+    session,
+  },
+  ref,
+) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const terminalRef = useRef<XtermTerminal | null>(null);
+  const lastSessionIdRef = useRef<string | null>(null);
+  const lastWrittenSequenceRef = useRef(0);
+  const lastResizeKeyRef = useRef("");
+  const resizeInFlightRef = useRef(false);
+  const latestHandlersRef = useRef({
+    activeSession,
+    onFitDimensions,
+    onRawInput,
+    onResizeDimensions,
+  });
+
+  latestHandlersRef.current = {
+    activeSession,
+    onFitDimensions,
+    onRawInput,
+    onResizeDimensions,
+  };
+
+  const fitAndReport = useCallback(() => {
+    const terminal = terminalRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (!terminal || !fitAddon) {
+      return;
+    }
+
+    try {
+      fitAddon.fit();
+    } catch {
+      return;
+    }
+
+    const cols = terminal.cols;
+    const rows = terminal.rows;
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) {
+      return;
+    }
+
+    latestHandlersRef.current.onFitDimensions(cols, rows);
+
+    const resizeKey = `${lastSessionIdRef.current ?? "none"}:${cols}x${rows}`;
+    if (
+      !latestHandlersRef.current.activeSession ||
+      resizeInFlightRef.current ||
+      resizeKey === lastResizeKeyRef.current
+    ) {
+      return;
+    }
+
+    resizeInFlightRef.current = true;
+    lastResizeKeyRef.current = resizeKey;
+    Promise.resolve(latestHandlersRef.current.onResizeDimensions(cols, rows))
+      .finally(() => {
+        resizeInFlightRef.current = false;
+        terminal.focus();
+      });
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      clear() {
+        terminalRef.current?.clear();
+      },
+      fit() {
+        fitAndReport();
+      },
+      focus() {
+        terminalRef.current?.focus();
+      },
+      getVisibleText() {
+        const buffer = terminalRef.current?.buffer.active;
+        if (!buffer) {
+          return "";
+        }
+
+        const lines: string[] = [];
+        for (let index = 0; index < buffer.length; index += 1) {
+          const line = buffer.getLine(index);
+          if (line) {
+            lines.push(line.translateToString(true));
+          }
+        }
+
+        return lines.join("\n");
+      },
+    }),
+    [fitAndReport],
+  );
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const terminal = new XtermTerminal({
+      cursorBlink: true,
+      scrollback: 1000,
+      theme: terminalTheme(container),
+    });
+    const fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(container);
+
+    const dataSubscription = terminal.onData((data) => {
+      if (!latestHandlersRef.current.activeSession) {
+        return;
+      }
+
+      latestHandlersRef.current.onRawInput(data);
+      terminal.focus();
+    });
+
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+    window.setTimeout(fitAndReport, 0);
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => fitAndReport());
+    resizeObserver?.observe(container);
+    window.addEventListener("resize", fitAndReport);
+
+    return () => {
+      window.removeEventListener("resize", fitAndReport);
+      resizeObserver?.disconnect();
+      dataSubscription.dispose();
+      fitAddon.dispose();
+      terminal.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
+    };
+  }, [fitAndReport]);
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return;
+    }
+
+    if (!session) {
+      if (lastSessionIdRef.current) {
+        terminal.clear();
+      }
+      lastSessionIdRef.current = null;
+      lastWrittenSequenceRef.current = 0;
+      return;
+    }
+
+    if (lastSessionIdRef.current !== session.sessionId) {
+      terminal.clear();
+      lastSessionIdRef.current = session.sessionId;
+      lastWrittenSequenceRef.current = clearedThroughSequence;
+      lastResizeKeyRef.current = "";
+      fitAndReport();
+    }
+
+    const baseline = Math.max(
+      lastWrittenSequenceRef.current,
+      clearedThroughSequence,
+    );
+    const chunksToWrite = session.output.chunks.filter(
+      (chunk) => chunk.sequence > baseline,
+    );
+
+    for (const chunk of chunksToWrite) {
+      terminal.write(chunk.text);
+    }
+
+    if (chunksToWrite.length > 0) {
+      lastWrittenSequenceRef.current = maxChunkSequence(chunksToWrite);
+    } else {
+      lastWrittenSequenceRef.current = Math.max(
+        lastWrittenSequenceRef.current,
+        clearedThroughSequence,
+      );
+    }
+  }, [clearedThroughSequence, fitAndReport, session]);
+
+  return (
+    <div className="terminal-xterm-shell">
+      <div
+        aria-label="Terminal PTY output"
+        className="terminal-xterm-surface"
+        ref={containerRef}
+      />
+      {!session ? (
+        <div className="terminal-xterm-placeholder">
+          Start a terminal session to run commands.
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
+function maxChunkSequence(chunks: TerminalPtyOutputChunk[]) {
+  return chunks.reduce(
+    (maxSequence, chunk) => Math.max(maxSequence, chunk.sequence),
+    0,
+  );
+}
+
+function terminalTheme(container: HTMLElement) {
+  const styles = window.getComputedStyle(container);
+  return {
+    background: cssVar(styles, "--color-io-surface"),
+    foreground: cssVar(styles, "--color-text-primary"),
+    cursor: cssVar(styles, "--color-text-primary"),
+    selectionBackground: cssVar(styles, "--color-accent-muted"),
+  };
+}
+
+function cssVar(styles: CSSStyleDeclaration, name: string) {
+  return styles.getPropertyValue(name).trim() || undefined;
 }

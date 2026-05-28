@@ -218,25 +218,27 @@ Workspace Agent is the foreground interactive agent surface.
   working directory, cols/rows, stdin sends, manual refresh/polling, resize,
   Stop, Kill with confirmation, and Close.
 - The normal visible Terminal UI shows compact shell and working-directory
-  context, a large monospace output buffer, prompt-style command input, and
-  explicit Start/Stop controls. The editable working directory defaults to
+  context, an xterm-based interactive terminal surface, and explicit
+  Start/Stop controls. Where the backend PTY is supported, xterm handles raw
+  keyboard input, ANSI/control-sequence rendering, cursor movement, alternate
+  screen behavior, and interactive programs such as `vi`, `less`, `nano`, and
+  `top`. The editable working directory defaults to
   `~`, is available in collapsed Terminal settings, and resolves to the
   current user's home directory before the desktop PTY create request reaches
   the backend. Shell executable, shell args, cols/rows, output cap bytes,
   runtime-only buffer details, and the compatibility fallback are also
   accessible from Terminal settings and are collapsed by default.
-- PTY output is display-filtered in the frontend to strip unsupported ANSI and
-  control sequences while preserving normal text and line breaks. The raw
-  session-only backend buffer remains unchanged. The visible output follows
-  newest content while the operator is near the bottom and pauses follow
-  behavior when the operator scrolls away.
+- PTY output is written raw from the session-only backend buffer into xterm so
+  xterm can render ANSI colors, cursor controls, and terminal screen updates.
+  The raw session-only backend buffer remains unchanged.
 - PTY output is a bounded session-only buffer. It is not persisted as widget
   logs/results and is not sent to Workspace Agent, Queue, Agent Executor,
   Git, Notes, JDBC, or Evidence/Sources.
 - PTY session support is currently Windows-only in shipped backend code.
   Non-Windows desktop builds compile but live PTY creation returns an
   unsupported-platform error. Treat non-Windows live PTY sessions as
-  unsupported until platform support or catalog gating is implemented.
+  unsupported until platform support or catalog gating is implemented; the
+  xterm frontend does not change that backend limitation.
 - Browser/Vite fallback cannot run local processes.
 - The legacy one-shot fallback is a Compatibility path. It remains available
   only behind the collapsed fallback UI, uses explicit program, argv, working
