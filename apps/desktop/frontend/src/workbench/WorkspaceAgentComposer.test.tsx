@@ -33,7 +33,7 @@ describe("WorkspaceAgentComposer", () => {
     );
     expect(buttonWithText("Send")).toBeDefined();
     expect(document.body.textContent).toContain(
-      "Send uses mock/local fallback unless a provider is configured. No tools run.",
+      "Send uses visible chat only. No tools run.",
     );
   });
 
@@ -61,6 +61,21 @@ describe("WorkspaceAgentComposer", () => {
     renderComposer({ directModeEnabled: true });
 
     expect(buttonWithText("Run with Codex")?.disabled).toBe(true);
+  });
+
+  it("keeps the message input before Direct Work controls", () => {
+    renderComposer({ directModeEnabled: true });
+
+    const textarea = messageTextarea();
+    const directModePanel = document.querySelector(
+      ".interactive-agent-direct-mode",
+    );
+
+    expect(directModePanel).not.toBeNull();
+    expect(
+      textarea.compareDocumentPosition(directModePanel as Element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("renders and removes visible attached context", async () => {

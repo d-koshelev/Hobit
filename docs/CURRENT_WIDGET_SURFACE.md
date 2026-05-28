@@ -428,9 +428,11 @@ Workspace Agent is the foreground interactive agent surface.
   must remain visible and removable before Run with Codex. Thread state is
   current-session only unless a later persistence slice explicitly adds
   storage. Normal chat transcript shows
-  operator prompts and Codex final responses; Direct Work lifecycle details and
-  raw technical data stay available in the collapsed Direct Work details/status
-  area. Workspace Agent also publishes current-session readable activity events
+  operator prompts and Codex final responses, with the composer directly below
+  the transcript and no normal-view Agent details/provider diagnostics chrome.
+  Direct Work lifecycle details and raw technical data stay available in the
+  collapsed Direct Work details/status area below the composer controls.
+  Workspace Agent also publishes current-session readable activity events
   to the Agent Activity widget without inserting those events into chat. Agent
   Activity keeps raw event previews collapsed by default. Workspace Agent shows
   compact helper copy that `~` resolves to the current user's

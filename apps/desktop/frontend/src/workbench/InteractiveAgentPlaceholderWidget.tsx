@@ -19,7 +19,6 @@ import {
   coordinatorProviderErrorMeta,
   coordinatorProviderFallbackMeta,
   coordinatorProviderMessage,
-  coordinatorProviderModeLabel,
   type CoordinatorProviderMessageMeta,
   coordinatorProviderPendingMeta,
   coordinatorProviderProposalDraftContext,
@@ -62,10 +61,7 @@ import {
   workspaceAgentActivitySummaryFromEvent,
 } from "./workspaceAgentDirectWorkModel";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
-import {
-  WorkspaceAgentHeaderStatus,
-  WorkspaceAgentStatusPanel,
-} from "./WorkspaceAgentStatusPanel";
+import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
 import {
   appendWorkspaceAgentVisibleContextBlock,
   removeWorkspaceAgentVisibleContextFromDraft,
@@ -77,7 +73,6 @@ import {
   type WorkspaceAgentTranscriptMessage,
 } from "./WorkspaceAgentTranscript";
 import {
-  WORKSPACE_AGENT_PROPOSAL_TYPE_SUMMARY,
   WORKSPACE_AGENT_SUGGESTED_PROMPTS,
 } from "./workspaceAgentSuggestedPrompts";
 import {
@@ -151,8 +146,6 @@ export function InteractiveAgentPlaceholderWidget({
   const [visibleAttachedContext, setVisibleAttachedContext] =
     useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
-  const [providerModeLabel, setProviderModeLabel] =
-    useState("Mock/local fallback");
   const [directWorkDirectory, setDirectWorkDirectory] = useState("~");
   const [directWorkStatus, setDirectWorkStatus] =
     useState<CoordinatorDirectWorkStatus>("idle");
@@ -332,7 +325,6 @@ export function InteractiveAgentPlaceholderWidget({
     window.setTimeout(() => textareaRef.current?.focus(), 0);
 
     if (!onGenerateCoordinatorProviderResponse) {
-      setProviderModeLabel("Local fallback");
       return;
     }
 
@@ -363,7 +355,6 @@ export function InteractiveAgentPlaceholderWidget({
       )
         ? catalogActionProposalsFromText(assistantText, assistantMessage.id)
         : [];
-      setProviderModeLabel(coordinatorProviderModeLabel(providerResponse));
       const providerProposals = [
         ...providerDrafts.proposals,
         ...providerCatalogProposals,
@@ -391,7 +382,6 @@ export function InteractiveAgentPlaceholderWidget({
       });
     } catch (error) {
       const message = errorToMessage(error, "Provider request failed.");
-      setProviderModeLabel("Provider error");
       patchMessage(assistantMessage.id, {
         body: generated.responseBody,
         providerMeta: coordinatorProviderErrorMeta(
@@ -779,7 +769,6 @@ export function InteractiveAgentPlaceholderWidget({
     setDraft("");
     setVisibleAttachedContext(null);
     setIsProviderPending(false);
-    setProviderModeLabel("Mock/local fallback");
     setDirectWorkDirectory("~");
     setDirectWorkStatus("idle");
     setDirectWorkRunId(null);
@@ -956,12 +945,6 @@ export function InteractiveAgentPlaceholderWidget({
       title={title}
     >
       <div className="interactive-agent-chat">
-        <WorkspaceAgentStatusPanel
-          isProviderPending={isProviderPending}
-          providerModeLabel={providerModeLabel}
-          supportedProposalTypeSummary={WORKSPACE_AGENT_PROPOSAL_TYPE_SUMMARY}
-        />
-
         <WorkspaceAgentTranscript
           creatingKnowledgeDocumentProposalIds={
             creatingKnowledgeDocumentProposalIds

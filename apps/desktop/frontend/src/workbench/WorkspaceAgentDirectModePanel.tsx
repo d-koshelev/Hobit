@@ -296,14 +296,11 @@ export function WorkspaceAgentDirectModePanel({
             </div>
           </details>
           <details className="interactive-agent-direct-mode-details">
-            <summary>Safety/context details</summary>
+            <summary>Working directory notes</summary>
             <div className="interactive-agent-direct-mode-detail-body">
               <p className="interactive-agent-direct-mode-help">
                 ~ resolves to your user home. If access is denied, choose a
                 project folder or scratch workspace.
-              </p>
-              <p className="interactive-agent-direct-mode-help">
-                Provider requests use visible context only with tools disabled.
               </p>
             </div>
           </details>

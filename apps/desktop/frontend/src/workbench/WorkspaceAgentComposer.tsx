@@ -77,23 +77,6 @@ export function WorkspaceAgentComposer({
         context={visibleAttachedContext}
         onRemove={onRemoveVisibleContext}
       />
-      {directMode ? (
-        <WorkspaceAgentDirectModePanel
-          activitySummary={directMode.activitySummary}
-          directWorkDirectory={directMode.directWorkDirectory}
-          error={directMode.error}
-          finalResult={directMode.finalResult}
-          knowledgeLookup={directMode.knowledgeLookup}
-          logs={directMode.logs}
-          onDirectoryChange={directMode.onDirectoryChange}
-          onResetThread={directMode.onResetThread}
-          runId={directMode.runId}
-          status={directMode.status}
-          threadId={directMode.threadId}
-          threadNotice={directMode.threadNotice}
-          warning={directMode.warning}
-        />
-      ) : null}
       <label
         className="interactive-agent-label interactive-agent-label-hidden"
         htmlFor={textareaId}
@@ -113,7 +96,7 @@ export function WorkspaceAgentComposer({
         <p className="interactive-agent-note">
           {isDirectModeEnabled
             ? "Runs with Codex from the selected working directory."
-            : "Send uses mock/local fallback unless a provider is configured. No tools run."}
+            : "Send uses visible chat only. No tools run."}
         </p>
         <div className="interactive-agent-composer-actions">
           {directMode?.canStopDirectWork ? (
@@ -143,6 +126,23 @@ export function WorkspaceAgentComposer({
           </Button>
         </div>
       </div>
+      {directMode ? (
+        <WorkspaceAgentDirectModePanel
+          activitySummary={directMode.activitySummary}
+          directWorkDirectory={directMode.directWorkDirectory}
+          error={directMode.error}
+          finalResult={directMode.finalResult}
+          knowledgeLookup={directMode.knowledgeLookup}
+          logs={directMode.logs}
+          onDirectoryChange={directMode.onDirectoryChange}
+          onResetThread={directMode.onResetThread}
+          runId={directMode.runId}
+          status={directMode.status}
+          threadId={directMode.threadId}
+          threadNotice={directMode.threadNotice}
+          warning={directMode.warning}
+        />
+      ) : null}
     </form>
   );
 }

@@ -2,10 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  WorkspaceAgentHeaderStatus,
-  WorkspaceAgentStatusPanel,
-} from "./WorkspaceAgentStatusPanel";
+import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -42,47 +39,19 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(document.body.textContent).toContain("Failed");
   });
 
-  it("keeps provider diagnostics collapsed behind Agent details", () => {
-    render(
-      <WorkspaceAgentStatusPanel
-        isProviderPending={false}
-        providerModeLabel="Mock/local fallback"
-        supportedProposalTypeSummary="Queue task, Note, JDBC query suggestion"
-      />,
-    );
+  it("does not render normal-view Agent details diagnostics", () => {
+    render(<WorkspaceAgentHeaderStatus status="idle" />);
 
-    expect(
-      document.querySelector('[aria-label="Workspace Agent status"]'),
-    ).not.toBeNull();
-    const details = document.querySelector<HTMLDetailsElement>(
-      '[aria-label="Workspace Agent provider details"]',
-    );
-    expect(details).not.toBeNull();
-    expect(details?.open).toBe(false);
-    expect(details?.querySelector("summary")?.textContent).toBe(
-      "Agent details",
-    );
-    expect(details?.textContent).toContain("Local chat fallback");
-    expect(details?.textContent).toContain("Backend");
-    expect(details?.textContent).toContain("Review cards available");
+    expect(document.body.textContent).not.toContain("Agent details");
+    expect(document.body.textContent).not.toContain("Local chat fallback");
+    expect(document.body.textContent).not.toContain("Backend");
+    expect(document.body.textContent).not.toContain("Review cards available");
     expect(document.body.textContent).not.toContain("Response setup");
     expect(document.body.textContent).not.toContain("Backend selected");
     expect(document.body.textContent).not.toContain("Mock/local fallback");
     expect(document.body.textContent).not.toContain("Supported review cards");
     expect(document.body.textContent).not.toContain("Direct Mode");
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
-  });
-
-  it("renders provider pending state as Drafting", () => {
-    render(
-      <WorkspaceAgentStatusPanel
-        isProviderPending={true}
-        providerModeLabel="Mock/local fallback"
-        supportedProposalTypeSummary="Queue task"
-      />,
-    );
-
-    expect(document.body.textContent).toContain("Drafting");
   });
 });
 

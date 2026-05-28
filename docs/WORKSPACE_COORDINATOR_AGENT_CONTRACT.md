@@ -108,11 +108,13 @@ The current Workspace Agent preview:
   Changing the working directory clears the current thread id so the next run
   starts fresh. Thread state is current-session only unless persistence is
   added later. Normal transcript entries show user prompts and Codex final
-  responses. Workspace Agent shows one compact live activity line during Codex
-  runs, such as the current command, file-read phase, or response preparation
-  step; completed and failed runs keep that summary compact. Direct Work
-  lifecycle details and raw technical data remain available in the collapsed
-  Direct Work details/status area. Workspace Agent publishes current-session
+  responses, and the composer sits directly below the transcript without
+  normal-view Agent details/provider diagnostics chrome. Workspace Agent shows
+  one compact live activity line during Codex runs, such as the current
+  command, file-read phase, or response preparation step; completed and failed
+  runs keep that summary compact. Direct Work lifecycle details and raw
+  technical data remain available in the collapsed Direct Work details/status
+  area below the composer controls. Workspace Agent publishes current-session
   readable timeline events to the Agent Activity widget without inserting those
   events into chat. Agent Activity keeps raw event previews collapsed by
   default. Status, recent logs, Stop/cancel state when available, final result

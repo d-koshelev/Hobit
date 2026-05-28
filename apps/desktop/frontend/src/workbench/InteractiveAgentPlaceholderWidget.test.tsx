@@ -73,8 +73,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain(
       "Explain how to execute this safely",
     );
-    expect(document.body.textContent).toContain("visible context only");
-    expect(document.body.textContent).toContain("tools disabled");
+    expect(document.body.textContent).toContain("visible chat only");
+    expect(document.body.textContent).toContain("No tools run");
+    expect(document.body.textContent).not.toContain("Agent details");
     expect(
       document.querySelector(".widget-title")?.textContent,
     ).toBe("Workspace Agent");
@@ -120,6 +121,32 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
+  });
+
+  it("renders the transcript directly before the composer input", () => {
+    renderWidget({ onStartCodexDirectWorkStream: vi.fn() });
+
+    const transcript = document.querySelector(
+      ".interactive-agent-message-list",
+    );
+    const composer = document.querySelector(".interactive-agent-composer");
+    const textarea = document.querySelector("textarea");
+    const directModePanel = document.querySelector(
+      ".interactive-agent-direct-mode",
+    );
+
+    expect(transcript).not.toBeNull();
+    expect(composer).not.toBeNull();
+    expect(textarea).not.toBeNull();
+    expect(directModePanel).not.toBeNull();
+    expect(
+      transcript!.compareDocumentPosition(composer!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      textarea!.compareDocumentPosition(directModePanel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("message send still behaves like chat when the Codex bridge is unavailable", async () => {
@@ -1525,7 +1552,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(visibleAssistantBody).not.toContain("allowed_tools");
   });
 
-  it("keeps agent diagnostics and response details collapsed in secondary UI", async () => {
+  it("removes Agent details from normal UI and keeps response details collapsed", async () => {
     const provider = vi.fn(async () =>
       providerResponse({
         visibleContextMessageCount: 1,
@@ -1535,24 +1562,17 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     renderWidget({ onGenerateCoordinatorProviderResponse: provider });
     await sendMessage("hello");
 
-    const providerDetails = document.querySelector<HTMLDetailsElement>(
-      ".interactive-agent-provider-secondary",
-    );
     const responseDetails = document.querySelector<HTMLDetailsElement>(
       ".interactive-agent-provider-meta",
     );
 
-    expect(providerDetails).not.toBeNull();
-    expect(providerDetails?.open).toBe(false);
-    expect(providerDetails?.querySelector("summary")?.textContent).toBe(
-      "Agent details",
-    );
     expect(
-      providerDetails?.querySelector(".interactive-agent-provider-row"),
-    ).not.toBeNull();
-    expect(providerDetails?.textContent).toContain("Chat response");
-    expect(providerDetails?.textContent).toContain("Runtime");
-    expect(providerDetails?.textContent).toContain("Backend");
+      document.querySelector(".interactive-agent-provider-secondary"),
+    ).toBeNull();
+    expect(document.body.textContent).not.toContain("Agent details");
+    expect(document.body.textContent).not.toContain("Chat response");
+    expect(document.body.textContent).not.toContain("Runtime");
+    expect(document.body.textContent).not.toContain("Backend");
     expect(document.body.textContent).not.toContain("Response setup");
     expect(document.body.textContent).not.toContain("Backend selected");
     expect(document.body.textContent).not.toContain("Mock/local fallback");
