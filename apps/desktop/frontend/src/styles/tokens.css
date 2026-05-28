@@ -109,9 +109,13 @@
 
 :root[data-hobit-theme="discord-dark"] {
   --color-on-primary: #ffffff;
-  --color-hover-surface: #404249;
-  --color-selected-surface: #404249;
+  --color-hover-surface: #424549;
+  --color-selected-surface: #424549;
   --color-selected-border: var(--color-border-strong);
+  --shadow-widget: 0 0 0 1px var(--color-border-subtle);
+  --shadow-elevated:
+    0 14px 32px color-mix(in srgb, #1e2124 54%, transparent),
+    0 0 0 1px var(--color-border);
   --workbench-grid-dot:
     color-mix(in srgb, var(--color-border-strong) 16%, transparent);
   --focus-ring:

@@ -62,7 +62,9 @@ behavior, or Workspace Agent context wiring.
   workbench/start layout.
 - The frontend has local interface theme support with built-in presets,
   including a Discord Dark preset tuned to a layered gray Discord-like palette,
-  and a small custom theme option. Theme application
+  using `#1e2124`, `#282b30`, `#36393e`, `#424549`, and the `#7289da` accent,
+  and a small custom theme option with color pickers and HEX inputs for
+  editable colors. Theme application
   writes existing CSS token variables in the browser, persists as a local UI
   preference, and is not Workspace-scoped, server-synced, team-shared, or
   connected to backend/runtime behavior.

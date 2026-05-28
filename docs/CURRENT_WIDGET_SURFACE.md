@@ -79,12 +79,14 @@ payloads, or Executor output.
 The frontend supports local interface theme presets from the Start Screen and
 Workbench top bar, including Dark / Default, Light, Midnight, Discord Dark,
 Graphite, and Forest. Discord Dark uses a Discord-like layered gray palette
-with a restrained blurple accent. The current theme choice is a local UI
-preference persisted in browser/desktop local storage under a stable frontend
-key. The custom theme option is intentionally small: it edits accent,
-background, surface, raised surface, text, muted text, and border colors only.
-The same Appearance UI also supports local UI scale presets: 90%, 100%, 110%,
-125%, and 150%, with 100% as the default. UI scale is a frontend-local
+with `#1e2124`, `#282b30`, `#36393e`, `#424549`, and the `#7289da` accent.
+The current theme choice is a local UI preference persisted in browser/desktop
+local storage under a stable frontend key. The custom theme option is
+intentionally small: it edits accent, background, surface, raised surface,
+text, muted text, and border colors with a color picker plus HEX input for
+each editable color. The same Appearance UI also supports local UI scale
+presets: 90%, 100%, 110%, 125%, and 150%, with 100% as the default. UI scale
+is a frontend-local
 preference persisted in local storage, applies through CSS variables for text,
 controls, and widget chrome, and remains separate from workbench grid size,
 widget coordinates, and layout persistence. Theme and UI scale preferences are

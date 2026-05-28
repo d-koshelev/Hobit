@@ -96,26 +96,47 @@ export function ThemePicker({ theme }: ThemePickerProps) {
             </label>
             <div className="theme-custom-grid">
               {Object.entries(editableThemeVariableLabels).map(
-                ([variable, label]) => (
-                  <label className="theme-color-control" key={variable}>
-                    <span>{label}</span>
-                    <input
-                      aria-label={`Custom ${label.toLowerCase()}`}
-                      onChange={(event) =>
-                        theme.updateCustomThemeValue(
-                          variable as keyof typeof editableThemeVariableLabels,
-                          event.target.value,
-                        )
-                      }
-                      type="color"
-                      value={
-                        theme.customTheme.values[
-                          variable as keyof typeof editableThemeVariableLabels
-                        ]
-                      }
-                    />
-                  </label>
-                ),
+                ([variable, label]) => {
+                  const themeVariable =
+                    variable as keyof typeof editableThemeVariableLabels;
+                  const colorValue = theme.customTheme.values[themeVariable];
+
+                  return (
+                    <label className="theme-color-control" key={variable}>
+                      <span>{label}</span>
+                      <span className="theme-color-input-row">
+                        <input
+                          aria-label={`Custom ${label.toLowerCase()}`}
+                          onChange={(event) =>
+                            theme.updateCustomThemeValue(
+                              themeVariable,
+                              event.target.value,
+                            )
+                          }
+                          type="color"
+                          value={colorValue}
+                        />
+                        <input
+                          aria-label={`Custom ${label.toLowerCase()} HEX`}
+                          className="input theme-color-hex-input"
+                          onChange={(event) => {
+                            const wasUpdated = theme.updateCustomThemeValue(
+                              themeVariable,
+                              event.target.value,
+                            );
+
+                            if (!wasUpdated) {
+                              event.currentTarget.value = colorValue;
+                            }
+                          }}
+                          spellCheck={false}
+                          type="text"
+                          value={colorValue}
+                        />
+                      </span>
+                    </label>
+                  );
+                },
               )}
             </div>
             <Button

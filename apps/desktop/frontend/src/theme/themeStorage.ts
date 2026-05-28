@@ -24,7 +24,7 @@ const editableThemeVariables: EditableThemeVariable[] = [
   "text",
 ];
 
-const hexColorPattern = /^#[0-9a-fA-F]{6}$/;
+const hexColorPattern = /^#?[0-9a-fA-F]{6}$/;
 
 export function isValidThemeColor(value: string): boolean {
   return hexColorPattern.test(value);
@@ -37,7 +37,11 @@ export function normalizeThemeColor(value: string): string | null {
     return null;
   }
 
-  return trimmedValue.toLowerCase();
+  const normalizedValue = trimmedValue.startsWith("#")
+    ? trimmedValue
+    : `#${trimmedValue}`;
+
+  return normalizedValue.toLowerCase();
 }
 
 export function loadThemePreference(): StoredThemePreference {
