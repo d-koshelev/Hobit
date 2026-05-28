@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
 import { persistAgentChatProposal } from "./tauriAgentChatProposalPersistenceApi";
 import { getAgentMonitoringSnapshot } from "./tauriAgentMonitoringApi";
@@ -298,7 +299,20 @@ async function openWorkspace(
 }
 
 async function selectWorkspaceDirectory(): Promise<string | null> {
-  return invoke<string | null>("select_workspace_directory");
+  try {
+    const selectedDirectory = (await open({
+      directory: true,
+      multiple: false,
+    })) as string | string[] | null;
+
+    if (Array.isArray(selectedDirectory)) {
+      return selectedDirectory[0] ?? null;
+    }
+
+    return selectedDirectory;
+  } catch (error) {
+    throw new Error(`Directory picker failed: ${errorToReadableMessage(error)}`);
+  }
 }
 
 async function getWorkspaceWorkbenchState(
@@ -501,4 +515,16 @@ function normalizeWidgetLogEntry(log: TauriWidgetLogEntry): WidgetLogEntry {
     payload: log.payload,
     createdAt: log.created_at,
   };
+}
+
+function errorToReadableMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return "dialog plugin is unavailable or misconfigured";
 }

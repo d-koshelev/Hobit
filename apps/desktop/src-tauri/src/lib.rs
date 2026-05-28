@@ -75,7 +75,6 @@ mod terminal_pty_unsupported;
 #[cfg(windows)]
 mod terminal_pty_windows;
 mod workspace_commands;
-mod workspace_directory_commands;
 mod workspace_dto;
 #[cfg(test)]
 mod workspace_dto_tests;
@@ -85,6 +84,7 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(initialize_app_state(app)?);
             Ok(())
@@ -96,7 +96,6 @@ pub fn run() {
             workspace_commands::get_workspace_summary,
             workspace_commands::open_workspace,
             workspace_commands::get_workspace_workbench_state,
-            workspace_directory_commands::select_workspace_directory,
             workspace_commands::add_widget_instance_to_workbench,
             workspace_commands::update_widget_instance_state,
             workspace_commands::update_widget_instance_layout,
