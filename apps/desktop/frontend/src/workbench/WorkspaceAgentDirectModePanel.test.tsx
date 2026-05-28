@@ -61,26 +61,56 @@ describe("WorkspaceAgentDirectModePanel", () => {
     expect(document.body.textContent).toContain("Copied working directory.");
   });
 
-  it("shows a compact thread id with the full thread id in the title", () => {
+  it("renders the active thread pill with a compact id and full title", () => {
     const threadId = "thread_visible_1234567890";
     renderPanel({ threadId });
 
-    expect(document.body.textContent).toContain("Thread active thread_v...");
-    expect(
-      document.querySelector(`[title="Codex thread id: ${threadId}"]`),
-    ).not.toBeNull();
+    const threadPill = threadCopyPill();
+    expect(threadPill.textContent).toBe("Thread active thread_v...");
+    expect(threadPill.title).toBe(`Codex thread id: ${threadId}`);
   });
 
-  it("copies the full Codex thread id", async () => {
+  it("copies the full Codex thread id from the active thread pill", async () => {
     const writeText = vi.fn(async () => undefined);
     setClipboard(writeText);
     const threadId = "thread_visible_1234567890";
     renderPanel({ threadId });
 
-    await clickButtonByLabel("Copy Codex thread id");
+    await clickThreadPill();
 
     expect(writeText).toHaveBeenCalledWith(threadId);
-    expect(document.body.textContent).toContain("Copied Codex thread id.");
+    expect(document.body.textContent).toContain("Thread copied.");
+  });
+
+  it("shows compact thread copy failure when clipboard is unavailable", async () => {
+    renderPanel({ threadId: "thread_unavailable_123456" });
+
+    await clickThreadPill();
+
+    expect(document.body.textContent).toContain("Clipboard unavailable.");
+  });
+
+  it("shows compact thread copy failure when clipboard write fails", async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error("blocked");
+    });
+    setClipboard(writeText);
+    renderPanel({ threadId: "thread_failed_123456" });
+
+    await clickThreadPill();
+
+    expect(writeText).toHaveBeenCalledWith("thread_failed_123456");
+    expect(document.body.textContent).toContain("Copy failed.");
+  });
+
+  it("does not render a separate thread copy button", () => {
+    renderPanel({ threadId: "thread_visible_1234567890" });
+
+    expect(
+      Array.from(threadControls().querySelectorAll("button")).some(
+        (button) => button.textContent === "Copy",
+      ),
+    ).toBe(false);
   });
 
   it("shows no active thread without a thread copy action", () => {
@@ -197,6 +227,24 @@ function buttonWithLabel(label: string) {
   );
 }
 
+function threadControls() {
+  const controls = document.querySelector<HTMLElement>(
+    '[aria-label="Codex thread controls"]',
+  );
+  if (!controls) {
+    throw new Error("Codex thread controls not found.");
+  }
+  return controls;
+}
+
+function threadCopyPill() {
+  const pill = buttonWithLabel("Copy Codex thread id");
+  if (!pill) {
+    throw new Error("Thread copy pill not found.");
+  }
+  return pill;
+}
+
 async function clickButtonByLabel(label: string) {
   await act(async () => {
     const button = buttonWithLabel(label);
@@ -204,6 +252,14 @@ async function clickButtonByLabel(label: string) {
       throw new Error(`Button not found: ${label}`);
     }
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function clickThreadPill() {
+  await act(async () => {
+    threadCopyPill().dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
   });

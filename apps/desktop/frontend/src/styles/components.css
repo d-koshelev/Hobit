@@ -1030,8 +1030,7 @@
 .interactive-agent-direct-mode {
   display: grid;
   gap: var(--space-xs);
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-xs);
+  padding-top: 0;
 }
 
 .interactive-agent-direct-mode-bar {
@@ -1093,8 +1092,21 @@
   max-width: min(100%, 260px);
 }
 
+.interactive-agent-direct-mode-thread-copy {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.interactive-agent-direct-mode-thread-copy:hover {
+  border-color: var(--color-border-strong);
+}
+
 .interactive-agent-direct-mode-copy-status {
   color: var(--color-success);
+}
+
+.interactive-agent-direct-mode-copy-status-error {
+  color: var(--color-error);
 }
 
 .interactive-agent-direct-mode-path {

@@ -1,4 +1,10 @@
-import { useId, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
@@ -44,7 +50,12 @@ export function WorkspaceAgentDirectModePanel({
   warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const clearDirectoryCopyStatusTimer = useRef<number | null>(null);
+  const clearThreadCopyStatusTimer = useRef<number | null>(null);
+  const [directoryCopyStatus, setDirectoryCopyStatus] = useState<string | null>(
+    null,
+  );
+  const [threadCopyStatus, setThreadCopyStatus] = useState<string | null>(null);
   const latestLog = logs[logs.length - 1]?.text ?? null;
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
@@ -64,20 +75,50 @@ export function WorkspaceAgentDirectModePanel({
     ? `Codex thread id: ${threadId}`
     : "No active Codex thread.";
 
-  async function copyValue(value: string, successMessage: string) {
-    setCopyStatus(null);
+  useEffect(() => {
+    return () => {
+      if (clearDirectoryCopyStatusTimer.current !== null) {
+        window.clearTimeout(clearDirectoryCopyStatusTimer.current);
+      }
+      if (clearThreadCopyStatusTimer.current !== null) {
+        window.clearTimeout(clearThreadCopyStatusTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!threadId) {
+      setThreadCopyStatus(null);
+      if (clearThreadCopyStatusTimer.current !== null) {
+        window.clearTimeout(clearThreadCopyStatusTimer.current);
+      }
+    }
+  }, [threadId]);
+
+  async function copyValue(
+    value: string,
+    successMessage: string,
+    setStatus: (value: string | null) => void,
+    statusTimer: MutableRefObject<number | null>,
+  ) {
+    setStatus(null);
+    if (statusTimer.current !== null) {
+      window.clearTimeout(statusTimer.current);
+    }
 
     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-      setCopyStatus("Clipboard unavailable.");
+      setStatus("Clipboard unavailable.");
+      statusTimer.current = window.setTimeout(() => setStatus(null), 2400);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(value);
-      setCopyStatus(successMessage);
+      setStatus(successMessage);
     } catch {
-      setCopyStatus("Copy failed.");
+      setStatus("Copy failed.");
     }
+    statusTimer.current = window.setTimeout(() => setStatus(null), 2400);
   }
 
   return (
@@ -114,6 +155,8 @@ export function WorkspaceAgentDirectModePanel({
               void copyValue(
                 directWorkDirectory,
                 "Copied working directory.",
+                setDirectoryCopyStatus,
+                clearDirectoryCopyStatusTimer,
               )
             }
             title="Copy working directory"
@@ -127,26 +170,36 @@ export function WorkspaceAgentDirectModePanel({
           aria-label="Codex thread controls"
           className="interactive-agent-direct-mode-thread-controls"
         >
-          <Badge
-            className="interactive-agent-direct-mode-thread-badge"
-            title={threadTitle}
-            variant={threadId ? "info" : "neutral"}
-          >
-            {threadStatusText}
-          </Badge>
           {threadId ? (
-            <Button
+            <button
               aria-label="Copy Codex thread id"
-              className="interactive-agent-direct-mode-copy-button"
+              className="badge badge-info interactive-agent-direct-mode-thread-badge interactive-agent-direct-mode-thread-copy"
               onClick={() =>
-                void copyValue(threadId, "Copied Codex thread id.")
+                void copyValue(
+                  threadId,
+                  "Thread copied.",
+                  setThreadCopyStatus,
+                  clearThreadCopyStatusTimer,
+                )
               }
-              title="Copy Codex thread id"
+              title={threadTitle}
               type="button"
-              variant="ghost"
             >
-              Copy
-            </Button>
+              {threadStatusText}
+            </button>
+          ) : (
+            <Badge
+              className="interactive-agent-direct-mode-thread-badge"
+              title={threadTitle}
+              variant="neutral"
+            >
+              {threadStatusText}
+            </Badge>
+          )}
+          {threadCopyStatus ? (
+            <span className={copyStatusClassName(threadCopyStatus)}>
+              {threadCopyStatus}
+            </span>
           ) : null}
           <Button
             disabled={status === "running" || !threadId}
@@ -175,9 +228,9 @@ export function WorkspaceAgentDirectModePanel({
           </div>
         ) : null}
         <div className="interactive-agent-direct-mode-status" role="status">
-          {copyStatus ? (
-            <span className="interactive-agent-direct-mode-copy-status">
-              {copyStatus}
+          {directoryCopyStatus ? (
+            <span className={copyStatusClassName(directoryCopyStatus)}>
+              {directoryCopyStatus}
             </span>
           ) : null}
           {runId ? <span>Run {runId}</span> : null}
@@ -280,6 +333,14 @@ function workspaceAgentActivityLabel(
 
 function pluralizeStep(count: number) {
   return count === 1 ? "step" : "steps";
+}
+
+function copyStatusClassName(message: string) {
+  const toneClass =
+    message === "Thread copied." || message === "Copied working directory."
+      ? "interactive-agent-direct-mode-copy-status-success"
+      : "interactive-agent-direct-mode-copy-status-error";
+  return `interactive-agent-direct-mode-copy-status ${toneClass}`;
 }
 
 function WorkspaceKnowledgeLookupDetails({
