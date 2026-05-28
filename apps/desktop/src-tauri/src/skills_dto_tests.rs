@@ -1,4 +1,5 @@
 use hobit_app::SkillSummary;
+use serde_json::json;
 
 use crate::skills_dto::{CreateSkillRequest, DeleteSkillRequest, SkillDto, UpdateSkillRequest};
 
@@ -91,4 +92,40 @@ fn maps_skill_summary_to_dto() {
     assert_eq!(dto.review_status, "draft");
     assert_eq!(dto.created_at, "1");
     assert_eq!(dto.updated_at, "2");
+}
+
+#[test]
+fn serializes_skill_dto_with_stable_snake_case_fields() {
+    let dto = SkillDto::from(SkillSummary {
+        skill_id: "skill_1".to_owned(),
+        workspace_id: "ws_1".to_owned(),
+        title: "Skill".to_owned(),
+        when_to_use: "When".to_owned(),
+        prerequisites: "Prereqs".to_owned(),
+        steps: "Steps".to_owned(),
+        validation: "Validation".to_owned(),
+        risks: "Risks".to_owned(),
+        tags: "ops".to_owned(),
+        review_status: "reviewed".to_owned(),
+        created_at: "1".to_owned(),
+        updated_at: "2".to_owned(),
+    });
+
+    assert_eq!(
+        serde_json::to_value(dto).expect("serialize skill dto"),
+        json!({
+            "skill_id": "skill_1",
+            "workspace_id": "ws_1",
+            "title": "Skill",
+            "when_to_use": "When",
+            "prerequisites": "Prereqs",
+            "steps": "Steps",
+            "validation": "Validation",
+            "risks": "Risks",
+            "tags": "ops",
+            "review_status": "reviewed",
+            "created_at": "1",
+            "updated_at": "2"
+        })
+    );
 }

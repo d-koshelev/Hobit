@@ -12,6 +12,7 @@ use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
     AgentMonitoringSnapshot,
 };
+use serde_json::json;
 
 use crate::workspace_dto::{
     AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
@@ -61,6 +62,46 @@ fn maps_workspace_summary_to_dto() {
             queue_task_count: 5,
             workbench_id: Some("wb_1".to_owned()),
         }
+    );
+}
+
+#[test]
+fn serializes_workspace_summary_with_stable_snake_case_metadata_fields() {
+    let dto = WorkspaceSummaryDto {
+        id: "ws_1".to_owned(),
+        title: "Incident".to_owned(),
+        description: None,
+        status: "active".to_owned(),
+        created_at: "2026-05-25T10:00:00Z".to_owned(),
+        updated_at: "2026-05-25T10:30:00Z".to_owned(),
+        last_opened_at: Some("2026-05-25T10:30:00Z".to_owned()),
+        widget_count: 2,
+        workspace_agent_count: 1,
+        note_count: 1,
+        skill_count: 3,
+        knowledge_document_count: 4,
+        queue_task_count: 5,
+        workbench_id: Some("wb_1".to_owned()),
+    };
+
+    assert_eq!(
+        serde_json::to_value(dto).expect("serialize workspace summary"),
+        json!({
+            "id": "ws_1",
+            "title": "Incident",
+            "description": null,
+            "status": "active",
+            "created_at": "2026-05-25T10:00:00Z",
+            "updated_at": "2026-05-25T10:30:00Z",
+            "last_opened_at": "2026-05-25T10:30:00Z",
+            "widget_count": 2,
+            "workspace_agent_count": 1,
+            "note_count": 1,
+            "skill_count": 3,
+            "knowledge_document_count": 4,
+            "queue_task_count": 5,
+            "workbench_id": "wb_1"
+        })
     );
 }
 

@@ -50,8 +50,12 @@ mod jdbc_query_dto;
 mod jdbc_query_dto_tests;
 mod knowledge_document_import_commands;
 mod knowledge_document_import_dto;
+#[cfg(test)]
+mod knowledge_document_import_dto_tests;
 mod knowledge_documents_commands;
 mod knowledge_documents_dto;
+#[cfg(test)]
+mod knowledge_documents_dto_tests;
 mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
@@ -66,6 +70,8 @@ mod terminal_pty_artifacts;
 mod terminal_pty_artifacts_tests;
 mod terminal_pty_commands;
 mod terminal_pty_dto;
+#[cfg(test)]
+mod terminal_pty_dto_tests;
 #[cfg(target_os = "linux")]
 mod terminal_pty_linux;
 #[cfg(test)]
