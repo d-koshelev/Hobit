@@ -38,6 +38,10 @@ export function openWorkspace(
   return getWorkspaceApi().openWorkspace(workspaceId);
 }
 
+export function selectWorkspaceDirectory(): Promise<string | null> {
+  return getWorkspaceApi().selectWorkspaceDirectory();
+}
+
 export function getWorkspaceWorkbenchState(
   workspaceId: string,
 ): Promise<WorkspaceWorkbenchState | null> {

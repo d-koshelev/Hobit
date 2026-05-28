@@ -408,7 +408,10 @@ Workspace Agent is the foreground interactive agent surface.
   Codex. Workspace Agent-owned Direct Work runs pass Codex `--skip-git-repo-check`
   so the default home-directory mode can start from a non-Git directory; Agent
   Executor and Queue Direct Work do not skip that check by default. The
-  operator can replace `~` with a project or repo folder.
+  operator can replace `~` by typing a project or repo folder or by using the
+  Browse control to select one directory. Browse only returns the selected
+  directory path for the working directory field; it does not scan the folder,
+  persist it, or start a run.
   On Windows, the default Codex launch path uses `codex.cmd` through the
   shared Direct Work launch helper. On Unix/Linux, the default Codex launch
   path uses `codex` directly. Missing home-directory resolution for `~`

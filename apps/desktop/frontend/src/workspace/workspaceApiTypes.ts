@@ -119,6 +119,7 @@ export type WorkspaceApi = {
   openWorkspace: (
     workspaceId: string,
   ) => Promise<WorkspaceSessionSummary | null>;
+  selectWorkspaceDirectory: () => Promise<string | null>;
   getWorkspaceWorkbenchState: (
     workspaceId: string,
   ) => Promise<WorkspaceWorkbenchState | null>;

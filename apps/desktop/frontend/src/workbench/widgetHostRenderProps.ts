@@ -237,6 +237,9 @@ export function widgetHostRenderProps({
     onPublishAgentActivityEvents: isAgentExecutor || isInteractiveAgent
       ? onPublishAgentActivityEvents
       : undefined,
+    onSelectWorkspaceDirectory: isInteractiveAgent
+      ? widgetActions.selectWorkspaceDirectory
+      : undefined,
     onStartAssignedAgentQueueTask: isAgentQueue
       ? widgetActions.startAssignedAgentQueueTask
       : undefined,

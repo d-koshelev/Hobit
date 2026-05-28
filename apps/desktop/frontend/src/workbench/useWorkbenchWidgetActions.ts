@@ -39,6 +39,10 @@ import {
   createWorkspaceWidgetActions,
   type WorkspaceWidgetActions,
 } from "./workspaceWidgetActions";
+import {
+  createWorkspaceDirectoryActions,
+  type WorkspaceDirectoryWidgetActions,
+} from "./workspaceDirectoryActions";
 
 type UseWorkbenchWidgetActionsOptions = {
   currentSessionActivity?: CurrentSessionActivityEvents;
@@ -54,7 +58,8 @@ export type WorkbenchWidgetActions = WorkspaceWidgetActions &
   CoordinatorProviderWidgetActions &
   AgentExecutorWidgetActions &
   GitWidgetActions &
-  TerminalWidgetActions;
+  TerminalWidgetActions &
+  WorkspaceDirectoryWidgetActions;
 
 export type WorkbenchWidgetInstanceActions = Omit<
   WorkbenchWidgetActions,
@@ -94,6 +99,7 @@ export function useWorkbenchWidgetActions({
       logRefreshTokens,
       viewState,
     }),
+    ...createWorkspaceDirectoryActions(),
     ...createWorkspaceNoteActions(viewState),
     ...createWorkspaceSkillActions(viewState),
     ...agentQueueTaskActions,

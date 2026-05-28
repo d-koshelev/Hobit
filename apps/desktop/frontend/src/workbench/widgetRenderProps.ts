@@ -312,6 +312,7 @@ export type WidgetRenderProps = {
     request: CoordinatorAttachedContextInput,
   ) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
+  onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;

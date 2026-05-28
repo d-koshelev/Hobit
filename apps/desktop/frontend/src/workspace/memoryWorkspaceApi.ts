@@ -160,6 +160,7 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   deleteWorkspace,
   getWorkspaceSummary,
   openWorkspace,
+  selectWorkspaceDirectory,
   getWorkspaceWorkbenchState,
   createWorkspaceNote: memoryNotesApi.createWorkspaceNote,
   listWorkspaceNotes: memoryNotesApi.listWorkspaceNotes,
@@ -319,6 +320,10 @@ async function openWorkspace(
     status: "open",
     activeWidgetId: null,
   };
+}
+
+async function selectWorkspaceDirectory(): Promise<string | null> {
+  return null;
 }
 
 async function getWorkspaceWorkbenchState(

@@ -97,7 +97,9 @@ The current Workspace Agent preview:
   Codex `--skip-git-repo-check` so the default home-directory mode can start
   from a non-Git directory. Agent Executor and Queue Direct Work do not skip
   that check by default. The operator can replace `~` with a project or repo
-  folder. The first successful Codex stream captures the explicit
+  folder by typing the path or using Browse to select one directory. Browse
+  updates only the visible working directory field; it does not scan folders,
+  persist the path, or start Codex. The first successful Codex stream captures the explicit
   `thread.started` `thread_id` when Codex emits it, stores it as
   current-session Workspace Agent widget state, and later Codex runs send resume
   requests for that explicit thread id. Resume requests do not use `--last`

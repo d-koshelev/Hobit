@@ -26,6 +26,7 @@ type WorkspaceAgentComposerDirectMode = {
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
+  onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onStopDirectWork: () => void;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
@@ -136,6 +137,7 @@ export function WorkspaceAgentComposer({
           logs={directMode.logs}
           onDirectoryChange={directMode.onDirectoryChange}
           onResetThread={directMode.onResetThread}
+          onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}
           runId={directMode.runId}
           status={directMode.status}
           threadId={directMode.threadId}

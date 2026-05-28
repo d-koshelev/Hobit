@@ -99,6 +99,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   deleteWorkspace,
   getWorkspaceSummary,
   openWorkspace,
+  selectWorkspaceDirectory,
   getWorkspaceWorkbenchState,
   createWorkspaceNote,
   listWorkspaceNotes,
@@ -294,6 +295,10 @@ async function openWorkspace(
   );
 
   return session ? normalizeWorkspaceSessionSummary(session) : null;
+}
+
+async function selectWorkspaceDirectory(): Promise<string | null> {
+  return invoke<string | null>("select_workspace_directory");
 }
 
 async function getWorkspaceWorkbenchState(

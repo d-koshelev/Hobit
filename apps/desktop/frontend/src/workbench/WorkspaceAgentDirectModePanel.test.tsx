@@ -45,6 +45,51 @@ describe("WorkspaceAgentDirectModePanel", () => {
 
     expect(workingDirectoryInput().title).toBe(directory);
     expect(buttonWithLabel("Copy working directory")).toBeDefined();
+    expect(buttonWithLabel("Browse for working directory")).toBeDefined();
+  });
+
+  it("clicking Browse calls the directory picker API", async () => {
+    const onSelectWorkspaceDirectory = vi.fn(async () => null);
+    renderPanel({ onSelectWorkspaceDirectory });
+
+    await clickButtonByLabel("Browse for working directory");
+
+    expect(onSelectWorkspaceDirectory).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates the working directory through the existing callback after Browse selection", async () => {
+    const onDirectoryChange = vi.fn();
+    const onSelectWorkspaceDirectory = vi.fn(async () => "C:/work/selected");
+    renderPanel({ onDirectoryChange, onSelectWorkspaceDirectory });
+
+    await clickButtonByLabel("Browse for working directory");
+
+    expect(onDirectoryChange).toHaveBeenCalledWith("C:/work/selected");
+  });
+
+  it("leaves the working directory unchanged when Browse is canceled", async () => {
+    const onDirectoryChange = vi.fn();
+    const onSelectWorkspaceDirectory = vi.fn(async () => null);
+    renderPanel({ onDirectoryChange, onSelectWorkspaceDirectory });
+
+    await clickButtonByLabel("Browse for working directory");
+
+    expect(onDirectoryChange).not.toHaveBeenCalled();
+  });
+
+  it("shows a compact Browse failure when the directory picker fails", async () => {
+    const onDirectoryChange = vi.fn();
+    const onSelectWorkspaceDirectory = vi.fn(async () => {
+      throw new Error("Native directory picker unavailable.");
+    });
+    renderPanel({ onDirectoryChange, onSelectWorkspaceDirectory });
+
+    await clickButtonByLabel("Browse for working directory");
+
+    expect(onDirectoryChange).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Browse failed: Native directory picker unavailable.",
+    );
   });
 
   it("copies the working directory without changing run behavior", async () => {
@@ -184,6 +229,7 @@ function renderPanel(options: RenderPanelOptions = {}) {
       logs={[]}
       onDirectoryChange={vi.fn()}
       onResetThread={vi.fn()}
+      onSelectWorkspaceDirectory={vi.fn(async () => null)}
       runId={null}
       status="idle"
       threadId={null}

@@ -805,6 +805,66 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     });
   });
 
+  it("selecting a working directory with Browse clears the current Codex thread", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const runId = `run_${startDirectWork.mock.calls.length}`;
+        onEvent(directWorkEvent({ eventKind: "started", runId }));
+        onEvent(
+          directWorkEvent({
+            codexThreadId: "thread_browse_123456",
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: `Final for ${runId}.`,
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    const selectWorkspaceDirectory = vi.fn(async () => "C:/work/browsed");
+    renderWidget({
+      onSelectWorkspaceDirectory: selectWorkspaceDirectory,
+      onStartCodexDirectWorkStream: startDirectWork,
+    });
+
+    await toggleDirectMode();
+    await setTextareaValue("Run in home.");
+    await clickButton("Run with Codex");
+    await clickButton("Browse");
+
+    expect(selectWorkspaceDirectory).toHaveBeenCalledTimes(1);
+    expect(textInputValue()).toBe("C:/work/browsed");
+    expect(document.body.textContent).toContain(
+      "Working directory changed. Next Codex run starts a new thread.",
+    );
+
+    await setTextareaValue("Run in the browsed directory.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      repoRoot: "C:/work/browsed",
+    });
+  });
+
   it("requires a working directory before starting Codex", async () => {
     const startDirectWork = vi.fn();
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });

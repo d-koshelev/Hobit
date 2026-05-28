@@ -229,6 +229,7 @@ class QueueExecutorSmokeRuntime {
         return this.forbidden(null);
       },
       resizeTerminalPtySession: async () => this.forbidden(null),
+      selectWorkspaceDirectory: async () => null,
       startAssignedAgentQueueTask: async (request) => {
         this.startCallCount += 1;
         this.task = {

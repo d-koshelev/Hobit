@@ -29,6 +29,7 @@ export function WorkspaceAgentDirectModePanel({
   logs,
   onDirectoryChange,
   onResetThread,
+  onSelectWorkspaceDirectory,
   runId,
   status,
   threadId,
@@ -43,6 +44,7 @@ export function WorkspaceAgentDirectModePanel({
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
+  onSelectWorkspaceDirectory?: () => Promise<string | null>;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
   threadId: string | null;
@@ -55,6 +57,11 @@ export function WorkspaceAgentDirectModePanel({
   const [directoryCopyStatus, setDirectoryCopyStatus] = useState<string | null>(
     null,
   );
+  const [directoryBrowseError, setDirectoryBrowseError] = useState<
+    string | null
+  >(null);
+  const [isDirectoryBrowsePending, setIsDirectoryBrowsePending] =
+    useState(false);
   const [threadCopyStatus, setThreadCopyStatus] = useState<string | null>(null);
   const latestLog = logs[logs.length - 1]?.text ?? null;
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
@@ -121,6 +128,27 @@ export function WorkspaceAgentDirectModePanel({
     statusTimer.current = window.setTimeout(() => setStatus(null), 2400);
   }
 
+  async function browseWorkingDirectory() {
+    if (!onSelectWorkspaceDirectory || isDirectoryBrowsePending) {
+      return;
+    }
+
+    setDirectoryBrowseError(null);
+    setIsDirectoryBrowsePending(true);
+    try {
+      const selectedDirectory = await onSelectWorkspaceDirectory();
+      if (selectedDirectory !== null) {
+        onDirectoryChange(selectedDirectory);
+      }
+    } catch (error) {
+      setDirectoryBrowseError(
+        `Browse failed: ${errorToCompactMessage(error)}`,
+      );
+    } finally {
+      setIsDirectoryBrowsePending(false);
+    }
+  }
+
   return (
     <section
       aria-label="Workspace Agent Codex controls"
@@ -147,6 +175,17 @@ export function WorkspaceAgentDirectModePanel({
               value={directWorkDirectory}
             />
           </label>
+          <Button
+            aria-label="Browse for working directory"
+            className="interactive-agent-direct-mode-browse-button"
+            disabled={!onSelectWorkspaceDirectory || isDirectoryBrowsePending}
+            onClick={() => void browseWorkingDirectory()}
+            title="Select working directory"
+            type="button"
+            variant="ghost"
+          >
+            {isDirectoryBrowsePending ? "Browsing" : "Browse"}
+          </Button>
           <Button
             aria-label="Copy working directory"
             className="interactive-agent-direct-mode-copy-button"
@@ -237,6 +276,11 @@ export function WorkspaceAgentDirectModePanel({
           {threadNotice ? (
             <span className="interactive-agent-direct-mode-thread-note">
               {threadNotice}
+            </span>
+          ) : null}
+          {directoryBrowseError ? (
+            <span className="interactive-agent-direct-mode-error">
+              {directoryBrowseError}
             </span>
           ) : null}
           {error ? (
@@ -338,6 +382,18 @@ function copyStatusClassName(message: string) {
       ? "interactive-agent-direct-mode-copy-status-success"
       : "interactive-agent-direct-mode-copy-status-error";
   return `interactive-agent-direct-mode-copy-status ${toneClass}`;
+}
+
+function errorToCompactMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return "Directory picker is unavailable.";
 }
 
 function WorkspaceKnowledgeLookupDetails({
