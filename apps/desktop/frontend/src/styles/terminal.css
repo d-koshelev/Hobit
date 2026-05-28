@@ -100,8 +100,17 @@
 }
 
 .terminal-shell-output-panel > .terminal-command-note,
-.terminal-shell-output-panel > .terminal-command-validation {
+.terminal-shell-output-panel > .terminal-command-validation,
+.terminal-shell-output-panel > .terminal-session-state {
   padding: 0 var(--space-sm) var(--space-xs);
+}
+
+.terminal-session-state {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
 }
 
 .terminal-pty-actions {

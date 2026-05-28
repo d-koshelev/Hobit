@@ -14,7 +14,8 @@ export type TerminalXtermSurfaceHandle = {
   clear: () => void;
   fit: () => void;
   focus: () => void;
-  getVisibleText: () => string;
+  getCopyText: () => string | null;
+  getVisibleText: () => string | null;
 };
 
 export type TerminalXtermSurfaceProps = {
@@ -112,6 +113,16 @@ export const TerminalXtermSurface = forwardRef<
     );
   }, []);
 
+  const focusTerminal = useCallback(() => {
+    terminalRef.current?.focus();
+  }, []);
+
+  const focusTerminalSoon = useCallback(() => {
+    window.setTimeout(() => {
+      terminalRef.current?.focus();
+    }, 0);
+  }, []);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -124,21 +135,26 @@ export const TerminalXtermSurface = forwardRef<
       focus() {
         terminalRef.current?.focus();
       },
+      getCopyText() {
+        const terminal = terminalRef.current;
+        if (!terminal) {
+          return null;
+        }
+
+        const selectedText = terminal.getSelection().trimEnd();
+        if (selectedText) {
+          return selectedText;
+        }
+
+        return visibleTerminalText(terminal);
+      },
       getVisibleText() {
-        const buffer = terminalRef.current?.buffer.active;
-        if (!buffer) {
-          return "";
+        const terminal = terminalRef.current;
+        if (!terminal) {
+          return null;
         }
 
-        const lines: string[] = [];
-        for (let index = 0; index < buffer.length; index += 1) {
-          const line = buffer.getLine(index);
-          if (line) {
-            lines.push(line.translateToString(true));
-          }
-        }
-
-        return lines.join("\n");
+        return visibleTerminalText(terminal);
       },
     }),
     [fitAndReport],
@@ -170,7 +186,12 @@ export const TerminalXtermSurface = forwardRef<
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
-    window.setTimeout(fitAndReport, 0);
+    window.setTimeout(() => {
+      fitAndReport();
+      if (latestHandlersRef.current.isInputEnabled) {
+        terminal.focus();
+      }
+    }, 0);
 
     const resizeObserver =
       typeof ResizeObserver === "undefined"
@@ -211,6 +232,9 @@ export const TerminalXtermSurface = forwardRef<
       lastWrittenSequenceRef.current = clearedThroughSequence;
       lastResizeKeyRef.current = "";
       fitAndReport();
+      if (isInputEnabled) {
+        focusTerminalSoon();
+      }
     }
 
     const baseline = Math.max(
@@ -233,7 +257,14 @@ export const TerminalXtermSurface = forwardRef<
         clearedThroughSequence,
       );
     }
-  }, [clearedThroughSequence, fitAndReport, outputChunks, sessionId]);
+  }, [
+    clearedThroughSequence,
+    fitAndReport,
+    focusTerminalSoon,
+    isInputEnabled,
+    outputChunks,
+    sessionId,
+  ]);
 
   return (
     <div className={className ?? "terminal-xterm-shell"}>
@@ -241,6 +272,7 @@ export const TerminalXtermSurface = forwardRef<
         aria-label="Terminal PTY output"
         className="terminal-xterm-surface"
         data-testid={testId}
+        onMouseDown={focusTerminal}
         ref={containerRef}
       />
       {!sessionId ? (
@@ -251,6 +283,20 @@ export const TerminalXtermSurface = forwardRef<
     </div>
   );
 });
+
+function visibleTerminalText(terminal: XtermTerminal) {
+  const buffer = terminal.buffer.active;
+  const lines: string[] = [];
+
+  for (let index = 0; index < buffer.length; index += 1) {
+    const line = buffer.getLine(index);
+    if (line) {
+      lines.push(line.translateToString(true));
+    }
+  }
+
+  return lines.join("\n");
+}
 
 function maxChunkSequence(chunks: TerminalPtyOutputChunk[]) {
   return chunks.reduce(

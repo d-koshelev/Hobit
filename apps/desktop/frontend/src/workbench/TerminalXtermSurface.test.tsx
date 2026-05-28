@@ -23,9 +23,11 @@ const xtermMockState = vi.hoisted(() => ({
     disposed: boolean;
     emitData: (data: string) => void;
     focus: ReturnType<typeof vi.fn>;
+    getSelection: ReturnType<typeof vi.fn>;
     loadAddon: ReturnType<typeof vi.fn>;
     open: ReturnType<typeof vi.fn>;
     rows: number;
+    selectionText: string;
     write: ReturnType<typeof vi.fn>;
   }>,
 }));
@@ -35,6 +37,7 @@ vi.mock("@xterm/xterm", () => {
     bufferText = "";
     cols = 80;
     rows = 24;
+    selectionText = "";
     disposed = false;
     private dataHandler: ((data: string) => void) | null = null;
 
@@ -80,6 +83,8 @@ vi.mock("@xterm/xterm", () => {
 
     focus = vi.fn();
 
+    getSelection = vi.fn(() => this.selectionText);
+
     dispose = vi.fn(() => {
       this.disposed = true;
     });
@@ -121,6 +126,7 @@ afterEach(() => {
   xtermMockState.fitAddons.length = 0;
   xtermMockState.subscriptions.length = 0;
   xtermMockState.terminals.length = 0;
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -184,6 +190,26 @@ describe("TerminalXtermSurface", () => {
     expect(latestTerminal().focus).toHaveBeenCalled();
   });
 
+  it("forwards control and escape input unchanged", async () => {
+    const onInputData = vi.fn();
+    renderSurface({ isInputEnabled: true, onInputData, sessionId: "pty_1" });
+
+    await act(async () => {
+      latestTerminal().emitData("\x03");
+      latestTerminal().emitData("\x1B");
+      latestTerminal().emitData("\x7F");
+      latestTerminal().emitData("\r");
+      await Promise.resolve();
+    });
+
+    expect(onInputData.mock.calls.map((call) => call[0])).toEqual([
+      "\x03",
+      "\x1B",
+      "\x7F",
+      "\r",
+    ]);
+  });
+
   it("does not forward raw input while input is disabled", async () => {
     const onInputData = vi.fn();
     renderSurface({ isInputEnabled: false, onInputData, sessionId: "pty_1" });
@@ -221,6 +247,80 @@ describe("TerminalXtermSurface", () => {
     expect(onResize).toHaveBeenCalledWith(100, 32);
   });
 
+  it("does not report invalid fitted dimensions", async () => {
+    const onFitDimensions = vi.fn();
+    const onResize = vi.fn();
+    renderSurface({
+      isInputEnabled: true,
+      onFitDimensions,
+      onResize,
+      sessionId: "pty_1",
+    });
+
+    onFitDimensions.mockClear();
+    onResize.mockClear();
+    latestTerminal().cols = 0;
+    latestTerminal().rows = Number.NaN;
+    window.dispatchEvent(new Event("resize"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onFitDimensions).not.toHaveBeenCalled();
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates repeated resize reports for the same session size", async () => {
+    const onResize = vi.fn(async () => {});
+    renderSurface({
+      isInputEnabled: true,
+      onResize,
+      sessionId: "pty_1",
+    });
+    onResize.mockClear();
+
+    latestTerminal().cols = 100;
+    latestTerminal().rows = 32;
+    window.dispatchEvent(new Event("resize"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    window.dispatchEvent(new Event("resize"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onResize).toHaveBeenCalledTimes(1);
+    expect(onResize).toHaveBeenCalledWith(100, 32);
+  });
+
+  it("focuses xterm when the terminal surface is clicked", () => {
+    renderSurface({ sessionId: "pty_1", testId: "xterm-surface" });
+
+    act(() => {
+      document
+        .querySelector('[data-testid="xterm-surface"]')
+        ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+
+    expect(latestTerminal().focus).toHaveBeenCalled();
+  });
+
+  it("requests focus after an enabled session is attached", async () => {
+    vi.useFakeTimers();
+    renderSurface({ isInputEnabled: true, sessionId: "pty_1" });
+
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(latestTerminal().focus).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("clears the frontend terminal display through the surface handle", () => {
     const surfaceRef = createRef<TerminalXtermSurfaceHandle>();
     renderSurface({
@@ -246,6 +346,41 @@ describe("TerminalXtermSurface", () => {
     });
 
     expect(surfaceRef.current?.getVisibleText()).toBe("ready\nPS C:\\repo> ");
+  });
+
+  it("prefers selected xterm text for copy text", () => {
+    const surfaceRef = createRef<TerminalXtermSurfaceHandle>();
+    renderSurface({
+      outputChunks: [outputChunk(1, "visible\r\n")],
+      ref: surfaceRef,
+      sessionId: "pty_1",
+    });
+    latestTerminal().selectionText = "selected text\r\n";
+
+    expect(surfaceRef.current?.getCopyText()).toBe("selected text");
+  });
+
+  it("does not replay chunks that were cleared before new output arrives", () => {
+    const surfaceRef = createRef<TerminalXtermSurfaceHandle>();
+    renderSurface({
+      outputChunks: [outputChunk(1, "old\r\n")],
+      ref: surfaceRef,
+      sessionId: "pty_1",
+    });
+
+    act(() => {
+      surfaceRef.current?.clear();
+      rerenderSurface({
+        clearedThroughSequence: 1,
+        outputChunks: [outputChunk(1, "old\r\n"), outputChunk(2, "new\r\n")],
+        ref: surfaceRef,
+        sessionId: "pty_1",
+      });
+    });
+
+    expect(latestTerminal().write).toHaveBeenCalledTimes(2);
+    expect(latestTerminal().write).toHaveBeenLastCalledWith("new\r\n");
+    expect(latestTerminal().bufferText).toBe("new\r\n");
   });
 });
 
@@ -285,6 +420,38 @@ function renderSurface(
       />,
     );
   });
+}
+
+function rerenderSurface(
+  overrides: Partial<
+    TerminalXtermSurfaceProps & { ref: Ref<TerminalXtermSurfaceHandle> }
+  > = {},
+) {
+  const {
+    clearedThroughSequence = 0,
+    isInputEnabled = false,
+    onFitDimensions = vi.fn(),
+    onInputData = vi.fn(),
+    onResize = vi.fn(),
+    outputChunks = [],
+    ref = null,
+    sessionId = null,
+    ...rest
+  } = overrides;
+
+  root?.render(
+    <TerminalXtermSurface
+      clearedThroughSequence={clearedThroughSequence}
+      isInputEnabled={isInputEnabled}
+      onFitDimensions={onFitDimensions}
+      onInputData={onInputData}
+      onResize={onResize}
+      outputChunks={outputChunks}
+      ref={ref}
+      sessionId={sessionId}
+      {...rest}
+    />,
+  );
 }
 
 function outputChunk(

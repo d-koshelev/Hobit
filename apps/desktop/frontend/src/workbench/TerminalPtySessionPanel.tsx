@@ -2,7 +2,6 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -86,6 +85,7 @@ export function TerminalPtySessionPanel({
   const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const clearedThroughSequenceRef = useRef(0);
 
   const shell = shellDraft.trim();
   const workingDirectory = workingDirectoryDraft.trim();
@@ -103,10 +103,6 @@ export function TerminalPtySessionPanel({
   const shellLabel = session?.shell || shell || DEFAULT_SHELL_LABEL;
   const workingDirectoryLabel =
     session?.workingDirectory || workingDirectory || "Not selected";
-  const visibleOutput = useMemo(
-    () => terminalPtyVisibleOutput(session, clearedThroughSequence),
-    [clearedThroughSequence, session],
-  );
   const canStart =
     Boolean(onCreateTerminalPtySession) &&
     !hasOpenSession &&
@@ -153,6 +149,10 @@ export function TerminalPtySessionPanel({
     terminalSurfaceRef.current?.fit();
   }, [session?.sessionId, session?.status]);
 
+  useEffect(() => {
+    clearedThroughSequenceRef.current = clearedThroughSequence;
+  }, [clearedThroughSequence]);
+
   async function startSession() {
     if (!onCreateTerminalPtySession || isStarting) {
       return;
@@ -196,6 +196,7 @@ export function TerminalPtySessionPanel({
       }
 
       setSession(response);
+      window.setTimeout(() => terminalSurfaceRef.current?.focus(), 0);
     } catch (error) {
       setErrorMessage(
         errorToMessage(error, "Unable to create Terminal PTY session."),
@@ -359,17 +360,24 @@ export function TerminalPtySessionPanel({
   }
 
   function clearVisibleOutput() {
-    setClearedThroughSequence(maxOutputSequence(session));
+    const nextClearedThroughSequence = maxOutputSequence(session);
+    clearedThroughSequenceRef.current = nextClearedThroughSequence;
+    setClearedThroughSequence(nextClearedThroughSequence);
     terminalSurfaceRef.current?.clear();
+    terminalSurfaceRef.current?.focus();
     setCopyStatus(null);
   }
 
   async function copyVisibleOutput() {
-    const xtermText = terminalSurfaceRef.current?.getVisibleText().trimEnd();
-    const outputToCopy = xtermText || visibleOutput;
+    const xtermText = terminalSurfaceRef.current?.getCopyText();
+    const outputToCopy =
+      xtermText === null || xtermText === undefined
+        ? terminalPtyVisibleOutput(session, clearedThroughSequenceRef.current)
+        : xtermText.trimEnd();
 
     if (!outputToCopy) {
       setCopyStatus("No output to copy.");
+      terminalSurfaceRef.current?.focus();
       return;
     }
 
@@ -378,6 +386,8 @@ export function TerminalPtySessionPanel({
       setCopyStatus("Output copied.");
     } catch {
       setCopyStatus("Copy failed.");
+    } finally {
+      terminalSurfaceRef.current?.focus();
     }
   }
 
@@ -503,7 +513,7 @@ export function TerminalPtySessionPanel({
                 {isRefreshing ? "Refreshing..." : "Refresh"}
               </Button>
               <Button
-                disabled={!visibleOutput}
+                disabled={!session || session.status === "closed"}
                 onClick={copyVisibleOutput}
                 variant="secondary"
               >
@@ -529,6 +539,7 @@ export function TerminalPtySessionPanel({
               bounded backend buffer.
             </p>
           ) : null}
+          <TerminalSessionLifecycleNote session={session} />
           <TerminalXtermSurface
             clearedThroughSequence={clearedThroughSequence}
             isInputEnabled={activeSession}
@@ -754,4 +765,45 @@ export function TerminalPtySessionPanel({
       </details>
     </section>
   );
+}
+
+function TerminalSessionLifecycleNote({
+  session,
+}: {
+  session: TerminalPtySession | null;
+}) {
+  if (!session || isTerminalPtyActive(session)) {
+    return null;
+  }
+
+  const message = terminalSessionLifecycleMessage(session);
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="terminal-session-state" role="status">
+      {message}
+    </p>
+  );
+}
+
+function terminalSessionLifecycleMessage(session: TerminalPtySession) {
+  switch (session.status) {
+    case "exited": {
+      const exitCode =
+        session.exitCode === null
+          ? "without an exit code"
+          : `with code ${session.exitCode}`;
+      return `Session exited ${exitCode}. Close it before starting a new session.`;
+    }
+    case "stopped":
+      return "Session stopped. Close it before starting a new session.";
+    case "killed":
+      return "Session killed. Close it before starting a new session.";
+    case "closed":
+      return "Session closed. Start creates a new explicit session.";
+    default:
+      return session.errorMessage;
+  }
 }

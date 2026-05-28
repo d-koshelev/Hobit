@@ -11,9 +11,11 @@ const xtermMockState = vi.hoisted(() => ({
     disposed: boolean;
     emitData: (data: string) => void;
     focus: ReturnType<typeof vi.fn>;
+    getSelection: ReturnType<typeof vi.fn>;
     loadAddon: ReturnType<typeof vi.fn>;
     open: ReturnType<typeof vi.fn>;
     rows: number;
+    selectionText: string;
     write: ReturnType<typeof vi.fn>;
   }>,
 }));
@@ -23,6 +25,7 @@ vi.mock("@xterm/xterm", () => {
     bufferText = "";
     cols = 80;
     rows = 24;
+    selectionText = "";
     disposed = false;
     private dataHandler: ((data: string) => void) | null = null;
 
@@ -65,6 +68,8 @@ vi.mock("@xterm/xterm", () => {
     });
 
     focus = vi.fn();
+
+    getSelection = vi.fn(() => this.selectionText);
 
     dispose = vi.fn(() => {
       this.disposed = true;
@@ -173,6 +178,16 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(document.body.textContent).not.toContain(
       "Legacy one-shot command fallback",
     );
+  });
+
+  it("does not create PTY sessions or run fallback commands on render", () => {
+    const onCreateTerminalPtySession = vi.fn();
+    const onRunTerminalCommand = vi.fn();
+
+    renderWidget({ onCreateTerminalPtySession, onRunTerminalCommand });
+
+    expect(onCreateTerminalPtySession).not.toHaveBeenCalled();
+    expect(onRunTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("creates and disposes the xterm Terminal with the PTY panel lifecycle", () => {
@@ -535,6 +550,93 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(writeText).toHaveBeenCalledWith("ready\nPS C:\\repo>");
     expect(latestTerminal().bufferText).toBe("");
   });
+
+  it("does not copy stale backend text after the frontend terminal is cleared", async () => {
+    const writeText = vi.fn<(_: string) => Promise<void>>(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({
+        outputText: "ready\r\nPS C:\\repo> ",
+        status: "running",
+        workingDirectory: "C:\\repo",
+      }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession });
+
+    await clickText("Terminal settings");
+    await changeInputByLabel("Working directory", "C:\\repo");
+    await clickButton("Start");
+    await clickButton("Clear");
+    await clickButton("Copy");
+
+    expect(writeText).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("No output to copy.");
+  });
+
+  it("shows ended session state and starts a new session after close", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >()
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "done\r\n",
+          status: "exited",
+          workingDirectory: "C:\\repo",
+        }),
+      )
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "new session\r\n",
+          sessionId: "pty_2",
+          status: "running",
+          workingDirectory: "C:\\repo",
+        }),
+      );
+    const onCloseTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: PtyActionInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "closed", workingDirectory: "C:\\repo" }),
+    );
+
+    renderWidget({ onCloseTerminalPtySession, onCreateTerminalPtySession });
+
+    await clickText("Terminal settings");
+    await changeInputByLabel("Working directory", "C:\\repo");
+    await clickButton("Start");
+
+    expect(document.body.textContent).toContain(
+      "Session exited without an exit code. Close it before starting a new session.",
+    );
+    expect(buttonWithText("Close")).not.toBeNull();
+    expect(buttonWithText("Stop")).toBeUndefined();
+
+    await clickButton("Close");
+
+    expect(document.body.textContent).toContain(
+      "Session closed. Start creates a new explicit session.",
+    );
+    expect(buttonWithText("Start")).not.toBeNull();
+
+    await clickButton("Start");
+
+    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
+    expect(latestTerminal().write).toHaveBeenLastCalledWith("new session\r\n");
+  });
 });
 
 function renderWidget(
@@ -672,12 +774,14 @@ function terminalSession({
   cols = 80,
   outputText = "",
   rows = 24,
+  sessionId = "pty_1",
   status = "running",
   workingDirectory = "C:\\repo",
 }: {
   cols?: number;
   outputText?: string;
   rows?: number;
+  sessionId?: string;
   status?: string;
   workingDirectory?: string;
 } = {}): TerminalPtySession {
@@ -702,7 +806,7 @@ function terminalSession({
     },
     rows,
     cols,
-    sessionId: "pty_1",
+    sessionId,
     shell: "powershell.exe",
     shellArgs: [],
     startedAt: "2026-05-27T00:00:00.000Z",
