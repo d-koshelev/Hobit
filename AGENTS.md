@@ -10,9 +10,9 @@ Codex must not treat Hobit as a script executor, terminal wrapper, IDE clone, ru
 
 Future agent work must preserve `docs/PRODUCT_POSITIONING.md` and avoid implementing Hobit as a generic hidden automation or agent-runner system.
 
-Near-term agent surface work must follow `docs/AGENT_SURFACE_MODEL.md` and `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat is the primary operator-facing AI surface; the existing `interactive-agent` id/component is retained only as the local Coordinator Chat compatibility foundation. Agent Executor is the user-facing execution surface and uses the existing `agent-run`/Codex Direct Work implementation internally. Agent Queue organizes tasks and executor history. Runbook and Terminal PTY remain deferred unless explicitly targeted.
+Near-term agent surface work must follow `docs/AGENT_SURFACE_MODEL.md` and `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Workspace Agent is the primary operator-facing AI surface; the existing `interactive-agent` id/component is retained as the local Workspace Agent compatibility foundation. Multiple Workspace Agent widgets may exist independently in one Workspace. Agent Executor is the async/background execution surface and uses the existing `agent-run`/Codex Direct Work implementation internally. Agent Activity is the current-session readable activity timeline. Agent Queue organizes promoted async tasks and executor history. Runbook remains preview/manual procedural work.
 
-The older Workspace-aware Coordinator Agent contract is retained as a deferred/reference document. Current Coordinator work must read only explicitly approved context and propose previewed actions through widget capabilities; it must not become hidden context access, direct mutation, hidden execution, or automatic queue creation.
+The older Workspace-aware Coordinator Agent naming is retained in some contracts, modules, and filenames as compatibility/reference terminology for Workspace Agent. Current Workspace Agent work must read only visible or explicitly approved context and must not become hidden context access, hidden mutation, hidden execution, or automatic queue creation.
 
 Future Script Runner Widget work must preserve `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`. Script Runner is a planned explicit operator-controlled configured local script action, not a general terminal, hidden automation path, arbitrary command prompt, or current runtime behavior.
 
@@ -106,7 +106,7 @@ Code organization work must follow `docs/CODE_ORGANIZATION_CONTRACT.md`.
 
 Agent work efficiency must follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`: use small focused blocks, name expected changed layers, use fast/changed/full validation profiles appropriately, and stop with a split plan when a block becomes broad or conflicts with contracts.
 
-First real AI/provider work must follow `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: start from the current Coordinator Chat text/proposal boundary, use only explicit visible context, keep `allowed_tools: []`, and do not add hidden execution, mutations, frontend-direct provider calls, or Agent Queue execution.
+First real AI/provider work must follow `docs/AI_INTEGRATION_READINESS_CONTRACT.md`: start from the current Workspace Agent text/proposal boundary, use only explicit visible context, keep `allowed_tools: []`, and do not add hidden execution, mutations, frontend-direct provider calls, or Agent Queue execution.
 
 Widget work must follow `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: declare the target display level, usually start with Minimal, avoid adding Full / Expert UI during Minimal blocks, and split or simplify when one widget surface starts mixing Minimal, Operational, and Full / Expert complexity.
 
@@ -114,24 +114,62 @@ Widget work must follow `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`: declar
 
 Current foundation target:
 - Empty AI Workbench shell first.
-- The default Workbench is the Empty Workbench with zero real widget instances.
+- The default Workspace opens into the Workspace Agent MVP surface with
+  Workspace Agent plus Notes. Empty Workbench remains available as an
+  advanced/manual start mode.
 - Workspace Start Screen exists and can create or open a Workspace.
 - In the Tauri desktop shell, workspace lifecycle/state loading, widget mutations/log reads, and explicit Git status reads use the Tauri workspace API bridge and local SQLite storage where applicable.
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
 - Different problem = different Workspace. Different surface for the same problem = additional Workbench. Future multi-open Workspace UI and multi-Workbench UI must follow `docs/WORKSPACE_CONTRACT.md` and must not mix unrelated Workspace context, queues, runs, Git roots, notes, templates, logs, artifacts, or decisions.
-- Add Widget opens the Widget Catalog drawer. The current user-facing widget set is Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces must not appear in the current catalog or workbench surface.
-- The near-term agent surface model is defined in `docs/AGENT_SURFACE_MODEL.md`: Coordinator Chat is the primary conversation/planning surface; Agent Executor runs one task and shows execution; Agent Queue organizes tasks and executor history; Runbook is deferred procedural step work.
-- The Notes placeholder persists a minimal widget-state draft shaped as `{ "body": "..." }`; the full Notebook/Notes document model, multi-tab state, Markdown rendering, Mermaid or diagram rendering, checklists/todos, snippets, review notes, formatting tools, and AI-in-Notes behavior are not implemented yet. Future Notes/Notebook work must preserve `docs/NOTES_WIDGET_CONTRACT.md`, keep source text as the source of truth, avoid hidden rendering/network/command side effects, and treat ordinary To-do List use cases as Notebook scope unless a separate structured task widget is explicitly requested.
-- The Terminal widget has a desktop-only PTY-first manual shell surface for persisted Terminal widget instances. It uses explicit shell executable, optional argv, explicit execution workspace / working directory, bounded session-only output, stdin send, resize, Stop, Kill, and Close through the Tauri PTY backend. The older one-shot local command runner remains available only as a collapsed legacy fallback with explicit program + argv + working directory, widget run/log/result records, and final stdout/stderr output. Terminal has no tabs, split panes, persistent command history, persistent transcripts, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Coordinator control, or Script Runner behavior. Browser/Vite fallback cannot run local processes.
-- Coordinator-centered direction is contract-first in `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; persisted approved context models, executable action proposal cards, proposal approval/apply flow, Notebook editing, Git follow-up, and cross-widget mutation are not implemented. Older Workspace-aware Coordinator Agent and proposal-review paths are compatibility/reference only.
+- Add Widget opens the Widget Catalog drawer. The current user-facing widget set is Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces must not appear in the current catalog or workbench surface.
+- The near-term agent surface model is defined in `docs/AGENT_SURFACE_MODEL.md`: Workspace Agent is the primary foreground conversation/planning/coding/review surface; Agent Activity shows current-session readable run activity; Agent Executor runs explicit async/background tasks and shows execution; Agent Queue organizes promoted async tasks and executor history; Runbook is preview procedural step work.
+- Notes is a Ready / MVP workspace-local notes widget with list, filter,
+  create, select, edit, explicit save, and pin flows through workspace Notes
+  APIs where available. The older widget-local draft shaped as `{ "body": "..." }`
+  remains Compatibility/Deprecated only. The full Notebook/Notes document
+  model, multi-tab state, Markdown rendering, Mermaid or diagram rendering,
+  checklists/todos, snippets, review notes, formatting tools, and AI-in-Notes
+  behavior are not implemented yet. Future Notes/Notebook work must preserve
+  `docs/NOTES_WIDGET_CONTRACT.md`, keep source text as the source of truth,
+  avoid hidden rendering/network/command side effects, and treat ordinary
+  To-do List use cases as Notebook scope unless a separate structured task
+  widget is explicitly requested.
+- The Terminal widget has a desktop-only PTY-first manual shell surface for persisted Terminal widget instances. It uses explicit shell executable, optional argv, explicit execution workspace / working directory, bounded session-only output, xterm frontend rendering, stdin send, resize, Stop, Kill, and Close through the Tauri PTY backend. Live PTY backend support is implemented for Windows and Linux desktop builds; macOS remains unsupported/deferred. The older one-shot local command runner remains available only as a collapsed legacy fallback with explicit program + argv + working directory, widget run/log/result records, and final stdout/stderr output. Terminal has no tabs, split panes, persistent command history, persistent transcripts, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or Script Runner behavior. Browser/Vite fallback cannot run local processes.
+- Workspace Agent direction is contract-first in the legacy-named
+  `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
+  `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`; persisted approved context
+  models, executable action proposal cards, proposal approval/apply flow,
+  Notebook editing, Git follow-up, and cross-widget mutation are not
+  implemented. Older Workspace-aware Coordinator Agent and proposal-review
+  paths are compatibility/reference only.
 - Agent Executor reuses the existing `agent-run` definition id for persistence compatibility. It can launch one explicit desktop Codex Direct Work run from an operator-provided prompt, repository root, sandbox, approval policy, and Codex executable, then persists widget run/log/result artifacts without auto-commit, auto-push, Git mutation, Queue execution, shell mode, PTY, or hidden background execution. In Advanced, the default executable is `codex`; on Windows, Hobit also tries `codex.exe`, `codex.cmd`, and `codex.bat` from PATH without invoking a shell.
+- Agent Activity is a Ready / MVP current-session readable timeline for
+  Workspace Agent and Agent Executor streaming Direct Work events. It does not
+  persist timeline history, read stored Executor detail automatically, execute
+  work, or change Queue/Executor runtime behavior.
 - The Agent Queue preview is a manual task organization surface with task create/list/read/update/delete, visible Executor assignment, explicit assigned-task start, safe selected-task Executor run-link history, current-session handoff, final-status auto-refresh, and explicit operator-armed Queue Autorun. Queue Autorun is desktop-local/current-session-only, runs at most one eligible assigned task at a time through Agent Executor while Hobit remains open and the machine remains awake, and has no backend scheduler, durable reconnect/resume, server worker, hidden auto-dispatch, approval/apply behavior, automatic acceptance, response capture/parser/validator, Git association, Notes mutation, or Terminal launch.
-- Coordinator Chat is the user-facing title for the existing `interactive-agent` local chat compatibility surface. It has a backend-owned mock/local provider response path for explicit chat sends with `allowed_tools: []`, visible current-session chat context only, no external LLM call, no provider credentials, and validated structured proposal drafts for the safe preview types only. Provider drafts render as review cards and do not execute by themselves. Coordinator Chat has no hidden context access, widget tool execution, Terminal control, Git mutation, JDBC execution, Agent Executor launch, Queue auto-dispatch, or agent runtime.
+- Workspace Agent is the user-facing title for the existing `interactive-agent` compatibility surface. It has visible current-session chat/proposal context, foreground Codex Direct Work with widget-scoped thread and working-directory state, local/mock and optional backend HTTP JSON provider paths with `allowed_tools: []`, and validated structured proposal drafts for safe preview types only. Provider drafts render as review cards and do not execute by themselves. Workspace Agent has no hidden context access, widget tool execution, Terminal control, Git mutation, JDBC execution, Agent Executor launch, Queue auto-dispatch, or hidden agent runtime.
+- Knowledge / Skills is a Ready / MVP widget using the existing
+  `skill-library` id/component for compatibility. It supports workspace-local
+  Skills, workspace-local and local-global Knowledge Documents, explicit
+  single-file plain text/Markdown import, enabled-only visible retrieval for
+  Workspace Agent Codex runs, scope labels, and selected Skill attach. Global
+  documents are local desktop database records, not enterprise/team knowledge.
+  Knowledge / Skills does not implement hidden memory, team/server sharing,
+  embeddings, binary parsing, folder scans, Evidence, Context Packs, or
+  automatic Skill prompt injection.
 - The Runbook placeholder is a procedural step surface direction only. It has no edit mode, builder, Queue integration, step execution, or agent-assisted steps.
-- The Git widget has a transient explicit repository-root input, manual desktop-only read-only status/diff review backed by `get_git_repository_status`, grouped changed files, and explicit selected-file local commit UI with an operator-provided message and operator confirmation. Repository root/status persistence, polling, watching, fetch, log/show UI, validation association, push, revert/reset, clean, stash, Agent Executor auto-commit, and broader Git mutations are not implemented.
+- The Git widget has a transient explicit repository-root input, manual
+  desktop-only read-only status/changes/diff/history review backed by
+  Git-widget Tauri commands, grouped changed files, bounded selected-file diff,
+  recent history, and explicit selected-file local commit UI with an
+  operator-provided message and operator confirmation. Repository root/status
+  persistence, polling, watching, fetch, push, checkout/switch branch,
+  revert/reset, clean, stash, Agent Executor auto-commit, and broader Git
+  mutations are not implemented.
 - Direct Mode is the current explicit operator-controlled executor path for small approved Codex CLI work, with future executor kinds kept agent-agnostic. Hobit can start Direct Work runs from Agent Executor and through the explicit assigned Queue task path in the desktop shell. It does not auto-dispatch Queue items, auto-commit, auto-push, mutate Git, add an embedded PTY, or run hidden background agent work.
 - The Script Runner Widget is contract-only future work. It is not implemented, not available for widget insertion, and does not add script execution, backend execution, Tauri commands, storage, or runtime behavior.
-- The Workbench has a frontend-only layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles, with final docked position and size persisted through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
+- Workbench widgets are movable and resizable by default. The optional frontend-only layout lock freezes docked widget movement and resize handles when enabled. Final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
 - Future Dock and widget Full/Compact/Indicator view mode work must follow `docs/WIDGET_CONTRACT.md`. Dock rails, Compact view from Dock items, persisted widget presence zones, Indicator status providers, and drag-and-drop between Canvas, Dock, Float, and future external windows are not implemented yet.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; Terminal one-shot fallback commands and Codex Direct Work runs emit bounded lifecycle logs. Terminal PTY output uses session-only frontend polling of the bounded backend buffer and is not persisted as widget logs/results. Event-streamed Terminal output is not implemented.
 - Widgets are first-class entities, not just React components.
@@ -204,7 +242,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 - Preserve WidgetHost as the mapping layer from widget instance to React component.
 - Do not hardcode widget components directly into WorkbenchCanvas.
 - Do not add new real widgets unless explicitly requested.
-- Do not add widget insertion behavior beyond the current Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes catalog paths unless explicitly requested.
+- Do not add widget insertion behavior beyond the current Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes catalog paths unless explicitly requested.
 - Do not add UI frameworks or icon libraries unless explicitly requested.
 - Do not add drag-and-drop until explicitly requested.
 - Do not add real Dock UI, widget view mode behavior, presence-zone persistence, drag-and-drop, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, preset editing, or new persistence flows unless explicitly requested.
@@ -228,16 +266,17 @@ Do not add:
 - new Tauri bridge capabilities beyond existing workspace lifecycle/state loading, widget mutation/log reads, explicit read-only Git status reads, the Terminal PTY session API, and the persisted Terminal widget one-shot fallback path
 - JDBC behavior beyond the current Preview connector metadata UI and bounded
   mock/safe read-only SQL validation/execution path; do not add production
-  JDBC execution, credentials, write SQL, hidden Coordinator-triggered SQL,
+  JDBC execution, credentials, write SQL, hidden Workspace Agent-triggered SQL,
   broad database automation, `EXPLAIN`, or production Java sidecar behavior
 - JIRA or Confluence integration
-- real Git integration
+- Git integration beyond the current explicit-root status/changes/diff/history
+  review and selected-file local commit path
 - Knowledge Catalog implementation
 - Stages implementation
 - Runbook engine
 - Image Edit implementation
 - real widget implementation
-- additional widget insertion behavior beyond the current Agent Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git, Terminal, and Notes paths
+- additional widget insertion behavior beyond the current Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes paths
 - full drag-and-drop layout editor
 - real Dock UI, widget view mode behavior, presence-zone persistence, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, or preset editor behavior
 - unplanned SQLite schema changes

@@ -280,79 +280,14 @@ Workspace Agent is the foreground interactive agent surface.
   autosave, sync/import/export, archive/delete UI, tags, AI-in-Notes, and
   hidden agent access are not implemented.
 
-## Current Preview Surfaces
-
-### Agent Queue
-
-- Current preview async task organization and execution-support surface.
-- Uses the `agent-queue` widget definition id.
-- Intended for promoted/larger work blocks that need async organization,
-  assignment, sequencing, or later review. It is not the default destination
-  for every Workspace Agent idea, small decision, or quick operator action.
-- Provides workspace-local task create, list, read, update, delete, filter,
-  select, and explicit save flows for title, description, prompt, status, and
-  priority.
-- Task deletion is explicit and confirmation-gated, blocks running/current
-  active runner tasks, and removes only the Queue task row. It does not delete
-  Agent Executor runs, logs, results, artifacts, or Direct Work history.
-- Supports visible manual assignment/clear of a task to an Agent Executor slot
-  when assignment APIs are available.
-- Supports explicit start of an assigned task in its assigned Agent Executor
-  with an operator-provided execution workspace path.
-- Queue-to-Executor handoff and final-status auto-refresh are current-session
-  frontend behavior. Agent Executor owns live logs and final results.
-- Selected task details show the latest durable Queue task to Agent Executor
-  run-link metadata when available: safe link id/run id references, source,
-  status, timestamps, review status, and an Open Executor action that
-  opens/focuses the owning Agent Executor and passes only the safe run id for
-  Executor-owned run detail selection. Selected task details also show a
-  compact recent run-history summary from the same safe run-link metadata,
-  capped to a small list with a count. Latest-run and recent run-history rows
-  can attach this same safe metadata to Workspace Agent as visible
-  current-session composer context; attach is operator-controlled, does not
-  send automatically, and does not copy raw Executor payloads.
-  Queue does not copy or render raw prompts, stdout/stderr, logs, final
-  responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
-  Executor.
-- Queue task persistence includes `executionPolicy` model/DTO support with a
-  `manual` default, and the Queue editor exposes a policy control for
-  `manual`, `auto`, and `after_previous_success`.
-- Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
-  selects one Agent Executor, configures execution workspace/repo root, Codex
-  executable, sandbox, and approval policy once, then starts the runner from
-  Queue. The runner scans the current ordered Queue task list, assigns
-  unassigned runnable tasks to the selected Executor, starts each task through
-  the existing assigned-task Queue-to-Executor handoff path, waits for an
-  Executor final state, and then evaluates the next task.
-- Sequential Queue Runner policy behavior is current for `manual`, `auto`, and
-  `after_previous_success`: `manual` stops for operator action, `auto` may run
-  when runnable and configured, and `after_previous_success` runs only after a
-  previous task in the current runner pass completed successfully.
-- The Sequential Queue Runner is current-session frontend behavior only. It is
-  not durable background scheduling and stops if the Workbench UI closes or
-  reloads.
-- Provides a visible Queue Autorun panel that can arm, stop, and refresh
-  desktop-local runner session state. Queue Autorun can start one eligible
-  assigned `auto` task through the existing Queue-to-Executor path after the
-  operator clicks Start Autorun. Refresh can observe that run's final status
-  and, after success, continue to exactly one next eligible assigned `auto` or
-  `after_previous_success` task per refresh. A desktop-local current-session
-  tick runs the same reconciliation path while Hobit remains open and the
-  machine remains awake. It is still not a backend scheduler or durable runner.
-- Existing duplicate persisted Queue widgets are not deleted or migrated.
-- Does not provide a backend scheduler, durable runner persistence,
-  multi-executor parallel scheduling, retries, dependency graph execution,
-  automatic acceptance, response capture outside Direct Work artifacts,
-  response validation, Workspace Agent automation, Notes mutation, Terminal launch,
-  or Git mutation.
-
 ### Workspace Agent
 
-- Current preview foreground interactive AI agent widget shown as Workspace
-  Agent and compatibility foundation for the target foreground agent surface.
+- Current Ready / MVP foreground interactive AI agent widget shown as
+  Workspace Agent and compatibility foundation for the target foreground agent
+  surface.
 - It is chat-based, but not merely a chat widget: the operator uses it for
-  planning, reasoning, task drafting, outcome review, and deciding what should
-  become Queue or Executor work.
+  planning, reasoning, coding/review prompts, task drafting, outcome review,
+  and deciding what should become Queue or Executor work.
 - Multiple Workspace Agent widgets can exist in one Workspace. Each widget
   instance owns its current-session visible chat, proposal card state, Codex
   thread id, and working directory independently.
@@ -401,8 +336,8 @@ Workspace Agent is the foreground interactive agent surface.
   Document or Create Skill action, uses only visible conversation content, and
   writes only workspace-local Knowledge / Skills records.
 - Outcome review may draft follow-up Queue task proposal cards from the pasted
-  visible result text. Queue task creation remains explicit and creates a draft
-  task only; it does not assign, start, run, or arm Queue Autorun.
+  visible result text. Queue task creation remains explicit and creates a
+  draft task only; it does not assign, start, run, or arm Queue Autorun.
 - In the Tauri desktop shell, explicit sends can use a backend-owned
   Workspace Agent provider response path. Mock/local is the default provider; a
   configured HTTP JSON provider can be selected by backend environment
@@ -478,6 +413,72 @@ Workspace Agent is the foreground interactive agent surface.
   let Codex read files, write code, and run commands inside the explicit
   operator-provided working directory, but Hobit still performs no automatic
   commit, push, reset, clean, stash, or Queue/Executor handoff.
+
+## Current Preview Surfaces
+
+### Agent Queue
+
+- Current preview async task organization and execution-support surface.
+- Uses the `agent-queue` widget definition id.
+- Intended for promoted/larger work blocks that need async organization,
+  assignment, sequencing, or later review. It is not the default destination
+  for every Workspace Agent idea, small decision, or quick operator action.
+- Provides workspace-local task create, list, read, update, delete, filter,
+  select, and explicit save flows for title, description, prompt, status, and
+  priority.
+- Task deletion is explicit and confirmation-gated, blocks running/current
+  active runner tasks, and removes only the Queue task row. It does not delete
+  Agent Executor runs, logs, results, artifacts, or Direct Work history.
+- Supports visible manual assignment/clear of a task to an Agent Executor slot
+  when assignment APIs are available.
+- Supports explicit start of an assigned task in its assigned Agent Executor
+  with an operator-provided execution workspace path.
+- Queue-to-Executor handoff and final-status auto-refresh are current-session
+  frontend behavior. Agent Executor owns live logs and final results.
+- Selected task details show the latest durable Queue task to Agent Executor
+  run-link metadata when available: safe link id/run id references, source,
+  status, timestamps, review status, and an Open Executor action that
+  opens/focuses the owning Agent Executor and passes only the safe run id for
+  Executor-owned run detail selection. Selected task details also show a
+  compact recent run-history summary from the same safe run-link metadata,
+  capped to a small list with a count. Latest-run and recent run-history rows
+  can attach this same safe metadata to Workspace Agent as visible
+  current-session composer context; attach is operator-controlled, does not
+  send automatically, and does not copy raw Executor payloads.
+  Queue does not copy or render raw prompts, stdout/stderr, logs, final
+  responses, diffs, repo paths, secrets, or raw JSON payloads from Agent
+  Executor.
+- Queue task persistence includes `executionPolicy` model/DTO support with a
+  `manual` default, and the Queue editor exposes a policy control for
+  `manual`, `auto`, and `after_previous_success`.
+- Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
+  selects one Agent Executor, configures execution workspace/repo root, Codex
+  executable, sandbox, and approval policy once, then starts the runner from
+  Queue. The runner scans the current ordered Queue task list, assigns
+  unassigned runnable tasks to the selected Executor, starts each task through
+  the existing assigned-task Queue-to-Executor handoff path, waits for an
+  Executor final state, and then evaluates the next task.
+- Sequential Queue Runner policy behavior is current for `manual`, `auto`, and
+  `after_previous_success`: `manual` stops for operator action, `auto` may run
+  when runnable and configured, and `after_previous_success` runs only after a
+  previous task in the current runner pass completed successfully.
+- The Sequential Queue Runner is current-session frontend behavior only. It is
+  not durable background scheduling and stops if the Workbench UI closes or
+  reloads.
+- Provides a visible Queue Autorun panel that can arm, stop, and refresh
+  desktop-local runner session state. Queue Autorun can start one eligible
+  assigned `auto` task through the existing Queue-to-Executor path after the
+  operator clicks Start Autorun. Refresh can observe that run's final status
+  and, after success, continue to exactly one next eligible assigned `auto` or
+  `after_previous_success` task per refresh. A desktop-local current-session
+  tick runs the same reconciliation path while Hobit remains open and the
+  machine remains awake. It is still not a backend scheduler or durable runner.
+- Existing duplicate persisted Queue widgets are not deleted or migrated.
+- Does not provide a backend scheduler, durable runner persistence,
+  multi-executor parallel scheduling, retries, dependency graph execution,
+  automatic acceptance, response capture outside Direct Work artifacts,
+  response validation, Workspace Agent automation, Notes mutation, Terminal launch,
+  or Git mutation.
 
 ### Database / JDBC
 

@@ -10,12 +10,12 @@ compatibility/reference; the current user-facing execution surface is Agent
 Executor, and the current widget inventory is defined in
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
-Product role boundary: Coordinator is the primary foreground AI agent and
+Product role boundary: Workspace Agent is the primary foreground AI agent and
 central operator-facing work surface for interactive Workspace work through
-approved capabilities. Agent Executor is the async/background worker for
-bounded Queue task prompts. Executor owns queued execution logs, results, run
-history, cancellation, and review visibility, but it does not define the
-maximum capability set available to Coordinator.
+visible context and future approved capabilities. Agent Executor is the
+async/background worker for bounded Queue task prompts. Executor owns queued
+execution logs, results, run history, cancellation, and review visibility, but
+it does not define the maximum capability set available to Workspace Agent.
 
 Hobit must not expose future agent work only as raw terminal or agent output. Every agent/task execution should be understandable through three linked views:
 
@@ -27,7 +27,20 @@ This is a documentation and product/domain contract only. It does not implement 
 
 ## Current Implementation Boundary
 
-The current repository has a narrow frontend/backend Codex Direct Work run artifact foundation, but no full agent runtime, no interactive Terminal runtime, no executable Coordinator runtime, no response parser, and no agent execution log model. The Terminal widget has only a bounded desktop one-shot command path with widget-local lifecycle logs and structured results. Coordinator Chat has a proposal-only preview with explicit current-session visible context and, in the desktop shell, can request a backend provider response when an explicit HTTP provider is configured or use local/mock fallback. Current Coordinator provider requests keep `allowed_tools: []`. Coordinator Chat does not stream logs, execute tools, read Terminal output, create Queue items by itself, or mutate Workspace content.
+The current repository has a narrow frontend/backend Codex Direct Work run
+artifact foundation and a current-session Agent Activity timeline, but no full
+agent run Raw/Overview/Result persistence model, no response parser, and no
+general executable Workspace Agent widget-tool runtime. Terminal has a
+desktop xterm-based PTY surface backed by Windows and Linux PTY support and
+a collapsed bounded one-shot compatibility path with widget-local lifecycle
+logs and structured results. Workspace Agent has explicit current-session
+visible context, foreground Codex Direct Work with widget-scoped thread state,
+and a backend provider response path when an explicit HTTP provider is
+configured or local/mock fallback is used. Current Workspace Agent provider
+requests keep `allowed_tools: []`. Workspace Agent does not execute widget
+tools, read Terminal output, create Queue items by itself, or mutate Workspace
+content outside explicit approved proposal actions and foreground Codex Direct
+Work inside the operator-provided working directory.
 
 The frontend has an insertable Direct Work / Codex surface that reuses the existing `agent-run` definition id. Its secondary Agent Monitoring details can read persisted Agent Chat proposal-only result artifacts for the current Workspace Workbench, display read-only Overview, Result, and Raw sections for the selected stored proposal artifact, and explicitly create a review-only Agent Queue item from a selected valid local mock proposal result. This viewer does not display persisted Direct Work artifacts, stream logs, monitor Terminal results, read arbitrary widget results, parse responses, validate results, summarize runtime events, execute Queue items, apply proposals, or call agents.
 
@@ -81,9 +94,10 @@ Work and Direct Work validation artifacts for that owning widget and fetch
 their stored result/log summaries. The Agent Executor frontend has a compact
 read-only history/detail panel for those artifacts. A separate read-only Agent
 Executor diff summary API can summarize explicit-root Git changes for future
-UI without creating runs, results, queue items, or Git mutations. Full Raw /
-Overview / Result views remain future work. Codex CLI is the first planned
-executor kind, but the observability model must remain executor-agnostic.
+UI without creating runs, results, queue items, or Git mutations. Full
+persisted Raw / Overview / Result views remain future work. Codex CLI is the
+first implemented executor kind, but the observability model must remain
+executor-agnostic.
 
 Workspace Agent Direct Work keeps the chat transcript final-conversation
 focused: normal chat shows operator messages and final Codex responses, while
@@ -250,26 +264,31 @@ Future UI should provide:
 
 The UI must keep Raw Log available without making raw output the primary operator experience.
 
-## Relation To Coordinator And Executor Workflow
+## Relation To Workspace Agent And Executor Workflow
 
 Expected future flow:
 
-1. Coordinator works foreground in the active Workspace through approved
-   capabilities when the work is interactive, bounded, and operator-facing.
-2. Coordinator promotes larger, delayed, long-running, or overnight work to
+1. Workspace Agent works foreground in the active Workspace through visible
+   context and future approved capabilities when the work is interactive,
+   bounded, and operator-facing.
+2. Workspace Agent promotes larger, delayed, long-running, or overnight work to
    Queue when async/background execution is appropriate.
 3. Executor receives a bounded Queue task prompt and produces raw events and
    logs.
 4. Hobit displays Overview Log for operator comprehension.
 5. Executor final response becomes the Result Report.
-6. Coordinator reviews approved Result Report, Overview Log, Raw Log excerpt,
-   validation output, or Git review context.
-7. Coordinator decides accept, fix, rerun, continue foreground, or delegate the
-   next block.
+6. Workspace Agent reviews approved Result Report, Overview Log, Raw Log
+   excerpt, validation output, or Git review context.
+7. Workspace Agent decides accept, fix, rerun, continue foreground, or delegate
+   the next block.
 
 For coordinator/executor role rules, see `docs/AGENT_OPERATING_MODEL.md`.
 
-Future Workspace-aware Coordinator Agent behavior may use approved Agent Run Result Report, Overview Log, or Raw Log context to propose follow-up actions. Raw trace, failed validation, and skipped validation must remain reviewable. For approved context and proposal rules, see `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
+Future Workspace Agent behavior may use approved Agent Run Result Report,
+Overview Log, or Raw Log context to propose follow-up actions. Raw trace,
+failed validation, and skipped validation must remain reviewable. For approved
+context and proposal rules, see
+`docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`.
 
 ## Relation To Agent Queue
 
@@ -278,8 +297,8 @@ Future Queue Items should link to Agent Run observability when a run exists. Que
 The Result Report is the main acceptance artifact for a Queue Item, but it must not hide failed raw execution, skipped validation, dirty Git state, or blocked work. Queue decisions remain explicit operator decisions.
 
 Queue/Executor observability is for async/background work. It must not force
-every Coordinator foreground action through Queue, and it must not imply that
-Executor is the only agent allowed to perform work.
+every Workspace Agent foreground action through Queue, and it must not imply
+that Executor is the only agent allowed to perform work.
 
 ## Relation To Request And Response Templates
 

@@ -83,8 +83,10 @@ of truth for their domains.
   current Workbench surface smoke map tied to
   `docs/CURRENT_WIDGET_SURFACE.md`.
 - `docs/MVP_ACCEPTANCE_WALKTHROUGH.md` - manual Workspace Agent MVP
-  acceptance walkthrough covering Workspace Agent planning, Skill attachment,
-  Queue execution, Executor review, and visible-context safety checks.
+  acceptance walkthrough covering Start Screen/recent Workspaces, Workspace
+  Agent runs, Knowledge / Skills, Git, Terminal, Agent Activity, theme/UI
+  scale, movable widgets, Queue execution, Executor review, and visible-context
+  safety checks.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
@@ -187,13 +189,14 @@ unless the task explicitly requests it.
   emission, evidence store, knowledge store, runtime wiring, frontend
   behavior, server runtime, or RBAC.
 - `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` - read for Knowledge, Skills,
-  Evidence, Context Pack, and Runbook boundaries. The current Minimal Skill
-  Library MVP is workspace-local operator-authored Skill CRUD only. Current
-  Rust refs live in `crates/hobit-app/src/knowledge/` and
-  `crates/hobit-app/src/context_packs/` mostly as type scaffolding. They do
-  not add a knowledge store, evidence store, Context Pack store, context
-  ingestion, Workspace Agent/provider context wiring, prompt changes, server
-  runtime, or RBAC.
+  Evidence, Context Pack, and Runbook boundaries. The current Knowledge /
+  Skills MVP includes workspace-local Skill CRUD plus workspace-local and
+  local-global plain-text/Markdown Knowledge Document CRUD/search/import,
+  enabled-only visible retrieval for Workspace Agent Codex runs, and selected
+  Skill attach. Current Rust refs live in `crates/hobit-app/src/knowledge/`
+  and `crates/hobit-app/src/context_packs/` partly as type scaffolding. They do
+  not add an evidence store, Context Pack store, hidden ingestion, team/server
+  knowledge, server runtime, or RBAC.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
   what the recent foundation series completed, what remains type-only, and
@@ -308,9 +311,9 @@ unless the task explicitly requests it.
 
 - `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` - Terminal PTY behavior, safety
   boundaries, and current platform limitations. It is the source of truth for
-  the Windows-only shipped live PTY backend limitation, non-Windows
+  the shipped Windows and Linux live PTY backend support, macOS
   unsupported-platform behavior, the collapsed one-shot fallback compatibility
-  boundary, and Deferred catalog gating / Linux/macOS PTY follow-ups.
+  boundary, and Deferred catalog gating / macOS PTY follow-ups.
 
 ## Reference Handoff
 
@@ -324,7 +327,6 @@ These are valid contracts, but they are not active implementation targets
 unless a block explicitly names the area:
 
 - `docs/RUNBOOK_WIDGET_CONTRACT.md`
-- `docs/TERMINAL_PTY_WIDGET_CONTRACT.md`
 - `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`
 - `docs/TEMPLATE_CONTRACT.md`
 - `docs/AGENT_RUNTIME_CONTRACT.md`

@@ -329,7 +329,7 @@ High-risk actions must never be automatic or hidden. They should require an expl
 - The widget must distinguish read-only review from mutating actions.
 - Agent-suggested Git actions remain proposals until approved by the operator.
 
-## Relation To Coordinator / Executor Workflow
+## Relation To Workspace Agent / Executor Workflow
 
 Expected future workflow:
 
@@ -340,7 +340,9 @@ Expected future workflow:
 5. Operator decides accept, fix, push, revert, or follow-up.
 6. Accepted result becomes part of Workspace history when future storage supports it.
 
-The Git Widget should help the coordinator decide whether to accept the block, request a fix, rerun validation, create a follow-up block, push, or revert.
+The Git Widget should help the operator or future Workspace Agent decide
+whether to accept the block, request a fix, rerun validation, create a
+follow-up block, push, or revert.
 
 Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. Code-related Queue Items may link to Git Widget review state, but the queue must not hide dirty Git state, failed validation, skipped validation, untracked files, or push-needed state.
 
@@ -439,7 +441,8 @@ This contract does not implement:
 - PR provider integration
 - agent runtime behavior
 - current widget behavior changes
-- Agent Queue behavior beyond static placeholder previews, storage, or automatic Git review actions
+- Agent Queue behavior beyond current manual task/assignment/run-link storage
+  or automatic Git review actions
 - product behavior changes
 
 ## Current Implementation Boundary

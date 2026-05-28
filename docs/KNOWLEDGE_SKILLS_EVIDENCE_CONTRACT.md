@@ -6,7 +6,7 @@ This contract defines Hobit's Knowledge, Skills, Evidence, Context Pack, and
 Runbook boundaries.
 
 It is primarily an architecture contract. The current implemented product
-slice is the Minimal Skill Library MVP plus scoped plain-text Knowledge
+slice is the Knowledge / Skills MVP plus scoped plain-text Knowledge
 Documents described here. This contract does not implement an
 Evidence store, Context Pack runtime, audit emission, server runtime,
 enterprise/RBAC behavior, permissions, or broad runtime behavior changes.
@@ -14,8 +14,8 @@ enterprise/RBAC behavior, permissions, or broad runtime behavior changes.
 ## Current Status
 
 Hobit currently has workspace-local and local-global Knowledge Documents for
-plain-text or Markdown reference material explicitly added through the Skill
-Library / Knowledge widget. Workspace documents belong to one Workspace only.
+plain-text or Markdown reference material explicitly added through the
+Knowledge / Skills widget. Workspace documents belong to one Workspace only.
 Global documents are local-user/global records available across Workspaces in
 this desktop database. The widget supports manual document authoring and
 explicit single-file import for `.txt`, `.md`, and `.markdown` files.
@@ -25,7 +25,7 @@ not team/server knowledge.
 
 Hobit currently has no implemented evidence store.
 
-Hobit currently has a Minimal Skill Library / Knowledge widget for
+Hobit currently has a Knowledge / Skills widget for
 workspace-local operator-authored Skill records and scoped Knowledge Documents. It
 supports explicit create/list/read/update/delete of simple text Skill records
 with review status and tags, and explicit create/list/read/update/delete/search
@@ -39,7 +39,7 @@ visible assistant/Codex text. Creating the proposed Knowledge Document or Skill
 requires operator approval plus a separate explicit create action, defaults to
 workspace-local catalog records, and does not read hidden Workspace data.
 
-The Skill Library / Knowledge MVP is not an Evidence store, Context Pack
+The Knowledge / Skills MVP is not an Evidence store, Context Pack
 builder, Runbook executor, hidden AI memory layer, team/server knowledge
 system, or hidden Workspace Agent context provider. Skills are not searched,
 selected, or sent to Workspace Agent or a provider unless the operator uses the
@@ -52,15 +52,16 @@ Workspace/Global scope labels, and added only to that run's Codex prompt.
 The current Rust reference vocabulary lives in
 `crates/hobit-app/src/knowledge/`. It is mostly type-only scaffolding for
 Knowledge, Skill, Runbook, Evidence, Evidence Source, and Knowledge/Evidence
-links. The implemented Skill Library storage/API/UI is separate workspace-local
-MVP behavior, and Knowledge Documents are separate scoped plain-text records.
+links. The implemented Knowledge / Skills storage/API/UI uses the retained
+`skill-library` compatibility identity, and Knowledge Documents are separate
+scoped plain-text records.
 These refs do not implement Knowledge Item storage, Evidence storage,
 Context Pack storage, a resolver, Workspace Agent capability wiring, or broad
 runtime behavior.
 
 The current Context Pack Rust reference vocabulary lives in
 `crates/hobit-app/src/context_packs/`. It is type-only scaffolding for explicit
-context selections and does not implement Context Pack storage, Coordinator
+context selections and does not implement Context Pack storage, Workspace Agent
 context wiring, provider prompt changes, UI, schema changes, or runtime
 behavior.
 
@@ -118,7 +119,7 @@ Runbook: a concrete ordered workflow for a specific operational procedure. A
 Runbook may use Skills, artifacts, evidence, and operator approvals.
 
 Context Pack: an explicit, reviewable selection of Knowledge, Evidence, and
-Artifact refs shared with Coordinator, an agent, or a provider for a specific
+Artifact refs shared with Workspace Agent, an agent, or a provider for a specific
 purpose.
 
 ## Clear Distinctions
@@ -157,7 +158,7 @@ A Skill is an actionable, reusable knowledge unit with:
 - owner, version, and tags;
 - review status.
 
-Skills may guide future Coordinator, Agent Executor, Queue, Runbook, or
+Skills may guide future Workspace Agent, Agent Executor, Queue, Runbook, or
 operator workflows, but a Skill does not execute itself and does not grant
 permission to run tools or mutate state.
 
@@ -172,7 +173,7 @@ without being wrapped in a Runbook.
 
 Future Runbooks must keep steps visible and reviewable. They must not become
 hidden automation, free-form prompt execution, automatic Queue dispatch,
-Terminal automation, Git mutation, JDBC execution, or Coordinator tool
+Terminal automation, Git mutation, JDBC execution, or Workspace Agent tool
 execution unless a future explicit contract and implementation block allows
 that behavior.
 
@@ -195,7 +196,7 @@ payloads.
 ## Context Pack Definition
 
 A Context Pack is an explicit, reviewable selection of Knowledge, Evidence,
-Artifact refs, and safe metadata shared with Coordinator, an agent, or a
+Artifact refs, and safe metadata shared with Workspace Agent, an agent, or a
 provider.
 
 A Context Pack must include:
@@ -212,7 +213,7 @@ Workspace scanning, or prompt augmentation. Creating or using a Context Pack
 must be visible and approval-aware.
 
 The Rust v0 `ContextPackRef` model contains refs and metadata only. It does not
-mean Coordinator, an agent, or a provider has received the context, and it does
+mean Workspace Agent, an agent, or a provider has received the context, and it does
 not imply approval, evidence eligibility, AI-context sharing, or execution.
 
 ## AI Context Rules
@@ -224,7 +225,7 @@ AI-context eligibility defaults false.
 Evidence eligibility defaults false.
 
 The operator must be able to review selected context before it is shared with
-Coordinator, an agent, or a provider.
+Workspace Agent, an agent, or a provider.
 
 Context must be attributable. Future Context Packs should preserve source refs,
 owner refs, review status, and visibility metadata.
@@ -276,9 +277,9 @@ desktop-first, server-ready architecture guardrails and the need to keep
 Knowledge, Skills, Evidence, and artifacts distinct.
 
 `docs/CURRENT_WIDGET_SURFACE.md` remains the source of truth for current
-implemented widget behavior, including the Minimal Skill Library widget. This
+implemented widget behavior, including the Knowledge / Skills widget. This
 contract does not add current Knowledge Item, Evidence, Context Pack, or
-Runbook engine behavior beyond that Skill Library MVP.
+Runbook engine behavior beyond that Knowledge / Skills MVP.
 
 ## Explicit Non-Goals
 
@@ -290,7 +291,7 @@ This contract does not add:
 - folder scanning, recursive ingestion, filesystem watchers, or hidden file
   ingestion;
 - evidence store;
-- full Knowledge/Skills system beyond the Minimal Skill Library MVP;
+- full Knowledge/Skills system beyond the current Knowledge / Skills MVP;
 - Context Pack UI or runtime;
 - automatic context ingestion;
 - hidden prompt augmentation;
@@ -304,10 +305,10 @@ This contract does not add:
 - server runtime;
 - enterprise/RBAC behavior;
 - permissions;
-- schema changes beyond Skill Library MVP storage;
-- frontend behavior changes beyond Skill Library / Knowledge MVP UI,
+- schema changes beyond Knowledge / Skills MVP storage;
+- frontend behavior changes beyond Knowledge / Skills MVP UI,
   scoped document search, and explicit selected Skill attach to
   Workspace Agent;
-- Tauri commands or DTO changes beyond Skill Library MVP CRUD;
+- Tauri commands or DTO changes beyond Knowledge / Skills MVP CRUD;
 - Queue, Direct Work, Terminal, Git, JDBC, Workspace Agent, Notes, or Runbook
   behavior changes.

@@ -20,7 +20,7 @@ Not source of truth for:
 
 - Agent Executor runtime.
 - Script Runner behavior.
-- Coordinator-controlled Terminal execution.
+- Workspace Agent-controlled Terminal execution.
 - Cross-platform PTY implementation.
 
 Future implementation must preserve Hobit's Workbench-first product model:
@@ -52,8 +52,8 @@ Current Terminal:
 - Has no split panes.
 - Has no event-streamed PTY output bridge yet.
 - Has no command history, persistent transcript, shell profile model,
-  Agent-triggered execution, Queue-triggered execution, Coordinator control, or
-  Script Runner behavior.
+  Agent-triggered execution, Queue-triggered execution, Workspace Agent
+  control, or Script Runner behavior.
 
 Current backend foundation:
 
@@ -180,7 +180,7 @@ Rules:
 - Session controls must be visible in the owning Terminal widget.
 - Browser/Vite fallback must show unsupported state rather than pretending a
   local PTY exists.
-- Coordinator Chat, Agent Queue, Agent Executor, Runbook, and other widgets
+- Workspace Agent, Agent Queue, Agent Executor, Runbook, and other widgets
   must not create or control Terminal sessions silently.
 - App-level activity may summarize that a Terminal session is running, but it
   must not become a scheduler or hidden control surface.
@@ -275,7 +275,7 @@ Rules:
 
 - Terminal should not be used by agents automatically in the first PTY slice.
 - No AI auto-execution.
-- No hidden Coordinator tool access.
+- No hidden Workspace Agent tool access.
 - No hidden command execution.
 - No background shell sessions without visible status.
 - No automatic Git mutation.
@@ -283,7 +283,7 @@ Rules:
 - No automatic cleanup, reset, rollback, or recovery of files changed through
   terminal commands.
 - No Queue-driven Terminal command execution.
-- No Coordinator Chat or Interactive Agent control of Terminal in the MVP.
+- No Workspace Agent or Interactive Agent control of Terminal in the MVP.
 - No secrets injected into prompts or commands by Hobit.
 - No secrets should be logged into unrelated artifacts.
 - No command should run without visible session context.
@@ -354,12 +354,12 @@ prompt explicitly chooses persistent transcripts or session history.
 
 ## Platform And Shell Expectations
 
-Windows support is current for live PTY sessions. Cross-platform PTY support is
+Windows and Linux support are current for live PTY sessions. macOS support is
 not Current.
 
 Initial platform expectations:
 
-- First implementation targets Windows desktop PTY behavior.
+- Current implementation targets Windows and Linux desktop PTY behavior.
 - Default shell must be visible before launch.
 - Preferred initial Windows shell should be PowerShell when available, with
   `cmd.exe` as an explicit fallback or configured option.
@@ -371,9 +371,9 @@ Initial platform expectations:
   does not normalize shell-specific quoting.
 - Path handling should preserve literal working-directory paths and surface
   startup errors clearly.
-- Linux desktop builds use the Linux PTY backend. Other non-Windows desktop
-  builds may compile, but live PTY creation is unsupported and must surface an
-  explicit unsupported-platform error.
+- Linux desktop builds use the Linux PTY backend. macOS and other unsupported
+  desktop builds may compile, but live PTY creation is unsupported and must
+  surface an explicit unsupported-platform error.
 - Catalog gating or clearer unavailable UI on unsupported platforms is
   Deferred.
 - macOS PTY implementation is Deferred and must not be claimed as Current until
@@ -415,11 +415,11 @@ Git Widget and Terminal may later share visible repository-root handoff flows
 when the execution workspace is a Git repository, but that requires a separate
 implementation block.
 
-## Relationship To Queue And Coordinator Chat
+## Relationship To Queue And Workspace Agent
 
 Agent Queue should not run Terminal commands in the MVP.
 
-Coordinator Chat / Interactive Agent should not control Terminal in the MVP.
+Workspace Agent / Interactive Agent should not control Terminal in the MVP.
 
 Future integrations require separate contracts that define:
 
@@ -430,8 +430,8 @@ Future integrations require separate contracts that define:
 - Audit/log behavior.
 - Failure and cancellation behavior.
 
-No Queue, Interactive Agent, Coordinator, or agent runtime may use Terminal as a
-hidden execution backend.
+No Queue, Interactive Agent, Workspace Agent, Coordinator compatibility path, or
+agent runtime may use Terminal as a hidden execution backend.
 
 ## Frontend UX Minimum
 
@@ -455,7 +455,7 @@ Minimum UI:
 - unsupported state in browser/Vite fallback
 
 The first PTY UI should not require tabs, split panes, persistent history,
-profiles, search, transcript export, or Coordinator handoff.
+profiles, search, transcript export, or Workspace Agent handoff.
 
 ## Persistence, Logs, And Results
 
@@ -495,7 +495,7 @@ Difference from current one-shot command runner:
   boundaries. Implemented with session get/list state.
 - Keep sessions Workspace/Workbench/Terminal-widget scoped.
 - Keep transcript and command history session-only.
-- No Coordinator, Queue, Agent Executor, Git, Notes, Evidence/Sources, or
+- No Workspace Agent, Queue, Agent Executor, Git, Notes, Evidence/Sources, or
   storage integration.
 
 ### Slice 2: Tauri Event Bridge Hardening
@@ -613,7 +613,6 @@ before the backing behavior exists.
 The current PTY foundation still does not implement:
 
 - macOS live PTY support.
-- Cross-platform Terminal PTY support.
 - Catalog gating for unsupported platforms.
 - Event-streamed output/lifecycle bridge hardening.
 - Tabs implementation.

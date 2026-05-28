@@ -149,8 +149,9 @@ behavior, or Workspace Agent context wiring.
   Unix/Linux defaults to `codex` and runs explicit executable paths directly.
   Direct Work `~` resolution uses the platform home environment and returns a
   clear error when home is unavailable. Final-message files use the OS temp
-  directory. This baseline is not Linux packaging/release validation, and real
-  Linux manual desktop smoke is still required.
+  directory. Terminal live PTY backend support is implemented for Linux desktop
+  builds as well as Windows. This baseline is not Linux packaging/release
+  validation, and real Linux manual desktop smoke is still required.
 
 ## Still Type-Only Or Contract-Only
 
@@ -231,8 +232,9 @@ sent to a provider.
 - Workspace Agent Direct Mode triggered Queue Autorun, Queue task creation, Agent
   Executor launch, server runtime, RBAC, or automatic Git mutation.
 - Linux packaging or release validation.
-- Linux/macOS live Terminal PTY support; non-Windows live PTY creation remains
-  unsupported until a future explicit platform-support block.
+- macOS live Terminal PTY support and catalog gating for unsupported platforms.
+  Linux PTY backend code exists, but real Linux manual desktop smoke is still
+  required before calling Linux runtime verified.
 
 ## Recommended Next Roadmap
 

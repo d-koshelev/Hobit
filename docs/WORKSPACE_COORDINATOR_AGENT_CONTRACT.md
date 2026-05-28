@@ -23,7 +23,7 @@ Chat is the interaction model, not the capability limit. The target Workspace
 Agent can perform interactive work
 inside the Workspace through controlled capabilities: filesystem and code
 editing, code review, command and validation work, Terminal and SSH actions,
-Git review/control, JDBC/database work, Notes, Skill Library/Knowledge,
+Git review/control, JDBC/database work, Notes, Knowledge / Skills,
 Queue, Agent Executor, run history, and future Artifacts/Evidence.
 
 This is primarily a documentation and product/domain contract. Older Agent Chat
@@ -47,7 +47,7 @@ chat/proposal context only, and keeps `allowed_tools: []`. Older Agent Chat
 proposal persistence and Agent Monitoring paths are retained
 compatibility/reference paths, not the preferred current surface.
 
-The current Workspace Agent preview:
+The current Workspace Agent Ready / MVP surface:
 
 - summarizes the operator prompt locally
 - can include visible current-session chat and visible proposal draft summaries
@@ -58,7 +58,7 @@ The current Workspace Agent preview:
   needs-review interpretation, risks/blockers, and next actions
 - can receive explicitly attached, current-session visible run metadata from
   Queue latest-run/history rows and Agent Executor run-history/detail controls;
-  the attachment appears in the Coordinator composer before Send and can be
+  the attachment appears in the Workspace Agent composer before Send and can be
   edited or removed
 - can receive an explicit bounded excerpt selected by the operator from visible
   Agent Executor-owned run detail; raw Executor detail remains owned by Agent
@@ -68,7 +68,7 @@ The current Workspace Agent preview:
   output, and error summary previews, only after the operator clicks the
   section attach action; raw Executor detail remains Executor-owned and is not
   read automatically
-- can receive an explicitly attached selected Skill from Skill Library as
+- can receive an explicitly attached selected Skill from Knowledge / Skills as
   visible editable composer context containing only title, when to use,
   prerequisites, steps, validation, risks, tags, and review status
 - can automatically search enabled workspace-local Knowledge Documents plus
@@ -127,7 +127,7 @@ The current Workspace Agent preview:
 - shows proposed next steps, required context, tool/action proposal notes, and safety notes
 - marks proposed tool/actions as not executed
 - does not read Notes body, Git status, Terminal output, widget logs, Queue
-  details or run history, Executor logs/results/artifacts, Skill Library
+  details or run history, Executor logs/results/artifacts, Knowledge / Skills
   Skill records, disabled Knowledge Documents, files, environment variables,
   secrets, Context Packs, or hidden context; Attach to Workspace Agent sends
   only the visible metadata, selected excerpt, selected Skill fields, or
@@ -136,7 +136,7 @@ The current Workspace Agent preview:
   metadata, or unrelated Workspace state
 - does not persist chat messages, persist reusable context snapshots, create
   Queue items without a separate approved proposal handoff, start Queue
-  Autorun, launch Agent Executor, or run hidden actions. Coordinator-owned
+  Autorun, launch Agent Executor, or run hidden actions. Workspace Agent-owned
   Codex runs are the explicit foreground exception: they can let Codex read
   files, write code, and run commands inside the operator-provided working
   directory without creating Queue tasks or using Agent Executor.
@@ -152,7 +152,8 @@ There is no implemented:
 - unified permission or policy UI
 - full provider tool mode
 - audit emission or persistence
-- foreground agent runtime beyond the current chat/proposal/attachment preview
+- foreground agent runtime beyond the current chat/proposal/attachment/Codex
+  Direct Work Ready / MVP surface
 - executable chat response or streaming
 - persisted approved context models
 - cross-widget context access beyond visible current-session chat/proposal context
@@ -160,7 +161,8 @@ There is no implemented:
 - cross-widget action system
 - response parser or validator
 - automatic execution
-- coordinator UI beyond the current chat/proposal/attachment preview
+- Workspace Agent UI beyond the current chat/proposal/attachment/Codex Direct
+  Work Ready / MVP surface
 
 Current Workspace Agent can create a Queue task only from an approved visible
 create-Queue-task proposal and a separate explicit Create Queue task action.
@@ -180,7 +182,8 @@ Workspace Agent direct capability execution: Queue tasks can be assigned to a
 visible Agent Executor and explicitly started, and Queue Autorun can be
 explicitly armed from Queue under its current-session limits.
 
-This contract describes target behavior only beyond the current preview.
+This contract describes target behavior only beyond the current Ready / MVP
+surface.
 
 The first real AI/provider slice is further bounded by
 `docs/AI_INTEGRATION_READINESS_CONTRACT.md`. That contract defines the
@@ -190,7 +193,7 @@ first AI integration.
 
 ## Role
 
-The Workspace-aware Coordinator Agent is the foreground interactive agent for
+The Workspace Agent is the foreground interactive agent for
 one active Workspace.
 
 It may eventually:
@@ -222,24 +225,24 @@ It is not:
 - a generic chatbot with unrestricted Workspace access
 - a shortcut around widget, tool, Git, queue, template, note, or execution contracts
 
-## Coordinator Versus Executor
+## Workspace Agent Versus Executor
 
-Coordinator is the foreground interactive agent. It works with the operator in
+Workspace Agent is the foreground interactive agent. It works with the operator in
 the active Workspace, can eventually use all approved Workspace capabilities,
 and decides when a piece of work should remain interactive or be delegated.
 
 Agent Executor is the async/background worker for bounded Queue task prompts.
 It owns queued execution logs, results, run history, cancellation, and review
 visibility for Executor runs. Executor is not the only agent that can do work
-and must not be treated as the capability ceiling for Coordinator.
+and must not be treated as the capability ceiling for Workspace Agent.
 
 Agent Queue is for promoted, larger, delayed, long-running, or overnight work.
 Creating a Queue Item does not launch execution, accept work, mutate Git,
 write files, or apply changes automatically.
 
-## Coordinator Modes
+## Workspace Agent Modes
 
-Target Coordinator modes:
+Target Workspace Agent modes:
 
 - Chat / Reasoning mode: conversation, clarification, planning, result review,
   and decision support.
@@ -261,7 +264,7 @@ proposal handoff for the supported safe proposal types.
 
 ## Safety And Action Levels
 
-Future capability use must classify every Coordinator action:
+Future capability use must classify every Workspace Agent action:
 
 - Safe read: bounded metadata, selected summaries, selected visible text, or
   capped previews with no secrets or sensitive raw payloads.
@@ -283,20 +286,20 @@ starts.
 
 ## Near-Term Roadmap
 
-1. Coordinator capability registry.
-2. Coordinator read selected Workspace files.
-3. Coordinator propose/apply file edits with diff preview.
-4. Coordinator command/validation action.
-5. Coordinator JDBC widget capability.
-6. Coordinator SSH/Terminal capability.
+1. Workspace Agent capability registry.
+2. Workspace Agent read selected Workspace files.
+3. Workspace Agent propose/apply file edits with diff preview.
+4. Workspace Agent command/validation action.
+5. Workspace Agent JDBC widget capability.
+6. Workspace Agent SSH/Terminal capability.
 7. Policy/approval model.
 8. Background delegation through Queue/Executor.
 
 ## Core Principle
 
-The Coordinator may read only explicitly allowed context.
+The Workspace Agent may read only explicitly allowed context.
 
-The Coordinator may propose actions.
+The Workspace Agent may propose actions.
 
 Hobit previews proposed actions.
 
@@ -317,7 +320,7 @@ Rejected proposals must not mutate Workspace or widget state.
 
 ## Approved Context Model
 
-Future Coordinator context access must be scoped, visible, minimal, and operator-approved.
+Future Workspace Agent context access must be scoped, visible, minimal, and operator-approved.
 
 Possible approved context sources include:
 
@@ -328,7 +331,7 @@ Possible approved context sources include:
 - Agent Run Result Report, Overview Log, or approved Raw Log summary
 - Git Widget status summary and changed-file summary
 - JDBC connector metadata, query text, or capped results approved for context
-- Skill Library selected Skill records
+- Knowledge / Skills selected Skill records
 - Template Library selected templates
 - Workspace Activity summary
 - widget state, results, or logs explicitly selected by the operator
@@ -340,14 +343,14 @@ Rules:
 - No hidden Workspace-wide context injection.
 - No secret injection.
 - No raw logs or large data sent by default.
-- Context used by the Coordinator must be visible or reviewable.
+- Context used by the Workspace Agent must be visible or reviewable.
 - Context should be minimal enough to explain why it was included.
 - Context access should identify the owning Workspace and source widget when applicable.
 - Global notes, shared templates, or cross-Workspace assets must not be included unless explicitly selected or attached under their own contracts.
 
 ## Widget Context Boundaries
 
-Each widget should expose only intentional context surfaces. Widgets must not become private data stores that the Coordinator reads implicitly.
+Each widget should expose only intentional context surfaces. Widgets must not become private data stores that the Workspace Agent reads implicitly.
 
 Examples:
 
@@ -363,7 +366,7 @@ Examples:
   output only with explicit approval and secret-safe handling when SSH exists.
 - JDBC may expose selected connector metadata, query previews, capped results,
   and explain output only through the JDBC widget capability boundary.
-- Skill Library may expose selected Skill guidance only after operator attach
+- Knowledge / Skills may expose selected Skill guidance only after operator attach
   or approved context selection.
 - Script Runner output may expose configured run summaries or selected logs only with explicit approval when Script Runner exists.
 - Workspace Activity may expose high-level events, not hidden full context from every widget.
@@ -372,7 +375,7 @@ Cross-widget use of context must be visible and operator-controlled. A widget ma
 
 ## Proposed Action Model
 
-The Coordinator must not silently or unilaterally mutate widgets or Workspace
+The Workspace Agent must not silently or unilaterally mutate widgets or Workspace
 state.
 
 It creates proposed actions or approved capability action requests. Approved
@@ -426,10 +429,10 @@ The preview must be specific enough for the operator to understand what will cha
 Example future workflow:
 
 1. Notebook contains a list of tasks.
-2. Operator asks Coordinator: "Create tasks from this list and put them in Agent Queue."
+2. Operator asks Workspace Agent: "Create tasks from this list and put them in Agent Queue."
 3. Operator approves the specific Notebook tab or selected text as context.
-4. Coordinator shows it is reading that approved Notebook context.
-5. Coordinator extracts proposed queue items.
+4. Workspace Agent shows it is reading that approved Notebook context.
+5. Workspace Agent extracts proposed queue items.
 6. Hobit previews the proposed Agent Queue additions.
 7. Operator approves or rejects.
 8. Agent Queue receives new items only after approval.
@@ -464,7 +467,7 @@ Rules:
 
 ## Audit And Logging
 
-Coordinator actions should be auditable.
+Workspace Agent actions should be auditable.
 
 Future audit records should capture:
 
@@ -483,15 +486,15 @@ Workspace Activity may record high-level events.
 
 Widget-local logs may record relevant widget-level changes.
 
-Agent Run observability may later capture Raw Log, Overview Log, and Result Report for Coordinator reasoning sessions or executor handoffs. Raw trace, failed validation, and rejected proposals must not be hidden by summaries.
+Agent Run observability may later capture Raw Log, Overview Log, and Result Report for Workspace Agent reasoning sessions or executor handoffs. Raw trace, failed validation, and rejected proposals must not be hidden by summaries.
 
 ## Relationship To Agent Queue
 
 Agent Queue is the explicit async execution pipeline for promoted/larger
-Coordinator-created work items. It is not the default destination for every
-idea, quick decision, or small operation discussed in Coordinator.
+Workspace Agent-created work items. It is not the default destination for every
+idea, quick decision, or small operation discussed in Workspace Agent.
 
-The Coordinator may propose Queue Items from:
+The Workspace Agent may propose Queue Items from:
 
 - Notebook tasks
 - Git review findings
@@ -503,7 +506,7 @@ The Coordinator may propose Queue Items from:
 
 Queue Items remain operator-controlled. Creating a Queue Item does not launch execution, accept work, mutate Git, or apply changes automatically.
 
-Coordinator-created Queue Items should follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`. The Coordinator should split broad requests before execution, mark over-broad items as split-required, and include scope, non-goals, expected changed layers, execution budget, validation profile plan, and stop/split rules in generated work items.
+Workspace Agent-created Queue Items should follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`. The Workspace Agent should split broad requests before execution, mark over-broad items as split-required, and include scope, non-goals, expected changed layers, execution budget, validation profile plan, and stop/split rules in generated work items.
 
 No automatic execution.
 
@@ -552,7 +555,7 @@ For Notes and Notebook rules, see `docs/NOTES_WIDGET_CONTRACT.md`.
 
 ## Relationship To Template Library
 
-The Coordinator may use Request Templates and Response Templates to shape proposed executor blocks.
+The Workspace Agent may use Request Templates and Response Templates to shape proposed executor blocks.
 
 It may later:
 
@@ -564,18 +567,18 @@ It may later:
 
 Generated requests must be previewable before use. Template snapshots should be preserved when applied. Template use must not become hidden prompt mutation or automatic execution.
 
-Request generation should include efficiency fields defined in `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`, especially budget, expected changed layers, validation profile plan, and stop/split behavior. The Coordinator should recommend splitting a generated request when those fields reveal a large or high-risk block.
+Request generation should include efficiency fields defined in `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`, especially budget, expected changed layers, validation profile plan, and stop/split behavior. The Workspace Agent should recommend splitting a generated request when those fields reveal a large or high-risk block.
 
 For template rules, see `docs/TEMPLATE_CONTRACT.md`.
 
 ## Relationship To Git Widget
 
-The Coordinator may use approved Git summaries to propose follow-up work, review notes, Queue Items, or operator decisions.
+The Workspace Agent may use approved Git summaries to propose follow-up work, review notes, Queue Items, or operator decisions.
 
 Rules:
 
 - Git context must come from approved Git Widget summaries or approved Git review state.
-- Coordinator must not perform Git mutations directly.
+- Workspace Agent must not perform Git mutations directly.
 - Commit, push, restore, revert, reset, clean, stash, and similar actions remain separate approval-gated Git Widget actions.
 - Dirty Git state and failed validation must remain visible.
 - Generated Git review notes or commit-message suggestions must remain reviewable before use.
@@ -584,7 +587,7 @@ For Git review rules, see `docs/GIT_WIDGET_CONTRACT.md`.
 
 ## Relationship To Agent Run
 
-The Coordinator may review approved Agent Run Overview Log, Result Report, and Raw Log context.
+The Workspace Agent may review approved Agent Run Overview Log, Result Report, and Raw Log context.
 
 It may propose follow-up blocks based on completed, failed, blocked, or rejected runs.
 
@@ -592,43 +595,43 @@ Rules:
 
 - Raw Log access must be explicit when raw trace is needed.
 - Result Report must not hide failed validation or skipped validation.
-- Coordinator summaries must not replace the original Raw Log, Overview Log, or Result Report.
+- Workspace Agent summaries must not replace the original Raw Log, Overview Log, or Result Report.
 
 For run observability rules, see `docs/AGENT_RUN_OBSERVABILITY_CONTRACT.md`.
 
 ## Relationship To Dock
 
-The Coordinator may later propose presentation actions such as opening a widget on the Canvas or sending a widget to Dock.
+The Workspace Agent may later propose presentation actions such as opening a widget on the Canvas or sending a widget to Dock.
 
 These are UI presentation actions, not data mutations or new widget instances.
 
 Rules:
 
 - Presentation changes must be operator-visible.
-- Coordinator must not silently move, hide, park, or duplicate widgets.
+- Workspace Agent must not silently move, hide, park, or duplicate widgets.
 - Dock proposals must preserve WidgetInstance identity and Workspace ownership.
 
 For Dock and widget presence rules, see `docs/WIDGET_CONTRACT.md`.
 
 ## Relationship To Script Runner
 
-The Coordinator may later propose a configured Script Runner action, such as preparing a script path, working directory, and argv preview.
+The Workspace Agent may later propose a configured Script Runner action, such as preparing a script path, working directory, and argv preview.
 
 Script Runner execution must remain explicit and approval-gated.
 
 Rules:
 
-- Coordinator must not silently run scripts.
-- Coordinator must not inject hidden arguments.
-- Coordinator must not turn chat into a command prompt or shell-string execution path.
+- Workspace Agent must not silently run scripts.
+- Workspace Agent must not inject hidden arguments.
+- Workspace Agent must not turn chat into a command prompt or shell-string execution path.
 - Script Runner configuration and output context must follow `docs/SCRIPT_RUNNER_WIDGET_CONTRACT.md`.
 
 ## Future UI Direction
 
-Future Coordinator UI should show:
+Future Workspace Agent UI should show:
 
 - active context set
-- what the Coordinator can read
+- what the Workspace Agent can read
 - proposed actions
 - source context used for each proposal
 - payload preview before apply
@@ -639,18 +642,18 @@ Future Coordinator UI should show:
 
 Example UI flow:
 
-1. Operator asks Coordinator to create tasks from Notebook.
-2. Coordinator shows "Reading Notebook tab: Tasks".
-3. Coordinator shows extracted task list.
-4. Coordinator shows proposed Agent Queue items.
+1. Operator asks Workspace Agent to create tasks from Notebook.
+2. Workspace Agent shows "Reading Notebook tab: Tasks".
+3. Workspace Agent shows extracted task list.
+4. Workspace Agent shows proposed Agent Queue items.
 5. Operator approves.
 6. Agent Queue receives items.
 7. Workspace Activity records the event.
 
-The UI must avoid making Coordinator look like an unrestricted command channel.
+The UI must avoid making Workspace Agent look like an unrestricted command channel.
 
-It must also avoid making Coordinator look like a passive chat box. The target
-surface should show the current Coordinator mode, approved context set,
+It must also avoid making Workspace Agent look like a passive chat box. The target
+surface should show the current Workspace Agent mode, approved context set,
 available capability providers, pending approvals, action status, and links to
 the owning widgets for logs/results.
 
@@ -715,14 +718,15 @@ This contract does not implement:
 - storage schema or migrations
 - Tauri commands
 - Workspace API changes
-- executable Coordinator runtime
+- broad executable Workspace Agent widget-tool runtime beyond the current
+  foreground Codex Direct Work path
 - agent runtime
-- hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Coordinator provider boundary
-- direct Coordinator filesystem read/write capability outside explicit
-  local desktop Coordinator-owned Codex runs
-- direct Coordinator command, Terminal, SSH, JDBC, Git, Queue, Executor, or
+- hidden, automatic, or tool-enabled LLM calls outside the explicit proposal-only Workspace Agent provider boundary
+- direct Workspace Agent filesystem read/write capability outside explicit
+  local desktop Workspace Agent-owned Codex runs
+- direct Workspace Agent command, Terminal, SSH, JDBC, Git, Queue, Executor, or
   artifact capability execution outside explicit local desktop
-  Coordinator-owned Codex runs
+  Workspace Agent-owned Codex runs
 - chat message persistence
 - persisted or cross-widget context access implementation beyond selected current-view metadata
 - context permission UI
@@ -730,7 +734,7 @@ This contract does not implement:
 - audit emission or persistence
 - executable action proposal engine
 - action execution engine
-- Coordinator-driven Agent Queue item creation beyond the explicit review-only item path from persisted local mock proposal results
+- Workspace Agent-driven Agent Queue item creation beyond explicit approved visible proposal actions
 - Notebook editing
 - Template generation
 - Git association
@@ -747,6 +751,6 @@ Future implementation must preserve existing Hobit boundaries:
 - Workspace remains the isolation boundary for context and history.
 - Widgets remain first-class optional capabilities.
 - Widgets communicate through Workbench state and events, not direct coupling.
-- The Coordinator proposes; the operator controls.
+- The Workspace Agent proposes; the operator controls.
 - Tool actions remain explicit, visible, and approval-aware.
 - Runtime execution, Git mutation, script execution, and external-system updates remain governed by their own contracts.

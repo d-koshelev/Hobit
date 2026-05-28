@@ -20,10 +20,13 @@ The target architecture treats Workspace Agent as the foreground interactive AI
 agent widget for Workspace work through controlled capabilities. Multiple
 Workspace Agent widgets can exist in one Workspace, each with independent
 context/thread/working-directory state. This walkthrough verifies only the
-current MVP subset: Workspace Agent planning/review, visible
-attachments, Skill attach, Queue/Executor metadata and preview attach, pasted
-result review, and explicit Queue/Executor async execution. It must not be
-read as proof that direct Workspace Agent filesystem, command, SSH, JDBC, Git, or
+current MVP subset: Start Screen/recent Workspace flow, Workspace Agent
+foreground Codex run behavior, Agent Activity timeline, Knowledge / Skills
+workspace/global documents, visible attachments, Queue/Executor metadata and
+preview attach, Git diff/history/local commit review, Terminal xterm PTY,
+theme/UI scale preferences, movable widgets, pasted result review, and explicit
+Queue/Executor async execution. It must not be read as proof that hidden
+Workspace Agent filesystem scanning, SSH, JDBC, Git, Terminal control, or
 provider tool execution exists.
 
 ## Result Legend
@@ -43,11 +46,19 @@ provider tool execution exists.
   validation and launch the Tauri desktop shell with the same isolated
   `HOBIT_DATABASE_PATH` idea. Codex Direct Work should use `codex` by default
   on Unix/Linux; Windows should keep `codex.cmd`.
-- [ ] Create or open a disposable Workspace.
+- [ ] Verify the Start Screen shows recent Workspaces when present, with safe
+  counts only and no raw prompts, logs, stdout/stderr, or Executor payloads.
+- [ ] Create a disposable Workspace from the Start Screen.
+- [ ] Close the Workspace from the Workbench top bar and reopen it from the
+  recent Workspace list.
 - [ ] Add or open Workspace Agent.
-- [ ] Add or open Skill Library.
+- [ ] Add or open Agent Activity.
+- [ ] Add or open Knowledge / Skills.
 - [ ] Add or open Agent Queue.
 - [ ] Add or open Agent Executor.
+- [ ] Add or open Git.
+- [ ] Add or open Terminal.
+- [ ] Add or open Notes.
 
 Notes:
 
@@ -71,7 +82,7 @@ Notes:
 ```text
 ```
 
-## C. Skill Library Support
+## C. Knowledge / Skills Support
 
 - [ ] Create a Skill with title, when-to-use, prerequisites, steps,
   validation, risks, tags, and review status.
@@ -83,13 +94,63 @@ Notes:
   composer.
 - [ ] Verify attached context is editable or removable before Send.
 - [ ] Verify attaching a Skill does not automatically Send.
+- [ ] Create a workspace-scoped Knowledge Document with enabled checked.
+- [ ] Create a global Knowledge Document with enabled checked.
+- [ ] Import one `.txt`, `.md`, or `.markdown` file explicitly into a
+  workspace-scoped or global Knowledge Document.
+- [ ] Disable one document and verify disabled documents are not shown as used
+  retrieval context for Workspace Agent Codex runs.
+- [ ] Run Workspace Agent with a prompt that should match enabled workspace and
+  global documents.
+- [ ] Verify retrieval snippets are capped, visible in Direct Work details, and
+  labeled Workspace or Global.
+- [ ] Verify global means local desktop DB/global across local Workspaces, not
+  team/enterprise/server knowledge.
 
 Notes:
 
 ```text
 ```
 
-## D. Queue Execution
+## D. Workspace Agent Codex Run
+
+- [ ] Set Workspace Agent working directory by typing a path.
+- [ ] Use Browse to choose one directory where the desktop dialog is available.
+- [ ] Verify Browse only updates the visible working-directory field and does
+  not scan the folder or start a run.
+- [ ] Run with Codex from the visible composer.
+- [ ] Verify Workspace Agent shows a compact one-line live activity summary
+  while the run is active.
+- [ ] Verify the final assistant response appears in chat while raw Direct Work
+  details remain collapsed.
+- [ ] Verify follow-up Run with Codex resumes only the current widget's explicit
+  thread id.
+- [ ] Verify New thread clears the current thread id without clearing visible
+  chat.
+- [ ] Verify changing the working directory clears the current thread id for
+  the next run.
+
+Notes:
+
+```text
+```
+
+## E. Agent Activity Timeline
+
+- [ ] While Workspace Agent or Agent Executor Direct Work runs, open Agent
+  Activity.
+- [ ] Verify current-session events appear as readable one-line timeline rows.
+- [ ] Verify rows can expand to show details/raw previews when present.
+- [ ] Verify raw event previews remain collapsed by default.
+- [ ] Verify the timeline does not claim to show persisted history after app
+  reload/reopen unless a later implementation adds stored history.
+
+Notes:
+
+```text
+```
+
+## F. Queue Execution
 
 - [ ] Create a Queue task from a Workspace Agent draft through the explicit
   `Create Queue task` action.
@@ -109,7 +170,7 @@ Notes:
 ```text
 ```
 
-## E. Run Review
+## G. Run Review
 
 - [ ] Verify the selected Queue task shows latest run metadata when available.
 - [ ] Verify Queue run history shows only safe metadata: link/run refs, source,
@@ -129,7 +190,63 @@ Notes:
 ```text
 ```
 
-## F. Safety Assertions
+## H. Git Review
+
+- [ ] Enter an explicit repository root in Git.
+- [ ] Refresh Git status manually.
+- [ ] Verify Changes shows grouped changed files.
+- [ ] Select a changed file and verify Diff shows a bounded read-only diff.
+- [ ] Verify History shows recent commits.
+- [ ] Verify Commit requires selected files, an operator-provided message, and
+  explicit confirmation.
+- [ ] Verify Git does not fetch, push, reset, clean, stash, checkout, watch,
+  poll, or persist the repository root.
+
+Notes:
+
+```text
+```
+
+## I. Terminal PTY
+
+- [ ] Start a Terminal PTY session from an explicit shell and working
+  directory.
+- [ ] Verify xterm renders normal output and ANSI/control-sequence behavior.
+- [ ] Send keyboard input through the terminal surface.
+- [ ] Resize the widget or terminal dimensions and verify the session remains
+  usable.
+- [ ] Stop or Kill the session through visible controls.
+- [ ] Verify PTY output is session-only and not persisted as widget
+  logs/results.
+- [ ] Verify the one-shot fallback remains collapsed and explicit.
+- [ ] On Linux, manually smoke live PTY creation, stdin, rendering, resize, and
+  Stop/Kill before claiming Linux runtime verified.
+- [ ] On macOS, verify live PTY is unsupported/deferred unless a future macOS
+  PTY implementation exists.
+
+Notes:
+
+```text
+```
+
+## J. Theme, Scale, And Layout
+
+- [ ] Change built-in theme presets, including Discord Dark.
+- [ ] Edit a custom HEX color and verify the local UI updates.
+- [ ] Change UI scale to at least one non-default value.
+- [ ] Verify theme and UI scale are frontend-local preferences, not Workspace
+  data or backend/runtime state.
+- [ ] Move a docked widget by its header/top area.
+- [ ] Resize a widget with the right, bottom, and corner handles.
+- [ ] Enable layout lock and verify movement/resize handles are frozen.
+- [ ] Remove a widget and verify confirmation is required.
+
+Notes:
+
+```text
+```
+
+## K. Safety Assertions
 
 - [ ] Workspace Agent does not auto-read Skills.
 - [ ] Workspace Agent does not auto-read Queue history.
@@ -150,7 +267,8 @@ Notes:
 - [ ] Workspace Agent does not arm or start Queue Autorun.
 - [ ] Queue Autorun starts only from explicit visible Queue controls.
 - [ ] No tool execution, Terminal control, Git mutation, JDBC execution, file
-  mutation, server runtime, or RBAC behavior is presented as implemented.
+  mutation outside explicit foreground Codex Direct Work, server runtime, or
+  RBAC behavior is presented as implemented.
 - [ ] Executor is presented as the async/background worker for Queue tasks, not
   as the only agent that can ever do Workspace work.
 - [ ] Widgets are presented as current UI surfaces and future capability
@@ -161,7 +279,7 @@ Notes:
 ```text
 ```
 
-## G. Known Limitations
+## L. Known Limitations
 
 - [ ] Queue Autorun requires Hobit to remain open and the machine to remain
   awake.
@@ -174,7 +292,9 @@ Notes:
   environment cannot operate or observe the desktop UI.
 - [ ] Linux desktop compatibility is a baseline only until a real Linux
   Tauri/WebView smoke confirms launch, Codex Direct Work, Knowledge import,
-  Queue/Executor handoff, and unsupported Terminal PTY behavior on Linux.
+  Queue/Executor handoff, Git review, Terminal PTY, Agent Activity, theme/UI
+  scale, and movable-widget behavior on Linux.
+- [ ] macOS live Terminal PTY support is deferred/unsupported.
 
 Notes:
 
@@ -191,13 +311,18 @@ HOBIT_DATABASE_PATH:
 Desktop launch:
 WebView interaction:
 
-A. Setup: [ ] pass [ ] partial [ ] fail [ ] not attempted
+A. Setup / Start Screen: [ ] pass [ ] partial [ ] fail [ ] not attempted
 B. Workspace Agent planning: [ ] pass [ ] partial [ ] fail [ ] not attempted
-C. Skill Library support: [ ] pass [ ] partial [ ] fail [ ] not attempted
-D. Queue execution: [ ] pass [ ] partial [ ] fail [ ] not attempted
-E. Run review: [ ] pass [ ] partial [ ] fail [ ] not attempted
-F. Safety assertions: [ ] pass [ ] partial [ ] fail [ ] not attempted
-G. Known limitations acknowledged: [ ] yes [ ] no
+C. Knowledge / Skills support: [ ] pass [ ] partial [ ] fail [ ] not attempted
+D. Workspace Agent Codex run: [ ] pass [ ] partial [ ] fail [ ] not attempted
+E. Agent Activity timeline: [ ] pass [ ] partial [ ] fail [ ] not attempted
+F. Queue execution: [ ] pass [ ] partial [ ] fail [ ] not attempted
+G. Run review: [ ] pass [ ] partial [ ] fail [ ] not attempted
+H. Git review: [ ] pass [ ] partial [ ] fail [ ] not attempted
+I. Terminal PTY: [ ] pass [ ] partial [ ] fail [ ] not attempted
+J. Theme, scale, and layout: [ ] pass [ ] partial [ ] fail [ ] not attempted
+K. Safety assertions: [ ] pass [ ] partial [ ] fail [ ] not attempted
+L. Known limitations acknowledged: [ ] yes [ ] no
 
 Overall result: [ ] pass [ ] partial [ ] fail
 

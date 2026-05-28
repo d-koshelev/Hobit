@@ -27,8 +27,9 @@ and does not add runtime behavior.
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. The current
-user-facing widget set is Agent Executor, Agent Queue, Workspace Agent,
-Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes. Workspace Agent reuses the
+user-facing widget set is Workspace Agent, Agent Activity, Agent Executor,
+Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and
+Notes. Workspace Agent reuses the
 existing `interactive-agent` widget id/component for compatibility and is a
 foreground chat-based AI agent widget for planning, reasoning, task drafting,
 outcome review, visible attachment review, and deciding what should be
@@ -51,7 +52,7 @@ implemented and must not default to user home. The Codex launch helper is
 platform-aware: Windows preserves `codex.cmd` as the default helper path and
 wraps `.cmd`/`.bat` shims with `cmd.exe /D /C`, while Unix/Linux defaults to
 `codex` and runs explicit executable paths directly without a shell wrapper.
-Terminal has a visible desktop PTY session
+Terminal has a visible desktop xterm PTY session
 surface for explicit Terminal widget owners, but shipped backend PTY session
 support is currently implemented for Windows and Linux; other desktop builds
 return an unsupported-platform error for live PTY creation until platform
@@ -88,7 +89,7 @@ cards, visible attachments, and a backend-owned provider response path for
 explicit chat sends. The broader target Workspace Agent model is a foreground
 agent capable of approved Workspace reads, coding/code review, file edits,
 commands/validation, Terminal/SSH, Git, JDBC/database work, Notes, Skill
-Library/Knowledge, Queue, Executor, run-history, and future
+Knowledge / Skills, Queue, Executor, run-history, and future
 Artifacts/Evidence through capability providers. Mock/local is the default
 provider. The current provider path uses visible current-session chat context
 and `allowed_tools: []`; it can return validated safe structured proposal
@@ -152,13 +153,12 @@ clean tables, preview honesty, and prohibited UI overclaims.
 
 `TERMINAL_PTY_WIDGET_CONTRACT.md` defines Terminal PTY behavior, safety
 boundaries, and current platform limitations. PTY runtime/Tauri command
-foundations and the first visible frontend PTY session UI now exist for
+foundations and the visible xterm frontend PTY session UI now exist for
 explicit Terminal widget owners in the desktop shell, with shipped live PTY
-backend support currently limited to Windows. Non-Windows desktop builds may
-compile, but live PTY creation is unsupported until Deferred platform support
-or catalog gating is implemented. Tabs UI, split panes, persistent
-transcripts/history, event-stream bridge hardening, and storage/schema changes
-are not implemented.
+backend support for Windows and Linux. macOS desktop builds may compile, but
+live PTY creation is unsupported until Deferred platform support or catalog
+gating is implemented. Tabs UI, split panes, persistent transcripts/history,
+event-stream bridge hardening, and storage/schema changes are not implemented.
 
 `WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` defines Minimal, Operational, and Full / Expert widget display levels. Future widget architecture and UI blocks should start from the smallest useful surface, avoid raw/debug defaults, and add deeper complexity only through explicit later slices.
 
@@ -332,22 +332,31 @@ The root `Cargo.toml` defines a Rust workspace for `apps/desktop/src-tauri` and 
 
 `hobit-agent` and `hobit-tools` are placeholder crates with package metadata and crate-level documentation. `hobit-app` contains the current Workspace application service foundation.
 
-`apps/desktop/frontend` contains the current workspace/start screen and Empty Workbench frontend. `apps/desktop/src-tauri` contains a minimal Tauri 2 desktop shell that hosts the frontend and exposes workspace lifecycle/state commands.
+`apps/desktop/frontend` contains the current Workspace Start Screen,
+Workspace Agent MVP surface, and advanced Empty Workbench frontend.
+`apps/desktop/src-tauri` contains a minimal Tauri 2 desktop shell that hosts
+the frontend and exposes workspace lifecycle/state commands.
 
 ## Current Frontend Milestone
 
 A Vite, React, and TypeScript frontend scaffold exists under `apps/desktop/frontend`.
 
-The current UI starts with a Workspace Start Screen shell. In the Tauri desktop shell, creating or opening a workspace calls the Tauri workspace lifecycle commands, loads the Workspace Workbench state through the workspace API facade, maps it into `WorkbenchViewState`, and then opens the Empty Workbench shell.
+The current UI starts with a Workspace Start Screen shell. In the Tauri
+desktop shell, creating or opening a workspace calls the Tauri workspace
+lifecycle commands, loads the Workspace Workbench state through the workspace
+API facade, maps it into `WorkbenchViewState`, and then opens the Workspace
+Agent MVP surface or an existing saved Workbench.
 
 In plain browser/Vite development, the frontend uses an in-memory workspace API fallback so the start screen remains usable without Tauri. Browser fallback state is not persisted, and its Workbench state remains an in-memory empty surface.
 
-The Empty Workbench shell intentionally renders no concrete widgets by default. New Workspaces still start with zero widget instances.
+New Workspaces open into Workspace Agent plus Notes by default. The Empty
+Workbench shell remains available as an advanced/manual start mode.
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
-The current user-facing catalog exposes Ready templates for Agent Executor,
-Git, Terminal, and Notes, plus Preview templates for Workspace Agent, Agent
-Queue, Database / JDBC, Skill Library, and Runbook. Workspace Agent uses the current
+The current user-facing catalog exposes Ready / MVP templates for Workspace
+Agent, Agent Activity, Agent Executor, Knowledge / Skills, Git, Terminal, and
+Notes, plus Preview templates for Agent Queue, Database / JDBC, and Runbook.
+Workspace Agent uses the current
 `interactive-agent` compatibility/local-chat placeholder as the central
 operator work surface. Agent Executor reuses the existing `agent-run`
 definition id for persistence compatibility.
@@ -366,8 +375,8 @@ monitoring, arbitrary widget result monitoring, Template Library runtime, templa
 storage/editing/request generation/response validation, Git behavior beyond
 manual desktop-only status/diff review and selected-file local commit for an
 explicit transient repository root, real capability widget insertion beyond
-Agent Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
-Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
+Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge /
+Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
 mode behavior,
 persisted presence zones beyond current canvas/floating presentation, preset
 editor, full drag/drop layout editor, snapping, collision detection,
@@ -440,9 +449,10 @@ workspace-local notes create/list/read/update API, workspace-local JDBC
 connector metadata create/list/read/update API, Agent Queue task
 create/list/read/update/assign/clear/start API, Agent Executor history reads,
 Git status/local commit APIs, Terminal one-shot command, Terminal PTY session
-API, Coordinator provider response API, Agent Chat backend AI
-proposal generation, Agent Chat proposal persistence, Agent Monitoring
-proposal artifact read, Agent Queue proposal-review item paths, and the typed
+API, Workspace Agent provider response API, retained Agent Chat backend AI
+proposal generation/persistence compatibility paths, Agent Monitoring
+proposal artifact read compatibility path, Agent Queue proposal-review item
+paths, and the typed
 Direct Work API facade through the workspace API facade when running inside
 Tauri. The browser/Vite path uses the same facade with an in-memory
 implementation; browser fallback throws a visible unsupported state for real
@@ -450,9 +460,9 @@ Git status reads and local commit creation, Terminal command execution,
 Terminal PTY sessions, workspace-local notes persistence, JDBC connector
 metadata persistence, Agent Queue task persistence/assignment/execution
 persistence, Codex Direct Work execution, Agent Executor persisted
-history/detail reads, backend AI provider calls, Coordinator provider
-calls, Agent Chat proposal persistence, Agent Monitoring persisted artifact
-reads, and Agent Queue persistence. The JDBC connector metadata commands store
+history/detail reads, backend AI provider calls, Workspace Agent provider
+calls, retained Agent Chat proposal persistence, Agent Monitoring persisted
+artifact reads, and Agent Queue persistence. The JDBC connector metadata commands store
 and return masked/non-secret connector descriptors only; they do not store
 passwords, tokens, secret references, credentials, driver jars, query text, or
 query results, and they do not test connections. Separate JDBC query commands
@@ -555,36 +565,44 @@ Create or open Workspace
   -> frontend requests get_workspace_workbench_state
   -> Tauri bridge returns persisted Workspace/Workbench summary state
   -> frontend workspace API adapts it into WorkbenchViewState
-  -> Empty Workbench renders from that view state
+  -> Workspace Agent MVP or saved Workbench renders from that view state
 ```
 
 The browser/Vite flow keeps the same frontend boundary but uses in-memory Workspace and Workbench state instead of the Tauri bridge and SQLite store.
 
 ## Current Frontend Workspace Shell Milestone
 
-The Workspace Start Screen reflects the intended user flow: open Hobit, create a local Workspace shell, then enter the Empty Workbench for the selected preset.
+The Workspace Start Screen reflects the intended user flow: open Hobit, create
+or select a local Workspace, then enter the Workspace Agent MVP surface or a
+saved Workbench.
 
 This milestone uses Tauri workspace commands in desktop mode and an in-memory
 frontend fallback in browser mode. It loads persisted Workbench summary state
 before entering the Workbench, but it does not implement runtime restoration,
-widget runtime reconstruction, real capability widget insertion beyond Agent
-Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
-Terminal, and Notes, or persisted browser fallback state.
+widget runtime reconstruction, real capability widget insertion beyond
+Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge /
+Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, or persisted
+browser fallback state.
 
 ## Current Frontend Widget Milestone
 
 The frontend now has a small `WidgetDefinition`, `WidgetInstance`, and `WorkbenchPreset` model.
 
-The Empty Workbench is rendered from preset data and new Workspaces currently start with no visible widget instances.
+The Workbench is rendered from persisted/preset data. New Workspaces currently
+start with Workspace Agent plus Notes unless the operator chooses the advanced
+Empty Workbench path.
 
 `WidgetHost` remains the mapping layer from persisted widget instances to React
-components. The current frontend registry contains Agent Executor, Agent Queue,
-Workspace Agent through the existing `interactive-agent` renderer,
-Database / JDBC, Skill Library, Runbook, Git, Terminal, and Notes renderers.
+components. The current frontend registry contains Workspace Agent, Agent
+Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC,
+Runbook, Git, Terminal, and Notes renderers. Workspace Agent uses the existing
+`interactive-agent` renderer, and Knowledge / Skills uses the existing
+`skill-library` renderer, for compatibility.
 
 The Widget Catalog has frontend-local template metadata for current surfaces.
-Ready templates are Agent Executor, Git, Terminal, and Notes. Preview templates
-are Agent Queue, Workspace Agent, Database / JDBC, Skill Library, and Runbook. There is no
+Ready / MVP templates are Workspace Agent, Agent Activity, Agent Executor,
+Knowledge / Skills, Git, Terminal, and Notes. Preview templates are Agent
+Queue, Database / JDBC, and Runbook. There is no
 Planned section in the current user-facing catalog, no runtime widget loading,
 and no real capability widget insertion beyond those available
 templates/placeholders through the Tauri bridge yet.
@@ -661,7 +679,19 @@ watching, fetch, validation association, push, checkout/switch branch,
 revert/reset, clean, stash, Agent Executor auto-commit, and broader Git
 mutations are not implemented.
 
-The frontend includes a layout lock/edit-mode foundation. Docked widgets stay fixed in locked mode; edit mode allows docked widgets to be moved by dragging the widget header/top area and resized with right, bottom, and bottom-right handles. The final docked position and size persist through `update_widget_instance_layout`. Widgets can also be floated into a frontend-only in-app overlay that leaves a ghost placeholder and can dock back without changing widget identity. This floating widget mode is not a separate OS window and is not persisted as external window geometry. There is no real Dock parking, Compact view rendering, Dock-to-Canvas movement, persisted presence zone model, full drag/drop layout editor, snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout window behavior, persisted external popout geometry, always-on-top behavior, or preset editor.
+The frontend includes movable/resizable widgets by default plus an optional
+layout lock. Docked widgets can be moved by dragging the widget header/top area
+and resized with right, bottom, and bottom-right handles unless the operator
+enables the frontend-only layout lock. The final docked position and size
+persist through `update_widget_instance_layout`. Widgets can also be floated
+into a frontend-only in-app overlay that leaves a ghost placeholder and can
+dock back without changing widget identity. This floating widget mode is not a
+separate OS window and is not persisted as external window geometry. There is
+no real Dock parking, Compact view rendering, Dock-to-Canvas movement,
+persisted presence zone model, full drag/drop layout editor, snapping,
+collision detection, auto-reflow, floating overlay resize, true external
+Tauri/OS popout window behavior, persisted external popout geometry,
+always-on-top behavior, or preset editor.
 
 Widget frames include a widget-local Logs panel. It loads persisted widget-local logs through `list_widget_logs`, and open panels refresh after successful widget state/layout actions and Terminal one-shot fallback command responses. Existing widget add/state/layout mutations emit basic persisted logs: `Widget added`, `Widget state saved`, and `Widget layout updated`. Terminal fallback command runs emit bounded lifecycle logs. The Direct Work streaming Tauri bridge can append persisted widget logs while a Codex stream is running, and Agent Executor consumes the Direct Work stream for live run status/logs. PTY output uses frontend polling of the bounded backend session buffer. There is no event-streamed Terminal log bridge, persistent PTY transcript, or full agent run Raw Log/Overview Log/Result Report model yet.
 
@@ -728,9 +758,9 @@ The Workspace is the context-isolation boundary. Unrelated work such as Hobit de
 Full runtime restore is not implemented yet. There is no event replay, widget
 runtime reconstruction, preset editor, real Dock behavior, widget
 Full/Compact/Indicator view mode behavior, persisted presence zone model, full
-drag/drop layout editor, real capability widget insertion beyond Agent
-Executor, Agent Queue, Workspace Agent, Database / JDBC, Runbook, Git,
-Terminal, and Notes, Terminal tabs/splits/history, executable
+drag/drop layout editor, real capability widget insertion beyond Workspace
+Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills,
+Database / JDBC, Runbook, Git, Terminal, and Notes, Terminal tabs/splits/history, executable
 Workspace Agent runtime, automatic Agent Queue dispatch or real scheduler behavior
 beyond explicit assigned-task starts, Template Library execution, Git behavior
 beyond manual status/diff review and selected-file local commit, or automatic
@@ -752,8 +782,9 @@ behavior is Deferred unless explicitly scoped. Source text must remain the
 durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
-The current app has Agent Executor, Agent Queue, Workspace Agent, Database /
-JDBC, Skill Library, Runbook, Git, Terminal, and Notes widgets.
+The current app has Workspace Agent, Agent Activity, Agent Executor, Agent
+Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes
+widgets.
 Workspace Agent is the current foreground chat-based agent work surface and
 compatibility foundation for the target foreground Workspace Agent. It has
 local current-session chat state through the existing `interactive-agent`
@@ -830,9 +861,11 @@ crates/
 
 The current repository state is documentation, repository hygiene, a root Rust
 workspace including the Tauri shell, core Rust domain/storage/application
-crates, a frontend Workspace Start Screen and Empty Workbench shell, a Widget
-Catalog with Agent Executor, Agent Queue, Workspace Agent, Database / JDBC,
-Skill Library, Runbook, Git, Terminal, and Notes, a minimal Tauri desktop host, SQLite-backed
+crates, a frontend Workspace Start Screen, Workspace Agent MVP surface, and
+advanced Empty Workbench shell, a Widget
+Catalog with Workspace Agent, Agent Activity, Agent Executor, Agent Queue,
+Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, a
+minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,
 Codex Direct Work run/result persistence for the `agent-run` owner,
