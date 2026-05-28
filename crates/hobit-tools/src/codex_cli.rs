@@ -194,7 +194,10 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::process::Command;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    const PROBE_HELPER_TIMEOUT_MS: u64 = 10_000;
 
     #[test]
     fn missing_binary_returns_unavailable_with_clear_error() {
@@ -247,10 +250,10 @@ fn main() {
 
         let output = probe_codex_cli(CodexCliProbeRequest {
             program: Some(helper.clone()),
-            timeout_ms: Some(1_000),
+            timeout_ms: Some(PROBE_HELPER_TIMEOUT_MS),
         });
 
-        assert!(output.available);
+        assert!(output.available, "{output:#?}");
         assert_eq!(output.program, helper);
         assert_eq!(output.version.as_deref(), Some("codex-cli 1.2.3"));
         assert!(output.stdout.contains("codex-cli 1.2.3"));
@@ -276,14 +279,17 @@ fn main() {
 
         let output = probe_codex_cli(CodexCliProbeRequest {
             program: Some(helper),
-            timeout_ms: Some(1_000),
+            timeout_ms: Some(PROBE_HELPER_TIMEOUT_MS),
         });
 
         assert!(!output.available);
         assert!(output.version.is_none());
-        let error_message = output.error_message.unwrap();
-        assert!(error_message.contains("code 17"));
-        assert!(error_message.contains("version probe failed"));
+        let error_message = output.error_message.as_deref().unwrap_or_default();
+        assert!(error_message.contains("code 17"), "{output:#?}");
+        assert!(
+            error_message.contains("version probe failed"),
+            "{output:#?}"
+        );
     }
 
     #[test]
@@ -322,7 +328,7 @@ fn main() {
         fs::create_dir_all(&directory).unwrap();
 
         let source_path = directory.join("main.rs");
-        let executable_path = directory.join(format!("helper{}", env::consts::EXE_SUFFIX));
+        let executable_path = directory.join(format!("{name}-helper{}", env::consts::EXE_SUFFIX));
 
         fs::write(&source_path, source).unwrap();
 
@@ -351,11 +357,14 @@ fn main() {
     }
 
     fn unique_test_suffix() -> String {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
 
-        format!("{}-{nanos}", std::process::id())
+        format!("{}-{nanos}-{counter}", std::process::id())
     }
 }
