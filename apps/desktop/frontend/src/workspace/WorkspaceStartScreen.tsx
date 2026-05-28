@@ -109,7 +109,10 @@ export function WorkspaceStartScreen({
                       : "Creates Workspace Agent and Notes as the default MVP workspace."}
                   </span>
                 </span>
-                <Badge variant={isSelected ? "success" : "neutral"}>
+                <Badge
+                  className="preset-choice-status"
+                  variant={isSelected ? "success" : "neutral"}
+                >
                   {isSelected ? <StatusDot variant="success" /> : null}
                   {isSelected
                     ? "Selected"

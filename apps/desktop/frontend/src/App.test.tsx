@@ -72,6 +72,9 @@ describe("App workspace lifecycle", () => {
     expect(document.body.textContent).toContain("New Workspace");
     expect(document.body.textContent).toContain("Start with Workspace Agent");
     expect(document.body.textContent).toContain("Start empty");
+    expect(presetStatusTexts()).toEqual(["Selected", "Manual"]);
+    expect(radioWithValue("coordinator-notes").checked).toBe(true);
+    expect(radioWithValue("empty").checked).toBe(false);
     expect(document.body.textContent).toContain("Widgets: 5");
     expect(document.body.textContent).toContain("Agents: 1");
     expect(document.body.textContent).toContain("Notes: 2");
@@ -134,6 +137,9 @@ describe("App workspace lifecycle", () => {
     await flushEffects();
 
     expect(document.body.textContent).toContain("No recent workspaces yet.");
+    expect(presetStatusTexts()).toEqual(["Selected", "Manual"]);
+    expect(radioWithValue("coordinator-notes").checked).toBe(true);
+    expect(radioWithValue("empty").checked).toBe(false);
     expect(sectionByLabel("new-workspace-title").compareDocumentPosition(
       sectionByLabel("recent-workspaces-title"),
     )).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -151,6 +157,54 @@ describe("App workspace lifecycle", () => {
         ([request]) => request.definitionId,
       ),
     ).toEqual(["interactive-agent", "notes"]);
+  });
+
+  it("keeps start empty available without changing the default start mode", async () => {
+    const workspace = workspaceSummary({
+      id: "workspace_empty",
+      title: "Untitled",
+      workbenchId: "workbench_empty",
+    });
+    workspaceApiMocks.listWorkspaces.mockResolvedValue([]);
+    workspaceApiMocks.createWorkspace.mockResolvedValue(workspace);
+    workspaceApiMocks.openWorkspace.mockResolvedValue(
+      sessionSummary({ workspaceId: workspace.id }),
+    );
+    workspaceApiMocks.getWorkspaceWorkbenchState.mockResolvedValue(
+      workspaceWorkbenchState(workspace, []),
+    );
+
+    renderApp();
+    await flushEffects();
+
+    expect(radioWithValue("coordinator-notes").checked).toBe(true);
+    expect(radioWithValue("empty").checked).toBe(false);
+    expect(presetStatusTexts()).toEqual(["Selected", "Manual"]);
+
+    await act(async () => {
+      radioWithValue("empty").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(radioWithValue("coordinator-notes").checked).toBe(false);
+    expect(radioWithValue("empty").checked).toBe(true);
+    expect(presetStatusTexts()).toEqual(["Default", "Selected"]);
+
+    await act(async () => {
+      buttonWithText("Create Workspace").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(workspaceApiMocks.createWorkspace).toHaveBeenCalledWith({
+      title: "Untitled",
+      description: null,
+    });
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
   });
 });
 
@@ -253,6 +307,24 @@ function sectionByLabel(labelId: string) {
   }
 
   return section;
+}
+
+function presetStatusTexts() {
+  return Array.from(document.querySelectorAll(".preset-choice-status")).map(
+    (badge) => badge.textContent,
+  );
+}
+
+function radioWithValue(value: string) {
+  const radio = document.querySelector<HTMLInputElement>(
+    `input[name="workspace-preset"][value="${value}"]`,
+  );
+
+  if (!radio) {
+    throw new Error(`Workspace preset radio not found: ${value}`);
+  }
+
+  return radio;
 }
 
 async function flushEffects() {
