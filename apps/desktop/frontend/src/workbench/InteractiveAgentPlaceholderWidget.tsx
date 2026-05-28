@@ -30,35 +30,8 @@ import {
 } from "./workspaceAgentProviderGuards";
 import type { WidgetRenderProps } from "./types";
 import {
-  CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
-  DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING,
-  DIRECT_WORK_EMPTY_DIRECTORY_MESSAGE,
-  DIRECT_WORK_EMPTY_PROMPT_MESSAGE,
-  DIRECT_WORK_UNAVAILABLE_MESSAGE,
-  EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
-  EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
-  codexAgentMessageFromEvent,
-  codexPromptWithWorkspaceKnowledge,
-  codexThreadIdForScope,
-  coordinatorDirectWorkStatusFromEvent,
-  defaultCoordinatorCodexExecutable,
-  directWorkEventBelongsToCurrentAgent,
-  directWorkEventHasAccessDenied,
-  directWorkEventText,
-  directWorkFailureIsAccessDenied,
-  directWorkFailureReason,
   directWorkFailureTranscriptBody,
-  shortCodexThreadId,
-  workspaceKnowledgeLogText,
-  type ActiveDirectWorkRunScope,
-  type CodexThreadScope,
-  type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
-  type WorkspaceAgentActivitySummary,
-  type WorkspaceKnowledgeLookup,
-  workspaceAgentActivitySummaryForLocalFailure,
-  workspaceAgentActivitySummaryForLocalStart,
-  workspaceAgentActivitySummaryFromEvent,
 } from "./workspaceAgentDirectWorkModel";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
 import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
@@ -88,8 +61,7 @@ import {
   runCreateQueueTaskProposal,
   runCreateSkillProposal,
 } from "./workspaceAgentProposalCreationActions";
-import type { DirectWorkStreamEvent } from "../workspace/types";
-import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
+import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirectWorkController";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -147,60 +119,36 @@ export function InteractiveAgentPlaceholderWidget({
   const [visibleAttachedContext, setVisibleAttachedContext] =
     useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
-  const [directWorkDirectory, setDirectWorkDirectory] = useState("~");
-  const [directWorkStatus, setDirectWorkStatus] =
-    useState<CoordinatorDirectWorkStatus>("idle");
-  const [directWorkRunId, setDirectWorkRunId] = useState<string | null>(null);
-  const [directWorkError, setDirectWorkError] = useState<string | null>(null);
-  const [directWorkWarning, setDirectWorkWarning] = useState<string | null>(
-    null,
-  );
-  const [directWorkFinalResult, setDirectWorkFinalResult] =
-    useState<string | null>(null);
-  const [currentCodexThread, setCurrentCodexThread] =
-    useState<CodexThreadScope | null>(null);
-  const [codexThreadNotice, setCodexThreadNotice] = useState<string | null>(
-    null,
-  );
-  const [directWorkLogs, setDirectWorkLogs] = useState<
-    CoordinatorDirectWorkLogEntry[]
-  >([]);
-  const [directWorkActivitySummary, setDirectWorkActivitySummary] =
-    useState<WorkspaceAgentActivitySummary>(
-      EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
-    );
-  const [workspaceKnowledgeLookup, setWorkspaceKnowledgeLookup] =
-    useState<WorkspaceKnowledgeLookup>(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
-  const [isDirectWorkStopPending, setIsDirectWorkStopPending] = useState(false);
-  const directWorkStopListeningRef = useRef<(() => void) | null>(null);
-  const directWorkCompletedDuringStartRef = useRef(false);
-  const directWorkFinalMessageRef = useRef<string | null>(null);
-  const directWorkAccessDeniedRef = useRef(false);
-  const directWorkCapturedThreadIdRef = useRef<string | null>(null);
-  const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
-  const directWorkLogSequenceRef = useRef(0);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
   const sessionScopeKey = `${workspaceScopeId}\u0000${instance.id}`;
   const sessionScopeKeyRef = useRef(sessionScopeKey);
-  const currentCodexThreadId = codexThreadIdForScope(
-    currentCodexThread,
-    workspaceScopeId,
-    instance.id,
-    directWorkDirectory.trim(),
-  );
   const trimmedDraftLength = draft.trim().length;
-  const isDirectModeEnabled = Boolean(onStartCodexDirectWorkStream);
+  const directWork = useWorkspaceAgentDirectWorkController({
+    draft,
+    instanceId: instance.id,
+    isProviderPending,
+    onAppendAssistantTranscript: appendCoordinatorDirectWorkTranscript,
+    onAppendOperatorTranscript: (body) => {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createLocalMessage("operator", body),
+      ]);
+    },
+    onCancelCodexDirectWorkRun,
+    onClearDraft: () => setDraft(""),
+    onClearVisibleAttachedContext: () => setVisibleAttachedContext(null),
+    onFocusComposer: () => {
+      window.setTimeout(() => textareaRef.current?.focus(), 0);
+    },
+    onPublishAgentActivityEvents,
+    onRemoveVisibleAttachedContext: removeVisibleAttachedContext,
+    onSearchKnowledgeDocuments,
+    onStartCodexDirectWorkStream,
+    workspaceId,
+  });
+  const isDirectModeEnabled = directWork.isDirectModeEnabled;
   const canSend =
     !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
-  const canStartDirectWork =
-    isDirectModeEnabled &&
-    directWorkStatus !== "running" &&
-    !isProviderPending &&
-    trimmedDraftLength > 0;
-  const canStopDirectWork =
-    directWorkStatus === "running" &&
-    Boolean(directWorkRunId) &&
-    Boolean(onCancelCodexDirectWorkRun);
 
   useEffect(() => {
     const messageList = messageListRef.current;
@@ -237,8 +185,6 @@ export function InteractiveAgentPlaceholderWidget({
     );
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }, [coordinatorAttachedContextRequest?.id]);
-
-  useEffect(() => () => stopDirectWorkEventListening(), []);
 
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
@@ -394,371 +340,8 @@ export function InteractiveAgentPlaceholderWidget({
     }
   }
 
-  async function startCoordinatorDirectWork() {
-    if (directWorkStatus === "running") {
-      return;
-    }
-
-    const operatorPrompt = draft.trim();
-    const repoRoot = directWorkDirectory.trim();
-
-    if (!repoRoot) {
-      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_EMPTY_DIRECTORY_MESSAGE);
-      return;
-    }
-
-    if (!operatorPrompt) {
-      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_EMPTY_PROMPT_MESSAGE);
-      return;
-    }
-
-    if (!onStartCodexDirectWorkStream) {
-      recordCoordinatorDirectWorkLocalFailure(DIRECT_WORK_UNAVAILABLE_MESSAGE);
-      return;
-    }
-
-    stopDirectWorkEventListening();
-    directWorkCompletedDuringStartRef.current = false;
-    directWorkFinalMessageRef.current = null;
-    directWorkAccessDeniedRef.current = false;
-    directWorkCapturedThreadIdRef.current = null;
-    directWorkRunScopeRef.current = {
-      widgetInstanceId: instance.id,
-      workingDirectory: repoRoot,
-      workspaceId: workspaceScopeId,
-    };
-    const resumeThreadId = codexThreadIdForScope(
-      currentCodexThread,
-      workspaceScopeId,
-      instance.id,
-      repoRoot,
-    );
-    if (currentCodexThread && !resumeThreadId) {
-      setCurrentCodexThread(null);
-    }
-    const knowledgeLookup =
-      await searchWorkspaceKnowledgeForDirectWork(operatorPrompt);
-    const promptForCodex =
-      knowledgeLookup.results.length > 0
-        ? codexPromptWithWorkspaceKnowledge(operatorPrompt, knowledgeLookup.results)
-        : operatorPrompt;
-    const threadStartText = resumeThreadId
-      ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
-      : "Starting new Codex thread.";
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      createLocalMessage("operator", operatorPrompt),
-    ]);
-    setDraft("");
-    setVisibleAttachedContext(null);
-    setDirectWorkStatus("running");
-    setDirectWorkRunId(null);
-    setDirectWorkError(null);
-    setDirectWorkWarning(null);
-    setDirectWorkFinalResult(null);
-    setDirectWorkActivitySummary(
-      workspaceAgentActivitySummaryForLocalStart(
-        resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
-      ),
-    );
-    setDirectWorkLogs([
-      {
-        id: "direct-local-starting",
-        kind: "local",
-        text: `${threadStartText} ${workspaceKnowledgeLogText(
-          knowledgeLookup,
-        )} Starting Codex Direct Work from ${repoRoot}.`,
-      },
-    ]);
-
-    try {
-      const session = await onStartCodexDirectWorkStream(
-        instance.id,
-        {
-          approvalPolicy: "never",
-          codexExecutable: defaultCoordinatorCodexExecutable(),
-          codexThreadId: resumeThreadId,
-          operatorPrompt: promptForCodex,
-          repoRoot,
-          sandbox: "workspace_write",
-          skipGitRepoCheck: true,
-          stderrCapBytes: null,
-          stdoutCapBytes: null,
-          timeoutMs: null,
-        },
-        recordCoordinatorDirectWorkEvent,
-      );
-
-      if (!session) {
-        throw new Error(
-          "Workspace Agent Direct Work was not accepted for this widget.",
-        );
-      }
-
-      if (directWorkCompletedDuringStartRef.current) {
-        session.stopListening();
-      } else {
-        directWorkStopListeningRef.current = session.stopListening;
-        setDirectWorkRunId(session.runId);
-        appendCoordinatorDirectWorkLog(
-          `Direct Work run ${session.runId} started.`,
-          "local",
-        );
-      }
-    } catch (error) {
-      const message = errorToMessage(error, "Unable to start Direct Work.");
-      stopDirectWorkEventListening();
-      setDirectWorkStatus("failed");
-      setDirectWorkError(message);
-      setDirectWorkWarning(null);
-      setDirectWorkActivitySummary((currentSummary) =>
-        workspaceAgentActivitySummaryForLocalFailure(currentSummary, message),
-      );
-      appendCoordinatorDirectWorkLog(message, "local");
-      appendCoordinatorDirectWorkTranscript("failed", message);
-    } finally {
-      window.setTimeout(() => textareaRef.current?.focus(), 0);
-    }
-  }
-
-  async function searchWorkspaceKnowledgeForDirectWork(
-    operatorPrompt: string,
-  ): Promise<WorkspaceKnowledgeLookup> {
-    const query = operatorPrompt.trim();
-    if (!query) {
-      const lookup = { ...EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP, query };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
-
-    if (!onSearchKnowledgeDocuments) {
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: null,
-        query,
-        results: [],
-        status: "unavailable",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
-
-    try {
-      const results = await onSearchKnowledgeDocuments({ limit: 5, query });
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: null,
-        query,
-        results,
-        status: results.length > 0 ? "matched" : "checked",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    } catch (error) {
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: errorToMessage(error, "Knowledge search failed."),
-        query,
-        results: [],
-        status: "failed",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
-  }
-
-  async function stopCoordinatorDirectWork() {
-    if (
-      !directWorkRunId ||
-      !onCancelCodexDirectWorkRun ||
-      isDirectWorkStopPending
-    ) {
-      return;
-    }
-
-    setIsDirectWorkStopPending(true);
-    appendCoordinatorDirectWorkLog("Stop requested.", "local");
-
-    try {
-      const response = await onCancelCodexDirectWorkRun(
-        instance.id,
-        directWorkRunId,
-      );
-
-      if (!response) {
-        throw new Error("Stop command returned no response.");
-      }
-
-      appendCoordinatorDirectWorkLog(response.message, "local");
-    } catch (error) {
-      const message = errorToMessage(error, "Unable to stop Direct Work.");
-      setDirectWorkError(message);
-      appendCoordinatorDirectWorkLog(message, "local");
-    } finally {
-      setIsDirectWorkStopPending(false);
-    }
-  }
-
-  function recordCoordinatorDirectWorkEvent(event: DirectWorkStreamEvent) {
-    if (!directWorkEventBelongsToCurrentAgent(event, workspaceId, instance.id)) {
-      return;
-    }
-
-    const activityEvent = agentActivityEventFromDirectWorkStreamEvent({
-      event,
-      sourceKind: "workspace-agent",
-      sourceLabel: "Workspace Agent",
-    });
-    if (activityEvent) {
-      onPublishAgentActivityEvents?.([activityEvent]);
-    }
-
-    if (directWorkEventHasAccessDenied(event)) {
-      directWorkAccessDeniedRef.current = true;
-    }
-
-    if (event.codexThreadId) {
-      const runScope = directWorkRunScopeRef.current ?? {
-        widgetInstanceId: instance.id,
-        workingDirectory: directWorkDirectory.trim(),
-        workspaceId: workspaceScopeId,
-      };
-      directWorkCapturedThreadIdRef.current = event.codexThreadId;
-      setCurrentCodexThread({
-        ...runScope,
-        threadId: event.codexThreadId,
-      });
-      setCodexThreadNotice(
-        `Thread active: ${shortCodexThreadId(event.codexThreadId)}.`,
-      );
-    }
-
-    if (event.eventKind === "final_message" && event.text) {
-      directWorkFinalMessageRef.current = event.text;
-    }
-
-    const codexAgentMessage = codexAgentMessageFromEvent(event);
-    if (codexAgentMessage) {
-      directWorkFinalMessageRef.current = codexAgentMessage;
-    }
-
-    appendCoordinatorDirectWorkLog(
-      directWorkEventText(event),
-      event.eventKind,
-    );
-
-    if (!event.isFinal) {
-      setDirectWorkActivitySummary((currentSummary) =>
-        workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
-          accessDeniedSeen: directWorkAccessDeniedRef.current,
-        }),
-      );
-      return;
-    }
-
-    directWorkCompletedDuringStartRef.current = true;
-    const finalStatus = coordinatorDirectWorkStatusFromEvent(event);
-    const failureReason =
-      finalStatus === "failed"
-        ? directWorkFailureReason(event, directWorkAccessDeniedRef.current)
-        : null;
-    const failureWarning =
-      finalStatus === "failed" &&
-      directWorkFailureIsAccessDenied(event, directWorkAccessDeniedRef.current)
-        ? DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING
-        : null;
-    const finalAgentMessage = directWorkFinalMessageRef.current;
-    const finalResult =
-      finalAgentMessage ??
-      event.text ??
-      failureReason ??
-      event.stderrPreview ??
-      `Codex Direct Work ended with status ${event.finalStatus ?? finalStatus}.`;
-
-    setDirectWorkStatus(finalStatus);
-    setDirectWorkRunId(null);
-    setDirectWorkFinalResult(finalResult);
-    setDirectWorkError(failureReason);
-    setDirectWorkWarning(failureWarning);
-    setDirectWorkActivitySummary((currentSummary) =>
-      workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
-        accessDeniedSeen: directWorkAccessDeniedRef.current,
-        failureReason,
-      }),
-    );
-    if (
-      finalStatus === "completed" &&
-      !directWorkCapturedThreadIdRef.current
-    ) {
-      setCurrentCodexThread(null);
-      setCodexThreadNotice(CODEX_THREAD_NOT_AVAILABLE_MESSAGE);
-      appendCoordinatorDirectWorkLog(CODEX_THREAD_NOT_AVAILABLE_MESSAGE, "local");
-    }
-    stopDirectWorkEventListening();
-
-    appendCoordinatorDirectWorkTranscript(
-      finalStatus,
-      finalResult,
-      Boolean(finalAgentMessage),
-    );
-    directWorkRunScopeRef.current = null;
-  }
-
-  function appendCoordinatorDirectWorkLog(
-    text: string,
-    kind: CoordinatorDirectWorkLogEntry["kind"],
-  ) {
-    const id = `direct-log-${++directWorkLogSequenceRef.current}`;
-    setDirectWorkLogs((currentLogs) =>
-      [...currentLogs, { id, kind, text }].slice(-6),
-    );
-  }
-
-  function recordCoordinatorDirectWorkLocalFailure(reason: string) {
-    setDirectWorkStatus("failed");
-    setDirectWorkRunId(null);
-    setDirectWorkError(reason);
-    setDirectWorkWarning(null);
-    setDirectWorkFinalResult(null);
-    setDirectWorkActivitySummary((currentSummary) =>
-      workspaceAgentActivitySummaryForLocalFailure(currentSummary, reason),
-    );
-    appendCoordinatorDirectWorkLog(reason, "local");
-    appendCoordinatorDirectWorkTranscript("failed", reason);
-  }
-
-  function resetCodexThread() {
-    setCurrentCodexThread(null);
-    setCodexThreadNotice("Codex thread reset.");
-    setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
-    setDirectWorkError(null);
-    setDirectWorkWarning(null);
-    setDirectWorkFinalResult(null);
-    removeVisibleAttachedContext();
-    appendCoordinatorDirectWorkLog("Codex thread reset.", "local");
-  }
-
-  function updateDirectWorkDirectory(value: string) {
-    setDirectWorkDirectory(value);
-    if (value !== directWorkDirectory && currentCodexThreadId) {
-      setCurrentCodexThread(null);
-      setCodexThreadNotice(
-        "Working directory changed. Next Codex run starts a new thread.",
-      );
-      setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
-      appendCoordinatorDirectWorkLog(
-        "Working directory changed. Next Codex run starts a new thread.",
-        "local",
-      );
-    }
-  }
-
   function resetCurrentSessionState() {
-    stopDirectWorkEventListening();
     nextMessageId.current = 1;
-    directWorkCompletedDuringStartRef.current = false;
-    directWorkFinalMessageRef.current = null;
-    directWorkAccessDeniedRef.current = false;
-    directWorkCapturedThreadIdRef.current = null;
-    directWorkRunScopeRef.current = null;
-    directWorkLogSequenceRef.current = 0;
     setMessages(INITIAL_MESSAGES);
     setPlans({});
     setReviews({});
@@ -770,18 +353,7 @@ export function InteractiveAgentPlaceholderWidget({
     setDraft("");
     setVisibleAttachedContext(null);
     setIsProviderPending(false);
-    setDirectWorkDirectory("~");
-    setDirectWorkStatus("idle");
-    setDirectWorkRunId(null);
-    setDirectWorkError(null);
-    setDirectWorkWarning(null);
-    setDirectWorkFinalResult(null);
-    setCurrentCodexThread(null);
-    setCodexThreadNotice(null);
-    setDirectWorkLogs([]);
-    setDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
-    setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
-    setIsDirectWorkStopPending(false);
+    directWork.resetDirectWorkSession();
   }
 
   function appendCoordinatorDirectWorkTranscript(
@@ -815,11 +387,6 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     setMessages((currentMessages) => [...currentMessages, assistantMessage]);
-  }
-
-  function stopDirectWorkEventListening() {
-    directWorkStopListeningRef.current?.();
-    directWorkStopListeningRef.current = null;
   }
 
   function useSuggestedPrompt(prompt: string) {
@@ -941,7 +508,7 @@ export function InteractiveAgentPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={
-        <WorkspaceAgentHeaderStatus status={directWorkStatus} />
+        <WorkspaceAgentHeaderStatus status={directWork.directWorkStatus} />
       }
       title={title}
     >
@@ -978,24 +545,24 @@ export function InteractiveAgentPlaceholderWidget({
           directMode={
             isDirectModeEnabled
               ? {
-                  activitySummary: directWorkActivitySummary,
-                  canStartDirectWork,
-                  canStopDirectWork,
-                  directWorkDirectory,
-                  error: directWorkError,
-                  finalResult: directWorkFinalResult,
-                  isStopPending: isDirectWorkStopPending,
-                  knowledgeLookup: workspaceKnowledgeLookup,
-                  logs: directWorkLogs,
-                  onDirectoryChange: updateDirectWorkDirectory,
-                  onResetThread: resetCodexThread,
+                  activitySummary: directWork.directWorkActivitySummary,
+                  canStartDirectWork: directWork.canStartDirectWork,
+                  canStopDirectWork: directWork.canStopDirectWork,
+                  directWorkDirectory: directWork.directWorkDirectory,
+                  error: directWork.directWorkError,
+                  finalResult: directWork.directWorkFinalResult,
+                  isStopPending: directWork.isDirectWorkStopPending,
+                  knowledgeLookup: directWork.workspaceKnowledgeLookup,
+                  logs: directWork.directWorkLogs,
+                  onDirectoryChange: directWork.handleWorkingDirectoryChange,
+                  onResetThread: directWork.handleNewThread,
                   onSelectWorkspaceDirectory,
-                  onStopDirectWork: () => void stopCoordinatorDirectWork(),
-                  runId: directWorkRunId,
-                  status: directWorkStatus,
-                  threadId: currentCodexThreadId,
-                  threadNotice: codexThreadNotice,
-                  warning: directWorkWarning,
+                  onStopDirectWork: () => void directWork.handleStopDirectWork(),
+                  runId: directWork.directWorkRunId,
+                  status: directWork.directWorkStatus,
+                  threadId: directWork.activeThreadId,
+                  threadNotice: directWork.threadNotice,
+                  warning: directWork.directWorkWarning,
                 }
               : null
           }
@@ -1003,7 +570,7 @@ export function InteractiveAgentPlaceholderWidget({
           isProviderPending={isProviderPending}
           onMessageChange={setDraft}
           onRemoveVisibleContext={removeVisibleAttachedContext}
-          onRunWithCodex={startCoordinatorDirectWork}
+          onRunWithCodex={directWork.handleRunWithCodex}
           onSend={sendCoordinatorMessage}
           textareaRef={textareaRef}
           visibleAttachedContext={visibleAttachedContext}
