@@ -259,6 +259,27 @@ and database:
 node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar ... --driver-class ... --jdbc-url ... --username ... --password-env JDBC_PASSWORD --query "SELECT 1"
 ```
 
+Optional H2 in-memory smoke is the documented local happy-path DB smoke. Hobit
+does not bundle H2 and does not download drivers; the operator supplies the
+driver JAR manually, for example H2 2.4.240 from Maven Central
+`com.h2database:h2:2.4.240`:
+
+```text
+https://repo1.maven.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.jar
+```
+
+The known passing command shape is:
+
+```text
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\to\h2-2.4.240.jar --driver-class org.h2.Driver --jdbc-url "jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1" --query "SELECT 1"
+```
+
+Expected success shape is optional DB smoke passed with one returned row. The
+recorded local result was: `java`/`javac` found, compile skipped because
+classes were current, optional manual DB smoke passed, one row returned, and
+the smoke completed in 479ms. HealthCheck also passed locally after Java/JDK
+installation. External DB smoke remains pending.
+
 The script rejects password value flags, obvious secret-bearing JDBC URL
 parameters, non-SELECT/WITH queries, and missing driver JARs. It does not scan
 folders, download drivers, bundle proprietary drivers, persist runtime values,

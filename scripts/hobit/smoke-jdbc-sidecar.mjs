@@ -634,6 +634,11 @@ Examples:
   DriverProbe:
     node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\\path\\driver.jar --driver-class org.example.Driver
 
+  Optional H2 in-memory SELECT 1:
+    # Download the H2 driver JAR manually, for example h2-2.4.240.jar from Maven Central:
+    # https://repo1.maven.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.jar
+    node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\\path\\to\\h2-2.4.240.jar --driver-class org.h2.Driver --jdbc-url "jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1" --query "SELECT 1"
+
   Optional safe query:
     node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar ... --driver-class ... --jdbc-url ... --username ... --password-env JDBC_PASSWORD --query "SELECT 1"
 

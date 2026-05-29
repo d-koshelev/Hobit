@@ -545,7 +545,11 @@ Workspace Agent is the foreground interactive agent surface.
   database. Optional real DB smoke requires explicit user-provided driver, JDBC
   URL, and SELECT/WITH query arguments, uses `--password-env` instead of a
   password value, rejects obvious secret-bearing JDBC URL parameters, and is
-  not required by normal validation.
+  not required by normal validation. Current local smoke status: HealthCheck
+  passed after Java/JDK installation, and optional H2 in-memory `SELECT 1`
+  passed with an operator-provided H2 2.4.240 driver JAR, `org.h2.Driver`,
+  `jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1`, and one returned row. External
+  DB smoke remains pending.
 - Future real JDBC execution must use explicit operator Run or a later approved
   widget-owned proposal, runtime-only/approved secret handling, explicit
   user/admin driver JAR configuration, read-only SQL enforcement in both Rust

@@ -71,7 +71,11 @@ behavior, or Workspace Agent context wiring.
   if needed, runs HealthCheck only by default, supports explicit DriverProbe
   without a DB connection, and supports optional/manual real DB SELECT/WITH
   smoke only with user-provided driver/connection arguments and no password
-  value flag.
+  value flag. Current local smoke status: after Java/JDK installation,
+  HealthCheck passed locally; optional H2 in-memory `SELECT 1` smoke passed
+  locally using an operator-provided H2 2.4.240 JAR, `org.h2.Driver`,
+  `jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1`, and one returned row; external
+  DB smoke remains pending.
 - Database / JDBC sidecar protocol shapes now exist as inert Rust serde DTOs
   and contract tests in `hobit-app`. They define future request/response
   envelopes, profile/driver/credential-reference metadata, read-only policy

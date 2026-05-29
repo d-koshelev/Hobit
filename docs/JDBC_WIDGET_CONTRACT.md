@@ -170,6 +170,16 @@ Current sidecar/unsupported behavior:
   `--password-env` may name an existing environment variable, and obvious
   secret-bearing JDBC URL parameters are rejected before sidecar launch. This
   smoke is not part of normal validation and does not persist runtime values.
+- H2 in-memory DB smoke is a documented optional manual path inside that same
+  DB-smoke mode. Hobit does not bundle H2 and does not download drivers; the
+  operator supplies the H2 2.4.240 driver JAR manually, for example from Maven
+  Central `com.h2database:h2:2.4.240`. The known passing path uses driver class
+  `org.h2.Driver`, JDBC URL
+  `jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1`, and query `SELECT 1`. Expected
+  success shape is optional DB smoke passed with `1` row returned.
+- Local sidecar smoke status: after Java/JDK were installed, HealthCheck passed
+  locally; H2 in-memory `SELECT 1` smoke passed locally with one returned row;
+  external DB smoke remains pending.
 - Missing launch configuration, missing Java/process support, connector
   mismatches, or unsupported drivers produce sanitized `not_configured` or
   `unsupported_driver` style results.
@@ -435,6 +445,11 @@ Current foundation status:
   runs HealthCheck only by default; DriverProbe and optional real DB SELECT/WITH
   smoke require explicit user-provided driver/connection arguments and are not
   active in the JDBC widget by default
+- H2 in-memory sidecar smoke has passed locally as an optional manual DB smoke
+  path using an operator-provided H2 2.4.240 driver JAR, `org.h2.Driver`,
+  `jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1`, and `SELECT 1`; HealthCheck has
+  also passed locally after Java/JDK installation, while external DB smoke
+  remains pending
 - Block 265 adds backend-only sidecar runtime config parsing and opt-in
   adapter selection for tests/future desktop wiring; `WorkspaceService::new`
   and the current Tauri bridge still use the mock adapter by default

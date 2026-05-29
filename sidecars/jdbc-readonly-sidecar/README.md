@@ -57,6 +57,18 @@ Protocol response fields:
 - `no_ai_context_shared`
 - `mock_execution`
 
+## Smoke Ladder
+
+1. HealthCheck: starts the Java sidecar and verifies the protocol response. It
+   does not load drivers, connect to a database, or execute SQL.
+2. DriverProbe: loads only the explicit operator-provided driver JAR/class. It
+   does not connect to a database or execute SQL.
+3. Optional H2 in-memory `SELECT 1`: uses an operator-provided H2 driver JAR,
+   `org.h2.Driver`, and an in-memory database URL with no password.
+4. Optional real external DB smoke: requires a user-provided safe test database,
+   driver JAR/class, JDBC URL, credentials when needed through
+   `--password-env`, and an explicit read-only SELECT/WITH query.
+
 Compile and smoke when a JDK is available:
 
 ```powershell
@@ -74,6 +86,24 @@ DriverProbe is optional and does not connect to a database:
 ```powershell
 node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\driver.jar --driver-class org.example.Driver
 ```
+
+Optional H2 in-memory smoke is a safe manual DB smoke path. Hobit does not
+bundle H2 and does not download drivers; the operator downloads the driver JAR
+manually, for example H2 2.4.240 from Maven Central
+`com.h2database:h2:2.4.240`:
+
+```text
+https://repo1.maven.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.jar
+```
+
+Run the in-memory smoke with the operator-provided JAR:
+
+```powershell
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\to\h2-2.4.240.jar --driver-class org.h2.Driver --jdbc-url "jdbc:h2:mem:hobit_smoke;DB_CLOSE_DELAY=-1" --query "SELECT 1"
+```
+
+Expected success shape: the script reports optional DB smoke passed with
+`1 rows returned`. The H2 path uses an in-memory DB and no password.
 
 Optional real DB smoke is manual and requires a user-provided safe test driver
 and database:
