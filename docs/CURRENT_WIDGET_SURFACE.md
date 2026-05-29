@@ -529,9 +529,11 @@ Workspace Agent is the foreground interactive agent surface.
   SQL guard that allows only single-statement `SELECT` or `WITH`.
 - The visible widget shows connector/profile status, read-only safety copy,
   the query editor, explicit `Run read-only query`, visible result/error
-  panels, and collapsed runtime details. Missing or unsupported runtime paths
-  are shown as visible errors such as `not_configured` or
-  `unsupported_driver`.
+  panels, capped read-only result tables with row/column/duration/truncation
+  summaries, visible row/timeout/result-byte caps, copy-visible-results
+  controls, and collapsed runtime details. Missing or unsupported runtime
+  paths are shown as compact redacted visible errors such as `not_configured`
+  or `unsupported_driver`.
 - A backend adapter boundary, runtime config loader, Java sidecar prototype,
   and JDK-gated tests exist for opt-in sidecar work. The default product
   runtime remains mock-only.
@@ -552,9 +554,9 @@ Workspace Agent is the foreground interactive agent surface.
 - The current widget does not collect password values, store passwords or
   tokens, run real database `EXPLAIN`, format SQL, provide AI query assistance, expose a
   Workspace Agent JDBC execution tool, let Workspace Agent run SQL
-  automatically or hidden, launch Terminal, mutate Git, or affect Agent Queue
-  or Agent Executor behavior. Real DB smoke requires a user-provided driver
-  and database.
+  automatically or hidden, ingest JDBC results/errors as AI context, launch
+  Terminal, mutate Git, or affect Agent Queue or Agent Executor behavior. Real
+  DB smoke requires a user-provided driver and database.
 - Future real connectors must keep secrets runtime-only or in a separately
   approved OS secret store/keychain integration, require explicit operator Run,
   enforce read-only SQL, row/time/result caps, sanitized visible errors, and

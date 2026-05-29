@@ -226,8 +226,17 @@ Current frontend assumptions:
   passwords or tokens.
 - Query execution is blocked until the selected visible SQL has been validated
   for the selected connector and row limit.
-- Results/errors render visibly inside the JDBC widget. There is no result
-  sharing control and no Workspace Agent execution control.
+- Results/errors render visibly inside the JDBC widget. Completed results show
+  a capped read-only table with row count, column count, duration, truncation
+  state, runtime source, and visible row/timeout/result-byte caps. Empty
+  completed results have an explicit no-rows state. Operators can copy the
+  visible results as TSV and copy the visible SQL/error details; copied payloads
+  do not include hidden metadata or AI context.
+- Error display is compact and redacted by default, with details collapsed.
+  Stack traces and obvious password/token/key values must not appear in the
+  normal visible error summary.
+- There is no Workspace Agent execution control and no hidden AI context
+  ingestion of JDBC metadata, SQL results, or errors.
 
 Current tests:
 
@@ -1033,12 +1042,15 @@ Current Preview frontend shape:
 - validation status near the Run action
 - explicit `Run read-only query` button
 - result table/grid with column headers and compact rows
-- duration, returned row count, and truncation notices
-- sanitized error panel
+- duration, returned row count, column count, truncation state, and visible
+  cap notices
+- empty-result state when a completed query returns no rows
+- copy visible results/query/error details controls
+- compact sanitized error panel with collapsed details
 - collapsed runtime details for mock/unsupported runtime state
-- no AI execution, no Workspace Agent execution, no schema crawler, no production
-  JDBC runtime, and no result sharing controls until a later Evidence/Sources
-  or AI-context slice exists
+- no AI execution, no Workspace Agent execution, no schema crawler, no
+  production JDBC runtime, and no hidden result sharing or AI context ingestion
+  until a later Evidence/Sources or AI-context slice exists
 
 The Current Preview UI may be operationally simple. It should not show
 production-grade features such as saved query history, tabs, charts, schema
@@ -1131,10 +1143,14 @@ Current Preview results should show:
 - rows
 - duration
 - row count
+- column count
 - truncation state
+- row, timeout, and result-byte caps
 - errors
 - connector name
 - query status
+- runtime source when available
+- copy-visible-results support when implemented
 
 Large results should be capped and must not be automatically sent to AI.
 Operator-visible truncation must make it clear that the result is a sample or

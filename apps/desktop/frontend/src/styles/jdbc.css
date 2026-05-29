@@ -52,9 +52,12 @@
 .jdbc-pane-header,
 .jdbc-row-title-line,
 .jdbc-row-meta,
+.jdbc-result-toolbar,
 .jdbc-query-actions,
 .jdbc-query-hint,
 .jdbc-result-meta,
+.jdbc-result-summary,
+.jdbc-result-limits,
 .jdbc-runtime-grid,
 .jdbc-sql-header,
 .jdbc-sql-actions {
@@ -76,6 +79,8 @@
 .jdbc-row-meta,
 .jdbc-query-actions,
 .jdbc-result-meta,
+.jdbc-result-summary,
+.jdbc-result-limits,
 .jdbc-runtime-grid,
 .jdbc-sql-actions {
   flex-wrap: wrap;
@@ -92,9 +97,12 @@
 .jdbc-empty-text,
 .jdbc-secret-note,
 .jdbc-message,
+.jdbc-copy-feedback,
 .jdbc-query-hint,
 .jdbc-validation-status,
-.jdbc-result-meta {
+.jdbc-result-meta,
+.jdbc-result-summary,
+.jdbc-result-limits {
   margin: 0;
 }
 
@@ -115,8 +123,11 @@
 .jdbc-empty-text,
 .jdbc-secret-note,
 .jdbc-query-hint,
+.jdbc-copy-feedback,
 .jdbc-validation-status,
-.jdbc-result-meta {
+.jdbc-result-meta,
+.jdbc-result-summary,
+.jdbc-result-limits {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
@@ -408,6 +419,15 @@
   padding-top: var(--space-sm);
 }
 
+.jdbc-result-empty {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-md);
+}
+
 .jdbc-safety-notice {
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
@@ -514,6 +534,49 @@
   justify-content: flex-start;
 }
 
+.jdbc-result-toolbar {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.jdbc-result-toolbar > div {
+  min-width: 0;
+}
+
+.jdbc-result-summary,
+.jdbc-result-limits {
+  justify-content: flex-start;
+  gap: var(--space-xs);
+}
+
+.jdbc-result-summary span,
+.jdbc-result-limits span {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: 2px var(--space-xs);
+}
+
+.jdbc-copy-feedback {
+  color: var(--color-text-secondary);
+}
+
+.jdbc-error-details {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.jdbc-error-details summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.jdbc-error-details p {
+  margin: var(--space-xs) 0 0;
+  white-space: pre-wrap;
+}
+
 .jdbc-result-table-wrap {
   min-width: 0;
   max-height: 280px;
@@ -549,8 +612,37 @@
   line-height: var(--line-normal);
 }
 
+.jdbc-result-cell {
+  font-family: var(--font-mono);
+}
+
+.jdbc-result-table .jdbc-result-cell-number {
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.jdbc-result-table .jdbc-result-cell-boolean {
+  color: var(--color-warning);
+}
+
+.jdbc-result-cell-value {
+  display: block;
+  overflow: hidden;
+  max-width: 360px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jdbc-result-null {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-weight: 680;
+}
+
 .jdbc-result-table th,
 .jdbc-result-table td {
+  min-width: 120px;
   max-width: 280px;
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--space-xs) var(--space-sm);

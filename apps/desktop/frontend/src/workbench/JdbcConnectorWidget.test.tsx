@@ -28,6 +28,10 @@ afterEach(() => {
   }
   root = null;
   container = null;
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
   document.body.innerHTML = "";
 });
 
@@ -92,7 +96,154 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain("Completed");
     expect(document.body.textContent).toContain("sample_index");
     expect(document.body.textContent).toContain("Deterministic mock sample");
+    expect(document.body.textContent).toContain("1 row");
+    expect(document.body.textContent).toContain("2 columns");
+    expect(document.body.textContent).toContain("Truncated: no");
+    expect(document.body.textContent).toContain("Max rows 100");
+    expect(document.body.textContent).toContain("Max result bytes 256 KiB");
     expect(document.body.textContent).toContain("No AI sharing");
+  });
+
+  it("renders result summary row, column, elapsed, caps, and truncation state", async () => {
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () =>
+        completedResult({
+          columns: [
+            { name: "id", valueKind: "number" },
+            { name: "name", valueKind: "text" },
+            { name: "active", valueKind: "boolean" },
+            { name: "notes", valueKind: "text" },
+          ],
+          durationMs: 18,
+          returnedRowCount: 2,
+          rowCount: 4,
+          rowLimit: 2,
+          rows: [
+            ["1", "Ada", "true", "first"],
+            ["2", "Ben", "false", "second"],
+          ],
+          truncated: true,
+          truncatedRows: true,
+        }),
+      ),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+
+    expect(document.body.textContent).toContain("2 rows shown of 4 total");
+    expect(document.body.textContent).toContain("4 columns");
+    expect(document.body.textContent).toContain("18 ms");
+    expect(document.body.textContent).toContain("Truncated: yes");
+    expect(document.body.textContent).toContain("Max rows 2");
+    expect(document.body.textContent).toContain("Timeout 10000 ms");
+    expect(document.body.textContent).toContain("Max rows cap reached.");
+  });
+
+  it("renders a clear empty result state", async () => {
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () =>
+        completedResult({
+          columns: [{ name: "id", valueKind: "number" }],
+          returnedRowCount: 0,
+          rowCount: 0,
+          rows: [],
+        }),
+      ),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+
+    expect(document.body.textContent).toContain(
+      "No rows returned query completed",
+    );
+    expect(document.body.textContent).toContain("No rows returned.");
+    expect(document.body.textContent).toContain(
+      "Query completed with a visible empty result.",
+    );
+  });
+
+  it("renders NULL and long values safely in the result grid", async () => {
+    const longValue =
+      "This is a long database value that should remain inspectable by title while the visible cell stays clipped.";
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () =>
+        completedResult({
+          columns: [
+            { name: "nullable_name", valueKind: "text" },
+            { name: "long_note", valueKind: "text" },
+          ],
+          rows: [[null, longValue]],
+        }),
+      ),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+
+    expect(document.body.textContent).toContain("NULL");
+    expect(
+      document.querySelector<HTMLElement>(".jdbc-result-null")?.textContent,
+    ).toBe("NULL");
+    expect(
+      document.querySelector<HTMLElement>(".jdbc-result-cell-value")?.title,
+    ).toBe(longValue);
+  });
+
+  it("copies visible results as TSV and renders copy feedback", async () => {
+    const writeText = vi.fn(async () => undefined);
+    stubClipboard(writeText);
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () =>
+        completedResult({
+          columns: [
+            { name: "id", valueKind: "number" },
+            { name: "name", valueKind: "text" },
+          ],
+          rows: [["1", "Ada"], [null, "Ben"]],
+        }),
+      ),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+    await clickButton("Copy results");
+
+    expect(writeText).toHaveBeenCalledWith("id\tname\n1\tAda\nNULL\tBen");
+    expect(document.body.textContent).toContain("Results copied as TSV.");
+  });
+
+  it("renders compact copy failure feedback", async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error("clipboard denied");
+    });
+    stubClipboard(writeText);
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () => completedResult()),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+    await clickButton("Copy results");
+
+    expect(document.body.textContent).toContain("Copy failed.");
+  });
+
+  it("copies the selected query text when requested", async () => {
+    const writeText = vi.fn(async () => undefined);
+    stubClipboard(writeText);
+    await renderJdbcWidget();
+
+    await clickButton("Copy SQL");
+
+    expect(writeText).toHaveBeenCalledWith("select 1");
+    expect(document.body.textContent).toContain("SQL copied.");
   });
 
   it("renders unsupported or not-configured runtime errors clearly", async () => {
@@ -115,6 +266,41 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain(
       "No database write, hidden execution, or AI result sharing occurred.",
     );
+  });
+
+  it("renders redacted compact error details without raw secret text", async () => {
+    const writeText = vi.fn(async () => undefined);
+    stubClipboard(writeText);
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: vi.fn(async () =>
+        failedResult(
+          "connection_failed",
+          "Connection failed password=supersecret\n    at driver stack line",
+        ),
+      ),
+      onValidateJdbcReadOnlySql: vi.fn(async () => validValidation()),
+    });
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+
+    expect(document.body.textContent).toContain("password=[redacted]");
+    expect(document.body.textContent).not.toContain("supersecret");
+    expect(document.body.textContent).not.toContain("driver stack line");
+    expect(
+      document.querySelector<HTMLDetailsElement>(".jdbc-error-details")?.open,
+    ).toBe(false);
+
+    await clickButton("Copy error");
+
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("password=[redacted]"),
+    );
+    const copiedError = String(
+      (writeText.mock.calls as unknown as Array<[unknown]>)[0]?.[0] ?? "",
+    );
+    expect(copiedError).not.toContain("supersecret");
+    expect(document.body.textContent).toContain("Error details copied.");
   });
 
   it("passes explicit non-secret experimental sidecar runtime values only on Run", async () => {
@@ -170,6 +356,7 @@ describe("JdbcConnectorWidget", () => {
       timeoutMs: 10000,
     });
     expect(document.body.textContent).toContain("Completed");
+    expect(document.body.textContent).toContain("Experimental sidecar");
     expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
   });
 
@@ -625,6 +812,13 @@ function selectByLabel(labelText: string): HTMLSelectElement {
 async function flushPromises() {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
 }
 
 function buttonWithText(text: string) {

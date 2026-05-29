@@ -58,6 +58,11 @@ type ValidationSnapshot = {
   validation: JdbcReadOnlySqlValidation;
 };
 
+type ResultCapsSnapshot = {
+  maxResultBytes: number;
+  timeoutMs: number;
+};
+
 type ExperimentalRuntimeTextField =
   | "credentialEnvVarName"
   | "driverClassName"
@@ -143,11 +148,13 @@ export function JdbcReadOnlyQueryPanel({
   const [validationSnapshot, setValidationSnapshot] =
     useState<ValidationSnapshot | null>(null);
   const [result, setResult] = useState<JdbcReadOnlyQueryResult | null>(null);
+  const [resultCaps, setResultCaps] = useState<ResultCapsSnapshot | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [healthDiagnostic, setHealthDiagnostic] =
     useState<JdbcSidecarDiagnostic | null>(null);
   const [driverDiagnostic, setDriverDiagnostic] =
     useState<JdbcSidecarDiagnostic | null>(null);
+  const [queryCopyMessage, setQueryCopyMessage] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
@@ -412,6 +419,7 @@ export function JdbcReadOnlyQueryPanel({
     setIsValidating(true);
     setPanelError(null);
     setResult(null);
+    setResultCaps(null);
 
     try {
       const validation = await onValidateSql({
@@ -454,6 +462,10 @@ export function JdbcReadOnlyQueryPanel({
         timeoutMs: normalizedTimeoutMs,
       });
       setResult(executionResult);
+      setResultCaps({
+        maxResultBytes: normalizedMaxResultBytes,
+        timeoutMs: normalizedTimeoutMs,
+      });
       setValidationSnapshot({
         connectorId: selectedConnector.connectorId,
         rowLimit: normalizedRowLimit,
@@ -511,6 +523,16 @@ export function JdbcReadOnlyQueryPanel({
     } finally {
       setIsProbingDriver(false);
     }
+  }
+
+  async function handleCopyQuery() {
+    if (!trimmedSql) {
+      setQueryCopyMessage("Nothing to copy.");
+      return;
+    }
+
+    const copied = await copyTextToClipboard(trimmedSql);
+    setQueryCopyMessage(copied ? "SQL copied." : "Copy failed.");
   }
 
   return (
@@ -953,6 +975,13 @@ export function JdbcReadOnlyQueryPanel({
         />
         <div className="jdbc-sql-actions">
           <Button
+            disabled={!trimmedSql}
+            onClick={() => void handleCopyQuery()}
+            variant="ghost"
+          >
+            Copy SQL
+          </Button>
+          <Button
             disabled={isValidating || isRunning}
             onClick={() => void handleValidate()}
             variant="secondary"
@@ -970,6 +999,12 @@ export function JdbcReadOnlyQueryPanel({
         </div>
       </div>
 
+      {queryCopyMessage ? (
+        <p className="jdbc-copy-feedback" role="status">
+          {queryCopyMessage}
+        </p>
+      ) : null}
+
       {panelError ? (
         <p className="jdbc-message jdbc-message-error" role="alert">
           {panelError}
@@ -977,7 +1012,11 @@ export function JdbcReadOnlyQueryPanel({
       ) : null}
 
       {result ? (
-        <JdbcReadOnlyQueryResultView result={result} />
+        <JdbcReadOnlyQueryResultView
+          maxResultBytes={resultCaps?.maxResultBytes ?? normalizedMaxResultBytes}
+          result={result}
+          timeoutMs={resultCaps?.timeoutMs ?? normalizedTimeoutMs}
+        />
       ) : (
         <div className="jdbc-results-placeholder">
           <p className="jdbc-empty-title">Visible query results appear here.</p>
@@ -1140,74 +1179,273 @@ function JdbcValidationStatus({
 }
 
 function JdbcReadOnlyQueryResultView({
+  maxResultBytes,
   result,
+  timeoutMs,
 }: {
+  maxResultBytes: number;
   result: JdbcReadOnlyQueryResult;
+  timeoutMs: number;
 }) {
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const redactedError = result.sanitizedError
+    ? redactJdbcText(result.sanitizedError)
+    : null;
+  const redactedRejection = result.validation.rejectionReason
+    ? redactJdbcText(result.validation.rejectionReason)
+    : null;
+
+  async function handleCopyResults() {
+    const copied = await copyTextToClipboard(resultToTsv(result));
+    setCopyMessage(copied ? "Results copied as TSV." : "Copy failed.");
+  }
+
+  async function handleCopyError() {
+    const copied = await copyTextToClipboard(errorDetailsText(result));
+    setCopyMessage(copied ? "Error details copied." : "Copy failed.");
+  }
+
   if (result.status !== "completed") {
     return (
       <div className="jdbc-query-error-panel" role="alert">
-        <p className="jdbc-empty-title">
-          Read-only query stopped: {result.status}
-        </p>
-        <p className="jdbc-empty-text">
-          {result.sanitizedError ??
-            result.validation.rejectionReason ??
-            `Backend returned status ${result.status}.`}
-        </p>
+        <div className="jdbc-result-toolbar">
+          <div>
+            <p className="jdbc-empty-title">
+              Read-only query stopped: {result.status}
+            </p>
+            <p className="jdbc-empty-text">
+              {compactErrorSummary(
+                redactedError ??
+                  redactedRejection ??
+                  `Backend returned status ${result.status}.`,
+              )}
+            </p>
+          </div>
+          <Button onClick={() => void handleCopyError()} variant="ghost">
+            Copy error
+          </Button>
+        </div>
+        <details className="jdbc-error-details">
+          <summary>Error details</summary>
+          <p>{errorDetailsText(result)}</p>
+        </details>
         <p className="jdbc-empty-text">
           No database write, hidden execution, or AI result sharing occurred.
         </p>
+        {copyMessage ? (
+          <p className="jdbc-copy-feedback" role="status">
+            {copyMessage}
+          </p>
+        ) : null}
       </div>
     );
   }
 
+  const columnCount = result.columns.length;
+  const hasRows = result.rows.length > 0;
+
   return (
     <div className="jdbc-result-shell">
-      <div className="jdbc-result-meta">
-        <Badge variant="success">Completed</Badge>
-        <span>{result.connectorDisplayName ?? result.connectorId}</span>
-        <span>{result.statementKind ?? "read-only"}</span>
-        <span>
-          {result.returnedRowCount.toString()} of {result.rowCount.toString()} rows
-        </span>
+      <div className="jdbc-result-toolbar">
+        <div className="jdbc-result-meta">
+          <Badge variant="success">Completed</Badge>
+          <span>{result.connectorDisplayName ?? result.connectorId}</span>
+          <span>{result.statementKind ?? "read-only"}</span>
+          <Badge variant={result.mockExecution ? "info" : "warning"}>
+            {result.mockExecution ? "Mock" : "Experimental sidecar"}
+          </Badge>
+          {result.noSecretsReturned ? (
+            <Badge variant="neutral">No secrets</Badge>
+          ) : null}
+          {result.noAiContextShared ? (
+            <Badge variant="neutral">No AI sharing</Badge>
+          ) : null}
+        </div>
+        <Button onClick={() => void handleCopyResults()} variant="secondary">
+          Copy results
+        </Button>
+      </div>
+      <div className="jdbc-result-summary" aria-label="Result summary">
+        <span>{resultSummaryText(result)}</span>
+        <span>{columnCount.toString()} columns</span>
         <span>{result.durationMs.toString()} ms</span>
-        {result.mockExecution ? <Badge variant="info">Mock</Badge> : null}
-        {result.noSecretsReturned ? (
-          <Badge variant="neutral">No secrets</Badge>
-        ) : null}
-        {result.noAiContextShared ? (
-          <Badge variant="neutral">No AI sharing</Badge>
-        ) : null}
+        <span>{result.truncated ? "Truncated: yes" : "Truncated: no"}</span>
+      </div>
+      <div className="jdbc-result-limits" aria-label="Result limits">
+        <span>Max rows {result.rowLimit.toString()}</span>
+        <span>Timeout {timeoutMs.toString()} ms</span>
+        <span>Max result bytes {formatBytes(maxResultBytes)}</span>
       </div>
       {result.truncated ? <JdbcTruncationNotice result={result} /> : null}
-      <div className="jdbc-result-table-wrap">
-        <table className="jdbc-result-table">
-          <thead>
-            <tr>
-              {result.columns.map((column) => (
-                <th key={column.name} scope="col">
-                  <span>{column.name}</span>
-                  <span>{column.valueKind}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {result.columns.map((column, columnIndex) => (
-                  <td key={`${column.name}-${columnIndex.toString()}`}>
-                    {row[columnIndex] ?? ""}
-                  </td>
+      {!hasRows ? (
+        <div className="jdbc-result-empty">
+          <p className="jdbc-empty-title">No rows returned.</p>
+          <p className="jdbc-empty-text">Query completed with a visible empty result.</p>
+        </div>
+      ) : (
+        <div className="jdbc-result-table-wrap">
+          <table className="jdbc-result-table">
+            <thead>
+              <tr>
+                {result.columns.map((column) => (
+                  <th key={column.name} scope="col">
+                    <span>{column.name}</span>
+                    <span>{column.valueKind}</span>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {result.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {result.columns.map((column, columnIndex) => (
+                    <td
+                      className={`jdbc-result-cell jdbc-result-cell-${valueKindClass(column.valueKind)}`}
+                      key={`${column.name}-${columnIndex.toString()}`}
+                    >
+                      <JdbcResultCell value={row[columnIndex] ?? null} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {copyMessage ? (
+        <p className="jdbc-copy-feedback" role="status">
+          {copyMessage}
+        </p>
+      ) : null}
     </div>
   );
+}
+
+function JdbcResultCell({ value }: { value: string | null }) {
+  if (value === null) {
+    return <span className="jdbc-result-null">NULL</span>;
+  }
+
+  const displayValue = redactJdbcText(value);
+
+  return (
+    <span className="jdbc-result-cell-value" title={displayValue}>
+      {displayValue}
+    </span>
+  );
+}
+
+function resultSummaryText(result: JdbcReadOnlyQueryResult) {
+  if (result.returnedRowCount === 0) {
+    return "No rows returned query completed";
+  }
+
+  if (result.truncatedRows || result.returnedRowCount < result.rowCount) {
+    return `${result.returnedRowCount.toString()} rows shown of ${result.rowCount.toString()} total`;
+  }
+
+  const rowLabel = result.returnedRowCount === 1 ? "row" : "rows";
+  return `${result.returnedRowCount.toString()} ${rowLabel}`;
+}
+
+function resultToTsv(result: JdbcReadOnlyQueryResult) {
+  const header = result.columns.map((column) => tsvCell(column.name)).join("\t");
+  const rows = result.rows.map((row) =>
+    result.columns
+      .map((_column, columnIndex) =>
+        tsvCell(displayCellValue(row[columnIndex] ?? null)),
+      )
+      .join("\t"),
+  );
+
+  return [header, ...rows].filter((line) => line.length > 0).join("\n");
+}
+
+function errorDetailsText(result: JdbcReadOnlyQueryResult) {
+  return [
+    `Status: ${result.status}`,
+    result.sanitizedError
+      ? `Error: ${redactJdbcErrorDetails(result.sanitizedError)}`
+      : null,
+    result.validation.rejectionReason
+      ? `Validation: ${redactJdbcErrorDetails(result.validation.rejectionReason)}`
+      : null,
+    `Duration: ${result.durationMs.toString()} ms`,
+    "No database write, hidden execution, or AI result sharing occurred.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function compactErrorSummary(value: string) {
+  return redactJdbcText(
+    value
+      .split(/\r?\n/u)
+      .find((line) => !/^\s*(at\s|stack\b|caused by:)/iu.test(line)) ??
+      value,
+  );
+}
+
+function redactJdbcErrorDetails(value: string) {
+  return redactJdbcText(value)
+    .split(/\r?\n/u)
+    .filter((line) => !/^\s*(at\s|stack\b|caused by:)/iu.test(line))
+    .join("\n");
+}
+
+function displayCellValue(value: string | null) {
+  return value === null ? "NULL" : redactJdbcText(value);
+}
+
+function tsvCell(value: string) {
+  return value.replace(/\r?\n/gu, " ").replace(/\t/gu, " ");
+}
+
+function valueKindClass(valueKind: string) {
+  const normalized = valueKind.trim().toLowerCase();
+
+  if (/^(bool|boolean)$/u.test(normalized)) {
+    return "boolean";
+  }
+
+  if (/^(int|integer|bigint|smallint|decimal|double|float|numeric|number|real)$/u.test(normalized)) {
+    return "number";
+  }
+
+  return "text";
+}
+
+function formatBytes(value: number) {
+  if (value >= 1024 && value % 1024 === 0) {
+    return `${(value / 1024).toString()} KiB`;
+  }
+
+  return `${value.toString()} bytes`;
+}
+
+function redactJdbcText(value: string) {
+  return value
+    .replace(
+      /\b(password|passwd|pwd|token|access_token|secret|api_key|apikey|private_key|key)=([^;&\s]+)/giu,
+      "$1=[redacted]",
+    )
+    .replace(
+      /\b(password|passwd|pwd|token|access_token|secret|api_key|apikey|private_key|key):\s*([^\s,;]+)/giu,
+      "$1: [redacted]",
+    );
+}
+
+async function copyTextToClipboard(value: string) {
+  if (!navigator.clipboard?.writeText) {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function JdbcTruncationNotice({
@@ -1227,6 +1465,7 @@ function JdbcTruncationNotice({
   return (
     <p className="jdbc-message jdbc-message-warning">
       Result capped by {capText} limits. Showing bounded sample only.
+      {result.truncatedRows ? " Max rows cap reached." : ""}
     </p>
   );
 }

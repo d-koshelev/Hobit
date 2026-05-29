@@ -11,6 +11,8 @@ export type JdbcQueryColumn = {
   valueKind: string;
 };
 
+export type JdbcCellValue = string | null;
+
 export type JdbcReadOnlyQueryResult = {
   status: string;
   connectorId: string;
@@ -18,7 +20,7 @@ export type JdbcReadOnlyQueryResult = {
   validation: JdbcReadOnlySqlValidation;
   statementKind: string | null;
   columns: JdbcQueryColumn[];
-  rows: string[][];
+  rows: JdbcCellValue[][];
   rowCount: number;
   returnedRowCount: number;
   rowLimit: number;
