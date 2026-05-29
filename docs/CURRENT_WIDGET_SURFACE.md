@@ -530,6 +530,15 @@ Workspace Agent is the foreground interactive agent surface.
 - A backend adapter boundary, runtime config loader, Java sidecar prototype,
   and JDK-gated tests exist for opt-in sidecar work. The default product
   runtime remains mock-only.
+- Developer sidecar smoke is available through
+  `node scripts/hobit/smoke-jdbc-sidecar.mjs`. It requires `java` and `javac`
+  on `PATH`; without them it reports a clear skip. With no arguments it
+  compiles the sidecar if needed and runs HealthCheck only. DriverProbe is
+  optional and loads only an explicit driver JAR/class without connecting to a
+  database. Optional real DB smoke requires explicit user-provided driver, JDBC
+  URL, and SELECT/WITH query arguments, uses `--password-env` instead of a
+  password value, rejects obvious secret-bearing JDBC URL parameters, and is
+  not required by normal validation.
 - Future real JDBC execution must use explicit operator Run or a later approved
   widget-owned proposal, runtime-only/approved secret handling, explicit
   user/admin driver JAR configuration, read-only SQL enforcement in both Rust

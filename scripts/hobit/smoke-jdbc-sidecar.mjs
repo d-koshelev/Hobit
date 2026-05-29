@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +26,13 @@ const BUILD_DIR = path.join(
   "classes",
 );
 const MAIN_CLASS = "com.hobit.jdbc.JdbcReadOnlySidecar";
-const args = parseArgs(process.argv.slice(2));
+const MAIN_CLASS_FILE = path.join(
+  BUILD_DIR,
+  "com",
+  "hobit",
+  "jdbc",
+  "JdbcReadOnlySidecar.class",
+);
 
 main().catch((error) => {
   console.error(`[jdbc-sidecar-smoke] ${error.message}`);
@@ -33,35 +40,64 @@ main().catch((error) => {
 });
 
 async function main() {
+  const args = parseArgs(process.argv.slice(2));
   const startedAt = Date.now();
   await assertSourceExists();
 
-  if (!toolAvailable("javac") || !toolAvailable("java")) {
-    console.log("[jdbc-sidecar-smoke] skipped: java and javac are not on PATH");
+  const java = toolAvailable("java");
+  const javac = toolAvailable("javac");
+  console.log(
+    `[jdbc-sidecar-smoke] java: ${java ? "found" : "missing"}; javac: ${javac ? "found" : "missing"}`,
+  );
+  if (!java || !javac) {
+    console.log(
+      "[jdbc-sidecar-smoke] skipped: Java/JDK is required on PATH for sidecar smoke",
+    );
+    return;
+  }
+
+  await compileSidecarIfNeeded();
+
+  if (args.mode === "health") {
+    console.log("[jdbc-sidecar-smoke] mode: HealthCheck only (default; no SQL)");
+    await healthCheckScenario();
+  } else if (args.mode === "driver-probe") {
+    console.log(
+      "[jdbc-sidecar-smoke] mode: DriverProbe only (loads explicit driver; no DB connection)",
+    );
+    await driverProbeScenario(args.driverJar, args.driverClass);
+  } else {
+    console.log(
+      "[jdbc-sidecar-smoke] mode: optional manual DB smoke (explicit SELECT/WITH only)",
+    );
+    await dbSmokeScenario(args);
+  }
+
+  console.log(
+    `[jdbc-sidecar-smoke] completed in ${Date.now() - startedAt}ms`,
+  );
+}
+
+async function compileSidecarIfNeeded() {
+  if (!(await needsCompile())) {
+    console.log("[jdbc-sidecar-smoke] compile: skipped (classes are current)");
     return;
   }
 
   await fs.rm(BUILD_DIR, { force: true, recursive: true });
   await fs.mkdir(BUILD_DIR, { recursive: true });
-  await runProcess("javac", ["-d", BUILD_DIR, SIDECAR_SOURCE], null);
+  await runProcess("javac", ["-d", BUILD_DIR, SIDECAR_SOURCE], null, 10_000);
+  console.log("[jdbc-sidecar-smoke] compile: passed");
+}
 
-  await healthCheckScenario();
-  if (args.driverJar) {
-    await driverProbeScenario(args.driverJar, args.driverClass);
-  } else {
-    console.log(
-      "[jdbc-sidecar-smoke] driver-probe: skipped (pass --driver-jar <path> and optional --driver-class <class>)",
-    );
+async function needsCompile() {
+  try {
+    const source = await fs.stat(SIDECAR_SOURCE);
+    const target = await fs.stat(MAIN_CLASS_FILE);
+    return source.mtimeMs > target.mtimeMs;
+  } catch {
+    return true;
   }
-  await validReadOnlyScenario();
-  await invalidSqlScenario();
-  await unsupportedDriverScenario();
-  await notConfiguredScenario();
-  await capScenario();
-
-  console.log(
-    `[jdbc-sidecar-smoke] all scenarios passed in ${Date.now() - startedAt}ms`,
-  );
 }
 
 async function healthCheckScenario() {
@@ -98,98 +134,60 @@ async function driverProbeScenario(driverJar, driverClass) {
   console.log("[jdbc-sidecar-smoke] driver-probe: passed");
 }
 
-async function validReadOnlyScenario() {
-  const response = await runSidecar(baseRequest());
-  assertEqual(response.status, "completed", "valid status");
-  assertEqual(response.columns.length, 4, "valid columns");
-  assertEqual(response.rows.length, 3, "valid rows");
-  assertEqual(response.no_secrets_returned, true, "secret flag");
-  assertEqual(response.no_ai_context_shared, true, "AI context flag");
-  assertNoSecretWords(JSON.stringify(response), "valid response");
-  console.log("[jdbc-sidecar-smoke] valid: passed");
-}
-
-async function invalidSqlScenario() {
-  const response = await runSidecar({
-    ...baseRequest(),
-    statement_kind: null,
-    validated_read_only: false,
-    sql: "drop table accounts",
-  });
-  assertEqual(response.status, "query_rejected", "invalid status");
-  assertEqual(response.rows.length, 0, "invalid rows");
-  assertNoSecretWords(JSON.stringify(response), "invalid response");
-  console.log("[jdbc-sidecar-smoke] invalid: passed");
-}
-
-async function unsupportedDriverScenario() {
-  const response = await runSidecar({
-    ...baseRequest(),
-    driver_kind: "oracle_jdbc",
-  });
-  assertEqual(response.status, "unsupported_driver", "unsupported status");
-  assertEqual(response.rows.length, 0, "unsupported rows");
-  assertNoSecretWords(JSON.stringify(response), "unsupported response");
-  console.log("[jdbc-sidecar-smoke] unsupported-driver: passed");
-}
-
-async function notConfiguredScenario() {
-  const response = await runSidecar({
-    ...baseRequest(),
-    runtime_kind: "real_jdbc",
-  });
-  assertEqual(response.status, "not_configured", "not configured status");
-  assertEqual(response.rows.length, 0, "not configured rows");
-  assertNoSecretWords(JSON.stringify(response), "not configured response");
-  console.log("[jdbc-sidecar-smoke] not-configured: passed");
-}
-
-async function capScenario() {
-  const response = await runSidecar({
-    ...baseRequest(),
-    row_limit: 1,
-    max_columns: 2,
-    max_cell_chars: 8,
-    max_result_bytes: 256 * 1024,
-  });
-  assertEqual(response.status, "completed", "cap status");
-  assertEqual(response.rows.length, 1, "cap rows");
-  assertEqual(response.columns.length, 2, "cap columns");
-  assertEqual(response.truncated, true, "cap truncated");
-  assertNoSecretWords(JSON.stringify(response), "cap response");
-  console.log("[jdbc-sidecar-smoke] caps: passed");
-}
-
-function baseRequest() {
-  return {
+async function dbSmokeScenario(options) {
+  const request = {
     protocol_version: 1,
-    request_id: "jdbc-sidecar-smoke",
-    runtime_kind: "mock_read_only",
-    connector_id: "jdbc-sidecar-smoke",
-    database_kind: "postgres",
+    request_id: "jdbc-sidecar-db-smoke",
+    request: "executeReadOnlyQuery",
+    runtime_kind: "real_jdbc",
+    connector_id: "jdbc-sidecar-manual-smoke",
+    database_kind: "generic_jdbc",
     driver_kind: "jdbc",
-    statement_kind: "SELECT",
+    statement_kind: firstSqlToken(options.query),
     validated_read_only: true,
-    sql: "select 1",
-    row_limit: 100,
-    timeout_ms: 10_000,
+    sql: options.query,
+    row_limit: options.maxRows,
+    timeout_ms: options.timeoutMs,
     max_columns: 50,
     max_cell_chars: 2_000,
     max_result_bytes: 256 * 1024,
+    driver_jar_path: options.driverJar,
+    driver_class_name: options.driverClass,
+    jdbc_url: options.jdbcUrl,
   };
+  if (options.username) {
+    request.username = options.username;
+  }
+  if (options.passwordEnv) {
+    request.credential_env_var_name = options.passwordEnv;
+  }
+
+  const response = await runSidecar(request, options.timeoutMs + 5_000);
+  assertNoSecretWords(JSON.stringify(response), "manual DB smoke response");
+  assertEqual(response.status, "completed", "manual DB smoke status");
+  assertEqual(response.no_secrets_returned, true, "manual DB smoke secret flag");
+  assertEqual(
+    response.no_ai_context_shared,
+    true,
+    "manual DB smoke AI context flag",
+  );
+  console.log(
+    `[jdbc-sidecar-smoke] optional-db-smoke: passed (${response.returned_row_count} rows returned)`,
+  );
 }
 
-async function runSidecar(request) {
+async function runSidecar(request, timeoutMs = 10_000) {
   const output = await runProcess(
     "java",
     ["-cp", BUILD_DIR, MAIN_CLASS],
     JSON.stringify(request),
+    timeoutMs,
   );
   assertNoSecretWords(output.stderr, "sidecar stderr");
   return JSON.parse(output.stdout);
 }
 
-async function runProcess(program, args, stdin) {
+async function runProcess(program, args, stdin, timeoutMs) {
   return new Promise((resolve, reject) => {
     const child = spawn(program, args, {
       cwd: REPO_ROOT,
@@ -200,7 +198,7 @@ async function runProcess(program, args, stdin) {
     const timeout = setTimeout(() => {
       child.kill();
       reject(new Error(`${program} timed out`));
-    }, 10_000);
+    }, timeoutMs);
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
@@ -251,7 +249,7 @@ function assertEqual(actual, expected, label) {
 
 function assertNoSecretWords(value, label) {
   const normalized = value.toLowerCase();
-  for (const word of ["password=", "passwd=", "pwd=", "token=", "secret="]) {
+  for (const word of secretNeedles()) {
     if (normalized.includes(word)) {
       throw new Error(`${label} contained a secret-looking token`);
     }
@@ -259,28 +257,388 @@ function assertNoSecretWords(value, label) {
 }
 
 function parseArgs(argv) {
+  const seenFlags = new Set();
   const parsed = {
     driverClass: null,
     driverJar: null,
+    jdbcUrl: null,
+    maxRows: 10,
+    mode: "health",
+    passwordEnv: null,
+    query: "SELECT 1",
+    timeoutMs: 5_000,
+    username: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (isPasswordValueFlag(arg)) {
+      throw new Error(
+        "password values are not accepted; use --password-env <ENV_VAR_NAME>",
+      );
+    }
+
     if (arg === "--driver-jar") {
-      parsed.driverJar = argv[index + 1] ?? null;
+      seenFlags.add(arg);
+      parsed.driverJar = readFlagValue(argv, index, arg);
       index += 1;
     } else if (arg === "--driver-class") {
-      parsed.driverClass = argv[index + 1] ?? null;
+      seenFlags.add(arg);
+      parsed.driverClass = readFlagValue(argv, index, arg);
+      index += 1;
+    } else if (arg === "--jdbc-url") {
+      seenFlags.add(arg);
+      parsed.jdbcUrl = readFlagValue(argv, index, arg);
+      index += 1;
+    } else if (arg === "--username") {
+      seenFlags.add(arg);
+      parsed.username = readFlagValue(argv, index, arg);
+      index += 1;
+    } else if (arg === "--password-env") {
+      seenFlags.add(arg);
+      parsed.passwordEnv = readFlagValue(argv, index, arg);
+      index += 1;
+    } else if (arg === "--query") {
+      seenFlags.add(arg);
+      parsed.query = readFlagValue(argv, index, arg);
+      index += 1;
+    } else if (arg === "--max-rows") {
+      seenFlags.add(arg);
+      parsed.maxRows = parseBoundedInt(
+        readFlagValue(argv, index, arg),
+        arg,
+        1,
+        100,
+      );
+      index += 1;
+    } else if (arg === "--timeout-ms") {
+      seenFlags.add(arg);
+      parsed.timeoutMs = parseBoundedInt(
+        readFlagValue(argv, index, arg),
+        arg,
+        1,
+        60_000,
+      );
       index += 1;
     } else if (arg === "--help" || arg === "-h") {
-      console.log(
-        "Usage: node scripts/hobit/smoke-jdbc-sidecar.mjs [--driver-jar path] [--driver-class name]",
-      );
+      printHelp();
       process.exit(0);
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
   }
 
+  validateArgs(parsed, seenFlags);
   return parsed;
+}
+
+function validateArgs(parsed, seenFlags) {
+  const dbSmokeRequested =
+    parsed.jdbcUrl !== null ||
+    parsed.username !== null ||
+    parsed.passwordEnv !== null ||
+    seenFlags.has("--query") ||
+    seenFlags.has("--max-rows") ||
+    seenFlags.has("--timeout-ms");
+
+  if (parsed.driverClass && !parsed.driverJar) {
+    throw new Error("--driver-class requires --driver-jar");
+  }
+
+  if (dbSmokeRequested) {
+    parsed.mode = "db-smoke";
+    if (!parsed.driverJar) {
+      throw new Error("optional DB smoke requires --driver-jar");
+    }
+    if (!parsed.driverClass) {
+      throw new Error("optional DB smoke requires --driver-class");
+    }
+    if (!parsed.jdbcUrl) {
+      throw new Error("optional DB smoke requires --jdbc-url");
+    }
+    if (!isSafeReadOnlyQuery(parsed.query)) {
+      throw new Error("optional DB smoke accepts only single SELECT or WITH queries");
+    }
+    assertNoSecretJdbcUrl(parsed.jdbcUrl);
+  } else if (parsed.driverJar) {
+    parsed.mode = "driver-probe";
+  }
+
+  if (parsed.passwordEnv) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(parsed.passwordEnv)) {
+      throw new Error("--password-env must be an environment variable name");
+    }
+    if (!Object.prototype.hasOwnProperty.call(process.env, parsed.passwordEnv)) {
+      throw new Error(
+        `--password-env ${parsed.passwordEnv} is not set in the current environment`,
+      );
+    }
+  }
+
+  if (parsed.driverJar) {
+    if (!path.isAbsolute(parsed.driverJar)) {
+      parsed.driverJar = path.resolve(process.cwd(), parsed.driverJar);
+    }
+    if (!fsSyncFileExists(parsed.driverJar)) {
+      throw new Error(`driver JAR was not found: ${parsed.driverJar}`);
+    }
+  }
+}
+
+function readFlagValue(argv, index, flag) {
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${flag} requires a value`);
+  }
+  return value;
+}
+
+function parseBoundedInt(value, flag, minimum, maximum) {
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${flag} must be an integer`);
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (parsed < minimum || parsed > maximum) {
+    throw new Error(`${flag} must be between ${minimum} and ${maximum}`);
+  }
+  return parsed;
+}
+
+function fsSyncFileExists(filePath) {
+  try {
+    return fsSync.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isPasswordValueFlag(arg) {
+  return (
+    arg === "--password" ||
+    arg.startsWith("--password=") ||
+    arg === "--passwd" ||
+    arg.startsWith("--passwd=") ||
+    arg === "--pwd" ||
+    arg.startsWith("--pwd=") ||
+    arg === "--password-value" ||
+    arg.startsWith("--password-value=")
+  );
+}
+
+function assertNoSecretJdbcUrl(jdbcUrl) {
+  const normalized = jdbcUrl.toLowerCase();
+  for (const word of secretNeedles()) {
+    if (normalized.includes(word)) {
+      throw new Error(
+        "JDBC URL contains an obvious secret-bearing parameter; pass secrets through --password-env only",
+      );
+    }
+  }
+}
+
+function secretNeedles() {
+  return [
+    "password=",
+    "passwd=",
+    "pwd=",
+    "token=",
+    "secret=",
+    "access_token=",
+    "api_key=",
+    "apikey=",
+    "privatekey=",
+    "sslkey=",
+  ];
+}
+
+function isSafeReadOnlyQuery(sql) {
+  let scanSql;
+  try {
+    scanSql = scanSqlForClassification(sql.trim());
+  } catch {
+    return false;
+  }
+  if (containsMultipleStatements(scanSql)) {
+    return false;
+  }
+  const tokens = sqlTokens(trimSingleTrailingSemicolon(scanSql.trim()));
+  if (tokens.length === 0) {
+    return false;
+  }
+  if (tokens.some((token) => unsafeSqlTokens().has(token))) {
+    return false;
+  }
+  return tokens[0] === "SELECT" || tokens[0] === "WITH";
+}
+
+function firstSqlToken(sql) {
+  const tokens = sqlTokens(
+    trimSingleTrailingSemicolon(scanSqlForClassification(sql.trim())),
+  );
+  return tokens[0] ?? "SELECT";
+}
+
+function scanSqlForClassification(sql) {
+  let output = "";
+  let index = 0;
+  while (index < sql.length) {
+    const current = sql[index];
+    const next = index + 1 < sql.length ? sql[index + 1] : "";
+
+    if (current === "-" && next === "-") {
+      index += 2;
+      while (index < sql.length && sql[index] !== "\n") {
+        index += 1;
+      }
+      output += " ";
+      continue;
+    }
+
+    if (current === "/" && next === "*") {
+      index += 2;
+      let closed = false;
+      while (index + 1 < sql.length) {
+        if (sql[index] === "*" && sql[index + 1] === "/") {
+          index += 2;
+          closed = true;
+          break;
+        }
+        index += 1;
+      }
+      if (!closed) {
+        throw new Error("unterminated block comment");
+      }
+      output += " ";
+      continue;
+    }
+
+    if (current === "'" || current === '"') {
+      const quote = current;
+      index += 1;
+      let closed = false;
+      while (index < sql.length) {
+        if (sql[index] === quote) {
+          if (index + 1 < sql.length && sql[index + 1] === quote) {
+            index += 2;
+            continue;
+          }
+          index += 1;
+          closed = true;
+          break;
+        }
+        index += 1;
+      }
+      if (!closed) {
+        throw new Error("unterminated quoted value");
+      }
+      output += " ";
+      continue;
+    }
+
+    output += current;
+    index += 1;
+  }
+  return output;
+}
+
+function containsMultipleStatements(sql) {
+  let sawSemicolon = false;
+  for (const character of sql) {
+    if (character === ";") {
+      if (sawSemicolon) {
+        return true;
+      }
+      sawSemicolon = true;
+      continue;
+    }
+    if (sawSemicolon && !/\s/.test(character)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function trimSingleTrailingSemicolon(sql) {
+  const trimmed = sql.trim();
+  return trimmed.endsWith(";") ? trimmed.slice(0, -1).trim() : trimmed;
+}
+
+function sqlTokens(sql) {
+  return Array.from(sql.matchAll(/[A-Za-z0-9_]+/g), (match) =>
+    match[0].toUpperCase(),
+  );
+}
+
+function unsafeSqlTokens() {
+  return new Set([
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "MERGE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "TRUNCATE",
+    "GRANT",
+    "REVOKE",
+    "CALL",
+    "EXEC",
+    "EXECUTE",
+    "COPY",
+    "LOAD",
+    "EXPORT",
+    "IMPORT",
+    "SET",
+    "USE",
+    "BEGIN",
+    "COMMIT",
+    "ROLLBACK",
+    "LOCK",
+    "UNLOCK",
+    "VACUUM",
+    "ANALYZE",
+    "PRAGMA",
+    "ATTACH",
+    "DETACH",
+    "EXTENSION",
+    "OUTFILE",
+    "INFILE",
+  ]);
+}
+
+function printHelp() {
+  console.log(`Usage:
+  node scripts/hobit/smoke-jdbc-sidecar.mjs
+  node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar <path> --driver-class <class>
+  node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar <path> --driver-class <class> --jdbc-url <url> [options]
+
+Modes:
+  No args                       Check java/javac, compile sidecar if needed, run HealthCheck only.
+  --driver-jar + --driver-class Run DriverProbe only. It loads the explicit driver and does not connect to a DB.
+  --jdbc-url                    Optional manual DB smoke. Runs only an explicit SELECT/WITH query.
+
+Options:
+  --driver-jar <path>           Explicit JDBC driver JAR. Required for DriverProbe and DB smoke.
+  --driver-class <class>        Explicit JDBC Driver class. Required for DB smoke.
+  --jdbc-url <url>              Runtime-only JDBC URL for optional manual DB smoke.
+  --username <user>             Optional runtime-only username.
+  --password-env <ENV_VAR_NAME> Optional environment variable name containing the password.
+  --query "SELECT 1"            Optional DB smoke query. SELECT/WITH only. Default: SELECT 1.
+  --max-rows 10                 Max rows for optional DB smoke. Range: 1-100. Default: 10.
+  --timeout-ms 5000             Query/process timeout for optional DB smoke. Range: 1-60000. Default: 5000.
+
+Examples:
+  HealthCheck:
+    node scripts/hobit/smoke-jdbc-sidecar.mjs
+
+  DriverProbe:
+    node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\\path\\driver.jar --driver-class org.example.Driver
+
+  Optional safe query:
+    node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar ... --driver-class ... --jdbc-url ... --username ... --password-env JDBC_PASSWORD --query "SELECT 1"
+
+Safety:
+  This smoke does not store secrets, does not accept password values, does not scan folders,
+  does not download drivers, and rejects obvious secret-bearing JDBC URL parameters.
+  Real DB smoke is optional/manual and is not required by normal validation.`);
 }

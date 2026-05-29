@@ -63,13 +63,30 @@ Compile and smoke when a JDK is available:
 node scripts/hobit/smoke-jdbc-sidecar.mjs
 ```
 
-The smoke compiles and runs the sidecar when `java` and `javac` are on `PATH`.
-If a JDK is absent, it reports a clean skip so normal Hobit validation does not
-require Java. The smoke runs HealthCheck by default. DriverProbe is optional:
+The smoke checks for both `java` and `javac` on `PATH`. If a JDK is absent, it
+reports a clean skip so normal Hobit validation does not require Java. With no
+arguments, the smoke compiles the sidecar if needed and runs HealthCheck only.
+HealthCheck starts the sidecar and verifies the protocol response; it does not
+load drivers, connect to a database, or execute SQL.
+
+DriverProbe is optional and does not connect to a database:
 
 ```powershell
-node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\to\driver.jar --driver-class org.example.Driver
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\driver.jar --driver-class org.example.Driver
 ```
+
+Optional real DB smoke is manual and requires a user-provided safe test driver
+and database:
+
+```powershell
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar ... --driver-class ... --jdbc-url ... --username ... --password-env JDBC_PASSWORD --query "SELECT 1"
+```
+
+The smoke accepts a password environment variable name only; it has no password
+value flag. It rejects obvious secret-bearing JDBC URL parameters, non-SELECT/
+WITH queries, missing driver JARs, and missing required DB-smoke arguments. It
+does not scan folders, download drivers, bundle proprietary drivers, persist
+runtime values, or make real DB smoke part of normal validation.
 
 Backend opt-in activation smoke when a JDK is available:
 

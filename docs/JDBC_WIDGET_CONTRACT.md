@@ -53,6 +53,10 @@ manual HealthCheck and DriverProbe actions using the same runtime-only inputs.
 Diagnostics do not run automatically, do not persist runtime configuration,
 do not accept password values, do not execute SQL, and DriverProbe loads only
 the explicit driver JAR/class without opening a database connection.
+The repo-local sidecar smoke script mirrors this boundary for developer setup:
+without arguments it checks `java`/`javac`, compiles the sidecar when needed,
+and runs HealthCheck only; DriverProbe and real DB smoke require explicit
+operator-provided driver/connection arguments.
 It does not implement production JDBC, SQL formatting, `EXPLAIN`
 visualization, AI provider integration, Workspace Agent runtime, widget tool
 execution, credential storage, Terminal or PTY behavior, Git mutation, Queue
@@ -134,6 +138,22 @@ Current sidecar/unsupported behavior:
 - Sidecar runtime selection requires explicit backend construction/configuration
   for tests/future wiring or explicit operator per-run Experimental runtime
   input; it is not the product default.
+- Developer sidecar smoke is manual tooling only. It requires both `java` and
+  `javac` on `PATH`; when either is missing,
+  `node scripts/hobit/smoke-jdbc-sidecar.mjs` reports a clean skip and exits
+  without changing product behavior. The default smoke compiles the Java
+  sidecar if needed and runs HealthCheck only, which starts the sidecar and
+  validates the protocol response without loading drivers, connecting to a
+  database, or executing SQL.
+- DriverProbe smoke is opt-in with `--driver-jar` and `--driver-class`. It
+  loads only the explicit driver JAR/class and does not open a database
+  connection or execute SQL.
+- Real DB smoke is optional/manual and requires a user-provided safe test
+  driver/database plus explicit `--driver-jar`, `--driver-class`,
+  `--jdbc-url`, and SELECT/WITH query arguments. Password values are rejected;
+  `--password-env` may name an existing environment variable, and obvious
+  secret-bearing JDBC URL parameters are rejected before sidecar launch. This
+  smoke is not part of normal validation and does not persist runtime values.
 - Missing launch configuration, missing Java/process support, connector
   mismatches, or unsupported drivers produce sanitized `not_configured` or
   `unsupported_driver` style results.
@@ -345,8 +365,10 @@ Current foundation status:
   sanitized runtime statuses and no credential exposure
 - Block 264 adds a dependency-free Java sidecar scaffold at
   `sidecars/jdbc-readonly-sidecar/` plus `scripts/hobit/smoke-jdbc-sidecar.mjs`;
-  the scaffold returns deterministic mock/read-only protocol responses and is
-  not active in the JDBC widget by default
+  the smoke checks Java/JDK availability, compiles the sidecar if needed, and
+  runs HealthCheck only by default; DriverProbe and optional real DB SELECT/WITH
+  smoke require explicit user-provided driver/connection arguments and are not
+  active in the JDBC widget by default
 - Block 265 adds backend-only sidecar runtime config parsing and opt-in
   adapter selection for tests/future desktop wiring; `WorkspaceService::new`
   and the current Tauri bridge still use the mock adapter by default

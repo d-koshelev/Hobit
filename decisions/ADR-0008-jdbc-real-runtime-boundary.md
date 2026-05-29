@@ -224,9 +224,28 @@ The scaffold smoke is:
 node scripts/hobit/smoke-jdbc-sidecar.mjs
 ```
 
-The smoke compiles and runs the sidecar when `java` and `javac` are available
-on `PATH`. If a JDK is absent, it reports the skip without changing product
-behavior.
+The smoke checks for both `java` and `javac` on `PATH`. If either is absent,
+it reports a clear skip without changing product behavior. With no arguments,
+it compiles the sidecar if needed and runs HealthCheck only; HealthCheck does
+not load drivers, connect to a database, or execute SQL.
+
+DriverProbe is explicit and does not connect to a database:
+
+```text
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\driver.jar --driver-class org.example.Driver
+```
+
+Optional real DB smoke is manual and requires a user-provided safe test driver
+and database:
+
+```text
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar ... --driver-class ... --jdbc-url ... --username ... --password-env JDBC_PASSWORD --query "SELECT 1"
+```
+
+The script rejects password value flags, obvious secret-bearing JDBC URL
+parameters, non-SELECT/WITH queries, and missing driver JARs. It does not scan
+folders, download drivers, bundle proprietary drivers, persist runtime values,
+or make real DB smoke mandatory in normal validation.
 
 ## Block 265 Runtime Config Loader
 

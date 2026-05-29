@@ -60,7 +60,12 @@ behavior, or Workspace Agent context wiring.
   hidden Workspace Agent, Queue, Executor, Terminal, Git, provider, or
   background SQL execution. DriverProbe loads only the explicit driver
   JAR/class and does not execute SQL or open a database connection. It is not
-  production JDBC.
+  production JDBC. The repo-local sidecar smoke script requires `java` and
+  `javac` on `PATH`, skips clearly when they are missing, compiles the sidecar
+  if needed, runs HealthCheck only by default, supports explicit DriverProbe
+  without a DB connection, and supports optional/manual real DB SELECT/WITH
+  smoke only with user-provided driver/connection arguments and no password
+  value flag.
 - Database / JDBC sidecar protocol shapes now exist as inert Rust serde DTOs
   and contract tests in `hobit-app`. They define future request/response
   envelopes, profile/driver/credential-reference metadata, read-only policy
