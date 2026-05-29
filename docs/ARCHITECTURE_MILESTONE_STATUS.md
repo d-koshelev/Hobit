@@ -64,6 +64,12 @@ behavior, or Workspace Agent context wiring.
   row/time/result caps, display-safe DTOs, redacted errors, visible results,
   and no hidden Workspace Agent, Queue, Executor, Terminal, Git, provider, or
   background SQL execution.
+- Database / JDBC sidecar protocol shapes now exist as inert Rust serde DTOs
+  and contract tests in `hobit-app`. They define future request/response
+  envelopes, profile/driver/credential-reference metadata, read-only policy
+  caps, result DTOs, safety flags, and redacted errors. They are not wired into
+  runtime execution; the current JDBC product runtime remains mock-default and
+  no credentials are persisted or transmitted by implemented runtime behavior.
 - Workspace Agent product positioning is foreground-agent first: planning,
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Workspace Agent, while Queue and Agent Executor remain async/background
@@ -193,6 +199,9 @@ behavior, or Workspace Agent context wiring.
   team/server sharing, embeddings/vector DB, PDF/DOCX parsing, or RBAC.
 - Context Pack refs do not create Context Pack storage, selection UI,
   Workspace Agent context wiring, provider prompt wiring, or sharing behavior.
+- JDBC sidecar protocol DTOs do not create production sidecar execution,
+  driver loading, database connections, credential persistence, OS keychain
+  integration, SQL execution, or frontend/runtime behavior.
 
 ## Do Not Overclaim
 

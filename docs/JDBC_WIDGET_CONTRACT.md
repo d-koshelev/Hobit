@@ -39,6 +39,10 @@ runtime config loader and crate-internal opt-in sidecar adapter selection path;
 the product default remains the mock adapter. Block 266 adds a JDK-gated
 backend activation test that routes one explicit service-owned connector
 through the Java sidecar `mock_read_only` protocol when a JDK is available.
+Block 267 adds inert Rust serde DTOs for the future sidecar protocol envelope,
+profile/driver/credential-reference shape, read-only policy caps, bounded
+result DTOs, and redacted error DTOs. Those types are not wired into runtime
+execution.
 It does not implement real database JDBC execution, SQL formatting, `EXPLAIN`
 visualization, AI provider integration, Workspace Agent runtime, widget tool
 execution, database credential handling, secret storage, Terminal or PTY
@@ -113,6 +117,9 @@ Current sidecar/unsupported behavior:
   URLs, usernames, passwords, tokens, or environment values to frontend DTOs.
 - The dependency-free Java scaffold is a mock protocol smoke target, not a real
   JDBC driver loader or database connection runtime.
+- The inert typed protocol DTOs in `hobit-app` are contract/test scaffolding
+  only. Current query execution still uses the existing mock-default adapter
+  path and the existing test-only sidecar JSON mapping.
 
 Current request/result types:
 
@@ -471,6 +478,27 @@ Block 266 mock sidecar activation:
 - `WorkspaceService::new(...)`, the Tauri production path, and the JDBC widget
   default remain on `MockReadOnlyJdbcAdapter`
 
+Block 267 inert sidecar protocol DTOs:
+
+- module: `crates/hobit-app/src/workspace_service/jdbc_sidecar_protocol.rs`
+- request envelope types define `HealthCheck`, `DriverProbe`,
+  `PrepareReadOnlyQuery`, and `ExecuteReadOnlyQuery` shapes for future IPC
+- profile/driver fields are non-secret descriptors only: profile id/name,
+  database/driver labels, driver JAR path reference, masked/redacted URL label,
+  optional policy-allowed username, and credential reference ids
+- credential references are non-secret pointers; no password, token, private
+  key, certificate content, or secret value field exists in the protocol DTOs
+- read-only policy DTO construction fixes `readOnly: true`,
+  `allowMultiStatement: false`, `allowStoredProcedures: false`, and non-zero
+  row/timeout/result-byte caps
+- result/error DTOs include display-safe columns/rows, row count, truncation,
+  elapsed time, warnings, safety flags, and redacted errors
+- tests cover JSON shape, redaction shape, policy caps, safety/truncation
+  flags, and absence of forbidden secret field names
+- these DTOs are inert: no sidecar process is started, no JDBC driver is loaded,
+  no database connection is opened, no SQL is executed, and no current frontend,
+  Tauri command, Workspace Agent, Queue, or Executor behavior changes
+
 ## Planned Real Runtime Architecture
 
 This section is a future design contract only. It does not implement real JDBC
@@ -658,8 +686,10 @@ schema crawling, credential use, or autonomous SQL execution.
 
 Safe implementation phases:
 
-1. Protocol/types only: define real-runtime request/response types, protocol
-   versioning, statuses, and redaction tests without execution.
+1. Protocol/types only: inert Rust DTOs and serde tests now exist for
+   request/response envelopes, profile/driver/credential references,
+   read-only policy, results, and redacted errors. They are not wired into
+   execution.
 2. Sidecar health/probe: start the sidecar for version/health only, with no
    driver loading and no SQL execution.
 3. Driver loading with no query execution: load explicitly configured test

@@ -1,4 +1,5 @@
 use std::env;
+use std::num::{NonZeroU64, NonZeroUsize};
 
 use serde_json::{json, Value};
 
@@ -9,10 +10,183 @@ use super::jdbc_runtime::{
     STATUS_COMPLETED, STATUS_NOT_CONFIGURED, STATUS_QUERY_REJECTED,
 };
 use super::jdbc_sidecar_protocol::{
-    build_sidecar_request_json, map_sidecar_response, JdbcSidecarProcessRunner,
+    build_sidecar_request_json, map_sidecar_response, JdbcReadOnlyExecutionPolicy,
+    JdbcSecretReference, JdbcSecretReferenceKind, JdbcSidecarCellValue, JdbcSidecarColumn,
+    JdbcSidecarDriverProbeResult, JdbcSidecarDriverReference, JdbcSidecarError,
+    JdbcSidecarErrorKind, JdbcSidecarHealthCheckResult, JdbcSidecarProcessRunner,
+    JdbcSidecarProfileReference, JdbcSidecarReadOnlyQueryResult, JdbcSidecarRequest,
+    JdbcSidecarRequestKind, JdbcSidecarResponse, JdbcSidecarResult, JdbcSidecarSafetyFlags,
+    JdbcSidecarTruncation,
 };
 
 const SECRET_SENTINEL: &str = "jdbc-sidecar-protocol-secret";
+
+#[test]
+fn typed_health_check_request_response_json_shape() {
+    let request = JdbcSidecarRequest::new("health-1", JdbcSidecarRequestKind::HealthCheck);
+    let request_json = serde_json::to_value(request).expect("typed request json");
+
+    assert_eq!(request_json["protocolVersion"], 1);
+    assert_eq!(request_json["requestId"], "health-1");
+    assert_eq!(request_json["request"], "healthCheck");
+
+    let response = JdbcSidecarResponse::ok(
+        "health-1",
+        JdbcSidecarResult::HealthCheck(JdbcSidecarHealthCheckResult {
+            healthy: true,
+            sidecar_label: "jdbc-readonly-sidecar".to_owned(),
+        }),
+    );
+    let response_json = serde_json::to_value(response).expect("typed response json");
+
+    assert_eq!(response_json["protocolVersion"], 1);
+    assert_eq!(response_json["requestId"], "health-1");
+    assert_eq!(response_json["status"], "ok");
+    assert_eq!(response_json["result"]["kind"], "healthCheck");
+    assert_eq!(response_json["result"]["data"]["healthy"], true);
+}
+
+#[test]
+fn typed_driver_probe_request_uses_references_without_secret_values() {
+    let request = JdbcSidecarRequest::new(
+        "driver-probe-1",
+        JdbcSidecarRequestKind::DriverProbe {
+            profile: protocol_profile(),
+        },
+    );
+    let value = serde_json::to_value(request).expect("driver probe request");
+    let raw = value.to_string();
+
+    assert_eq!(value["request"], "driverProbe");
+    assert_eq!(value["profile"]["profileId"], "profile-1");
+    assert_eq!(
+        value["profile"]["credentialReferences"][0]["kind"],
+        "connectionCredential"
+    );
+    assert!(!raw.contains(SECRET_SENTINEL));
+    assert!(!raw.contains("jdbc:postgresql://private-host"));
+    assert_no_forbidden_secret_keys(&value);
+}
+
+#[test]
+fn typed_execute_request_includes_read_only_policy_caps() {
+    let request = JdbcSidecarRequest::new(
+        "execute-1",
+        JdbcSidecarRequestKind::ExecuteReadOnlyQuery {
+            profile: protocol_profile(),
+            sql: "select 1".to_owned(),
+            statement_kind: "SELECT".to_owned(),
+            policy: read_only_policy(),
+            prepared_query_id: Some("prepared-1".to_owned()),
+        },
+    );
+    let value = serde_json::to_value(request).expect("execute request");
+
+    assert_eq!(value["request"], "executeReadOnlyQuery");
+    assert_eq!(value["policy"]["readOnly"], true);
+    assert_eq!(value["policy"]["maxRows"], 100);
+    assert_eq!(value["policy"]["timeoutMs"], 10_000);
+    assert_eq!(value["policy"]["maxResultBytes"], 262_144);
+    assert_eq!(value["policy"]["allowMultiStatement"], false);
+    assert_eq!(value["policy"]["allowStoredProcedures"], false);
+    assert_no_forbidden_secret_keys(&value);
+}
+
+#[test]
+fn typed_result_response_includes_truncation_and_safety_flags() {
+    let response = JdbcSidecarResponse::ok(
+        "execute-1",
+        JdbcSidecarResult::ReadOnlyQuery(JdbcSidecarReadOnlyQueryResult {
+            columns: vec![JdbcSidecarColumn {
+                name: "answer".to_owned(),
+                value_kind: "number".to_owned(),
+            }],
+            rows: vec![vec![JdbcSidecarCellValue::Number("42".to_owned())]],
+            row_count: 1,
+            truncated: JdbcSidecarTruncation {
+                truncated: true,
+                rows: true,
+                columns: false,
+                cells: false,
+                bytes: false,
+            },
+            elapsed_ms: 7,
+            warnings: vec!["Result capped by maxRows.".to_owned()],
+            safety_flags: JdbcSidecarSafetyFlags {
+                validated_read_only: true,
+                read_only_connection_requested: true,
+                no_secrets_returned: true,
+                no_ai_context_shared: true,
+            },
+            redacted_error: None,
+        }),
+    );
+    let value = serde_json::to_value(response).expect("result response");
+
+    assert_eq!(value["status"], "ok");
+    assert_eq!(value["result"]["kind"], "readOnlyQuery");
+    assert_eq!(value["result"]["data"]["rowCount"], 1);
+    assert_eq!(value["result"]["data"]["truncated"]["truncated"], true);
+    assert_eq!(value["result"]["data"]["truncated"]["rows"], true);
+    assert_eq!(
+        value["result"]["data"]["safetyFlags"]["validatedReadOnly"],
+        true
+    );
+    assert_eq!(
+        value["result"]["data"]["safetyFlags"]["noAiContextShared"],
+        true
+    );
+}
+
+#[test]
+fn typed_error_response_is_redacted_by_shape() {
+    let response = JdbcSidecarResponse::error(
+        "execute-1",
+        JdbcSidecarError::redacted(
+            JdbcSidecarErrorKind::AuthenticationFailed,
+            "JDBC authentication failed. Credential details were redacted.",
+        ),
+    );
+    let value = serde_json::to_value(response).expect("error response");
+
+    assert_eq!(value["status"], "error");
+    assert_eq!(value["error"]["kind"], "authentication_failed");
+    assert_eq!(value["error"]["redacted"], true);
+    assert_eq!(
+        value["error"]["message"],
+        "JDBC authentication failed. Credential details were redacted."
+    );
+    assert_no_forbidden_secret_keys(&value);
+}
+
+#[test]
+fn typed_protocol_serialization_has_no_forbidden_secret_field_names() {
+    let values = vec![
+        serde_json::to_value(JdbcSidecarRequest::new(
+            "prepare-1",
+            JdbcSidecarRequestKind::PrepareReadOnlyQuery {
+                profile: protocol_profile(),
+                sql: "select current_date".to_owned(),
+                statement_kind: "SELECT".to_owned(),
+                policy: read_only_policy(),
+            },
+        ))
+        .expect("prepare request"),
+        serde_json::to_value(JdbcSidecarResponse::ok(
+            "driver-probe-1",
+            JdbcSidecarResult::DriverProbe(JdbcSidecarDriverProbeResult {
+                driver_id: "driver-1".to_owned(),
+                supported: true,
+                warnings: Vec::new(),
+            }),
+        ))
+        .expect("driver probe response"),
+    ];
+
+    for value in values {
+        assert_no_forbidden_secret_keys(&value);
+    }
+}
 
 #[test]
 fn sidecar_request_json_contains_only_safe_runtime_fields() {
@@ -155,6 +329,55 @@ fn sidecar_process_runner_failure_is_sanitized() {
     );
     assert!(result.no_secrets_returned);
     assert!(result.no_ai_context_shared);
+}
+
+fn read_only_policy() -> JdbcReadOnlyExecutionPolicy {
+    JdbcReadOnlyExecutionPolicy::new(
+        NonZeroUsize::new(100).expect("nonzero rows"),
+        NonZeroU64::new(10_000).expect("nonzero timeout"),
+        NonZeroUsize::new(256 * 1024).expect("nonzero bytes"),
+    )
+}
+
+fn protocol_profile() -> JdbcSidecarProfileReference {
+    JdbcSidecarProfileReference {
+        profile_id: "profile-1".to_owned(),
+        profile_name: "Reporting readonly".to_owned(),
+        database_kind: "postgres".to_owned(),
+        driver: JdbcSidecarDriverReference {
+            driver_id: "driver-1".to_owned(),
+            kind_label: "jdbc".to_owned(),
+            jar_path_reference: Some("configured-driver-ref".to_owned()),
+        },
+        jdbc_url_label: Some("postgres://reporting.example/<redacted>".to_owned()),
+        username: Some("readonly_user".to_owned()),
+        default_database: Some("analytics".to_owned()),
+        default_schema: Some("public".to_owned()),
+        default_catalog: None,
+        credential_references: vec![JdbcSecretReference {
+            id: "credential-ref-1".to_owned(),
+            kind: JdbcSecretReferenceKind::ConnectionCredential,
+        }],
+    }
+}
+
+fn assert_no_forbidden_secret_keys(value: &Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, child) in object {
+                assert_ne!(key, "password");
+                assert_ne!(key, "token");
+                assert_ne!(key, "secretValue");
+                assert_no_forbidden_secret_keys(child);
+            }
+        }
+        Value::Array(values) => {
+            for child in values {
+                assert_no_forbidden_secret_keys(child);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn adapter_request(

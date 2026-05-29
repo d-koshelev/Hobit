@@ -1,7 +1,9 @@
 use std::fmt;
+use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 
 use hobit_tools::process::{run_process_once, ProcessRunRequest, ProcessRunStatus};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::jdbc_artifacts::JdbcRuntimeBoundarySummary;
@@ -15,6 +17,309 @@ use super::jdbc_runtime::{
 const SIDECAR_PROTOCOL_VERSION: u64 = 1;
 const SIDECAR_STDERR_CAP_BYTES: usize = 16 * 1024;
 const SIDECAR_RESPONSE_OVERHEAD_BYTES: usize = 16 * 1024;
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(transparent)]
+pub(super) struct JdbcSidecarProtocolVersion(u16);
+
+#[allow(dead_code)]
+impl JdbcSidecarProtocolVersion {
+    pub(super) const CURRENT: Self = Self(SIDECAR_PROTOCOL_VERSION as u16);
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(transparent)]
+pub(super) struct JdbcSidecarRequestId(String);
+
+#[allow(dead_code)]
+impl JdbcSidecarRequestId {
+    pub(super) fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarRequest {
+    pub(super) protocol_version: JdbcSidecarProtocolVersion,
+    pub(super) request_id: JdbcSidecarRequestId,
+    #[serde(flatten)]
+    pub(super) request: JdbcSidecarRequestKind,
+}
+
+#[allow(dead_code)]
+impl JdbcSidecarRequest {
+    pub(super) fn new(request_id: impl Into<String>, request: JdbcSidecarRequestKind) -> Self {
+        Self {
+            protocol_version: JdbcSidecarProtocolVersion::CURRENT,
+            request_id: JdbcSidecarRequestId::new(request_id),
+            request,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "request")]
+pub(super) enum JdbcSidecarRequestKind {
+    HealthCheck,
+    DriverProbe {
+        profile: JdbcSidecarProfileReference,
+    },
+    PrepareReadOnlyQuery {
+        profile: JdbcSidecarProfileReference,
+        sql: String,
+        statement_kind: String,
+        policy: JdbcReadOnlyExecutionPolicy,
+    },
+    ExecuteReadOnlyQuery {
+        profile: JdbcSidecarProfileReference,
+        sql: String,
+        statement_kind: String,
+        policy: JdbcReadOnlyExecutionPolicy,
+        prepared_query_id: Option<String>,
+    },
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarProfileReference {
+    pub(super) profile_id: String,
+    pub(super) profile_name: String,
+    pub(super) database_kind: String,
+    pub(super) driver: JdbcSidecarDriverReference,
+    pub(super) jdbc_url_label: Option<String>,
+    pub(super) username: Option<String>,
+    pub(super) default_database: Option<String>,
+    pub(super) default_schema: Option<String>,
+    pub(super) default_catalog: Option<String>,
+    pub(super) credential_references: Vec<JdbcSecretReference>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarDriverReference {
+    pub(super) driver_id: String,
+    pub(super) kind_label: String,
+    pub(super) jar_path_reference: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSecretReference {
+    pub(super) id: String,
+    pub(super) kind: JdbcSecretReferenceKind,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum JdbcSecretReferenceKind {
+    ConnectionCredential,
+    KerberosMaterial,
+    TlsMaterial,
+    Other,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcReadOnlyExecutionPolicy {
+    read_only: bool,
+    max_rows: NonZeroUsize,
+    timeout_ms: NonZeroU64,
+    max_result_bytes: NonZeroUsize,
+    allow_multi_statement: bool,
+    allow_stored_procedures: bool,
+}
+
+#[allow(dead_code)]
+impl JdbcReadOnlyExecutionPolicy {
+    pub(super) fn new(
+        max_rows: NonZeroUsize,
+        timeout_ms: NonZeroU64,
+        max_result_bytes: NonZeroUsize,
+    ) -> Self {
+        Self {
+            read_only: true,
+            max_rows,
+            timeout_ms,
+            max_result_bytes,
+            allow_multi_statement: false,
+            allow_stored_procedures: false,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarResponse {
+    pub(super) protocol_version: JdbcSidecarProtocolVersion,
+    pub(super) request_id: JdbcSidecarRequestId,
+    #[serde(flatten)]
+    pub(super) response: JdbcSidecarResponseKind,
+}
+
+#[allow(dead_code)]
+impl JdbcSidecarResponse {
+    pub(super) fn ok(request_id: impl Into<String>, result: JdbcSidecarResult) -> Self {
+        Self {
+            protocol_version: JdbcSidecarProtocolVersion::CURRENT,
+            request_id: JdbcSidecarRequestId::new(request_id),
+            response: JdbcSidecarResponseKind::Ok { result },
+        }
+    }
+
+    pub(super) fn error(request_id: impl Into<String>, error: JdbcSidecarError) -> Self {
+        Self {
+            protocol_version: JdbcSidecarProtocolVersion::CURRENT,
+            request_id: JdbcSidecarRequestId::new(request_id),
+            response: JdbcSidecarResponseKind::Error { error },
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "status")]
+pub(super) enum JdbcSidecarResponseKind {
+    Ok { result: JdbcSidecarResult },
+    Error { error: JdbcSidecarError },
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "data")]
+pub(super) enum JdbcSidecarResult {
+    HealthCheck(JdbcSidecarHealthCheckResult),
+    DriverProbe(JdbcSidecarDriverProbeResult),
+    PreparedReadOnlyQuery(JdbcSidecarPreparedReadOnlyQuery),
+    ReadOnlyQuery(JdbcSidecarReadOnlyQueryResult),
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarHealthCheckResult {
+    pub(super) healthy: bool,
+    pub(super) sidecar_label: String,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarDriverProbeResult {
+    pub(super) driver_id: String,
+    pub(super) supported: bool,
+    pub(super) warnings: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarPreparedReadOnlyQuery {
+    pub(super) prepared_query_id: String,
+    pub(super) statement_kind: String,
+    pub(super) policy: JdbcReadOnlyExecutionPolicy,
+    pub(super) warnings: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarReadOnlyQueryResult {
+    pub(super) columns: Vec<JdbcSidecarColumn>,
+    pub(super) rows: Vec<Vec<JdbcSidecarCellValue>>,
+    pub(super) row_count: usize,
+    pub(super) truncated: JdbcSidecarTruncation,
+    pub(super) elapsed_ms: u64,
+    pub(super) warnings: Vec<String>,
+    pub(super) safety_flags: JdbcSidecarSafetyFlags,
+    pub(super) redacted_error: Option<JdbcSidecarError>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarColumn {
+    pub(super) name: String,
+    pub(super) value_kind: String,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "value")]
+pub(super) enum JdbcSidecarCellValue {
+    Null,
+    Boolean(bool),
+    Number(String),
+    Text(String),
+    Redacted(String),
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarTruncation {
+    pub(super) truncated: bool,
+    pub(super) rows: bool,
+    pub(super) columns: bool,
+    pub(super) cells: bool,
+    pub(super) bytes: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarSafetyFlags {
+    pub(super) validated_read_only: bool,
+    pub(super) read_only_connection_requested: bool,
+    pub(super) no_secrets_returned: bool,
+    pub(super) no_ai_context_shared: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JdbcSidecarError {
+    pub(super) kind: JdbcSidecarErrorKind,
+    pub(super) message: String,
+    redacted: bool,
+}
+
+#[allow(dead_code)]
+impl JdbcSidecarError {
+    pub(super) fn redacted(kind: JdbcSidecarErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+            redacted: true,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum JdbcSidecarErrorKind {
+    ProtocolMismatch,
+    NotConfigured,
+    UnsupportedDriver,
+    DriverProbeFailed,
+    ConnectionFailed,
+    AuthenticationFailed,
+    Timeout,
+    QueryRejected,
+    ExecutionFailed,
+    ResultTruncated,
+}
 
 #[derive(Clone, Eq, PartialEq)]
 pub(super) struct JdbcSidecarProcessRunner {

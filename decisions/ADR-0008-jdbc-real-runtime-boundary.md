@@ -39,6 +39,13 @@ unrestricted driver loading, frontend-visible credentials, provider tools,
 Workspace Agent execution, Terminal control, Git mutation, Queue dispatch, or
 Agent Executor launch.
 
+Block 267 adds inert Rust serde DTOs for this future sidecar protocol boundary.
+They define envelope, health check, driver probe, prepare read-only query,
+execute read-only query, non-secret profile/driver references, credential
+reference ids, read-only policy caps, bounded results, safety flags, and
+redacted errors. They are contract/test scaffolding only and are not called by
+the current JDBC runtime.
+
 ## Real Runtime Architecture Contract
 
 This ADR now fixes the future real-runtime shape without implementing it.
@@ -117,7 +124,7 @@ and explicit sharing approval.
 
 Safe future implementation phases:
 
-1. Protocol/types only.
+1. Protocol/types only: completed as inert Rust DTOs and serde tests.
 2. Sidecar health/probe with no driver loading or SQL execution.
 3. Explicit driver loading with no query execution.
 4. Read-only query execution against test DB only.
@@ -277,6 +284,37 @@ desktop service path, and the JDBC widget UI remain on
 connections, database connections, frontend config exposure, Coordinator
 execution, provider tools, or result persistence are introduced.
 
+## Block 267 Inert Protocol DTOs
+
+Block 267 adds typed Rust protocol shapes in
+`crates/hobit-app/src/workspace_service/jdbc_sidecar_protocol.rs`.
+
+The request envelope covers:
+
+- `HealthCheck`
+- `DriverProbe`
+- `PrepareReadOnlyQuery`
+- `ExecuteReadOnlyQuery`
+
+The profile and secret boundary is reference-only. Protocol profiles may carry
+non-secret profile id/name, database and driver labels, a driver JAR path
+reference, masked/redacted URL label, optional policy-allowed username, and
+credential reference ids. They do not carry password strings, token strings,
+raw secret-bearing JDBC URLs, private keys, certificate content, or secret
+value fields.
+
+The read-only policy shape fixes `readOnly: true`,
+`allowMultiStatement: false`, and `allowStoredProcedures: false`, with non-zero
+caps for max rows, timeout, and max result bytes. Result DTOs carry columns,
+display-safe rows, row count, truncation flags, elapsed time, warnings, safety
+flags, and optional redacted errors. Error DTOs carry only kind, message, and
+`redacted: true`.
+
+These DTOs are inert. They do not start a sidecar process, load JDBC drivers,
+open database connections, execute SQL, persist credentials, add keychain
+integration, change schema/storage, change the mock-default runtime, or change
+Workspace Agent, Queue, Executor, Codex, Terminal, Git, or frontend behavior.
+
 ## Credential Boundary
 
 Credentials are backend-only runtime configuration.
@@ -296,6 +334,9 @@ read-only default, status, notes, and future capability/status flags.
 Credentials, raw JDBC URLs, usernames, passwords, tokens, and secret
 references must not enter frontend DTOs, Coordinator context, provider prompts,
 proposal cards, widget logs, persisted query results, or test snapshots.
+The Block 267 typed protocol DTOs may contain non-secret credential reference
+ids for future backend-only resolution, but no implemented runtime transmits or
+resolves credentials through those DTOs.
 
 ## Consequences
 
