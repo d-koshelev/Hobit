@@ -41,6 +41,11 @@ behavior, or Workspace Agent context wiring.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Workspace Agent context boundary inspection confirmed current provider requests
   remain visible-context-only with `allowed_tools: []`.
+- Database / JDBC runtime audit confirmed the current product path remains a
+  Preview mock-default read-only query surface: `MockReadOnlyJdbcAdapter` is
+  active through `WorkspaceService::new(...)`, sidecar/real runtime support is
+  opt-in/test/future only, no credentials are stored, no writes/DDL/DML run,
+  and Workspace Agent has no JDBC execution path.
 - Workspace Agent product positioning is foreground-agent first: planning,
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Workspace Agent, while Queue and Agent Executor remain async/background

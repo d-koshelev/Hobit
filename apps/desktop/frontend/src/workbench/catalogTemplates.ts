@@ -215,14 +215,14 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     catalogCategory: "developer-tools",
     category: "database",
     description:
-      "Manage connector metadata and test bounded read-only SQL.",
+      "Preview non-secret connection profiles and bounded mock read-only SQL.",
     readiness: "preview",
     availability: "available",
     layoutDefaults: getWidgetLayoutDefaults(JDBC_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Workspace-local connector metadata",
-      "Mock/safe read-only query preview",
-      "No credentials or production database execution",
+      "Explicit mock read-only query runs",
+      "No credentials, writes, or production database execution",
     ],
     futureWidgetDefinitionId: JDBC_WIDGET_DEFINITION_ID,
   },

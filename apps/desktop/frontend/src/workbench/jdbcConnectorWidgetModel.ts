@@ -28,7 +28,7 @@ export const STATUS_OPTIONS: Array<{
   value: JdbcConnectorStatus;
 }> = [
   { label: "Not configured", value: "not_configured" },
-  { label: "Configured", value: "configured" },
+  { label: "Metadata configured", value: "configured" },
   { label: "Disabled", value: "disabled" },
   { label: "Error", value: "error" },
 ];

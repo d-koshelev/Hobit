@@ -492,14 +492,27 @@ Workspace Agent is the foreground interactive agent surface.
 - The current product execution path is bounded mock/safe execution: it
   validates conservative read-only SQL, applies row/timeout caps, and renders
   deterministic bounded mock results or sanitized validation/runtime errors.
+  The current validator recognizes `EXPLAIN` only as a mock-path wrapper around
+  supported read-only SQL; no real database `EXPLAIN` or plan visualization
+  exists.
+- Current runtime status is mock-default. The active product path uses
+  `MockReadOnlyJdbcAdapter`; sidecar/runtime config exists only as an
+  opt-in/test/future boundary and is not configured as the product JDBC widget
+  runtime.
+- The visible widget shows connection/profile status, read-only safety copy,
+  the query editor, explicit `Run read-only query`, visible result/error
+  panels, and collapsed runtime details. Missing or unsupported runtime paths
+  are shown as visible errors such as `not_configured` or
+  `unsupported_driver`.
 - A backend adapter boundary, runtime config loader, Java sidecar scaffold, and
   JDK-gated tests exist for future opt-in sidecar work. The default product
   runtime remains mock-only.
 - The current widget does not collect credentials, store passwords or tokens,
   test real database connections, run SQL against external systems, run
-  `EXPLAIN`, format SQL, provide AI query assistance, expose a Workspace Agent
-  JDBC execution tool, launch Terminal, mutate Git, or affect Agent Queue or
-  Agent Executor behavior.
+  real database `EXPLAIN`, format SQL, provide AI query assistance, expose a
+  Workspace Agent JDBC execution tool, let Workspace Agent run SQL
+  automatically or hidden, launch Terminal, mutate Git, or affect Agent Queue
+  or Agent Executor behavior.
 - This bounded mock/safe read-only path is accepted as Current Preview
   behavior. Production JDBC execution, credential expansion, write SQL,
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,

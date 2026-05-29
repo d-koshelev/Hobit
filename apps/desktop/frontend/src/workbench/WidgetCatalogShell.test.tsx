@@ -202,6 +202,19 @@ describe("widgetCatalogTemplates", () => {
     expect(terminalDescription).toMatch(/terminal commands/i);
     expect(terminalDescription).toMatch(/working directory/i);
   });
+
+  it("describes Database / JDBC as an honest mock read-only preview", () => {
+    const template = templateFor(JDBC_WIDGET_DEFINITION_ID);
+
+    expect(template.readiness).toBe("preview");
+    expect(template.description).toMatch(/preview/i);
+    expect(template.description).toMatch(/mock read-only SQL/i);
+    expect(template.capabilitySummary.join(" ")).toMatch(/No credentials/i);
+    expect(template.capabilitySummary.join(" ")).toMatch(/writes/i);
+    expect(template.capabilitySummary.join(" ")).toMatch(
+      /production database execution/i,
+    );
+  });
 });
 
 function renderCatalog(

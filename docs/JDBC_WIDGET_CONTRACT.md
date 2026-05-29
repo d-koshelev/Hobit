@@ -49,6 +49,32 @@ work.
 JDBC Widget: manage connector metadata and preview bounded mock/safe read-only
 SQL validation/execution.
 
+## Current Runtime Status
+
+Current product runtime status: Preview, mock-default.
+
+- `WorkspaceService::new(...)` and the current Tauri desktop command path use
+  the backend `MockReadOnlyJdbcAdapter` by default.
+- `ReadOnlyJdbcAdapter` is the backend boundary for current/future read-only
+  execution adapters.
+- `MockReadOnlyJdbcAdapter` is the active product adapter. It validates
+  conservative read-only SQL, applies row/timeout/result caps, and returns
+  deterministic bounded mock results.
+- The current validator recognizes `EXPLAIN` only as a mock-path wrapper around
+  otherwise supported read-only statements. A real `EXPLAIN` runner,
+  visualization, and production database plan workflow remain Deferred.
+- `SidecarReadOnlyJdbcAdapter` and `JdbcRuntimeConfig` exist for opt-in
+  backend tests and future wiring. They do not make a production JDBC runtime
+  active in the Database / JDBC widget today.
+- Missing or unsupported sidecar/real runtime paths must surface visible
+  `not_configured` or `unsupported_driver` style errors; they must not fake a
+  production connection.
+- No credentials, passwords, tokens, raw JDBC URLs, driver jars, or secret
+  references are collected or persisted by the current widget.
+- Workspace Agent may prepare JDBC SQL suggestion text only. It has no
+  automatic or hidden JDBC execution path, no JDBC tool, and no access to JDBC
+  metadata/results as hidden context.
+
 ## What The JDBC Widget Is In Current Preview
 
 The current JDBC widget is:
@@ -132,8 +158,8 @@ Current foundation status:
 - passwords, tokens, secret references, driver jars, and runtime credentials are
   not stored
 - no real database query execution, test connection, production Java sidecar,
-  SQL formatter, `EXPLAIN`, AI assistance, credential input, or Coordinator
-  capability runtime exists
+  SQL formatter, real `EXPLAIN` execution/visualization, AI assistance,
+  credential input, or Coordinator capability runtime exists
 - Block 263 adds the backend adapter boundary only: mock remains the active
   execution adapter, and the real sidecar adapter is a not-configured stub with
   sanitized runtime statuses and no credential exposure
@@ -299,12 +325,15 @@ Block 266 mock sidecar activation:
 Current Preview JDBC UI includes:
 
 - connector selector
+- connection / runtime status
 - SQL editor
+- read-only safety notice
 - Run
 - row limit
 - timeout
 - result area
 - error area
+- collapsed runtime details
 
 Deferred UI capabilities include Format SQL, `EXPLAIN`, saved query history,
 tabs, charts, schema browser, AI analysis, and write-mode controls. Monaco or
@@ -464,6 +493,8 @@ to capped strings or returned as redacted placeholders.
 Current Preview frontend shape:
 
 - connector selector using existing connector metadata APIs
+- visible connection/runtime status that says the current product runtime is
+  mock-only and that a selected connection profile is required
 - SQL textarea/editor
 - row limit and timeout controls with conservative defaults
 - validation status near the Run action
@@ -471,6 +502,7 @@ Current Preview frontend shape:
 - result table/grid with column headers and compact rows
 - duration, returned row count, and truncation notices
 - sanitized error panel
+- collapsed runtime details for mock/unsupported runtime state
 - no AI execution, no Coordinator execution, no schema crawler, no production
   JDBC runtime, and no result sharing controls until a later Evidence/Sources
   or AI-context slice exists

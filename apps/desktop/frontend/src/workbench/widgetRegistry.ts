@@ -189,7 +189,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Database / JDBC",
     category: "database",
     description:
-      "Preview connector metadata and bounded mock read-only query surface.",
+      "Preview non-secret connection profiles and bounded mock read-only queries.",
     defaultTitle: "Database / JDBC",
     defaultConfig: {},
     layoutDefaults:

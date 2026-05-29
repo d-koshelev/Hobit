@@ -391,24 +391,86 @@ export function JdbcConnectorWidget({
       <div className="jdbc-widget-shell">
         <section className="jdbc-summary">
           <div className="jdbc-summary-copy">
-            <p className="jdbc-eyebrow">Preview database connector surface</p>
+            <p className="jdbc-eyebrow">Database / JDBC Preview</p>
             <p className="jdbc-summary-text">
-              Configure workspace-local connector metadata and run bounded
-              mock read-only SQL through the JDBC widget. Real database
-              connections, credentials, and AI result sharing are not enabled.
+              Create an explicit workspace-local connection profile, review
+              the visible SQL, and run only bounded read-only mock queries from
+              this widget. Real database connections, credentials, and AI result
+              sharing are not enabled.
             </p>
           </div>
           <div className="jdbc-summary-badges">
+            <Badge variant="neutral">Preview</Badge>
             <Badge variant="info">Mock read-only</Badge>
             <Badge variant="warning">No secrets</Badge>
           </div>
+        </section>
+
+        <section
+          aria-label="Connection / Runtime status"
+          className="jdbc-runtime-status"
+        >
+          <div className="jdbc-sql-header">
+            <div>
+              <p className="jdbc-pane-title">Connection / Runtime status</p>
+              <p className="jdbc-pane-subtitle">
+                A selected connection profile is required. The current product
+                runtime is the bounded mock read-only adapter.
+              </p>
+            </div>
+            <div className="jdbc-summary-badges">
+              <Badge variant={selectedConnector ? "success" : "warning"}>
+                {selectedConnector ? "Profile selected" : "No profile"}
+              </Badge>
+              <Badge variant="info">Mock active</Badge>
+            </div>
+          </div>
+
+          <div className="jdbc-runtime-grid">
+            <div>
+              <span className="jdbc-runtime-label">Profile</span>
+              <span className="jdbc-runtime-value">
+                {selectedConnector?.displayName || "Select or create a profile"}
+              </span>
+            </div>
+            <div>
+              <span className="jdbc-runtime-label">Connection</span>
+              <span className="jdbc-runtime-value">
+                No production database connection
+              </span>
+            </div>
+            <div>
+              <span className="jdbc-runtime-label">Execution</span>
+              <span className="jdbc-runtime-value">
+                Explicit operator run only
+              </span>
+            </div>
+            <div>
+              <span className="jdbc-runtime-label">AI / automation</span>
+              <span className="jdbc-runtime-value">
+                No hidden Workspace Agent SQL execution
+              </span>
+            </div>
+          </div>
+
+          <details className="jdbc-runtime-details">
+            <summary>Runtime details</summary>
+            <p>
+              The desktop path validates ownership of this Database / JDBC
+              widget, validates conservative read-only SQL, and then uses the
+              mock adapter by default. Sidecar or real connector runtime remains
+              unsupported/not configured for product use in this slice; visible
+              runtime errors such as not_configured or unsupported_driver are
+              shown in the result area.
+            </p>
+          </details>
         </section>
 
         <div className="jdbc-layout">
           <aside className="jdbc-list-pane" aria-label="JDBC connectors">
             <div className="jdbc-pane-header">
               <div>
-                <p className="jdbc-pane-title">Connectors</p>
+                <p className="jdbc-pane-title">Connection profiles</p>
                 <p className="jdbc-pane-subtitle">{connectorCountText}</p>
               </div>
             </div>
@@ -421,10 +483,10 @@ export function JdbcConnectorWidget({
                 </p>
               ) : connectors.length === 0 ? (
                 <div className="jdbc-empty-state">
-                  <p className="jdbc-empty-title">No connectors yet.</p>
+                  <p className="jdbc-empty-title">No connection profiles yet.</p>
                   <p className="jdbc-empty-text">
-                    Create a connector metadata record before SQL workspace
-                    slices arrive.
+                    Create a non-secret metadata profile before validating or
+                    running a read-only mock query.
                   </p>
                   <Button
                     disabled={isCreating || !apiAvailable}
@@ -465,8 +527,8 @@ export function JdbcConnectorWidget({
                     </span>
                     <span className="jdbc-row-meta">
                       {connector.readOnlyDefault
-                        ? "Read-only default"
-                        : "Read-only default off"}
+                        ? "Read-only profile"
+                        : "Read-only profile flag off"}
                       <span aria-hidden="true">/</span>
                       {formatUpdatedTimestamp(connector.updatedAt)}
                     </span>
@@ -654,7 +716,8 @@ export function JdbcConnectorWidget({
               <div className="jdbc-empty-state">
                 <p className="jdbc-empty-title">No connector selected.</p>
                 <p className="jdbc-empty-text">
-                  Select a connector or create a new metadata record.
+                  Select a connection profile or create a new non-secret
+                  metadata record.
                 </p>
                 <Button
                   disabled={isCreating || !apiAvailable}

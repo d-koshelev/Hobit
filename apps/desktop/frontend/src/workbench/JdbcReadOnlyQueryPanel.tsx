@@ -164,7 +164,7 @@ export function JdbcReadOnlyQueryPanel({
     <section aria-label="Read-only JDBC query workspace" className="jdbc-query-panel">
       <div className="jdbc-sql-header">
         <div>
-          <p className="jdbc-pane-title">Read-only SQL</p>
+          <p className="jdbc-pane-title">Query editor</p>
           <p className="jdbc-pane-subtitle">
             Operator-triggered mock execution only. Workspace Agent suggestions
             can be copied here, but Workspace Agent cannot run SQL.
@@ -176,9 +176,19 @@ export function JdbcReadOnlyQueryPanel({
         </div>
       </div>
 
+      <div className="jdbc-safety-notice" aria-label="Read-only safety notice">
+        <p>
+          SELECT, WITH, SHOW, DESCRIBE, and mock EXPLAIN wrappers around those
+          read-only forms are accepted by the current validator. Writes,
+          DDL/DML, session mutation, and multi-statement batches are rejected.
+          Nothing runs until you validate the visible SQL and press Run
+          read-only query.
+        </p>
+      </div>
+
       <div className="jdbc-query-controls">
         <label className="jdbc-field" htmlFor={connectorInputId}>
-          <span className="field-label">Connector</span>
+          <span className="field-label">Connection profile</span>
           <select
             className="select"
             disabled={isConnectorSelectionDisabled || connectors.length === 0}
@@ -268,7 +278,7 @@ export function JdbcReadOnlyQueryPanel({
         <JdbcReadOnlyQueryResultView result={result} />
       ) : (
         <div className="jdbc-results-placeholder">
-          <p className="jdbc-empty-title">Results appear here.</p>
+          <p className="jdbc-empty-title">Visible query results appear here.</p>
           <p className="jdbc-empty-text">
             Validate read-only SQL, then run it through the bounded mock
             adapter. No real database connection or credentials are used.
@@ -332,11 +342,16 @@ function JdbcReadOnlyQueryResultView({
   if (result.status !== "completed") {
     return (
       <div className="jdbc-query-error-panel" role="alert">
-        <p className="jdbc-empty-title">Query did not complete.</p>
+        <p className="jdbc-empty-title">
+          Read-only query stopped: {result.status}
+        </p>
         <p className="jdbc-empty-text">
           {result.sanitizedError ??
             result.validation.rejectionReason ??
             `Backend returned status ${result.status}.`}
+        </p>
+        <p className="jdbc-empty-text">
+          No database write, hidden execution, or AI result sharing occurred.
         </p>
       </div>
     );
@@ -353,6 +368,12 @@ function JdbcReadOnlyQueryResultView({
         </span>
         <span>{result.durationMs.toString()} ms</span>
         {result.mockExecution ? <Badge variant="info">Mock</Badge> : null}
+        {result.noSecretsReturned ? (
+          <Badge variant="neutral">No secrets</Badge>
+        ) : null}
+        {result.noAiContextShared ? (
+          <Badge variant="neutral">No AI sharing</Badge>
+        ) : null}
       </div>
       {result.truncated ? <JdbcTruncationNotice result={result} /> : null}
       <div className="jdbc-result-table-wrap">

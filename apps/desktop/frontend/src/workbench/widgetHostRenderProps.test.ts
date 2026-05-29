@@ -59,6 +59,9 @@ describe("widgetHostRenderProps", () => {
     );
     expect(props.onCreateSkill).toBe(actions.createSkill);
     expect(props.onCreateWorkspaceNote).toBe(actions.createWorkspaceNote);
+    expect(props.onExecuteJdbcReadOnlyQuery).toBeUndefined();
+    expect(props.onListJdbcConnectors).toBeUndefined();
+    expect(props.onValidateJdbcReadOnlySql).toBeUndefined();
     expect(props.onGenerateCoordinatorProviderResponse).toBe(
       actions.generateCoordinatorProviderResponse,
     );
