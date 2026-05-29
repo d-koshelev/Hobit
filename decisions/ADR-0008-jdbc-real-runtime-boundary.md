@@ -36,8 +36,94 @@ The sidecar protocol will be narrow JSON owned by the backend:
 
 The sidecar must not expose arbitrary Java execution, shell access,
 unrestricted driver loading, frontend-visible credentials, provider tools,
-Coordinator execution, Terminal control, Git mutation, Queue dispatch, or
+Workspace Agent execution, Terminal control, Git mutation, Queue dispatch, or
 Agent Executor launch.
+
+## Real Runtime Architecture Contract
+
+This ADR now fixes the future real-runtime shape without implementing it.
+Current product behavior remains mock-default; no JDBC drivers, credential
+storage, keychain integration, real database connections, write SQL, schema
+migrations, Queue/Executor behavior, or Workspace Agent automatic execution are
+added by this decision.
+
+Real JDBC execution should run in a Hobit-owned Java sidecar because JDBC is
+JVM-native, driver behavior is Java-first, and a separate process avoids
+embedding a JVM into Rust/Tauri while isolating driver JARs. Rust/Tauri remains
+the policy gate and lifecycle owner. The sidecar communicates over local stdio
+JSON-RPC or an equivalently narrow local JSON protocol and accepts only
+approved read-only query requests. It is not a general SQL server, remote API,
+shell bridge, Java plugin host, or Workspace Agent tool endpoint.
+
+Lifecycle contract:
+
+- The sidecar starts only for explicit operator Run or a later approved
+  widget-owned proposal.
+- The MVP should prefer per-query sidecars for isolation and cleanup unless
+  measured startup cost requires a long-lived process.
+- Long-lived sidecars, if later accepted, require health checks, protocol
+  negotiation, idle shutdown, memory/output caps, cancellation, crash recovery,
+  and explicit app-shutdown cleanup.
+- Rust process control and JDBC statement timeout both enforce query timeout
+  when possible.
+- Cancellation closes the active statement/connection when possible and
+  terminates the process after a bounded grace period.
+- Crashes, failed start, timeout, invalid JSON, oversized output, protocol
+  mismatch, and non-zero exit map to sanitized visible statuses.
+- The sidecar must not poll, schedule, reconnect for hidden work, or keep
+  database work running after the visible owning query completes or cancels.
+
+Driver loading contract:
+
+- User/admin supplies explicit JDBC driver JAR paths.
+- Hobit does not bundle proprietary drivers or download drivers in the MVP.
+- Profile metadata may reference non-secret driver labels, configured driver
+  ids, explicit paths, version labels, or future hashes when policy allows.
+- Hobit must not scan arbitrary folders for drivers.
+- Driver load failures are visible and redacted, with no raw classpath dumps,
+  environment values, credentials, directory listings, or secret-bearing JDBC
+  URLs.
+- Future allowlists, pinned hashes, signatures, or admin policy checks are
+  recommended before managed production use.
+
+Read-only enforcement is layered:
+
+- UI presents read-only execution and visible limits.
+- Rust validates widget/profile scope, explicit Run/proposal approval, SQL
+  classification, row/time/result caps, and no multi-statement batch.
+- The sidecar independently verifies protocol, validated-read-only flag,
+  statement kind, caps, driver/profile match, and policy.
+- JDBC `Connection.setReadOnly(true)` and statement/query timeout are used when
+  supported.
+- Database credentials must still be least-privilege read-only.
+- DDL, DML, transaction control, session mutation, privilege changes, stored
+  procedures, unsafe `EXPLAIN ANALYZE`, file import/export, extension loading,
+  shell/program operations, and file/network side effects through SQL are
+  blocked in the MVP.
+
+Future real-runtime result DTOs should carry query/run id, source profile
+id/name, status, columns, capped display-safe rows, returned and known total row
+counts, truncation flags, elapsed time, warnings, redacted error category and
+message, and safety flags. DTOs/logs/prompts must not contain credentials, raw
+secret-bearing JDBC URLs, tokens, Kerberos tickets, private keys, certificates,
+unbounded driver output, or hidden secret references.
+
+Workspace Agent may draft SQL, explain visible SQL, and later create visible
+proposal cards. It must not execute SQL automatically, select connectors
+silently, read hidden connector/schema/result context, use credentials
+invisibly, bypass caps/read-only policy, or exfiltrate results into hidden
+provider context. Results become AI-visible only after visible operator review
+and explicit sharing approval.
+
+Safe future implementation phases:
+
+1. Protocol/types only.
+2. Sidecar health/probe with no driver loading or SQL execution.
+3. Explicit driver loading with no query execution.
+4. Read-only query execution against test DB only.
+5. UI profile selection and runtime status.
+6. Visible result preview/caps and redacted errors.
+7. Workspace Agent proposal integration without automatic execution.
 
 ## Block 264 Scaffold
 
@@ -224,7 +310,7 @@ proposal cards, widget logs, persisted query results, or test snapshots.
   sidecar implementation block.
 - The Block 264 Java scaffold is test-only. It is not the default JDBC widget
   runtime and does not make real database connections possible by itself.
-- Coordinator Chat remains suggest/copy only for JDBC SQL and cannot invoke the
+- Workspace Agent remains suggest/copy only for JDBC SQL and cannot invoke the
   adapter.
 - No storage schema, credential UI, driver installation, broad JDBC sidecar, or
   result persistence is implied by this decision.

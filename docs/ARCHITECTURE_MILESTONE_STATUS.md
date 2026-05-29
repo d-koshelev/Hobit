@@ -54,6 +54,16 @@ behavior, or Workspace Agent context wiring.
   approved visible proposal flow, read-only SQL enforcement, row/time/result
   caps, no DDL/DML/stored-procedure MVP, redacted visible errors, visible
   result preview, and no hidden Workspace Agent query execution.
+- Database / JDBC real-runtime architecture is now defined as a Planned design
+  contract, not implemented behavior: a Hobit-owned Java JDBC sidecar over
+  narrow local stdio JSON-RPC or equivalent IPC, with Rust/Tauri as the policy
+  gate, process lifecycle owner, timeout/cancellation controller, and redaction
+  boundary. Future implementation must use explicit user/admin driver JAR
+  configuration, no hidden filesystem driver scans, layered read-only
+  enforcement in Rust and the sidecar, JDBC `setReadOnly(true)` when supported,
+  row/time/result caps, display-safe DTOs, redacted errors, visible results,
+  and no hidden Workspace Agent, Queue, Executor, Terminal, Git, provider, or
+  background SQL execution.
 - Workspace Agent product positioning is foreground-agent first: planning,
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Workspace Agent, while Queue and Agent Executor remain async/background
@@ -232,7 +242,8 @@ sent to a provider.
 - hidden prompt augmentation;
 - Workspace Agent hidden context access;
 - real JDBC connector runtime, JDBC credential persistence, OS keychain
-  integration, write SQL, or Workspace Agent JDBC auto-query execution;
+  integration, driver loading, production Java sidecar query execution,
+  write SQL, or Workspace Agent JDBC auto-query execution;
 - hidden Workspace Agent Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;
 - embeddings/vector DB;

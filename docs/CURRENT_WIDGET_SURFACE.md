@@ -515,6 +515,16 @@ Workspace Agent is the foreground interactive agent surface.
 - A backend adapter boundary, runtime config loader, Java sidecar scaffold, and
   JDK-gated tests exist for future opt-in sidecar work. The default product
   runtime remains mock-only.
+- The future real-runtime shape is now defined as a Planned design contract:
+  Hobit desktop owns a Java JDBC sidecar over narrow local stdio JSON-RPC or
+  equivalent IPC, Rust/Tauri remains the policy gate and lifecycle owner, and
+  the sidecar may execute only approved read-only requests. This is not current
+  runtime behavior.
+- Future real JDBC execution must use explicit operator Run or a later approved
+  widget-owned proposal, runtime-only/approved secret handling, explicit
+  user/admin driver JAR configuration, read-only SQL enforcement in both Rust
+  and the sidecar, JDBC `setReadOnly(true)` when supported, row/time/result
+  caps, redacted errors, visible results, and no hidden AI execution.
 - The current widget does not collect credentials, store passwords or tokens,
   test real database connections, run SQL against external systems, run
   real database `EXPLAIN`, format SQL, provide AI query assistance, expose a

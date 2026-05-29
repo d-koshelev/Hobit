@@ -471,6 +471,210 @@ Block 266 mock sidecar activation:
 - `WorkspaceService::new(...)`, the Tauri production path, and the JDBC widget
   default remain on `MockReadOnlyJdbcAdapter`
 
+## Planned Real Runtime Architecture
+
+This section is a future design contract only. It does not implement real JDBC
+execution, add JDBC drivers, add sidecar process code that connects to
+databases, store credentials, add keychain integration, add schema/storage
+migrations, enable write SQL, or give Workspace Agent an automatic JDBC tool.
+The current product runtime remains mock-default.
+
+Recommended real-runtime shape:
+
+- Hobit desktop owns a Java JDBC sidecar process.
+- Rust/Tauri remains the policy gate, request validator, lifecycle owner, and
+  only process launcher.
+- The local IPC is stdio JSON-RPC or an equivalently narrow local JSON protocol.
+- The sidecar accepts only approved read-only query requests from Hobit.
+- The sidecar is not a general SQL server, remote API, shell bridge, Java
+  plugin host, schema crawler, or Workspace Agent tool endpoint.
+
+This shape is preferred because JDBC is JVM-native, driver behavior is already
+defined around Java `DriverManager`/`DataSource` semantics, embedding a JVM
+inside Rust/Tauri would increase lifecycle and packaging risk, and a separate
+process provides driver/JAR isolation while leaving Hobit desktop in control of
+policy, request caps, process lifetime, logging, and shutdown.
+
+### Sidecar Lifecycle Contract
+
+Future implementation must choose between per-query and long-lived sidecar
+lifetimes explicitly:
+
+- Per-query sidecar: simpler isolation and cleanup, easier cancellation by
+  process kill, less risk of stale credentials or leaked connection/session
+  state, but higher startup cost.
+- Long-lived sidecar: better latency and optional connection pooling, but
+  requires explicit health checks, idle shutdown, connection cleanup, memory
+  caps, protocol version negotiation, and stronger crash recovery.
+
+The MVP should prefer per-query execution unless measurement proves startup
+cost is unacceptable for supported databases. A later long-lived sidecar may be
+accepted only after its health, idle timeout, cancellation, and cleanup rules
+are documented and tested.
+
+Lifecycle requirements:
+
+- Hobit starts the sidecar only after an explicit operator Run or a later
+  approved widget-owned proposal flow.
+- Hobit passes one bounded request containing a query id/run id, selected
+  profile identity, validated SQL, caps, protocol version, and backend-resolved
+  runtime configuration.
+- Hobit stops a per-query sidecar after one response, timeout, cancellation, or
+  crash.
+- A long-lived sidecar must be owned by the desktop runtime state, not storage,
+  and must stop on app shutdown, profile disable, protocol mismatch, repeated
+  crash, or explicit operator disconnect.
+- Query timeout is mandatory and must be enforced by Rust process control and,
+  when possible, JDBC statement timeout.
+- Cancellation must close the active statement/connection when possible and
+  must terminate the sidecar process when a graceful cancel does not complete
+  within a bounded grace period.
+- Sidecar stderr/stdout must be capped. Logs must redact raw JDBC URLs,
+  usernames when policy treats them as sensitive, passwords, tokens,
+  environment values, private keys, certificates, SQL result values, and driver
+  dumps.
+- Crash, invalid JSON, protocol mismatch, failed start, non-zero exit, timeout,
+  and oversized response must map to sanitized visible statuses such as
+  `not_configured`, `unsupported_driver`, `connection_failed`, `timeout`, or
+  `execution_failed`.
+- Protocol negotiation must include a protocol version and sidecar runtime kind
+  before any real query runs. Unknown versions or runtime kinds fail closed.
+- The sidecar must not run in hidden background mode, poll databases, watch
+  profiles, schedule queries, auto-reconnect for hidden work, or continue work
+  after the visible owning query is canceled or completed.
+
+### Driver Loading Contract
+
+Future real JDBC execution depends on operator/admin-provided JDBC driver JARs.
+Hobit must not bundle proprietary drivers in the MVP and must not download
+drivers automatically.
+
+Driver rules:
+
+- Driver location is explicit and selected/configured by the operator or admin.
+- Profile metadata may reference non-secret driver metadata such as driver kind,
+  display label, configured driver id, version label, explicit path, or future
+  content hash when those values are allowed by policy.
+- Workspace DB/export data must not contain embedded driver binaries or
+  credentials.
+- Hobit must not scan arbitrary folders looking for JARs or infer driver paths
+  from hidden filesystem traversal.
+- The sidecar must load only the configured driver path(s) for the selected
+  profile/request.
+- Driver load failures must be visible and redacted. They must not print raw
+  local directory listings, classpaths, environment values, usernames,
+  passwords, tokens, or full secret-bearing JDBC URLs.
+- Future allowlist, pinned hash, signature, or admin policy checks are
+  recommended before production use in managed environments.
+
+### Real Read-Only Enforcement Layers
+
+Future real execution must use layered controls. No single validator or JDBC
+setting is enough.
+
+Required layers:
+
+- The UI presents the action as read-only and shows selected profile, SQL, row
+  cap, query timeout, result cap, and risk notes before Run.
+- Rust/app service validates widget ownership, connector/profile scope,
+  profile status, explicit operator Run/proposal approval, SQL classification,
+  row limit, timeout, column/cell/result caps, and no multi-statement batch.
+- Rust/Tauri sends only approved read-only requests to the sidecar.
+- The sidecar independently checks request protocol version, validated
+  read-only flag, SQL statement kind, caps, driver/profile match, and
+  read-only policy before opening or using a connection.
+- JDBC connection `setReadOnly(true)` must be called when supported, and
+  statement/query timeout must be set when supported.
+- Real database credentials should be least-privilege and read-only; Hobit's
+  validator is defense in depth, not a permissions substitute.
+- DDL, DML, transaction control, session mutation, privilege changes, stored
+  procedure execution, unsafe `EXPLAIN ANALYZE` variants, file import/export,
+  extension loading, shell/program operations, and SQL forms with database-side
+  file/network side effects are blocked in the MVP.
+- Multi-statement execution remains disabled in the MVP.
+- Row cap, timeout, result byte cap, column cap, and cell cap are mandatory.
+- Result truncation must be explicit in the returned DTO and visible UI.
+
+### Future Result And Error DTO Boundary
+
+Current runtime DTOs stay unchanged in this block. A future real-runtime DTO
+must remain display-safe and secret-free.
+
+Future result DTO fields should include:
+
+- query id or run id
+- source profile id and display name
+- status
+- columns with display name and value kind/type label
+- rows as capped display-safe scalar strings
+- returned row count
+- known total row count when available
+- truncated flag plus row/column/cell/byte truncation details
+- row limit, timeout, and result byte cap used
+- elapsed time/duration
+- warnings
+- redacted error code/category and redacted message
+- `no_secrets_returned`
+- `no_ai_context_shared` until a separate approved sharing flow exists
+
+DTOs, logs, errors, warnings, frontend state, widget logs/results, Workspace
+events, Queue tasks, Agent Executor artifacts, Knowledge / Skills, Notes,
+provider prompts, and workspace exports must not contain credentials, raw
+secret-bearing JDBC URLs, tokens, Kerberos tickets, private keys, client
+certificates, unbounded driver output, or hidden secret references.
+
+### Future AI / JDBC Capability Contract
+
+Current Workspace Agent may draft SQL suggestion text only. That remains true
+after this block.
+
+Future AI/JDBC behavior may allow Workspace Agent to:
+
+- draft SQL from visible operator-provided context
+- explain visible SQL
+- create a visible JDBC proposal card with connector intent, SQL preview, row
+  limit, timeout, risk notes, and result-sharing intent
+- explain results only after the result is visible in the JDBC widget and the
+  operator explicitly approves the result sample/schema as AI-readable context
+
+Workspace Agent must not:
+
+- execute SQL automatically
+- select connectors silently
+- read connector metadata, schemas, errors, or result rows as hidden context
+- use credentials invisibly
+- bypass row/time/result caps or read-only checks
+- create Queue/Executor work that runs SQL outside the JDBC widget boundary
+- exfiltrate result data into hidden provider context
+- retain database results as ambient memory
+
+The user must explicitly press Run in the JDBC widget or approve a later
+widget-owned proposal that still routes through the JDBC policy gate. Query
+results become AI-visible only after visible operator review and explicit
+sharing. Approval for one query does not grant future hidden connector access,
+schema crawling, credential use, or autonomous SQL execution.
+
+### Future Implementation Phases
+
+Safe implementation phases:
+
+1. Protocol/types only: define real-runtime request/response types, protocol
+   versioning, statuses, and redaction tests without execution.
+2. Sidecar health/probe: start the sidecar for version/health only, with no
+   driver loading and no SQL execution.
+3. Driver loading with no query execution: load explicitly configured test
+   driver paths, report redacted driver status, and avoid folder scanning.
+4. Read-only query execution against test DB only: use test fixtures and
+   read-only credentials, enforce SQL/caps/timeouts in Rust and sidecar, and
+   keep production profiles disabled.
+5. UI connection profile selection: expose profile selection and runtime status
+   without credential persistence.
+6. Result preview/caps: show visible bounded results, truncation, elapsed time,
+   warnings, and redacted errors; no AI sharing by default.
+7. Workspace Agent proposal integration: add visible proposal/copy/apply flow
+   only after real execution and visible result review are stable; no automatic
+   SQL execution.
+
 ## SQL Editor Behavior
 
 Current Preview JDBC UI includes:

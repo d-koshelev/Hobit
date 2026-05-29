@@ -90,6 +90,18 @@ remain mock-default. The loader surfaces safe status only and does not expose
 raw paths or credential values to frontend DTOs. A JDK-gated backend activation
 test can compile and run the Java sidecar `mock_read_only` protocol through
 explicit `JdbcRuntimeConfig`, and skips cleanly when a JDK is unavailable.
+The planned real JDBC runtime shape is now contractually defined but not
+implemented: Hobit desktop should own a Java JDBC sidecar over narrow local
+stdio JSON-RPC or equivalent IPC, while Rust/Tauri remains the policy gate,
+lifecycle owner, request validator, timeout/cancellation controller, and
+redaction boundary. The sidecar is future-only and may execute only approved
+read-only requests; it is not a general SQL server, remote API, shell bridge,
+driver browser, Workspace Agent tool endpoint, Queue/Executor path, or hidden
+background runtime. Future real execution requires explicit user Run or an
+approved widget-owned proposal, explicit user/admin driver JAR configuration,
+runtime-only or separately approved secret handling, layered read-only
+enforcement, row/time/result caps, redacted visible errors, visible results,
+and no hidden AI execution.
 Workspace Agent product direction is represented today by Workspace Agent
 as a foreground chat-based work surface, with frontend action proposal
 cards, visible attachments, and a backend-owned provider response path for
@@ -761,6 +773,11 @@ operator Run or approved widget-owned proposal flow, enforce SELECT/read-only
 classification, statement timeout, row/result caps, no multi-statement batches
 without safe parsing, no DDL/DML, no stored procedure MVP, no SQL file/network
 side effects, and visible redacted errors/results before any AI context use.
+The accepted future runtime boundary keeps the Java sidecar behind the app
+service: Rust/Tauri validates and caps the request, owns process lifecycle,
+maps crashes/timeouts/protocol failures into sanitized statuses, and never
+lets Workspace Agent, Queue, Agent Executor, Terminal, Git, or a provider call
+the sidecar directly.
 The application service does not restore runtime state, provide Agent
 Monitoring persisted Direct Work reads, provide Terminal tabs/history,
 automatically dispatch tasks, approve/apply proposals, execute real JDBC
