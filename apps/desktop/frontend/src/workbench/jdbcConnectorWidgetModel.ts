@@ -36,6 +36,21 @@ export type JdbcReadOnlyExecutionPolicy = {
   queryTimeoutMs: number;
 };
 
+export type JdbcExperimentalRuntimeDraft = {
+  enabled: boolean;
+  javaProgram: string;
+  sidecarClasspath: string;
+  sidecarMainClass: string;
+  driverJarPath: string;
+  driverClassName: string;
+  jdbcUrl: string;
+  username: string;
+  credentialEnvVarName: string;
+  maxRows: number;
+  timeoutMs: number;
+  maxResultBytes: number;
+};
+
 export const DATABASE_KIND_OPTIONS: Array<{
   label: string;
   value: JdbcDatabaseKind;

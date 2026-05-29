@@ -81,6 +81,29 @@ export async function executeJdbcReadOnlyQuery(
         max_columns: request.maxColumns ?? null,
         max_cell_chars: request.maxCellChars ?? null,
         max_result_bytes: request.maxResultBytes ?? null,
+        experimental_sidecar: request.experimentalSidecar
+          ? {
+              enabled: request.experimentalSidecar.enabled,
+              java_program: request.experimentalSidecar.javaProgram ?? null,
+              sidecar_jar_path:
+                request.experimentalSidecar.sidecarJarPath ?? null,
+              sidecar_classpath:
+                request.experimentalSidecar.sidecarClasspath ?? null,
+              sidecar_main_class:
+                request.experimentalSidecar.sidecarMainClass ?? null,
+              driver_jar_path: request.experimentalSidecar.driverJarPath,
+              driver_class_name:
+                request.experimentalSidecar.driverClassName ?? null,
+              jdbc_url: request.experimentalSidecar.jdbcUrl,
+              username: request.experimentalSidecar.username ?? null,
+              credential_env_var_name:
+                request.experimentalSidecar.credentialEnvVarName ?? null,
+              max_rows: request.experimentalSidecar.maxRows ?? null,
+              timeout_ms: request.experimentalSidecar.timeoutMs ?? null,
+              max_result_bytes:
+                request.experimentalSidecar.maxResultBytes ?? null,
+            }
+          : null,
       },
     },
   );

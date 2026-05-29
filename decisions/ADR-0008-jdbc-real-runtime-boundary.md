@@ -46,13 +46,22 @@ reference ids, read-only policy caps, bounded results, safety flags, and
 redacted errors. They are contract/test scaffolding only and are not called by
 the current JDBC runtime.
 
+Block 268 implements the first Experimental real read-only sidecar prototype.
+This narrows, rather than replaces, the ADR: the default adapter remains
+`MockReadOnlyJdbcAdapter`; real JDBC is request-scoped, opt-in, and reachable
+only from an explicit Database / JDBC widget Run when the operator supplies all
+runtime inputs. The prototype uses the existing flat stdin/stdout JSON process
+mapping, not the full typed envelope, for runtime execution.
+
 ## Real Runtime Architecture Contract
 
 This ADR now fixes the future real-runtime shape without implementing it.
 Current product behavior remains mock-default; no JDBC drivers, credential
 storage, keychain integration, real database connections, write SQL, schema
 migrations, Queue/Executor behavior, or Workspace Agent automatic execution are
-added by this decision.
+added by this decision. The later Experimental prototype adds only
+runtime-only explicit driver/JDBC execution for one visible read-only query and
+does not persist credentials or runtime configuration.
 
 Real JDBC execution should run in a Hobit-owned Java sidecar because JDBC is
 JVM-native, driver behavior is Java-first, and a separate process avoids
@@ -84,6 +93,8 @@ Driver loading contract:
 
 - User/admin supplies explicit JDBC driver JAR paths.
 - Hobit does not bundle proprietary drivers or download drivers in the MVP.
+- The Experimental prototype loads one explicit driver JAR path for the current
+  Run only; it does not scan folders or manage driver installation.
 - Profile metadata may reference non-secret driver labels, configured driver
   ids, explicit paths, version labels, or future hashes when policy allows.
 - Hobit must not scan arbitrary folders for drivers.
@@ -107,6 +118,9 @@ Read-only enforcement is layered:
   procedures, unsafe `EXPLAIN ANALYZE`, file import/export, extension loading,
   shell/program operations, and file/network side effects through SQL are
   blocked in the MVP.
+- The Experimental prototype uses a stricter MVP app/sidecar guard than the
+  mock path: only single-statement `SELECT` and `WITH` are allowed. `SHOW`,
+  `DESCRIBE`, and mock `EXPLAIN` wrappers remain mock-path behavior.
 
 Future real-runtime result DTOs should carry query/run id, source profile
 id/name, status, columns, capped display-safe rows, returned and known total row
@@ -319,13 +333,20 @@ Workspace Agent, Queue, Executor, Codex, Terminal, Git, or frontend behavior.
 
 Credentials are backend-only runtime configuration.
 
-Allowed future credential sources are:
+Allowed prototype/future credential sources are:
 
 - environment variables
 - backend-only config files
 - OS keyring or a future secret store
 - session-only operator-provided values after a separate secret-handling
   contract
+
+The Experimental prototype supports password environment variable names only.
+Hobit does not collect or persist password values. The sidecar receives the
+environment variable name in the request and reads the value from its inherited
+process environment if the operator configured one outside Hobit. JDBC URLs
+with obvious password/token/secret parameters are rejected by the Rust app
+layer.
 
 The frontend sees only safe connector metadata: connector id, display label,
 database kind, driver kind, masked JDBC URL metadata, environment,
@@ -348,9 +369,10 @@ resolves credentials through those DTOs.
 - Authentication failures use generic messages and never include usernames,
   passwords, tokens, raw JDBC URLs, environment values, or driver dumps.
 - Mock execution remains deterministic and default until a later explicit
-  sidecar implementation block.
-- The Block 264 Java scaffold is test-only. It is not the default JDBC widget
-  runtime and does not make real database connections possible by itself.
+  production sidecar implementation block.
+- The Java sidecar now has an Experimental real JDBC branch. It is not the
+  default JDBC widget runtime, does not make production JDBC available, and
+  requires a user-provided driver/database for manual smoke.
 - Workspace Agent remains suggest/copy only for JDBC SQL and cannot invoke the
   adapter.
 - No storage schema, credential UI, driver installation, broad JDBC sidecar, or

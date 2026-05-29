@@ -42,6 +42,10 @@ impl JdbcRuntimeSecret {
             value: format!("{label}:present"),
         }
     }
+
+    pub(super) fn as_str(&self) -> &str {
+        &self.value
+    }
 }
 
 impl fmt::Debug for JdbcRuntimeSecret {
@@ -50,13 +54,39 @@ impl fmt::Debug for JdbcRuntimeSecret {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub(super) struct JdbcSidecarRuntimeConfig {
     pub(super) driver_kind: String,
     pub(super) runtime_kind: String,
-    pub(super) jdbc_url: JdbcRuntimeSecret,
-    pub(super) username: Option<JdbcRuntimeSecret>,
-    pub(super) password: Option<JdbcRuntimeSecret>,
+    pub(super) driver_jar_path: Option<String>,
+    pub(super) driver_class_name: Option<String>,
+    pub(super) jdbc_url: Option<JdbcRuntimeSecret>,
+    pub(super) username: Option<String>,
+    pub(super) credential_env_var_name: Option<String>,
+}
+
+impl fmt::Debug for JdbcSidecarRuntimeConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("JdbcSidecarRuntimeConfig")
+            .field("driver_kind", &self.driver_kind)
+            .field("runtime_kind", &self.runtime_kind)
+            .field(
+                "driver_jar_path_configured",
+                &self.driver_jar_path.is_some(),
+            )
+            .field(
+                "driver_class_name_configured",
+                &self.driver_class_name.is_some(),
+            )
+            .field("jdbc_url_configured", &self.jdbc_url.is_some())
+            .field("username_configured", &self.username.is_some())
+            .field(
+                "credential_env_var_name_configured",
+                &self.credential_env_var_name.is_some(),
+            )
+            .finish()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

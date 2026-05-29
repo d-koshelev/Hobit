@@ -140,11 +140,13 @@ fn sidecar_connector() -> JdbcReadOnlyRuntimeConnector {
         runtime_config: JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
             driver_kind: "jdbc".to_owned(),
             runtime_kind: "mock_read_only".to_owned(),
-            jdbc_url: JdbcRuntimeSecret::new(format!(
+            driver_jar_path: None,
+            driver_class_name: None,
+            jdbc_url: Some(JdbcRuntimeSecret::new(format!(
                 "jdbc:postgresql://private-host/app?password={SECRET_SENTINEL}"
-            )),
-            username: Some(JdbcRuntimeSecret::new("readonly-user")),
-            password: Some(JdbcRuntimeSecret::new(SECRET_SENTINEL)),
+            ))),
+            username: Some("readonly-user".to_owned()),
+            credential_env_var_name: Some("HOBIT_TEST_PASSWORD".to_owned()),
         }),
     }
 }

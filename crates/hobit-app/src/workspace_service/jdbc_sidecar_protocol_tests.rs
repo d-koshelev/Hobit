@@ -209,6 +209,28 @@ fn sidecar_request_json_contains_only_safe_runtime_fields() {
 }
 
 #[test]
+fn real_sidecar_request_json_uses_env_reference_without_password_value_field() {
+    let request = adapter_request(real_sidecar_connector(), valid_validation(), "select 1");
+    let json = build_sidecar_request_json(&request);
+    let value: Value = serde_json::from_str(&json).expect("request json");
+
+    assert_eq!(value["runtime_kind"], "real_jdbc");
+    assert_eq!(value["request"], "executeReadOnlyQuery");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["allow_multi_statement"], false);
+    assert_eq!(value["allow_stored_procedures"], false);
+    assert_eq!(value["driver_jar_path"], "target/test-driver.jar");
+    assert_eq!(value["driver_class_name"], "org.example.Driver");
+    assert_eq!(value["jdbc_url"], "jdbc:example://localhost/app");
+    assert_eq!(value["credential_env_var_name"], "HOBIT_TEST_DB_CREDENTIAL");
+    assert_no_forbidden_secret_keys(&value);
+    assert!(!json.contains(SECRET_SENTINEL));
+    assert!(!json.contains("secretValue"));
+    assert!(!json.contains("\"password\""));
+    assert!(!json.contains("\"token\""));
+}
+
+#[test]
 fn maps_completed_sidecar_response_to_bounded_result_model() {
     let request = adapter_request(sidecar_connector(), valid_validation(), "select 1");
     let response = json!({
@@ -407,11 +429,32 @@ fn sidecar_connector() -> JdbcReadOnlyRuntimeConnector {
         runtime_config: JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
             driver_kind: "jdbc".to_owned(),
             runtime_kind: "mock_read_only".to_owned(),
-            jdbc_url: JdbcRuntimeSecret::new(format!(
+            driver_jar_path: None,
+            driver_class_name: None,
+            jdbc_url: Some(JdbcRuntimeSecret::new(format!(
                 "jdbc:postgresql://private-host/app?password={SECRET_SENTINEL}"
-            )),
-            username: Some(JdbcRuntimeSecret::new("readonly-user")),
-            password: Some(JdbcRuntimeSecret::new(SECRET_SENTINEL)),
+            ))),
+            username: Some("readonly-user".to_owned()),
+            credential_env_var_name: Some("HOBIT_TEST_PASSWORD".to_owned()),
+        }),
+    }
+}
+
+fn real_sidecar_connector() -> JdbcReadOnlyRuntimeConnector {
+    JdbcReadOnlyRuntimeConnector {
+        connector_id: "jdbc-sidecar".to_owned(),
+        display_name: "Sidecar connector".to_owned(),
+        database_kind: "postgres".to_owned(),
+        driver_kind: "jdbc".to_owned(),
+        environment: "dev".to_owned(),
+        runtime_config: JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
+            driver_kind: "jdbc".to_owned(),
+            runtime_kind: "real_jdbc".to_owned(),
+            driver_jar_path: Some("target/test-driver.jar".to_owned()),
+            driver_class_name: Some("org.example.Driver".to_owned()),
+            jdbc_url: Some(JdbcRuntimeSecret::new("jdbc:example://localhost/app")),
+            username: Some("readonly_user".to_owned()),
+            credential_env_var_name: Some("HOBIT_TEST_DB_CREDENTIAL".to_owned()),
         }),
     }
 }

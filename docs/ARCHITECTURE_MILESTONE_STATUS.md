@@ -41,29 +41,23 @@ behavior, or Workspace Agent context wiring.
 - Context Pack refs v0 exist as type-only Rust refs.
 - Workspace Agent context boundary inspection confirmed current provider requests
   remain visible-context-only with `allowed_tools: []`.
-- Database / JDBC runtime audit confirmed the current product path remains a
-  Preview mock-default read-only query surface: `MockReadOnlyJdbcAdapter` is
-  active through `WorkspaceService::new(...)`, sidecar/real runtime support is
-  opt-in/test/future only, no credentials are stored, no writes/DDL/DML run,
-  and Workspace Agent has no JDBC execution path. The future connector profile
-  boundary is now defined as non-secret profile metadata only; passwords,
+- Database / JDBC runtime audit confirmed the current default product path
+  remains a Preview mock-default read-only query surface:
+  `MockReadOnlyJdbcAdapter` is active through `WorkspaceService::new(...)`,
+  no credentials are stored, no writes/DDL/DML run, and Workspace Agent has no
+  JDBC execution path. An Experimental real read-only Java sidecar prototype
+  now exists only for explicit operator-triggered JDBC widget Runs with
+  request-scoped runtime inputs. The future connector profile boundary is now
+  defined as non-secret profile metadata only; passwords,
   tokens, Kerberos tickets, private keys, client certificates, and
   secret-bearing connection strings must not be stored in workspace DB data or
-  workspace exports. Future real execution remains unimplemented and must use
-  runtime-only or later OS-secret-store credentials, explicit operator Run or
-  approved visible proposal flow, read-only SQL enforcement, row/time/result
-  caps, no DDL/DML/stored-procedure MVP, redacted visible errors, visible
-  result preview, and no hidden Workspace Agent query execution.
-- Database / JDBC real-runtime architecture is now defined as a Planned design
-  contract, not implemented behavior: a Hobit-owned Java JDBC sidecar over
-  narrow local stdio JSON-RPC or equivalent IPC, with Rust/Tauri as the policy
-  gate, process lifecycle owner, timeout/cancellation controller, and redaction
-  boundary. Future implementation must use explicit user/admin driver JAR
-  configuration, no hidden filesystem driver scans, layered read-only
-  enforcement in Rust and the sidecar, JDBC `setReadOnly(true)` when supported,
-  row/time/result caps, display-safe DTOs, redacted errors, visible results,
-  and no hidden Workspace Agent, Queue, Executor, Terminal, Git, provider, or
-  background SQL execution.
+  workspace exports. The Experimental sidecar uses explicit driver JAR path,
+  no folder scanning, no driver download, no bundled proprietary drivers,
+  password environment variable name rather than password value, Rust and
+  sidecar SELECT/WITH read-only guards, JDBC `setReadOnly(true)` where
+  supported, row/time/result caps, display-safe DTOs, redacted errors, visible
+  results, and no hidden Workspace Agent, Queue, Executor, Terminal, Git,
+  provider, or background SQL execution. It is not production JDBC.
 - Database / JDBC sidecar protocol shapes now exist as inert Rust serde DTOs
   and contract tests in `hobit-app`. They define future request/response
   envelopes, profile/driver/credential-reference metadata, read-only policy
@@ -200,8 +194,10 @@ behavior, or Workspace Agent context wiring.
 - Context Pack refs do not create Context Pack storage, selection UI,
   Workspace Agent context wiring, provider prompt wiring, or sharing behavior.
 - JDBC sidecar protocol DTOs do not create production sidecar execution,
-  driver loading, database connections, credential persistence, OS keychain
-  integration, SQL execution, or frontend/runtime behavior.
+  credential persistence, OS keychain integration, broad SQL execution, or AI
+  execution behavior. The implemented Experimental sidecar prototype can load
+  one explicit driver JAR and run one capped read-only SELECT/WITH query only
+  when the JDBC widget operator supplies all runtime inputs for that Run.
 
 ## Do Not Overclaim
 
@@ -250,8 +246,8 @@ sent to a provider.
 - Context Pack provider wiring;
 - hidden prompt augmentation;
 - Workspace Agent hidden context access;
-- real JDBC connector runtime, JDBC credential persistence, OS keychain
-  integration, driver loading, production Java sidecar query execution,
+- production JDBC connector runtime, JDBC credential persistence, OS keychain
+  integration, managed driver loading, production Java sidecar query execution,
   write SQL, or Workspace Agent JDBC auto-query execution;
 - hidden Workspace Agent Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;

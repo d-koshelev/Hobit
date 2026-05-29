@@ -21,6 +21,24 @@ pub struct ExecuteJdbcReadOnlyQueryInput {
     pub max_columns: Option<usize>,
     pub max_cell_chars: Option<usize>,
     pub max_result_bytes: Option<usize>,
+    pub experimental_sidecar: Option<JdbcExperimentalSidecarRuntimeInput>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JdbcExperimentalSidecarRuntimeInput {
+    pub enabled: bool,
+    pub java_program: Option<String>,
+    pub sidecar_jar_path: Option<String>,
+    pub sidecar_classpath: Option<String>,
+    pub sidecar_main_class: Option<String>,
+    pub driver_jar_path: String,
+    pub driver_class_name: Option<String>,
+    pub jdbc_url: String,
+    pub username: Option<String>,
+    pub credential_env_var_name: Option<String>,
+    pub max_rows: Option<usize>,
+    pub timeout_ms: Option<u64>,
+    pub max_result_bytes: Option<usize>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

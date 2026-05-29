@@ -164,6 +164,47 @@
   margin: var(--space-xs) 0 0;
 }
 
+.jdbc-experimental-runtime {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: color-mix(
+    in srgb,
+    var(--color-warning-soft) 68%,
+    var(--color-nested-surface)
+  );
+  padding: var(--space-sm);
+}
+
+.jdbc-experimental-runtime summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 680;
+}
+
+.jdbc-experimental-runtime[open] summary {
+  margin-bottom: var(--space-sm);
+}
+
+.jdbc-experimental-copy p {
+  margin: 0;
+  color: var(--color-warning);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.jdbc-experimental-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-sm);
+}
+
 .jdbc-layout {
   display: grid;
   flex: 1 1 auto;
@@ -336,7 +377,7 @@
 
 .jdbc-query-controls {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(120px, 160px);
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(120px, 160px));
   gap: var(--space-sm);
 }
 

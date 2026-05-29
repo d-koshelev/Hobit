@@ -5,7 +5,9 @@ use std::path::PathBuf;
 
 use hobit_storage_sqlite::JdbcConnectorRow;
 
-use super::jdbc_query_types::JdbcReadOnlyQueryResultSummary;
+use super::jdbc_query_types::{
+    JdbcExperimentalSidecarRuntimeInput, JdbcReadOnlyQueryResultSummary,
+};
 use super::jdbc_runtime::{
     JdbcConnectorRuntimeConfig, JdbcReadOnlyAdapterRequest, JdbcReadOnlyRuntimeConnector,
     JdbcRuntimeSecret, JdbcSidecarRuntimeConfig, MockReadOnlyJdbcAdapter, ReadOnlyJdbcAdapter,
@@ -31,6 +33,7 @@ pub(super) const ENV_JDBC_SIDECAR_PASSWORD_PRESENT: &str = "HOBIT_JDBC_SIDECAR_P
 const DEFAULT_SIDECAR_JAVA_PROGRAM: &str = "java";
 const DEFAULT_SIDECAR_MAIN_CLASS: &str = "com.hobit.jdbc.JdbcReadOnlySidecar";
 const DEFAULT_SIDECAR_RUNTIME_KIND: &str = "mock_read_only";
+const REAL_JDBC_RUNTIME_KIND: &str = "real_jdbc";
 const DEFAULT_SIDECAR_DRIVER_KIND: &str = "jdbc";
 const DEFAULT_SIDECAR_TIMEOUT_MS: u64 = 10_000;
 const MAX_SIDECAR_TIMEOUT_MS: u64 = 10_000;
@@ -95,6 +98,115 @@ impl JdbcRuntimeConfig {
                     credential_presence: JdbcSidecarCredentialPresence::default(),
                 },
             },
+        }
+    }
+
+    pub(super) fn from_explicit_sidecar(
+        connector_id: &str,
+        input: &JdbcExperimentalSidecarRuntimeInput,
+        row_limit: usize,
+        timeout_ms: u64,
+        max_result_bytes: usize,
+    ) -> Self {
+        if !input.enabled {
+            return Self::mock();
+        }
+
+        let credential_presence = JdbcSidecarCredentialPresence {
+            jdbc_url: true,
+            username: input
+                .username
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty()),
+            password: input
+                .credential_env_var_name
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty()),
+        };
+
+        let driver_jar_path = input.driver_jar_path.trim();
+        let jdbc_url = input.jdbc_url.trim();
+        let sidecar_timeout_ms = input
+            .timeout_ms
+            .unwrap_or(timeout_ms)
+            .clamp(1, MAX_SIDECAR_TIMEOUT_MS);
+        let mut status = JdbcRuntimeStatusSummary {
+            adapter: ADAPTER_SIDECAR.to_owned(),
+            status: STATUS_SIDECAR_NOT_CONFIGURED.to_owned(),
+            message: SIDECAR_NOT_CONFIGURED_MESSAGE.to_owned(),
+            sidecar_enabled: true,
+            connector_runtime_id: Some(connector_id.to_owned()),
+            runtime_kind: Some(REAL_JDBC_RUNTIME_KIND.to_owned()),
+            driver_kind: Some(DEFAULT_SIDECAR_DRIVER_KIND.to_owned()),
+            credential_presence: credential_presence.clone(),
+        };
+
+        if driver_jar_path.is_empty() {
+            status.message =
+                "JDBC driver JAR path is required for experimental sidecar execution.".to_owned();
+            return Self {
+                adapter: JdbcRuntimeAdapterConfig::Sidecar(JdbcSidecarAdapterRuntime::unavailable(
+                    Some(connector_id.to_owned()),
+                    &status.message,
+                    credential_presence,
+                )),
+                status,
+            };
+        }
+
+        if jdbc_url.is_empty() {
+            status.message = "JDBC URL is required for experimental sidecar execution.".to_owned();
+            return Self {
+                adapter: JdbcRuntimeAdapterConfig::Sidecar(JdbcSidecarAdapterRuntime::unavailable(
+                    Some(connector_id.to_owned()),
+                    &status.message,
+                    credential_presence,
+                )),
+                status,
+            };
+        }
+
+        if contains_secret_bearing_url_key(jdbc_url) {
+            status.message =
+                "JDBC URL must not contain password, token, or secret parameters; use a credential environment variable name.".to_owned();
+            return Self {
+                adapter: JdbcRuntimeAdapterConfig::Sidecar(JdbcSidecarAdapterRuntime::unavailable(
+                    Some(connector_id.to_owned()),
+                    &status.message,
+                    credential_presence,
+                )),
+                status,
+            };
+        }
+
+        let launch = explicit_sidecar_launch(input, sidecar_timeout_ms);
+        status.status = if launch.runner.is_some() {
+            STATUS_SIDECAR_CONFIGURED.to_owned()
+        } else {
+            STATUS_SIDECAR_NOT_CONFIGURED.to_owned()
+        };
+        status.message = launch.safe_status_message.clone();
+
+        Self {
+            adapter: JdbcRuntimeAdapterConfig::Sidecar(JdbcSidecarAdapterRuntime {
+                connector_id: Some(connector_id.to_owned()),
+                driver_kind: DEFAULT_SIDECAR_DRIVER_KIND.to_owned(),
+                runtime_kind: REAL_JDBC_RUNTIME_KIND.to_owned(),
+                credential_presence,
+                explicit_runtime: Some(ExplicitJdbcSidecarRuntime {
+                    driver_jar_path: driver_jar_path.to_owned(),
+                    driver_class_name: trim_option(input.driver_class_name.as_deref()),
+                    jdbc_url: JdbcRuntimeSecret::new(jdbc_url),
+                    username: trim_option(input.username.as_deref()),
+                    credential_env_var_name: trim_option(input.credential_env_var_name.as_deref()),
+                    max_rows: row_limit,
+                    timeout_ms,
+                    max_result_bytes,
+                }),
+                runner: launch.runner,
+                unavailable_message: Some(launch.safe_status_message),
+            }),
+            status,
         }
     }
 
@@ -189,6 +301,7 @@ impl JdbcRuntimeConfig {
                 driver_kind,
                 runtime_kind,
                 credential_presence,
+                explicit_runtime: None,
                 runner: launch.runner,
                 unavailable_message: Some(launch.safe_status_message),
             }),
@@ -268,8 +381,43 @@ struct JdbcSidecarAdapterRuntime {
     driver_kind: String,
     runtime_kind: String,
     credential_presence: JdbcSidecarCredentialPresence,
+    explicit_runtime: Option<ExplicitJdbcSidecarRuntime>,
     runner: Option<JdbcSidecarProcessRunner>,
     unavailable_message: Option<String>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct ExplicitJdbcSidecarRuntime {
+    driver_jar_path: String,
+    driver_class_name: Option<String>,
+    jdbc_url: JdbcRuntimeSecret,
+    username: Option<String>,
+    credential_env_var_name: Option<String>,
+    max_rows: usize,
+    timeout_ms: u64,
+    max_result_bytes: usize,
+}
+
+impl fmt::Debug for ExplicitJdbcSidecarRuntime {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ExplicitJdbcSidecarRuntime")
+            .field("driver_jar_path_configured", &true)
+            .field(
+                "driver_class_name_configured",
+                &self.driver_class_name.is_some(),
+            )
+            .field("jdbc_url_configured", &true)
+            .field("username_configured", &self.username.is_some())
+            .field(
+                "credential_env_var_name_configured",
+                &self.credential_env_var_name.is_some(),
+            )
+            .field("max_rows", &self.max_rows)
+            .field("timeout_ms", &self.timeout_ms)
+            .field("max_result_bytes", &self.max_result_bytes)
+            .finish()
+    }
 }
 
 impl JdbcSidecarAdapterRuntime {
@@ -283,6 +431,7 @@ impl JdbcSidecarAdapterRuntime {
             driver_kind: DEFAULT_SIDECAR_DRIVER_KIND.to_owned(),
             runtime_kind: DEFAULT_SIDECAR_RUNTIME_KIND.to_owned(),
             credential_presence,
+            explicit_runtime: None,
             runner: None,
             unavailable_message: Some(unavailable_message.to_owned()),
         }
@@ -299,15 +448,27 @@ impl JdbcSidecarAdapterRuntime {
             JdbcConnectorRuntimeConfig::Sidecar(JdbcSidecarRuntimeConfig {
                 driver_kind: self.driver_kind.clone(),
                 runtime_kind: self.runtime_kind.clone(),
-                jdbc_url: JdbcRuntimeSecret::presence_marker("jdbc_url"),
+                driver_jar_path: self
+                    .explicit_runtime
+                    .as_ref()
+                    .map(|runtime| runtime.driver_jar_path.clone()),
+                driver_class_name: self
+                    .explicit_runtime
+                    .as_ref()
+                    .and_then(|runtime| runtime.driver_class_name.clone()),
+                jdbc_url: self
+                    .explicit_runtime
+                    .as_ref()
+                    .map(|runtime| runtime.jdbc_url.clone())
+                    .or_else(|| Some(JdbcRuntimeSecret::presence_marker("jdbc_url"))),
                 username: self
-                    .credential_presence
-                    .username
-                    .then(|| JdbcRuntimeSecret::presence_marker("username")),
-                password: self
-                    .credential_presence
-                    .password
-                    .then(|| JdbcRuntimeSecret::presence_marker("password")),
+                    .explicit_runtime
+                    .as_ref()
+                    .and_then(|runtime| runtime.username.clone()),
+                credential_env_var_name: self
+                    .explicit_runtime
+                    .as_ref()
+                    .and_then(|runtime| runtime.credential_env_var_name.clone()),
             })
         };
 
@@ -341,10 +502,46 @@ impl fmt::Debug for JdbcSidecarAdapterRuntime {
             .field("driver_kind", &self.driver_kind)
             .field("runtime_kind", &self.runtime_kind)
             .field("credential_presence", &self.credential_presence)
+            .field("explicit_runtime", &self.explicit_runtime)
             .field("runner_configured", &self.runner.is_some())
             .field("unavailable_message", &self.unavailable_message)
             .finish()
     }
+}
+
+fn explicit_sidecar_launch(
+    input: &JdbcExperimentalSidecarRuntimeInput,
+    timeout_ms: u64,
+) -> JdbcSidecarLaunchConfig {
+    let values = BTreeMap::from([
+        (
+            ENV_JDBC_SIDECAR_JAVA_PROGRAM.to_owned(),
+            input
+                .java_program
+                .as_deref()
+                .unwrap_or(DEFAULT_SIDECAR_JAVA_PROGRAM)
+                .to_owned(),
+        ),
+        (
+            ENV_JDBC_SIDECAR_JAR.to_owned(),
+            input.sidecar_jar_path.clone().unwrap_or_default(),
+        ),
+        (
+            ENV_JDBC_SIDECAR_CLASSPATH.to_owned(),
+            input.sidecar_classpath.clone().unwrap_or_default(),
+        ),
+        (
+            ENV_JDBC_SIDECAR_MAIN_CLASS.to_owned(),
+            input
+                .sidecar_main_class
+                .as_deref()
+                .unwrap_or(DEFAULT_SIDECAR_MAIN_CLASS)
+                .to_owned(),
+        ),
+        (ENV_JDBC_SIDECAR_WORKING_DIR.to_owned(), ".".to_owned()),
+    ]);
+
+    sidecar_launch_from_values(&values, timeout_ms)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -414,6 +611,26 @@ fn bool_value(values: &BTreeMap<String, String>, key: &str) -> Option<bool> {
 
 fn u64_value(values: &BTreeMap<String, String>, key: &str) -> Option<u64> {
     value(values, key)?.parse::<u64>().ok()
+}
+
+fn trim_option(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    (!value.is_empty()).then(|| value.to_owned())
+}
+
+fn contains_secret_bearing_url_key(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    [
+        "password=",
+        "passwd=",
+        "pwd=",
+        "token=",
+        "secret=",
+        "apikey=",
+        "api_key=",
+    ]
+    .iter()
+    .any(|key| lower.contains(key))
 }
 
 const JDBC_RUNTIME_ENV_KEYS: &[&str] = &[

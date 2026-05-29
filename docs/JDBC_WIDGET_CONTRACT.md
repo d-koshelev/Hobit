@@ -43,11 +43,15 @@ Block 267 adds inert Rust serde DTOs for the future sidecar protocol envelope,
 profile/driver/credential-reference shape, read-only policy caps, bounded
 result DTOs, and redacted error DTOs. Those types are not wired into runtime
 execution.
-It does not implement real database JDBC execution, SQL formatting, `EXPLAIN`
+Block 268 adds an Experimental real read-only Java sidecar prototype for one
+explicit operator-triggered JDBC widget Run. The product default remains mock.
+The prototype does not persist credentials or runtime config, does not bundle
+or download drivers, and does not add SQL execution for Workspace Agent, Queue,
+Agent Executor, Terminal, Git, providers, or background automation.
+It does not implement production JDBC, SQL formatting, `EXPLAIN`
 visualization, AI provider integration, Workspace Agent runtime, widget tool
-execution, database credential handling, secret storage, Terminal or PTY
-behavior, Git mutation, Queue behavior, Agent Executor behavior, or Runbook
-work.
+execution, credential storage, Terminal or PTY behavior, Git mutation, Queue
+behavior, Agent Executor behavior, or Runbook work.
 
 ## One-Sentence Role
 
@@ -69,13 +73,21 @@ Current product runtime status: Preview, mock-default.
   otherwise supported read-only statements. A real `EXPLAIN` runner,
   visualization, and production database plan workflow remain Deferred.
 - `SidecarReadOnlyJdbcAdapter` and `JdbcRuntimeConfig` exist for opt-in
-  backend tests and future wiring. They do not make a production JDBC runtime
-  active in the Database / JDBC widget today.
+  backend tests, future wiring, and the explicit Experimental sidecar runtime.
+  They do not make a production JDBC runtime active in the Database / JDBC
+  widget by default.
+- Experimental real JDBC is request-scoped and per-run. It requires the
+  operator to enable the Experimental sidecar section and supply runtime-only
+  values: Java executable, sidecar classpath or JAR, explicit driver JAR path,
+  optional driver class name, explicit JDBC URL, optional username, password
+  environment variable name, and row/time/result caps.
 - Missing or unsupported sidecar/real runtime paths must surface visible
   `not_configured` or `unsupported_driver` style errors; they must not fake a
   production connection.
 - No credentials, passwords, tokens, raw JDBC URLs, driver jars, or secret
-  references are collected or persisted by the current widget.
+  references are persisted by the current widget. Experimental runtime values
+  are local UI/request inputs for one explicit Run only, and password values
+  are never entered into Hobit.
 - Workspace Agent may prepare JDBC SQL suggestion text only. It has no
   automatic or hidden JDBC execution path, no JDBC tool, and no access to JDBC
   metadata/results as hidden context.
@@ -109,17 +121,23 @@ Current mock behavior:
 Current sidecar/unsupported behavior:
 
 - Sidecar runtime selection requires explicit backend construction/configuration
-  for tests or future wiring; it is not the product default.
+  for tests/future wiring or explicit operator per-run Experimental runtime
+  input; it is not the product default.
 - Missing launch configuration, missing Java/process support, connector
   mismatches, or unsupported drivers produce sanitized `not_configured` or
   `unsupported_driver` style results.
 - Sidecar config status is presence-only and must not expose raw paths, JDBC
   URLs, usernames, passwords, tokens, or environment values to frontend DTOs.
-- The dependency-free Java scaffold is a mock protocol smoke target, not a real
-  JDBC driver loader or database connection runtime.
-- The inert typed protocol DTOs in `hobit-app` are contract/test scaffolding
-  only. Current query execution still uses the existing mock-default adapter
-  path and the existing test-only sidecar JSON mapping.
+- The dependency-free Java sidecar now includes a happy-path Experimental real
+  JDBC branch in addition to the mock protocol smoke target. It supports
+  HealthCheck, DriverProbe, ExecuteReadOnlyQuery, explicit driver JAR/class
+  loading, JDBC `Connection.setReadOnly(true)` where supported, statement
+  timeout, max rows, capped display-safe results, and redacted errors.
+- The typed protocol DTOs in `hobit-app` remain contract/test scaffolding, but
+  the existing flat sidecar process JSON mapping can now carry request-scoped
+  real JDBC runtime fields for the Experimental path. It carries no password
+  value, token value, private key, certificate content, or `secretValue` field.
+  Real DB smoke requires a user-provided driver and database.
 
 Current request/result types:
 
@@ -128,8 +146,9 @@ Current request/result types:
   kind, `jdbc_url_masked`, environment, read-only default, status, and notes.
 - Validation requests carry workspace id, workbench id, widget instance id,
   connector id, SQL, row limit, and timeout.
-- Execution requests add max columns, max cell characters, and max result
-  bytes.
+- Execution requests add max columns, max cell characters, max result bytes,
+  and an optional request-scoped Experimental sidecar runtime config. The
+  Experimental config is not stored in SQLite or widget state.
 - Validation results carry validity, statement kind, normalized preview,
   rejection reason, and safety notes.
 - Execution results carry status, connector id/display name, validation,
@@ -818,6 +837,10 @@ Additional Current Preview validator rules:
 - Treat validation success as a precondition, not a guarantee of database
   safety; connector-level read-only credentials or transaction mode should be
   used when real execution exists.
+- The Experimental real sidecar path has a stricter MVP guard than the mock
+  path: only `SELECT` and `WITH` single statements are allowed before sidecar
+  launch. `SHOW`, `DESCRIBE`, and mock `EXPLAIN` wrappers remain mock-path
+  behavior only.
 
 ## First Read-Only Execution Slice
 

@@ -503,42 +503,46 @@ Workspace Agent is the foreground interactive agent surface.
   The current validator recognizes `EXPLAIN` only as a mock-path wrapper around
   supported read-only SQL; no real database `EXPLAIN` or plan visualization
   exists.
-- Current runtime status is mock-default. The active product path uses
-  `MockReadOnlyJdbcAdapter`; sidecar/runtime config exists only as an
-  opt-in/test/future boundary and is not configured as the product JDBC widget
-  runtime.
+- Current runtime status is mock-default. The active default product path uses
+  `MockReadOnlyJdbcAdapter`.
+- An Experimental real read-only Java sidecar prototype exists for one
+  explicit operator-triggered Run from the JDBC widget. It is opt-in per run,
+  requires explicit runtime-only Java/sidecar/driver/JDBC URL inputs, uses a
+  password environment variable name rather than a password value, and does
+  not persist those values to SQLite or widget state.
+- Experimental real sidecar execution is a Preview / happy-path prototype. It
+  loads only an explicit driver JAR path, does not scan folders, does not
+  download drivers or bundle proprietary drivers, applies row/time/result
+  caps, asks JDBC for read-only mode where supported, and uses a stricter MVP
+  SQL guard that allows only single-statement `SELECT` or `WITH`.
 - The visible widget shows connection/profile status, read-only safety copy,
   the query editor, explicit `Run read-only query`, visible result/error
   panels, and collapsed runtime details. Missing or unsupported runtime paths
   are shown as visible errors such as `not_configured` or
   `unsupported_driver`.
-- A backend adapter boundary, runtime config loader, Java sidecar scaffold, and
-  JDK-gated tests exist for future opt-in sidecar work. The default product
+- A backend adapter boundary, runtime config loader, Java sidecar prototype,
+  and JDK-gated tests exist for opt-in sidecar work. The default product
   runtime remains mock-only.
-- The future real-runtime shape is now defined as a Planned design contract:
-  Hobit desktop owns a Java JDBC sidecar over narrow local stdio JSON-RPC or
-  equivalent IPC, Rust/Tauri remains the policy gate and lifecycle owner, and
-  the sidecar may execute only approved read-only requests. This is not current
-  runtime behavior.
 - Future real JDBC execution must use explicit operator Run or a later approved
   widget-owned proposal, runtime-only/approved secret handling, explicit
   user/admin driver JAR configuration, read-only SQL enforcement in both Rust
   and the sidecar, JDBC `setReadOnly(true)` when supported, row/time/result
   caps, redacted errors, visible results, and no hidden AI execution.
-- The current widget does not collect credentials, store passwords or tokens,
-  test real database connections, run SQL against external systems, run
-  real database `EXPLAIN`, format SQL, provide AI query assistance, expose a
+- The current widget does not collect password values, store passwords or
+  tokens, run real database `EXPLAIN`, format SQL, provide AI query assistance, expose a
   Workspace Agent JDBC execution tool, let Workspace Agent run SQL
   automatically or hidden, launch Terminal, mutate Git, or affect Agent Queue
-  or Agent Executor behavior.
+  or Agent Executor behavior. Real DB smoke requires a user-provided driver
+  and database.
 - Future real connectors must keep secrets runtime-only or in a separately
   approved OS secret store/keychain integration, require explicit operator Run,
   enforce read-only SQL, row/time/result caps, sanitized visible errors, and
   visible result preview before any future AI context sharing.
-- This bounded mock/safe read-only path is accepted as Current Preview
-  behavior. Production JDBC execution, credential expansion, write SQL,
-  `EXPLAIN` workflows, broad database automation, production sidecar runtime,
-  and hidden Workspace Agent-triggered SQL execution remain Deferred.
+- This bounded mock/safe read-only path plus the opt-in Experimental sidecar
+  prototype are accepted as Current Preview behavior. Production JDBC
+  execution, credential expansion, write SQL, `EXPLAIN` workflows, broad
+  database automation, production sidecar runtime, and hidden Workspace
+  Agent-triggered SQL execution remain Deferred.
 
 ### Knowledge / Skills
 

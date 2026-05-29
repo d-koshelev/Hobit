@@ -3,7 +3,8 @@ use hobit_app::{
 };
 
 use crate::jdbc_query_dto::{
-    ExecuteJdbcReadOnlyQueryRequest, JdbcReadOnlyQueryResultDto, ValidateJdbcReadOnlySqlRequest,
+    ExecuteJdbcReadOnlyQueryRequest, JdbcExperimentalSidecarRuntimeRequest,
+    JdbcReadOnlyQueryResultDto, ValidateJdbcReadOnlySqlRequest,
 };
 
 #[test]
@@ -42,6 +43,21 @@ fn maps_execute_jdbc_read_only_query_request_to_app_input() {
         max_columns: Some(10),
         max_cell_chars: Some(200),
         max_result_bytes: Some(1024),
+        experimental_sidecar: Some(JdbcExperimentalSidecarRuntimeRequest {
+            enabled: true,
+            java_program: Some("java".to_owned()),
+            sidecar_jar_path: None,
+            sidecar_classpath: Some("target/hobit-jdbc-sidecar/classes".to_owned()),
+            sidecar_main_class: Some("com.hobit.jdbc.JdbcReadOnlySidecar".to_owned()),
+            driver_jar_path: "target/test-driver.jar".to_owned(),
+            driver_class_name: Some("org.example.Driver".to_owned()),
+            jdbc_url: "jdbc:example://localhost/app".to_owned(),
+            username: Some("readonly".to_owned()),
+            credential_env_var_name: Some("HOBIT_TEST_DB_CREDENTIAL".to_owned()),
+            max_rows: Some(25),
+            timeout_ms: Some(5_000),
+            max_result_bytes: Some(1024),
+        }),
     };
 
     let input: hobit_app::ExecuteJdbcReadOnlyQueryInput = request.into();
@@ -56,6 +72,18 @@ fn maps_execute_jdbc_read_only_query_request_to_app_input() {
     assert_eq!(input.max_columns, Some(10));
     assert_eq!(input.max_cell_chars, Some(200));
     assert_eq!(input.max_result_bytes, Some(1024));
+    let experimental_sidecar = input
+        .experimental_sidecar
+        .expect("experimental sidecar mapped");
+    assert!(experimental_sidecar.enabled);
+    assert_eq!(
+        experimental_sidecar.driver_jar_path,
+        "target/test-driver.jar"
+    );
+    assert_eq!(
+        experimental_sidecar.credential_env_var_name.as_deref(),
+        Some("HOBIT_TEST_DB_CREDENTIAL")
+    );
 }
 
 #[test]

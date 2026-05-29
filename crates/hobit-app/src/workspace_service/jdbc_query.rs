@@ -12,6 +12,7 @@ use super::{
         cap_string, failed_query_result, sanitize_error, JdbcReadOnlyAdapterRequest,
         STATUS_NOT_CONFIGURED, STATUS_VALIDATION_FAILED,
     },
+    jdbc_runtime_config::JdbcRuntimeConfig,
     validation::{required_input, validate_widget_ownership},
     WorkspaceService, JDBC_WIDGET_DEFINITION_ID,
 };
@@ -28,6 +29,7 @@ const DEFAULT_MAX_RESULT_BYTES: usize = 256 * 1024;
 const MAX_RESULT_BYTES: usize = 256 * 1024;
 
 const READ_ONLY_STATEMENTS: &[&str] = &["SELECT", "WITH", "SHOW", "DESCRIBE"];
+const EXPERIMENTAL_SIDECAR_READ_ONLY_STATEMENTS: &[&str] = &["SELECT", "WITH"];
 const UNSAFE_TOKENS: &[&str] = &[
     "INSERT",
     "UPDATE",
@@ -62,6 +64,8 @@ const UNSAFE_TOKENS: &[&str] = &[
     "OUTFILE",
     "INFILE",
 ];
+const EXPERIMENTAL_SIDECAR_MVP_NOTE: &str =
+    "Experimental real JDBC sidecar MVP accepts only SELECT or WITH single statements.";
 
 impl WorkspaceService {
     pub fn validate_jdbc_read_only_sql(
@@ -93,6 +97,19 @@ impl WorkspaceService {
         let connector = self.jdbc_query_connector(&input.workspace_id, &input.connector_id)?;
         let validation = validate_read_only_sql(&input.sql);
         let artifacts = JdbcQueryRuntimeArtifacts::from_sql_and_validation(&input.sql, &validation);
+        let runtime_config = input
+            .experimental_sidecar
+            .as_ref()
+            .filter(|config| config.enabled)
+            .map(|config| {
+                JdbcRuntimeConfig::from_explicit_sidecar(
+                    &input.connector_id,
+                    config,
+                    input.row_limit,
+                    input.timeout_ms,
+                    input.max_result_bytes,
+                )
+            });
 
         if !validation.is_valid {
             let result = failed_query_result(
@@ -104,10 +121,32 @@ impl WorkspaceService {
                 input.row_limit,
                 STATUS_VALIDATION_FAILED,
                 "SQL did not pass the read-only validator.",
-                true,
+                runtime_config.is_none(),
             );
             let _runtime_artifacts = artifacts.summaries_for_result(&result);
             return Ok(result);
+        }
+
+        if runtime_config.is_some() {
+            if let Some(rejection) = validate_experimental_sidecar_read_only_sql(&input.sql) {
+                let sidecar_validation = invalid_validation(
+                    &format!("{EXPERIMENTAL_SIDECAR_MVP_NOTE} {rejection}"),
+                    &validation.normalized_preview,
+                );
+                let result = failed_query_result(
+                    input.connector_id,
+                    connector
+                        .as_ref()
+                        .map(|connector| connector.display_name.clone()),
+                    sidecar_validation,
+                    input.row_limit,
+                    STATUS_VALIDATION_FAILED,
+                    EXPERIMENTAL_SIDECAR_MVP_NOTE,
+                    false,
+                );
+                let _runtime_artifacts = artifacts.summaries_for_result(&result);
+                return Ok(result);
+            }
         }
 
         let Some(connector) = connector else {
@@ -125,7 +164,10 @@ impl WorkspaceService {
         };
 
         let adapter_request = JdbcReadOnlyAdapterRequest {
-            connector: self.jdbc_runtime_config.runtime_connector(connector),
+            connector: runtime_config
+                .as_ref()
+                .unwrap_or(&self.jdbc_runtime_config)
+                .runtime_connector(connector),
             sql: input.sql,
             row_limit: input.row_limit,
             timeout_ms: input.timeout_ms,
@@ -135,9 +177,12 @@ impl WorkspaceService {
             validation,
         };
 
-        let result = self
-            .jdbc_runtime_config
-            .execute_read_only_query(adapter_request);
+        let result = if let Some(runtime_config) = runtime_config {
+            runtime_config.execute_read_only_query(adapter_request)
+        } else {
+            self.jdbc_runtime_config
+                .execute_read_only_query(adapter_request)
+        };
         let _runtime_artifacts = artifacts.summaries_for_result(&result);
 
         Ok(result)
@@ -217,6 +262,7 @@ struct NormalizedExecuteInput {
     max_columns: usize,
     max_cell_chars: usize,
     max_result_bytes: usize,
+    experimental_sidecar: Option<super::jdbc_query_types::JdbcExperimentalSidecarRuntimeInput>,
 }
 
 fn normalize_validate_input(
@@ -244,15 +290,39 @@ fn normalize_execute_input(
             .to_owned(),
         connector_id: required_input(&input.connector_id, "JDBC connector id")?.to_owned(),
         sql: input.sql,
-        row_limit: bounded_usize(input.row_limit, DEFAULT_ROW_LIMIT, MAX_ROW_LIMIT),
-        timeout_ms: bounded_u64(input.timeout_ms, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS),
+        row_limit: bounded_usize(
+            input.row_limit.or_else(|| {
+                input
+                    .experimental_sidecar
+                    .as_ref()
+                    .and_then(|config| config.max_rows)
+            }),
+            DEFAULT_ROW_LIMIT,
+            MAX_ROW_LIMIT,
+        ),
+        timeout_ms: bounded_u64(
+            input.timeout_ms.or_else(|| {
+                input
+                    .experimental_sidecar
+                    .as_ref()
+                    .and_then(|config| config.timeout_ms)
+            }),
+            DEFAULT_TIMEOUT_MS,
+            MAX_TIMEOUT_MS,
+        ),
         max_columns: bounded_usize(input.max_columns, DEFAULT_MAX_COLUMNS, MAX_COLUMNS),
         max_cell_chars: bounded_usize(input.max_cell_chars, DEFAULT_MAX_CELL_CHARS, MAX_CELL_CHARS),
         max_result_bytes: bounded_usize(
-            input.max_result_bytes,
+            input.max_result_bytes.or_else(|| {
+                input
+                    .experimental_sidecar
+                    .as_ref()
+                    .and_then(|config| config.max_result_bytes)
+            }),
             DEFAULT_MAX_RESULT_BYTES,
             MAX_RESULT_BYTES,
         ),
+        experimental_sidecar: input.experimental_sidecar,
     })
 }
 
@@ -337,6 +407,36 @@ fn invalid_validation(reason: &str, preview: &str) -> JdbcReadOnlySqlValidationS
             "No database connection was opened.".to_owned(),
         ],
     }
+}
+
+fn validate_experimental_sidecar_read_only_sql(sql: &str) -> Option<&'static str> {
+    let scan_sql = match scan_sql_for_classification(sql.trim()) {
+        Ok(scan_sql) => scan_sql,
+        Err(reason) => return Some(reason),
+    };
+    let statement_sql = trim_single_trailing_semicolon(scan_sql.trim());
+
+    if contains_multiple_statements(&scan_sql) {
+        return Some("Multiple SQL statements are not supported.");
+    }
+
+    let tokens = sql_tokens(statement_sql);
+    let Some(first_token) = tokens.first() else {
+        return Some("SQL statement kind is ambiguous.");
+    };
+
+    if tokens
+        .iter()
+        .any(|token| UNSAFE_TOKENS.contains(&token.as_str()))
+    {
+        return Some("SQL contains unsupported or mutating tokens.");
+    }
+
+    if !EXPERIMENTAL_SIDECAR_READ_ONLY_STATEMENTS.contains(&first_token.as_str()) {
+        return Some("Only SELECT and WITH statements are supported.");
+    }
+
+    None
 }
 
 fn scan_sql_for_classification(sql: &str) -> Result<String, &'static str> {

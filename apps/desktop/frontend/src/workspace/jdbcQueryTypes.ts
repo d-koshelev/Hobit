@@ -55,4 +55,21 @@ export type ExecuteJdbcReadOnlyQueryRequest = {
   maxColumns?: number | null;
   maxCellChars?: number | null;
   maxResultBytes?: number | null;
+  experimentalSidecar?: JdbcExperimentalSidecarRuntime | null;
+};
+
+export type JdbcExperimentalSidecarRuntime = {
+  enabled: boolean;
+  javaProgram?: string | null;
+  sidecarJarPath?: string | null;
+  sidecarClasspath?: string | null;
+  sidecarMainClass?: string | null;
+  driverJarPath: string;
+  driverClassName?: string | null;
+  jdbcUrl: string;
+  username?: string | null;
+  credentialEnvVarName?: string | null;
+  maxRows?: number | null;
+  timeoutMs?: number | null;
+  maxResultBytes?: number | null;
 };

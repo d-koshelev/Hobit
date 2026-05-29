@@ -93,6 +93,25 @@ fn execute_input(
         max_columns: None,
         max_cell_chars: None,
         max_result_bytes: None,
+        experimental_sidecar: None,
+    }
+}
+
+fn experimental_runtime(enabled: bool) -> JdbcExperimentalSidecarRuntimeInput {
+    JdbcExperimentalSidecarRuntimeInput {
+        enabled,
+        java_program: Some("hobit-missing-jdbc-sidecar-java".to_owned()),
+        sidecar_jar_path: None,
+        sidecar_classpath: Some("target/hobit-jdbc-sidecar/classes".to_owned()),
+        sidecar_main_class: Some("com.hobit.jdbc.JdbcReadOnlySidecar".to_owned()),
+        driver_jar_path: "target/test-driver.jar".to_owned(),
+        driver_class_name: Some("org.example.Driver".to_owned()),
+        jdbc_url: "jdbc:example://localhost/app".to_owned(),
+        username: Some("readonly_user".to_owned()),
+        credential_env_var_name: Some("HOBIT_TEST_DB_CREDENTIAL".to_owned()),
+        max_rows: Some(100),
+        timeout_ms: Some(10_000),
+        max_result_bytes: Some(256 * 1024),
     }
 }
 
@@ -183,6 +202,100 @@ fn validator_rejects_mutation_session_multi_statement_ambiguous_and_empty_sql() 
         assert!(!validation.is_valid, "{sql}");
         assert!(validation.rejection_reason.is_some(), "{sql}");
     }
+}
+
+#[test]
+fn experimental_sidecar_guard_allows_only_select_and_with_before_process_launch() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "JDBC sidecar guard");
+    let (workspace_id, workbench_id, widget_id) =
+        add_widget(&service, &workspace, JDBC_WIDGET_DEFINITION_ID);
+    let connector = create_connector(&service, &workspace_id);
+
+    for sql in [
+        "select * from orders",
+        "with recent as (select * from orders) select * from recent",
+    ] {
+        let mut request = execute_input(
+            &workspace_id,
+            &workbench_id,
+            &widget_id,
+            &connector.connector_id,
+            sql,
+        );
+        request.experimental_sidecar = Some(experimental_runtime(true));
+
+        let result = service
+            .execute_jdbc_read_only_query(request)
+            .expect("execute experimental guarded query");
+
+        assert_eq!(result.status, "not_configured", "{sql}");
+        assert!(result.validation.is_valid, "{sql}");
+        assert!(!result.mock_execution, "{sql}");
+    }
+
+    for sql in [
+        "show tables",
+        "describe orders",
+        "explain select * from orders",
+        "insert into orders values (1)",
+        "update orders set status = 'done'",
+        "delete from orders",
+        "merge into orders using updates on true",
+        "create table orders(id int)",
+        "alter table orders add column x int",
+        "drop table orders",
+        "truncate table orders",
+        "grant select on orders to analyst",
+        "revoke select on orders from analyst",
+        "call refresh_orders()",
+        "exec refresh_orders",
+        "copy orders to '/tmp/orders.csv'",
+        "load data infile '/tmp/orders.csv'",
+        "export table orders",
+        "select * from orders; select * from users",
+    ] {
+        let mut request = execute_input(
+            &workspace_id,
+            &workbench_id,
+            &widget_id,
+            &connector.connector_id,
+            sql,
+        );
+        request.experimental_sidecar = Some(experimental_runtime(true));
+
+        let result = service
+            .execute_jdbc_read_only_query(request)
+            .expect("reject experimental guarded query");
+
+        assert_eq!(result.status, "validation_failed", "{sql}");
+        assert!(result.sanitized_error.is_some(), "{sql}");
+        assert!(result.rows.is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn disabled_experimental_sidecar_config_keeps_mock_default_path() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "JDBC sidecar disabled");
+    let (workspace_id, workbench_id, widget_id) =
+        add_widget(&service, &workspace, JDBC_WIDGET_DEFINITION_ID);
+    let connector = create_connector(&service, &workspace_id);
+    let mut request = execute_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        &connector.connector_id,
+        "select 1",
+    );
+    request.experimental_sidecar = Some(experimental_runtime(false));
+
+    let result = service
+        .execute_jdbc_read_only_query(request)
+        .expect("execute disabled experimental config");
+
+    assert_eq!(result.status, "completed");
+    assert!(result.mock_execution);
 }
 
 #[test]

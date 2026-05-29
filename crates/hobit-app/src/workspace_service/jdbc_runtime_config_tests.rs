@@ -242,6 +242,7 @@ fn sidecar_remains_opt_in_for_workspace_service_default() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         })
         .expect("execute query");
 
@@ -304,6 +305,7 @@ fn sidecar_config_executes_java_mock_runtime_when_jdk_available() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         })
         .expect("execute sidecar mock query");
     let debug = format!("{config:?} {result:?}");
@@ -338,6 +340,7 @@ fn sidecar_config_executes_java_mock_runtime_when_jdk_available() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         })
         .expect("reject invalid SQL before sidecar launch");
 

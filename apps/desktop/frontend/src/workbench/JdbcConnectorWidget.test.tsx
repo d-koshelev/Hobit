@@ -42,10 +42,14 @@ describe("JdbcConnectorWidget", () => {
       "No hidden Workspace Agent SQL execution",
     );
     expect(document.body.textContent).toContain("Query editor");
+    expect(document.body.textContent).toContain("Experimental sidecar runtime");
+    expect(document.body.textContent).toContain("Password env var name");
+    expect(document.body.textContent).toContain("password value");
     expect(
       document.querySelector('[aria-label="Read-only safety notice"]'),
     ).not.toBeNull();
     expect(document.querySelector("textarea.jdbc-sql-editor")).not.toBeNull();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
     expect(buttonWithText("Run read-only query")).not.toBeNull();
     expect(
       buttonTexts().some((text) =>
@@ -73,6 +77,8 @@ describe("JdbcConnectorWidget", () => {
     await clickButton("Run read-only query");
     expect(onExecute).toHaveBeenCalledWith("jdbc_widget_1", {
       connectorId: "jdbc_1",
+      experimentalSidecar: null,
+      maxResultBytes: 262144,
       rowLimit: 100,
       sql: "select 1",
       timeoutMs: 10000,
@@ -103,6 +109,86 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain(
       "No database write, hidden execution, or AI result sharing occurred.",
     );
+  });
+
+  it("passes explicit non-secret experimental sidecar runtime values only on Run", async () => {
+    const onValidate = vi.fn(async () => validValidation());
+    const onExecute = vi.fn(async () =>
+      completedResult({ mockExecution: false, rows: [["1", "real sample"]] }),
+    );
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: onExecute,
+      onValidateJdbcReadOnlySql: onValidate,
+    });
+
+    await setCheckboxByLabel(
+      "Enable experimental real JDBC sidecar for the next Run",
+      true,
+    );
+    await changeInputByLabel("Sidecar classpath or classes dir", "target/jdbc/classes");
+    await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
+    await changeInputByLabel("Driver class", "org.postgresql.Driver");
+    await changeInputByLabel(
+      "Runtime JDBC URL",
+      "jdbc:postgresql://localhost/app",
+    );
+    await changeInputByLabel("Username", "readonly_user");
+    await changeInputByLabel(
+      "Password env var name",
+      "HOBIT_READONLY_DB_PASSWORD",
+    );
+
+    await clickButton("Validate SQL");
+    await clickButton("Run read-only query");
+
+    expect(onExecute).toHaveBeenCalledWith("jdbc_widget_1", {
+      connectorId: "jdbc_1",
+      experimentalSidecar: {
+        credentialEnvVarName: "HOBIT_READONLY_DB_PASSWORD",
+        driverClassName: "org.postgresql.Driver",
+        driverJarPath: "C:\\drivers\\postgres.jar",
+        enabled: true,
+        javaProgram: "java",
+        jdbcUrl: "jdbc:postgresql://localhost/app",
+        maxResultBytes: 262144,
+        maxRows: 100,
+        sidecarClasspath: "target/jdbc/classes",
+        sidecarMainClass: "com.hobit.jdbc.JdbcReadOnlySidecar",
+        timeoutMs: 10000,
+        username: "readonly_user",
+      },
+      maxResultBytes: 262144,
+      rowLimit: 100,
+      sql: "select 1",
+      timeoutMs: 10000,
+    });
+    expect(document.body.textContent).toContain("Completed");
+    expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
+  });
+
+  it("shows rejected write SQL and keeps Workspace Agent out of execution", async () => {
+    const onValidate = vi.fn(async () => ({
+      ...validValidation(),
+      isValid: false,
+      rejectionReason: "SQL contains unsupported or mutating token: UPDATE.",
+      statementKind: null,
+    }));
+    const onExecute = vi.fn(async () => completedResult());
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: onExecute,
+      onValidateJdbcReadOnlySql: onValidate,
+    });
+
+    await changeSql("update accounts set balance = 0");
+    await clickButton("Validate SQL");
+
+    expect(document.body.textContent).toContain("Rejected");
+    expect(document.body.textContent).toContain(
+      "SQL contains unsupported or mutating token: UPDATE.",
+    );
+    expect(buttonWithText("Run read-only query")?.disabled).toBe(true);
+    expect(onExecute).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Workspace Agent cannot run SQL");
   });
 });
 
@@ -155,6 +241,75 @@ async function clickButton(text: string) {
   await act(async () => {
     await flushPromises();
   });
+}
+
+async function changeSql(value: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    "textarea.jdbc-sql-editor",
+  );
+
+  if (!textarea) {
+    throw new Error("SQL textarea not found");
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+async function changeInputByLabel(labelText: string, value: string) {
+  const input = inputByLabel<HTMLInputElement>(labelText);
+
+  await act(async () => {
+    setNativeValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+function setNativeValue(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  const prototype =
+    element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const valueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  valueSetter?.call(element, value);
+}
+
+async function setCheckboxByLabel(labelText: string, checked: boolean) {
+  const input = inputByLabel<HTMLInputElement>(labelText);
+
+  await act(async () => {
+    if (input.checked !== checked) {
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    await flushPromises();
+  });
+}
+
+function inputByLabel<T extends HTMLInputElement | HTMLTextAreaElement>(
+  labelText: string,
+): T {
+  const label = Array.from(document.querySelectorAll("label")).find((element) =>
+    (element.textContent ?? "").includes(labelText),
+  );
+
+  if (!label) {
+    throw new Error(`Label not found: ${labelText}`);
+  }
+
+  const input = label.querySelector("input, textarea") as T | null;
+
+  if (!input) {
+    throw new Error(`Input not found for label: ${labelText}`);
+  }
+
+  return input;
 }
 
 async function flushPromises() {
@@ -225,7 +380,9 @@ function validValidation(): JdbcReadOnlySqlValidation {
   };
 }
 
-function completedResult(): JdbcReadOnlyQueryResult {
+function completedResult(
+  overrides: Partial<JdbcReadOnlyQueryResult> = {},
+): JdbcReadOnlyQueryResult {
   return {
     ...resultBase("completed", null),
     columns: [
@@ -238,6 +395,7 @@ function completedResult(): JdbcReadOnlyQueryResult {
     rowCount: 1,
     rows: [["1", "Deterministic mock sample"]],
     statementKind: "SELECT",
+    ...overrides,
   };
 }
 

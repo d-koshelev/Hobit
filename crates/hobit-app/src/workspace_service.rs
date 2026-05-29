@@ -148,8 +148,8 @@ pub use jdbc_connector_types::{
     CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,
 };
 pub use jdbc_query_types::{
-    ExecuteJdbcReadOnlyQueryInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
-    JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
+    ExecuteJdbcReadOnlyQueryInput, JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary,
+    JdbcReadOnlyQueryResultSummary, JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
 };
 use jdbc_runtime_config::JdbcRuntimeConfig;
 pub use types::{

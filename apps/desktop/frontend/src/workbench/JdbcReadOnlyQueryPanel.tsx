@@ -10,7 +10,10 @@ import type {
   JdbcReadOnlyQueryExecutionRequest,
   JdbcReadOnlySqlValidationRequest,
 } from "./jdbcConnectorWidgetActions";
-import { errorToMessage } from "./jdbcConnectorWidgetModel";
+import {
+  errorToMessage,
+  type JdbcExperimentalRuntimeDraft,
+} from "./jdbcConnectorWidgetModel";
 
 type JdbcReadOnlyQueryPanelProps = {
   connectors: JdbcConnector[];
@@ -32,9 +35,21 @@ type ValidationSnapshot = {
   validation: JdbcReadOnlySqlValidation;
 };
 
+type ExperimentalRuntimeTextField =
+  | "credentialEnvVarName"
+  | "driverClassName"
+  | "driverJarPath"
+  | "javaProgram"
+  | "jdbcUrl"
+  | "sidecarClasspath"
+  | "sidecarMainClass"
+  | "username";
+
 const DEFAULT_ROW_LIMIT = 100;
 const MAX_ROW_LIMIT = 100;
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_MAX_RESULT_BYTES = 256 * 1024;
+const DEFAULT_SIDECAR_MAIN_CLASS = "com.hobit.jdbc.JdbcReadOnlySidecar";
 
 export function JdbcReadOnlyQueryPanel({
   connectors,
@@ -46,9 +61,37 @@ export function JdbcReadOnlyQueryPanel({
 }: JdbcReadOnlyQueryPanelProps) {
   const connectorInputId = useId();
   const rowLimitInputId = useId();
+  const timeoutInputId = useId();
+  const maxResultBytesInputId = useId();
   const sqlInputId = useId();
+  const experimentalEnabledInputId = useId();
+  const javaProgramInputId = useId();
+  const sidecarClasspathInputId = useId();
+  const sidecarMainClassInputId = useId();
+  const driverJarPathInputId = useId();
+  const driverClassNameInputId = useId();
+  const jdbcUrlInputId = useId();
+  const usernameInputId = useId();
+  const credentialEnvVarNameInputId = useId();
   const [sql, setSql] = useState("select 1");
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
+  const [timeoutMs, setTimeoutMs] = useState(DEFAULT_TIMEOUT_MS);
+  const [maxResultBytes, setMaxResultBytes] = useState(DEFAULT_MAX_RESULT_BYTES);
+  const [experimentalRuntime, setExperimentalRuntime] =
+    useState<JdbcExperimentalRuntimeDraft>({
+      credentialEnvVarName: "",
+      driverClassName: "",
+      driverJarPath: "",
+      enabled: false,
+      javaProgram: "java",
+      jdbcUrl: "",
+      maxResultBytes: DEFAULT_MAX_RESULT_BYTES,
+      maxRows: DEFAULT_ROW_LIMIT,
+      sidecarClasspath: "",
+      sidecarMainClass: DEFAULT_SIDECAR_MAIN_CLASS,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+      username: "",
+    });
   const [validationSnapshot, setValidationSnapshot] =
     useState<ValidationSnapshot | null>(null);
   const [result, setResult] = useState<JdbcReadOnlyQueryResult | null>(null);
@@ -58,6 +101,8 @@ export function JdbcReadOnlyQueryPanel({
 
   const trimmedSql = sql.trim();
   const normalizedRowLimit = clampRowLimit(rowLimit);
+  const normalizedTimeoutMs = clampTimeoutMs(timeoutMs);
+  const normalizedMaxResultBytes = clampMaxResultBytes(maxResultBytes);
   const selectedConnectorId = selectedConnector?.connectorId ?? "";
   const isValidationCurrent = Boolean(
     validationSnapshot &&
@@ -113,7 +158,7 @@ export function JdbcReadOnlyQueryPanel({
         connectorId: selectedConnector.connectorId,
         rowLimit: normalizedRowLimit,
         sql: trimmedSql,
-        timeoutMs: DEFAULT_TIMEOUT_MS,
+        timeoutMs: normalizedTimeoutMs,
       });
       setValidationSnapshot({
         connectorId: selectedConnector.connectorId,
@@ -140,9 +185,32 @@ export function JdbcReadOnlyQueryPanel({
     try {
       const executionResult = await onExecuteQuery({
         connectorId: selectedConnector.connectorId,
+        experimentalSidecar: experimentalRuntime.enabled
+          ? {
+              credentialEnvVarName: emptyToNull(
+                experimentalRuntime.credentialEnvVarName,
+              ),
+              driverClassName: emptyToNull(experimentalRuntime.driverClassName),
+              driverJarPath: experimentalRuntime.driverJarPath.trim(),
+              enabled: true,
+              javaProgram: emptyToNull(experimentalRuntime.javaProgram),
+              jdbcUrl: experimentalRuntime.jdbcUrl.trim(),
+              maxResultBytes: normalizedMaxResultBytes,
+              maxRows: normalizedRowLimit,
+              sidecarClasspath: emptyToNull(
+                experimentalRuntime.sidecarClasspath,
+              ),
+              sidecarMainClass: emptyToNull(
+                experimentalRuntime.sidecarMainClass,
+              ),
+              timeoutMs: normalizedTimeoutMs,
+              username: emptyToNull(experimentalRuntime.username),
+            }
+          : null,
+        maxResultBytes: normalizedMaxResultBytes,
         rowLimit: normalizedRowLimit,
         sql: trimmedSql,
-        timeoutMs: DEFAULT_TIMEOUT_MS,
+        timeoutMs: normalizedTimeoutMs,
       });
       setResult(executionResult);
       setValidationSnapshot({
@@ -171,18 +239,20 @@ export function JdbcReadOnlyQueryPanel({
           </p>
         </div>
         <div className="jdbc-summary-badges">
-          <Badge variant="info">Mock execution</Badge>
+          <Badge variant={experimentalRuntime.enabled ? "warning" : "info"}>
+            {experimentalRuntime.enabled ? "Experimental sidecar" : "Mock execution"}
+          </Badge>
           <Badge variant="success">Read-only</Badge>
         </div>
       </div>
 
       <div className="jdbc-safety-notice" aria-label="Read-only safety notice">
         <p>
-          SELECT, WITH, SHOW, DESCRIBE, and mock EXPLAIN wrappers around those
-          read-only forms are accepted by the current validator. Writes,
-          DDL/DML, session mutation, and multi-statement batches are rejected.
-          Nothing runs until you validate the visible SQL and press Run
-          read-only query.
+          The mock validator accepts SELECT, WITH, SHOW, DESCRIBE, and mock
+          EXPLAIN wrappers. Experimental real sidecar execution accepts only
+          SELECT or WITH. Writes, DDL/DML, stored procedures, session mutation,
+          and multi-statement batches are rejected. Nothing runs until you
+          validate the visible SQL and press Run read-only query.
         </p>
       </div>
 
@@ -228,7 +298,196 @@ export function JdbcReadOnlyQueryPanel({
           />
           <span className="jdbc-query-hint">Backend cap: 100 rows</span>
         </label>
+        <label className="jdbc-field jdbc-query-limit-field" htmlFor={timeoutInputId}>
+          <span className="field-label">Timeout ms</span>
+          <input
+            className="input"
+            id={timeoutInputId}
+            max={DEFAULT_TIMEOUT_MS}
+            min={1}
+            onChange={(event) => {
+              const nextValue = clampTimeoutMs(Number(event.currentTarget.value));
+              setTimeoutMs(nextValue);
+              setExperimentalRuntime((current) => ({
+                ...current,
+                timeoutMs: nextValue,
+              }));
+              setPanelError(null);
+            }}
+            type="number"
+            value={timeoutMs}
+          />
+          <span className="jdbc-query-hint">Backend cap: 10000 ms</span>
+        </label>
+        <label
+          className="jdbc-field jdbc-query-limit-field"
+          htmlFor={maxResultBytesInputId}
+        >
+          <span className="field-label">Max result bytes</span>
+          <input
+            className="input"
+            id={maxResultBytesInputId}
+            max={DEFAULT_MAX_RESULT_BYTES}
+            min={1}
+            onChange={(event) => {
+              const nextValue = clampMaxResultBytes(
+                Number(event.currentTarget.value),
+              );
+              setMaxResultBytes(nextValue);
+              setExperimentalRuntime((current) => ({
+                ...current,
+                maxResultBytes: nextValue,
+              }));
+              setPanelError(null);
+            }}
+            type="number"
+            value={maxResultBytes}
+          />
+          <span className="jdbc-query-hint">Backend cap: 256 KiB</span>
+        </label>
       </div>
+
+      <details className="jdbc-experimental-runtime">
+        <summary>
+          <span>Experimental sidecar runtime</span>
+          <Badge variant="warning">Preview</Badge>
+        </summary>
+        <div className="jdbc-experimental-copy">
+          <p>
+            Opt-in only. Real JDBC requires an explicit sidecar classpath or
+            JAR, explicit driver JAR, explicit JDBC URL, and explicit Run.
+            Hobit does not store these values. Enter a password environment
+            variable name only; never enter a password value.
+          </p>
+        </div>
+        <label
+          className="jdbc-readonly-toggle"
+          htmlFor={experimentalEnabledInputId}
+        >
+          <input
+            checked={experimentalRuntime.enabled}
+            id={experimentalEnabledInputId}
+            onChange={(event) =>
+              setExperimentalRuntime((current) => ({
+                ...current,
+                enabled: event.currentTarget.checked,
+              }))
+            }
+            type="checkbox"
+          />
+          Enable experimental real JDBC sidecar for the next Run
+        </label>
+        <div className="jdbc-experimental-grid">
+          <label className="jdbc-field" htmlFor={javaProgramInputId}>
+            <span className="field-label">Java executable</span>
+            <input
+              className="input"
+              id={javaProgramInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime("javaProgram", event.currentTarget.value)
+              }
+              value={experimentalRuntime.javaProgram}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={sidecarClasspathInputId}>
+            <span className="field-label">Sidecar classpath or classes dir</span>
+            <input
+              className="input"
+              id={sidecarClasspathInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "sidecarClasspath",
+                  event.currentTarget.value,
+                )
+              }
+              placeholder="target/hobit-jdbc-sidecar/classes"
+              value={experimentalRuntime.sidecarClasspath}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={sidecarMainClassInputId}>
+            <span className="field-label">Sidecar main class</span>
+            <input
+              className="input"
+              id={sidecarMainClassInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "sidecarMainClass",
+                  event.currentTarget.value,
+                )
+              }
+              value={experimentalRuntime.sidecarMainClass}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={driverJarPathInputId}>
+            <span className="field-label">Driver JAR path</span>
+            <input
+              className="input"
+              id={driverJarPathInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "driverJarPath",
+                  event.currentTarget.value,
+                )
+              }
+              placeholder="C:\\path\\to\\driver.jar"
+              value={experimentalRuntime.driverJarPath}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={driverClassNameInputId}>
+            <span className="field-label">Driver class</span>
+            <input
+              className="input"
+              id={driverClassNameInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "driverClassName",
+                  event.currentTarget.value,
+                )
+              }
+              placeholder="org.postgresql.Driver"
+              value={experimentalRuntime.driverClassName}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={jdbcUrlInputId}>
+            <span className="field-label">Runtime JDBC URL</span>
+            <input
+              className="input"
+              id={jdbcUrlInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime("jdbcUrl", event.currentTarget.value)
+              }
+              placeholder="jdbc:postgresql://localhost/app"
+              value={experimentalRuntime.jdbcUrl}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={usernameInputId}>
+            <span className="field-label">Username</span>
+            <input
+              className="input"
+              id={usernameInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime("username", event.currentTarget.value)
+              }
+              value={experimentalRuntime.username}
+            />
+          </label>
+          <label className="jdbc-field" htmlFor={credentialEnvVarNameInputId}>
+            <span className="field-label">Password env var name</span>
+            <input
+              className="input"
+              id={credentialEnvVarNameInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "credentialEnvVarName",
+                  event.currentTarget.value,
+                )
+              }
+              placeholder="HOBIT_READONLY_DB_PASSWORD"
+              value={experimentalRuntime.credentialEnvVarName}
+            />
+          </label>
+        </div>
+      </details>
 
       <label className="jdbc-field jdbc-field-wide" htmlFor={sqlInputId}>
         <span className="field-label">SQL</span>
@@ -287,6 +546,17 @@ export function JdbcReadOnlyQueryPanel({
       )}
     </section>
   );
+
+  function updateExperimentalRuntime(
+    field: ExperimentalRuntimeTextField,
+    value: string,
+  ) {
+    setExperimentalRuntime((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setPanelError(null);
+  }
 }
 
 function JdbcValidationStatus({
@@ -432,6 +702,27 @@ function clampRowLimit(value: number) {
   }
 
   return Math.min(MAX_ROW_LIMIT, Math.max(1, Math.trunc(value)));
+}
+
+function clampTimeoutMs(value: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+
+  return Math.min(DEFAULT_TIMEOUT_MS, Math.max(1, Math.trunc(value)));
+}
+
+function clampMaxResultBytes(value: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_MAX_RESULT_BYTES;
+  }
+
+  return Math.min(DEFAULT_MAX_RESULT_BYTES, Math.max(1, Math.trunc(value)));
+}
+
+function emptyToNull(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function describeRunBlocker({

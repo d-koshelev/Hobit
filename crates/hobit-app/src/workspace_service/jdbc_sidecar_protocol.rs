@@ -419,7 +419,7 @@ impl JdbcSidecarProcessRunner {
 }
 
 pub(super) fn build_sidecar_request_json(request: &JdbcReadOnlyAdapterRequest) -> String {
-    json!({
+    let mut request_json = json!({
         "protocol_version": SIDECAR_PROTOCOL_VERSION,
         "request_id": request.connector.connector_id,
         "runtime_kind": sidecar_runtime_kind(&request.connector.runtime_config),
@@ -434,8 +434,38 @@ pub(super) fn build_sidecar_request_json(request: &JdbcReadOnlyAdapterRequest) -
         "max_columns": request.max_columns,
         "max_cell_chars": request.max_cell_chars,
         "max_result_bytes": request.max_result_bytes,
-    })
-    .to_string()
+    });
+
+    if let JdbcConnectorRuntimeConfig::Sidecar(config) = &request.connector.runtime_config {
+        if config.runtime_kind == "real_jdbc" {
+            if let Some(object) = request_json.as_object_mut() {
+                object.insert("request".to_owned(), json!("executeReadOnlyQuery"));
+                object.insert("read_only".to_owned(), json!(true));
+                object.insert("allow_multi_statement".to_owned(), json!(false));
+                object.insert("allow_stored_procedures".to_owned(), json!(false));
+                if let Some(driver_jar_path) = &config.driver_jar_path {
+                    object.insert("driver_jar_path".to_owned(), json!(driver_jar_path));
+                }
+                if let Some(driver_class_name) = &config.driver_class_name {
+                    object.insert("driver_class_name".to_owned(), json!(driver_class_name));
+                }
+                if let Some(jdbc_url) = &config.jdbc_url {
+                    object.insert("jdbc_url".to_owned(), json!(jdbc_url.as_str()));
+                }
+                if let Some(username) = &config.username {
+                    object.insert("username".to_owned(), json!(username));
+                }
+                if let Some(credential_env_var_name) = &config.credential_env_var_name {
+                    object.insert(
+                        "credential_env_var_name".to_owned(),
+                        json!(credential_env_var_name),
+                    );
+                }
+            }
+        }
+    }
+
+    request_json.to_string()
 }
 
 fn sidecar_runtime_kind(runtime_config: &JdbcConnectorRuntimeConfig) -> &str {

@@ -43,6 +43,7 @@ fn jdbc_query_command_helpers_validate_and_execute_mock_read_only_sql() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         },
         db_path.clone(),
     )
@@ -76,6 +77,7 @@ fn jdbc_query_command_helper_returns_failed_result_for_invalid_sql() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         },
         db_path.clone(),
     )
@@ -110,6 +112,7 @@ fn jdbc_query_command_helper_rejects_non_jdbc_widget_owner() {
             max_columns: None,
             max_cell_chars: None,
             max_result_bytes: None,
+            experimental_sidecar: None,
         },
         db_path.clone(),
     )
