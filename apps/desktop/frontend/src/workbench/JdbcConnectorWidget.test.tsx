@@ -10,6 +10,12 @@ import type {
   JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
 import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
+import {
+  findJdbcBoundary,
+  renderJdbcBoundarySql,
+  validateJdbcBoundaryPreset,
+  type JdbcBoundaryPreset,
+} from "./jdbcConnectorWidgetModel";
 import type { WidgetInstance, WidgetRenderProps } from "./types";
 import {
   getWidgetDefinition,
@@ -650,6 +656,243 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain("Workspace Agent cannot run SQL");
   });
 });
+
+describe("JDBC Boundary Finder preset model", () => {
+  it("renders SQL with arbitrary typed filters", () => {
+    expect(
+      renderJdbcBoundarySql(
+        boundaryPreset(),
+        {
+          active: true,
+          createdAfter: "2026-05-01",
+          maxScore: "19.5",
+          minShard: "7",
+          tenant: "Ada's team",
+          updatedBefore: "2026-05-29T10:30:00Z",
+        },
+        42,
+      ),
+    ).toBe(
+      "select count(*) > 0 as found from events where tenant = 'Ada''s team' and active = TRUE and created_at >= '2026-05-01' and updated_at < '2026-05-29T10:30:00Z' and score <= 19.5 and shard_id >= 7 and event_id >= 42",
+    );
+  });
+
+  it("renders list filters as typed literal lists", () => {
+    const preset = boundaryPreset({
+      filters: [
+        { key: "states", label: "States", required: true, type: "stringList" },
+        { key: "shards", label: "Shards", required: true, type: "integerList" },
+      ],
+      sqlTemplate:
+        "select exists(select 1 from events where state in ({{states}}) and shard_id in ({{shards}}) and event_id >= {{value}}) as found",
+    });
+
+    expect(
+      renderJdbcBoundarySql(
+        preset,
+        {
+          shards: [1, 2, 3],
+          states: ["ready", "needs review"],
+        },
+        10,
+      ),
+    ).toBe(
+      "select exists(select 1 from events where state in ('ready', 'needs review') and shard_id in (1, 2, 3) and event_id >= 10) as found",
+    );
+  });
+
+  it("rejects unknown placeholders", () => {
+    const preset = boundaryPreset({
+      sqlTemplate:
+        "select count(*) > 0 as found from events where tenant = {{tenant}} and region = {{region}} and event_id >= {{value}}",
+    });
+
+    expect(() =>
+      renderJdbcBoundarySql(preset, validBoundaryValues(), 10),
+    ).toThrow("unknown placeholder: region");
+  });
+
+  it("rejects missing required filters", () => {
+    expect(() =>
+      renderJdbcBoundarySql(
+        boundaryPreset(),
+        {
+          active: true,
+          createdAfter: "2026-05-01",
+          maxScore: 10,
+          minShard: 7,
+          updatedBefore: "2026-05-29T10:30:00Z",
+        },
+        10,
+      ),
+    ).toThrow("Missing required boundary filter value: tenant");
+  });
+
+  it("rejects invalid number and date values", () => {
+    expect(() =>
+      renderJdbcBoundarySql(
+        boundaryPreset(),
+        { ...validBoundaryValues(), maxScore: "not-a-number" },
+        10,
+      ),
+    ).toThrow("maxScore must be a finite number");
+
+    expect(() =>
+      renderJdbcBoundarySql(
+        boundaryPreset(),
+        { ...validBoundaryValues(), createdAfter: "2026-02-31" },
+        10,
+      ),
+    ).toThrow("createdAfter must be a valid ISO date");
+  });
+
+  it("rejects SQL fragment filter values", () => {
+    expect(() =>
+      renderJdbcBoundarySql(
+        boundaryPreset(),
+        { ...validBoundaryValues(), tenant: "x' OR 1=1 --" },
+        10,
+      ),
+    ).toThrow("tenant must be a scalar value, not a SQL fragment");
+  });
+
+  it("validates preset JSON has no secret fields", () => {
+    const unsafePreset = {
+      ...boundaryPreset(),
+      token: "must-not-store",
+    } as unknown as JdbcBoundaryPreset;
+
+    expect(validateJdbcBoundaryPreset(unsafePreset)).toEqual({
+      errors: [
+        "Boundary preset JSON must not contain password, token, secret, or secretValue fields.",
+      ],
+      isValid: false,
+    });
+  });
+
+  it("finds a false to true boundary", async () => {
+    const result = await findJdbcBoundary(
+      boundaryPreset().range,
+      boundaryPreset().executionPolicy,
+      async (value) => value >= 64,
+    );
+
+    expect(result.status).toBe("boundary_found");
+    expect(result.direction).toBe("false_to_true");
+    expect(result.lowerResult).toBe(false);
+    expect(result.upperResult).toBe(true);
+    expect(result.lowerValue).toBeLessThan(64);
+    expect(result.upperValue).toBeGreaterThanOrEqual(64);
+    expect((result.upperValue ?? 0) - (result.lowerValue ?? 0)).toBeLessThanOrEqual(1);
+  });
+
+  it("finds a true to false boundary", async () => {
+    const result = await findJdbcBoundary(
+      boundaryPreset().range,
+      boundaryPreset().executionPolicy,
+      async (value) => value < 37,
+    );
+
+    expect(result.status).toBe("boundary_found");
+    expect(result.direction).toBe("true_to_false");
+    expect(result.lowerResult).toBe(true);
+    expect(result.upperResult).toBe(false);
+    expect(result.lowerValue).toBeLessThan(37);
+    expect(result.upperValue).toBeGreaterThanOrEqual(37);
+  });
+
+  it("returns no boundary when min and max evaluate the same", async () => {
+    const result = await findJdbcBoundary(
+      boundaryPreset().range,
+      boundaryPreset().executionPolicy,
+      async () => true,
+    );
+
+    expect(result.status).toBe("no_boundary");
+    expect(result.direction).toBeNull();
+    expect(result.probes).toHaveLength(2);
+  });
+
+  it("enforces the max probe cap", async () => {
+    const result = await findJdbcBoundary(
+      boundaryPreset().range,
+      { maxIterations: 100, maxProbes: 2, timeoutMs: 1000 },
+      async (value) => value >= 64,
+    );
+
+    expect(result.status).toBe("probe_cap_reached");
+    expect(result.direction).toBe("false_to_true");
+    expect(result.probes).toHaveLength(2);
+  });
+});
+
+function boundaryPreset(
+  overrides: Partial<JdbcBoundaryPreset> = {},
+): JdbcBoundaryPreset {
+  return {
+    booleanResult: {
+      column: "found",
+      falseValues: ["false", "0"],
+      kind: "firstRowColumn",
+      trueValues: ["true", "1"],
+    },
+    executionPolicy: {
+      maxIterations: 100,
+      maxProbes: 64,
+      timeoutMs: 1000,
+    },
+    filters: [
+      { key: "tenant", label: "Tenant", required: true, type: "string" },
+      { key: "active", label: "Active", required: true, type: "boolean" },
+      {
+        key: "createdAfter",
+        label: "Created after",
+        required: true,
+        type: "date",
+      },
+      {
+        key: "updatedBefore",
+        label: "Updated before",
+        required: true,
+        type: "timestamp",
+      },
+      {
+        key: "maxScore",
+        label: "Max score",
+        required: true,
+        type: "decimal",
+      },
+      {
+        key: "minShard",
+        label: "Min shard",
+        required: true,
+        type: "integer",
+      },
+    ],
+    name: "Event id boundary",
+    presetId: "event_id_boundary",
+    range: {
+      max: 100,
+      min: 0,
+      precision: 1,
+      variable: "value",
+    },
+    sqlTemplate:
+      "select count(*) > 0 as found from events where tenant = {{tenant}} and active = {{active}} and created_at >= {{createdAfter}} and updated_at < {{updatedBefore}} and score <= {{maxScore}} and shard_id >= {{minShard}} and event_id >= {{value}}",
+    ...overrides,
+  };
+}
+
+function validBoundaryValues() {
+  return {
+    active: true,
+    createdAfter: "2026-05-01",
+    maxScore: 19.5,
+    minShard: 7,
+    tenant: "analytics",
+    updatedBefore: "2026-05-29T10:30:00Z",
+  };
+}
 
 async function renderJdbcWidget(
   overrides: Partial<WidgetRenderProps> = {},
