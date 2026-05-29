@@ -61,15 +61,29 @@ JAR/class. Neither diagnostic executes SQL, opens a database connection,
 persists runtime config, accepts password values, scans folders, downloads
 drivers, or creates Workspace Agent/Queue/Executor execution.
 
+Block 270 adds a narrow exception to the earlier runtime-only input model:
+local desktop SQLite may persist non-secret Experimental connection profile
+metadata for operator reuse. Stored profile data is limited to display name,
+description, explicit driver JAR path, driver class, JDBC URL after rejection
+of obvious value-bearing password/token/secret/key parameters, optional
+username, password environment variable name, row limit, timeout, max result
+bytes, read-only flag, and timestamps. It does not store password values,
+tokens, private keys, client certificates, Kerberos tickets, or secret-bearing
+JDBC URLs. Selecting a profile only hydrates visible widget fields; it does
+not connect, probe, validate SQL, run SQL, or dispatch Workspace Agent, Queue,
+or Agent Executor work.
+
 ## Real Runtime Architecture Contract
 
 This ADR now fixes the future real-runtime shape without implementing it.
 Current product behavior remains mock-default; no JDBC drivers, credential
 storage, keychain integration, real database connections, write SQL, schema
-migrations, Queue/Executor behavior, or Workspace Agent automatic execution are
-added by this decision. The later Experimental prototype adds only
+automation beyond the narrow non-secret profile table, Queue/Executor
+behavior, or Workspace Agent automatic execution are added by this decision.
+The later Experimental prototype adds only
 runtime-only explicit driver/JDBC execution for one visible read-only query and
-does not persist credentials or runtime configuration.
+does not persist credentials or connect automatically from saved profile
+metadata.
 
 Real JDBC execution should run in a Hobit-owned Java sidecar because JDBC is
 JVM-native, driver behavior is Java-first, and a separate process avoids
@@ -105,6 +119,9 @@ Driver loading contract:
 - Hobit does not bundle proprietary drivers or download drivers in the MVP.
 - The Experimental prototype loads one explicit driver JAR path for the current
   Run only; it does not scan folders or manage driver installation.
+- The Experimental profile table may persist that explicit driver JAR path as
+  non-secret operator metadata, but profile selection still does not load the
+  driver or start the sidecar.
 - Experimental DriverProbe loads one explicit driver JAR/class for the current
   diagnostic only and does not connect to a database.
 - Profile metadata may reference non-secret driver labels, configured driver
@@ -373,11 +390,12 @@ Allowed prototype/future credential sources are:
   contract
 
 The Experimental prototype supports password environment variable names only.
-Hobit does not collect or persist password values. The sidecar receives the
-environment variable name in the request and reads the value from its inherited
-process environment if the operator configured one outside Hobit. JDBC URLs
-with obvious password/token/secret parameters are rejected by the Rust app
-layer.
+Hobit does not collect or persist password values. Profiles may persist the
+environment variable name as a non-secret pointer, not the value. The sidecar
+receives the environment variable name in the request and reads the value from
+its inherited process environment if the operator configured one outside
+Hobit. JDBC URLs with obvious password/token/secret/key parameters are rejected
+by the Rust app layer before profile save and before runtime use.
 
 The frontend sees only safe connector metadata: connector id, display label,
 database kind, driver kind, masked JDBC URL metadata, environment,
@@ -406,5 +424,6 @@ resolves credentials through those DTOs.
   requires a user-provided driver/database for manual smoke.
 - Workspace Agent remains suggest/copy only for JDBC SQL and cannot invoke the
   adapter.
-- No storage schema, credential UI, driver installation, broad JDBC sidecar, or
-  result persistence is implied by this decision.
+- Apart from the narrow non-secret profile table, no credential UI, driver
+  installation, broad JDBC sidecar, or result persistence is implied by this
+  decision.

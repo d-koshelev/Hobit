@@ -196,6 +196,11 @@ impl SqliteStore {
             params![workspace_id],
         )?;
         self.connection.execute(
+            "DELETE FROM jdbc_connection_profiles
+             WHERE workspace_id = ?1",
+            params![workspace_id],
+        )?;
+        self.connection.execute(
             "DELETE FROM jdbc_connectors
              WHERE workspace_id = ?1",
             params![workspace_id],

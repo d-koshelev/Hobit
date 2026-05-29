@@ -47,6 +47,8 @@
 .jdbc-editor-meta,
 .jdbc-editor-actions,
 .jdbc-diagnostic-actions,
+.jdbc-profile-actions,
+.jdbc-profile-header,
 .jdbc-pane-header,
 .jdbc-row-title-line,
 .jdbc-row-meta,
@@ -198,6 +200,30 @@
   color: var(--color-warning);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+}
+
+.jdbc-profile-panel {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.jdbc-profile-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.jdbc-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.jdbc-profile-actions {
+  justify-content: flex-end;
 }
 
 .jdbc-experimental-grid {
@@ -573,6 +599,10 @@
   }
 
   .jdbc-query-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .jdbc-profile-grid {
     grid-template-columns: 1fr;
   }
 

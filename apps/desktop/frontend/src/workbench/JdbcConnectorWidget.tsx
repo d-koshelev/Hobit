@@ -30,13 +30,17 @@ export function JdbcConnectorWidget({
   instance,
   logRefreshToken,
   onCheckJdbcSidecarHealth,
+  onCreateJdbcConnectionProfile,
   onCreateJdbcConnector,
+  onDeleteJdbcConnectionProfile,
   onExecuteJdbcReadOnlyQuery,
   onGetJdbcConnector,
   onListJdbcConnectors,
+  onListJdbcConnectionProfiles,
   onLoadLogs,
   onProbeJdbcDriver,
   onStartFrameMove,
+  onUpdateJdbcConnectionProfile,
   onUpdateJdbcConnector,
   onValidateJdbcReadOnlySql,
   title,
@@ -736,6 +740,8 @@ export function JdbcConnectorWidget({
         <JdbcReadOnlyQueryPanel
           connectors={connectors}
           isConnectorSelectionDisabled={isSelecting || isDirty}
+          onCreateConnectionProfile={onCreateJdbcConnectionProfile}
+          onDeleteConnectionProfile={onDeleteJdbcConnectionProfile}
           onCheckSidecarHealth={
             onCheckJdbcSidecarHealth
               ? (request) => onCheckJdbcSidecarHealth(instance.id, request)
@@ -751,7 +757,9 @@ export function JdbcConnectorWidget({
               ? (request) => onProbeJdbcDriver(instance.id, request)
               : undefined
           }
+          onListConnectionProfiles={onListJdbcConnectionProfiles}
           onSelectConnector={selectConnector}
+          onUpdateConnectionProfile={onUpdateJdbcConnectionProfile}
           onValidateSql={
             onValidateJdbcReadOnlySql
               ? (request) => onValidateJdbcReadOnlySql(instance.id, request)

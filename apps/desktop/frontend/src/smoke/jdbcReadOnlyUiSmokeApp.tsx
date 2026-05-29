@@ -97,10 +97,12 @@ class JdbcReadOnlyUiSmokeRuntime {
         this.createConnectorCallCount += 1;
         return smokeConnector("created-smoke-connector", "Created smoke connector");
       },
+      createJdbcConnectionProfile: this.unsupported,
       checkJdbcSidecarHealth: this.unsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: this.unsupported,
       createWorkspaceNote: this.unsupported,
+      deleteJdbcConnectionProfile: this.unsupported,
       executeJdbcReadOnlyQuery: async (_widgetInstanceId, request) => {
         if (this.scenario === "unsupported") {
           throw new Error(
@@ -145,6 +147,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       listAgentExecutorRuns: this.unsupported,
       listAgentQueueTaskRunLinks: async () => [],
       listAgentQueueTasks: async () => [],
+      listJdbcConnectionProfiles: async () => [],
       listJdbcConnectors: async () => {
         this.connectorListCallCount += 1;
         return this.connectors();
@@ -167,6 +170,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       stopAgentQueueRunnerSession: this.unsupported,
       stopTerminalPtySession: this.unsupported,
       updateAgentQueueTask: this.unsupported,
+      updateJdbcConnectionProfile: this.unsupported,
       updateJdbcConnector: async () => {
         this.updateConnectorCallCount += 1;
         return null;

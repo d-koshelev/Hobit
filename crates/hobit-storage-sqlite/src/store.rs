@@ -9,19 +9,20 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectorUpdate,
-    KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask, NewAgentQueueTaskRunLink,
-    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
-    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
-    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectionProfileUpdate,
+    JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask,
+    NewAgentQueueTaskRunLink, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
+    NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
+    NewWorkspaceNote, NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate,
+    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
-    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
-    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectionProfileRow,
+    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
+    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
@@ -29,6 +30,7 @@ mod agent_queue_items;
 mod agent_queue_task_run_links;
 mod agent_queue_tasks;
 mod events;
+mod jdbc_connection_profiles;
 mod jdbc_connectors;
 mod knowledge_documents;
 mod knowledge_search;
@@ -47,6 +49,8 @@ mod workspaces;
 mod agent_queue_task_run_links_tests;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
+#[cfg(test)]
+mod jdbc_connection_profiles_tests;
 #[cfg(test)]
 mod jdbc_connectors_tests;
 #[cfg(test)]

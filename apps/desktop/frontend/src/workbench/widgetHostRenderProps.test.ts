@@ -60,7 +60,11 @@ describe("widgetHostRenderProps", () => {
     expect(props.onCreateSkill).toBe(actions.createSkill);
     expect(props.onCreateWorkspaceNote).toBe(actions.createWorkspaceNote);
     expect(props.onExecuteJdbcReadOnlyQuery).toBeUndefined();
+    expect(props.onCreateJdbcConnectionProfile).toBeUndefined();
+    expect(props.onDeleteJdbcConnectionProfile).toBeUndefined();
+    expect(props.onListJdbcConnectionProfiles).toBeUndefined();
     expect(props.onListJdbcConnectors).toBeUndefined();
+    expect(props.onUpdateJdbcConnectionProfile).toBeUndefined();
     expect(props.onValidateJdbcReadOnlySql).toBeUndefined();
     expect(props.onGenerateCoordinatorProviderResponse).toBe(
       actions.generateCoordinatorProviderResponse,
@@ -325,15 +329,27 @@ describe("widgetHostRenderProps", () => {
     });
 
     expect(props.onCreateJdbcConnector).toBe(actions.createJdbcConnector);
+    expect(props.onCreateJdbcConnectionProfile).toBe(
+      actions.createJdbcConnectionProfile,
+    );
     expect(props.onCheckJdbcSidecarHealth).toBe(
       actions.checkJdbcSidecarHealth,
+    );
+    expect(props.onDeleteJdbcConnectionProfile).toBe(
+      actions.deleteJdbcConnectionProfile,
     );
     expect(props.onExecuteJdbcReadOnlyQuery).toBe(
       actions.executeJdbcReadOnlyQuery,
     );
     expect(props.onGetJdbcConnector).toBe(actions.getJdbcConnector);
+    expect(props.onListJdbcConnectionProfiles).toBe(
+      actions.listJdbcConnectionProfiles,
+    );
     expect(props.onListJdbcConnectors).toBe(actions.listJdbcConnectors);
     expect(props.onProbeJdbcDriver).toBe(actions.probeJdbcDriver);
+    expect(props.onUpdateJdbcConnectionProfile).toBe(
+      actions.updateJdbcConnectionProfile,
+    );
     expect(props.onUpdateJdbcConnector).toBe(actions.updateJdbcConnector);
     expect(props.onValidateJdbcReadOnlySql).toBe(
       actions.validateJdbcReadOnlySql,
@@ -445,12 +461,14 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     createAgentQueueTask: vi.fn(),
     createGitCommit: vi.fn(),
     createJdbcConnector: vi.fn(),
+    createJdbcConnectionProfile: vi.fn(),
     checkJdbcSidecarHealth: vi.fn(),
     createKnowledgeDocument: vi.fn(),
     createSkill: vi.fn(),
     createTerminalPtySession: vi.fn(),
     createWorkspaceNote: vi.fn(),
     deleteAgentQueueTask: vi.fn(),
+    deleteJdbcConnectionProfile: vi.fn(),
     deleteKnowledgeDocument: vi.fn(),
     deleteSkill: vi.fn(),
     executeJdbcReadOnlyQuery: vi.fn(),
@@ -473,6 +491,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     listAgentExecutorRuns: vi.fn(),
     listAgentQueueTaskRunLinks: vi.fn(),
     listAgentQueueTasks: vi.fn(),
+    listJdbcConnectionProfiles: vi.fn(),
     listJdbcConnectors: vi.fn(),
     listKnowledgeDocuments: vi.fn(),
     listSkills: vi.fn(),
@@ -495,6 +514,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     stopAgentQueueRunnerSession: vi.fn(),
     stopTerminalPtySession: vi.fn(),
     updateAgentQueueTask: vi.fn(),
+    updateJdbcConnectionProfile: vi.fn(),
     updateJdbcConnector: vi.fn(),
     updateKnowledgeDocument: vi.fn(),
     updateSkill: vi.fn(),

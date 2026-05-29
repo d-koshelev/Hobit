@@ -205,6 +205,24 @@ CREATE TABLE IF NOT EXISTS jdbc_connectors (
     last_used_at TEXT NULL
 );
 
+CREATE TABLE IF NOT EXISTS jdbc_connection_profiles (
+    profile_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    name TEXT NOT NULL,
+    driver_jar_path TEXT NOT NULL,
+    driver_class_name TEXT NOT NULL,
+    jdbc_url TEXT NOT NULL,
+    username TEXT NULL,
+    password_env_var_name TEXT NULL,
+    max_rows INTEGER NOT NULL,
+    timeout_ms INTEGER NOT NULL,
+    max_result_bytes INTEGER NOT NULL,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    description TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS shared_state_objects (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -286,6 +304,12 @@ CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_id
 
 CREATE INDEX IF NOT EXISTS idx_jdbc_connectors_workspace_ordering
     ON jdbc_connectors(workspace_id, updated_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_jdbc_connection_profiles_workspace_id
+    ON jdbc_connection_profiles(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_jdbc_connection_profiles_workspace_ordering
+    ON jdbc_connection_profiles(workspace_id, updated_at, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_shared_state_objects_workspace_id
     ON shared_state_objects(workspace_id);

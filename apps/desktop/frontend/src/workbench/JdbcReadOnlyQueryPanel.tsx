@@ -1,13 +1,17 @@
-import { useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import type { JdbcConnector } from "../workspace/jdbcConnectorTypes";
 import type {
+  JdbcConnectionProfile,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
 import type {
+  JdbcConnectionProfileCreateRequest,
+  JdbcConnectionProfileDeleteRequest,
+  JdbcConnectionProfileUpdateRequest,
   JdbcDriverProbeRequest,
   JdbcReadOnlyQueryExecutionRequest,
   JdbcReadOnlySqlValidationRequest,
@@ -24,13 +28,23 @@ type JdbcReadOnlyQueryPanelProps = {
   onCheckSidecarHealth?: (
     request: JdbcSidecarHealthCheckRequest,
   ) => Promise<JdbcSidecarDiagnostic>;
+  onCreateConnectionProfile?: (
+    request: JdbcConnectionProfileCreateRequest,
+  ) => Promise<JdbcConnectionProfile>;
+  onDeleteConnectionProfile?: (
+    request: JdbcConnectionProfileDeleteRequest,
+  ) => Promise<boolean>;
   onExecuteQuery?: (
     request: JdbcReadOnlyQueryExecutionRequest,
   ) => Promise<JdbcReadOnlyQueryResult>;
+  onListConnectionProfiles?: () => Promise<JdbcConnectionProfile[]>;
   onProbeDriver?: (
     request: JdbcDriverProbeRequest,
   ) => Promise<JdbcSidecarDiagnostic>;
   onSelectConnector: (connectorId: string) => Promise<void> | void;
+  onUpdateConnectionProfile?: (
+    request: JdbcConnectionProfileUpdateRequest,
+  ) => Promise<JdbcConnectionProfile | null>;
   onValidateSql?: (
     request: JdbcReadOnlySqlValidationRequest,
   ) => Promise<JdbcReadOnlySqlValidation>;
@@ -65,9 +79,13 @@ export function JdbcReadOnlyQueryPanel({
   connectors,
   isConnectorSelectionDisabled = false,
   onCheckSidecarHealth,
+  onCreateConnectionProfile,
+  onDeleteConnectionProfile,
   onExecuteQuery,
+  onListConnectionProfiles,
   onProbeDriver,
   onSelectConnector,
+  onUpdateConnectionProfile,
   onValidateSql,
   selectedConnector,
 }: JdbcReadOnlyQueryPanelProps) {
@@ -86,6 +104,9 @@ export function JdbcReadOnlyQueryPanel({
   const jdbcUrlInputId = useId();
   const usernameInputId = useId();
   const credentialEnvVarNameInputId = useId();
+  const profileSelectInputId = useId();
+  const profileNameInputId = useId();
+  const profileDescriptionInputId = useId();
   const [sql, setSql] = useState("select 1");
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [timeoutMs, setTimeoutMs] = useState(DEFAULT_TIMEOUT_MS);
@@ -106,6 +127,19 @@ export function JdbcReadOnlyQueryPanel({
       timeoutMs: DEFAULT_TIMEOUT_MS,
       username: "",
     });
+  const [connectionProfiles, setConnectionProfiles] = useState<
+    JdbcConnectionProfile[]
+  >([]);
+  const [selectedProfile, setSelectedProfile] =
+    useState<JdbcConnectionProfile | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
+  const [deleteConfirmationArmed, setDeleteConfirmationArmed] = useState(false);
   const [validationSnapshot, setValidationSnapshot] =
     useState<ValidationSnapshot | null>(null);
   const [result, setResult] = useState<JdbcReadOnlyQueryResult | null>(null);
@@ -150,6 +184,212 @@ export function JdbcReadOnlyQueryPanel({
       trimmedSql,
     ],
   );
+  const selectedProfileDirty = Boolean(
+    selectedProfile &&
+      (profileName !== selectedProfile.name ||
+        profileDescription !== selectedProfile.description ||
+        experimentalRuntime.driverJarPath !== selectedProfile.driverJarPath ||
+        experimentalRuntime.driverClassName !== selectedProfile.driverClassName ||
+        experimentalRuntime.jdbcUrl !== selectedProfile.jdbcUrl ||
+        nullToEmpty(selectedProfile.username) !== experimentalRuntime.username ||
+        nullToEmpty(selectedProfile.passwordEnvVarName) !==
+          experimentalRuntime.credentialEnvVarName ||
+        rowLimit !== selectedProfile.maxRows ||
+        timeoutMs !== selectedProfile.timeoutMs ||
+        maxResultBytes !== selectedProfile.maxResultBytes),
+  );
+  const profileApiAvailable = Boolean(
+    onCreateConnectionProfile &&
+      onListConnectionProfiles &&
+      onUpdateConnectionProfile &&
+      onDeleteConnectionProfile,
+  );
+
+  const loadConnectionProfiles = useCallback(async () => {
+    if (!onListConnectionProfiles) {
+      setConnectionProfiles([]);
+      return;
+    }
+
+    setIsLoadingProfiles(true);
+    setProfileError(null);
+
+    try {
+      const profiles = await onListConnectionProfiles();
+      setConnectionProfiles(profiles);
+      setSelectedProfile((currentProfile) => {
+        if (!currentProfile) {
+          return null;
+        }
+
+        return (
+          profiles.find(
+            (profile) => profile.profileId === currentProfile.profileId,
+          ) ?? null
+        );
+      });
+    } catch (error) {
+      setConnectionProfiles([]);
+      setProfileError(
+        errorToMessage(error, "Unable to load JDBC connection profiles."),
+      );
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  }, [onListConnectionProfiles]);
+
+  useEffect(() => {
+    void loadConnectionProfiles();
+  }, [loadConnectionProfiles]);
+
+  async function handleSelectProfile(profileId: string) {
+    setDeleteConfirmationArmed(false);
+    setProfileMessage(null);
+    setProfileError(null);
+
+    const profile =
+      connectionProfiles.find((candidate) => candidate.profileId === profileId) ??
+      null;
+    setSelectedProfile(profile);
+
+    if (!profile) {
+      return;
+    }
+
+    applyProfileToDraft(profile);
+  }
+
+  async function handleSaveProfile() {
+    if (!selectedProfile || !onUpdateConnectionProfile || isSavingProfile) {
+      return;
+    }
+
+    const request = profileRequest();
+    const validationError = validateProfileRequest(request);
+    if (validationError) {
+      setProfileError(validationError);
+      setProfileMessage(null);
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError(null);
+    setProfileMessage(null);
+
+    try {
+      const updatedProfile = await onUpdateConnectionProfile({
+        ...request,
+        profileId: selectedProfile.profileId,
+        readOnly: true,
+      });
+
+      if (!updatedProfile) {
+        setProfileError("The selected JDBC connection profile could not be found.");
+        return;
+      }
+
+      setSelectedProfile(updatedProfile);
+      setProfileName(updatedProfile.name);
+      setProfileDescription(updatedProfile.description);
+      setConnectionProfiles((currentProfiles) =>
+        currentProfiles.map((profile) =>
+          profile.profileId === updatedProfile.profileId
+            ? updatedProfile
+            : profile,
+        ),
+      );
+      setProfileMessage("Profile saved. Select does not connect or run.");
+    } catch (error) {
+      setProfileError(
+        errorToMessage(error, "Unable to save JDBC connection profile."),
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  async function handleSaveAsNewProfile() {
+    if (!onCreateConnectionProfile || isSavingProfile) {
+      return;
+    }
+
+    const request = profileRequest();
+    const validationError = validateProfileRequest(request);
+    if (validationError) {
+      setProfileError(validationError);
+      setProfileMessage(null);
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError(null);
+    setProfileMessage(null);
+
+    try {
+      const createdProfile = await onCreateConnectionProfile(request);
+      setSelectedProfile(createdProfile);
+      setProfileName(createdProfile.name);
+      setProfileDescription(createdProfile.description);
+      setConnectionProfiles((currentProfiles) => [
+        createdProfile,
+        ...currentProfiles.filter(
+          (profile) => profile.profileId !== createdProfile.profileId,
+        ),
+      ]);
+      setProfileMessage("Profile saved. Select does not connect or run.");
+    } catch (error) {
+      setProfileError(
+        errorToMessage(error, "Unable to save JDBC connection profile."),
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  async function handleDeleteProfile() {
+    if (!selectedProfile || !onDeleteConnectionProfile || isDeletingProfile) {
+      return;
+    }
+
+    if (!deleteConfirmationArmed) {
+      setDeleteConfirmationArmed(true);
+      setProfileMessage("Click Confirm delete to remove this profile.");
+      setProfileError(null);
+      return;
+    }
+
+    setIsDeletingProfile(true);
+    setProfileError(null);
+    setProfileMessage(null);
+
+    try {
+      const deleted = await onDeleteConnectionProfile({
+        profileId: selectedProfile.profileId,
+      });
+
+      if (!deleted) {
+        setProfileError("The selected JDBC connection profile could not be found.");
+        return;
+      }
+
+      setConnectionProfiles((currentProfiles) =>
+        currentProfiles.filter(
+          (profile) => profile.profileId !== selectedProfile.profileId,
+        ),
+      );
+      setSelectedProfile(null);
+      setProfileName("");
+      setProfileDescription("");
+      setDeleteConfirmationArmed(false);
+      setProfileMessage("Profile deleted.");
+    } catch (error) {
+      setProfileError(
+        errorToMessage(error, "Unable to delete JDBC connection profile."),
+      );
+    } finally {
+      setIsDeletingProfile(false);
+    }
+  }
 
   async function handleValidate() {
     if (!selectedConnector) {
@@ -335,7 +575,12 @@ export function JdbcReadOnlyQueryPanel({
             max={MAX_ROW_LIMIT}
             min={1}
             onChange={(event) => {
-              setRowLimit(clampRowLimit(Number(event.currentTarget.value)));
+              const nextValue = Number(event.currentTarget.value);
+              setRowLimit(nextValue);
+              setExperimentalRuntime((current) => ({
+                ...current,
+                maxRows: nextValue,
+              }));
               setPanelError(null);
             }}
             type="number"
@@ -351,7 +596,7 @@ export function JdbcReadOnlyQueryPanel({
             max={DEFAULT_TIMEOUT_MS}
             min={1}
             onChange={(event) => {
-              const nextValue = clampTimeoutMs(Number(event.currentTarget.value));
+              const nextValue = Number(event.currentTarget.value);
               setTimeoutMs(nextValue);
               setExperimentalRuntime((current) => ({
                 ...current,
@@ -375,9 +620,7 @@ export function JdbcReadOnlyQueryPanel({
             max={DEFAULT_MAX_RESULT_BYTES}
             min={1}
             onChange={(event) => {
-              const nextValue = clampMaxResultBytes(
-                Number(event.currentTarget.value),
-              );
+              const nextValue = Number(event.currentTarget.value);
               setMaxResultBytes(nextValue);
               setExperimentalRuntime((current) => ({
                 ...current,
@@ -401,10 +644,111 @@ export function JdbcReadOnlyQueryPanel({
           <p>
             Opt-in only. Real JDBC requires an explicit sidecar classpath or
             JAR, explicit driver JAR, explicit JDBC URL, and explicit Run.
-            Hobit does not store these values. Enter a password environment
-            variable name only; never enter a password value.
+            Saved profiles store non-secret metadata only. Enter a password
+            environment variable name only; never enter a password value.
           </p>
         </div>
+        <section
+          aria-label="Experimental JDBC connection profiles"
+          className="jdbc-profile-panel"
+        >
+          <div className="jdbc-profile-header">
+            <div>
+              <p className="jdbc-pane-title">Connection profiles</p>
+              <p className="jdbc-pane-subtitle">
+                Selecting a profile only fills the fields below. It does not
+                connect, probe, or run SQL.
+              </p>
+            </div>
+            <Badge variant={selectedProfileDirty ? "warning" : "neutral"}>
+              {selectedProfileDirty ? "Unsaved changes" : "No auto-run"}
+            </Badge>
+          </div>
+          <div className="jdbc-profile-grid">
+            <label className="jdbc-field" htmlFor={profileSelectInputId}>
+              <span className="field-label">Saved profile</span>
+              <select
+                className="select"
+                disabled={!profileApiAvailable || isLoadingProfiles}
+                id={profileSelectInputId}
+                onChange={(event) =>
+                  void handleSelectProfile(event.currentTarget.value)
+                }
+                value={selectedProfile?.profileId ?? ""}
+              >
+                <option value="">
+                  {isLoadingProfiles ? "Loading profiles" : "Select profile"}
+                </option>
+                {connectionProfiles.map((profile) => (
+                  <option key={profile.profileId} value={profile.profileId}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="jdbc-field" htmlFor={profileNameInputId}>
+              <span className="field-label">Profile name</span>
+              <input
+                className="input"
+                id={profileNameInputId}
+                onChange={(event) => {
+                  setProfileName(event.currentTarget.value);
+                  setProfileError(null);
+                  setDeleteConfirmationArmed(false);
+                }}
+                placeholder="Analytics readonly"
+                value={profileName}
+              />
+            </label>
+            <label
+              className="jdbc-field jdbc-field-wide"
+              htmlFor={profileDescriptionInputId}
+            >
+              <span className="field-label">Description</span>
+              <input
+                className="input"
+                id={profileDescriptionInputId}
+                onChange={(event) => {
+                  setProfileDescription(event.currentTarget.value);
+                  setProfileError(null);
+                  setDeleteConfirmationArmed(false);
+                }}
+                value={profileDescription}
+              />
+            </label>
+          </div>
+          <div className="jdbc-profile-actions">
+            <Button
+              disabled={!selectedProfile || !selectedProfileDirty || isSavingProfile}
+              onClick={() => void handleSaveProfile()}
+              variant="primary"
+            >
+              {isSavingProfile && selectedProfile ? "Saving" : "Save profile"}
+            </Button>
+            <Button
+              disabled={!profileApiAvailable || isSavingProfile}
+              onClick={() => void handleSaveAsNewProfile()}
+              variant="secondary"
+            >
+              Save as new profile
+            </Button>
+            <Button
+              disabled={!selectedProfile || isDeletingProfile}
+              onClick={() => void handleDeleteProfile()}
+              variant="ghost"
+            >
+              {deleteConfirmationArmed ? "Confirm delete" : "Delete profile"}
+            </Button>
+          </div>
+          {profileMessage ? (
+            <p className="jdbc-message jdbc-message-warning">{profileMessage}</p>
+          ) : null}
+          {profileError ? (
+            <p className="jdbc-message jdbc-message-error" role="alert">
+              {profileError}
+            </p>
+          ) : null}
+        </section>
         <label
           className="jdbc-readonly-toggle"
           htmlFor={experimentalEnabledInputId}
@@ -655,6 +999,45 @@ export function JdbcReadOnlyQueryPanel({
       [field]: value,
     }));
     setPanelError(null);
+    setProfileError(null);
+    setDeleteConfirmationArmed(false);
+  }
+
+  function applyProfileToDraft(profile: JdbcConnectionProfile) {
+    setProfileName(profile.name);
+    setProfileDescription(profile.description);
+    setRowLimit(profile.maxRows);
+    setTimeoutMs(profile.timeoutMs);
+    setMaxResultBytes(profile.maxResultBytes);
+    setExperimentalRuntime((current) => ({
+      ...current,
+      credentialEnvVarName: profile.passwordEnvVarName ?? "",
+      driverClassName: profile.driverClassName,
+      driverJarPath: profile.driverJarPath,
+      jdbcUrl: profile.jdbcUrl,
+      maxResultBytes: profile.maxResultBytes,
+      maxRows: profile.maxRows,
+      timeoutMs: profile.timeoutMs,
+      username: profile.username ?? "",
+    }));
+  }
+
+  function profileRequest(): JdbcConnectionProfileCreateRequest {
+    return {
+      description: profileDescription,
+      driverClassName: experimentalRuntime.driverClassName,
+      driverJarPath: experimentalRuntime.driverJarPath,
+      jdbcUrl: experimentalRuntime.jdbcUrl,
+      maxResultBytes,
+      maxRows: rowLimit,
+      name: profileName,
+      passwordEnvVarName: emptyToNull(
+        experimentalRuntime.credentialEnvVarName,
+      ),
+      readOnly: true,
+      timeoutMs,
+      username: emptyToNull(experimentalRuntime.username),
+    };
   }
 
   function runtimeRequest() {
@@ -875,6 +1258,87 @@ function clampMaxResultBytes(value: number) {
 function emptyToNull(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function nullToEmpty(value: string | null) {
+  return value ?? "";
+}
+
+function validateProfileRequest(
+  request: JdbcConnectionProfileCreateRequest,
+): string | null {
+  if (!request.name.trim()) {
+    return "Profile name is required.";
+  }
+
+  if (!request.driverJarPath.trim()) {
+    return "Driver JAR path is required before saving a profile.";
+  }
+
+  if (!request.driverClassName.trim()) {
+    return "Driver class is required before saving a profile.";
+  }
+
+  if (!request.jdbcUrl.trim()) {
+    return "JDBC URL is required before saving a profile.";
+  }
+
+  if (containsSecretBearingJdbcUrlParam(request.jdbcUrl)) {
+    return "JDBC URL must not contain password, token, secret, or key parameters.";
+  }
+
+  if (
+    request.passwordEnvVarName &&
+    !isEnvironmentVariableName(request.passwordEnvVarName)
+  ) {
+    return "Password env var name must be an environment variable name, not a value.";
+  }
+
+  if (!Number.isInteger(request.maxRows) || request.maxRows < 1 || request.maxRows > MAX_ROW_LIMIT) {
+    return "Max rows must be between 1 and 100.";
+  }
+
+  if (
+    !Number.isInteger(request.timeoutMs) ||
+    request.timeoutMs < 1 ||
+    request.timeoutMs > DEFAULT_TIMEOUT_MS
+  ) {
+    return "Timeout ms must be between 1 and 10000.";
+  }
+
+  if (
+    !Number.isInteger(request.maxResultBytes) ||
+    request.maxResultBytes < 1 ||
+    request.maxResultBytes > DEFAULT_MAX_RESULT_BYTES
+  ) {
+    return "Max result bytes must be between 1 and 262144.";
+  }
+
+  return null;
+}
+
+function containsSecretBearingJdbcUrlParam(value: string) {
+  const secretKeys = new Set([
+    "password",
+    "passwd",
+    "pwd",
+    "token",
+    "access_token",
+    "secret",
+    "key",
+    "api_key",
+    "apikey",
+    "private_key",
+  ]);
+
+  return value.split(/[?&;]/u).some((segment) => {
+    const [key, secretValue = ""] = segment.split("=", 2);
+    return secretKeys.has(key.trim().toLowerCase()) && secretValue.trim() !== "";
+  });
+}
+
+function isEnvironmentVariableName(value: string) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(value.trim());
 }
 
 function describeRunBlocker({

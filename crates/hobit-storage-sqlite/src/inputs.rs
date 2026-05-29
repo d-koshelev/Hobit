@@ -263,6 +263,41 @@ pub struct JdbcConnectorUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewJdbcConnectionProfile<'a> {
+    pub profile_id: &'a str,
+    pub workspace_id: &'a str,
+    pub name: &'a str,
+    pub driver_jar_path: &'a str,
+    pub driver_class_name: &'a str,
+    pub jdbc_url: &'a str,
+    pub username: Option<&'a str>,
+    pub password_env_var_name: Option<&'a str>,
+    pub max_rows: i64,
+    pub timeout_ms: i64,
+    pub max_result_bytes: i64,
+    pub read_only: bool,
+    pub description: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JdbcConnectionProfileUpdate<'a> {
+    pub name: &'a str,
+    pub driver_jar_path: &'a str,
+    pub driver_class_name: &'a str,
+    pub jdbc_url: &'a str,
+    pub username: Option<&'a str>,
+    pub password_env_var_name: Option<&'a str>,
+    pub max_rows: i64,
+    pub timeout_ms: i64,
+    pub max_result_bytes: i64,
+    pub read_only: bool,
+    pub description: &'a str,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewSharedStateObject<'a> {
     pub id: &'a str,
     pub workspace_id: &'a str,

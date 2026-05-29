@@ -138,6 +138,7 @@ class CoordinatorProviderProductSmokeRuntime {
       deleteSkill: this.unsupported,
       createGitCommit: this.gitUnsupported,
       createJdbcConnector: this.jdbcUnsupported,
+      createJdbcConnectionProfile: this.jdbcUnsupported,
       checkJdbcSidecarHealth: this.jdbcUnsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: this.terminalUnsupported,
@@ -155,6 +156,7 @@ class CoordinatorProviderProductSmokeRuntime {
         };
         return this.lastCreatedNote;
       },
+      deleteJdbcConnectionProfile: this.jdbcUnsupported,
       executeJdbcReadOnlyQuery: this.jdbcUnsupported,
       forceKillCodexDirectWorkRun: this.executorUnsupported,
       generateCoordinatorProviderResponse: async (_widgetInstanceId, request) =>
@@ -189,6 +191,7 @@ class CoordinatorProviderProductSmokeRuntime {
         return request.queueItemId === MVP_QUEUE_ITEM_ID ? mvpQueueRunLinks() : [];
       },
       listAgentQueueTasks: async () => this.queueTasks,
+      listJdbcConnectionProfiles: this.jdbcUnsupported,
       listJdbcConnectors: this.jdbcUnsupported,
       listSkills: this.unsupported,
       listTerminalPtySessions: this.terminalUnsupported,
@@ -214,6 +217,7 @@ class CoordinatorProviderProductSmokeRuntime {
       stopAgentQueueRunnerSession: this.queueDispatchUnsupported,
       stopTerminalPtySession: this.terminalUnsupported,
       updateAgentQueueTask: async () => this.forbidden(null),
+      updateJdbcConnectionProfile: this.jdbcUnsupported,
       updateJdbcConnector: this.jdbcUnsupported,
       updateSkill: this.unsupported,
       updateWidgetLayout: async () => undefined,

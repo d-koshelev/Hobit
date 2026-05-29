@@ -1,8 +1,9 @@
 use hobit_app::{
-    CheckJdbcSidecarHealthInput, ExecuteJdbcReadOnlyQueryInput,
+    CheckJdbcSidecarHealthInput, CreateJdbcConnectionProfileInput,
+    DeleteJdbcConnectionProfileInput, ExecuteJdbcReadOnlyQueryInput, JdbcConnectionProfileSummary,
     JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
     JdbcReadOnlySqlValidationSummary, JdbcSidecarDiagnosticSummary, ProbeJdbcDriverInput,
-    ValidateJdbcReadOnlySqlInput,
+    UpdateJdbcConnectionProfileInput, ValidateJdbcReadOnlySqlInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,6 +47,56 @@ pub(crate) struct ProbeJdbcDriverRequest {
     pub workbench_id: String,
     pub widget_instance_id: String,
     pub experimental_sidecar: JdbcExperimentalSidecarRuntimeRequest,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct CreateJdbcConnectionProfileRequest {
+    pub workspace_id: String,
+    pub name: String,
+    pub driver_jar_path: String,
+    pub driver_class_name: String,
+    pub jdbc_url: String,
+    pub username: Option<String>,
+    pub password_env_var_name: Option<String>,
+    pub max_rows: usize,
+    pub timeout_ms: u64,
+    pub max_result_bytes: usize,
+    pub read_only: Option<bool>,
+    pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ListJdbcConnectionProfilesRequest {
+    pub workspace_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct GetJdbcConnectionProfileRequest {
+    pub workspace_id: String,
+    pub profile_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct UpdateJdbcConnectionProfileRequest {
+    pub workspace_id: String,
+    pub profile_id: String,
+    pub name: String,
+    pub driver_jar_path: String,
+    pub driver_class_name: String,
+    pub jdbc_url: String,
+    pub username: Option<String>,
+    pub password_env_var_name: Option<String>,
+    pub max_rows: usize,
+    pub timeout_ms: u64,
+    pub max_result_bytes: usize,
+    pub read_only: bool,
+    pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct DeleteJdbcConnectionProfileRequest {
+    pub workspace_id: String,
+    pub profile_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -116,6 +167,25 @@ pub(crate) struct JdbcSidecarDiagnosticDto {
     pub no_ai_context_shared: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct JdbcConnectionProfileDto {
+    pub profile_id: String,
+    pub workspace_id: String,
+    pub name: String,
+    pub driver_jar_path: String,
+    pub driver_class_name: String,
+    pub jdbc_url: String,
+    pub username: Option<String>,
+    pub password_env_var_name: Option<String>,
+    pub max_rows: usize,
+    pub timeout_ms: u64,
+    pub max_result_bytes: usize,
+    pub read_only: bool,
+    pub description: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 impl From<ValidateJdbcReadOnlySqlRequest> for ValidateJdbcReadOnlySqlInput {
     fn from(request: ValidateJdbcReadOnlySqlRequest) -> Self {
         Self {
@@ -148,6 +218,54 @@ impl From<ProbeJdbcDriverRequest> for ProbeJdbcDriverInput {
             workbench_id: request.workbench_id,
             widget_instance_id: request.widget_instance_id,
             experimental_sidecar: request.experimental_sidecar.into(),
+        }
+    }
+}
+
+impl From<CreateJdbcConnectionProfileRequest> for CreateJdbcConnectionProfileInput {
+    fn from(request: CreateJdbcConnectionProfileRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            name: request.name,
+            driver_jar_path: request.driver_jar_path,
+            driver_class_name: request.driver_class_name,
+            jdbc_url: request.jdbc_url,
+            username: request.username,
+            password_env_var_name: request.password_env_var_name,
+            max_rows: request.max_rows,
+            timeout_ms: request.timeout_ms,
+            max_result_bytes: request.max_result_bytes,
+            read_only: request.read_only,
+            description: request.description,
+        }
+    }
+}
+
+impl From<UpdateJdbcConnectionProfileRequest> for UpdateJdbcConnectionProfileInput {
+    fn from(request: UpdateJdbcConnectionProfileRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            profile_id: request.profile_id,
+            name: request.name,
+            driver_jar_path: request.driver_jar_path,
+            driver_class_name: request.driver_class_name,
+            jdbc_url: request.jdbc_url,
+            username: request.username,
+            password_env_var_name: request.password_env_var_name,
+            max_rows: request.max_rows,
+            timeout_ms: request.timeout_ms,
+            max_result_bytes: request.max_result_bytes,
+            read_only: request.read_only,
+            description: request.description,
+        }
+    }
+}
+
+impl From<DeleteJdbcConnectionProfileRequest> for DeleteJdbcConnectionProfileInput {
+    fn from(request: DeleteJdbcConnectionProfileRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            profile_id: request.profile_id,
         }
     }
 }
@@ -201,6 +319,28 @@ impl From<JdbcSidecarDiagnosticSummary> for JdbcSidecarDiagnosticDto {
             duration_ms: summary.duration_ms,
             no_secrets_returned: summary.no_secrets_returned,
             no_ai_context_shared: summary.no_ai_context_shared,
+        }
+    }
+}
+
+impl From<JdbcConnectionProfileSummary> for JdbcConnectionProfileDto {
+    fn from(summary: JdbcConnectionProfileSummary) -> Self {
+        Self {
+            profile_id: summary.profile_id,
+            workspace_id: summary.workspace_id,
+            name: summary.name,
+            driver_jar_path: summary.driver_jar_path,
+            driver_class_name: summary.driver_class_name,
+            jdbc_url: summary.jdbc_url,
+            username: summary.username,
+            password_env_var_name: summary.password_env_var_name,
+            max_rows: summary.max_rows,
+            timeout_ms: summary.timeout_ms,
+            max_result_bytes: summary.max_result_bytes,
+            read_only: summary.read_only,
+            description: summary.description,
+            created_at: summary.created_at,
+            updated_at: summary.updated_at,
         }
     }
 }

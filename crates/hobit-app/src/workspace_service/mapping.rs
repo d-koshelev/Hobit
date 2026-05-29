@@ -1,14 +1,15 @@
 use hobit_storage_sqlite::{
-    AgentQueueTaskRow, JdbcConnectorRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
-    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueTaskRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentRow,
+    KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
+    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
-    AgentQueueTaskSummary, JdbcConnectorSummary, KnowledgeDocumentSearchResultSummary,
-    KnowledgeDocumentSummary, SharedStateObjectSummary, SkillSummary, WidgetInstanceSummary,
-    WidgetLogSummary, WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
+    AgentQueueTaskSummary, JdbcConnectionProfileSummary, JdbcConnectorSummary,
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SharedStateObjectSummary,
+    SkillSummary, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -201,6 +202,28 @@ pub(super) fn jdbc_connector_summary(row: JdbcConnectorRow) -> JdbcConnectorSumm
         created_at: row.created_at,
         updated_at: row.updated_at,
         last_used_at: row.last_used_at,
+    }
+}
+
+pub(super) fn jdbc_connection_profile_summary(
+    row: JdbcConnectionProfileRow,
+) -> JdbcConnectionProfileSummary {
+    JdbcConnectionProfileSummary {
+        profile_id: row.profile_id,
+        workspace_id: row.workspace_id,
+        name: row.name,
+        driver_jar_path: row.driver_jar_path,
+        driver_class_name: row.driver_class_name,
+        jdbc_url: row.jdbc_url,
+        username: row.username,
+        password_env_var_name: row.password_env_var_name,
+        max_rows: usize::try_from(row.max_rows).unwrap_or(0),
+        timeout_ms: u64::try_from(row.timeout_ms).unwrap_or(0),
+        max_result_bytes: usize::try_from(row.max_result_bytes).unwrap_or(0),
+        read_only: row.read_only,
+        description: row.description,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
     }
 }
 

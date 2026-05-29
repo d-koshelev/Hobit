@@ -1,13 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CheckJdbcSidecarHealthRequest,
+  CreateJdbcConnectionProfileRequest,
+  DeleteJdbcConnectionProfileRequest,
   ExecuteJdbcReadOnlyQueryRequest,
+  GetJdbcConnectionProfileRequest,
+  JdbcConnectionProfile,
   JdbcExperimentalSidecarRuntime,
   JdbcQueryColumn,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
+  ListJdbcConnectionProfilesRequest,
   ProbeJdbcDriverRequest,
+  UpdateJdbcConnectionProfileRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "./jdbcQueryTypes";
 
@@ -56,6 +62,24 @@ type TauriJdbcSidecarDiagnostic = {
   duration_ms: number;
   no_secrets_returned: boolean;
   no_ai_context_shared: boolean;
+};
+
+type TauriJdbcConnectionProfile = {
+  profile_id: string;
+  workspace_id: string;
+  name: string;
+  driver_jar_path: string;
+  driver_class_name: string;
+  jdbc_url: string;
+  username: string | null;
+  password_env_var_name: string | null;
+  max_rows: number;
+  timeout_ms: number;
+  max_result_bytes: number;
+  read_only: boolean;
+  description: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export async function validateJdbcReadOnlySql(
@@ -146,6 +170,78 @@ export async function probeJdbcDriver(
   return normalizeJdbcSidecarDiagnostic(result);
 }
 
+export async function createJdbcConnectionProfile(
+  request: CreateJdbcConnectionProfileRequest,
+): Promise<JdbcConnectionProfile> {
+  const profile = await invoke<TauriJdbcConnectionProfile>(
+    "create_jdbc_connection_profile",
+    {
+      request: serializeJdbcConnectionProfileRequest(request),
+    },
+  );
+
+  return normalizeJdbcConnectionProfile(profile);
+}
+
+export async function listJdbcConnectionProfiles(
+  request: ListJdbcConnectionProfilesRequest,
+): Promise<JdbcConnectionProfile[]> {
+  const profiles = await invoke<TauriJdbcConnectionProfile[]>(
+    "list_jdbc_connection_profiles",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return profiles.map(normalizeJdbcConnectionProfile);
+}
+
+export async function getJdbcConnectionProfile(
+  request: GetJdbcConnectionProfileRequest,
+): Promise<JdbcConnectionProfile | null> {
+  const profile = await invoke<TauriJdbcConnectionProfile | null>(
+    "get_jdbc_connection_profile",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        profile_id: request.profileId,
+      },
+    },
+  );
+
+  return profile ? normalizeJdbcConnectionProfile(profile) : null;
+}
+
+export async function updateJdbcConnectionProfile(
+  request: UpdateJdbcConnectionProfileRequest,
+): Promise<JdbcConnectionProfile | null> {
+  const profile = await invoke<TauriJdbcConnectionProfile | null>(
+    "update_jdbc_connection_profile",
+    {
+      request: {
+        ...serializeJdbcConnectionProfileRequest(request),
+        profile_id: request.profileId,
+        read_only: true,
+      },
+    },
+  );
+
+  return profile ? normalizeJdbcConnectionProfile(profile) : null;
+}
+
+export async function deleteJdbcConnectionProfile(
+  request: DeleteJdbcConnectionProfileRequest,
+): Promise<boolean> {
+  return invoke<boolean>("delete_jdbc_connection_profile", {
+    request: {
+      workspace_id: request.workspaceId,
+      profile_id: request.profileId,
+    },
+  });
+}
+
 function normalizeJdbcReadOnlyQueryResult(
   result: TauriJdbcReadOnlyQueryResult,
 ): JdbcReadOnlyQueryResult {
@@ -188,6 +284,28 @@ function normalizeJdbcSidecarDiagnostic(
   };
 }
 
+function normalizeJdbcConnectionProfile(
+  profile: TauriJdbcConnectionProfile,
+): JdbcConnectionProfile {
+  return {
+    profileId: profile.profile_id,
+    workspaceId: profile.workspace_id,
+    name: profile.name,
+    driverJarPath: profile.driver_jar_path,
+    driverClassName: profile.driver_class_name,
+    jdbcUrl: profile.jdbc_url,
+    username: profile.username,
+    passwordEnvVarName: profile.password_env_var_name,
+    maxRows: profile.max_rows,
+    timeoutMs: profile.timeout_ms,
+    maxResultBytes: profile.max_result_bytes,
+    readOnly: true,
+    description: profile.description,
+    createdAt: profile.created_at,
+    updatedAt: profile.updated_at,
+  };
+}
+
 function normalizeJdbcReadOnlySqlValidation(
   validation: TauriJdbcReadOnlySqlValidation,
 ): JdbcReadOnlySqlValidation {
@@ -226,5 +344,26 @@ function serializeExperimentalSidecar(
     max_rows: runtime.maxRows ?? null,
     timeout_ms: runtime.timeoutMs ?? null,
     max_result_bytes: runtime.maxResultBytes ?? null,
+  };
+}
+
+function serializeJdbcConnectionProfileRequest(
+  request:
+    | CreateJdbcConnectionProfileRequest
+    | UpdateJdbcConnectionProfileRequest,
+) {
+  return {
+    workspace_id: request.workspaceId,
+    name: request.name,
+    driver_jar_path: request.driverJarPath,
+    driver_class_name: request.driverClassName,
+    jdbc_url: request.jdbcUrl,
+    username: request.username ?? null,
+    password_env_var_name: request.passwordEnvVarName ?? null,
+    max_rows: request.maxRows,
+    timeout_ms: request.timeoutMs,
+    max_result_bytes: request.maxResultBytes,
+    read_only: true,
+    description: request.description ?? null,
   };
 }

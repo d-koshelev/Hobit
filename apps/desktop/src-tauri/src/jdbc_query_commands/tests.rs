@@ -134,6 +134,112 @@ fn jdbc_query_command_helpers_run_explicit_diagnostics() {
 }
 
 #[test]
+fn jdbc_query_command_helpers_manage_non_secret_connection_profiles() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, _workbench_id, _widget_id) =
+        create_widget_in_test_db(&db_path, JDBC_WIDGET_DEFINITION_ID);
+
+    let created = create_jdbc_connection_profile_blocking(
+        CreateJdbcConnectionProfileRequest {
+            workspace_id: workspace_id.clone(),
+            name: "Analytics readonly".to_owned(),
+            driver_jar_path: "C:\\drivers\\postgres.jar".to_owned(),
+            driver_class_name: "org.postgresql.Driver".to_owned(),
+            jdbc_url: "jdbc:postgresql://db.example.test/app".to_owned(),
+            username: Some("readonly_user".to_owned()),
+            password_env_var_name: Some("HOBIT_READONLY_DB_PASSWORD".to_owned()),
+            max_rows: 100,
+            timeout_ms: 10_000,
+            max_result_bytes: 262_144,
+            read_only: Some(true),
+            description: Some("Non-secret profile.".to_owned()),
+        },
+        db_path.clone(),
+    )
+    .expect("create profile");
+
+    assert_eq!(created.workspace_id, workspace_id);
+    assert_eq!(created.name, "Analytics readonly");
+    assert_eq!(
+        created.password_env_var_name.as_deref(),
+        Some("HOBIT_READONLY_DB_PASSWORD")
+    );
+
+    let listed = list_jdbc_connection_profiles_blocking(
+        ListJdbcConnectionProfilesRequest {
+            workspace_id: workspace_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("list profiles");
+    assert_eq!(listed.len(), 1);
+
+    let updated = update_jdbc_connection_profile_blocking(
+        UpdateJdbcConnectionProfileRequest {
+            workspace_id: workspace_id.clone(),
+            profile_id: created.profile_id.clone(),
+            name: "Updated".to_owned(),
+            driver_jar_path: created.driver_jar_path.clone(),
+            driver_class_name: created.driver_class_name.clone(),
+            jdbc_url: created.jdbc_url.clone(),
+            username: None,
+            password_env_var_name: None,
+            max_rows: 50,
+            timeout_ms: 5_000,
+            max_result_bytes: 131_072,
+            read_only: true,
+            description: Some("Updated profile".to_owned()),
+        },
+        db_path.clone(),
+    )
+    .expect("update profile")
+    .expect("updated profile");
+    assert_eq!(updated.name, "Updated");
+    assert_eq!(updated.max_rows, 50);
+
+    assert!(delete_jdbc_connection_profile_blocking(
+        DeleteJdbcConnectionProfileRequest {
+            workspace_id,
+            profile_id: created.profile_id,
+        },
+        db_path.clone(),
+    )
+    .expect("delete profile"));
+
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn jdbc_query_command_helper_rejects_secret_bearing_profile_urls() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, _workbench_id, _widget_id) =
+        create_widget_in_test_db(&db_path, JDBC_WIDGET_DEFINITION_ID);
+
+    let error = create_jdbc_connection_profile_blocking(
+        CreateJdbcConnectionProfileRequest {
+            workspace_id,
+            name: "Secret URL".to_owned(),
+            driver_jar_path: "C:\\drivers\\postgres.jar".to_owned(),
+            driver_class_name: "org.postgresql.Driver".to_owned(),
+            jdbc_url: "jdbc:postgresql://db.example.test/app?access_token=secret".to_owned(),
+            username: None,
+            password_env_var_name: Some("HOBIT_READONLY_DB_PASSWORD".to_owned()),
+            max_rows: 100,
+            timeout_ms: 10_000,
+            max_result_bytes: 262_144,
+            read_only: Some(true),
+            description: None,
+        },
+        db_path.clone(),
+    )
+    .expect_err("secret profile rejected");
+
+    assert!(error.contains("connection profiles must not include password"));
+    assert!(!error.contains("access_token=secret"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn jdbc_query_command_helper_rejects_non_jdbc_widget_owner() {
     let db_path = unique_test_db_path();
     let (workspace_id, workbench_id, widget_id) =

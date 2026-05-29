@@ -1,11 +1,15 @@
 import {
   checkJdbcSidecarHealth,
+  createJdbcConnectionProfile,
   createJdbcConnector,
+  deleteJdbcConnectionProfile,
   executeJdbcReadOnlyQuery,
   getJdbcConnector,
+  listJdbcConnectionProfiles,
   listJdbcConnectors,
   probeJdbcDriver,
   validateJdbcReadOnlySql,
+  updateJdbcConnectionProfile,
   updateJdbcConnector,
 } from "../workspace/workspaceApi";
 import type {
@@ -15,11 +19,15 @@ import type {
 } from "../workspace/jdbcConnectorTypes";
 import type {
   CheckJdbcSidecarHealthRequest,
+  CreateJdbcConnectionProfileRequest,
+  DeleteJdbcConnectionProfileRequest,
   ExecuteJdbcReadOnlyQueryRequest,
+  JdbcConnectionProfile,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
   ProbeJdbcDriverRequest,
+  UpdateJdbcConnectionProfileRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "../workspace/jdbcQueryTypes";
 import type { WidgetInstanceId, WorkbenchViewState } from "./types";
@@ -31,6 +39,21 @@ export type JdbcConnectorCreateRequest = Omit<
 
 export type JdbcConnectorUpdateRequest = Omit<
   UpdateJdbcConnectorRequest,
+  "workspaceId"
+>;
+
+export type JdbcConnectionProfileCreateRequest = Omit<
+  CreateJdbcConnectionProfileRequest,
+  "workspaceId"
+>;
+
+export type JdbcConnectionProfileUpdateRequest = Omit<
+  UpdateJdbcConnectionProfileRequest,
+  "workspaceId"
+>;
+
+export type JdbcConnectionProfileDeleteRequest = Omit<
+  DeleteJdbcConnectionProfileRequest,
   "workspaceId"
 >;
 
@@ -58,6 +81,12 @@ export type JdbcConnectorWidgetActions = {
   createJdbcConnector: (
     request: JdbcConnectorCreateRequest,
   ) => Promise<JdbcConnector>;
+  createJdbcConnectionProfile: (
+    request: JdbcConnectionProfileCreateRequest,
+  ) => Promise<JdbcConnectionProfile>;
+  deleteJdbcConnectionProfile: (
+    request: JdbcConnectionProfileDeleteRequest,
+  ) => Promise<boolean>;
   executeJdbcReadOnlyQuery: (
     widgetInstanceId: WidgetInstanceId,
     request: JdbcReadOnlyQueryExecutionRequest,
@@ -71,10 +100,14 @@ export type JdbcConnectorWidgetActions = {
     request: JdbcDriverProbeRequest,
   ) => Promise<JdbcSidecarDiagnostic>;
   listJdbcConnectors: () => Promise<JdbcConnector[]>;
+  listJdbcConnectionProfiles: () => Promise<JdbcConnectionProfile[]>;
   getJdbcConnector: (connectorId: string) => Promise<JdbcConnector | null>;
   updateJdbcConnector: (
     request: JdbcConnectorUpdateRequest,
   ) => Promise<JdbcConnector | null>;
+  updateJdbcConnectionProfile: (
+    request: JdbcConnectionProfileUpdateRequest,
+  ) => Promise<JdbcConnectionProfile | null>;
   validateJdbcReadOnlySql: (
     widgetInstanceId: WidgetInstanceId,
     request: JdbcReadOnlySqlValidationRequest,
@@ -88,6 +121,20 @@ export function createJdbcConnectorActions(
     createJdbcConnector: (request) => {
       requireOpenWorkbench(viewState, "create JDBC connectors");
       return createJdbcConnector({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    createJdbcConnectionProfile: (request) => {
+      requireOpenWorkbench(viewState, "create JDBC connection profiles");
+      return createJdbcConnectionProfile({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    deleteJdbcConnectionProfile: (request) => {
+      requireOpenWorkbench(viewState, "delete JDBC connection profiles");
+      return deleteJdbcConnectionProfile({
         workspaceId: viewState.workspace.id,
         ...request,
       });
@@ -129,6 +176,12 @@ export function createJdbcConnectorActions(
         workspaceId: viewState.workspace.id,
       });
     },
+    listJdbcConnectionProfiles: () => {
+      requireOpenWorkbench(viewState, "read JDBC connection profiles");
+      return listJdbcConnectionProfiles({
+        workspaceId: viewState.workspace.id,
+      });
+    },
     probeJdbcDriver: (widgetInstanceId, request) => {
       const workbenchId = requireOpenWorkbench(
         viewState,
@@ -144,6 +197,13 @@ export function createJdbcConnectorActions(
     updateJdbcConnector: (request) => {
       requireOpenWorkbench(viewState, "update JDBC connectors");
       return updateJdbcConnector({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    updateJdbcConnectionProfile: (request) => {
+      requireOpenWorkbench(viewState, "update JDBC connection profiles");
+      return updateJdbcConnectionProfile({
         workspaceId: viewState.workspace.id,
         ...request,
       });

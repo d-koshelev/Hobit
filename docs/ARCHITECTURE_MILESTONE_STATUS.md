@@ -47,11 +47,17 @@ behavior, or Workspace Agent context wiring.
   no credentials are stored, no writes/DDL/DML run, and Workspace Agent has no
   JDBC execution path. An Experimental real read-only Java sidecar prototype
   now exists only for explicit operator-triggered JDBC widget Runs with
-  request-scoped runtime inputs. The future connector profile boundary is now
-  defined as non-secret profile metadata only; passwords,
-  tokens, Kerberos tickets, private keys, client certificates, and
-  secret-bearing connection strings must not be stored in workspace DB data or
-  workspace exports. The Experimental sidecar uses explicit driver JAR path,
+  request-scoped runtime inputs. Non-secret Experimental JDBC connection
+  profiles now persist workspace-local desktop SQLite metadata only: display
+  name, explicit driver JAR path, driver class, JDBC URL after rejection of
+  obvious value-bearing password/token/secret/key parameters, optional
+  username, password environment variable name, row/time/result caps, read-only
+  flag, description, and timestamps. Profiles do not store password values,
+  tokens, Kerberos tickets, private keys, client certificates, or
+  secret-bearing connection strings, and selecting one only fills visible
+  runtime fields without connecting, probing, validating, running SQL, or
+  launching Workspace Agent/Queue/Executor work. The Experimental sidecar uses
+  explicit driver JAR path,
   no folder scanning, no driver download, no bundled proprietary drivers,
   password environment variable name rather than password value, Rust and
   sidecar SELECT/WITH read-only guards, JDBC `setReadOnly(true)` where

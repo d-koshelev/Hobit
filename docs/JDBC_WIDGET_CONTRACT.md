@@ -53,6 +53,14 @@ manual HealthCheck and DriverProbe actions using the same runtime-only inputs.
 Diagnostics do not run automatically, do not persist runtime configuration,
 do not accept password values, do not execute SQL, and DriverProbe loads only
 the explicit driver JAR/class without opening a database connection.
+Block 270 adds workspace-local SQLite persistence for non-secret Experimental
+JDBC connection profiles. Profiles can save explicit driver JAR path, driver
+class, JDBC URL after secret-parameter validation, optional username, password
+environment variable name, read-only caps, display name, and description.
+Profiles never store password values, tokens, private keys, client
+certificates, Kerberos tickets, or secret-bearing JDBC URLs. Selecting a
+profile only fills visible Experimental runtime fields; it does not connect,
+probe, validate SQL, run SQL, or create Queue/Executor/Workspace Agent work.
 The repo-local sidecar smoke script mirrors this boundary for developer setup:
 without arguments it checks `java`/`javac`, compiles the sidecar when needed,
 and runs HealthCheck only; DriverProbe and real DB smoke require explicit
@@ -90,6 +98,13 @@ Current product runtime status: Preview, mock-default.
   values: Java executable, sidecar classpath or JAR, explicit driver JAR path,
   optional driver class name, explicit JDBC URL, optional username, password
   environment variable name, and row/time/result caps.
+- Experimental connection profiles are workspace-local, non-secret metadata
+  records for reusing sidecar runtime fields. Stored fields are profile id,
+  name, explicit driver JAR path, driver class name, JDBC URL only after
+  rejecting obvious password/token/secret/key parameters, optional username,
+  password environment variable name, max rows, timeout, max result bytes,
+  read-only flag, description, and timestamps. Profile selection is inert and
+  never opens a connection, runs diagnostics, validates SQL, or executes SQL.
 - Experimental diagnostics are request-scoped and operator-triggered. Check
   sidecar starts the explicit Java sidecar and requires it to answer
   HealthCheck. Probe driver starts the explicit Java sidecar and requires it to
@@ -99,9 +114,10 @@ Current product runtime status: Preview, mock-default.
 - Missing or unsupported sidecar/real runtime paths must surface visible
   `not_configured` or `unsupported_driver` style errors; they must not fake a
   production connection.
-- No credentials, passwords, tokens, raw JDBC URLs, driver jars, or secret
-  references are persisted by the current widget. Experimental runtime values
-  are local UI/request inputs for one explicit Run only, and password values
+- No credentials, passwords, tokens, private keys, client certificates,
+  Kerberos tickets, or secret references are persisted by the current widget.
+  Non-secret Experimental profile metadata may persist explicit driver JAR
+  paths and JDBC URLs only after secret-parameter validation. Password values
   are never entered into Hobit.
 - Workspace Agent may prepare JDBC SQL suggestion text only. It has no
   automatic or hidden JDBC execution path, no JDBC tool, and no access to JDBC
@@ -169,6 +185,15 @@ Current sidecar/unsupported behavior:
   are explicit operator actions and show compact OK/Failed state with collapsed
   details. They do not run on widget load, profile selection, validation, or
   query edit.
+- The JDBC widget exposes a compact Experimental connection profile section.
+  The selector loads workspace-local non-secret profiles, Save profile updates
+  the selected profile, Save as new profile creates a new one, Delete profile
+  requires an explicit confirmation click, and an unsaved-changes badge marks
+  edited profile fields. Profile save rejects missing required fields,
+  malformed password environment variable names, out-of-bounds caps, and
+  obvious value-bearing secret JDBC URL parameters such as `password=`,
+  `token=`, `access_token=`, `secret=`, `key=`, `api_key=`, and
+  `private_key=`.
 - The typed protocol DTOs in `hobit-app` remain contract/test scaffolding, but
   the existing flat sidecar process JSON mapping can now carry request-scoped
   real JDBC runtime fields for the Experimental path. It carries no password
@@ -184,7 +209,8 @@ Current request/result types:
   connector id, SQL, row limit, and timeout.
 - Execution requests add max columns, max cell characters, max result bytes,
   and an optional request-scoped Experimental sidecar runtime config. The
-  Experimental config is not stored in SQLite or widget state.
+  Experimental config can be populated from an explicitly selected non-secret
+  profile, but selecting a profile does not run the request.
 - Validation results carry validity, statement kind, normalized preview,
   rejection reason, and safety notes.
 - Execution results carry status, connector id/display name, validation,
@@ -193,8 +219,9 @@ Current request/result types:
 
 Current frontend assumptions:
 
-- The widget is a Database / JDBC Preview surface with explicit connection
-  profile selection and a visible mock read-only runtime status.
+- The widget is a Database / JDBC Preview surface with explicit connector
+  metadata selection, an Experimental non-secret connection profile selector,
+  and a visible mock read-only runtime status.
 - The profile editor accepts only metadata and warns operators not to enter
   passwords or tokens.
 - Query execution is blocked until the selected visible SQL has been validated
@@ -292,9 +319,9 @@ connection profile. A future real connector profile may extend the metadata
 model only after a separate storage/runtime block accepts the schema and secret
 handling design.
 
-## Future Connection Profile Boundary
+## Connection Profile Boundary
 
-A future JDBC connection profile is the operator-visible, non-secret descriptor
+A JDBC connection profile is the operator-visible, non-secret descriptor
 for a database target. It may tell Hobit what database shape to connect to and
 which read-only limits to enforce, but it is not a credential record and not a
 secret container.
@@ -313,6 +340,31 @@ Safe-to-store profile metadata may include:
 - query timeout
 - created and updated timestamps when later stored
 - optional tags and description
+
+Current implemented Experimental profile fields are narrower and sidecar
+oriented:
+
+- `profile_id`
+- `workspace_id`
+- `name`
+- `driver_jar_path`
+- `driver_class_name`
+- `jdbc_url`
+- `username`
+- `password_env_var_name`
+- `max_rows`
+- `timeout_ms`
+- `max_result_bytes`
+- `read_only`
+- `description`
+- `created_at`
+- `updated_at`
+
+The current implementation stores profiles in local desktop SQLite and exposes
+narrow list/create/update/delete APIs plus a safe browser fallback. The profile
+table is not a secret store. It rejects obvious value-bearing secret JDBC URL
+parameters before create/update and accepts only environment variable names,
+not password values.
 
 Values that must not be stored in the workspace DB:
 
@@ -349,14 +401,19 @@ implemented.
 Current foundation status:
 
 - workspace-local connector metadata create/list/read/update APIs exist
+- workspace-local non-secret Experimental connection profile create/list/read,
+  update, and delete APIs exist for local desktop SQLite
 - a Preview Database / JDBC widget can create, list, select, and update
   connector metadata
+- the Preview widget can save, select, update, and delete Experimental
+  non-secret connection profiles; selecting a profile only fills fields
 - stored metadata includes only masked/non-secret connector descriptors
 - widget-owned read-only SQL validation and mock/safe execution APIs exist
 - the Preview widget can validate SQL, run the mock adapter, and display
   bounded sample results or sanitized errors
-- passwords, tokens, secret references, driver jars, and runtime credentials are
-  not stored
+- passwords, tokens, secret references, runtime credentials, private keys,
+  client certificates, Kerberos tickets, and secret-bearing JDBC URLs are not
+  stored
 - no real database query execution, test connection, production Java sidecar,
   SQL formatter, real `EXPLAIN` execution/visualization, AI assistance,
   credential input, or Workspace Agent capability runtime exists
@@ -375,6 +432,9 @@ Current foundation status:
 - Block 266 adds a JDK-gated backend activation test for
   `mock_read_only` sidecar execution through explicit `JdbcRuntimeConfig`;
   it skips without a JDK and still does not enable the sidecar by default
+- Block 270 adds local desktop SQLite persistence for non-secret Experimental
+  JDBC connection profiles only; it does not persist password values or make
+  profile selection connect/probe/run
 
 ## Secrets Policy
 
@@ -1397,9 +1457,10 @@ The Current Preview does not add:
 
 ## Non-Goals For This Block
 
-This contract does not implement:
+Beyond the narrow non-secret Experimental profile table and APIs described
+above, this contract does not implement:
 
-- storage/schema changes
+- broader storage/schema changes
 - production Java sidecar implementation
 - production JDBC execution
 - write SQL

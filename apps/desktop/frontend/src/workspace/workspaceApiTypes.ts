@@ -7,11 +7,17 @@ import type {
 } from "./jdbcConnectorTypes";
 import type {
   CheckJdbcSidecarHealthRequest,
+  CreateJdbcConnectionProfileRequest,
+  DeleteJdbcConnectionProfileRequest,
   ExecuteJdbcReadOnlyQueryRequest,
+  GetJdbcConnectionProfileRequest,
+  JdbcConnectionProfile,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
+  ListJdbcConnectionProfilesRequest,
   ProbeJdbcDriverRequest,
+  UpdateJdbcConnectionProfileRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "./jdbcQueryTypes";
 import type {
@@ -185,6 +191,21 @@ export type WorkspaceApi = {
   probeJdbcDriver: (
     request: ProbeJdbcDriverRequest,
   ) => Promise<JdbcSidecarDiagnostic>;
+  createJdbcConnectionProfile: (
+    request: CreateJdbcConnectionProfileRequest,
+  ) => Promise<JdbcConnectionProfile>;
+  listJdbcConnectionProfiles: (
+    request: ListJdbcConnectionProfilesRequest,
+  ) => Promise<JdbcConnectionProfile[]>;
+  getJdbcConnectionProfile: (
+    request: GetJdbcConnectionProfileRequest,
+  ) => Promise<JdbcConnectionProfile | null>;
+  updateJdbcConnectionProfile: (
+    request: UpdateJdbcConnectionProfileRequest,
+  ) => Promise<JdbcConnectionProfile | null>;
+  deleteJdbcConnectionProfile: (
+    request: DeleteJdbcConnectionProfileRequest,
+  ) => Promise<boolean>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;

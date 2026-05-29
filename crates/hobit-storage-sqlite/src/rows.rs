@@ -240,6 +240,25 @@ pub struct JdbcConnectorRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JdbcConnectionProfileRow {
+    pub profile_id: String,
+    pub workspace_id: String,
+    pub name: String,
+    pub driver_jar_path: String,
+    pub driver_class_name: String,
+    pub jdbc_url: String,
+    pub username: Option<String>,
+    pub password_env_var_name: Option<String>,
+    pub max_rows: i64,
+    pub timeout_ms: i64,
+    pub max_result_bytes: i64,
+    pub read_only: bool,
+    pub description: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SharedStateObjectRow {
     pub id: String,
     pub workspace_id: String,

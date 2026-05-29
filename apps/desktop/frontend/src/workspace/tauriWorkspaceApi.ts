@@ -45,8 +45,13 @@ import {
 } from "./tauriJdbcConnectorApi";
 import {
   checkJdbcSidecarHealth,
+  createJdbcConnectionProfile,
+  deleteJdbcConnectionProfile,
   executeJdbcReadOnlyQuery,
+  getJdbcConnectionProfile,
+  listJdbcConnectionProfiles,
   probeJdbcDriver,
+  updateJdbcConnectionProfile,
   validateJdbcReadOnlySql,
 } from "./tauriJdbcQueryApi";
 import { runTerminalCommand } from "./tauriTerminalCommandApi";
@@ -127,6 +132,11 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   executeJdbcReadOnlyQuery,
   checkJdbcSidecarHealth,
   probeJdbcDriver,
+  createJdbcConnectionProfile,
+  listJdbcConnectionProfiles,
+  getJdbcConnectionProfile,
+  updateJdbcConnectionProfile,
+  deleteJdbcConnectionProfile,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

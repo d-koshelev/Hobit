@@ -172,6 +172,33 @@ export const probeJdbcDriver: WorkspaceApi["probeJdbcDriver"] =
     );
   };
 
+export const createJdbcConnectionProfile: WorkspaceApi["createJdbcConnectionProfile"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC connection profiles are only available in the Tauri desktop shell. Browser fallback cannot persist JDBC profile metadata.",
+    );
+  };
+
+export const listJdbcConnectionProfiles: WorkspaceApi["listJdbcConnectionProfiles"] =
+  async (_request) => [];
+
+export const getJdbcConnectionProfile: WorkspaceApi["getJdbcConnectionProfile"] =
+  async (_request) => null;
+
+export const updateJdbcConnectionProfile: WorkspaceApi["updateJdbcConnectionProfile"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC connection profiles are only available in the Tauri desktop shell. Browser fallback cannot update JDBC profile metadata.",
+    );
+  };
+
+export const deleteJdbcConnectionProfile: WorkspaceApi["deleteJdbcConnectionProfile"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC connection profiles are only available in the Tauri desktop shell. Browser fallback cannot delete JDBC profile metadata.",
+    );
+  };
+
 export const deleteWidgetInstanceFromWorkbench: WorkspaceApi["deleteWidgetInstanceFromWorkbench"] =
   async (_request) => {
     throw new Error(

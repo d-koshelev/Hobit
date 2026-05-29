@@ -45,6 +45,69 @@ export type JdbcSidecarDiagnostic = {
   noAiContextShared: boolean;
 };
 
+export type JdbcConnectionProfile = {
+  profileId: string;
+  workspaceId: string;
+  name: string;
+  driverJarPath: string;
+  driverClassName: string;
+  jdbcUrl: string;
+  username: string | null;
+  passwordEnvVarName: string | null;
+  maxRows: number;
+  timeoutMs: number;
+  maxResultBytes: number;
+  readOnly: true;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateJdbcConnectionProfileRequest = {
+  workspaceId: string;
+  name: string;
+  driverJarPath: string;
+  driverClassName: string;
+  jdbcUrl: string;
+  username?: string | null;
+  passwordEnvVarName?: string | null;
+  maxRows: number;
+  timeoutMs: number;
+  maxResultBytes: number;
+  readOnly?: true | null;
+  description?: string | null;
+};
+
+export type ListJdbcConnectionProfilesRequest = {
+  workspaceId: string;
+};
+
+export type GetJdbcConnectionProfileRequest = {
+  workspaceId: string;
+  profileId: string;
+};
+
+export type UpdateJdbcConnectionProfileRequest = {
+  workspaceId: string;
+  profileId: string;
+  name: string;
+  driverJarPath: string;
+  driverClassName: string;
+  jdbcUrl: string;
+  username?: string | null;
+  passwordEnvVarName?: string | null;
+  maxRows: number;
+  timeoutMs: number;
+  maxResultBytes: number;
+  readOnly: true;
+  description?: string | null;
+};
+
+export type DeleteJdbcConnectionProfileRequest = {
+  workspaceId: string;
+  profileId: string;
+};
+
 export type ValidateJdbcReadOnlySqlRequest = {
   workspaceId: string;
   workbenchId: string;

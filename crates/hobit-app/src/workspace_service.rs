@@ -29,6 +29,8 @@ mod git;
 mod git_artifacts;
 mod git_commit;
 mod jdbc_artifacts;
+mod jdbc_connection_profile_types;
+mod jdbc_connection_profiles;
 mod jdbc_connector_types;
 mod jdbc_connectors;
 mod jdbc_diagnostics;
@@ -92,6 +94,8 @@ mod git_commit_tests;
 #[cfg(test)]
 mod jdbc_artifacts_tests;
 #[cfg(test)]
+mod jdbc_connection_profiles_tests;
+#[cfg(test)]
 mod jdbc_connectors_tests;
 #[cfg(test)]
 mod jdbc_diagnostics_tests;
@@ -146,6 +150,10 @@ pub use coordinator_provider_types::{
     CoordinatorProviderProposalDraftContext, CoordinatorProviderRequest,
     CoordinatorProviderResponse, CoordinatorProviderVisibleInput,
     GenerateCoordinatorProviderResponseInput,
+};
+pub use jdbc_connection_profile_types::{
+    CreateJdbcConnectionProfileInput, DeleteJdbcConnectionProfileInput,
+    JdbcConnectionProfileSummary, UpdateJdbcConnectionProfileInput,
 };
 pub use jdbc_connector_types::{
     CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,

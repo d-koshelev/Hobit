@@ -6,9 +6,11 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::jdbc_query_dto::{
-    CheckJdbcSidecarHealthRequest, ExecuteJdbcReadOnlyQueryRequest, JdbcReadOnlyQueryResultDto,
-    JdbcReadOnlySqlValidationDto, JdbcSidecarDiagnosticDto, ProbeJdbcDriverRequest,
-    ValidateJdbcReadOnlySqlRequest,
+    CheckJdbcSidecarHealthRequest, CreateJdbcConnectionProfileRequest,
+    DeleteJdbcConnectionProfileRequest, ExecuteJdbcReadOnlyQueryRequest,
+    GetJdbcConnectionProfileRequest, JdbcConnectionProfileDto, JdbcReadOnlyQueryResultDto,
+    JdbcReadOnlySqlValidationDto, JdbcSidecarDiagnosticDto, ListJdbcConnectionProfilesRequest,
+    ProbeJdbcDriverRequest, UpdateJdbcConnectionProfileRequest, ValidateJdbcReadOnlySqlRequest,
 };
 
 #[tauri::command]
@@ -84,6 +86,105 @@ fn probe_jdbc_driver_blocking(
     service
         .probe_jdbc_driver(request.into())
         .map(JdbcSidecarDiagnosticDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn create_jdbc_connection_profile(
+    request: CreateJdbcConnectionProfileRequest,
+    state: State<'_, AppState>,
+) -> Result<JdbcConnectionProfileDto, String> {
+    create_jdbc_connection_profile_blocking(request, state.db_path().to_path_buf())
+}
+
+fn create_jdbc_connection_profile_blocking(
+    request: CreateJdbcConnectionProfileRequest,
+    db_path: PathBuf,
+) -> Result<JdbcConnectionProfileDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .create_jdbc_connection_profile(request.into())
+        .map(JdbcConnectionProfileDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn list_jdbc_connection_profiles(
+    request: ListJdbcConnectionProfilesRequest,
+    state: State<'_, AppState>,
+) -> Result<Vec<JdbcConnectionProfileDto>, String> {
+    list_jdbc_connection_profiles_blocking(request, state.db_path().to_path_buf())
+}
+
+fn list_jdbc_connection_profiles_blocking(
+    request: ListJdbcConnectionProfilesRequest,
+    db_path: PathBuf,
+) -> Result<Vec<JdbcConnectionProfileDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .list_jdbc_connection_profiles(&request.workspace_id)
+        .map(|profiles| {
+            profiles
+                .into_iter()
+                .map(JdbcConnectionProfileDto::from)
+                .collect()
+        })
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn get_jdbc_connection_profile(
+    request: GetJdbcConnectionProfileRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<JdbcConnectionProfileDto>, String> {
+    get_jdbc_connection_profile_blocking(request, state.db_path().to_path_buf())
+}
+
+fn get_jdbc_connection_profile_blocking(
+    request: GetJdbcConnectionProfileRequest,
+    db_path: PathBuf,
+) -> Result<Option<JdbcConnectionProfileDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_jdbc_connection_profile(&request.workspace_id, &request.profile_id)
+        .map(|profile| profile.map(JdbcConnectionProfileDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn update_jdbc_connection_profile(
+    request: UpdateJdbcConnectionProfileRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<JdbcConnectionProfileDto>, String> {
+    update_jdbc_connection_profile_blocking(request, state.db_path().to_path_buf())
+}
+
+fn update_jdbc_connection_profile_blocking(
+    request: UpdateJdbcConnectionProfileRequest,
+    db_path: PathBuf,
+) -> Result<Option<JdbcConnectionProfileDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .update_jdbc_connection_profile(request.into())
+        .map(|profile| profile.map(JdbcConnectionProfileDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn delete_jdbc_connection_profile(
+    request: DeleteJdbcConnectionProfileRequest,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    delete_jdbc_connection_profile_blocking(request, state.db_path().to_path_buf())
+}
+
+fn delete_jdbc_connection_profile_blocking(
+    request: DeleteJdbcConnectionProfileRequest,
+    db_path: PathBuf,
+) -> Result<bool, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .delete_jdbc_connection_profile(request.into())
         .map_err(command_error)
 }
 

@@ -6,11 +6,15 @@ import type {
 } from "../workspace/jdbcConnectorTypes";
 import type {
   CheckJdbcSidecarHealthRequest,
+  CreateJdbcConnectionProfileRequest,
+  DeleteJdbcConnectionProfileRequest,
   ExecuteJdbcReadOnlyQueryRequest,
+  JdbcConnectionProfile,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
   ProbeJdbcDriverRequest,
+  UpdateJdbcConnectionProfileRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "../workspace/jdbcQueryTypes";
 import type {
@@ -144,6 +148,12 @@ export type WidgetRenderProps = {
   onCreateJdbcConnector?: (
     request: Omit<CreateJdbcConnectorRequest, "workspaceId">,
   ) => Promise<JdbcConnector>;
+  onCreateJdbcConnectionProfile?: (
+    request: Omit<CreateJdbcConnectionProfileRequest, "workspaceId">,
+  ) => Promise<JdbcConnectionProfile>;
+  onDeleteJdbcConnectionProfile?: (
+    request: Omit<DeleteJdbcConnectionProfileRequest, "workspaceId">,
+  ) => Promise<boolean>;
   onCheckJdbcSidecarHealth?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<
@@ -235,6 +245,7 @@ export type WidgetRenderProps = {
   ) => Promise<AgentExecutorRunHistory | null>;
   onListAgentQueueTasks?: () => Promise<AgentQueueTask[]>;
   onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
+  onListJdbcConnectionProfiles?: () => Promise<JdbcConnectionProfile[]>;
   onProbeJdbcDriver?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<
@@ -358,6 +369,9 @@ export type WidgetRenderProps = {
   onUpdateJdbcConnector?: (
     request: Omit<UpdateJdbcConnectorRequest, "workspaceId">,
   ) => Promise<JdbcConnector | null>;
+  onUpdateJdbcConnectionProfile?: (
+    request: Omit<UpdateJdbcConnectionProfileRequest, "workspaceId">,
+  ) => Promise<JdbcConnectionProfile | null>;
   onValidateJdbcReadOnlySql?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<

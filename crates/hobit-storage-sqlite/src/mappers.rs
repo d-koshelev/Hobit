@@ -3,9 +3,9 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectorRow,
-    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, SharedStateObjectRow, SkillRow,
-    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectionProfileRow,
+    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow, SharedStateObjectRow,
+    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
     WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
@@ -253,6 +253,28 @@ pub(crate) fn jdbc_connector_row(row: &rusqlite::Row<'_>) -> Result<JdbcConnecto
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
         last_used_at: row.get(12)?,
+    })
+}
+
+pub(crate) fn jdbc_connection_profile_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<JdbcConnectionProfileRow> {
+    Ok(JdbcConnectionProfileRow {
+        profile_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        name: row.get(2)?,
+        driver_jar_path: row.get(3)?,
+        driver_class_name: row.get(4)?,
+        jdbc_url: row.get(5)?,
+        username: row.get(6)?,
+        password_env_var_name: row.get(7)?,
+        max_rows: row.get(8)?,
+        timeout_ms: row.get(9)?,
+        max_result_bytes: row.get(10)?,
+        read_only: i64_to_bool(row.get(11)?),
+        description: row.get(12)?,
+        created_at: row.get(13)?,
+        updated_at: row.get(14)?,
     })
 }
 

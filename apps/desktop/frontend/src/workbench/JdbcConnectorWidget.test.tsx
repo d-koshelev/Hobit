@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { JdbcConnector } from "../workspace/jdbcConnectorTypes";
 import type {
+  JdbcConnectionProfile,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
@@ -45,6 +46,7 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain("Query editor");
     expect(document.body.textContent).toContain("Experimental sidecar runtime");
     expect(document.body.textContent).toContain("Runtime diagnostics");
+    expect(document.body.textContent).toContain("Connection profiles");
     expect(document.body.textContent).toContain("Check sidecar");
     expect(document.body.textContent).toContain("Probe driver");
     expect(document.body.textContent).toContain("Password env var name");
@@ -169,6 +171,179 @@ describe("JdbcConnectorWidget", () => {
     });
     expect(document.body.textContent).toContain("Completed");
     expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
+  });
+
+  it("saves valid non-secret profiles with password env var names only", async () => {
+    const onCreateProfile = vi.fn(async (request) =>
+      profile({
+        description: request.description,
+        driverClassName: request.driverClassName,
+        driverJarPath: request.driverJarPath,
+        jdbcUrl: request.jdbcUrl,
+        maxResultBytes: request.maxResultBytes,
+        maxRows: request.maxRows,
+        name: request.name,
+        passwordEnvVarName: request.passwordEnvVarName,
+        timeoutMs: request.timeoutMs,
+        username: request.username,
+      }),
+    );
+    await renderJdbcWidget({
+      onCreateJdbcConnectionProfile: onCreateProfile,
+      onDeleteJdbcConnectionProfile: vi.fn(async () => true),
+      onListJdbcConnectionProfiles: vi.fn(async () => []),
+      onUpdateJdbcConnectionProfile: vi.fn(async () => profile()),
+    });
+
+    await changeInputByLabel("Profile name", "Analytics readonly");
+    await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
+    await changeInputByLabel("Driver class", "org.postgresql.Driver");
+    await changeInputByLabel(
+      "Runtime JDBC URL",
+      "jdbc:postgresql://localhost/app",
+    );
+    await changeInputByLabel("Username", "readonly_user");
+    await changeInputByLabel(
+      "Password env var name",
+      "HOBIT_READONLY_DB_PASSWORD",
+    );
+    await clickButton("Save as new profile");
+
+    expect(onCreateProfile).toHaveBeenCalledWith({
+      description: "",
+      driverClassName: "org.postgresql.Driver",
+      driverJarPath: "C:\\drivers\\postgres.jar",
+      jdbcUrl: "jdbc:postgresql://localhost/app",
+      maxResultBytes: 262144,
+      maxRows: 100,
+      name: "Analytics readonly",
+      passwordEnvVarName: "HOBIT_READONLY_DB_PASSWORD",
+      readOnly: true,
+      timeoutMs: 10000,
+      username: "readonly_user",
+    });
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(document.body.textContent).toContain(
+      "Profile saved. Select does not connect or run.",
+    );
+  });
+
+  it("selects profiles without running diagnostics or queries", async () => {
+    const onCheck = vi.fn(async () => diagnosticResult());
+    const onProbe = vi.fn(async () => diagnosticResult());
+    const onExecute = vi.fn(async () => completedResult());
+    const savedProfile = profile({
+      driverClassName: "org.postgresql.Driver",
+      driverJarPath: "C:\\drivers\\postgres.jar",
+      jdbcUrl: "jdbc:postgresql://localhost/app",
+      name: "Analytics readonly",
+      passwordEnvVarName: "HOBIT_READONLY_DB_PASSWORD",
+      username: "readonly_user",
+    });
+    await renderJdbcWidget({
+      onCheckJdbcSidecarHealth: onCheck,
+      onCreateJdbcConnectionProfile: vi.fn(async () => savedProfile),
+      onDeleteJdbcConnectionProfile: vi.fn(async () => true),
+      onExecuteJdbcReadOnlyQuery: onExecute,
+      onListJdbcConnectionProfiles: vi.fn(async () => [savedProfile]),
+      onProbeJdbcDriver: onProbe,
+      onUpdateJdbcConnectionProfile: vi.fn(async () => savedProfile),
+    });
+
+    await changeSelectByLabel("Saved profile", savedProfile.profileId);
+
+    expect(inputByLabel<HTMLInputElement>("Driver JAR path").value).toBe(
+      "C:\\drivers\\postgres.jar",
+    );
+    expect(inputByLabel<HTMLInputElement>("Driver class").value).toBe(
+      "org.postgresql.Driver",
+    );
+    expect(inputByLabel<HTMLInputElement>("Runtime JDBC URL").value).toBe(
+      "jdbc:postgresql://localhost/app",
+    );
+    expect(inputByLabel<HTMLInputElement>("Username").value).toBe(
+      "readonly_user",
+    );
+    expect(inputByLabel<HTMLInputElement>("Password env var name").value).toBe(
+      "HOBIT_READONLY_DB_PASSWORD",
+    );
+    expect(onCheck).not.toHaveBeenCalled();
+    expect(onProbe).not.toHaveBeenCalled();
+    expect(onExecute).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit confirmation before deleting a profile", async () => {
+    const onDeleteProfile = vi.fn(async () => true);
+    const savedProfile = profile();
+    await renderJdbcWidget({
+      onCreateJdbcConnectionProfile: vi.fn(async () => savedProfile),
+      onDeleteJdbcConnectionProfile: onDeleteProfile,
+      onListJdbcConnectionProfiles: vi.fn(async () => [savedProfile]),
+      onUpdateJdbcConnectionProfile: vi.fn(async () => savedProfile),
+    });
+
+    await changeSelectByLabel("Saved profile", savedProfile.profileId);
+    await clickButton("Delete profile");
+
+    expect(onDeleteProfile).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Click Confirm delete to remove this profile.",
+    );
+
+    await clickButton("Confirm delete");
+
+    expect(onDeleteProfile).toHaveBeenCalledWith({
+      profileId: savedProfile.profileId,
+    });
+  });
+
+  it("rejects secret-bearing profile URLs before save", async () => {
+    const onCreateProfile = vi.fn(async () => profile());
+    await renderJdbcWidget({
+      onCreateJdbcConnectionProfile: onCreateProfile,
+      onDeleteJdbcConnectionProfile: vi.fn(async () => true),
+      onListJdbcConnectionProfiles: vi.fn(async () => []),
+      onUpdateJdbcConnectionProfile: vi.fn(async () => profile()),
+    });
+
+    await changeInputByLabel("Profile name", "Bad profile");
+    await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
+    await changeInputByLabel("Driver class", "org.postgresql.Driver");
+    await changeInputByLabel(
+      "Runtime JDBC URL",
+      "jdbc:postgresql://localhost/app?password=secret",
+    );
+    await clickButton("Save as new profile");
+
+    expect(onCreateProfile).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "JDBC URL must not contain password, token, secret, or key parameters.",
+    );
+  });
+
+  it("rejects invalid profile caps before save", async () => {
+    const onCreateProfile = vi.fn(async () => profile());
+    await renderJdbcWidget({
+      onCreateJdbcConnectionProfile: onCreateProfile,
+      onDeleteJdbcConnectionProfile: vi.fn(async () => true),
+      onListJdbcConnectionProfiles: vi.fn(async () => []),
+      onUpdateJdbcConnectionProfile: vi.fn(async () => profile()),
+    });
+
+    await changeInputByLabel("Profile name", "Bad caps");
+    await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
+    await changeInputByLabel("Driver class", "org.postgresql.Driver");
+    await changeInputByLabel(
+      "Runtime JDBC URL",
+      "jdbc:postgresql://localhost/app",
+    );
+    await changeInputByLabel("Row limit", "0");
+    await clickButton("Save as new profile");
+
+    expect(onCreateProfile).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Max rows must be between 1 and 100.",
+    );
   });
 
   it("runs explicit sidecar health diagnostics and renders collapsed details", async () => {
@@ -368,6 +543,16 @@ async function changeInputByLabel(labelText: string, value: string) {
   });
 }
 
+async function changeSelectByLabel(labelText: string, value: string) {
+  const select = selectByLabel(labelText);
+
+  await act(async () => {
+    setNativeSelectValue(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
 function setNativeValue(
   element: HTMLInputElement | HTMLTextAreaElement,
   value: string,
@@ -377,6 +562,14 @@ function setNativeValue(
       ? HTMLTextAreaElement.prototype
       : HTMLInputElement.prototype;
   const valueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  valueSetter?.call(element, value);
+}
+
+function setNativeSelectValue(element: HTMLSelectElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLSelectElement.prototype,
+    "value",
+  )?.set;
   valueSetter?.call(element, value);
 }
 
@@ -409,6 +602,24 @@ function inputByLabel<T extends HTMLInputElement | HTMLTextAreaElement>(
   }
 
   return input;
+}
+
+function selectByLabel(labelText: string): HTMLSelectElement {
+  const label = Array.from(document.querySelectorAll("label")).find((element) =>
+    (element.textContent ?? "").includes(labelText),
+  );
+
+  if (!label) {
+    throw new Error(`Label not found: ${labelText}`);
+  }
+
+  const select = label.querySelector("select");
+
+  if (!select) {
+    throw new Error(`Select not found for label: ${labelText}`);
+  }
+
+  return select;
 }
 
 async function flushPromises() {
@@ -464,6 +675,29 @@ function connector(
     readOnlyDefault: true,
     status: "configured",
     updatedAt: "2026-05-20T10:00:01.000Z",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function profile(
+  overrides: Partial<JdbcConnectionProfile> = {},
+): JdbcConnectionProfile {
+  return {
+    createdAt: "2026-05-20T10:00:00.000Z",
+    description: "",
+    driverClassName: "org.postgresql.Driver",
+    driverJarPath: "C:\\drivers\\postgres.jar",
+    jdbcUrl: "jdbc:postgresql://localhost/app",
+    maxResultBytes: 262144,
+    maxRows: 100,
+    name: "Analytics readonly",
+    passwordEnvVarName: null,
+    profileId: "jdbc_profile_1",
+    readOnly: true,
+    timeoutMs: 10000,
+    updatedAt: "2026-05-20T10:00:01.000Z",
+    username: null,
     workspaceId: "workspace_1",
     ...overrides,
   };

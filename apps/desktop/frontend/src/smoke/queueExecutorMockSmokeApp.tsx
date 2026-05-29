@@ -165,10 +165,12 @@ class QueueExecutorSmokeRuntime {
       deleteSkill: this.unsupported,
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
+      createJdbcConnectionProfile: this.unsupported,
       checkJdbcSidecarHealth: this.unsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
+      deleteJdbcConnectionProfile: this.unsupported,
       executeJdbcReadOnlyQuery: this.unsupported,
       generateCoordinatorProviderResponse: async () => this.forbidden(null),
       getAgentExecutorDiffSummary: async () => null,
@@ -217,6 +219,7 @@ class QueueExecutorSmokeRuntime {
         return this.queueTasks();
       },
       listJdbcConnectors: this.unsupported,
+      listJdbcConnectionProfiles: async () => [],
       listSkills: this.unsupported,
       listTerminalPtySessions: async () => [],
       listWidgetLogs: async () => [],
@@ -260,6 +263,7 @@ class QueueExecutorSmokeRuntime {
       },
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
+      updateJdbcConnectionProfile: this.unsupported,
       updateJdbcConnector: this.unsupported,
       updateSkill: this.unsupported,
       updateWidgetLayout: async () => undefined,

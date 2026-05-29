@@ -487,14 +487,14 @@ Workspace Agent is the foreground interactive agent surface.
   selection flows.
 - Connector metadata is non-secret: display name, database kind, driver kind,
   masked JDBC URL metadata, environment, read-only default, status, and notes.
-- The future connection profile boundary is defined in
-  `docs/JDBC_WIDGET_CONTRACT.md`: safe-to-store profile metadata is limited to
-  non-secret descriptors such as profile id/name, driver/database labels,
-  non-secret or masked JDBC URL metadata, optionally policy-allowed username,
-  default database/schema/catalog, read-only flag, row limit, query timeout,
-  timestamps, tags, and description. Workspace DB/export data must not contain
-  passwords, API tokens, Kerberos tickets, private keys, client certificates,
-  or full secret-bearing connection strings.
+- Experimental JDBC connection profiles are implemented as workspace-local,
+  non-secret desktop SQLite metadata for the sidecar runtime. They store
+  profile id/name, explicit driver JAR path, driver class, JDBC URL only after
+  rejecting obvious value-bearing password/token/secret/key parameters,
+  optional username, password environment variable name, row limit, timeout,
+  max result bytes, read-only flag, description, and timestamps. They never
+  store password values, API tokens, Kerberos tickets, private keys, client
+  certificates, or secret-bearing connection strings.
 - A read-only SQL validation/execution UI is shipped and wired through
   frontend, Tauri command, backend adapter, and tests.
 - The current product execution path is bounded mock/safe execution: it
@@ -508,8 +508,13 @@ Workspace Agent is the foreground interactive agent surface.
 - An Experimental real read-only Java sidecar prototype exists for one
   explicit operator-triggered Run from the JDBC widget. It is opt-in per run,
   requires explicit runtime-only Java/sidecar/driver/JDBC URL inputs, uses a
-  password environment variable name rather than a password value, and does
-  not persist those values to SQLite or widget state.
+  password environment variable name rather than a password value, and persists
+  only the non-secret profile metadata described above.
+- The Experimental sidecar section includes a compact profile selector plus
+  Save profile, Save as new profile, Delete profile, and unsaved-changes
+  controls. Selecting a profile only fills visible runtime fields; it does not
+  connect, probe, validate SQL, run SQL, or launch Workspace Agent, Queue, or
+  Executor work.
 - The Experimental sidecar section includes explicit Runtime diagnostics:
   Check sidecar and Probe driver. Check sidecar starts the explicit Java
   sidecar and requires a HealthCheck response. Probe driver loads only the
@@ -522,7 +527,7 @@ Workspace Agent is the foreground interactive agent surface.
   download drivers or bundle proprietary drivers, applies row/time/result
   caps, asks JDBC for read-only mode where supported, and uses a stricter MVP
   SQL guard that allows only single-statement `SELECT` or `WITH`.
-- The visible widget shows connection/profile status, read-only safety copy,
+- The visible widget shows connector/profile status, read-only safety copy,
   the query editor, explicit `Run read-only query`, visible result/error
   panels, and collapsed runtime details. Missing or unsupported runtime paths
   are shown as visible errors such as `not_configured` or
