@@ -487,6 +487,14 @@ Workspace Agent is the foreground interactive agent surface.
   selection flows.
 - Connector metadata is non-secret: display name, database kind, driver kind,
   masked JDBC URL metadata, environment, read-only default, status, and notes.
+- The future connection profile boundary is defined in
+  `docs/JDBC_WIDGET_CONTRACT.md`: safe-to-store profile metadata is limited to
+  non-secret descriptors such as profile id/name, driver/database labels,
+  non-secret or masked JDBC URL metadata, optionally policy-allowed username,
+  default database/schema/catalog, read-only flag, row limit, query timeout,
+  timestamps, tags, and description. Workspace DB/export data must not contain
+  passwords, API tokens, Kerberos tickets, private keys, client certificates,
+  or full secret-bearing connection strings.
 - A read-only SQL validation/execution UI is shipped and wired through
   frontend, Tauri command, backend adapter, and tests.
 - The current product execution path is bounded mock/safe execution: it
@@ -513,6 +521,10 @@ Workspace Agent is the foreground interactive agent surface.
   Workspace Agent JDBC execution tool, let Workspace Agent run SQL
   automatically or hidden, launch Terminal, mutate Git, or affect Agent Queue
   or Agent Executor behavior.
+- Future real connectors must keep secrets runtime-only or in a separately
+  approved OS secret store/keychain integration, require explicit operator Run,
+  enforce read-only SQL, row/time/result caps, sanitized visible errors, and
+  visible result preview before any future AI context sharing.
 - This bounded mock/safe read-only path is accepted as Current Preview
   behavior. Production JDBC execution, credential expansion, write SQL,
   `EXPLAIN` workflows, broad database automation, production sidecar runtime,

@@ -45,7 +45,15 @@ behavior, or Workspace Agent context wiring.
   Preview mock-default read-only query surface: `MockReadOnlyJdbcAdapter` is
   active through `WorkspaceService::new(...)`, sidecar/real runtime support is
   opt-in/test/future only, no credentials are stored, no writes/DDL/DML run,
-  and Workspace Agent has no JDBC execution path.
+  and Workspace Agent has no JDBC execution path. The future connector profile
+  boundary is now defined as non-secret profile metadata only; passwords,
+  tokens, Kerberos tickets, private keys, client certificates, and
+  secret-bearing connection strings must not be stored in workspace DB data or
+  workspace exports. Future real execution remains unimplemented and must use
+  runtime-only or later OS-secret-store credentials, explicit operator Run or
+  approved visible proposal flow, read-only SQL enforcement, row/time/result
+  caps, no DDL/DML/stored-procedure MVP, redacted visible errors, visible
+  result preview, and no hidden Workspace Agent query execution.
 - Workspace Agent product positioning is foreground-agent first: planning,
   reasoning, task drafting, outcome review, and promotion decisions happen in
   Workspace Agent, while Queue and Agent Executor remain async/background
@@ -223,6 +231,8 @@ sent to a provider.
 - Context Pack provider wiring;
 - hidden prompt augmentation;
 - Workspace Agent hidden context access;
+- real JDBC connector runtime, JDBC credential persistence, OS keychain
+  integration, write SQL, or Workspace Agent JDBC auto-query execution;
 - hidden Workspace Agent Direct Mode starts;
 - automatic Skill search or hidden Skill prompt injection;
 - embeddings/vector DB;

@@ -14,7 +14,7 @@ Source of truth for:
 Not source of truth for:
 
 - production JDBC runtime
-- Coordinator SQL execution
+- Workspace Agent SQL execution
 - broad database automation
 - future credential workflows
 
@@ -22,11 +22,12 @@ This contract defines the Database / JDBC widget product model and safety
 boundary. Current behavior is a Preview surface, not a production database
 runtime.
 
-The JDBC widget is a controlled database work surface. Future Coordinator Chat
+The JDBC widget is a controlled database work surface. Future Workspace Agent
 integration may work with databases only through explicit, visible widget
 capabilities while keeping secrets, permissions, execution, and AI-context
-sharing controlled. Current Coordinator Chat can suggest SQL text only; it
-cannot execute SQL or inspect JDBC metadata/results.
+sharing controlled. Older contracts may still use Coordinator Chat as a
+compatibility name for this surface. Current Workspace Agent can suggest SQL
+text only; it cannot execute SQL or inspect JDBC metadata/results.
 
 This document is the controlling contract for JDBC work. The current
 implementation foundation is intentionally limited to workspace-local connector
@@ -39,7 +40,7 @@ the product default remains the mock adapter. Block 266 adds a JDK-gated
 backend activation test that routes one explicit service-owned connector
 through the Java sidecar `mock_read_only` protocol when a JDK is available.
 It does not implement real database JDBC execution, SQL formatting, `EXPLAIN`
-visualization, AI provider integration, Coordinator runtime, widget tool
+visualization, AI provider integration, Workspace Agent runtime, widget tool
 execution, database credential handling, secret storage, Terminal or PTY
 behavior, Git mutation, Queue behavior, Agent Executor behavior, or Runbook
 work.
@@ -75,6 +76,96 @@ Current product runtime status: Preview, mock-default.
   automatic or hidden JDBC execution path, no JDBC tool, and no access to JDBC
   metadata/results as hidden context.
 
+## Current Implementation Audit
+
+Current active adapter path:
+
+- The product construction path uses `WorkspaceService::new(...)`, whose JDBC
+  runtime configuration defaults to `JdbcRuntimeConfig::mock()`.
+- The current Tauri JDBC commands open the SQLite store and construct
+  `WorkspaceService::new(...)`, so desktop product calls use the mock runtime.
+- `ReadOnlyJdbcAdapter` is the backend adapter boundary. The active adapter is
+  `MockReadOnlyJdbcAdapter`.
+- `SidecarReadOnlyJdbcAdapter`, `JdbcRuntimeConfig`, and sidecar process
+  protocol code are reachable only through explicit backend test/future wiring.
+
+Current mock behavior:
+
+- Connector metadata is workspace-local, non-secret, and persisted as display
+  name, database kind, driver kind, masked JDBC URL metadata, environment,
+  read-only default, status, notes, and timestamps.
+- SQL validation strips comments for classification, rejects empty SQL,
+  ambiguous statements, mutating/session/file-like tokens, and multi-statement
+  batches, and accepts only conservative read-only forms plus mock `EXPLAIN`
+  wrappers.
+- Mock execution returns deterministic bounded rows, applies row, column, cell,
+  and response-size caps, marks `mock_execution`, `no_secrets_returned`, and
+  `no_ai_context_shared`, and returns sanitized errors for rejected input.
+
+Current sidecar/unsupported behavior:
+
+- Sidecar runtime selection requires explicit backend construction/configuration
+  for tests or future wiring; it is not the product default.
+- Missing launch configuration, missing Java/process support, connector
+  mismatches, or unsupported drivers produce sanitized `not_configured` or
+  `unsupported_driver` style results.
+- Sidecar config status is presence-only and must not expose raw paths, JDBC
+  URLs, usernames, passwords, tokens, or environment values to frontend DTOs.
+- The dependency-free Java scaffold is a mock protocol smoke target, not a real
+  JDBC driver loader or database connection runtime.
+
+Current request/result types:
+
+- Connector create/update inputs carry only non-secret metadata:
+  workspace id, connector id when updating, display name, database kind, driver
+  kind, `jdbc_url_masked`, environment, read-only default, status, and notes.
+- Validation requests carry workspace id, workbench id, widget instance id,
+  connector id, SQL, row limit, and timeout.
+- Execution requests add max columns, max cell characters, and max result
+  bytes.
+- Validation results carry validity, statement kind, normalized preview,
+  rejection reason, and safety notes.
+- Execution results carry status, connector id/display name, validation,
+  statement kind, display-safe columns/rows, row counts, limits, truncation
+  flags, duration, sanitized error, and the no-secrets/no-AI-sharing flags.
+
+Current frontend assumptions:
+
+- The widget is a Database / JDBC Preview surface with explicit connection
+  profile selection and a visible mock read-only runtime status.
+- The profile editor accepts only metadata and warns operators not to enter
+  passwords or tokens.
+- Query execution is blocked until the selected visible SQL has been validated
+  for the selected connector and row limit.
+- Results/errors render visibly inside the JDBC widget. There is no result
+  sharing control and no Workspace Agent execution control.
+
+Current tests:
+
+- Storage tests cover workspace-scoped connector metadata, cross-workspace
+  isolation, workspace deletion cleanup, and rejection of secret-bearing URL
+  metadata.
+- Application service tests cover connector validation, SQL classification,
+  mock execution caps/results, widget-owner enforcement, cross-workspace
+  connector rejection, Workspace Agent execution rejection, and
+  redaction/no-secret result behavior.
+- Runtime/config/protocol tests cover mock-default selection, sidecar
+  not-configured and unsupported statuses, debug redaction, secret-presence
+  markers, and JDK-gated Java sidecar mock activation when a JDK exists.
+- Tauri DTO tests cover connector and query DTO mapping. Frontend tests cover
+  honest preview copy, callback request shape, mock results, and visible
+  unsupported/not-configured errors.
+
+Current docs claims:
+
+- `docs/CURRENT_WIDGET_SURFACE.md` defines Database / JDBC as a Current Preview
+  metadata and bounded mock/safe read-only query surface.
+- `docs/ARCHITECTURE.md` states the app has storage/API/DTO/UI support for
+  non-secret connector metadata and mock read-only query execution only.
+- `docs/ARCHITECTURE_MILESTONE_STATUS.md` records the current JDBC runtime
+  audit: mock-default, sidecar/future test boundary, no credentials, no writes,
+  and no Workspace Agent JDBC execution path.
+
 ## What The JDBC Widget Is In Current Preview
 
 The current JDBC widget is:
@@ -91,9 +182,9 @@ Future JDBC work may add:
 - an `EXPLAIN` runner after dialect-specific safety rules are accepted
 - a future `EXPLAIN` visualization surface
 - a future AI SQL explanation and optimization surface
-- a controlled capability provider for Coordinator Chat
+- a controlled capability provider for Workspace Agent
 
-The widget owns database interaction. Coordinator Chat may propose SQL text,
+The widget owns database interaction. Workspace Agent may propose SQL text,
 but it must not execute SQL, select connectors silently, inspect metadata, or
 receive results unless a later approved capability flow exists.
 
@@ -110,7 +201,7 @@ The Current Preview JDBC widget is not:
 - a secrets manager
 - a scheduler
 - a Terminal proxy
-- a way for Coordinator Chat to bypass approval
+- a way for Workspace Agent to bypass approval
 
 ## Connector Model
 
@@ -132,6 +223,52 @@ Conceptual connector fields:
 - `last_used_at`
 - `status`
 - `notes`
+
+The current implementation stores this as connector metadata, not a production
+connection profile. A future real connector profile may extend the metadata
+model only after a separate storage/runtime block accepts the schema and secret
+handling design.
+
+## Future Connection Profile Boundary
+
+A future JDBC connection profile is the operator-visible, non-secret descriptor
+for a database target. It may tell Hobit what database shape to connect to and
+which read-only limits to enforce, but it is not a credential record and not a
+secret container.
+
+Safe-to-store profile metadata may include:
+
+- stable profile id and display name
+- database kind and driver kind/type label
+- JDBC URL only when it is known to be non-secret; otherwise store a masked or
+  redacted URL descriptor
+- username only when the accepted profile policy allows it and it is treated as
+  non-secret metadata for that deployment
+- default database, schema, or catalog when needed for operator orientation
+- read-only flag/default
+- row limit
+- query timeout
+- created and updated timestamps when later stored
+- optional tags and description
+
+Values that must not be stored in the workspace DB:
+
+- password
+- API token
+- Kerberos ticket
+- private key
+- client certificate or certificate private material
+- full connection string when it contains a password, token, key, certificate
+  material, or other secret
+
+Profile metadata must remain export-safe. A workspace export may include only
+the non-secret profile metadata above and must never include runtime secrets,
+raw secret-bearing JDBC URLs, or hidden secret references.
+
+The current metadata model already enforces part of this boundary by storing
+`jdbc_url_masked` and rejecting obvious secret-bearing URL parameters. That is
+not a complete production secret scanner and must not be treated as permission
+to paste raw connection strings into workspace data.
 
 Possible `database_kind` values include:
 
@@ -159,7 +296,7 @@ Current foundation status:
   not stored
 - no real database query execution, test connection, production Java sidecar,
   SQL formatter, real `EXPLAIN` execution/visualization, AI assistance,
-  credential input, or Coordinator capability runtime exists
+  credential input, or Workspace Agent capability runtime exists
 - Block 263 adds the backend adapter boundary only: mock remains the active
   execution adapter, and the real sidecar adapter is a not-configured stub with
   sanitized runtime statuses and no credential exposure
@@ -177,17 +314,31 @@ Current foundation status:
 ## Secrets Policy
 
 Secrets must remain outside normal widget state, logs, AI prompts, and
-Coordinator context.
+Workspace Agent context.
 
 Rules:
 
 - passwords and tokens must not enter AI prompts
 - connection strings shown in UI must be masked
 - future credentials must be backend-only or session-only
+- future persistent credentials may be stored only through a separate OS secret
+  store/keychain integration contract; this block does not add that integration
 - secrets should not be logged
 - secrets should not be stored in ordinary widget state
-- Coordinator Chat never receives raw credentials
-- connector metadata returned to Coordinator must be non-secret or redacted
+- secrets should not be stored in workspace SQLite tables, widget state,
+  Workbench events, widget logs/results, Queue tasks, Agent Executor artifacts,
+  Knowledge / Skills, Notes, or workspace exports
+- Workspace Agent never receives raw credentials
+- connector metadata returned to Workspace Agent must be non-secret or redacted
+- errors, runtime status, debug output, and logs must redact passwords, tokens,
+  usernames when policy treats them as sensitive, raw JDBC URLs, environment
+  values, private keys, and certificate material
+
+Future runtime secrets must be provided at execution time, resolved through a
+future backend-owned OS secret store/keychain integration, or otherwise kept
+session-only. A `secret reference` may be introduced later only if it is a
+non-secret pointer that cannot reveal or reconstruct the secret from workspace
+data or exports.
 
 The Current Preview does not collect credentials. Session-only credentials and
 persistent secret storage are Deferred and require a separate contract before
@@ -210,7 +361,7 @@ loading, or raw credentials to the frontend.
 Block 263 decision:
 
 - true JDBC execution should be hosted by a backend-owned Java sidecar rather
-  than a frontend runtime or Coordinator tool
+  than a frontend runtime or Workspace Agent tool
 - the sidecar protocol is narrow JSON for read-only query requests and bounded
   result/error responses
 - the backend resolves runtime configuration and credentials before invoking
@@ -249,7 +400,7 @@ The sidecar response shape should include only:
 - `no_ai_context_shared`
 
 The sidecar must not expose arbitrary Java execution, shell commands, driver
-jar browsing, raw driver dumps, frontend credential values, Coordinator tools,
+jar browsing, raw driver dumps, frontend credential values, Workspace Agent tools,
 Terminal control, Git mutation, Queue dispatch, or Agent Executor launch.
 
 Block 264 scaffold:
@@ -360,6 +511,32 @@ The Current Preview execution path is conservative. It validates SQL before
 mock/safe execution, and it must reject ambiguous input rather than trying to
 repair or reinterpret it.
 
+Future real connector runtime must preserve at least this safety floor:
+
+- SELECT/read-only execution only.
+- Statement timeout is required.
+- Row cap is required.
+- Result byte, column, and cell caps are required.
+- Multi-statement execution is disabled unless a later implementation uses a
+  safe parser that proves every statement is read-only and still preserves the
+  same caps.
+- DDL, DML, transaction control, session mutation, privilege changes, and file
+  or program operations are rejected.
+- Stored procedure execution is not part of the MVP.
+- SQL forms with possible file, network, extension loading, shell, copy/import,
+  export, privilege, or database-side side effects are rejected unless a later
+  dialect-specific policy explicitly proves they are safe.
+- Read-only database credentials, read-only transaction/session settings, or
+  connector-level read-only enforcement should be used as defense in depth
+  when real execution exists.
+- Errors are visible to the operator and redacted before frontend/log return.
+- Query results are visible in the JDBC widget before they can be copied,
+  exported, or shared as AI context by a later approved flow.
+- Hidden query execution by AI, Queue, Agent Executor, Terminal, Git, Runbook,
+  provider tools, or background runtime is forbidden.
+- Explicit user Run from the JDBC widget is required until a later approved
+  capability contract defines a visible proposal/approval flow.
+
 The Current Preview should allow only safe query forms such as:
 
 - `SELECT`
@@ -421,8 +598,8 @@ Execution boundary:
 - The operator triggers execution from the JDBC widget.
 - The operator must see the selected connector, SQL text, validation state,
   row limit, timeout, and risk notes before running.
-- Coordinator may suggest SQL text, but cannot execute it.
-- Coordinator provider requests must continue to use `allowed_tools: []`.
+- Workspace Agent may suggest SQL text, but cannot execute it.
+- Workspace Agent provider requests must continue to use `allowed_tools: []`.
 - No provider, Queue, Agent Executor, Terminal, Git, Runbook, or hidden runtime
   path may invoke JDBC execution.
 
@@ -503,7 +680,7 @@ Current Preview frontend shape:
 - duration, returned row count, and truncation notices
 - sanitized error panel
 - collapsed runtime details for mock/unsupported runtime state
-- no AI execution, no Coordinator execution, no schema crawler, no production
+- no AI execution, no Workspace Agent execution, no schema crawler, no production
   JDBC runtime, and no result sharing controls until a later Evidence/Sources
   or AI-context slice exists
 
@@ -528,8 +705,8 @@ Mandatory execution limits:
 - row count when available
 
 Limit values should be visible to the operator before execution. They should
-be included in future action proposals only when a later explicit Coordinator
-JDBC capability flow exists.
+be included in future action proposals only when a later explicit Workspace
+Agent JDBC capability flow exists.
 
 Recommended Current Preview defaults:
 
@@ -612,6 +789,50 @@ later block explicitly adds widget run/result persistence. Do not add
 Evidence/Sources capture, AI context sharing, saved query history, or storage
 migrations as part of the Current Preview foundation.
 
+## Workspace Agent / AI Capability Boundary
+
+Current Workspace Agent behavior:
+
+- It may prepare visible JDBC SQL suggestion text only.
+- JDBC suggestion cards are review/copy text. They do not select connectors,
+  inspect schemas, run SQL, call providers with results, launch Queue or Agent
+  Executor, or mutate any database state.
+- Provider requests must continue to use `allowed_tools: []` and must not
+  include connector metadata, schemas, SQL results, JDBC errors, credentials,
+  or hidden database context.
+
+Allowed for a future approved AI/JDBC capability flow:
+
+- read visible schema metadata only after the operator explicitly connects or
+  selects a profile and approves that metadata exposure
+- draft SQL suggestions
+- explain query results that are already visible in the JDBC widget and
+  explicitly approved for AI context
+- propose a query for user review
+
+Not allowed:
+
+- auto-run a query
+- hidden database access
+- database mutation
+- bypass row, timeout, result-size, or read-only caps
+- use credentials invisibly
+- read or crawl schemas silently
+- exfiltrate result data into hidden provider context
+- treat connector metadata, schemas, errors, or results as ambient Workspace
+  Agent memory
+
+Approval model:
+
+- AI may create a visible proposal card with SQL, connector intent, row limit,
+  timeout, risk notes, and whether result data would be shared with AI.
+- The user must explicitly copy, apply, or run the SQL through the JDBC widget
+  or a later approved widget-owned capability flow.
+- Results must be visible to the operator before any result sample, schema, or
+  explanation becomes AI-readable context.
+- Approval of one proposal does not grant future hidden connector access,
+  credential use, broader schema reads, or autonomous execution.
+
 ## AI SQL Assistance
 
 Future AI SQL assistance may help with:
@@ -632,12 +853,12 @@ AI must not:
 - generate and run write SQL automatically
 
 AI output should be suggestions and explanations. Current Preview has no AI
-query assistance, no AI result sharing, and no Coordinator execution.
+query assistance, no AI result sharing, and no Workspace Agent execution.
 Execution remains through the JDBC widget capability and policy.
 
-## Coordinator Capability Model
+## Workspace Agent Capability Model
 
-Future JDBC capabilities for Coordinator Chat:
+Future JDBC capabilities for Workspace Agent:
 
 - list connectors
 - get selected connector summary
@@ -663,24 +884,25 @@ Risk defaults:
 - write SQL is `external_write` and out of first scope
 - secret-bearing operations are `secret_sensitive`
 
-Coordinator can request these capabilities only through the JDBC widget
+Workspace Agent can request these capabilities only through the JDBC widget
 boundary. It must not bypass connector selection, SQL approval, query limits,
 or result-sharing policy.
 
-Current Coordinator relationship for the Current Preview:
+Current Workspace Agent relationship for the Current Preview:
 
-- Coordinator JDBC proposals remain non-executing SQL suggestion cards.
+- Workspace Agent JDBC proposals remain non-executing SQL suggestion cards.
 - A later bridge may copy a reviewed SQL suggestion into the JDBC widget after
   explicit operator action.
-- Coordinator must not run SQL, select connectors silently, inspect connector
-  metadata, read query results, or receive database errors as hidden context.
+- Workspace Agent must not run SQL, select connectors silently, inspect
+  connector metadata, read query results, or receive database errors as hidden
+  context.
 - Provider requests must not include connector metadata, SQL results, schemas,
   credentials, JDBC errors, or result samples unless a later approved
   Evidence/Sources or context-sharing flow exists.
 
 ## Action Approval Model
 
-Future Coordinator JDBC actions should be proposed as action cards.
+Future Workspace Agent JDBC actions should be proposed as action cards.
 
 The action card should show:
 
@@ -737,7 +959,7 @@ Future JDBC widget behavior may support:
 - describe table
 - column names and types
 
-Schema introspection should be explicit and capped. Coordinator Chat must not
+Schema introspection should be explicit and capped. Workspace Agent must not
 crawl a whole database silently.
 
 ## Audit And Observability
@@ -774,29 +996,29 @@ The JDBC widget safety boundary is:
 - no uncapped result streaming
 - no `EXPLAIN` workflow in Current Preview
 - no automatic AI execution
-- no hidden Coordinator-triggered SQL execution
+- no hidden Workspace Agent-triggered SQL execution
 - no Terminal launch
 - no Git mutation
 - no file mutation
 - no scheduler
 - no production write mode
 
-## Relationship To Coordinator Chat
+## Relationship To Workspace Agent
 
-Current Coordinator Chat can suggest JDBC SQL text only. Future Coordinator
-Chat may use JDBC only through explicit widget capabilities after a later
-approved capability flow exists.
+Current Workspace Agent can suggest JDBC SQL text only. Future Workspace Agent
+may use JDBC only through explicit widget capabilities after a later approved
+capability flow exists.
 
-Coordinator may currently:
+Workspace Agent may currently:
 
 - propose read-only SQL
 - ask clarifying questions before a query
 - suggest safer diagnostics as text
 
-Future approved flows may allow Coordinator to interpret an approved bounded
+Future approved flows may allow Workspace Agent to interpret an approved bounded
 result or `EXPLAIN` output and create Queue tasks based on findings.
 
-Coordinator must not:
+Workspace Agent must not:
 
 - choose a connector silently
 - run SQL
@@ -836,12 +1058,12 @@ Recommended implementation slices:
 
 1. Current Preview JDBC read-only backend foundation: completed for bounded
    mock/safe execution, SQL validator, bounded result model, sanitized errors,
-   and no Coordinator execution.
+   and no Workspace Agent execution.
 2. Current Preview JDBC result UI: completed for connector selector, SQL
    textarea, Run read-only query, validation status, result grid,
    caps/truncation notices, and error panel.
 3. Decision follow-up: decide whether to promote the preview path, hide/remove
-   it, implement production runtime, or connect Coordinator only through
+   it, implement production runtime, or connect Workspace Agent only through
    explicit approved actions later.
 4. Real connector execution adapter after credential/runtime handling is
    explicitly designed.
@@ -849,7 +1071,7 @@ Recommended implementation slices:
 6. `EXPLAIN` backend/API with dialect-specific safety rules.
 7. `EXPLAIN` UI.
 8. AI SQL review contract.
-9. Coordinator to JDBC read-only action proposal/copy flow after JDBC
+9. Workspace Agent to JDBC read-only action proposal/copy flow after JDBC
    execution and result review exist.
 10. JDBC result and `EXPLAIN` evidence capture after the Evidence/Sources
    foundation exists.
@@ -866,7 +1088,7 @@ The Current Preview does not add:
 - persistent secret storage
 - production JDBC execution
 - production Java sidecar runtime
-- hidden Coordinator-triggered SQL execution
+- hidden Workspace Agent-triggered SQL execution
 - `EXPLAIN` workflows
 - schema crawler
 - schema mutation
@@ -888,7 +1110,7 @@ This contract does not implement:
 - SQL formatter implementation
 - `EXPLAIN` execution or visualization implementation
 - AI provider integration
-- Coordinator runtime
+- Workspace Agent runtime
 - widget tool execution
 - database credentials handling
 - secrets storage

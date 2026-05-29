@@ -71,7 +71,14 @@ metadata and mock read-only query surface backed by workspace-local JDBC
 connector metadata storage/API plus widget-owned SQL validation and bounded
 mock execution APIs; there is no credential storage, real database query
 execution, production Java sidecar runtime, `EXPLAIN`, AI SQL assistance, or
-Workspace Agent JDBC tool runtime. A backend adapter boundary now separates the
+Workspace Agent JDBC tool runtime. The future connection profile boundary is
+defined as non-secret metadata only: profile id/name, driver/database labels,
+non-secret or masked JDBC URL metadata, policy-allowed username when accepted,
+default database/schema/catalog, read-only flag, row limit, query timeout,
+timestamps, tags, and description. Passwords, API tokens, Kerberos tickets,
+private keys, client certificates, and full secret-bearing connection strings
+must not be stored in the workspace DB or workspace exports. A backend adapter
+boundary now separates the
 active `MockReadOnlyJdbcAdapter` from a future Java sidecar runtime; the
 sidecar adapter is opt-in/test-only and does not load credentials, drivers, or
 open database connections. A dependency-free Java sidecar scaffold exists under
@@ -192,12 +199,14 @@ runtime, AI provider integration, widget tool execution, or evidence capture.
 `JDBC_WIDGET_CONTRACT.md` defines the Database/JDBC Current Preview behavior
 and safety model: connector metadata boundaries, bounded mock/safe read-only
 SQL validation/execution, query limits, secret isolation, production-runtime
-deferrals, and Workspace Agent SQL execution boundaries. The current
+deferrals, future connection profile and secrets boundaries, real-runtime
+read-only enforcement requirements, and Workspace Agent SQL execution
+boundaries. The current
 implementation foundation adds workspace-local connector metadata storage/API,
 a Preview connector metadata UI, and a widget-owned mock/safe read-only SQL
 validation/execution path with bounded sample results; production database
-execution, credentials, production sidecar runtime, `EXPLAIN`, and Workspace Agent
-runtime remain Deferred.
+execution, credential persistence, OS keychain integration, production sidecar
+runtime, `EXPLAIN`, write SQL, and Workspace Agent runtime remain Deferred.
 
 `AGENT_SURFACE_MODEL.md` defines the near-term agent/work surface model:
 Workspace Agent handles the implemented conversation/planning/review subset as
@@ -468,7 +477,11 @@ passwords, tokens, secret references, credentials, driver jars, query text, or
 query results, and they do not test connections. Separate JDBC query commands
 validate conservative read-only SQL and return bounded deterministic mock
 results or sanitized validation/runtime errors; they do not execute SQL against
-external systems.
+external systems. Future real connector profiles must preserve this storage
+boundary: workspace data may store only non-secret profile metadata, while
+passwords, tokens, tickets, private keys, certificates, and secret-bearing
+connection strings must be runtime-only or resolved through a later approved
+OS secret store/keychain integration.
 
 The `generate_coordinator_provider_response` Tauri command is called only from
 Workspace Agent after an explicit operator message. It validates
@@ -742,9 +755,14 @@ create/list/read/update plus mock read-only SQL validation/execution service
 methods. The JDBC service validates allowed kind/status values, rejects obvious
 secret-bearing metadata, validates conservative read-only SQL, and returns only
 bounded deterministic mock query results. It does not handle credentials,
-connect to real databases, or execute SQL against external systems. It does not
-restore runtime state, provide
-Agent Monitoring persisted Direct Work reads, provide Terminal tabs/history,
+connect to real databases, or execute SQL against external systems. Future real
+execution must keep secrets out of workspace storage/exports, require explicit
+operator Run or approved widget-owned proposal flow, enforce SELECT/read-only
+classification, statement timeout, row/result caps, no multi-statement batches
+without safe parsing, no DDL/DML, no stored procedure MVP, no SQL file/network
+side effects, and visible redacted errors/results before any AI context use.
+The application service does not restore runtime state, provide Agent
+Monitoring persisted Direct Work reads, provide Terminal tabs/history,
 automatically dispatch tasks, approve/apply proposals, execute real JDBC
 queries, create scratch execution workspaces, make external Workspace Agent
 provider network calls, or add automatic agent behavior.

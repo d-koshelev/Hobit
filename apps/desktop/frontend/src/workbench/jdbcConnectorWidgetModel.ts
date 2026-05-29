@@ -4,6 +4,38 @@ import type {
   JdbcDriverKind,
 } from "../workspace/jdbcConnectorTypes";
 
+export type JdbcConnectionProfileDraft = {
+  profileId?: string;
+  displayName: string;
+  databaseKind: JdbcDatabaseKind;
+  driverKind: JdbcDriverKind;
+  jdbcUrlMetadata: string;
+  username?: string | null;
+  defaultDatabase?: string | null;
+  defaultSchema?: string | null;
+  defaultCatalog?: string | null;
+  readOnly: boolean;
+  rowLimit: number;
+  queryTimeoutMs: number;
+  description?: string | null;
+  tags?: string[];
+};
+
+export type JdbcSecretReference = {
+  kind: "runtime_prompt" | "future_os_secret_store";
+  label: string;
+  secretValue?: never;
+};
+
+export type JdbcReadOnlyExecutionPolicy = {
+  readOnlyOnly: true;
+  requiresExplicitUserRun: true;
+  allowMultiStatement: false;
+  allowStoredProcedureExecution: false;
+  rowLimit: number;
+  queryTimeoutMs: number;
+};
+
 export const DATABASE_KIND_OPTIONS: Array<{
   label: string;
   value: JdbcDatabaseKind;
