@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CheckJdbcSidecarHealthRequest,
   ExecuteJdbcReadOnlyQueryRequest,
+  JdbcExperimentalSidecarRuntime,
   JdbcQueryColumn,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
+  ProbeJdbcDriverRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "./jdbcQueryTypes";
 
@@ -41,6 +45,17 @@ type TauriJdbcReadOnlyQueryResult = {
   no_secrets_returned: boolean;
   no_ai_context_shared: boolean;
   mock_execution: boolean;
+};
+
+type TauriJdbcSidecarDiagnostic = {
+  action: string;
+  ok: boolean;
+  status: string;
+  message: string;
+  details: string | null;
+  duration_ms: number;
+  no_secrets_returned: boolean;
+  no_ai_context_shared: boolean;
 };
 
 export async function validateJdbcReadOnlySql(
@@ -82,33 +97,53 @@ export async function executeJdbcReadOnlyQuery(
         max_cell_chars: request.maxCellChars ?? null,
         max_result_bytes: request.maxResultBytes ?? null,
         experimental_sidecar: request.experimentalSidecar
-          ? {
-              enabled: request.experimentalSidecar.enabled,
-              java_program: request.experimentalSidecar.javaProgram ?? null,
-              sidecar_jar_path:
-                request.experimentalSidecar.sidecarJarPath ?? null,
-              sidecar_classpath:
-                request.experimentalSidecar.sidecarClasspath ?? null,
-              sidecar_main_class:
-                request.experimentalSidecar.sidecarMainClass ?? null,
-              driver_jar_path: request.experimentalSidecar.driverJarPath,
-              driver_class_name:
-                request.experimentalSidecar.driverClassName ?? null,
-              jdbc_url: request.experimentalSidecar.jdbcUrl,
-              username: request.experimentalSidecar.username ?? null,
-              credential_env_var_name:
-                request.experimentalSidecar.credentialEnvVarName ?? null,
-              max_rows: request.experimentalSidecar.maxRows ?? null,
-              timeout_ms: request.experimentalSidecar.timeoutMs ?? null,
-              max_result_bytes:
-                request.experimentalSidecar.maxResultBytes ?? null,
-            }
+          ? serializeExperimentalSidecar(request.experimentalSidecar)
           : null,
       },
     },
   );
 
   return normalizeJdbcReadOnlyQueryResult(result);
+}
+
+export async function checkJdbcSidecarHealth(
+  request: CheckJdbcSidecarHealthRequest,
+): Promise<JdbcSidecarDiagnostic> {
+  const result = await invoke<TauriJdbcSidecarDiagnostic>(
+    "check_jdbc_sidecar_health",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        widget_instance_id: request.widgetInstanceId,
+        experimental_sidecar: serializeExperimentalSidecar(
+          request.experimentalSidecar,
+        ),
+      },
+    },
+  );
+
+  return normalizeJdbcSidecarDiagnostic(result);
+}
+
+export async function probeJdbcDriver(
+  request: ProbeJdbcDriverRequest,
+): Promise<JdbcSidecarDiagnostic> {
+  const result = await invoke<TauriJdbcSidecarDiagnostic>(
+    "probe_jdbc_driver",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        workbench_id: request.workbenchId,
+        widget_instance_id: request.widgetInstanceId,
+        experimental_sidecar: serializeExperimentalSidecar(
+          request.experimentalSidecar,
+        ),
+      },
+    },
+  );
+
+  return normalizeJdbcSidecarDiagnostic(result);
 }
 
 function normalizeJdbcReadOnlyQueryResult(
@@ -138,6 +173,21 @@ function normalizeJdbcReadOnlyQueryResult(
   };
 }
 
+function normalizeJdbcSidecarDiagnostic(
+  result: TauriJdbcSidecarDiagnostic,
+): JdbcSidecarDiagnostic {
+  return {
+    action: result.action,
+    ok: result.ok,
+    status: result.status,
+    message: result.message,
+    details: result.details,
+    durationMs: result.duration_ms,
+    noSecretsReturned: result.no_secrets_returned,
+    noAiContextShared: result.no_ai_context_shared,
+  };
+}
+
 function normalizeJdbcReadOnlySqlValidation(
   validation: TauriJdbcReadOnlySqlValidation,
 ): JdbcReadOnlySqlValidation {
@@ -156,5 +206,25 @@ function normalizeJdbcQueryColumn(
   return {
     name: column.name,
     valueKind: column.value_kind,
+  };
+}
+
+function serializeExperimentalSidecar(
+  runtime: JdbcExperimentalSidecarRuntime,
+) {
+  return {
+    enabled: runtime.enabled,
+    java_program: runtime.javaProgram ?? null,
+    sidecar_jar_path: runtime.sidecarJarPath ?? null,
+    sidecar_classpath: runtime.sidecarClasspath ?? null,
+    sidecar_main_class: runtime.sidecarMainClass ?? null,
+    driver_jar_path: runtime.driverJarPath,
+    driver_class_name: runtime.driverClassName ?? null,
+    jdbc_url: runtime.jdbcUrl,
+    username: runtime.username ?? null,
+    credential_env_var_name: runtime.credentialEnvVarName ?? null,
+    max_rows: runtime.maxRows ?? null,
+    timeout_ms: runtime.timeoutMs ?? null,
+    max_result_bytes: runtime.maxResultBytes ?? null,
   };
 }

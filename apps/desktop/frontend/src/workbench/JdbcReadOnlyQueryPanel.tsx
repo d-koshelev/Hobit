@@ -5,10 +5,13 @@ import type { JdbcConnector } from "../workspace/jdbcConnectorTypes";
 import type {
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
 import type {
+  JdbcDriverProbeRequest,
   JdbcReadOnlyQueryExecutionRequest,
   JdbcReadOnlySqlValidationRequest,
+  JdbcSidecarHealthCheckRequest,
 } from "./jdbcConnectorWidgetActions";
 import {
   errorToMessage,
@@ -18,9 +21,15 @@ import {
 type JdbcReadOnlyQueryPanelProps = {
   connectors: JdbcConnector[];
   isConnectorSelectionDisabled?: boolean;
+  onCheckSidecarHealth?: (
+    request: JdbcSidecarHealthCheckRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
   onExecuteQuery?: (
     request: JdbcReadOnlyQueryExecutionRequest,
   ) => Promise<JdbcReadOnlyQueryResult>;
+  onProbeDriver?: (
+    request: JdbcDriverProbeRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
   onSelectConnector: (connectorId: string) => Promise<void> | void;
   onValidateSql?: (
     request: JdbcReadOnlySqlValidationRequest,
@@ -42,6 +51,7 @@ type ExperimentalRuntimeTextField =
   | "javaProgram"
   | "jdbcUrl"
   | "sidecarClasspath"
+  | "sidecarJarPath"
   | "sidecarMainClass"
   | "username";
 
@@ -54,7 +64,9 @@ const DEFAULT_SIDECAR_MAIN_CLASS = "com.hobit.jdbc.JdbcReadOnlySidecar";
 export function JdbcReadOnlyQueryPanel({
   connectors,
   isConnectorSelectionDisabled = false,
+  onCheckSidecarHealth,
   onExecuteQuery,
+  onProbeDriver,
   onSelectConnector,
   onValidateSql,
   selectedConnector,
@@ -66,6 +78,7 @@ export function JdbcReadOnlyQueryPanel({
   const sqlInputId = useId();
   const experimentalEnabledInputId = useId();
   const javaProgramInputId = useId();
+  const sidecarJarPathInputId = useId();
   const sidecarClasspathInputId = useId();
   const sidecarMainClassInputId = useId();
   const driverJarPathInputId = useId();
@@ -88,6 +101,7 @@ export function JdbcReadOnlyQueryPanel({
       maxResultBytes: DEFAULT_MAX_RESULT_BYTES,
       maxRows: DEFAULT_ROW_LIMIT,
       sidecarClasspath: "",
+      sidecarJarPath: "",
       sidecarMainClass: DEFAULT_SIDECAR_MAIN_CLASS,
       timeoutMs: DEFAULT_TIMEOUT_MS,
       username: "",
@@ -96,8 +110,14 @@ export function JdbcReadOnlyQueryPanel({
     useState<ValidationSnapshot | null>(null);
   const [result, setResult] = useState<JdbcReadOnlyQueryResult | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [healthDiagnostic, setHealthDiagnostic] =
+    useState<JdbcSidecarDiagnostic | null>(null);
+  const [driverDiagnostic, setDriverDiagnostic] =
+    useState<JdbcSidecarDiagnostic | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isProbingDriver, setIsProbingDriver] = useState(false);
 
   const trimmedSql = sql.trim();
   const normalizedRowLimit = clampRowLimit(rowLimit);
@@ -186,26 +206,7 @@ export function JdbcReadOnlyQueryPanel({
       const executionResult = await onExecuteQuery({
         connectorId: selectedConnector.connectorId,
         experimentalSidecar: experimentalRuntime.enabled
-          ? {
-              credentialEnvVarName: emptyToNull(
-                experimentalRuntime.credentialEnvVarName,
-              ),
-              driverClassName: emptyToNull(experimentalRuntime.driverClassName),
-              driverJarPath: experimentalRuntime.driverJarPath.trim(),
-              enabled: true,
-              javaProgram: emptyToNull(experimentalRuntime.javaProgram),
-              jdbcUrl: experimentalRuntime.jdbcUrl.trim(),
-              maxResultBytes: normalizedMaxResultBytes,
-              maxRows: normalizedRowLimit,
-              sidecarClasspath: emptyToNull(
-                experimentalRuntime.sidecarClasspath,
-              ),
-              sidecarMainClass: emptyToNull(
-                experimentalRuntime.sidecarMainClass,
-              ),
-              timeoutMs: normalizedTimeoutMs,
-              username: emptyToNull(experimentalRuntime.username),
-            }
+          ? runtimeRequest()
           : null,
         maxResultBytes: normalizedMaxResultBytes,
         rowLimit: normalizedRowLimit,
@@ -225,6 +226,50 @@ export function JdbcReadOnlyQueryPanel({
       );
     } finally {
       setIsRunning(false);
+    }
+  }
+
+  async function handleCheckSidecar() {
+    if (!onCheckSidecarHealth) {
+      setPanelError("JDBC sidecar diagnostics are unavailable in this runtime.");
+      return;
+    }
+
+    setIsCheckingHealth(true);
+    setPanelError(null);
+
+    try {
+      const diagnostic = await onCheckSidecarHealth({
+        experimentalSidecar: runtimeRequest(),
+      });
+      setHealthDiagnostic(diagnostic);
+    } catch (error) {
+      setPanelError(
+        errorToMessage(error, "Unable to check JDBC sidecar health."),
+      );
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  }
+
+  async function handleProbeDriver() {
+    if (!onProbeDriver) {
+      setPanelError("JDBC driver diagnostics are unavailable in this runtime.");
+      return;
+    }
+
+    setIsProbingDriver(true);
+    setPanelError(null);
+
+    try {
+      const diagnostic = await onProbeDriver({
+        experimentalSidecar: runtimeRequest(),
+      });
+      setDriverDiagnostic(diagnostic);
+    } catch (error) {
+      setPanelError(errorToMessage(error, "Unable to probe JDBC driver."));
+    } finally {
+      setIsProbingDriver(false);
     }
   }
 
@@ -389,6 +434,21 @@ export function JdbcReadOnlyQueryPanel({
               value={experimentalRuntime.javaProgram}
             />
           </label>
+          <label className="jdbc-field" htmlFor={sidecarJarPathInputId}>
+            <span className="field-label">Sidecar JAR path</span>
+            <input
+              className="input"
+              id={sidecarJarPathInputId}
+              onChange={(event) =>
+                updateExperimentalRuntime(
+                  "sidecarJarPath",
+                  event.currentTarget.value,
+                )
+              }
+              placeholder="C:\\path\\to\\jdbc-readonly-sidecar.jar"
+              value={experimentalRuntime.sidecarJarPath}
+            />
+          </label>
           <label className="jdbc-field" htmlFor={sidecarClasspathInputId}>
             <span className="field-label">Sidecar classpath or classes dir</span>
             <input
@@ -487,6 +547,45 @@ export function JdbcReadOnlyQueryPanel({
             />
           </label>
         </div>
+        <section className="jdbc-diagnostics" aria-label="Runtime diagnostics">
+          <div className="jdbc-sql-header">
+            <div>
+              <p className="jdbc-pane-title">Runtime diagnostics</p>
+              <p className="jdbc-pane-subtitle">
+                Explicit checks only. HealthCheck and DriverProbe do not run SQL.
+              </p>
+            </div>
+            <div className="jdbc-summary-badges">
+              <Badge variant="neutral">Not automatic</Badge>
+            </div>
+          </div>
+          <div className="jdbc-diagnostic-actions">
+            <Button
+              disabled={isCheckingHealth || isRunning}
+              onClick={() => void handleCheckSidecar()}
+              variant="secondary"
+            >
+              {isCheckingHealth ? "Checking" : "Check sidecar"}
+            </Button>
+            <Button
+              disabled={isProbingDriver || isRunning}
+              onClick={() => void handleProbeDriver()}
+              variant="secondary"
+            >
+              {isProbingDriver ? "Probing" : "Probe driver"}
+            </Button>
+          </div>
+          <div className="jdbc-diagnostic-status-grid">
+            <JdbcDiagnosticStatus
+              diagnostic={healthDiagnostic}
+              label="Sidecar"
+            />
+            <JdbcDiagnosticStatus
+              diagnostic={driverDiagnostic}
+              label="Driver"
+            />
+          </div>
+        </section>
       </details>
 
       <label className="jdbc-field jdbc-field-wide" htmlFor={sqlInputId}>
@@ -557,6 +656,59 @@ export function JdbcReadOnlyQueryPanel({
     }));
     setPanelError(null);
   }
+
+  function runtimeRequest() {
+    return {
+      credentialEnvVarName: emptyToNull(
+        experimentalRuntime.credentialEnvVarName,
+      ),
+      driverClassName: emptyToNull(experimentalRuntime.driverClassName),
+      driverJarPath: experimentalRuntime.driverJarPath.trim(),
+      enabled: true,
+      javaProgram: emptyToNull(experimentalRuntime.javaProgram),
+      jdbcUrl: experimentalRuntime.jdbcUrl.trim(),
+      maxResultBytes: normalizedMaxResultBytes,
+      maxRows: normalizedRowLimit,
+      sidecarClasspath: emptyToNull(experimentalRuntime.sidecarClasspath),
+      sidecarJarPath: emptyToNull(experimentalRuntime.sidecarJarPath),
+      sidecarMainClass: emptyToNull(experimentalRuntime.sidecarMainClass),
+      timeoutMs: normalizedTimeoutMs,
+      username: emptyToNull(experimentalRuntime.username),
+    };
+  }
+}
+
+function JdbcDiagnosticStatus({
+  diagnostic,
+  label,
+}: {
+  diagnostic: JdbcSidecarDiagnostic | null;
+  label: string;
+}) {
+  if (!diagnostic) {
+    return (
+      <div className="jdbc-diagnostic-status">
+        <span className="jdbc-runtime-label">{label}</span>
+        <span className="jdbc-runtime-value">Not checked</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="jdbc-diagnostic-status">
+      <span className="jdbc-runtime-label">{label}</span>
+      <span className="jdbc-runtime-value">
+        <Badge variant={diagnostic.ok ? "success" : "error"}>
+          {diagnostic.ok ? "OK" : "Failed"}
+        </Badge>
+        <span>{diagnostic.message}</span>
+      </span>
+      <details className="jdbc-diagnostic-details">
+        <summary>{diagnostic.ok ? "Details" : "Error details"}</summary>
+        <p>{diagnostic.details ?? diagnostic.status}</p>
+      </details>
+    </div>
+  );
 }
 
 function JdbcValidationStatus({

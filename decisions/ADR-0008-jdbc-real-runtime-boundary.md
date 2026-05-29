@@ -53,6 +53,14 @@ only from an explicit Database / JDBC widget Run when the operator supplies all
 runtime inputs. The prototype uses the existing flat stdin/stdout JSON process
 mapping, not the full typed envelope, for runtime execution.
 
+Block 269 adds explicit sidecar diagnostics for that Experimental boundary.
+HealthCheck and DriverProbe are manual Database / JDBC widget actions using
+the same runtime-only Java/sidecar/driver inputs. HealthCheck verifies that the
+Java sidecar can start and answer. DriverProbe loads only the explicit driver
+JAR/class. Neither diagnostic executes SQL, opens a database connection,
+persists runtime config, accepts password values, scans folders, downloads
+drivers, or creates Workspace Agent/Queue/Executor execution.
+
 ## Real Runtime Architecture Contract
 
 This ADR now fixes the future real-runtime shape without implementing it.
@@ -86,6 +94,8 @@ Lifecycle contract:
   terminates the process after a bounded grace period.
 - Crashes, failed start, timeout, invalid JSON, oversized output, protocol
   mismatch, and non-zero exit map to sanitized visible statuses.
+- Manual diagnostics use the same lifecycle and redaction boundary as query
+  execution, but they are separate requests and do not contain SQL.
 - The sidecar must not poll, schedule, reconnect for hidden work, or keep
   database work running after the visible owning query completes or cancels.
 
@@ -95,6 +105,8 @@ Driver loading contract:
 - Hobit does not bundle proprietary drivers or download drivers in the MVP.
 - The Experimental prototype loads one explicit driver JAR path for the current
   Run only; it does not scan folders or manage driver installation.
+- Experimental DriverProbe loads one explicit driver JAR/class for the current
+  diagnostic only and does not connect to a database.
 - Profile metadata may reference non-secret driver labels, configured driver
   ids, explicit paths, version labels, or future hashes when policy allows.
 - Hobit must not scan arbitrary folders for drivers.

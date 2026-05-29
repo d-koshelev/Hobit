@@ -6,7 +6,8 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::jdbc_query_dto::{
-    ExecuteJdbcReadOnlyQueryRequest, JdbcReadOnlyQueryResultDto, JdbcReadOnlySqlValidationDto,
+    CheckJdbcSidecarHealthRequest, ExecuteJdbcReadOnlyQueryRequest, JdbcReadOnlyQueryResultDto,
+    JdbcReadOnlySqlValidationDto, JdbcSidecarDiagnosticDto, ProbeJdbcDriverRequest,
     ValidateJdbcReadOnlySqlRequest,
 };
 
@@ -45,6 +46,44 @@ fn execute_jdbc_read_only_query_blocking(
     service
         .execute_jdbc_read_only_query(request.into())
         .map(JdbcReadOnlyQueryResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn check_jdbc_sidecar_health(
+    request: CheckJdbcSidecarHealthRequest,
+    state: State<'_, AppState>,
+) -> Result<JdbcSidecarDiagnosticDto, String> {
+    check_jdbc_sidecar_health_blocking(request, state.db_path().to_path_buf())
+}
+
+fn check_jdbc_sidecar_health_blocking(
+    request: CheckJdbcSidecarHealthRequest,
+    db_path: PathBuf,
+) -> Result<JdbcSidecarDiagnosticDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .check_jdbc_sidecar_health(request.into())
+        .map(JdbcSidecarDiagnosticDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn probe_jdbc_driver(
+    request: ProbeJdbcDriverRequest,
+    state: State<'_, AppState>,
+) -> Result<JdbcSidecarDiagnosticDto, String> {
+    probe_jdbc_driver_blocking(request, state.db_path().to_path_buf())
+}
+
+fn probe_jdbc_driver_blocking(
+    request: ProbeJdbcDriverRequest,
+    db_path: PathBuf,
+) -> Result<JdbcSidecarDiagnosticDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .probe_jdbc_driver(request.into())
+        .map(JdbcSidecarDiagnosticDto::from)
         .map_err(command_error)
 }
 

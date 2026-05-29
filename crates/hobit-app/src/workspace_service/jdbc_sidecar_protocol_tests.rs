@@ -10,6 +10,7 @@ use super::jdbc_runtime::{
     STATUS_COMPLETED, STATUS_NOT_CONFIGURED, STATUS_QUERY_REJECTED,
 };
 use super::jdbc_sidecar_protocol::{
+    build_sidecar_driver_probe_request_json, build_sidecar_health_check_request_json,
     build_sidecar_request_json, map_sidecar_response, JdbcReadOnlyExecutionPolicy,
     JdbcSecretReference, JdbcSecretReferenceKind, JdbcSidecarCellValue, JdbcSidecarColumn,
     JdbcSidecarDriverProbeResult, JdbcSidecarDriverReference, JdbcSidecarError,
@@ -228,6 +229,27 @@ fn real_sidecar_request_json_uses_env_reference_without_password_value_field() {
     assert!(!json.contains("secretValue"));
     assert!(!json.contains("\"password\""));
     assert!(!json.contains("\"token\""));
+}
+
+#[test]
+fn diagnostic_request_json_contains_no_sql_or_secret_fields() {
+    let health_json = build_sidecar_health_check_request_json();
+    let driver_json = build_sidecar_driver_probe_request_json(
+        "target/test-driver.jar",
+        Some("org.example.Driver"),
+    );
+
+    for json in [health_json, driver_json] {
+        let value: Value = serde_json::from_str(&json).expect("diagnostic json");
+        assert!(value.get("sql").is_none());
+        assert!(value.get("jdbc_url").is_none());
+        assert!(value.get("username").is_none());
+        assert!(value.get("credential_env_var_name").is_none());
+        assert_no_forbidden_secret_keys(&value);
+        assert!(!json.contains("secretValue"));
+        assert!(!json.contains("\"password\""));
+        assert!(!json.contains("\"token\""));
+    }
 }
 
 #[test]

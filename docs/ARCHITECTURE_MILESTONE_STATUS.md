@@ -56,8 +56,11 @@ behavior, or Workspace Agent context wiring.
   password environment variable name rather than password value, Rust and
   sidecar SELECT/WITH read-only guards, JDBC `setReadOnly(true)` where
   supported, row/time/result caps, display-safe DTOs, redacted errors, visible
-  results, and no hidden Workspace Agent, Queue, Executor, Terminal, Git,
-  provider, or background SQL execution. It is not production JDBC.
+  results, explicit manual HealthCheck and DriverProbe diagnostics, and no
+  hidden Workspace Agent, Queue, Executor, Terminal, Git, provider, or
+  background SQL execution. DriverProbe loads only the explicit driver
+  JAR/class and does not execute SQL or open a database connection. It is not
+  production JDBC.
 - Database / JDBC sidecar protocol shapes now exist as inert Rust serde DTOs
   and contract tests in `hobit-app`. They define future request/response
   envelopes, profile/driver/credential-reference metadata, read-only policy
@@ -196,8 +199,9 @@ behavior, or Workspace Agent context wiring.
 - JDBC sidecar protocol DTOs do not create production sidecar execution,
   credential persistence, OS keychain integration, broad SQL execution, or AI
   execution behavior. The implemented Experimental sidecar prototype can load
-  one explicit driver JAR and run one capped read-only SELECT/WITH query only
-  when the JDBC widget operator supplies all runtime inputs for that Run.
+  one explicit driver JAR, run explicit manual diagnostics, and run one capped
+  read-only SELECT/WITH query only when the JDBC widget operator supplies all
+  runtime inputs for that Run.
 
 ## Do Not Overclaim
 

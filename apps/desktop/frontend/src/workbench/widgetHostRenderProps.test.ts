@@ -325,11 +325,15 @@ describe("widgetHostRenderProps", () => {
     });
 
     expect(props.onCreateJdbcConnector).toBe(actions.createJdbcConnector);
+    expect(props.onCheckJdbcSidecarHealth).toBe(
+      actions.checkJdbcSidecarHealth,
+    );
     expect(props.onExecuteJdbcReadOnlyQuery).toBe(
       actions.executeJdbcReadOnlyQuery,
     );
     expect(props.onGetJdbcConnector).toBe(actions.getJdbcConnector);
     expect(props.onListJdbcConnectors).toBe(actions.listJdbcConnectors);
+    expect(props.onProbeJdbcDriver).toBe(actions.probeJdbcDriver);
     expect(props.onUpdateJdbcConnector).toBe(actions.updateJdbcConnector);
     expect(props.onValidateJdbcReadOnlySql).toBe(
       actions.validateJdbcReadOnlySql,
@@ -441,6 +445,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     createAgentQueueTask: vi.fn(),
     createGitCommit: vi.fn(),
     createJdbcConnector: vi.fn(),
+    checkJdbcSidecarHealth: vi.fn(),
     createKnowledgeDocument: vi.fn(),
     createSkill: vi.fn(),
     createTerminalPtySession: vi.fn(),
@@ -475,6 +480,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     listWidgetLogs: vi.fn(),
     listWorkspaceNotes: vi.fn(),
     logRefreshTokens: {},
+    probeJdbcDriver: vi.fn(),
     readKnowledgeDocumentImportFile: vi.fn(),
     removeWidgetInstance: vi.fn(),
     resizeTerminalPtySession: vi.fn(),

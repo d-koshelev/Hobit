@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::jdbc_artifacts::JdbcRuntimeBoundarySummary;
-use super::jdbc_query_types::{JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary};
+use super::jdbc_query_types::{
+    JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary, JdbcSidecarDiagnosticSummary,
+};
 use super::jdbc_runtime::{
     cap_string, failed_query_result, sanitize_error, JdbcConnectorRuntimeConfig,
     JdbcReadOnlyAdapterRequest, STATUS_COMPLETED, STATUS_EXECUTION_FAILED, STATUS_NOT_CONFIGURED,
@@ -17,6 +19,7 @@ use super::jdbc_runtime::{
 const SIDECAR_PROTOCOL_VERSION: u64 = 1;
 const SIDECAR_STDERR_CAP_BYTES: usize = 16 * 1024;
 const SIDECAR_RESPONSE_OVERHEAD_BYTES: usize = 16 * 1024;
+const SIDECAR_DIAGNOSTIC_STDOUT_CAP_BYTES: usize = 64 * 1024;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -416,6 +419,101 @@ impl JdbcSidecarProcessRunner {
             ProcessRunStatus::Completed => map_sidecar_response(&request, &process_output.stdout),
         }
     }
+
+    pub(super) fn check_health(&self) -> JdbcSidecarDiagnosticSummary {
+        self.run_diagnostic("health_check", build_sidecar_health_check_request_json())
+    }
+
+    pub(super) fn probe_driver(
+        &self,
+        driver_jar_path: &str,
+        driver_class_name: Option<&str>,
+    ) -> JdbcSidecarDiagnosticSummary {
+        self.run_diagnostic(
+            "driver_probe",
+            build_sidecar_driver_probe_request_json(driver_jar_path, driver_class_name),
+        )
+    }
+
+    fn run_diagnostic(&self, action: &str, request_json: String) -> JdbcSidecarDiagnosticSummary {
+        let process_output = run_process_once(ProcessRunRequest {
+            program: self.program.clone(),
+            args: self.args.clone(),
+            stdin: Some(request_json),
+            working_directory: self.working_directory.clone(),
+            timeout_ms: self.timeout_ms.max(1),
+            stdout_cap_bytes: SIDECAR_DIAGNOSTIC_STDOUT_CAP_BYTES,
+            stderr_cap_bytes: SIDECAR_STDERR_CAP_BYTES,
+        });
+
+        let duration_ms = capped_duration_ms(process_output.duration_ms);
+        match process_output.status {
+            ProcessRunStatus::FailedToStart => diagnostic_failed(
+                action,
+                STATUS_NOT_CONFIGURED,
+                "Java executable was not found or the JDBC sidecar failed to start.",
+                duration_ms,
+                None,
+            ),
+            ProcessRunStatus::TimedOut => diagnostic_failed(
+                action,
+                STATUS_TIMEOUT,
+                "JDBC sidecar diagnostic timed out.",
+                duration_ms,
+                None,
+            ),
+            ProcessRunStatus::Completed if process_output.exit_code != Some(0) => {
+                diagnostic_failed(
+                    action,
+                    STATUS_NOT_CONFIGURED,
+                    "JDBC sidecar failed before returning a safe diagnostic response.",
+                    duration_ms,
+                    None,
+                )
+            }
+            ProcessRunStatus::Completed if process_output.stdout_truncated => diagnostic_failed(
+                action,
+                STATUS_EXECUTION_FAILED,
+                "JDBC sidecar diagnostic response exceeded the backend output cap.",
+                duration_ms,
+                None,
+            ),
+            ProcessRunStatus::Completed => {
+                map_sidecar_diagnostic_response(action, &process_output.stdout, duration_ms)
+            }
+        }
+    }
+}
+
+pub(super) fn build_sidecar_health_check_request_json() -> String {
+    json!({
+        "protocol_version": SIDECAR_PROTOCOL_VERSION,
+        "request_id": "jdbc-sidecar-health",
+        "request": "healthCheck"
+    })
+    .to_string()
+}
+
+pub(super) fn build_sidecar_driver_probe_request_json(
+    driver_jar_path: &str,
+    driver_class_name: Option<&str>,
+) -> String {
+    let mut request = json!({
+        "protocol_version": SIDECAR_PROTOCOL_VERSION,
+        "request_id": "jdbc-driver-probe",
+        "request": "driverProbe",
+        "runtime_kind": "real_jdbc",
+        "driver_kind": "jdbc",
+        "driver_jar_path": driver_jar_path
+    });
+
+    if let Some(driver_class_name) = driver_class_name {
+        if let Some(object) = request.as_object_mut() {
+            object.insert("driver_class_name".to_owned(), json!(driver_class_name));
+        }
+    }
+
+    request.to_string()
 }
 
 pub(super) fn build_sidecar_request_json(request: &JdbcReadOnlyAdapterRequest) -> String {
@@ -594,6 +692,117 @@ fn normalized_error_status(status: &str) -> &str {
         | "result_truncated" => status,
         _ => STATUS_EXECUTION_FAILED,
     }
+}
+
+fn map_sidecar_diagnostic_response(
+    action: &str,
+    raw_response: &str,
+    duration_ms: u64,
+) -> JdbcSidecarDiagnosticSummary {
+    let parsed = match serde_json::from_str::<Value>(raw_response) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            return diagnostic_failed(
+                action,
+                STATUS_EXECUTION_FAILED,
+                "JDBC sidecar returned invalid diagnostic JSON.",
+                duration_ms,
+                None,
+            );
+        }
+    };
+
+    let no_secrets_returned = bool_field(&parsed, "no_secrets_returned").unwrap_or(true);
+    let no_ai_context_shared = bool_field(&parsed, "no_ai_context_shared").unwrap_or(true);
+    if !no_secrets_returned || !no_ai_context_shared {
+        return JdbcSidecarDiagnosticSummary {
+            action: action.to_owned(),
+            ok: false,
+            status: STATUS_EXECUTION_FAILED.to_owned(),
+            message: "JDBC sidecar diagnostic response violated safety flags.".to_owned(),
+            details: None,
+            duration_ms,
+            no_secrets_returned,
+            no_ai_context_shared,
+        };
+    }
+
+    let status = string_field(&parsed, "status").unwrap_or(STATUS_EXECUTION_FAILED);
+    if status != STATUS_COMPLETED {
+        return diagnostic_failed(
+            action,
+            normalized_error_status(status),
+            string_field(&parsed, "sanitized_error")
+                .unwrap_or("JDBC sidecar returned a sanitized diagnostic failure."),
+            duration_ms,
+            None,
+        );
+    }
+
+    let message = match action {
+        "health_check" => "JDBC sidecar started and answered HealthCheck.",
+        "driver_probe" => "JDBC driver probe loaded the explicit driver JAR/class.",
+        _ => "JDBC sidecar diagnostic completed.",
+    };
+
+    JdbcSidecarDiagnosticSummary {
+        action: action.to_owned(),
+        ok: true,
+        status: "ok".to_owned(),
+        message: message.to_owned(),
+        details: diagnostic_details(&parsed),
+        duration_ms,
+        no_secrets_returned: true,
+        no_ai_context_shared: true,
+    }
+}
+
+fn diagnostic_failed(
+    action: &str,
+    status: &str,
+    message: &str,
+    duration_ms: u64,
+    details: Option<String>,
+) -> JdbcSidecarDiagnosticSummary {
+    JdbcSidecarDiagnosticSummary {
+        action: action.to_owned(),
+        ok: false,
+        status: status.to_owned(),
+        message: sanitize_error(message),
+        details,
+        duration_ms,
+        no_secrets_returned: true,
+        no_ai_context_shared: true,
+    }
+}
+
+fn diagnostic_details(value: &Value) -> Option<String> {
+    let columns = value.get("columns")?.as_array()?;
+    let rows = value.get("rows")?.as_array()?;
+    if columns.is_empty() || rows.is_empty() {
+        return None;
+    }
+
+    let details = rows
+        .iter()
+        .take(4)
+        .filter_map(|row| {
+            let cells = row.as_array()?;
+            let key = cells.first()?.as_str()?;
+            let value = cells.get(1)?.as_str()?;
+            Some(format!("{}={}", sanitize_error(key), sanitize_error(value)))
+        })
+        .collect::<Vec<_>>();
+
+    if details.is_empty() {
+        None
+    } else {
+        Some(details.join("; "))
+    }
+}
+
+fn capped_duration_ms(duration_ms: u128) -> u64 {
+    duration_ms.min(u64::MAX as u128) as u64
 }
 
 fn columns_field(value: &Value, max_columns: usize) -> Vec<JdbcQueryColumnSummary> {

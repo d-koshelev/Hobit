@@ -44,7 +44,9 @@ import {
   updateJdbcConnector,
 } from "./tauriJdbcConnectorApi";
 import {
+  checkJdbcSidecarHealth,
   executeJdbcReadOnlyQuery,
+  probeJdbcDriver,
   validateJdbcReadOnlySql,
 } from "./tauriJdbcQueryApi";
 import { runTerminalCommand } from "./tauriTerminalCommandApi";
@@ -123,6 +125,8 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   updateJdbcConnector,
   validateJdbcReadOnlySql,
   executeJdbcReadOnlyQuery,
+  checkJdbcSidecarHealth,
+  probeJdbcDriver,
   addWidgetInstanceToWorkbench,
   updateWidgetInstanceState,
   updateWidgetInstanceLayout,

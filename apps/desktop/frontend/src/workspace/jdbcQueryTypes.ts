@@ -34,6 +34,17 @@ export type JdbcReadOnlyQueryResult = {
   mockExecution: boolean;
 };
 
+export type JdbcSidecarDiagnostic = {
+  action: string;
+  ok: boolean;
+  status: string;
+  message: string;
+  details: string | null;
+  durationMs: number;
+  noSecretsReturned: boolean;
+  noAiContextShared: boolean;
+};
+
 export type ValidateJdbcReadOnlySqlRequest = {
   workspaceId: string;
   workbenchId: string;
@@ -56,6 +67,20 @@ export type ExecuteJdbcReadOnlyQueryRequest = {
   maxCellChars?: number | null;
   maxResultBytes?: number | null;
   experimentalSidecar?: JdbcExperimentalSidecarRuntime | null;
+};
+
+export type CheckJdbcSidecarHealthRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  experimentalSidecar: JdbcExperimentalSidecarRuntime;
+};
+
+export type ProbeJdbcDriverRequest = {
+  workspaceId: string;
+  workbenchId: string;
+  widgetInstanceId: string;
+  experimentalSidecar: JdbcExperimentalSidecarRuntime;
 };
 
 export type JdbcExperimentalSidecarRuntime = {

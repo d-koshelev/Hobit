@@ -544,6 +544,14 @@ fn explicit_sidecar_launch(
     sidecar_launch_from_values(&values, timeout_ms)
 }
 
+pub(super) fn explicit_sidecar_diagnostic_runner(
+    input: &JdbcExperimentalSidecarRuntimeInput,
+    timeout_ms: u64,
+) -> Result<JdbcSidecarProcessRunner, String> {
+    let launch = explicit_sidecar_launch(input, timeout_ms.clamp(1, MAX_SIDECAR_TIMEOUT_MS));
+    launch.runner.ok_or(launch.safe_status_message)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct JdbcSidecarLaunchConfig {
     runner: Option<JdbcSidecarProcessRunner>,
@@ -618,7 +626,7 @@ fn trim_option(value: Option<&str>) -> Option<String> {
     (!value.is_empty()).then(|| value.to_owned())
 }
 
-fn contains_secret_bearing_url_key(value: &str) -> bool {
+pub(super) fn contains_secret_bearing_url_key(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
     [
         "password=",

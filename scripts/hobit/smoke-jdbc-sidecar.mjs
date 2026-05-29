@@ -25,6 +25,7 @@ const BUILD_DIR = path.join(
   "classes",
 );
 const MAIN_CLASS = "com.hobit.jdbc.JdbcReadOnlySidecar";
+const args = parseArgs(process.argv.slice(2));
 
 main().catch((error) => {
   console.error(`[jdbc-sidecar-smoke] ${error.message}`);
@@ -44,6 +45,14 @@ async function main() {
   await fs.mkdir(BUILD_DIR, { recursive: true });
   await runProcess("javac", ["-d", BUILD_DIR, SIDECAR_SOURCE], null);
 
+  await healthCheckScenario();
+  if (args.driverJar) {
+    await driverProbeScenario(args.driverJar, args.driverClass);
+  } else {
+    console.log(
+      "[jdbc-sidecar-smoke] driver-probe: skipped (pass --driver-jar <path> and optional --driver-class <class>)",
+    );
+  }
   await validReadOnlyScenario();
   await invalidSqlScenario();
   await unsupportedDriverScenario();
@@ -53,6 +62,40 @@ async function main() {
   console.log(
     `[jdbc-sidecar-smoke] all scenarios passed in ${Date.now() - startedAt}ms`,
   );
+}
+
+async function healthCheckScenario() {
+  const response = await runSidecar({
+    protocol_version: 1,
+    request_id: "jdbc-sidecar-health-smoke",
+    request: "healthCheck",
+  });
+  assertEqual(response.status, "completed", "health status");
+  assertEqual(response.no_secrets_returned, true, "health secret flag");
+  assertEqual(response.no_ai_context_shared, true, "health AI context flag");
+  assertNoSecretWords(JSON.stringify(response), "health response");
+  console.log("[jdbc-sidecar-smoke] health-check: passed");
+}
+
+async function driverProbeScenario(driverJar, driverClass) {
+  const request = {
+    protocol_version: 1,
+    request_id: "jdbc-driver-probe-smoke",
+    request: "driverProbe",
+    runtime_kind: "real_jdbc",
+    driver_kind: "jdbc",
+    driver_jar_path: driverJar,
+  };
+  if (driverClass) {
+    request.driver_class_name = driverClass;
+  }
+
+  const response = await runSidecar(request);
+  assertEqual(response.status, "completed", "driver probe status");
+  assertEqual(response.no_secrets_returned, true, "driver probe secret flag");
+  assertEqual(response.no_ai_context_shared, true, "driver probe AI context flag");
+  assertNoSecretWords(JSON.stringify(response), "driver probe response");
+  console.log("[jdbc-sidecar-smoke] driver-probe: passed");
 }
 
 async function validReadOnlyScenario() {
@@ -213,4 +256,31 @@ function assertNoSecretWords(value, label) {
       throw new Error(`${label} contained a secret-looking token`);
     }
   }
+}
+
+function parseArgs(argv) {
+  const parsed = {
+    driverClass: null,
+    driverJar: null,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--driver-jar") {
+      parsed.driverJar = argv[index + 1] ?? null;
+      index += 1;
+    } else if (arg === "--driver-class") {
+      parsed.driverClass = argv[index + 1] ?? null;
+      index += 1;
+    } else if (arg === "--help" || arg === "-h") {
+      console.log(
+        "Usage: node scripts/hobit/smoke-jdbc-sidecar.mjs [--driver-jar path] [--driver-class name]",
+      );
+      process.exit(0);
+    } else {
+      throw new Error(`unknown argument: ${arg}`);
+    }
+  }
+
+  return parsed;
 }

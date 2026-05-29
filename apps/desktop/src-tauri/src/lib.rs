@@ -156,6 +156,8 @@ pub fn run() {
             jdbc_connector_commands::update_jdbc_connector,
             jdbc_query_commands::validate_jdbc_read_only_sql,
             jdbc_query_commands::execute_jdbc_read_only_query,
+            jdbc_query_commands::check_jdbc_sidecar_health,
+            jdbc_query_commands::probe_jdbc_driver,
             agent_queue_task_commands::create_agent_queue_task,
             agent_queue_task_commands::list_agent_queue_tasks,
             agent_queue_task_commands::get_agent_queue_task,

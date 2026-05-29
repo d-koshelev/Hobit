@@ -4,6 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_app::CreateJdbcConnectorInput;
 
+use crate::jdbc_query_dto::JdbcExperimentalSidecarRuntimeRequest;
+
 const JDBC_WIDGET_DEFINITION_ID: &str = "database-jdbc";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
 
@@ -94,6 +96,44 @@ fn jdbc_query_command_helper_returns_failed_result_for_invalid_sql() {
 }
 
 #[test]
+fn jdbc_query_command_helpers_run_explicit_diagnostics() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, workbench_id, widget_id) =
+        create_widget_in_test_db(&db_path, JDBC_WIDGET_DEFINITION_ID);
+
+    let health = check_jdbc_sidecar_health_blocking(
+        CheckJdbcSidecarHealthRequest {
+            workspace_id: workspace_id.clone(),
+            workbench_id: workbench_id.clone(),
+            widget_instance_id: widget_id.clone(),
+            experimental_sidecar: diagnostic_runtime(),
+        },
+        db_path.clone(),
+    )
+    .expect("health diagnostic");
+    assert_eq!(health.action, "health_check");
+    assert_eq!(health.status, "not_configured");
+    assert!(!health.ok);
+
+    let mut probe_runtime = diagnostic_runtime();
+    probe_runtime.driver_jar_path.clear();
+    let probe = probe_jdbc_driver_blocking(
+        ProbeJdbcDriverRequest {
+            workspace_id,
+            workbench_id,
+            widget_instance_id: widget_id,
+            experimental_sidecar: probe_runtime,
+        },
+        db_path.clone(),
+    )
+    .expect("driver diagnostic");
+    assert_eq!(probe.action, "driver_probe");
+    assert_eq!(probe.status, "not_configured");
+    assert!(probe.message.contains("driver JAR path"));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn jdbc_query_command_helper_rejects_non_jdbc_widget_owner() {
     let db_path = unique_test_db_path();
     let (workspace_id, workbench_id, widget_id) =
@@ -120,6 +160,24 @@ fn jdbc_query_command_helper_rejects_non_jdbc_widget_owner() {
 
     assert!(error.contains("requires a Database / JDBC widget owner"));
     remove_test_db_files(&db_path);
+}
+
+fn diagnostic_runtime() -> JdbcExperimentalSidecarRuntimeRequest {
+    JdbcExperimentalSidecarRuntimeRequest {
+        enabled: true,
+        java_program: Some("hobit-missing-jdbc-diagnostic-java".to_owned()),
+        sidecar_jar_path: None,
+        sidecar_classpath: Some("target/hobit-jdbc-sidecar/classes".to_owned()),
+        sidecar_main_class: Some("com.hobit.jdbc.JdbcReadOnlySidecar".to_owned()),
+        driver_jar_path: "target/test-driver.jar".to_owned(),
+        driver_class_name: Some("org.example.Driver".to_owned()),
+        jdbc_url: "jdbc:example://localhost/app".to_owned(),
+        username: None,
+        credential_env_var_name: None,
+        max_rows: Some(100),
+        timeout_ms: Some(100),
+        max_result_bytes: Some(262_144),
+    }
 }
 
 fn create_widget_in_test_db(db_path: &Path, definition_id: &str) -> (String, String, String) {

@@ -5,9 +5,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "../workspace/jdbcConnectorTypes";
 import type {
+  CheckJdbcSidecarHealthRequest,
   ExecuteJdbcReadOnlyQueryRequest,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
+  ProbeJdbcDriverRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "../workspace/jdbcQueryTypes";
 import type {
@@ -141,6 +144,13 @@ export type WidgetRenderProps = {
   onCreateJdbcConnector?: (
     request: Omit<CreateJdbcConnectorRequest, "workspaceId">,
   ) => Promise<JdbcConnector>;
+  onCheckJdbcSidecarHealth?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      CheckJdbcSidecarHealthRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<JdbcSidecarDiagnostic>;
   onExecuteJdbcReadOnlyQuery?: (
     widgetInstanceId: WidgetInstanceId,
     request: Omit<
@@ -225,6 +235,13 @@ export type WidgetRenderProps = {
   ) => Promise<AgentExecutorRunHistory | null>;
   onListAgentQueueTasks?: () => Promise<AgentQueueTask[]>;
   onListJdbcConnectors?: () => Promise<JdbcConnector[]>;
+  onProbeJdbcDriver?: (
+    widgetInstanceId: WidgetInstanceId,
+    request: Omit<
+      ProbeJdbcDriverRequest,
+      "workspaceId" | "workbenchId" | "widgetInstanceId"
+    >,
+  ) => Promise<JdbcSidecarDiagnostic>;
   onListWorkspaceNotes?: () => Promise<WorkspaceNote[]>;
   onListSkills?: () => Promise<Skill[]>;
   onListKnowledgeDocuments?: () => Promise<KnowledgeDocument[]>;

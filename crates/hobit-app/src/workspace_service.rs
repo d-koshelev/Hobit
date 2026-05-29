@@ -31,6 +31,7 @@ mod git_commit;
 mod jdbc_artifacts;
 mod jdbc_connector_types;
 mod jdbc_connectors;
+mod jdbc_diagnostics;
 mod jdbc_query;
 mod jdbc_query_types;
 mod jdbc_runtime;
@@ -93,6 +94,8 @@ mod jdbc_artifacts_tests;
 #[cfg(test)]
 mod jdbc_connectors_tests;
 #[cfg(test)]
+mod jdbc_diagnostics_tests;
+#[cfg(test)]
 mod jdbc_query_tests;
 #[cfg(test)]
 mod jdbc_runtime_config_tests;
@@ -148,8 +151,10 @@ pub use jdbc_connector_types::{
     CreateJdbcConnectorInput, JdbcConnectorSummary, UpdateJdbcConnectorInput,
 };
 pub use jdbc_query_types::{
-    ExecuteJdbcReadOnlyQueryInput, JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary,
-    JdbcReadOnlyQueryResultSummary, JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
+    CheckJdbcSidecarHealthInput, ExecuteJdbcReadOnlyQueryInput,
+    JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
+    JdbcReadOnlySqlValidationSummary, JdbcSidecarDiagnosticSummary, ProbeJdbcDriverInput,
+    ValidateJdbcReadOnlySqlInput,
 };
 use jdbc_runtime_config::JdbcRuntimeConfig;
 pub use types::{

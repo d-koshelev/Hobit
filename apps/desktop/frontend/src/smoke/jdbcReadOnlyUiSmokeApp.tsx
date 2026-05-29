@@ -97,6 +97,7 @@ class JdbcReadOnlyUiSmokeRuntime {
         this.createConnectorCallCount += 1;
         return smokeConnector("created-smoke-connector", "Created smoke connector");
       },
+      checkJdbcSidecarHealth: this.unsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: this.unsupported,
       createWorkspaceNote: this.unsupported,
@@ -153,6 +154,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       listWidgetLogs: async () => [],
       listWorkspaceNotes: async () => [],
       logRefreshTokens: {},
+      probeJdbcDriver: this.unsupported,
       removeWidgetInstance: async () => undefined,
       resizeTerminalPtySession: this.unsupported,
       runCodexDirectWork: this.unsupported,

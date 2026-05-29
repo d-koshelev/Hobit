@@ -188,7 +188,7 @@ impl WorkspaceService {
         Ok(result)
     }
 
-    fn validate_jdbc_query_owner(
+    pub(super) fn validate_jdbc_query_owner(
         &self,
         workspace_id: &str,
         workbench_id: &str,

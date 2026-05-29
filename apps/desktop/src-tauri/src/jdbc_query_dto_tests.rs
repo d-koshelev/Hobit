@@ -3,8 +3,9 @@ use hobit_app::{
 };
 
 use crate::jdbc_query_dto::{
-    ExecuteJdbcReadOnlyQueryRequest, JdbcExperimentalSidecarRuntimeRequest,
-    JdbcReadOnlyQueryResultDto, ValidateJdbcReadOnlySqlRequest,
+    CheckJdbcSidecarHealthRequest, ExecuteJdbcReadOnlyQueryRequest,
+    JdbcExperimentalSidecarRuntimeRequest, JdbcReadOnlyQueryResultDto, JdbcSidecarDiagnosticDto,
+    ProbeJdbcDriverRequest, ValidateJdbcReadOnlySqlRequest,
 };
 
 #[test]
@@ -87,6 +88,57 @@ fn maps_execute_jdbc_read_only_query_request_to_app_input() {
 }
 
 #[test]
+fn maps_jdbc_diagnostic_requests_to_app_inputs() {
+    let health: hobit_app::CheckJdbcSidecarHealthInput = CheckJdbcSidecarHealthRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        experimental_sidecar: diagnostic_runtime(),
+    }
+    .into();
+    let probe: hobit_app::ProbeJdbcDriverInput = ProbeJdbcDriverRequest {
+        workspace_id: "ws_1".to_owned(),
+        workbench_id: "wb_1".to_owned(),
+        widget_instance_id: "wid_1".to_owned(),
+        experimental_sidecar: diagnostic_runtime(),
+    }
+    .into();
+
+    assert_eq!(health.workspace_id, "ws_1");
+    assert_eq!(health.widget_instance_id, "wid_1");
+    assert_eq!(
+        health.experimental_sidecar.driver_jar_path,
+        "target/test-driver.jar"
+    );
+    assert_eq!(probe.workbench_id, "wb_1");
+    assert_eq!(
+        probe.experimental_sidecar.sidecar_classpath.as_deref(),
+        Some("target/hobit-jdbc-sidecar/classes")
+    );
+}
+
+#[test]
+fn maps_jdbc_sidecar_diagnostic_summary_to_dto() {
+    let dto = JdbcSidecarDiagnosticDto::from(hobit_app::JdbcSidecarDiagnosticSummary {
+        action: "health_check".to_owned(),
+        ok: true,
+        status: "ok".to_owned(),
+        message: "JDBC sidecar started and answered HealthCheck.".to_owned(),
+        details: Some("sidecar=healthy".to_owned()),
+        duration_ms: 12,
+        no_secrets_returned: true,
+        no_ai_context_shared: true,
+    });
+
+    assert_eq!(dto.action, "health_check");
+    assert!(dto.ok);
+    assert_eq!(dto.status, "ok");
+    assert_eq!(dto.details.as_deref(), Some("sidecar=healthy"));
+    assert!(dto.no_secrets_returned);
+    assert!(dto.no_ai_context_shared);
+}
+
+#[test]
 fn maps_jdbc_read_only_query_result_to_dto() {
     let summary = JdbcReadOnlyQueryResultSummary {
         status: "completed".to_owned(),
@@ -132,4 +184,22 @@ fn maps_jdbc_read_only_query_result_to_dto() {
     assert!(dto.no_secrets_returned);
     assert!(dto.no_ai_context_shared);
     assert!(dto.mock_execution);
+}
+
+fn diagnostic_runtime() -> JdbcExperimentalSidecarRuntimeRequest {
+    JdbcExperimentalSidecarRuntimeRequest {
+        enabled: true,
+        java_program: Some("java".to_owned()),
+        sidecar_jar_path: None,
+        sidecar_classpath: Some("target/hobit-jdbc-sidecar/classes".to_owned()),
+        sidecar_main_class: Some("com.hobit.jdbc.JdbcReadOnlySidecar".to_owned()),
+        driver_jar_path: "target/test-driver.jar".to_owned(),
+        driver_class_name: Some("org.example.Driver".to_owned()),
+        jdbc_url: "jdbc:example://localhost/app".to_owned(),
+        username: None,
+        credential_env_var_name: None,
+        max_rows: Some(100),
+        timeout_ms: Some(10_000),
+        max_result_bytes: Some(262_144),
+    }
 }

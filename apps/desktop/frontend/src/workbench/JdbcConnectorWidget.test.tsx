@@ -6,6 +6,7 @@ import type { JdbcConnector } from "../workspace/jdbcConnectorTypes";
 import type {
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
 import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
 import type { WidgetInstance, WidgetRenderProps } from "./types";
@@ -43,6 +44,9 @@ describe("JdbcConnectorWidget", () => {
     );
     expect(document.body.textContent).toContain("Query editor");
     expect(document.body.textContent).toContain("Experimental sidecar runtime");
+    expect(document.body.textContent).toContain("Runtime diagnostics");
+    expect(document.body.textContent).toContain("Check sidecar");
+    expect(document.body.textContent).toContain("Probe driver");
     expect(document.body.textContent).toContain("Password env var name");
     expect(document.body.textContent).toContain("password value");
     expect(
@@ -153,6 +157,7 @@ describe("JdbcConnectorWidget", () => {
         maxResultBytes: 262144,
         maxRows: 100,
         sidecarClasspath: "target/jdbc/classes",
+        sidecarJarPath: null,
         sidecarMainClass: "com.hobit.jdbc.JdbcReadOnlySidecar",
         timeoutMs: 10000,
         username: "readonly_user",
@@ -164,6 +169,98 @@ describe("JdbcConnectorWidget", () => {
     });
     expect(document.body.textContent).toContain("Completed");
     expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
+  });
+
+  it("runs explicit sidecar health diagnostics and renders collapsed details", async () => {
+    const onCheck = vi.fn(async () =>
+      diagnosticResult({
+        action: "health_check",
+        details: "sidecar=healthy",
+        message: "JDBC sidecar started and answered HealthCheck.",
+        ok: true,
+        status: "ok",
+      }),
+    );
+    await renderJdbcWidget({
+      onCheckJdbcSidecarHealth: onCheck,
+    });
+
+    await clickButton("Check sidecar");
+
+    expect(onCheck).toHaveBeenCalledWith("jdbc_widget_1", {
+      experimentalSidecar: expect.objectContaining({
+        enabled: true,
+        javaProgram: "java",
+        sidecarClasspath: null,
+        sidecarJarPath: null,
+      }),
+    });
+    expect(document.body.textContent).toContain("OK");
+    expect(document.body.textContent).toContain(
+      "JDBC sidecar started and answered HealthCheck.",
+    );
+    expect(
+      document.querySelector<HTMLDetailsElement>(".jdbc-diagnostic-details")
+        ?.open,
+    ).toBe(false);
+  });
+
+  it("runs explicit driver probe diagnostics without running SQL", async () => {
+    const onProbe = vi.fn(async () =>
+      diagnosticResult({
+        action: "driver_probe",
+        details: "driver=loaded",
+        message: "JDBC driver probe loaded the explicit driver JAR/class.",
+        ok: true,
+        status: "ok",
+      }),
+    );
+    const onExecute = vi.fn(async () => completedResult());
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: onExecute,
+      onProbeJdbcDriver: onProbe,
+    });
+
+    await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
+    await changeInputByLabel("Driver class", "org.postgresql.Driver");
+    await clickButton("Probe driver");
+
+    expect(onProbe).toHaveBeenCalledWith("jdbc_widget_1", {
+      experimentalSidecar: expect.objectContaining({
+        driverClassName: "org.postgresql.Driver",
+        driverJarPath: "C:\\drivers\\postgres.jar",
+        enabled: true,
+        jdbcUrl: "",
+      }),
+    });
+    expect(onExecute).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("JDBC driver probe loaded");
+  });
+
+  it("renders diagnostic failures without expanding error details", async () => {
+    await renderJdbcWidget({
+      onProbeJdbcDriver: vi.fn(async () =>
+        diagnosticResult({
+          action: "driver_probe",
+          details: null,
+          message: "JDBC driver JAR path is required for driver probe.",
+          ok: false,
+          status: "not_configured",
+        }),
+      ),
+    });
+
+    await clickButton("Probe driver");
+
+    expect(document.body.textContent).toContain("Failed");
+    expect(document.body.textContent).toContain(
+      "JDBC driver JAR path is required for driver probe.",
+    );
+    const details = document.querySelector<HTMLDetailsElement>(
+      ".jdbc-diagnostic-details",
+    );
+    expect(details?.textContent).toContain("Error details");
+    expect(details?.open).toBe(false);
   });
 
   it("shows rejected write SQL and keeps Workspace Agent out of execution", async () => {
@@ -201,10 +298,12 @@ async function renderJdbcWidget(
       definition={getWidgetDefinition(JDBC_WIDGET_DEFINITION_ID)!}
       instance={jdbcWidgetInstance()}
       onCreateJdbcConnector={vi.fn(async () => connector())}
+      onCheckJdbcSidecarHealth={vi.fn(async () => diagnosticResult())}
       onExecuteJdbcReadOnlyQuery={vi.fn(async () => completedResult())}
       onGetJdbcConnector={vi.fn(async () => connector())}
       onListJdbcConnectors={vi.fn(async () => [connector()])}
       onLoadLogs={vi.fn(async () => [])}
+      onProbeJdbcDriver={vi.fn(async () => diagnosticResult())}
       onUpdateJdbcConnector={vi.fn(async () => connector())}
       onValidateJdbcReadOnlySql={vi.fn(async () => validValidation())}
       title="Database / JDBC"
@@ -404,6 +503,22 @@ function failedResult(
   sanitizedError: string,
 ): JdbcReadOnlyQueryResult {
   return resultBase(status, sanitizedError);
+}
+
+function diagnosticResult(
+  overrides: Partial<JdbcSidecarDiagnostic> = {},
+): JdbcSidecarDiagnostic {
+  return {
+    action: "health_check",
+    details: "sidecar=healthy",
+    durationMs: 1,
+    message: "JDBC sidecar started and answered HealthCheck.",
+    noAiContextShared: true,
+    noSecretsReturned: true,
+    ok: true,
+    status: "ok",
+    ...overrides,
+  };
 }
 
 function resultBase(

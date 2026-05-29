@@ -1,6 +1,8 @@
 use hobit_app::{
-    ExecuteJdbcReadOnlyQueryInput, JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary,
-    JdbcReadOnlyQueryResultSummary, JdbcReadOnlySqlValidationSummary, ValidateJdbcReadOnlySqlInput,
+    CheckJdbcSidecarHealthInput, ExecuteJdbcReadOnlyQueryInput,
+    JdbcExperimentalSidecarRuntimeInput, JdbcQueryColumnSummary, JdbcReadOnlyQueryResultSummary,
+    JdbcReadOnlySqlValidationSummary, JdbcSidecarDiagnosticSummary, ProbeJdbcDriverInput,
+    ValidateJdbcReadOnlySqlInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +30,22 @@ pub(crate) struct ExecuteJdbcReadOnlyQueryRequest {
     pub max_cell_chars: Option<usize>,
     pub max_result_bytes: Option<usize>,
     pub experimental_sidecar: Option<JdbcExperimentalSidecarRuntimeRequest>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct CheckJdbcSidecarHealthRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub experimental_sidecar: JdbcExperimentalSidecarRuntimeRequest,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ProbeJdbcDriverRequest {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub experimental_sidecar: JdbcExperimentalSidecarRuntimeRequest,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -86,6 +104,18 @@ pub(crate) struct JdbcReadOnlyQueryResultDto {
     pub mock_execution: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct JdbcSidecarDiagnosticDto {
+    pub action: String,
+    pub ok: bool,
+    pub status: String,
+    pub message: String,
+    pub details: Option<String>,
+    pub duration_ms: u64,
+    pub no_secrets_returned: bool,
+    pub no_ai_context_shared: bool,
+}
+
 impl From<ValidateJdbcReadOnlySqlRequest> for ValidateJdbcReadOnlySqlInput {
     fn from(request: ValidateJdbcReadOnlySqlRequest) -> Self {
         Self {
@@ -96,6 +126,28 @@ impl From<ValidateJdbcReadOnlySqlRequest> for ValidateJdbcReadOnlySqlInput {
             sql: request.sql,
             row_limit: request.row_limit,
             timeout_ms: request.timeout_ms,
+        }
+    }
+}
+
+impl From<CheckJdbcSidecarHealthRequest> for CheckJdbcSidecarHealthInput {
+    fn from(request: CheckJdbcSidecarHealthRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            experimental_sidecar: request.experimental_sidecar.into(),
+        }
+    }
+}
+
+impl From<ProbeJdbcDriverRequest> for ProbeJdbcDriverInput {
+    fn from(request: ProbeJdbcDriverRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workbench_id: request.workbench_id,
+            widget_instance_id: request.widget_instance_id,
+            experimental_sidecar: request.experimental_sidecar.into(),
         }
     }
 }
@@ -134,6 +186,21 @@ impl From<JdbcExperimentalSidecarRuntimeRequest> for JdbcExperimentalSidecarRunt
             max_rows: request.max_rows,
             timeout_ms: request.timeout_ms,
             max_result_bytes: request.max_result_bytes,
+        }
+    }
+}
+
+impl From<JdbcSidecarDiagnosticSummary> for JdbcSidecarDiagnosticDto {
+    fn from(summary: JdbcSidecarDiagnosticSummary) -> Self {
+        Self {
+            action: summary.action,
+            ok: summary.ok,
+            status: summary.status,
+            message: summary.message,
+            details: summary.details,
+            duration_ms: summary.duration_ms,
+            no_secrets_returned: summary.no_secrets_returned,
+            no_ai_context_shared: summary.no_ai_context_shared,
         }
     }
 }

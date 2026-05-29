@@ -39,6 +39,7 @@ export type JdbcReadOnlyExecutionPolicy = {
 export type JdbcExperimentalRuntimeDraft = {
   enabled: boolean;
   javaProgram: string;
+  sidecarJarPath: string;
   sidecarClasspath: string;
   sidecarMainClass: string;
   driverJarPath: string;

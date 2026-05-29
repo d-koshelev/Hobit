@@ -165,6 +165,7 @@ class QueueExecutorSmokeRuntime {
       deleteSkill: this.unsupported,
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
+      checkJdbcSidecarHealth: this.unsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: async () => this.forbidden(null),
       createWorkspaceNote: this.unsupported,
@@ -222,6 +223,7 @@ class QueueExecutorSmokeRuntime {
       listWorkspaceNotes: async () => [],
       logRefreshTokens: {},
       removeWidgetInstance: async () => undefined,
+      probeJdbcDriver: this.unsupported,
       runCodexDirectWork: async () => this.forbidden(null),
       runDirectWorkValidation: async () => this.forbidden(null),
       runTerminalCommand: async () => {

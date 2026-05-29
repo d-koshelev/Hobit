@@ -1,15 +1,22 @@
 # JDBC Read-Only Sidecar Scaffold
 
-This is the first Java sidecar scaffold for Hobit's future real JDBC runtime.
-It is intentionally dependency-free and does not load JDBC drivers, credentials,
-network sockets, or database connections.
+This is the Java sidecar scaffold for Hobit's experimental real JDBC runtime.
+It is intentionally dependency-free. HealthCheck does not load drivers or
+connect to a database. DriverProbe loads only an explicit driver JAR/class and
+does not connect to a database. Read-only query execution remains explicit and
+bounded.
 
 Current behavior:
 
 - reads one JSON request from stdin
 - writes one JSON response to stdout
-- accepts only `runtime_kind: "mock_read_only"`
+- supports explicit `healthCheck`, `driverProbe`, and `executeReadOnlyQuery`
+  request kinds
+- accepts `runtime_kind: "mock_read_only"` for deterministic mock rows and
+  `runtime_kind: "real_jdbc"` only for explicit experimental requests
 - returns deterministic bounded mock rows for validated read-only requests
+- loads only an explicit driver JAR path; it does not scan folders or download
+  drivers
 - returns sanitized `query_rejected`, `not_configured`, or
   `unsupported_driver` statuses for unsupported requests
 
@@ -58,7 +65,11 @@ node scripts/hobit/smoke-jdbc-sidecar.mjs
 
 The smoke compiles and runs the sidecar when `java` and `javac` are on `PATH`.
 If a JDK is absent, it reports a clean skip so normal Hobit validation does not
-require Java.
+require Java. The smoke runs HealthCheck by default. DriverProbe is optional:
+
+```powershell
+node scripts/hobit/smoke-jdbc-sidecar.mjs --driver-jar C:\path\to\driver.jar --driver-class org.example.Driver
+```
 
 Backend opt-in activation smoke when a JDK is available:
 
@@ -98,4 +109,6 @@ protocol and must not be passed through frontend state, Coordinator context,
 logs, tests, or proposal cards.
 
 This scaffold is not wired into the JDBC widget by default. The active product
-runtime remains `MockReadOnlyJdbcAdapter`.
+runtime remains `MockReadOnlyJdbcAdapter`. The JDBC widget can trigger
+experimental diagnostics and an explicit experimental Run only from visible
+operator controls; no diagnostics run automatically.

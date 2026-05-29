@@ -158,6 +158,20 @@ export const executeJdbcReadOnlyQuery: WorkspaceApi["executeJdbcReadOnlyQuery"] 
     );
   };
 
+export const checkJdbcSidecarHealth: WorkspaceApi["checkJdbcSidecarHealth"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC sidecar diagnostics are only available in the Tauri desktop shell. Browser fallback cannot run local sidecar processes.",
+    );
+  };
+
+export const probeJdbcDriver: WorkspaceApi["probeJdbcDriver"] =
+  async (_request) => {
+    throw new Error(
+      "JDBC driver diagnostics are only available in the Tauri desktop shell. Browser fallback cannot load local JDBC drivers.",
+    );
+  };
+
 export const deleteWidgetInstanceFromWorkbench: WorkspaceApi["deleteWidgetInstanceFromWorkbench"] =
   async (_request) => {
     throw new Error(

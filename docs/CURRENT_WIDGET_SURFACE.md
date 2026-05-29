@@ -510,6 +510,13 @@ Workspace Agent is the foreground interactive agent surface.
   requires explicit runtime-only Java/sidecar/driver/JDBC URL inputs, uses a
   password environment variable name rather than a password value, and does
   not persist those values to SQLite or widget state.
+- The Experimental sidecar section includes explicit Runtime diagnostics:
+  Check sidecar and Probe driver. Check sidecar starts the explicit Java
+  sidecar and requires a HealthCheck response. Probe driver loads only the
+  explicit driver JAR/class. Diagnostics are manual operator actions, do not
+  run automatically, do not execute SQL, do not connect to a database, do not
+  persist runtime config, and show compact OK/Failed status with collapsed
+  details.
 - Experimental real sidecar execution is a Preview / happy-path prototype. It
   loads only an explicit driver JAR path, does not scan folders, does not
   download drivers or bundle proprietary drivers, applies row/time/result

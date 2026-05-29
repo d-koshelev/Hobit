@@ -6,9 +6,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "./jdbcConnectorTypes";
 import type {
+  CheckJdbcSidecarHealthRequest,
   ExecuteJdbcReadOnlyQueryRequest,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
+  ProbeJdbcDriverRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "./jdbcQueryTypes";
 import type {
@@ -176,6 +179,12 @@ export type WorkspaceApi = {
   executeJdbcReadOnlyQuery: (
     request: ExecuteJdbcReadOnlyQueryRequest,
   ) => Promise<JdbcReadOnlyQueryResult>;
+  checkJdbcSidecarHealth: (
+    request: CheckJdbcSidecarHealthRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
+  probeJdbcDriver: (
+    request: ProbeJdbcDriverRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
   addWidgetInstanceToWorkbench: (
     request: AddWidgetInstanceToWorkbenchRequest,
   ) => Promise<WorkspaceWorkbenchState | null>;

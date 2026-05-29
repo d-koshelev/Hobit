@@ -25,6 +25,22 @@ pub struct ExecuteJdbcReadOnlyQueryInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckJdbcSidecarHealthInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub experimental_sidecar: JdbcExperimentalSidecarRuntimeInput,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProbeJdbcDriverInput {
+    pub workspace_id: String,
+    pub workbench_id: String,
+    pub widget_instance_id: String,
+    pub experimental_sidecar: JdbcExperimentalSidecarRuntimeInput,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JdbcExperimentalSidecarRuntimeInput {
     pub enabled: bool,
     pub java_program: Option<String>,
@@ -39,6 +55,18 @@ pub struct JdbcExperimentalSidecarRuntimeInput {
     pub max_rows: Option<usize>,
     pub timeout_ms: Option<u64>,
     pub max_result_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JdbcSidecarDiagnosticSummary {
+    pub action: String,
+    pub ok: bool,
+    pub status: String,
+    pub message: String,
+    pub details: Option<String>,
+    pub duration_ms: u64,
+    pub no_secrets_returned: bool,
+    pub no_ai_context_shared: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

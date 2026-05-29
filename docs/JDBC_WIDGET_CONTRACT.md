@@ -48,6 +48,11 @@ explicit operator-triggered JDBC widget Run. The product default remains mock.
 The prototype does not persist credentials or runtime config, does not bundle
 or download drivers, and does not add SQL execution for Workspace Agent, Queue,
 Agent Executor, Terminal, Git, providers, or background automation.
+Block 269 adds explicit Experimental sidecar diagnostics in the JDBC widget:
+manual HealthCheck and DriverProbe actions using the same runtime-only inputs.
+Diagnostics do not run automatically, do not persist runtime configuration,
+do not accept password values, do not execute SQL, and DriverProbe loads only
+the explicit driver JAR/class without opening a database connection.
 It does not implement production JDBC, SQL formatting, `EXPLAIN`
 visualization, AI provider integration, Workspace Agent runtime, widget tool
 execution, credential storage, Terminal or PTY behavior, Git mutation, Queue
@@ -81,6 +86,12 @@ Current product runtime status: Preview, mock-default.
   values: Java executable, sidecar classpath or JAR, explicit driver JAR path,
   optional driver class name, explicit JDBC URL, optional username, password
   environment variable name, and row/time/result caps.
+- Experimental diagnostics are request-scoped and operator-triggered. Check
+  sidecar starts the explicit Java sidecar and requires it to answer
+  HealthCheck. Probe driver starts the explicit Java sidecar and requires it to
+  load the explicit driver JAR/class only. Neither diagnostic executes SQL,
+  connects to a database, persists config, scans folders, downloads drivers, or
+  accepts password values.
 - Missing or unsupported sidecar/real runtime paths must surface visible
   `not_configured` or `unsupported_driver` style errors; they must not fake a
   production connection.
@@ -133,6 +144,11 @@ Current sidecar/unsupported behavior:
   HealthCheck, DriverProbe, ExecuteReadOnlyQuery, explicit driver JAR/class
   loading, JDBC `Connection.setReadOnly(true)` where supported, statement
   timeout, max rows, capped display-safe results, and redacted errors.
+- The JDBC widget exposes compact Runtime diagnostics controls inside the
+  Experimental sidecar section: Check sidecar and Probe driver. The controls
+  are explicit operator actions and show compact OK/Failed state with collapsed
+  details. They do not run on widget load, profile selection, validation, or
+  query edit.
 - The typed protocol DTOs in `hobit-app` remain contract/test scaffolding, but
   the existing flat sidecar process JSON mapping can now carry request-scoped
   real JDBC runtime fields for the Experimental path. It carries no password
@@ -178,8 +194,9 @@ Current tests:
 - Runtime/config/protocol tests cover mock-default selection, sidecar
   not-configured and unsupported statuses, debug redaction, secret-presence
   markers, and JDK-gated Java sidecar mock activation when a JDK exists.
-- Tauri DTO tests cover connector and query DTO mapping. Frontend tests cover
-  honest preview copy, callback request shape, mock results, and visible
+- Tauri DTO tests cover connector, query, and diagnostic DTO mapping. Frontend
+  tests cover honest preview copy, callback request shape, mock results,
+  explicit diagnostics actions, collapsed diagnostic details, and visible
   unsupported/not-configured errors.
 
 Current docs claims:

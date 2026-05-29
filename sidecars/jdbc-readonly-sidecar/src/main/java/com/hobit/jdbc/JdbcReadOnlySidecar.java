@@ -338,6 +338,8 @@ public final class JdbcReadOnlySidecar {
                     DriverManager.registerDriver(new DriverShim((Driver) driver));
                 }
             }
+        } catch (ClassNotFoundException error) {
+            throw new SidecarFailure("unsupported_driver", "JDBC driver class was not found in the explicit driver JAR.");
         } catch (Exception error) {
             throw new SidecarFailure("unsupported_driver", "JDBC driver could not be loaded.");
         }

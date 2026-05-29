@@ -1,8 +1,10 @@
 import {
+  checkJdbcSidecarHealth,
   createJdbcConnector,
   executeJdbcReadOnlyQuery,
   getJdbcConnector,
   listJdbcConnectors,
+  probeJdbcDriver,
   validateJdbcReadOnlySql,
   updateJdbcConnector,
 } from "../workspace/workspaceApi";
@@ -12,9 +14,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "../workspace/jdbcConnectorTypes";
 import type {
+  CheckJdbcSidecarHealthRequest,
   ExecuteJdbcReadOnlyQueryRequest,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
+  ProbeJdbcDriverRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "../workspace/jdbcQueryTypes";
 import type { WidgetInstanceId, WorkbenchViewState } from "./types";
@@ -39,6 +44,16 @@ export type JdbcReadOnlyQueryExecutionRequest = Omit<
   "workspaceId" | "workbenchId" | "widgetInstanceId"
 >;
 
+export type JdbcSidecarHealthCheckRequest = Omit<
+  CheckJdbcSidecarHealthRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
+export type JdbcDriverProbeRequest = Omit<
+  ProbeJdbcDriverRequest,
+  "workspaceId" | "workbenchId" | "widgetInstanceId"
+>;
+
 export type JdbcConnectorWidgetActions = {
   createJdbcConnector: (
     request: JdbcConnectorCreateRequest,
@@ -47,6 +62,14 @@ export type JdbcConnectorWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     request: JdbcReadOnlyQueryExecutionRequest,
   ) => Promise<JdbcReadOnlyQueryResult>;
+  checkJdbcSidecarHealth: (
+    widgetInstanceId: WidgetInstanceId,
+    request: JdbcSidecarHealthCheckRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
+  probeJdbcDriver: (
+    widgetInstanceId: WidgetInstanceId,
+    request: JdbcDriverProbeRequest,
+  ) => Promise<JdbcSidecarDiagnostic>;
   listJdbcConnectors: () => Promise<JdbcConnector[]>;
   getJdbcConnector: (connectorId: string) => Promise<JdbcConnector | null>;
   updateJdbcConnector: (
@@ -81,6 +104,18 @@ export function createJdbcConnectorActions(
         ...request,
       });
     },
+    checkJdbcSidecarHealth: (widgetInstanceId, request) => {
+      const workbenchId = requireOpenWorkbench(
+        viewState,
+        "check the JDBC sidecar",
+      );
+      return checkJdbcSidecarHealth({
+        workspaceId: viewState.workspace.id,
+        workbenchId,
+        widgetInstanceId,
+        ...request,
+      });
+    },
     getJdbcConnector: (connectorId) => {
       requireOpenWorkbench(viewState, "read JDBC connectors");
       return getJdbcConnector({
@@ -92,6 +127,18 @@ export function createJdbcConnectorActions(
       requireOpenWorkbench(viewState, "read JDBC connectors");
       return listJdbcConnectors({
         workspaceId: viewState.workspace.id,
+      });
+    },
+    probeJdbcDriver: (widgetInstanceId, request) => {
+      const workbenchId = requireOpenWorkbench(
+        viewState,
+        "probe a JDBC driver",
+      );
+      return probeJdbcDriver({
+        workspaceId: viewState.workspace.id,
+        workbenchId,
+        widgetInstanceId,
+        ...request,
       });
     },
     updateJdbcConnector: (request) => {

@@ -6,9 +6,12 @@ import type {
   UpdateJdbcConnectorRequest,
 } from "./jdbcConnectorTypes";
 import type {
+  CheckJdbcSidecarHealthRequest,
   ExecuteJdbcReadOnlyQueryRequest,
   JdbcReadOnlyQueryResult,
   JdbcReadOnlySqlValidation,
+  JdbcSidecarDiagnostic,
+  ProbeJdbcDriverRequest,
   ValidateJdbcReadOnlySqlRequest,
 } from "./jdbcQueryTypes";
 import { getWorkspaceApi } from "./workspaceApiRuntime";
@@ -47,4 +50,16 @@ export function executeJdbcReadOnlyQuery(
   request: ExecuteJdbcReadOnlyQueryRequest,
 ): Promise<JdbcReadOnlyQueryResult> {
   return getWorkspaceApi().executeJdbcReadOnlyQuery(request);
+}
+
+export function checkJdbcSidecarHealth(
+  request: CheckJdbcSidecarHealthRequest,
+): Promise<JdbcSidecarDiagnostic> {
+  return getWorkspaceApi().checkJdbcSidecarHealth(request);
+}
+
+export function probeJdbcDriver(
+  request: ProbeJdbcDriverRequest,
+): Promise<JdbcSidecarDiagnostic> {
+  return getWorkspaceApi().probeJdbcDriver(request);
 }

@@ -138,6 +138,7 @@ class CoordinatorProviderProductSmokeRuntime {
       deleteSkill: this.unsupported,
       createGitCommit: this.gitUnsupported,
       createJdbcConnector: this.jdbcUnsupported,
+      checkJdbcSidecarHealth: this.jdbcUnsupported,
       createSkill: this.unsupported,
       createTerminalPtySession: this.terminalUnsupported,
       createWorkspaceNote: async (request) => {
@@ -198,6 +199,7 @@ class CoordinatorProviderProductSmokeRuntime {
       },
       logRefreshTokens: {},
       removeWidgetInstance: async () => undefined,
+      probeJdbcDriver: this.jdbcUnsupported,
       resizeTerminalPtySession: this.terminalUnsupported,
       runCodexDirectWork: this.executorUnsupported,
       runDirectWorkValidation: this.executorUnsupported,

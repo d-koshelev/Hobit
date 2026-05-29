@@ -46,6 +46,7 @@
 .jdbc-summary-badges,
 .jdbc-editor-meta,
 .jdbc-editor-actions,
+.jdbc-diagnostic-actions,
 .jdbc-pane-header,
 .jdbc-row-title-line,
 .jdbc-row-meta,
@@ -203,6 +204,55 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-sm);
+}
+
+.jdbc-diagnostics {
+  display: grid;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.jdbc-diagnostic-actions {
+  justify-content: flex-start;
+}
+
+.jdbc-diagnostic-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-sm);
+}
+
+.jdbc-diagnostic-status {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.jdbc-diagnostic-status .jdbc-runtime-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.jdbc-diagnostic-details {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.jdbc-diagnostic-details summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.jdbc-diagnostic-details p {
+  margin: var(--space-xs) 0 0;
+  overflow-wrap: anywhere;
 }
 
 .jdbc-layout {
