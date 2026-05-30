@@ -302,6 +302,21 @@ function renderPanel(
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
+  const queueTags = overrides.queueTags ?? [
+    {
+      queueTagId: "default",
+      queueTagName: "Default",
+      coordinatorReviewCount: 0,
+      failedValidationCount: 0,
+      needsCoordinatorReview: false,
+      needsReviewCount: 0,
+      pauseReason: null,
+      runningCount: 0,
+      status: "running" as const,
+      taskCount: 1,
+      validatingCount: 0,
+    },
+  ];
 
   act(() => {
     root?.render(
@@ -336,6 +351,7 @@ function renderPanel(
           },
         ]}
         {...overrides}
+        queueTags={queueTags}
       />,
     );
   });

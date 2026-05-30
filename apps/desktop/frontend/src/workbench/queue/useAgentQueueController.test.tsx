@@ -183,6 +183,224 @@ describe("useAgentQueueController executionPolicy draft", () => {
     hook.unmount();
   });
 
+  it("creates an empty queue tag without starting workers or queue execution", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      expect(hook.result.current.foundation.onCreateQueueTag("Review")).toBe(
+        true,
+      );
+    });
+
+    expect(
+      hook.result.current.foundation.queueTags.some(
+        (tag) =>
+          tag.queueTagId === "review" &&
+          tag.queueTagName === "Review" &&
+          tag.taskCount === 0,
+      ),
+    ).toBe(true);
+    expect(hook.result.current.foundation.tagManagementMessage).toBe(
+      'Queue tag "Review" created.',
+    );
+    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("rejects empty and duplicate queue tag names", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      expect(hook.result.current.foundation.onCreateQueueTag(" ")).toBe(false);
+    });
+    expect(hook.result.current.foundation.tagManagementError).toBe(
+      "Queue tag name is required.",
+    );
+
+    act(() => {
+      expect(hook.result.current.foundation.onCreateQueueTag("Default")).toBe(
+        false,
+      );
+    });
+    expect(hook.result.current.foundation.tagManagementError).toBe(
+      'Queue tag "Default" already exists.',
+    );
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("renames a queue tag while preserving the stable tag id on tasks and workers", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        queueTagId: "default",
+        queueTagName: "Default",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "default",
+        queueTagName: "Default",
+      });
+    });
+    await act(async () => {
+      expect(
+        await hook.result.current.foundation.onRenameQueueTag(
+          "default",
+          "Primary",
+        ),
+      ).toBe(true);
+    });
+
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0].queueItemId).toBe("queue-1");
+    expect(harness.updateRequests[0].queueTagId).toBe("default");
+    expect(harness.updateRequests[0].queueTagName).toBe("Primary");
+    expect(hook.result.current.selectedTask?.queueTagId).toBe("default");
+    expect(hook.result.current.selectedTask?.queueTagName).toBe("Primary");
+    expect(hook.result.current.foundation.queueTags[0]?.queueTagName).toBe(
+      "Primary",
+    );
+    expect(hook.result.current.foundation.workers[0].scope).toEqual({
+      kind: "queue_tag",
+      queueTagId: "default",
+      queueTagName: "Primary",
+    });
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("deletes an empty queue tag and reassigns scoped workers to all queues", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onCreateQueueTag("Review");
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "review",
+        queueTagName: "Review",
+      });
+    });
+
+    expect(hook.result.current.foundation.workers[0].scope).toEqual({
+      kind: "queue_tag",
+      queueTagId: "review",
+      queueTagName: "Review",
+    });
+
+    act(() => {
+      expect(hook.result.current.foundation.onDeleteQueueTag("review")).toBe(
+        true,
+      );
+    });
+
+    expect(
+      hook.result.current.foundation.queueTags.some(
+        (tag) => tag.queueTagId === "review",
+      ),
+    ).toBe(false);
+    expect(hook.result.current.foundation.workers[0].scope).toEqual({
+      kind: "all",
+    });
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("blocks deleting a non-empty queue tag without reassigning items", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      expect(hook.result.current.foundation.onDeleteQueueTag("default")).toBe(
+        false,
+      );
+    });
+
+    expect(hook.result.current.foundation.tagManagementError).toBe(
+      "Reassign items before deleting this queue tag.",
+    );
+    expect(hook.result.current.tasks).toHaveLength(1);
+    expect(harness.deleteRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("marks a scoped worker paused when its queue tag is paused", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "default",
+        queueTagName: "Default",
+      });
+      hook.result.current.foundation.onPauseQueueTag("default");
+    });
+
+    expect(hook.result.current.foundation.workers[0].status).toBe("paused");
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "Resume this queue tag before running the selected task.",
+    );
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("pauses both previous and target tags when an edited task moves tags", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -957,11 +1175,15 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       const createdTask = queueTask({
         description: request.description,
         executionPolicy: request.executionPolicy ?? "manual",
+        itemType: request.itemType,
         priority: request.priority,
         prompt: request.prompt,
+        queueTagId: request.queueTagId,
+        queueTagName: request.queueTagName,
         queueItemId: `queue-${tasks.size + 1}`,
         status: request.status,
         title: request.title,
+        validationStatus: request.validationStatus,
       });
       tasks.set(createdTask.queueItemId, createdTask);
 
@@ -1041,10 +1263,14 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
         description: request.description,
         executionPolicy:
           request.executionPolicy ?? task.executionPolicy ?? "manual",
+        itemType: request.itemType ?? task.itemType,
         priority: request.priority,
         prompt: request.prompt,
+        queueTagId: request.queueTagId ?? task.queueTagId,
+        queueTagName: request.queueTagName ?? task.queueTagName,
         status: request.status,
         title: request.title,
+        validationStatus: request.validationStatus ?? task.validationStatus,
         updatedAt: "2026-05-20T10:01:00.000Z",
       };
       tasks.set(updatedTask.queueItemId, updatedTask);

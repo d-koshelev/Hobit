@@ -24,6 +24,7 @@ import {
   validationStatusLabel,
   workerLabel,
   type AgentWorkerSummary,
+  type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
@@ -64,6 +65,7 @@ type AgentQueueTaskRunPanelProps = {
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
+  queueTags: QueueTagSummary[];
   workers: AgentWorkerSummary[];
 };
 
@@ -88,6 +90,7 @@ export function AgentQueueTaskRunPanel({
   runHistory,
   runner,
   selectedTask,
+  queueTags,
   workers,
 }: AgentQueueTaskRunPanelProps) {
   const repoRootInputId = useId();
@@ -96,6 +99,10 @@ export function AgentQueueTaskRunPanel({
   const approvalPolicyInputId = useId();
   const hasAssignedExecutor = Boolean(selectedTask.assignedExecutorWidgetId);
   const queueTag = normalizeQueueTag(selectedTask);
+  const queueTagSummary = queueTags.find(
+    (tag) => tag.queueTagId === queueTag.queueTagId,
+  );
+  const queueTagPaused = queueTagSummary?.status === "paused";
   const validationStatus = normalizeValidationStatus(selectedTask.validationStatus);
   const itemType = normalizeItemType(selectedTask.itemType);
   const isFinalStatus = isFinalQueueTaskStatus(selectedTask.status);
@@ -149,6 +156,7 @@ export function AgentQueueTaskRunPanel({
           <Badge variant={statusBadgeVariant(selectedTask.status)}>
             {statusLabel(selectedTask.status)}
           </Badge>
+          {queueTagPaused ? <Badge variant="warning">Tag paused</Badge> : null}
           <Badge
             className={
               validationStatus === "validating"
@@ -165,7 +173,18 @@ export function AgentQueueTaskRunPanel({
       <dl className="agent-queue-item-foundation-facts">
         <div>
           <dt>Queue tag</dt>
-          <dd>{queueTag.queueTagName}</dd>
+          <dd>
+            {queueTag.queueTagName}
+            {queueTagPaused ? " (paused)" : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Tag gate</dt>
+          <dd>
+            {queueTagPaused
+              ? tagPauseDetail(queueTagSummary?.pauseReason)
+              : "Active"}
+          </dd>
         </div>
         <div>
           <dt>Item type</dt>
@@ -913,6 +932,17 @@ function coordinatorStatusLabel(status: AgentQueueTask["coordinatorStatus"]) {
     case "not_reported":
     default:
       return "not reported";
+  }
+}
+
+function tagPauseDetail(reason: string | null | undefined) {
+  switch (reason) {
+    case "edit_review":
+      return "Paused for task edit review";
+    case "manual":
+      return "Paused manually";
+    default:
+      return "Paused";
   }
 }
 

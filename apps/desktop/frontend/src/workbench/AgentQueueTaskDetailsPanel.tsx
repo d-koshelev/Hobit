@@ -131,6 +131,7 @@ export function AgentQueueTaskDetailsPanel({
             runHistory={queue.runHistory}
             runner={queue.runner}
             selectedTask={selectedTask}
+            queueTags={queue.foundation.queueTags}
             workers={queue.foundation.workers}
           />
 

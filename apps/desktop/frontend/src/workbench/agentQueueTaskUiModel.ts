@@ -29,16 +29,29 @@ const TASK_STATUSES = [
 export type QueueTaskStatus = (typeof TASK_STATUSES)[number];
 export type QueueFilter = "all" | QueueTaskStatus;
 export type QueueTagStatus = "running" | "paused";
+export type QueueTagPauseReason = "manual" | "edit_review";
 export type QueueGlobalStatus = "stopped" | "running";
 export type WorkerStatus = "idle" | "running" | "paused" | "failed";
 export type WorkerScope =
   | { kind: "all" }
   | { kind: "queue_tag"; queueTagId: string; queueTagName: string };
 
+export type QueueTagRecord = {
+  queueTagId: string;
+  queueTagName: string;
+};
+
+export type QueueTagPauseState = {
+  paused: boolean;
+  reason: QueueTagPauseReason;
+};
+
 export type QueueTagSummary = {
   queueTagId: string;
   queueTagName: string;
   status: QueueTagStatus;
+  pauseReason: QueueTagPauseReason | null;
+  needsCoordinatorReview: boolean;
   taskCount: number;
   runningCount: number;
   validatingCount: number;
@@ -210,6 +223,41 @@ export function queueTagNameToId(queueTagName: string) {
   );
 }
 
+export function normalizeQueueTagName(queueTagName: string) {
+  return queueTagName.trim().replace(/\s+/g, " ");
+}
+
+export function queueTagDisplayNameKey(queueTagName: string) {
+  return normalizeQueueTagName(queueTagName).toLowerCase();
+}
+
+export function validateQueueTagName(
+  queueTagName: string,
+  existingTags: QueueTagRecord[],
+  options?: { allowQueueTagId?: string },
+) {
+  const normalizedName = normalizeQueueTagName(queueTagName);
+
+  if (!normalizedName) {
+    return "Queue tag name is required.";
+  }
+
+  const normalizedId = queueTagNameToId(normalizedName);
+  const normalizedDisplayName = queueTagDisplayNameKey(normalizedName);
+  const duplicate = existingTags.find(
+    (tag) =>
+      tag.queueTagId !== options?.allowQueueTagId &&
+      (tag.queueTagId === normalizedId ||
+        queueTagDisplayNameKey(tag.queueTagName) === normalizedDisplayName),
+  );
+
+  if (duplicate) {
+    return `Queue tag "${duplicate.queueTagName}" already exists.`;
+  }
+
+  return null;
+}
+
 export function normalizeTaskStatus(status: string): QueueTaskStatus {
   return isQueueTaskStatus(status) ? status : "draft";
 }
@@ -325,25 +373,41 @@ export function workerLabel(workerId: string | null | undefined) {
 
 export function queueTagsFromTasks(
   tasks: AgentQueueTask[],
-  pausedQueueTagIds: ReadonlySet<string>,
+  pauseStates: ReadonlyMap<string, QueueTagPauseState>,
+  managedTags: QueueTagRecord[] = [],
 ): QueueTagSummary[] {
   const summaries = new Map<string, QueueTagSummary>();
+
+  function createSummary(queueTag: QueueTagRecord): QueueTagSummary {
+    const pauseState = pauseStates.get(queueTag.queueTagId);
+
+    return {
+      queueTagId: queueTag.queueTagId,
+      queueTagName: queueTag.queueTagName,
+      runningCount: 0,
+      failedValidationCount: 0,
+      coordinatorReviewCount: 0,
+      needsCoordinatorReview: false,
+      needsReviewCount: 0,
+      pauseReason: pauseState?.reason ?? null,
+      status: pauseState?.paused ? "paused" : "running",
+      taskCount: 0,
+      validatingCount: 0,
+    };
+  }
+
+  for (const managedTag of managedTags) {
+    summaries.set(managedTag.queueTagId, createSummary(managedTag));
+  }
 
   for (const task of tasks) {
     const { queueTagId, queueTagName } = normalizeQueueTag(task);
     const current =
       summaries.get(queueTagId) ??
-      {
+      createSummary({
         queueTagId,
         queueTagName,
-        runningCount: 0,
-        failedValidationCount: 0,
-        coordinatorReviewCount: 0,
-        needsReviewCount: 0,
-        status: pausedQueueTagIds.has(queueTagId) ? "paused" : "running",
-        taskCount: 0,
-        validatingCount: 0,
-      };
+      });
 
     current.taskCount += 1;
     if (task.status === "running") {
@@ -361,22 +425,16 @@ export function queueTagsFromTasks(
     }
     if (task.coordinatorStatus === "awaiting_coordinator_review") {
       current.coordinatorReviewCount += 1;
+      current.needsCoordinatorReview = true;
     }
     summaries.set(queueTagId, current);
   }
 
   if (summaries.size === 0) {
-    summaries.set(DEFAULT_QUEUE_TAG_ID, {
+    summaries.set(DEFAULT_QUEUE_TAG_ID, createSummary({
       queueTagId: DEFAULT_QUEUE_TAG_ID,
       queueTagName: DEFAULT_QUEUE_TAG_NAME,
-      failedValidationCount: 0,
-      coordinatorReviewCount: 0,
-      needsReviewCount: 0,
-      runningCount: 0,
-      status: pausedQueueTagIds.has(DEFAULT_QUEUE_TAG_ID) ? "paused" : "running",
-      taskCount: 0,
-      validatingCount: 0,
-    });
+    }));
   }
 
   return Array.from(summaries.values()).sort((first, second) =>
@@ -402,12 +460,12 @@ export function validationSummary(tasks: AgentQueueTask[]) {
 }
 
 export function workersFromExecutorSlots({
-  pausedQueueTagIds,
+  pauseStates,
   slots,
   tasks,
   workerScopes,
 }: {
-  pausedQueueTagIds: ReadonlySet<string>;
+  pauseStates: ReadonlyMap<string, QueueTagPauseState>;
   slots: AgentExecutorSlot[];
   tasks: AgentQueueTask[];
   workerScopes: ReadonlyMap<string, WorkerScope>;
@@ -430,7 +488,7 @@ export function workersFromExecutorSlots({
         : null,
       name: slot.label,
       scope,
-      status: scopedQueueTagId && pausedQueueTagIds.has(scopedQueueTagId)
+      status: scopedQueueTagId && pauseStates.get(scopedQueueTagId)?.paused
         ? "paused"
         : currentTask?.status === "running"
           ? "running"

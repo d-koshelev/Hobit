@@ -195,6 +195,17 @@
   padding: var(--space-xs);
 }
 
+.agent-queue-tag-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+}
+
+.agent-queue-tag-management-input {
+  min-width: 0;
+  width: 100%;
+}
+
 .agent-queue-worker-scope-select {
   min-width: 0;
   width: 100%;

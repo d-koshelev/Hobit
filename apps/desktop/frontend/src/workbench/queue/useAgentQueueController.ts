@@ -9,6 +9,7 @@ import type {
 } from "../../workspace/types";
 import {
   clamp,
+  DEFAULT_QUEUE_TAG_ID,
   DEFAULT_TASK_TITLE,
   emptyDraft,
   errorToMessage,
@@ -16,6 +17,7 @@ import {
   MIN_PRIORITY,
   normalizeItemType,
   normalizeQueueTag,
+  normalizeQueueTagName,
   normalizeTaskExecutionPolicy,
   normalizeTaskStatus,
   normalizeValidationStatus,
@@ -27,10 +29,13 @@ import {
   type AgentWorkerSummary,
   type QueueGlobalStatus,
   type QueueFilter,
+  type QueueTagPauseState,
+  type QueueTagRecord,
   type QueueTagSummary,
   type TaskDraft,
   type WorkerScope,
   validateDraft,
+  validateQueueTagName,
 } from "../agentQueueTaskUiModel";
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
 import type { WidgetRenderProps } from "../types";
@@ -153,7 +158,10 @@ export type AgentQueueEditController = {
 export type AgentQueueFoundationController = {
   globalMessage: string | null;
   globalStatus: QueueGlobalStatus;
+  onCreateQueueTag: (queueTagName: string) => boolean;
+  onDeleteQueueTag: (queueTagId: string) => boolean;
   onPauseQueueTag: (queueTagId: string) => void;
+  onRenameQueueTag: (queueTagId: string, queueTagName: string) => Promise<boolean>;
   onResumeQueueTag: (queueTagId: string) => void;
   onStartWorkers: () => void;
   onStopAndKillRunning: () => void;
@@ -161,6 +169,8 @@ export type AgentQueueFoundationController = {
   onWorkerScopeChange: (workerId: string, scope: WorkerScope) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   queueTags: QueueTagSummary[];
+  tagManagementError: string | null;
+  tagManagementMessage: string | null;
   validationSummary: Record<string, number>;
   workers: AgentWorkerSummary[];
 };
@@ -258,9 +268,18 @@ export function useAgentQueueController({
   const [globalMessage, setGlobalMessage] = useState<string | null>(
     "Workers are stopped. START only opens local scheduling; it does not run tasks automatically.",
   );
-  const [pausedQueueTagIds, setPausedQueueTagIds] = useState<Set<string>>(
-    () => new Set(),
+  const [queueTagPauseStates, setQueueTagPauseStates] = useState<
+    Map<string, QueueTagPauseState>
+  >(() => new Map());
+  const [managedQueueTags, setManagedQueueTags] = useState<QueueTagRecord[]>(
+    () => [],
   );
+  const [tagManagementError, setTagManagementError] = useState<string | null>(
+    null,
+  );
+  const [tagManagementMessage, setTagManagementMessage] = useState<
+    string | null
+  >(null);
   const [workerScopes, setWorkerScopes] = useState<Map<string, WorkerScope>>(
     () => new Map(),
   );
@@ -312,19 +331,28 @@ export function useAgentQueueController({
 
     return tasks.filter((task) => task.status === statusFilter);
   }, [statusFilter, tasks]);
+  const pausedQueueTagIds = useMemo(
+    () =>
+      new Set(
+        Array.from(queueTagPauseStates.entries())
+          .filter(([, pauseState]) => pauseState.paused)
+          .map(([queueTagId]) => queueTagId),
+      ),
+    [queueTagPauseStates],
+  );
   const queueTags = useMemo(
-    () => queueTagsFromTasks(tasks, pausedQueueTagIds),
-    [pausedQueueTagIds, tasks],
+    () => queueTagsFromTasks(tasks, queueTagPauseStates, managedQueueTags),
+    [managedQueueTags, queueTagPauseStates, tasks],
   );
   const workers = useMemo(
     () =>
       workersFromExecutorSlots({
-        pausedQueueTagIds,
+        pauseStates: queueTagPauseStates,
         slots: agentExecutorSlots,
         tasks,
         workerScopes,
       }),
-    [agentExecutorSlots, pausedQueueTagIds, tasks, workerScopes],
+    [agentExecutorSlots, queueTagPauseStates, tasks, workerScopes],
   );
   const queueValidationSummary = useMemo(
     () => validationSummary(tasks),
@@ -773,11 +801,14 @@ export function useAgentQueueController({
         validationStatus,
         coordinatorStatus: "awaiting_coordinator_review" as const,
       };
-      setPausedQueueTagIds((current) => {
-        const next = new Set(current);
-        next.add(queueTagId);
+      setQueueTagPauseStates((current) => {
+        const next = new Map(current);
+        next.set(queueTagId, { paused: true, reason: "edit_review" });
         if (previousQueueTagId !== queueTagId) {
-          next.add(previousQueueTagId);
+          next.set(previousQueueTagId, {
+            paused: true,
+            reason: "edit_review",
+          });
         }
         return next;
       });
@@ -918,16 +949,214 @@ export function useAgentQueueController({
     );
   }
 
+  function createQueueTag(queueTagName: string) {
+    const existingTags = queueTags.map(queueTagSummaryToRecord);
+    const validationError = validateQueueTagName(queueTagName, existingTags);
+
+    setTagManagementError(null);
+    setTagManagementMessage(null);
+
+    if (validationError) {
+      setTagManagementError(validationError);
+      return false;
+    }
+
+    const normalizedName = normalizeQueueTagName(queueTagName);
+    const queueTagId = queueTagNameToId(normalizedName);
+
+    setManagedQueueTags((current) =>
+      upsertQueueTagRecord(current, {
+        queueTagId,
+        queueTagName: normalizedName,
+      }),
+    );
+    setTagManagementMessage(`Queue tag "${normalizedName}" created.`);
+    setGlobalMessage(
+      "Queue tag created. It has no items and does not start workers.",
+    );
+    return true;
+  }
+
+  async function renameQueueTag(queueTagId: string, queueTagName: string) {
+    const existingTags = queueTags.map(queueTagSummaryToRecord);
+    const tag = existingTags.find((candidate) => candidate.queueTagId === queueTagId);
+    const validationError = tag
+      ? validateQueueTagName(queueTagName, existingTags, {
+          allowQueueTagId: queueTagId,
+        })
+      : "Queue tag could not be found.";
+
+    setTagManagementError(null);
+    setTagManagementMessage(null);
+
+    if (validationError) {
+      setTagManagementError(validationError);
+      return false;
+    }
+
+    if (!tag) {
+      setTagManagementError("Queue tag could not be found.");
+      return false;
+    }
+
+    const normalizedName = normalizeQueueTagName(queueTagName);
+    const affectedTasks = tasksRef.current.filter(
+      (task) => normalizeQueueTag(task).queueTagId === queueTagId,
+    );
+
+    try {
+      for (const task of affectedTasks) {
+        if (!onUpdateAgentQueueTask) {
+          throw new Error("Queue task update is not available in this runtime.");
+        }
+
+        const updatedTask = await onUpdateAgentQueueTask({
+          queueItemId: task.queueItemId,
+          title: task.title,
+          description: task.description,
+          prompt: task.prompt,
+          status: task.status,
+          priority: task.priority,
+          executionPolicy: normalizeTaskExecutionPolicy(task.executionPolicy),
+          itemType: normalizeItemType(task.itemType),
+          queueTagId,
+          queueTagName: normalizedName,
+          validationStatus: normalizeValidationStatus(task.validationStatus),
+        });
+
+        if (!updatedTask) {
+          throw new Error("A queue task using this tag could not be found.");
+        }
+      }
+    } catch (error) {
+      setTagManagementError(errorToMessage(error, "Unable to rename queue tag."));
+      return false;
+    }
+
+    setManagedQueueTags((current) =>
+      upsertQueueTagRecord(current, {
+        queueTagId,
+        queueTagName: normalizedName,
+      }),
+    );
+    setLocalTaskFields((current) => {
+      const next = new Map(current);
+      for (const task of affectedTasks) {
+        next.set(task.queueItemId, {
+          ...(next.get(task.queueItemId) ?? {}),
+          queueTagId,
+          queueTagName: normalizedName,
+        });
+      }
+      return next;
+    });
+    setTasks((currentTasks) => {
+      const nextTasks = currentTasks.map((task) =>
+        normalizeQueueTag(task).queueTagId === queueTagId
+          ? { ...task, queueTagId, queueTagName: normalizedName }
+          : task,
+      );
+      tasksRef.current = nextTasks;
+      return nextTasks;
+    });
+    setSelectedTask((currentTask) =>
+      currentTask && normalizeQueueTag(currentTask).queueTagId === queueTagId
+        ? { ...currentTask, queueTagId, queueTagName: normalizedName }
+        : currentTask,
+    );
+    setDraft((currentDraft) =>
+      selectedTask && normalizeQueueTag(selectedTask).queueTagId === queueTagId
+        ? { ...currentDraft, queueTagName: normalizedName }
+        : currentDraft,
+    );
+    setWorkerScopes((current) => {
+      const next = new Map(current);
+      for (const [workerId, scope] of next.entries()) {
+        if (scope.kind === "queue_tag" && scope.queueTagId === queueTagId) {
+          next.set(workerId, {
+            kind: "queue_tag",
+            queueTagId,
+            queueTagName: normalizedName,
+          });
+        }
+      }
+      return next;
+    });
+    setTagManagementMessage(`Queue tag renamed to "${normalizedName}".`);
+    setGlobalMessage(
+      "Queue tag renamed. Existing items and scoped workers were updated without running work.",
+    );
+    return true;
+  }
+
+  function deleteQueueTag(queueTagId: string) {
+    const tag = queueTags.find((candidate) => candidate.queueTagId === queueTagId);
+
+    setTagManagementError(null);
+    setTagManagementMessage(null);
+
+    if (!tag) {
+      setTagManagementError("Queue tag could not be found.");
+      return false;
+    }
+
+    if (tag.runningCount > 0) {
+      setTagManagementError(
+        "Queue tags with running items cannot be deleted. Stop or finish the Agent Executor work first.",
+      );
+      return false;
+    }
+
+    if (tag.taskCount > 0) {
+      setTagManagementError("Reassign items before deleting this queue tag.");
+      return false;
+    }
+
+    if (queueTagId === DEFAULT_QUEUE_TAG_ID) {
+      setTagManagementError(
+        "Default queue tag is kept for legacy and basic queue items.",
+      );
+      return false;
+    }
+
+    setManagedQueueTags((current) =>
+      current.filter((managedTag) => managedTag.queueTagId !== queueTagId),
+    );
+    setQueueTagPauseStates((current) => {
+      const next = new Map(current);
+      next.delete(queueTagId);
+      return next;
+    });
+    setWorkerScopes((current) => {
+      const next = new Map(current);
+      for (const [workerId, scope] of next.entries()) {
+        if (scope.kind === "queue_tag" && scope.queueTagId === queueTagId) {
+          next.set(workerId, { kind: "all" });
+        }
+      }
+      return next;
+    });
+    setTagManagementMessage(`Queue tag "${tag.queueTagName}" deleted.`);
+    setGlobalMessage(
+      "Empty queue tag deleted. Scoped workers were moved back to All queues.",
+    );
+    return true;
+  }
+
   function pauseQueueTag(queueTagId: string) {
-    setPausedQueueTagIds((current) => new Set(current).add(queueTagId));
+    setQueueTagPauseStates((current) =>
+      new Map(current).set(queueTagId, { paused: true, reason: "manual" }),
+    );
+    setTagManagementError(null);
+    setTagManagementMessage("Queue tag paused.");
     setGlobalMessage(
       "Queue tag paused. Workers must not take new items from that tag until coordinator resume.",
     );
   }
 
   function resumeQueueTag(queueTagId: string) {
-    setPausedQueueTagIds((current) => {
-      const next = new Set(current);
+    setQueueTagPauseStates((current) => {
+      const next = new Map(current);
       next.delete(queueTagId);
       return next;
     });
@@ -957,6 +1186,8 @@ export function useAgentQueueController({
         ? { ...currentTask, coordinatorStatus: "not_reported" }
         : currentTask,
     );
+    setTagManagementError(null);
+    setTagManagementMessage("Queue tag resumed.");
     setGlobalMessage("Queue tag resumed by coordinator review.");
   }
 
@@ -1407,7 +1638,10 @@ export function useAgentQueueController({
     foundation: {
       globalMessage,
       globalStatus,
+      onCreateQueueTag: createQueueTag,
+      onDeleteQueueTag: deleteQueueTag,
       onPauseQueueTag: pauseQueueTag,
+      onRenameQueueTag: renameQueueTag,
       onResumeQueueTag: resumeQueueTag,
       onStartWorkers: startWorkers,
       onStopAndKillRunning: stopAndKillRunning,
@@ -1415,6 +1649,8 @@ export function useAgentQueueController({
       onWorkerScopeChange: changeWorkerScope,
       pausedQueueTagIds,
       queueTags,
+      tagManagementError,
+      tagManagementMessage,
       validationSummary: queueValidationSummary,
       workers,
     } satisfies AgentQueueFoundationController,
@@ -1437,4 +1673,28 @@ export function useAgentQueueController({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
+}
+
+function queueTagSummaryToRecord(tag: QueueTagSummary): QueueTagRecord {
+  return {
+    queueTagId: tag.queueTagId,
+    queueTagName: tag.queueTagName,
+  };
+}
+
+function upsertQueueTagRecord(
+  queueTags: QueueTagRecord[],
+  queueTag: QueueTagRecord,
+) {
+  const found = queueTags.some(
+    (candidate) => candidate.queueTagId === queueTag.queueTagId,
+  );
+
+  if (found) {
+    return queueTags.map((candidate) =>
+      candidate.queueTagId === queueTag.queueTagId ? queueTag : candidate,
+    );
+  }
+
+  return [...queueTags, queueTag];
 }

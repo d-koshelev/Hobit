@@ -21,7 +21,8 @@ behavior, or Workspace Agent context wiring.
   Runner remains current-session frontend behavior, and Queue Autorun now has
   an explicit operator-armed desktop-local preview with a current-session tick.
   Queue also has a frontend Queue + Workers model/UI foundation: queue tags as
-  routing/dependency-affinity groups, local tag pause/resume state, Agent
+  routing/dependency-affinity groups, explicit frontend tag create/rename/
+  pause/resume/delete-empty management, local tag pause/review state, Agent
   Executor slots represented as worker slots that can be scoped to all queues
   or one tag, separate execution and validation statuses, local START / STOP /
   STOP + KILL RUNNING controls that do not auto-run items, item types including
@@ -29,6 +30,8 @@ behavior, or Workspace Agent context wiring.
   vocabulary. Queue item edits are explicit save/cancel operations; saving an
   edit locally pauses the related queue tag for coordinator review, resume is
   explicit, and existing running Executor work is not killed by edit or resume.
+  Tag deletion is safe-only: empty tags can be deleted after confirmation,
+  non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real
   multi-worker runtime, worker spawning, automatic validation, automatic Diff
   Review execution, automatic rollback, or server worker.

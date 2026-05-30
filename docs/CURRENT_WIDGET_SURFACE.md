@@ -435,9 +435,16 @@ Workspace Agent is the foreground interactive agent surface.
   `implementation` item type, and `not_started` validation without a storage
   migration in this block.
 - Queue tags are routing/dependency-affinity groups, not just visual labels.
-  The current UI can pause/resume a tag locally and shows counts; persisted tag
-  routing, dependency execution, and backend scheduler enforcement remain
-  future work.
+  The current Queue sidebar has explicit local tag management: create an empty
+  tag, rename a tag, pause/resume a tag, and delete an empty tag after
+  confirmation. Tags show item count, running count, validation counts, and
+  coordinator-review state. Because there is no separate persisted tag schema,
+  empty tags are frontend model state, while renaming a tag with items updates
+  those items through the existing Queue task update path and preserves the
+  stable tag id. Deleting a non-empty tag is blocked with a "Reassign items
+  before deleting" message; deleting a tag with running items is blocked and
+  does not kill work. Full tag merge/reassign workflows, persisted tag records,
+  dependency execution, and backend scheduler enforcement remain future work.
 - Worker model foundation is UI/model-only. Visible Agent Executor slots are
   shown as Agent Workers that can be general-purpose or scoped to one queue
   tag. Changing worker scope does not spawn a worker, start Codex, assign work,
@@ -461,7 +468,10 @@ Workspace Agent is the foreground interactive agent surface.
   another tag, the target tag is paused and the previous tag is also marked for
   review locally. Resume tag is an explicit coordinator action; it clears the
   local tag pause/review gate but does not start workers, arm Autorun, run any
-  item, or kill already running Executor work.
+  item, or kill already running Executor work. Manually pausing/resuming a tag
+  uses the same eligibility gate: paused tags block new manual run readiness,
+  Queue Autorun arming, and Sequential Queue Runner selection, but pause/resume
+  never starts or stops real execution by itself.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

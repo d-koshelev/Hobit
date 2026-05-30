@@ -514,8 +514,9 @@ Target Workspace Chat control over the Queue + Workers surface includes:
 - edit prompt/details;
 - delete queue items;
 - assign queue tags;
+- create, rename, pause, resume, and safely delete/merge queue tags;
 - assign workers;
-- pause/resume queue tags;
+- inspect queue tag readiness/review state;
 - use global START, STOP, and STOP + KILL RUNNING controls;
 - add follow-up tasks;
 - add independent Diff Review tasks;
@@ -524,8 +525,14 @@ Target Workspace Chat control over the Queue + Workers surface includes:
 - finalize item status after worker report, validation result, diff-review
   report, and downstream queue impact review.
 
-Queue tags are routing/dependency-affinity groups, not only labels. Workers may
-be general-purpose or scoped to one queue tag. Execution status and work
+Queue tags are routing/dependency-affinity groups, not visual labels. Current
+Queue tag management is explicit and operator-controlled: tags can be created,
+renamed, paused, resumed, and deleted only when empty. If a tag has items, the
+operator must reassign/merge those items before deletion; if it has running
+items, deletion is blocked and running work is not killed. Full persisted tag
+records, merge tooling, dependency execution, and scheduler enforcement remain
+future work unless implemented in a later block. Workers may be
+general-purpose or scoped to one queue tag. Execution status and work
 validation status are separate. Worker reports, validation results, and
 Diff Review reports are inputs to Workspace/coordinator decisions; workers must
 not directly finalize items as done/failure automatically.
@@ -537,7 +544,8 @@ If the edit moves the item between tags, the target tag is paused and the
 previous tag may also be marked for review. Resume/review is an explicit
 coordinator action that only clears the local tag gate; it must not start
 workers, auto-run queue items, arm Autorun, kill running work, or finalize item
-status.
+status. Manual tag pause/resume uses the same eligibility gate and affects only
+whether new work can be selected; it does not start, stop, or kill execution.
 
 No automatic execution.
 

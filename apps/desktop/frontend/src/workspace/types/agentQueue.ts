@@ -40,6 +40,19 @@ export type AgentQueueTaskItemType =
   | "follow_up"
   | "validation";
 
+export type AgentQueueTagPauseReason = "manual" | "edit_review";
+
+export type AgentQueueTagSummary = {
+  queueTagId: string;
+  queueTagName: string;
+  status: "running" | "paused";
+  pauseReason: AgentQueueTagPauseReason | null;
+  needsCoordinatorReview: boolean;
+  itemCount: number;
+  runningCount: number;
+  validationSummary: Record<AgentQueueTaskValidationStatus, number>;
+};
+
 export type CreateAgentQueueTaskRequest = {
   workspaceId: string;
   title: string;
