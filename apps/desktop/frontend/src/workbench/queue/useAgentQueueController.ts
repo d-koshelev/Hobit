@@ -21,10 +21,12 @@ import {
   normalizeQueueTagName,
   normalizeTaskDependencies,
   normalizeTaskExecutionPolicy,
+  normalizeTaskPriority,
   normalizeTaskStatus,
   normalizeValidationStatus,
   queueDependencyReadinessMessage,
   queueDependencyStatesByTask,
+  sortQueueTasksForDisplay,
   queueTagsFromTasks,
   queueTagNameToId,
   shortWidgetInstanceId,
@@ -152,6 +154,21 @@ export type AgentQueueDeleteController = {
   onCancel: () => void;
   onConfirm: () => void;
   onRequest: () => void;
+};
+
+export type QueueTaskInsertPosition = "top" | "bottom";
+
+export type AgentQueueOrderingController = {
+  canMoveDown: boolean;
+  canMoveToBottom: boolean;
+  canMoveToTop: boolean;
+  canMoveUp: boolean;
+  message: string | null;
+  orderLabel: string | null;
+  onMoveDown: () => void;
+  onMoveToBottom: () => void;
+  onMoveToTop: () => void;
+  onMoveUp: () => void;
 };
 
 export type AgentQueueEditController = {
@@ -297,6 +314,7 @@ export function useAgentQueueController({
         | "coordinatorStatus"
         | "dependsOn"
         | "itemType"
+        | "orderIndex"
         | "queueTagId"
         | "queueTagName"
         | "validationStatus"
@@ -304,6 +322,7 @@ export function useAgentQueueController({
     >
   >(() => new Map());
   const localTaskFieldsRef = useRef(localTaskFields);
+  const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
 
@@ -335,11 +354,13 @@ export function useAgentQueueController({
   );
 
   const filteredTasks = useMemo(() => {
+    const orderedTasks = sortQueueTasksForDisplay(tasks);
+
     if (statusFilter === "all") {
-      return tasks;
+      return orderedTasks;
     }
 
-    return tasks.filter((task) => task.status === statusFilter);
+    return orderedTasks.filter((task) => task.status === statusFilter);
   }, [statusFilter, tasks]);
   const pausedQueueTagIds = useMemo(
     () =>
@@ -401,7 +422,9 @@ export function useAgentQueueController({
       setValidationMessage(null);
 
       try {
-        const loadedTasks = (await onListAgentQueueTasks()).map(mergeTaskFoundation);
+        const loadedTasks = withQueueOrderIndexes(
+          (await onListAgentQueueTasks()).map(mergeTaskFoundation),
+        );
         tasksRef.current = loadedTasks;
         setTasks(loadedTasks);
 
@@ -425,7 +448,10 @@ export function useAgentQueueController({
           return "The selected queue task could not be found.";
         }
 
-        setSelectedDraft(detail);
+        setSelectedDraft(
+          loadedTasks.find((task) => task.queueItemId === detail.queueItemId) ??
+            detail,
+        );
         setSaveStateText("Saved");
         return null;
       } catch (error) {
@@ -648,7 +674,10 @@ export function useAgentQueueController({
     tasks: tasksRef.current,
   });
 
-  async function createTask(nextDraft?: TaskDraft) {
+  async function createTask(
+    nextDraft?: TaskDraft,
+    options?: { insertPosition?: QueueTaskInsertPosition },
+  ) {
     if (!onCreateAgentQueueTask || isCreating || isLoading) {
       return false;
     }
@@ -695,6 +724,11 @@ export function useAgentQueueController({
       const taskFoundation = {
         dependsOn: [],
         itemType: taskDraft.itemType,
+        orderIndex: nextOrderIndexForQueueTag({
+          insertPosition: options?.insertPosition ?? "bottom",
+          queueTagId: queueTagNameToId(taskDraft.queueTagName),
+          tasks: tasksRef.current,
+        }),
         queueTagId: queueTagNameToId(taskDraft.queueTagName),
         queueTagName: taskDraft.queueTagName.trim(),
         validationStatus: taskDraft.validationStatus,
@@ -704,6 +738,11 @@ export function useAgentQueueController({
         new Map(current).set(createdTask.queueItemId, taskFoundation),
       );
       applyUpdatedTask({ ...createdTask, ...taskFoundation }, { select: true });
+      setOrderingMessage(
+        options?.insertPosition === "top"
+          ? "Task inserted at the top of its queue tag."
+          : "Task inserted at the bottom of its queue tag.",
+      );
       setIsEditing(false);
       return true;
     } catch (error) {
@@ -751,13 +790,19 @@ export function useAgentQueueController({
         return;
       }
 
-      setSelectedDraft(detail);
+      const mergedDetail = withQueueOrderIndexes([
+        ...tasksRef.current.filter((task) => task.queueItemId !== detail.queueItemId),
+        mergeTaskFoundation(detail),
+      ]).find((task) => task.queueItemId === detail.queueItemId);
+      setSelectedDraft(mergedDetail ?? detail);
       setIsEditing(false);
       setTasks((currentTasks) =>
-        currentTasks.map((task) =>
-          task.queueItemId === detail.queueItemId
-            ? mergeTaskFoundation(detail)
-            : task,
+        sortQueueTasksForDisplay(
+          currentTasks.map((task) =>
+            task.queueItemId === detail.queueItemId
+              ? (mergedDetail ?? mergeTaskFoundation(detail))
+              : task,
+          ),
         ),
       );
       setSaveStateText("Saved");
@@ -833,14 +878,47 @@ export function useAgentQueueController({
         draft.validationStatus === "not_started"
           ? "needs_review"
           : draft.validationStatus;
-      const taskFoundation = {
+      const taskFoundation: Partial<AgentQueueTask> = {
         dependsOn: normalizeTaskDependencies(draft.dependsOn),
         itemType: draft.itemType,
+        orderIndex: selectedTask.orderIndex,
         queueTagId,
         queueTagName: draft.queueTagName.trim(),
         validationStatus,
         coordinatorStatus: "awaiting_coordinator_review" as const,
       };
+      let taskForApply = updatedTask;
+      const assignedScope = updatedTask.assignedExecutorWidgetId
+        ? workerScopes.get(updatedTask.assignedExecutorWidgetId)
+        : null;
+      if (
+        previousQueueTagId !== queueTagId &&
+        assignedScope?.kind === "queue_tag" &&
+        assignedScope.queueTagId !== queueTagId
+      ) {
+        taskFoundation.assignedWorkerId = null;
+        if (onClearAgentQueueTaskAssignment) {
+          try {
+            taskForApply = await onClearAgentQueueTaskAssignment({
+              queueItemId: selectedTask.queueItemId,
+            });
+            setAssignmentMessage(
+              "Assignment cleared because the worker is scoped to another queue tag.",
+            );
+          } catch (error) {
+            setAssignmentError(
+              errorToMessage(
+                error,
+                "Task moved tags, but its scoped worker assignment could not be cleared.",
+              ),
+            );
+          }
+        } else {
+          setAssignmentError(
+            "Task moved tags. Recheck the scoped worker assignment before running.",
+          );
+        }
+      }
       setQueueTagPauseStates((current) => {
         const next = new Map(current);
         next.set(queueTagId, { paused: true, reason: "edit_review" });
@@ -853,12 +931,12 @@ export function useAgentQueueController({
         return next;
       });
       setLocalTaskFields((current) =>
-        new Map(current).set(updatedTask.queueItemId, {
-          ...(current.get(updatedTask.queueItemId) ?? {}),
+        new Map(current).set(taskForApply.queueItemId, {
+          ...(current.get(taskForApply.queueItemId) ?? {}),
           ...taskFoundation,
         }),
       );
-      applyUpdatedTask({ ...updatedTask, ...taskFoundation }, { select: true });
+      applyUpdatedTask({ ...taskForApply, ...taskFoundation }, { select: true });
       setValidationMessage(EDIT_PAUSE_MESSAGE);
       setGlobalMessage(EDIT_PAUSE_MESSAGE);
       setSaveStateText("Saved");
@@ -942,6 +1020,11 @@ export function useAgentQueueController({
       }
 
       setIsConfirmingDelete(false);
+      setLocalTaskFields((current) => {
+        const next = new Map(current);
+        next.delete(deletedTaskId);
+        return next;
+      });
       setDeleteMessage("Queue task deleted.");
       await loadTasks(nextTaskId);
     } catch (error) {
@@ -962,6 +1045,10 @@ export function useAgentQueueController({
   }
 
   function updatePriority(value: string) {
+    if (!isEditing) {
+      return;
+    }
+
     const parsedValue = Number.parseInt(value, 10);
     const priority = Number.isFinite(parsedValue)
       ? clamp(parsedValue, MIN_PRIORITY, MAX_PRIORITY)
@@ -988,6 +1075,61 @@ export function useAgentQueueController({
     setGlobalStatus("stopped");
     setGlobalMessage(
       "STOP + KILL RUNNING requested. Queue does not own running processes here; supported termination stays in Agent Executor and affected items need coordinator review.",
+    );
+  }
+
+  function moveSelectedTask(position: QueueTaskReorderPosition) {
+    if (!selectedTask) {
+      setOrderingMessage(null);
+      return;
+    }
+
+    if (hasOpenTaskEdit) {
+      setValidationMessage("Save current task edits before reordering tasks.");
+      return;
+    }
+
+    const result = reorderQueueTask({
+      position,
+      queueItemId: selectedTask.queueItemId,
+      tasks: tasksRef.current,
+    });
+
+    if (!result.changed) {
+      setOrderingMessage("Task is already at that position.");
+      return;
+    }
+
+    const queueTag = normalizeQueueTag(selectedTask);
+    setLocalTaskFields((current) => {
+      const next = new Map(current);
+      for (const task of result.updatedTasks) {
+        if (normalizeQueueTag(task).queueTagId !== queueTag.queueTagId) {
+          continue;
+        }
+        next.set(task.queueItemId, {
+          ...(next.get(task.queueItemId) ?? {}),
+          orderIndex: task.orderIndex,
+        });
+      }
+      return next;
+    });
+    setQueueTagPauseStates((current) =>
+      new Map(current).set(queueTag.queueTagId, {
+        paused: true,
+        reason: "edit_review",
+      }),
+    );
+    setTasks(result.updatedTasks);
+    tasksRef.current = result.updatedTasks;
+    setSelectedTask(
+      result.updatedTasks.find(
+        (task) => task.queueItemId === selectedTask.queueItemId,
+      ) ?? selectedTask,
+    );
+    setOrderingMessage("Task order updated. No Queue work was started.");
+    setGlobalMessage(
+      "Queue order changed. The affected queue tag is paused for coordinator review.",
     );
   }
 
@@ -1524,7 +1666,13 @@ export function useAgentQueueController({
     task: AgentQueueTask,
     options?: { select?: boolean },
   ) {
-    const mergedTask = mergeTaskFoundation(task);
+    const existingTask = tasksRef.current.find(
+      (candidate) => candidate.queueItemId === task.queueItemId,
+    );
+    const mergedTask = mergeTaskFoundation({
+      ...task,
+      orderIndex: task.orderIndex ?? existingTask?.orderIndex,
+    });
     const nextTasks = reconcileQueueTask(tasksRef.current, mergedTask);
     tasksRef.current = nextTasks;
     setTasks(nextTasks);
@@ -1585,6 +1733,8 @@ export function useAgentQueueController({
         localFields?.dependsOn ?? task.dependsOn,
       ),
       itemType: localFields?.itemType ?? normalizeItemType(task.itemType),
+      orderIndex: localFields?.orderIndex ?? task.orderIndex,
+      priority: normalizeTaskPriority(task.priority),
       queueTagId: queueTag.queueTagId,
       queueTagName: queueTag.queueTagName,
       validationStatus:
@@ -1622,6 +1772,17 @@ export function useAgentQueueController({
       onConfirm: () => void confirmDeleteSelectedTask(),
       onRequest: () => requestDeleteSelectedTask(),
     } satisfies AgentQueueDeleteController,
+    ordering: {
+      ...queueTaskOrderingControls({
+        selectedTask,
+        tasks,
+      }),
+      message: orderingMessage,
+      onMoveDown: () => moveSelectedTask("down"),
+      onMoveToBottom: () => moveSelectedTask("bottom"),
+      onMoveToTop: () => moveSelectedTask("top"),
+      onMoveUp: () => moveSelectedTask("up"),
+    } satisfies AgentQueueOrderingController,
     editTask: {
       isEditing,
       onCancel: cancelSelectedTaskEdits,
@@ -1720,6 +1881,159 @@ export function useAgentQueueController({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
+}
+
+type QueueTaskReorderPosition = "up" | "down" | "top" | "bottom";
+
+function queueTaskOrderingControls({
+  selectedTask,
+  tasks,
+}: {
+  selectedTask: AgentQueueTask | null;
+  tasks: AgentQueueTask[];
+}) {
+  if (!selectedTask) {
+    return {
+      canMoveDown: false,
+      canMoveToBottom: false,
+      canMoveToTop: false,
+      canMoveUp: false,
+      orderLabel: null,
+    };
+  }
+
+  const orderedPeers = orderedManualReorderPeers(tasks, selectedTask);
+  const selectedIndex = orderedPeers.findIndex(
+    (task) => task.queueItemId === selectedTask.queueItemId,
+  );
+  const position = selectedIndex >= 0 ? selectedIndex + 1 : null;
+  const total = orderedPeers.length;
+
+  return {
+    canMoveDown: selectedIndex >= 0 && selectedIndex < total - 1,
+    canMoveToBottom: selectedIndex >= 0 && selectedIndex < total - 1,
+    canMoveToTop: selectedIndex > 0,
+    canMoveUp: selectedIndex > 0,
+    orderLabel: position ? `${position.toString()} of ${total.toString()}` : null,
+  };
+}
+
+function reorderQueueTask({
+  position,
+  queueItemId,
+  tasks,
+}: {
+  position: QueueTaskReorderPosition;
+  queueItemId: string;
+  tasks: AgentQueueTask[];
+}) {
+  const selectedTask = tasks.find((task) => task.queueItemId === queueItemId);
+
+  if (!selectedTask) {
+    return { changed: false, updatedTasks: tasks };
+  }
+
+  const peers = orderedManualReorderPeers(tasks, selectedTask);
+  const currentIndex = peers.findIndex((task) => task.queueItemId === queueItemId);
+
+  if (currentIndex < 0) {
+    return { changed: false, updatedTasks: tasks };
+  }
+
+  const nextIndex =
+    position === "top"
+      ? 0
+      : position === "bottom"
+        ? peers.length - 1
+        : position === "up"
+          ? currentIndex - 1
+          : currentIndex + 1;
+
+  if (nextIndex < 0 || nextIndex >= peers.length || nextIndex === currentIndex) {
+    return { changed: false, updatedTasks: tasks };
+  }
+
+  const reorderedPeers = [...peers];
+  const [movedTask] = reorderedPeers.splice(currentIndex, 1);
+  reorderedPeers.splice(nextIndex, 0, movedTask);
+  const orderById = new Map(
+    reorderedPeers.map((task, index) => [task.queueItemId, index]),
+  );
+  const updatedTasks = sortQueueTasksForDisplay(
+    tasks.map((task) =>
+      orderById.has(task.queueItemId)
+        ? { ...task, orderIndex: orderById.get(task.queueItemId) }
+        : task,
+    ),
+  );
+
+  return { changed: true, updatedTasks };
+}
+
+function orderedManualReorderPeers(
+  tasks: AgentQueueTask[],
+  selectedTask: AgentQueueTask,
+) {
+  const selectedQueueTag = normalizeQueueTag(selectedTask);
+  const selectedPriority = normalizeTaskPriority(selectedTask.priority);
+
+  return sortQueueTasksForDisplay(
+    tasks.filter((task) => {
+      const queueTag = normalizeQueueTag(task);
+      return (
+        queueTag.queueTagId === selectedQueueTag.queueTagId &&
+        normalizeTaskPriority(task.priority) === selectedPriority
+      );
+    }),
+  );
+}
+
+function nextOrderIndexForQueueTag({
+  insertPosition,
+  queueTagId,
+  tasks,
+}: {
+  insertPosition: QueueTaskInsertPosition;
+  queueTagId: string;
+  tasks: AgentQueueTask[];
+}) {
+  const orderIndexes = tasks
+    .filter((task) => normalizeQueueTag(task).queueTagId === queueTagId)
+    .map((task) => task.orderIndex)
+    .filter((orderIndex): orderIndex is number =>
+      typeof orderIndex === "number" && Number.isFinite(orderIndex),
+    );
+
+  if (orderIndexes.length === 0) {
+    return 0;
+  }
+
+  return insertPosition === "top"
+    ? Math.min(...orderIndexes) - 1
+    : Math.max(...orderIndexes) + 1;
+}
+
+function withQueueOrderIndexes(tasks: AgentQueueTask[]) {
+  const sortedTasks = sortQueueTasksForDisplay(tasks);
+  const nextOrderByGroup = new Map<string, number>();
+
+  return sortQueueTasksForDisplay(
+    sortedTasks.map((task) => {
+      if (typeof task.orderIndex === "number" && Number.isFinite(task.orderIndex)) {
+        return task;
+      }
+
+      const groupKey = manualOrderGroupKey(task);
+      const nextOrderIndex = nextOrderByGroup.get(groupKey) ?? 0;
+      nextOrderByGroup.set(groupKey, nextOrderIndex + 1);
+      return { ...task, orderIndex: nextOrderIndex };
+    }),
+  );
+}
+
+function manualOrderGroupKey(task: AgentQueueTask) {
+  const queueTag = normalizeQueueTag(task);
+  return `${queueTag.queueTagId}:${normalizeTaskPriority(task.priority).toString()}`;
 }
 
 function queueTagSummaryToRecord(tag: QueueTagSummary): QueueTagRecord {

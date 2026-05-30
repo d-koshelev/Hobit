@@ -26,6 +26,8 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     renderList([queueTask()]);
 
     expect(document.body.textContent).toContain("Tag Default");
+    expect(document.body.textContent).toContain("Priority P0");
+    expect(document.body.textContent).toContain("Order 1");
     expect(document.body.textContent).toContain("Not started");
     expect(document.body.textContent).toContain("Implementation");
   });

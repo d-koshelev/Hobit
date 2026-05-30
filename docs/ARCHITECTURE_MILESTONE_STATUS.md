@@ -36,7 +36,11 @@ behavior, or Workspace Agent context wiring.
   protection, and readiness integration for manual run, Queue Autorun arming,
   and the frontend Sequential Queue Runner. A dependency is considered
   satisfied only when the prerequisite is completed and coordinator-finalized
-  in the current model.
+  in the current model. Queue items also have numeric priority plus a
+  frontend/model stable order inside each queue tag and priority band, with
+  explicit reorder controls and top/bottom insertion. Priority/order affect
+  visible eligible-item ordering only after dependency, tag, policy, prompt,
+  and assignment gates; they do not add hidden execution or scheduler claiming.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

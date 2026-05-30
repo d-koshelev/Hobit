@@ -41,6 +41,9 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     expect(hook.result.current.selectedTask?.dependsOn).toEqual([]);
+    expect(hook.result.current.selectedTask?.priority).toBe(0);
+    expect(hook.result.current.selectedTask?.orderIndex).toBe(0);
+    expect(hook.result.current.ordering.orderLabel).toBe("1 of 1");
     expect(hook.result.current.selectedTask?.queueTagName).toBe("Default");
     expect(hook.result.current.selectedTask?.validationStatus).toBe(
       "not_started",
@@ -64,6 +67,179 @@ describe("useAgentQueueController executionPolicy draft", () => {
     expect(hook.result.current.foundation.workers[0]?.workerId).toBe(
       "executor-1",
     );
+
+    hook.unmount();
+  });
+
+  it("saves priority changes through explicit edit mode and pauses the tag", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Initial prompt",
+        priority: 0,
+        queueItemId: "queue-1",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.updatePriority("5");
+    });
+    expect(hook.result.current.isDirty).toBe(false);
+
+    act(() => {
+      hook.result.current.editTask.onStart();
+    });
+    act(() => {
+      hook.result.current.updatePriority("5");
+    });
+    expect(hook.result.current.isDirty).toBe(true);
+
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+    await flushControllerLoad();
+
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0].priority).toBe(5);
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      true,
+    );
+    expect(hook.result.current.selectedTask?.priority).toBe(5);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("moves tasks up, down, top, and bottom without starting execution", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        createdAt: "2026-05-20T10:00:00.000Z",
+        queueItemId: "queue-1",
+        title: "First",
+      }),
+      queueTask({
+        createdAt: "2026-05-20T10:01:00.000Z",
+        queueItemId: "queue-2",
+        title: "Second",
+      }),
+      queueTask({
+        createdAt: "2026-05-20T10:02:00.000Z",
+        queueItemId: "queue-3",
+        title: "Third",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-1",
+      "queue-2",
+      "queue-3",
+    ]);
+
+    act(() => {
+      hook.result.current.ordering.onMoveDown();
+    });
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-2",
+      "queue-1",
+      "queue-3",
+    ]);
+
+    act(() => {
+      hook.result.current.ordering.onMoveToBottom();
+    });
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-2",
+      "queue-3",
+      "queue-1",
+    ]);
+
+    act(() => {
+      hook.result.current.ordering.onMoveUp();
+    });
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-2",
+      "queue-1",
+      "queue-3",
+    ]);
+
+    act(() => {
+      hook.result.current.ordering.onMoveToTop();
+    });
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-1",
+      "queue-2",
+      "queue-3",
+    ]);
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      true,
+    );
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("inserts created tasks at the top or bottom of the selected queue tag", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        createdAt: "2026-05-20T10:00:00.000Z",
+        queueItemId: "queue-1",
+        title: "Existing",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      await hook.result.current.createTask(
+        {
+          ...hook.result.current.draft,
+          prompt: "",
+          title: "Top task",
+        },
+        { insertPosition: "top" },
+      );
+    });
+    expect(hook.result.current.tasks.map((task) => task.title)).toEqual([
+      "Top task",
+      "Existing",
+    ]);
+
+    await act(async () => {
+      await hook.result.current.createTask(
+        {
+          ...hook.result.current.draft,
+          prompt: "",
+          title: "Bottom task",
+        },
+        { insertPosition: "bottom" },
+      );
+    });
+    expect(hook.result.current.tasks.map((task) => task.title)).toEqual([
+      "Top task",
+      "Existing",
+      "Bottom task",
+    ]);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
 
     hook.unmount();
   });
@@ -409,6 +585,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
   it("pauses both previous and target tags when an edited task moves tags", async () => {
     const harness = createQueueHarness([
       queueTask({
+        assignedExecutorWidgetId: "executor-1",
         prompt: "Initial prompt",
         queueItemId: "queue-1",
         queueTagId: "default",
@@ -424,6 +601,11 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "default",
+        queueTagName: "Default",
+      });
       hook.result.current.editTask.onStart();
       hook.result.current.updateDraft({ queueTagName: "Review" });
     });
@@ -438,6 +620,8 @@ describe("useAgentQueueController executionPolicy draft", () => {
       true,
     );
     expect(hook.result.current.selectedTask?.queueTagName).toBe("Review");
+    expect(harness.clearRequests).toEqual([{ queueItemId: "queue-1" }]);
+    expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
 
     hook.unmount();
   });

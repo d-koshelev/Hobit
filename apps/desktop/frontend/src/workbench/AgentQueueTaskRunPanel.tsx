@@ -17,6 +17,7 @@ import {
   normalizeItemType,
   normalizeQueueTag,
   normalizeValidationStatus,
+  queueTaskPriorityLabel,
   queueDependencyBadgeVariant,
   queueDependencyBlockedSummary,
   queueDependencyStatusLabel,
@@ -188,6 +189,10 @@ export function AgentQueueTaskRunPanel({
             {queueTag.queueTagName}
             {queueTagPaused ? " (paused)" : ""}
           </dd>
+        </div>
+        <div>
+          <dt>Priority</dt>
+          <dd>{queueTaskPriorityLabel(selectedTask.priority)}</dd>
         </div>
         <div>
           <dt>Tag gate</dt>

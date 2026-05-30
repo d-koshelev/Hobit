@@ -10,6 +10,7 @@ import {
   normalizeItemType,
   normalizeQueueTag,
   normalizeValidationStatus,
+  queueTaskPriorityLabel,
   queueDependencyBadgeVariant,
   queueDependencyBlockedSummary,
   queueDependencyStatusLabel,
@@ -110,7 +111,7 @@ export function AgentQueueTaskList({
             </p>
           </div>
         ) : (
-          filteredTasks.map((task) => {
+          filteredTasks.map((task, taskIndex) => {
             const updatedText = formatUpdatedTimestamp(task.updatedAt);
             const taskTitle = displayTaskTitle(task);
             const taskHint = taskPreview(task);
@@ -185,7 +186,8 @@ export function AgentQueueTaskList({
                       task.assignedWorkerId ?? task.assignedExecutorWidgetId,
                     )}
                   </span>
-                  <span>Priority {task.priority.toString()}</span>
+                  <span>Priority {queueTaskPriorityLabel(task.priority)}</span>
+                  <span>Order {(taskIndex + 1).toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
                     <span>

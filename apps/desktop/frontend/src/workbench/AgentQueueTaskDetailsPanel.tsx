@@ -101,6 +101,7 @@ export function AgentQueueTaskDetailsPanel({
             onDraftChange={updateDraft}
             onPriorityChange={updatePriority}
             onSave={() => void saveTask()}
+            ordering={queue.ordering}
             priorityInputId={priorityInputId}
             promptInputId={promptInputId}
             selectedTask={selectedTask}

@@ -2,6 +2,7 @@ import type { AgentQueueTask } from "../../workspace/types";
 import {
   getQueueTaskDependencyState,
   normalizeQueueTag,
+  sortQueueTasksForDisplay,
   type AgentQueueDependencyState,
 } from "../agentQueueTaskUiModel";
 import {
@@ -53,7 +54,7 @@ export function getNextQueueRunnerTaskDecision({
 }: QueueRunnerTaskDecisionInput): QueueRunnerTaskDecision {
   let skippedTaskCount = 0;
 
-  for (const task of tasks) {
+  for (const task of sortQueueTasksForDisplay(tasks)) {
     if (startedQueueItemIds?.has(task.queueItemId)) {
       skippedTaskCount += 1;
       continue;

@@ -7,6 +7,7 @@ import {
   errorToMessage,
   isFinalQueueTaskStatus,
   queueDependencyBlockedSummary,
+  sortQueueTasksForDisplay,
   statusLabel,
 } from "../agentQueueTaskUiModel";
 import { getNextQueueRunnerTaskDecision } from "./queueRunner";
@@ -195,18 +196,7 @@ export function reconcileQueueTask(
     (task) => task.queueItemId === updatedTask.queueItemId,
   );
 
-  return (foundTask ? nextTasks : [...nextTasks, updatedTask]).sort(
-    compareQueueTasks,
-  );
-}
-
-function compareQueueTasks(first: AgentQueueTask, second: AgentQueueTask) {
-  return (
-    second.priority - first.priority ||
-    second.updatedAt.localeCompare(first.updatedAt) ||
-    second.createdAt.localeCompare(first.createdAt) ||
-    second.queueItemId.localeCompare(first.queueItemId)
-  );
+  return sortQueueTasksForDisplay(foundTask ? nextTasks : [...nextTasks, updatedTask]);
 }
 
 export function queueRunReadinessMessage({

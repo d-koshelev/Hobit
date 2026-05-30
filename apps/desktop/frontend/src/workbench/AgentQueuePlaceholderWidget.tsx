@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import type { AgentQueueTask } from "../workspace/types";
 import { AgentQueueLayout } from "./AgentQueueLayout";
 import { AgentQueueNewTaskDialog } from "./AgentQueueNewTaskDialog";
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
@@ -11,12 +12,16 @@ import {
   emptyDraft,
   MAX_PRIORITY,
   MIN_PRIORITY,
+  normalizeQueueTag,
   queueSingleState,
   taskPreview,
   validateDraft,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
-import { useAgentQueueController } from "./queue/useAgentQueueController";
+import {
+  useAgentQueueController,
+  type QueueTaskInsertPosition,
+} from "./queue/useAgentQueueController";
 import type { WidgetRenderProps } from "./types";
 
 export function AgentQueuePlaceholderWidget({
@@ -64,6 +69,8 @@ export function AgentQueuePlaceholderWidget({
   const [createDraft, setCreateDraft] = useState<TaskDraft>(() =>
     newTaskDialogDraft(),
   );
+  const [createInsertPosition, setCreateInsertPosition] =
+    useState<QueueTaskInsertPosition>("bottom");
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
@@ -115,7 +122,8 @@ export function AgentQueuePlaceholderWidget({
       <Button
         disabled={isCreating || isLoading || !apiAvailable}
         onClick={() => {
-          setCreateDraft(newTaskDialogDraft());
+          setCreateDraft(newTaskDialogDraft(selectedTask));
+          setCreateInsertPosition("bottom");
           setCreateDialogError(null);
           setIsCreateDialogOpen(true);
         }}
@@ -167,10 +175,13 @@ export function AgentQueuePlaceholderWidget({
       return;
     }
 
-    const didCreate = await createTask(createDraft);
+    const didCreate = await createTask(createDraft, {
+      insertPosition: createInsertPosition,
+    });
 
     if (didCreate) {
-      setCreateDraft(newTaskDialogDraft());
+      setCreateDraft(newTaskDialogDraft(selectedTask));
+      setCreateInsertPosition("bottom");
       setCreateDialogError(null);
       setIsCreateDialogOpen(false);
     }
@@ -257,7 +268,9 @@ export function AgentQueuePlaceholderWidget({
             onCancel={cancelCreateTask}
             onConfirm={() => void confirmCreateTask()}
             onDraftChange={updateCreateDraft}
+            onInsertPositionChange={setCreateInsertPosition}
             onPriorityChange={updateCreatePriority}
+            insertPosition={createInsertPosition}
           />
         ) : null}
       </div>
@@ -265,9 +278,12 @@ export function AgentQueuePlaceholderWidget({
   );
 }
 
-function newTaskDialogDraft(): TaskDraft {
+function newTaskDialogDraft(selectedTask?: AgentQueueTask | null): TaskDraft {
   return {
     ...emptyDraft(),
+    queueTagName: selectedTask
+      ? normalizeQueueTag(selectedTask).queueTagName
+      : emptyDraft().queueTagName,
     title: "New task",
   };
 }

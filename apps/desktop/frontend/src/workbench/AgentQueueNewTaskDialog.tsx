@@ -6,6 +6,7 @@ import {
   MIN_PRIORITY,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
+import type { QueueTaskInsertPosition } from "./queue/useAgentQueueController";
 
 type AgentQueueNewTaskDialogProps = {
   apiAvailable: boolean;
@@ -17,10 +18,12 @@ type AgentQueueNewTaskDialogProps = {
   createPriorityInputId: string;
   createPromptInputId: string;
   createTitleInputId: string;
+  insertPosition: QueueTaskInsertPosition;
   isCreating: boolean;
   onCancel: () => void;
   onConfirm: () => void;
   onDraftChange: (nextDraft: Partial<TaskDraft>) => void;
+  onInsertPositionChange: (insertPosition: QueueTaskInsertPosition) => void;
   onPriorityChange: (value: string) => void;
 };
 
@@ -34,10 +37,12 @@ export function AgentQueueNewTaskDialog({
   createPriorityInputId,
   createPromptInputId,
   createTitleInputId,
+  insertPosition,
   isCreating,
   onCancel,
   onConfirm,
   onDraftChange,
+  onInsertPositionChange,
   onPriorityChange,
 }: AgentQueueNewTaskDialogProps) {
   return (
@@ -115,6 +120,47 @@ export function AgentQueueNewTaskDialog({
           </div>
 
           <div className="agent-queue-editor-grid">
+            <div className="agent-queue-editor-field">
+              <label
+                className="field-label"
+                htmlFor={`${createTitleInputId}-queue-tag`}
+              >
+                Queue tag
+              </label>
+              <input
+                className="input agent-queue-tag-input"
+                id={`${createTitleInputId}-queue-tag`}
+                onChange={(event) =>
+                  onDraftChange({
+                    queueTagName: event.currentTarget.value,
+                  })
+                }
+                value={createDraft.queueTagName}
+              />
+            </div>
+
+            <div className="agent-queue-editor-field">
+              <label
+                className="field-label"
+                htmlFor={`${createTitleInputId}-insert-position`}
+              >
+                Insert
+              </label>
+              <select
+                className="input agent-queue-insert-position-select"
+                id={`${createTitleInputId}-insert-position`}
+                onChange={(event) =>
+                  onInsertPositionChange(
+                    event.currentTarget.value as QueueTaskInsertPosition,
+                  )
+                }
+                value={insertPosition}
+              >
+                <option value="bottom">Bottom of tag</option>
+                <option value="top">Top of tag</option>
+              </select>
+            </div>
+
             <div className="agent-queue-editor-field">
               <label className="field-label" htmlFor={createPriorityInputId}>
                 Priority

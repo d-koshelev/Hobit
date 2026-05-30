@@ -172,6 +172,70 @@ describe("queue runner task selection", () => {
     );
   });
 
+  it("uses priority before manual order when selecting eligible tasks", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          orderIndex: 0,
+          priority: 0,
+          prompt: "Run normal",
+          queueItemId: "queue-normal",
+          status: "ready",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          orderIndex: 1,
+          priority: 5,
+          prompt: "Run urgent",
+          queueItemId: "queue-urgent",
+          status: "ready",
+        }),
+      ],
+    });
+
+    expect(decision.kind).toBe("start");
+    expect(decision.kind === "start" && decision.task.queueItemId).toBe(
+      "queue-urgent",
+    );
+  });
+
+  it("uses manual order among eligible tasks with the same priority", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          orderIndex: 2,
+          priority: 2,
+          prompt: "Run later",
+          queueItemId: "queue-later",
+          status: "ready",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          orderIndex: 0,
+          priority: 2,
+          prompt: "Run first",
+          queueItemId: "queue-first",
+          status: "ready",
+        }),
+      ],
+    });
+
+    expect(decision.kind).toBe("start");
+    expect(decision.kind === "start" && decision.task.queueItemId).toBe(
+      "queue-first",
+    );
+  });
+
   it("stops before starting a task from a paused queue tag", () => {
     const decision = getNextQueueRunnerTaskDecision({
       pausedQueueTagIds: new Set(["review"]),

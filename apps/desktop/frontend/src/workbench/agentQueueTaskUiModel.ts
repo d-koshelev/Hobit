@@ -168,6 +168,12 @@ export function emptyDraft(): TaskDraft {
   };
 }
 
+export function normalizeTaskPriority(priority: number | null | undefined) {
+  return typeof priority === "number" && Number.isFinite(priority)
+    ? clamp(priority, MIN_PRIORITY, MAX_PRIORITY)
+    : MIN_PRIORITY;
+}
+
 export function validateDraft(draft: TaskDraft): string | null {
   if (!draft.title.trim()) {
     return "Title is required before saving.";
@@ -244,6 +250,40 @@ export function normalizeTaskDependencies(
   }
 
   return normalized;
+}
+
+export function queueTaskOrderIndex(task: AgentQueueTask) {
+  return typeof task.orderIndex === "number" && Number.isFinite(task.orderIndex)
+    ? task.orderIndex
+    : null;
+}
+
+export function compareQueueTasksForOrder(
+  first: AgentQueueTask,
+  second: AgentQueueTask,
+) {
+  const firstTag = normalizeQueueTag(first);
+  const secondTag = normalizeQueueTag(second);
+  const firstOrderIndex = queueTaskOrderIndex(first);
+  const secondOrderIndex = queueTaskOrderIndex(second);
+
+  return (
+    firstTag.queueTagName.localeCompare(secondTag.queueTagName) ||
+    firstTag.queueTagId.localeCompare(secondTag.queueTagId) ||
+    normalizeTaskPriority(second.priority) - normalizeTaskPriority(first.priority) ||
+    (firstOrderIndex ?? Number.POSITIVE_INFINITY) -
+      (secondOrderIndex ?? Number.POSITIVE_INFINITY) ||
+    first.createdAt.localeCompare(second.createdAt) ||
+    first.queueItemId.localeCompare(second.queueItemId)
+  );
+}
+
+export function sortQueueTasksForDisplay(tasks: AgentQueueTask[]) {
+  return [...tasks].sort(compareQueueTasksForOrder);
+}
+
+export function queueTaskPriorityLabel(priority: number | null | undefined) {
+  return `P${normalizeTaskPriority(priority).toString()}`;
 }
 
 export function buildQueueDependencyGraph(tasks: AgentQueueTask[]) {

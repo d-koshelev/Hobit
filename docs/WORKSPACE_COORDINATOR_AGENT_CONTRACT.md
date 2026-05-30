@@ -552,15 +552,25 @@ automatic Queue Autorun, scheduler behavior, rollback execution, automatic
 acceptance, worker-owned finalization, Agent Executor runtime changes, or
 Workspace Agent automation.
 
+Queue items support priority and stable ordering as an organization/readiness
+selection layer. The current implementation keeps the existing numeric priority
+model and derives a frontend/model stable order inside each queue tag and
+priority band, with explicit move up/down/top/bottom controls and top/bottom
+task insertion. Priority and order may affect which otherwise eligible item is
+selected first, but only after dependency, tag pause, policy, prompt, and
+assignment gates pass. Reordering must not start work, claim items, finalize
+status, bypass review, or become a backend scheduler.
+
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for
 Workspace/coordinator review, and leaves already running Executor work alone.
 If the edit moves the item between tags, the target tag is paused and the
-previous tag may also be marked for review. Resume/review is an explicit
-coordinator action that only clears the local tag gate; it must not start
-workers, auto-run queue items, arm Autorun, kill running work, or finalize item
-status. Manual tag pause/resume uses the same eligibility gate and affects only
-whether new work can be selected; it does not start, stop, or kill execution.
+previous tag may also be marked for review. Scoped worker assignment is
+revalidated after a tag move. Resume/review is an explicit coordinator action
+that only clears the local tag gate; it must not start workers, auto-run queue
+items, arm Autorun, kill running work, or finalize item status. Manual tag
+pause/resume uses the same eligibility gate and affects only whether new work
+can be selected; it does not start, stop, or kill execution.
 
 No automatic execution.
 

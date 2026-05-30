@@ -437,7 +437,8 @@
 
 .agent-queue-title-input,
 .agent-queue-status-select,
-.agent-queue-priority-input {
+.agent-queue-priority-input,
+.agent-queue-insert-position-select {
   min-height: var(--control-height-md);
 }
 
@@ -467,8 +468,24 @@
 
 .agent-queue-editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(96px, 140px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
+}
+
+.agent-queue-order-controls {
+  align-items: center;
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  padding-top: var(--space-xs);
+}
+
+.agent-queue-order-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  justify-content: flex-end;
 }
 
 .agent-queue-editor-field-policy {

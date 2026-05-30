@@ -465,6 +465,13 @@ Workspace Agent is the foreground interactive agent surface.
   backend dependency engine, scheduler claiming, automatic acceptance, worker
   finalization, rollback execution, Agent Executor runtime changes, or Codex
   Direct Work changes.
+- Queue tasks use the existing numeric priority model (`0` through `5`, with
+  existing/basic tasks defaulting to `0`) plus a frontend/model-compatible
+  stable order inside each queue tag and priority band. The current visible
+  order is deterministic by queue tag, priority, manual order/created order,
+  and task id. Manual reorder controls and top/bottom task insertion are
+  explicit UI actions; they update only Queue organization, pause the affected
+  tag for review where applicable, and do not start work.
 - Worker model foundation is UI/model-only. Visible Agent Executor slots are
   shown as Agent Workers that can be general-purpose or scoped to one queue
   tag. Changing worker scope does not spawn a worker, start Codex, assign work,
@@ -486,12 +493,13 @@ Workspace Agent is the foreground interactive agent surface.
   for coordinator review in the frontend model with the message: "Editing
   paused this queue tag until coordinator review." If an edit moves the item to
   another tag, the target tag is paused and the previous tag is also marked for
-  review locally. Resume tag is an explicit coordinator action; it clears the
-  local tag pause/review gate but does not start workers, arm Autorun, run any
-  item, or kill already running Executor work. Manually pausing/resuming a tag
-  uses the same eligibility gate: paused tags block new manual run readiness,
-  Queue Autorun arming, and Sequential Queue Runner selection, but pause/resume
-  never starts or stops real execution by itself.
+  review locally. Scoped worker assignment is revalidated after a tag move.
+  Resume tag is an explicit coordinator action; it clears the local tag
+  pause/review gate but does not start workers, arm Autorun, run any item, or
+  kill already running Executor work. Manually pausing/resuming a tag uses the
+  same eligibility gate: paused tags block new manual run readiness, Queue
+  Autorun arming, and Sequential Queue Runner selection, but pause/resume never
+  starts or stops real execution by itself.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as
@@ -524,7 +532,9 @@ Workspace Agent is the foreground interactive agent surface.
 - Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
   selects one Agent Executor, configures execution workspace/repo root, Codex
   executable, sandbox, and approval policy once, then starts the runner from
-  Queue. The runner scans the current ordered Queue task list, assigns
+  Queue. The runner scans the current ordered Queue task list after dependency,
+  tag, policy, prompt, and assignment gates; priority/order only choose among
+  otherwise eligible items. The runner assigns
   unassigned runnable tasks to the selected Executor, starts each task through
   the existing assigned-task Queue-to-Executor handoff path, waits for an
   Executor final state, and then evaluates the next task.

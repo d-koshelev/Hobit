@@ -240,6 +240,7 @@ export type AgentQueueTask = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  orderIndex?: number;
   dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
   itemType?: AgentQueueTaskItemType;

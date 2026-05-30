@@ -25,6 +25,7 @@ import { AgentQueueDeleteTaskControl } from "./AgentQueueDeleteTaskControl";
 import type {
   AgentQueueDeleteController,
   AgentQueueEditController,
+  AgentQueueOrderingController,
 } from "./queue/useAgentQueueController";
 import { Badge } from "../design-system/Badge";
 
@@ -38,6 +39,7 @@ type AgentQueueTaskSectionProps = {
   onDraftChange: (nextDraft: Partial<TaskDraft>) => void;
   onPriorityChange: (value: string) => void;
   onSave: () => void;
+  ordering: AgentQueueOrderingController;
   priorityInputId: string;
   promptInputId: string;
   descriptionInputId: string;
@@ -58,6 +60,7 @@ export function AgentQueueTaskSection({
   onDraftChange,
   onPriorityChange,
   onSave,
+  ordering,
   priorityInputId,
   promptInputId,
   descriptionInputId,
@@ -283,6 +286,50 @@ export function AgentQueueTaskSection({
           </Button>
         </div>
       </div>
+
+      <div className="agent-queue-order-controls">
+        <div>
+          <p className="field-label">Manual order</p>
+          <p className="agent-queue-run-note">
+            {ordering.orderLabel
+              ? `Position ${ordering.orderLabel} in this priority band.`
+              : "No manual position."}
+          </p>
+        </div>
+        <div className="agent-queue-order-buttons">
+          <Button
+            disabled={!ordering.canMoveToTop || editTask.isEditing || isSaving}
+            onClick={() => ordering.onMoveToTop()}
+            variant="ghost"
+          >
+            Top
+          </Button>
+          <Button
+            disabled={!ordering.canMoveUp || editTask.isEditing || isSaving}
+            onClick={() => ordering.onMoveUp()}
+            variant="ghost"
+          >
+            Up
+          </Button>
+          <Button
+            disabled={!ordering.canMoveDown || editTask.isEditing || isSaving}
+            onClick={() => ordering.onMoveDown()}
+            variant="ghost"
+          >
+            Down
+          </Button>
+          <Button
+            disabled={!ordering.canMoveToBottom || editTask.isEditing || isSaving}
+            onClick={() => ordering.onMoveToBottom()}
+            variant="ghost"
+          >
+            Bottom
+          </Button>
+        </div>
+      </div>
+      {ordering.message ? (
+        <p className="agent-queue-message">{ordering.message}</p>
+      ) : null}
 
       <AgentQueueDeleteTaskControl deleteTask={deleteTask} />
     </section>
