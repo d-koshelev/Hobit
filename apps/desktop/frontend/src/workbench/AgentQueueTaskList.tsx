@@ -14,6 +14,7 @@ import {
   queueDependencyBadgeVariant,
   queueDependencyBlockedSummary,
   queueDependencyStatusLabel,
+  queueExecutorInfoForTask,
   statusBadgeVariant,
   statusLabel,
   taskPreview,
@@ -137,6 +138,11 @@ export function AgentQueueTaskList({
               routingState && !routingState.canTake
                 ? firstRoutingBlockedReasonLabel(routingState.blockedReasons)
                 : null;
+            const executorInfo = queueExecutorInfoForTask({
+              dependencyState,
+              routingState,
+              task,
+            });
 
             return (
               <button
@@ -165,6 +171,17 @@ export function AgentQueueTaskList({
                 <span className="agent-queue-task-row-main">
                   <span className="agent-queue-task-row-title">
                     {taskTitle}
+                  </span>
+                  <span
+                    className={[
+                      "agent-queue-executor-info-box",
+                      "agent-queue-executor-info-compact",
+                      `agent-queue-executor-info-${executorInfo.tone}`,
+                    ].join(" ")}
+                    title={executorInfo.detail}
+                  >
+                    <span>Executor</span>
+                    <strong>{executorInfo.label}</strong>
                   </span>
                   <Badge variant={statusBadgeVariant(task.status)}>
                     {statusLabel(task.status)}

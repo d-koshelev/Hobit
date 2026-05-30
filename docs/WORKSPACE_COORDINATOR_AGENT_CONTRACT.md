@@ -612,9 +612,10 @@ for a selected Queue item and assigned/selected worker from visible task
 metadata. The preview may include approximate work steps, token/time estimate
 ranges, expected validation commands, likely touched files or areas, risk and
 complexity, stale/ready/split-needed status, and a split recommendation. It is
-an estimate, not a guarantee, and it is not prompt text. Provider/model/
-thinking/runtime configuration must remain structured metadata when present and
-must not be appended to the Queue prompt body. Generating or refreshing this
+an estimate, not a guarantee, and it is structured expected-plan metadata
+rather than prompt text. Provider/model/thinking/runtime configuration must
+remain structured metadata when present and must not be appended to the Queue
+prompt body. Generating or refreshing this
 preview must not call Workspace Agent, Codex, Claude, Agent Executor, a
 provider, Queue Autorun, a scheduler loop, validation commands, rollback, or
 Git/Terminal/JDBC/runtime actions. Real worker-generated AI planning remains
@@ -624,9 +625,9 @@ The Queue widget may visualize the same frontend/model state in a Flow Map
 view. The Flow Map groups work-item blocks by queue tag, shows dependency
 layers and barrier rows, shows the embedded Agent Executor section with
 max/spare/working facts, spare and currently running visual blocks, worker
-scopes, capacity recommendations, dry-run next/idle labels where available,
-global stopped/kill-requested executor-lane messages, and final result blocks
-grouped by tag. It is a
+scopes, presentation-only executor-info boxes, capacity recommendations,
+dry-run next/idle labels where available, global stopped/kill-requested
+executor-lane messages, and final result blocks grouped by tag. It is a
 selection and comprehension view only: clicking a work-item block selects the
 existing task details, and clicking a running executor block may select the
 linked task when visible. It must not claim work, start Agent Executor, arm or
@@ -634,6 +635,14 @@ advance Queue Autorun, start real workers, finalize item status, persist live
 worker process state, run validation, execute rollback, kill processes, mutate
 Git, or change Workspace Agent / Agent Executor / Codex Direct Work runtime behavior. The
 table/list/detail controls remain available.
+
+Selected Queue item details may show an expanded work-item panel with title,
+queue tag, type, priority/order, submitted metadata, prompt preview, expected
+plan metadata, execution/report metadata, validation/review status, and a
+compact executor-info box. The executor-info box is a derived presentation
+label only; opening details or clicking compact items must not start execution,
+claim work, launch Agent Executor/Codex, run validation, or create hidden Queue
+work.
 
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for

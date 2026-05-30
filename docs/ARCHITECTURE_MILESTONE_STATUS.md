@@ -98,6 +98,13 @@ behavior, or Workspace Agent context wiring.
   process persistence, worker-owned finalization, rollback execution, Agent
   Executor runtime changes, Codex Direct Work changes, or Workspace Agent
   behavior changes.
+  Queue item details now include an expanded work-item panel with submitted
+  metadata, prompt preview, expected plan metadata, execution/report metadata,
+  validation/review status, and a compact executor-info box derived from
+  existing state. The executor-info box is presentation-only. Opening details,
+  clicking compact Flow Map/list items, or generating plan metadata does not
+  start workers, claim items, launch Agent Executor/Codex, call providers, or
+  create hidden runtime work.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

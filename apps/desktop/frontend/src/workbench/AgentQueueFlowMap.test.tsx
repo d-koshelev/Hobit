@@ -57,6 +57,14 @@ describe("AgentQueueFlowMap", () => {
           title: "Blocked follow-up",
           validationStatus: "validating",
         }),
+        queueTask({
+          queueItemId: "validating-ready",
+          queueTagId: "validation",
+          queueTagName: "Validation",
+          status: "ready",
+          title: "Validating ready item",
+          validationStatus: "validating",
+        }),
       ],
     });
 
@@ -65,10 +73,20 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Follow-up");
     expect(document.body.textContent).toContain("Work queue / blocked work");
     expect(document.body.textContent).toContain("Dependency barrier");
-    expect(document.body.textContent).toContain("Review blocker blocks Blocked follow-up");
+    expect(document.body.textContent).toContain("blocks Blocked follow-up");
     expect(document.body.textContent).toContain("Blocked");
+    expect(
+      Array.from(document.querySelectorAll(".agent-queue-executor-info-box")).some(
+        (element) => element.textContent?.includes("Blocked"),
+      ),
+    ).toBe(true);
     expect(document.body.textContent).toContain("Blocked by: Review blocker");
     expect(document.body.textContent).toContain("Validating");
+    expect(
+      Array.from(document.querySelectorAll(".agent-queue-executor-info-box")).some(
+        (element) => element.textContent?.includes("Validating"),
+      ),
+    ).toBe(true);
     expect(document.body.textContent).toContain("Agent Executor section");
     expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Spare executor");
@@ -99,6 +117,25 @@ describe("AgentQueueFlowMap", () => {
     expect(block?.classList.contains(queueTagColorToken("review"))).toBe(true);
     expect(document.body.textContent).toContain("Running");
     expect(document.body.textContent).toContain("Passed");
+  });
+
+  it("renders compact executor info on work-item blocks", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          queueItemId: "waiting-task",
+          status: "queued",
+          title: "Waiting task",
+        }),
+      ],
+    });
+
+    const executorInfo = document.querySelector(
+      ".agent-queue-flow-block .agent-queue-executor-info-box",
+    );
+
+    expect(executorInfo?.textContent).toContain("Executor");
+    expect(executorInfo?.textContent).toContain("Waiting");
   });
 
   it("renders working executor blocks from running worker state", () => {

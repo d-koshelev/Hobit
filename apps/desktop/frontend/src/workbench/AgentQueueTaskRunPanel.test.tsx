@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
+import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
 import type {
   AgentQueueAutorunController,
   AgentQueueExecutionPlanController,
@@ -12,6 +13,15 @@ import type {
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
+import {
+  queueDependencyStatesByTask,
+  type TaskDraft,
+} from "./agentQueueTaskUiModel";
+import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
+import {
+  buildAgentQueueEmbeddedExecutorSection,
+  buildAgentQueueSchedulerPlan,
+} from "./queue/agentQueueSchedulerModel";
 import type { AgentExecutorSlot } from "./types";
 import type {
   AgentQueueExecutionPlanPreview,
@@ -322,6 +332,84 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
   });
 });
 
+describe("AgentQueueTaskDetailsPanel expanded detail", () => {
+  it("shows expanded header metadata, prompt, and expected plan without starting execution", () => {
+    const onGenerate = vi.fn();
+    const onStartAssignedTask = vi.fn();
+    const selectedTask = {
+      ...queueTask(),
+      description: "Implementation details",
+      executionPlanPreview: planPreview(),
+      queueTagId: "implementation",
+      queueTagName: "Implementation",
+      title: "Expanded queue detail",
+    };
+
+    renderDetailsPanel({
+      executionPlan: executionPlanController(
+        selectedTask.executionPlanPreview,
+        onGenerate,
+      ),
+      run: {
+        ...runController(),
+        onStartAssignedTask,
+      },
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    expect(document.body.textContent).toContain("Selected work item");
+    expect(document.body.textContent).toContain("Expanded queue detail");
+    expect(document.body.textContent).toContain("Implementation");
+    expect(document.body.textContent).toContain("Priority P1");
+    expect(document.body.textContent).toContain("Executor");
+    expect(document.body.textContent).toContain("Submitted metadata");
+    expect(document.body.textContent).toContain("Prompt");
+    expect(document.body.textContent).toContain("Expected plan of work");
+    expect(document.body.textContent).toContain("Approx. 1,000-2,000 tokens");
+    expect(document.body.textContent).toContain(
+      "Structured metadata only; never appended to the prompt.",
+    );
+
+    clickFirstButton("Refresh plan");
+
+    expect(onGenerate).toHaveBeenCalledTimes(1);
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+  });
+
+  it("shows stale and no-plan expected plan states", () => {
+    const staleTask = {
+      ...queueTask(),
+      executionPlanPreview: planPreview({ status: "stale" }),
+    };
+
+    renderDetailsPanel({
+      executionPlan: executionPlanController(staleTask.executionPlanPreview),
+      selectedTask: staleTask,
+      tasks: [staleTask],
+    });
+
+    expect(document.body.textContent).toContain("Plan stale");
+    expect(document.body.textContent).toContain("This plan is stale.");
+
+    root?.unmount();
+    container?.remove();
+    root = null;
+    container = null;
+    document.body.innerHTML = "";
+
+    const noPlanTask = queueTask();
+    renderDetailsPanel({
+      executionPlan: executionPlanController(null),
+      selectedTask: noPlanTask,
+      tasks: [noPlanTask],
+    });
+
+    expect(document.body.textContent).toContain("No expected plan has been generated.");
+    expect(document.body.textContent).toContain("Generate plan preview");
+  });
+});
+
 function renderPanel(
   overrides: Partial<ComponentProps<typeof AgentQueueTaskRunPanel>>,
 ) {
@@ -384,6 +472,216 @@ function renderPanel(
       />,
     );
   });
+}
+
+function renderDetailsPanel({
+  executionPlan = executionPlanController(null),
+  latestRun = latestRunController(null),
+  run = runController(),
+  runHistory = runHistoryController([]),
+  selectedTask = queueTask(),
+  tasks = [selectedTask],
+}: {
+  executionPlan?: AgentQueueExecutionPlanController;
+  latestRun?: AgentQueueLatestRunLinkController;
+  run?: AgentQueueRunController;
+  runHistory?: AgentQueueRunHistoryController;
+  selectedTask?: AgentQueueTask;
+  tasks?: AgentQueueTask[];
+}) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  const dependencyStates = queueDependencyStatesByTask(tasks);
+  const workers = [
+    {
+      currentItemId: selectedTask.status === "running" ? selectedTask.queueItemId : null,
+      displayOrder: 0,
+      enabled: true,
+      lastReportSummary: null,
+      name: "Agent Executor visible",
+      scope: { kind: "all" as const },
+      status: selectedTask.status === "running" ? "running" as const : "idle" as const,
+      workerId: "executor_visible",
+    },
+  ];
+  const schedulerPlan = buildAgentQueueSchedulerPlan({
+    dependencyStates,
+    globalExecutionState: "started",
+    pausedQueueTagIds: new Set(),
+    tasks,
+    workers,
+  });
+  const queueTags = [
+    {
+      coordinatorReviewCount: 0,
+      failedValidationCount: 0,
+      needsCoordinatorReview: false,
+      needsReviewCount: 0,
+      pauseReason: null,
+      queueTagId: selectedTask.queueTagId ?? "default",
+      queueTagName: selectedTask.queueTagName ?? "Default",
+      runningCount: selectedTask.status === "running" ? 1 : 0,
+      status: "running" as const,
+      taskCount: tasks.length,
+      validatingCount: selectedTask.validationStatus === "validating" ? 1 : 0,
+    },
+  ];
+  const queue = {
+    agentExecutorSlots: executorSlots(),
+    apiAvailable: true,
+    assignedWorkerRoutingStates: getAssignedWorkerRoutingStates(tasks, workers, {
+      dependencyStates,
+      globalExecutionState: "started",
+      pausedQueueTagIds: new Set(),
+      tasks,
+    }),
+    assignSelectedTask: vi.fn(),
+    assignmentApiAvailable: true,
+    assignmentError: null,
+    assignmentMessage: null,
+    autorun: autorunController(),
+    clearSelectedTaskAssignment: vi.fn(),
+    createTask: vi.fn(),
+    deleteTask: deleteController(),
+    dependencyStates,
+    draft: draftFromTask(selectedTask),
+    editTask: editController(),
+    editorError: null,
+    executionPlan,
+    filteredTasks: tasks,
+    foundation: {
+      embeddedExecutor: buildAgentQueueEmbeddedExecutorSection({
+        dependencyStates,
+        maxExecutors: 1,
+        schedulerPlan,
+        tasks,
+        workers,
+      }),
+      globalExecutionState: "started" as const,
+      globalMessage: null,
+      globalStatus: "started" as const,
+      maxExecutorMessage: null,
+      onCreateQueueTag: vi.fn(),
+      onCreateWorker: vi.fn(),
+      onDeleteQueueTag: vi.fn(),
+      onDeleteWorker: vi.fn(),
+      onMaxExecutorsChange: vi.fn(),
+      onPauseQueueTag: vi.fn(),
+      onRenameQueueTag: vi.fn(),
+      onRenameWorker: vi.fn(),
+      onResumeQueueTag: vi.fn(),
+      onStartWorkers: vi.fn(),
+      onStopAndKillRunning: vi.fn(),
+      onStopWorkers: vi.fn(),
+      onWorkerEnabledChange: vi.fn(),
+      onWorkerScopeChange: vi.fn(),
+      pausedQueueTagIds: new Set<string>(),
+      queueTags,
+      schedulerPlan,
+      tagManagementError: null,
+      tagManagementMessage: null,
+      validationSummary: {
+        failed: 0,
+        needs_review: 0,
+        not_started: 0,
+        passed: 0,
+        validating: 0,
+      },
+      workers,
+    },
+    isAssigning: false,
+    isCreating: false,
+    isDirty: false,
+    isEditing: false,
+    isLoading: false,
+    isSaving: false,
+    isSelecting: false,
+    latestRun,
+    loadError: null,
+    ordering: {
+      canMoveDown: false,
+      canMoveToBottom: false,
+      canMoveToTop: false,
+      canMoveUp: false,
+      message: null,
+      onMoveDown: vi.fn(),
+      onMoveToBottom: vi.fn(),
+      onMoveToTop: vi.fn(),
+      onMoveUp: vi.fn(),
+      orderLabel: "1 of 1",
+    },
+    refreshTasks: vi.fn(),
+    run,
+    runHistory,
+    runner: runnerController(),
+    saveStateText: "Saved",
+    saveTask: vi.fn(),
+    selectExecutorWidget: vi.fn(),
+    selectedExecutorWidgetId: "executor_visible",
+    selectedTask,
+    selectTask: vi.fn(),
+    setStatusFilter: vi.fn(),
+    statusFilter: "all" as const,
+    tasks,
+    updateDraft: vi.fn(),
+    updatePriority: vi.fn(),
+    validationMessage: null,
+  } as unknown as ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"];
+
+  act(() => {
+    root?.render(
+      <AgentQueueTaskDetailsPanel
+        agentExecutorSlots={executorSlots()}
+        assignmentInputId="assignment"
+        descriptionInputId="description"
+        executionPolicyInputId="execution-policy"
+        priorityInputId="priority"
+        promptInputId="prompt"
+        queue={queue}
+        selectedTaskHint="Task hint"
+        statusInputId="status"
+        titleInputId="title"
+      />,
+    );
+  });
+}
+
+function draftFromTask(task: AgentQueueTask): TaskDraft {
+  return {
+    dependsOn: task.dependsOn ?? [],
+    description: task.description,
+    executionPolicy: task.executionPolicy ?? "manual",
+    itemType: task.itemType ?? "implementation",
+    priority: task.priority,
+    prompt: task.prompt,
+    queueTagName: task.queueTagName ?? "Default",
+    status: task.status,
+    title: task.title,
+    validationStatus: task.validationStatus ?? "not_started",
+  };
+}
+
+function editController() {
+  return {
+    isEditing: false,
+    onCancel: vi.fn(),
+    onStart: vi.fn(),
+  };
+}
+
+function deleteController() {
+  return {
+    blockedReason: null,
+    canRequest: true,
+    error: null,
+    isConfirming: false,
+    isDeleting: false,
+    message: null,
+    onCancel: vi.fn(),
+    onConfirm: vi.fn(),
+    onRequest: vi.fn(),
+  };
 }
 
 function executionPlanController(

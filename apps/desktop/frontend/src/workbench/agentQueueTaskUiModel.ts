@@ -58,6 +58,22 @@ export type AgentQueueDependencyState = {
   status: AgentQueueDependencyStatus;
 };
 
+export type AgentQueueExecutorInfoTone =
+  | "waiting"
+  | "blocked"
+  | "executing"
+  | "validating"
+  | "reported"
+  | "needs_review"
+  | "done"
+  | "failed";
+
+export type AgentQueueExecutorInfo = {
+  detail: string;
+  label: string;
+  tone: AgentQueueExecutorInfoTone;
+};
+
 export type QueueTagRecord = {
   queueTagId: string;
   queueTagName: string;
@@ -665,6 +681,139 @@ export function validationBadgeVariant(status: string): BadgeVariant {
     case "needs_review":
       return "warning";
     case "not_started":
+    default:
+      return "neutral";
+  }
+}
+
+export function queueExecutorInfoForTask({
+  dependencyState,
+  routingState,
+  task,
+}: {
+  dependencyState?: AgentQueueDependencyState;
+  routingState?: {
+    blockedReasons: readonly { code: string; label: string }[];
+    canTake: boolean;
+  };
+  task: AgentQueueTask;
+}): AgentQueueExecutorInfo {
+  const validationStatus = normalizeValidationStatus(task.validationStatus);
+
+  if (task.status === "failed" || validationStatus === "failed") {
+    return {
+      detail:
+        task.status === "failed"
+          ? "Execution status is failed."
+          : "Validation status is failed.",
+      label: "Failed",
+      tone: "failed",
+    };
+  }
+
+  if (task.status === "completed") {
+    return {
+      detail: "Execution status is completed.",
+      label: "Done",
+      tone: "done",
+    };
+  }
+
+  if (
+    task.status === "review_needed" ||
+    validationStatus === "needs_review" ||
+    task.coordinatorStatus === "awaiting_coordinator_review"
+  ) {
+    return {
+      detail: "Queue item needs operator or coordinator review.",
+      label: "Needs review",
+      tone: "needs_review",
+    };
+  }
+
+  const dependencyBlocked =
+    dependencyState &&
+    dependencyState.dependsOn.length > 0 &&
+    dependencyState.status !== "ready";
+
+  if (dependencyBlocked) {
+    return {
+      detail: queueDependencyBlockedSummary(dependencyState),
+      label: "Blocked",
+      tone: "blocked",
+    };
+  }
+
+  if (
+    validationStatus === "validating" ||
+    task.coordinatorStatus === "awaiting_validation"
+  ) {
+    return {
+      detail: "Validation is in progress or expected before review.",
+      label: "Validating",
+      tone: "validating",
+    };
+  }
+
+  if (task.status === "running") {
+    return {
+      detail: "Execution status is running.",
+      label: "Executing",
+      tone: "executing",
+    };
+  }
+
+  if (task.coordinatorStatus === "worker_reported") {
+    return {
+      detail: "Worker report is available for coordinator review.",
+      label: "Reported",
+      tone: "reported",
+    };
+  }
+
+  const firstRoutingBlocker =
+    routingState && !routingState.canTake
+      ? routingState.blockedReasons.find(
+          (reason) =>
+            reason.code !== "item_not_runnable_status" &&
+            reason.code !== "item_missing_prompt" &&
+            reason.code !== "item_validation_in_progress",
+        )
+      : null;
+
+  if (firstRoutingBlocker) {
+    return {
+      detail: firstRoutingBlocker.label,
+      label: "Blocked",
+      tone: "blocked",
+    };
+  }
+
+  return {
+    detail: task.assignedExecutorWidgetId
+      ? "Assigned and waiting for an explicit operator start."
+      : "Waiting for assignment or explicit operator action.",
+    label: "Waiting",
+    tone: "waiting",
+  };
+}
+
+export function queueExecutorInfoBadgeVariant(
+  tone: AgentQueueExecutorInfoTone,
+): BadgeVariant {
+  switch (tone) {
+    case "done":
+      return "success";
+    case "executing":
+    case "validating":
+    case "reported":
+      return "info";
+    case "blocked":
+    case "needs_review":
+      return "warning";
+    case "failed":
+      return "error";
+    case "waiting":
     default:
       return "neutral";
   }

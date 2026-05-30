@@ -402,6 +402,16 @@ function FlowItemBlock({
         <span className="agent-queue-flow-tag-swatch agent-queue-flow-block-swatch" />
         <span className="agent-queue-flow-block-title">{item.title}</span>
       </span>
+      <span
+        className={[
+          "agent-queue-executor-info-box",
+          `agent-queue-executor-info-${item.executorInfoTone}`,
+        ].join(" ")}
+        title={item.executorInfoDetail}
+      >
+        <span>Executor</span>
+        <strong>{item.executorInfoLabel}</strong>
+      </span>
       <span className="agent-queue-flow-block-meta">
         <span>{item.shortId}</span>
         <span>{item.itemType}</span>
@@ -506,6 +516,7 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Queue tag: ${item.queueTagName}`,
     `Status: ${item.statusLabel}`,
     `Validation: ${item.validationStatusLabel}`,
+    `Executor: ${item.executorInfoLabel}`,
     `Plan: ${item.planStatusLabel}`,
     item.assignedWorkerLabel ? `Assigned worker: ${item.assignedWorkerLabel}` : null,
     item.dependsOn.length > 0

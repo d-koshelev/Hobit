@@ -8,10 +8,12 @@ import {
   normalizeTaskPriority,
   normalizeValidationStatus,
   queueDependencyBlockedSummary,
+  queueExecutorInfoForTask,
   queueTaskPriorityLabel,
   statusLabel,
   validationStatusLabel,
   type AgentQueueDependencyState,
+  type AgentQueueExecutorInfoTone,
   type AgentWorkerSummary,
 } from "../agentQueueTaskUiModel";
 import {
@@ -58,6 +60,9 @@ export type QueueFlowItemBlock = {
   colorToken: QueueFlowTagColorToken;
   dependencyStatus: AgentQueueDependencyState["status"];
   dependsOn: string[];
+  executorInfoDetail: string;
+  executorInfoLabel: string;
+  executorInfoTone: AgentQueueExecutorInfoTone;
   itemType: string;
   planStatusLabel: string;
   priorityLabel: string;
@@ -258,6 +263,11 @@ function queueFlowItemBlock({
     routingState && !routingState.canTake
       ? firstRoutingBlockedReasonLabel(routingState.blockedReasons)
       : null;
+  const executorInfo = queueExecutorInfoForTask({
+    dependencyState: normalizedDependencyState,
+    routingState,
+    task,
+  });
   const blockedReasons = [
     pausedQueueTagIds.has(queueTag.queueTagId) ? "Queue tag is paused" : null,
     normalizedDependencyState.dependsOn.length > 0 &&
@@ -273,6 +283,9 @@ function queueFlowItemBlock({
     colorToken: queueTagColorToken(queueTag.queueTagId),
     dependencyStatus: normalizedDependencyState.status,
     dependsOn: normalizedDependencyState.dependsOn,
+    executorInfoDetail: executorInfo.detail,
+    executorInfoLabel: executorInfo.label,
+    executorInfoTone: executorInfo.tone,
     itemType: normalizeItemType(task.itemType),
     planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),

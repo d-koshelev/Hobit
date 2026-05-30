@@ -536,7 +536,8 @@ Workspace Agent is the foreground interactive agent surface.
   selected-task detail controls. Flow Map is a visual overview of queue tags,
   dependency layers/barriers, the embedded Agent Executor section,
   max/spare/working executor facts, spare/working executor blocks, worker
-  scopes, dry-run next/idle labels from the scheduler plan, capacity
+  scopes, dry-run next/idle labels from the scheduler plan, compact
+  presentation-only executor-info boxes on work-item blocks, capacity
   recommendations, and final result blocks grouped by tag. The Agent Executor
   section reflects global
   stopped/kill-requested state: spare executor blocks show "Queue is stopped"
@@ -550,6 +551,14 @@ Workspace Agent is the foreground interactive agent surface.
   runtime behavior. The table/list view and all existing edit, dependency,
   routing, worker assignment, tag pause/resume, priority/order, manual run,
   and Autorun controls remain available.
+- Selected Queue item details now include an expanded work-item detail header
+  with title, queue tag, item type, priority/order, execution status,
+  validation status, submitted-record metadata, prompt preview, and a compact
+  executor-info box. The executor-info label is presentation-only and is
+  derived from existing execution status, validation status, dependency,
+  routing, assignment, and coordinator-review state. Opening details or
+  clicking compact work-item blocks does not start execution, claim work,
+  launch Agent Executor/Codex, run validation, or create hidden Queue work.
 - Each queue task shows execution status separately from validation status.
   `validating` has a lightweight visual indicator meaning validation/review is
   happening, not worker execution.
@@ -586,7 +595,8 @@ Workspace Agent is the foreground interactive agent surface.
   worker assignment metadata. It includes approximate steps, estimated token
   and time ranges, expected validation commands, likely files or areas when
   inferable, complexity/risk, status, and split recommendation. The estimate is
-  not guaranteed, is not duplicated into the prompt text, and does not include
+  not guaranteed, is structured expected-plan metadata rather than prompt text,
+  is not duplicated into the prompt, and does not include
   provider/model/thinking/runtime config as prompt copy. Generating or
   refreshing a preview does not start workers, claim items, launch Agent
   Executor, launch Codex, call a provider, arm Autorun, run validation, mutate

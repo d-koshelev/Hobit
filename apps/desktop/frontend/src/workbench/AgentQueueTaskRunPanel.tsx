@@ -712,10 +712,10 @@ function ExecutionPlanPreviewPanel({
             className="agent-queue-execution-group-title"
             title="Local deterministic estimate. It does not start execution."
           >
-            Plan preview
+            Expected plan of work
           </p>
           <p className="agent-queue-run-note">
-            Estimate only. Not guaranteed and never appended to the prompt.
+            Plan preview. Structured metadata only; never appended to the prompt.
           </p>
         </div>
         <div className="agent-queue-execution-badges">
@@ -744,6 +744,10 @@ function ExecutionPlanPreviewPanel({
             <div>
               <dt>Worker</dt>
               <dd>{plan.workerId}</dd>
+            </div>
+            <div>
+              <dt>Generated</dt>
+              <dd>{formatRunTimestamp(plan.generatedAt)}</dd>
             </div>
           </dl>
 
@@ -776,7 +780,7 @@ function ExecutionPlanPreviewPanel({
         </>
       ) : (
         <p className="agent-queue-run-note">
-          No plan preview has been generated for this task.
+          No expected plan has been generated. Generate a local preview to estimate scope before any explicit run.
         </p>
       )}
 

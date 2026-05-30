@@ -45,6 +45,9 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Running");
     expect(document.body.textContent).toContain("Validating");
     expect(
+      document.querySelector(".agent-queue-executor-info-box")?.textContent,
+    ).toContain("Validating");
+    expect(
       document.querySelector(".agent-queue-validation-animating"),
     ).not.toBeNull();
   });
@@ -119,6 +122,9 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
 
     expect(document.body.textContent).toContain("Worker blocked");
     expect(document.body.textContent).toContain("Worker is disabled");
+    expect(
+      document.querySelector(".agent-queue-executor-info-box")?.textContent,
+    ).toContain("Blocked");
   });
 
   it("renders plan ready or needed state on task rows", () => {
