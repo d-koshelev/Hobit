@@ -9,7 +9,10 @@ import type {
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
-import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
+import {
+  JdbcBoundaryFinderPanel,
+  JdbcConnectorWidget,
+} from "./JdbcConnectorWidget";
 import {
   findJdbcBoundary,
   renderJdbcBoundarySql,
@@ -72,6 +75,122 @@ describe("JdbcConnectorWidget", () => {
         /run write|execute write|ddl|dml|drop table|alter table/i.test(text),
       ),
     ).toBe(false);
+  });
+
+  it("renders the Boundary Finder preset UI and typed filter inputs", async () => {
+    await renderJdbcWidget();
+
+    expect(document.body.textContent).toContain("Boundary Finder");
+    expect(document.body.textContent).toContain("Numeric threshold sample");
+    expect(document.body.textContent).toContain("Timestamp window sample");
+    expect(selectByLabel("Boundary Finder preset")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Tenant required")).not.toBeNull();
+    expect(
+      inputByLabel<HTMLInputElement>("Business date required"),
+    ).not.toBeNull();
+    expect(selectByLabel("Active required")).not.toBeNull();
+    expect(
+      inputByLabel<HTMLInputElement>("Minimum score required"),
+    ).not.toBeNull();
+    expect(
+      inputByLabel<HTMLInputElement>("Minimum shard required"),
+    ).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("States required")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Shard ids required")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Range min")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Range max")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Precision")).not.toBeNull();
+    expect(inputByLabel<HTMLInputElement>("Sample probe value")).not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Boundary Finder SQL preview"]'),
+    ).not.toBeNull();
+  });
+
+  it("renders Boundary Finder required filter validation", async () => {
+    await renderJdbcWidget();
+
+    await changeInputByLabel("Tenant required", "");
+
+    expect(document.body.textContent).toContain(
+      "Missing required boundary filter value: tenant.",
+    );
+    expect(sqlPreviewText()).toContain(
+      "Fix validation errors to render the SQL preview.",
+    );
+  });
+
+  it("renders Boundary Finder invalid typed value validation", async () => {
+    await renderJdbcWidget();
+
+    await changeInputByLabel("Shard ids required", "1, nope");
+
+    expect(document.body.textContent).toContain(
+      "Boundary filter shards must be a finite number.",
+    );
+  });
+
+  it("renders Boundary Finder SQL preview with typed literal values", async () => {
+    await renderJdbcWidget();
+
+    await changeInputByLabel("Tenant required", "Ada's team");
+
+    const previewText = sqlPreviewText();
+    expect(previewText).toContain("select count(*) > 0 as found");
+    expect(previewText).toContain("tenant = 'Ada''s team'");
+    expect(previewText).toContain("business_date = '2026-05-01'");
+    expect(previewText).toContain("active = TRUE");
+    expect(previewText).toContain("score >= 10.5");
+    expect(previewText).toContain("shard_id in (1, 2)");
+    expect(previewText).toContain("event_id >= 50");
+  });
+
+  it("renders Boundary Finder unknown placeholder errors", async () => {
+    await render(
+      <JdbcBoundaryFinderPanel
+        presets={[
+          boundaryPreset({
+            description: "Broken placeholder test preset.",
+            sqlTemplate:
+              "select count(*) > 0 as found from events where tenant = {{tenant}} and region = {{region}} and event_id >= {{value}}",
+          }),
+        ]}
+      />,
+    );
+
+    expect(document.body.textContent).toContain(
+      "Boundary SQL template contains unknown placeholder: region.",
+    );
+    expect(sqlPreviewText()).toContain(
+      "Fix validation errors to render the SQL preview.",
+    );
+  });
+
+  it("renders Boundary Finder SQL fragment rejection without executing queries", async () => {
+    const onExecute = vi.fn(async () => completedResult());
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: onExecute,
+    });
+
+    await changeInputByLabel("Tenant required", "x' OR 1=1 --");
+
+    expect(document.body.textContent).toContain(
+      "Boundary filter tenant must be a scalar value, not a SQL fragment.",
+    );
+    expect(onExecute).not.toHaveBeenCalled();
+  });
+
+  it("keeps Boundary Finder execution disabled and not wired to Workspace Agent", async () => {
+    const onExecute = vi.fn(async () => completedResult());
+    await renderJdbcWidget({
+      onExecuteJdbcReadOnlyQuery: onExecute,
+    });
+
+    expect(buttonWithText("Run boundary search")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "No Boundary Finder probes, JDBC queries, sidecar calls, Queue tasks, Agent Executor runs, or Workspace Agent actions",
+    );
+    expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
+    expect(onExecute).not.toHaveBeenCalled();
   });
 
   it("validates, executes through the existing callback shape, and renders mock results", async () => {
@@ -1074,6 +1193,18 @@ function buttonTexts() {
   return Array.from(document.querySelectorAll("button")).map(
     (button) => button.textContent ?? "",
   );
+}
+
+function sqlPreviewText() {
+  const preview = document.querySelector<HTMLElement>(
+    '[aria-label="Boundary Finder SQL preview"]',
+  );
+
+  if (!preview) {
+    throw new Error("Boundary Finder SQL preview not found");
+  }
+
+  return preview.textContent ?? "";
 }
 
 function jdbcWidgetInstance(): WidgetInstance {

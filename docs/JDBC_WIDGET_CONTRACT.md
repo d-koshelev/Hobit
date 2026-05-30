@@ -61,6 +61,11 @@ Profiles never store password values, tokens, private keys, client
 certificates, Kerberos tickets, or secret-bearing JDBC URLs. Selecting a
 profile only fills visible Experimental runtime fields; it does not connect,
 probe, validate SQL, run SQL, or create Queue/Executor/Workspace Agent work.
+The Boundary Finder preset UI is now visible in the JDBC widget as a
+frontend-only preview for selecting sample presets, entering typed filters and
+numeric range values, and rendering a safe SQL preview for one sample probe
+value. It does not execute probes, run JDBC queries, persist presets, store
+credentials, or create Workspace Agent, Queue, or Agent Executor work.
 The repo-local sidecar smoke script mirrors this boundary for developer setup:
 without arguments it checks `java`/`javac`, compiles the sidecar when needed,
 and runs HealthCheck only; DriverProbe and real DB smoke require explicit
@@ -227,21 +232,25 @@ Current request/result types:
   statement kind, display-safe columns/rows, row counts, limits, truncation
   flags, duration, sanitized error, and the no-secrets/no-AI-sharing flags.
 
-Boundary Finder preset model status: Planned / model-only.
+Boundary Finder preset UI status: Current Preview / frontend preview only.
 
 - Boundary Finder presets may define a SQL template, typed filter schema,
   range variable, min/max source, precision, boolean result extraction, and
   probe caps/timeouts for a later bounded probe UI/runtime.
-- The planned preset filter schema supports scalar string, integer, decimal,
+- The current sample preset UI supports scalar string, integer, decimal,
   boolean, date, timestamp, string-list, and integer-list values.
 - Template rendering is pure model logic only. Placeholders use `{{key}}`,
   `{{value}}` is reserved for the range probe value, and filter values render
   as typed SQL literals after validation. Raw SQL fragments, dynamic table
   identifiers, and dynamic column identifiers are not supported in the MVP
   model.
-- Boundary Finder execution is not wired to the widget UI, Tauri commands,
-  app service, sidecar, storage, Queue, Agent Executor, Workspace Agent, or any
-  real JDBC runtime in this model-only block.
+- The JDBC widget exposes a compact Boundary Finder section with a preset
+  selector, preset description, generated typed filter inputs, numeric range
+  min/max/precision fields, sample probe value input, rendered SQL preview, and
+  visible validation errors.
+- Boundary Finder execution/probing is not wired to Tauri commands, app
+  service, sidecar, storage, Queue, Agent Executor, Workspace Agent, or any
+  real JDBC runtime.
 - Presets must not store credentials, password values, tokens, private keys,
   client certificates, `secretValue` fields, or secret-bearing connection
   strings. Future runtime work must continue to use explicit operator Run,
@@ -255,6 +264,9 @@ Current frontend assumptions:
 - The widget is a Database / JDBC Preview surface with explicit connector
   metadata selection, an Experimental non-secret connection profile selector,
   and a visible mock read-only runtime status.
+- Boundary Finder is a preview section inside the JDBC widget. It renders
+  typed filter values and one sample probe value through safe SQL template
+  rendering only; it does not validate against or query a database.
 - The profile editor accepts only metadata and warns operators not to enter
   passwords or tokens.
 - Query execution is blocked until the selected visible SQL has been validated
@@ -1472,10 +1484,11 @@ Recommended implementation slices:
 2. Current Preview JDBC result UI: completed for connector selector, SQL
    textarea, Run read-only query, validation status, result grid,
    caps/truncation notices, and error panel.
-3. Boundary Finder preset model: planned/model-only pure preset, typed filter,
-   template rendering, validation, and monotonic search helpers. This slice
-   does not execute real JDBC queries, store credentials, wire UI/runtime, or
-   add Workspace Agent auto-run.
+3. Boundary Finder preset model and preview UI: current frontend-only preset
+   selector, typed filter inputs, numeric range inputs, safe SQL preview,
+   validation errors, pure template rendering, validation, and monotonic search
+   helpers. This slice does not execute real JDBC queries, store credentials,
+   persist presets, wire probing/runtime, or add Workspace Agent auto-run.
 4. Decision follow-up: decide whether to promote the preview path, hide/remove
    it, implement production runtime, or connect Workspace Agent only through
    explicit approved actions later.
@@ -1504,7 +1517,7 @@ The Current Preview does not add:
 - production Java sidecar runtime
 - hidden Workspace Agent-triggered SQL execution
 - `EXPLAIN` workflows
-- Boundary Finder UI/runtime execution
+- Boundary Finder runtime execution
 - Boundary Finder real JDBC probes
 - Boundary Finder credential storage
 - Boundary Finder Workspace Agent auto-run

@@ -97,6 +97,7 @@ export type JdbcBoundaryBooleanResultExtraction = {
 };
 
 export type JdbcBoundaryPreset = {
+  description?: string;
   presetId: string;
   name: string;
   sqlTemplate: string;
@@ -148,6 +149,133 @@ const FILTER_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MAX_BOUNDARY_PROBES = 1000;
 const MAX_BOUNDARY_ITERATIONS = 1000;
 const MAX_BOUNDARY_TIMEOUT_MS = 300000;
+
+export const JDBC_BOUNDARY_FINDER_SAMPLE_PRESETS: JdbcBoundaryPreset[] = [
+  {
+    booleanResult: {
+      column: "found",
+      falseValues: ["false", "0"],
+      kind: "firstRowColumn",
+      trueValues: ["true", "1"],
+    },
+    description:
+      "Preview-only numeric threshold sample for a bounded monotonic search over a numeric event id.",
+    executionPolicy: {
+      maxIterations: 64,
+      maxProbes: 64,
+      timeoutMs: 1000,
+    },
+    filters: [
+      {
+        description: "Sample tenant or account label.",
+        key: "tenant",
+        label: "Tenant",
+        required: true,
+        type: "string",
+      },
+      {
+        description: "Sample business date in ISO date form.",
+        key: "businessDate",
+        label: "Business date",
+        required: true,
+        type: "date",
+      },
+      {
+        description: "Only include active sample rows.",
+        key: "active",
+        label: "Active",
+        required: true,
+        type: "boolean",
+      },
+      {
+        description: "Minimum sample score threshold.",
+        key: "minimumScore",
+        label: "Minimum score",
+        required: true,
+        type: "decimal",
+      },
+      {
+        description: "Minimum shard id.",
+        key: "minimumShard",
+        label: "Minimum shard",
+        required: true,
+        type: "integer",
+      },
+      {
+        description: "Comma-separated sample states.",
+        key: "states",
+        label: "States",
+        required: true,
+        type: "stringList",
+      },
+      {
+        description: "Comma-separated sample shard ids.",
+        key: "shards",
+        label: "Shard ids",
+        required: true,
+        type: "integerList",
+      },
+    ],
+    name: "Numeric threshold sample",
+    presetId: "numeric_threshold_sample",
+    range: {
+      max: 100,
+      min: 0,
+      precision: 1,
+      variable: "value",
+    },
+    sqlTemplate:
+      "select count(*) > 0 as found from sample_events where tenant = {{tenant}} and business_date = {{businessDate}} and active = {{active}} and score >= {{minimumScore}} and shard_id >= {{minimumShard}} and state in ({{states}}) and shard_id in ({{shards}}) and event_id >= {{value}}",
+  },
+  {
+    booleanResult: {
+      column: "found",
+      falseValues: ["false", "0"],
+      kind: "firstRowColumn",
+      trueValues: ["true", "1"],
+    },
+    description:
+      "Preview-only timestamp-window sample. Timestamp values are typed filters; the probe range remains numeric.",
+    executionPolicy: {
+      maxIterations: 64,
+      maxProbes: 64,
+      timeoutMs: 1000,
+    },
+    filters: [
+      {
+        description: "Sample category label.",
+        key: "category",
+        label: "Category",
+        required: true,
+        type: "string",
+      },
+      {
+        description: "Inclusive ISO timestamp lower bound.",
+        key: "windowStart",
+        label: "Window start",
+        required: true,
+        type: "timestamp",
+      },
+      {
+        description: "Exclusive ISO timestamp upper bound.",
+        key: "windowEnd",
+        label: "Window end",
+        required: true,
+        type: "timestamp",
+      },
+    ],
+    name: "Timestamp window sample",
+    presetId: "timestamp_window_sample",
+    range: {
+      max: 1000,
+      min: 0,
+      precision: 1,
+      variable: "value",
+    },
+    sqlTemplate:
+      "select exists(select 1 from sample_events where category = {{category}} and observed_at >= {{windowStart}} and observed_at < {{windowEnd}} and sequence_no >= {{value}}) as found",
+  },
+];
 
 export function validateJdbcBoundaryPreset(
   preset: JdbcBoundaryPreset,
