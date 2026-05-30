@@ -534,6 +534,13 @@ Workspace Agent is the foreground interactive agent surface.
   controls, and collapsed runtime details. Missing or unsupported runtime
   paths are shown as compact redacted visible errors such as `not_configured`
   or `unsupported_driver`.
+- The visible widget includes a frontend-only Boundary Finder preview section.
+  It provides sample preset selection, preset description, generated typed
+  filter inputs, numeric range min/max/precision inputs, a sample probe value
+  input, safe rendered SQL preview, and visible validation errors. Boundary
+  Finder execution/probing is not wired; it does not run JDBC queries, call the
+  sidecar, persist presets, store credentials, create Queue/Executor work, or
+  give Workspace Agent any JDBC execution path.
 - A backend adapter boundary, runtime config loader, Java sidecar prototype,
   and JDK-gated tests exist for opt-in sidecar work. The default product
   runtime remains mock-only.
@@ -559,8 +566,9 @@ Workspace Agent is the foreground interactive agent surface.
   tokens, run real database `EXPLAIN`, format SQL, provide AI query assistance, expose a
   Workspace Agent JDBC execution tool, let Workspace Agent run SQL
   automatically or hidden, ingest JDBC results/errors as AI context, launch
-  Terminal, mutate Git, or affect Agent Queue or Agent Executor behavior. Real
-  DB smoke requires a user-provided driver and database.
+  Terminal, mutate Git, affect Agent Queue or Agent Executor behavior, or run
+  Boundary Finder probes. Real DB smoke requires a user-provided driver and
+  database.
 - Future real connectors must keep secrets runtime-only or in a separately
   approved OS secret store/keychain integration, require explicit operator Run,
   enforce read-only SQL, row/time/result caps, sanitized visible errors, and

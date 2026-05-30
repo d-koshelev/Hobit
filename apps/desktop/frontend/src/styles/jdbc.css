@@ -9,7 +9,8 @@
 .jdbc-list-pane,
 .jdbc-editor-pane,
 .jdbc-runtime-status,
-.jdbc-query-panel {
+.jdbc-query-panel,
+.jdbc-boundary-panel {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: color-mix(
@@ -33,7 +34,8 @@
 .jdbc-editor,
 .jdbc-field,
 .jdbc-runtime-status,
-.jdbc-query-panel {
+.jdbc-query-panel,
+.jdbc-boundary-panel {
   display: grid;
   min-width: 0;
   gap: var(--space-sm);
@@ -426,6 +428,55 @@
   border-radius: var(--radius-sm);
   background: var(--color-nested-surface);
   padding: var(--space-md);
+}
+
+.jdbc-boundary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.jdbc-boundary-description {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.jdbc-boundary-panel .jdbc-message p {
+  margin: 0;
+}
+
+.jdbc-boundary-panel .jdbc-message p + p {
+  margin-top: var(--space-xs);
+}
+
+.jdbc-boundary-preview {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-io-surface) 82%, transparent);
+  padding: var(--space-sm);
+}
+
+.jdbc-boundary-preview pre {
+  overflow: auto;
+  min-height: 92px;
+  max-height: 220px;
+  margin: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  padding: var(--space-sm);
+  white-space: pre-wrap;
 }
 
 .jdbc-safety-notice {
