@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  queueGlobalExecutionStateDescription,
+  queueGlobalExecutionStateLabel,
+} from "./agentQueueTaskUiModel";
 import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
 
 type AgentQueueSidebarProps = {
@@ -8,6 +12,7 @@ type AgentQueueSidebarProps = {
 };
 
 export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
+  const globalExecutionState = foundation.globalExecutionState;
   const [newTagName, setNewTagName] = useState("");
   const [renamingTagId, setRenamingTagId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -55,25 +60,59 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
       <section className="agent-queue-sidebar-section">
         <div className="agent-queue-sidebar-header">
           <p className="agent-queue-pane-title">Queue + Workers</p>
-          <Badge variant={foundation.globalStatus === "running" ? "info" : "neutral"}>
-            {foundation.globalStatus}
+          <Badge
+            variant={
+              globalExecutionState === "started"
+                ? "info"
+                : globalExecutionState === "stop_kill_requested"
+                  ? "warning"
+                  : "neutral"
+            }
+          >
+            {queueGlobalExecutionStateLabel(globalExecutionState)}
           </Badge>
         </div>
         <div className="agent-queue-global-actions">
-          <Button onClick={() => foundation.onStartWorkers()} variant="secondary">
+          <Button
+            className={
+              globalExecutionState === "started"
+                ? "agent-queue-global-action-active"
+                : undefined
+            }
+            onClick={() => foundation.onStartWorkers()}
+            variant="secondary"
+          >
             START
           </Button>
-          <Button onClick={() => foundation.onStopWorkers()} variant="ghost">
+          <Button
+            className={
+              globalExecutionState === "stopped"
+                ? "agent-queue-global-action-active"
+                : undefined
+            }
+            onClick={() => foundation.onStopWorkers()}
+            variant="ghost"
+          >
             STOP
           </Button>
           <Button
-            className="agent-queue-stop-kill-button"
+            className={[
+              "agent-queue-stop-kill-button",
+              globalExecutionState === "stop_kill_requested"
+                ? "agent-queue-global-action-active"
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
             onClick={() => foundation.onStopAndKillRunning()}
             variant="ghost"
           >
             STOP + KILL RUNNING
           </Button>
         </div>
+        <p className="agent-queue-run-note">
+          {queueGlobalExecutionStateDescription(globalExecutionState)}
+        </p>
         {foundation.globalMessage ? (
           <p className="agent-queue-run-note">{foundation.globalMessage}</p>
         ) : null}
@@ -84,7 +123,8 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
               variant={
                 foundation.schedulerPlan.globalState.allowsScheduling
                   ? "info"
-                  : foundation.schedulerPlan.globalState.code === "stop_kill_running"
+                  : foundation.schedulerPlan.globalState.code ===
+                      "stop_kill_requested"
                     ? "warning"
                     : "neutral"
               }

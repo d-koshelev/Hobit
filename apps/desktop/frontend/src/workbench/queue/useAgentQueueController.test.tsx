@@ -275,7 +275,104 @@ describe("useAgentQueueController executionPolicy draft", () => {
       queueTagId: "default",
       queueTagName: "Default",
     });
+    expect(hook.result.current.foundation.globalStatus).toBe(
+      "stop_kill_requested",
+    );
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("uses explicit global execution state to gate manual run, Autorun, and Sequential Runner", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.onGetAgentQueueRunnerSnapshot = async () => queueRunnerSnapshot();
+    harness.options.onStartAgentQueueRunnerSession = async (request) => {
+      harness.autorunStartRequests.push(request);
+      return queueRunnerSnapshot({ status: "running" });
+    };
+    harness.options.onStopAgentQueueRunnerSession = async () =>
+      queueRunnerSnapshot({ status: "stopped" });
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(
+      hook.result.current.run.readinessMessage?.includes("Queue is stopped"),
+    ).toBe(true);
+    expect(hook.result.current.autorun.canArm).toBe(false);
+    expect(
+      hook.result.current.autorun.preconditionMessages.includes(
+        "Click START before arming Queue Autorun.",
+      ),
+    ).toBe(true);
+    expect(hook.result.current.runner.canStart).toBe(false);
+    expect(
+      hook.result.current.runner.preconditionMessages.includes(
+        "Click START before starting the Sequential Queue Runner.",
+      ),
+    ).toBe(true);
+
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
+
+    expect(hook.result.current.foundation.globalStatus).toBe("started");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.autorun.canArm).toBe(true);
+    expect(hook.result.current.runner.canStart).toBe(true);
+
+    act(() => {
+      hook.result.current.foundation.onStopWorkers();
+    });
+
+    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(
+      hook.result.current.run.readinessMessage?.includes("Queue is stopped"),
+    ).toBe(true);
+    expect(hook.result.current.autorun.canArm).toBe(false);
+
+    act(() => {
+      hook.result.current.foundation.onStopAndKillRunning();
+    });
+
+    expect(hook.result.current.foundation.globalStatus).toBe(
+      "stop_kill_requested",
+    );
+    expect(
+      hook.result.current.run.readinessMessage?.includes(
+        "STOP + KILL RUNNING",
+      ),
+    ).toBe(true);
+    expect(
+      hook.result.current.autorun.preconditionMessages.includes(
+        "STOP + KILL RUNNING is requested. Review running work or click START before arming Queue Autorun.",
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      hook.result.current.autorun.onArm();
+      hook.result.current.runner.onStart();
+      await flushHookEffects();
+    });
+
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
 
@@ -417,6 +514,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.editTask.onStart();
       hook.result.current.updateDraft({ prompt: "Updated prompt" });
     });
@@ -440,7 +538,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     expect(hook.result.current.run.readinessMessage).toBe(
       "Resume this queue tag before running the selected task.",
     );
-    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(hook.result.current.foundation.globalStatus).toBe("started");
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
 
@@ -570,6 +668,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.foundation.onWorkerScopeChange("executor-1", {
         kind: "queue_tag",
         queueTagId: "default",
@@ -687,6 +786,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.foundation.onWorkerScopeChange("executor-1", {
         kind: "queue_tag",
         queueTagId: "default",
@@ -1011,6 +1111,9 @@ describe("Agent Queue dependency model", () => {
     );
 
     await flushControllerLoad();
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
     await act(async () => {
       await hook.result.current.selectTask("queue-2");
     });
@@ -1302,6 +1405,9 @@ describe("useAgentQueueController assignment refresh behavior", () => {
     );
 
     await flushControllerLoad();
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
 
     expect(hook.result.current.run.readinessMessage).toBe("Worker is disabled");
     expect(hook.result.current.run.canStart).toBe(false);
@@ -1358,6 +1464,7 @@ describe("useAgentQueueController sequential runner", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await act(async () => {
@@ -1397,6 +1504,7 @@ describe("useAgentQueueController sequential runner", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await flushHookEffects();
@@ -1437,6 +1545,7 @@ describe("useAgentQueueController sequential runner", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await act(async () => {
@@ -1558,6 +1667,7 @@ describe("useAgentQueueController Autorun refresh behavior", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await act(async () => {
@@ -1601,6 +1711,7 @@ describe("useAgentQueueController Autorun refresh behavior", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     expect(
@@ -1742,6 +1853,7 @@ describe("useAgentQueueController delete task", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await act(async () => {

@@ -1,4 +1,5 @@
 import type {
+  AgentQueueGlobalExecutionState,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
 } from "../../workspace/types";
@@ -54,6 +55,7 @@ export function runPreconditionMessages({
 export function queueRunnerPreconditionMessages({
   assignmentApiAvailable,
   codexExecutable,
+  globalExecutionState,
   hasExecutorSelection,
   isDirty,
   isStarting,
@@ -65,6 +67,7 @@ export function queueRunnerPreconditionMessages({
 }: {
   assignmentApiAvailable: boolean;
   codexExecutable: string;
+  globalExecutionState: AgentQueueGlobalExecutionState;
   hasExecutorSelection: boolean;
   isDirty: boolean;
   isStarting: boolean;
@@ -79,6 +82,14 @@ export function queueRunnerPreconditionMessages({
     isStarting: isStarting || runnerInFlight || isQueueRunnerActive(runnerStatus),
     repoRoot,
   });
+
+  if (globalExecutionState === "stop_kill_requested") {
+    messages.unshift(
+      "STOP + KILL RUNNING is requested. Review running work or click START before starting the Sequential Queue Runner.",
+    );
+  } else if (globalExecutionState === "stopped") {
+    messages.unshift("Click START before starting the Sequential Queue Runner.");
+  }
 
   if (!startApiAvailable) {
     messages.unshift("Assigned-task execution is not available in this runtime.");
@@ -106,12 +117,14 @@ export function queueRunnerPreconditionMessages({
 export function queueAutorunPreconditionMessages({
   apiAvailable,
   codexExecutable,
+  globalExecutionState,
   hasExecutorSelection,
   isStarting,
   repoRoot,
 }: {
   apiAvailable: boolean;
   codexExecutable: string;
+  globalExecutionState: AgentQueueGlobalExecutionState;
   hasExecutorSelection: boolean;
   isStarting: boolean;
   repoRoot: string;
@@ -122,6 +135,14 @@ export function queueAutorunPreconditionMessages({
     messages.push(
       "Queue Autorun session control is only available in the Tauri desktop shell.",
     );
+  }
+
+  if (globalExecutionState === "stop_kill_requested") {
+    messages.push(
+      "STOP + KILL RUNNING is requested. Review running work or click START before arming Queue Autorun.",
+    );
+  } else if (globalExecutionState === "stopped") {
+    messages.push("Click START before arming Queue Autorun.");
   }
 
   if (!hasExecutorSelection) {

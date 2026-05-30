@@ -92,6 +92,7 @@ export function AgentQueueFlowMap({
 
         <QueueFlowExecutorSection
           lanes={flowMap.executorLanes}
+          schedulerPlan={schedulerPlan}
           isSelecting={isSelecting}
           onSelectTask={onSelectTask}
           selectedTaskId={selectedTask?.queueItemId ?? null}
@@ -232,11 +233,13 @@ function QueueFlowBarrier({
 
 function QueueFlowExecutorSection({
   lanes,
+  schedulerPlan,
   isSelecting,
   onSelectTask,
   selectedTaskId,
 }: {
   lanes: QueueExecutorLane[];
+  schedulerPlan?: AgentQueueSchedulerPlan;
   isSelecting: boolean;
   onSelectTask: (queueItemId: string) => void;
   selectedTaskId: string | null;
@@ -246,7 +249,27 @@ function QueueFlowExecutorSection({
       aria-label="Agent Executor section"
       className="agent-queue-flow-zone agent-queue-flow-executors"
     >
-      <QueueFlowSectionBaseline label="Agent Executor section" />
+      <div className="agent-queue-flow-zone-header">
+        <QueueFlowSectionBaseline label="Agent Executor section" />
+        {schedulerPlan ? (
+          <Badge
+            variant={
+              schedulerPlan.globalState.code === "started"
+                ? "info"
+                : schedulerPlan.globalState.code === "stop_kill_requested"
+                  ? "warning"
+                  : "neutral"
+            }
+          >
+            {schedulerPlan.globalState.label}
+          </Badge>
+        ) : null}
+      </div>
+      {schedulerPlan && !schedulerPlan.globalState.allowsScheduling ? (
+        <p className="agent-queue-flow-global-note">
+          {schedulerPlan.globalState.explanation}
+        </p>
+      ) : null}
       <div className="agent-queue-flow-executor-lanes">
         {lanes.length === 0 ? (
           <div className="agent-queue-flow-executor-empty">
@@ -435,6 +458,11 @@ function ExecutorLaneBlock({
             ? `Next: ${lane.nextItemTitle}`
             : lane.idleReason ?? "No eligible item"}
       </span>
+      {lane.reviewMessage ? (
+        <span className="agent-queue-flow-executor-review">
+          {lane.reviewMessage}
+        </span>
+      ) : null}
     </button>
   );
 }

@@ -128,7 +128,7 @@ describe("AgentQueueFlowMap", () => {
 
   it("shows global STOP as the spare executor dry-run reason", () => {
     renderFlowMap({
-      globalStatus: "stopped",
+      globalExecutionState: "stopped",
       tasks: [
         queueTask({
           queueItemId: "stopped-task",
@@ -139,6 +139,33 @@ describe("AgentQueueFlowMap", () => {
 
     expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
       "Queue is stopped",
+    );
+  });
+
+  it("shows STOP + KILL RUNNING as a review request without claiming a kill happened", () => {
+    renderFlowMap({
+      globalExecutionState: "stop_kill_requested",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "worker-working",
+          assignedWorkerId: "worker-working",
+          queueItemId: "running-task",
+          status: "running",
+          title: "Running task",
+        }),
+        queueTask({
+          queueItemId: "queued-task",
+          title: "Queued task",
+        }),
+      ],
+    });
+
+    expect(document.body.textContent).toContain("STOP + KILL RUNNING");
+    expect(document.body.textContent).toContain(
+      "Termination requested / coordinator review needed",
+    );
+    expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
+      "STOP + KILL RUNNING requested",
     );
   });
 
@@ -183,11 +210,11 @@ describe("AgentQueueFlowMap", () => {
 });
 
 function renderFlowMap({
-  globalStatus = "running",
+  globalExecutionState = "started",
   onSelectTask = vi.fn(),
   tasks,
 }: {
-  globalStatus?: "running" | "stopped";
+  globalExecutionState?: "started" | "stopped" | "stop_kill_requested";
   onSelectTask?: (queueItemId: string) => void;
   tasks: AgentQueueTask[];
 }) {
@@ -198,7 +225,7 @@ function renderFlowMap({
   const testWorkers = workers();
   const schedulerPlan = buildAgentQueueSchedulerPlan({
     dependencyStates,
-    globalStatus,
+    globalExecutionState,
     pausedQueueTagIds: new Set(),
     tasks,
     workers: testWorkers,

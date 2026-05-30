@@ -2,6 +2,8 @@ import type { AgentQueueTask } from "../../workspace/types";
 import {
   displayTaskTitle,
   isFinalQueueTaskStatus,
+  queueGlobalExecutionStateAllowsScheduling,
+  queueGlobalExecutionStateLabel,
   queueDependencyStatesByTask,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
@@ -14,15 +16,10 @@ import {
   type AgentQueueRoutingBlockedReasonCode,
 } from "./agentQueueRoutingModel";
 
-export type AgentQueueSchedulerGlobalStateCode =
-  | "start"
-  | "stop"
-  | "stop_kill_running";
-
 export type AgentQueueSchedulerGlobalState = {
   allowsScheduling: boolean;
   affectedRunningItemIds: string[];
-  code: AgentQueueSchedulerGlobalStateCode;
+  code: QueueGlobalStatus;
   explanation: string;
   label: "START" | "STOP" | "STOP + KILL RUNNING";
   runningItemCount: number;
@@ -93,31 +90,28 @@ export type AgentQueueSchedulerPlan = {
 
 export type BuildAgentQueueSchedulerPlanInput = {
   dependencyStates?: ReadonlyMap<string, AgentQueueDependencyState>;
-  globalStatus: QueueGlobalStatus;
+  globalExecutionState: QueueGlobalStatus;
   pausedQueueTagIds?: ReadonlySet<string>;
-  stopKillRunningRequested?: boolean;
   tasks: AgentQueueTask[];
   workers: AgentWorkerSummary[];
 };
 
 export function buildAgentQueueSchedulerPlan({
   dependencyStates,
-  globalStatus,
+  globalExecutionState,
   pausedQueueTagIds = new Set(),
-  stopKillRunningRequested = false,
   tasks,
   workers,
 }: BuildAgentQueueSchedulerPlanInput): AgentQueueSchedulerPlan {
   const resolvedDependencyStates =
     dependencyStates ?? queueDependencyStatesByTask(tasks);
   const globalState = schedulerGlobalState({
-    globalStatus,
-    stopKillRunningRequested,
+    globalExecutionState,
     tasks,
   });
   const routingContext = {
     dependencyStates: resolvedDependencyStates,
-    globalStatus: globalState.allowsScheduling ? globalStatus : "stopped",
+    globalExecutionState,
     pausedQueueTagIds,
     tasks,
   };
@@ -269,37 +263,35 @@ export function schedulerBlockedReasonLabel(
 }
 
 function schedulerGlobalState({
-  globalStatus,
-  stopKillRunningRequested,
+  globalExecutionState,
   tasks,
 }: {
-  globalStatus: QueueGlobalStatus;
-  stopKillRunningRequested: boolean;
+  globalExecutionState: QueueGlobalStatus;
   tasks: AgentQueueTask[];
 }): AgentQueueSchedulerGlobalState {
   const affectedRunningItemIds = tasks
     .filter((task) => task.status === "running")
     .map((task) => task.queueItemId);
 
-  if (stopKillRunningRequested) {
+  if (globalExecutionState === "stop_kill_requested") {
     return {
       affectedRunningItemIds,
       allowsScheduling: false,
-      code: "stop_kill_running",
+      code: globalExecutionState,
       explanation:
         "STOP + KILL RUNNING requested. No new work is recommended; affected running items need Agent Executor and coordinator review.",
-      label: "STOP + KILL RUNNING",
+      label: queueGlobalExecutionStateLabel(globalExecutionState),
       runningItemCount: affectedRunningItemIds.length,
     };
   }
 
-  if (globalStatus === "stopped") {
+  if (!queueGlobalExecutionStateAllowsScheduling(globalExecutionState)) {
     return {
       affectedRunningItemIds,
       allowsScheduling: false,
-      code: "stop",
+      code: globalExecutionState,
       explanation: "Queue is stopped. No new work is recommended.",
-      label: "STOP",
+      label: queueGlobalExecutionStateLabel(globalExecutionState),
       runningItemCount: affectedRunningItemIds.length,
     };
   }
@@ -307,10 +299,10 @@ function schedulerGlobalState({
   return {
     affectedRunningItemIds,
     allowsScheduling: true,
-    code: "start",
+    code: globalExecutionState,
     explanation:
       "START is active. Dry-run recommendations show what would run without starting work.",
-    label: "START",
+    label: queueGlobalExecutionStateLabel(globalExecutionState),
     runningItemCount: affectedRunningItemIds.length,
   };
 }
@@ -366,7 +358,7 @@ function workerIdleReason({
   worker: AgentWorkerSummary;
 }) {
   if (!globalState.allowsScheduling) {
-    return globalState.label === "STOP + KILL RUNNING"
+    return globalState.code === "stop_kill_requested"
       ? "STOP + KILL RUNNING requested"
       : "Queue is stopped";
   }
@@ -489,6 +481,8 @@ function schedulerReason(
       return { code, label: "No worker configured" };
     case "queue_stopped":
       return { code, label: "Queue is stopped" };
+    case "queue_stop_kill_requested":
+      return { code, label: "Stop + kill running requested" };
     case "queue_tag_paused":
       return { code, label: "Tag is paused" };
     case "worker_already_running":

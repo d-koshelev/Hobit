@@ -140,6 +140,7 @@ function foundationController(): AgentQueueFoundationController {
   };
 
   return {
+    globalExecutionState: "stopped",
     globalMessage: "Workers are stopped.",
     globalStatus: "stopped",
     onCreateQueueTag: vi.fn(() => true),
@@ -181,7 +182,7 @@ function foundationController(): AgentQueueFoundationController {
       validating: 0,
     },
     schedulerPlan: buildAgentQueueSchedulerPlan({
-      globalStatus: "stopped",
+      globalExecutionState: "stopped",
       pausedQueueTagIds: new Set(),
       tasks: [task],
       workers: [worker],

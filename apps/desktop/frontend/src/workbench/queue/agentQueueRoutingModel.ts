@@ -3,6 +3,7 @@ import {
   getQueueTaskDependencyState,
   normalizeQueueTag,
   normalizeTaskPriority,
+  queueGlobalExecutionStateBlocksNewWork,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
   type QueueGlobalStatus,
@@ -20,6 +21,7 @@ export type AgentQueueRoutingBlockedReasonCode =
   | "item_missing_prompt"
   | "item_not_runnable_status"
   | "item_validation_in_progress"
+  | "queue_stop_kill_requested"
   | "queue_stopped"
   | "queue_tag_paused"
   | "worker_disabled"
@@ -33,7 +35,7 @@ export type AgentQueueRoutingBlockedReason = {
 
 export type AgentQueueRoutingContext = {
   dependencyStates?: ReadonlyMap<string, AgentQueueDependencyState>;
-  globalStatus?: QueueGlobalStatus;
+  globalExecutionState?: QueueGlobalStatus;
   pausedQueueTagIds?: ReadonlySet<string>;
   tasks: AgentQueueTask[];
 };
@@ -70,8 +72,14 @@ export function getWorkerItemBlockedReasons(
     getQueueTaskDependencyState(item, context.tasks);
   const assignedWorkerId = item.assignedWorkerId ?? item.assignedExecutorWidgetId;
 
-  if (context.globalStatus === "stopped") {
-    reasons.push(reason("queue_stopped"));
+  if (queueGlobalExecutionStateBlocksNewWork(context.globalExecutionState ?? "started")) {
+    reasons.push(
+      reason(
+        context.globalExecutionState === "stop_kill_requested"
+          ? "queue_stop_kill_requested"
+          : "queue_stopped",
+      ),
+    );
   }
 
   if (!worker.enabled) {
@@ -298,6 +306,11 @@ function reason(
       return {
         code,
         label: "Queue is stopped",
+      };
+    case "queue_stop_kill_requested":
+      return {
+        code,
+        label: "Stop + kill running requested",
       };
     case "queue_tag_paused":
       return {

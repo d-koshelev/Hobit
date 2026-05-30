@@ -31,10 +31,23 @@ describe("agent queue worker routing model", () => {
     expect(
       reasonCodes(
         getWorkerItemBlockedReasons(agentWorker(), item, {
-        globalStatus: "stopped",
+        globalExecutionState: "stopped",
         tasks: [item],
         }),
       ).includes("queue_stopped"),
+    ).toBe(true);
+  });
+
+  it("reports STOP + KILL RUNNING as a model-only worker routing blocker", () => {
+    const item = queueTask({ prompt: "Run this", status: "ready" });
+
+    expect(
+      reasonCodes(
+        getWorkerItemBlockedReasons(agentWorker(), item, {
+          globalExecutionState: "stop_kill_requested",
+          tasks: [item],
+        }),
+      ).includes("queue_stop_kill_requested"),
     ).toBe(true);
   });
 

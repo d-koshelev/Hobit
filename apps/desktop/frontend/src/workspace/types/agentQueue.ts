@@ -27,6 +27,11 @@ export type AgentQueueTaskExecutionPolicy =
   | "auto"
   | "after_previous_success";
 
+export type AgentQueueGlobalExecutionState =
+  | "started"
+  | "stopped"
+  | "stop_kill_requested";
+
 export type AgentQueueTaskValidationStatus =
   | "not_started"
   | "validating"

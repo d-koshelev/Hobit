@@ -1,4 +1,5 @@
 import type {
+  AgentQueueGlobalExecutionState,
   AgentQueueTask,
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskItemType,
@@ -32,7 +33,7 @@ export type QueueTaskStatus = (typeof TASK_STATUSES)[number];
 export type QueueFilter = "all" | QueueTaskStatus;
 export type QueueTagStatus = "running" | "paused";
 export type QueueTagPauseReason = "manual" | "edit_review";
-export type QueueGlobalStatus = "stopped" | "running";
+export type QueueGlobalStatus = AgentQueueGlobalExecutionState;
 export type WorkerStatus = "idle" | "running" | "paused" | "failed";
 export type WorkerScope =
   | { kind: "all" }
@@ -157,6 +158,49 @@ export const ITEM_TYPE_OPTIONS: Array<{
   { label: "Follow-up", value: "follow_up" },
   { label: "Validation", value: "validation" },
 ];
+
+export const DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE =
+  "stopped" satisfies AgentQueueGlobalExecutionState;
+
+export function queueGlobalExecutionStateLabel(
+  state: AgentQueueGlobalExecutionState,
+): "START" | "STOP" | "STOP + KILL RUNNING" {
+  switch (state) {
+    case "started":
+      return "START";
+    case "stop_kill_requested":
+      return "STOP + KILL RUNNING";
+    case "stopped":
+    default:
+      return "STOP";
+  }
+}
+
+export function queueGlobalExecutionStateDescription(
+  state: AgentQueueGlobalExecutionState,
+) {
+  switch (state) {
+    case "started":
+      return "Workers may take eligible queue items.";
+    case "stop_kill_requested":
+      return "Scheduling is stopped; running work requires termination/coordinator review where runtime supports it.";
+    case "stopped":
+    default:
+      return "No new work is scheduled; running work may finish.";
+  }
+}
+
+export function queueGlobalExecutionStateAllowsScheduling(
+  state: AgentQueueGlobalExecutionState,
+) {
+  return state === "started";
+}
+
+export function queueGlobalExecutionStateBlocksNewWork(
+  state: AgentQueueGlobalExecutionState,
+) {
+  return state !== "started";
+}
 
 export function emptyDraft(): TaskDraft {
   return {

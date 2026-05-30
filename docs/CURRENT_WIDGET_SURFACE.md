@@ -491,19 +491,29 @@ Workspace Agent is the foreground interactive agent surface.
   tag safety rules.
 - Worker routing rules exist as a deterministic frontend/model and UI
   explanation foundation. A worker is eligible for an item only when the worker
-  is enabled, the item is in a runnable execution state with a prompt, the item
-  is not awaiting coordinator review or validation-in-progress, its queue tag
-  is not paused, dependencies are satisfied and valid, worker scope matches the
-  item queue tag, and any manual worker assignment matches that worker.
+  is enabled, Queue global execution state is `started`, the item is in a
+  runnable execution state with a prompt, the item is not awaiting coordinator
+  review or validation-in-progress, its queue tag is not paused, dependencies
+  are satisfied and valid, worker scope matches the item queue tag, and any
+  manual worker assignment matches that worker.
   Disabled/scoped workers, paused tags, dependency blockers, invalid
   dependency graphs, coordinator-review gates, and assignment mismatches are
-  shown as stable human-readable blocked reasons. Priority/order choose only
-  among otherwise eligible items by priority, order/created order, and task id.
-  This routing foundation does not claim, schedule, start, or finalize work.
+  shown as stable human-readable blocked reasons. Global `stopped` blocks new
+  worker eligibility with "Queue is stopped"; `stop_kill_requested` blocks new
+  worker eligibility with "Stop + kill running requested." Priority/order
+  choose only among otherwise eligible items by priority, order/created order,
+  and task id. This routing foundation does not claim, schedule, start, or
+  finalize work.
 - A deterministic Queue scheduler eligibility engine exists as a dry-run model
   foundation. It aggregates the routing, dependency, tag pause, assignment,
   coordinator-review, validation-in-progress, prompt, priority, and global
-  START / STOP / STOP + KILL RUNNING controls into an explainable plan. The
+  START / STOP / STOP + KILL RUNNING controls into an explainable plan. Queue
+  global execution state is explicit frontend/model state:
+  `started` means START and allows dry-run recommendations; `stopped` means
+  STOP and suppresses recommendations with "Queue is stopped"; and
+  `stop_kill_requested` means STOP + KILL RUNNING and suppresses
+  recommendations with "Stop + kill running requested" while showing any
+  already-running items as requiring Agent Executor/coordinator review. The
   plan shows global scheduling state, schedulable item counts, best next item
   per worker when START is active, blocked item summaries, top blocker labels,
   unassigned eligible items, and why a worker is idle or why no worker can take
@@ -514,7 +524,11 @@ Workspace Agent is the foreground interactive agent surface.
   selected-task detail controls. Flow Map is a visual overview of queue tags,
   dependency layers/barriers, the Agent Executor section, spare/working
   executor blocks, dry-run next/idle labels from the scheduler plan, and final
-  result blocks grouped by tag. Work-item blocks can be clicked to select the
+  result blocks grouped by tag. The Agent Executor section reflects global
+  stopped/kill-requested state: spare executor blocks show "Queue is stopped"
+  or "STOP + KILL RUNNING requested" instead of a next item, and already
+  running blocks can show termination-request/coordinator-review copy without
+  implying that any process was killed. Work-item blocks can be clicked to select the
   existing task detail panel, but the view does not start work, claim items,
   schedule workers, launch Agent Executor, finalize status, persist live worker
   process state, or change Queue Autorun,
@@ -529,12 +543,15 @@ Workspace Agent is the foreground interactive agent surface.
   `diff_review`, `follow_up`, and `validation`. Diff Review items are
   independent review work items; they do not modify code by default, and no
   automatic Git diff verification runtime is implemented in this block.
-- The Queue + Workers sidebar has local START, STOP, and STOP + KILL RUNNING
-  controls. START opens the local model for eligible worker scheduling but
-  does not auto-run queue items or start real workers. STOP prevents new
-  local worker scheduling. STOP + KILL RUNNING records a visible local intent;
-  actual process termination, where supported, remains owned by Agent Executor
-  controls and affected items require coordinator review.
+- The Queue + Workers sidebar has explicit local Queue global execution state
+  with START, STOP, and STOP + KILL RUNNING controls. START sets
+  `started`: workers may take eligible queue items in model/dry-run views, but
+  no real worker, Executor, or Codex process starts from that transition. STOP
+  sets `stopped`: no new work is scheduled or recommended, and running work may
+  finish. STOP + KILL RUNNING sets `stop_kill_requested`: no new work is
+  scheduled or recommended, and running work is represented only as requiring
+  termination/coordinator review where runtime support exists. It does not call
+  any kill API, terminate processes, or mark items done/failed.
 - Editing a queue task locally pauses the target queue tag and marks the item
   for coordinator review in the frontend model with the message: "Editing
   paused this queue tag until coordinator review." If an edit moves the item to
@@ -578,9 +595,10 @@ Workspace Agent is the foreground interactive agent surface.
 - Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
   selects one Agent Executor, configures execution workspace/repo root, Codex
   executable, sandbox, and approval policy once, then starts the runner from
-  Queue. The runner scans the current ordered Queue task list after worker
-  routing, dependency, tag, policy, prompt, and assignment gates; priority/order
-  only choose among otherwise eligible items. The runner assigns
+  Queue after global execution state is START/`started`. The runner scans the
+  current ordered Queue task list after global state, worker routing,
+  dependency, tag, policy, prompt, and assignment gates; priority/order only
+  choose among otherwise eligible items. The runner assigns
   unassigned runnable tasks to the selected Executor, starts each task through
   the existing assigned-task Queue-to-Executor handoff path, waits for an
   Executor final state, and then evaluates the next task.
@@ -594,7 +612,8 @@ Workspace Agent is the foreground interactive agent surface.
 - Provides a visible Queue Autorun panel that can arm, stop, and refresh
   desktop-local runner session state. Queue Autorun can start one eligible
   assigned `auto` task through the existing Queue-to-Executor path after the
-  operator clicks Start Autorun. Refresh can observe that run's final status
+  operator clicks Start Autorun while global execution state is START/`started`.
+  STOP and STOP + KILL RUNNING block arming. Refresh can observe that run's final status
   and, after success, continue to exactly one next eligible assigned `auto` or
   `after_previous_success` task per refresh. A desktop-local current-session
   tick runs the same reconciliation path while Hobit remains open and the

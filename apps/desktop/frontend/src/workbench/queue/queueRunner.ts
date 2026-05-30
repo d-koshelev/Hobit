@@ -1,4 +1,7 @@
-import type { AgentQueueTask } from "../../workspace/types";
+import type {
+  AgentQueueGlobalExecutionState,
+  AgentQueueTask,
+} from "../../workspace/types";
 import {
   agentExecutorSlotLabel,
   getQueueTaskDependencyState,
@@ -50,6 +53,7 @@ export type QueueRunnerTaskDecisionInput = {
   selectedExecutorWidgetId: string;
   startedQueueItemIds?: ReadonlySet<string>;
   tasks: AgentQueueTask[];
+  globalExecutionState?: AgentQueueGlobalExecutionState;
   workers?: AgentWorkerSummary[];
 };
 
@@ -59,6 +63,7 @@ export function getNextQueueRunnerTaskDecision({
   selectedExecutorWidgetId,
   startedQueueItemIds,
   tasks,
+  globalExecutionState = "started",
   workers,
 }: QueueRunnerTaskDecisionInput): QueueRunnerTaskDecision {
   let skippedTaskCount = 0;
@@ -115,6 +120,7 @@ export function getNextQueueRunnerTaskDecision({
       workers?.find((worker) => worker.workerId === selectedExecutorWidgetId) ??
       defaultWorkerForExecutor(selectedExecutorWidgetId);
     const blockedReasons = getWorkerItemBlockedReasons(selectedWorker, task, {
+      globalExecutionState,
       pausedQueueTagIds,
       tasks,
     });

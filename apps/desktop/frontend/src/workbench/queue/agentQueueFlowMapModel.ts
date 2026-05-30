@@ -88,6 +88,7 @@ export type QueueExecutorLane = {
   isWorking: boolean;
   label: string;
   nextItemTitle: string | null;
+  reviewMessage: string | null;
   scopeLabel: string;
   status: AgentWorkerSummary["status"];
   workerId: string;
@@ -186,6 +187,10 @@ export function buildQueueFlowMap({
           isWorking: Boolean(activeItem),
           label: worker.name,
           nextItemTitle: workerPlan?.bestNextItem?.title ?? null,
+          reviewMessage:
+            activeItem && schedulerPlan?.globalState.code === "stop_kill_requested"
+              ? "Termination requested / coordinator review needed"
+              : null,
           scopeLabel: workerScopeLabel(worker),
           status: worker.status,
           workerId: worker.workerId,

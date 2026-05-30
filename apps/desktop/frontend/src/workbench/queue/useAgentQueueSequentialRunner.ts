@@ -7,6 +7,7 @@ import {
   type SetStateAction,
 } from "react";
 import type {
+  AgentQueueGlobalExecutionState,
   AgentQueueTask,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -40,6 +41,7 @@ type UseAgentQueueSequentialRunnerOptions = {
   approvalPolicy: DirectWorkApprovalPolicy;
   assignmentApiAvailable: boolean;
   codexExecutable: string;
+  globalExecutionState: AgentQueueGlobalExecutionState;
   isDirty: boolean;
   isStarting: boolean;
   loadTasks: LoadTasks;
@@ -61,6 +63,7 @@ export function useAgentQueueSequentialRunner({
   approvalPolicy,
   assignmentApiAvailable,
   codexExecutable,
+  globalExecutionState,
   isDirty,
   isStarting,
   loadTasks,
@@ -90,6 +93,7 @@ export function useAgentQueueSequentialRunner({
       queueRunnerPreconditionMessages({
         assignmentApiAvailable,
         codexExecutable,
+        globalExecutionState,
         hasExecutorSelection: Boolean(selectedExecutorWidgetId),
         isDirty,
         isStarting,
@@ -102,6 +106,7 @@ export function useAgentQueueSequentialRunner({
     [
       assignmentApiAvailable,
       codexExecutable,
+      globalExecutionState,
       isDirty,
       isStarting,
       repoRoot,
@@ -149,6 +154,7 @@ export function useAgentQueueSequentialRunner({
     }
 
     const decision = getNextQueueRunnerTaskDecision({
+      globalExecutionState,
       pausedQueueTagIds,
       previousTaskStatus,
       selectedExecutorWidgetId,

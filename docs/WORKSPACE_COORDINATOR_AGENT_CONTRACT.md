@@ -568,40 +568,46 @@ assignment gates pass. Reordering must not start work, claim items, finalize
 status, bypass review, or become a backend scheduler.
 
 Queue worker routing is a deterministic model/UI foundation only. A worker can
-take an item only when the worker is enabled, worker scope is all queues or the
-item's queue tag, any manual item assignment matches that worker, the item is
-in a runnable execution state with a prompt, the tag is not paused,
-dependencies are satisfied and valid, and current coordinator/validation gates
-allow work. Disabled workers, scope mismatches, paused tags, dependency
-blockers, invalid dependency graphs, assignment mismatches, coordinator-review
-gates, stopped queue state where modeled, and non-runnable item states have
-stable blocked-reason codes with readable labels. Priority/order can choose the
-next item only after those safety gates pass. This routing model must not
-become claiming, scheduler dispatch, hidden execution, worker finalization,
-rollback execution, Agent Executor runtime changes, or Codex Direct Work
-changes.
+take an item only when Queue global execution state is `started`, the worker is
+enabled, worker scope is all queues or the item's queue tag, any manual item
+assignment matches that worker, the item is in a runnable execution state with
+a prompt, the tag is not paused, dependencies are satisfied and valid, and
+current coordinator/validation gates allow work. Disabled workers, scope
+mismatches, paused tags, dependency blockers, invalid dependency graphs,
+assignment mismatches, coordinator-review gates, stopped queue state, STOP +
+KILL RUNNING request state, and non-runnable item states have stable
+blocked-reason codes with readable labels. Priority/order can choose the next
+item only after those safety gates pass. This routing model must not become
+claiming, scheduler dispatch, hidden execution, worker finalization, rollback
+execution, Agent Executor runtime changes, or Codex Direct Work changes.
 
 Queue scheduler eligibility is now a deterministic dry-run/model foundation
-over those worker routing rules. It can explain global START / STOP / STOP +
-KILL RUNNING state, available workers, eligible items per worker, best next
-items, blocked items, top blocker labels, why no worker can take an item, and
-why a worker is idle. This model is read-only and explanation-only. It must not
-claim items, start real workers, launch Agent Executor or Codex, create hidden
-Queue Autorun starts, persist live worker process state, run a background
-scheduler loop, finalize item status, or execute rollback. Real scheduling and
-runtime worker behavior remain future explicit work.
+over those worker routing rules. Queue global execution state is a first-class
+frontend/model value: `started` is START and allows dry-run recommendations;
+`stopped` is STOP and suppresses recommendations with "Queue is stopped";
+`stop_kill_requested` is STOP + KILL RUNNING and suppresses recommendations
+with "Stop + kill running requested" while marking already-running items as
+requiring termination/coordinator review in model/UI only. The dry-run can
+explain available workers, eligible items per worker, best next items, blocked
+items, top blocker labels, why no worker can take an item, and why a worker is
+idle. This model is read-only and explanation-only. It must not claim items,
+start real workers, launch Agent Executor or Codex, create hidden Queue
+Autorun starts, persist live worker process state, run a background scheduler
+loop, finalize item status, kill processes, or execute rollback. Real
+scheduling and runtime worker behavior remain future explicit work.
 
 The Queue widget may visualize the same frontend/model state in a Flow Map
 view. The Flow Map groups work-item blocks by queue tag, shows dependency
 layers and barrier rows, shows Agent Executor lanes with spare and currently
-running visual blocks, dry-run next/idle labels where available, and shows
-final result blocks grouped by tag. It is a
+running visual blocks, dry-run next/idle labels where available, global
+stopped/kill-requested executor-lane messages, and final result blocks grouped
+by tag. It is a
 selection and comprehension view only: clicking a work-item block selects the
 existing task details, and clicking a running executor block may select the
 linked task when visible. It must not claim work, start Agent Executor, arm or
 advance Queue Autorun, start real workers, finalize item status, persist live
-worker process state, run validation, execute rollback, mutate Git, or change
-Workspace Agent / Agent Executor / Codex Direct Work runtime behavior. The
+worker process state, run validation, execute rollback, kill processes, mutate
+Git, or change Workspace Agent / Agent Executor / Codex Direct Work runtime behavior. The
 table/list/detail controls remain available.
 
 Queue item editing must be explicit and safe in the Queue + Workers model.

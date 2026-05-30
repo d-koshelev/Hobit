@@ -8,11 +8,11 @@ import {
 describe("agent queue scheduler model", () => {
   it("recommends the next item for an enabled all-queues worker when START is active", () => {
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
     });
 
-    expect(plan.globalState.code).toBe("start");
+    expect(plan.globalState.code).toBe("started");
     expect(plan.workerPlans[0]?.bestNextItem?.queueItemId).toBe("queue-1");
     expect(plan.recommendations).toHaveLength(1);
     expect(plan.schedulableItemCount).toBe(1);
@@ -20,7 +20,7 @@ describe("agent queue scheduler model", () => {
 
   it("keeps disabled workers from receiving recommendations", () => {
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
       workers: [agentWorker({ enabled: false })],
     });
@@ -34,7 +34,7 @@ describe("agent queue scheduler model", () => {
 
   it("limits scoped workers to matching queue tag items", () => {
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       tasks: [
         queueTask({
           prompt: "Review",
@@ -65,7 +65,7 @@ describe("agent queue scheduler model", () => {
 
   it("honors explicit worker assignment", () => {
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       tasks: [
         queueTask({
           assignedWorkerId: "worker-2",
@@ -128,7 +128,7 @@ describe("agent queue scheduler model", () => {
       status: "ready",
     });
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       pausedQueueTagIds: new Set(["paused"]),
       tasks: [
         prerequisite,
@@ -165,12 +165,11 @@ describe("agent queue scheduler model", () => {
 
   it("does not recommend new work while STOP or STOP + KILL RUNNING is active", () => {
     const stopped = buildPlan({
-      globalStatus: "stopped",
+      globalExecutionState: "stopped",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
     });
     const killRequested = buildPlan({
-      globalStatus: "stopped",
-      stopKillRunningRequested: true,
+      globalExecutionState: "stop_kill_requested",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
     });
 
@@ -181,12 +180,36 @@ describe("agent queue scheduler model", () => {
     ).toBe(true);
     expect(killRequested.globalState.label).toBe("STOP + KILL RUNNING");
     expect(killRequested.recommendations).toHaveLength(0);
+    expect(
+      killRequested.blockedItems[0]?.reasonLabels.includes(
+        "Stop + kill running requested",
+      ),
+    ).toBe(true);
     expect(killRequested.explanation.includes("no work is started")).toBe(true);
+  });
+
+  it("tracks running items affected by STOP + KILL RUNNING as review-only state", () => {
+    const plan = buildPlan({
+      globalExecutionState: "stop_kill_requested",
+      tasks: [
+        queueTask({
+          prompt: "Already running",
+          queueItemId: "running-task",
+          status: "running",
+        }),
+      ],
+    });
+
+    expect(plan.globalState.affectedRunningItemIds).toEqual(["running-task"]);
+    expect(plan.globalState.explanation.includes("coordinator review")).toBe(
+      true,
+    );
+    expect(plan.recommendations).toHaveLength(0);
   });
 
   it("chooses priority and order only among eligible items", () => {
     const plan = buildPlan({
-      globalStatus: "running",
+      globalExecutionState: "started",
       pausedQueueTagIds: new Set(["paused"]),
       tasks: [
         queueTask({
@@ -219,6 +242,9 @@ describe("agent queue scheduler model", () => {
 
   it("provides stable blocked reason labels for UI explanations", () => {
     expect(schedulerBlockedReasonLabel("queue_stopped")).toBe("Queue is stopped");
+    expect(schedulerBlockedReasonLabel("queue_stop_kill_requested")).toBe(
+      "Stop + kill running requested",
+    );
     expect(schedulerBlockedReasonLabel("queue_tag_paused")).toBe("Tag is paused");
     expect(schedulerBlockedReasonLabel("waiting_for_dependencies")).toBe(
       "Waiting for dependencies",
@@ -246,7 +272,7 @@ function buildPlan(
   overrides: Partial<Parameters<typeof buildAgentQueueSchedulerPlan>[0]> = {},
 ) {
   return buildAgentQueueSchedulerPlan({
-    globalStatus: "running",
+    globalExecutionState: "started",
     pausedQueueTagIds: new Set(),
     tasks: [queueTask({ prompt: "Run this", status: "ready" })],
     workers: [agentWorker()],

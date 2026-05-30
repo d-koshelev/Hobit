@@ -25,10 +25,16 @@ behavior, or Workspace Agent context wiring.
   pause/resume/delete-empty management, local tag pause/review state, Agent
   Agent Worker configuration persisted per Workspace for durable worker id,
   name, enabled/disabled flag, display order, and scope to all queues or one
-  tag, separate execution and validation statuses, local START / STOP / STOP +
-  KILL RUNNING controls that do not auto-run items, item types including
+  tag, separate execution and validation statuses, explicit Queue global
+  execution state (`started`, `stopped`, and `stop_kill_requested`) behind the
+  local START / STOP / STOP + KILL RUNNING controls, item types including
   independent Diff Review work items, and coordinator-owned finalization
-  vocabulary. Persisted Agent Worker config does not persist current running
+  vocabulary. START allows dry-run recommendations only; STOP suppresses new
+  recommendations; STOP + KILL RUNNING suppresses new recommendations and
+  represents running work as requiring termination/coordinator review in
+  model/UI only. None of those state transitions auto-run items, start
+  workers, launch Agent Executor/Codex, kill processes, or finalize item
+  status. Persisted Agent Worker config does not persist current running
   process, current item execution, temporary failure details, or live logs as
   durable truth. Queue item edits are explicit save/cancel operations; saving an
   edit locally pauses the related queue tag for coordinator review, resume is
@@ -48,19 +54,21 @@ behavior, or Workspace Agent context wiring.
   helpers and UI indicators for eligible item count, next item, and blocked
   reason summaries. Disabled/scoped workers, paused tags, dependency blockers,
   invalid dependency graphs, manual assignment mismatches,
-  coordinator-review/validation gates, and non-runnable item states affect
-  eligibility, but the model does not claim, schedule, start, or finalize work.
+  coordinator-review/validation gates, global stopped/kill-requested state,
+  and non-runnable item states affect eligibility, but the model does not
+  claim, schedule, start, kill, or finalize work.
   A deterministic scheduler eligibility engine now aggregates those routing
   rules into a dry-run plan for the Queue UI: global START / STOP / STOP +
   KILL RUNNING state, eligible worker/item relationships, best-next worker
   recommendations, blocked item summaries, top blocker labels, and worker idle
   reasons. The plan is explanation-only and does not claim items, start
   workers, launch Agent Executor/Codex, persist live worker process state, run
-  a background scheduler loop, or finalize item status.
+  a background scheduler loop, kill processes, or finalize item status.
   The Queue widget also has a Flow Map view that visualizes queue tags,
   dependency layers/barriers, executor lanes, spare executors with scheduler
-  dry-run next/idle labels, running executor blocks, and final result blocks
-  grouped by tag. The Flow Map is
+  dry-run next/idle labels or global stopped/kill-requested messages, running
+  executor blocks with termination-request/coordinator-review copy when
+  STOP + KILL RUNNING is active, and final result blocks grouped by tag. The Flow Map is
   frontend/model visualization only; it selects existing tasks for the detail
   panel and does not add claiming, scheduling, hidden execution, worker
   process persistence, worker-owned finalization, rollback execution, Agent

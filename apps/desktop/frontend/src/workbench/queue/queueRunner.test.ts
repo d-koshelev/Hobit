@@ -322,6 +322,29 @@ describe("queue runner task selection", () => {
     expect(decision.kind === "stop" && decision.reason).toBe("routing_blocked");
   });
 
+  it("stops before selecting work when the global execution state blocks new work", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      globalExecutionState: "stop_kill_requested",
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          prompt: "Run this",
+          status: "ready",
+        }),
+      ],
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.kind === "stop" && decision.reason).toBe("routing_blocked");
+    expect(
+      decision.kind === "stop" &&
+        decision.blockedReasons?.[0]?.code === "queue_stop_kill_requested",
+    ).toBe(true);
+  });
+
   it("does not select a task that already started in the current pass", () => {
     const decision = getNextQueueRunnerTaskDecision({
       previousTaskStatus: "completed",
