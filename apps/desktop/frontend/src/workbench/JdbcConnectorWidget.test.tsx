@@ -9,10 +9,8 @@ import type {
   JdbcReadOnlySqlValidation,
   JdbcSidecarDiagnostic,
 } from "../workspace/jdbcQueryTypes";
-import {
-  JdbcBoundaryFinderPanel,
-  JdbcConnectorWidget,
-} from "./JdbcConnectorWidget";
+import { JdbcBoundaryFinderPanel } from "./JdbcBoundaryFinderPanel";
+import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
 import {
   findJdbcBoundary,
   renderJdbcBoundarySql,
