@@ -1280,6 +1280,47 @@ describe("useAgentQueueController assignment refresh behavior", () => {
 
     hook.unmount();
   });
+
+  it("prevents assigning a disabled worker and keeps manual run blocked by routing", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.replaceWorker(
+      agentQueueWorker({
+        enabled: false,
+        workerId: "executor-1",
+      }),
+    );
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.run.readinessMessage).toBe("Worker is disabled");
+    expect(hook.result.current.run.canStart).toBe(false);
+
+    await act(async () => {
+      await hook.result.current.clearSelectedTaskAssignment();
+    });
+    await act(async () => {
+      await hook.result.current.assignSelectedTask();
+    });
+
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(hook.result.current.assignmentError).toBe(
+      "Selected worker is disabled. Enable it before assigning new work.",
+    );
+    expect(harness.startRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
 });
 
 describe("useAgentQueueController sequential runner", () => {
@@ -1530,6 +1571,51 @@ describe("useAgentQueueController Autorun refresh behavior", () => {
     expect(hook.result.current.autorun.snapshot?.activeQueueItemId).toBe(
       "queue-1",
     );
+
+    hook.unmount();
+  });
+
+  it("keeps Queue Autorun blocked when the selected worker has no eligible assigned auto task", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.replaceWorker(agentQueueWorker({ enabled: false }));
+    harness.options.onGetAgentQueueRunnerSnapshot = async () => queueRunnerSnapshot();
+    harness.options.onStartAgentQueueRunnerSession = async (request) => {
+      harness.autorunStartRequests.push(request);
+      return queueRunnerSnapshot({ status: "running" });
+    };
+    harness.options.onStopAgentQueueRunnerSession = async () =>
+      queueRunnerSnapshot({ status: "stopped" });
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+    expect(
+      hook.result.current.autorun.preconditionMessages.includes(
+        "No assigned auto task is currently eligible for the selected worker.",
+      ),
+    ).toBe(true);
+    expect(hook.result.current.autorun.canArm).toBe(false);
+
+    await act(async () => {
+      hook.result.current.autorun.onArm();
+      await flushHookEffects();
+    });
+
+    expect(harness.autorunStartRequests).toHaveLength(0);
 
     hook.unmount();
   });

@@ -285,6 +285,43 @@ describe("queue runner task selection", () => {
     );
   });
 
+  it("stops before starting a task when selected worker routing blocks it", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          queueTagId: "review",
+          queueTagName: "Review",
+          status: "ready",
+        }),
+      ],
+      workers: [
+        {
+          currentItemId: null,
+          displayOrder: 0,
+          enabled: true,
+          lastReportSummary: null,
+          name: "Agent Executor 1",
+          scope: {
+            kind: "queue_tag",
+            queueTagId: "default",
+            queueTagName: "Default",
+          },
+          status: "idle",
+          workerId: "executor-1",
+        },
+      ],
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.kind === "stop" && decision.reason).toBe("routing_blocked");
+  });
+
   it("does not select a task that already started in the current pass", () => {
     const decision = getNextQueueRunnerTaskDecision({
       previousTaskStatus: "completed",

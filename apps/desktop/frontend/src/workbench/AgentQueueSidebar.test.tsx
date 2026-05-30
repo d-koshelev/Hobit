@@ -29,6 +29,8 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Default");
     expect(document.body.textContent).toContain("Agent Executor 1");
+    expect(document.body.textContent).toContain("1 eligible item");
+    expect(document.body.textContent).toContain("Next: Queue task");
     expect(document.body.textContent).toContain("Add worker");
     expect(document.body.textContent).toContain("Needs review");
   });
@@ -152,6 +154,24 @@ function foundationController(): AgentQueueFoundationController {
         enabled: true,
         lastReportSummary: null,
         name: "Agent Executor 1",
+        routingSummary: {
+          blockedReasonSummary: null,
+          eligibleItemCount: 1,
+          nextItem: {
+            assignedExecutorWidgetId: null,
+            createdAt: "2026-05-20T10:00:00.000Z",
+            dependsOn: [],
+            description: "",
+            executionPolicy: "auto",
+            priority: 0,
+            prompt: "Run this",
+            queueItemId: "queue-1",
+            status: "ready",
+            title: "Queue task",
+            updatedAt: "2026-05-20T10:00:00.000Z",
+            workspaceId: "workspace-1",
+          },
+        },
         scope: { kind: "queue_tag", queueTagId: "default", queueTagName: "Default" },
         status: "idle",
         workerId: "executor-1",

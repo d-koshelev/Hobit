@@ -59,6 +59,12 @@ import {
   runPreconditionMessages,
   type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
+import {
+  firstRoutingBlockedReasonLabel,
+  getAssignedWorkerRoutingStates,
+  getWorkerRoutingSummary,
+  type AgentQueueRoutingContext,
+} from "./agentQueueRoutingModel";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 
 type UseAgentQueueControllerOptions = Pick<
@@ -396,24 +402,50 @@ export function useAgentQueueController({
     () => queueTagsFromTasks(tasks, queueTagPauseStates, managedQueueTags),
     [managedQueueTags, queueTagPauseStates, tasks],
   );
+  const dependencyStates = useMemo(
+    () => queueDependencyStatesByTask(tasks),
+    [tasks],
+  );
+  const routingContext = useMemo<AgentQueueRoutingContext>(
+    () => ({
+      dependencyStates,
+      pausedQueueTagIds,
+      tasks,
+    }),
+    [dependencyStates, pausedQueueTagIds, tasks],
+  );
   const workers = useMemo(
-    () =>
-      workersFromExecutorSlots({
+    () => {
+      const baseWorkers = workersFromExecutorSlots({
         pauseStates: queueTagPauseStates,
         slots: agentExecutorSlots,
         tasks,
         workerConfigs,
         workerScopes,
-      }),
-    [agentExecutorSlots, queueTagPauseStates, tasks, workerConfigs, workerScopes],
+      });
+
+      return baseWorkers.map((worker) => ({
+        ...worker,
+        routingSummary: getWorkerRoutingSummary(worker, tasks, routingContext),
+      }));
+    },
+    [
+      agentExecutorSlots,
+      dependencyStates,
+      pausedQueueTagIds,
+      queueTagPauseStates,
+      tasks,
+      workerConfigs,
+      workerScopes,
+    ],
   );
   const queueValidationSummary = useMemo(
     () => validationSummary(tasks),
     [tasks],
   );
-  const dependencyStates = useMemo(
-    () => queueDependencyStatesByTask(tasks),
-    [tasks],
+  const assignedWorkerRoutingStates = useMemo(
+    () => getAssignedWorkerRoutingStates(tasks, workers, routingContext),
+    [routingContext, tasks, workers],
   );
 
   const loadTasks = useCallback(
@@ -658,10 +690,20 @@ export function useAgentQueueController({
     selectedQueueTagId && pausedQueueTagIds.has(selectedQueueTagId),
   );
   const hasOpenTaskEdit = isEditing || isDirty;
+  const selectedTaskAssignedWorkerRouting = selectedTask
+    ? assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+    : null;
+  const selectedTaskRoutingMessage =
+    selectedTaskAssignedWorkerRouting &&
+    selectedTaskAssignedWorkerRouting.blockedReasons.length > 0
+      ? firstRoutingBlockedReasonLabel(
+          selectedTaskAssignedWorkerRouting.blockedReasons,
+        )
+      : null;
   const readinessMessage = selectedQueueTagPaused
     ? "Resume this queue tag before running the selected task."
     : selectedTask
-      ? queueRunReadinessMessage({
+        ? queueRunReadinessMessage({
           isDirty: hasOpenTaskEdit,
           selectedTask,
           startApiAvailable,
@@ -669,7 +711,8 @@ export function useAgentQueueController({
         queueDependencyReadinessMessage(
           dependencyStates.get(selectedTask.queueItemId) ??
             getQueueTaskDependencyState(selectedTask, tasks),
-        )
+        ) ??
+        selectedTaskRoutingMessage
       : "Assign an Agent Executor before running.";
   const preconditionMessages = useMemo(
     () =>
@@ -701,6 +744,7 @@ export function useAgentQueueController({
     taskCount: tasks.length,
     tasksRef,
     pausedQueueTagIds,
+    workers,
   });
   useQueueTaskAutoRefreshFromExecutor({
     autoRefreshRequest: queueTaskAutoRefreshRequest,
@@ -732,6 +776,24 @@ export function useAgentQueueController({
     autorunPreconditionMessages.unshift(
       "Resolve blocked or invalid queue dependencies before arming Queue Autorun.",
     );
+  }
+  if (selectedExecutorWidgetId) {
+    const hasEligibleAssignedAutorunTask = tasks.some((task) => {
+      const assignedWorkerId = task.assignedWorkerId ?? task.assignedExecutorWidgetId;
+      const routingState = assignedWorkerRoutingStates.get(task.queueItemId);
+
+      return (
+        assignedWorkerId === selectedExecutorWidgetId &&
+        task.executionPolicy === "auto" &&
+        Boolean(routingState?.canTake)
+      );
+    });
+
+    if (!hasEligibleAssignedAutorunTask) {
+      autorunPreconditionMessages.unshift(
+        "No assigned auto task is currently eligible for the selected worker.",
+      );
+    }
   }
   const isAutorunActive = Boolean(autorunSnapshot?.isActive);
   const canArmAutorun =
@@ -2173,6 +2235,7 @@ export function useAgentQueueController({
     statusFilter,
     tasks,
     dependencyStates,
+    assignedWorkerRoutingStates,
     updateDraft,
     updatePriority,
     validationMessage,

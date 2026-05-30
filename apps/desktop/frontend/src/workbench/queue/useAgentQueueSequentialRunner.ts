@@ -11,7 +11,10 @@ import type {
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../../workspace/types";
-import { shortWidgetInstanceId } from "../agentQueueTaskUiModel";
+import {
+  shortWidgetInstanceId,
+  type AgentWorkerSummary,
+} from "../agentQueueTaskUiModel";
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
 import type { WidgetRenderProps } from "../types";
 import {
@@ -51,6 +54,7 @@ type UseAgentQueueSequentialRunnerOptions = {
   taskCount: number;
   tasksRef: MutableRefObject<AgentQueueTask[]>;
   pausedQueueTagIds: ReadonlySet<string>;
+  workers: AgentWorkerSummary[];
 };
 
 export function useAgentQueueSequentialRunner({
@@ -71,6 +75,7 @@ export function useAgentQueueSequentialRunner({
   taskCount,
   tasksRef,
   pausedQueueTagIds,
+  workers,
 }: UseAgentQueueSequentialRunnerOptions) {
   const [status, setStatus] = useState<AgentQueueRunnerStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -149,6 +154,7 @@ export function useAgentQueueSequentialRunner({
       selectedExecutorWidgetId,
       startedQueueItemIds: startedQueueItemIdsRef.current,
       tasks: tasksRef.current,
+      workers,
     });
 
     if (decision.kind === "completed") {

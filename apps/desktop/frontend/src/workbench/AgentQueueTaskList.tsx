@@ -23,6 +23,10 @@ import {
   type QueueFilter,
   type AgentQueueDependencyState,
 } from "./agentQueueTaskUiModel";
+import {
+  firstRoutingBlockedReasonLabel,
+  type AgentQueueAssignedWorkerRoutingState,
+} from "./queue/agentQueueRoutingModel";
 
 type AgentQueueTaskListProps = {
   dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
@@ -33,6 +37,7 @@ type AgentQueueTaskListProps = {
   onSelectTask: (queueItemId: string) => void;
   onStatusFilterChange: (filter: QueueFilter) => void;
   pausedQueueTagIds: ReadonlySet<string>;
+  routingStates: ReadonlyMap<string, AgentQueueAssignedWorkerRoutingState>;
   selectedTask: AgentQueueTask | null;
   statusFilter: QueueFilter;
   tasks: AgentQueueTask[];
@@ -47,6 +52,7 @@ export function AgentQueueTaskList({
   onSelectTask,
   onStatusFilterChange,
   pausedQueueTagIds,
+  routingStates,
   selectedTask,
   statusFilter,
   tasks,
@@ -122,6 +128,11 @@ export function AgentQueueTaskList({
             );
             const itemType = normalizeItemType(task.itemType);
             const dependencyState = dependencyStates.get(task.queueItemId);
+            const routingState = routingStates.get(task.queueItemId);
+            const routingBlockedLabel =
+              routingState && !routingState.canTake
+                ? firstRoutingBlockedReasonLabel(routingState.blockedReasons)
+                : null;
 
             return (
               <button
@@ -157,6 +168,11 @@ export function AgentQueueTaskList({
                   {queueTagPaused ? (
                     <Badge variant="warning">Tag paused</Badge>
                   ) : null}
+                  {routingState?.assignedWorker ? (
+                    <Badge variant={routingState.canTake ? "success" : "warning"}>
+                      {routingState.canTake ? "Worker eligible" : "Worker blocked"}
+                    </Badge>
+                  ) : null}
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
                     <Badge
                       variant={queueDependencyBadgeVariant(
@@ -186,6 +202,7 @@ export function AgentQueueTaskList({
                       task.assignedWorkerId ?? task.assignedExecutorWidgetId,
                     )}
                   </span>
+                  {routingBlockedLabel ? <span>{routingBlockedLabel}</span> : null}
                   <span>Priority {queueTaskPriorityLabel(task.priority)}</span>
                   <span>Order {(taskIndex + 1).toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>

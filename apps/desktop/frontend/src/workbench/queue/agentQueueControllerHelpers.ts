@@ -175,6 +175,10 @@ export function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
       return `Sequential Queue Runner stopped before "${decision.task.title}" because it requires a previous task completed in this runner pass.`;
     case "previous_task_not_successful":
       return `Sequential Queue Runner stopped before "${decision.task.title}" because the previous task did not complete successfully.`;
+    case "routing_blocked":
+      return `Sequential Queue Runner stopped before "${decision.task.title}" because ${
+        decision.blockedReasons?.[0]?.label ?? "worker routing is blocked"
+      }.`;
   }
 }
 

@@ -1,10 +1,15 @@
 import type { AgentQueueTask } from "../../workspace/types";
 import {
+  agentExecutorSlotLabel,
   getQueueTaskDependencyState,
-  normalizeQueueTag,
   sortQueueTasksForDisplay,
   type AgentQueueDependencyState,
+  type AgentWorkerSummary,
 } from "../agentQueueTaskUiModel";
+import {
+  getWorkerItemBlockedReasons,
+  type AgentQueueRoutingBlockedReason,
+} from "./agentQueueRoutingModel";
 import {
   getQueueRunnerPolicyDecision,
   type QueueRunnerPreviousTaskStatus,
@@ -27,7 +32,9 @@ export type QueueRunnerTaskDecision =
         | "manual"
         | "paused_queue_tag"
         | "previous_success_required"
-        | "previous_task_not_successful";
+        | "previous_task_not_successful"
+        | "routing_blocked";
+      blockedReasons?: AgentQueueRoutingBlockedReason[];
       dependencyState?: AgentQueueDependencyState;
       skippedTaskCount: number;
       task: AgentQueueTask;
@@ -43,6 +50,7 @@ export type QueueRunnerTaskDecisionInput = {
   selectedExecutorWidgetId: string;
   startedQueueItemIds?: ReadonlySet<string>;
   tasks: AgentQueueTask[];
+  workers?: AgentWorkerSummary[];
 };
 
 export function getNextQueueRunnerTaskDecision({
@@ -51,6 +59,7 @@ export function getNextQueueRunnerTaskDecision({
   selectedExecutorWidgetId,
   startedQueueItemIds,
   tasks,
+  workers,
 }: QueueRunnerTaskDecisionInput): QueueRunnerTaskDecision {
   let skippedTaskCount = 0;
 
@@ -102,9 +111,16 @@ export function getNextQueueRunnerTaskDecision({
       };
     }
 
+    const selectedWorker =
+      workers?.find((worker) => worker.workerId === selectedExecutorWidgetId) ??
+      defaultWorkerForExecutor(selectedExecutorWidgetId);
+    const blockedReasons = getWorkerItemBlockedReasons(selectedWorker, task, {
+      pausedQueueTagIds,
+      tasks,
+    });
+
     if (
-      task.assignedExecutorWidgetId &&
-      task.assignedExecutorWidgetId !== selectedExecutorWidgetId
+      blockedReasons.some((reason) => reason.code === "assigned_to_another_worker")
     ) {
       return {
         kind: "stop",
@@ -114,11 +130,16 @@ export function getNextQueueRunnerTaskDecision({
       };
     }
 
-    const dependencyState = getQueueTaskDependencyState(task, tasks);
-
-    if (dependencyState.status !== "ready") {
+    if (
+      blockedReasons.some(
+        (reason) =>
+          reason.code === "item_dependency_graph_invalid" ||
+          reason.code === "waiting_for_dependencies",
+      )
+    ) {
       return {
-        dependencyState,
+        blockedReasons,
+        dependencyState: getQueueTaskDependencyState(task, tasks),
         kind: "stop",
         reason: "dependency_blocked",
         skippedTaskCount,
@@ -126,10 +147,21 @@ export function getNextQueueRunnerTaskDecision({
       };
     }
 
-    if (pausedQueueTagIds?.has(normalizeQueueTag(task).queueTagId)) {
+    if (blockedReasons.some((reason) => reason.code === "queue_tag_paused")) {
       return {
+        blockedReasons,
         kind: "stop",
         reason: "paused_queue_tag",
+        skippedTaskCount,
+        task,
+      };
+    }
+
+    if (blockedReasons.length > 0) {
+      return {
+        blockedReasons,
+        kind: "stop",
+        reason: "routing_blocked",
         skippedTaskCount,
         task,
       };
@@ -165,4 +197,17 @@ export function queueRunnerFinalStatus(
   }
 
   return "failed";
+}
+
+function defaultWorkerForExecutor(workerId: string): AgentWorkerSummary {
+  return {
+    currentItemId: null,
+    displayOrder: 0,
+    enabled: true,
+    lastReportSummary: null,
+    name: agentExecutorSlotLabel(workerId),
+    scope: { kind: "all" },
+    status: "idle",
+    workerId,
+  };
 }

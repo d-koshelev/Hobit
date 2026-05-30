@@ -42,8 +42,14 @@ behavior, or Workspace Agent context wiring.
   in the current model. Queue items also have numeric priority plus a
   frontend/model stable order inside each queue tag and priority band, with
   explicit reorder controls and top/bottom insertion. Priority/order affect
-  visible eligible-item ordering only after dependency, tag, policy, prompt,
-  and assignment gates; they do not add hidden execution or scheduler claiming.
+  visible eligible-item ordering only after worker routing, dependency, tag,
+  policy, prompt, and assignment gates; they do not add hidden execution or
+  scheduler claiming. Worker routing now has deterministic frontend/model
+  helpers and UI indicators for eligible item count, next item, and blocked
+  reason summaries. Disabled/scoped workers, paused tags, dependency blockers,
+  invalid dependency graphs, manual assignment mismatches,
+  coordinator-review/validation gates, and non-runnable item states affect
+  eligibility, but the model does not claim, schedule, start, or finalize work.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

@@ -489,6 +489,17 @@ Workspace Agent is the foreground interactive agent surface.
   model. Deleting an empty scoped tag safely moves affected workers back to
   All queues; deleting non-empty/running tags remains blocked by the existing
   tag safety rules.
+- Worker routing rules exist as a deterministic frontend/model and UI
+  explanation foundation. A worker is eligible for an item only when the worker
+  is enabled, the item is in a runnable execution state with a prompt, the item
+  is not awaiting coordinator review or validation-in-progress, its queue tag
+  is not paused, dependencies are satisfied and valid, worker scope matches the
+  item queue tag, and any manual worker assignment matches that worker.
+  Disabled/scoped workers, paused tags, dependency blockers, invalid
+  dependency graphs, coordinator-review gates, and assignment mismatches are
+  shown as stable human-readable blocked reasons. Priority/order choose only
+  among otherwise eligible items by priority, order/created order, and task id.
+  This routing foundation does not claim, schedule, start, or finalize work.
 - Each queue task shows execution status separately from validation status.
   `validating` has a lightweight visual indicator meaning validation/review is
   happening, not worker execution.
@@ -545,9 +556,9 @@ Workspace Agent is the foreground interactive agent surface.
 - Provides a visible frontend-driven Sequential Queue Runner MVP. The operator
   selects one Agent Executor, configures execution workspace/repo root, Codex
   executable, sandbox, and approval policy once, then starts the runner from
-  Queue. The runner scans the current ordered Queue task list after dependency,
-  tag, policy, prompt, and assignment gates; priority/order only choose among
-  otherwise eligible items. The runner assigns
+  Queue. The runner scans the current ordered Queue task list after worker
+  routing, dependency, tag, policy, prompt, and assignment gates; priority/order
+  only choose among otherwise eligible items. The runner assigns
   unassigned runnable tasks to the selected Executor, starts each task through
   the existing assigned-task Queue-to-Executor handoff path, waits for an
   Executor final state, and then evaluates the next task.

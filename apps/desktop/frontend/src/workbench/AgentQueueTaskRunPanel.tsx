@@ -39,6 +39,10 @@ import type {
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
+import {
+  firstRoutingBlockedReasonLabel,
+  type AgentQueueAssignedWorkerRoutingState,
+} from "./queue/agentQueueRoutingModel";
 import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
@@ -70,6 +74,7 @@ type AgentQueueTaskRunPanelProps = {
   run: AgentQueueRunController;
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
+  routingState?: AgentQueueAssignedWorkerRoutingState;
   selectedTask: AgentQueueTask;
   queueTags: QueueTagSummary[];
   workers: AgentWorkerSummary[];
@@ -96,6 +101,7 @@ export function AgentQueueTaskRunPanel({
   run,
   runHistory,
   runner,
+  routingState,
   selectedTask,
   queueTags,
   workers,
@@ -116,6 +122,10 @@ export function AgentQueueTaskRunPanel({
   const isAssignmentLockedStatus = isAssignmentLockedQueueTaskStatus(
     selectedTask.status,
   );
+  const routingBlockedLabel =
+    routingState && !routingState.canTake
+      ? firstRoutingBlockedReasonLabel(routingState.blockedReasons)
+      : null;
   const assignmentDisabledReason = assignmentControlMessage({
     apiAvailable,
     hasExecutorSlots,
@@ -217,6 +227,18 @@ export function AgentQueueTaskRunPanel({
               selectedTask.assignedWorkerId ??
                 selectedTask.assignedExecutorWidgetId,
             )}
+          </dd>
+        </div>
+        <div>
+          <dt>Worker route</dt>
+          <dd>
+            {routingState?.assignedWorker
+              ? routingState.canTake
+                ? "Eligible"
+                : routingBlockedLabel ?? "Blocked"
+              : selectedTask.assignedExecutorWidgetId
+                ? routingBlockedLabel ?? "Assigned worker unavailable"
+                : "Unassigned"}
           </dd>
         </div>
         <div>

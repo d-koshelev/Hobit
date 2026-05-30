@@ -286,6 +286,24 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                       ? `, scoped to ${worker.scope.queueTagName}`
                       : ", all queues"}
                   </p>
+                  <p className="agent-queue-sidebar-row-meta">
+                    {worker.routingSummary
+                      ? `${worker.routingSummary.eligibleItemCount.toString()} eligible item${
+                          worker.routingSummary.eligibleItemCount === 1
+                            ? ""
+                            : "s"
+                        }`
+                      : "Routing not evaluated"}
+                  </p>
+                  {worker.routingSummary?.nextItem ? (
+                    <p className="agent-queue-sidebar-row-meta">
+                      Next: {worker.routingSummary.nextItem.title.trim() || "New task"}
+                    </p>
+                  ) : worker.routingSummary?.blockedReasonSummary ? (
+                    <p className="agent-queue-sidebar-row-meta">
+                      Blocked: {worker.routingSummary.blockedReasonSummary}
+                    </p>
+                  ) : null}
                 {worker.scope.kind === "queue_tag" &&
                 worker.status === "paused" ? (
                   <p className="agent-queue-sidebar-row-meta">

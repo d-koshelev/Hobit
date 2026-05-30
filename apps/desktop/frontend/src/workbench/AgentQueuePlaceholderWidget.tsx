@@ -254,6 +254,7 @@ export function AgentQueuePlaceholderWidget({
                 onSelectTask={(queueItemId) => void selectTask(queueItemId)}
                 onStatusFilterChange={setStatusFilter}
                 pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+                routingStates={queue.assignedWorkerRoutingStates}
                 selectedTask={selectedTask}
                 statusFilter={statusFilter}
                 tasks={tasks}

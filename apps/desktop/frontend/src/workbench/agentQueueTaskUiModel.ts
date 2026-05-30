@@ -5,6 +5,7 @@ import type {
   AgentQueueTaskValidationStatus,
   AgentQueueWorkerConfig,
 } from "../workspace/types";
+import type { AgentQueueWorkerRoutingSummary } from "./queue/agentQueueRoutingModel";
 import type { AgentExecutorSlot, WidgetInstance } from "./types";
 import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
@@ -89,6 +90,7 @@ export type AgentWorkerSummary = {
   currentItemId: string | null;
   lastReportSummary: string | null;
   displayOrder: number;
+  routingSummary?: AgentQueueWorkerRoutingSummary;
 };
 
 export type TaskDraft = {

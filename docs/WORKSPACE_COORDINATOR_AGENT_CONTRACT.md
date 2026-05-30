@@ -567,6 +567,20 @@ selected first, but only after dependency, tag pause, policy, prompt, and
 assignment gates pass. Reordering must not start work, claim items, finalize
 status, bypass review, or become a backend scheduler.
 
+Queue worker routing is a deterministic model/UI foundation only. A worker can
+take an item only when the worker is enabled, worker scope is all queues or the
+item's queue tag, any manual item assignment matches that worker, the item is
+in a runnable execution state with a prompt, the tag is not paused,
+dependencies are satisfied and valid, and current coordinator/validation gates
+allow work. Disabled workers, scope mismatches, paused tags, dependency
+blockers, invalid dependency graphs, assignment mismatches, coordinator-review
+gates, stopped queue state where modeled, and non-runnable item states have
+stable blocked-reason codes with readable labels. Priority/order can choose the
+next item only after those safety gates pass. This routing model must not
+become claiming, scheduler dispatch, hidden execution, worker finalization,
+rollback execution, Agent Executor runtime changes, or Codex Direct Work
+changes.
+
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for
 Workspace/coordinator review, and leaves already running Executor work alone.

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
 import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
+import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
 
 let root: Root | null = null;
@@ -100,11 +101,31 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Deps blocked");
     expect(document.body.textContent).toContain("Blocked by: Prerequisite");
   });
+
+  it("renders assigned worker eligibility and compact blocked reason", () => {
+    renderList(
+      [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          assignedWorkerId: "executor-1",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+      ],
+      new Set(),
+      true,
+    );
+
+    expect(document.body.textContent).toContain("Worker blocked");
+    expect(document.body.textContent).toContain("Worker is disabled");
+  });
 });
 
 function renderList(
   tasks: AgentQueueTask[],
   pausedQueueTagIds: ReadonlySet<string> = new Set(),
+  disabledWorker = false,
 ) {
   container = document.createElement("div");
   document.body.append(container);
@@ -121,6 +142,22 @@ function renderList(
         onSelectTask={vi.fn()}
         onStatusFilterChange={vi.fn()}
         pausedQueueTagIds={pausedQueueTagIds}
+        routingStates={getAssignedWorkerRoutingStates(
+          tasks,
+          [
+            {
+              currentItemId: null,
+              displayOrder: 0,
+              enabled: !disabledWorker,
+              lastReportSummary: null,
+              name: "Agent Executor 1",
+              scope: { kind: "all" },
+              status: disabledWorker ? "paused" : "idle",
+              workerId: "executor-1",
+            },
+          ],
+          { pausedQueueTagIds, tasks },
+        )}
         selectedTask={tasks[0] ?? null}
         statusFilter="all"
         tasks={tasks}

@@ -134,6 +134,9 @@ export function AgentQueueTaskDetailsPanel({
             run={run}
             runHistory={queue.runHistory}
             runner={queue.runner}
+            routingState={queue.assignedWorkerRoutingStates.get(
+              selectedTask.queueItemId,
+            )}
             selectedTask={selectedTask}
             queueTags={queue.foundation.queueTags}
             workers={queue.foundation.workers}
