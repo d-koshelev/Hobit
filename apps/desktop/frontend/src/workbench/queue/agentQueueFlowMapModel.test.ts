@@ -66,6 +66,12 @@ describe("agent queue flow map model", () => {
     expect(map.columns[0]?.barriersAfter[0]?.label).toContain(
       "Dependency barrier",
     );
+    expect(map.columns[0]?.barriersAfter[0]?.blockingSummary).toContain(
+      "Blocker",
+    );
+    expect(map.columns[0]?.barriersAfter[0]?.blockedSummary).toContain(
+      "Blocked",
+    );
     expect(blockedBlock?.dependencyStatus).toBe("blocked");
     expect(blockedBlock?.blockedReasons.join(" ")).toContain(
       "Blocked by: Blocker",
@@ -86,6 +92,7 @@ describe("agent queue flow map model", () => {
     const block = map.columns[0]?.groups[0]?.items[0];
 
     expect(block?.colorToken).toBe(queueTagColorToken("validation"));
+    expect(block?.assignedWorkerLabel).toBeNull();
     expect(block?.statusLabel).toBe("Running");
     expect(block?.validationStatus).toBe("validating");
     expect(block?.validationStatusLabel).toBe("Validating");
@@ -113,6 +120,9 @@ describe("agent queue flow map model", () => {
       isWorking: true,
       workerId: "worker-working",
     });
+    expect(map.executorLanes[0]?.activeItem?.assignedWorkerLabel).toBe(
+      "Worker working",
+    );
     expect(map.executorLanes[1]).toMatchObject({
       activeItem: null,
       isWorking: false,

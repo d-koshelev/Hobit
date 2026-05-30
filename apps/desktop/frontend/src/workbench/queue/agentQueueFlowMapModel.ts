@@ -51,6 +51,7 @@ export type QueueFlowGroup = {
 };
 
 export type QueueFlowItemBlock = {
+  assignedWorkerLabel: string | null;
   blockedReasons: string[];
   colorToken: QueueFlowTagColorToken;
   dependencyStatus: AgentQueueDependencyState["status"];
@@ -71,7 +72,9 @@ export type QueueFlowItemBlock = {
 export type QueueFlowBarrier = {
   afterDepth: number;
   blockedItemIds: string[];
+  blockedSummary: string;
   blockingItemIds: string[];
+  blockingSummary: string;
   id: string;
   label: string;
 };
@@ -248,6 +251,7 @@ function queueFlowItemBlock({
   ].filter((reason): reason is string => Boolean(reason));
 
   return {
+    assignedWorkerLabel: routingState?.assignedWorker?.name ?? null,
     blockedReasons,
     colorToken: queueTagColorToken(queueTag.queueTagId),
     dependencyStatus: normalizedDependencyState.status,
@@ -320,20 +324,51 @@ function barrierAfterDepth({
   const blockingTitles = blockingItemIds
     .map((queueItemId) => itemBlocksById.get(queueItemId)?.title)
     .filter((title): title is string => Boolean(title))
-    .slice(0, 2);
+    .slice(0, 3);
+  const blockedTitles = blockedItemIds
+    .map((queueItemId) => itemBlocksById.get(queueItemId)?.title)
+    .filter((title): title is string => Boolean(title))
+    .slice(0, 3);
 
   return [
     {
       afterDepth: currentDepth,
       blockedItemIds,
+      blockedSummary: compactTitleSummary({
+        fallback: `Layer ${(nextDepth + 1).toString()} work`,
+        totalCount: blockedItemIds.length,
+        visibleTitles: blockedTitles,
+      }),
       blockingItemIds,
+      blockingSummary: compactTitleSummary({
+        fallback: `Layer ${(currentDepth + 1).toString()} work`,
+        totalCount: blockingItemIds.length,
+        visibleTitles: blockingTitles,
+      }),
       id: `barrier-${currentDepth.toString()}-${nextDepth.toString()}`,
-      label:
-        blockingTitles.length > 0
-          ? `Dependency barrier after ${blockingTitles.join(", ")}`
-          : "Dependency barrier",
+      label: "Dependency barrier",
     },
   ];
+}
+
+function compactTitleSummary({
+  fallback,
+  totalCount,
+  visibleTitles,
+}: {
+  fallback: string;
+  totalCount: number;
+  visibleTitles: string[];
+}) {
+  if (visibleTitles.length === 0) {
+    return fallback;
+  }
+
+  const remainingCount = totalCount - visibleTitles.length;
+
+  return remainingCount > 0
+    ? `${visibleTitles.join(", ")} and ${remainingCount.toString()} more`
+    : visibleTitles.join(", ");
 }
 
 function dependencyDepths(tasks: AgentQueueTask[]) {

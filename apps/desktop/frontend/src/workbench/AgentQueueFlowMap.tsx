@@ -64,21 +64,27 @@ export function AgentQueueFlowMap({
       </div>
 
       <div className="agent-queue-flow-map-scroll">
-        {flowMap.columns.length === 0 ? (
-          <div className="agent-queue-empty-state agent-queue-empty-state-compact">
-            <p className="empty-state-title">No active queue flow.</p>
-            <p className="empty-state-text">
-              Active queued, ready, running, or review-needed items appear here.
-            </p>
-          </div>
-        ) : (
-          <QueueFlowLayers
-            columns={flowMap.columns}
-            isSelecting={isSelecting}
-            onSelectTask={onSelectTask}
-            selectedTaskId={selectedTask?.queueItemId ?? null}
-          />
-        )}
+        <section
+          aria-label="Work queue and blocked work"
+          className="agent-queue-flow-zone agent-queue-flow-work-zone"
+        >
+          <QueueFlowSectionBaseline label="Work queue / blocked work" />
+          {flowMap.columns.length === 0 ? (
+            <div className="agent-queue-empty-state agent-queue-empty-state-compact">
+              <p className="empty-state-title">No active queue flow.</p>
+              <p className="empty-state-text">
+                Active queued, ready, running, or review-needed items appear here.
+              </p>
+            </div>
+          ) : (
+            <QueueFlowLayers
+              columns={flowMap.columns}
+              isSelecting={isSelecting}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTask?.queueItemId ?? null}
+            />
+          )}
+        </section>
 
         <QueueFlowExecutorSection
           lanes={flowMap.executorLanes}
@@ -209,7 +215,12 @@ function QueueFlowBarrier({
       title={`${barrier.blockingItemIds.length.toString()} blockers, ${barrier.blockedItemIds.length.toString()} dependent items`}
     >
       <span className="agent-queue-flow-barrier-line" />
-      <span className="agent-queue-flow-barrier-label">{barrier.label}</span>
+      <span className="agent-queue-flow-barrier-body">
+        <span className="agent-queue-flow-barrier-label">{barrier.label}</span>
+        <span className="agent-queue-flow-barrier-copy">
+          {barrier.blockingSummary} blocks {barrier.blockedSummary}
+        </span>
+      </span>
       <span className="agent-queue-flow-barrier-line" />
     </div>
   );
@@ -229,7 +240,7 @@ function QueueFlowExecutorSection({
   return (
     <section
       aria-label="Agent Executor section"
-      className="agent-queue-flow-executors"
+      className="agent-queue-flow-zone agent-queue-flow-executors"
     >
       <QueueFlowSectionBaseline label="Agent Executor section" />
       <div className="agent-queue-flow-executor-lanes">
@@ -265,7 +276,10 @@ function QueueFlowResultsSection({
   selectedTaskId: string | null;
 }) {
   return (
-    <section aria-label="Queue results" className="agent-queue-flow-results">
+    <section
+      aria-label="Queue results"
+      className="agent-queue-flow-zone agent-queue-flow-results"
+    >
       <QueueFlowSectionBaseline label="Results" />
       {groups.length === 0 ? (
         <div className="agent-queue-flow-result-empty">
@@ -329,11 +343,15 @@ function FlowItemBlock({
       title={itemTitle(item)}
       type="button"
     >
-      <span className="agent-queue-flow-block-title">{item.title}</span>
+      <span className="agent-queue-flow-block-heading">
+        <span className="agent-queue-flow-tag-swatch agent-queue-flow-block-swatch" />
+        <span className="agent-queue-flow-block-title">{item.title}</span>
+      </span>
       <span className="agent-queue-flow-block-meta">
         <span>{item.shortId}</span>
-        <span>{item.priorityLabel}</span>
         <span>{item.itemType}</span>
+        <span>{item.priorityLabel}</span>
+        {item.assignedWorkerLabel ? <span>{item.assignedWorkerLabel}</span> : null}
       </span>
       <span className="agent-queue-flow-block-badges">
         <Badge variant={statusBadgeVariant(item.status)}>{item.statusLabel}</Badge>
@@ -399,10 +417,13 @@ function ExecutorLaneBlock({
     >
       <span className="agent-queue-flow-executor-name">{lane.label}</span>
       <span className="agent-queue-flow-executor-meta">
-        {lane.scopeLabel} | {lane.status}
+        <span className="agent-queue-flow-executor-state">
+          {lane.isWorking ? "Working" : "Spare executor"}
+        </span>
+        <span>{lane.scopeLabel}</span>
       </span>
       <span className="agent-queue-flow-executor-task">
-        {lane.activeItem ? lane.activeItem.title : "Spare executor"}
+        {lane.activeItem ? lane.activeItem.title : "No task assigned"}
       </span>
     </button>
   );
@@ -418,9 +439,12 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Queue tag: ${item.queueTagName}`,
     `Status: ${item.statusLabel}`,
     `Validation: ${item.validationStatusLabel}`,
+    item.assignedWorkerLabel ? `Assigned worker: ${item.assignedWorkerLabel}` : null,
     item.dependsOn.length > 0
       ? `Dependencies: ${item.dependsOn.join(", ")}`
       : "Dependencies: none",
     ...item.blockedReasons.map((reason) => `Blocked: ${reason}`),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

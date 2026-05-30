@@ -59,7 +59,9 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Flow map");
     expect(document.body.textContent).toContain("Review");
     expect(document.body.textContent).toContain("Follow-up");
+    expect(document.body.textContent).toContain("Work queue / blocked work");
     expect(document.body.textContent).toContain("Dependency barrier");
+    expect(document.body.textContent).toContain("Review blocker blocks Blocked follow-up");
     expect(document.body.textContent).toContain("Blocked");
     expect(document.body.textContent).toContain("Blocked by: Review blocker");
     expect(document.body.textContent).toContain("Validating");
@@ -84,7 +86,7 @@ describe("AgentQueueFlowMap", () => {
     });
 
     const block = document.querySelector<HTMLButtonElement>(
-      "[data-tag-color-token]",
+      ".agent-queue-flow-block[data-tag-color-token]",
     );
 
     expect(block?.dataset.tagColorToken).toBe(queueTagColorToken("review"));
@@ -112,7 +114,11 @@ describe("AgentQueueFlowMap", () => {
 
     expect(workingLane).not.toBeNull();
     expect(workingLane?.textContent).toContain("Running task");
+    expect(workingLane?.textContent).toContain("Working");
     expect(document.querySelector(".agent-queue-flow-executor-spare")).not.toBeNull();
+    expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
+      "Spare executor",
+    );
   });
 
   it("selects a work item without starting executor or scheduler callbacks", () => {
