@@ -335,10 +335,10 @@ function QueueFlowResultsSection({
       aria-label="Queue results"
       className="agent-queue-flow-zone agent-queue-flow-results"
     >
-      <QueueFlowSectionBaseline label="Results" />
+      <QueueFlowSectionBaseline label="Results / reports" />
       {groups.length === 0 ? (
         <div className="agent-queue-flow-result-empty">
-          No completed, failed, or cancelled result blocks yet.
+          No completed, failed, cancelled, or reported blocks yet.
         </div>
       ) : (
         <div className="agent-queue-flow-result-groups">
@@ -421,6 +421,9 @@ function FlowItemBlock({
       </span>
       <span className="agent-queue-flow-block-badges">
         <Badge variant={statusBadgeVariant(item.status)}>{item.statusLabel}</Badge>
+        {item.hasWorkerReport ? (
+          <Badge variant="info">Report received</Badge>
+        ) : null}
         <Badge
           className={
             item.validationStatus === "validating"
@@ -518,6 +521,7 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Validation: ${item.validationStatusLabel}`,
     `Executor: ${item.executorInfoLabel}`,
     `Plan: ${item.planStatusLabel}`,
+    item.hasWorkerReport ? "Worker report: received / not final" : null,
     item.assignedWorkerLabel ? `Assigned worker: ${item.assignedWorkerLabel}` : null,
     item.dependsOn.length > 0
       ? `Dependencies: ${item.dependsOn.join(", ")}`

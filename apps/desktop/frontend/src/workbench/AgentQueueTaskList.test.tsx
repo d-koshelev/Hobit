@@ -157,6 +157,38 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Plan ready");
     expect(document.body.textContent).toContain("Plan needed");
   });
+
+  it("renders a worker report marker on task rows", () => {
+    renderList([
+      queueTask({
+        coordinatorStatus: "awaiting_coordinator_review",
+        workerExecutionReports: [
+          {
+            changedFiles: [],
+            commandsRun: [],
+            createdAt: "2026-05-20T10:02:00.000Z",
+            errors: [],
+            itemId: "queue-1",
+            reportId: "report-1",
+            reportStatus: "reported",
+            summary: "Worker report summary",
+            validationCommandsSuggested: [],
+            validationResult: "not_run",
+            warnings: [],
+            workerId: "executor-1",
+          },
+        ],
+      }),
+    ]);
+
+    expect(document.body.textContent).toContain("Report received");
+    expect(document.body.textContent).toContain(
+      "Awaiting coordinator review",
+    );
+    expect(
+      document.querySelector(".agent-queue-executor-info-box")?.textContent,
+    ).toContain("Reported");
+  });
 });
 
 function renderList(

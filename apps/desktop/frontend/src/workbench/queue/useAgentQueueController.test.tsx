@@ -75,6 +75,95 @@ describe("useAgentQueueController executionPolicy draft", () => {
     hook.unmount();
   });
 
+  it("defaults old queue tasks to no worker execution reports", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", title: "Legacy task" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.selectedTask?.workerExecutionReports).toEqual([]);
+    expect(hook.result.current.workerReport.latestReport).toBeNull();
+
+    hook.unmount();
+  });
+
+  it("attaches a worker report as coordinator-review evidence without finalizing or starting work", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPlanPreview: {
+          complexity: "medium",
+          estimatedMinutesMax: 20,
+          estimatedMinutesMin: 10,
+          estimatedTokenMax: 2400,
+          estimatedTokenMin: 1200,
+          expectedValidationCommands: [
+            "npm.cmd run typecheck --prefix apps/desktop/frontend",
+          ],
+          generatedAt: "2026-05-20T10:00:00.000Z",
+          itemId: "queue-1",
+          likelyFilesOrAreas: [
+            "apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx",
+            "Agent Queue model/UI",
+          ],
+          planId: "plan-1",
+          risk: "medium",
+          source: "heuristic",
+          status: "needs_split",
+          steps: ["Inspect", "Implement", "Validate"],
+          splitRecommendation: "Create a focused follow-up/sub-block.",
+          workerId: "executor-1",
+        },
+        prompt: "Attach report",
+        queueItemId: "queue-1",
+        status: "queued",
+        validationStatus: "not_started",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.workerReport.onAttachDemoReport();
+    });
+
+    const selectedTask = hook.result.current.selectedTask;
+    const report = hook.result.current.workerReport.latestReport;
+
+    expect(selectedTask?.status).toBe("queued");
+    expect(selectedTask?.validationStatus).toBe("not_started");
+    expect(selectedTask?.coordinatorStatus).toBe(
+      "awaiting_coordinator_review",
+    );
+    expect(report?.reportStatus).toBe("needs_follow_up");
+    expect(report?.validationResult).toBe("not_run");
+    expect(report?.changedFiles).toEqual([
+      "apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx",
+    ]);
+    expect(report?.validationCommandsSuggested).toEqual([
+      "npm.cmd run typecheck --prefix apps/desktop/frontend",
+    ]);
+    expect(report?.followUpRecommendation).toBe(
+      "Create a focused follow-up/sub-block.",
+    );
+    expect(hook.result.current.workerReport.message).toBe(
+      "Worker report attached as evidence. Awaiting validation/coordinator review; item status was not finalized.",
+    );
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("saves priority changes through explicit edit mode and pauses the tag", async () => {
     const harness = createQueueHarness([
       queueTask({

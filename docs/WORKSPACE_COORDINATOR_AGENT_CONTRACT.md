@@ -542,6 +542,18 @@ queues. Execution status and work validation status are separate. Worker
 reports, validation results, and Diff Review reports are inputs to
 Workspace/coordinator decisions; workers must not directly finalize items as
 done/failure automatically.
+Current Queue UI can model and display structured Worker execution reports as
+evidence on a selected Queue item. Report attachment is frontend/model-only in
+this block: it can show summary, worker, report time, changed files, commands
+reported by the worker, suggested validation, warnings/errors, optional commit
+hash, follow-up/sub-block recommendation, rollback recommendation, and a
+collapsed raw preview. A report can mark the item as reported / awaiting
+coordinator review, but it must not mark the item done or failed, start
+validation, create follow-up items automatically, execute rollback, claim work,
+launch Agent Executor/Codex, call providers, or change Workspace Agent
+behavior. The target delivery path is Workspace Chat / coordinator report
+messages and action cards; until that future block exists, Queue may display
+the report evidence locally.
 
 Agent Executor functionality is being embedded into Queue as the primary
 execution management surface for Queue work. The embedded Agent Executor
@@ -627,7 +639,7 @@ layers and barrier rows, shows the embedded Agent Executor section with
 max/spare/working facts, spare and currently running visual blocks, worker
 scopes, presentation-only executor-info boxes, capacity recommendations,
 dry-run next/idle labels where available, global stopped/kill-requested
-executor-lane messages, and final result blocks grouped by tag. It is a
+executor-lane messages, and final result/report blocks grouped by tag. It is a
 selection and comprehension view only: clicking a work-item block selects the
 existing task details, and clicking a running executor block may select the
 linked task when visible. It must not claim work, start Agent Executor, arm or
@@ -638,11 +650,12 @@ table/list/detail controls remain available.
 
 Selected Queue item details may show an expanded work-item panel with title,
 queue tag, type, priority/order, submitted metadata, prompt preview, expected
-plan metadata, execution/report metadata, validation/review status, and a
-compact executor-info box. The executor-info box is a derived presentation
-label only; opening details or clicking compact items must not start execution,
-claim work, launch Agent Executor/Codex, run validation, or create hidden Queue
-work.
+plan metadata, latest worker execution report evidence, execution/report
+metadata, validation/review status, and a compact executor-info box. The
+executor-info box is a derived presentation label only; opening details,
+attaching a report, or clicking compact items must not start execution, claim
+work, launch Agent Executor/Codex, run validation, finalize status, execute
+rollback, or create hidden Queue work.
 
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for

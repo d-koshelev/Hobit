@@ -436,6 +436,11 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                       ? `Current item ${worker.currentItemId}`
                       : "No current item"}
                   </p>
+                  {worker.lastReportSummary ? (
+                    <p className="agent-queue-sidebar-row-meta">
+                      {worker.lastReportSummary}
+                    </p>
+                  ) : null}
                   <p className="agent-queue-sidebar-row-meta">
                     {worker.enabled ? "Enabled" : "Disabled"}
                     {worker.scope.kind === "queue_tag"

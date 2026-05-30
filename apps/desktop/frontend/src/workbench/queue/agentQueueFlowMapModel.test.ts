@@ -153,6 +153,41 @@ describe("agent queue flow map model", () => {
       "Review",
     ]);
   });
+
+  it("groups reported non-final blocks in results without changing status", () => {
+    const tasks = [
+      queueTask({
+        coordinatorStatus: "awaiting_coordinator_review",
+        queueItemId: "reported-1",
+        status: "queued",
+        workerExecutionReports: [
+          {
+            changedFiles: [],
+            commandsRun: [],
+            createdAt: "2026-05-20T10:02:00.000Z",
+            errors: [],
+            itemId: "reported-1",
+            reportId: "report-1",
+            reportStatus: "reported",
+            summary: "Worker report summary",
+            validationCommandsSuggested: [],
+            validationResult: "not_run",
+            warnings: [],
+            workerId: "worker-spare",
+          },
+        ],
+      }),
+    ];
+    const map = buildMap(tasks);
+
+    expect(map.columns).toHaveLength(0);
+    expect(map.resultGroups[0]?.items[0]).toMatchObject({
+      hasWorkerReport: true,
+      queueItemId: "reported-1",
+      status: "queued",
+      statusLabel: "Queued",
+    });
+  });
 });
 
 function buildMap(tasks: AgentQueueTask[]) {

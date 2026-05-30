@@ -86,25 +86,38 @@ behavior, or Workspace Agent context wiring.
   providers, arm Queue Autorun, run validation, claim items, finalize status,
   or persist live worker process state. Real worker-generated AI planning
   remains future work.
+  Queue items can now also carry frontend/model structured Worker execution
+  report evidence. The Queue UI can attach a deterministic model-only report
+  to the selected item, show summary, worker, report time, changed files,
+  commands reported by the worker, suggested validation, warnings/errors,
+  optional commit/Git status, follow-up/sub-block recommendation, rollback
+  recommendation, and a collapsed raw preview, and mark the item as reported /
+  awaiting coordinator review. Worker reports are evidence only: they do not
+  finalize Queue item status, start validation, launch Agent Executor/Codex,
+  call providers, claim work, create follow-ups automatically, execute
+  rollback, mutate Git, persist live worker process state, or change
+  Workspace Agent behavior. Workspace Chat report delivery and action cards
+  remain future work.
   The Queue widget also has a Flow Map view that visualizes queue tags,
   dependency layers/barriers, the embedded Agent Executor section with
   max/spare/working facts, executor lanes, spare executors with scheduler
   dry-run next/idle labels or global stopped/kill-requested messages, running
   executor blocks with termination-request/coordinator-review copy when
-  STOP + KILL RUNNING is active, capacity recommendations, and final result
-  blocks grouped by tag. The Flow Map is
+  STOP + KILL RUNNING is active, capacity recommendations, and final
+  result/report blocks grouped by tag. The Flow Map is
   frontend/model visualization only; it selects existing tasks for the detail
   panel and does not add claiming, scheduling, hidden execution, worker
   process persistence, worker-owned finalization, rollback execution, Agent
   Executor runtime changes, Codex Direct Work changes, or Workspace Agent
   behavior changes.
   Queue item details now include an expanded work-item panel with submitted
-  metadata, prompt preview, expected plan metadata, execution/report metadata,
-  validation/review status, and a compact executor-info box derived from
-  existing state. The executor-info box is presentation-only. Opening details,
-  clicking compact Flow Map/list items, or generating plan metadata does not
-  start workers, claim items, launch Agent Executor/Codex, call providers, or
-  create hidden runtime work.
+  metadata, prompt preview, expected plan metadata, worker execution report
+  evidence, execution/report metadata, validation/review status, and a compact
+  executor-info box derived from existing state. The executor-info box is
+  presentation-only. Opening details, clicking compact Flow Map/list items,
+  attaching report evidence, or generating plan metadata does not start
+  workers, claim items, launch Agent Executor/Codex, call providers, finalize
+  status, run validation, or create hidden runtime work.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

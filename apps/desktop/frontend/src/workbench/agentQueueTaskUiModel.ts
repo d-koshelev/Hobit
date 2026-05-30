@@ -719,6 +719,15 @@ export function queueExecutorInfoForTask({
     };
   }
 
+  if ((task.workerExecutionReports?.length ?? 0) > 0) {
+    return {
+      detail:
+        "Worker report is available as evidence. Coordinator review is still required.",
+      label: "Reported",
+      tone: "reported",
+    };
+  }
+
   if (
     task.status === "review_needed" ||
     validationStatus === "needs_review" ||
@@ -1025,7 +1034,9 @@ export function workersFromExecutorSlots({
       displayOrder: workerConfig.displayOrder ?? index,
       enabled: workerConfig.enabled,
       lastReportSummary: currentTask
-        ? `Latest linked item: ${displayTaskTitle(currentTask)}`
+        ? currentTask.workerExecutionReports?.length
+          ? `Latest report: ${displayTaskTitle(currentTask)}`
+          : `Latest linked item: ${displayTaskTitle(currentTask)}`
         : null,
       name: workerConfig.name,
       scope,

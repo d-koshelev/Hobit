@@ -64,6 +64,7 @@ export type QueueFlowItemBlock = {
   executorInfoLabel: string;
   executorInfoTone: AgentQueueExecutorInfoTone;
   itemType: string;
+  hasWorkerReport: boolean;
   planStatusLabel: string;
   priorityLabel: string;
   queueItemId: string;
@@ -137,8 +138,12 @@ export function buildQueueFlowMap({
       }),
     ]),
   );
-  const activeTasks = tasks.filter((task) => !isFinalQueueTaskStatus(task.status));
-  const resultTasks = tasks.filter((task) => isFinalQueueTaskStatus(task.status));
+  const activeTasks = tasks.filter(
+    (task) => !isFinalQueueTaskStatus(task.status) && !hasWorkerReport(task),
+  );
+  const resultTasks = tasks.filter(
+    (task) => isFinalQueueTaskStatus(task.status) || hasWorkerReport(task),
+  );
   const depths = dependencyDepths(tasks);
   const activeDepths = Array.from(
     new Set(activeTasks.map((task) => depths.get(task.queueItemId) ?? 0)),
@@ -286,6 +291,7 @@ function queueFlowItemBlock({
     executorInfoDetail: executorInfo.detail,
     executorInfoLabel: executorInfo.label,
     executorInfoTone: executorInfo.tone,
+    hasWorkerReport: hasWorkerReport(task),
     itemType: normalizeItemType(task.itemType),
     planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),
@@ -299,6 +305,10 @@ function queueFlowItemBlock({
     validationStatus: normalizedValidationStatus,
     validationStatusLabel: validationStatusLabel(normalizedValidationStatus),
   };
+}
+
+function hasWorkerReport(task: AgentQueueTask) {
+  return (task.workerExecutionReports?.length ?? 0) > 0;
 }
 
 function groupBlocksByTag(blocks: QueueFlowItemBlock[]): QueueFlowGroup[] {

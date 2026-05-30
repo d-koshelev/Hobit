@@ -78,6 +78,40 @@ export type AgentQueueExecutionPlanPreview = {
   notes?: string;
 };
 
+export type AgentQueueWorkerExecutionReportStatus =
+  | "reported"
+  | "completed"
+  | "failed"
+  | "interrupted"
+  | "needs_follow_up";
+
+export type AgentQueueWorkerExecutionReportValidationResult =
+  | "not_run"
+  | "passed"
+  | "failed"
+  | "partial";
+
+export type AgentQueueWorkerExecutionReport = {
+  reportId: string;
+  itemId: string;
+  workerId: string;
+  createdAt: string;
+  reportStatus: AgentQueueWorkerExecutionReportStatus;
+  summary: string;
+  changedFiles: string[];
+  commandsRun: string[];
+  validationCommandsSuggested: string[];
+  validationCommandsRun?: string[];
+  validationResult?: AgentQueueWorkerExecutionReportValidationResult;
+  commitHash?: string;
+  finalGitStatus?: string;
+  warnings: string[];
+  errors: string[];
+  followUpRecommendation?: string;
+  rollbackRecommendation?: string;
+  rawReportPreview?: string;
+};
+
 export type AgentQueueTagPauseReason = "manual" | "edit_review";
 
 export type AgentQueueTagSummary = {
@@ -324,6 +358,7 @@ export type AgentQueueTask = {
   validationStatus?: AgentQueueTaskValidationStatus;
   assignedWorkerId?: string | null;
   executionPlanPreview?: AgentQueueExecutionPlanPreview | null;
+  workerExecutionReports?: AgentQueueWorkerExecutionReport[];
   coordinatorStatus?:
     | "not_reported"
     | "worker_reported"

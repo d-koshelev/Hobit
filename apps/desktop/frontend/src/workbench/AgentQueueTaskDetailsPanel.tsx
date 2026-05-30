@@ -3,6 +3,7 @@ import { AgentQueueEmptySelection } from "./AgentQueueEmptySelection";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueTaskSection } from "./AgentQueueTaskSection";
 import { Badge } from "../design-system/Badge";
+import { Button } from "../design-system/Button";
 import {
   displayTaskTitle,
   formatUpdatedTimestamp,
@@ -24,6 +25,7 @@ import type {
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
 } from "./types";
+import type { AgentQueueWorkerExecutionReport } from "../workspace/types";
 
 type AgentQueueController = ReturnType<typeof useAgentQueueController>;
 
@@ -115,6 +117,8 @@ export function AgentQueueTaskDetailsPanel({
           <SubmittedMetadata queue={queue} />
 
           <PromptPreview prompt={selectedTask.prompt} />
+
+          <WorkerExecutionReportPanel queue={queue} />
 
           <AgentQueueTaskSection
             deleteTask={deleteTask}
@@ -286,11 +290,184 @@ function ExpandedTaskHeader({
           <dd>{validationStatusLabel(validationStatus)}</dd>
         </div>
         <div>
+          <dt>Report</dt>
+          <dd>{latestReportLabel(selectedTask)}</dd>
+        </div>
+        <div>
           <dt>Live timer</dt>
           <dd>{liveTimerCopy(queue)}</dd>
         </div>
       </dl>
     </section>
+  );
+}
+
+function WorkerExecutionReportPanel({
+  queue,
+}: {
+  queue: AgentQueueController;
+}) {
+  const report = queue.workerReport.latestReport;
+
+  return (
+    <section
+      aria-label="Worker execution report"
+      className="agent-queue-expanded-section agent-queue-worker-report"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-execution-group-title">
+            Worker execution report
+          </p>
+          <p className="agent-queue-run-note">
+            Structured evidence for Workspace Chat / coordinator review. Not final.
+          </p>
+        </div>
+        <div className="agent-queue-execution-badges">
+          <Badge variant={report ? "info" : "neutral"}>
+            {report ? "Reported" : "No report"}
+          </Badge>
+          {report ? <Badge variant="warning">Awaiting review</Badge> : null}
+        </div>
+      </div>
+
+      {report ? (
+        <WorkerReportSummary
+          report={report}
+          workerName={workerNameForReport(queue, report)}
+        />
+      ) : (
+        <p className="agent-queue-run-note">
+          No worker report is attached. Attach a model-only report to preview
+          the coordinator review surface without starting execution.
+        </p>
+      )}
+
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!queue.workerReport.canAttach}
+          onClick={() => queue.workerReport.onAttachDemoReport()}
+          variant={report ? "secondary" : "primary"}
+        >
+          {report ? "Attach another report" : "Attach worker report"}
+        </Button>
+      </div>
+
+      {queue.workerReport.message ? (
+        <p className="agent-queue-message">{queue.workerReport.message}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function WorkerReportSummary({
+  report,
+  workerName,
+}: {
+  report: AgentQueueWorkerExecutionReport;
+  workerName: string;
+}) {
+  return (
+    <>
+      <dl className="agent-queue-worker-report-facts">
+        <div>
+          <dt>Status</dt>
+          <dd>{workerReportStatusLabel(report.reportStatus)}</dd>
+        </div>
+        <div>
+          <dt>Worker</dt>
+          <dd>{workerName}</dd>
+        </div>
+        <div>
+          <dt>Reported</dt>
+          <dd>{formatTimestamp(report.createdAt)}</dd>
+        </div>
+        <div>
+          <dt>Validation</dt>
+          <dd>{workerReportValidationLabel(report.validationResult)}</dd>
+        </div>
+        {report.commitHash ? (
+          <div>
+            <dt>Commit</dt>
+            <dd className="agent-queue-mono">{report.commitHash}</dd>
+          </div>
+        ) : null}
+        {report.finalGitStatus ? (
+          <div>
+            <dt>Git status</dt>
+            <dd>{report.finalGitStatus}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      <p className="agent-queue-worker-report-summary">{report.summary}</p>
+      <ReportList
+        emptyText="No changed files reported."
+        title="Changed files"
+        values={report.changedFiles}
+      />
+      <ReportList
+        emptyText="No commands reported."
+        title="Commands run"
+        values={report.commandsRun}
+      />
+      <ReportList
+        emptyText="No validation commands suggested."
+        title="Suggested validation"
+        values={report.validationCommandsSuggested}
+      />
+      {report.warnings.length > 0 ? (
+        <ReportList title="Warnings" values={report.warnings} />
+      ) : null}
+      {report.errors.length > 0 ? (
+        <ReportList title="Errors" values={report.errors} />
+      ) : null}
+      {report.followUpRecommendation ? (
+        <p className="agent-queue-run-warning">
+          Follow-up/sub-block recommendation: {report.followUpRecommendation}
+        </p>
+      ) : null}
+      {report.rollbackRecommendation ? (
+        <p className="agent-queue-run-warning">
+          Rollback recommendation: {report.rollbackRecommendation}
+        </p>
+      ) : null}
+      {report.rawReportPreview ? (
+        <details className="agent-queue-details agent-queue-worker-report-raw">
+          <summary>Raw report preview</summary>
+          <pre>{report.rawReportPreview}</pre>
+        </details>
+      ) : null}
+      <p className="agent-queue-run-note">
+        Worker reports do not finalize Queue item status. Coordinator review,
+        validation, diff review, and downstream impact review remain separate.
+      </p>
+    </>
+  );
+}
+
+function ReportList({
+  emptyText,
+  title,
+  values,
+}: {
+  emptyText?: string;
+  title: string;
+  values: string[];
+}) {
+  return (
+    <div className="agent-queue-report-list">
+      <p className="field-label">{title}</p>
+      {values.length > 0 ? (
+        <ul>
+          {values.map((value) => (
+            <li key={value}>{value}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="agent-queue-run-note">{emptyText ?? "None reported."}</p>
+      )}
+    </div>
   );
 }
 
@@ -350,6 +527,51 @@ function PromptPreview({ prompt }: { prompt: string }) {
 
 function formatTimestamp(value: string) {
   return formatUpdatedTimestamp(value) ?? value;
+}
+
+function latestReportLabel(
+  task: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  return task.workerExecutionReports && task.workerExecutionReports.length > 0
+    ? "Reported / awaiting coordinator review"
+    : "No worker report";
+}
+
+function workerNameForReport(
+  queue: AgentQueueController,
+  report: AgentQueueWorkerExecutionReport,
+) {
+  return (
+    queue.foundation.workers.find((worker) => worker.workerId === report.workerId)
+      ?.name ?? report.workerId
+  );
+}
+
+function workerReportStatusLabel(
+  status: AgentQueueWorkerExecutionReport["reportStatus"],
+) {
+  switch (status) {
+    case "needs_follow_up":
+      return "needs follow-up";
+    default:
+      return status;
+  }
+}
+
+function workerReportValidationLabel(
+  validationResult: AgentQueueWorkerExecutionReport["validationResult"],
+) {
+  switch (validationResult) {
+    case "passed":
+      return "passed";
+    case "failed":
+      return "failed";
+    case "partial":
+      return "partial";
+    case "not_run":
+    default:
+      return "not run";
+  }
 }
 
 function liveTimerCopy(queue: AgentQueueController) {

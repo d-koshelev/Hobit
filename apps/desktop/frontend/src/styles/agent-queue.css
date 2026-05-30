@@ -1386,7 +1386,8 @@
   margin: 0;
 }
 
-.agent-queue-plan-facts {
+.agent-queue-plan-facts,
+.agent-queue-worker-report-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
@@ -1452,7 +1453,8 @@
   gap: 2px;
 }
 
-.agent-queue-plan-facts > div {
+.agent-queue-plan-facts > div,
+.agent-queue-worker-report-facts > div {
   display: grid;
   min-width: 0;
   gap: 2px;
@@ -1472,7 +1474,8 @@
   line-height: var(--line-normal);
 }
 
-.agent-queue-plan-facts dt {
+.agent-queue-plan-facts dt,
+.agent-queue-worker-report-facts dt {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
@@ -1486,30 +1489,47 @@
   overflow-wrap: anywhere;
 }
 
-.agent-queue-plan-facts dd {
+.agent-queue-plan-facts dd,
+.agent-queue-worker-report-facts dd {
   color: var(--color-text-primary);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
   overflow-wrap: anywhere;
 }
 
-.agent-queue-plan-list {
+.agent-queue-worker-report-summary {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.agent-queue-plan-list,
+.agent-queue-report-list {
   display: grid;
   gap: 2px;
 }
 
-.agent-queue-plan-list ul {
+.agent-queue-plan-list ul,
+.agent-queue-report-list ul {
   display: grid;
   gap: 2px;
   margin: 0;
   padding-left: var(--space-md);
 }
 
-.agent-queue-plan-list li {
+.agent-queue-plan-list li,
+.agent-queue-report-list li {
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
   overflow-wrap: anywhere;
+}
+
+.agent-queue-mono,
+.agent-queue-worker-report-raw pre {
+  font-family: var(--font-mono);
 }
 
 .agent-queue-run-field {
@@ -1770,6 +1790,7 @@
   .agent-queue-expanded-facts,
   .agent-queue-latest-run-facts,
   .agent-queue-plan-facts,
+  .agent-queue-worker-report-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;
@@ -1824,6 +1845,7 @@
   .agent-queue-expanded-facts,
   .agent-queue-latest-run-facts,
   .agent-queue-plan-facts,
+  .agent-queue-worker-report-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;

@@ -138,6 +138,41 @@ describe("AgentQueueFlowMap", () => {
     expect(executorInfo?.textContent).toContain("Waiting");
   });
 
+  it("shows reported work in the results section without final acceptance", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          coordinatorStatus: "awaiting_coordinator_review",
+          queueItemId: "reported-task",
+          status: "queued",
+          title: "Reported task",
+          workerExecutionReports: [
+            {
+              changedFiles: [],
+              commandsRun: [],
+              createdAt: "2026-05-20T10:02:00.000Z",
+              errors: [],
+              itemId: "reported-task",
+              reportId: "report-1",
+              reportStatus: "reported",
+              summary: "Worker report summary",
+              validationCommandsSuggested: [],
+              validationResult: "not_run",
+              warnings: [],
+              workerId: "executor-1",
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(document.body.textContent).toContain("Results / reports");
+    expect(document.body.textContent).toContain("Reported task");
+    expect(document.body.textContent).toContain("Report received");
+    expect(document.body.textContent).toContain("Queued");
+    expect(document.body.textContent).not.toContain("Completed");
+  });
+
   it("renders working executor blocks from running worker state", () => {
     renderFlowMap({
       tasks: [

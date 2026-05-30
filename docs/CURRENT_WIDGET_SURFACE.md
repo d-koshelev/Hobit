@@ -538,7 +538,7 @@ Workspace Agent is the foreground interactive agent surface.
   max/spare/working executor facts, spare/working executor blocks, worker
   scopes, dry-run next/idle labels from the scheduler plan, compact
   presentation-only executor-info boxes on work-item blocks, capacity
-  recommendations, and final result blocks grouped by tag. The Agent Executor
+  recommendations, and final result/report blocks grouped by tag. The Agent Executor
   section reflects global
   stopped/kill-requested state: spare executor blocks show "Queue is stopped"
   or "STOP + KILL RUNNING requested" instead of a next item, and already
@@ -553,12 +553,13 @@ Workspace Agent is the foreground interactive agent surface.
   and Autorun controls remain available.
 - Selected Queue item details now include an expanded work-item detail header
   with title, queue tag, item type, priority/order, execution status,
-  validation status, submitted-record metadata, prompt preview, and a compact
-  executor-info box. The executor-info label is presentation-only and is
-  derived from existing execution status, validation status, dependency,
-  routing, assignment, and coordinator-review state. Opening details or
-  clicking compact work-item blocks does not start execution, claim work,
-  launch Agent Executor/Codex, run validation, or create hidden Queue work.
+  validation status, submitted-record metadata, prompt preview, latest Worker
+  execution report evidence when attached, and a compact executor-info box.
+  The executor-info label is presentation-only and is derived from existing
+  execution status, validation status, dependency, routing, assignment,
+  worker-report, and coordinator-review state. Opening details or clicking
+  compact work-item blocks does not start execution, claim work, launch Agent
+  Executor/Codex, run validation, or create hidden Queue work.
 - Each queue task shows execution status separately from validation status.
   `validating` has a lightweight visual indicator meaning validation/review is
   happening, not worker execution.
@@ -602,6 +603,21 @@ Workspace Agent is the foreground interactive agent surface.
   Executor, launch Codex, call a provider, arm Autorun, run validation, mutate
   files, or change item final status. Real worker-generated AI planning remains
   future work.
+- Selected Queue tasks can hold structured Worker execution reports as
+  frontend/model-compatible evidence. A report records report id, item id,
+  worker id, timestamp, report status, summary, changed files, commands
+  reported by the worker, suggested validation commands, optional validation
+  result, optional commit/Git status, warnings, errors, follow-up and rollback
+  recommendations, and a collapsed raw preview. The current Queue UI can attach
+  a deterministic model-only demo report from the selected item/plan and then
+  shows "Reported" / "Awaiting coordinator review" in the task details, task
+  row, worker sidebar, and Flow Map result/report area. Attaching a report does
+  not start a worker, claim an item, launch Agent Executor/Codex, call a
+  provider, run validation, mutate Git, persist live worker process state,
+  create a follow-up automatically, execute rollback, or finalize item status.
+  Worker reports are intended to be delivered to Workspace Chat / coordinator
+  review as future report messages or action cards; this block models and
+  displays them in Queue only.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

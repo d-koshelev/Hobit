@@ -12,6 +12,7 @@ import type {
   AgentQueueRunController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
+  AgentQueueWorkerReportController,
 } from "./queue/useAgentQueueController";
 import {
   queueDependencyStatesByTask,
@@ -26,6 +27,7 @@ import type { AgentExecutorSlot } from "./types";
 import type {
   AgentQueueExecutionPlanPreview,
   AgentQueueTask,
+  AgentQueueWorkerExecutionReport,
 } from "../workspace/types";
 
 let root: Root | null = null;
@@ -408,6 +410,58 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(document.body.textContent).toContain("No expected plan has been generated.");
     expect(document.body.textContent).toContain("Generate plan preview");
   });
+
+  it("renders worker report evidence without finalizing the task", () => {
+    const report = workerReport({
+      changedFiles: ["apps/desktop/frontend/src/workbench/QueueReport.tsx"],
+      commandsRun: ["npm.cmd run typecheck --prefix apps/desktop/frontend"],
+      commitHash: "abc1234",
+      errors: ["One focused test still fails."],
+      followUpRecommendation: "Create a follow-up/sub-block for the failing test.",
+      rollbackRecommendation: "Review before any rollback decision.",
+      validationCommandsSuggested: ["npm.cmd run test --prefix apps/desktop/frontend"],
+      warnings: ["Diff review is still required."],
+    });
+    const onAttachDemoReport = vi.fn();
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "queued" as const,
+      validationStatus: "not_started" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report, onAttachDemoReport),
+    });
+
+    expect(document.body.textContent).toContain("Worker execution report");
+    expect(document.body.textContent).toContain("Reported");
+    expect(document.body.textContent).toContain("Awaiting review");
+    expect(document.body.textContent).toContain("Worker report summary");
+    expect(document.body.textContent).toContain("QueueReport.tsx");
+    expect(document.body.textContent).toContain(
+      "npm.cmd run typecheck --prefix apps/desktop/frontend",
+    );
+    expect(document.body.textContent).toContain("Diff review is still required.");
+    expect(document.body.textContent).toContain("One focused test still fails.");
+    expect(document.body.textContent).toContain("abc1234");
+    expect(document.body.textContent).toContain(
+      "Follow-up/sub-block recommendation",
+    );
+    expect(document.body.textContent).toContain("Rollback recommendation");
+    expect(document.body.textContent).toContain(
+      "Worker reports do not finalize Queue item status.",
+    );
+    expect(document.body.textContent).toContain("Queued");
+    expect(document.body.textContent).toContain("Not started");
+
+    clickFirstButton("Attach another report");
+
+    expect(onAttachDemoReport).toHaveBeenCalledTimes(1);
+  });
 });
 
 function renderPanel(
@@ -481,6 +535,11 @@ function renderDetailsPanel({
   runHistory = runHistoryController([]),
   selectedTask = queueTask(),
   tasks = [selectedTask],
+  workerReport = workerReportController(
+    selectedTask.workerExecutionReports?.[
+      (selectedTask.workerExecutionReports?.length ?? 0) - 1
+    ] ?? null,
+  ),
 }: {
   executionPlan?: AgentQueueExecutionPlanController;
   latestRun?: AgentQueueLatestRunLinkController;
@@ -488,6 +547,7 @@ function renderDetailsPanel({
   runHistory?: AgentQueueRunHistoryController;
   selectedTask?: AgentQueueTask;
   tasks?: AgentQueueTask[];
+  workerReport?: AgentQueueWorkerReportController;
 }) {
   container = document.createElement("div");
   document.body.append(container);
@@ -627,6 +687,7 @@ function renderDetailsPanel({
     updateDraft: vi.fn(),
     updatePriority: vi.fn(),
     validationMessage: null,
+    workerReport,
   } as unknown as ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"];
 
   act(() => {
@@ -693,6 +754,41 @@ function executionPlanController(
     message: null,
     onGenerate,
     plan,
+  };
+}
+
+function workerReportController(
+  latestReport: AgentQueueWorkerExecutionReport | null,
+  onAttachDemoReport = vi.fn(),
+): AgentQueueWorkerReportController {
+  return {
+    canAttach: true,
+    latestReport,
+    message: latestReport
+      ? "Worker report attached as evidence. Awaiting validation/coordinator review; item status was not finalized."
+      : null,
+    onAttachDemoReport,
+  };
+}
+
+function workerReport(
+  overrides: Partial<AgentQueueWorkerExecutionReport> = {},
+): AgentQueueWorkerExecutionReport {
+  return {
+    changedFiles: [],
+    commandsRun: [],
+    createdAt: "2026-05-20T10:02:00.000Z",
+    errors: [],
+    itemId: "queue-1",
+    rawReportPreview: "Raw worker report preview",
+    reportId: "report-1",
+    reportStatus: "reported",
+    summary: "Worker report summary",
+    validationCommandsSuggested: [],
+    validationResult: "not_run",
+    warnings: [],
+    workerId: "executor_visible",
+    ...overrides,
   };
 }
 

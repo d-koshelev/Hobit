@@ -132,6 +132,8 @@ export function AgentQueueTaskList({
               task.validationStatus,
             );
             const itemType = normalizeItemType(task.itemType);
+            const hasWorkerReport =
+              (task.workerExecutionReports?.length ?? 0) > 0;
             const dependencyState = dependencyStates.get(task.queueItemId);
             const routingState = routingStates.get(task.queueItemId);
             const routingBlockedLabel =
@@ -216,6 +218,9 @@ export function AgentQueueTaskList({
                   <Badge variant={executionPlanBadgeVariant(task.executionPlanPreview)}>
                     {executionPlanStatusLabel(task.executionPlanPreview)}
                   </Badge>
+                  {hasWorkerReport ? (
+                    <Badge variant="info">Report received</Badge>
+                  ) : null}
                 </span>
                 <span className="agent-queue-task-row-meta">
                   <span>Tag {queueTag.queueTagName}</span>
@@ -231,6 +236,9 @@ export function AgentQueueTaskList({
                   <span>Order {(taskIndex + 1).toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
                   <span>{executionPlanStatusLabel(task.executionPlanPreview)}</span>
+                  {hasWorkerReport ? (
+                    <span>Awaiting coordinator review</span>
+                  ) : null}
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
                     <span>
                       {dependencyState.status === "ready"

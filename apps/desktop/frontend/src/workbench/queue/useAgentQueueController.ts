@@ -5,6 +5,7 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerExecutionReport,
   AgentQueueWorkerConfig,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -13,6 +14,7 @@ import {
   clamp,
   DEFAULT_QUEUE_TAG_ID,
   DEFAULT_TASK_TITLE,
+  displayTaskTitle,
   emptyDraft,
   errorToMessage,
   getQueueTaskDependencyState,
@@ -186,6 +188,13 @@ export type AgentQueueExecutionPlanController = {
   message: string | null;
   onGenerate: () => void;
   plan: AgentQueueExecutionPlanPreview | null;
+};
+
+export type AgentQueueWorkerReportController = {
+  canAttach: boolean;
+  latestReport: AgentQueueWorkerExecutionReport | null;
+  message: string | null;
+  onAttachDemoReport: () => void;
 };
 
 export type QueueTaskInsertPosition = "top" | "bottom";
@@ -372,12 +381,16 @@ export function useAgentQueueController({
         | "queueTagName"
         | "validationStatus"
         | "executionPlanPreview"
+        | "workerExecutionReports"
       >
     >
   >(() => new Map());
   const localTaskFieldsRef = useRef(localTaskFields);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
   const [executionPlanMessage, setExecutionPlanMessage] = useState<string | null>(
+    null,
+  );
+  const [workerReportMessage, setWorkerReportMessage] = useState<string | null>(
     null,
   );
   const EDIT_PAUSE_MESSAGE =
@@ -950,6 +963,7 @@ export function useAgentQueueController({
         queueTagName: taskDraft.queueTagName.trim(),
         validationStatus: taskDraft.validationStatus,
         coordinatorStatus: "not_reported" as const,
+        workerExecutionReports: [],
       };
       setLocalTaskFields((current) =>
         new Map(current).set(createdTask.queueItemId, taskFoundation),
@@ -1298,6 +1312,43 @@ export function useAgentQueueController({
       { select: true },
     );
     setExecutionPlanMessage("Plan preview generated. No execution was started.");
+    setWorkerReportMessage(null);
+    setStartError(null);
+    setAssignmentMessage(null);
+  }
+
+  function attachDemoWorkerReport() {
+    if (!selectedTask || isSaving || hasOpenTaskEdit) {
+      return;
+    }
+
+    const report = buildDemoWorkerExecutionReport({
+      task: selectedTask,
+      workerId:
+        selectedTask.assignedWorkerId ??
+        selectedTask.assignedExecutorWidgetId ??
+        selectedExecutorWidgetId ??
+        "unassigned",
+    });
+    const reports = [...(selectedTask.workerExecutionReports ?? []), report];
+    const updatedTask = {
+      ...selectedTask,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      workerExecutionReports: reports,
+    };
+
+    setLocalTaskFields((current) =>
+      new Map(current).set(selectedTask.queueItemId, {
+        ...(current.get(selectedTask.queueItemId) ?? {}),
+        coordinatorStatus: "awaiting_coordinator_review",
+        workerExecutionReports: reports,
+      }),
+    );
+    applyUpdatedTask(updatedTask, { select: true });
+    setWorkerReportMessage(
+      "Worker report attached as evidence. Awaiting validation/coordinator review; item status was not finalized.",
+    );
+    setExecutionPlanMessage(null);
     setStartError(null);
     setAssignmentMessage(null);
   }
@@ -2221,6 +2272,7 @@ export function useAgentQueueController({
       validationStatus: normalizeValidationStatus(mergedTask.validationStatus),
     });
     setExecutionPlanMessage(null);
+    setWorkerReportMessage(null);
   }
 
   function applyUpdatedTask(
@@ -2305,6 +2357,10 @@ export function useAgentQueueController({
       validationStatus:
         localFields?.validationStatus ??
         normalizeValidationStatus(task.validationStatus),
+      workerExecutionReports:
+        task.workerExecutionReports !== undefined
+          ? task.workerExecutionReports
+          : localFields?.workerExecutionReports ?? [],
     };
   }
 
@@ -2359,6 +2415,15 @@ export function useAgentQueueController({
       onGenerate: generateExecutionPlanPreview,
       plan: selectedTask?.executionPlanPreview ?? null,
     } satisfies AgentQueueExecutionPlanController,
+    workerReport: {
+      canAttach: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
+      latestReport:
+        selectedTask?.workerExecutionReports?.[
+          selectedTask.workerExecutionReports.length - 1
+        ] ?? null,
+      message: workerReportMessage,
+      onAttachDemoReport: attachDemoWorkerReport,
+    } satisfies AgentQueueWorkerReportController,
     run: {
       approvalPolicy,
       canStart,
@@ -2727,6 +2792,70 @@ function localWorkerConfig({
     workerId: `agent-worker-${Date.now().toString(36)}-${displayOrder.toString()}`,
     workspaceId: "",
   };
+}
+
+function buildDemoWorkerExecutionReport({
+  task,
+  workerId,
+}: {
+  task: AgentQueueTask;
+  workerId: string;
+}): AgentQueueWorkerExecutionReport {
+  const now = new Date().toISOString();
+  const plan = task.executionPlanPreview;
+  const changedFiles =
+    plan?.likelyFilesOrAreas.filter(isLikelyFilePath) ?? [];
+  const likelyAreas =
+    plan?.likelyFilesOrAreas.filter((value) => !isLikelyFilePath(value)) ?? [];
+  const followUpRecommendation =
+    plan?.splitRecommendation ??
+    (task.status === "failed" || task.validationStatus === "failed"
+      ? "Create a follow-up/sub-block for fixes before coordinator finalization."
+      : undefined);
+
+  return {
+    changedFiles,
+    commandsRun: [],
+    createdAt: now,
+    errors: task.status === "failed" ? ["Task status was already failed."] : [],
+    followUpRecommendation,
+    itemId: task.queueItemId,
+    rawReportPreview: [
+      "Worker execution report preview",
+      `Queue item: ${displayTaskTitle(task)} (${task.queueItemId})`,
+      `Worker: ${workerId || "unassigned"}`,
+      "Source: local Queue model attachment",
+      "No execution, validation, provider, Executor, or Codex process was started by this attachment.",
+    ].join("\n"),
+    reportId: `worker-report-${task.queueItemId}-${Date.now().toString(36)}`,
+    reportStatus: followUpRecommendation ? "needs_follow_up" : "reported",
+    rollbackRecommendation:
+      task.status === "failed"
+        ? "Review changed files and validation output before any separate rollback decision."
+        : undefined,
+    summary:
+      plan && plan.status !== "not_planned"
+        ? `Worker report received for ${displayTaskTitle(
+            task,
+          )}. Expected plan was ${plan.status}; coordinator review is still required.`
+        : `Worker report received for ${displayTaskTitle(
+            task,
+          )}. Coordinator review is still required.`,
+    validationCommandsSuggested: plan?.expectedValidationCommands ?? [],
+    validationResult: "not_run",
+    warnings:
+      likelyAreas.length > 0
+        ? [`Likely affected areas reported: ${likelyAreas.join(", ")}.`]
+        : ["Report is model-only evidence and has not been independently validated."],
+    workerId: workerId || "unassigned",
+  };
+}
+
+function isLikelyFilePath(value: string) {
+  return (
+    /^(?:apps|crates|docs|scripts)[\\/]/.test(value) ||
+    /\.[A-Za-z0-9]+$/.test(value)
+  );
 }
 
 function areStringArraysEqual(first: string[], second: string[]) {
