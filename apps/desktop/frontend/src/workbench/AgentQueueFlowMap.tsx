@@ -17,6 +17,7 @@ import {
   type QueueResultGroup,
 } from "./queue/agentQueueFlowMapModel";
 import type { AgentQueueAssignedWorkerRoutingState } from "./queue/agentQueueRoutingModel";
+import type { AgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
 
 type AgentQueueFlowMapProps = {
   dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
@@ -24,6 +25,7 @@ type AgentQueueFlowMapProps = {
   onSelectTask: (queueItemId: string) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   routingStates: ReadonlyMap<string, AgentQueueAssignedWorkerRoutingState>;
+  schedulerPlan?: AgentQueueSchedulerPlan;
   selectedTask: AgentQueueTask | null;
   tasks: AgentQueueTask[];
   workers: AgentWorkerSummary[];
@@ -35,6 +37,7 @@ export function AgentQueueFlowMap({
   onSelectTask,
   pausedQueueTagIds,
   routingStates,
+  schedulerPlan,
   selectedTask,
   tasks,
   workers,
@@ -45,10 +48,11 @@ export function AgentQueueFlowMap({
         dependencyStates,
         pausedQueueTagIds,
         routingStates,
+        schedulerPlan,
         tasks,
         workers,
       }),
-    [dependencyStates, pausedQueueTagIds, routingStates, tasks, workers],
+    [dependencyStates, pausedQueueTagIds, routingStates, schedulerPlan, tasks, workers],
   );
 
   return (
@@ -411,7 +415,9 @@ function ExecutorLaneBlock({
       title={
         lane.activeItem
           ? `Working on ${lane.activeItem.title}. Click to select the Queue item.`
-          : "Spare executor lane. This block is visual only."
+          : lane.nextItemTitle
+            ? `Spare executor lane. Dry-run next: ${lane.nextItemTitle}.`
+            : `Spare executor lane. ${lane.idleReason ?? "No eligible item"}.`
       }
       type="button"
     >
@@ -423,7 +429,11 @@ function ExecutorLaneBlock({
         <span>{lane.scopeLabel}</span>
       </span>
       <span className="agent-queue-flow-executor-task">
-        {lane.activeItem ? lane.activeItem.title : "No task assigned"}
+        {lane.activeItem
+          ? lane.activeItem.title
+          : lane.nextItemTitle
+            ? `Next: ${lane.nextItemTitle}`
+            : lane.idleReason ?? "No eligible item"}
       </span>
     </button>
   );

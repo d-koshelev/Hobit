@@ -65,6 +65,10 @@ import {
   getWorkerRoutingSummary,
   type AgentQueueRoutingContext,
 } from "./agentQueueRoutingModel";
+import {
+  buildAgentQueueSchedulerPlan,
+  type AgentQueueSchedulerPlan,
+} from "./agentQueueSchedulerModel";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 
 type UseAgentQueueControllerOptions = Pick<
@@ -206,6 +210,7 @@ export type AgentQueueFoundationController = {
   onWorkerScopeChange: (workerId: string, scope: WorkerScope) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   queueTags: QueueTagSummary[];
+  schedulerPlan: AgentQueueSchedulerPlan;
   tagManagementError: string | null;
   tagManagementMessage: string | null;
   validationSummary: Record<string, number>;
@@ -306,6 +311,8 @@ export function useAgentQueueController({
   const [autorunError, setAutorunError] = useState<string | null>(null);
   const [globalStatus, setGlobalStatus] =
     useState<QueueGlobalStatus>("stopped");
+  const [stopKillRunningRequested, setStopKillRunningRequested] =
+    useState(false);
   const [globalMessage, setGlobalMessage] = useState<string | null>(
     "Workers are stopped. START only opens local scheduling; it does not run tasks automatically.",
   );
@@ -446,6 +453,25 @@ export function useAgentQueueController({
   const assignedWorkerRoutingStates = useMemo(
     () => getAssignedWorkerRoutingStates(tasks, workers, routingContext),
     [routingContext, tasks, workers],
+  );
+  const schedulerPlan = useMemo(
+    () =>
+      buildAgentQueueSchedulerPlan({
+        dependencyStates,
+        globalStatus,
+        pausedQueueTagIds,
+        stopKillRunningRequested,
+        tasks,
+        workers,
+      }),
+    [
+      dependencyStates,
+      globalStatus,
+      pausedQueueTagIds,
+      stopKillRunningRequested,
+      tasks,
+      workers,
+    ],
   );
 
   const loadTasks = useCallback(
@@ -1197,6 +1223,7 @@ export function useAgentQueueController({
 
   function startWorkers() {
     setGlobalStatus("running");
+    setStopKillRunningRequested(false);
     setGlobalMessage(
       "Queue workers are open for eligible items. This does not start real workers or run tasks automatically.",
     );
@@ -1204,6 +1231,7 @@ export function useAgentQueueController({
 
   function stopWorkers() {
     setGlobalStatus("stopped");
+    setStopKillRunningRequested(false);
     setGlobalMessage(
       "Scheduling new worker work is stopped. Running Executor work, if any, remains owned by Agent Executor.",
     );
@@ -1211,6 +1239,7 @@ export function useAgentQueueController({
 
   function stopAndKillRunning() {
     setGlobalStatus("stopped");
+    setStopKillRunningRequested(true);
     setGlobalMessage(
       "STOP + KILL RUNNING requested. Queue does not own running processes here; supported termination stays in Agent Executor and affected items need coordinator review.",
     );
@@ -2216,6 +2245,7 @@ export function useAgentQueueController({
       onWorkerScopeChange: changeWorkerScope,
       pausedQueueTagIds,
       queueTags,
+      schedulerPlan,
       tagManagementError,
       tagManagementMessage,
       validationSummary: queueValidationSummary,

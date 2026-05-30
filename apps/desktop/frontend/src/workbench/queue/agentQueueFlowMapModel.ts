@@ -19,6 +19,7 @@ import {
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
 } from "./agentQueueRoutingModel";
+import type { AgentQueueSchedulerPlan } from "./agentQueueSchedulerModel";
 
 export type QueueFlowTagColorToken =
   | "queue-flow-tag-1"
@@ -82,9 +83,11 @@ export type QueueFlowBarrier = {
 export type QueueExecutorLane = {
   activeItem: QueueFlowItemBlock | null;
   colorToken: QueueFlowTagColorToken | null;
+  idleReason: string | null;
   id: string;
   isWorking: boolean;
   label: string;
+  nextItemTitle: string | null;
   scopeLabel: string;
   status: AgentWorkerSummary["status"];
   workerId: string;
@@ -102,6 +105,7 @@ export type BuildQueueFlowMapInput = {
   dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
   pausedQueueTagIds?: ReadonlySet<string>;
   routingStates: ReadonlyMap<string, AgentQueueAssignedWorkerRoutingState>;
+  schedulerPlan?: AgentQueueSchedulerPlan;
   tasks: AgentQueueTask[];
   workers: AgentWorkerSummary[];
 };
@@ -110,6 +114,7 @@ export function buildQueueFlowMap({
   dependencyStates,
   pausedQueueTagIds = new Set(),
   routingStates,
+  schedulerPlan,
   tasks,
   workers,
 }: BuildQueueFlowMapInput): QueueFlowMap {
@@ -169,13 +174,18 @@ export function buildQueueFlowMap({
         const activeItem = runningTask
           ? itemBlocksById.get(runningTask.queueItemId) ?? null
           : null;
+        const workerPlan = schedulerPlan?.workerPlans.find(
+          (plan) => plan.workerId === worker.workerId,
+        );
 
         return {
           activeItem,
           colorToken: activeItem?.colorToken ?? null,
+          idleReason: workerPlan?.idleReason ?? null,
           id: `executor-${worker.workerId}`,
           isWorking: Boolean(activeItem),
           label: worker.name,
+          nextItemTitle: workerPlan?.bestNextItem?.title ?? null,
           scopeLabel: workerScopeLabel(worker),
           status: worker.status,
           workerId: worker.workerId,

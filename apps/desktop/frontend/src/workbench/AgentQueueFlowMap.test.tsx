@@ -7,6 +7,7 @@ import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
 import { queueTagColorToken } from "./queue/agentQueueFlowMapModel";
 import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
+import { buildAgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -67,6 +68,7 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Validating");
     expect(document.body.textContent).toContain("Agent Executor section");
     expect(document.body.textContent).toContain("Spare executor");
+    expect(document.body.textContent).toContain("Next: Review blocker");
     expect(document.body.textContent).toContain("Results");
     expect(document.body.textContent).toContain("Completed implementation");
   });
@@ -119,6 +121,25 @@ describe("AgentQueueFlowMap", () => {
     expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
       "Spare executor",
     );
+    expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
+      "Item is not in a runnable execution state",
+    );
+  });
+
+  it("shows global STOP as the spare executor dry-run reason", () => {
+    renderFlowMap({
+      globalStatus: "stopped",
+      tasks: [
+        queueTask({
+          queueItemId: "stopped-task",
+          title: "Stopped task",
+        }),
+      ],
+    });
+
+    expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
+      "Queue is stopped",
+    );
   });
 
   it("selects a work item without starting executor or scheduler callbacks", () => {
@@ -162,9 +183,11 @@ describe("AgentQueueFlowMap", () => {
 });
 
 function renderFlowMap({
+  globalStatus = "running",
   onSelectTask = vi.fn(),
   tasks,
 }: {
+  globalStatus?: "running" | "stopped";
   onSelectTask?: (queueItemId: string) => void;
   tasks: AgentQueueTask[];
 }) {
@@ -173,6 +196,13 @@ function renderFlowMap({
   root = createRoot(container);
   const dependencyStates = queueDependencyStatesByTask(tasks);
   const testWorkers = workers();
+  const schedulerPlan = buildAgentQueueSchedulerPlan({
+    dependencyStates,
+    globalStatus,
+    pausedQueueTagIds: new Set(),
+    tasks,
+    workers: testWorkers,
+  });
 
   act(() => {
     root?.render(
@@ -185,6 +215,7 @@ function renderFlowMap({
           dependencyStates,
           tasks,
         })}
+        schedulerPlan={schedulerPlan}
         selectedTask={tasks[0] ?? null}
         tasks={tasks}
         workers={testWorkers}

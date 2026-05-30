@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
+import { buildAgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
 import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
 
 let root: Root | null = null;
@@ -27,10 +28,12 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("START");
     expect(document.body.textContent).toContain("STOP");
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
+    expect(document.body.textContent).toContain("Scheduler dry run");
+    expect(document.body.textContent).toContain("Dry-run only");
     expect(document.body.textContent).toContain("Default");
     expect(document.body.textContent).toContain("Agent Executor 1");
-    expect(document.body.textContent).toContain("1 eligible item");
-    expect(document.body.textContent).toContain("Next: Queue task");
+    expect(document.body.textContent).toContain("0 schedulable items");
+    expect(document.body.textContent).toContain("Idle: Queue is stopped");
     expect(document.body.textContent).toContain("Add worker");
     expect(document.body.textContent).toContain("Needs review");
   });
@@ -106,6 +109,36 @@ function clickButton(text: string) {
 }
 
 function foundationController(): AgentQueueFoundationController {
+  const task = {
+    assignedExecutorWidgetId: null,
+    createdAt: "2026-05-20T10:00:00.000Z",
+    dependsOn: [],
+    description: "",
+    executionPolicy: "auto" as const,
+    priority: 0,
+    prompt: "Run this",
+    queueItemId: "queue-1",
+    status: "ready" as const,
+    title: "Queue task",
+    updatedAt: "2026-05-20T10:00:00.000Z",
+    workspaceId: "workspace-1",
+  };
+  const worker = {
+    currentItemId: null,
+    displayOrder: 0,
+    enabled: true,
+    lastReportSummary: null,
+    name: "Agent Executor 1",
+    routingSummary: {
+      blockedReasonSummary: null,
+      eligibleItemCount: 1,
+      nextItem: task,
+    },
+    scope: { kind: "queue_tag" as const, queueTagId: "default", queueTagName: "Default" },
+    status: "idle" as const,
+    workerId: "executor-1",
+  };
+
   return {
     globalMessage: "Workers are stopped.",
     globalStatus: "stopped",
@@ -147,35 +180,12 @@ function foundationController(): AgentQueueFoundationController {
       passed: 0,
       validating: 0,
     },
-    workers: [
-      {
-        currentItemId: null,
-        displayOrder: 0,
-        enabled: true,
-        lastReportSummary: null,
-        name: "Agent Executor 1",
-        routingSummary: {
-          blockedReasonSummary: null,
-          eligibleItemCount: 1,
-          nextItem: {
-            assignedExecutorWidgetId: null,
-            createdAt: "2026-05-20T10:00:00.000Z",
-            dependsOn: [],
-            description: "",
-            executionPolicy: "auto",
-            priority: 0,
-            prompt: "Run this",
-            queueItemId: "queue-1",
-            status: "ready",
-            title: "Queue task",
-            updatedAt: "2026-05-20T10:00:00.000Z",
-            workspaceId: "workspace-1",
-          },
-        },
-        scope: { kind: "queue_tag", queueTagId: "default", queueTagName: "Default" },
-        status: "idle",
-        workerId: "executor-1",
-      },
-    ],
+    schedulerPlan: buildAgentQueueSchedulerPlan({
+      globalStatus: "stopped",
+      pausedQueueTagIds: new Set(),
+      tasks: [task],
+      workers: [worker],
+    }),
+    workers: [worker],
   };
 }

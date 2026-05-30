@@ -77,6 +77,44 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
         {foundation.globalMessage ? (
           <p className="agent-queue-run-note">{foundation.globalMessage}</p>
         ) : null}
+        <div className="agent-queue-scheduler-preview" aria-label="Scheduler dry-run preview">
+          <div className="agent-queue-section-header">
+            <p className="agent-queue-section-title">Scheduler dry run</p>
+            <Badge
+              variant={
+                foundation.schedulerPlan.globalState.allowsScheduling
+                  ? "info"
+                  : foundation.schedulerPlan.globalState.code === "stop_kill_running"
+                    ? "warning"
+                    : "neutral"
+              }
+            >
+              {foundation.schedulerPlan.globalState.label}
+            </Badge>
+          </div>
+          <dl className="agent-queue-scheduler-facts">
+            <div>
+              <dt>Schedulable</dt>
+              <dd>{foundation.schedulerPlan.schedulableItemCount}</dd>
+            </div>
+            <div>
+              <dt>Worker next</dt>
+              <dd>{foundation.schedulerPlan.recommendations.length}</dd>
+            </div>
+            <div>
+              <dt>Blocked</dt>
+              <dd>{foundation.schedulerPlan.blockedItems.length}</dd>
+            </div>
+          </dl>
+          <p className="agent-queue-run-note">
+            {foundation.schedulerPlan.explanation}
+          </p>
+          {foundation.schedulerPlan.topBlockedReasons.length > 0 ? (
+            <p className="agent-queue-sidebar-row-meta">
+              Top blocker: {foundation.schedulerPlan.topBlockedReasons[0].label}
+            </p>
+          ) : null}
+        </div>
       </section>
 
       <section className="agent-queue-sidebar-section">
@@ -287,21 +325,30 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                       : ", all queues"}
                   </p>
                   <p className="agent-queue-sidebar-row-meta">
-                    {worker.routingSummary
-                      ? `${worker.routingSummary.eligibleItemCount.toString()} eligible item${
-                          worker.routingSummary.eligibleItemCount === 1
+                    {workerSchedulerPlan(foundation, worker.workerId)
+                      ? `${workerSchedulerPlan(
+                          foundation,
+                          worker.workerId,
+                        )?.eligibleItemCount.toString()} schedulable item${
+                          workerSchedulerPlan(foundation, worker.workerId)
+                            ?.eligibleItemCount === 1
                             ? ""
                             : "s"
                         }`
-                      : "Routing not evaluated"}
+                      : "Scheduler not evaluated"}
                   </p>
-                  {worker.routingSummary?.nextItem ? (
+                  {workerSchedulerPlan(foundation, worker.workerId)?.bestNextItem ? (
                     <p className="agent-queue-sidebar-row-meta">
-                      Next: {worker.routingSummary.nextItem.title.trim() || "New task"}
+                      Dry-run next:{" "}
+                      {
+                        workerSchedulerPlan(foundation, worker.workerId)
+                          ?.bestNextItem?.title
+                      }
                     </p>
-                  ) : worker.routingSummary?.blockedReasonSummary ? (
+                  ) : workerSchedulerPlan(foundation, worker.workerId)?.idleReason ? (
                     <p className="agent-queue-sidebar-row-meta">
-                      Blocked: {worker.routingSummary.blockedReasonSummary}
+                      Idle:{" "}
+                      {workerSchedulerPlan(foundation, worker.workerId)?.idleReason}
                     </p>
                   ) : null}
                 {worker.scope.kind === "queue_tag" &&
@@ -471,4 +518,13 @@ function pauseReasonLabel(reason: string) {
     default:
       return "manual pause";
   }
+}
+
+function workerSchedulerPlan(
+  foundation: AgentQueueFoundationController,
+  workerId: string,
+) {
+  return foundation.schedulerPlan.workerPlans.find(
+    (workerPlan) => workerPlan.workerId === workerId,
+  );
 }

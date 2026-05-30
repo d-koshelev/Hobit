@@ -500,13 +500,24 @@ Workspace Agent is the foreground interactive agent surface.
   shown as stable human-readable blocked reasons. Priority/order choose only
   among otherwise eligible items by priority, order/created order, and task id.
   This routing foundation does not claim, schedule, start, or finalize work.
+- A deterministic Queue scheduler eligibility engine exists as a dry-run model
+  foundation. It aggregates the routing, dependency, tag pause, assignment,
+  coordinator-review, validation-in-progress, prompt, priority, and global
+  START / STOP / STOP + KILL RUNNING controls into an explainable plan. The
+  plan shows global scheduling state, schedulable item counts, best next item
+  per worker when START is active, blocked item summaries, top blocker labels,
+  unassigned eligible items, and why a worker is idle or why no worker can take
+  an item. It is explanation-only: it does not claim items, start workers,
+  launch Agent Executor/Codex, persist live worker state, run a background
+  scheduler, or finalize item status.
 - The Queue widget has a Flow Map view alongside the existing table/list and
   selected-task detail controls. Flow Map is a visual overview of queue tags,
   dependency layers/barriers, the Agent Executor section, spare/working
-  executor blocks, and final result blocks grouped by tag. Work-item blocks can
-  be clicked to select the existing task detail panel, but the view does not
-  start work, claim items, schedule workers, launch Agent Executor, finalize
-  status, persist live worker process state, or change Queue Autorun,
+  executor blocks, dry-run next/idle labels from the scheduler plan, and final
+  result blocks grouped by tag. Work-item blocks can be clicked to select the
+  existing task detail panel, but the view does not start work, claim items,
+  schedule workers, launch Agent Executor, finalize status, persist live worker
+  process state, or change Queue Autorun,
   Sequential Runner, Codex Direct Work, Agent Executor, or Workspace Agent
   runtime behavior. The table/list view and all existing edit, dependency,
   routing, worker assignment, tag pause/resume, priority/order, manual run,

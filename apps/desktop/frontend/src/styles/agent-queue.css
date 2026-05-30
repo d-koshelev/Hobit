@@ -264,6 +264,7 @@
 }
 
 .agent-queue-validation-summary,
+.agent-queue-scheduler-facts,
 .agent-queue-item-foundation-facts {
   display: grid;
   gap: var(--space-xs);
@@ -271,6 +272,7 @@
 }
 
 .agent-queue-validation-summary > div,
+.agent-queue-scheduler-facts > div,
 .agent-queue-item-foundation-facts > div {
   display: flex;
   align-items: center;
@@ -280,6 +282,8 @@
 
 .agent-queue-validation-summary dt,
 .agent-queue-validation-summary dd,
+.agent-queue-scheduler-facts dt,
+.agent-queue-scheduler-facts dd,
 .agent-queue-item-foundation-facts dt,
 .agent-queue-item-foundation-facts dd {
   margin: 0;
@@ -287,13 +291,24 @@
 }
 
 .agent-queue-validation-summary dt,
+.agent-queue-scheduler-facts dt,
 .agent-queue-item-foundation-facts dt {
   color: var(--color-text-muted);
 }
 
 .agent-queue-validation-summary dd,
+.agent-queue-scheduler-facts dd,
 .agent-queue-item-foundation-facts dd {
   color: var(--color-text-primary);
+}
+
+.agent-queue-scheduler-preview {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
 }
 
 .agent-queue-validation-animating {

@@ -50,9 +50,17 @@ behavior, or Workspace Agent context wiring.
   invalid dependency graphs, manual assignment mismatches,
   coordinator-review/validation gates, and non-runnable item states affect
   eligibility, but the model does not claim, schedule, start, or finalize work.
+  A deterministic scheduler eligibility engine now aggregates those routing
+  rules into a dry-run plan for the Queue UI: global START / STOP / STOP +
+  KILL RUNNING state, eligible worker/item relationships, best-next worker
+  recommendations, blocked item summaries, top blocker labels, and worker idle
+  reasons. The plan is explanation-only and does not claim items, start
+  workers, launch Agent Executor/Codex, persist live worker process state, run
+  a background scheduler loop, or finalize item status.
   The Queue widget also has a Flow Map view that visualizes queue tags,
-  dependency layers/barriers, executor lanes, spare executors, running
-  executor blocks, and final result blocks grouped by tag. The Flow Map is
+  dependency layers/barriers, executor lanes, spare executors with scheduler
+  dry-run next/idle labels, running executor blocks, and final result blocks
+  grouped by tag. The Flow Map is
   frontend/model visualization only; it selects existing tasks for the detail
   panel and does not add claiming, scheduling, hidden execution, worker
   process persistence, worker-owned finalization, rollback execution, Agent

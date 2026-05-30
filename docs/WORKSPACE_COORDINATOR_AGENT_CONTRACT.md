@@ -581,10 +581,21 @@ become claiming, scheduler dispatch, hidden execution, worker finalization,
 rollback execution, Agent Executor runtime changes, or Codex Direct Work
 changes.
 
+Queue scheduler eligibility is now a deterministic dry-run/model foundation
+over those worker routing rules. It can explain global START / STOP / STOP +
+KILL RUNNING state, available workers, eligible items per worker, best next
+items, blocked items, top blocker labels, why no worker can take an item, and
+why a worker is idle. This model is read-only and explanation-only. It must not
+claim items, start real workers, launch Agent Executor or Codex, create hidden
+Queue Autorun starts, persist live worker process state, run a background
+scheduler loop, finalize item status, or execute rollback. Real scheduling and
+runtime worker behavior remain future explicit work.
+
 The Queue widget may visualize the same frontend/model state in a Flow Map
 view. The Flow Map groups work-item blocks by queue tag, shows dependency
 layers and barrier rows, shows Agent Executor lanes with spare and currently
-running visual blocks, and shows final result blocks grouped by tag. It is a
+running visual blocks, dry-run next/idle labels where available, and shows
+final result blocks grouped by tag. It is a
 selection and comprehension view only: clicking a work-item block selects the
 existing task details, and clicking a running executor block may select the
 linked task when visible. It must not claim work, start Agent Executor, arm or
