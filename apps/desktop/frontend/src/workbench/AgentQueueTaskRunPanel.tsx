@@ -17,6 +17,9 @@ import {
   normalizeItemType,
   normalizeQueueTag,
   normalizeValidationStatus,
+  queueDependencyBadgeVariant,
+  queueDependencyBlockedSummary,
+  queueDependencyStatusLabel,
   shortWidgetInstanceId,
   statusBadgeVariant,
   statusLabel,
@@ -24,6 +27,7 @@ import {
   validationStatusLabel,
   workerLabel,
   type AgentWorkerSummary,
+  type AgentQueueDependencyState,
   type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
@@ -46,6 +50,7 @@ type AgentQueueTaskRunPanelProps = {
   assignmentMessage: string | null;
   autorun: AgentQueueAutorunController;
   currentSelection: string;
+  dependencyState?: AgentQueueDependencyState;
   executorSlots: AgentExecutorSlot[];
   hasExecutorSlots: boolean;
   inputId: string;
@@ -75,6 +80,7 @@ export function AgentQueueTaskRunPanel({
   assignmentMessage,
   autorun,
   currentSelection,
+  dependencyState,
   executorSlots,
   hasExecutorSlots,
   inputId,
@@ -157,6 +163,11 @@ export function AgentQueueTaskRunPanel({
             {statusLabel(selectedTask.status)}
           </Badge>
           {queueTagPaused ? <Badge variant="warning">Tag paused</Badge> : null}
+          {dependencyState && dependencyState.dependsOn.length > 0 ? (
+            <Badge variant={queueDependencyBadgeVariant(dependencyState.status)}>
+              {queueDependencyStatusLabel(dependencyState.status)}
+            </Badge>
+          ) : null}
           <Badge
             className={
               validationStatus === "validating"
@@ -202,6 +213,14 @@ export function AgentQueueTaskRunPanel({
         <div>
           <dt>Coordinator</dt>
           <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
+        </div>
+        <div>
+          <dt>Dependency gate</dt>
+          <dd>
+            {dependencyState && dependencyState.dependsOn.length > 0
+              ? queueDependencyBlockedSummary(dependencyState)
+              : "No dependencies"}
+          </dd>
         </div>
       </dl>
 

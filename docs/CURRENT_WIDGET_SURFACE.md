@@ -445,6 +445,26 @@ Workspace Agent is the foreground interactive agent surface.
   before deleting" message; deleting a tag with running items is blocked and
   does not kill work. Full tag merge/reassign workflows, persisted tag records,
   dependency execution, and backend scheduler enforcement remain future work.
+- Queue tasks may list other Queue task ids in a frontend/model-compatible
+  `dependsOn` list. Existing/basic tasks default to no dependencies. The Queue
+  UI derives dependency state as ready, blocked, or invalid, shows compact
+  dependency badges and "Blocked by" summaries, and lets the operator add or
+  remove dependencies in explicit item edit mode. Self-dependencies, missing
+  dependency ids, and cycles are rejected. A dependency is treated as satisfied
+  only when the prerequisite task is completed and coordinator-finalized in the
+  current model; this is the conservative current approximation for completed,
+  reviewed, and accepted work.
+- Dependency edits use the same safe edit-save flow as other item edits:
+  saving pauses the target queue tag for coordinator review, marks the item for
+  review, and does not start workers, Executor work, Queue Autorun, or hidden
+  scheduling. Deleting a prerequisite task is blocked while other tasks still
+  depend on it so dependent tasks do not silently become ready.
+- Dependency state gates readiness/eligibility only. It blocks selected-task
+  manual run readiness, Queue Autorun arming, and frontend Sequential Queue
+  Runner selection when dependencies are blocked or invalid. It does not add a
+  backend dependency engine, scheduler claiming, automatic acceptance, worker
+  finalization, rollback execution, Agent Executor runtime changes, or Codex
+  Direct Work changes.
 - Worker model foundation is UI/model-only. Visible Agent Executor slots are
   shown as Agent Workers that can be general-purpose or scoped to one queue
   tag. Changing worker scope does not spawn a worker, start Codex, assign work,

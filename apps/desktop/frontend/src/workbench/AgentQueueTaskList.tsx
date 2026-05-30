@@ -10,6 +10,9 @@ import {
   normalizeItemType,
   normalizeQueueTag,
   normalizeValidationStatus,
+  queueDependencyBadgeVariant,
+  queueDependencyBlockedSummary,
+  queueDependencyStatusLabel,
   statusBadgeVariant,
   statusLabel,
   taskPreview,
@@ -17,9 +20,11 @@ import {
   validationStatusLabel,
   workerLabel,
   type QueueFilter,
+  type AgentQueueDependencyState,
 } from "./agentQueueTaskUiModel";
 
 type AgentQueueTaskListProps = {
+  dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
   filteredTasks: AgentQueueTask[];
   isLoading: boolean;
   isSelecting: boolean;
@@ -33,6 +38,7 @@ type AgentQueueTaskListProps = {
 };
 
 export function AgentQueueTaskList({
+  dependencyStates,
   filteredTasks,
   isLoading,
   isSelecting,
@@ -114,6 +120,7 @@ export function AgentQueueTaskList({
               task.validationStatus,
             );
             const itemType = normalizeItemType(task.itemType);
+            const dependencyState = dependencyStates.get(task.queueItemId);
 
             return (
               <button
@@ -149,6 +156,15 @@ export function AgentQueueTaskList({
                   {queueTagPaused ? (
                     <Badge variant="warning">Tag paused</Badge>
                   ) : null}
+                  {dependencyState && dependencyState.dependsOn.length > 0 ? (
+                    <Badge
+                      variant={queueDependencyBadgeVariant(
+                        dependencyState.status,
+                      )}
+                    >
+                      {queueDependencyStatusLabel(dependencyState.status)}
+                    </Badge>
+                  ) : null}
                   <Badge
                     className={
                       validationStatus === "validating"
@@ -171,6 +187,13 @@ export function AgentQueueTaskList({
                   </span>
                   <span>Priority {task.priority.toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
+                  {dependencyState && dependencyState.dependsOn.length > 0 ? (
+                    <span>
+                      {dependencyState.status === "ready"
+                        ? "Dependencies ready"
+                        : queueDependencyBlockedSummary(dependencyState)}
+                    </span>
+                  ) : null}
                   {updatedText ? (
                     <time dateTime={task.updatedAt}>{updatedText}</time>
                   ) : null}

@@ -13,17 +13,22 @@ import {
   DEFAULT_TASK_TITLE,
   emptyDraft,
   errorToMessage,
+  getQueueTaskDependencyState,
   MAX_PRIORITY,
   MIN_PRIORITY,
   normalizeItemType,
   normalizeQueueTag,
   normalizeQueueTagName,
+  normalizeTaskDependencies,
   normalizeTaskExecutionPolicy,
   normalizeTaskStatus,
   normalizeValidationStatus,
+  queueDependencyReadinessMessage,
+  queueDependencyStatesByTask,
   queueTagsFromTasks,
   queueTagNameToId,
   shortWidgetInstanceId,
+  validateQueueTaskDependencies,
   validationSummary,
   workersFromExecutorSlots,
   type AgentWorkerSummary,
@@ -290,6 +295,7 @@ export function useAgentQueueController({
         AgentQueueTask,
         | "assignedWorkerId"
         | "coordinatorStatus"
+        | "dependsOn"
         | "itemType"
         | "queueTagId"
         | "queueTagName"
@@ -313,6 +319,10 @@ export function useAgentQueueController({
     selectedTask &&
       (draft.title !== selectedTask.title ||
         draft.description !== selectedTask.description ||
+        !areStringArraysEqual(
+          draft.dependsOn,
+          normalizeTaskDependencies(selectedTask.dependsOn),
+        ) ||
         draft.executionPolicy !==
           normalizeTaskExecutionPolicy(selectedTask.executionPolicy) ||
         draft.itemType !== normalizeItemType(selectedTask.itemType) ||
@@ -356,6 +366,10 @@ export function useAgentQueueController({
   );
   const queueValidationSummary = useMemo(
     () => validationSummary(tasks),
+    [tasks],
+  );
+  const dependencyStates = useMemo(
+    () => queueDependencyStatesByTask(tasks),
     [tasks],
   );
 
@@ -549,7 +563,11 @@ export function useAgentQueueController({
           isDirty: hasOpenTaskEdit,
           selectedTask,
           startApiAvailable,
-        })
+        }) ??
+        queueDependencyReadinessMessage(
+          dependencyStates.get(selectedTask.queueItemId) ??
+            getQueueTaskDependencyState(selectedTask, tasks),
+        )
       : "Assign an Agent Executor before running.";
   const preconditionMessages = useMemo(
     () =>
@@ -604,6 +622,15 @@ export function useAgentQueueController({
       "Resume paused queue tags before arming Queue Autorun.",
     );
   }
+  if (
+    Array.from(dependencyStates.values()).some(
+      (dependencyState) => dependencyState.status !== "ready",
+    )
+  ) {
+    autorunPreconditionMessages.unshift(
+      "Resolve blocked or invalid queue dependencies before arming Queue Autorun.",
+    );
+  }
   const isAutorunActive = Boolean(autorunSnapshot?.isActive);
   const canArmAutorun =
     autorunPreconditionMessages.length === 0 &&
@@ -618,6 +645,7 @@ export function useAgentQueueController({
     runnerActiveQueueItemId: queueRunner.activeQueueItemId,
     runnerStatus: queueRunner.controller.status,
     selectedTask,
+    tasks: tasksRef.current,
   });
 
   async function createTask(nextDraft?: TaskDraft) {
@@ -665,6 +693,7 @@ export function useAgentQueueController({
         validationStatus: taskDraft.validationStatus,
       });
       const taskFoundation = {
+        dependsOn: [],
         itemType: taskDraft.itemType,
         queueTagId: queueTagNameToId(taskDraft.queueTagName),
         queueTagName: taskDraft.queueTagName.trim(),
@@ -760,6 +789,16 @@ export function useAgentQueueController({
       return;
     }
 
+    const dependencyValidationError = validateQueueTaskDependencies(
+      { ...selectedTask, dependsOn: draft.dependsOn },
+      tasksRef.current,
+    );
+
+    if (dependencyValidationError) {
+      setValidationMessage(dependencyValidationError);
+      return;
+    }
+
     setIsSaving(true);
     setEditorError(null);
     setAssignmentError(null);
@@ -795,6 +834,7 @@ export function useAgentQueueController({
           ? "needs_review"
           : draft.validationStatus;
       const taskFoundation = {
+        dependsOn: normalizeTaskDependencies(draft.dependsOn),
         itemType: draft.itemType,
         queueTagId,
         queueTagName: draft.queueTagName.trim(),
@@ -840,6 +880,7 @@ export function useAgentQueueController({
       runnerActiveQueueItemId: queueRunner.activeQueueItemId,
       runnerStatus: queueRunner.controller.status,
       selectedTask,
+      tasks: tasksRef.current,
     });
 
     setDeleteMessage(null);
@@ -872,6 +913,7 @@ export function useAgentQueueController({
       runnerActiveQueueItemId: queueRunner.activeQueueItemId,
       runnerStatus: queueRunner.controller.status,
       selectedTask,
+      tasks: tasksRef.current,
     });
 
     if (blockedReason) {
@@ -1465,6 +1507,7 @@ export function useAgentQueueController({
     const queueTag = normalizeQueueTag(mergedTask);
     setSelectedTask(mergedTask);
     setDraft({
+      dependsOn: normalizeTaskDependencies(mergedTask.dependsOn),
       description: mergedTask.description,
       executionPolicy: normalizeTaskExecutionPolicy(mergedTask.executionPolicy),
       itemType: normalizeItemType(mergedTask.itemType),
@@ -1538,6 +1581,9 @@ export function useAgentQueueController({
         localFields?.coordinatorStatus ??
         task.coordinatorStatus ??
         "not_reported",
+      dependsOn: normalizeTaskDependencies(
+        localFields?.dependsOn ?? task.dependsOn,
+      ),
       itemType: localFields?.itemType ?? normalizeItemType(task.itemType),
       queueTagId: queueTag.queueTagId,
       queueTagName: queueTag.queueTagName,
@@ -1667,6 +1713,7 @@ export function useAgentQueueController({
     setStatusFilter,
     statusFilter,
     tasks,
+    dependencyStates,
     updateDraft,
     updatePriority,
     validationMessage,
@@ -1697,4 +1744,12 @@ function upsertQueueTagRecord(
   }
 
   return [...queueTags, queueTag];
+}
+
+function areStringArraysEqual(first: string[], second: string[]) {
+  if (first.length !== second.length) {
+    return false;
+  }
+
+  return first.every((value, index) => value === second[index]);
 }

@@ -537,6 +537,21 @@ validation status are separate. Worker reports, validation results, and
 Diff Review reports are inputs to Workspace/coordinator decisions; workers must
 not directly finalize items as done/failure automatically.
 
+Queue items may depend on other Queue items. Current dependency modeling is a
+frontend/model readiness layer: existing items default to no dependencies,
+dependencies are visible in the task list and task details, and dependency
+changes are explicit item edits. Dependency self-links, missing ids, and cycles
+must be rejected. A dependent item is eligible only after each prerequisite is
+completed and coordinator-finalized in the current model; this is the safest
+available approximation for completed, reviewed, and accepted work until a
+full coordinator acceptance model exists. Dependency edits pause the affected
+queue tag and require coordinator review through the same edit-save safety
+flow. Deleting a prerequisite is blocked while dependents reference it. This
+readiness layer must not become dependency execution, worker claiming,
+automatic Queue Autorun, scheduler behavior, rollback execution, automatic
+acceptance, worker-owned finalization, Agent Executor runtime changes, or
+Workspace Agent automation.
+
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for
 Workspace/coordinator review, and leaves already running Executor work alone.

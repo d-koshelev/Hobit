@@ -60,6 +60,7 @@ export type CreateAgentQueueTaskRequest = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;
@@ -84,6 +85,7 @@ export type UpdateAgentQueueTaskRequest = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;
@@ -238,6 +240,7 @@ export type AgentQueueTask = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;

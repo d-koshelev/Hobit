@@ -227,6 +227,7 @@ export function AgentQueuePlaceholderWidget({
             }
             taskList={
               <AgentQueueTaskList
+                dependencyStates={queue.dependencyStates}
                 filteredTasks={filteredTasks}
                 isLoading={isLoading}
                 isSelecting={isSelecting}

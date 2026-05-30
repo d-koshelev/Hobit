@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
+import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
 
 let root: Root | null = null;
@@ -77,6 +78,26 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Worker Agent Executor");
     expect(document.querySelector(".agent-queue-task-row-paused")).not.toBeNull();
   });
+
+  it("renders compact dependency state and blocked reason on task rows", () => {
+    renderList([
+      queueTask({
+        queueItemId: "queue-1",
+        status: "queued",
+        title: "Prerequisite",
+      }),
+      queueTask({
+        dependsOn: ["queue-1"],
+        queueItemId: "queue-2",
+        status: "ready",
+        title: "Dependent",
+      }),
+    ]);
+
+    expect(document.body.textContent).toContain("Dependent");
+    expect(document.body.textContent).toContain("Deps blocked");
+    expect(document.body.textContent).toContain("Blocked by: Prerequisite");
+  });
 });
 
 function renderList(
@@ -90,6 +111,7 @@ function renderList(
   act(() => {
     root?.render(
       <AgentQueueTaskList
+        dependencyStates={queueDependencyStatesByTask(tasks)}
         filteredTasks={tasks}
         isLoading={false}
         isSelecting={false}
@@ -109,6 +131,7 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   return {
     assignedExecutorWidgetId: null,
     createdAt: "2026-05-20T10:00:00.000Z",
+    dependsOn: [],
     description: "",
     executionPolicy: "manual",
     priority: 0,

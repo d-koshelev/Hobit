@@ -30,11 +30,19 @@ behavior, or Workspace Agent context wiring.
   vocabulary. Queue item edits are explicit save/cancel operations; saving an
   edit locally pauses the related queue tag for coordinator review, resume is
   explicit, and existing running Executor work is not killed by edit or resume.
+  Queue items now have a frontend/model `dependsOn` list with derived
+  ready/blocked/invalid dependency state, compact blocked-by UI, self/cycle/
+  missing-id rejection, dependency edit review gating, prerequisite delete
+  protection, and readiness integration for manual run, Queue Autorun arming,
+  and the frontend Sequential Queue Runner. A dependency is considered
+  satisfied only when the prerequisite is completed and coordinator-finalized
+  in the current model.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real
   multi-worker runtime, worker spawning, automatic validation, automatic Diff
-  Review execution, automatic rollback, or server worker.
+  Review execution, dependency execution, automatic rollback, worker-owned
+  finalization, or server worker.
 - `AuditEventEnvelope` v0 exists as type and contract vocabulary.
 - `docs/AUDIT_EVENT_MAPPING_PLAN.md` maps current event-like surfaces to
   future audit readiness.

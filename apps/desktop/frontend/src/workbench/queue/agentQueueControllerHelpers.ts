@@ -3,8 +3,10 @@ import type {
   AgentQueueTask,
 } from "../../workspace/types";
 import {
+  dependentTasksForQueueItem,
   errorToMessage,
   isFinalQueueTaskStatus,
+  queueDependencyBlockedSummary,
   statusLabel,
 } from "../agentQueueTaskUiModel";
 import { getNextQueueRunnerTaskDecision } from "./queueRunner";
@@ -158,6 +160,12 @@ export function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
   switch (decision.reason) {
     case "assigned_to_different_executor":
       return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another Agent Executor.`;
+    case "dependency_blocked":
+      return `Sequential Queue Runner stopped before "${decision.task.title}" because dependencies are not ready. ${
+        decision.dependencyState
+          ? queueDependencyBlockedSummary(decision.dependencyState)
+          : "Resolve dependencies before running."
+      }`;
     case "manual":
       return `Sequential Queue Runner stopped at manual task "${decision.task.title}". Operator action is required.`;
     case "paused_queue_tag":
@@ -275,6 +283,7 @@ export function queueTaskDeleteBlockedReason({
   runnerActiveQueueItemId,
   runnerStatus,
   selectedTask,
+  tasks,
 }: {
   apiAvailable: boolean;
   autorunSnapshot: AgentQueueRunnerSnapshot | null;
@@ -283,6 +292,7 @@ export function queueTaskDeleteBlockedReason({
   runnerActiveQueueItemId: string | null;
   runnerStatus: AgentQueueRunnerStatus;
   selectedTask: AgentQueueTask | null;
+  tasks: AgentQueueTask[];
 }) {
   if (!selectedTask) {
     return "Select a queue task before deleting.";
@@ -316,6 +326,16 @@ export function queueTaskDeleteBlockedReason({
     autorunSnapshot.activeQueueItemId === selectedTask.queueItemId
   ) {
     return "This task is active in Queue Autorun.";
+  }
+
+  const dependents = dependentTasksForQueueItem(tasks, selectedTask.queueItemId);
+
+  if (dependents.length > 0) {
+    const dependentTitle = dependents[0]?.title.trim() || dependents[0]?.queueItemId;
+
+    return dependents.length === 1
+      ? `Remove dependency from "${dependentTitle}" before deleting this task.`
+      : `Remove dependencies from ${dependents.length.toString()} tasks before deleting this task.`;
   }
 
   return null;

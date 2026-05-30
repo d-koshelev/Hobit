@@ -193,6 +193,34 @@ describe("queue runner task selection", () => {
     expect(decision.kind === "stop" && decision.reason).toBe("paused_queue_tag");
   });
 
+  it("stops before starting a dependency-blocked task", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          coordinatorStatus: "not_reported",
+          executionPolicy: "auto",
+          queueItemId: "queue-1",
+          status: "completed",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          dependsOn: ["queue-1"],
+          executionPolicy: "auto",
+          prompt: "Run this",
+          queueItemId: "queue-2",
+          status: "ready",
+        }),
+      ],
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.kind === "stop" && decision.reason).toBe(
+      "dependency_blocked",
+    );
+  });
+
   it("does not select a task that already started in the current pass", () => {
     const decision = getNextQueueRunnerTaskDecision({
       previousTaskStatus: "completed",
@@ -235,6 +263,7 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   return {
     assignedExecutorWidgetId: null,
     createdAt: "2026-05-20T10:00:00.000Z",
+    dependsOn: [],
     description: "",
     executionPolicy: "manual",
     priority: 0,

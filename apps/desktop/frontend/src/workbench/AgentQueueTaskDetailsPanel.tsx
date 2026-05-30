@@ -103,8 +103,10 @@ export function AgentQueueTaskDetailsPanel({
             onSave={() => void saveTask()}
             priorityInputId={priorityInputId}
             promptInputId={promptInputId}
+            selectedTask={selectedTask}
             selectedTaskHint={selectedTaskHint}
             statusInputId={statusInputId}
+            tasks={tasks}
             titleInputId={titleInputId}
           />
 
@@ -114,6 +116,7 @@ export function AgentQueueTaskDetailsPanel({
             assignmentMessage={assignmentMessage}
             autorun={queue.autorun}
             currentSelection={selectedExecutorWidgetId}
+            dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
             executorSlots={agentExecutorSlots}
             hasExecutorSlots={agentExecutorSlots.length > 0}
             inputId={assignmentInputId}

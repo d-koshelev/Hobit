@@ -1,5 +1,9 @@
 import type { AgentQueueTask } from "../../workspace/types";
-import { normalizeQueueTag } from "../agentQueueTaskUiModel";
+import {
+  getQueueTaskDependencyState,
+  normalizeQueueTag,
+  type AgentQueueDependencyState,
+} from "../agentQueueTaskUiModel";
 import {
   getQueueRunnerPolicyDecision,
   type QueueRunnerPreviousTaskStatus,
@@ -18,10 +22,12 @@ export type QueueRunnerTaskDecision =
       kind: "stop";
       reason:
         | "assigned_to_different_executor"
+        | "dependency_blocked"
         | "manual"
         | "paused_queue_tag"
         | "previous_success_required"
         | "previous_task_not_successful";
+      dependencyState?: AgentQueueDependencyState;
       skippedTaskCount: number;
       task: AgentQueueTask;
     }
@@ -102,6 +108,18 @@ export function getNextQueueRunnerTaskDecision({
       return {
         kind: "stop",
         reason: "assigned_to_different_executor",
+        skippedTaskCount,
+        task,
+      };
+    }
+
+    const dependencyState = getQueueTaskDependencyState(task, tasks);
+
+    if (dependencyState.status !== "ready") {
+      return {
+        dependencyState,
+        kind: "stop",
+        reason: "dependency_blocked",
         skippedTaskCount,
         task,
       };

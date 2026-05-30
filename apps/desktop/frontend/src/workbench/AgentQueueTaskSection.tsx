@@ -1,11 +1,20 @@
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../design-system/Button";
+import type { AgentQueueTask } from "../workspace/types";
 import {
   EXECUTION_POLICY_OPTIONS,
   ITEM_TYPE_OPTIONS,
+  displayTaskTitle,
+  getQueueTaskDependencyState,
   isAgentQueueTaskExecutionPolicy,
   MAX_PRIORITY,
   MIN_PRIORITY,
   normalizeItemType,
+  normalizeTaskDependencies,
+  queueDependencyBadgeVariant,
+  queueDependencyBlockedSummary,
+  queueDependencyBlockerLabel,
+  queueDependencyStatusLabel,
   normalizeValidationStatus,
   statusBadgeVariant,
   statusLabel,
@@ -32,8 +41,10 @@ type AgentQueueTaskSectionProps = {
   priorityInputId: string;
   promptInputId: string;
   descriptionInputId: string;
+  selectedTask: AgentQueueTask;
   selectedTaskHint: string;
   statusInputId: string;
+  tasks: AgentQueueTask[];
   titleInputId: string;
 };
 
@@ -50,8 +61,10 @@ export function AgentQueueTaskSection({
   priorityInputId,
   promptInputId,
   descriptionInputId,
+  selectedTask,
   selectedTaskHint,
   statusInputId,
+  tasks,
   titleInputId,
 }: AgentQueueTaskSectionProps) {
   return (
@@ -105,6 +118,14 @@ export function AgentQueueTaskSection({
         id={promptInputId}
         onChange={(event) => onDraftChange({ prompt: event.currentTarget.value })}
         value={draft.prompt}
+      />
+
+      <DependencyEditor
+        draft={draft}
+        isEditing={editTask.isEditing}
+        onDraftChange={onDraftChange}
+        selectedTask={selectedTask}
+        tasks={tasks}
       />
 
       <div className="agent-queue-task-control-row">
@@ -265,5 +286,158 @@ export function AgentQueueTaskSection({
 
       <AgentQueueDeleteTaskControl deleteTask={deleteTask} />
     </section>
+  );
+}
+
+function DependencyEditor({
+  draft,
+  isEditing,
+  onDraftChange,
+  selectedTask,
+  tasks,
+}: {
+  draft: TaskDraft;
+  isEditing: boolean;
+  onDraftChange: (nextDraft: Partial<TaskDraft>) => void;
+  selectedTask: AgentQueueTask;
+  tasks: AgentQueueTask[];
+}) {
+  const dependencyState = getQueueTaskDependencyState(
+    { ...selectedTask, dependsOn: draft.dependsOn },
+    tasks,
+  );
+  const dependencyChoices = useMemo(
+    () =>
+      tasks.filter(
+        (task) =>
+          task.queueItemId !== selectedTask.queueItemId &&
+          !normalizeTaskDependencies(draft.dependsOn).includes(task.queueItemId),
+      ),
+    [draft.dependsOn, selectedTask.queueItemId, tasks],
+  );
+  const [selectedDependencyId, setSelectedDependencyId] = useState("");
+
+  useEffect(() => {
+    setSelectedDependencyId((currentDependencyId) =>
+      dependencyChoices.some(
+        (dependency) => dependency.queueItemId === currentDependencyId,
+      )
+        ? currentDependencyId
+        : dependencyChoices[0]?.queueItemId ?? "",
+    );
+  }, [dependencyChoices]);
+
+  function addDependency() {
+    if (!selectedDependencyId) {
+      return;
+    }
+
+    onDraftChange({
+      dependsOn: normalizeTaskDependencies([
+        ...draft.dependsOn,
+        selectedDependencyId,
+      ]),
+    });
+  }
+
+  function removeDependency(queueItemId: string) {
+    onDraftChange({
+      dependsOn: draft.dependsOn.filter(
+        (dependencyId) => dependencyId !== queueItemId,
+      ),
+    });
+  }
+
+  return (
+    <div className="agent-queue-dependency-editor">
+      <div className="agent-queue-dependency-header">
+        <div>
+          <p className="field-label">Dependencies</p>
+          <p className="agent-queue-run-note">
+            Dependencies gate readiness only. They do not start workers.
+          </p>
+        </div>
+        <Badge variant={queueDependencyBadgeVariant(dependencyState.status)}>
+          {dependencyState.dependsOn.length > 0
+            ? queueDependencyStatusLabel(dependencyState.status)
+            : "No deps"}
+        </Badge>
+      </div>
+
+      {dependencyState.dependsOn.length > 0 ? (
+        <div className="agent-queue-dependency-list">
+          {dependencyState.dependsOn.map((dependencyId) => {
+            const dependencyTask = tasks.find(
+              (task) => task.queueItemId === dependencyId,
+            );
+
+            return (
+              <div className="agent-queue-dependency-row" key={dependencyId}>
+                <span>
+                  {dependencyTask
+                    ? displayTaskTitle(dependencyTask)
+                    : dependencyId}
+                </span>
+                <Button
+                  disabled={!isEditing}
+                  onClick={() => removeDependency(dependencyId)}
+                  variant="ghost"
+                >
+                  Remove
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="agent-queue-run-note">No dependencies.</p>
+      )}
+
+      {isEditing ? (
+        <div className="agent-queue-dependency-add-row">
+          <select
+            className="input agent-queue-dependency-select"
+            disabled={dependencyChoices.length === 0}
+            onChange={(event) =>
+              setSelectedDependencyId(event.currentTarget.value)
+            }
+            value={selectedDependencyId}
+          >
+            {dependencyChoices.length === 0 ? (
+              <option value="">No available task</option>
+            ) : (
+              dependencyChoices.map((task) => (
+                <option key={task.queueItemId} value={task.queueItemId}>
+                  {displayTaskTitle(task)}
+                </option>
+              ))
+            )}
+          </select>
+          <Button
+            disabled={!selectedDependencyId}
+            onClick={addDependency}
+            variant="secondary"
+          >
+            Add dependency
+          </Button>
+        </div>
+      ) : null}
+
+      {dependencyState.status !== "ready" ? (
+        <div className="agent-queue-run-warning-list">
+          <p className="agent-queue-run-warning">
+            {queueDependencyBlockedSummary(dependencyState)}
+          </p>
+          {dependencyState.blockedBy.map((blocker) => (
+            <p
+              className="agent-queue-run-warning"
+              key={`${blocker.queueItemId}-${blocker.reason}`}
+            >
+              {queueDependencyBlockerLabel(blocker)}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
