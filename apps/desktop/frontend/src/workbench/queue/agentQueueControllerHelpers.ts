@@ -391,3 +391,11 @@ export function defaultCodexExecutable(): string {
     ? WINDOWS_CODEX_EXECUTABLE
     : DEFAULT_CODEX_EXECUTABLE;
 }
+
+export function areStringArraysEqual(first: string[], second: string[]) {
+  if (first.length !== second.length) {
+    return false;
+  }
+
+  return first.every((value, index) => value === second[index]);
+}

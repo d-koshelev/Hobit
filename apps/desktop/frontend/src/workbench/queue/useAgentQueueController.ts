@@ -1,74 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  AgentQueueExecutionPlanPreview,
-  AgentQueueRunnerSnapshot,
-  AgentQueueTask,
-  AgentQueueTaskRunLinkSummary,
-  AgentQueueWorkerExecutionReport,
-  AgentQueueWorkerConfig,
-  DirectWorkApprovalPolicy,
-  DirectWorkSandbox,
-} from "../../workspace/types";
-import {
-  clamp,
-  DEFAULT_QUEUE_TAG_ID,
-  DEFAULT_TASK_TITLE,
-  displayTaskTitle,
-  emptyDraft,
-  errorToMessage,
-  getQueueTaskDependencyState,
-  MAX_PRIORITY,
-  MIN_PRIORITY,
-  normalizeItemType,
-  normalizeQueueTag,
-  normalizeQueueTagName,
-  normalizeTaskDependencies,
-  normalizeTaskExecutionPolicy,
-  normalizeTaskPriority,
-  normalizeTaskStatus,
-  normalizeValidationStatus,
-  DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE,
-  queueGlobalExecutionStateDescription,
-  queueGlobalExecutionStateLabel,
-  queueDependencyReadinessMessage,
-  queueDependencyStatesByTask,
-  sortQueueTasksForDisplay,
-  queueTagsFromTasks,
-  queueTagNameToId,
-  shortWidgetInstanceId,
-  validateQueueTaskDependencies,
-  validationSummary,
-  workersFromExecutorSlots,
-  type AgentWorkerSummary,
-  type QueueGlobalStatus,
-  type QueueFilter,
-  type QueueTagPauseState,
-  type QueueTagRecord,
-  type QueueTagSummary,
-  type TaskDraft,
-  type WorkerScope,
-  validateDraft,
-  validateQueueTagName,
-} from "../agentQueueTaskUiModel";
-import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
-import type { WidgetRenderProps } from "../types";
+import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
+import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
+import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
+  areStringArraysEqual,
   defaultCodexExecutable,
-  nextQueueTaskSelection,
   queueAutorunPreconditionMessages,
   queueRunReadinessMessage,
-  queueRunStartErrorMessage,
   queueTaskDeleteBlockedReason,
-  reconcileQueueTask,
   runPreconditionMessages,
   type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
 import {
-  buildAgentQueueExecutionPlanPreview,
-  staleExecutionPlanPreview,
-} from "./agentQueueExecutionPlanModel";
+  loadAgentQueueTasks,
+  refreshAgentQueueRunLinks,
+} from "./agentQueueLoadHelpers";
+import { createAgentQueueSelectionModel } from "./agentQueueSelectionModel";
 import {
   firstRoutingBlockedReasonLabel,
   getAssignedWorkerRoutingStates,
@@ -81,171 +30,38 @@ import {
   type AgentQueueEmbeddedExecutorSectionModel,
   type AgentQueueSchedulerPlan,
 } from "./agentQueueSchedulerModel";
+import {
+  queueTaskOrderingControls,
+} from "./agentQueueOrderingActions";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
-
-type UseAgentQueueControllerOptions = Pick<
-  WidgetRenderProps,
-  | "agentExecutorSlots"
-  | "onAssignAgentQueueTaskToExecutor"
-  | "onClearAgentQueueTaskAssignment"
-  | "onCreateAgentQueueTask"
-  | "onDeleteAgentQueueTask"
-  | "onCreateAgentQueueWorker"
-  | "onDeleteAgentQueueWorker"
-  | "onDirectWorkRunHandoffStarted"
-  | "onGetAgentQueueTask"
-  | "onGetAgentQueueTaskLatestRunLink"
-  | "onGetAgentQueueRunnerSnapshot"
-  | "onListAgentQueueTaskRunLinks"
-  | "onListAgentQueueTasks"
-  | "onListAgentQueueWorkers"
-  | "onStartAssignedAgentQueueTask"
-  | "onStartAgentQueueRunnerSession"
-  | "onStopAgentQueueRunnerSession"
-  | "onUpdateAgentQueueTask"
-  | "onUpdateAgentQueueWorker"
-  | "queueTaskAutoRefreshRequest"
->;
-
-export type AgentQueueRunController = {
-  approvalPolicy: DirectWorkApprovalPolicy;
-  canStart: boolean;
-  codexExecutableDraft: string;
-  isStarting: boolean;
-  onApprovalPolicyChange: (approvalPolicy: DirectWorkApprovalPolicy) => void;
-  onCodexExecutableDraftChange: (codexExecutable: string) => void;
-  onRepoRootDraftChange: (repoRoot: string) => void;
-  onSandboxChange: (sandbox: DirectWorkSandbox) => void;
-  onStartAssignedTask: () => void;
-  preconditionMessages: string[];
-  readinessMessage: string | null;
-  repoRootDraft: string;
-  sandbox: DirectWorkSandbox;
-  startError: string | null;
-  startedRunId: string | null;
-  startMessage: string | null;
-};
+import { createAgentQueuePlanningActions } from "./useAgentQueuePlanningActions";
+import {
+  createAgentQueueTagActions,
+} from "./useAgentQueueTagActions";
+import {
+  createAgentQueueTaskActions,
+  type AgentQueueLocalTaskFields,
+} from "./useAgentQueueTaskActions";
+import { createAgentQueueRunActions } from "./useAgentQueueRunActions";
+import {
+  createAgentQueueWorkerActions,
+} from "./useAgentQueueWorkerActions";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
-
-export type AgentQueueRunnerController = {
-  canStart: boolean;
-  error: string | null;
-  message: string | null;
-  onStart: () => void;
-  onStop: () => void;
-  preconditionMessages: string[];
-  status: AgentQueueRunnerStatus;
-};
-
-export type AgentQueueAutorunController = {
-  apiAvailable: boolean;
-  canArm: boolean;
-  error: string | null;
-  isLoading: boolean;
-  isStarting: boolean;
-  isStopping: boolean;
-  message: string | null;
-  onArm: () => void;
-  onRefresh: () => void;
-  onStop: () => void;
-  preconditionMessages: string[];
-  selectedExecutorLabel: string | null;
-  snapshot: AgentQueueRunnerSnapshot | null;
-};
-
-export type AgentQueueLatestRunLinkController = {
-  apiAvailable: boolean;
-  error: string | null;
-  isLoading: boolean;
-  link: AgentQueueTaskRunLinkSummary | null;
-  onRefresh: () => void;
-};
-
-export type AgentQueueRunHistoryController = {
-  apiAvailable: boolean;
-  error: string | null;
-  isLoading: boolean;
-  links: AgentQueueTaskRunLinkSummary[];
-  onRefresh: () => void;
-  totalCount: number;
-};
-
-export type AgentQueueDeleteController = {
-  blockedReason: string | null;
-  canRequest: boolean;
-  error: string | null;
-  isConfirming: boolean;
-  isDeleting: boolean;
-  message: string | null;
-  onCancel: () => void;
-  onConfirm: () => void;
-  onRequest: () => void;
-};
-
-export type AgentQueueExecutionPlanController = {
-  canGenerate: boolean;
-  message: string | null;
-  onGenerate: () => void;
-  plan: AgentQueueExecutionPlanPreview | null;
-};
-
-export type AgentQueueWorkerReportController = {
-  canAttach: boolean;
-  latestReport: AgentQueueWorkerExecutionReport | null;
-  message: string | null;
-  onAttachDemoReport: () => void;
-};
-
-export type QueueTaskInsertPosition = "top" | "bottom";
-
-export type AgentQueueOrderingController = {
-  canMoveDown: boolean;
-  canMoveToBottom: boolean;
-  canMoveToTop: boolean;
-  canMoveUp: boolean;
-  message: string | null;
-  orderLabel: string | null;
-  onMoveDown: () => void;
-  onMoveToBottom: () => void;
-  onMoveToTop: () => void;
-  onMoveUp: () => void;
-};
-
-export type AgentQueueEditController = {
-  isEditing: boolean;
-  onCancel: () => void;
-  onStart: () => void;
-};
-
-export type AgentQueueFoundationController = {
-  embeddedExecutor: AgentQueueEmbeddedExecutorSectionModel;
-  globalExecutionState: QueueGlobalStatus;
-  globalMessage: string | null;
-  globalStatus: QueueGlobalStatus;
-  maxExecutorMessage: string | null;
-  onMaxExecutorsChange: (maxExecutors: string) => void;
-  onCreateQueueTag: (queueTagName: string) => boolean;
-  onDeleteQueueTag: (queueTagId: string) => boolean;
-  onCreateWorker: () => void;
-  onDeleteWorker: (workerId: string) => void;
-  onPauseQueueTag: (queueTagId: string) => void;
-  onRenameWorker: (workerId: string, name: string) => void;
-  onRenameQueueTag: (queueTagId: string, queueTagName: string) => Promise<boolean>;
-  onResumeQueueTag: (queueTagId: string) => void;
-  onStartWorkers: () => void;
-  onStopAndKillRunning: () => void;
-  onStopWorkers: () => void;
-  onWorkerEnabledChange: (workerId: string, enabled: boolean) => void;
-  onWorkerScopeChange: (workerId: string, scope: WorkerScope) => void;
-  pausedQueueTagIds: ReadonlySet<string>;
-  queueTags: QueueTagSummary[];
-  schedulerPlan: AgentQueueSchedulerPlan;
-  tagManagementError: string | null;
-  tagManagementMessage: string | null;
-  validationSummary: Record<string, number>;
-  workers: AgentWorkerSummary[];
-};
+export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
+export type {
+  AgentQueueAutorunController,
+  AgentQueueDeleteController,
+  AgentQueueEditController,
+  AgentQueueExecutionPlanController,
+  AgentQueueFoundationController,
+  AgentQueueLatestRunLinkController,
+  AgentQueueOrderingController,
+  AgentQueueRunController,
+  AgentQueueRunHistoryController,
+  AgentQueueRunnerController,
+  AgentQueueWorkerReportController,
+} from "./agentQueueControllerTypes";
 
 export function useAgentQueueController({
   agentExecutorSlots = [],
@@ -368,22 +184,7 @@ export function useAgentQueueController({
   );
   const workerConfigsRef = useRef(workerConfigs);
   const [localTaskFields, setLocalTaskFields] = useState<
-    Map<
-      string,
-      Pick<
-        AgentQueueTask,
-        | "assignedWorkerId"
-        | "coordinatorStatus"
-        | "dependsOn"
-        | "itemType"
-        | "orderIndex"
-        | "queueTagId"
-        | "queueTagName"
-        | "validationStatus"
-        | "executionPlanPreview"
-        | "workerExecutionReports"
-      >
-    >
+    Map<string, AgentQueueLocalTaskFields>
   >(() => new Map());
   const localTaskFieldsRef = useRef(localTaskFields);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
@@ -395,6 +196,59 @@ export function useAgentQueueController({
   );
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
+  const selectionModel = createAgentQueueSelectionModel({
+    localTaskFieldsRef,
+    selectedTask,
+    setDraft,
+    setExecutionPlanMessage,
+    setIsEditing,
+    setSaveStateText,
+    setSelectedTask,
+    setTasks,
+    setWorkerReportMessage,
+    tasksRef,
+  });
+  const {
+    applyUpdatedTask,
+    clearSelectedTask,
+    mergeTaskFoundation,
+    setSelectedDraft,
+  } = selectionModel;
+  const workerActions = useMemo(
+    () =>
+      createAgentQueueWorkerActions({
+        agentExecutorSlots,
+        maxExecutors,
+        onCreateAgentQueueWorker,
+        onDeleteAgentQueueWorker,
+        onListAgentQueueWorkers,
+        onUpdateAgentQueueWorker,
+        setGlobalMessage,
+        setMaxExecutorMessage,
+        setTagManagementError,
+        setWorkerConfigs,
+        setWorkerScopes,
+        tasksRef,
+        workerConfigsRef,
+      }),
+    [
+      agentExecutorSlots,
+      maxExecutors,
+      onCreateAgentQueueWorker,
+      onDeleteAgentQueueWorker,
+      onListAgentQueueWorkers,
+      onUpdateAgentQueueWorker,
+    ],
+  );
+  const {
+    changeWorkerScope,
+    createWorker,
+    deleteWorker,
+    loadWorkers,
+    persistWorkerScopeUpdates,
+    renameWorker,
+    setWorkerEnabled,
+  } = workerActions;
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -535,71 +389,27 @@ export function useAgentQueueController({
       preferredTaskId?: string | null,
       options?: { preserveCurrentOnError?: boolean },
     ) => {
-      if (
-        !onCreateAgentQueueTask ||
-        !onDeleteAgentQueueTask ||
-        !onGetAgentQueueTask ||
-        !onListAgentQueueTasks ||
-        !onUpdateAgentQueueTask
-      ) {
-        setTasks([]);
-        clearSelectedTask();
-        setLoadError(
-          "Agent Queue task persistence is not available in this runtime.",
-        );
-        setIsLoading(false);
-        return "Agent Queue task persistence is not available in this runtime.";
-      }
-
-      setIsLoading(true);
-      setLoadError(null);
-      setEditorError(null);
-      setAssignmentError(null);
-      setValidationMessage(null);
-
-      try {
-        const loadedTasks = withQueueOrderIndexes(
-          (await onListAgentQueueTasks()).map(mergeTaskFoundation),
-        );
-        tasksRef.current = loadedTasks;
-        setTasks(loadedTasks);
-
-        const preferredExists = loadedTasks.some(
-          (task) => task.queueItemId === preferredTaskId,
-        );
-        const taskIdToSelect = preferredExists
-          ? preferredTaskId
-          : loadedTasks[0]?.queueItemId;
-
-        if (!taskIdToSelect) {
-          clearSelectedTask();
-          return null;
-        }
-
-        const detail = await onGetAgentQueueTask(taskIdToSelect);
-
-        if (!detail) {
-          clearSelectedTask();
-          setEditorError("The selected queue task could not be found.");
-          return "The selected queue task could not be found.";
-        }
-
-        setSelectedDraft(
-          loadedTasks.find((task) => task.queueItemId === detail.queueItemId) ??
-            detail,
-        );
-        setSaveStateText("Saved");
-        return null;
-      } catch (error) {
-        if (!options?.preserveCurrentOnError) {
-          setTasks([]);
-          clearSelectedTask();
-          setLoadError(errorToMessage(error, "Unable to load Agent Queue tasks."));
-        }
-        return errorToMessage(error, "Unable to load Agent Queue tasks.");
-      } finally {
-        setIsLoading(false);
-      }
+      const result = await loadAgentQueueTasks({
+        clearSelectedTask,
+        mergeTaskFoundation,
+        onCreateAgentQueueTask,
+        onDeleteAgentQueueTask,
+        onGetAgentQueueTask,
+        onListAgentQueueTasks,
+        onUpdateAgentQueueTask,
+        options,
+        preferredTaskId,
+        setAssignmentError,
+        setEditorError,
+        setIsLoading,
+        setLoadError,
+        setSaveStateText,
+        setSelectedDraft,
+        setTasks,
+        setValidationMessage,
+        tasksRef,
+      });
+      return result;
     },
     [
       onCreateAgentQueueTask,
@@ -613,56 +423,6 @@ export function useAgentQueueController({
   useEffect(() => {
     void loadTasks(null);
   }, [loadTasks]);
-
-  const loadWorkers = useCallback(async () => {
-    if (!onListAgentQueueWorkers) {
-      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
-      workerConfigsRef.current = defaultWorkers;
-      setWorkerConfigs(defaultWorkers);
-      return;
-    }
-
-    try {
-      const loadedWorkers = await onListAgentQueueWorkers();
-      if (loadedWorkers.length > 0) {
-        workerConfigsRef.current = loadedWorkers;
-        setWorkerConfigs(loadedWorkers);
-        setWorkerScopes(workerScopesFromConfigs(loadedWorkers));
-        return;
-      }
-
-      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
-      if (!onCreateAgentQueueWorker) {
-        workerConfigsRef.current = defaultWorkers;
-        setWorkerConfigs(defaultWorkers);
-        setWorkerScopes(workerScopesFromConfigs(defaultWorkers));
-        return;
-      }
-
-      const createdWorkers: AgentQueueWorkerConfig[] = [];
-      for (const worker of defaultWorkers) {
-        createdWorkers.push(
-          await onCreateAgentQueueWorker({
-            displayOrder: worker.displayOrder,
-            enabled: worker.enabled,
-            name: worker.name,
-            queueTagId: worker.queueTagId,
-            queueTagName: worker.queueTagName,
-            scopeKind: worker.scopeKind,
-            workerId: worker.workerId,
-          }),
-        );
-      }
-      workerConfigsRef.current = createdWorkers;
-      setWorkerConfigs(createdWorkers);
-      setWorkerScopes(workerScopesFromConfigs(createdWorkers));
-    } catch {
-      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
-      workerConfigsRef.current = defaultWorkers;
-      setWorkerConfigs(defaultWorkers);
-      setWorkerScopes(workerScopesFromConfigs(defaultWorkers));
-    }
-  }, [agentExecutorSlots, onCreateAgentQueueWorker, onListAgentQueueWorkers]);
 
   useEffect(() => {
     void loadWorkers();
@@ -717,43 +477,16 @@ export function useAgentQueueController({
       queueItemId: string | null | undefined,
       options?: { silent?: boolean },
     ) => {
-      if (
-        !queueItemId ||
-        (!onListAgentQueueTaskRunLinks && !onGetAgentQueueTaskLatestRunLink)
-      ) {
-        setLatestRunLink(null);
-        setRunHistoryLinks([]);
-        setLatestRunLinkError(null);
-        setIsLatestRunLinkLoading(false);
-        return;
-      }
-
-      if (!options?.silent) {
-        setIsLatestRunLinkLoading(true);
-      }
-      setLatestRunLinkError(null);
-
-      try {
-        if (onListAgentQueueTaskRunLinks) {
-          const links = await onListAgentQueueTaskRunLinks(queueItemId);
-          setRunHistoryLinks(links);
-          setLatestRunLink(links[0] ?? null);
-        } else if (onGetAgentQueueTaskLatestRunLink) {
-          const link = await onGetAgentQueueTaskLatestRunLink(queueItemId);
-          setLatestRunLink(link);
-          setRunHistoryLinks(link ? [link] : []);
-        }
-      } catch (error) {
-        setLatestRunLink(null);
-        setRunHistoryLinks([]);
-        setLatestRunLinkError(
-          errorToMessage(error, "Unable to load Queue run metadata."),
-        );
-      } finally {
-        if (!options?.silent) {
-          setIsLatestRunLinkLoading(false);
-        }
-      }
+      await refreshAgentQueueRunLinks({
+        onGetAgentQueueTaskLatestRunLink,
+        onListAgentQueueTaskRunLinks,
+        options,
+        queueItemId,
+        setIsLatestRunLinkLoading,
+        setLatestRunLink,
+        setLatestRunLinkError,
+        setRunHistoryLinks,
+      });
     },
     [onGetAgentQueueTaskLatestRunLink, onListAgentQueueTaskRunLinks],
   );
@@ -903,1466 +636,193 @@ export function useAgentQueueController({
     selectedTask,
     tasks: tasksRef.current,
   });
-
-  async function createTask(
-    nextDraft?: TaskDraft,
-    options?: { insertPosition?: QueueTaskInsertPosition },
-  ) {
-    if (!onCreateAgentQueueTask || isCreating || isLoading) {
-      return false;
-    }
-
-    if (isEditing || isDirty) {
-      setValidationMessage("Save current task before creating another task.");
-      return false;
-    }
-
-    const taskDraft = nextDraft ?? {
-      ...emptyDraft(),
-      title: DEFAULT_TASK_TITLE,
-    };
-    const validationError = validateDraft(taskDraft);
-
-    if (validationError) {
-      setValidationMessage(validationError);
-      return false;
-    }
-
-    setIsCreating(true);
-    setLoadError(null);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-    setDeleteError(null);
-    setDeleteMessage(null);
-    setIsConfirmingDelete(false);
-
-    try {
-      const createdTask = await onCreateAgentQueueTask({
-        title: taskDraft.title.trim(),
-        description: taskDraft.description,
-        prompt: taskDraft.prompt,
-        status: taskDraft.status,
-        priority: taskDraft.priority,
-        executionPolicy: taskDraft.executionPolicy,
-        itemType: taskDraft.itemType,
-        queueTagId: queueTagNameToId(taskDraft.queueTagName),
-        queueTagName: taskDraft.queueTagName.trim(),
-        validationStatus: taskDraft.validationStatus,
-      });
-      const taskFoundation = {
-        dependsOn: [],
-        itemType: taskDraft.itemType,
-        orderIndex: nextOrderIndexForQueueTag({
-          insertPosition: options?.insertPosition ?? "bottom",
-          queueTagId: queueTagNameToId(taskDraft.queueTagName),
-          tasks: tasksRef.current,
-        }),
-        queueTagId: queueTagNameToId(taskDraft.queueTagName),
-        queueTagName: taskDraft.queueTagName.trim(),
-        validationStatus: taskDraft.validationStatus,
-        coordinatorStatus: "not_reported" as const,
-        workerExecutionReports: [],
-      };
-      setLocalTaskFields((current) =>
-        new Map(current).set(createdTask.queueItemId, taskFoundation),
-      );
-      applyUpdatedTask({ ...createdTask, ...taskFoundation }, { select: true });
-      setOrderingMessage(
-        options?.insertPosition === "top"
-          ? "Task inserted at the top of its queue tag."
-          : "Task inserted at the bottom of its queue tag.",
-      );
-      setIsEditing(false);
-      return true;
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to create queue task."));
-      return false;
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  async function refreshTasks() {
-    if (isEditing || isDirty) {
-      setValidationMessage("Save current task before refreshing the queue.");
-      return;
-    }
-
-    await loadTasks(selectedTask?.queueItemId ?? null);
-  }
-
-  async function selectTask(queueItemId: string) {
-    if (
-      !onGetAgentQueueTask ||
-      isSelecting ||
-      selectedTask?.queueItemId === queueItemId
-    ) {
-      return;
-    }
-
-    if (isEditing || isDirty) {
-      setValidationMessage("Save current task before selecting another task.");
-      return;
-    }
-
-    setIsSelecting(true);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-
-    try {
-      const detail = await onGetAgentQueueTask(queueItemId);
-
-      if (!detail) {
-        setEditorError("The selected queue task could not be found.");
-        return;
-      }
-
-      const mergedDetail = withQueueOrderIndexes([
-        ...tasksRef.current.filter((task) => task.queueItemId !== detail.queueItemId),
-        mergeTaskFoundation(detail),
-      ]).find((task) => task.queueItemId === detail.queueItemId);
-      setSelectedDraft(mergedDetail ?? detail);
-      setIsEditing(false);
-      setTasks((currentTasks) =>
-        sortQueueTasksForDisplay(
-          currentTasks.map((task) =>
-            task.queueItemId === detail.queueItemId
-              ? (mergedDetail ?? mergeTaskFoundation(detail))
-              : task,
-          ),
-        ),
-      );
-      setSaveStateText("Saved");
-      setDeleteError(null);
-      setDeleteMessage(null);
-      setIsConfirmingDelete(false);
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to open queue task."));
-    } finally {
-      setIsSelecting(false);
-    }
-  }
-
-  async function saveTask() {
-    if (
-      !selectedTask ||
-      !onUpdateAgentQueueTask ||
-      !isEditing ||
-      !isDirty ||
-      isSaving
-    ) {
-      return;
-    }
-
-    const validationError = validateDraft(draft);
-
-    if (validationError) {
-      setValidationMessage(validationError);
-      return;
-    }
-
-    const dependencyValidationError = validateQueueTaskDependencies(
-      { ...selectedTask, dependsOn: draft.dependsOn },
-      tasksRef.current,
-    );
-
-    if (dependencyValidationError) {
-      setValidationMessage(dependencyValidationError);
-      return;
-    }
-
-    setIsSaving(true);
-    setEditorError(null);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-    setSaveStateText("Saving");
-
-    try {
-      const updatedTask = await onUpdateAgentQueueTask({
-        queueItemId: selectedTask.queueItemId,
-        title: draft.title.trim(),
-        description: draft.description,
-        prompt: draft.prompt,
-        status: draft.status,
-        priority: draft.priority,
-        executionPolicy: draft.executionPolicy,
-        itemType: draft.itemType,
-        queueTagId: queueTagNameToId(draft.queueTagName),
-        queueTagName: draft.queueTagName.trim(),
-        validationStatus: draft.validationStatus,
-      });
-
-      if (!updatedTask) {
-        setEditorError("The selected queue task could not be found.");
-        setSaveStateText("Unsaved changes");
-        return;
-      }
-
-      const previousQueueTagId = normalizeQueueTag(selectedTask).queueTagId;
-      const queueTagId = queueTagNameToId(draft.queueTagName);
-      const validationStatus =
-        draft.validationStatus === "not_started"
-          ? "needs_review"
-          : draft.validationStatus;
-      const taskFoundation: Partial<AgentQueueTask> = {
-        dependsOn: normalizeTaskDependencies(draft.dependsOn),
-        executionPlanPreview: selectedTask.executionPlanPreview
-          ? staleExecutionPlanPreview(selectedTask.executionPlanPreview)
-          : selectedTask.executionPlanPreview,
-        itemType: draft.itemType,
-        orderIndex: selectedTask.orderIndex,
-        queueTagId,
-        queueTagName: draft.queueTagName.trim(),
-        validationStatus,
-        coordinatorStatus: "awaiting_coordinator_review" as const,
-      };
-      let taskForApply = updatedTask;
-      const assignedScope = updatedTask.assignedExecutorWidgetId
-        ? workerScopes.get(updatedTask.assignedExecutorWidgetId)
-        : null;
-      if (
-        previousQueueTagId !== queueTagId &&
-        assignedScope?.kind === "queue_tag" &&
-        assignedScope.queueTagId !== queueTagId
-      ) {
-        taskFoundation.assignedWorkerId = null;
-        if (onClearAgentQueueTaskAssignment) {
-          try {
-            taskForApply = await onClearAgentQueueTaskAssignment({
-              queueItemId: selectedTask.queueItemId,
-            });
-            setAssignmentMessage(
-              "Assignment cleared because the worker is scoped to another queue tag.",
-            );
-          } catch (error) {
-            setAssignmentError(
-              errorToMessage(
-                error,
-                "Task moved tags, but its scoped worker assignment could not be cleared.",
-              ),
-            );
-          }
-        } else {
-          setAssignmentError(
-            "Task moved tags. Recheck the scoped worker assignment before running.",
-          );
-        }
-      }
-      setQueueTagPauseStates((current) => {
-        const next = new Map(current);
-        next.set(queueTagId, { paused: true, reason: "edit_review" });
-        if (previousQueueTagId !== queueTagId) {
-          next.set(previousQueueTagId, {
-            paused: true,
-            reason: "edit_review",
-          });
-        }
-        return next;
-      });
-      setLocalTaskFields((current) =>
-        new Map(current).set(taskForApply.queueItemId, {
-          ...(current.get(taskForApply.queueItemId) ?? {}),
-          ...taskFoundation,
-        }),
-      );
-      applyUpdatedTask({ ...taskForApply, ...taskFoundation }, { select: true });
-      setValidationMessage(EDIT_PAUSE_MESSAGE);
-      setExecutionPlanMessage(
-        selectedTask.executionPlanPreview
-          ? "Existing plan preview is stale after task edits. Refresh before execution."
-          : null,
-      );
-      setGlobalMessage(EDIT_PAUSE_MESSAGE);
-      setSaveStateText("Saved");
-      setIsEditing(false);
-    } catch (error) {
-      setEditorError(errorToMessage(error, "Unable to save queue task."));
-      setSaveStateText("Unsaved changes");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function requestDeleteSelectedTask() {
-    const blockedReason = queueTaskDeleteBlockedReason({
-      apiAvailable: Boolean(onDeleteAgentQueueTask),
-      autorunSnapshot,
-      isDeleting,
-      isDirty,
-      runnerActiveQueueItemId: queueRunner.activeQueueItemId,
-      runnerStatus: queueRunner.controller.status,
+  const tagActions = useMemo(
+    () =>
+      createAgentQueueTagActions({
+        onUpdateAgentQueueTask,
+        persistWorkerScopeUpdates,
+        queueTags,
+        selectedTask,
+        setDraft,
+        setGlobalMessage,
+        setLocalTaskFields,
+        setManagedQueueTags,
+        setQueueTagPauseStates,
+        setSelectedTask,
+        setTagManagementError,
+        setTagManagementMessage,
+        setTasks,
+        setWorkerScopes,
+        tasksRef,
+      }),
+    [
+      onUpdateAgentQueueTask,
+      persistWorkerScopeUpdates,
+      queueTags,
       selectedTask,
-      tasks: tasksRef.current,
-    });
-
-    setDeleteMessage(null);
-    setDeleteError(null);
-
-    if (blockedReason) {
-      setDeleteError(blockedReason);
-      setIsConfirmingDelete(false);
-      return;
-    }
-
-    setIsConfirmingDelete(true);
-  }
-
-  function cancelDeleteSelectedTask() {
-    setIsConfirmingDelete(false);
-    setDeleteError(null);
-  }
-
-  async function confirmDeleteSelectedTask() {
-    if (!selectedTask || !onDeleteAgentQueueTask || isDeleting) {
-      return;
-    }
-
-    const blockedReason = queueTaskDeleteBlockedReason({
-      apiAvailable: true,
-      autorunSnapshot,
-      isDeleting: false,
-      isDirty,
-      runnerActiveQueueItemId: queueRunner.activeQueueItemId,
-      runnerStatus: queueRunner.controller.status,
-      selectedTask,
-      tasks: tasksRef.current,
-    });
-
-    if (blockedReason) {
-      setDeleteError(blockedReason);
-      setIsConfirmingDelete(false);
-      return;
-    }
-
-    const deletedTaskId = selectedTask.queueItemId;
-    const nextTaskId = nextQueueTaskSelection(tasksRef.current, deletedTaskId);
-
-    setIsDeleting(true);
-    setDeleteError(null);
-    setDeleteMessage(null);
-
-    try {
-      const didDelete = await onDeleteAgentQueueTask({
-        queueItemId: deletedTaskId,
-      });
-
-      if (!didDelete) {
-        setDeleteError("The selected queue task could not be found.");
-        setIsConfirmingDelete(false);
-        await loadTasks(nextTaskId);
-        return;
-      }
-
-      setIsConfirmingDelete(false);
-      setLocalTaskFields((current) => {
-        const next = new Map(current);
-        next.delete(deletedTaskId);
-        return next;
-      });
-      setDeleteMessage("Queue task deleted.");
-      await loadTasks(nextTaskId);
-    } catch (error) {
-      setDeleteError(errorToMessage(error, "Unable to delete queue task."));
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
-  function updateDraft(nextDraft: Partial<TaskDraft>) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      ...nextDraft,
-    }));
-    setAssignmentMessage(null);
-    setValidationMessage(null);
-    setDeleteMessage(null);
-  }
-
-  function generateExecutionPlanPreview() {
-    if (!selectedTask || isSaving || hasOpenTaskEdit) {
-      return;
-    }
-
-    const workerId =
-      selectedTask.assignedWorkerId ??
-      selectedTask.assignedExecutorWidgetId ??
-      selectedExecutorWidgetId ??
-      "unassigned";
-    const plan = buildAgentQueueExecutionPlanPreview({
-      task: selectedTask,
-      workerId,
-    });
-
-    setLocalTaskFields((current) =>
-      new Map(current).set(selectedTask.queueItemId, {
-        ...(current.get(selectedTask.queueItemId) ?? {}),
-        executionPlanPreview: plan,
-      }),
-    );
-    applyUpdatedTask(
-      {
-        ...selectedTask,
-        executionPlanPreview: plan,
-      },
-      { select: true },
-    );
-    setExecutionPlanMessage("Plan preview generated. No execution was started.");
-    setWorkerReportMessage(null);
-    setStartError(null);
-    setAssignmentMessage(null);
-  }
-
-  function attachDemoWorkerReport() {
-    if (!selectedTask || isSaving || hasOpenTaskEdit) {
-      return;
-    }
-
-    const report = buildDemoWorkerExecutionReport({
-      task: selectedTask,
-      workerId:
-        selectedTask.assignedWorkerId ??
-        selectedTask.assignedExecutorWidgetId ??
-        selectedExecutorWidgetId ??
-        "unassigned",
-    });
-    const reports = [...(selectedTask.workerExecutionReports ?? []), report];
-    const updatedTask = {
-      ...selectedTask,
-      coordinatorStatus: "awaiting_coordinator_review" as const,
-      workerExecutionReports: reports,
-    };
-
-    setLocalTaskFields((current) =>
-      new Map(current).set(selectedTask.queueItemId, {
-        ...(current.get(selectedTask.queueItemId) ?? {}),
-        coordinatorStatus: "awaiting_coordinator_review",
-        workerExecutionReports: reports,
-      }),
-    );
-    applyUpdatedTask(updatedTask, { select: true });
-    setWorkerReportMessage(
-      "Worker report attached as evidence. Awaiting validation/coordinator review; item status was not finalized.",
-    );
-    setExecutionPlanMessage(null);
-    setStartError(null);
-    setAssignmentMessage(null);
-  }
-
-  function updatePriority(value: string) {
-    if (!isEditing) {
-      return;
-    }
-
-    const parsedValue = Number.parseInt(value, 10);
-    const priority = Number.isFinite(parsedValue)
-      ? clamp(parsedValue, MIN_PRIORITY, MAX_PRIORITY)
-      : MIN_PRIORITY;
-
-    updateDraft({ priority });
-  }
-
-  function startWorkers() {
-    setGlobalExecutionState("started");
-    setGlobalMessage(
-      `${queueGlobalExecutionStateLabel(
-        "started",
-      )}: ${queueGlobalExecutionStateDescription(
-        "started",
-      )} This does not start real workers or run tasks automatically.`,
-    );
-  }
-
-  function stopWorkers() {
-    setGlobalExecutionState("stopped");
-    setGlobalMessage(
-      `${queueGlobalExecutionStateLabel(
-        "stopped",
-      )}: ${queueGlobalExecutionStateDescription(
-        "stopped",
-      )} Running Executor work, if any, remains owned by Agent Executor.`,
-    );
-  }
-
-  function stopAndKillRunning() {
-    setGlobalExecutionState("stop_kill_requested");
-    setGlobalMessage(
-      `${queueGlobalExecutionStateLabel(
-        "stop_kill_requested",
-      )}: ${queueGlobalExecutionStateDescription(
-        "stop_kill_requested",
-      )} Queue does not kill processes in this block.`,
-    );
-  }
-
-  function updateMaxExecutors(value: string) {
-    const parsedValue = Number.parseInt(value, 10);
-    const nextMaxExecutors = Number.isFinite(parsedValue)
-      ? Math.max(1, parsedValue)
-      : 1;
-    const configuredWorkerCount = workers.length;
-
-    setMaxExecutorMessage(null);
-    setTagManagementError(null);
-
-    if (nextMaxExecutors < configuredWorkerCount) {
-      setMaxExecutorMessage(
-        `Max executors cannot be lower than ${configuredWorkerCount.toString()} configured worker${
-          configuredWorkerCount === 1 ? "" : "s"
-        }. Remove workers explicitly before lowering it.`,
-      );
-      return;
-    }
-
-    setMaxExecutors(nextMaxExecutors);
-    setMaxExecutorMessage(
-      `Max executors set to ${nextMaxExecutors.toString()}. No workers were started or stopped.`,
-    );
-  }
-
-  function moveSelectedTask(position: QueueTaskReorderPosition) {
-    if (!selectedTask) {
-      setOrderingMessage(null);
-      return;
-    }
-
-    if (hasOpenTaskEdit) {
-      setValidationMessage("Save current task edits before reordering tasks.");
-      return;
-    }
-
-    const result = reorderQueueTask({
-      position,
-      queueItemId: selectedTask.queueItemId,
-      tasks: tasksRef.current,
-    });
-
-    if (!result.changed) {
-      setOrderingMessage("Task is already at that position.");
-      return;
-    }
-
-    const queueTag = normalizeQueueTag(selectedTask);
-    setLocalTaskFields((current) => {
-      const next = new Map(current);
-      for (const task of result.updatedTasks) {
-        if (normalizeQueueTag(task).queueTagId !== queueTag.queueTagId) {
-          continue;
-        }
-        next.set(task.queueItemId, {
-          ...(next.get(task.queueItemId) ?? {}),
-          orderIndex: task.orderIndex,
-        });
-      }
-      return next;
-    });
-    setQueueTagPauseStates((current) =>
-      new Map(current).set(queueTag.queueTagId, {
-        paused: true,
-        reason: "edit_review",
-      }),
-    );
-    setTasks(result.updatedTasks);
-    tasksRef.current = result.updatedTasks;
-    setSelectedTask(
-      result.updatedTasks.find(
-        (task) => task.queueItemId === selectedTask.queueItemId,
-      ) ?? selectedTask,
-    );
-    setOrderingMessage("Task order updated. No Queue work was started.");
-    setGlobalMessage(
-      "Queue order changed. The affected queue tag is paused for coordinator review.",
-    );
-  }
-
-  function createQueueTag(queueTagName: string) {
-    const existingTags = queueTags.map(queueTagSummaryToRecord);
-    const validationError = validateQueueTagName(queueTagName, existingTags);
-
-    setTagManagementError(null);
-    setTagManagementMessage(null);
-
-    if (validationError) {
-      setTagManagementError(validationError);
-      return false;
-    }
-
-    const normalizedName = normalizeQueueTagName(queueTagName);
-    const queueTagId = queueTagNameToId(normalizedName);
-
-    setManagedQueueTags((current) =>
-      upsertQueueTagRecord(current, {
-        queueTagId,
-        queueTagName: normalizedName,
-      }),
-    );
-    setTagManagementMessage(`Queue tag "${normalizedName}" created.`);
-    setGlobalMessage(
-      "Queue tag created. It has no items and does not start workers.",
-    );
-    return true;
-  }
-
-  async function renameQueueTag(queueTagId: string, queueTagName: string) {
-    const existingTags = queueTags.map(queueTagSummaryToRecord);
-    const tag = existingTags.find((candidate) => candidate.queueTagId === queueTagId);
-    const validationError = tag
-      ? validateQueueTagName(queueTagName, existingTags, {
-          allowQueueTagId: queueTagId,
-        })
-      : "Queue tag could not be found.";
-
-    setTagManagementError(null);
-    setTagManagementMessage(null);
-
-    if (validationError) {
-      setTagManagementError(validationError);
-      return false;
-    }
-
-    if (!tag) {
-      setTagManagementError("Queue tag could not be found.");
-      return false;
-    }
-
-    const normalizedName = normalizeQueueTagName(queueTagName);
-    const affectedTasks = tasksRef.current.filter(
-      (task) => normalizeQueueTag(task).queueTagId === queueTagId,
-    );
-
-    try {
-      for (const task of affectedTasks) {
-        if (!onUpdateAgentQueueTask) {
-          throw new Error("Queue task update is not available in this runtime.");
-        }
-
-        const updatedTask = await onUpdateAgentQueueTask({
-          queueItemId: task.queueItemId,
-          title: task.title,
-          description: task.description,
-          prompt: task.prompt,
-          status: task.status,
-          priority: task.priority,
-          executionPolicy: normalizeTaskExecutionPolicy(task.executionPolicy),
-          itemType: normalizeItemType(task.itemType),
-          queueTagId,
-          queueTagName: normalizedName,
-          validationStatus: normalizeValidationStatus(task.validationStatus),
-        });
-
-        if (!updatedTask) {
-          throw new Error("A queue task using this tag could not be found.");
-        }
-      }
-    } catch (error) {
-      setTagManagementError(errorToMessage(error, "Unable to rename queue tag."));
-      return false;
-    }
-
-    setManagedQueueTags((current) =>
-      upsertQueueTagRecord(current, {
-        queueTagId,
-        queueTagName: normalizedName,
-      }),
-    );
-    setLocalTaskFields((current) => {
-      const next = new Map(current);
-      for (const task of affectedTasks) {
-        next.set(task.queueItemId, {
-          ...(next.get(task.queueItemId) ?? {}),
-          queueTagId,
-          queueTagName: normalizedName,
-        });
-      }
-      return next;
-    });
-    setTasks((currentTasks) => {
-      const nextTasks = currentTasks.map((task) =>
-        normalizeQueueTag(task).queueTagId === queueTagId
-          ? { ...task, queueTagId, queueTagName: normalizedName }
-          : task,
-      );
-      tasksRef.current = nextTasks;
-      return nextTasks;
-    });
-    setSelectedTask((currentTask) =>
-      currentTask && normalizeQueueTag(currentTask).queueTagId === queueTagId
-        ? { ...currentTask, queueTagId, queueTagName: normalizedName }
-        : currentTask,
-    );
-    setDraft((currentDraft) =>
-      selectedTask && normalizeQueueTag(selectedTask).queueTagId === queueTagId
-        ? { ...currentDraft, queueTagName: normalizedName }
-        : currentDraft,
-    );
-    setWorkerScopes((current) => {
-      const next = new Map(current);
-      for (const [workerId, scope] of next.entries()) {
-        if (scope.kind === "queue_tag" && scope.queueTagId === queueTagId) {
-          next.set(workerId, {
-            kind: "queue_tag",
-            queueTagId,
-            queueTagName: normalizedName,
-          });
-        }
-      }
-      return next;
-    });
-    void persistWorkerScopeUpdates((worker) =>
-      worker.scopeKind === "queue_tag" && worker.queueTagId === queueTagId
-        ? {
-            ...worker,
-            queueTagName: normalizedName,
-          }
-        : worker,
-    );
-    setTagManagementMessage(`Queue tag renamed to "${normalizedName}".`);
-    setGlobalMessage(
-      "Queue tag renamed. Existing items and scoped workers were updated without running work.",
-    );
-    return true;
-  }
-
-  function deleteQueueTag(queueTagId: string) {
-    const tag = queueTags.find((candidate) => candidate.queueTagId === queueTagId);
-
-    setTagManagementError(null);
-    setTagManagementMessage(null);
-
-    if (!tag) {
-      setTagManagementError("Queue tag could not be found.");
-      return false;
-    }
-
-    if (tag.runningCount > 0) {
-      setTagManagementError(
-        "Queue tags with running items cannot be deleted. Stop or finish the Agent Executor work first.",
-      );
-      return false;
-    }
-
-    if (tag.taskCount > 0) {
-      setTagManagementError("Reassign items before deleting this queue tag.");
-      return false;
-    }
-
-    if (queueTagId === DEFAULT_QUEUE_TAG_ID) {
-      setTagManagementError(
-        "Default queue tag is kept for legacy and basic queue items.",
-      );
-      return false;
-    }
-
-    setManagedQueueTags((current) =>
-      current.filter((managedTag) => managedTag.queueTagId !== queueTagId),
-    );
-    setQueueTagPauseStates((current) => {
-      const next = new Map(current);
-      next.delete(queueTagId);
-      return next;
-    });
-    setWorkerScopes((current) => {
-      const next = new Map(current);
-      for (const [workerId, scope] of next.entries()) {
-        if (scope.kind === "queue_tag" && scope.queueTagId === queueTagId) {
-          next.set(workerId, { kind: "all" });
-        }
-      }
-      return next;
-    });
-    void persistWorkerScopeUpdates((worker) =>
-      worker.scopeKind === "queue_tag" && worker.queueTagId === queueTagId
-        ? {
-            ...worker,
-            queueTagId: null,
-            queueTagName: null,
-            scopeKind: "all",
-          }
-        : worker,
-    );
-    setTagManagementMessage(`Queue tag "${tag.queueTagName}" deleted.`);
-    setGlobalMessage(
-      "Empty queue tag deleted. Scoped workers were moved back to All queues.",
-    );
-    return true;
-  }
-
-  function pauseQueueTag(queueTagId: string) {
-    setQueueTagPauseStates((current) =>
-      new Map(current).set(queueTagId, { paused: true, reason: "manual" }),
-    );
-    setTagManagementError(null);
-    setTagManagementMessage("Queue tag paused.");
-    setGlobalMessage(
-      "Queue tag paused. Workers must not take new items from that tag until coordinator resume.",
-    );
-  }
-
-  function resumeQueueTag(queueTagId: string) {
-    setQueueTagPauseStates((current) => {
-      const next = new Map(current);
-      next.delete(queueTagId);
-      return next;
-    });
-    setLocalTaskFields((current) => {
-      const next = new Map(current);
-      for (const task of tasksRef.current) {
-        if (normalizeQueueTag(task).queueTagId === queueTagId) {
-          next.set(task.queueItemId, {
-            ...(next.get(task.queueItemId) ?? {}),
-            coordinatorStatus: "not_reported",
-          });
-        }
-      }
-      return next;
-    });
-    setTasks((currentTasks) => {
-      const nextTasks = currentTasks.map((task) =>
-        normalizeQueueTag(task).queueTagId === queueTagId
-          ? { ...task, coordinatorStatus: "not_reported" as const }
-          : task,
-      );
-      tasksRef.current = nextTasks;
-      return nextTasks;
-    });
-    setSelectedTask((currentTask) =>
-      currentTask && normalizeQueueTag(currentTask).queueTagId === queueTagId
-        ? { ...currentTask, coordinatorStatus: "not_reported" }
-        : currentTask,
-    );
-    setTagManagementError(null);
-    setTagManagementMessage("Queue tag resumed.");
-    setGlobalMessage("Queue tag resumed by coordinator review.");
-  }
-
-  function changeWorkerScope(workerId: string, scope: WorkerScope) {
-    setWorkerScopes((current) => new Map(current).set(workerId, scope));
-    updateWorkerConfig(workerId, {
-      queueTagId: scope.kind === "queue_tag" ? scope.queueTagId : null,
-      queueTagName: scope.kind === "queue_tag" ? scope.queueTagName : null,
-      scopeKind: scope.kind,
-    });
-    setGlobalMessage("Worker scope updated. No Queue work was started.");
-  }
-
-  function createWorker() {
-    if (workerConfigsRef.current.length >= maxExecutors) {
-      setMaxExecutorMessage(
-        "Max executors reached. Remove a worker or raise the max before adding another.",
-      );
-      return;
-    }
-
-    const displayOrder = nextWorkerDisplayOrder(workerConfigsRef.current);
-    const workerConfig = localWorkerConfig({
-      displayOrder,
-      name: `Agent Worker ${(displayOrder + 1).toString()}`,
-    });
-
-    workerConfigsRef.current = [...workerConfigsRef.current, workerConfig];
-    setWorkerConfigs((current) => [...current, workerConfig]);
-    setWorkerScopes((current) =>
-      new Map(current).set(workerConfig.workerId, { kind: "all" }),
-    );
-    setMaxExecutorMessage("Agent Worker added. No runtime was started.");
-    setGlobalMessage("Agent Worker added. No runtime was started.");
-
-    if (onCreateAgentQueueWorker) {
-      void onCreateAgentQueueWorker({
-        displayOrder: workerConfig.displayOrder,
-        enabled: workerConfig.enabled,
-        name: workerConfig.name,
-        queueTagId: null,
-        queueTagName: null,
-        scopeKind: "all",
-        workerId: workerConfig.workerId,
-      })
-        .then((createdWorker) => {
-          workerConfigsRef.current = workerConfigsRef.current.map((worker) =>
-            worker.workerId === workerConfig.workerId ? createdWorker : worker,
-          );
-          setWorkerConfigs((current) =>
-            current.map((worker) =>
-              worker.workerId === workerConfig.workerId ? createdWorker : worker,
-            ),
-          );
-        })
-        .catch((error) => {
-          setTagManagementError(
-            errorToMessage(error, "Unable to persist Agent Worker."),
-          );
-        });
-    }
-  }
-
-  function renameWorker(workerId: string, name: string) {
-    const trimmedName = name.trim();
-
-    if (!trimmedName) {
-      setTagManagementError("Worker name is required.");
-      return;
-    }
-
-    updateWorkerConfig(workerId, { name: trimmedName });
-    setGlobalMessage("Agent Worker renamed. No runtime was started.");
-  }
-
-  function setWorkerEnabled(workerId: string, enabled: boolean) {
-    updateWorkerConfig(workerId, { enabled });
-    setGlobalMessage(
-      enabled
-        ? "Agent Worker enabled. No Queue work was started."
-        : "Agent Worker disabled. Existing Executor work is unchanged.",
-    );
-  }
-
-  function deleteWorker(workerId: string) {
-    const assignedTask = tasksRef.current.find(
-      (task) =>
-        task.assignedWorkerId === workerId ||
-        task.assignedExecutorWidgetId === workerId,
-    );
-
-    if (assignedTask) {
-      setTagManagementError(
-        "Clear this worker's task assignment before removing it.",
-      );
-      return;
-    }
-
-    workerConfigsRef.current = workerConfigsRef.current.filter(
-      (worker) => worker.workerId !== workerId,
-    );
-    setWorkerConfigs((current) =>
-      current.filter((worker) => worker.workerId !== workerId),
-    );
-    setWorkerScopes((current) => {
-      const next = new Map(current);
-      next.delete(workerId);
-      return next;
-    });
-    setGlobalMessage("Agent Worker removed. No runtime was stopped or started.");
-
-    if (onDeleteAgentQueueWorker) {
-      void onDeleteAgentQueueWorker({ workerId }).catch((error) => {
-        setTagManagementError(
-          errorToMessage(error, "Unable to delete Agent Worker."),
-        );
-      });
-    }
-  }
-
-  function updateWorkerConfig(
-    workerId: string,
-    patch: Partial<
-      Pick<
-        AgentQueueWorkerConfig,
-        "enabled" | "name" | "queueTagId" | "queueTagName" | "scopeKind"
-      >
-    >,
-  ) {
-    const existingWorker = workerConfigsRef.current.find(
-      (worker) => worker.workerId === workerId,
-    );
-
-    if (!existingWorker) {
-      return;
-    }
-
-    const updatedWorker: AgentQueueWorkerConfig = {
-      ...existingWorker,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-    workerConfigsRef.current = workerConfigsRef.current.map((worker) =>
-      worker.workerId === workerId ? updatedWorker : worker,
-    );
-
-    setWorkerConfigs((current) =>
-      current.map((worker) =>
-        worker.workerId === workerId ? updatedWorker : worker,
-      ),
-    );
-    setTagManagementError(null);
-
-    if (onUpdateAgentQueueWorker) {
-      void onUpdateAgentQueueWorker({
-        displayOrder: updatedWorker.displayOrder,
-        enabled: updatedWorker.enabled,
-        name: updatedWorker.name,
-        queueTagId: updatedWorker.queueTagId,
-        queueTagName: updatedWorker.queueTagName,
-        scopeKind: updatedWorker.scopeKind,
-        workerId: updatedWorker.workerId,
-      }).catch((error) => {
-        setTagManagementError(
-          errorToMessage(error, "Unable to persist Agent Worker."),
-        );
-      });
-    }
-  }
-
-  async function persistWorkerScopeUpdates(
-    update: (worker: AgentQueueWorkerConfig) => AgentQueueWorkerConfig,
-  ) {
-    const updatedWorkers = workerConfigsRef.current.map(update);
-    workerConfigsRef.current = updatedWorkers;
-    setWorkerConfigs(updatedWorkers);
-    setWorkerScopes(workerScopesFromConfigs(updatedWorkers));
-
-    if (!onUpdateAgentQueueWorker) {
-      return;
-    }
-
-    for (const worker of updatedWorkers) {
-      const previousWorker = workerConfigsRef.current.find(
-        (candidate) => candidate.workerId === worker.workerId,
-      );
-      if (
-        previousWorker?.scopeKind === worker.scopeKind &&
-        previousWorker?.queueTagId === worker.queueTagId &&
-        previousWorker?.queueTagName === worker.queueTagName
-      ) {
-        continue;
-      }
-
-      await onUpdateAgentQueueWorker({
-        displayOrder: worker.displayOrder,
-        enabled: worker.enabled,
-        name: worker.name,
-        queueTagId: worker.queueTagId,
-        queueTagName: worker.queueTagName,
-        scopeKind: worker.scopeKind,
-        workerId: worker.workerId,
-      });
-    }
-  }
-
-  async function assignSelectedTask() {
-    if (
-      !selectedTask ||
-      !onAssignAgentQueueTaskToExecutor ||
-      !selectedExecutorWidgetId ||
-      isAssigning ||
-      hasOpenTaskEdit
-    ) {
-      return;
-    }
-
-    const selectedWorkerScope = workerScopes.get(selectedExecutorWidgetId);
-    const selectedWorkerConfig = workerConfigsRef.current.find(
-      (worker) => worker.workerId === selectedExecutorWidgetId,
-    );
-    const selectedTaskQueueTag = normalizeQueueTag(selectedTask);
-
-    if (selectedWorkerConfig && !selectedWorkerConfig.enabled) {
-      setAssignmentError(
-        "Selected worker is disabled. Enable it before assigning new work.",
-      );
-      setAssignmentMessage(null);
-      return;
-    }
-
-    if (
-      selectedWorkerScope?.kind === "queue_tag" &&
-      selectedWorkerScope.queueTagId !== selectedTaskQueueTag.queueTagId
-    ) {
-      setAssignmentError(
-        "Selected worker is scoped to another queue tag. Choose a matching worker or change the worker scope.",
-      );
-      setAssignmentMessage(null);
-      return;
-    }
-
-    setIsAssigning(true);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setDeleteError(null);
-    setDeleteMessage(null);
-
-    try {
-      const updatedTask = await onAssignAgentQueueTaskToExecutor({
-        executorWidgetInstanceId: selectedExecutorWidgetId,
-        queueItemId: selectedTask.queueItemId,
-      });
-      setLocalTaskFields((current) =>
-        new Map(current).set(updatedTask.queueItemId, {
-          ...(current.get(updatedTask.queueItemId) ?? {}),
-          assignedWorkerId: selectedExecutorWidgetId,
-          executionPlanPreview: selectedTask.executionPlanPreview
-            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
-                workerId: selectedExecutorWidgetId,
-              })
-            : selectedTask.executionPlanPreview,
-        }),
-      );
-      applyUpdatedTask(
-        {
-          ...updatedTask,
-          assignedWorkerId: selectedExecutorWidgetId,
-          executionPlanPreview: selectedTask.executionPlanPreview
-            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
-                workerId: selectedExecutorWidgetId,
-              })
-            : selectedTask.executionPlanPreview,
-        },
-        { select: true },
-      );
-      setAssignmentMessage(
-        selectedTask.executionPlanPreview
-          ? "Assignment saved. Existing plan preview is stale for this worker."
-          : "Assignment saved.",
-      );
-    } catch (error) {
-      setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
-  async function clearSelectedTaskAssignment() {
-    if (
-      !selectedTask ||
-      !onClearAgentQueueTaskAssignment ||
-      isAssigning ||
-      hasOpenTaskEdit
-    ) {
-      return;
-    }
-
-    setIsAssigning(true);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    setDeleteError(null);
-    setDeleteMessage(null);
-
-    try {
-      const updatedTask = await onClearAgentQueueTaskAssignment({
-        queueItemId: selectedTask.queueItemId,
-      });
-      setLocalTaskFields((current) =>
-        new Map(current).set(updatedTask.queueItemId, {
-          ...(current.get(updatedTask.queueItemId) ?? {}),
-          assignedWorkerId: null,
-          executionPlanPreview: selectedTask.executionPlanPreview
-            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
-                workerId: "unassigned",
-              })
-            : selectedTask.executionPlanPreview,
-        }),
-      );
-      applyUpdatedTask(
-        {
-          ...updatedTask,
-          assignedWorkerId: null,
-          executionPlanPreview: selectedTask.executionPlanPreview
-            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
-                workerId: "unassigned",
-              })
-            : selectedTask.executionPlanPreview,
-        },
-        { select: true },
-      );
-      setAssignmentMessage(
-        selectedTask.executionPlanPreview
-          ? "Assignment cleared. Existing plan preview is stale."
-          : "Assignment cleared.",
-      );
-    } catch (error) {
-      setAssignmentError(
-        errorToMessage(error, "Unable to clear queue task assignment."),
-      );
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
-  async function startAssignedTask() {
-    if (
-      !selectedTask ||
-      !canStart ||
-      !onStartAssignedAgentQueueTask ||
-      startInFlightRef.current
-    ) {
-      return;
-    }
-
-    startInFlightRef.current = true;
-    setIsStarting(true);
-    setStartMessage(null);
-    setStartedRunId(null);
-    setStartError(null);
-
-    const request: AgentQueueTaskStartRequest = {
-      approvalPolicy,
-      codexExecutable,
-      queueItemId: selectedTask.queueItemId,
-      repoRoot,
-      sandbox,
-    };
-
-    try {
-      const response = await onStartAssignedAgentQueueTask(request);
-      onDirectWorkRunHandoffStarted?.({
-        executorWidgetInstanceId: response.executorWidgetInstanceId,
-        queueItemId: response.queueItemId,
-        repoRoot: request.repoRoot,
-        runId: response.runId,
-        startedAt: new Date().toISOString(),
-        taskTitle: selectedTask.title,
-        workbenchId: response.workbenchId,
-        workspaceId: response.workspaceId,
-      });
-      await loadTasks(response.queueItemId);
-      await refreshLatestRunLink(response.queueItemId, { silent: true });
-      setStartMessage(
-        `Task started in Agent Executor ${shortWidgetInstanceId(
-          response.executorWidgetInstanceId,
-        )}.`,
-      );
-      setStartedRunId(response.runId);
-    } catch (error) {
-      setStartError(queueRunStartErrorMessage(error));
-    } finally {
-      startInFlightRef.current = false;
-      setIsStarting(false);
-    }
-  }
-
-  async function refreshAutorunSnapshot(options?: { silent?: boolean }) {
-    if (!onGetAgentQueueRunnerSnapshot) {
-      setAutorunSnapshot(null);
-      setAutorunError(
-        "Queue Autorun is only available in the Tauri desktop shell.",
-      );
-      return;
-    }
-
-    if (!options?.silent) {
-      setIsAutorunLoading(true);
-      setAutorunError(null);
-    }
-
-    try {
-      const snapshot = await onGetAgentQueueRunnerSnapshot();
-      setAutorunSnapshot(snapshot);
-      await refreshLatestRunLink(
-        snapshot.activeQueueItemId ?? selectedTask?.queueItemId ?? null,
-        { silent: true },
-      );
-      if (!options?.silent) {
-        setAutorunMessage("Queue Autorun status refreshed.");
-      }
-    } catch (error) {
-      setAutorunError(
-        errorToMessage(error, "Unable to refresh Queue Autorun status."),
-      );
-    } finally {
-      if (!options?.silent) {
-        setIsAutorunLoading(false);
-      }
-    }
-  }
-
-  async function armAutorunSession() {
-    if (
-      !onStartAgentQueueRunnerSession ||
-      !selectedExecutorWidgetId ||
-      !canArmAutorun ||
-      isAutorunStarting
-    ) {
-      return;
-    }
-
-    setIsAutorunStarting(true);
-    setAutorunError(null);
-    setAutorunMessage(null);
-
-    try {
-      const snapshot = await onStartAgentQueueRunnerSession({
-        approvalPolicy,
-        codexExecutable,
-        executorWidgetInstanceId: selectedExecutorWidgetId,
-        policy: {
-          stopOnCancel: true,
-          stopOnFailure: true,
-          stopOnReviewNeeded: true,
-        },
-        repoRoot,
-        sandbox,
-      });
-      setAutorunSnapshot(snapshot);
-      if (snapshot.activeQueueItemId && snapshot.waitingRunId) {
-        await loadTasks(snapshot.activeQueueItemId, {
-          preserveCurrentOnError: true,
-        });
-        await refreshLatestRunLink(snapshot.activeQueueItemId, {
-          silent: true,
-        });
-      }
-      setAutorunMessage(
-        snapshot.activeQueueItemId
-          ? "Queue Autorun started. It will continue automatically while Hobit is open."
-          : "Queue Autorun found no eligible task to start.",
-      );
-    } catch (error) {
-      setAutorunError(errorToMessage(error, "Unable to arm Queue Autorun."));
-    } finally {
-      setIsAutorunStarting(false);
-    }
-  }
-
-  async function stopAutorunSession() {
-    if (!onStopAgentQueueRunnerSession || isAutorunStopping) {
-      return;
-    }
-
-    setIsAutorunStopping(true);
-    setAutorunError(null);
-    setAutorunMessage(null);
-
-    try {
-      const snapshot = await onStopAgentQueueRunnerSession();
-      setAutorunSnapshot(snapshot);
-      setAutorunMessage("Queue Autorun session stopped.");
-    } catch (error) {
-      setAutorunError(errorToMessage(error, "Unable to stop Queue Autorun."));
-    } finally {
-      setIsAutorunStopping(false);
-    }
-  }
-
-  function selectExecutorWidget(executorWidgetInstanceId: string) {
-    setSelectedExecutorWidgetId(executorWidgetInstanceId);
-    setAssignmentError(null);
-    setAssignmentMessage(null);
-    queueRunner.clearError();
-  }
-
-  function updateRepoRootDraft(repoRootValue: string) {
-    setRepoRootDraft(repoRootValue);
-    setStartError(null);
-    setDeleteError(null);
-    setDeleteMessage(null);
-  }
-
-  function updateCodexExecutableDraft(codexExecutableValue: string) {
-    setCodexExecutableDraft(codexExecutableValue);
-    setStartError(null);
-  }
-
-  function setSelectedDraft(task: AgentQueueTask) {
-    const mergedTask = mergeTaskFoundation(task);
-    const queueTag = normalizeQueueTag(mergedTask);
-    setSelectedTask(mergedTask);
-    setDraft({
-      dependsOn: normalizeTaskDependencies(mergedTask.dependsOn),
-      description: mergedTask.description,
-      executionPolicy: normalizeTaskExecutionPolicy(mergedTask.executionPolicy),
-      itemType: normalizeItemType(mergedTask.itemType),
-      priority: mergedTask.priority,
-      prompt: mergedTask.prompt,
-      queueTagName: queueTag.queueTagName,
-      status: normalizeTaskStatus(mergedTask.status),
-      title: mergedTask.title,
-      validationStatus: normalizeValidationStatus(mergedTask.validationStatus),
-    });
-    setExecutionPlanMessage(null);
-    setWorkerReportMessage(null);
-  }
-
-  function applyUpdatedTask(
-    task: AgentQueueTask,
-    options?: { select?: boolean },
-  ) {
-    const existingTask = tasksRef.current.find(
-      (candidate) => candidate.queueItemId === task.queueItemId,
-    );
-    const mergedTask = mergeTaskFoundation({
-      ...task,
-      orderIndex: task.orderIndex ?? existingTask?.orderIndex,
-    });
-    const nextTasks = reconcileQueueTask(tasksRef.current, mergedTask);
-    tasksRef.current = nextTasks;
-    setTasks(nextTasks);
-
-    if (options?.select || selectedTask?.queueItemId === mergedTask.queueItemId) {
-      setSelectedDraft(mergedTask);
-    }
-  }
-
-  function clearSelectedTask() {
-    setSelectedTask(null);
-    setDraft(emptyDraft());
-    setSaveStateText("Saved");
-    setIsEditing(false);
-  }
-
-  function startEditingSelectedTask() {
-    if (!selectedTask || isSaving) {
-      return;
-    }
-
-    setIsEditing(true);
-    setValidationMessage(null);
-    setDeleteMessage(null);
-    setDeleteError(null);
-  }
-
-  function cancelSelectedTaskEdits() {
-    if (!selectedTask || isSaving) {
-      return;
-    }
-
-    setSelectedDraft(selectedTask);
-    setIsEditing(false);
-    setSaveStateText("Saved");
-    setValidationMessage(null);
-    setEditorError(null);
-  }
-
-  function mergeTaskFoundation(task: AgentQueueTask): AgentQueueTask {
-    const localFields = localTaskFieldsRef.current.get(task.queueItemId);
-    const queueTag = normalizeQueueTag({
-      queueTagId: localFields?.queueTagId ?? task.queueTagId,
-      queueTagName: localFields?.queueTagName ?? task.queueTagName,
-    });
-
-    return {
-      ...task,
-      assignedWorkerId:
-        localFields?.assignedWorkerId ??
-        task.assignedWorkerId ??
-        task.assignedExecutorWidgetId,
-      coordinatorStatus:
-        localFields?.coordinatorStatus ??
-        task.coordinatorStatus ??
-        "not_reported",
-      dependsOn: normalizeTaskDependencies(
-        localFields?.dependsOn ?? task.dependsOn,
-      ),
-      executionPlanPreview:
-        task.executionPlanPreview !== undefined
-          ? task.executionPlanPreview
-          : localFields?.executionPlanPreview ?? null,
-      itemType: localFields?.itemType ?? normalizeItemType(task.itemType),
-      orderIndex: localFields?.orderIndex ?? task.orderIndex,
-      priority: normalizeTaskPriority(task.priority),
-      queueTagId: queueTag.queueTagId,
-      queueTagName: queueTag.queueTagName,
-      validationStatus:
-        localFields?.validationStatus ??
-        normalizeValidationStatus(task.validationStatus),
-      workerExecutionReports:
-        task.workerExecutionReports !== undefined
-          ? task.workerExecutionReports
-          : localFields?.workerExecutionReports ?? [],
-    };
-  }
+    ],
+  );
+  const {
+    createQueueTag,
+    deleteQueueTag,
+    pauseQueueTag,
+    renameQueueTag,
+    resumeQueueTag,
+  } = tagActions;
+  const taskActions = createAgentQueueTaskActions({
+    applyUpdatedTask,
+    autorunSnapshot,
+    draft,
+    editPauseMessage: EDIT_PAUSE_MESSAGE,
+    hasOpenTaskEdit,
+    isCreating,
+    isDeleting,
+    isDirty,
+    isEditing,
+    isLoading,
+    isSaving,
+    isSelecting,
+    loadTasks,
+    mergeTaskFoundation,
+    onClearAgentQueueTaskAssignment,
+    onCreateAgentQueueTask,
+    onDeleteAgentQueueTask,
+    onGetAgentQueueTask,
+    onUpdateAgentQueueTask,
+    queueRunnerActiveQueueItemId: queueRunner.activeQueueItemId,
+    queueRunnerStatus: queueRunner.controller.status,
+    selectedTask,
+    setAssignmentError,
+    setAssignmentMessage,
+    setDeleteError,
+    setDeleteMessage,
+    setDraft,
+    setEditorError,
+    setExecutionPlanMessage,
+    setGlobalMessage,
+    setIsConfirmingDelete,
+    setIsCreating,
+    setIsDeleting,
+    setIsEditing,
+    setIsSaving,
+    setIsSelecting,
+    setLoadError,
+    setLocalTaskFields,
+    setOrderingMessage,
+    setQueueTagPauseStates,
+    setSaveStateText,
+    setSelectedDraft,
+    setTasks,
+    setValidationMessage,
+    setWorkerReportMessage,
+    tasksRef,
+    workerScopes,
+  });
+  const {
+    cancelDeleteSelectedTask,
+    cancelSelectedTaskEdits,
+    confirmDeleteSelectedTask,
+    createTask,
+    refreshTasks,
+    requestDeleteSelectedTask,
+    saveTask,
+    selectTask,
+    startEditingSelectedTask,
+    updateDraft,
+    updatePriority,
+  } = taskActions;
+  const planningActions = createAgentQueuePlanningActions({
+    applyUpdatedTask,
+    hasOpenTaskEdit,
+    isSaving,
+    selectedExecutorWidgetId,
+    selectedTask,
+    setAssignmentMessage,
+    setExecutionPlanMessage,
+    setGlobalExecutionState,
+    setGlobalMessage,
+    setLocalTaskFields,
+    setMaxExecutorMessage,
+    setMaxExecutors,
+    setOrderingMessage,
+    setQueueTagPauseStates,
+    setSelectedTask,
+    setStartError,
+    setTagManagementError,
+    setTasks,
+    setValidationMessage,
+    setWorkerReportMessage,
+    tasksRef,
+    workerCount: workers.length,
+  });
+  const {
+    attachDemoWorkerReport,
+    generateExecutionPlanPreview,
+    moveSelectedTask,
+    startWorkers,
+    stopAndKillRunning,
+    stopWorkers,
+    updateMaxExecutors,
+  } = planningActions;
+  const runActions = createAgentQueueRunActions({
+    applyUpdatedTask,
+    approvalPolicy,
+    canArmAutorun,
+    canStart,
+    codexExecutable,
+    hasOpenTaskEdit,
+    isAssigning,
+    isAutorunStarting,
+    isAutorunStopping,
+    isStarting,
+    loadTasks,
+    onAssignAgentQueueTaskToExecutor,
+    onClearAgentQueueTaskAssignment,
+    onDirectWorkRunHandoffStarted,
+    onGetAgentQueueRunnerSnapshot,
+    onStartAgentQueueRunnerSession,
+    onStartAssignedAgentQueueTask,
+    onStopAgentQueueRunnerSession,
+    queueRunnerClearError: queueRunner.clearError,
+    refreshLatestRunLink,
+    repoRoot,
+    sandbox,
+    selectedExecutorWidgetId,
+    selectedTask,
+    setAssignmentError,
+    setAssignmentMessage,
+    setAutorunError,
+    setAutorunMessage,
+    setAutorunSnapshot,
+    setCodexExecutableDraft,
+    setDeleteError,
+    setDeleteMessage,
+    setIsAssigning,
+    setIsAutorunLoading,
+    setIsAutorunStarting,
+    setIsAutorunStopping,
+    setIsStarting,
+    setLocalTaskFields,
+    setRepoRootDraft,
+    setSelectedExecutorWidgetId,
+    setStartError,
+    setStartedRunId,
+    setStartMessage,
+    startInFlightRef,
+    workerConfigsRef,
+    workerScopes,
+  });
+  const {
+    armAutorunSession,
+    assignSelectedTask,
+    clearSelectedTaskAssignment,
+    refreshAutorunSnapshot,
+    selectExecutorWidget,
+    startAssignedTask,
+    stopAutorunSession,
+    updateCodexExecutableDraft,
+    updateRepoRootDraft,
+  } = runActions;
 
   return {
     agentExecutorSlots,
@@ -2527,341 +987,4 @@ export function useAgentQueueController({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
-}
-
-type QueueTaskReorderPosition = "up" | "down" | "top" | "bottom";
-
-function queueTaskOrderingControls({
-  selectedTask,
-  tasks,
-}: {
-  selectedTask: AgentQueueTask | null;
-  tasks: AgentQueueTask[];
-}) {
-  if (!selectedTask) {
-    return {
-      canMoveDown: false,
-      canMoveToBottom: false,
-      canMoveToTop: false,
-      canMoveUp: false,
-      orderLabel: null,
-    };
-  }
-
-  const orderedPeers = orderedManualReorderPeers(tasks, selectedTask);
-  const selectedIndex = orderedPeers.findIndex(
-    (task) => task.queueItemId === selectedTask.queueItemId,
-  );
-  const position = selectedIndex >= 0 ? selectedIndex + 1 : null;
-  const total = orderedPeers.length;
-
-  return {
-    canMoveDown: selectedIndex >= 0 && selectedIndex < total - 1,
-    canMoveToBottom: selectedIndex >= 0 && selectedIndex < total - 1,
-    canMoveToTop: selectedIndex > 0,
-    canMoveUp: selectedIndex > 0,
-    orderLabel: position ? `${position.toString()} of ${total.toString()}` : null,
-  };
-}
-
-function reorderQueueTask({
-  position,
-  queueItemId,
-  tasks,
-}: {
-  position: QueueTaskReorderPosition;
-  queueItemId: string;
-  tasks: AgentQueueTask[];
-}) {
-  const selectedTask = tasks.find((task) => task.queueItemId === queueItemId);
-
-  if (!selectedTask) {
-    return { changed: false, updatedTasks: tasks };
-  }
-
-  const peers = orderedManualReorderPeers(tasks, selectedTask);
-  const currentIndex = peers.findIndex((task) => task.queueItemId === queueItemId);
-
-  if (currentIndex < 0) {
-    return { changed: false, updatedTasks: tasks };
-  }
-
-  const nextIndex =
-    position === "top"
-      ? 0
-      : position === "bottom"
-        ? peers.length - 1
-        : position === "up"
-          ? currentIndex - 1
-          : currentIndex + 1;
-
-  if (nextIndex < 0 || nextIndex >= peers.length || nextIndex === currentIndex) {
-    return { changed: false, updatedTasks: tasks };
-  }
-
-  const reorderedPeers = [...peers];
-  const [movedTask] = reorderedPeers.splice(currentIndex, 1);
-  reorderedPeers.splice(nextIndex, 0, movedTask);
-  const orderById = new Map(
-    reorderedPeers.map((task, index) => [task.queueItemId, index]),
-  );
-  const updatedTasks = sortQueueTasksForDisplay(
-    tasks.map((task) =>
-      orderById.has(task.queueItemId)
-        ? { ...task, orderIndex: orderById.get(task.queueItemId) }
-        : task,
-    ),
-  );
-
-  return { changed: true, updatedTasks };
-}
-
-function orderedManualReorderPeers(
-  tasks: AgentQueueTask[],
-  selectedTask: AgentQueueTask,
-) {
-  const selectedQueueTag = normalizeQueueTag(selectedTask);
-  const selectedPriority = normalizeTaskPriority(selectedTask.priority);
-
-  return sortQueueTasksForDisplay(
-    tasks.filter((task) => {
-      const queueTag = normalizeQueueTag(task);
-      return (
-        queueTag.queueTagId === selectedQueueTag.queueTagId &&
-        normalizeTaskPriority(task.priority) === selectedPriority
-      );
-    }),
-  );
-}
-
-function nextOrderIndexForQueueTag({
-  insertPosition,
-  queueTagId,
-  tasks,
-}: {
-  insertPosition: QueueTaskInsertPosition;
-  queueTagId: string;
-  tasks: AgentQueueTask[];
-}) {
-  const orderIndexes = tasks
-    .filter((task) => normalizeQueueTag(task).queueTagId === queueTagId)
-    .map((task) => task.orderIndex)
-    .filter((orderIndex): orderIndex is number =>
-      typeof orderIndex === "number" && Number.isFinite(orderIndex),
-    );
-
-  if (orderIndexes.length === 0) {
-    return 0;
-  }
-
-  return insertPosition === "top"
-    ? Math.min(...orderIndexes) - 1
-    : Math.max(...orderIndexes) + 1;
-}
-
-function withQueueOrderIndexes(tasks: AgentQueueTask[]) {
-  const sortedTasks = sortQueueTasksForDisplay(tasks);
-  const nextOrderByGroup = new Map<string, number>();
-
-  return sortQueueTasksForDisplay(
-    sortedTasks.map((task) => {
-      if (typeof task.orderIndex === "number" && Number.isFinite(task.orderIndex)) {
-        return task;
-      }
-
-      const groupKey = manualOrderGroupKey(task);
-      const nextOrderIndex = nextOrderByGroup.get(groupKey) ?? 0;
-      nextOrderByGroup.set(groupKey, nextOrderIndex + 1);
-      return { ...task, orderIndex: nextOrderIndex };
-    }),
-  );
-}
-
-function manualOrderGroupKey(task: AgentQueueTask) {
-  const queueTag = normalizeQueueTag(task);
-  return `${queueTag.queueTagId}:${normalizeTaskPriority(task.priority).toString()}`;
-}
-
-function queueTagSummaryToRecord(tag: QueueTagSummary): QueueTagRecord {
-  return {
-    queueTagId: tag.queueTagId,
-    queueTagName: tag.queueTagName,
-  };
-}
-
-function upsertQueueTagRecord(
-  queueTags: QueueTagRecord[],
-  queueTag: QueueTagRecord,
-) {
-  const found = queueTags.some(
-    (candidate) => candidate.queueTagId === queueTag.queueTagId,
-  );
-
-  if (found) {
-    return queueTags.map((candidate) =>
-      candidate.queueTagId === queueTag.queueTagId ? queueTag : candidate,
-    );
-  }
-
-  return [...queueTags, queueTag];
-}
-
-function defaultWorkerConfigsFromExecutorSlots(
-  agentExecutorSlots: Array<{ label: string; widgetInstanceId: string }>,
-): AgentQueueWorkerConfig[] {
-  const now = new Date().toISOString();
-
-  if (agentExecutorSlots.length === 0) {
-    return [
-      {
-        createdAt: now,
-        displayOrder: 0,
-        enabled: true,
-        name: "Agent Worker 1",
-        queueTagId: null,
-        queueTagName: null,
-        scopeKind: "all",
-        updatedAt: now,
-        workerId: `agent-worker-${Date.now().toString(36)}`,
-        workspaceId: "",
-      },
-    ];
-  }
-
-  return agentExecutorSlots.map((slot, index) => ({
-    createdAt: now,
-    displayOrder: index,
-    enabled: true,
-    name: slot.label,
-    queueTagId: null,
-    queueTagName: null,
-    scopeKind: "all",
-    updatedAt: now,
-    workerId: slot.widgetInstanceId,
-    workspaceId: "",
-  }));
-}
-
-function workerScopesFromConfigs(workerConfigs: AgentQueueWorkerConfig[]) {
-  return new Map(
-    workerConfigs.map((worker): [string, WorkerScope] => [
-      worker.workerId,
-      worker.scopeKind === "queue_tag" && worker.queueTagId && worker.queueTagName
-        ? {
-            kind: "queue_tag",
-            queueTagId: worker.queueTagId,
-            queueTagName: worker.queueTagName,
-          }
-        : { kind: "all" },
-    ]),
-  );
-}
-
-function nextWorkerDisplayOrder(workerConfigs: AgentQueueWorkerConfig[]) {
-  if (workerConfigs.length === 0) {
-    return 0;
-  }
-
-  return (
-    Math.max(
-      ...workerConfigs.map((worker) =>
-        Number.isFinite(worker.displayOrder) ? worker.displayOrder : 0,
-      ),
-    ) + 1
-  );
-}
-
-function localWorkerConfig({
-  displayOrder,
-  name,
-}: {
-  displayOrder: number;
-  name: string;
-}): AgentQueueWorkerConfig {
-  const now = new Date().toISOString();
-
-  return {
-    createdAt: now,
-    displayOrder,
-    enabled: true,
-    name,
-    queueTagId: null,
-    queueTagName: null,
-    scopeKind: "all",
-    updatedAt: now,
-    workerId: `agent-worker-${Date.now().toString(36)}-${displayOrder.toString()}`,
-    workspaceId: "",
-  };
-}
-
-function buildDemoWorkerExecutionReport({
-  task,
-  workerId,
-}: {
-  task: AgentQueueTask;
-  workerId: string;
-}): AgentQueueWorkerExecutionReport {
-  const now = new Date().toISOString();
-  const plan = task.executionPlanPreview;
-  const changedFiles =
-    plan?.likelyFilesOrAreas.filter(isLikelyFilePath) ?? [];
-  const likelyAreas =
-    plan?.likelyFilesOrAreas.filter((value) => !isLikelyFilePath(value)) ?? [];
-  const followUpRecommendation =
-    plan?.splitRecommendation ??
-    (task.status === "failed" || task.validationStatus === "failed"
-      ? "Create a follow-up/sub-block for fixes before coordinator finalization."
-      : undefined);
-
-  return {
-    changedFiles,
-    commandsRun: [],
-    createdAt: now,
-    errors: task.status === "failed" ? ["Task status was already failed."] : [],
-    followUpRecommendation,
-    itemId: task.queueItemId,
-    rawReportPreview: [
-      "Worker execution report preview",
-      `Queue item: ${displayTaskTitle(task)} (${task.queueItemId})`,
-      `Worker: ${workerId || "unassigned"}`,
-      "Source: local Queue model attachment",
-      "No execution, validation, provider, Executor, or Codex process was started by this attachment.",
-    ].join("\n"),
-    reportId: `worker-report-${task.queueItemId}-${Date.now().toString(36)}`,
-    reportStatus: followUpRecommendation ? "needs_follow_up" : "reported",
-    rollbackRecommendation:
-      task.status === "failed"
-        ? "Review changed files and validation output before any separate rollback decision."
-        : undefined,
-    summary:
-      plan && plan.status !== "not_planned"
-        ? `Worker report received for ${displayTaskTitle(
-            task,
-          )}. Expected plan was ${plan.status}; coordinator review is still required.`
-        : `Worker report received for ${displayTaskTitle(
-            task,
-          )}. Coordinator review is still required.`,
-    validationCommandsSuggested: plan?.expectedValidationCommands ?? [],
-    validationResult: "not_run",
-    warnings:
-      likelyAreas.length > 0
-        ? [`Likely affected areas reported: ${likelyAreas.join(", ")}.`]
-        : ["Report is model-only evidence and has not been independently validated."],
-    workerId: workerId || "unassigned",
-  };
-}
-
-function isLikelyFilePath(value: string) {
-  return (
-    /^(?:apps|crates|docs|scripts)[\\/]/.test(value) ||
-    /\.[A-Za-z0-9]+$/.test(value)
-  );
-}
-
-function areStringArraysEqual(first: string[], second: string[]) {
-  if (first.length !== second.length) {
-    return false;
-  }
-
-  return first.every((value, index) => value === second[index]);
 }
