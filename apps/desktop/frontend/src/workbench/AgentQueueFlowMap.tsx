@@ -9,8 +9,12 @@ import {
 } from "./agentQueueTaskUiModel";
 import {
   buildQueueFlowMap,
+  type QueueFlowBarrier as QueueFlowBarrierModel,
+  type QueueFlowColumn,
+  type QueueFlowGroup,
   type QueueExecutorLane,
   type QueueFlowItemBlock,
+  type QueueResultGroup,
 } from "./queue/agentQueueFlowMapModel";
 import type { AgentQueueAssignedWorkerRoutingState } from "./queue/agentQueueRoutingModel";
 
@@ -68,145 +72,230 @@ export function AgentQueueFlowMap({
             </p>
           </div>
         ) : (
-          <div className="agent-queue-flow-layers" role="list">
-            {flowMap.columns.map((column) => (
-              <div className="agent-queue-flow-layer" key={column.id} role="listitem">
-                <div className="agent-queue-flow-layer-header">
-                  <p className="agent-queue-flow-layer-title">{column.label}</p>
-                  <Badge variant="neutral">
-                    {column.groups.reduce(
-                      (count, group) => count + group.items.length,
-                      0,
-                    )}{" "}
-                    items
-                  </Badge>
-                </div>
-                <div className="agent-queue-flow-groups">
-                  {column.groups.map((group) => (
-                    <section
-                      className={[
-                        "agent-queue-flow-group",
-                        group.colorToken,
-                      ].join(" ")}
-                      data-tag-color-token={group.colorToken}
-                      key={group.id}
-                    >
-                      <div className="agent-queue-flow-group-header">
-                        <span className="agent-queue-flow-tag-swatch" />
-                        <p className="agent-queue-flow-group-title">
-                          {group.queueTagName}
-                        </p>
-                      </div>
-                      <div className="agent-queue-flow-block-stack">
-                        {group.items.map((item) => (
-                          <FlowItemBlock
-                            isSelecting={isSelecting}
-                            isSelected={
-                              selectedTask?.queueItemId === item.queueItemId
-                            }
-                            item={item}
-                            key={item.queueItemId}
-                            onSelectTask={onSelectTask}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-                {column.barriersAfter.map((barrier) => (
-                  <div
-                    className="agent-queue-flow-barrier"
-                    key={barrier.id}
-                    role="separator"
-                    title={`${barrier.blockingItemIds.length.toString()} blockers, ${barrier.blockedItemIds.length.toString()} dependent items`}
-                  >
-                    <span className="agent-queue-flow-barrier-line" />
-                    <span className="agent-queue-flow-barrier-label">
-                      {barrier.label}
-                    </span>
-                    <span className="agent-queue-flow-barrier-line" />
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          <QueueFlowLayers
+            columns={flowMap.columns}
+            isSelecting={isSelecting}
+            onSelectTask={onSelectTask}
+            selectedTaskId={selectedTask?.queueItemId ?? null}
+          />
         )}
 
-        <section
-          aria-label="Agent Executor section"
-          className="agent-queue-flow-executors"
-        >
-          <div className="agent-queue-flow-section-baseline">
-            <span />
-            <p>Agent Executor section</p>
-            <span />
-          </div>
-          <div className="agent-queue-flow-executor-lanes">
-            {flowMap.executorLanes.length === 0 ? (
-              <div className="agent-queue-flow-executor-empty">
-                No Agent Workers configured.
-              </div>
-            ) : (
-              flowMap.executorLanes.map((lane) => (
-                <ExecutorLaneBlock
-                  isSelecting={isSelecting}
-                  key={lane.id}
-                  lane={lane}
-                  onSelectTask={onSelectTask}
-                  selectedTask={selectedTask}
-                />
-              ))
-            )}
-          </div>
-        </section>
+        <QueueFlowExecutorSection
+          lanes={flowMap.executorLanes}
+          isSelecting={isSelecting}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTask?.queueItemId ?? null}
+        />
 
-        <section aria-label="Queue results" className="agent-queue-flow-results">
-          <div className="agent-queue-flow-section-baseline">
-            <span />
-            <p>Results</p>
-            <span />
-          </div>
-          {flowMap.resultGroups.length === 0 ? (
-            <div className="agent-queue-flow-result-empty">
-              No completed, failed, or cancelled result blocks yet.
-            </div>
-          ) : (
-            <div className="agent-queue-flow-result-groups">
-              {flowMap.resultGroups.map((group) => (
-                <section
-                  className={[
-                    "agent-queue-flow-result-group",
-                    group.colorToken,
-                  ].join(" ")}
-                  data-tag-color-token={group.colorToken}
-                  key={group.id}
-                >
-                  <div className="agent-queue-flow-group-header">
-                    <span className="agent-queue-flow-tag-swatch" />
-                    <p className="agent-queue-flow-group-title">
-                      {group.queueTagName}
-                    </p>
-                  </div>
-                  <div className="agent-queue-flow-block-stack">
-                    {group.items.map((item) => (
-                      <FlowItemBlock
-                        isSelecting={isSelecting}
-                        isSelected={
-                          selectedTask?.queueItemId === item.queueItemId
-                        }
-                        item={item}
-                        key={item.queueItemId}
-                        onSelectTask={onSelectTask}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-        </section>
+        <QueueFlowResultsSection
+          groups={flowMap.resultGroups}
+          isSelecting={isSelecting}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTask?.queueItemId ?? null}
+        />
       </div>
     </section>
+  );
+}
+
+function QueueFlowLayers({
+  columns,
+  isSelecting,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  columns: QueueFlowColumn[];
+  isSelecting: boolean;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <div className="agent-queue-flow-layers" role="list">
+      {columns.map((column) => (
+        <QueueFlowLayer
+          column={column}
+          isSelecting={isSelecting}
+          key={column.id}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTaskId}
+        />
+      ))}
+    </div>
+  );
+}
+
+function QueueFlowLayer({
+  column,
+  isSelecting,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  column: QueueFlowColumn;
+  isSelecting: boolean;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <div className="agent-queue-flow-layer" role="listitem">
+      <div className="agent-queue-flow-layer-header">
+        <p className="agent-queue-flow-layer-title">{column.label}</p>
+        <Badge variant="neutral">{flowLayerItemCount(column)} items</Badge>
+      </div>
+      <div className="agent-queue-flow-groups">
+        {column.groups.map((group) => (
+          <QueueFlowTagGroup
+            className="agent-queue-flow-group"
+            group={group}
+            isSelecting={isSelecting}
+            key={group.id}
+            onSelectTask={onSelectTask}
+            selectedTaskId={selectedTaskId}
+          />
+        ))}
+      </div>
+      {column.barriersAfter.map((barrier) => (
+        <QueueFlowBarrier barrier={barrier} key={barrier.id} />
+      ))}
+    </div>
+  );
+}
+
+function QueueFlowTagGroup({
+  className,
+  group,
+  isSelecting,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  className: "agent-queue-flow-group" | "agent-queue-flow-result-group";
+  group: QueueFlowGroup | QueueResultGroup;
+  isSelecting: boolean;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <section
+      className={[className, group.colorToken].join(" ")}
+      data-tag-color-token={group.colorToken}
+    >
+      <div className="agent-queue-flow-group-header">
+        <span className="agent-queue-flow-tag-swatch" />
+        <p className="agent-queue-flow-group-title">{group.queueTagName}</p>
+      </div>
+      <div className="agent-queue-flow-block-stack">
+        {group.items.map((item) => (
+          <FlowItemBlock
+            isSelecting={isSelecting}
+            isSelected={selectedTaskId === item.queueItemId}
+            item={item}
+            key={item.queueItemId}
+            onSelectTask={onSelectTask}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QueueFlowBarrier({
+  barrier,
+}: {
+  barrier: QueueFlowBarrierModel;
+}) {
+  return (
+    <div
+      className="agent-queue-flow-barrier"
+      role="separator"
+      title={`${barrier.blockingItemIds.length.toString()} blockers, ${barrier.blockedItemIds.length.toString()} dependent items`}
+    >
+      <span className="agent-queue-flow-barrier-line" />
+      <span className="agent-queue-flow-barrier-label">{barrier.label}</span>
+      <span className="agent-queue-flow-barrier-line" />
+    </div>
+  );
+}
+
+function QueueFlowExecutorSection({
+  lanes,
+  isSelecting,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  lanes: QueueExecutorLane[];
+  isSelecting: boolean;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <section
+      aria-label="Agent Executor section"
+      className="agent-queue-flow-executors"
+    >
+      <QueueFlowSectionBaseline label="Agent Executor section" />
+      <div className="agent-queue-flow-executor-lanes">
+        {lanes.length === 0 ? (
+          <div className="agent-queue-flow-executor-empty">
+            No Agent Workers configured.
+          </div>
+        ) : (
+          lanes.map((lane) => (
+            <ExecutorLaneBlock
+              isSelecting={isSelecting}
+              key={lane.id}
+              lane={lane}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTaskId}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function QueueFlowResultsSection({
+  groups,
+  isSelecting,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  groups: QueueResultGroup[];
+  isSelecting: boolean;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <section aria-label="Queue results" className="agent-queue-flow-results">
+      <QueueFlowSectionBaseline label="Results" />
+      {groups.length === 0 ? (
+        <div className="agent-queue-flow-result-empty">
+          No completed, failed, or cancelled result blocks yet.
+        </div>
+      ) : (
+        <div className="agent-queue-flow-result-groups">
+          {groups.map((group) => (
+            <QueueFlowTagGroup
+              className="agent-queue-flow-result-group"
+              group={group}
+              isSelecting={isSelecting}
+              key={group.id}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTaskId}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QueueFlowSectionBaseline({ label }: { label: string }) {
+  return (
+    <div className="agent-queue-flow-section-baseline">
+      <span />
+      <p>{label}</p>
+      <span />
+    </div>
   );
 }
 
@@ -273,15 +362,14 @@ function ExecutorLaneBlock({
   isSelecting,
   lane,
   onSelectTask,
-  selectedTask,
+  selectedTaskId,
 }: {
   isSelecting: boolean;
   lane: QueueExecutorLane;
   onSelectTask: (queueItemId: string) => void;
-  selectedTask: AgentQueueTask | null;
+  selectedTaskId: string | null;
 }) {
-  const activeItemSelected =
-    lane.activeItem?.queueItemId === selectedTask?.queueItemId;
+  const activeItemSelected = lane.activeItem?.queueItemId === selectedTaskId;
   const laneClassName = [
     "agent-queue-flow-executor-block",
     lane.isWorking ? "agent-queue-flow-executor-working" : "agent-queue-flow-executor-spare",
@@ -318,6 +406,10 @@ function ExecutorLaneBlock({
       </span>
     </button>
   );
+}
+
+function flowLayerItemCount(column: QueueFlowColumn) {
+  return column.groups.reduce((count, group) => count + group.items.length, 0);
 }
 
 function itemTitle(item: QueueFlowItemBlock) {
