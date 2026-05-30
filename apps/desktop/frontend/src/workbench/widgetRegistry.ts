@@ -117,7 +117,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Agent Executor",
     category: "core",
     description:
-      "Runs explicit async/background tasks and shows execution, logs, results, changed files, and validation.",
+      "Secondary compatibility/debug surface for explicit Direct Work runs, logs, results, changed files, and validation.",
     defaultTitle: "Agent Executor",
     defaultConfig: {},
     layoutDefaults:
@@ -129,7 +129,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Agent Queue",
     category: "workflow",
     description:
-      "Preview surface for promoted async tasks, assignments, and executor run history.",
+      "Preview surface for promoted async tasks, workers, embedded executor capacity, and executor run history.",
     defaultTitle: "Agent Queue",
     defaultConfig: {},
     layoutDefaults:

@@ -274,6 +274,7 @@ export function AgentQueuePlaceholderWidget({
                 viewMode === "flow" ? (
                   <AgentQueueFlowMap
                     dependencyStates={queue.dependencyStates}
+                    embeddedExecutor={queue.foundation.embeddedExecutor}
                     isSelecting={isSelecting}
                     onSelectTask={(queueItemId) => void selectTask(queueItemId)}
                     pausedQueueTagIds={queue.foundation.pausedQueueTagIds}

@@ -543,6 +543,16 @@ reports, validation results, and Diff Review reports are inputs to
 Workspace/coordinator decisions; workers must not directly finalize items as
 done/failure automatically.
 
+Agent Executor functionality is being embedded into Queue as the primary
+execution management surface for Queue work. The embedded Agent Executor
+section shows max executors, configured workers, spare/working executors,
+worker scopes, scheduler dry-run recommendations, and safe result/history
+signals when available. The current max-executors control is model/UI state
+only: it bounds explicit worker add controls, blocks lowering below configured
+workers, and never starts, stops, launches, claims, finalizes, or kills work.
+The standalone Agent Executor widget remains a compatibility/debug/secondary
+surface while Queue becomes the normal place to inspect executor capacity.
+
 Queue items may depend on other Queue items. Current dependency modeling is a
 frontend/model readiness layer: existing items default to no dependencies,
 dependencies are visible in the task list and task details, and dependency
@@ -612,10 +622,11 @@ future explicit work.
 
 The Queue widget may visualize the same frontend/model state in a Flow Map
 view. The Flow Map groups work-item blocks by queue tag, shows dependency
-layers and barrier rows, shows Agent Executor lanes with spare and currently
-running visual blocks, dry-run next/idle labels where available, global
-stopped/kill-requested executor-lane messages, and final result blocks grouped
-by tag. It is a
+layers and barrier rows, shows the embedded Agent Executor section with
+max/spare/working facts, spare and currently running visual blocks, worker
+scopes, capacity recommendations, dry-run next/idle labels where available,
+global stopped/kill-requested executor-lane messages, and final result blocks
+grouped by tag. It is a
 selection and comprehension view only: clicking a work-item block selects the
 existing task details, and clicking a running executor block may select the
 linked task when visible. It must not claim work, start Agent Executor, arm or

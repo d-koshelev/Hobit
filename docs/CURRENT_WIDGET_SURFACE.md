@@ -163,6 +163,9 @@ Workspace Agent is the foreground interactive agent surface.
 ### Agent Executor
 
 - Current explicit Codex Direct Work execution surface and runtime slot.
+  Normal Queue execution management is moving into Agent Queue; the standalone
+  Agent Executor widget remains available as a compatibility/debug/secondary
+  surface during this transition.
 - Uses the existing `agent-run` widget definition id for persistence
   compatibility.
 - Starts one operator-provided task from visible inputs: prompt, execution
@@ -477,6 +480,15 @@ Workspace Agent is the foreground interactive agent surface.
   worker id, name, enabled/disabled flag, display order, and scope to all
   queues or one queue tag. The browser/Vite development fallback keeps safe
   in-memory worker config behavior.
+- Queue now embeds an Agent Executor section as the primary execution
+  management surface for Queue work. The section shows a local max-executors
+  control, configured worker count, spare executor slots, working executor
+  slots inferred from current model state, worker scopes, scheduler dry-run
+  capacity recommendations, and result/history signals where the current safe
+  run-link model supports them. The max-executors value is frontend model state
+  in this block; lowering it below the current configured worker count is
+  blocked rather than silently deleting workers. Changing it does not start,
+  stop, launch, claim, or kill any runtime.
 - Visible Agent Executor slots can seed default Agent Worker configs for
   legacy Workspaces with no persisted workers. Worker config edits, including
   add, rename, enable/disable, remove, and scope changes, do not spawn a
@@ -522,9 +534,11 @@ Workspace Agent is the foreground interactive agent surface.
   scheduler, or finalize item status.
 - The Queue widget has a Flow Map view alongside the existing table/list and
   selected-task detail controls. Flow Map is a visual overview of queue tags,
-  dependency layers/barriers, the Agent Executor section, spare/working
-  executor blocks, dry-run next/idle labels from the scheduler plan, and final
-  result blocks grouped by tag. The Agent Executor section reflects global
+  dependency layers/barriers, the embedded Agent Executor section,
+  max/spare/working executor facts, spare/working executor blocks, worker
+  scopes, dry-run next/idle labels from the scheduler plan, capacity
+  recommendations, and final result blocks grouped by tag. The Agent Executor
+  section reflects global
   stopped/kill-requested state: spare executor blocks show "Queue is stopped"
   or "STOP + KILL RUNNING requested" instead of a next item, and already
   running blocks can show termination-request/coordinator-review copy without

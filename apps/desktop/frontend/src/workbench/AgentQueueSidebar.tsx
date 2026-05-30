@@ -158,6 +158,70 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
         </div>
       </section>
 
+      <section
+        aria-label="Agent Executor section"
+        className="agent-queue-sidebar-section"
+      >
+        <div className="agent-queue-section-header">
+          <p className="agent-queue-section-title">Agent Executor section</p>
+          <Badge
+            variant={
+              foundation.embeddedExecutor.capacityRecommendation.code ===
+              "can_add_worker"
+                ? "info"
+                : foundation.embeddedExecutor.capacityRecommendation.code ===
+                    "max_reached" ||
+                  foundation.embeddedExecutor.capacityRecommendation.code ===
+                    "blocked_by_tags_or_dependencies"
+                  ? "warning"
+                  : "neutral"
+            }
+          >
+            {foundation.embeddedExecutor.capacityRecommendation.label}
+          </Badge>
+        </div>
+        <label className="field-label" htmlFor="agent-queue-max-executors">
+          Max executors
+        </label>
+        <input
+          className="input agent-queue-max-executors-input"
+          id="agent-queue-max-executors"
+          min={1}
+          onChange={(event) =>
+            foundation.onMaxExecutorsChange(event.currentTarget.value)
+          }
+          type="number"
+          value={foundation.embeddedExecutor.maxExecutors}
+        />
+        {foundation.maxExecutorMessage ? (
+          <p className="agent-queue-run-note">{foundation.maxExecutorMessage}</p>
+        ) : null}
+        <dl className="agent-queue-executor-facts">
+          <div>
+            <dt>Configured</dt>
+            <dd>
+              {foundation.embeddedExecutor.currentConfiguredWorkerCount}
+            </dd>
+          </div>
+          <div>
+            <dt>Spare</dt>
+            <dd>{foundation.embeddedExecutor.spareExecutorSlots}</dd>
+          </div>
+          <div>
+            <dt>Working</dt>
+            <dd>{foundation.embeddedExecutor.workingExecutorSlots}</dd>
+          </div>
+          <div>
+            <dt>Open slots</dt>
+            <dd>{foundation.embeddedExecutor.unconfiguredExecutorSlots}</dd>
+          </div>
+        </dl>
+        <p className="agent-queue-run-note">
+          Scheduler capacity is a dry run only; changing this value does not
+          start or stop Agent Executor work.
+        </p>
+      </section>
+
       <section className="agent-queue-sidebar-section">
         <div className="agent-queue-section-header">
           <p className="agent-queue-section-title">Queue tags</p>
@@ -321,7 +385,20 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
       <section className="agent-queue-sidebar-section">
         <div className="agent-queue-section-header">
           <p className="agent-queue-section-title">Workers</p>
-          <Button onClick={() => foundation.onCreateWorker()} variant="secondary">
+          <Button
+            disabled={
+              foundation.embeddedExecutor.currentConfiguredWorkerCount >=
+              foundation.embeddedExecutor.maxExecutors
+            }
+            onClick={() => foundation.onCreateWorker()}
+            title={
+              foundation.embeddedExecutor.currentConfiguredWorkerCount >=
+              foundation.embeddedExecutor.maxExecutors
+                ? "Max executors reached."
+                : "Add a configured worker slot without starting runtime."
+            }
+            variant="secondary"
+          >
             Add worker
           </Button>
         </div>

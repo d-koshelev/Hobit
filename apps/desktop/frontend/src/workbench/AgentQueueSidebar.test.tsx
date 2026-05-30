@@ -3,7 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
-import { buildAgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
+import {
+  buildAgentQueueEmbeddedExecutorSection,
+  buildAgentQueueSchedulerPlan,
+} from "./queue/agentQueueSchedulerModel";
 import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
 
 let root: Root | null = null;
@@ -30,6 +33,10 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Scheduler dry run");
     expect(document.body.textContent).toContain("Dry-run only");
+    expect(document.body.textContent).toContain("Agent Executor section");
+    expect(document.body.textContent).toContain("Max executors");
+    expect(document.body.textContent).toContain("Configured");
+    expect(document.body.textContent).toContain("Spare");
     expect(document.body.textContent).toContain("Default");
     expect(document.body.textContent).toContain("Agent Executor 1");
     expect(document.body.textContent).toContain("0 schedulable items");
@@ -60,6 +67,26 @@ describe("AgentQueueSidebar", () => {
 
     expect(document.body.textContent).toContain("Dry-run next: Queue task");
     expect(document.body.textContent).toContain("Plan needed");
+  });
+
+  it("changes max executors and keeps Add worker bounded by max", () => {
+    const foundation = foundationController();
+    foundation.embeddedExecutor = {
+      ...foundation.embeddedExecutor,
+      currentConfiguredWorkerCount: 1,
+      maxExecutors: 1,
+    };
+    renderSidebar(foundation);
+
+    const input = document.querySelector<HTMLInputElement>(
+      "#agent-queue-max-executors",
+    );
+    const addWorker = buttonByText("Add worker");
+
+    expect(input?.value).toBe("1");
+    expect(addWorker?.disabled).toBe(true);
+
+    expect(foundation.onMaxExecutorsChange).not.toHaveBeenCalled();
   });
 
   it("renders paused tags with validation counts and resume action", () => {
@@ -104,9 +131,7 @@ function renderSidebar(
 }
 
 function clickButton(text: string) {
-  const button = Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === text,
-  );
+  const button = buttonByText(text);
 
   if (!button) {
     throw new Error(`Button not found: ${text}`);
@@ -115,6 +140,12 @@ function clickButton(text: string) {
   act(() => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+function buttonByText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === text,
+  ) as HTMLButtonElement | undefined;
 }
 
 function foundationController(
@@ -152,11 +183,25 @@ function foundationController(
 
   const globalExecutionState: AgentQueueFoundationController["globalExecutionState"] =
     overrides.globalExecutionState ?? "stopped";
+  const schedulerPlan = buildAgentQueueSchedulerPlan({
+    globalExecutionState,
+    pausedQueueTagIds: new Set(),
+    tasks: [task],
+    workers: [worker],
+  });
 
   return {
+    embeddedExecutor: buildAgentQueueEmbeddedExecutorSection({
+      maxExecutors: 3,
+      schedulerPlan,
+      tasks: [task],
+      workers: [worker],
+    }),
     globalExecutionState,
     globalMessage: "Workers are stopped.",
     globalStatus: globalExecutionState,
+    maxExecutorMessage: null,
+    onMaxExecutorsChange: vi.fn(),
     onCreateQueueTag: vi.fn(() => true),
     onCreateWorker: vi.fn(),
     onDeleteQueueTag: vi.fn(() => true),
@@ -195,12 +240,7 @@ function foundationController(
       passed: 0,
       validating: 0,
     },
-    schedulerPlan: buildAgentQueueSchedulerPlan({
-      globalExecutionState,
-      pausedQueueTagIds: new Set(),
-      tasks: [task],
-      workers: [worker],
-    }),
+    schedulerPlan,
     workers: [worker],
     ...overrides,
   };

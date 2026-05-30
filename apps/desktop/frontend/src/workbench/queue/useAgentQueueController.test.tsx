@@ -471,6 +471,86 @@ describe("useAgentQueueController executionPolicy draft", () => {
     hook.unmount();
   });
 
+  it("keeps max executors local, at least one, and blocks silent worker deletion", async () => {
+    const harness = createQueueHarness([]);
+    harness.replaceWorker(agentQueueWorker({ workerId: "executor-1" }));
+    harness.replaceWorker(
+      agentQueueWorker({
+        displayOrder: 1,
+        name: "Agent Executor 2",
+        workerId: "executor-2",
+      }),
+    );
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.foundation.embeddedExecutor.maxExecutors).toBe(3);
+
+    act(() => {
+      hook.result.current.foundation.onMaxExecutorsChange("0");
+    });
+
+    expect(hook.result.current.foundation.embeddedExecutor.maxExecutors).toBe(3);
+    expect(
+      hook.result.current.foundation.maxExecutorMessage?.includes(
+        "cannot be lower than 2 configured workers",
+      ),
+    ).toBe(true);
+
+    act(() => {
+      hook.result.current.foundation.onMaxExecutorsChange("2");
+    });
+
+    expect(hook.result.current.foundation.embeddedExecutor.maxExecutors).toBe(2);
+    expect(
+      hook.result.current.foundation.maxExecutorMessage?.includes(
+        "No workers were started or stopped",
+      ),
+    ).toBe(true);
+    expect(harness.deleteWorkerRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("bounds Add worker by max executors without starting Executor or Codex", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onMaxExecutorsChange("0");
+    });
+    await flushHookEffects();
+
+    expect(hook.result.current.foundation.embeddedExecutor.maxExecutors).toBe(1);
+
+    act(() => {
+      hook.result.current.foundation.onCreateWorker();
+    });
+
+    expect(hook.result.current.foundation.workers).toHaveLength(1);
+    expect(
+      hook.result.current.foundation.maxExecutorMessage?.includes(
+        "Max executors reached",
+      ),
+    ).toBe(true);
+    expect(harness.createWorkerRequests).toHaveLength(1);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("blocks removing a worker assigned to a queue task", async () => {
     const harness = createQueueHarness([
       queueTask({

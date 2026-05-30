@@ -268,6 +268,7 @@
 }
 
 .agent-queue-validation-summary,
+.agent-queue-executor-facts,
 .agent-queue-scheduler-facts,
 .agent-queue-item-foundation-facts {
   display: grid;
@@ -276,6 +277,7 @@
 }
 
 .agent-queue-validation-summary > div,
+.agent-queue-executor-facts > div,
 .agent-queue-scheduler-facts > div,
 .agent-queue-item-foundation-facts > div {
   display: flex;
@@ -286,6 +288,8 @@
 
 .agent-queue-validation-summary dt,
 .agent-queue-validation-summary dd,
+.agent-queue-executor-facts dt,
+.agent-queue-executor-facts dd,
 .agent-queue-scheduler-facts dt,
 .agent-queue-scheduler-facts dd,
 .agent-queue-item-foundation-facts dt,
@@ -295,15 +299,21 @@
 }
 
 .agent-queue-validation-summary dt,
+.agent-queue-executor-facts dt,
 .agent-queue-scheduler-facts dt,
 .agent-queue-item-foundation-facts dt {
   color: var(--color-text-muted);
 }
 
 .agent-queue-validation-summary dd,
+.agent-queue-executor-facts dd,
 .agent-queue-scheduler-facts dd,
 .agent-queue-item-foundation-facts dd {
   color: var(--color-text-primary);
+}
+
+.agent-queue-max-executors-input {
+  max-width: 96px;
 }
 
 .agent-queue-scheduler-preview {
@@ -376,6 +386,7 @@
 .agent-queue-flow-executors,
 .agent-queue-flow-results,
 .agent-queue-flow-result-groups,
+.agent-queue-flow-executor-facts,
 .agent-queue-flow-executor-lanes {
   display: grid;
   min-width: 0;
@@ -705,6 +716,38 @@
 
 .agent-queue-flow-executor-lanes {
   grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+}
+
+.agent-queue-flow-executor-facts {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.agent-queue-flow-executor-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.agent-queue-flow-executor-facts dt,
+.agent-queue-flow-executor-facts dd {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-flow-executor-facts dt {
+  color: var(--color-text-muted);
+}
+
+.agent-queue-flow-executor-facts dd {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .agent-queue-flow-executor-block {

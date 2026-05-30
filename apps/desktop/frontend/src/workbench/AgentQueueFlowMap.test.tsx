@@ -7,7 +7,10 @@ import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
 import { queueTagColorToken } from "./queue/agentQueueFlowMapModel";
 import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
-import { buildAgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
+import {
+  buildAgentQueueEmbeddedExecutorSection,
+  buildAgentQueueSchedulerPlan,
+} from "./queue/agentQueueSchedulerModel";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -67,6 +70,7 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Blocked by: Review blocker");
     expect(document.body.textContent).toContain("Validating");
     expect(document.body.textContent).toContain("Agent Executor section");
+    expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Spare executor");
     expect(document.body.textContent).toContain("Next: Review blocker");
     expect(document.body.textContent).toContain("Results");
@@ -230,11 +234,19 @@ function renderFlowMap({
     tasks,
     workers: testWorkers,
   });
+  const embeddedExecutor = buildAgentQueueEmbeddedExecutorSection({
+    dependencyStates,
+    maxExecutors: 3,
+    schedulerPlan,
+    tasks,
+    workers: testWorkers,
+  });
 
   act(() => {
     root?.render(
       <AgentQueueFlowMap
         dependencyStates={dependencyStates}
+        embeddedExecutor={embeddedExecutor}
         isSelecting={false}
         onSelectTask={onSelectTask}
         pausedQueueTagIds={new Set()}

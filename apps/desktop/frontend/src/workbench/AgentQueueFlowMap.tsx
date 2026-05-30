@@ -17,10 +17,14 @@ import {
   type QueueResultGroup,
 } from "./queue/agentQueueFlowMapModel";
 import type { AgentQueueAssignedWorkerRoutingState } from "./queue/agentQueueRoutingModel";
-import type { AgentQueueSchedulerPlan } from "./queue/agentQueueSchedulerModel";
+import type {
+  AgentQueueEmbeddedExecutorSectionModel,
+  AgentQueueSchedulerPlan,
+} from "./queue/agentQueueSchedulerModel";
 
 type AgentQueueFlowMapProps = {
   dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
+  embeddedExecutor?: AgentQueueEmbeddedExecutorSectionModel;
   isSelecting: boolean;
   onSelectTask: (queueItemId: string) => void;
   pausedQueueTagIds: ReadonlySet<string>;
@@ -33,6 +37,7 @@ type AgentQueueFlowMapProps = {
 
 export function AgentQueueFlowMap({
   dependencyStates,
+  embeddedExecutor,
   isSelecting,
   onSelectTask,
   pausedQueueTagIds,
@@ -91,6 +96,7 @@ export function AgentQueueFlowMap({
         </section>
 
         <QueueFlowExecutorSection
+          embeddedExecutor={embeddedExecutor}
           lanes={flowMap.executorLanes}
           schedulerPlan={schedulerPlan}
           isSelecting={isSelecting}
@@ -232,12 +238,14 @@ function QueueFlowBarrier({
 }
 
 function QueueFlowExecutorSection({
+  embeddedExecutor,
   lanes,
   schedulerPlan,
   isSelecting,
   onSelectTask,
   selectedTaskId,
 }: {
+  embeddedExecutor?: AgentQueueEmbeddedExecutorSectionModel;
   lanes: QueueExecutorLane[];
   schedulerPlan?: AgentQueueSchedulerPlan;
   isSelecting: boolean;
@@ -269,6 +277,26 @@ function QueueFlowExecutorSection({
         <p className="agent-queue-flow-global-note">
           {schedulerPlan.globalState.explanation}
         </p>
+      ) : null}
+      {embeddedExecutor ? (
+        <dl className="agent-queue-flow-executor-facts">
+          <div>
+            <dt>Max executors</dt>
+            <dd>{embeddedExecutor.maxExecutors}</dd>
+          </div>
+          <div>
+            <dt>Spare</dt>
+            <dd>{embeddedExecutor.spareExecutorSlots}</dd>
+          </div>
+          <div>
+            <dt>Working</dt>
+            <dd>{embeddedExecutor.workingExecutorSlots}</dd>
+          </div>
+          <div>
+            <dt>Capacity</dt>
+            <dd>{embeddedExecutor.capacityRecommendation.label}</dd>
+          </div>
+        </dl>
       ) : null}
       <div className="agent-queue-flow-executor-lanes">
         {lanes.length === 0 ? (

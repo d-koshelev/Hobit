@@ -1,6 +1,7 @@
 import type { AgentQueueTask } from "../../workspace/types";
 import type { AgentWorkerSummary } from "../agentQueueTaskUiModel";
 import {
+  buildAgentQueueEmbeddedExecutorSection,
   buildAgentQueueSchedulerPlan,
   schedulerBlockedReasonLabel,
 } from "./agentQueueSchedulerModel";
@@ -254,6 +255,98 @@ describe("agent queue scheduler model", () => {
     );
     expect(schedulerBlockedReasonLabel("worker_scope_mismatch")).toBe(
       "Worker scoped to another tag",
+    );
+  });
+
+  it("recommends adding worker capacity only below max executors", () => {
+    const tasks = [
+      queueTask({
+        prompt: "Run first",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+      queueTask({
+        prompt: "Run second",
+        queueItemId: "queue-2",
+        status: "ready",
+      }),
+    ];
+    const workers = [agentWorker()];
+    const plan = buildPlan({
+      globalExecutionState: "started",
+      tasks,
+      workers,
+    });
+    const model = buildAgentQueueEmbeddedExecutorSection({
+      maxExecutors: 2,
+      schedulerPlan: plan,
+      tasks,
+      workers,
+    });
+
+    expect(model.spareExecutorSlots).toBe(1);
+    expect(model.capacityRecommendation.code).toBe("can_add_worker");
+    expect(model.capacityRecommendation.label).toBe("Can add 1 worker");
+
+    const maxReached = buildAgentQueueEmbeddedExecutorSection({
+      maxExecutors: 1,
+      schedulerPlan: plan,
+      tasks,
+      workers,
+    });
+
+    expect(maxReached.capacityRecommendation.code).toBe("max_reached");
+    expect(maxReached.capacityRecommendation.canAddWorker).toBe(false);
+  });
+
+  it("suppresses add-capacity recommendations while queue is stopped", () => {
+    const tasks = [
+      queueTask({ prompt: "Run first", queueItemId: "queue-1", status: "ready" }),
+      queueTask({ prompt: "Run second", queueItemId: "queue-2", status: "ready" }),
+    ];
+    const workers = [agentWorker()];
+    const plan = buildPlan({
+      globalExecutionState: "stopped",
+      tasks,
+      workers,
+    });
+    const model = buildAgentQueueEmbeddedExecutorSection({
+      maxExecutors: 3,
+      schedulerPlan: plan,
+      tasks,
+      workers,
+    });
+
+    expect(model.capacityRecommendation.code).toBe("queue_stopped");
+    expect(model.capacityRecommendation.canAddWorker).toBe(false);
+  });
+
+  it("reports tag or dependency blockers when no independent work is eligible", () => {
+    const tasks = [
+      queueTask({
+        prompt: "Paused",
+        queueItemId: "queue-1",
+        queueTagId: "paused",
+        queueTagName: "Paused",
+        status: "ready",
+      }),
+    ];
+    const workers = [agentWorker()];
+    const plan = buildPlan({
+      globalExecutionState: "started",
+      pausedQueueTagIds: new Set(["paused"]),
+      tasks,
+      workers,
+    });
+    const model = buildAgentQueueEmbeddedExecutorSection({
+      maxExecutors: 3,
+      schedulerPlan: plan,
+      tasks,
+      workers,
+    });
+
+    expect(model.capacityRecommendation.code).toBe(
+      "blocked_by_tags_or_dependencies",
     );
   });
 });

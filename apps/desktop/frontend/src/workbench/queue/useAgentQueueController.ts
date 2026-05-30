@@ -74,7 +74,9 @@ import {
   type AgentQueueRoutingContext,
 } from "./agentQueueRoutingModel";
 import {
+  buildAgentQueueEmbeddedExecutorSection,
   buildAgentQueueSchedulerPlan,
+  type AgentQueueEmbeddedExecutorSectionModel,
   type AgentQueueSchedulerPlan,
 } from "./agentQueueSchedulerModel";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
@@ -208,9 +210,12 @@ export type AgentQueueEditController = {
 };
 
 export type AgentQueueFoundationController = {
+  embeddedExecutor: AgentQueueEmbeddedExecutorSectionModel;
   globalExecutionState: QueueGlobalStatus;
   globalMessage: string | null;
   globalStatus: QueueGlobalStatus;
+  maxExecutorMessage: string | null;
+  onMaxExecutorsChange: (maxExecutors: string) => void;
   onCreateQueueTag: (queueTagName: string) => boolean;
   onDeleteQueueTag: (queueTagId: string) => boolean;
   onCreateWorker: () => void;
@@ -325,6 +330,10 @@ export function useAgentQueueController({
   const [isAutorunStopping, setIsAutorunStopping] = useState(false);
   const [autorunMessage, setAutorunMessage] = useState<string | null>(null);
   const [autorunError, setAutorunError] = useState<string | null>(null);
+  const [maxExecutors, setMaxExecutors] = useState(3);
+  const [maxExecutorMessage, setMaxExecutorMessage] = useState<string | null>(
+    null,
+  );
   const [globalExecutionState, setGlobalExecutionState] =
     useState<QueueGlobalStatus>(DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE);
   const [globalMessage, setGlobalMessage] = useState<string | null>(
@@ -490,6 +499,23 @@ export function useAgentQueueController({
       workers,
     ],
   );
+  const embeddedExecutor = useMemo(
+    () =>
+      buildAgentQueueEmbeddedExecutorSection({
+        dependencyStates,
+        maxExecutors,
+        schedulerPlan,
+        tasks,
+        workers,
+      }),
+    [dependencyStates, maxExecutors, schedulerPlan, tasks, workers],
+  );
+
+  useEffect(() => {
+    if (workers.length > maxExecutors) {
+      setMaxExecutors(workers.length);
+    }
+  }, [maxExecutors, workers.length]);
 
   const loadTasks = useCallback(
     async (
@@ -1322,6 +1348,31 @@ export function useAgentQueueController({
     );
   }
 
+  function updateMaxExecutors(value: string) {
+    const parsedValue = Number.parseInt(value, 10);
+    const nextMaxExecutors = Number.isFinite(parsedValue)
+      ? Math.max(1, parsedValue)
+      : 1;
+    const configuredWorkerCount = workers.length;
+
+    setMaxExecutorMessage(null);
+    setTagManagementError(null);
+
+    if (nextMaxExecutors < configuredWorkerCount) {
+      setMaxExecutorMessage(
+        `Max executors cannot be lower than ${configuredWorkerCount.toString()} configured worker${
+          configuredWorkerCount === 1 ? "" : "s"
+        }. Remove workers explicitly before lowering it.`,
+      );
+      return;
+    }
+
+    setMaxExecutors(nextMaxExecutors);
+    setMaxExecutorMessage(
+      `Max executors set to ${nextMaxExecutors.toString()}. No workers were started or stopped.`,
+    );
+  }
+
   function moveSelectedTask(position: QueueTaskReorderPosition) {
     if (!selectedTask) {
       setOrderingMessage(null);
@@ -1648,6 +1699,13 @@ export function useAgentQueueController({
   }
 
   function createWorker() {
+    if (workerConfigsRef.current.length >= maxExecutors) {
+      setMaxExecutorMessage(
+        "Max executors reached. Remove a worker or raise the max before adding another.",
+      );
+      return;
+    }
+
     const displayOrder = nextWorkerDisplayOrder(workerConfigsRef.current);
     const workerConfig = localWorkerConfig({
       displayOrder,
@@ -1656,7 +1714,10 @@ export function useAgentQueueController({
 
     workerConfigsRef.current = [...workerConfigsRef.current, workerConfig];
     setWorkerConfigs((current) => [...current, workerConfig]);
-    setWorkerScopes((current) => new Map(current).set(workerConfig.workerId, { kind: "all" }));
+    setWorkerScopes((current) =>
+      new Map(current).set(workerConfig.workerId, { kind: "all" }),
+    );
+    setMaxExecutorMessage("Agent Worker added. No runtime was started.");
     setGlobalMessage("Agent Worker added. No runtime was started.");
 
     if (onCreateAgentQueueWorker) {
@@ -2353,9 +2414,12 @@ export function useAgentQueueController({
       snapshot: autorunSnapshot,
     } satisfies AgentQueueAutorunController,
     foundation: {
+      embeddedExecutor,
       globalExecutionState,
       globalMessage,
       globalStatus: globalExecutionState,
+      maxExecutorMessage,
+      onMaxExecutorsChange: updateMaxExecutors,
       onCreateQueueTag: createQueueTag,
       onCreateWorker: createWorker,
       onDeleteQueueTag: deleteQueueTag,

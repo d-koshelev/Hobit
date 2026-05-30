@@ -2,6 +2,7 @@ import type { AgentQueueTask } from "../../workspace/types";
 import {
   displayTaskTitle,
   isFinalQueueTaskStatus,
+  normalizeTaskDependencies,
   queueGlobalExecutionStateAllowsScheduling,
   queueGlobalExecutionStateLabel,
   queueDependencyStatesByTask,
@@ -86,6 +87,35 @@ export type AgentQueueSchedulerPlan = {
   }>;
   unassignedEligibleItems: AgentQueueItemEligibility[];
   workerPlans: AgentQueueWorkerPlan[];
+};
+
+export type AgentQueueEmbeddedExecutorCapacityCode =
+  | "can_add_worker"
+  | "capacity_available"
+  | "max_reached"
+  | "queue_stopped"
+  | "no_eligible_independent_work"
+  | "blocked_by_tags_or_dependencies";
+
+export type AgentQueueEmbeddedExecutorCapacityRecommendation = {
+  addableWorkerCount: number;
+  canAddWorker: boolean;
+  code: AgentQueueEmbeddedExecutorCapacityCode;
+  label: string;
+};
+
+export type AgentQueueEmbeddedExecutorSectionModel = {
+  capacityRecommendation: AgentQueueEmbeddedExecutorCapacityRecommendation;
+  currentConfiguredWorkerCount: number;
+  maxExecutors: number;
+  spareExecutorSlots: number;
+  unconfiguredExecutorSlots: number;
+  workingExecutorSlots: number;
+  workerScopes: Array<{
+    scopeLabel: string;
+    workerId: string;
+    workerName: string;
+  }>;
 };
 
 export type BuildAgentQueueSchedulerPlanInput = {
@@ -253,6 +283,59 @@ export function buildAgentQueueSchedulerPlan({
       return eligibility.isSchedulable && !assignedWorkerId;
     }),
     workerPlans,
+  };
+}
+
+export function buildAgentQueueEmbeddedExecutorSection({
+  dependencyStates,
+  maxExecutors,
+  schedulerPlan,
+  tasks,
+  workers,
+}: {
+  dependencyStates?: ReadonlyMap<string, AgentQueueDependencyState>;
+  maxExecutors: number;
+  schedulerPlan: AgentQueueSchedulerPlan;
+  tasks: AgentQueueTask[];
+  workers: AgentWorkerSummary[];
+}): AgentQueueEmbeddedExecutorSectionModel {
+  const normalizedMaxExecutors = Math.max(1, Math.floor(maxExecutors));
+  const currentConfiguredWorkerCount = workers.length;
+  const workingExecutorSlots = workers.filter(
+    (worker) => worker.status === "running" && worker.currentItemId,
+  ).length;
+  const spareExecutorSlots = workers.filter(
+    (worker) => worker.enabled && worker.status === "idle",
+  ).length;
+  const unconfiguredExecutorSlots = Math.max(
+    0,
+    normalizedMaxExecutors - currentConfiguredWorkerCount,
+  );
+  const capacityRecommendation = embeddedExecutorCapacityRecommendation({
+    currentConfiguredWorkerCount,
+    dependencyStates,
+    maxExecutors: normalizedMaxExecutors,
+    schedulerPlan,
+    spareExecutorSlots,
+    tasks,
+    unconfiguredExecutorSlots,
+  });
+
+  return {
+    capacityRecommendation,
+    currentConfiguredWorkerCount,
+    maxExecutors: normalizedMaxExecutors,
+    spareExecutorSlots,
+    unconfiguredExecutorSlots,
+    workingExecutorSlots,
+    workerScopes: workers.map((worker) => ({
+      scopeLabel:
+        worker.scope.kind === "queue_tag"
+          ? `Scoped to ${worker.scope.queueTagName}`
+          : "All queues",
+      workerId: worker.workerId,
+      workerName: worker.name,
+    })),
   };
 }
 
@@ -441,6 +524,111 @@ function planExplanation(
   return `START is active. ${recommendationCount.toString()} worker recommendation${
     recommendationCount === 1 ? "" : "s"
   } available. Dry-run only; no work is started.`;
+}
+
+function embeddedExecutorCapacityRecommendation({
+  currentConfiguredWorkerCount,
+  dependencyStates,
+  maxExecutors,
+  schedulerPlan,
+  spareExecutorSlots,
+  tasks,
+  unconfiguredExecutorSlots,
+}: {
+  currentConfiguredWorkerCount: number;
+  dependencyStates?: ReadonlyMap<string, AgentQueueDependencyState>;
+  maxExecutors: number;
+  schedulerPlan: AgentQueueSchedulerPlan;
+  spareExecutorSlots: number;
+  tasks: AgentQueueTask[];
+  unconfiguredExecutorSlots: number;
+}): AgentQueueEmbeddedExecutorCapacityRecommendation {
+  if (!schedulerPlan.globalState.allowsScheduling) {
+    return {
+      addableWorkerCount: 0,
+      canAddWorker: false,
+      code: "queue_stopped",
+      label: schedulerPlan.globalState.explanation,
+    };
+  }
+
+  const independentEligibleItemCount = schedulerPlan.itemEligibility.filter(
+    (eligibility) => {
+      if (!eligibility.isSchedulable) {
+        return false;
+      }
+
+      const task = tasks.find(
+        (candidate) => candidate.queueItemId === eligibility.queueItemId,
+      );
+      const dependencyState = dependencyStates?.get(eligibility.queueItemId);
+
+      return (
+        task &&
+        normalizeTaskDependencies(
+          dependencyState?.dependsOn ?? task.dependsOn,
+        ).length === 0
+      );
+    },
+  ).length;
+  const usefulExtraWorkers = Math.max(
+    0,
+    independentEligibleItemCount - spareExecutorSlots,
+  );
+
+  if (usefulExtraWorkers > 0 && currentConfiguredWorkerCount >= maxExecutors) {
+    return {
+      addableWorkerCount: 0,
+      canAddWorker: false,
+      code: "max_reached",
+      label: "Max executors reached",
+    };
+  }
+
+  if (usefulExtraWorkers > 0 && unconfiguredExecutorSlots > 0) {
+    const addableWorkerCount = Math.min(
+      usefulExtraWorkers,
+      unconfiguredExecutorSlots,
+    );
+
+    return {
+      addableWorkerCount,
+      canAddWorker: true,
+      code: "can_add_worker",
+      label: `Can add ${addableWorkerCount.toString()} worker${
+        addableWorkerCount === 1 ? "" : "s"
+      }`,
+    };
+  }
+
+  if (independentEligibleItemCount === 0) {
+    const hasTagOrDependencyBlocker = schedulerPlan.blockedItems.some((item) =>
+      item.reasonCodes.some(
+        (code) =>
+          code === "queue_tag_paused" ||
+          code === "waiting_for_dependencies" ||
+          code === "item_dependency_graph_invalid",
+      ),
+    );
+
+    return {
+      addableWorkerCount: 0,
+      canAddWorker: false,
+      code: hasTagOrDependencyBlocker
+        ? "blocked_by_tags_or_dependencies"
+        : "no_eligible_independent_work",
+      label: hasTagOrDependencyBlocker
+        ? "Tags or dependencies block work"
+        : "No eligible work",
+    };
+  }
+
+  return {
+    addableWorkerCount: 0,
+    canAddWorker: false,
+    code: "capacity_available",
+    label: `Capacity available: ${spareExecutorSlots.toString()} spare`,
+  };
 }
 
 function toSchedulerReason(reason: {

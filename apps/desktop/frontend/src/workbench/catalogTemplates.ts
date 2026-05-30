@@ -116,14 +116,14 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     catalogCategory: "agents",
     category: "workflow",
     description:
-      "Organize async tasks, assignments, and executor history.",
+      "Organize async tasks, workers, embedded executor capacity, and executor history.",
     readiness: "preview",
     availability: "available",
     layoutDefaults: getWidgetLayoutDefaults(AGENT_QUEUE_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Manual task planning and assignment",
+      "Max, spare, and working executor lanes",
       "Explicit assigned-task starts",
-      "Session-only runner preview",
     ],
     futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
   },
@@ -133,14 +133,14 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
     catalogCategory: "agents",
     category: "core",
     description:
-      "Run explicit async/background tasks and review results.",
+      "Secondary compatibility/debug surface for explicit Direct Work runs.",
     readiness: "ready",
     availability: "available",
     layoutDefaults: getWidgetLayoutDefaults(AGENT_RUN_WIDGET_DEFINITION_ID),
     capabilitySummary: [
       "Codex Direct Work execution slot",
       "Live logs, result, changed files, and validation",
-      "No auto-commit, push, or hidden dispatch",
+      "Normal execution management now lives in Agent Queue",
     ],
     futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },
