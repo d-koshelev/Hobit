@@ -45,6 +45,39 @@ export type AgentQueueTaskItemType =
   | "follow_up"
   | "validation";
 
+export type AgentQueueExecutionPlanPreviewSource =
+  | "heuristic"
+  | "worker_estimate"
+  | "manual";
+
+export type AgentQueueExecutionPlanPreviewStatus =
+  | "not_planned"
+  | "planned"
+  | "needs_split"
+  | "stale";
+
+export type AgentQueueExecutionPlanPreviewLevel = "low" | "medium" | "high";
+
+export type AgentQueueExecutionPlanPreview = {
+  planId: string;
+  itemId: string;
+  workerId: string;
+  generatedAt: string;
+  source: AgentQueueExecutionPlanPreviewSource;
+  status: AgentQueueExecutionPlanPreviewStatus;
+  estimatedTokenMin: number;
+  estimatedTokenMax: number;
+  estimatedMinutesMin: number;
+  estimatedMinutesMax: number;
+  complexity: AgentQueueExecutionPlanPreviewLevel;
+  risk: AgentQueueExecutionPlanPreviewLevel;
+  steps: string[];
+  likelyFilesOrAreas: string[];
+  expectedValidationCommands: string[];
+  splitRecommendation?: string;
+  notes?: string;
+};
+
 export type AgentQueueTagPauseReason = "manual" | "edit_review";
 
 export type AgentQueueTagSummary = {
@@ -290,6 +323,7 @@ export type AgentQueueTask = {
   queueTagName?: string;
   validationStatus?: AgentQueueTaskValidationStatus;
   assignedWorkerId?: string | null;
+  executionPlanPreview?: AgentQueueExecutionPlanPreview | null;
   coordinatorStatus?:
     | "not_reported"
     | "worker_reported"

@@ -545,6 +545,89 @@ describe("useAgentQueueController executionPolicy draft", () => {
     hook.unmount();
   });
 
+  it("generates a local plan preview without starting Executor, Codex, or Autorun", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt:
+          "Update apps/desktop/frontend/src/workbench/AgentQueueTaskList.tsx and run npm.cmd run test --prefix apps/desktop/frontend.",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.executionPlan.onGenerate();
+    });
+
+    expect(hook.result.current.selectedTask?.executionPlanPreview?.status).toBe(
+      "planned",
+    );
+    expect(
+      hook.result.current.selectedTask?.executionPlanPreview
+        ?.expectedValidationCommands,
+    ).toEqual(["npm.cmd run test --prefix apps/desktop/frontend"]);
+    expect(
+      hook.result.current.selectedTask?.prompt.includes(
+        "estimatedToken",
+      ),
+    ).toBe(false);
+    expect(
+      hook.result.current.selectedTask?.prompt.includes(
+        "npm.cmd run test --prefix apps/desktop/frontend",
+      ),
+    ).toBe(true);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("marks an existing plan preview stale after explicit task edits", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Initial prompt",
+        queueItemId: "queue-1",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.executionPlan.onGenerate();
+    });
+    await flushHookEffects();
+    act(() => {
+      hook.result.current.editTask.onStart();
+      hook.result.current.updateDraft({ prompt: "Updated prompt" });
+    });
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+
+    expect(hook.result.current.selectedTask?.executionPlanPreview?.status).toBe(
+      "stale",
+    );
+    expect(hook.result.current.executionPlan.message?.includes("stale")).toBe(
+      true,
+    );
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("resumes a paused queue tag without starting workers or queue execution", async () => {
     const harness = createQueueHarness([
       queueTask({ prompt: "Initial prompt", queueItemId: "queue-1", status: "queued" }),

@@ -378,6 +378,7 @@ function FlowItemBlock({
         <span>{item.shortId}</span>
         <span>{item.itemType}</span>
         <span>{item.priorityLabel}</span>
+        <span>{item.planStatusLabel}</span>
         {item.assignedWorkerLabel ? <span>{item.assignedWorkerLabel}</span> : null}
       </span>
       <span className="agent-queue-flow-block-badges">
@@ -477,6 +478,7 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Queue tag: ${item.queueTagName}`,
     `Status: ${item.statusLabel}`,
     `Validation: ${item.validationStatusLabel}`,
+    `Plan: ${item.planStatusLabel}`,
     item.assignedWorkerLabel ? `Assigned worker: ${item.assignedWorkerLabel}` : null,
     item.dependsOn.length > 0
       ? `Dependencies: ${item.dependsOn.join(", ")}`

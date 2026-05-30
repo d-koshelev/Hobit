@@ -19,6 +19,7 @@ import {
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
 } from "./agentQueueRoutingModel";
+import { executionPlanStatusLabel } from "./agentQueueExecutionPlanModel";
 import type { AgentQueueSchedulerPlan } from "./agentQueueSchedulerModel";
 
 export type QueueFlowTagColorToken =
@@ -58,6 +59,7 @@ export type QueueFlowItemBlock = {
   dependencyStatus: AgentQueueDependencyState["status"];
   dependsOn: string[];
   itemType: string;
+  planStatusLabel: string;
   priorityLabel: string;
   queueItemId: string;
   queueTagId: string;
@@ -272,6 +274,7 @@ function queueFlowItemBlock({
     dependencyStatus: normalizedDependencyState.status,
     dependsOn: normalizedDependencyState.dependsOn,
     itemType: normalizeItemType(task.itemType),
+    planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),
     queueItemId: task.queueItemId,
     queueTagId: queueTag.queueTagId,

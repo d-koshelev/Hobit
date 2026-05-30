@@ -557,12 +557,27 @@ Workspace Agent is the foreground interactive agent surface.
   paused this queue tag until coordinator review." If an edit moves the item to
   another tag, the target tag is paused and the previous tag is also marked for
   review locally. Scoped worker assignment is revalidated after a tag move.
+  Existing execution plan previews are marked stale after task edits or worker
+  assignment changes.
   Resume tag is an explicit coordinator action; it clears the local tag
   pause/review gate but does not start workers, arm Autorun, run any item, or
   kill already running Executor work. Manually pausing/resuming a tag uses the
   same eligibility gate: paused tags block new manual run readiness, Queue
   Autorun arming, and Sequential Queue Runner selection, but pause/resume never
   starts or stops real execution by itself.
+- Selected Queue tasks can show a structured Worker execution plan preview in
+  the detail/run surface, task list, worker dry-run sidebar, and Flow Map
+  metadata. The current preview is generated locally with deterministic
+  heuristics from the Queue task title/details/prompt/type/dependencies and
+  worker assignment metadata. It includes approximate steps, estimated token
+  and time ranges, expected validation commands, likely files or areas when
+  inferable, complexity/risk, status, and split recommendation. The estimate is
+  not guaranteed, is not duplicated into the prompt text, and does not include
+  provider/model/thinking/runtime config as prompt copy. Generating or
+  refreshing a preview does not start workers, claim items, launch Agent
+  Executor, launch Codex, call a provider, arm Autorun, run validation, mutate
+  files, or change item final status. Real worker-generated AI planning remains
+  future work.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

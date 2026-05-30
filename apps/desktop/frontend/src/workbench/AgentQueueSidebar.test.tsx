@@ -53,6 +53,15 @@ describe("AgentQueueSidebar", () => {
     expect(foundation.onPauseQueueTag).toHaveBeenCalledWith("default");
   });
 
+  it("shows whether a worker dry-run next item has a plan", () => {
+    const foundation = foundationController({ globalExecutionState: "started" });
+
+    renderSidebar(foundation);
+
+    expect(document.body.textContent).toContain("Dry-run next: Queue task");
+    expect(document.body.textContent).toContain("Plan needed");
+  });
+
   it("renders paused tags with validation counts and resume action", () => {
     const foundation = foundationController();
     foundation.queueTags = [
@@ -108,7 +117,9 @@ function clickButton(text: string) {
   });
 }
 
-function foundationController(): AgentQueueFoundationController {
+function foundationController(
+  overrides: Partial<AgentQueueFoundationController> = {},
+): AgentQueueFoundationController {
   const task = {
     assignedExecutorWidgetId: null,
     createdAt: "2026-05-20T10:00:00.000Z",
@@ -139,10 +150,13 @@ function foundationController(): AgentQueueFoundationController {
     workerId: "executor-1",
   };
 
+  const globalExecutionState: AgentQueueFoundationController["globalExecutionState"] =
+    overrides.globalExecutionState ?? "stopped";
+
   return {
-    globalExecutionState: "stopped",
+    globalExecutionState,
     globalMessage: "Workers are stopped.",
-    globalStatus: "stopped",
+    globalStatus: globalExecutionState,
     onCreateQueueTag: vi.fn(() => true),
     onCreateWorker: vi.fn(),
     onDeleteQueueTag: vi.fn(() => true),
@@ -182,11 +196,12 @@ function foundationController(): AgentQueueFoundationController {
       validating: 0,
     },
     schedulerPlan: buildAgentQueueSchedulerPlan({
-      globalExecutionState: "stopped",
+      globalExecutionState,
       pausedQueueTagIds: new Set(),
       tasks: [task],
       workers: [worker],
     }),
     workers: [worker],
+    ...overrides,
   };
 }

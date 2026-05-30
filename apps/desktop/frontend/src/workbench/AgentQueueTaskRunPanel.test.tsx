@@ -6,13 +6,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import type {
   AgentQueueAutorunController,
+  AgentQueueExecutionPlanController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
 } from "./queue/useAgentQueueController";
 import type { AgentExecutorSlot } from "./types";
-import type { AgentQueueTask } from "../workspace/types";
+import type {
+  AgentQueueExecutionPlanPreview,
+  AgentQueueTask,
+} from "../workspace/types";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -31,6 +35,26 @@ afterEach(() => {
 });
 
 describe("AgentQueueTaskRunPanel latest run summary", () => {
+  it("renders a generated plan preview without starting execution", () => {
+    const onGenerate = vi.fn();
+
+    renderPanel({
+      executionPlan: executionPlanController(planPreview(), onGenerate),
+    });
+
+    expect(document.body.textContent).toContain("Plan preview");
+    expect(document.body.textContent).toContain("Plan ready");
+    expect(document.body.textContent).toContain("Approx. 1,000-2,000 tokens");
+    expect(document.body.textContent).toContain("Inspect the current implementation");
+    expect(document.body.textContent).toContain(
+      "npm.cmd run test --prefix apps/desktop/frontend",
+    );
+
+    clickFirstButton("Refresh plan");
+
+    expect(onGenerate).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a no-run state when the selected task has no run link", () => {
     renderPanel({
       latestRun: latestRunController(null),
@@ -329,6 +353,7 @@ function renderPanel(
         autorun={autorunController()}
         currentSelection="executor_visible"
         executorSlots={executorSlots()}
+        executionPlan={executionPlanController(null)}
         hasExecutorSlots={true}
         inputId="executor-select"
         isAssigning={false}
@@ -359,6 +384,44 @@ function renderPanel(
       />,
     );
   });
+}
+
+function executionPlanController(
+  plan: AgentQueueExecutionPlanPreview | null,
+  onGenerate = vi.fn(),
+): AgentQueueExecutionPlanController {
+  return {
+    canGenerate: true,
+    message: null,
+    onGenerate,
+    plan,
+  };
+}
+
+function planPreview(
+  overrides: Partial<AgentQueueExecutionPlanPreview> = {},
+): AgentQueueExecutionPlanPreview {
+  return {
+    complexity: "low",
+    estimatedMinutesMax: 12,
+    estimatedMinutesMin: 6,
+    estimatedTokenMax: 2000,
+    estimatedTokenMin: 1000,
+    expectedValidationCommands: [
+      "npm.cmd run test --prefix apps/desktop/frontend",
+    ],
+    generatedAt: "2026-05-22T10:00:00.000Z",
+    itemId: "task_1",
+    likelyFilesOrAreas: ["frontend UI"],
+    notes: "Local deterministic estimate only.",
+    planId: "plan-1",
+    risk: "low",
+    source: "heuristic",
+    status: "planned",
+    steps: ["Inspect the current implementation"],
+    workerId: "executor_visible",
+    ...overrides,
+  };
 }
 
 function clickFirstButton(text: string) {

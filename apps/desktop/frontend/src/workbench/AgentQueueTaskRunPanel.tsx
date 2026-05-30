@@ -34,6 +34,7 @@ import {
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
   AgentQueueAutorunController,
+  AgentQueueExecutionPlanController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
   AgentQueueRunHistoryController,
@@ -43,6 +44,11 @@ import {
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
 } from "./queue/agentQueueRoutingModel";
+import {
+  executionPlanBadgeVariant,
+  executionPlanEstimateText,
+  executionPlanStatusLabel,
+} from "./queue/agentQueueExecutionPlanModel";
 import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
@@ -57,6 +63,7 @@ type AgentQueueTaskRunPanelProps = {
   currentSelection: string;
   dependencyState?: AgentQueueDependencyState;
   executorSlots: AgentExecutorSlot[];
+  executionPlan: AgentQueueExecutionPlanController;
   hasExecutorSlots: boolean;
   inputId: string;
   isAssigning: boolean;
@@ -88,6 +95,7 @@ export function AgentQueueTaskRunPanel({
   currentSelection,
   dependencyState,
   executorSlots,
+  executionPlan,
   hasExecutorSlots,
   inputId,
   isAssigning,
@@ -254,6 +262,8 @@ export function AgentQueueTaskRunPanel({
           </dd>
         </div>
       </dl>
+
+      <ExecutionPlanPreviewPanel executionPlan={executionPlan} />
 
       <div className="agent-queue-execution-group">
         <div className="agent-queue-execution-group-header">
@@ -684,6 +694,131 @@ export function AgentQueueTaskRunPanel({
 
       <AgentQueueAutorunPanel autorun={autorun} />
     </section>
+  );
+}
+
+function ExecutionPlanPreviewPanel({
+  executionPlan,
+}: {
+  executionPlan: AgentQueueExecutionPlanController;
+}) {
+  const plan = executionPlan.plan;
+
+  return (
+    <div className="agent-queue-execution-group agent-queue-plan-preview">
+      <div className="agent-queue-execution-group-header">
+        <div>
+          <p
+            className="agent-queue-execution-group-title"
+            title="Local deterministic estimate. It does not start execution."
+          >
+            Plan preview
+          </p>
+          <p className="agent-queue-run-note">
+            Estimate only. Not guaranteed and never appended to the prompt.
+          </p>
+        </div>
+        <div className="agent-queue-execution-badges">
+          <Badge variant={executionPlanBadgeVariant(plan)}>
+            {executionPlanStatusLabel(plan)}
+          </Badge>
+          {plan ? <Badge variant="neutral">{plan.source}</Badge> : null}
+        </div>
+      </div>
+
+      {plan ? (
+        <>
+          <dl className="agent-queue-plan-facts">
+            <div>
+              <dt>Estimate</dt>
+              <dd>{executionPlanEstimateText(plan)}</dd>
+            </div>
+            <div>
+              <dt>Complexity</dt>
+              <dd>{plan.complexity}</dd>
+            </div>
+            <div>
+              <dt>Risk</dt>
+              <dd>{plan.risk}</dd>
+            </div>
+            <div>
+              <dt>Worker</dt>
+              <dd>{plan.workerId}</dd>
+            </div>
+          </dl>
+
+          <PlanList title="Approx. steps" values={plan.steps} />
+          <PlanList
+            emptyText="No specific files or areas inferred."
+            title="Likely files / areas"
+            values={plan.likelyFilesOrAreas}
+          />
+          <PlanList
+            emptyText="No validation commands inferred."
+            title="Expected validation"
+            values={plan.expectedValidationCommands}
+          />
+
+          {plan.splitRecommendation ? (
+            <p className="agent-queue-run-warning">
+              Split recommendation: {plan.splitRecommendation}
+            </p>
+          ) : null}
+          {plan.status === "stale" ? (
+            <p className="agent-queue-run-warning">
+              This plan is stale. Refresh it before using the estimate for an
+              execution decision.
+            </p>
+          ) : null}
+          {plan.notes ? (
+            <p className="agent-queue-run-note">{plan.notes}</p>
+          ) : null}
+        </>
+      ) : (
+        <p className="agent-queue-run-note">
+          No plan preview has been generated for this task.
+        </p>
+      )}
+
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!executionPlan.canGenerate}
+          onClick={() => executionPlan.onGenerate()}
+          variant={plan ? "secondary" : "primary"}
+        >
+          {plan ? "Refresh plan" : "Generate plan preview"}
+        </Button>
+      </div>
+
+      {executionPlan.message ? (
+        <p className="agent-queue-message">{executionPlan.message}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function PlanList({
+  emptyText,
+  title,
+  values,
+}: {
+  emptyText?: string;
+  title: string;
+  values: string[];
+}) {
+  return (
+    <div className="agent-queue-plan-list">
+      <p className="field-label">{title}</p>
+      {values.length > 0 ? (
+        <ul>
+          {values.map((value) => (
+            <li key={value}>{value}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="agent-queue-run-note">{emptyText ?? "None inferred."}</p>
+      )}
+    </div>
   );
 }
 

@@ -596,6 +596,20 @@ Autorun starts, persist live worker process state, run a background scheduler
 loop, finalize item status, kill processes, or execute rollback. Real
 scheduling and runtime worker behavior remain future explicit work.
 
+Queue worker execution plan preview is a structured metadata/readiness surface
+only. The current implementation can generate a local deterministic estimate
+for a selected Queue item and assigned/selected worker from visible task
+metadata. The preview may include approximate work steps, token/time estimate
+ranges, expected validation commands, likely touched files or areas, risk and
+complexity, stale/ready/split-needed status, and a split recommendation. It is
+an estimate, not a guarantee, and it is not prompt text. Provider/model/
+thinking/runtime configuration must remain structured metadata when present and
+must not be appended to the Queue prompt body. Generating or refreshing this
+preview must not call Workspace Agent, Codex, Claude, Agent Executor, a
+provider, Queue Autorun, a scheduler loop, validation commands, rollback, or
+Git/Terminal/JDBC/runtime actions. Real worker-generated AI planning remains
+future explicit work.
+
 The Queue widget may visualize the same frontend/model state in a Flow Map
 view. The Flow Map groups work-item blocks by queue tag, shows dependency
 layers and barrier rows, shows Agent Executor lanes with spare and currently

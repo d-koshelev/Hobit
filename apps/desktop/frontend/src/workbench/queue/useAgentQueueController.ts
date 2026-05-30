@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  AgentQueueExecutionPlanPreview,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
@@ -62,6 +63,10 @@ import {
   runPreconditionMessages,
   type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
+import {
+  buildAgentQueueExecutionPlanPreview,
+  staleExecutionPlanPreview,
+} from "./agentQueueExecutionPlanModel";
 import {
   firstRoutingBlockedReasonLabel,
   getAssignedWorkerRoutingStates,
@@ -172,6 +177,13 @@ export type AgentQueueDeleteController = {
   onCancel: () => void;
   onConfirm: () => void;
   onRequest: () => void;
+};
+
+export type AgentQueueExecutionPlanController = {
+  canGenerate: boolean;
+  message: string | null;
+  onGenerate: () => void;
+  plan: AgentQueueExecutionPlanPreview | null;
 };
 
 export type QueueTaskInsertPosition = "top" | "bottom";
@@ -350,11 +362,15 @@ export function useAgentQueueController({
         | "queueTagId"
         | "queueTagName"
         | "validationStatus"
+        | "executionPlanPreview"
       >
     >
   >(() => new Map());
   const localTaskFieldsRef = useRef(localTaskFields);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
+  const [executionPlanMessage, setExecutionPlanMessage] = useState<string | null>(
+    null,
+  );
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
 
@@ -1055,6 +1071,9 @@ export function useAgentQueueController({
           : draft.validationStatus;
       const taskFoundation: Partial<AgentQueueTask> = {
         dependsOn: normalizeTaskDependencies(draft.dependsOn),
+        executionPlanPreview: selectedTask.executionPlanPreview
+          ? staleExecutionPlanPreview(selectedTask.executionPlanPreview)
+          : selectedTask.executionPlanPreview,
         itemType: draft.itemType,
         orderIndex: selectedTask.orderIndex,
         queueTagId,
@@ -1113,6 +1132,11 @@ export function useAgentQueueController({
       );
       applyUpdatedTask({ ...taskForApply, ...taskFoundation }, { select: true });
       setValidationMessage(EDIT_PAUSE_MESSAGE);
+      setExecutionPlanMessage(
+        selectedTask.executionPlanPreview
+          ? "Existing plan preview is stale after task edits. Refresh before execution."
+          : null,
+      );
       setGlobalMessage(EDIT_PAUSE_MESSAGE);
       setSaveStateText("Saved");
       setIsEditing(false);
@@ -1217,6 +1241,39 @@ export function useAgentQueueController({
     setAssignmentMessage(null);
     setValidationMessage(null);
     setDeleteMessage(null);
+  }
+
+  function generateExecutionPlanPreview() {
+    if (!selectedTask || isSaving || hasOpenTaskEdit) {
+      return;
+    }
+
+    const workerId =
+      selectedTask.assignedWorkerId ??
+      selectedTask.assignedExecutorWidgetId ??
+      selectedExecutorWidgetId ??
+      "unassigned";
+    const plan = buildAgentQueueExecutionPlanPreview({
+      task: selectedTask,
+      workerId,
+    });
+
+    setLocalTaskFields((current) =>
+      new Map(current).set(selectedTask.queueItemId, {
+        ...(current.get(selectedTask.queueItemId) ?? {}),
+        executionPlanPreview: plan,
+      }),
+    );
+    applyUpdatedTask(
+      {
+        ...selectedTask,
+        executionPlanPreview: plan,
+      },
+      { select: true },
+    );
+    setExecutionPlanMessage("Plan preview generated. No execution was started.");
+    setStartError(null);
+    setAssignmentMessage(null);
   }
 
   function updatePriority(value: string) {
@@ -1824,13 +1881,30 @@ export function useAgentQueueController({
         new Map(current).set(updatedTask.queueItemId, {
           ...(current.get(updatedTask.queueItemId) ?? {}),
           assignedWorkerId: selectedExecutorWidgetId,
+          executionPlanPreview: selectedTask.executionPlanPreview
+            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
+                workerId: selectedExecutorWidgetId,
+              })
+            : selectedTask.executionPlanPreview,
         }),
       );
       applyUpdatedTask(
-        { ...updatedTask, assignedWorkerId: selectedExecutorWidgetId },
+        {
+          ...updatedTask,
+          assignedWorkerId: selectedExecutorWidgetId,
+          executionPlanPreview: selectedTask.executionPlanPreview
+            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
+                workerId: selectedExecutorWidgetId,
+              })
+            : selectedTask.executionPlanPreview,
+        },
         { select: true },
       );
-      setAssignmentMessage("Assignment saved.");
+      setAssignmentMessage(
+        selectedTask.executionPlanPreview
+          ? "Assignment saved. Existing plan preview is stale for this worker."
+          : "Assignment saved.",
+      );
     } catch (error) {
       setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
     } finally {
@@ -1862,10 +1936,30 @@ export function useAgentQueueController({
         new Map(current).set(updatedTask.queueItemId, {
           ...(current.get(updatedTask.queueItemId) ?? {}),
           assignedWorkerId: null,
+          executionPlanPreview: selectedTask.executionPlanPreview
+            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
+                workerId: "unassigned",
+              })
+            : selectedTask.executionPlanPreview,
         }),
       );
-      applyUpdatedTask({ ...updatedTask, assignedWorkerId: null }, { select: true });
-      setAssignmentMessage("Assignment cleared.");
+      applyUpdatedTask(
+        {
+          ...updatedTask,
+          assignedWorkerId: null,
+          executionPlanPreview: selectedTask.executionPlanPreview
+            ? staleExecutionPlanPreview(selectedTask.executionPlanPreview, {
+                workerId: "unassigned",
+              })
+            : selectedTask.executionPlanPreview,
+        },
+        { select: true },
+      );
+      setAssignmentMessage(
+        selectedTask.executionPlanPreview
+          ? "Assignment cleared. Existing plan preview is stale."
+          : "Assignment cleared.",
+      );
     } catch (error) {
       setAssignmentError(
         errorToMessage(error, "Unable to clear queue task assignment."),
@@ -2065,6 +2159,7 @@ export function useAgentQueueController({
       title: mergedTask.title,
       validationStatus: normalizeValidationStatus(mergedTask.validationStatus),
     });
+    setExecutionPlanMessage(null);
   }
 
   function applyUpdatedTask(
@@ -2137,6 +2232,10 @@ export function useAgentQueueController({
       dependsOn: normalizeTaskDependencies(
         localFields?.dependsOn ?? task.dependsOn,
       ),
+      executionPlanPreview:
+        task.executionPlanPreview !== undefined
+          ? task.executionPlanPreview
+          : localFields?.executionPlanPreview ?? null,
       itemType: localFields?.itemType ?? normalizeItemType(task.itemType),
       orderIndex: localFields?.orderIndex ?? task.orderIndex,
       priority: normalizeTaskPriority(task.priority),
@@ -2193,6 +2292,12 @@ export function useAgentQueueController({
       onCancel: cancelSelectedTaskEdits,
       onStart: startEditingSelectedTask,
     } satisfies AgentQueueEditController,
+    executionPlan: {
+      canGenerate: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
+      message: executionPlanMessage,
+      onGenerate: generateExecutionPlanPreview,
+      plan: selectedTask?.executionPlanPreview ?? null,
+    } satisfies AgentQueueExecutionPlanController,
     run: {
       approvalPolicy,
       canStart,

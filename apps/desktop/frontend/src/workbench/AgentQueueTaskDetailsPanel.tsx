@@ -119,6 +119,7 @@ export function AgentQueueTaskDetailsPanel({
             currentSelection={selectedExecutorWidgetId}
             dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
             executorSlots={agentExecutorSlots}
+            executionPlan={queue.executionPlan}
             hasExecutorSlots={agentExecutorSlots.length > 0}
             inputId={assignmentInputId}
             isAssigning={isAssigning}

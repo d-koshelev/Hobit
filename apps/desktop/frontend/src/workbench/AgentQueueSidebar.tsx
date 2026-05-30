@@ -5,6 +5,7 @@ import {
   queueGlobalExecutionStateDescription,
   queueGlobalExecutionStateLabel,
 } from "./agentQueueTaskUiModel";
+import { executionPlanStatusLabel } from "./queue/agentQueueExecutionPlanModel";
 import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
 
 type AgentQueueSidebarProps = {
@@ -378,13 +379,18 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                       : "Scheduler not evaluated"}
                   </p>
                   {workerSchedulerPlan(foundation, worker.workerId)?.bestNextItem ? (
-                    <p className="agent-queue-sidebar-row-meta">
-                      Dry-run next:{" "}
-                      {
-                        workerSchedulerPlan(foundation, worker.workerId)
-                          ?.bestNextItem?.title
-                      }
-                    </p>
+                    <>
+                      <p className="agent-queue-sidebar-row-meta">
+                        Dry-run next:{" "}
+                        {
+                          workerSchedulerPlan(foundation, worker.workerId)
+                            ?.bestNextItem?.title
+                        }
+                      </p>
+                      <p className="agent-queue-sidebar-row-meta">
+                        {workerNextPlanStatus(foundation, worker.workerId)}
+                      </p>
+                    </>
                   ) : workerSchedulerPlan(foundation, worker.workerId)?.idleReason ? (
                     <p className="agent-queue-sidebar-row-meta">
                       Idle:{" "}
@@ -567,4 +573,16 @@ function workerSchedulerPlan(
   return foundation.schedulerPlan.workerPlans.find(
     (workerPlan) => workerPlan.workerId === workerId,
   );
+}
+
+function workerNextPlanStatus(
+  foundation: AgentQueueFoundationController,
+  workerId: string,
+) {
+  const nextItem = foundation.workers.find((worker) => worker.workerId === workerId)
+    ?.routingSummary?.nextItem;
+
+  return nextItem
+    ? executionPlanStatusLabel(nextItem.executionPlanPreview)
+    : "Plan needed";
 }

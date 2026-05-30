@@ -120,6 +120,37 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Worker blocked");
     expect(document.body.textContent).toContain("Worker is disabled");
   });
+
+  it("renders plan ready or needed state on task rows", () => {
+    renderList([
+      queueTask({
+        executionPlanPreview: {
+          complexity: "low",
+          estimatedMinutesMax: 10,
+          estimatedMinutesMin: 5,
+          estimatedTokenMax: 2000,
+          estimatedTokenMin: 1000,
+          expectedValidationCommands: [],
+          generatedAt: "2026-05-20T10:00:00.000Z",
+          itemId: "queue-1",
+          likelyFilesOrAreas: [],
+          planId: "plan-1",
+          risk: "low",
+          source: "heuristic",
+          status: "planned",
+          steps: ["Inspect"],
+          workerId: "executor-1",
+        },
+      }),
+      queueTask({
+        queueItemId: "queue-2",
+        title: "Needs plan",
+      }),
+    ]);
+
+    expect(document.body.textContent).toContain("Plan ready");
+    expect(document.body.textContent).toContain("Plan needed");
+  });
 });
 
 function renderList(

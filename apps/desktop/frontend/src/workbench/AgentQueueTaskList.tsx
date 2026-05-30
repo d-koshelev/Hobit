@@ -24,6 +24,10 @@ import {
   type AgentQueueDependencyState,
 } from "./agentQueueTaskUiModel";
 import {
+  executionPlanBadgeVariant,
+  executionPlanStatusLabel,
+} from "./queue/agentQueueExecutionPlanModel";
+import {
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
 } from "./queue/agentQueueRoutingModel";
@@ -192,6 +196,9 @@ export function AgentQueueTaskList({
                   >
                     {validationStatusLabel(validationStatus)}
                   </Badge>
+                  <Badge variant={executionPlanBadgeVariant(task.executionPlanPreview)}>
+                    {executionPlanStatusLabel(task.executionPlanPreview)}
+                  </Badge>
                 </span>
                 <span className="agent-queue-task-row-meta">
                   <span>Tag {queueTag.queueTagName}</span>
@@ -206,6 +213,7 @@ export function AgentQueueTaskList({
                   <span>Priority {queueTaskPriorityLabel(task.priority)}</span>
                   <span>Order {(taskIndex + 1).toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
+                  <span>{executionPlanStatusLabel(task.executionPlanPreview)}</span>
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
                     <span>
                       {dependencyState.status === "ready"
