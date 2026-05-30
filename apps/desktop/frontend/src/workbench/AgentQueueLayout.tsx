@@ -10,6 +10,7 @@ import {
 
 type AgentQueueLayoutProps = {
   detailsPanel: ReactNode;
+  isFlowMapView?: boolean;
   isTaskPaneResizable?: boolean;
   sidebar: ReactNode;
   taskList: ReactNode;
@@ -22,6 +23,7 @@ const MIN_DETAILS_PANE_WIDTH = 360;
 
 export function AgentQueueLayout({
   detailsPanel,
+  isFlowMapView = false,
   isTaskPaneResizable = false,
   sidebar,
   taskList,
@@ -107,6 +109,7 @@ export function AgentQueueLayout({
   return (
     <div
       className={agentQueueLayoutClassName({
+        isFlowMapView,
         isResizable: isTaskPaneResizable,
         isResizing,
       })}
@@ -135,13 +138,19 @@ export function AgentQueueLayout({
 }
 
 function agentQueueLayoutClassName({
+  isFlowMapView,
   isResizable,
   isResizing,
 }: {
+  isFlowMapView: boolean;
   isResizable: boolean;
   isResizing: boolean;
 }) {
   const classNames = ["agent-queue-product-layout"];
+
+  if (isFlowMapView) {
+    classNames.push("agent-queue-product-layout-flow");
+  }
 
   if (isResizable) {
     classNames.push("agent-queue-product-layout-resizable");

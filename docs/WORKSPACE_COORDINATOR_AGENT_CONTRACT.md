@@ -581,6 +581,18 @@ become claiming, scheduler dispatch, hidden execution, worker finalization,
 rollback execution, Agent Executor runtime changes, or Codex Direct Work
 changes.
 
+The Queue widget may visualize the same frontend/model state in a Flow Map
+view. The Flow Map groups work-item blocks by queue tag, shows dependency
+layers and barrier rows, shows Agent Executor lanes with spare and currently
+running visual blocks, and shows final result blocks grouped by tag. It is a
+selection and comprehension view only: clicking a work-item block selects the
+existing task details, and clicking a running executor block may select the
+linked task when visible. It must not claim work, start Agent Executor, arm or
+advance Queue Autorun, start real workers, finalize item status, persist live
+worker process state, run validation, execute rollback, mutate Git, or change
+Workspace Agent / Agent Executor / Codex Direct Work runtime behavior. The
+table/list/detail controls remain available.
+
 Queue item editing must be explicit and safe in the Queue + Workers model.
 Saving an edited item pauses the target queue tag, marks the item for
 Workspace/coordinator review, and leaves already running Executor work alone.

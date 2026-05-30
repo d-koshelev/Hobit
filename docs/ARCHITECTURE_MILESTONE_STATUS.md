@@ -50,6 +50,14 @@ behavior, or Workspace Agent context wiring.
   invalid dependency graphs, manual assignment mismatches,
   coordinator-review/validation gates, and non-runnable item states affect
   eligibility, but the model does not claim, schedule, start, or finalize work.
+  The Queue widget also has a Flow Map view that visualizes queue tags,
+  dependency layers/barriers, executor lanes, spare executors, running
+  executor blocks, and final result blocks grouped by tag. The Flow Map is
+  frontend/model visualization only; it selects existing tasks for the detail
+  panel and does not add claiming, scheduling, hidden execution, worker
+  process persistence, worker-owned finalization, rollback execution, Agent
+  Executor runtime changes, Codex Direct Work changes, or Workspace Agent
+  behavior changes.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

@@ -500,6 +500,17 @@ Workspace Agent is the foreground interactive agent surface.
   shown as stable human-readable blocked reasons. Priority/order choose only
   among otherwise eligible items by priority, order/created order, and task id.
   This routing foundation does not claim, schedule, start, or finalize work.
+- The Queue widget has a Flow Map view alongside the existing table/list and
+  selected-task detail controls. Flow Map is a visual representation of queue
+  tags, dependency layers/barriers, worker/executor lanes, spare executors,
+  running executor blocks, and final result blocks grouped by tag. Work-item
+  blocks can be clicked to select the existing task detail panel, but the view
+  does not start work, claim items, schedule workers, launch Agent Executor,
+  finalize status, persist live worker process state, or change Queue Autorun,
+  Sequential Runner, Codex Direct Work, Agent Executor, or Workspace Agent
+  runtime behavior. The table/list view and all existing edit, dependency,
+  routing, worker assignment, tag pause/resume, priority/order, manual run,
+  and Autorun controls remain available.
 - Each queue task shows execution status separately from validation status.
   `validating` has a lightweight visual indicator meaning validation/review is
   happening, not worker execution.
