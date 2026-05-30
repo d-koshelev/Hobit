@@ -172,6 +172,27 @@ describe("queue runner task selection", () => {
     );
   });
 
+  it("stops before starting a task from a paused queue tag", () => {
+    const decision = getNextQueueRunnerTaskDecision({
+      pausedQueueTagIds: new Set(["review"]),
+      previousTaskStatus: null,
+      selectedExecutorWidgetId: "executor-1",
+      tasks: [
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          executionPolicy: "auto",
+          prompt: "Run this",
+          queueTagId: "review",
+          queueTagName: "Review",
+          status: "ready",
+        }),
+      ],
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.kind === "stop" && decision.reason).toBe("paused_queue_tag");
+  });
+
   it("does not select a task that already started in the current pass", () => {
     const decision = getNextQueueRunnerTaskDecision({
       previousTaskStatus: "completed",

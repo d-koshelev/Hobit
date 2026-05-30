@@ -259,6 +259,41 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
     expect(onOpenAgentExecutorRun).not.toHaveBeenCalled();
   });
+
+  it("warns and prevents assignment when the selected worker scope does not match the task tag", () => {
+    const onAssign = vi.fn();
+
+    renderPanel({
+      onAssign,
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        queueTagId: "default",
+        queueTagName: "Default",
+      },
+      workers: [
+        {
+          currentItemId: null,
+          lastReportSummary: null,
+          name: "Agent Executor visible",
+          scope: {
+            kind: "queue_tag",
+            queueTagId: "review",
+            queueTagName: "Review",
+          },
+          status: "idle",
+          workerId: "executor_visible",
+        },
+      ],
+    });
+
+    expect(document.body.textContent).toContain(
+      "Selected worker is scoped to Review.",
+    );
+    clickFirstButton("Assign");
+
+    expect(onAssign).not.toHaveBeenCalled();
+  });
 });
 
 function renderPanel(
@@ -290,6 +325,16 @@ function renderPanel(
         runHistory={runHistoryController([])}
         runner={runnerController()}
         selectedTask={queueTask()}
+        workers={[
+          {
+            currentItemId: null,
+            lastReportSummary: null,
+            name: "Agent Executor visible",
+            scope: { kind: "all" },
+            status: "idle",
+            workerId: "executor_visible",
+          },
+        ]}
         {...overrides}
       />,
     );

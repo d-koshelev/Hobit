@@ -48,6 +48,7 @@ export function AgentQueuePlaceholderWidget({
   title,
 }: WidgetRenderProps) {
   const titleInputId = useId();
+  const descriptionInputId = useId();
   const promptInputId = useId();
   const statusInputId = useId();
   const priorityInputId = useId();
@@ -212,6 +213,7 @@ export function AgentQueuePlaceholderWidget({
               <AgentQueueTaskDetailsPanel
                 agentExecutorSlots={agentExecutorSlots}
                 assignmentInputId={assignmentInputId}
+                descriptionInputId={descriptionInputId}
                 executionPolicyInputId={executionPolicyInputId}
                 priorityInputId={priorityInputId}
                 promptInputId={promptInputId}
@@ -231,6 +233,7 @@ export function AgentQueuePlaceholderWidget({
                 loadError={loadError}
                 onSelectTask={(queueItemId) => void selectTask(queueItemId)}
                 onStatusFilterChange={setStatusFilter}
+                pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
                 selectedTask={selectedTask}
                 statusFilter={statusFilter}
                 tasks={tasks}

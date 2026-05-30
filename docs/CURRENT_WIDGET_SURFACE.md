@@ -425,8 +425,10 @@ Workspace Agent is the foreground interactive agent surface.
   assignment, sequencing, or later review. It is not the default destination
   for every Workspace Agent idea, small decision, or quick operator action.
 - Provides workspace-local task create, list, read, update, delete, filter,
-  select, and explicit save flows for title, description, prompt, execution
-  status, priority, and execution policy. The current frontend also has a
+  select, and explicit edit/save/cancel flows for title, description, prompt,
+  queue tag, item type, priority, execution policy, and validation status.
+  Execution status is displayed for review and is not directly finalized from
+  the edit form. The current frontend also has a
   model/UI foundation for queue tags, item type, separate validation status,
   worker scope, and coordinator-owned review state. These foundation fields
   default existing/basic persisted tasks to the `Default` queue tag,
@@ -453,10 +455,13 @@ Workspace Agent is the foreground interactive agent surface.
   local worker scheduling. STOP + KILL RUNNING records a visible local intent;
   actual process termination, where supported, remains owned by Agent Executor
   controls and affected items require coordinator review.
-- Editing a queue task locally pauses its queue tag and marks the item for
-  coordinator review in the frontend model with the message: "Editing paused
-  this queue tag until coordinator review/resume". Existing running Executor
-  work is not killed automatically.
+- Editing a queue task locally pauses the target queue tag and marks the item
+  for coordinator review in the frontend model with the message: "Editing
+  paused this queue tag until coordinator review." If an edit moves the item to
+  another tag, the target tag is paused and the previous tag is also marked for
+  review locally. Resume tag is an explicit coordinator action; it clears the
+  local tag pause/review gate but does not start workers, arm Autorun, run any
+  item, or kill already running Executor work.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

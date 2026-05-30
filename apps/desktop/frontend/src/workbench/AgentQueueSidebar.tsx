@@ -46,6 +46,17 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                 <p className="agent-queue-sidebar-row-meta">
                   {tag.taskCount} items, {tag.runningCount} running
                 </p>
+                <p className="agent-queue-sidebar-row-meta">
+                  {tag.validatingCount} validating, {tag.needsReviewCount} needs review
+                  {tag.failedValidationCount > 0
+                    ? `, ${tag.failedValidationCount.toString()} failed`
+                    : ""}
+                </p>
+                {tag.coordinatorReviewCount > 0 ? (
+                  <p className="agent-queue-sidebar-row-meta">
+                    {tag.coordinatorReviewCount} awaiting coordinator review
+                  </p>
+                ) : null}
               </div>
               <div className="agent-queue-sidebar-row-actions">
                 <Badge variant={tag.status === "paused" ? "warning" : "success"}>
@@ -56,7 +67,7 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                     onClick={() => foundation.onResumeQueueTag(tag.queueTagId)}
                     variant="ghost"
                   >
-                    Resume
+                    Resume tag
                   </Button>
                 ) : (
                   <Button

@@ -1,4 +1,5 @@
 import type { AgentQueueTask } from "../../workspace/types";
+import { normalizeQueueTag } from "../agentQueueTaskUiModel";
 import {
   getQueueRunnerPolicyDecision,
   type QueueRunnerPreviousTaskStatus,
@@ -18,6 +19,7 @@ export type QueueRunnerTaskDecision =
       reason:
         | "assigned_to_different_executor"
         | "manual"
+        | "paused_queue_tag"
         | "previous_success_required"
         | "previous_task_not_successful";
       skippedTaskCount: number;
@@ -30,6 +32,7 @@ export type QueueRunnerTaskDecision =
 
 export type QueueRunnerTaskDecisionInput = {
   previousTaskStatus: QueueRunnerPreviousTaskStatus | null;
+  pausedQueueTagIds?: ReadonlySet<string>;
   selectedExecutorWidgetId: string;
   startedQueueItemIds?: ReadonlySet<string>;
   tasks: AgentQueueTask[];
@@ -37,6 +40,7 @@ export type QueueRunnerTaskDecisionInput = {
 
 export function getNextQueueRunnerTaskDecision({
   previousTaskStatus,
+  pausedQueueTagIds,
   selectedExecutorWidgetId,
   startedQueueItemIds,
   tasks,
@@ -98,6 +102,15 @@ export function getNextQueueRunnerTaskDecision({
       return {
         kind: "stop",
         reason: "assigned_to_different_executor",
+        skippedTaskCount,
+        task,
+      };
+    }
+
+    if (pausedQueueTagIds?.has(normalizeQueueTag(task).queueTagId)) {
+      return {
+        kind: "stop",
+        reason: "paused_queue_tag",
         skippedTaskCount,
         task,
       };

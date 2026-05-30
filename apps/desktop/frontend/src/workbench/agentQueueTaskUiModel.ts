@@ -42,6 +42,9 @@ export type QueueTagSummary = {
   taskCount: number;
   runningCount: number;
   validatingCount: number;
+  needsReviewCount: number;
+  failedValidationCount: number;
+  coordinatorReviewCount: number;
 };
 
 export type AgentWorkerSummary = {
@@ -334,6 +337,9 @@ export function queueTagsFromTasks(
         queueTagId,
         queueTagName,
         runningCount: 0,
+        failedValidationCount: 0,
+        coordinatorReviewCount: 0,
+        needsReviewCount: 0,
         status: pausedQueueTagIds.has(queueTagId) ? "paused" : "running",
         taskCount: 0,
         validatingCount: 0,
@@ -343,8 +349,18 @@ export function queueTagsFromTasks(
     if (task.status === "running") {
       current.runningCount += 1;
     }
-    if (normalizeValidationStatus(task.validationStatus) === "validating") {
+    const validationStatus = normalizeValidationStatus(task.validationStatus);
+    if (validationStatus === "validating") {
       current.validatingCount += 1;
+    }
+    if (validationStatus === "needs_review") {
+      current.needsReviewCount += 1;
+    }
+    if (validationStatus === "failed") {
+      current.failedValidationCount += 1;
+    }
+    if (task.coordinatorStatus === "awaiting_coordinator_review") {
+      current.coordinatorReviewCount += 1;
     }
     summaries.set(queueTagId, current);
   }
@@ -353,6 +369,9 @@ export function queueTagsFromTasks(
     summaries.set(DEFAULT_QUEUE_TAG_ID, {
       queueTagId: DEFAULT_QUEUE_TAG_ID,
       queueTagName: DEFAULT_QUEUE_TAG_NAME,
+      failedValidationCount: 0,
+      coordinatorReviewCount: 0,
+      needsReviewCount: 0,
       runningCount: 0,
       status: pausedQueueTagIds.has(DEFAULT_QUEUE_TAG_ID) ? "paused" : "running",
       taskCount: 0,

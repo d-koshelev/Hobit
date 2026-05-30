@@ -144,6 +144,12 @@ export type AgentQueueDeleteController = {
   onRequest: () => void;
 };
 
+export type AgentQueueEditController = {
+  isEditing: boolean;
+  onCancel: () => void;
+  onStart: () => void;
+};
+
 export type AgentQueueFoundationController = {
   globalMessage: string | null;
   globalStatus: QueueGlobalStatus;
@@ -200,6 +206,7 @@ export function useAgentQueueController({
   const [isCreating, setIsCreating] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -272,6 +279,8 @@ export function useAgentQueueController({
     >
   >(() => new Map());
   const localTaskFieldsRef = useRef(localTaskFields);
+  const EDIT_PAUSE_MESSAGE =
+    "Editing paused this queue tag until coordinator review.";
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -504,11 +513,12 @@ export function useAgentQueueController({
   const selectedQueueTagPaused = Boolean(
     selectedQueueTagId && pausedQueueTagIds.has(selectedQueueTagId),
   );
+  const hasOpenTaskEdit = isEditing || isDirty;
   const readinessMessage = selectedQueueTagPaused
     ? "Resume this queue tag before running the selected task."
     : selectedTask
       ? queueRunReadinessMessage({
-          isDirty,
+          isDirty: hasOpenTaskEdit,
           selectedTask,
           startApiAvailable,
         })
@@ -529,7 +539,7 @@ export function useAgentQueueController({
     approvalPolicy,
     assignmentApiAvailable,
     codexExecutable,
-    isDirty,
+    isDirty: hasOpenTaskEdit,
     isStarting,
     loadTasks,
     onAssignAgentQueueTaskToExecutor,
@@ -542,10 +552,11 @@ export function useAgentQueueController({
     startApiAvailable,
     taskCount: tasks.length,
     tasksRef,
+    pausedQueueTagIds,
   });
   useQueueTaskAutoRefreshFromExecutor({
     autoRefreshRequest: queueTaskAutoRefreshRequest,
-    isDirty,
+    isDirty: hasOpenTaskEdit,
     loadTasks,
     onRefreshComplete: queueRunner.onAutoRefreshComplete,
     setValidationMessage,
@@ -575,7 +586,7 @@ export function useAgentQueueController({
     apiAvailable: Boolean(onDeleteAgentQueueTask),
     autorunSnapshot,
     isDeleting,
-    isDirty,
+    isDirty: hasOpenTaskEdit,
     runnerActiveQueueItemId: queueRunner.activeQueueItemId,
     runnerStatus: queueRunner.controller.status,
     selectedTask,
@@ -586,7 +597,7 @@ export function useAgentQueueController({
       return false;
     }
 
-    if (isDirty) {
+    if (isEditing || isDirty) {
       setValidationMessage("Save current task before creating another task.");
       return false;
     }
@@ -636,6 +647,7 @@ export function useAgentQueueController({
         new Map(current).set(createdTask.queueItemId, taskFoundation),
       );
       applyUpdatedTask({ ...createdTask, ...taskFoundation }, { select: true });
+      setIsEditing(false);
       return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create queue task."));
@@ -646,7 +658,7 @@ export function useAgentQueueController({
   }
 
   async function refreshTasks() {
-    if (isDirty) {
+    if (isEditing || isDirty) {
       setValidationMessage("Save current task before refreshing the queue.");
       return;
     }
@@ -663,7 +675,7 @@ export function useAgentQueueController({
       return;
     }
 
-    if (isDirty) {
+    if (isEditing || isDirty) {
       setValidationMessage("Save current task before selecting another task.");
       return;
     }
@@ -683,6 +695,7 @@ export function useAgentQueueController({
       }
 
       setSelectedDraft(detail);
+      setIsEditing(false);
       setTasks((currentTasks) =>
         currentTasks.map((task) =>
           task.queueItemId === detail.queueItemId
@@ -702,7 +715,13 @@ export function useAgentQueueController({
   }
 
   async function saveTask() {
-    if (!selectedTask || !onUpdateAgentQueueTask || !isDirty || isSaving) {
+    if (
+      !selectedTask ||
+      !onUpdateAgentQueueTask ||
+      !isEditing ||
+      !isDirty ||
+      isSaving
+    ) {
       return;
     }
 
@@ -741,6 +760,7 @@ export function useAgentQueueController({
         return;
       }
 
+      const previousQueueTagId = normalizeQueueTag(selectedTask).queueTagId;
       const queueTagId = queueTagNameToId(draft.queueTagName);
       const validationStatus =
         draft.validationStatus === "not_started"
@@ -753,7 +773,14 @@ export function useAgentQueueController({
         validationStatus,
         coordinatorStatus: "awaiting_coordinator_review" as const,
       };
-      setPausedQueueTagIds((current) => new Set(current).add(queueTagId));
+      setPausedQueueTagIds((current) => {
+        const next = new Set(current);
+        next.add(queueTagId);
+        if (previousQueueTagId !== queueTagId) {
+          next.add(previousQueueTagId);
+        }
+        return next;
+      });
       setLocalTaskFields((current) =>
         new Map(current).set(updatedTask.queueItemId, {
           ...(current.get(updatedTask.queueItemId) ?? {}),
@@ -761,13 +788,10 @@ export function useAgentQueueController({
         }),
       );
       applyUpdatedTask({ ...updatedTask, ...taskFoundation }, { select: true });
-      setValidationMessage(
-        "Editing paused this queue tag until coordinator review/resume",
-      );
-      setGlobalMessage(
-        "Editing paused this queue tag until coordinator review/resume",
-      );
+      setValidationMessage(EDIT_PAUSE_MESSAGE);
+      setGlobalMessage(EDIT_PAUSE_MESSAGE);
       setSaveStateText("Saved");
+      setIsEditing(false);
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to save queue task."));
       setSaveStateText("Unsaved changes");
@@ -907,6 +931,32 @@ export function useAgentQueueController({
       next.delete(queueTagId);
       return next;
     });
+    setLocalTaskFields((current) => {
+      const next = new Map(current);
+      for (const task of tasksRef.current) {
+        if (normalizeQueueTag(task).queueTagId === queueTagId) {
+          next.set(task.queueItemId, {
+            ...(next.get(task.queueItemId) ?? {}),
+            coordinatorStatus: "not_reported",
+          });
+        }
+      }
+      return next;
+    });
+    setTasks((currentTasks) => {
+      const nextTasks = currentTasks.map((task) =>
+        normalizeQueueTag(task).queueTagId === queueTagId
+          ? { ...task, coordinatorStatus: "not_reported" as const }
+          : task,
+      );
+      tasksRef.current = nextTasks;
+      return nextTasks;
+    });
+    setSelectedTask((currentTask) =>
+      currentTask && normalizeQueueTag(currentTask).queueTagId === queueTagId
+        ? { ...currentTask, coordinatorStatus: "not_reported" }
+        : currentTask,
+    );
     setGlobalMessage("Queue tag resumed by coordinator review.");
   }
 
@@ -920,8 +970,22 @@ export function useAgentQueueController({
       !onAssignAgentQueueTaskToExecutor ||
       !selectedExecutorWidgetId ||
       isAssigning ||
-      isDirty
+      hasOpenTaskEdit
     ) {
+      return;
+    }
+
+    const selectedWorkerScope = workerScopes.get(selectedExecutorWidgetId);
+    const selectedTaskQueueTag = normalizeQueueTag(selectedTask);
+
+    if (
+      selectedWorkerScope?.kind === "queue_tag" &&
+      selectedWorkerScope.queueTagId !== selectedTaskQueueTag.queueTagId
+    ) {
+      setAssignmentError(
+        "Selected worker is scoped to another queue tag. Choose a matching worker or change the worker scope.",
+      );
+      setAssignmentMessage(null);
       return;
     }
 
@@ -959,7 +1023,7 @@ export function useAgentQueueController({
       !selectedTask ||
       !onClearAgentQueueTaskAssignment ||
       isAssigning ||
-      isDirty
+      hasOpenTaskEdit
     ) {
       return;
     }
@@ -1200,6 +1264,30 @@ export function useAgentQueueController({
     setSelectedTask(null);
     setDraft(emptyDraft());
     setSaveStateText("Saved");
+    setIsEditing(false);
+  }
+
+  function startEditingSelectedTask() {
+    if (!selectedTask || isSaving) {
+      return;
+    }
+
+    setIsEditing(true);
+    setValidationMessage(null);
+    setDeleteMessage(null);
+    setDeleteError(null);
+  }
+
+  function cancelSelectedTaskEdits() {
+    if (!selectedTask || isSaving) {
+      return;
+    }
+
+    setSelectedDraft(selectedTask);
+    setIsEditing(false);
+    setSaveStateText("Saved");
+    setValidationMessage(null);
+    setEditorError(null);
   }
 
   function mergeTaskFoundation(task: AgentQueueTask): AgentQueueTask {
@@ -1241,6 +1329,7 @@ export function useAgentQueueController({
     isAssigning,
     isCreating,
     isDirty,
+    isEditing,
     isLoading,
     isSaving,
     isSelecting,
@@ -1256,6 +1345,11 @@ export function useAgentQueueController({
       onConfirm: () => void confirmDeleteSelectedTask(),
       onRequest: () => requestDeleteSelectedTask(),
     } satisfies AgentQueueDeleteController,
+    editTask: {
+      isEditing,
+      onCancel: cancelSelectedTaskEdits,
+      onStart: startEditingSelectedTask,
+    } satisfies AgentQueueEditController,
     run: {
       approvalPolicy,
       canStart,

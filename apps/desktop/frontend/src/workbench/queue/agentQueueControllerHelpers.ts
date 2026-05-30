@@ -160,6 +160,8 @@ export function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
       return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another Agent Executor.`;
     case "manual":
       return `Sequential Queue Runner stopped at manual task "${decision.task.title}". Operator action is required.`;
+    case "paused_queue_tag":
+      return `Sequential Queue Runner stopped before "${decision.task.title}" because its queue tag is paused for coordinator review.`;
     case "previous_success_required":
       return `Sequential Queue Runner stopped before "${decision.task.title}" because it requires a previous task completed in this runner pass.`;
     case "previous_task_not_successful":

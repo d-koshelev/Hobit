@@ -346,6 +346,15 @@
   );
 }
 
+.agent-queue-task-row-paused {
+  border-color: var(--color-warning);
+  background: color-mix(
+    in srgb,
+    var(--color-warning-soft) 38%,
+    var(--color-nested-surface)
+  );
+}
+
 .agent-queue-task-row-main {
   min-width: 0;
 }
@@ -399,6 +408,16 @@
 
 .agent-queue-task-section {
   padding-bottom: var(--space-xs);
+}
+
+.agent-queue-readonly-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs);
 }
 
 .agent-queue-section-header {

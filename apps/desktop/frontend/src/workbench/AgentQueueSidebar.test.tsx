@@ -46,6 +46,32 @@ describe("AgentQueueSidebar", () => {
     expect(foundation.onStopAndKillRunning).toHaveBeenCalledTimes(1);
     expect(foundation.onPauseQueueTag).toHaveBeenCalledWith("default");
   });
+
+  it("renders paused tags with validation counts and resume action", () => {
+    const foundation = foundationController();
+    foundation.queueTags = [
+      {
+        queueTagId: "default",
+        queueTagName: "Default",
+        coordinatorReviewCount: 1,
+        failedValidationCount: 1,
+        needsReviewCount: 2,
+        runningCount: 0,
+        status: "paused",
+        taskCount: 3,
+        validatingCount: 1,
+      },
+    ];
+    renderSidebar(foundation);
+
+    expect(document.body.textContent).toContain("paused");
+    expect(document.body.textContent).toContain("1 validating, 2 needs review, 1 failed");
+    expect(document.body.textContent).toContain("1 awaiting coordinator review");
+
+    clickButton("Resume tag");
+
+    expect(foundation.onResumeQueueTag).toHaveBeenCalledWith("default");
+  });
 });
 
 function renderSidebar(
@@ -89,6 +115,9 @@ function foundationController(): AgentQueueFoundationController {
       {
         queueTagId: "default",
         queueTagName: "Default",
+        coordinatorReviewCount: 0,
+        failedValidationCount: 0,
+        needsReviewCount: 1,
         runningCount: 0,
         status: "running",
         taskCount: 1,

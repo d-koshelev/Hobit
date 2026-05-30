@@ -113,6 +113,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.editTask.onStart();
       hook.result.current.updateDraft({ prompt: "Updated prompt" });
     });
     await act(async () => {
@@ -130,11 +131,123 @@ describe("useAgentQueueController executionPolicy draft", () => {
       "awaiting_coordinator_review",
     );
     expect(hook.result.current.validationMessage).toBe(
-      "Editing paused this queue tag until coordinator review/resume",
+      "Editing paused this queue tag until coordinator review.",
     );
     expect(hook.result.current.run.readinessMessage).toBe(
       "Resume this queue tag before running the selected task.",
     );
+    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("resumes a paused queue tag without starting workers or queue execution", async () => {
+    const harness = createQueueHarness([
+      queueTask({ prompt: "Initial prompt", queueItemId: "queue-1", status: "queued" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.editTask.onStart();
+      hook.result.current.updateDraft({ prompt: "Updated prompt" });
+    });
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      true,
+    );
+
+    act(() => {
+      hook.result.current.foundation.onResumeQueueTag("default");
+    });
+
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      false,
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "not_reported",
+    );
+    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("pauses both previous and target tags when an edited task moves tags", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Initial prompt",
+        queueItemId: "queue-1",
+        queueTagId: "default",
+        queueTagName: "Default",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.editTask.onStart();
+      hook.result.current.updateDraft({ queueTagName: "Review" });
+    });
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      true,
+    );
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("review")).toBe(
+      true,
+    );
+    expect(hook.result.current.selectedTask?.queueTagName).toBe("Review");
+
+    hook.unmount();
+  });
+
+  it("cancels explicit edit mode without saving draft changes", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Initial prompt",
+        queueItemId: "queue-1",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.editTask.onStart();
+      hook.result.current.updateDraft({ prompt: "Discarded prompt" });
+    });
+
+    expect(hook.result.current.isDirty).toBe(true);
+
+    act(() => {
+      hook.result.current.editTask.onCancel();
+    });
+
+    expect(hook.result.current.editTask.isEditing).toBe(false);
+    expect(hook.result.current.draft.prompt).toBe("Initial prompt");
+    expect(harness.updateRequests).toHaveLength(0);
 
     hook.unmount();
   });
@@ -241,6 +354,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.editTask.onStart();
       hook.result.current.updateDraft({ executionPolicy: "auto" });
     });
 
@@ -279,7 +393,9 @@ describe("useAgentQueueController executionPolicy draft", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.editTask.onStart();
       hook.result.current.updateDraft({
+        description: "Updated details",
         priority: 5,
         prompt: "Updated prompt",
         title: "Updated title",
@@ -296,6 +412,7 @@ describe("useAgentQueueController executionPolicy draft", () => {
     expect(hook.result.current.selectedTask?.title).toBe("Updated title");
     expect(hook.result.current.tasks[0].priority).toBe(5);
     expect(hook.result.current.tasks[0].prompt).toBe("Updated prompt");
+    expect(hook.result.current.tasks[0].description).toBe("Updated details");
     expect(hook.result.current.tasks[0].queueItemId).toBe("queue-1");
     expect(hook.result.current.tasks[0].title).toBe("Updated title");
     expect(hook.result.current.draft.title).toBe("Updated title");
@@ -348,6 +465,42 @@ describe("useAgentQueueController assignment refresh behavior", () => {
     expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
     expect(hook.result.current.tasks[0].assignedExecutorWidgetId).toBeNull();
     expect(hook.result.current.assignmentMessage).toBe("Assignment cleared.");
+
+    hook.unmount();
+  });
+
+  it("prevents assigning a worker scoped to a different queue tag", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        queueItemId: "queue-1",
+        queueTagId: "default",
+        queueTagName: "Default",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "review",
+        queueTagName: "Review",
+      });
+    });
+    await act(async () => {
+      await hook.result.current.assignSelectedTask();
+    });
+
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(hook.result.current.assignmentError).toBe(
+      "Selected worker is scoped to another queue tag. Choose a matching worker or change the worker scope.",
+    );
+    expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
 
     hook.unmount();
   });

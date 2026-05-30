@@ -26,10 +26,12 @@ behavior, or Workspace Agent context wiring.
   or one tag, separate execution and validation statuses, local START / STOP /
   STOP + KILL RUNNING controls that do not auto-run items, item types including
   independent Diff Review work items, and coordinator-owned finalization
-  vocabulary. Queue still has no backend scheduler, durable runner,
-  reconnect/resume, real multi-worker runtime, worker spawning, automatic
-  validation, automatic Diff Review execution, automatic rollback, or server
-  worker.
+  vocabulary. Queue item edits are explicit save/cancel operations; saving an
+  edit locally pauses the related queue tag for coordinator review, resume is
+  explicit, and existing running Executor work is not killed by edit or resume.
+  Queue still has no backend scheduler, durable runner, reconnect/resume, real
+  multi-worker runtime, worker spawning, automatic validation, automatic Diff
+  Review execution, automatic rollback, or server worker.
 - `AuditEventEnvelope` v0 exists as type and contract vocabulary.
 - `docs/AUDIT_EVENT_MAPPING_PLAN.md` maps current event-like surfaces to
   future audit readiness.

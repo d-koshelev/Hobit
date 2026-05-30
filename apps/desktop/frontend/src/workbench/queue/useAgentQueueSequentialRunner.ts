@@ -50,6 +50,7 @@ type UseAgentQueueSequentialRunnerOptions = {
   startApiAvailable: boolean;
   taskCount: number;
   tasksRef: MutableRefObject<AgentQueueTask[]>;
+  pausedQueueTagIds: ReadonlySet<string>;
 };
 
 export function useAgentQueueSequentialRunner({
@@ -69,6 +70,7 @@ export function useAgentQueueSequentialRunner({
   startApiAvailable,
   taskCount,
   tasksRef,
+  pausedQueueTagIds,
 }: UseAgentQueueSequentialRunnerOptions) {
   const [status, setStatus] = useState<AgentQueueRunnerStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -142,6 +144,7 @@ export function useAgentQueueSequentialRunner({
     }
 
     const decision = getNextQueueRunnerTaskDecision({
+      pausedQueueTagIds,
       previousTaskStatus,
       selectedExecutorWidgetId,
       startedQueueItemIds: startedQueueItemIdsRef.current,

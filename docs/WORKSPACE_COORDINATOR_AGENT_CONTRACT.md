@@ -530,6 +530,15 @@ validation status are separate. Worker reports, validation results, and
 Diff Review reports are inputs to Workspace/coordinator decisions; workers must
 not directly finalize items as done/failure automatically.
 
+Queue item editing must be explicit and safe in the Queue + Workers model.
+Saving an edited item pauses the target queue tag, marks the item for
+Workspace/coordinator review, and leaves already running Executor work alone.
+If the edit moves the item between tags, the target tag is paused and the
+previous tag may also be marked for review. Resume/review is an explicit
+coordinator action that only clears the local tag gate; it must not start
+workers, auto-run queue items, arm Autorun, kill running work, or finalize item
+status.
+
 No automatic execution.
 
 No automatic acceptance.

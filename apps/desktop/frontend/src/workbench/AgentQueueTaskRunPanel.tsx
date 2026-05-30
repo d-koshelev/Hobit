@@ -23,6 +23,7 @@ import {
   validationBadgeVariant,
   validationStatusLabel,
   workerLabel,
+  type AgentWorkerSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
@@ -63,6 +64,7 @@ type AgentQueueTaskRunPanelProps = {
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
+  workers: AgentWorkerSummary[];
 };
 
 export function AgentQueueTaskRunPanel({
@@ -86,6 +88,7 @@ export function AgentQueueTaskRunPanel({
   runHistory,
   runner,
   selectedTask,
+  workers,
 }: AgentQueueTaskRunPanelProps) {
   const repoRootInputId = useId();
   const codexExecutableInputId = useId();
@@ -115,6 +118,13 @@ export function AgentQueueTaskRunPanel({
   const clearDisabled = Boolean(
     assignmentDisabledReason || isAssigning || !hasAssignedExecutor,
   );
+  const selectedWorker = workers.find(
+    (worker) => worker.workerId === currentSelection,
+  );
+  const workerScopeMismatch =
+    selectedWorker?.scope.kind === "queue_tag" &&
+    selectedWorker.scope.queueTagId !== queueTag.queueTagId;
+  const scopedAssignmentDisabled = Boolean(assignDisabled || workerScopeMismatch);
 
   return (
     <section
@@ -315,6 +325,13 @@ export function AgentQueueTaskRunPanel({
           </p>
         ) : null}
 
+        {workerScopeMismatch && selectedWorker?.scope.kind === "queue_tag" ? (
+          <p className="agent-queue-run-warning" role="alert">
+            Selected worker is scoped to {selectedWorker.scope.queueTagName}.
+            Assign a worker scoped to {queueTag.queueTagName} or All queues.
+          </p>
+        ) : null}
+
         {hasExecutorSlots ? (
           <div className="agent-queue-assignment-controls">
             <div className="agent-queue-assignment-field">
@@ -347,7 +364,7 @@ export function AgentQueueTaskRunPanel({
             </div>
             <div className="agent-queue-assignment-buttons">
               <Button
-                disabled={assignDisabled}
+                disabled={scopedAssignmentDisabled}
                 onClick={() => onAssign()}
                 variant="secondary"
               >

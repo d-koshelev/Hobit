@@ -13,6 +13,7 @@ type AgentQueueController = ReturnType<typeof useAgentQueueController>;
 type AgentQueueTaskDetailsPanelProps = {
   agentExecutorSlots: AgentExecutorSlot[];
   assignmentInputId: string;
+  descriptionInputId: string;
   executionPolicyInputId: string;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
@@ -31,6 +32,7 @@ type AgentQueueTaskDetailsPanelProps = {
 export function AgentQueueTaskDetailsPanel({
   agentExecutorSlots,
   assignmentInputId,
+  descriptionInputId,
   executionPolicyInputId,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
@@ -49,6 +51,7 @@ export function AgentQueueTaskDetailsPanel({
     clearSelectedTaskAssignment,
     deleteTask,
     draft,
+    editTask,
     editorError,
     isAssigning,
     isDirty,
@@ -89,7 +92,9 @@ export function AgentQueueTaskDetailsPanel({
         <div className="agent-queue-task-editor">
           <AgentQueueTaskSection
             deleteTask={deleteTask}
+            descriptionInputId={descriptionInputId}
             draft={draft}
+            editTask={editTask}
             executionPolicyInputId={executionPolicyInputId}
             isDirty={isDirty}
             isSaving={isSaving}
@@ -113,7 +118,7 @@ export function AgentQueueTaskDetailsPanel({
             hasExecutorSlots={agentExecutorSlots.length > 0}
             inputId={assignmentInputId}
             isAssigning={isAssigning}
-            isDirty={isDirty}
+            isDirty={isDirty || editTask.isEditing}
             latestRun={queue.latestRun}
             onAssign={() => void assignSelectedTask()}
             onClear={() => void clearSelectedTaskAssignment()}
@@ -126,6 +131,7 @@ export function AgentQueueTaskDetailsPanel({
             runHistory={queue.runHistory}
             runner={queue.runner}
             selectedTask={selectedTask}
+            workers={queue.foundation.workers}
           />
 
           {validationMessage ? (

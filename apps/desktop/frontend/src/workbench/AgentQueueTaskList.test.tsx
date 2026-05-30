@@ -59,9 +59,30 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Diff review");
     expect(document.body.textContent).toContain("Tag Review");
   });
+
+  it("renders paused tag and assigned worker state on task rows", () => {
+    renderList(
+      [
+        queueTask({
+          assignedExecutorWidgetId: "executor_visible",
+          assignedWorkerId: "executor_visible",
+          queueTagId: "review",
+          queueTagName: "Review",
+        }),
+      ],
+      new Set(["review"]),
+    );
+
+    expect(document.body.textContent).toContain("Tag paused");
+    expect(document.body.textContent).toContain("Worker Agent Executor");
+    expect(document.querySelector(".agent-queue-task-row-paused")).not.toBeNull();
+  });
 });
 
-function renderList(tasks: AgentQueueTask[]) {
+function renderList(
+  tasks: AgentQueueTask[],
+  pausedQueueTagIds: ReadonlySet<string> = new Set(),
+) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -75,6 +96,7 @@ function renderList(tasks: AgentQueueTask[]) {
         loadError={null}
         onSelectTask={vi.fn()}
         onStatusFilterChange={vi.fn()}
+        pausedQueueTagIds={pausedQueueTagIds}
         selectedTask={tasks[0] ?? null}
         statusFilter="all"
         tasks={tasks}

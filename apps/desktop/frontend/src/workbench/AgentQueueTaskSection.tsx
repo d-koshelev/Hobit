@@ -3,21 +3,26 @@ import {
   EXECUTION_POLICY_OPTIONS,
   ITEM_TYPE_OPTIONS,
   isAgentQueueTaskExecutionPolicy,
-  isQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
   normalizeItemType,
   normalizeValidationStatus,
-  STATUS_OPTIONS,
+  statusBadgeVariant,
+  statusLabel,
   VALIDATION_STATUS_OPTIONS,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueDeleteTaskControl } from "./AgentQueueDeleteTaskControl";
-import type { AgentQueueDeleteController } from "./queue/useAgentQueueController";
+import type {
+  AgentQueueDeleteController,
+  AgentQueueEditController,
+} from "./queue/useAgentQueueController";
+import { Badge } from "../design-system/Badge";
 
 type AgentQueueTaskSectionProps = {
   deleteTask: AgentQueueDeleteController;
   draft: TaskDraft;
+  editTask: AgentQueueEditController;
   executionPolicyInputId: string;
   isDirty: boolean;
   isSaving: boolean;
@@ -26,6 +31,7 @@ type AgentQueueTaskSectionProps = {
   onSave: () => void;
   priorityInputId: string;
   promptInputId: string;
+  descriptionInputId: string;
   selectedTaskHint: string;
   statusInputId: string;
   titleInputId: string;
@@ -34,6 +40,7 @@ type AgentQueueTaskSectionProps = {
 export function AgentQueueTaskSection({
   deleteTask,
   draft,
+  editTask,
   executionPolicyInputId,
   isDirty,
   isSaving,
@@ -42,6 +49,7 @@ export function AgentQueueTaskSection({
   onSave,
   priorityInputId,
   promptInputId,
+  descriptionInputId,
   selectedTaskHint,
   statusInputId,
   titleInputId,
@@ -54,10 +62,38 @@ export function AgentQueueTaskSection({
       <input
         aria-label="Task title"
         className="input agent-queue-title-input"
+        disabled={!editTask.isEditing}
         id={titleInputId}
         onChange={(event) => onDraftChange({ title: event.currentTarget.value })}
         title={selectedTaskHint || undefined}
         value={draft.title}
+      />
+
+      <div className="agent-queue-readonly-status-row">
+        <div>
+          <p className="field-label" id={statusInputId}>
+            Execution status
+          </p>
+          <Badge variant={statusBadgeVariant(draft.status)}>
+            {statusLabel(draft.status)}
+          </Badge>
+        </div>
+        <p className="agent-queue-run-note">
+          Status is shown for review. Workers do not finalize queue items from this edit form.
+        </p>
+      </div>
+
+      <label className="field-label" htmlFor={descriptionInputId}>
+        Details
+      </label>
+      <textarea
+        className="input agent-queue-description-input"
+        disabled={!editTask.isEditing}
+        id={descriptionInputId}
+        onChange={(event) =>
+          onDraftChange({ description: event.currentTarget.value })
+        }
+        value={draft.description}
       />
 
       <label className="field-label" htmlFor={promptInputId}>
@@ -65,36 +101,13 @@ export function AgentQueueTaskSection({
       </label>
       <textarea
         className="input agent-queue-prompt-input"
+        disabled={!editTask.isEditing}
         id={promptInputId}
         onChange={(event) => onDraftChange({ prompt: event.currentTarget.value })}
         value={draft.prompt}
       />
 
       <div className="agent-queue-task-control-row">
-        <div className="agent-queue-editor-field">
-          <label className="field-label" htmlFor={statusInputId}>
-            Status
-          </label>
-          <select
-            className="input agent-queue-status-select"
-            id={statusInputId}
-            onChange={(event) => {
-              const nextStatus = event.currentTarget.value;
-
-              if (isQueueTaskStatus(nextStatus)) {
-                onDraftChange({ status: nextStatus });
-              }
-            }}
-            value={draft.status}
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div className="agent-queue-editor-field">
           <label className="field-label" htmlFor={priorityInputId}>
             Priority
@@ -104,6 +117,7 @@ export function AgentQueueTaskSection({
             id={priorityInputId}
             max={MAX_PRIORITY}
             min={MIN_PRIORITY}
+            disabled={!editTask.isEditing}
             onChange={(event) => onPriorityChange(event.currentTarget.value)}
             type="number"
             value={draft.priority}
@@ -116,6 +130,7 @@ export function AgentQueueTaskSection({
           </label>
           <input
             className="input agent-queue-tag-input"
+            disabled={!editTask.isEditing}
             id={`${titleInputId}-tag`}
             onChange={(event) =>
               onDraftChange({ queueTagName: event.currentTarget.value })
@@ -134,6 +149,7 @@ export function AgentQueueTaskSection({
           </label>
           <select
             className="input agent-queue-execution-policy-select"
+            disabled={!editTask.isEditing}
             id={executionPolicyInputId}
             onChange={(event) => {
               const nextExecutionPolicy = event.currentTarget.value;
@@ -160,6 +176,7 @@ export function AgentQueueTaskSection({
           </label>
           <select
             className="input agent-queue-item-type-select"
+            disabled={!editTask.isEditing}
             id={`${titleInputId}-type`}
             onChange={(event) =>
               onDraftChange({
@@ -182,6 +199,7 @@ export function AgentQueueTaskSection({
           </label>
           <select
             className="input agent-queue-validation-select"
+            disabled={!editTask.isEditing}
             id={`${titleInputId}-validation`}
             onChange={(event) =>
               onDraftChange({
@@ -204,13 +222,32 @@ export function AgentQueueTaskSection({
         </div>
 
         <div className="agent-queue-editor-actions">
-          <Button
-            disabled={!isDirty || isSaving}
-            onClick={() => onSave()}
-            variant="primary"
-          >
-            {isSaving ? "Saving" : "Save task"}
-          </Button>
+          {editTask.isEditing ? (
+            <>
+              <Button
+                disabled={!isDirty || isSaving}
+                onClick={() => onSave()}
+                variant="primary"
+              >
+                {isSaving ? "Saving" : "Save task"}
+              </Button>
+              <Button
+                disabled={isSaving}
+                onClick={() => editTask.onCancel()}
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              disabled={isSaving}
+              onClick={() => editTask.onStart()}
+              variant="secondary"
+            >
+              Edit task
+            </Button>
+          )}
           <Button
             className="agent-queue-delete-button"
             disabled={!deleteTask.canRequest}

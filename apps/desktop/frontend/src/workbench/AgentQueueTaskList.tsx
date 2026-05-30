@@ -26,6 +26,7 @@ type AgentQueueTaskListProps = {
   loadError: string | null;
   onSelectTask: (queueItemId: string) => void;
   onStatusFilterChange: (filter: QueueFilter) => void;
+  pausedQueueTagIds: ReadonlySet<string>;
   selectedTask: AgentQueueTask | null;
   statusFilter: QueueFilter;
   tasks: AgentQueueTask[];
@@ -38,6 +39,7 @@ export function AgentQueueTaskList({
   loadError,
   onSelectTask,
   onStatusFilterChange,
+  pausedQueueTagIds,
   selectedTask,
   statusFilter,
   tasks,
@@ -107,6 +109,7 @@ export function AgentQueueTaskList({
             const taskTitle = displayTaskTitle(task);
             const taskHint = taskPreview(task);
             const queueTag = normalizeQueueTag(task);
+            const queueTagPaused = pausedQueueTagIds.has(queueTag.queueTagId);
             const validationStatus = normalizeValidationStatus(
               task.validationStatus,
             );
@@ -120,9 +123,15 @@ export function AgentQueueTaskList({
                     : undefined
                 }
                 className={
-                  selectedTask?.queueItemId === task.queueItemId
-                    ? "agent-queue-task-row agent-queue-task-row-selected"
-                    : "agent-queue-task-row"
+                  [
+                    "agent-queue-task-row",
+                    selectedTask?.queueItemId === task.queueItemId
+                      ? "agent-queue-task-row-selected"
+                      : null,
+                    queueTagPaused ? "agent-queue-task-row-paused" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 }
                 disabled={isSelecting}
                 key={task.queueItemId}
@@ -137,6 +146,9 @@ export function AgentQueueTaskList({
                   <Badge variant={statusBadgeVariant(task.status)}>
                     {statusLabel(task.status)}
                   </Badge>
+                  {queueTagPaused ? (
+                    <Badge variant="warning">Tag paused</Badge>
+                  ) : null}
                   <Badge
                     className={
                       validationStatus === "validating"
