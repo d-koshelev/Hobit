@@ -14,6 +14,11 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
   const [deleteConfirmTagId, setDeleteConfirmTagId] = useState<string | null>(
     null,
   );
+  const [renamingWorkerId, setRenamingWorkerId] = useState<string | null>(null);
+  const [workerRenameDraft, setWorkerRenameDraft] = useState("");
+  const [deleteConfirmWorkerId, setDeleteConfirmWorkerId] = useState<
+    string | null
+  >(null);
 
   function createTag() {
     if (foundation.onCreateQueueTag(newTagName)) {
@@ -235,20 +240,52 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
       </section>
 
       <section className="agent-queue-sidebar-section">
-        <p className="agent-queue-section-title">Workers</p>
+        <div className="agent-queue-section-header">
+          <p className="agent-queue-section-title">Workers</p>
+          <Button onClick={() => foundation.onCreateWorker()} variant="secondary">
+            Add worker
+          </Button>
+        </div>
         <div className="agent-queue-sidebar-list">
           {foundation.workers.length === 0 ? (
-            <p className="agent-queue-run-note">No Agent Workers. Add Agent Executor widgets to create worker slots.</p>
+            <p className="agent-queue-run-note">No Agent Workers configured.</p>
           ) : (
             foundation.workers.map((worker) => (
               <div className="agent-queue-worker-row" key={worker.workerId}>
                 <div className="agent-queue-sidebar-row-main">
-                  <p className="agent-queue-sidebar-row-title">{worker.name}</p>
-                <p className="agent-queue-sidebar-row-meta">
-                  {worker.currentItemId
-                    ? `Current item ${worker.currentItemId}`
-                    : "No current item"}
-                </p>
+                  {renamingWorkerId === worker.workerId ? (
+                    <input
+                      aria-label={`Rename ${worker.name}`}
+                      className="input agent-queue-tag-management-input"
+                      onChange={(event) =>
+                        setWorkerRenameDraft(event.currentTarget.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          foundation.onRenameWorker(
+                            worker.workerId,
+                            workerRenameDraft,
+                          );
+                          setRenamingWorkerId(null);
+                          setWorkerRenameDraft("");
+                        }
+                      }}
+                      value={workerRenameDraft}
+                    />
+                  ) : (
+                    <p className="agent-queue-sidebar-row-title">{worker.name}</p>
+                  )}
+                  <p className="agent-queue-sidebar-row-meta">
+                    {worker.currentItemId
+                      ? `Current item ${worker.currentItemId}`
+                      : "No current item"}
+                  </p>
+                  <p className="agent-queue-sidebar-row-meta">
+                    {worker.enabled ? "Enabled" : "Disabled"}
+                    {worker.scope.kind === "queue_tag"
+                      ? `, scoped to ${worker.scope.queueTagName}`
+                      : ", all queues"}
+                  </p>
                 {worker.scope.kind === "queue_tag" &&
                 worker.status === "paused" ? (
                   <p className="agent-queue-sidebar-row-meta">
@@ -259,6 +296,20 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                 <Badge variant={worker.status === "running" ? "info" : worker.status === "paused" ? "warning" : worker.status === "failed" ? "error" : "neutral"}>
                   {worker.status}
                 </Badge>
+                <label className="field-label" htmlFor={`worker-enabled-${worker.workerId}`}>
+                  Enabled
+                </label>
+                <input
+                  checked={worker.enabled}
+                  id={`worker-enabled-${worker.workerId}`}
+                  onChange={(event) =>
+                    foundation.onWorkerEnabledChange(
+                      worker.workerId,
+                      event.currentTarget.checked,
+                    )
+                  }
+                  type="checkbox"
+                />
                 <label className="field-label" htmlFor={`worker-scope-${worker.workerId}`}>
                   Scope
                 </label>
@@ -295,6 +346,74 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                     </option>
                   ))}
                 </select>
+                {renamingWorkerId === worker.workerId ? (
+                  <>
+                    <Button
+                      onClick={() => {
+                        foundation.onRenameWorker(
+                          worker.workerId,
+                          workerRenameDraft,
+                        );
+                        setRenamingWorkerId(null);
+                        setWorkerRenameDraft("");
+                      }}
+                      variant="secondary"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setRenamingWorkerId(null);
+                        setWorkerRenameDraft("");
+                      }}
+                      variant="ghost"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setRenamingWorkerId(worker.workerId);
+                      setWorkerRenameDraft(worker.name);
+                      setDeleteConfirmWorkerId(null);
+                    }}
+                    variant="ghost"
+                  >
+                    Rename
+                  </Button>
+                )}
+                {deleteConfirmWorkerId === worker.workerId ? (
+                  <>
+                    <Button
+                      className="agent-queue-delete-button"
+                      onClick={() => {
+                        foundation.onDeleteWorker(worker.workerId);
+                        setDeleteConfirmWorkerId(null);
+                      }}
+                      variant="ghost"
+                    >
+                      Confirm remove
+                    </Button>
+                    <Button
+                      onClick={() => setDeleteConfirmWorkerId(null)}
+                      variant="ghost"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="agent-queue-delete-button"
+                    onClick={() => {
+                      setDeleteConfirmWorkerId(worker.workerId);
+                      setRenamingWorkerId(null);
+                    }}
+                    variant="ghost"
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
             ))
           )}

@@ -15,6 +15,7 @@ mod agent_queue_lifecycle;
 mod agent_queue_run_links;
 mod agent_queue_task_types;
 mod agent_queue_tasks;
+mod agent_queue_workers;
 mod coordinator_provider;
 mod coordinator_provider_drafts;
 mod coordinator_provider_external;
@@ -76,6 +77,8 @@ mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_tests;
 #[cfg(test)]
+mod agent_queue_workers_tests;
+#[cfg(test)]
 mod coordinator_provider_tests;
 #[cfg(test)]
 mod direct_work_artifacts_tests;
@@ -131,11 +134,12 @@ mod workspace_deletion_tests;
 pub use agent_queue_task_types::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
-    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, AssignedAgentQueueTaskRunPlan,
-    AssignedAgentQueueTaskStartSummary, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, DeleteAgentQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
+    AgentQueueTaskSummary, AgentQueueWorkerSummary, AssignAgentQueueTaskToExecutorInput,
+    AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
+    ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput, CreateAgentQueueWorkerInput,
+    DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput, FinishAssignedAgentQueueTaskRunInput,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
-    StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

@@ -17,15 +17,19 @@ type AgentQueueActions = Pick<
   | "clearAgentQueueTaskAssignment"
   | "createAgentQueueTask"
   | "deleteAgentQueueTask"
+  | "createAgentQueueWorker"
+  | "deleteAgentQueueWorker"
   | "getAgentQueueRunnerSnapshot"
   | "getAgentQueueTask"
   | "getAgentQueueTaskLatestRunLink"
   | "listAgentQueueTaskRunLinks"
   | "listAgentQueueTasks"
+  | "listAgentQueueWorkers"
   | "startAgentQueueRunnerSession"
   | "startAssignedAgentQueueTask"
   | "stopAgentQueueRunnerSession"
   | "updateAgentQueueTask"
+  | "updateAgentQueueWorker"
 >;
 
 type AgentExecutorActions = Pick<
@@ -79,7 +83,9 @@ export function agentQueueWidgetProps({
     onAttachContextToCoordinator,
     onClearAgentQueueTaskAssignment: actions.clearAgentQueueTaskAssignment,
     onCreateAgentQueueTask: actions.createAgentQueueTask,
+    onCreateAgentQueueWorker: actions.createAgentQueueWorker,
     onDeleteAgentQueueTask: actions.deleteAgentQueueTask,
+    onDeleteAgentQueueWorker: actions.deleteAgentQueueWorker,
     onDirectWorkRunHandoffStarted: directWorkRunHandoff.recordHandoff,
     onGetAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
     onGetAgentQueueTask: actions.getAgentQueueTask,
@@ -88,11 +94,13 @@ export function agentQueueWidgetProps({
     onListAgentQueueTaskRunLinks: (queueItemId) =>
       actions.listAgentQueueTaskRunLinks({ queueItemId }),
     onListAgentQueueTasks: actions.listAgentQueueTasks,
+    onListAgentQueueWorkers: actions.listAgentQueueWorkers,
     onOpenAgentExecutorRun,
     onStartAgentQueueRunnerSession: actions.startAgentQueueRunnerSession,
     onStartAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,
     onStopAgentQueueRunnerSession: actions.stopAgentQueueRunnerSession,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
+    onUpdateAgentQueueWorker: actions.updateAgentQueueWorker,
     queueTaskAutoRefreshRequest:
       directWorkRunHandoff.queueTaskAutoRefreshRequest,
   };

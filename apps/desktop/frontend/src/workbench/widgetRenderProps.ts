@@ -24,10 +24,12 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunResponse,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   CreateGitCommitRequest,
   CreateKnowledgeDocumentRequest,
   CreateSkillRequest,
@@ -36,6 +38,7 @@ import type {
   DeleteKnowledgeDocumentRequest,
   DirectWorkStreamEvent,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   ForceKillCodexDirectWorkRunResponse,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
@@ -64,6 +67,7 @@ import type {
   TerminalPtySession,
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
   UpdateSkillRequest,
   UpdateKnowledgeDocumentRequest,
   UpdateWorkspaceNoteRequest,
@@ -137,6 +141,16 @@ export type WidgetRenderProps = {
   ) => Promise<AgentQueueTask>;
   onDeleteAgentQueueTask?: (
     request: Omit<DeleteAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<boolean>;
+  onListAgentQueueWorkers?: () => Promise<AgentQueueWorkerConfig[]>;
+  onCreateAgentQueueWorker?: (
+    request: Omit<CreateAgentQueueWorkerRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkerConfig>;
+  onUpdateAgentQueueWorker?: (
+    request: Omit<UpdateAgentQueueWorkerRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkerConfig | null>;
+  onDeleteAgentQueueWorker?: (
+    request: Omit<DeleteAgentQueueWorkerRequest, "workspaceId">,
   ) => Promise<boolean>;
   onCreateGitCommit?: (
     widgetInstanceId: WidgetInstanceId,

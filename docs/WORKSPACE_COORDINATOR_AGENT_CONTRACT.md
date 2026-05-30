@@ -531,11 +531,17 @@ renamed, paused, resumed, and deleted only when empty. If a tag has items, the
 operator must reassign/merge those items before deletion; if it has running
 items, deletion is blocked and running work is not killed. Full persisted tag
 records, merge tooling, dependency execution, and scheduler enforcement remain
-future work unless implemented in a later block. Workers may be
-general-purpose or scoped to one queue tag. Execution status and work
-validation status are separate. Worker reports, validation results, and
-Diff Review reports are inputs to Workspace/coordinator decisions; workers must
-not directly finalize items as done/failure automatically.
+future work unless implemented in a later block. Agent Worker configuration is
+durable per Workspace for worker id, name, enabled/disabled state, display
+order, and scope to all queues or one queue tag. Persisted worker config is
+configuration only: it does not persist live worker process state, current item
+execution, temporary failures, or live logs as durable truth. Workers may be
+general-purpose or scoped to one queue tag; tag rename keeps scoped workers
+coherent, and deleting an empty scoped tag moves affected workers back to All
+queues. Execution status and work validation status are separate. Worker
+reports, validation results, and Diff Review reports are inputs to
+Workspace/coordinator decisions; workers must not directly finalize items as
+done/failure automatically.
 
 Queue items may depend on other Queue items. Current dependency modeling is a
 frontend/model readiness layer: existing items default to no dependencies,

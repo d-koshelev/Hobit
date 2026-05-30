@@ -138,7 +138,11 @@ export function AgentQueueTaskRunPanel({
   const workerScopeMismatch =
     selectedWorker?.scope.kind === "queue_tag" &&
     selectedWorker.scope.queueTagId !== queueTag.queueTagId;
+  const workerDisabled = Boolean(selectedWorker && !selectedWorker.enabled);
   const scopedAssignmentDisabled = Boolean(assignDisabled || workerScopeMismatch);
+  const workerAssignmentDisabled = Boolean(
+    scopedAssignmentDisabled || workerDisabled,
+  );
 
   return (
     <section
@@ -374,6 +378,11 @@ export function AgentQueueTaskRunPanel({
             Assign a worker scoped to {queueTag.queueTagName} or All queues.
           </p>
         ) : null}
+        {workerDisabled ? (
+          <p className="agent-queue-run-warning" role="alert">
+            Selected worker is disabled. Enable it before assigning new work.
+          </p>
+        ) : null}
 
         {hasExecutorSlots ? (
           <div className="agent-queue-assignment-controls">
@@ -407,7 +416,7 @@ export function AgentQueueTaskRunPanel({
             </div>
             <div className="agent-queue-assignment-buttons">
               <Button
-                disabled={scopedAssignmentDisabled}
+                disabled={workerAssignmentDisabled}
                 onClick={() => onAssign()}
                 variant="secondary"
               >

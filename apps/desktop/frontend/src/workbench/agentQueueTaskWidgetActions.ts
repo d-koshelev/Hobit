@@ -2,29 +2,37 @@ import {
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
   createAgentQueueTask,
+  createAgentQueueWorker,
   deleteAgentQueueTask,
+  deleteAgentQueueWorker,
   getAgentQueueTask,
   getAgentQueueTaskLatestRunLink,
   getAgentQueueRunnerSnapshot,
   listAgentQueueTaskRunLinks,
   listAgentQueueTasks,
+  listAgentQueueWorkers,
   startAssignedAgentQueueTask,
   startAgentQueueRunnerSession,
   stopAgentQueueRunnerSession,
   updateAgentQueueTask,
+  updateAgentQueueWorker,
 } from "../workspace/workspaceApi";
 import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
 } from "../workspace/types";
 import type { WorkbenchViewState } from "./types";
 
@@ -50,6 +58,21 @@ export type AgentQueueTaskClearAssignmentRequest = Omit<
 
 export type AgentQueueTaskDeleteRequest = Omit<
   DeleteAgentQueueTaskRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueWorkerCreateRequest = Omit<
+  CreateAgentQueueWorkerRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueWorkerUpdateRequest = Omit<
+  UpdateAgentQueueWorkerRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueWorkerDeleteRequest = Omit<
+  DeleteAgentQueueWorkerRequest,
   "workspaceId"
 >;
 
@@ -82,6 +105,16 @@ export type AgentQueueTaskWidgetActions = {
   ) => Promise<AgentQueueTask | null>;
   deleteAgentQueueTask: (
     request: AgentQueueTaskDeleteRequest,
+  ) => Promise<boolean>;
+  listAgentQueueWorkers: () => Promise<AgentQueueWorkerConfig[]>;
+  createAgentQueueWorker: (
+    request: AgentQueueWorkerCreateRequest,
+  ) => Promise<AgentQueueWorkerConfig>;
+  updateAgentQueueWorker: (
+    request: AgentQueueWorkerUpdateRequest,
+  ) => Promise<AgentQueueWorkerConfig | null>;
+  deleteAgentQueueWorker: (
+    request: AgentQueueWorkerDeleteRequest,
   ) => Promise<boolean>;
   assignAgentQueueTaskToExecutor: (
     request: AgentQueueTaskAssignRequest,
@@ -139,6 +172,33 @@ export function createAgentQueueTaskActions(
     deleteAgentQueueTask: (request) => {
       requireOpenWorkbench(viewState, "delete Agent Queue tasks");
       return deleteAgentQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    listAgentQueueWorkers: () => {
+      requireOpenWorkbench(viewState, "read Agent Worker configuration");
+      return listAgentQueueWorkers({
+        workspaceId: viewState.workspace.id,
+      });
+    },
+    createAgentQueueWorker: (request) => {
+      requireOpenWorkbench(viewState, "create Agent Worker configuration");
+      return createAgentQueueWorker({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    updateAgentQueueWorker: (request) => {
+      requireOpenWorkbench(viewState, "update Agent Worker configuration");
+      return updateAgentQueueWorker({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    deleteAgentQueueWorker: (request) => {
+      requireOpenWorkbench(viewState, "delete Agent Worker configuration");
+      return deleteAgentQueueWorker({
         workspaceId: viewState.workspace.id,
         ...request,
       });

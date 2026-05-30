@@ -3,10 +3,10 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
+    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 
@@ -176,6 +176,21 @@ pub(crate) fn agent_queue_task_run_link_row(
         review_status: row.get(10)?,
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
+    })
+}
+
+pub(crate) fn agent_queue_worker_row(row: &rusqlite::Row<'_>) -> Result<AgentQueueWorkerRow> {
+    Ok(AgentQueueWorkerRow {
+        worker_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        name: row.get(2)?,
+        enabled: i64_to_bool(row.get(3)?),
+        scope_kind: row.get(4)?,
+        queue_tag_id: row.get(5)?,
+        queue_tag_name: row.get(6)?,
+        display_order: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 

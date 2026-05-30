@@ -6,6 +6,7 @@ import {
   createTerminalPtySession,
   createAgentQueueItemFromProposal,
   createAgentQueueTask,
+  createAgentQueueWorker as unsupportedCreateAgentQueueWorker,
   createGitCommit,
   createJdbcConnector,
   checkJdbcSidecarHealth,
@@ -14,6 +15,7 @@ import {
   createSkill as unsupportedCreateSkill,
   createKnowledgeDocument as unsupportedCreateKnowledgeDocument,
   deleteAgentQueueTask,
+  deleteAgentQueueWorker as unsupportedDeleteAgentQueueWorker,
   deleteSkill as unsupportedDeleteSkill,
   deleteKnowledgeDocument as unsupportedDeleteKnowledgeDocument,
   createWorkspaceNote as unsupportedCreateWorkspaceNote,
@@ -43,6 +45,7 @@ import {
   listAgentQueueTaskRunLinks,
   listAgentExecutorRuns,
   listAgentQueueTasks,
+  listAgentQueueWorkers as unsupportedListAgentQueueWorkers,
   listJdbcConnectors,
   listJdbcConnectionProfiles,
   listSkills as unsupportedListSkills,
@@ -61,6 +64,7 @@ import {
   stopAgentQueueRunnerSession,
   stopTerminalPtySession,
   updateAgentQueueTask,
+  updateAgentQueueWorker as unsupportedUpdateAgentQueueWorker,
   updateJdbcConnector,
   updateJdbcConnectionProfile,
   updateSkill as unsupportedUpdateSkill,
@@ -93,6 +97,7 @@ import {
   updateSkill as updateMemorySkill,
 } from "./memoryWorkspaceSkillsApi";
 import type {
+  AgentQueueWorkerConfig,
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
   ListWidgetLogsRequest,
@@ -159,7 +164,21 @@ const memoryKnowledgeDocumentsApi = import.meta.env.DEV
       deleteKnowledgeDocument: unsupportedDeleteKnowledgeDocument,
       searchKnowledgeDocuments: unsupportedSearchKnowledgeDocuments,
     };
+const memoryAgentQueueWorkersApi = import.meta.env.DEV
+  ? {
+      createAgentQueueWorker: createMemoryAgentQueueWorker,
+      listAgentQueueWorkers: listMemoryAgentQueueWorkers,
+      updateAgentQueueWorker: updateMemoryAgentQueueWorker,
+      deleteAgentQueueWorker: deleteMemoryAgentQueueWorker,
+    }
+  : {
+      createAgentQueueWorker: unsupportedCreateAgentQueueWorker,
+      listAgentQueueWorkers: unsupportedListAgentQueueWorkers,
+      updateAgentQueueWorker: unsupportedUpdateAgentQueueWorker,
+      deleteAgentQueueWorker: unsupportedDeleteAgentQueueWorker,
+    };
 let fallbackId = 1;
+const fallbackAgentQueueWorkers = new Map<string, AgentQueueWorkerConfig[]>();
 
 export const memoryWorkspaceApi: WorkspaceApi = {
   createWorkspace,
@@ -213,6 +232,10 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   getAgentQueueTask,
   updateAgentQueueTask,
   deleteAgentQueueTask,
+  listAgentQueueWorkers: memoryAgentQueueWorkersApi.listAgentQueueWorkers,
+  createAgentQueueWorker: memoryAgentQueueWorkersApi.createAgentQueueWorker,
+  updateAgentQueueWorker: memoryAgentQueueWorkersApi.updateAgentQueueWorker,
+  deleteAgentQueueWorker: memoryAgentQueueWorkersApi.deleteAgentQueueWorker,
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
   startAssignedAgentQueueTask,
@@ -484,6 +507,81 @@ async function listWidgetLogs(
   return [];
 }
 
+async function listMemoryAgentQueueWorkers(
+  request: Parameters<WorkspaceApi["listAgentQueueWorkers"]>[0],
+): ReturnType<WorkspaceApi["listAgentQueueWorkers"]> {
+  return (fallbackAgentQueueWorkers.get(request.workspaceId) ?? [])
+    .slice()
+    .sort((first, second) => first.displayOrder - second.displayOrder)
+    .map(cloneAgentQueueWorker);
+}
+
+async function createMemoryAgentQueueWorker(
+  request: Parameters<WorkspaceApi["createAgentQueueWorker"]>[0],
+): ReturnType<WorkspaceApi["createAgentQueueWorker"]> {
+  const now = new Date().toISOString();
+  const worker: AgentQueueWorkerConfig = {
+    workerId: request.workerId?.trim() || `fallback_worker_${fallbackId++}`,
+    workspaceId: request.workspaceId,
+    name: requiredValue(request.name, "worker name"),
+    enabled: request.enabled,
+    scopeKind: request.scopeKind === "queue_tag" ? "queue_tag" : "all",
+    queueTagId: request.scopeKind === "queue_tag" ? request.queueTagId ?? null : null,
+    queueTagName:
+      request.scopeKind === "queue_tag" ? request.queueTagName ?? null : null,
+    displayOrder: request.displayOrder,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
+  fallbackAgentQueueWorkers.set(request.workspaceId, [
+    ...workers.filter((candidate) => candidate.workerId !== worker.workerId),
+    worker,
+  ]);
+
+  return cloneAgentQueueWorker(worker);
+}
+
+async function updateMemoryAgentQueueWorker(
+  request: Parameters<WorkspaceApi["updateAgentQueueWorker"]>[0],
+): ReturnType<WorkspaceApi["updateAgentQueueWorker"]> {
+  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
+  const existing = workers.find((worker) => worker.workerId === request.workerId);
+
+  if (!existing) {
+    return null;
+  }
+
+  const updated: AgentQueueWorkerConfig = {
+    ...existing,
+    name: requiredValue(request.name, "worker name"),
+    enabled: request.enabled,
+    scopeKind: request.scopeKind === "queue_tag" ? "queue_tag" : "all",
+    queueTagId: request.scopeKind === "queue_tag" ? request.queueTagId ?? null : null,
+    queueTagName:
+      request.scopeKind === "queue_tag" ? request.queueTagName ?? null : null,
+    displayOrder: request.displayOrder,
+    updatedAt: new Date().toISOString(),
+  };
+  fallbackAgentQueueWorkers.set(
+    request.workspaceId,
+    workers.map((worker) => (worker.workerId === request.workerId ? updated : worker)),
+  );
+
+  return cloneAgentQueueWorker(updated);
+}
+
+async function deleteMemoryAgentQueueWorker(
+  request: Parameters<WorkspaceApi["deleteAgentQueueWorker"]>[0],
+): ReturnType<WorkspaceApi["deleteAgentQueueWorker"]> {
+  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
+  const nextWorkers = workers.filter(
+    (worker) => worker.workerId !== request.workerId,
+  );
+  fallbackAgentQueueWorkers.set(request.workspaceId, nextWorkers);
+  return nextWorkers.length !== workers.length;
+}
+
 function requiredValue(value: string, label: string) {
   const trimmedValue = value.trim();
 
@@ -572,6 +670,12 @@ function cloneWorkspaceWorkbenchState(
     })),
     recentEvents: state.recentEvents.map((event) => ({ ...event })),
   };
+}
+
+function cloneAgentQueueWorker(
+  worker: AgentQueueWorkerConfig,
+): AgentQueueWorkerConfig {
+  return { ...worker };
 }
 
 function syncWorkspaceStats(

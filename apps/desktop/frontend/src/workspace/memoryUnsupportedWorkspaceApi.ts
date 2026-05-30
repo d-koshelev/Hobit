@@ -285,6 +285,30 @@ export const deleteAgentQueueTask: WorkspaceApi["deleteAgentQueueTask"] =
     );
   };
 
+export const listAgentQueueWorkers: WorkspaceApi["listAgentQueueWorkers"] =
+  async (_request) => [];
+
+export const createAgentQueueWorker: WorkspaceApi["createAgentQueueWorker"] =
+  async (_request) => {
+    throw new Error(
+      "Agent Worker configuration persistence is only available in the Tauri desktop shell. Browser fallback cannot persist worker configuration.",
+    );
+  };
+
+export const updateAgentQueueWorker: WorkspaceApi["updateAgentQueueWorker"] =
+  async (_request) => {
+    throw new Error(
+      "Agent Worker configuration persistence is only available in the Tauri desktop shell. Browser fallback cannot update worker configuration.",
+    );
+  };
+
+export const deleteAgentQueueWorker: WorkspaceApi["deleteAgentQueueWorker"] =
+  async (_request) => {
+    throw new Error(
+      "Agent Worker configuration persistence is only available in the Tauri desktop shell. Browser fallback cannot delete worker configuration.",
+    );
+  };
+
 export const assignAgentQueueTaskToExecutor: WorkspaceApi["assignAgentQueueTaskToExecutor"] =
   async (_request) => {
     throw new Error(

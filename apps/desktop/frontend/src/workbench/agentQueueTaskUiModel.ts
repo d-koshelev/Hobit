@@ -3,6 +3,7 @@ import type {
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskItemType,
   AgentQueueTaskValidationStatus,
+  AgentQueueWorkerConfig,
 } from "../workspace/types";
 import type { AgentExecutorSlot, WidgetInstance } from "./types";
 import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
@@ -82,10 +83,12 @@ export type QueueTagSummary = {
 export type AgentWorkerSummary = {
   workerId: string;
   name: string;
+  enabled: boolean;
   status: WorkerStatus;
   scope: WorkerScope;
   currentItemId: string | null;
   lastReportSummary: string | null;
+  displayOrder: number;
 };
 
 export type TaskDraft = {
@@ -773,37 +776,72 @@ export function workersFromExecutorSlots({
   pauseStates,
   slots,
   tasks,
+  workerConfigs,
   workerScopes,
 }: {
   pauseStates: ReadonlyMap<string, QueueTagPauseState>;
   slots: AgentExecutorSlot[];
   tasks: AgentQueueTask[];
+  workerConfigs?: AgentQueueWorkerConfig[];
   workerScopes: ReadonlyMap<string, WorkerScope>;
 }): AgentWorkerSummary[] {
-  return slots.map((slot) => {
+  const configs =
+    workerConfigs && workerConfigs.length > 0
+      ? workerConfigs
+      : slots.map((slot, index) => ({
+          createdAt: "",
+          displayOrder: index,
+          enabled: true,
+          name: slot.label,
+          queueTagId: null,
+          queueTagName: null,
+          scopeKind: "all" as const,
+          updatedAt: "",
+          workerId: slot.widgetInstanceId,
+          workspaceId: "",
+        }));
+
+  return configs
+    .slice()
+    .sort((first, second) => first.displayOrder - second.displayOrder)
+    .map((workerConfig, index) => {
     const currentTask =
       tasks.find(
         (task) =>
-          task.assignedWorkerId === slot.widgetInstanceId ||
-          task.assignedExecutorWidgetId === slot.widgetInstanceId,
+          task.assignedWorkerId === workerConfig.workerId ||
+          task.assignedExecutorWidgetId === workerConfig.workerId,
       ) ?? null;
-    const scope = workerScopes.get(slot.widgetInstanceId) ?? { kind: "all" };
+    const persistedScope =
+      workerConfig.scopeKind === "queue_tag" &&
+      workerConfig.queueTagId &&
+      workerConfig.queueTagName
+        ? {
+            kind: "queue_tag" as const,
+            queueTagId: workerConfig.queueTagId,
+            queueTagName: workerConfig.queueTagName,
+          }
+        : { kind: "all" as const };
+    const scope = workerScopes.get(workerConfig.workerId) ?? persistedScope;
     const scopedQueueTagId =
       scope.kind === "queue_tag" ? scope.queueTagId : null;
 
     return {
       currentItemId: currentTask?.queueItemId ?? null,
+      displayOrder: workerConfig.displayOrder ?? index,
+      enabled: workerConfig.enabled,
       lastReportSummary: currentTask
         ? `Latest linked item: ${displayTaskTitle(currentTask)}`
         : null,
-      name: slot.label,
+      name: workerConfig.name,
       scope,
-      status: scopedQueueTagId && pauseStates.get(scopedQueueTagId)?.paused
+      status: !workerConfig.enabled
+        ? "paused"
+        : scopedQueueTagId && pauseStates.get(scopedQueueTagId)?.paused
         ? "paused"
         : currentTask?.status === "running"
           ? "running"
           : "idle",
-      workerId: slot.widgetInstanceId,
+      workerId: workerConfig.workerId,
     };
   });
 }

@@ -4,6 +4,7 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../../workspace/types";
@@ -67,16 +68,20 @@ type UseAgentQueueControllerOptions = Pick<
   | "onClearAgentQueueTaskAssignment"
   | "onCreateAgentQueueTask"
   | "onDeleteAgentQueueTask"
+  | "onCreateAgentQueueWorker"
+  | "onDeleteAgentQueueWorker"
   | "onDirectWorkRunHandoffStarted"
   | "onGetAgentQueueTask"
   | "onGetAgentQueueTaskLatestRunLink"
   | "onGetAgentQueueRunnerSnapshot"
   | "onListAgentQueueTaskRunLinks"
   | "onListAgentQueueTasks"
+  | "onListAgentQueueWorkers"
   | "onStartAssignedAgentQueueTask"
   | "onStartAgentQueueRunnerSession"
   | "onStopAgentQueueRunnerSession"
   | "onUpdateAgentQueueTask"
+  | "onUpdateAgentQueueWorker"
   | "queueTaskAutoRefreshRequest"
 >;
 
@@ -182,12 +187,16 @@ export type AgentQueueFoundationController = {
   globalStatus: QueueGlobalStatus;
   onCreateQueueTag: (queueTagName: string) => boolean;
   onDeleteQueueTag: (queueTagId: string) => boolean;
+  onCreateWorker: () => void;
+  onDeleteWorker: (workerId: string) => void;
   onPauseQueueTag: (queueTagId: string) => void;
+  onRenameWorker: (workerId: string, name: string) => void;
   onRenameQueueTag: (queueTagId: string, queueTagName: string) => Promise<boolean>;
   onResumeQueueTag: (queueTagId: string) => void;
   onStartWorkers: () => void;
   onStopAndKillRunning: () => void;
   onStopWorkers: () => void;
+  onWorkerEnabledChange: (workerId: string, enabled: boolean) => void;
   onWorkerScopeChange: (workerId: string, scope: WorkerScope) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   queueTags: QueueTagSummary[];
@@ -202,17 +211,21 @@ export function useAgentQueueController({
   onAssignAgentQueueTaskToExecutor,
   onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
+  onCreateAgentQueueWorker,
   onDeleteAgentQueueTask,
+  onDeleteAgentQueueWorker,
   onDirectWorkRunHandoffStarted,
   onGetAgentQueueTask,
   onGetAgentQueueTaskLatestRunLink,
   onGetAgentQueueRunnerSnapshot,
   onListAgentQueueTaskRunLinks,
   onListAgentQueueTasks,
+  onListAgentQueueWorkers,
   onStartAssignedAgentQueueTask,
   onStartAgentQueueRunnerSession,
   onStopAgentQueueRunnerSession,
   onUpdateAgentQueueTask,
+  onUpdateAgentQueueWorker,
   queueTaskAutoRefreshRequest,
 }: UseAgentQueueControllerOptions) {
   const apiAvailable = Boolean(
@@ -305,6 +318,10 @@ export function useAgentQueueController({
   const [workerScopes, setWorkerScopes] = useState<Map<string, WorkerScope>>(
     () => new Map(),
   );
+  const [workerConfigs, setWorkerConfigs] = useState<AgentQueueWorkerConfig[]>(
+    () => [],
+  );
+  const workerConfigsRef = useRef(workerConfigs);
   const [localTaskFields, setLocalTaskFields] = useState<
     Map<
       string,
@@ -333,6 +350,10 @@ export function useAgentQueueController({
   useEffect(() => {
     localTaskFieldsRef.current = localTaskFields;
   }, [localTaskFields]);
+
+  useEffect(() => {
+    workerConfigsRef.current = workerConfigs;
+  }, [workerConfigs]);
 
   const isDirty = Boolean(
     selectedTask &&
@@ -381,9 +402,10 @@ export function useAgentQueueController({
         pauseStates: queueTagPauseStates,
         slots: agentExecutorSlots,
         tasks,
+        workerConfigs,
         workerScopes,
       }),
-    [agentExecutorSlots, queueTagPauseStates, tasks, workerScopes],
+    [agentExecutorSlots, queueTagPauseStates, tasks, workerConfigs, workerScopes],
   );
   const queueValidationSummary = useMemo(
     () => validationSummary(tasks),
@@ -477,6 +499,60 @@ export function useAgentQueueController({
   useEffect(() => {
     void loadTasks(null);
   }, [loadTasks]);
+
+  const loadWorkers = useCallback(async () => {
+    if (!onListAgentQueueWorkers) {
+      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
+      workerConfigsRef.current = defaultWorkers;
+      setWorkerConfigs(defaultWorkers);
+      return;
+    }
+
+    try {
+      const loadedWorkers = await onListAgentQueueWorkers();
+      if (loadedWorkers.length > 0) {
+        workerConfigsRef.current = loadedWorkers;
+        setWorkerConfigs(loadedWorkers);
+        setWorkerScopes(workerScopesFromConfigs(loadedWorkers));
+        return;
+      }
+
+      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
+      if (!onCreateAgentQueueWorker) {
+        workerConfigsRef.current = defaultWorkers;
+        setWorkerConfigs(defaultWorkers);
+        setWorkerScopes(workerScopesFromConfigs(defaultWorkers));
+        return;
+      }
+
+      const createdWorkers: AgentQueueWorkerConfig[] = [];
+      for (const worker of defaultWorkers) {
+        createdWorkers.push(
+          await onCreateAgentQueueWorker({
+            displayOrder: worker.displayOrder,
+            enabled: worker.enabled,
+            name: worker.name,
+            queueTagId: worker.queueTagId,
+            queueTagName: worker.queueTagName,
+            scopeKind: worker.scopeKind,
+            workerId: worker.workerId,
+          }),
+        );
+      }
+      workerConfigsRef.current = createdWorkers;
+      setWorkerConfigs(createdWorkers);
+      setWorkerScopes(workerScopesFromConfigs(createdWorkers));
+    } catch {
+      const defaultWorkers = defaultWorkerConfigsFromExecutorSlots(agentExecutorSlots);
+      workerConfigsRef.current = defaultWorkers;
+      setWorkerConfigs(defaultWorkers);
+      setWorkerScopes(workerScopesFromConfigs(defaultWorkers));
+    }
+  }, [agentExecutorSlots, onCreateAgentQueueWorker, onListAgentQueueWorkers]);
+
+  useEffect(() => {
+    void loadWorkers();
+  }, [loadWorkers]);
 
   useEffect(() => {
     if (!onGetAgentQueueRunnerSnapshot) {
@@ -1266,6 +1342,14 @@ export function useAgentQueueController({
       }
       return next;
     });
+    void persistWorkerScopeUpdates((worker) =>
+      worker.scopeKind === "queue_tag" && worker.queueTagId === queueTagId
+        ? {
+            ...worker,
+            queueTagName: normalizedName,
+          }
+        : worker,
+    );
     setTagManagementMessage(`Queue tag renamed to "${normalizedName}".`);
     setGlobalMessage(
       "Queue tag renamed. Existing items and scoped workers were updated without running work.",
@@ -1320,6 +1404,16 @@ export function useAgentQueueController({
       }
       return next;
     });
+    void persistWorkerScopeUpdates((worker) =>
+      worker.scopeKind === "queue_tag" && worker.queueTagId === queueTagId
+        ? {
+            ...worker,
+            queueTagId: null,
+            queueTagName: null,
+            scopeKind: "all",
+          }
+        : worker,
+    );
     setTagManagementMessage(`Queue tag "${tag.queueTagName}" deleted.`);
     setGlobalMessage(
       "Empty queue tag deleted. Scoped workers were moved back to All queues.",
@@ -1377,6 +1471,195 @@ export function useAgentQueueController({
 
   function changeWorkerScope(workerId: string, scope: WorkerScope) {
     setWorkerScopes((current) => new Map(current).set(workerId, scope));
+    updateWorkerConfig(workerId, {
+      queueTagId: scope.kind === "queue_tag" ? scope.queueTagId : null,
+      queueTagName: scope.kind === "queue_tag" ? scope.queueTagName : null,
+      scopeKind: scope.kind,
+    });
+    setGlobalMessage("Worker scope updated. No Queue work was started.");
+  }
+
+  function createWorker() {
+    const displayOrder = nextWorkerDisplayOrder(workerConfigsRef.current);
+    const workerConfig = localWorkerConfig({
+      displayOrder,
+      name: `Agent Worker ${(displayOrder + 1).toString()}`,
+    });
+
+    workerConfigsRef.current = [...workerConfigsRef.current, workerConfig];
+    setWorkerConfigs((current) => [...current, workerConfig]);
+    setWorkerScopes((current) => new Map(current).set(workerConfig.workerId, { kind: "all" }));
+    setGlobalMessage("Agent Worker added. No runtime was started.");
+
+    if (onCreateAgentQueueWorker) {
+      void onCreateAgentQueueWorker({
+        displayOrder: workerConfig.displayOrder,
+        enabled: workerConfig.enabled,
+        name: workerConfig.name,
+        queueTagId: null,
+        queueTagName: null,
+        scopeKind: "all",
+        workerId: workerConfig.workerId,
+      })
+        .then((createdWorker) => {
+          workerConfigsRef.current = workerConfigsRef.current.map((worker) =>
+            worker.workerId === workerConfig.workerId ? createdWorker : worker,
+          );
+          setWorkerConfigs((current) =>
+            current.map((worker) =>
+              worker.workerId === workerConfig.workerId ? createdWorker : worker,
+            ),
+          );
+        })
+        .catch((error) => {
+          setTagManagementError(
+            errorToMessage(error, "Unable to persist Agent Worker."),
+          );
+        });
+    }
+  }
+
+  function renameWorker(workerId: string, name: string) {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setTagManagementError("Worker name is required.");
+      return;
+    }
+
+    updateWorkerConfig(workerId, { name: trimmedName });
+    setGlobalMessage("Agent Worker renamed. No runtime was started.");
+  }
+
+  function setWorkerEnabled(workerId: string, enabled: boolean) {
+    updateWorkerConfig(workerId, { enabled });
+    setGlobalMessage(
+      enabled
+        ? "Agent Worker enabled. No Queue work was started."
+        : "Agent Worker disabled. Existing Executor work is unchanged.",
+    );
+  }
+
+  function deleteWorker(workerId: string) {
+    const assignedTask = tasksRef.current.find(
+      (task) =>
+        task.assignedWorkerId === workerId ||
+        task.assignedExecutorWidgetId === workerId,
+    );
+
+    if (assignedTask) {
+      setTagManagementError(
+        "Clear this worker's task assignment before removing it.",
+      );
+      return;
+    }
+
+    workerConfigsRef.current = workerConfigsRef.current.filter(
+      (worker) => worker.workerId !== workerId,
+    );
+    setWorkerConfigs((current) =>
+      current.filter((worker) => worker.workerId !== workerId),
+    );
+    setWorkerScopes((current) => {
+      const next = new Map(current);
+      next.delete(workerId);
+      return next;
+    });
+    setGlobalMessage("Agent Worker removed. No runtime was stopped or started.");
+
+    if (onDeleteAgentQueueWorker) {
+      void onDeleteAgentQueueWorker({ workerId }).catch((error) => {
+        setTagManagementError(
+          errorToMessage(error, "Unable to delete Agent Worker."),
+        );
+      });
+    }
+  }
+
+  function updateWorkerConfig(
+    workerId: string,
+    patch: Partial<
+      Pick<
+        AgentQueueWorkerConfig,
+        "enabled" | "name" | "queueTagId" | "queueTagName" | "scopeKind"
+      >
+    >,
+  ) {
+    const existingWorker = workerConfigsRef.current.find(
+      (worker) => worker.workerId === workerId,
+    );
+
+    if (!existingWorker) {
+      return;
+    }
+
+    const updatedWorker: AgentQueueWorkerConfig = {
+      ...existingWorker,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    workerConfigsRef.current = workerConfigsRef.current.map((worker) =>
+      worker.workerId === workerId ? updatedWorker : worker,
+    );
+
+    setWorkerConfigs((current) =>
+      current.map((worker) =>
+        worker.workerId === workerId ? updatedWorker : worker,
+      ),
+    );
+    setTagManagementError(null);
+
+    if (onUpdateAgentQueueWorker) {
+      void onUpdateAgentQueueWorker({
+        displayOrder: updatedWorker.displayOrder,
+        enabled: updatedWorker.enabled,
+        name: updatedWorker.name,
+        queueTagId: updatedWorker.queueTagId,
+        queueTagName: updatedWorker.queueTagName,
+        scopeKind: updatedWorker.scopeKind,
+        workerId: updatedWorker.workerId,
+      }).catch((error) => {
+        setTagManagementError(
+          errorToMessage(error, "Unable to persist Agent Worker."),
+        );
+      });
+    }
+  }
+
+  async function persistWorkerScopeUpdates(
+    update: (worker: AgentQueueWorkerConfig) => AgentQueueWorkerConfig,
+  ) {
+    const updatedWorkers = workerConfigsRef.current.map(update);
+    workerConfigsRef.current = updatedWorkers;
+    setWorkerConfigs(updatedWorkers);
+    setWorkerScopes(workerScopesFromConfigs(updatedWorkers));
+
+    if (!onUpdateAgentQueueWorker) {
+      return;
+    }
+
+    for (const worker of updatedWorkers) {
+      const previousWorker = workerConfigsRef.current.find(
+        (candidate) => candidate.workerId === worker.workerId,
+      );
+      if (
+        previousWorker?.scopeKind === worker.scopeKind &&
+        previousWorker?.queueTagId === worker.queueTagId &&
+        previousWorker?.queueTagName === worker.queueTagName
+      ) {
+        continue;
+      }
+
+      await onUpdateAgentQueueWorker({
+        displayOrder: worker.displayOrder,
+        enabled: worker.enabled,
+        name: worker.name,
+        queueTagId: worker.queueTagId,
+        queueTagName: worker.queueTagName,
+        scopeKind: worker.scopeKind,
+        workerId: worker.workerId,
+      });
+    }
   }
 
   async function assignSelectedTask() {
@@ -1391,7 +1674,18 @@ export function useAgentQueueController({
     }
 
     const selectedWorkerScope = workerScopes.get(selectedExecutorWidgetId);
+    const selectedWorkerConfig = workerConfigsRef.current.find(
+      (worker) => worker.workerId === selectedExecutorWidgetId,
+    );
     const selectedTaskQueueTag = normalizeQueueTag(selectedTask);
+
+    if (selectedWorkerConfig && !selectedWorkerConfig.enabled) {
+      setAssignmentError(
+        "Selected worker is disabled. Enable it before assigning new work.",
+      );
+      setAssignmentMessage(null);
+      return;
+    }
 
     if (
       selectedWorkerScope?.kind === "queue_tag" &&
@@ -1846,13 +2140,17 @@ export function useAgentQueueController({
       globalMessage,
       globalStatus,
       onCreateQueueTag: createQueueTag,
+      onCreateWorker: createWorker,
       onDeleteQueueTag: deleteQueueTag,
+      onDeleteWorker: deleteWorker,
       onPauseQueueTag: pauseQueueTag,
+      onRenameWorker: renameWorker,
       onRenameQueueTag: renameQueueTag,
       onResumeQueueTag: resumeQueueTag,
       onStartWorkers: startWorkers,
       onStopAndKillRunning: stopAndKillRunning,
       onStopWorkers: stopWorkers,
+      onWorkerEnabledChange: setWorkerEnabled,
       onWorkerScopeChange: changeWorkerScope,
       pausedQueueTagIds,
       queueTags,
@@ -2058,6 +2356,94 @@ function upsertQueueTagRecord(
   }
 
   return [...queueTags, queueTag];
+}
+
+function defaultWorkerConfigsFromExecutorSlots(
+  agentExecutorSlots: Array<{ label: string; widgetInstanceId: string }>,
+): AgentQueueWorkerConfig[] {
+  const now = new Date().toISOString();
+
+  if (agentExecutorSlots.length === 0) {
+    return [
+      {
+        createdAt: now,
+        displayOrder: 0,
+        enabled: true,
+        name: "Agent Worker 1",
+        queueTagId: null,
+        queueTagName: null,
+        scopeKind: "all",
+        updatedAt: now,
+        workerId: `agent-worker-${Date.now().toString(36)}`,
+        workspaceId: "",
+      },
+    ];
+  }
+
+  return agentExecutorSlots.map((slot, index) => ({
+    createdAt: now,
+    displayOrder: index,
+    enabled: true,
+    name: slot.label,
+    queueTagId: null,
+    queueTagName: null,
+    scopeKind: "all",
+    updatedAt: now,
+    workerId: slot.widgetInstanceId,
+    workspaceId: "",
+  }));
+}
+
+function workerScopesFromConfigs(workerConfigs: AgentQueueWorkerConfig[]) {
+  return new Map(
+    workerConfigs.map((worker): [string, WorkerScope] => [
+      worker.workerId,
+      worker.scopeKind === "queue_tag" && worker.queueTagId && worker.queueTagName
+        ? {
+            kind: "queue_tag",
+            queueTagId: worker.queueTagId,
+            queueTagName: worker.queueTagName,
+          }
+        : { kind: "all" },
+    ]),
+  );
+}
+
+function nextWorkerDisplayOrder(workerConfigs: AgentQueueWorkerConfig[]) {
+  if (workerConfigs.length === 0) {
+    return 0;
+  }
+
+  return (
+    Math.max(
+      ...workerConfigs.map((worker) =>
+        Number.isFinite(worker.displayOrder) ? worker.displayOrder : 0,
+      ),
+    ) + 1
+  );
+}
+
+function localWorkerConfig({
+  displayOrder,
+  name,
+}: {
+  displayOrder: number;
+  name: string;
+}): AgentQueueWorkerConfig {
+  const now = new Date().toISOString();
+
+  return {
+    createdAt: now,
+    displayOrder,
+    enabled: true,
+    name,
+    queueTagId: null,
+    queueTagName: null,
+    scopeKind: "all",
+    updatedAt: now,
+    workerId: `agent-worker-${Date.now().toString(36)}-${displayOrder.toString()}`,
+    workspaceId: "",
+  };
 }
 
 function areStringArraysEqual(first: string[], second: string[]) {

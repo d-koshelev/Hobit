@@ -90,7 +90,9 @@ class JdbcReadOnlyUiSmokeRuntime {
       clearAgentQueueTaskAssignment: this.unsupported,
       closeTerminalPtySession: this.unsupported,
       createAgentQueueTask: this.unsupported,
+      createAgentQueueWorker: this.unsupported,
       deleteAgentQueueTask: this.unsupported,
+      deleteAgentQueueWorker: this.unsupported,
       deleteSkill: this.unsupported,
       createGitCommit: this.unsupported,
       createJdbcConnector: async () => {
@@ -147,6 +149,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       listAgentExecutorRuns: this.unsupported,
       listAgentQueueTaskRunLinks: async () => [],
       listAgentQueueTasks: async () => [],
+      listAgentQueueWorkers: async () => [],
       listJdbcConnectionProfiles: async () => [],
       listJdbcConnectors: async () => {
         this.connectorListCallCount += 1;
@@ -170,6 +173,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       stopAgentQueueRunnerSession: this.unsupported,
       stopTerminalPtySession: this.unsupported,
       updateAgentQueueTask: this.unsupported,
+      updateAgentQueueWorker: this.unsupported,
       updateJdbcConnectionProfile: this.unsupported,
       updateJdbcConnector: async () => {
         this.updateConnectorCallCount += 1;

@@ -21,6 +21,8 @@ mod agent_queue_task_commands;
 mod agent_queue_task_dto;
 #[cfg(test)]
 mod agent_queue_task_dto_tests;
+mod agent_queue_worker_commands;
+mod agent_queue_worker_dto;
 mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
@@ -170,6 +172,10 @@ pub fn run() {
             agent_queue_task_commands::assign_agent_queue_task_to_executor,
             agent_queue_task_commands::clear_agent_queue_task_assignment,
             agent_queue_task_commands::delete_agent_queue_task,
+            agent_queue_worker_commands::list_agent_queue_workers,
+            agent_queue_worker_commands::create_agent_queue_worker,
+            agent_queue_worker_commands::update_agent_queue_worker,
+            agent_queue_worker_commands::delete_agent_queue_worker,
             agent_queue_execution_commands::start_assigned_agent_queue_task,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
             agent_queue_execution_commands::list_agent_queue_task_run_links,

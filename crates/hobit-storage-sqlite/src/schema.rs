@@ -140,6 +140,19 @@ CREATE TABLE IF NOT EXISTS agent_queue_task_run_links (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_workers (
+    worker_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    scope_kind TEXT NOT NULL,
+    queue_tag_id TEXT NULL,
+    queue_tag_name TEXT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notes (
     note_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -339,6 +352,9 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_task_started
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_run_id
     ON agent_queue_task_run_links(direct_work_run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workers_workspace_order
+    ON agent_queue_workers(workspace_id, display_order, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
     ON knowledge_documents(scope);

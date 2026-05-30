@@ -155,6 +155,18 @@ class QueueExecutorSmokeRuntime {
           : this.cloneTask();
       },
       createAgentQueueTask: async () => this.cloneTask(),
+      createAgentQueueWorker: async (request) => ({
+        createdAt: new Date().toISOString(),
+        displayOrder: request.displayOrder,
+        enabled: request.enabled,
+        name: request.name,
+        queueTagId: request.queueTagId ?? null,
+        queueTagName: request.queueTagName ?? null,
+        scopeKind: request.scopeKind,
+        updatedAt: new Date().toISOString(),
+        workerId: request.workerId ?? "smoke-worker",
+        workspaceId: WORKSPACE_ID,
+      }),
       deleteAgentQueueTask: async () => {
         if (this.viewMode === "delete-error") {
           throw new Error("Mock delete failure for Queue UI state.");
@@ -162,6 +174,7 @@ class QueueExecutorSmokeRuntime {
 
         return false;
       },
+      deleteAgentQueueWorker: async () => true,
       deleteSkill: this.unsupported,
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
@@ -218,6 +231,7 @@ class QueueExecutorSmokeRuntime {
 
         return this.queueTasks();
       },
+      listAgentQueueWorkers: async () => [],
       listJdbcConnectors: this.unsupported,
       listJdbcConnectionProfiles: async () => [],
       listSkills: this.unsupported,
@@ -263,6 +277,18 @@ class QueueExecutorSmokeRuntime {
       },
       updateAgentQueueTask: async (request) =>
         this.findTask(request.queueItemId) ?? this.cloneTask(),
+      updateAgentQueueWorker: async (request) => ({
+        createdAt: new Date().toISOString(),
+        displayOrder: request.displayOrder,
+        enabled: request.enabled,
+        name: request.name,
+        queueTagId: request.queueTagId ?? null,
+        queueTagName: request.queueTagName ?? null,
+        scopeKind: request.scopeKind,
+        updatedAt: new Date().toISOString(),
+        workerId: request.workerId,
+        workspaceId: WORKSPACE_ID,
+      }),
       updateJdbcConnectionProfile: this.unsupported,
       updateJdbcConnector: this.unsupported,
       updateSkill: this.unsupported,

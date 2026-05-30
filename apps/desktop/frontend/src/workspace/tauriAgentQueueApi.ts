@@ -11,20 +11,26 @@ import type {
   AgentQueueTaskRunStatus,
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskStatus,
+  AgentQueueWorkerConfig,
+  AgentQueueWorkerScopeKind,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
+  ListAgentQueueWorkersRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
 } from "./types";
 
 type TauriAgentQueueSnapshot = {
@@ -75,6 +81,19 @@ type TauriAgentQueueTask = {
   priority: number;
   execution_policy?: AgentQueueTaskExecutionPolicy | null;
   assigned_executor_widget_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TauriAgentQueueWorker = {
+  worker_id: string;
+  workspace_id: string;
+  name: string;
+  enabled: boolean;
+  scope_kind: string;
+  queue_tag_id: string | null;
+  queue_tag_name: string | null;
+  display_order: number;
   created_at: string;
   updated_at: string;
 };
@@ -236,6 +255,70 @@ export async function deleteAgentQueueTask(
     request: {
       workspace_id: request.workspaceId,
       queue_item_id: request.queueItemId,
+    },
+  });
+}
+
+export async function listAgentQueueWorkers(
+  request: ListAgentQueueWorkersRequest,
+): Promise<AgentQueueWorkerConfig[]> {
+  const workers = await invoke<TauriAgentQueueWorker[]>("list_agent_queue_workers", {
+    request: {
+      workspace_id: request.workspaceId,
+    },
+  });
+
+  return workers.map(normalizeAgentQueueWorker);
+}
+
+export async function createAgentQueueWorker(
+  request: CreateAgentQueueWorkerRequest,
+): Promise<AgentQueueWorkerConfig> {
+  const worker = await invoke<TauriAgentQueueWorker>("create_agent_queue_worker", {
+    request: {
+      workspace_id: request.workspaceId,
+      worker_id: request.workerId ?? null,
+      name: request.name,
+      enabled: request.enabled,
+      scope_kind: request.scopeKind,
+      queue_tag_id: request.queueTagId ?? null,
+      queue_tag_name: request.queueTagName ?? null,
+      display_order: request.displayOrder,
+    },
+  });
+
+  return normalizeAgentQueueWorker(worker);
+}
+
+export async function updateAgentQueueWorker(
+  request: UpdateAgentQueueWorkerRequest,
+): Promise<AgentQueueWorkerConfig | null> {
+  const worker = await invoke<TauriAgentQueueWorker | null>(
+    "update_agent_queue_worker",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        worker_id: request.workerId,
+        name: request.name,
+        enabled: request.enabled,
+        scope_kind: request.scopeKind,
+        queue_tag_id: request.queueTagId ?? null,
+        queue_tag_name: request.queueTagName ?? null,
+        display_order: request.displayOrder,
+      },
+    },
+  );
+
+  return worker ? normalizeAgentQueueWorker(worker) : null;
+}
+
+export async function deleteAgentQueueWorker(
+  request: DeleteAgentQueueWorkerRequest,
+): Promise<boolean> {
+  return invoke<boolean>("delete_agent_queue_worker", {
+    request: {
+      workspace_id: request.workspaceId,
+      worker_id: request.workerId,
     },
   });
 }
@@ -430,6 +513,27 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };
+}
+
+function normalizeAgentQueueWorker(
+  worker: TauriAgentQueueWorker,
+): AgentQueueWorkerConfig {
+  return {
+    workerId: worker.worker_id,
+    workspaceId: worker.workspace_id,
+    name: worker.name,
+    enabled: worker.enabled,
+    scopeKind: normalizeWorkerScopeKind(worker.scope_kind),
+    queueTagId: worker.queue_tag_id,
+    queueTagName: worker.queue_tag_name,
+    displayOrder: worker.display_order,
+    createdAt: worker.created_at,
+    updatedAt: worker.updated_at,
+  };
+}
+
+function normalizeWorkerScopeKind(scopeKind: string): AgentQueueWorkerScopeKind {
+  return scopeKind === "queue_tag" ? "queue_tag" : "all";
 }
 
 function normalizeExecutionPolicy(

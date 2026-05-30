@@ -53,6 +53,43 @@ export type AgentQueueTagSummary = {
   validationSummary: Record<AgentQueueTaskValidationStatus, number>;
 };
 
+export type AgentQueueWorkerScopeKind = "all" | "queue_tag";
+
+export type AgentQueueWorkerConfig = {
+  workerId: string;
+  workspaceId: string;
+  name: string;
+  enabled: boolean;
+  scopeKind: AgentQueueWorkerScopeKind;
+  queueTagId: string | null;
+  queueTagName: string | null;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateAgentQueueWorkerRequest = {
+  workspaceId: string;
+  workerId?: string;
+  name: string;
+  enabled: boolean;
+  scopeKind: AgentQueueWorkerScopeKind;
+  queueTagId?: string | null;
+  queueTagName?: string | null;
+  displayOrder: number;
+};
+
+export type UpdateAgentQueueWorkerRequest = CreateAgentQueueWorkerRequest & {
+  workerId: string;
+};
+
+export type DeleteAgentQueueWorkerRequest = {
+  workspaceId: string;
+  workerId: string;
+};
+
+export type ListAgentQueueWorkersRequest = { workspaceId: string };
+
 export type CreateAgentQueueTaskRequest = {
   workspaceId: string;
   title: string;

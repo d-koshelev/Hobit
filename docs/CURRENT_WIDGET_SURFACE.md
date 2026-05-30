@@ -472,10 +472,23 @@ Workspace Agent is the foreground interactive agent surface.
   and task id. Manual reorder controls and top/bottom task insertion are
   explicit UI actions; they update only Queue organization, pause the affected
   tag for review where applicable, and do not start work.
-- Worker model foundation is UI/model-only. Visible Agent Executor slots are
-  shown as Agent Workers that can be general-purpose or scoped to one queue
-  tag. Changing worker scope does not spawn a worker, start Codex, assign work,
-  or change Agent Executor runtime behavior.
+- Agent Worker configuration is persisted per Workspace through a narrow
+  worker-config model. Worker records store durable configuration only:
+  worker id, name, enabled/disabled flag, display order, and scope to all
+  queues or one queue tag. The browser/Vite development fallback keeps safe
+  in-memory worker config behavior.
+- Visible Agent Executor slots can seed default Agent Worker configs for
+  legacy Workspaces with no persisted workers. Worker config edits, including
+  add, rename, enable/disable, remove, and scope changes, do not spawn a
+  worker, start Codex, assign work, auto-run Queue items, or change Agent
+  Executor runtime behavior. Live process state, current execution state,
+  temporary failures, and live logs are not treated as durable Agent Worker
+  truth.
+- Scoped Agent Workers can be general-purpose or scoped to one queue tag. Tag
+  rename keeps scoped worker display coherent through the stable tag id/name
+  model. Deleting an empty scoped tag safely moves affected workers back to
+  All queues; deleting non-empty/running tags remains blocked by the existing
+  tag safety rules.
 - Each queue task shows execution status separately from validation status.
   `validating` has a lightweight visual indicator meaning validation/review is
   happening, not worker execution.

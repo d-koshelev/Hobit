@@ -31,12 +31,14 @@ import type {
   AgentQueueSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   CreateGitCommitRequest,
   CreateKnowledgeDocumentRequest,
   CreateWorkspaceNoteRequest,
@@ -44,6 +46,7 @@ import type {
   CreateWorkspaceRequest,
   CreateTerminalPtySessionRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   DeleteKnowledgeDocumentRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
@@ -77,6 +80,7 @@ import type {
   ListAgentExecutorRunsRequest,
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
+  ListAgentQueueWorkersRequest,
   ListKnowledgeDocumentsRequest,
   ListTerminalPtySessionsRequest,
   ListWorkspaceNotesRequest,
@@ -100,6 +104,7 @@ import type {
   TerminalPtySession,
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
   UpdateKnowledgeDocumentRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
@@ -253,6 +258,18 @@ export type WorkspaceApi = {
   ) => Promise<AgentQueueTask | null>;
   deleteAgentQueueTask: (
     request: DeleteAgentQueueTaskRequest,
+  ) => Promise<boolean>;
+  listAgentQueueWorkers: (
+    request: ListAgentQueueWorkersRequest,
+  ) => Promise<AgentQueueWorkerConfig[]>;
+  createAgentQueueWorker: (
+    request: CreateAgentQueueWorkerRequest,
+  ) => Promise<AgentQueueWorkerConfig>;
+  updateAgentQueueWorker: (
+    request: UpdateAgentQueueWorkerRequest,
+  ) => Promise<AgentQueueWorkerConfig | null>;
+  deleteAgentQueueWorker: (
+    request: DeleteAgentQueueWorkerRequest,
   ) => Promise<boolean>;
   assignAgentQueueTaskToExecutor: (
     request: AssignAgentQueueTaskToExecutorRequest,

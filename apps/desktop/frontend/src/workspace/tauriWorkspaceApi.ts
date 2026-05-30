@@ -6,8 +6,10 @@ import { getAgentMonitoringSnapshot } from "./tauriAgentMonitoringApi";
 import {
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
+  createAgentQueueWorker,
   createAgentQueueItemFromProposal,
   createAgentQueueTask,
+  deleteAgentQueueWorker,
   deleteAgentQueueTask,
   getAgentQueueSnapshot,
   getAgentQueueTaskLatestRunLink,
@@ -15,10 +17,12 @@ import {
   getAgentQueueTask,
   listAgentQueueTaskRunLinks,
   listAgentQueueTasks,
+  listAgentQueueWorkers,
   startAssignedAgentQueueTask,
   startAgentQueueRunnerSession,
   stopAgentQueueRunnerSession,
   updateAgentQueueTask,
+  updateAgentQueueWorker,
 } from "./tauriAgentQueueApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
 import {
@@ -153,6 +157,10 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getAgentQueueTask,
   updateAgentQueueTask,
   deleteAgentQueueTask,
+  listAgentQueueWorkers,
+  createAgentQueueWorker,
+  updateAgentQueueWorker,
+  deleteAgentQueueWorker,
   assignAgentQueueTaskToExecutor,
   clearAgentQueueTaskAssignment,
   startAssignedAgentQueueTask,

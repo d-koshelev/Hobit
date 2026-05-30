@@ -29,6 +29,7 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Default");
     expect(document.body.textContent).toContain("Agent Executor 1");
+    expect(document.body.textContent).toContain("Add worker");
     expect(document.body.textContent).toContain("Needs review");
   });
 
@@ -107,13 +108,17 @@ function foundationController(): AgentQueueFoundationController {
     globalMessage: "Workers are stopped.",
     globalStatus: "stopped",
     onCreateQueueTag: vi.fn(() => true),
+    onCreateWorker: vi.fn(),
     onDeleteQueueTag: vi.fn(() => true),
+    onDeleteWorker: vi.fn(),
     onPauseQueueTag: vi.fn(),
+    onRenameWorker: vi.fn(),
     onRenameQueueTag: vi.fn(async () => true),
     onResumeQueueTag: vi.fn(),
     onStartWorkers: vi.fn(),
     onStopAndKillRunning: vi.fn(),
     onStopWorkers: vi.fn(),
+    onWorkerEnabledChange: vi.fn(),
     onWorkerScopeChange: vi.fn(),
     pausedQueueTagIds: new Set(),
     queueTags: [
@@ -143,6 +148,8 @@ function foundationController(): AgentQueueFoundationController {
     workers: [
       {
         currentItemId: null,
+        displayOrder: 0,
+        enabled: true,
         lastReportSummary: null,
         name: "Agent Executor 1",
         scope: { kind: "queue_tag", queueTagId: "default", queueTagName: "Default" },

@@ -1,15 +1,16 @@
 use hobit_storage_sqlite::{
-    AgentQueueTaskRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
-    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueTaskRow, AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow,
+    KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow,
+    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 use super::{
-    AgentQueueTaskSummary, JdbcConnectionProfileSummary, JdbcConnectorSummary,
-    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SharedStateObjectSummary,
-    SkillSummary, WidgetInstanceSummary, WidgetLogSummary, WidgetResultSummary, WidgetRunSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceNoteSummary, WorkspaceSummary,
+    AgentQueueTaskSummary, AgentQueueWorkerSummary, JdbcConnectionProfileSummary,
+    JdbcConnectorSummary, KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary,
+    SharedStateObjectSummary, SkillSummary, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceNoteSummary, WorkspaceSummary,
 };
 
 pub(super) fn workbench_summary(row: WorkspaceWorkbenchRow) -> WorkbenchSummary {
@@ -238,6 +239,21 @@ pub(super) fn agent_queue_task_summary(row: AgentQueueTaskRow) -> AgentQueueTask
         priority: row.priority,
         execution_policy: row.execution_policy,
         assigned_executor_widget_id: row.assigned_executor_widget_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    }
+}
+
+pub(super) fn agent_queue_worker_summary(row: AgentQueueWorkerRow) -> AgentQueueWorkerSummary {
+    AgentQueueWorkerSummary {
+        worker_id: row.worker_id,
+        workspace_id: row.workspace_id,
+        name: row.name,
+        enabled: row.enabled,
+        scope_kind: row.scope_kind,
+        queue_tag_id: row.queue_tag_id,
+        queue_tag_name: row.queue_tag_name,
+        display_order: row.display_order,
         created_at: row.created_at,
         updated_at: row.updated_at,
     }

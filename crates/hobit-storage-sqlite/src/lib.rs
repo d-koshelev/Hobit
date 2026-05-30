@@ -16,16 +16,16 @@ mod rows;
 mod time;
 
 pub use inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectionProfileUpdate,
-    JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask,
-    NewAgentQueueTaskRunLink, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
-    NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceNote, NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate,
-    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
+    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
+    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
+    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
+    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 pub use rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
+    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
     KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
     WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
     WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,

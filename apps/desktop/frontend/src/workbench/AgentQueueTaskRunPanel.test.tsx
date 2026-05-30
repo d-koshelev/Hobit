@@ -274,6 +274,8 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       workers: [
         {
           currentItemId: null,
+          displayOrder: 0,
+          enabled: true,
           lastReportSummary: null,
           name: "Agent Executor visible",
           scope: {
@@ -342,8 +344,10 @@ function renderPanel(
         selectedTask={queueTask()}
         workers={[
           {
-            currentItemId: null,
-            lastReportSummary: null,
+          currentItemId: null,
+          displayOrder: 0,
+          enabled: true,
+          lastReportSummary: null,
             name: "Agent Executor visible",
             scope: { kind: "all" },
             status: "idle",

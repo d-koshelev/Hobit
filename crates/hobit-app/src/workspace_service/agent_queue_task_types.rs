@@ -98,6 +98,50 @@ pub struct AgentQueueTaskSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateAgentQueueWorkerInput {
+    pub workspace_id: String,
+    pub worker_id: Option<String>,
+    pub name: String,
+    pub enabled: bool,
+    pub scope_kind: String,
+    pub queue_tag_id: Option<String>,
+    pub queue_tag_name: Option<String>,
+    pub display_order: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpdateAgentQueueWorkerInput {
+    pub workspace_id: String,
+    pub worker_id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub scope_kind: String,
+    pub queue_tag_id: Option<String>,
+    pub queue_tag_name: Option<String>,
+    pub display_order: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeleteAgentQueueWorkerInput {
+    pub workspace_id: String,
+    pub worker_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkerSummary {
+    pub worker_id: String,
+    pub workspace_id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub scope_kind: String,
+    pub queue_tag_id: Option<String>,
+    pub queue_tag_name: Option<String>,
+    pub display_order: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueTaskRunLinkId(pub String);
 
 impl AgentQueueTaskRunLinkId {

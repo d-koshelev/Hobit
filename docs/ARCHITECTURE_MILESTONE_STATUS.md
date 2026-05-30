@@ -23,11 +23,14 @@ behavior, or Workspace Agent context wiring.
   Queue also has a frontend Queue + Workers model/UI foundation: queue tags as
   routing/dependency-affinity groups, explicit frontend tag create/rename/
   pause/resume/delete-empty management, local tag pause/review state, Agent
-  Executor slots represented as worker slots that can be scoped to all queues
-  or one tag, separate execution and validation statuses, local START / STOP /
-  STOP + KILL RUNNING controls that do not auto-run items, item types including
+  Agent Worker configuration persisted per Workspace for durable worker id,
+  name, enabled/disabled flag, display order, and scope to all queues or one
+  tag, separate execution and validation statuses, local START / STOP / STOP +
+  KILL RUNNING controls that do not auto-run items, item types including
   independent Diff Review work items, and coordinator-owned finalization
-  vocabulary. Queue item edits are explicit save/cancel operations; saving an
+  vocabulary. Persisted Agent Worker config does not persist current running
+  process, current item execution, temporary failure details, or live logs as
+  durable truth. Queue item edits are explicit save/cancel operations; saving an
   edit locally pauses the related queue tag for coordinator review, resume is
   explicit, and existing running Executor work is not killed by edit or resume.
   Queue items now have a frontend/model `dependsOn` list with derived

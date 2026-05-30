@@ -4,14 +4,18 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   StartAgentQueueRunnerSessionRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
 } from "../../workspace/types";
 import type { DirectWorkRunHandoffInput } from "../types";
 import {
@@ -274,6 +278,125 @@ describe("useAgentQueueController executionPolicy draft", () => {
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("creates default persisted workers for a legacy workspace with no workers", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(harness.createWorkerRequests[0]?.enabled).toBe(true);
+    expect(harness.createWorkerRequests[0]?.name).toBe("Agent Executor 1");
+    expect(harness.createWorkerRequests[0]?.scopeKind).toBe("all");
+    expect(harness.createWorkerRequests[0]?.workerId).toBe("executor-1");
+    expect(hook.result.current.foundation.workers[0]?.enabled).toBe(true);
+    expect(hook.result.current.foundation.workers[0]?.name).toBe(
+      "Agent Executor 1",
+    );
+    expect(hook.result.current.foundation.workers[0]?.workerId).toBe(
+      "executor-1",
+    );
+
+    hook.unmount();
+  });
+
+  it("creates, renames, scopes, disables, and deletes worker config without starting execution", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onCreateQueueTag("Review");
+      hook.result.current.foundation.onCreateWorker();
+    });
+    await flushHookEffects();
+
+    const createdWorker =
+      hook.result.current.foundation.workers[
+        hook.result.current.foundation.workers.length - 1
+      ];
+    expect(createdWorker?.name).toBe("Agent Worker 2");
+
+    act(() => {
+      hook.result.current.foundation.onRenameWorker(
+        createdWorker?.workerId ?? "",
+        "Review Worker",
+      );
+      hook.result.current.foundation.onWorkerScopeChange(
+        createdWorker?.workerId ?? "",
+        {
+          kind: "queue_tag",
+          queueTagId: "review",
+          queueTagName: "Review",
+        },
+      );
+      hook.result.current.foundation.onWorkerEnabledChange(
+        createdWorker?.workerId ?? "",
+        false,
+      );
+    });
+    await flushHookEffects();
+
+    const updatedWorker = hook.result.current.foundation.workers.find(
+      (worker) => worker.workerId === createdWorker?.workerId,
+    );
+    expect(updatedWorker?.enabled).toBe(false);
+    expect(updatedWorker?.name).toBe("Review Worker");
+    expect(updatedWorker?.scope).toEqual({
+      kind: "queue_tag",
+      queueTagId: "review",
+      queueTagName: "Review",
+    });
+
+    act(() => {
+      hook.result.current.foundation.onDeleteWorker(createdWorker?.workerId ?? "");
+    });
+    await flushHookEffects();
+
+    expect(
+      hook.result.current.foundation.workers.some(
+        (worker) => worker.workerId === createdWorker?.workerId,
+      ),
+    ).toBe(false);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("blocks removing a worker assigned to a queue task", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        assignedWorkerId: "executor-1",
+        queueItemId: "queue-1",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onDeleteWorker("executor-1");
+    });
+
+    expect(hook.result.current.foundation.tagManagementError).toBe(
+      "Clear this worker's task assignment before removing it.",
+    );
+    expect(harness.deleteWorkerRequests).toHaveLength(0);
 
     hook.unmount();
   });
@@ -1554,6 +1677,7 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const tasks = new Map<string, AgentQueueTask>(
     initialTasks.map((task) => [task.queueItemId, task]),
   );
+  const workers = new Map<string, AgentQueueWorkerConfig>();
   const createRequests: Array<Omit<CreateAgentQueueTaskRequest, "workspaceId">> =
     [];
   const updateRequests: Array<Omit<UpdateAgentQueueTaskRequest, "workspaceId">> =
@@ -1572,6 +1696,15 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
   > = [];
   const deleteRequests: Array<Omit<DeleteAgentQueueTaskRequest, "workspaceId">> =
     [];
+  const createWorkerRequests: Array<
+    Omit<CreateAgentQueueWorkerRequest, "workspaceId">
+  > = [];
+  const updateWorkerRequests: Array<
+    Omit<UpdateAgentQueueWorkerRequest, "workspaceId">
+  > = [];
+  const deleteWorkerRequests: Array<
+    Omit<DeleteAgentQueueWorkerRequest, "workspaceId">
+  > = [];
   const getRequests: string[] = [];
   const handoffs: DirectWorkRunHandoffInput[] = [];
   const runLinkRequests: string[] = [];
@@ -1630,6 +1763,44 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
     ) => {
       deleteRequests.push(request);
       return tasks.delete(request.queueItemId);
+    },
+    onListAgentQueueWorkers: async () => Array.from(workers.values()),
+    onCreateAgentQueueWorker: async (request) => {
+      createWorkerRequests.push(request);
+      const worker = agentQueueWorker({
+        displayOrder: request.displayOrder,
+        enabled: request.enabled,
+        name: request.name,
+        queueTagId: request.queueTagId ?? null,
+        queueTagName: request.queueTagName ?? null,
+        scopeKind: request.scopeKind,
+        workerId: request.workerId ?? `worker-${workers.size + 1}`,
+      });
+      workers.set(worker.workerId, worker);
+      return worker;
+    },
+    onUpdateAgentQueueWorker: async (request) => {
+      updateWorkerRequests.push(request);
+      const worker = workers.get(request.workerId);
+      if (!worker) {
+        return null;
+      }
+      const updatedWorker = {
+        ...worker,
+        displayOrder: request.displayOrder,
+        enabled: request.enabled,
+        name: request.name,
+        queueTagId: request.queueTagId ?? null,
+        queueTagName: request.queueTagName ?? null,
+        scopeKind: request.scopeKind,
+        updatedAt: "2026-05-20T10:01:00.000Z",
+      };
+      workers.set(updatedWorker.workerId, updatedWorker);
+      return updatedWorker;
+    },
+    onDeleteAgentQueueWorker: async (request) => {
+      deleteWorkerRequests.push(request);
+      return workers.delete(request.workerId);
     },
     onClearAgentQueueTaskAssignment: async (request) => {
       clearRequests.push(request);
@@ -1729,6 +1900,8 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
     clearRequests,
     createRequests,
     deleteRequests,
+    createWorkerRequests,
+    deleteWorkerRequests,
     get getRequests() {
       return getRequests;
     },
@@ -1737,12 +1910,16 @@ function createQueueHarness(initialTasks: AgentQueueTask[]) {
       return listRequests;
     },
     options,
+    replaceWorker(worker: AgentQueueWorkerConfig) {
+      workers.set(worker.workerId, worker);
+    },
     replaceTask(task: AgentQueueTask) {
       tasks.set(task.queueItemId, task);
     },
     startRequests,
     runLinkRequests,
     updateRequests,
+    updateWorkerRequests,
   };
 }
 
@@ -1759,6 +1936,24 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
     status: "draft",
     title: "Queue task",
     updatedAt: "2026-05-20T10:00:00.000Z",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function agentQueueWorker(
+  overrides: Partial<AgentQueueWorkerConfig> = {},
+): AgentQueueWorkerConfig {
+  return {
+    createdAt: "2026-05-20T10:00:00.000Z",
+    displayOrder: 0,
+    enabled: true,
+    name: "Agent Executor 1",
+    queueTagId: null,
+    queueTagName: null,
+    scopeKind: "all",
+    updatedAt: "2026-05-20T10:00:00.000Z",
+    workerId: "executor-1",
     workspaceId: "workspace-1",
     ...overrides,
   };

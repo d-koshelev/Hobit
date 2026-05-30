@@ -5,20 +5,25 @@ import type {
   AgentQueueSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
+  AgentQueueWorkerConfig,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
   CreateAgentQueueTaskRequest,
+  CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
+  DeleteAgentQueueWorkerRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
+  ListAgentQueueWorkersRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
   UpdateAgentQueueTaskRequest,
+  UpdateAgentQueueWorkerRequest,
 } from "./types";
 
 export function createAgentQueueItemFromProposal(
@@ -61,6 +66,30 @@ export function deleteAgentQueueTask(
   request: DeleteAgentQueueTaskRequest,
 ): Promise<boolean> {
   return getWorkspaceApi().deleteAgentQueueTask(request);
+}
+
+export function listAgentQueueWorkers(
+  request: ListAgentQueueWorkersRequest,
+): Promise<AgentQueueWorkerConfig[]> {
+  return getWorkspaceApi().listAgentQueueWorkers(request);
+}
+
+export function createAgentQueueWorker(
+  request: CreateAgentQueueWorkerRequest,
+): Promise<AgentQueueWorkerConfig> {
+  return getWorkspaceApi().createAgentQueueWorker(request);
+}
+
+export function updateAgentQueueWorker(
+  request: UpdateAgentQueueWorkerRequest,
+): Promise<AgentQueueWorkerConfig | null> {
+  return getWorkspaceApi().updateAgentQueueWorker(request);
+}
+
+export function deleteAgentQueueWorker(
+  request: DeleteAgentQueueWorkerRequest,
+): Promise<boolean> {
+  return getWorkspaceApi().deleteAgentQueueWorker(request);
 }
 
 export function assignAgentQueueTaskToExecutor(

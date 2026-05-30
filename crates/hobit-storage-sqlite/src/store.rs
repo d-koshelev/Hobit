@@ -9,17 +9,17 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, JdbcConnectionProfileUpdate,
-    JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueTask,
-    NewAgentQueueTaskRunLink, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
-    NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun,
-    NewWorkspaceNote, NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate,
-    WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
+    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
+    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
+    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
+    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
+    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
     KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
     WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
     WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
@@ -29,6 +29,7 @@ use crate::schema;
 mod agent_queue_items;
 mod agent_queue_task_run_links;
 mod agent_queue_tasks;
+mod agent_queue_workers;
 mod events;
 mod jdbc_connection_profiles;
 mod jdbc_connectors;
@@ -49,6 +50,8 @@ mod workspaces;
 mod agent_queue_task_run_links_tests;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
+#[cfg(test)]
+mod agent_queue_workers_tests;
 #[cfg(test)]
 mod jdbc_connection_profiles_tests;
 #[cfg(test)]
