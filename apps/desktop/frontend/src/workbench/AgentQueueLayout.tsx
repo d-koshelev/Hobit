@@ -11,6 +11,7 @@ import {
 type AgentQueueLayoutProps = {
   detailsPanel: ReactNode;
   isTaskPaneResizable?: boolean;
+  sidebar: ReactNode;
   taskList: ReactNode;
 };
 
@@ -22,11 +23,12 @@ const MIN_DETAILS_PANE_WIDTH = 360;
 export function AgentQueueLayout({
   detailsPanel,
   isTaskPaneResizable = false,
+  sidebar,
   taskList,
 }: AgentQueueLayoutProps) {
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const resizeStartRef = useRef<{
-    layoutLeft: number;
+    taskPaneLeft: number;
     layoutWidth: number;
   } | null>(null);
   const [taskPaneWidth, setTaskPaneWidth] = useState(DEFAULT_TASK_PANE_WIDTH);
@@ -57,7 +59,7 @@ export function AgentQueueLayout({
       }
 
       setTaskPaneWidth(
-        clampTaskPaneWidth(event.clientX - resizeStart.layoutLeft),
+        clampTaskPaneWidth(event.clientX - resizeStart.taskPaneLeft),
       );
     }
 
@@ -83,14 +85,16 @@ export function AgentQueueLayout({
     }
 
     const layoutRect = layoutRef.current?.getBoundingClientRect();
+    const taskPaneRect =
+      event.currentTarget.previousElementSibling?.getBoundingClientRect();
 
-    if (!layoutRect) {
+    if (!layoutRect || !taskPaneRect) {
       return;
     }
 
     event.preventDefault();
     resizeStartRef.current = {
-      layoutLeft: layoutRect.left,
+      taskPaneLeft: taskPaneRect.left,
       layoutWidth: layoutRect.width,
     };
     setIsResizing(true);
@@ -109,6 +113,7 @@ export function AgentQueueLayout({
       ref={layoutRef}
       style={style}
     >
+      {sidebar}
       {taskList}
       {isTaskPaneResizable ? (
         <button

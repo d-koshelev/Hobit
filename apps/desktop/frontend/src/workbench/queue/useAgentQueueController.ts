@@ -14,11 +14,22 @@ import {
   errorToMessage,
   MAX_PRIORITY,
   MIN_PRIORITY,
+  normalizeItemType,
+  normalizeQueueTag,
   normalizeTaskExecutionPolicy,
   normalizeTaskStatus,
+  normalizeValidationStatus,
+  queueTagsFromTasks,
+  queueTagNameToId,
   shortWidgetInstanceId,
+  validationSummary,
+  workersFromExecutorSlots,
+  type AgentWorkerSummary,
+  type QueueGlobalStatus,
   type QueueFilter,
+  type QueueTagSummary,
   type TaskDraft,
+  type WorkerScope,
   validateDraft,
 } from "../agentQueueTaskUiModel";
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
@@ -133,6 +144,21 @@ export type AgentQueueDeleteController = {
   onRequest: () => void;
 };
 
+export type AgentQueueFoundationController = {
+  globalMessage: string | null;
+  globalStatus: QueueGlobalStatus;
+  onPauseQueueTag: (queueTagId: string) => void;
+  onResumeQueueTag: (queueTagId: string) => void;
+  onStartWorkers: () => void;
+  onStopAndKillRunning: () => void;
+  onStopWorkers: () => void;
+  onWorkerScopeChange: (workerId: string, scope: WorkerScope) => void;
+  pausedQueueTagIds: ReadonlySet<string>;
+  queueTags: QueueTagSummary[];
+  validationSummary: Record<string, number>;
+  workers: AgentWorkerSummary[];
+};
+
 export function useAgentQueueController({
   agentExecutorSlots = [],
   onAssignAgentQueueTaskToExecutor,
@@ -220,10 +246,40 @@ export function useAgentQueueController({
   const [isAutorunStopping, setIsAutorunStopping] = useState(false);
   const [autorunMessage, setAutorunMessage] = useState<string | null>(null);
   const [autorunError, setAutorunError] = useState<string | null>(null);
+  const [globalStatus, setGlobalStatus] =
+    useState<QueueGlobalStatus>("stopped");
+  const [globalMessage, setGlobalMessage] = useState<string | null>(
+    "Workers are stopped. START only opens local scheduling; it does not run tasks automatically.",
+  );
+  const [pausedQueueTagIds, setPausedQueueTagIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [workerScopes, setWorkerScopes] = useState<Map<string, WorkerScope>>(
+    () => new Map(),
+  );
+  const [localTaskFields, setLocalTaskFields] = useState<
+    Map<
+      string,
+      Pick<
+        AgentQueueTask,
+        | "assignedWorkerId"
+        | "coordinatorStatus"
+        | "itemType"
+        | "queueTagId"
+        | "queueTagName"
+        | "validationStatus"
+      >
+    >
+  >(() => new Map());
+  const localTaskFieldsRef = useRef(localTaskFields);
 
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+
+  useEffect(() => {
+    localTaskFieldsRef.current = localTaskFields;
+  }, [localTaskFields]);
 
   const isDirty = Boolean(
     selectedTask &&
@@ -231,9 +287,13 @@ export function useAgentQueueController({
         draft.description !== selectedTask.description ||
         draft.executionPolicy !==
           normalizeTaskExecutionPolicy(selectedTask.executionPolicy) ||
+        draft.itemType !== normalizeItemType(selectedTask.itemType) ||
         draft.prompt !== selectedTask.prompt ||
+        draft.queueTagName !== normalizeQueueTag(selectedTask).queueTagName ||
         draft.status !== normalizeTaskStatus(selectedTask.status) ||
-        draft.priority !== selectedTask.priority),
+        draft.priority !== selectedTask.priority ||
+        draft.validationStatus !==
+          normalizeValidationStatus(selectedTask.validationStatus)),
   );
 
   const filteredTasks = useMemo(() => {
@@ -243,6 +303,24 @@ export function useAgentQueueController({
 
     return tasks.filter((task) => task.status === statusFilter);
   }, [statusFilter, tasks]);
+  const queueTags = useMemo(
+    () => queueTagsFromTasks(tasks, pausedQueueTagIds),
+    [pausedQueueTagIds, tasks],
+  );
+  const workers = useMemo(
+    () =>
+      workersFromExecutorSlots({
+        pausedQueueTagIds,
+        slots: agentExecutorSlots,
+        tasks,
+        workerScopes,
+      }),
+    [agentExecutorSlots, pausedQueueTagIds, tasks, workerScopes],
+  );
+  const queueValidationSummary = useMemo(
+    () => validationSummary(tasks),
+    [tasks],
+  );
 
   const loadTasks = useCallback(
     async (
@@ -272,7 +350,7 @@ export function useAgentQueueController({
       setValidationMessage(null);
 
       try {
-        const loadedTasks = await onListAgentQueueTasks();
+        const loadedTasks = (await onListAgentQueueTasks()).map(mergeTaskFoundation);
         tasksRef.current = loadedTasks;
         setTasks(loadedTasks);
 
@@ -420,13 +498,21 @@ export function useAgentQueueController({
   const repoRoot = repoRootDraft.trim();
   const codexExecutable = codexExecutableDraft.trim();
   const startApiAvailable = Boolean(onStartAssignedAgentQueueTask);
-  const readinessMessage = selectedTask
-    ? queueRunReadinessMessage({
-        isDirty,
-        selectedTask,
-        startApiAvailable,
-      })
-    : "Assign an Agent Executor before running.";
+  const selectedQueueTagId = selectedTask
+    ? normalizeQueueTag(selectedTask).queueTagId
+    : null;
+  const selectedQueueTagPaused = Boolean(
+    selectedQueueTagId && pausedQueueTagIds.has(selectedQueueTagId),
+  );
+  const readinessMessage = selectedQueueTagPaused
+    ? "Resume this queue tag before running the selected task."
+    : selectedTask
+      ? queueRunReadinessMessage({
+          isDirty,
+          selectedTask,
+          startApiAvailable,
+        })
+      : "Assign an Agent Executor before running.";
   const preconditionMessages = useMemo(
     () =>
       readinessMessage
@@ -474,6 +560,11 @@ export function useAgentQueueController({
     isStarting: isAutorunStarting,
     repoRoot,
   });
+  if (pausedQueueTagIds.size > 0) {
+    autorunPreconditionMessages.unshift(
+      "Resume paused queue tags before arming Queue Autorun.",
+    );
+  }
   const isAutorunActive = Boolean(autorunSnapshot?.isActive);
   const canArmAutorun =
     autorunPreconditionMessages.length === 0 &&
@@ -529,8 +620,22 @@ export function useAgentQueueController({
         status: taskDraft.status,
         priority: taskDraft.priority,
         executionPolicy: taskDraft.executionPolicy,
+        itemType: taskDraft.itemType,
+        queueTagId: queueTagNameToId(taskDraft.queueTagName),
+        queueTagName: taskDraft.queueTagName.trim(),
+        validationStatus: taskDraft.validationStatus,
       });
-      applyUpdatedTask(createdTask, { select: true });
+      const taskFoundation = {
+        itemType: taskDraft.itemType,
+        queueTagId: queueTagNameToId(taskDraft.queueTagName),
+        queueTagName: taskDraft.queueTagName.trim(),
+        validationStatus: taskDraft.validationStatus,
+        coordinatorStatus: "not_reported" as const,
+      };
+      setLocalTaskFields((current) =>
+        new Map(current).set(createdTask.queueItemId, taskFoundation),
+      );
+      applyUpdatedTask({ ...createdTask, ...taskFoundation }, { select: true });
       return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create queue task."));
@@ -580,7 +685,9 @@ export function useAgentQueueController({
       setSelectedDraft(detail);
       setTasks((currentTasks) =>
         currentTasks.map((task) =>
-          task.queueItemId === detail.queueItemId ? detail : task,
+          task.queueItemId === detail.queueItemId
+            ? mergeTaskFoundation(detail)
+            : task,
         ),
       );
       setSaveStateText("Saved");
@@ -622,6 +729,10 @@ export function useAgentQueueController({
         status: draft.status,
         priority: draft.priority,
         executionPolicy: draft.executionPolicy,
+        itemType: draft.itemType,
+        queueTagId: queueTagNameToId(draft.queueTagName),
+        queueTagName: draft.queueTagName.trim(),
+        validationStatus: draft.validationStatus,
       });
 
       if (!updatedTask) {
@@ -630,7 +741,32 @@ export function useAgentQueueController({
         return;
       }
 
-      applyUpdatedTask(updatedTask, { select: true });
+      const queueTagId = queueTagNameToId(draft.queueTagName);
+      const validationStatus =
+        draft.validationStatus === "not_started"
+          ? "needs_review"
+          : draft.validationStatus;
+      const taskFoundation = {
+        itemType: draft.itemType,
+        queueTagId,
+        queueTagName: draft.queueTagName.trim(),
+        validationStatus,
+        coordinatorStatus: "awaiting_coordinator_review" as const,
+      };
+      setPausedQueueTagIds((current) => new Set(current).add(queueTagId));
+      setLocalTaskFields((current) =>
+        new Map(current).set(updatedTask.queueItemId, {
+          ...(current.get(updatedTask.queueItemId) ?? {}),
+          ...taskFoundation,
+        }),
+      );
+      applyUpdatedTask({ ...updatedTask, ...taskFoundation }, { select: true });
+      setValidationMessage(
+        "Editing paused this queue tag until coordinator review/resume",
+      );
+      setGlobalMessage(
+        "Editing paused this queue tag until coordinator review/resume",
+      );
       setSaveStateText("Saved");
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to save queue task."));
@@ -737,6 +873,47 @@ export function useAgentQueueController({
     updateDraft({ priority });
   }
 
+  function startWorkers() {
+    setGlobalStatus("running");
+    setGlobalMessage(
+      "Queue workers are open for eligible items. This does not start real workers or run tasks automatically.",
+    );
+  }
+
+  function stopWorkers() {
+    setGlobalStatus("stopped");
+    setGlobalMessage(
+      "Scheduling new worker work is stopped. Running Executor work, if any, remains owned by Agent Executor.",
+    );
+  }
+
+  function stopAndKillRunning() {
+    setGlobalStatus("stopped");
+    setGlobalMessage(
+      "STOP + KILL RUNNING requested. Queue does not own running processes here; supported termination stays in Agent Executor and affected items need coordinator review.",
+    );
+  }
+
+  function pauseQueueTag(queueTagId: string) {
+    setPausedQueueTagIds((current) => new Set(current).add(queueTagId));
+    setGlobalMessage(
+      "Queue tag paused. Workers must not take new items from that tag until coordinator resume.",
+    );
+  }
+
+  function resumeQueueTag(queueTagId: string) {
+    setPausedQueueTagIds((current) => {
+      const next = new Set(current);
+      next.delete(queueTagId);
+      return next;
+    });
+    setGlobalMessage("Queue tag resumed by coordinator review.");
+  }
+
+  function changeWorkerScope(workerId: string, scope: WorkerScope) {
+    setWorkerScopes((current) => new Map(current).set(workerId, scope));
+  }
+
   async function assignSelectedTask() {
     if (
       !selectedTask ||
@@ -759,7 +936,16 @@ export function useAgentQueueController({
         executorWidgetInstanceId: selectedExecutorWidgetId,
         queueItemId: selectedTask.queueItemId,
       });
-      applyUpdatedTask(updatedTask, { select: true });
+      setLocalTaskFields((current) =>
+        new Map(current).set(updatedTask.queueItemId, {
+          ...(current.get(updatedTask.queueItemId) ?? {}),
+          assignedWorkerId: selectedExecutorWidgetId,
+        }),
+      );
+      applyUpdatedTask(
+        { ...updatedTask, assignedWorkerId: selectedExecutorWidgetId },
+        { select: true },
+      );
       setAssignmentMessage("Assignment saved.");
     } catch (error) {
       setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
@@ -788,7 +974,13 @@ export function useAgentQueueController({
       const updatedTask = await onClearAgentQueueTaskAssignment({
         queueItemId: selectedTask.queueItemId,
       });
-      applyUpdatedTask(updatedTask, { select: true });
+      setLocalTaskFields((current) =>
+        new Map(current).set(updatedTask.queueItemId, {
+          ...(current.get(updatedTask.queueItemId) ?? {}),
+          assignedWorkerId: null,
+        }),
+      );
+      applyUpdatedTask({ ...updatedTask, assignedWorkerId: null }, { select: true });
       setAssignmentMessage("Assignment cleared.");
     } catch (error) {
       setAssignmentError(
@@ -974,14 +1166,19 @@ export function useAgentQueueController({
   }
 
   function setSelectedDraft(task: AgentQueueTask) {
-    setSelectedTask(task);
+    const mergedTask = mergeTaskFoundation(task);
+    const queueTag = normalizeQueueTag(mergedTask);
+    setSelectedTask(mergedTask);
     setDraft({
-      description: task.description,
-      executionPolicy: normalizeTaskExecutionPolicy(task.executionPolicy),
-      priority: task.priority,
-      prompt: task.prompt,
-      status: normalizeTaskStatus(task.status),
-      title: task.title,
+      description: mergedTask.description,
+      executionPolicy: normalizeTaskExecutionPolicy(mergedTask.executionPolicy),
+      itemType: normalizeItemType(mergedTask.itemType),
+      priority: mergedTask.priority,
+      prompt: mergedTask.prompt,
+      queueTagName: queueTag.queueTagName,
+      status: normalizeTaskStatus(mergedTask.status),
+      title: mergedTask.title,
+      validationStatus: normalizeValidationStatus(mergedTask.validationStatus),
     });
   }
 
@@ -989,12 +1186,13 @@ export function useAgentQueueController({
     task: AgentQueueTask,
     options?: { select?: boolean },
   ) {
-    const nextTasks = reconcileQueueTask(tasksRef.current, task);
+    const mergedTask = mergeTaskFoundation(task);
+    const nextTasks = reconcileQueueTask(tasksRef.current, mergedTask);
     tasksRef.current = nextTasks;
     setTasks(nextTasks);
 
-    if (options?.select || selectedTask?.queueItemId === task.queueItemId) {
-      setSelectedDraft(task);
+    if (options?.select || selectedTask?.queueItemId === mergedTask.queueItemId) {
+      setSelectedDraft(mergedTask);
     }
   }
 
@@ -1002,6 +1200,32 @@ export function useAgentQueueController({
     setSelectedTask(null);
     setDraft(emptyDraft());
     setSaveStateText("Saved");
+  }
+
+  function mergeTaskFoundation(task: AgentQueueTask): AgentQueueTask {
+    const localFields = localTaskFieldsRef.current.get(task.queueItemId);
+    const queueTag = normalizeQueueTag({
+      queueTagId: localFields?.queueTagId ?? task.queueTagId,
+      queueTagName: localFields?.queueTagName ?? task.queueTagName,
+    });
+
+    return {
+      ...task,
+      assignedWorkerId:
+        localFields?.assignedWorkerId ??
+        task.assignedWorkerId ??
+        task.assignedExecutorWidgetId,
+      coordinatorStatus:
+        localFields?.coordinatorStatus ??
+        task.coordinatorStatus ??
+        "not_reported",
+      itemType: localFields?.itemType ?? normalizeItemType(task.itemType),
+      queueTagId: queueTag.queueTagId,
+      queueTagName: queueTag.queueTagName,
+      validationStatus:
+        localFields?.validationStatus ??
+        normalizeValidationStatus(task.validationStatus),
+    };
   }
 
   return {
@@ -1086,6 +1310,20 @@ export function useAgentQueueController({
       selectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
       snapshot: autorunSnapshot,
     } satisfies AgentQueueAutorunController,
+    foundation: {
+      globalMessage,
+      globalStatus,
+      onPauseQueueTag: pauseQueueTag,
+      onResumeQueueTag: resumeQueueTag,
+      onStartWorkers: startWorkers,
+      onStopAndKillRunning: stopAndKillRunning,
+      onStopWorkers: stopWorkers,
+      onWorkerScopeChange: changeWorkerScope,
+      pausedQueueTagIds,
+      queueTags,
+      validationSummary: queueValidationSummary,
+      workers,
+    } satisfies AgentQueueFoundationController,
     runner: {
       ...queueRunner.controller,
     } satisfies AgentQueueRunnerController,

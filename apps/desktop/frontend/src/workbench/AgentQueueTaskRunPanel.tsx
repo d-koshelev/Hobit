@@ -11,11 +11,18 @@ import type {
 import {
   assignmentLabel,
   displayTaskTitle,
+  itemTypeLabel,
   isAssignmentLockedQueueTaskStatus,
   isFinalQueueTaskStatus,
+  normalizeItemType,
+  normalizeQueueTag,
+  normalizeValidationStatus,
   shortWidgetInstanceId,
   statusBadgeVariant,
   statusLabel,
+  validationBadgeVariant,
+  validationStatusLabel,
+  workerLabel,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
 import type {
@@ -85,6 +92,9 @@ export function AgentQueueTaskRunPanel({
   const sandboxInputId = useId();
   const approvalPolicyInputId = useId();
   const hasAssignedExecutor = Boolean(selectedTask.assignedExecutorWidgetId);
+  const queueTag = normalizeQueueTag(selectedTask);
+  const validationStatus = normalizeValidationStatus(selectedTask.validationStatus);
+  const itemType = normalizeItemType(selectedTask.itemType);
   const isFinalStatus = isFinalQueueTaskStatus(selectedTask.status);
   const isAssignmentLockedStatus = isAssignmentLockedQueueTaskStatus(
     selectedTask.status,
@@ -129,8 +139,42 @@ export function AgentQueueTaskRunPanel({
           <Badge variant={statusBadgeVariant(selectedTask.status)}>
             {statusLabel(selectedTask.status)}
           </Badge>
+          <Badge
+            className={
+              validationStatus === "validating"
+                ? "agent-queue-validation-animating"
+                : undefined
+            }
+            variant={validationBadgeVariant(validationStatus)}
+          >
+            {validationStatusLabel(validationStatus)}
+          </Badge>
         </div>
       </div>
+
+      <dl className="agent-queue-item-foundation-facts">
+        <div>
+          <dt>Queue tag</dt>
+          <dd>{queueTag.queueTagName}</dd>
+        </div>
+        <div>
+          <dt>Item type</dt>
+          <dd>{itemTypeLabel(itemType)}</dd>
+        </div>
+        <div>
+          <dt>Assigned worker</dt>
+          <dd>
+            {workerLabel(
+              selectedTask.assignedWorkerId ??
+                selectedTask.assignedExecutorWidgetId,
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Coordinator</dt>
+          <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
+        </div>
+      </dl>
 
       <div className="agent-queue-execution-group">
         <div className="agent-queue-execution-group-header">
@@ -275,7 +319,7 @@ export function AgentQueueTaskRunPanel({
           <div className="agent-queue-assignment-controls">
             <div className="agent-queue-assignment-field">
               <label className="field-label" htmlFor={inputId}>
-                Executor
+                Worker / Executor
               </label>
               <select
                 className="input agent-queue-assignment-select"
@@ -837,6 +881,22 @@ function runStatusLabel(status: string) {
 
 function runReviewStatusLabel(status: string) {
   return status === "review_needed" ? "review needed" : "unknown";
+}
+
+function coordinatorStatusLabel(status: AgentQueueTask["coordinatorStatus"]) {
+  switch (status) {
+    case "worker_reported":
+      return "worker reported";
+    case "awaiting_validation":
+      return "awaiting validation";
+    case "awaiting_coordinator_review":
+      return "awaiting coordinator review";
+    case "finalized":
+      return "finalized";
+    case "not_reported":
+    default:
+      return "not reported";
+  }
 }
 
 function totalRunsLabel(totalCount: number) {

@@ -3,6 +3,7 @@ import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { AgentQueueLayout } from "./AgentQueueLayout";
 import { AgentQueueNewTaskDialog } from "./AgentQueueNewTaskDialog";
+import { AgentQueueSidebar } from "./AgentQueueSidebar";
 import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
 import { AgentQueueTaskList } from "./AgentQueueTaskList";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
@@ -206,6 +207,7 @@ export function AgentQueuePlaceholderWidget({
         ) : (
           <AgentQueueLayout
             isTaskPaneResizable={Boolean(frameMoveEnabled)}
+            sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
             detailsPanel={
               <AgentQueueTaskDetailsPanel
                 agentExecutorSlots={agentExecutorSlots}

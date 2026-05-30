@@ -508,6 +508,28 @@ Queue Items remain operator-controlled. Creating a Queue Item does not launch ex
 
 Workspace Agent-created Queue Items should follow `docs/AGENT_WORK_EFFICIENCY_CONTRACT.md`. The Workspace Agent should split broad requests before execution, mark over-broad items as split-required, and include scope, non-goals, expected changed layers, execution budget, validation profile plan, and stop/split rules in generated work items.
 
+Target Workspace Chat control over the Queue + Workers surface includes:
+
+- create queue items;
+- edit prompt/details;
+- delete queue items;
+- assign queue tags;
+- assign workers;
+- pause/resume queue tags;
+- use global START, STOP, and STOP + KILL RUNNING controls;
+- add follow-up tasks;
+- add independent Diff Review tasks;
+- trigger validation/review;
+- coordinate rollback decisions without executing rollback automatically;
+- finalize item status after worker report, validation result, diff-review
+  report, and downstream queue impact review.
+
+Queue tags are routing/dependency-affinity groups, not only labels. Workers may
+be general-purpose or scoped to one queue tag. Execution status and work
+validation status are separate. Worker reports, validation results, and
+Diff Review reports are inputs to Workspace/coordinator decisions; workers must
+not directly finalize items as done/failure automatically.
+
 No automatic execution.
 
 No automatic acceptance.

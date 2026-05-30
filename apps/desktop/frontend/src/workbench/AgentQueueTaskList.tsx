@@ -6,9 +6,16 @@ import {
   displayTaskTitle,
   FILTERS,
   formatUpdatedTimestamp,
+  itemTypeLabel,
+  normalizeItemType,
+  normalizeQueueTag,
+  normalizeValidationStatus,
   statusBadgeVariant,
   statusLabel,
   taskPreview,
+  validationBadgeVariant,
+  validationStatusLabel,
+  workerLabel,
   type QueueFilter,
 } from "./agentQueueTaskUiModel";
 
@@ -99,6 +106,11 @@ export function AgentQueueTaskList({
             const updatedText = formatUpdatedTimestamp(task.updatedAt);
             const taskTitle = displayTaskTitle(task);
             const taskHint = taskPreview(task);
+            const queueTag = normalizeQueueTag(task);
+            const validationStatus = normalizeValidationStatus(
+              task.validationStatus,
+            );
+            const itemType = normalizeItemType(task.itemType);
 
             return (
               <button
@@ -125,10 +137,28 @@ export function AgentQueueTaskList({
                   <Badge variant={statusBadgeVariant(task.status)}>
                     {statusLabel(task.status)}
                   </Badge>
+                  <Badge
+                    className={
+                      validationStatus === "validating"
+                        ? "agent-queue-validation-animating"
+                        : undefined
+                    }
+                    variant={validationBadgeVariant(validationStatus)}
+                  >
+                    {validationStatusLabel(validationStatus)}
+                  </Badge>
                 </span>
                 <span className="agent-queue-task-row-meta">
-                  <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
+                  <span>Tag {queueTag.queueTagName}</span>
+                  <span>{itemTypeLabel(itemType)}</span>
+                  <span>
+                    Worker{" "}
+                    {workerLabel(
+                      task.assignedWorkerId ?? task.assignedExecutorWidgetId,
+                    )}
+                  </span>
                   <span>Priority {task.priority.toString()}</span>
+                  <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
                   {updatedText ? (
                     <time dateTime={task.updatedAt}>{updatedText}</time>
                   ) : null}

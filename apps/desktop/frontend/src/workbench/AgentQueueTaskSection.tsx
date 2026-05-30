@@ -1,11 +1,15 @@
 import { Button } from "../design-system/Button";
 import {
   EXECUTION_POLICY_OPTIONS,
+  ITEM_TYPE_OPTIONS,
   isAgentQueueTaskExecutionPolicy,
   isQueueTaskStatus,
   MAX_PRIORITY,
   MIN_PRIORITY,
+  normalizeItemType,
+  normalizeValidationStatus,
   STATUS_OPTIONS,
+  VALIDATION_STATUS_OPTIONS,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueDeleteTaskControl } from "./AgentQueueDeleteTaskControl";
@@ -106,6 +110,20 @@ export function AgentQueueTaskSection({
           />
         </div>
 
+        <div className="agent-queue-editor-field">
+          <label className="field-label" htmlFor={`${titleInputId}-tag`}>
+            Queue tag
+          </label>
+          <input
+            className="input agent-queue-tag-input"
+            id={`${titleInputId}-tag`}
+            onChange={(event) =>
+              onDraftChange({ queueTagName: event.currentTarget.value })
+            }
+            value={draft.queueTagName}
+          />
+        </div>
+
         <div className="agent-queue-editor-field agent-queue-editor-field-policy">
           <label
             className="field-label"
@@ -131,6 +149,55 @@ export function AgentQueueTaskSection({
             {EXECUTION_POLICY_OPTIONS.map((executionPolicy) => (
               <option key={executionPolicy.value} value={executionPolicy.value}>
                 {executionPolicy.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="agent-queue-editor-field">
+          <label className="field-label" htmlFor={`${titleInputId}-type`}>
+            Item type
+          </label>
+          <select
+            className="input agent-queue-item-type-select"
+            id={`${titleInputId}-type`}
+            onChange={(event) =>
+              onDraftChange({
+                itemType: normalizeItemType(event.currentTarget.value),
+              })
+            }
+            value={draft.itemType}
+          >
+            {ITEM_TYPE_OPTIONS.map((itemType) => (
+              <option key={itemType.value} value={itemType.value}>
+                {itemType.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="agent-queue-editor-field">
+          <label className="field-label" htmlFor={`${titleInputId}-validation`}>
+            Validation
+          </label>
+          <select
+            className="input agent-queue-validation-select"
+            id={`${titleInputId}-validation`}
+            onChange={(event) =>
+              onDraftChange({
+                validationStatus: normalizeValidationStatus(
+                  event.currentTarget.value,
+                ),
+              })
+            }
+            value={draft.validationStatus}
+          >
+            {VALIDATION_STATUS_OPTIONS.map((validationStatus) => (
+              <option
+                key={validationStatus.value}
+                value={validationStatus.value}
+              >
+                {validationStatus.label}
               </option>
             ))}
           </select>

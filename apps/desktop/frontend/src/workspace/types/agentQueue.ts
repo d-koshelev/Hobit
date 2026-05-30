@@ -27,6 +27,19 @@ export type AgentQueueTaskExecutionPolicy =
   | "auto"
   | "after_previous_success";
 
+export type AgentQueueTaskValidationStatus =
+  | "not_started"
+  | "validating"
+  | "passed"
+  | "failed"
+  | "needs_review";
+
+export type AgentQueueTaskItemType =
+  | "implementation"
+  | "diff_review"
+  | "follow_up"
+  | "validation";
+
 export type CreateAgentQueueTaskRequest = {
   workspaceId: string;
   title: string;
@@ -35,6 +48,10 @@ export type CreateAgentQueueTaskRequest = {
   status: AgentQueueTaskStatus;
   priority: number;
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  itemType?: AgentQueueTaskItemType;
+  queueTagId?: string;
+  queueTagName?: string;
+  validationStatus?: AgentQueueTaskValidationStatus;
 };
 
 export type ListAgentQueueTasksRequest = { workspaceId: string };
@@ -55,6 +72,10 @@ export type UpdateAgentQueueTaskRequest = {
   status: AgentQueueTaskStatus;
   priority: number;
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  itemType?: AgentQueueTaskItemType;
+  queueTagId?: string;
+  queueTagName?: string;
+  validationStatus?: AgentQueueTaskValidationStatus;
 };
 
 export type AssignAgentQueueTaskToExecutorRequest = GetAgentQueueTaskRequest & {
@@ -205,6 +226,17 @@ export type AgentQueueTask = {
   status: AgentQueueTaskStatus;
   priority: number;
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  itemType?: AgentQueueTaskItemType;
+  queueTagId?: string;
+  queueTagName?: string;
+  validationStatus?: AgentQueueTaskValidationStatus;
+  assignedWorkerId?: string | null;
+  coordinatorStatus?:
+    | "not_reported"
+    | "worker_reported"
+    | "awaiting_validation"
+    | "awaiting_coordinator_review"
+    | "finalized";
   assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;

@@ -20,8 +20,16 @@ behavior, or Workspace Agent context wiring.
 - Queue lifecycle/status vocabulary exists. The visible Sequential Queue
   Runner remains current-session frontend behavior, and Queue Autorun now has
   an explicit operator-armed desktop-local preview with a current-session tick.
-  Queue still has no backend scheduler, durable runner, reconnect/resume, or
-  server worker.
+  Queue also has a frontend Queue + Workers model/UI foundation: queue tags as
+  routing/dependency-affinity groups, local tag pause/resume state, Agent
+  Executor slots represented as worker slots that can be scoped to all queues
+  or one tag, separate execution and validation statuses, local START / STOP /
+  STOP + KILL RUNNING controls that do not auto-run items, item types including
+  independent Diff Review work items, and coordinator-owned finalization
+  vocabulary. Queue still has no backend scheduler, durable runner,
+  reconnect/resume, real multi-worker runtime, worker spawning, automatic
+  validation, automatic Diff Review execution, automatic rollback, or server
+  worker.
 - `AuditEventEnvelope` v0 exists as type and contract vocabulary.
 - `docs/AUDIT_EVENT_MAPPING_PLAN.md` maps current event-like surfaces to
   future audit readiness.

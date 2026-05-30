@@ -418,14 +418,49 @@ Workspace Agent is the foreground interactive agent surface.
 
 ### Agent Queue
 
-- Current preview async task organization and execution-support surface.
+- Current preview Queue + Workers async task organization and
+  execution-support surface.
 - Uses the `agent-queue` widget definition id.
 - Intended for promoted/larger work blocks that need async organization,
   assignment, sequencing, or later review. It is not the default destination
   for every Workspace Agent idea, small decision, or quick operator action.
 - Provides workspace-local task create, list, read, update, delete, filter,
-  select, and explicit save flows for title, description, prompt, status, and
-  priority.
+  select, and explicit save flows for title, description, prompt, execution
+  status, priority, and execution policy. The current frontend also has a
+  model/UI foundation for queue tags, item type, separate validation status,
+  worker scope, and coordinator-owned review state. These foundation fields
+  default existing/basic persisted tasks to the `Default` queue tag,
+  `implementation` item type, and `not_started` validation without a storage
+  migration in this block.
+- Queue tags are routing/dependency-affinity groups, not just visual labels.
+  The current UI can pause/resume a tag locally and shows counts; persisted tag
+  routing, dependency execution, and backend scheduler enforcement remain
+  future work.
+- Worker model foundation is UI/model-only. Visible Agent Executor slots are
+  shown as Agent Workers that can be general-purpose or scoped to one queue
+  tag. Changing worker scope does not spawn a worker, start Codex, assign work,
+  or change Agent Executor runtime behavior.
+- Each queue task shows execution status separately from validation status.
+  `validating` has a lightweight visual indicator meaning validation/review is
+  happening, not worker execution.
+- Supported task item types in the frontend model are `implementation`,
+  `diff_review`, `follow_up`, and `validation`. Diff Review items are
+  independent review work items; they do not modify code by default, and no
+  automatic Git diff verification runtime is implemented in this block.
+- The Queue + Workers sidebar has local START, STOP, and STOP + KILL RUNNING
+  controls. START opens the local model for eligible worker scheduling but
+  does not auto-run queue items or start real workers. STOP prevents new
+  local worker scheduling. STOP + KILL RUNNING records a visible local intent;
+  actual process termination, where supported, remains owned by Agent Executor
+  controls and affected items require coordinator review.
+- Editing a queue task locally pauses its queue tag and marks the item for
+  coordinator review in the frontend model with the message: "Editing paused
+  this queue tag until coordinator review/resume". Existing running Executor
+  work is not killed automatically.
+- Final item status is coordinator/workspace-owned in the model. Worker
+  reports, validation results, and Diff Review reports are inputs for later
+  coordinator decisions; workers must not directly finalize items as
+  done/failure automatically.
 - Task deletion is explicit and confirmation-gated, blocks running/current
   active runner tasks, and removes only the Queue task row. It does not delete
   Agent Executor runs, logs, results, artifacts, or Direct Work history.

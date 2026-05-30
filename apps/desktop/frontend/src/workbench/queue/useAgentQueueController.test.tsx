@@ -25,6 +25,120 @@ type AgentQueueControllerOptions = Parameters<
 >[0];
 
 describe("useAgentQueueController executionPolicy draft", () => {
+  it("defaults old queue tasks into the Queue + Workers foundation model", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", title: "Legacy task" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.selectedTask?.queueTagName).toBe("Default");
+    expect(hook.result.current.selectedTask?.validationStatus).toBe(
+      "not_started",
+    );
+    expect(hook.result.current.selectedTask?.itemType).toBe("implementation");
+    expect(hook.result.current.foundation.queueTags[0]?.queueTagId).toBe(
+      "default",
+    );
+    expect(hook.result.current.foundation.queueTags[0]?.queueTagName).toBe(
+      "Default",
+    );
+    expect(hook.result.current.foundation.queueTags[0]?.status).toBe("running");
+    expect(hook.result.current.foundation.queueTags[0]?.taskCount).toBe(1);
+    expect(hook.result.current.foundation.workers[0]?.name).toBe(
+      "Agent Executor 1",
+    );
+    expect(hook.result.current.foundation.workers[0]?.scope).toEqual({
+      kind: "all",
+    });
+    expect(hook.result.current.foundation.workers[0]?.status).toBe("idle");
+    expect(hook.result.current.foundation.workers[0]?.workerId).toBe(
+      "executor-1",
+    );
+
+    hook.unmount();
+  });
+
+  it("updates local worker scope without starting queue execution", async () => {
+    const harness = createQueueHarness([
+      queueTask({ queueItemId: "queue-1", title: "Task" }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onWorkerScopeChange("executor-1", {
+        kind: "queue_tag",
+        queueTagId: "default",
+        queueTagName: "Default",
+      });
+      hook.result.current.foundation.onStartWorkers();
+      hook.result.current.foundation.onStopWorkers();
+      hook.result.current.foundation.onStopAndKillRunning();
+    });
+
+    expect(hook.result.current.foundation.workers[0].scope).toEqual({
+      kind: "queue_tag",
+      queueTagId: "default",
+      queueTagName: "Default",
+    });
+    expect(hook.result.current.foundation.globalStatus).toBe("stopped");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("pauses a queue tag for coordinator review when a task is edited", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Initial prompt",
+        queueItemId: "queue-1",
+        status: "queued",
+      }),
+    ]);
+    const hook = renderHook(
+      () => useAgentQueueController(harness.options),
+      undefined,
+    );
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.updateDraft({ prompt: "Updated prompt" });
+    });
+    await act(async () => {
+      await hook.result.current.saveTask();
+    });
+    await flushControllerLoad();
+
+    expect(hook.result.current.foundation.pausedQueueTagIds.has("default")).toBe(
+      true,
+    );
+    expect(hook.result.current.selectedTask?.validationStatus).toBe(
+      "needs_review",
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "awaiting_coordinator_review",
+    );
+    expect(hook.result.current.validationMessage).toBe(
+      "Editing paused this queue tag until coordinator review/resume",
+    );
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "Resume this queue tag before running the selected task.",
+    );
+
+    hook.unmount();
+  });
+
   it("reloads the selected task when manual Refresh is requested", async () => {
     const harness = createQueueHarness([
       queueTask({ queueItemId: "queue-1" }),

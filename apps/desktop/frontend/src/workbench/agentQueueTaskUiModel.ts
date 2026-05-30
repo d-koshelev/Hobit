@@ -1,6 +1,8 @@
 import type {
   AgentQueueTask,
   AgentQueueTaskExecutionPolicy,
+  AgentQueueTaskItemType,
+  AgentQueueTaskValidationStatus,
 } from "../workspace/types";
 import type { AgentExecutorSlot, WidgetInstance } from "./types";
 import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
@@ -8,6 +10,8 @@ import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 export const DEFAULT_TASK_TITLE = "New task";
+export const DEFAULT_QUEUE_TAG_ID = "default";
+export const DEFAULT_QUEUE_TAG_NAME = "Default";
 export const MIN_PRIORITY = 0;
 export const MAX_PRIORITY = 5;
 
@@ -24,14 +28,41 @@ const TASK_STATUSES = [
 
 export type QueueTaskStatus = (typeof TASK_STATUSES)[number];
 export type QueueFilter = "all" | QueueTaskStatus;
+export type QueueTagStatus = "running" | "paused";
+export type QueueGlobalStatus = "stopped" | "running";
+export type WorkerStatus = "idle" | "running" | "paused" | "failed";
+export type WorkerScope =
+  | { kind: "all" }
+  | { kind: "queue_tag"; queueTagId: string; queueTagName: string };
+
+export type QueueTagSummary = {
+  queueTagId: string;
+  queueTagName: string;
+  status: QueueTagStatus;
+  taskCount: number;
+  runningCount: number;
+  validatingCount: number;
+};
+
+export type AgentWorkerSummary = {
+  workerId: string;
+  name: string;
+  status: WorkerStatus;
+  scope: WorkerScope;
+  currentItemId: string | null;
+  lastReportSummary: string | null;
+};
 
 export type TaskDraft = {
   description: string;
   executionPolicy: AgentQueueTaskExecutionPolicy;
+  itemType: AgentQueueTaskItemType;
   priority: number;
   prompt: string;
+  queueTagName: string;
   status: QueueTaskStatus;
   title: string;
+  validationStatus: AgentQueueTaskValidationStatus;
 };
 
 export const STATUS_OPTIONS: Array<{
@@ -65,14 +96,38 @@ export const EXECUTION_POLICY_OPTIONS: Array<{
   },
 ];
 
+export const VALIDATION_STATUS_OPTIONS: Array<{
+  label: string;
+  value: AgentQueueTaskValidationStatus;
+}> = [
+  { label: "Not started", value: "not_started" },
+  { label: "Validating", value: "validating" },
+  { label: "Passed", value: "passed" },
+  { label: "Failed", value: "failed" },
+  { label: "Needs review", value: "needs_review" },
+];
+
+export const ITEM_TYPE_OPTIONS: Array<{
+  label: string;
+  value: AgentQueueTaskItemType;
+}> = [
+  { label: "Implementation", value: "implementation" },
+  { label: "Diff review", value: "diff_review" },
+  { label: "Follow-up", value: "follow_up" },
+  { label: "Validation", value: "validation" },
+];
+
 export function emptyDraft(): TaskDraft {
   return {
     description: "",
     executionPolicy: "manual",
+    itemType: "implementation",
     priority: 0,
     prompt: "",
+    queueTagName: DEFAULT_QUEUE_TAG_NAME,
     status: "draft",
     title: "",
+    validationStatus: "not_started",
   };
 }
 
@@ -87,6 +142,10 @@ export function validateDraft(draft: TaskDraft): string | null {
 
   if (!isQueueTaskStatus(draft.status)) {
     return "Status is not supported.";
+  }
+
+  if (!draft.queueTagName.trim()) {
+    return "Queue tag is required before saving.";
   }
 
   if (draft.status !== "draft" && !draft.prompt.trim()) {
@@ -114,6 +173,38 @@ export function normalizeTaskExecutionPolicy(
   return executionPolicy && isAgentQueueTaskExecutionPolicy(executionPolicy)
     ? executionPolicy
     : "manual";
+}
+
+export function normalizeValidationStatus(
+  validationStatus: string | null | undefined,
+): AgentQueueTaskValidationStatus {
+  return isAgentQueueTaskValidationStatus(validationStatus)
+    ? validationStatus
+    : "not_started";
+}
+
+export function normalizeItemType(
+  itemType: string | null | undefined,
+): AgentQueueTaskItemType {
+  return isAgentQueueTaskItemType(itemType) ? itemType : "implementation";
+}
+
+export function normalizeQueueTag(task: Pick<AgentQueueTask, "queueTagId" | "queueTagName">) {
+  const queueTagName = task.queueTagName?.trim() || DEFAULT_QUEUE_TAG_NAME;
+  const queueTagId =
+    task.queueTagId?.trim() || queueTagNameToId(queueTagName) || DEFAULT_QUEUE_TAG_ID;
+
+  return { queueTagId, queueTagName };
+}
+
+export function queueTagNameToId(queueTagName: string) {
+  return (
+    queueTagName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || DEFAULT_QUEUE_TAG_ID
+  );
 }
 
 export function normalizeTaskStatus(status: string): QueueTaskStatus {
@@ -144,6 +235,36 @@ export function statusBadgeVariant(status: string): BadgeVariant {
     default:
       return "neutral";
   }
+}
+
+export function validationStatusLabel(status: string) {
+  return (
+    VALIDATION_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+    formatStatus(status)
+  );
+}
+
+export function validationBadgeVariant(status: string): BadgeVariant {
+  switch (status) {
+    case "passed":
+      return "success";
+    case "validating":
+      return "info";
+    case "failed":
+      return "error";
+    case "needs_review":
+      return "warning";
+    case "not_started":
+    default:
+      return "neutral";
+  }
+}
+
+export function itemTypeLabel(itemType: string) {
+  return (
+    ITEM_TYPE_OPTIONS.find((option) => option.value === itemType)?.label ??
+    formatStatus(itemType)
+  );
 }
 
 export function displayTaskTitle(task: AgentQueueTask) {
@@ -193,6 +314,111 @@ export function assignmentLabel(assignedExecutorWidgetId: string | null) {
   return assignedExecutorWidgetId
     ? agentExecutorSlotLabel(assignedExecutorWidgetId)
     : "Unassigned";
+}
+
+export function workerLabel(workerId: string | null | undefined) {
+  return workerId ? agentExecutorSlotLabel(workerId) : "Unassigned";
+}
+
+export function queueTagsFromTasks(
+  tasks: AgentQueueTask[],
+  pausedQueueTagIds: ReadonlySet<string>,
+): QueueTagSummary[] {
+  const summaries = new Map<string, QueueTagSummary>();
+
+  for (const task of tasks) {
+    const { queueTagId, queueTagName } = normalizeQueueTag(task);
+    const current =
+      summaries.get(queueTagId) ??
+      {
+        queueTagId,
+        queueTagName,
+        runningCount: 0,
+        status: pausedQueueTagIds.has(queueTagId) ? "paused" : "running",
+        taskCount: 0,
+        validatingCount: 0,
+      };
+
+    current.taskCount += 1;
+    if (task.status === "running") {
+      current.runningCount += 1;
+    }
+    if (normalizeValidationStatus(task.validationStatus) === "validating") {
+      current.validatingCount += 1;
+    }
+    summaries.set(queueTagId, current);
+  }
+
+  if (summaries.size === 0) {
+    summaries.set(DEFAULT_QUEUE_TAG_ID, {
+      queueTagId: DEFAULT_QUEUE_TAG_ID,
+      queueTagName: DEFAULT_QUEUE_TAG_NAME,
+      runningCount: 0,
+      status: pausedQueueTagIds.has(DEFAULT_QUEUE_TAG_ID) ? "paused" : "running",
+      taskCount: 0,
+      validatingCount: 0,
+    });
+  }
+
+  return Array.from(summaries.values()).sort((first, second) =>
+    first.queueTagName.localeCompare(second.queueTagName),
+  );
+}
+
+export function validationSummary(tasks: AgentQueueTask[]) {
+  return tasks.reduce(
+    (summary, task) => {
+      const status = normalizeValidationStatus(task.validationStatus);
+      summary[status] += 1;
+      return summary;
+    },
+    {
+      failed: 0,
+      needs_review: 0,
+      not_started: 0,
+      passed: 0,
+      validating: 0,
+    } satisfies Record<AgentQueueTaskValidationStatus, number>,
+  );
+}
+
+export function workersFromExecutorSlots({
+  pausedQueueTagIds,
+  slots,
+  tasks,
+  workerScopes,
+}: {
+  pausedQueueTagIds: ReadonlySet<string>;
+  slots: AgentExecutorSlot[];
+  tasks: AgentQueueTask[];
+  workerScopes: ReadonlyMap<string, WorkerScope>;
+}): AgentWorkerSummary[] {
+  return slots.map((slot) => {
+    const currentTask =
+      tasks.find(
+        (task) =>
+          task.assignedWorkerId === slot.widgetInstanceId ||
+          task.assignedExecutorWidgetId === slot.widgetInstanceId,
+      ) ?? null;
+    const scope = workerScopes.get(slot.widgetInstanceId) ?? { kind: "all" };
+    const scopedQueueTagId =
+      scope.kind === "queue_tag" ? scope.queueTagId : null;
+
+    return {
+      currentItemId: currentTask?.queueItemId ?? null,
+      lastReportSummary: currentTask
+        ? `Latest linked item: ${displayTaskTitle(currentTask)}`
+        : null,
+      name: slot.label,
+      scope,
+      status: scopedQueueTagId && pausedQueueTagIds.has(scopedQueueTagId)
+        ? "paused"
+        : currentTask?.status === "running"
+          ? "running"
+          : "idle",
+      workerId: slot.widgetInstanceId,
+    };
+  });
 }
 
 export function formatUpdatedTimestamp(value: string) {
@@ -252,4 +478,18 @@ function formatStatus(status: string) {
     .filter(Boolean)
     .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
     .join(" ");
+}
+
+function isAgentQueueTaskValidationStatus(
+  validationStatus: string | null | undefined,
+): validationStatus is AgentQueueTaskValidationStatus {
+  return VALIDATION_STATUS_OPTIONS.some(
+    (option) => option.value === validationStatus,
+  );
+}
+
+function isAgentQueueTaskItemType(
+  itemType: string | null | undefined,
+): itemType is AgentQueueTaskItemType {
+  return ITEM_TYPE_OPTIONS.some((option) => option.value === itemType);
 }
