@@ -423,6 +423,10 @@ Workspace Agent is the foreground interactive agent surface.
 
 - Current preview Queue + Workers async task organization and
   execution-support surface.
+- `docs/QUEUE_PRODUCT_HANDOFF.md` freezes the current Queue product state after
+  the Queue handoff block. Further Queue feature development should stop in
+  this chat and resume only from a new product-scenario/design-first thread
+  with approved contracts, Queue plans, and acceptance criteria.
 - Uses the `agent-queue` widget definition id.
 - Intended for promoted/larger work blocks that need async organization,
   assignment, sequencing, or later review. It is not the default destination

@@ -375,6 +375,13 @@ widget state only, not global hidden memory.
 Mock/local remains a visible fallback when Direct Mode is off or Codex is
 unavailable, and must not be presented as connected AI.
 
+After the Block 026 Queue product handoff, the current Queue + Workers state is
+frozen in `docs/QUEUE_PRODUCT_HANDOFF.md`. Further Queue feature coding should
+stop in this chat. The next phase should start in a new ChatGPT chat from
+`docs/NEW_CHAT_PRODUCT_SCENARIO_HANDOFF.md`, define product scenarios and
+acceptance walkthroughs first, and only then split implementation into Queue
+items/sub-blocks.
+
 Artifacts, Evidence, Knowledge, Skills, Context Packs, audit events,
 capability actions, and approvals are separate concepts. A Skill record
 existing does not mean it is evidence, AI context, a Runbook, executable, or
@@ -416,6 +423,9 @@ sent to a provider.
 
 ### A. Safe Next Docs/Type-Only Blocks
 
+0. Queue product scenario design, docs-only, starting from
+   `docs/QUEUE_PRODUCT_HANDOFF.md` and
+   `docs/NEW_CHAT_PRODUCT_SCENARIO_HANDOFF.md`.
 1. Context Pack audit/capability mapping plan, docs-only.
 2. Knowledge / Skills UI design contract, docs-only.
 3. Knowledge store storage design, docs-only and no implementation.

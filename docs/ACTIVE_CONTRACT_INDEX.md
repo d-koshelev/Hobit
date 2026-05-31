@@ -236,6 +236,11 @@ unless the task explicitly requests it.
 
 ### Agent Queue
 
+- `docs/QUEUE_PRODUCT_HANDOFF.md` - Queue product handoff after Block 026. It
+  freezes the current Queue + Workers UI/model/runtime boundaries, identifies
+  future runtime gaps, and directs the next phase toward product scenario
+  design and doc-first Queue planning rather than more feature coding in the
+  current chat.
 - `docs/AGENT_QUEUE_CONTRACT.md` - older queue/review boundary context.
 - `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` - current task organization,
   status, assignment, and future dependency model. Queue is for
@@ -320,6 +325,10 @@ unless the task explicitly requests it.
 - `docs/NEW_CHAT_HANDOFF.md` - compact current-state handoff for starting a
   fresh chat/thread after Blocks 210 through 216. This is a reference note, not
   a default active contract or a replacement for this index.
+- `docs/NEW_CHAT_PRODUCT_SCENARIO_HANDOFF.md` - compact Block 026 handoff for
+  the next ChatGPT chat. It directs the next phase toward product scenario
+  design, Queue acceptance walkthroughs, contracts/decisions, and an
+  implementation Queue plan before coding.
 
 ## Deferred Contracts
 

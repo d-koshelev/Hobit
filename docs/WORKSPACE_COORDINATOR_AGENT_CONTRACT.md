@@ -494,6 +494,13 @@ Agent Queue is the explicit async execution pipeline for promoted/larger
 Workspace Agent-created work items. It is not the default destination for every
 idea, quick decision, or small operation discussed in Workspace Agent.
 
+After the Block 026 Queue product handoff, the current Queue + Workers state is
+frozen in `docs/QUEUE_PRODUCT_HANDOFF.md`. Further Queue work should begin in a
+new product-scenario/design-first chat using
+`docs/NEW_CHAT_PRODUCT_SCENARIO_HANDOFF.md`; implementation should follow
+approved scenarios, contracts, Queue plans, and acceptance criteria rather than
+adding more features directly in this chat.
+
 The Workspace Agent may propose Queue Items from:
 
 - Notebook tasks
