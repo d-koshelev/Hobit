@@ -186,64 +186,91 @@ export function AgentQueueTaskList({
                   <span className="agent-queue-task-row-title">
                     {taskTitle}
                   </span>
-                  <span
-                    className={[
-                      "agent-queue-executor-info-box",
-                      "agent-queue-executor-info-compact",
-                      `agent-queue-executor-info-${executorInfo.tone}`,
-                    ].join(" ")}
-                    title={executorInfo.detail}
-                  >
-                    <span>Executor</span>
-                    <strong>{executorInfo.label}</strong>
-                  </span>
-                  <Badge variant={statusBadgeVariant(task.status)}>
-                    {statusLabel(task.status)}
-                  </Badge>
                   {queueTagPaused ? (
                     <Badge variant="warning">Tag paused</Badge>
                   ) : null}
-                  {routingState?.assignedWorker ? (
-                    <Badge variant={routingState.canTake ? "success" : "warning"}>
-                      {routingState.canTake ? "Worker eligible" : "Worker blocked"}
+                </span>
+                <span className="agent-queue-task-row-status-grid">
+                  <span className="agent-queue-task-row-status-cell">
+                    <span>Execution</span>
+                    <Badge variant={statusBadgeVariant(task.status)}>
+                      {statusLabel(task.status)}
                     </Badge>
+                  </span>
+                  <span className="agent-queue-task-row-status-cell">
+                    <span>Plan</span>
+                    <Badge variant={executionPlanBadgeVariant(task.executionPlanPreview)}>
+                      {executionPlanStatusLabel(task.executionPlanPreview)}
+                    </Badge>
+                  </span>
+                  <span className="agent-queue-task-row-status-cell">
+                    <span>Worker</span>
+                    <span
+                      className={[
+                        "agent-queue-executor-info-box",
+                        "agent-queue-executor-info-compact",
+                        `agent-queue-executor-info-${executorInfo.tone}`,
+                      ].join(" ")}
+                      title={executorInfo.detail}
+                    >
+                      <span>Executor</span>
+                      <strong>{executorInfo.label}</strong>
+                    </span>
+                  </span>
+                  <span className="agent-queue-task-row-status-cell">
+                    <span>Review</span>
+                    {hasWorkerReport ? (
+                      <Badge variant="info">Report received</Badge>
+                    ) : task.coordinatorStatus ? (
+                      <Badge
+                        variant={coordinatorStatusBadgeVariant(
+                          task.coordinatorStatus,
+                        )}
+                      >
+                        {coordinatorStatusLabel(task.coordinatorStatus)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">No report</Badge>
+                    )}
+                  </span>
+                  <span className="agent-queue-task-row-status-cell">
+                    <span>Validation</span>
+                    <Badge
+                      className={
+                        validationStatus === "validating"
+                          ? "agent-queue-validation-animating"
+                          : undefined
+                      }
+                      variant={validationBadgeVariant(validationStatus)}
+                    >
+                      {validationStatusLabel(validationStatus)}
+                    </Badge>
+                  </span>
+                  {routingState?.assignedWorker ? (
+                    <span className="agent-queue-task-row-status-cell">
+                      <span>Route</span>
+                      <Badge variant={routingState.canTake ? "success" : "warning"}>
+                        {routingState.canTake ? "Worker eligible" : "Worker blocked"}
+                      </Badge>
+                    </span>
                   ) : null}
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
-                    <Badge
-                      variant={queueDependencyBadgeVariant(
-                        dependencyState.status,
-                      )}
-                    >
-                      {queueDependencyStatusLabel(dependencyState.status)}
-                    </Badge>
-                  ) : null}
-                  <Badge
-                    className={
-                      validationStatus === "validating"
-                        ? "agent-queue-validation-animating"
-                        : undefined
-                    }
-                    variant={validationBadgeVariant(validationStatus)}
-                  >
-                    {validationStatusLabel(validationStatus)}
-                  </Badge>
-                  <Badge variant={executionPlanBadgeVariant(task.executionPlanPreview)}>
-                    {executionPlanStatusLabel(task.executionPlanPreview)}
-                  </Badge>
-                  {hasWorkerReport ? (
-                    <Badge variant="info">Report received</Badge>
-                  ) : null}
-                  {task.coordinatorStatus ? (
-                    <Badge
-                      variant={coordinatorStatusBadgeVariant(
-                        task.coordinatorStatus,
-                      )}
-                    >
-                      {coordinatorStatusLabel(task.coordinatorStatus)}
-                    </Badge>
+                    <span className="agent-queue-task-row-status-cell">
+                      <span>Deps</span>
+                      <Badge
+                        variant={queueDependencyBadgeVariant(
+                          dependencyState.status,
+                        )}
+                      >
+                        {queueDependencyStatusLabel(dependencyState.status)}
+                      </Badge>
+                    </span>
                   ) : null}
                   {linkedDiffReviewCount > 0 ? (
-                    <Badge variant="warning">Diff review requested</Badge>
+                    <span className="agent-queue-task-row-status-cell">
+                      <span>Diff</span>
+                      <Badge variant="warning">Diff review requested</Badge>
+                    </span>
                   ) : null}
                 </span>
                 <span className="agent-queue-task-row-meta">

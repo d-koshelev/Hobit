@@ -11,11 +11,13 @@ import {
   MIN_PRIORITY,
   normalizeItemType,
   normalizeTaskDependencies,
+  normalizeTaskStatus,
   queueDependencyBadgeVariant,
   queueDependencyBlockedSummary,
   queueDependencyBlockerLabel,
   queueDependencyStatusLabel,
   normalizeValidationStatus,
+  STATUS_OPTIONS,
   statusBadgeVariant,
   statusLabel,
   VALIDATION_STATUS_OPTIONS,
@@ -87,15 +89,35 @@ export function AgentQueueTaskSection({
 
       <div className="agent-queue-readonly-status-row">
         <div>
-          <p className="field-label" id={statusInputId}>
+          <label className="field-label" htmlFor={statusInputId}>
             Execution status
-          </p>
-          <Badge variant={statusBadgeVariant(draft.status)}>
-            {statusLabel(draft.status)}
-          </Badge>
+          </label>
+          {editTask.isEditing ? (
+            <select
+              className="input agent-queue-status-select"
+              id={statusInputId}
+              onChange={(event) =>
+                onDraftChange({
+                  status: normalizeTaskStatus(event.currentTarget.value),
+                })
+              }
+              value={draft.status}
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <Badge variant={statusBadgeVariant(draft.status)}>
+              {statusLabel(draft.status)}
+            </Badge>
+          )}
         </div>
         <p className="agent-queue-run-note">
-          Status is shown for review. Workers do not finalize queue items from this edit form.
+          Draft is planning only. Queued, Ready, and Review needed are runnable
+          states when assignment and execution settings are also valid.
         </p>
       </div>
 

@@ -399,6 +399,85 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
+  it("explains that a new draft prompt item needs a ready state before execution", () => {
+    const onStartEdit = vi.fn();
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      executionPlanPreview: null,
+      status: "draft" as const,
+      title: "Prompt implementation draft",
+    };
+
+    renderDetailsPanel({
+      editTask: editController({ onStart: onStartEdit }),
+      run: {
+        ...runController(),
+        readinessMessage:
+          "Draft tasks can stay in planning without an execution workspace. Set status to queued, ready, or review needed before configuring execution.",
+      },
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    expect(document.body.textContent).toContain("Next action");
+    expect(document.body.textContent).toContain("Needs plan / ready state");
+    expect(document.body.textContent).toContain(
+      "Top blocker: Item is not in a runnable execution state.",
+    );
+    expect(document.body.textContent).toContain(
+      "Set Execution status to Queued or Ready",
+    );
+    expect(document.body.textContent).toContain("No worker report yet.");
+
+    clickFirstButton("Edit status");
+
+    expect(onStartEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows assigned runnable items as ready after execution workspace setup", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: "executor_visible",
+      status: "ready" as const,
+    };
+
+    renderDetailsPanel({
+      run: {
+        ...runController(),
+        preconditionMessages: [
+          "Execution workspace is required for Codex Direct Work execution.",
+        ],
+        readinessMessage: null,
+      },
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    expect(document.body.textContent).toContain("Ready to run after setup");
+    expect(document.body.textContent).toContain(
+      "Enter the execution workspace",
+    );
+    expect(document.body.textContent).toContain(
+      "Execution workspace is required for Codex Direct Work execution.",
+    );
+  });
+
+  it("keeps coordinator finalization collapsed before worker evidence exists", () => {
+    renderDetailsPanel();
+
+    const finalizationDetails = Array.from(
+      document.querySelectorAll<HTMLDetailsElement>("details"),
+    ).find((details) =>
+      details.querySelector("summary")?.textContent?.includes(
+        "Coordinator finalization",
+      ),
+    );
+
+    expect(finalizationDetails).not.toBeUndefined();
+    expect(finalizationDetails?.open).toBe(false);
+  });
+
   it("shows stale and no-plan expected plan states", () => {
     const staleTask = {
       ...queueTask(),
@@ -693,6 +772,7 @@ function renderPanel(
 }
 
 function renderDetailsPanel({
+  editTask = editController(),
   executionPlan = executionPlanController(null),
   latestRun = latestRunController(null),
   onShowQueueReportInWorkspaceChat,
@@ -709,6 +789,7 @@ function renderDetailsPanel({
   diffReview,
 }: {
   diffReview?: ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"]["diffReview"];
+  editTask?: ReturnType<typeof editController>;
   executionPlan?: AgentQueueExecutionPlanController;
   latestRun?: AgentQueueLatestRunLinkController;
   onShowQueueReportInWorkspaceChat?: ComponentProps<
@@ -722,7 +803,7 @@ function renderDetailsPanel({
   selectedTask?: AgentQueueTask;
   tasks?: AgentQueueTask[];
   workerReport?: AgentQueueWorkerReportController;
-}) {
+} = {}) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -788,7 +869,7 @@ function renderDetailsPanel({
     },
     dependencyStates,
     draft: draftFromTask(selectedTask),
-    editTask: editController(),
+    editTask,
     editorError: null,
     executionPlan,
     filteredTasks: tasks,
@@ -927,7 +1008,14 @@ function draftFromTask(task: AgentQueueTask): TaskDraft {
   };
 }
 
-function editController() {
+function editController(overrides: Partial<ReturnType<typeof editControllerBase>> = {}) {
+  return {
+    ...editControllerBase(),
+    ...overrides,
+  };
+}
+
+function editControllerBase() {
   return {
     isEditing: false,
     onCancel: vi.fn(),

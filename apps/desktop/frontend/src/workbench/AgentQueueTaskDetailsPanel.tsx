@@ -7,6 +7,7 @@ import { Button } from "../design-system/Button";
 import {
   displayTaskTitle,
   formatUpdatedTimestamp,
+  coordinatorStatusBlocksNewWork,
   coordinatorStatusBadgeVariant,
   coordinatorStatusLabel,
   itemTypeLabel,
@@ -124,42 +125,9 @@ export function AgentQueueTaskDetailsPanel({
             selectedTask={selectedTask}
           />
 
-          <SubmittedMetadata queue={queue} />
+          <NextActionPanel queue={queue} selectedTask={selectedTask} />
 
           <PromptPreview prompt={selectedTask.prompt} />
-
-          <DiffReviewLinkagePanel
-            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-            queue={queue}
-          />
-
-          <WorkerExecutionReportPanel
-            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-            queue={queue}
-          />
-
-          <CoordinatorFinalizationPanel queue={queue} />
-
-          <AgentQueueTaskSection
-            deleteTask={deleteTask}
-            descriptionInputId={descriptionInputId}
-            draft={draft}
-            editTask={editTask}
-            executionPolicyInputId={executionPolicyInputId}
-            isDirty={isDirty}
-            isSaving={isSaving}
-            onDraftChange={updateDraft}
-            onPriorityChange={updatePriority}
-            onSave={() => void saveTask()}
-            ordering={queue.ordering}
-            priorityInputId={priorityInputId}
-            promptInputId={promptInputId}
-            selectedTask={selectedTask}
-            selectedTaskHint={selectedTaskHint}
-            statusInputId={statusInputId}
-            tasks={tasks}
-            titleInputId={titleInputId}
-          />
 
           <AgentQueueTaskRunPanel
             apiAvailable={assignmentApiAvailable}
@@ -193,6 +161,46 @@ export function AgentQueueTaskDetailsPanel({
             workers={queue.foundation.workers}
           />
 
+          <DiffReviewLinkagePanel
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+          />
+
+          <WorkerExecutionReportPanel
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+          />
+
+          <CoordinatorFinalizationPanel queue={queue} />
+
+          <details
+            className="agent-queue-details agent-queue-secondary-details"
+            open={editTask.isEditing}
+          >
+            <summary>Task edit and metadata</summary>
+            <SubmittedMetadata queue={queue} />
+            <AgentQueueTaskSection
+              deleteTask={deleteTask}
+              descriptionInputId={descriptionInputId}
+              draft={draft}
+              editTask={editTask}
+              executionPolicyInputId={executionPolicyInputId}
+              isDirty={isDirty}
+              isSaving={isSaving}
+              onDraftChange={updateDraft}
+              onPriorityChange={updatePriority}
+              onSave={() => void saveTask()}
+              ordering={queue.ordering}
+              priorityInputId={priorityInputId}
+              promptInputId={promptInputId}
+              selectedTask={selectedTask}
+              selectedTaskHint={selectedTaskHint}
+              statusInputId={statusInputId}
+              tasks={tasks}
+              titleInputId={titleInputId}
+            />
+          </details>
+
           {validationMessage ? (
             <p
               className="agent-queue-message agent-queue-message-warning"
@@ -225,12 +233,236 @@ export function AgentQueueTaskDetailsPanel({
   );
 }
 
+function NextActionPanel({
+  queue,
+  selectedTask,
+}: {
+  queue: AgentQueueController;
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>;
+}) {
+  const action = nextActionForSelectedTask(queue, selectedTask);
+
+  return (
+    <section
+      aria-label="Next action"
+      className={[
+        "agent-queue-expanded-section",
+        "agent-queue-next-action",
+        `agent-queue-next-action-${action.tone}`,
+      ].join(" ")}
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-expanded-kicker">Next action</p>
+          <p className="agent-queue-next-action-title">{action.title}</p>
+        </div>
+        <Badge variant={action.badgeVariant}>{action.badge}</Badge>
+      </div>
+      <p className="agent-queue-next-action-copy">{action.copy}</p>
+      {action.secondaryCopy ? (
+        <p className="agent-queue-next-action-secondary">
+          {action.secondaryCopy}
+        </p>
+      ) : null}
+      {action.actions.length > 0 ? (
+        <div className="agent-queue-run-actions">
+          {action.actions.map((item) => (
+            <Button
+              disabled={item.disabled}
+              key={item.label}
+              onClick={item.onClick}
+              variant={item.variant}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function nextActionForSelectedTask(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  const hasReport = (selectedTask.workerExecutionReports?.length ?? 0) > 0;
+  const planLabel = executionPlanStatusLabel(selectedTask.executionPlanPreview);
+  const readinessMessage = queue.run.readinessMessage;
+  const preconditionMessage = queue.run.preconditionMessages[0] ?? null;
+  const routingState = queue.assignedWorkerRoutingStates.get(
+    selectedTask.queueItemId,
+  );
+  const routingBlocker =
+    routingState && !routingState.canTake
+      ? routingState.blockedReasons[0]?.label ?? null
+      : null;
+  const actions: Array<{
+    disabled?: boolean;
+    label: string;
+    onClick: () => void;
+    variant: "primary" | "secondary" | "ghost";
+  }> = [];
+
+  if (queue.run.canStart) {
+    actions.push({
+      label: queue.run.isStarting ? "Starting" : "Run assigned task",
+      onClick: () => queue.run.onStartAssignedTask(),
+      variant: "primary",
+    });
+
+    return {
+      actions,
+      badge: "Ready",
+      badgeVariant: "success" as const,
+      copy:
+        "This item has a runnable status, an assigned worker, a prompt, and execution settings. Start it explicitly when ready.",
+      secondaryCopy: "Agent Executor owns live logs, stop controls, and results.",
+      title: "Ready to run",
+      tone: "ready",
+    };
+  }
+
+  if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
+    return {
+      actions,
+      badge: coordinatorStatusLabel(selectedTask.coordinatorStatus),
+      badgeVariant: coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus),
+      copy:
+        "Worker evidence or coordinator decisions are waiting for explicit review. Do not start more work until the coordinator state is resolved.",
+      secondaryCopy: hasReport
+        ? "Review the worker report below, then use coordinator finalization when it is relevant."
+        : "No worker report is attached yet.",
+      title: "Awaiting coordinator review",
+      tone: "review",
+    };
+  }
+
+  if (selectedTask.status === "draft") {
+    actions.push({
+      label: queue.editTask.isEditing ? "Editing status" : "Edit status",
+      onClick: () => queue.editTask.onStart(),
+      variant: "secondary",
+    });
+
+    if (queue.executionPlan.canGenerate) {
+      actions.push({
+        label: "Generate plan preview",
+        onClick: () => queue.executionPlan.onGenerate(),
+        variant: "ghost",
+      });
+    }
+
+    return {
+      actions,
+      badge: "Not runnable",
+      badgeVariant: "warning" as const,
+      copy:
+        "This item is Draft, so workers cannot take it yet. Set Execution status to Queued or Ready in Task edit and save when the prompt is ready.",
+      secondaryCopy: `Top blocker: Item is not in a runnable execution state. ${planLabel}.`,
+      title: "Needs plan / ready state",
+      tone: "blocked",
+    };
+  }
+
+  if (readinessMessage?.startsWith("Assign an Agent Executor")) {
+    return {
+      actions,
+      badge: "Unassigned",
+      badgeVariant: "warning" as const,
+      copy:
+        "Choose a Worker / Executor in the Execution section and click Assign. Assignment records routing only; it does not start work.",
+      secondaryCopy: readinessMessage,
+      title: "Needs assignment",
+      tone: "blocked",
+    };
+  }
+
+  if (readinessMessage?.includes("status") || routingBlocker) {
+    return {
+      actions,
+      badge: "Blocked",
+      badgeVariant: "warning" as const,
+      copy:
+        readinessMessage ??
+        routingBlocker ??
+        "This item is blocked before execution.",
+      secondaryCopy:
+        routingBlocker && routingBlocker !== readinessMessage
+          ? `Top blocker: ${routingBlocker}.`
+          : "Top blocker: Item is not in a runnable execution state.",
+      title: "Not runnable yet",
+      tone: "blocked",
+    };
+  }
+
+  if (!hasReport && isReviewLikeStatus(selectedTask.status)) {
+    return {
+      actions,
+      badge: "No report",
+      badgeVariant: "neutral" as const,
+      copy:
+        "No worker report yet. Run or attach a worker report to review evidence.",
+      secondaryCopy: "Coordinator finalization stays secondary until evidence exists.",
+      title: "No worker report yet",
+      tone: "waiting",
+    };
+  }
+
+  if (!readinessMessage && preconditionMessage) {
+    return {
+      actions,
+      badge: "Ready",
+      badgeVariant: "info" as const,
+      copy:
+        "This item is runnable and assigned. Enter the execution workspace and keep Codex settings visible before starting.",
+      secondaryCopy: preconditionMessage,
+      title: "Ready to run after setup",
+      tone: "ready",
+    };
+  }
+
+  return {
+    actions,
+    badge: readinessMessage ? "Blocked" : "Waiting",
+    badgeVariant: readinessMessage ? ("warning" as const) : ("neutral" as const),
+    copy:
+      readinessMessage ??
+      "Review assignment, worker state, and execution settings before starting.",
+    secondaryCopy: routingBlocker ? `Top blocker: ${routingBlocker}.` : null,
+    title: readinessMessage ? "Blocked before execution" : "Waiting for action",
+    tone: readinessMessage ? "blocked" : "waiting",
+  };
+}
+
+function isReviewLikeStatus(status: string) {
+  return status === "review_needed" || status === "completed";
+}
+
 function CoordinatorFinalizationPanel({
   queue,
 }: {
   queue: AgentQueueController;
 }) {
   const finalization = queue.coordinatorFinalization;
+  const selectedTask = queue.selectedTask;
+  const hasReport =
+    (selectedTask?.workerExecutionReports?.length ?? 0) > 0 ||
+    Boolean(queue.reportActionCard.diffReviewReportCard);
+  const isRelevant =
+    hasReport || coordinatorStatusBlocksNewWork(finalization.status);
+
+  if (!isRelevant) {
+    return (
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Coordinator finalization</summary>
+        <p className="agent-queue-run-note">
+          Coordinator finalization becomes relevant after a worker report,
+          diff review, or explicit coordinator-review state exists.
+        </p>
+      </details>
+    );
+  }
 
   return (
     <section
@@ -560,6 +792,39 @@ function WorkerExecutionReportPanel({
   const reportCard = queue.reportActionCard.workerReportCard;
   const shownCardId = queue.reportActionCard.latestShownCardId;
 
+  if (!report) {
+    return (
+      <section
+        aria-label="Worker execution report"
+        className="agent-queue-expanded-section agent-queue-worker-report agent-queue-worker-report-empty"
+      >
+        <div className="agent-queue-expanded-section-header">
+          <div>
+            <p className="agent-queue-execution-group-title">
+              Worker execution report
+            </p>
+            <p className="agent-queue-run-note">
+              No worker report yet. Run or attach a worker report to review evidence.
+            </p>
+          </div>
+          <Badge variant="neutral">No report</Badge>
+        </div>
+        <div className="agent-queue-run-actions">
+          <Button
+            disabled={!queue.workerReport.canAttach}
+            onClick={() => queue.workerReport.onAttachDemoReport()}
+            variant="secondary"
+          >
+            Attach worker report
+          </Button>
+        </div>
+        {queue.workerReport.message ? (
+          <p className="agent-queue-message">{queue.workerReport.message}</p>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label="Worker execution report"
@@ -582,27 +847,18 @@ function WorkerExecutionReportPanel({
         </div>
       </div>
 
-      {report ? (
-        <>
-          <WorkerReportSummary
-            report={report}
-            workerName={workerNameForReport(queue, report)}
-          />
-          <div className="agent-queue-report-card-linkage">
-            <Badge variant={shownCardId ? "info" : "neutral"}>
-              {shownCardId ? "Shown in Workspace Chat" : "Not shown in Chat"}
-            </Badge>
-            {shownCardId ? (
-              <span className="agent-queue-mono">{shownCardId}</span>
-            ) : null}
-          </div>
-        </>
-      ) : (
-        <p className="agent-queue-run-note">
-          No worker report is attached. Attach a model-only report to preview
-          the coordinator review surface without starting execution.
-        </p>
-      )}
+      <WorkerReportSummary
+        report={report}
+        workerName={workerNameForReport(queue, report)}
+      />
+      <div className="agent-queue-report-card-linkage">
+        <Badge variant={shownCardId ? "info" : "neutral"}>
+          {shownCardId ? "Shown in Workspace Chat" : "Not shown in Chat"}
+        </Badge>
+        {shownCardId ? (
+          <span className="agent-queue-mono">{shownCardId}</span>
+        ) : null}
+      </div>
 
       <div className="agent-queue-run-actions">
         <Button
@@ -630,9 +886,9 @@ function WorkerExecutionReportPanel({
         <Button
           disabled={!queue.workerReport.canAttach}
           onClick={() => queue.workerReport.onAttachDemoReport()}
-          variant={report ? "secondary" : "primary"}
+          variant="secondary"
         >
-          {report ? "Attach another report" : "Attach worker report"}
+          Attach another report
         </Button>
       </div>
 
@@ -798,7 +1054,7 @@ function SubmittedMetadata({
 
 function PromptPreview({ prompt }: { prompt: string }) {
   return (
-    <details className="agent-queue-expanded-section agent-queue-prompt-preview">
+    <details className="agent-queue-expanded-section agent-queue-prompt-preview" open>
       <summary>Prompt</summary>
       <pre>{prompt.trim() || "No prompt has been written for this task."}</pre>
       <p className="agent-queue-run-note">
