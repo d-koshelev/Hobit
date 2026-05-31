@@ -52,6 +52,7 @@ type AgentQueueTaskDetailsPanelProps = {
   ) => void;
   priorityInputId: string;
   promptInputId: string;
+  presentation?: "full" | "flow-summary";
   queue: AgentQueueController;
   selectedTaskHint: string;
   statusInputId: string;
@@ -68,6 +69,7 @@ export function AgentQueueTaskDetailsPanel({
   onShowQueueReportInWorkspaceChat,
   priorityInputId,
   promptInputId,
+  presentation = "full",
   queue,
   selectedTaskHint,
   statusInputId,
@@ -98,6 +100,35 @@ export function AgentQueueTaskDetailsPanel({
     updatePriority,
     validationMessage,
   } = queue;
+
+  if (presentation === "flow-summary") {
+    return (
+      <section
+        aria-label="Selected Agent Queue task summary"
+        className="agent-queue-task-editor-pane agent-queue-task-editor-pane-flow"
+      >
+        {isLoading ? (
+          <div className="agent-queue-empty-state">
+            <p className="empty-state-title">Loading queue.</p>
+            <p className="empty-state-text">
+              Workspace queue tasks are loading.
+            </p>
+          </div>
+        ) : loadError ? (
+          <div className="agent-queue-empty-state" role="alert">
+            <p className="empty-state-title">Queue unavailable.</p>
+            <p className="empty-state-text">
+              {loadError} Use Refresh to try again.
+            </p>
+          </div>
+        ) : selectedTask ? (
+          <FlowSelectionSummary queue={queue} selectedTask={selectedTask} />
+        ) : (
+          <AgentQueueEmptySelection hasTasks={tasks.length > 0} />
+        )}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -283,6 +314,76 @@ function NextActionPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function FlowSelectionSummary({
+  queue,
+  selectedTask,
+}: {
+  queue: AgentQueueController;
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>;
+}) {
+  const queueTag = normalizeQueueTag(selectedTask);
+  const validationStatus = normalizeValidationStatus(
+    selectedTask.validationStatus,
+  );
+  const dependencyState = queue.dependencyStates.get(selectedTask.queueItemId);
+  const routingState = queue.assignedWorkerRoutingStates.get(
+    selectedTask.queueItemId,
+  );
+  const executorInfo = queueExecutorInfoForTask({
+    dependencyState,
+    routingState,
+    task: selectedTask,
+  });
+
+  return (
+    <div className="agent-queue-flow-selection-summary">
+      <div className="agent-queue-flow-selection-heading">
+        <p className="agent-queue-expanded-kicker">Selected block</p>
+        <h3>{displayTaskTitle(selectedTask)}</h3>
+      </div>
+      <div className="agent-queue-expanded-badges">
+        <Badge variant="neutral">{queueTag.queueTagName}</Badge>
+        <Badge variant={statusBadgeVariant(selectedTask.status)}>
+          {statusLabel(selectedTask.status)}
+        </Badge>
+        <Badge variant={queueExecutorInfoBadgeVariant(executorInfo.tone)}>
+          {executorInfo.label}
+        </Badge>
+        <Badge variant={validationBadgeVariant(validationStatus)}>
+          {validationStatusLabel(validationStatus)}
+        </Badge>
+        <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
+          {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
+        </Badge>
+      </div>
+      <dl className="agent-queue-flow-selection-facts">
+        <div>
+          <dt>Worker</dt>
+          <dd>{routingState?.assignedWorker?.name ?? executorInfo.label}</dd>
+        </div>
+        <div>
+          <dt>Report</dt>
+          <dd>{latestReportLabel(selectedTask)}</dd>
+        </div>
+        <div>
+          <dt>Dependencies</dt>
+          <dd>{dependencyState?.status ?? "ready"}</dd>
+        </div>
+      </dl>
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Prompt preview</summary>
+        <pre className="agent-queue-flow-selection-prompt">
+          {selectedTask.prompt.trim() || "No prompt has been written for this task."}
+        </pre>
+      </details>
+      <p className="agent-queue-run-note">
+        Flow Map blocks only select Queue items. Execution, edits, reports, and
+        finalization remain in the Table/list detail view or explicit controls.
+      </p>
+    </div>
   );
 }
 

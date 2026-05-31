@@ -74,44 +74,100 @@ export function AgentQueueFlowMap({
       </div>
 
       <div className="agent-queue-flow-map-scroll">
-        <section
-          aria-label="Work queue and blocked work"
-          className="agent-queue-flow-zone agent-queue-flow-work-zone"
-        >
-          <QueueFlowSectionBaseline label="Work queue / blocked work" />
-          {flowMap.columns.length === 0 ? (
-            <div className="agent-queue-empty-state agent-queue-empty-state-compact">
-              <p className="empty-state-title">No active queue flow.</p>
-              <p className="empty-state-text">
-                Active queued, ready, running, or review-needed items appear here.
-              </p>
-            </div>
-          ) : (
-            <QueueFlowLayers
-              columns={flowMap.columns}
+        <div className="agent-queue-flow-canvas" data-testid="queue-flow-topology-canvas">
+          <QueueFlowSectionBaseline label="Work intake topology" />
+
+          <div
+            aria-label="Queue intake topology"
+            className="agent-queue-flow-intake-region"
+          >
+            <QueueFlowTopLane
+              ariaLabel="Work Queue / Backlog"
+              columns={flowMap.workColumns}
+              emptyText="No ready backlog blocks."
               isSelecting={isSelecting}
+              label="Work Queue / Backlog"
               onSelectTask={onSelectTask}
               selectedTaskId={selectedTask?.queueItemId ?? null}
             />
-          )}
-        </section>
+            <QueueFlowTopLane
+              ariaLabel="Waiting work"
+              columns={flowMap.waitingColumns}
+              emptyText="No not-runnable blocks."
+              isSelecting={isSelecting}
+              label="Waiting / Not runnable"
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTask?.queueItemId ?? null}
+            />
+            <QueueFlowTopLane
+              ariaLabel="Blocked work"
+              columns={flowMap.blockedColumns}
+              emptyText="No blocked blocks."
+              isSelecting={isSelecting}
+              label="Blocked work"
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTask?.queueItemId ?? null}
+            />
+          </div>
 
-        <QueueFlowExecutorSection
-          embeddedExecutor={embeddedExecutor}
-          lanes={flowMap.executorLanes}
-          schedulerPlan={schedulerPlan}
-          isSelecting={isSelecting}
-          onSelectTask={onSelectTask}
-          selectedTaskId={selectedTask?.queueItemId ?? null}
-        />
+          <QueueFlowDependencyBars
+            barriers={flowMap.columns.flatMap((column) => column.barriersAfter)}
+          />
 
-        <QueueFlowResultsSection
-          groups={flowMap.resultGroups}
-          isSelecting={isSelecting}
-          onSelectTask={onSelectTask}
-          selectedTaskId={selectedTask?.queueItemId ?? null}
-        />
+          <QueueFlowExecutorSection
+            embeddedExecutor={embeddedExecutor}
+            lanes={flowMap.executorLanes}
+            schedulerPlan={schedulerPlan}
+            isSelecting={isSelecting}
+            onSelectTask={onSelectTask}
+            selectedTaskId={selectedTask?.queueItemId ?? null}
+          />
+
+          <QueueFlowResultsSection
+            groups={flowMap.resultGroups}
+            isSelecting={isSelecting}
+            onSelectTask={onSelectTask}
+            selectedTaskId={selectedTask?.queueItemId ?? null}
+          />
+        </div>
       </div>
+    </section>
+  );
+}
+
+function QueueFlowTopLane({
+  ariaLabel,
+  columns,
+  emptyText,
+  isSelecting,
+  label,
+  onSelectTask,
+  selectedTaskId,
+}: {
+  ariaLabel: string;
+  columns: QueueFlowColumn[];
+  emptyText: string;
+  isSelecting: boolean;
+  label: string;
+  onSelectTask: (queueItemId: string) => void;
+  selectedTaskId: string | null;
+}) {
+  return (
+    <section
+      aria-label={ariaLabel}
+      className="agent-queue-flow-zone agent-queue-flow-top-lane"
+    >
+      <QueueFlowLaneLabel label={label} />
+      {columns.length === 0 ? (
+        <QueueFlowZoneEmpty text={emptyText} />
+      ) : (
+        <QueueFlowLayers
+          columns={columns}
+          isSelecting={isSelecting}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTaskId}
+        />
+      )}
     </section>
   );
 }
@@ -157,7 +213,9 @@ function QueueFlowLayer({
     <div className="agent-queue-flow-layer" role="listitem">
       <div className="agent-queue-flow-layer-header">
         <p className="agent-queue-flow-layer-title">{column.label}</p>
-        <Badge variant="neutral">{flowLayerItemCount(column)} items</Badge>
+        <span className="agent-queue-flow-layer-count">
+          {flowLayerItemCount(column)} blocks
+        </span>
       </div>
       <div className="agent-queue-flow-groups">
         {column.groups.map((group) => (
@@ -238,6 +296,31 @@ function QueueFlowBarrier({
   );
 }
 
+function QueueFlowDependencyBars({
+  barriers,
+}: {
+  barriers: QueueFlowBarrierModel[];
+}) {
+  if (barriers.length === 0) {
+    return (
+      <div
+        aria-hidden="true"
+        className="agent-queue-flow-dependency-bars agent-queue-flow-dependency-bars-empty"
+      >
+        <span />
+      </div>
+    );
+  }
+
+  return (
+    <div className="agent-queue-flow-dependency-bars" aria-label="Dependency relationships">
+      {barriers.map((barrier) => (
+        <QueueFlowBarrier barrier={barrier} key={barrier.id} />
+      ))}
+    </div>
+  );
+}
+
 function QueueFlowExecutorSection({
   embeddedExecutor,
   lanes,
@@ -255,11 +338,11 @@ function QueueFlowExecutorSection({
 }) {
   return (
     <section
-      aria-label="Agent Executor section"
+      aria-label="Agent Executor section / Working executors"
       className="agent-queue-flow-zone agent-queue-flow-executors"
     >
       <div className="agent-queue-flow-zone-header">
-        <QueueFlowSectionBaseline label="Agent Executor section" />
+        <QueueFlowSectionBaseline label="Agent Executor section / Working executors" />
         {schedulerPlan ? (
           <Badge
             variant={
@@ -276,7 +359,7 @@ function QueueFlowExecutorSection({
       </div>
       {schedulerPlan && !schedulerPlan.globalState.allowsScheduling ? (
         <p className="agent-queue-flow-global-note">
-          {schedulerPlan.globalState.explanation}
+          {compactGlobalExecutionNote(schedulerPlan.globalState.code)}
         </p>
       ) : null}
       {embeddedExecutor ? (
@@ -333,13 +416,14 @@ function QueueFlowResultsSection({
 }) {
   return (
     <section
-      aria-label="Queue results"
+      aria-label="Results / Reports / Completed work"
       className="agent-queue-flow-zone agent-queue-flow-results"
     >
-      <QueueFlowSectionBaseline label="Results / reports" />
+      <QueueFlowSectionBaseline label="Results / Reports / Completed work" />
       {groups.length === 0 ? (
         <div className="agent-queue-flow-result-empty">
-          No completed, failed, cancelled, or reported blocks yet.
+          <span className="agent-queue-flow-result-empty-rail" />
+          <span>No completed, failed, cancelled, or reported blocks yet.</span>
         </div>
       ) : (
         <div className="agent-queue-flow-result-groups">
@@ -369,6 +453,19 @@ function QueueFlowSectionBaseline({ label }: { label: string }) {
   );
 }
 
+function QueueFlowLaneLabel({ label }: { label: string }) {
+  return (
+    <div className="agent-queue-flow-lane-label">
+      <span />
+      <p>{label}</p>
+    </div>
+  );
+}
+
+function QueueFlowZoneEmpty({ text }: { text: string }) {
+  return <div className="agent-queue-flow-zone-empty">{text}</div>;
+}
+
 function FlowItemBlock({
   isSelecting,
   isSelected,
@@ -380,7 +477,8 @@ function FlowItemBlock({
   item: QueueFlowItemBlock;
   onSelectTask: (queueItemId: string) => void;
 }) {
-  const isBlocked = item.blockedReasons.length > 0;
+  const isBlocked = item.primaryZone === "blocked";
+  const hasReason = item.blockedReasons.length > 0;
 
   return (
     <button
@@ -394,6 +492,7 @@ function FlowItemBlock({
         .filter(Boolean)
         .join(" ")}
       data-tag-color-token={item.colorToken}
+      data-queue-item-id={item.queueItemId}
       disabled={isSelecting}
       onClick={() => onSelectTask(item.queueItemId)}
       title={itemTitle(item)}
@@ -403,49 +502,37 @@ function FlowItemBlock({
         <span className="agent-queue-flow-tag-swatch agent-queue-flow-block-swatch" />
         <span className="agent-queue-flow-block-title">{item.title}</span>
       </span>
-      <span
-        className={[
-          "agent-queue-executor-info-box",
-          `agent-queue-executor-info-${item.executorInfoTone}`,
-        ].join(" ")}
-        title={item.executorInfoDetail}
-      >
-        <span>Executor</span>
-        <strong>{item.executorInfoLabel}</strong>
-      </span>
-      <span className="agent-queue-flow-block-meta">
-        <span>{item.shortId}</span>
-        <span>{item.itemType}</span>
-        {item.sourceItemLabel ? <span>Source {item.sourceItemLabel}</span> : null}
-        {item.reviewTargetSummary ? <span>{item.reviewTargetSummary}</span> : null}
-        <span>{item.priorityLabel}</span>
-        <span>{item.planStatusLabel}</span>
-        {item.assignedWorkerLabel ? <span>{item.assignedWorkerLabel}</span> : null}
-      </span>
       <span className="agent-queue-flow-block-badges">
         <Badge variant={statusBadgeVariant(item.status)}>{item.statusLabel}</Badge>
+        <Badge variant="neutral">
+          {item.assignedWorkerLabel ?? item.executorInfoLabel}
+        </Badge>
         {item.hasWorkerReport ? (
-          <Badge variant="info">Report received</Badge>
+          <Badge variant="info">Report</Badge>
         ) : null}
-        <Badge variant={coordinatorStatusBadgeVariant(item.coordinatorStatus)}>
-          {item.coordinatorStatusLabel}
-        </Badge>
+        {item.coordinatorStatus !== "not_reported" ? (
+          <Badge variant={coordinatorStatusBadgeVariant(item.coordinatorStatus)}>
+            {item.coordinatorStatusLabel}
+          </Badge>
+        ) : null}
         {item.hasLinkedDiffReview ? (
-          <Badge variant="warning">Diff review requested</Badge>
+          <Badge variant="warning">Diff review</Badge>
         ) : null}
-        <Badge
-          className={
-            item.validationStatus === "validating"
-              ? "agent-queue-validation-animating"
-              : undefined
-          }
-          variant={validationBadgeVariant(item.validationStatus)}
-        >
-          {item.validationStatusLabel}
-        </Badge>
+        {item.validationStatus !== "not_started" ? (
+          <Badge
+            className={
+              item.validationStatus === "validating"
+                ? "agent-queue-validation-animating"
+                : undefined
+            }
+            variant={validationBadgeVariant(item.validationStatus)}
+          >
+            {item.validationStatusLabel}
+          </Badge>
+        ) : null}
         {isBlocked ? <Badge variant="warning">Blocked</Badge> : null}
       </span>
-      {isBlocked ? (
+      {hasReason ? (
         <span className="agent-queue-flow-block-reason">
           {item.blockedReasons[0]}
         </span>
@@ -480,6 +567,7 @@ function ExecutorLaneBlock({
       aria-current={activeItemSelected ? "true" : undefined}
       className={laneClassName}
       data-tag-color-token={lane.colorToken ?? undefined}
+      data-queue-item-id={lane.activeItem?.queueItemId}
       disabled={isSelecting || !lane.activeItem}
       onClick={() => {
         if (lane.activeItem) {
@@ -502,6 +590,25 @@ function ExecutorLaneBlock({
         </span>
         <span>{lane.scopeLabel}</span>
       </span>
+      {lane.activeItem ? (
+        <span className="agent-queue-flow-executor-badges">
+          <Badge variant={statusBadgeVariant(lane.activeItem.status)}>
+            {lane.activeItem.statusLabel}
+          </Badge>
+          {lane.activeItem.validationStatus !== "not_started" ? (
+            <Badge
+              className={
+                lane.activeItem.validationStatus === "validating"
+                  ? "agent-queue-validation-animating"
+                  : undefined
+              }
+              variant={validationBadgeVariant(lane.activeItem.validationStatus)}
+            >
+              {lane.activeItem.validationStatusLabel}
+            </Badge>
+          ) : null}
+        </span>
+      ) : null}
       <span className="agent-queue-flow-executor-task">
         {lane.activeItem
           ? lane.activeItem.title
@@ -520,6 +627,12 @@ function ExecutorLaneBlock({
 
 function flowLayerItemCount(column: QueueFlowColumn) {
   return column.groups.reduce((count, group) => count + group.items.length, 0);
+}
+
+function compactGlobalExecutionNote(code: AgentQueueSchedulerPlan["globalState"]["code"]) {
+  return code === "stop_kill_requested"
+    ? "Stop/kill review requested."
+    : "New starts paused.";
 }
 
 function itemTitle(item: QueueFlowItemBlock) {

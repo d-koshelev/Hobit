@@ -20,6 +20,7 @@ describe("agent queue flow map model", () => {
       "Implementation",
       "Review",
     ]);
+    expect(map.columns[0]?.label).toBe("Backlog lane");
     expect(map.columns[0]?.groups[0]?.colorToken).toBe(
       queueTagColorToken("impl"),
     );
@@ -53,6 +54,7 @@ describe("agent queue flow map model", () => {
   it("shows blocked dependency reasons on dependent item blocks", () => {
     const tasks = [
       queueTask({ queueItemId: "blocker", status: "queued", title: "Blocker" }),
+      queueTask({ queueItemId: "unrelated", status: "queued", title: "Unrelated" }),
       queueTask({
         dependsOn: ["blocker"],
         queueItemId: "blocked",
@@ -69,12 +71,122 @@ describe("agent queue flow map model", () => {
     expect(map.columns[0]?.barriersAfter[0]?.blockingSummary).toContain(
       "Blocker",
     );
+    expect(map.columns[0]?.barriersAfter[0]?.blockingSummary).not.toContain(
+      "Unrelated",
+    );
     expect(map.columns[0]?.barriersAfter[0]?.blockedSummary).toContain(
       "Blocked",
     );
+    expect(map.columns[1]?.label).toBe("Dependency lane 1");
+    expect(map.blockedColumns[0]?.label).toBe("Dependency lane 1");
     expect(blockedBlock?.dependencyStatus).toBe("blocked");
     expect(blockedBlock?.blockedReasons.join(" ")).toContain(
       "Blocked by: Blocker",
+    );
+    expect(map.workColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe("blocker");
+    expect(map.blockedColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe(
+      "blocked",
+    );
+  });
+
+  it("separates waiting draft work from ready backlog and blocked work", () => {
+    const tasks = [
+      queueTask({ queueItemId: "ready", status: "queued", title: "Ready" }),
+      queueTask({ queueItemId: "draft", status: "draft", title: "Draft" }),
+      queueTask({
+        coordinatorStatus: "blocked",
+        queueItemId: "blocked",
+        status: "queued",
+        title: "Blocked",
+      }),
+    ];
+    const map = buildMap(tasks);
+
+    expect(map.workColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe("ready");
+    expect(map.workColumns[0]?.groups[0]?.items[0]?.primaryZone).toBe("work");
+    expect(map.waitingColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe("draft");
+    expect(map.waitingColumns[0]?.groups[0]?.items[0]?.primaryZone).toBe(
+      "waiting",
+    );
+    expect(map.blockedColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe(
+      "blocked",
+    );
+    expect(map.blockedColumns[0]?.groups[0]?.items[0]?.primaryZone).toBe(
+      "blocked",
+    );
+  });
+
+  it("assigns every queue item to one primary flow-map zone", () => {
+    const tasks = [
+      queueTask({ queueItemId: "ready", status: "queued", title: "Ready" }),
+      queueTask({ queueItemId: "draft", status: "draft", title: "Draft" }),
+      queueTask({
+        coordinatorStatus: "blocked",
+        queueItemId: "blocked",
+        status: "queued",
+        title: "Blocked",
+      }),
+      queueTask({
+        assignedExecutorWidgetId: "worker-working",
+        assignedWorkerId: "worker-working",
+        queueItemId: "running",
+        status: "running",
+        title: "Running",
+      }),
+      queueTask({
+        queueItemId: "completed",
+        status: "completed",
+        title: "Completed",
+      }),
+    ];
+    const map = buildMap(tasks);
+    const zoneItems = [
+      ...itemsInColumns(map.workColumns),
+      ...itemsInColumns(map.waitingColumns),
+      ...itemsInColumns(map.blockedColumns),
+      ...map.executorLanes.flatMap((lane) =>
+        lane.activeItem ? [lane.activeItem] : [],
+      ),
+      ...map.resultGroups.flatMap((group) => group.items),
+    ];
+
+    expect(zoneItems.map((item) => item.queueItemId).sort()).toEqual(
+      tasks.map((task) => task.queueItemId).sort(),
+    );
+    expect(new Set(zoneItems.map((item) => item.queueItemId)).size).toBe(
+      tasks.length,
+    );
+    expect(map.workColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe("ready");
+    expect(map.waitingColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe(
+      "draft",
+    );
+    expect(map.blockedColumns[0]?.groups[0]?.items[0]?.queueItemId).toBe(
+      "blocked",
+    );
+    expect(
+      map.executorLanes.find((lane) => lane.activeItem?.queueItemId === "running")
+        ?.activeItem?.queueItemId,
+    ).toBe("running");
+    expect(map.resultGroups[0]?.items[0]?.queueItemId).toBe("completed");
+  });
+
+  it("chooses blocked over waiting when a draft has a real dependency blocker", () => {
+    const tasks = [
+      queueTask({ queueItemId: "blocker", status: "queued", title: "Blocker" }),
+      queueTask({
+        dependsOn: ["blocker"],
+        queueItemId: "draft-blocked",
+        status: "draft",
+        title: "Draft blocked by dependency",
+      }),
+    ];
+    const map = buildMap(tasks);
+
+    expect(itemsInColumns(map.waitingColumns).map((item) => item.queueItemId)).not.toContain(
+      "draft-blocked",
+    );
+    expect(itemsInColumns(map.blockedColumns).map((item) => item.queueItemId)).toContain(
+      "draft-blocked",
     );
   });
 
@@ -89,7 +201,9 @@ describe("agent queue flow map model", () => {
       }),
     ];
     const map = buildMap(tasks);
-    const block = map.columns[0]?.groups[0]?.items[0];
+    const block = map.executorLanes.find(
+      (lane) => lane.activeItem?.queueItemId === "validate-1",
+    )?.activeItem;
 
     expect(block?.colorToken).toBe(queueTagColorToken("validation"));
     expect(block?.assignedWorkerLabel).toBeNull();
@@ -198,6 +312,12 @@ function buildMap(tasks: AgentQueueTask[]) {
     tasks,
     workers: workers(),
   });
+}
+
+function itemsInColumns(columns: ReturnType<typeof buildMap>["columns"]) {
+  return columns.flatMap((column) =>
+    column.groups.flatMap((group) => group.items),
+  );
 }
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {

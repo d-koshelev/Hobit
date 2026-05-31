@@ -1,6 +1,7 @@
 import type { AgentQueueTask } from "../../workspace/types";
 import {
   displayTaskTitle,
+  coordinatorStatusBlocksNewWork,
   isFinalQueueTaskStatus,
   itemTypeLabel,
   normalizeItemType,
@@ -21,6 +22,7 @@ import {
   compareQueueRoutingItems,
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
+  type AgentQueueRoutingBlockedReasonCode,
 } from "./agentQueueRoutingModel";
 import { executionPlanStatusLabel } from "./agentQueueExecutionPlanModel";
 import type { AgentQueueSchedulerPlan } from "./agentQueueSchedulerModel";
@@ -38,10 +40,20 @@ export type QueueFlowTagColorToken =
   | "queue-flow-tag-6";
 
 export type QueueFlowMap = {
+  blockedColumns: QueueFlowColumn[];
   columns: QueueFlowColumn[];
   executorLanes: QueueExecutorLane[];
   resultGroups: QueueResultGroup[];
+  waitingColumns: QueueFlowColumn[];
+  workColumns: QueueFlowColumn[];
 };
+
+export type QueueFlowPrimaryZone =
+  | "blocked"
+  | "executor"
+  | "results"
+  | "waiting"
+  | "work";
 
 export type QueueFlowColumn = {
   barriersAfter: QueueFlowBarrier[];
@@ -71,6 +83,7 @@ export type QueueFlowItemBlock = {
   itemType: string;
   hasWorkerReport: boolean;
   hasLinkedDiffReview: boolean;
+  primaryZone: QueueFlowPrimaryZone;
   planStatusLabel: string;
   coordinatorStatusLabel: string;
   coordinatorStatus: NonNullable<AgentQueueTask["coordinatorStatus"]>;
@@ -83,6 +96,7 @@ export type QueueFlowItemBlock = {
   statusLabel: string;
   sourceItemLabel: string | null;
   reviewTargetSummary: string | null;
+  routingBlockedReasonCodes: AgentQueueRoutingBlockedReasonCode[];
   title: string;
   validationStatus: NonNullable<AgentQueueTask["validationStatus"]>;
   validationStatusLabel: string;
@@ -149,11 +163,11 @@ export function buildQueueFlowMap({
       }),
     ]),
   );
-  const activeTasks = tasks.filter(
-    (task) => !isFinalQueueTaskStatus(task.status) && !hasWorkerReport(task),
+  const activeTasks = tasks.filter((task) =>
+    isIntakeFlowZone(itemBlocksById.get(task.queueItemId)?.primaryZone),
   );
   const resultTasks = tasks.filter(
-    (task) => isFinalQueueTaskStatus(task.status) || hasWorkerReport(task),
+    (task) => itemBlocksById.get(task.queueItemId)?.primaryZone === "results",
   );
   const depths = dependencyDepths(tasks);
   const activeDepths = Array.from(
@@ -179,46 +193,24 @@ export function buildQueueFlowMap({
       id: `layer-${depth.toString()}`,
       label:
         depth === 0
-          ? "Ready layer"
-          : `Dependency layer ${depth.toString()}`,
+          ? "Backlog lane"
+          : `Dependency lane ${depth.toString()}`,
     } satisfies QueueFlowColumn;
   });
 
   return {
+    blockedColumns: filterFlowColumns(
+      columns,
+      (item) => item.primaryZone === "blocked",
+      true,
+    ),
     columns,
-    executorLanes: workers
-      .slice()
-      .sort((first, second) => first.displayOrder - second.displayOrder)
-      .map((worker) => {
-        const runningTask =
-          worker.status === "running" && worker.currentItemId
-            ? tasks.find((task) => task.queueItemId === worker.currentItemId) ??
-              null
-            : null;
-        const activeItem = runningTask
-          ? itemBlocksById.get(runningTask.queueItemId) ?? null
-          : null;
-        const workerPlan = schedulerPlan?.workerPlans.find(
-          (plan) => plan.workerId === worker.workerId,
-        );
-
-        return {
-          activeItem,
-          colorToken: activeItem?.colorToken ?? null,
-          idleReason: workerPlan?.idleReason ?? null,
-          id: `executor-${worker.workerId}`,
-          isWorking: Boolean(activeItem),
-          label: worker.name,
-          nextItemTitle: workerPlan?.bestNextItem?.title ?? null,
-          reviewMessage:
-            activeItem && schedulerPlan?.globalState.code === "stop_kill_requested"
-              ? "Termination requested / coordinator review needed"
-              : null,
-          scopeLabel: workerScopeLabel(worker),
-          status: worker.status,
-          workerId: worker.workerId,
-        };
-      }),
+    executorLanes: executorLanes({
+      itemBlocksById,
+      schedulerPlan,
+      tasks,
+      workers,
+    }),
     resultGroups: groupBlocksByTag(
       resultTasks
         .slice()
@@ -232,6 +224,16 @@ export function buildQueueFlowMap({
       queueTagId: group.queueTagId,
       queueTagName: group.queueTagName,
     })),
+    waitingColumns: filterFlowColumns(
+      columns,
+      (item) => item.primaryZone === "waiting",
+      false,
+    ),
+    workColumns: filterFlowColumns(
+      columns,
+      (item) => item.primaryZone === "work",
+      false,
+    ),
   };
 }
 
@@ -281,6 +283,10 @@ function queueFlowItemBlock({
     routingState && !routingState.canTake
       ? firstRoutingBlockedReasonLabel(routingState.blockedReasons)
       : null;
+  const routingBlockedReasonCodes =
+    routingState && !routingState.canTake
+      ? routingState.blockedReasons.map((reason) => reason.code)
+      : [];
   const executorInfo = queueExecutorInfoForTask({
     dependencyState: normalizedDependencyState,
     routingState,
@@ -300,7 +306,7 @@ function queueFlowItemBlock({
     ? tasks.find((candidate) => candidate.queueItemId === sourceItemId)
     : null;
 
-  return {
+  const block = {
     assignedWorkerLabel: routingState?.assignedWorker?.name ?? null,
     blockedReasons,
     colorToken: queueTagColorToken(queueTag.queueTagId),
@@ -332,9 +338,15 @@ function queueFlowItemBlock({
     status: task.status,
     statusLabel: statusLabel(task.status),
     reviewTargetSummary: task.diffReview?.reviewTargetSummary ?? null,
+    routingBlockedReasonCodes,
     title: displayTaskTitle(task),
     validationStatus: normalizedValidationStatus,
     validationStatusLabel: validationStatusLabel(normalizedValidationStatus),
+  } satisfies Omit<QueueFlowItemBlock, "primaryZone">;
+
+  return {
+    ...block,
+    primaryZone: queueFlowPrimaryZone(block),
   };
 }
 
@@ -382,17 +394,33 @@ function barrierAfterDepth({
     return [];
   }
 
-  const blockingItemIds = tasks
-    .filter((task) => (depths.get(task.queueItemId) ?? 0) === currentDepth)
-    .map((task) => task.queueItemId);
-  const blockedItemIds = tasks
+  const currentLayerItemIds = new Set(
+    tasks
+      .filter((task) => (depths.get(task.queueItemId) ?? 0) === currentDepth)
+      .map((task) => task.queueItemId),
+  );
+  const blockedTasks = tasks
     .filter((task) => (depths.get(task.queueItemId) ?? 0) === nextDepth)
     .filter((task) =>
       normalizeTaskDependencies(task.dependsOn).some((dependencyId) =>
-        blockingItemIds.includes(dependencyId),
+        currentLayerItemIds.has(dependencyId),
       ),
-    )
-    .map((task) => task.queueItemId);
+    );
+  const blockedItemIds = blockedTasks.map((task) => task.queueItemId);
+  const blockingItemIds = Array.from(
+    new Set(
+      blockedTasks.flatMap((task) =>
+        normalizeTaskDependencies(task.dependsOn).filter((dependencyId) =>
+          currentLayerItemIds.has(dependencyId),
+        ),
+      ),
+    ),
+  );
+
+  if (blockedItemIds.length === 0 || blockingItemIds.length === 0) {
+    return [];
+  }
+
   const blockingTitles = blockingItemIds
     .map((queueItemId) => itemBlocksById.get(queueItemId)?.title)
     .filter((title): title is string => Boolean(title))
@@ -407,13 +435,13 @@ function barrierAfterDepth({
       afterDepth: currentDepth,
       blockedItemIds,
       blockedSummary: compactTitleSummary({
-        fallback: `Layer ${(nextDepth + 1).toString()} work`,
+        fallback: `Dependency lane ${nextDepth.toString()} work`,
         totalCount: blockedItemIds.length,
         visibleTitles: blockedTitles,
       }),
       blockingItemIds,
       blockingSummary: compactTitleSummary({
-        fallback: `Layer ${(currentDepth + 1).toString()} work`,
+        fallback: `Backlog lane ${currentDepth.toString()} work`,
         totalCount: blockingItemIds.length,
         visibleTitles: blockingTitles,
       }),
@@ -421,6 +449,208 @@ function barrierAfterDepth({
       label: "Dependency barrier",
     },
   ];
+}
+
+function filterFlowColumns(
+  columns: QueueFlowColumn[],
+  itemPredicate: (item: QueueFlowItemBlock) => boolean,
+  includeMatchingBarriers: boolean,
+) {
+  return columns
+    .map((column) => {
+      const groups = column.groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(itemPredicate),
+        }))
+        .filter((group) => group.items.length > 0);
+      const itemIds = new Set(
+        groups.flatMap((group) => group.items.map((item) => item.queueItemId)),
+      );
+
+      return {
+        ...column,
+        barriersAfter: includeMatchingBarriers
+          ? column.barriersAfter.filter((barrier) =>
+              barrier.blockedItemIds.some((queueItemId) =>
+                itemIds.has(queueItemId),
+              ),
+            )
+          : [],
+        groups,
+      } satisfies QueueFlowColumn;
+    })
+    .filter((column) => column.groups.length > 0);
+}
+
+function isIntakeFlowZone(zone: QueueFlowPrimaryZone | undefined) {
+  return zone === "blocked" || zone === "waiting" || zone === "work";
+}
+
+function queueFlowPrimaryZone(
+  item: Omit<QueueFlowItemBlock, "primaryZone">,
+): QueueFlowPrimaryZone {
+  if (isFinalQueueTaskStatus(item.status) || item.hasWorkerReport) {
+    return "results";
+  }
+
+  if (isExecutorFlowBlock(item)) {
+    return "executor";
+  }
+
+  if (isBlockedFlowBlock(item)) {
+    return "blocked";
+  }
+
+  if (isWaitingFlowBlock(item)) {
+    return "waiting";
+  }
+
+  return "work";
+}
+
+function isExecutorFlowBlock(item: Omit<QueueFlowItemBlock, "primaryZone">) {
+  return item.status === "running";
+}
+
+function isBlockedFlowBlock(item: Omit<QueueFlowItemBlock, "primaryZone">) {
+  return (
+    item.coordinatorStatus === "blocked" ||
+    coordinatorStatusBlocksNewWork(item.coordinatorStatus) ||
+    item.dependencyStatus !== "ready" ||
+    item.routingBlockedReasonCodes.some((code) => REAL_BLOCKER_REASON_CODES.has(code))
+  );
+}
+
+function isWaitingFlowBlock(item: Omit<QueueFlowItemBlock, "primaryZone">) {
+  return (
+    item.status === "draft" ||
+    item.routingBlockedReasonCodes.some((code) => WAITING_REASON_CODES.has(code))
+  );
+}
+
+const REAL_BLOCKER_REASON_CODES: ReadonlySet<AgentQueueRoutingBlockedReasonCode> =
+  new Set([
+    "assigned_to_another_worker",
+    "item_awaiting_coordinator_review",
+    "item_dependency_graph_invalid",
+    "queue_tag_paused",
+    "worker_disabled",
+    "worker_scope_mismatch",
+    "waiting_for_dependencies",
+  ]);
+
+const WAITING_REASON_CODES: ReadonlySet<AgentQueueRoutingBlockedReasonCode> =
+  new Set([
+    "assigned_worker_unavailable",
+    "item_missing_prompt",
+    "item_not_runnable_status",
+    "item_validation_in_progress",
+    "queue_stop_kill_requested",
+    "queue_stopped",
+  ]);
+
+function executorLanes({
+  itemBlocksById,
+  schedulerPlan,
+  tasks,
+  workers,
+}: {
+  itemBlocksById: ReadonlyMap<string, QueueFlowItemBlock>;
+  schedulerPlan?: AgentQueueSchedulerPlan;
+  tasks: AgentQueueTask[];
+  workers: AgentWorkerSummary[];
+}): QueueExecutorLane[] {
+  const renderedExecutorItemIds = new Set<string>();
+  const lanes = workers
+    .slice()
+    .sort((first, second) => first.displayOrder - second.displayOrder)
+    .map((worker) => {
+      const runningTask = runningTaskForWorker({ tasks, worker });
+      const activeItem = runningTask
+        ? itemBlocksById.get(runningTask.queueItemId) ?? null
+        : null;
+      const workerPlan = schedulerPlan?.workerPlans.find(
+        (plan) => plan.workerId === worker.workerId,
+      );
+
+      if (activeItem) {
+        renderedExecutorItemIds.add(activeItem.queueItemId);
+      }
+
+      return {
+        activeItem,
+        colorToken: activeItem?.colorToken ?? null,
+        idleReason: workerPlan?.idleReason ?? null,
+        id: `executor-${worker.workerId}`,
+        isWorking: Boolean(activeItem),
+        label: worker.name,
+        nextItemTitle: workerPlan?.bestNextItem?.title ?? null,
+        reviewMessage:
+          activeItem && schedulerPlan?.globalState.code === "stop_kill_requested"
+            ? "Termination requested / coordinator review needed"
+            : null,
+        scopeLabel: workerScopeLabel(worker),
+        status: worker.status,
+        workerId: worker.workerId,
+      } satisfies QueueExecutorLane;
+    });
+
+  const unmatchedRunningLanes = tasks
+    .filter((task) => itemBlocksById.get(task.queueItemId)?.primaryZone === "executor")
+    .filter((task) => !renderedExecutorItemIds.has(task.queueItemId))
+    .sort(compareQueueRoutingItems)
+    .map((task) => {
+      const activeItem = itemBlocksById.get(task.queueItemId) ?? null;
+      const workerId = task.assignedWorkerId ?? task.assignedExecutorWidgetId;
+
+      return {
+        activeItem,
+        colorToken: activeItem?.colorToken ?? null,
+        idleReason: null,
+        id: `executor-running-${task.queueItemId}`,
+        isWorking: Boolean(activeItem),
+        label: activeItem?.assignedWorkerLabel ?? "Working executor",
+        nextItemTitle: null,
+        reviewMessage:
+          activeItem && schedulerPlan?.globalState.code === "stop_kill_requested"
+            ? "Termination requested / coordinator review needed"
+            : null,
+        scopeLabel: workerId ? `Assigned to ${workerId}` : "Running item",
+        status: "running",
+        workerId: workerId ?? `running-${task.queueItemId}`,
+      } satisfies QueueExecutorLane;
+    });
+
+  return [...lanes, ...unmatchedRunningLanes];
+}
+
+function runningTaskForWorker({
+  tasks,
+  worker,
+}: {
+  tasks: AgentQueueTask[];
+  worker: AgentWorkerSummary;
+}) {
+  if (worker.status === "running" && worker.currentItemId) {
+    const currentTask = tasks.find(
+      (task) =>
+        task.queueItemId === worker.currentItemId && task.status === "running",
+    );
+
+    if (currentTask) {
+      return currentTask;
+    }
+  }
+
+  return (
+    tasks.find(
+      (task) =>
+        task.status === "running" &&
+        (task.assignedWorkerId === worker.workerId ||
+          task.assignedExecutorWidgetId === worker.workerId),
+    ) ?? null
+  );
 }
 
 function compactTitleSummary({

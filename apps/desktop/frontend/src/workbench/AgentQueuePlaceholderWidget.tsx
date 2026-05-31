@@ -25,6 +25,8 @@ import {
 } from "./queue/useAgentQueueController";
 import type { WidgetRenderProps } from "./types";
 
+export const DEFAULT_AGENT_QUEUE_VIEW_MODE = "flow";
+
 export function AgentQueuePlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -73,7 +75,9 @@ export function AgentQueuePlaceholderWidget({
   const createExecutionPolicyInputId = useId();
   const createDialogTitleId = useId();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"flow" | "list">("list");
+  const [viewMode, setViewMode] = useState<"flow" | "list">(
+    DEFAULT_AGENT_QUEUE_VIEW_MODE,
+  );
   const [createDraft, setCreateDraft] = useState<TaskDraft>(() =>
     newTaskDialogDraft(),
   );
@@ -247,20 +251,20 @@ export function AgentQueuePlaceholderWidget({
               role="group"
             >
               <button
-                aria-pressed={viewMode === "list"}
-                className={viewMode === "list" ? "agent-queue-view-toggle-active" : ""}
-                onClick={() => setViewMode("list")}
-                type="button"
-              >
-                Table/list
-              </button>
-              <button
                 aria-pressed={viewMode === "flow"}
                 className={viewMode === "flow" ? "agent-queue-view-toggle-active" : ""}
                 onClick={() => setViewMode("flow")}
                 type="button"
               >
                 Flow map
+              </button>
+              <button
+                aria-pressed={viewMode === "list"}
+                className={viewMode === "list" ? "agent-queue-view-toggle-active" : ""}
+                onClick={() => setViewMode("list")}
+                type="button"
+              >
+                Table/list
               </button>
             </div>
             <AgentQueueLayout
@@ -275,6 +279,9 @@ export function AgentQueuePlaceholderWidget({
                   executionPolicyInputId={executionPolicyInputId}
                   priorityInputId={priorityInputId}
                   promptInputId={promptInputId}
+                  presentation={
+                    viewMode === "flow" ? "flow-summary" : "full"
+                  }
                   queue={queue}
                   onAttachContextToCoordinator={onAttachContextToCoordinator}
                   onShowQueueReportInWorkspaceChat={

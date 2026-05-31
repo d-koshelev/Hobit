@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentQueueTask } from "../workspace/types";
 import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
+import { DEFAULT_AGENT_QUEUE_VIEW_MODE } from "./AgentQueuePlaceholderWidget";
 import { queueTagColorToken } from "./queue/agentQueueFlowMapModel";
 import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
 import {
@@ -29,6 +30,10 @@ afterEach(() => {
 });
 
 describe("AgentQueueFlowMap", () => {
+  it("is the default Agent Queue view mode", () => {
+    expect(DEFAULT_AGENT_QUEUE_VIEW_MODE).toBe("flow");
+  });
+
   it("renders queue tag groups, dependency barrier, executor lanes, and results", () => {
     renderFlowMap({
       tasks: [
@@ -71,28 +76,30 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Flow map");
     expect(document.body.textContent).toContain("Review");
     expect(document.body.textContent).toContain("Follow-up");
-    expect(document.body.textContent).toContain("Work queue / blocked work");
+    expect(document.body.textContent).toContain("Work Queue / Backlog");
+    expect(document.body.textContent).toContain("Backlog lane");
+    expect(document.body.textContent).toContain("Waiting / Not runnable");
+    expect(document.body.textContent).toContain("Blocked work");
+    expect(document.body.textContent).not.toContain("Ready layer");
     expect(document.body.textContent).toContain("Dependency barrier");
     expect(document.body.textContent).toContain("blocks Blocked follow-up");
     expect(document.body.textContent).toContain("Blocked");
-    expect(
-      Array.from(document.querySelectorAll(".agent-queue-executor-info-box")).some(
-        (element) => element.textContent?.includes("Blocked"),
-      ),
-    ).toBe(true);
     expect(document.body.textContent).toContain("Blocked by: Review blocker");
     expect(document.body.textContent).toContain("Validating");
-    expect(
-      Array.from(document.querySelectorAll(".agent-queue-executor-info-box")).some(
-        (element) => element.textContent?.includes("Validating"),
-      ),
-    ).toBe(true);
-    expect(document.body.textContent).toContain("Agent Executor section");
+    expect(document.body.textContent).toContain(
+      "Agent Executor section / Working executors",
+    );
     expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Spare executor");
     expect(document.body.textContent).toContain("Next: Review blocker");
-    expect(document.body.textContent).toContain("Results");
+    expect(document.body.textContent).toContain(
+      "Results / Reports / Completed work",
+    );
     expect(document.body.textContent).toContain("Completed implementation");
+    expect(document.querySelector(".agent-queue-flow-canvas")).not.toBeNull();
+    expect(document.querySelector("[data-testid='queue-flow-topology-canvas']")).not.toBeNull();
+    expect(document.querySelector(".agent-queue-flow-intake-region")).not.toBeNull();
+    expect(document.querySelectorAll(".agent-queue-flow-top-lane")).toHaveLength(3);
   });
 
   it("applies tag color classes separately from execution status", () => {
@@ -110,7 +117,7 @@ describe("AgentQueueFlowMap", () => {
     });
 
     const block = document.querySelector<HTMLButtonElement>(
-      ".agent-queue-flow-block[data-tag-color-token]",
+      ".agent-queue-flow-executor-working[data-tag-color-token]",
     );
 
     expect(block?.dataset.tagColorToken).toBe(queueTagColorToken("review"));
@@ -119,7 +126,7 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Passed");
   });
 
-  it("renders compact executor info on work-item blocks", () => {
+  it("renders compact worker or executor labels on work-item blocks", () => {
     renderFlowMap({
       tasks: [
         queueTask({
@@ -130,12 +137,83 @@ describe("AgentQueueFlowMap", () => {
       ],
     });
 
-    const executorInfo = document.querySelector(
-      ".agent-queue-flow-block .agent-queue-executor-info-box",
-    );
+    const block = document.querySelector(".agent-queue-flow-block");
 
-    expect(executorInfo?.textContent).toContain("Executor");
-    expect(executorInfo?.textContent).toContain("Waiting");
+    expect(block?.textContent).toContain("Waiting");
+    expect(block?.textContent).not.toContain("Priority");
+    expect(block?.classList.contains("agent-queue-flow-block")).toBe(true);
+  });
+
+  it("keeps empty lane scaffolding compact without inventing work items", () => {
+    renderFlowMap({
+      tasks: [],
+    });
+
+    expect(document.querySelectorAll(".agent-queue-flow-top-lane")).toHaveLength(3);
+    expect(document.querySelectorAll(".agent-queue-flow-block")).toHaveLength(0);
+    expect(document.body.textContent).toContain("No ready backlog blocks.");
+    expect(document.body.textContent).toContain("No not-runnable blocks.");
+    expect(document.body.textContent).toContain("No blocked blocks.");
+  });
+
+  it("renders each queue item once across primary flow-map zones", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          queueItemId: "ready-item",
+          status: "queued",
+          title: "Ready item",
+        }),
+        queueTask({
+          queueItemId: "draft-item",
+          status: "draft",
+          title: "Draft item",
+        }),
+        queueTask({
+          coordinatorStatus: "blocked",
+          queueItemId: "blocked-item",
+          status: "queued",
+          title: "Blocked item",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "worker-working",
+          assignedWorkerId: "worker-working",
+          queueItemId: "running-task",
+          status: "running",
+          title: "Running task",
+        }),
+        queueTask({
+          queueItemId: "completed-item",
+          status: "completed",
+          title: "Completed item",
+        }),
+      ],
+    });
+
+    for (const queueItemId of [
+      "ready-item",
+      "draft-item",
+      "blocked-item",
+      "running-task",
+      "completed-item",
+    ]) {
+      expect(
+        document.querySelectorAll(`[data-queue-item-id="${queueItemId}"]`),
+      ).toHaveLength(1);
+    }
+
+    expect(
+      document.querySelector('[aria-label="Waiting work"]')?.textContent,
+    ).toContain("Draft item");
+    expect(
+      document.querySelector('[aria-label="Waiting work"]')?.textContent,
+    ).not.toContain("Blocked item");
+    expect(
+      document.querySelector('[aria-label="Blocked work"]')?.textContent,
+    ).toContain("Blocked item");
+    expect(
+      document.querySelector('[aria-label="Blocked work"]')?.textContent,
+    ).not.toContain("Draft item");
   });
 
   it("shows reported work in the results section without final acceptance", () => {
@@ -166,11 +244,18 @@ describe("AgentQueueFlowMap", () => {
       ],
     });
 
-    expect(document.body.textContent).toContain("Results / reports");
+    expect(document.body.textContent).toContain(
+      "Results / Reports / Completed work",
+    );
     expect(document.body.textContent).toContain("Reported task");
-    expect(document.body.textContent).toContain("Report received");
+    expect(document.body.textContent).toContain("Report");
     expect(document.body.textContent).toContain("Queued");
-    expect(document.body.textContent).not.toContain("Completed");
+    expect(document.querySelector(".agent-queue-flow-result-group")?.textContent).not.toContain(
+      "Completed",
+    );
+    expect(document.querySelector(".agent-queue-flow-results")?.textContent).toContain(
+      "Reported task",
+    );
   });
 
   it("renders finalized, needs changes, and rollback required coordinator markers", () => {
@@ -228,11 +313,14 @@ describe("AgentQueueFlowMap", () => {
 
     expect(document.body.textContent).toContain("Review diff");
     expect(document.body.textContent).toContain("Diff review");
-    expect(document.body.textContent).toContain("Diff review requested");
-    expect(document.body.textContent).toContain(
-      "Source Source implementation (source-task)",
-    );
-    expect(document.body.textContent).toContain(
+    expect(
+      document.querySelector<HTMLButtonElement>('button[title*="Source item"]')
+        ?.title,
+    ).toContain("Source implementation (source-task)");
+    expect(
+      document.querySelector<HTMLButtonElement>('button[title*="Review target"]')
+        ?.title,
+    ).toContain(
       "Source implementation; commit abc1234",
     );
   });
