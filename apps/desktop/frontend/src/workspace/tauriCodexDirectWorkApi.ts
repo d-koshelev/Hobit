@@ -24,7 +24,7 @@ type TauriRunCodexDirectWorkResponse = {
   executor_kind: string;
   mode: string;
   repo_root: string;
-  sandbox: "read_only" | "workspace_write";
+  sandbox: "read_only" | "workspace_write" | "danger_full_access";
   approval_policy: "never" | "on_request" | "untrusted";
   command_summary: string[];
   status: string;

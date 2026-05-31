@@ -232,6 +232,30 @@ fn assigned_queue_task_start_rejects_missing_repo_root_and_start_validation_fail
 }
 
 #[test]
+fn assigned_queue_task_start_accepts_danger_full_access_sandbox() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", "Prompt");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let mut input = start_input(&workspace_id, &task.queue_item_id);
+    input.sandbox = "danger_full_access".to_owned();
+
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("danger_full_access is accepted for explicit queue run");
+
+    assert_eq!(start.direct_work_input.sandbox, "danger_full_access");
+    assert_eq!(
+        service
+            .store
+            .list_widget_runs_for_widget(&executor_id)
+            .expect("list executor runs")
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn assigned_queue_task_finish_maps_direct_work_statuses_to_queue_statuses() {
     assert_queue_finish_status(CodexDirectStreamStatus::Completed, "completed");
     assert_queue_finish_status(CodexDirectStreamStatus::Failed, "failed");

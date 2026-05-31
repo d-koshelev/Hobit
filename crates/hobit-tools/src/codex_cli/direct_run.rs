@@ -69,6 +69,7 @@ impl CodexDirectRunRequest {
 pub enum CodexSandboxMode {
     ReadOnly,
     WorkspaceWrite,
+    DangerFullAccess,
 }
 
 impl CodexSandboxMode {
@@ -76,6 +77,7 @@ impl CodexSandboxMode {
         match self {
             Self::ReadOnly => "read-only",
             Self::WorkspaceWrite => "workspace-write",
+            Self::DangerFullAccess => "danger-full-access",
         }
     }
 }

@@ -278,6 +278,7 @@ fn parse_direct_work_sandbox(value: &str) -> Result<CodexSandboxMode, WorkspaceS
     match required_input(value, "direct work sandbox")? {
         "read_only" => Ok(CodexSandboxMode::ReadOnly),
         "workspace_write" => Ok(CodexSandboxMode::WorkspaceWrite),
+        "danger_full_access" => Ok(CodexSandboxMode::DangerFullAccess),
         value => Err(WorkspaceServiceError::InvalidInput(format!(
             "unsupported direct work sandbox: {value}"
         ))),
@@ -365,6 +366,7 @@ pub(super) fn direct_work_sandbox_value(sandbox: CodexSandboxMode) -> &'static s
     match sandbox {
         CodexSandboxMode::ReadOnly => "read_only",
         CodexSandboxMode::WorkspaceWrite => "workspace_write",
+        CodexSandboxMode::DangerFullAccess => "danger_full_access",
     }
 }
 

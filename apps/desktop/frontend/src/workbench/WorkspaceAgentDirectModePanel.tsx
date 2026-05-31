@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import type { DirectWorkSandbox } from "../workspace/types";
 import {
   compactDirectWorkText,
   directWorkDirectoryResolutionText,
@@ -23,12 +24,14 @@ import {
 export function WorkspaceAgentDirectModePanel({
   activitySummary,
   directWorkDirectory,
+  directWorkSandbox,
   error,
   finalResult,
   knowledgeLookup,
   logs,
   onDirectoryChange,
   onResetThread,
+  onSandboxChange,
   onSelectWorkspaceDirectory,
   runId,
   status,
@@ -38,12 +41,14 @@ export function WorkspaceAgentDirectModePanel({
 }: {
   activitySummary: WorkspaceAgentActivitySummary;
   directWorkDirectory: string;
+  directWorkSandbox: DirectWorkSandbox;
   error: string | null;
   finalResult: string | null;
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
+  onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
@@ -52,6 +57,7 @@ export function WorkspaceAgentDirectModePanel({
   warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
+  const sandboxInputId = useId();
   const clearDirectoryCopyStatusTimer = useRef<number | null>(null);
   const clearThreadCopyStatusTimer = useRef<number | null>(null);
   const [directoryCopyStatus, setDirectoryCopyStatus] = useState<string | null>(
@@ -205,6 +211,27 @@ export function WorkspaceAgentDirectModePanel({
             Copy
           </Button>
         </div>
+        <label
+          className="interactive-agent-direct-mode-field"
+          htmlFor={sandboxInputId}
+        >
+          <span className="interactive-agent-direct-mode-label">Sandbox</span>
+          <select
+            aria-label="Codex sandbox"
+            className="input interactive-agent-direct-mode-input"
+            id={sandboxInputId}
+            onChange={(event) =>
+              onSandboxChange(event.currentTarget.value as DirectWorkSandbox)
+            }
+            value={directWorkSandbox}
+          >
+            <option value="read_only">read_only</option>
+            <option value="workspace_write">workspace_write</option>
+            <option value="danger_full_access">
+              danger_full_access (unsafe local dev)
+            </option>
+          </select>
+        </label>
         <div
           aria-label="Codex thread controls"
           className="interactive-agent-direct-mode-thread-controls"
@@ -293,6 +320,14 @@ export function WorkspaceAgentDirectModePanel({
               {warning}
             </span>
           ) : null}
+          {directWorkSandbox === "danger_full_access" ? (
+            <span className="interactive-agent-direct-mode-warning">
+              danger_full_access is unsafe and only for trusted local
+              development. It disables Codex sandbox restrictions. Hobit will
+              not auto-commit, push, reset, clean, stash, or roll back changes.
+              Git mutations remain forbidden unless explicitly requested.
+            </span>
+          ) : null}
           {compactResult ? (
             <span className="interactive-agent-direct-mode-result-line">
               Final: {compactResult}
@@ -345,6 +380,11 @@ export function WorkspaceAgentDirectModePanel({
               <p className="interactive-agent-direct-mode-help">
                 ~ resolves to your user home. If access is denied, choose a
                 project folder or scratch workspace.
+              </p>
+              <p className="interactive-agent-direct-mode-help">
+                danger_full_access is unsafe, intended only for trusted local
+                development, and disables Codex sandbox restrictions. Git
+                mutations remain forbidden unless explicitly requested.
               </p>
             </div>
           </details>

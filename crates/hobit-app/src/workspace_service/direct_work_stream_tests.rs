@@ -390,6 +390,47 @@ fn codex_direct_work_stream_passes_explicit_resume_thread_to_runner() {
 }
 
 #[test]
+fn codex_direct_work_stream_accepts_danger_full_access_sandbox() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
+    let input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Stream Codex with explicit local unsafe sandbox.",
+        "danger_full_access",
+        "never",
+    );
+    let start = service
+        .start_codex_direct_work_stream(input.clone())
+        .expect("start stream")
+        .expect("stream start summary");
+
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            input,
+            &start.run_id,
+            |request, on_event| {
+                assert_eq!(request.sandbox, CodexSandboxMode::DangerFullAccess);
+                assert_eq!(request.sandbox.as_cli_arg(), "danger-full-access");
+                emit_completed_stream_events(on_event);
+                completed_stream_output(&request, 6)
+            },
+            |_| {},
+        )
+        .expect("run direct work stream")
+        .expect("direct work stream summary");
+    let payload = stream_result_payload(&service, &summary.run_id);
+
+    assert_eq!(summary.sandbox, "danger_full_access");
+    assert_eq!(payload["sandbox"], "danger_full_access");
+    assert_eq!(payload["no_auto_commit"], true);
+    assert_eq!(payload["no_auto_push"], true);
+    assert_eq!(payload["git_mutations_performed_by_hobit"], false);
+}
+
+#[test]
 fn codex_direct_work_stream_completion_finishes_run_and_stores_result_payload() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);

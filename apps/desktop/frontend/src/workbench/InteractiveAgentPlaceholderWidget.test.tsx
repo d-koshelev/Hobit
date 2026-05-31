@@ -261,6 +261,48 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).not.toContain("Workspace Agent plan");
   });
 
+  it("lets Workspace Agent runs use explicit danger_full_access sandbox", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        _request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            text: "Unsafe sandbox smoke complete.",
+          }),
+        );
+        return {
+          runId: "run_unsafe",
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await setSandboxValue("danger_full_access");
+    await setTextareaValue("Read AGENTS.md first line and git status only.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      approvalPolicy: "never",
+      sandbox: "danger_full_access",
+      skipGitRepoCheck: true,
+    });
+    expect(document.body.textContent).toContain(
+      "danger_full_access is unsafe",
+    );
+    expect(document.body.textContent).toContain(
+      "disables Codex sandbox restrictions",
+    );
+  });
+
   it("shows one-line live activity without adding activity to the transcript", async () => {
     const publishActivityEvents = vi.fn();
     const startDirectWork = vi.fn(
@@ -2885,6 +2927,25 @@ async function setTextInputValue(value: string) {
     setNativeInputValue(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function setSandboxValue(value: string) {
+  const select = document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Codex sandbox"]',
+  );
+  if (!select) {
+    throw new Error("Codex sandbox select not found.");
+  }
+
+  await act(async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    );
+    descriptor?.set?.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
   });
 }
 

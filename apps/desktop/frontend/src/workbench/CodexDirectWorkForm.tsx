@@ -10,6 +10,7 @@ import type {
 import { CodexDirectWorkAdvancedSettings } from "./CodexDirectWorkAdvancedSettings";
 import {
   CodexDirectWorkActionSafetyCopy,
+  CodexDirectWorkDangerFullAccessWarning,
   CodexDirectWorkPromptGuidance,
   CodexDirectWorkWorkspaceWriteWarning,
 } from "./CodexDirectWorkSafetyNotice";
@@ -166,6 +167,9 @@ export function CodexDirectWorkForm({
           >
             <option value="read_only">read_only</option>
             <option value="workspace_write">workspace_write</option>
+            <option value="danger_full_access">
+              danger_full_access (unsafe local dev)
+            </option>
           </select>
         </div>
 
@@ -191,6 +195,9 @@ export function CodexDirectWorkForm({
         </div>
 
         {sandbox === "workspace_write" ? <CodexDirectWorkWorkspaceWriteWarning /> : null}
+        {sandbox === "danger_full_access" ? (
+          <CodexDirectWorkDangerFullAccessWarning />
+        ) : null}
 
         <CodexDirectWorkAdvancedSettings
           codexExecutableInputId={codexExecutableInputId}

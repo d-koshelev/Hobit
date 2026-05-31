@@ -4,6 +4,7 @@ import {
   useId,
 } from "react";
 import { Button } from "../design-system/Button";
+import type { DirectWorkSandbox } from "../workspace/types";
 import {
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
@@ -19,6 +20,7 @@ type WorkspaceAgentComposerDirectMode = {
   canStartDirectWork: boolean;
   canStopDirectWork: boolean;
   directWorkDirectory: string;
+  directWorkSandbox: DirectWorkSandbox;
   error: string | null;
   finalResult: string | null;
   isStopPending: boolean;
@@ -26,6 +28,7 @@ type WorkspaceAgentComposerDirectMode = {
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
   onResetThread: () => void;
+  onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onStopDirectWork: () => void;
   runId: string | null;
@@ -131,12 +134,14 @@ export function WorkspaceAgentComposer({
         <WorkspaceAgentDirectModePanel
           activitySummary={directMode.activitySummary}
           directWorkDirectory={directMode.directWorkDirectory}
+          directWorkSandbox={directMode.directWorkSandbox}
           error={directMode.error}
           finalResult={directMode.finalResult}
           knowledgeLookup={directMode.knowledgeLookup}
           logs={directMode.logs}
           onDirectoryChange={directMode.onDirectoryChange}
           onResetThread={directMode.onResetThread}
+          onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}
           runId={directMode.runId}
           status={directMode.status}

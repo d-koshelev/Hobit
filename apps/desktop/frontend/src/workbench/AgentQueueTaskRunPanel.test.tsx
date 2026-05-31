@@ -333,6 +333,25 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
 
     expect(onAssign).not.toHaveBeenCalled();
   });
+
+  it("shows danger_full_access as an explicit unsafe Queue run sandbox", () => {
+    renderPanel({
+      run: {
+        ...runController(),
+        readinessMessage: null,
+        sandbox: "danger_full_access",
+      },
+    });
+
+    expect(document.body.textContent).toContain("danger_full_access");
+    expect(document.body.textContent).toContain(
+      "danger_full_access is unsafe",
+    );
+    expect(document.body.textContent).toContain(
+      "disables Codex sandbox restrictions",
+    );
+    expect(document.body.textContent).toContain("will still not auto-commit");
+  });
 });
 
 describe("AgentQueueTaskDetailsPanel expanded detail", () => {

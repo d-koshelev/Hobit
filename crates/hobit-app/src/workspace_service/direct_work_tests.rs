@@ -413,6 +413,39 @@ fn codex_direct_work_result_json_records_executor_mode_safety_and_policy_fields(
 }
 
 #[test]
+fn codex_direct_work_accepts_danger_full_access_sandbox() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
+
+    let summary = service
+        .run_codex_direct_work_with_runner(
+            direct_work_input(
+                &workspace_id,
+                &workbench_id,
+                &widget_id,
+                current_repo_root(),
+                "Run Codex with explicit local unsafe sandbox.",
+                "danger_full_access",
+                "never",
+            ),
+            |request| {
+                assert_eq!(request.sandbox, CodexSandboxMode::DangerFullAccess);
+                assert_eq!(request.sandbox.as_cli_arg(), "danger-full-access");
+                completed_output(&request)
+            },
+        )
+        .expect("run direct work")
+        .expect("direct work summary");
+    let payload = direct_work_result_payload(&service, &summary.run_id);
+
+    assert_eq!(summary.sandbox, "danger_full_access");
+    assert_eq!(payload["sandbox"], "danger_full_access");
+    assert_eq!(payload["no_auto_commit"], true);
+    assert_eq!(payload["no_auto_push"], true);
+    assert_eq!(payload["git_mutations_performed_by_hobit"], false);
+}
+
+#[test]
 fn codex_direct_work_runner_is_called_after_pre_run_transaction_is_committed() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);

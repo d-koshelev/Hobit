@@ -90,6 +90,9 @@ export function AgentQueueRunReadinessPanel({
           >
             <option value="read_only">read_only</option>
             <option value="workspace_write">workspace_write</option>
+            <option value="danger_full_access">
+              danger_full_access (unsafe local dev)
+            </option>
           </select>
         </div>
 
@@ -122,6 +125,14 @@ export function AgentQueueRunReadinessPanel({
             </p>
           ))}
         </div>
+      ) : null}
+      {run.sandbox === "danger_full_access" ? (
+        <p className="agent-queue-run-warning" role="alert">
+          danger_full_access is unsafe and intended only for trusted local
+          development. It disables Codex sandbox restrictions. Git mutations
+          remain forbidden unless explicitly requested; Hobit will still not
+          auto-commit, push, reset, clean, stash, or roll back changes.
+        </p>
       ) : null}
 
       <div className="agent-queue-run-actions">

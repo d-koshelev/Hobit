@@ -246,6 +246,24 @@ describe("WorkspaceAgentDirectModePanel", () => {
     expect(onDirectoryChange).toHaveBeenCalledWith("C:/work/new-project");
   });
 
+  it("exposes the unsafe local-dev sandbox as an explicit operator choice", async () => {
+    const onSandboxChange = vi.fn();
+    renderPanel({ directWorkSandbox: "danger_full_access", onSandboxChange });
+
+    expect(sandboxSelect().value).toBe("danger_full_access");
+    expect(document.body.textContent).toContain(
+      "danger_full_access is unsafe",
+    );
+    expect(document.body.textContent).toContain(
+      "disables Codex sandbox restrictions",
+    );
+    expect(document.body.textContent).toContain("will not auto-commit");
+
+    await setSandboxValue("read_only");
+
+    expect(onSandboxChange).toHaveBeenCalledWith("read_only");
+  });
+
   it("keeps New thread routed through onResetThread", async () => {
     const onResetThread = vi.fn();
     renderPanel({ onResetThread, threadId: "thread_reset_123456" });
@@ -295,12 +313,14 @@ function renderPanel(options: RenderPanelOptions = {}) {
     <WorkspaceAgentDirectModePanel
       activitySummary={EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY}
       directWorkDirectory="~"
+      directWorkSandbox="workspace_write"
       error={null}
       finalResult={null}
       knowledgeLookup={EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP}
       logs={[]}
       onDirectoryChange={vi.fn()}
       onResetThread={vi.fn()}
+      onSandboxChange={vi.fn()}
       onSelectWorkspaceDirectory={vi.fn(async () => null)}
       runId={null}
       status="idle"
@@ -337,6 +357,16 @@ function workingDirectoryInput() {
     throw new Error("Working directory input not found.");
   }
   return input;
+}
+
+function sandboxSelect() {
+  const select = document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Codex sandbox"]',
+  );
+  if (!select) {
+    throw new Error("Codex sandbox select not found.");
+  }
+  return select;
 }
 
 function buttonWithLabel(label: string) {
@@ -408,6 +438,19 @@ async function setInputValue(value: string) {
     descriptor?.set?.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function setSandboxValue(value: string) {
+  const select = sandboxSelect();
+
+  await act(async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    );
+    descriptor?.set?.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 

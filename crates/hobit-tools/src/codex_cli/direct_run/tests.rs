@@ -517,6 +517,23 @@ fn read_only_sandbox_maps_to_cli_arg() {
 }
 
 #[test]
+fn danger_full_access_sandbox_maps_to_cli_arg() {
+    let repo_root = temp_path("danger-full-access");
+    let output_last_message_path = temp_path("danger-full-access-last").join("last.txt");
+    let args = build_codex_exec_args(
+        &repo_root,
+        None,
+        CodexSandboxMode::DangerFullAccess,
+        CodexApprovalPolicy::Never,
+        false,
+        &output_last_message_path,
+    );
+
+    assert_eq!(command_arg_after(&args, "--sandbox"), "danger-full-access");
+    assert!(arg_index(&args, "--sandbox") < arg_index(&args, "exec"));
+}
+
+#[test]
 fn approval_policies_map_to_cli_args() {
     assert_approval_policy_arg(CodexApprovalPolicy::Never, "never");
     assert_approval_policy_arg(CodexApprovalPolicy::OnRequest, "on-request");
@@ -524,10 +541,16 @@ fn approval_policies_map_to_cli_args() {
 }
 
 #[test]
-fn supported_sandbox_modes_do_not_emit_danger_full_access() {
-    for sandbox in [CodexSandboxMode::ReadOnly, CodexSandboxMode::WorkspaceWrite] {
-        assert_ne!(sandbox.as_cli_arg(), "danger-full-access");
-    }
+fn supported_sandbox_modes_map_to_cli_args() {
+    assert_eq!(CodexSandboxMode::ReadOnly.as_cli_arg(), "read-only");
+    assert_eq!(
+        CodexSandboxMode::WorkspaceWrite.as_cli_arg(),
+        "workspace-write"
+    );
+    assert_eq!(
+        CodexSandboxMode::DangerFullAccess.as_cli_arg(),
+        "danger-full-access"
+    );
 }
 
 #[test]

@@ -3,7 +3,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { DirectWorkStreamEvent } from "../workspace/types";
+import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
 import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
 import {
   CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
@@ -76,6 +76,8 @@ export function useWorkspaceAgentDirectWorkController({
   workspaceId,
 }: UseWorkspaceAgentDirectWorkControllerOptions) {
   const [directWorkDirectory, setDirectWorkDirectory] = useState("~");
+  const [directWorkSandbox, setDirectWorkSandbox] =
+    useState<DirectWorkSandbox>("workspace_write");
   const [directWorkStatus, setDirectWorkStatus] =
     useState<CoordinatorDirectWorkStatus>("idle");
   const [directWorkRunId, setDirectWorkRunId] = useState<string | null>(null);
@@ -210,7 +212,7 @@ export function useWorkspaceAgentDirectWorkController({
           codexThreadId: resumeThreadId,
           operatorPrompt: promptForCodex,
           repoRoot,
-          sandbox: "workspace_write",
+          sandbox: directWorkSandbox,
           skipGitRepoCheck: true,
           stderrCapBytes: null,
           stdoutCapBytes: null,
@@ -318,6 +320,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkRunScopeRef.current = null;
     directWorkLogSequenceRef.current = 0;
     setDirectWorkDirectory("~");
+    setDirectWorkSandbox("workspace_write");
     setDirectWorkStatus("idle");
     setDirectWorkRunId(null);
     setDirectWorkError(null);
@@ -517,12 +520,14 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkFinalResult,
     directWorkLogs,
     directWorkRunId,
+    directWorkSandbox,
     directWorkStatus,
     directWorkWarning,
     handleNewThread,
     handleRunWithCodex,
     handleStopDirectWork,
     handleWorkingDirectoryChange,
+    handleSandboxChange: setDirectWorkSandbox,
     isDirectModeEnabled,
     isDirectWorkStopPending,
     resetDirectWorkSession,

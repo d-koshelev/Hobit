@@ -1,6 +1,9 @@
 import type { WidgetLogEntry } from "./core";
 
-export type DirectWorkSandbox = "read_only" | "workspace_write";
+export type DirectWorkSandbox =
+  | "read_only"
+  | "workspace_write"
+  | "danger_full_access";
 
 export type DirectWorkApprovalPolicy = "never" | "on_request" | "untrusted";
 

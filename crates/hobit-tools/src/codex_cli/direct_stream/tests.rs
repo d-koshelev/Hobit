@@ -514,6 +514,23 @@ fn executor_path_without_skip_git_repo_check_keeps_exec_json_args_unchanged() {
 }
 
 #[test]
+fn danger_full_access_sandbox_maps_to_streaming_cli_arg() {
+    let repo_root = temp_path("danger-full-access");
+    let output_last_message_path = temp_path("danger-full-access-last").join("last.txt");
+    let args = build_codex_exec_json_args(
+        &repo_root,
+        None,
+        CodexSandboxMode::DangerFullAccess,
+        CodexApprovalPolicy::Never,
+        false,
+        &output_last_message_path,
+    );
+
+    assert_eq!(command_arg_after(&args, "--sandbox"), "danger-full-access");
+    assert!(arg_index(&args, "--sandbox") < arg_index(&args, "exec"));
+}
+
+#[test]
 fn default_final_message_file_uses_os_temp_directory() {
     let output = run_codex_direct_work_streaming(
         request_with_program(
