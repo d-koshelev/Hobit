@@ -2,6 +2,7 @@ import type { AgentQueueTask } from "../../workspace/types";
 import {
   displayTaskTitle,
   isFinalQueueTaskStatus,
+  itemTypeLabel,
   normalizeItemType,
   normalizeQueueTag,
   normalizeTaskDependencies,
@@ -65,6 +66,7 @@ export type QueueFlowItemBlock = {
   executorInfoTone: AgentQueueExecutorInfoTone;
   itemType: string;
   hasWorkerReport: boolean;
+  hasLinkedDiffReview: boolean;
   planStatusLabel: string;
   priorityLabel: string;
   queueItemId: string;
@@ -73,6 +75,8 @@ export type QueueFlowItemBlock = {
   shortId: string;
   status: AgentQueueTask["status"];
   statusLabel: string;
+  sourceItemLabel: string | null;
+  reviewTargetSummary: string | null;
   title: string;
   validationStatus: NonNullable<AgentQueueTask["validationStatus"]>;
   validationStatusLabel: string;
@@ -134,6 +138,7 @@ export function buildQueueFlowMap({
         dependencyState: dependencyStates.get(task.queueItemId),
         pausedQueueTagIds,
         routingState: routingStates.get(task.queueItemId),
+        tasks,
         task,
       }),
     ]),
@@ -246,11 +251,13 @@ function queueFlowItemBlock({
   dependencyState,
   pausedQueueTagIds,
   routingState,
+  tasks,
   task,
 }: {
   dependencyState?: AgentQueueDependencyState;
   pausedQueueTagIds: ReadonlySet<string>;
   routingState?: AgentQueueAssignedWorkerRoutingState;
+  tasks: AgentQueueTask[];
   task: AgentQueueTask;
 }): QueueFlowItemBlock {
   const queueTag = normalizeQueueTag(task);
@@ -281,6 +288,11 @@ function queueFlowItemBlock({
       : null,
     routingBlockedReason,
   ].filter((reason): reason is string => Boolean(reason));
+  const itemType = normalizeItemType(task.itemType);
+  const sourceItemId = task.diffReview?.sourceItemId;
+  const sourceTask = sourceItemId
+    ? tasks.find((candidate) => candidate.queueItemId === sourceItemId)
+    : null;
 
   return {
     assignedWorkerLabel: routingState?.assignedWorker?.name ?? null,
@@ -291,16 +303,27 @@ function queueFlowItemBlock({
     executorInfoDetail: executorInfo.detail,
     executorInfoLabel: executorInfo.label,
     executorInfoTone: executorInfo.tone,
+    hasLinkedDiffReview: tasks.some(
+      (candidate) =>
+        normalizeItemType(candidate.itemType) === "diff_review" &&
+        candidate.diffReview?.sourceItemId === task.queueItemId,
+    ),
     hasWorkerReport: hasWorkerReport(task),
-    itemType: normalizeItemType(task.itemType),
+    itemType: itemTypeLabel(itemType),
     planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),
     queueItemId: task.queueItemId,
     queueTagId: queueTag.queueTagId,
     queueTagName: queueTag.queueTagName,
     shortId: shortQueueItemId(task.queueItemId),
+    sourceItemLabel: sourceItemId
+      ? sourceTask
+        ? `${displayTaskTitle(sourceTask)} (${sourceItemId})`
+        : sourceItemId
+      : null,
     status: task.status,
     statusLabel: statusLabel(task.status),
+    reviewTargetSummary: task.diffReview?.reviewTargetSummary ?? null,
     title: displayTaskTitle(task),
     validationStatus: normalizedValidationStatus,
     validationStatusLabel: validationStatusLabel(normalizedValidationStatus),

@@ -45,6 +45,19 @@ export type AgentQueueTaskItemType =
   | "follow_up"
   | "validation";
 
+export type AgentQueueDiffReviewMode =
+  | "diff_vs_report"
+  | "contract_scope"
+  | "general_review";
+
+export type AgentQueueDiffReviewMetadata = {
+  sourceCommitHash?: string;
+  sourceItemId: string;
+  sourceReportId?: string;
+  reviewMode: AgentQueueDiffReviewMode;
+  reviewTargetSummary: string;
+};
+
 export type AgentQueueExecutionPlanPreviewSource =
   | "heuristic"
   | "worker_estimate"
@@ -351,6 +364,7 @@ export type AgentQueueTask = {
   priority: number;
   orderIndex?: number;
   dependsOn?: string[];
+  diffReview?: AgentQueueDiffReviewMetadata | null;
   executionPolicy?: AgentQueueTaskExecutionPolicy;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;

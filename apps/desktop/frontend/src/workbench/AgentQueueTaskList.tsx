@@ -28,6 +28,7 @@ import {
   executionPlanBadgeVariant,
   executionPlanStatusLabel,
 } from "./queue/agentQueueExecutionPlanModel";
+import { diffReviewSourceLabel } from "./queue/agentQueueDiffReviewModel";
 import {
   firstRoutingBlockedReasonLabel,
   type AgentQueueAssignedWorkerRoutingState,
@@ -134,6 +135,15 @@ export function AgentQueueTaskList({
             const itemType = normalizeItemType(task.itemType);
             const hasWorkerReport =
               (task.workerExecutionReports?.length ?? 0) > 0;
+            const linkedDiffReviewCount = tasks.filter(
+              (candidate) =>
+                normalizeItemType(candidate.itemType) === "diff_review" &&
+                candidate.diffReview?.sourceItemId === task.queueItemId,
+            ).length;
+            const sourceLabel =
+              itemType === "diff_review"
+                ? diffReviewSourceLabel(task, tasks)
+                : null;
             const dependencyState = dependencyStates.get(task.queueItemId);
             const routingState = routingStates.get(task.queueItemId);
             const routingBlockedLabel =
@@ -221,10 +231,17 @@ export function AgentQueueTaskList({
                   {hasWorkerReport ? (
                     <Badge variant="info">Report received</Badge>
                   ) : null}
+                  {linkedDiffReviewCount > 0 ? (
+                    <Badge variant="warning">Diff review requested</Badge>
+                  ) : null}
                 </span>
                 <span className="agent-queue-task-row-meta">
                   <span>Tag {queueTag.queueTagName}</span>
                   <span>{itemTypeLabel(itemType)}</span>
+                  {sourceLabel ? <span>Source {sourceLabel}</span> : null}
+                  {task.diffReview?.reviewTargetSummary ? (
+                    <span>{task.diffReview.reviewTargetSummary}</span>
+                  ) : null}
                   <span>
                     Worker{" "}
                     {workerLabel(
@@ -238,6 +255,12 @@ export function AgentQueueTaskList({
                   <span>{executionPlanStatusLabel(task.executionPlanPreview)}</span>
                   {hasWorkerReport ? (
                     <span>Awaiting coordinator review</span>
+                  ) : null}
+                  {linkedDiffReviewCount > 0 ? (
+                    <span>
+                      {linkedDiffReviewCount.toString()} diff review{" "}
+                      {linkedDiffReviewCount === 1 ? "item" : "items"}
+                    </span>
                   ) : null}
                   {dependencyState && dependencyState.dependsOn.length > 0 ? (
                     <span>

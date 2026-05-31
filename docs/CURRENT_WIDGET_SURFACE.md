@@ -567,6 +567,13 @@ Workspace Agent is the foreground interactive agent surface.
   `diff_review`, `follow_up`, and `validation`. Diff Review items are
   independent review work items; they do not modify code by default, and no
   automatic Git diff verification runtime is implemented in this block.
+  A Diff Review item can be created explicitly from a selected source item with
+  a Worker execution report or coordinator-review state. The created item is a
+  separate queued work item using the same queue tag by default and carries
+  frontend/model linkage metadata for source item id, source report id,
+  optional commit hash, review mode, and review target summary. Creating it
+  does not start Queue execution, Agent Executor, Codex, validation, Git diff
+  reads, provider calls, or source-item finalization.
 - The Queue + Workers sidebar has explicit local Queue global execution state
   with START, STOP, and STOP + KILL RUNNING controls. START sets
   `started`: workers may take eligible queue items in model/dry-run views, but
@@ -618,6 +625,16 @@ Workspace Agent is the foreground interactive agent surface.
   Worker reports are intended to be delivered to Workspace Chat / coordinator
   review as future report messages or action cards; this block models and
   displays them in Queue only.
+- From worker report evidence or an item awaiting coordinator review, the
+  Queue UI exposes an explicit "Create diff review item" action. The generated
+  Diff Review prompt asks future work to inspect actual Git diff, compare it
+  against the worker report and declared scope, check contract violations,
+  identify missing or unexpected changes, and recommend follow-up, rollback
+  discussion, or coordinator decision. The prompt does not include
+  provider/model/thinking runtime config. Source implementation rows/details
+  show a "Diff review requested" marker and simple link when a linked review
+  item exists; Diff Review rows/details/Flow Map blocks show source item,
+  report/commit, and review target summary when available.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

@@ -1,6 +1,7 @@
 import type {
   AgentQueueExecutionPlanPreview,
   AgentQueueRunnerSnapshot,
+  AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerExecutionReport,
   DirectWorkApprovalPolicy,
@@ -126,6 +127,13 @@ export type AgentQueueWorkerReportController = {
   latestReport: AgentQueueWorkerExecutionReport | null;
   message: string | null;
   onAttachDemoReport: () => void;
+};
+
+export type AgentQueueDiffReviewController = {
+  canCreate: boolean;
+  linkedReviewTasks: AgentQueueTask[];
+  message: string | null;
+  onCreate: () => void;
 };
 
 export type AgentQueueOrderingController = {

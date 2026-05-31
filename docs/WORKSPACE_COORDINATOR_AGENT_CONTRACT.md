@@ -555,6 +555,18 @@ behavior. The target delivery path is Workspace Chat / coordinator report
 messages and action cards; until that future block exists, Queue may display
 the report evidence locally.
 
+Current Queue UI can also explicitly create an independent Diff Review work
+item from a selected source item with a Worker execution report or
+coordinator-review state. The new item links back to the source item/report
+with frontend/model metadata, uses the same queue tag by default, is queued
+without automatic dependencies, and has a prompt focused on verifying actual
+Git diff against the worker report, declared scope, and Hobit contracts. This
+creation action is a coordinator/operator action only: it does not run the
+review, read Git diff automatically, start Agent Executor/Codex, call
+providers, run validation, finalize the source item, or execute rollback.
+Workspace/coordinator finalization based on Diff Review reports remains future
+work.
+
 Agent Executor functionality is being embedded into Queue as the primary
 execution management surface for Queue work. The embedded Agent Executor
 section shows max executors, configured workers, spare/working executors,

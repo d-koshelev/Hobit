@@ -108,6 +108,10 @@ export function createAgentQueueSelectionModel({
       dependsOn: normalizeTaskDependencies(
         localFields?.dependsOn ?? task.dependsOn,
       ),
+      diffReview:
+        localFields?.diffReview ??
+        task.diffReview ??
+        null,
       executionPlanPreview:
         task.executionPlanPreview !== undefined
           ? task.executionPlanPreview

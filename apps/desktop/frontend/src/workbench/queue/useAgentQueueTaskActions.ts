@@ -35,12 +35,19 @@ import {
   type QueueTaskInsertPosition,
 } from "./agentQueueOrderingActions";
 import { staleExecutionPlanPreview } from "./agentQueueExecutionPlanModel";
+import {
+  buildDiffReviewMetadata,
+  buildDiffReviewPrompt,
+  canCreateDiffReviewItem,
+  latestWorkerExecutionReport,
+} from "./agentQueueDiffReviewModel";
 
 export type AgentQueueLocalTaskFields = Pick<
   AgentQueueTask,
   | "assignedWorkerId"
   | "coordinatorStatus"
   | "dependsOn"
+  | "diffReview"
   | "itemType"
   | "orderIndex"
   | "queueTagId"
@@ -235,6 +242,89 @@ export function createAgentQueueTaskActions({
       return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create queue task."));
+      return false;
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function createDiffReviewTask() {
+    if (
+      !selectedTask ||
+      !onCreateAgentQueueTask ||
+      isCreating ||
+      isLoading ||
+      isSaving ||
+      hasOpenTaskEdit ||
+      !canCreateDiffReviewItem(selectedTask)
+    ) {
+      return false;
+    }
+
+    const report = latestWorkerExecutionReport(selectedTask);
+    const queueTag = normalizeQueueTag(selectedTask);
+    const metadata = buildDiffReviewMetadata({
+      report,
+      sourceTask: selectedTask,
+    });
+    const prompt = buildDiffReviewPrompt({
+      report,
+      sourceTask: selectedTask,
+    });
+
+    setIsCreating(true);
+    setLoadError(null);
+    setEditorError(null);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
+    setValidationMessage(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
+    setIsConfirmingDelete(false);
+
+    try {
+      const createdTask = await onCreateAgentQueueTask({
+        description:
+          "Review the source implementation diff against the worker report, declared scope, and Hobit contracts.",
+        executionPolicy: "manual",
+        itemType: "diff_review",
+        priority: selectedTask.priority,
+        prompt,
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        status: "queued",
+        title: `Diff review: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
+        validationStatus: "not_started",
+      });
+      const taskFoundation = {
+        coordinatorStatus: "not_reported" as const,
+        dependsOn: [],
+        diffReview: metadata,
+        itemType: "diff_review" as const,
+        orderIndex: nextOrderIndexForQueueTag({
+          insertPosition: "bottom",
+          queueTagId: queueTag.queueTagId,
+          tasks: tasksRef.current,
+        }),
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        validationStatus: "not_started" as const,
+        workerExecutionReports: [],
+      };
+
+      setLocalTaskFields((current) =>
+        new Map(current).set(createdTask.queueItemId, taskFoundation),
+      );
+      applyUpdatedTask({ ...createdTask, ...taskFoundation }, { select: true });
+      setWorkerReportMessage(
+        "Diff review item created. It is queued independently and no Executor, Codex, validation, or source finalization was started.",
+      );
+      setExecutionPlanMessage(null);
+      setOrderingMessage("Diff review item inserted at the bottom of its queue tag.");
+      setIsEditing(false);
+      return true;
+    } catch (error) {
+      setEditorError(errorToMessage(error, "Unable to create diff review item."));
       return false;
     } finally {
       setIsCreating(false);
@@ -581,6 +671,7 @@ export function createAgentQueueTaskActions({
     cancelSelectedTaskEdits,
     confirmDeleteSelectedTask,
     createTask,
+    createDiffReviewTask,
     refreshTasks,
     requestDeleteSelectedTask,
     saveTask,

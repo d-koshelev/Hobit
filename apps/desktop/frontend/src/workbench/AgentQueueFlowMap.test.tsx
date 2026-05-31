@@ -173,6 +173,41 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).not.toContain("Completed");
   });
 
+  it("renders diff review source metadata and source-item requested marker", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          queueItemId: "source-task",
+          title: "Source implementation",
+        }),
+        queueTask({
+          diffReview: {
+            reviewMode: "diff_vs_report",
+            reviewTargetSummary: "Source implementation; commit abc1234",
+            sourceCommitHash: "abc1234",
+            sourceItemId: "source-task",
+            sourceReportId: "report-1",
+          },
+          itemType: "diff_review",
+          queueItemId: "diff-review-task",
+          queueTagId: "review",
+          queueTagName: "Review",
+          title: "Review diff",
+        }),
+      ],
+    });
+
+    expect(document.body.textContent).toContain("Review diff");
+    expect(document.body.textContent).toContain("Diff review");
+    expect(document.body.textContent).toContain("Diff review requested");
+    expect(document.body.textContent).toContain(
+      "Source Source implementation (source-task)",
+    );
+    expect(document.body.textContent).toContain(
+      "Source implementation; commit abc1234",
+    );
+  });
+
   it("renders working executor blocks from running worker state", () => {
     renderFlowMap({
       tasks: [

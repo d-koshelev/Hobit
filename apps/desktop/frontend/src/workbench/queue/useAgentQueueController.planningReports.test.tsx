@@ -78,6 +78,87 @@ describe("useAgentQueueController planning and reports", () => {
     hook.unmount();
   });
 
+  it("creates an independent diff review item from a worker report without execution or source finalization", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Implement Queue UI change",
+        queueItemId: "queue-1",
+        status: "queued",
+        validationStatus: "not_started",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.workerReport.onAttachDemoReport();
+    });
+
+    const sourceTask = hook.result.current.selectedTask;
+    const sourceReport = hook.result.current.workerReport.latestReport;
+
+    expect(hook.result.current.diffReview.canCreate).toBe(true);
+
+    await act(async () => {
+      hook.result.current.diffReview.onCreate();
+      await flushHookEffects();
+    });
+
+    const createdRequest = harness.createRequests[0];
+    const createdTask = hook.result.current.selectedTask;
+
+    expect(createdRequest.executionPolicy).toBe("manual");
+    expect(createdRequest.itemType).toBe("diff_review");
+    expect(createdRequest.queueTagId).toBe("default");
+    expect(createdRequest.queueTagName).toBe("Default");
+    expect(createdRequest.status).toBe("queued");
+    expect(createdRequest.validationStatus).toBe("not_started");
+    expect(createdRequest.dependsOn).toBe(undefined);
+    expect(createdRequest.prompt.includes("Inspect the actual git diff")).toBe(
+      true,
+    );
+    expect(
+      createdRequest.prompt.includes(
+        "Compare the diff to the worker execution report",
+      ),
+    ).toBe(true);
+    expect(createdRequest.prompt.includes("Check Hobit contracts")).toBe(true);
+    expect(
+      createdRequest.prompt.includes("Do not finalize the source item"),
+    ).toBe(true);
+    expect(
+      /provider|model|thinking|temperature|tokens|reasoning/i.test(
+        createdRequest.prompt,
+      ),
+    ).toBe(false);
+    expect(createdTask?.itemType).toBe("diff_review");
+    expect(createdTask?.status).toBe("queued");
+    expect(createdTask?.dependsOn).toEqual([]);
+    expect(createdTask?.diffReview?.reviewMode).toBe("diff_vs_report");
+    expect(createdTask?.diffReview?.sourceItemId).toBe("queue-1");
+    expect(createdTask?.diffReview?.sourceReportId).toBe(sourceReport?.reportId);
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
+    expect(
+      hook.result.current.foundation.schedulerPlan.itemEligibility.find(
+        (item) => item.queueItemId === createdTask?.queueItemId,
+      )?.isSchedulable,
+    ).toBe(true);
+    expect(hook.result.current.tasks.find(
+      (task) => task.queueItemId === sourceTask?.queueItemId,
+    )?.status).toBe("queued");
+    expect(hook.result.current.tasks.find(
+      (task) => task.queueItemId === sourceTask?.queueItemId,
+    )?.coordinatorStatus).toBe("awaiting_coordinator_review");
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("generates a local plan preview without starting Executor, Codex, or Autorun", async () => {
     const harness = createQueueHarness([
       queueTask({

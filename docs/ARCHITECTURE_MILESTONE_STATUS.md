@@ -98,6 +98,13 @@ behavior, or Workspace Agent context wiring.
   rollback, mutate Git, persist live worker process state, or change
   Workspace Agent behavior. Workspace Chat report delivery and action cards
   remain future work.
+  Queue can explicitly create independent Diff Review work items from a
+  selected source item/report. The created item is queued, linked to the source
+  item/report with frontend/model metadata, uses the same queue tag by default,
+  and prompts future review of actual Git diff against the worker report,
+  declared scope, and contracts. Creating a Diff Review item does not run it,
+  read Git diff automatically, start Agent Executor/Codex, call providers, run
+  validation, finalize the source item, or create rollback execution.
   The Queue widget also has a Flow Map view that visualizes queue tags,
   dependency layers/barriers, the embedded Agent Executor section with
   max/spare/working facts, executor lanes, spare executors with scheduler

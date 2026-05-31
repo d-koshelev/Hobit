@@ -415,6 +415,8 @@ function FlowItemBlock({
       <span className="agent-queue-flow-block-meta">
         <span>{item.shortId}</span>
         <span>{item.itemType}</span>
+        {item.sourceItemLabel ? <span>Source {item.sourceItemLabel}</span> : null}
+        {item.reviewTargetSummary ? <span>{item.reviewTargetSummary}</span> : null}
         <span>{item.priorityLabel}</span>
         <span>{item.planStatusLabel}</span>
         {item.assignedWorkerLabel ? <span>{item.assignedWorkerLabel}</span> : null}
@@ -423,6 +425,9 @@ function FlowItemBlock({
         <Badge variant={statusBadgeVariant(item.status)}>{item.statusLabel}</Badge>
         {item.hasWorkerReport ? (
           <Badge variant="info">Report received</Badge>
+        ) : null}
+        {item.hasLinkedDiffReview ? (
+          <Badge variant="warning">Diff review requested</Badge>
         ) : null}
         <Badge
           className={
@@ -522,6 +527,9 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Executor: ${item.executorInfoLabel}`,
     `Plan: ${item.planStatusLabel}`,
     item.hasWorkerReport ? "Worker report: received / not final" : null,
+    item.hasLinkedDiffReview ? "Diff review: requested" : null,
+    item.sourceItemLabel ? `Source item: ${item.sourceItemLabel}` : null,
+    item.reviewTargetSummary ? `Review target: ${item.reviewTargetSummary}` : null,
     item.assignedWorkerLabel ? `Assigned worker: ${item.assignedWorkerLabel}` : null,
     item.dependsOn.length > 0
       ? `Dependencies: ${item.dependsOn.join(", ")}`

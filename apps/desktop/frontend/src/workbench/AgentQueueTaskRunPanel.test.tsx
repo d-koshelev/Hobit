@@ -462,6 +462,93 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     expect(onAttachDemoReport).toHaveBeenCalledTimes(1);
   });
+
+  it("shows create diff review action and source linkage without starting execution", () => {
+    const report = workerReport({
+      commitHash: "abc1234",
+      changedFiles: ["apps/desktop/frontend/src/workbench/QueueReport.tsx"],
+    });
+    const onCreateDiffReview = vi.fn();
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "queued" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      diffReview: {
+        canCreate: true,
+        linkedReviewTasks: [
+          {
+            ...queueTask(),
+            diffReview: {
+              reviewMode: "diff_vs_report",
+              reviewTargetSummary: "Task; commit abc1234",
+              sourceCommitHash: "abc1234",
+              sourceItemId: "task_1",
+              sourceReportId: "report-1",
+            },
+            itemType: "diff_review",
+            queueItemId: "diff-review-1",
+            status: "queued",
+            title: "Diff review: Task",
+          },
+        ],
+        message: null,
+        onCreate: onCreateDiffReview,
+      },
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    expect(document.body.textContent).toContain("Create diff review item");
+    expect(document.body.textContent).toContain("Diff review requested");
+    expect(document.body.textContent).toContain(
+      "Source item remains pending coordinator review",
+    );
+
+    clickFirstButton("Create diff review item");
+
+    expect(onCreateDiffReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows diff review source metadata on diff review items", () => {
+    const sourceTask = {
+      ...queueTask(),
+      queueItemId: "source-task",
+      title: "Source implementation",
+    };
+    const selectedTask = {
+      ...queueTask(),
+      diffReview: {
+        reviewMode: "diff_vs_report" as const,
+        reviewTargetSummary: "Source implementation; commit abc1234",
+        sourceCommitHash: "abc1234",
+        sourceItemId: "source-task",
+        sourceReportId: "report-1",
+      },
+      itemType: "diff_review" as const,
+      queueItemId: "diff-review-task",
+      status: "queued" as const,
+      title: "Review source diff",
+    };
+
+    renderDetailsPanel({
+      selectedTask,
+      tasks: [sourceTask, selectedTask],
+    });
+
+    expect(document.body.textContent).toContain("Diff review source");
+    expect(document.body.textContent).toContain(
+      "Source implementation (source-task)",
+    );
+    expect(document.body.textContent).toContain("report-1");
+    expect(document.body.textContent).toContain("abc1234");
+    expect(document.body.textContent).toContain("Diff vs report");
+    expect(document.body.textContent).toContain("Open source item");
+  });
 });
 
 function renderPanel(
@@ -540,7 +627,9 @@ function renderDetailsPanel({
       (selectedTask.workerExecutionReports?.length ?? 0) - 1
     ] ?? null,
   ),
+  diffReview,
 }: {
+  diffReview?: ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"]["diffReview"];
   executionPlan?: AgentQueueExecutionPlanController;
   latestRun?: AgentQueueLatestRunLinkController;
   run?: AgentQueueRunController;
@@ -604,6 +693,14 @@ function renderDetailsPanel({
     clearSelectedTaskAssignment: vi.fn(),
     createTask: vi.fn(),
     deleteTask: deleteController(),
+    diffReview: diffReview ?? {
+      canCreate: false,
+      linkedReviewTasks: tasks.filter(
+        (task) => task.diffReview?.sourceItemId === selectedTask.queueItemId,
+      ),
+      message: null,
+      onCreate: vi.fn(),
+    },
     dependencyStates,
     draft: draftFromTask(selectedTask),
     editTask: editController(),

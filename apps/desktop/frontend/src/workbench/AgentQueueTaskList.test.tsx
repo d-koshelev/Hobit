@@ -55,8 +55,19 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
   it("renders diff review as an independent item type", () => {
     renderList([
       queueTask({
+        queueItemId: "source-1",
+        title: "Implementation source",
+      }),
+      queueTask({
+        diffReview: {
+          reviewMode: "diff_vs_report",
+          reviewTargetSummary: "Implementation source; commit abc1234",
+          sourceCommitHash: "abc1234",
+          sourceItemId: "source-1",
+          sourceReportId: "report-1",
+        },
         itemType: "diff_review",
-        queueItemId: "queue-1",
+        queueItemId: "review-1",
         queueTagName: "Review",
         title: "Review diff",
       }),
@@ -65,6 +76,13 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     expect(document.body.textContent).toContain("Review diff");
     expect(document.body.textContent).toContain("Diff review");
     expect(document.body.textContent).toContain("Tag Review");
+    expect(document.body.textContent).toContain(
+      "Source Implementation source (source-1)",
+    );
+    expect(document.body.textContent).toContain(
+      "Implementation source; commit abc1234",
+    );
+    expect(document.body.textContent).toContain("Diff review requested");
   });
 
   it("renders paused tag and assigned worker state on task rows", () => {

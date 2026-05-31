@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
 import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -44,6 +44,10 @@ import {
 } from "./useAgentQueueTaskActions";
 import { createAgentQueueRunActions } from "./useAgentQueueRunActions";
 import {
+  canCreateDiffReviewItem,
+  linkedDiffReviewTasks,
+} from "./agentQueueDiffReviewModel";
+import {
   createAgentQueueWorkerActions,
 } from "./useAgentQueueWorkerActions";
 
@@ -52,6 +56,7 @@ export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
 export type {
   AgentQueueAutorunController,
   AgentQueueDeleteController,
+  AgentQueueDiffReviewController,
   AgentQueueEditController,
   AgentQueueExecutionPlanController,
   AgentQueueFoundationController,
@@ -722,6 +727,7 @@ export function useAgentQueueController({
     cancelDeleteSelectedTask,
     cancelSelectedTaskEdits,
     confirmDeleteSelectedTask,
+    createDiffReviewTask,
     createTask,
     refreshTasks,
     requestDeleteSelectedTask,
@@ -884,6 +890,18 @@ export function useAgentQueueController({
       message: workerReportMessage,
       onAttachDemoReport: attachDemoWorkerReport,
     } satisfies AgentQueueWorkerReportController,
+    diffReview: {
+      canCreate: Boolean(
+        selectedTask &&
+          canCreateDiffReviewItem(selectedTask) &&
+          !hasOpenTaskEdit &&
+          !isSaving &&
+          !isCreating,
+      ),
+      linkedReviewTasks: linkedDiffReviewTasks(selectedTask, tasks),
+      message: workerReportMessage,
+      onCreate: () => void createDiffReviewTask(),
+    } satisfies AgentQueueDiffReviewController,
     run: {
       approvalPolicy,
       canStart,

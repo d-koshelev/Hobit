@@ -20,6 +20,7 @@ import {
   validationStatusLabel,
 } from "./agentQueueTaskUiModel";
 import { executionPlanStatusLabel } from "./queue/agentQueueExecutionPlanModel";
+import { diffReviewSourceLabel } from "./queue/agentQueueDiffReviewModel";
 import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
@@ -117,6 +118,8 @@ export function AgentQueueTaskDetailsPanel({
           <SubmittedMetadata queue={queue} />
 
           <PromptPreview prompt={selectedTask.prompt} />
+
+          <DiffReviewLinkagePanel queue={queue} />
 
           <WorkerExecutionReportPanel queue={queue} />
 
@@ -294,10 +297,121 @@ function ExpandedTaskHeader({
           <dd>{latestReportLabel(selectedTask)}</dd>
         </div>
         <div>
+          <dt>Diff review</dt>
+          <dd>{diffReviewHeaderLabel(queue, selectedTask)}</dd>
+        </div>
+        <div>
           <dt>Live timer</dt>
           <dd>{liveTimerCopy(queue)}</dd>
         </div>
       </dl>
+    </section>
+  );
+}
+
+function DiffReviewLinkagePanel({
+  queue,
+}: {
+  queue: AgentQueueController;
+}) {
+  const selectedTask = queue.selectedTask;
+
+  if (!selectedTask) {
+    return null;
+  }
+
+  if (normalizeItemType(selectedTask.itemType) === "diff_review") {
+    const metadata = selectedTask.diffReview;
+    const sourceLabel = diffReviewSourceLabel(selectedTask, queue.tasks);
+
+    return (
+      <section
+        aria-label="Diff review source"
+        className="agent-queue-expanded-section agent-queue-diff-review-linkage"
+      >
+        <div className="agent-queue-expanded-section-header">
+          <div>
+            <p className="agent-queue-execution-group-title">
+              Diff review source
+            </p>
+            <p className="agent-queue-run-note">
+              Independent review item. It does not finalize or mutate the source item.
+            </p>
+          </div>
+          <Badge variant="info">Diff review</Badge>
+        </div>
+        <dl className="agent-queue-expanded-facts">
+          <div>
+            <dt>Source item</dt>
+            <dd>{sourceLabel ?? metadata?.sourceItemId ?? "Not linked"}</dd>
+          </div>
+          <div>
+            <dt>Source report</dt>
+            <dd>{metadata?.sourceReportId ?? "Not linked"}</dd>
+          </div>
+          <div>
+            <dt>Commit</dt>
+            <dd className="agent-queue-mono">
+              {metadata?.sourceCommitHash ?? "Not recorded"}
+            </dd>
+          </div>
+          <div>
+            <dt>Review mode</dt>
+            <dd>{reviewModeLabel(metadata?.reviewMode)}</dd>
+          </div>
+        </dl>
+        {metadata?.reviewTargetSummary ? (
+          <p className="agent-queue-run-note">{metadata.reviewTargetSummary}</p>
+        ) : null}
+        {metadata?.sourceItemId ? (
+          <div className="agent-queue-run-actions">
+            <Button
+              onClick={() => void queue.selectTask(metadata.sourceItemId)}
+              variant="ghost"
+            >
+              Open source item
+            </Button>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
+  const linkedReviews = queue.diffReview.linkedReviewTasks;
+
+  if (linkedReviews.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label="Requested diff reviews"
+      className="agent-queue-expanded-section agent-queue-diff-review-linkage"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-execution-group-title">
+            Diff review requested
+          </p>
+          <p className="agent-queue-run-note">
+            Source item remains pending coordinator review until diff-review evidence is evaluated.
+          </p>
+        </div>
+        <Badge variant="warning">
+          {linkedReviews.length.toString()} requested
+        </Badge>
+      </div>
+      <div className="agent-queue-linked-review-list">
+        {linkedReviews.map((reviewTask) => (
+          <Button
+            key={reviewTask.queueItemId}
+            onClick={() => void queue.selectTask(reviewTask.queueItemId)}
+            variant="ghost"
+          >
+            {displayTaskTitle(reviewTask)}
+          </Button>
+        ))}
+      </div>
     </section>
   );
 }
@@ -344,6 +458,14 @@ function WorkerExecutionReportPanel({
       )}
 
       <div className="agent-queue-run-actions">
+        <Button
+          disabled={!queue.diffReview.canCreate}
+          onClick={() => queue.diffReview.onCreate()}
+          title="Create an independent queued Diff Review item without starting execution."
+          variant={report ? "primary" : "secondary"}
+        >
+          Create diff review item
+        </Button>
         <Button
           disabled={!queue.workerReport.canAttach}
           onClick={() => queue.workerReport.onAttachDemoReport()}
@@ -535,6 +657,37 @@ function latestReportLabel(
   return task.workerExecutionReports && task.workerExecutionReports.length > 0
     ? "Reported / awaiting coordinator review"
     : "No worker report";
+}
+
+function diffReviewHeaderLabel(
+  queue: AgentQueueController,
+  task: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  if (normalizeItemType(task.itemType) === "diff_review") {
+    return task.diffReview?.sourceItemId
+      ? `Linked to ${task.diffReview.sourceItemId}`
+      : "Independent review";
+  }
+
+  return queue.diffReview.linkedReviewTasks.length > 0
+    ? "Diff review requested"
+    : "Not requested";
+}
+
+function reviewModeLabel(
+  reviewMode: NonNullable<
+    NonNullable<AgentQueueController["selectedTask"]>["diffReview"]
+  >["reviewMode"] | undefined,
+) {
+  switch (reviewMode) {
+    case "contract_scope":
+      return "Contract/scope review";
+    case "general_review":
+      return "General review";
+    case "diff_vs_report":
+    default:
+      return "Diff vs report";
+  }
 }
 
 function workerNameForReport(
