@@ -26,6 +26,7 @@ import {
 import type { AgentExecutorSlot } from "./types";
 import type {
   AgentQueueExecutionPlanPreview,
+  AgentQueueReportActionCard,
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
 } from "../workspace/types";
@@ -514,6 +515,42 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onCreateDiffReview).toHaveBeenCalledTimes(1);
   });
 
+  it("sends worker report action cards to Workspace Chat and records linkage", () => {
+    const report = workerReport({
+      changedFiles: ["apps/desktop/frontend/src/workbench/QueueReport.tsx"],
+      warnings: ["Diff review is still required."],
+      errors: ["One focused test still fails."],
+    });
+    const onShown = vi.fn();
+    const onShowQueueReportInWorkspaceChat = vi.fn();
+    const selectedTask = {
+      ...queueTask(),
+      workerExecutionReports: [report],
+    };
+    const card = reportActionCard();
+
+    renderDetailsPanel({
+      onShowQueueReportInWorkspaceChat,
+      reportActionCard: {
+        diffReviewReportCard: null,
+        latestShownCardId: null,
+        message: null,
+        onShown,
+        workerReportCard: card,
+      },
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    expect(document.body.textContent).toContain("Not shown in Chat");
+
+    clickFirstButton("Show in Workspace Chat");
+
+    expect(onShowQueueReportInWorkspaceChat).toHaveBeenCalledWith(card);
+    expect(onShown).toHaveBeenCalledWith(card.cardId);
+  });
+
   it("shows diff review source metadata on diff review items", () => {
     const sourceTask = {
       ...queueTask(),
@@ -618,6 +655,8 @@ function renderPanel(
 function renderDetailsPanel({
   executionPlan = executionPlanController(null),
   latestRun = latestRunController(null),
+  onShowQueueReportInWorkspaceChat,
+  reportActionCard,
   run = runController(),
   runHistory = runHistoryController([]),
   selectedTask = queueTask(),
@@ -632,6 +671,12 @@ function renderDetailsPanel({
   diffReview?: ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"]["diffReview"];
   executionPlan?: AgentQueueExecutionPlanController;
   latestRun?: AgentQueueLatestRunLinkController;
+  onShowQueueReportInWorkspaceChat?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["onShowQueueReportInWorkspaceChat"];
+  reportActionCard?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["queue"]["reportActionCard"];
   run?: AgentQueueRunController;
   runHistory?: AgentQueueRunHistoryController;
   selectedTask?: AgentQueueTask;
@@ -769,6 +814,14 @@ function renderDetailsPanel({
       orderLabel: "1 of 1",
     },
     refreshTasks: vi.fn(),
+    reportActionCard: {
+      diffReviewReportCard: null,
+      latestShownCardId: selectedTask.workspaceChatReportCardId ?? null,
+      message: null,
+      onShown: vi.fn(),
+      workerReportCard: null,
+      ...reportActionCard,
+    },
     run,
     runHistory,
     runner: runnerController(),
@@ -797,6 +850,7 @@ function renderDetailsPanel({
         priorityInputId="priority"
         promptInputId="prompt"
         queue={queue}
+        onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
         selectedTaskHint="Task hint"
         statusInputId="status"
         titleInputId="title"
@@ -885,6 +939,42 @@ function workerReport(
     validationResult: "not_run",
     warnings: [],
     workerId: "executor_visible",
+    ...overrides,
+  };
+}
+
+function reportActionCard(
+  overrides: Partial<AgentQueueReportActionCard> = {},
+): AgentQueueReportActionCard {
+  return {
+    cardId: "queue-report-card-task-1-report-1",
+    changedFiles: ["apps/desktop/frontend/src/workbench/QueueReport.tsx"],
+    createdAt: "2026-05-22T10:02:00.000Z",
+    errors: ["One focused test still fails."],
+    linkedFollowUpItemIds: [],
+    recommendedActions: [
+      {
+        actionId: "open_source_item",
+        description: "Open source item.",
+        enabled: true,
+        label: "Open source item",
+        type: "open_source_item",
+      },
+    ],
+    reportKind: "worker_execution",
+    reportStatus: "reported",
+    reportSummary: "Worker report summary",
+    sourceItemId: "task_1",
+    sourceItemPriority: 1,
+    sourceItemPrompt: "Prompt",
+    sourceItemStatus: "queued",
+    sourceItemTitle: "Task",
+    sourceItemType: "implementation",
+    sourceQueueTag: "Default",
+    sourceQueueTagId: "default",
+    sourceReportId: "report-1",
+    sourceValidationStatus: "not_started",
+    warnings: ["Diff review is still required."],
     ...overrides,
   };
 }

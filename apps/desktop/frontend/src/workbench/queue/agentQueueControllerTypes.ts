@@ -1,5 +1,6 @@
 import type {
   AgentQueueExecutionPlanPreview,
+  AgentQueueReportActionCard,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
@@ -127,6 +128,14 @@ export type AgentQueueWorkerReportController = {
   latestReport: AgentQueueWorkerExecutionReport | null;
   message: string | null;
   onAttachDemoReport: () => void;
+};
+
+export type AgentQueueReportActionCardController = {
+  diffReviewReportCard: AgentQueueReportActionCard | null;
+  latestShownCardId: string | null;
+  message: string | null;
+  onShown: (cardId: string) => void;
+  workerReportCard: AgentQueueReportActionCard | null;
 };
 
 export type AgentQueueDiffReviewController = {

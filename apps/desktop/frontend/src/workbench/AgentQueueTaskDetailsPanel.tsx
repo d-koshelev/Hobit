@@ -26,7 +26,10 @@ import type {
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
 } from "./types";
-import type { AgentQueueWorkerExecutionReport } from "../workspace/types";
+import type {
+  AgentQueueReportActionCard,
+  AgentQueueWorkerExecutionReport,
+} from "../workspace/types";
 
 type AgentQueueController = ReturnType<typeof useAgentQueueController>;
 
@@ -40,6 +43,9 @@ type AgentQueueTaskDetailsPanelProps = {
   ) => void;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
+  ) => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
   ) => void;
   priorityInputId: string;
   promptInputId: string;
@@ -56,6 +62,7 @@ export function AgentQueueTaskDetailsPanel({
   executionPolicyInputId,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
+  onShowQueueReportInWorkspaceChat,
   priorityInputId,
   promptInputId,
   queue,
@@ -119,9 +126,15 @@ export function AgentQueueTaskDetailsPanel({
 
           <PromptPreview prompt={selectedTask.prompt} />
 
-          <DiffReviewLinkagePanel queue={queue} />
+          <DiffReviewLinkagePanel
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+          />
 
-          <WorkerExecutionReportPanel queue={queue} />
+          <WorkerExecutionReportPanel
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+          />
 
           <AgentQueueTaskSection
             deleteTask={deleteTask}
@@ -310,8 +323,12 @@ function ExpandedTaskHeader({
 }
 
 function DiffReviewLinkagePanel({
+  onShowQueueReportInWorkspaceChat,
   queue,
 }: {
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
   queue: AgentQueueController;
 }) {
   const selectedTask = queue.selectedTask;
@@ -323,6 +340,7 @@ function DiffReviewLinkagePanel({
   if (normalizeItemType(selectedTask.itemType) === "diff_review") {
     const metadata = selectedTask.diffReview;
     const sourceLabel = diffReviewSourceLabel(selectedTask, queue.tasks);
+    const reportCard = queue.reportActionCard.diffReviewReportCard;
 
     return (
       <section
@@ -371,6 +389,20 @@ function DiffReviewLinkagePanel({
             >
               Open source item
             </Button>
+            <Button
+              disabled={!reportCard || !onShowQueueReportInWorkspaceChat}
+              onClick={() => {
+                if (!reportCard || !onShowQueueReportInWorkspaceChat) {
+                  return;
+                }
+
+                onShowQueueReportInWorkspaceChat(reportCard);
+                queue.reportActionCard.onShown(reportCard.cardId);
+              }}
+              variant="secondary"
+            >
+              Show in Workspace Chat
+            </Button>
           </div>
         ) : null}
       </section>
@@ -417,11 +449,17 @@ function DiffReviewLinkagePanel({
 }
 
 function WorkerExecutionReportPanel({
+  onShowQueueReportInWorkspaceChat,
   queue,
 }: {
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
   queue: AgentQueueController;
 }) {
   const report = queue.workerReport.latestReport;
+  const reportCard = queue.reportActionCard.workerReportCard;
+  const shownCardId = queue.reportActionCard.latestShownCardId;
 
   return (
     <section
@@ -446,10 +484,20 @@ function WorkerExecutionReportPanel({
       </div>
 
       {report ? (
-        <WorkerReportSummary
-          report={report}
-          workerName={workerNameForReport(queue, report)}
-        />
+        <>
+          <WorkerReportSummary
+            report={report}
+            workerName={workerNameForReport(queue, report)}
+          />
+          <div className="agent-queue-report-card-linkage">
+            <Badge variant={shownCardId ? "info" : "neutral"}>
+              {shownCardId ? "Shown in Workspace Chat" : "Not shown in Chat"}
+            </Badge>
+            {shownCardId ? (
+              <span className="agent-queue-mono">{shownCardId}</span>
+            ) : null}
+          </div>
+        </>
       ) : (
         <p className="agent-queue-run-note">
           No worker report is attached. Attach a model-only report to preview
@@ -458,6 +506,20 @@ function WorkerExecutionReportPanel({
       )}
 
       <div className="agent-queue-run-actions">
+        <Button
+          disabled={!reportCard || !onShowQueueReportInWorkspaceChat}
+          onClick={() => {
+            if (!reportCard || !onShowQueueReportInWorkspaceChat) {
+              return;
+            }
+
+            onShowQueueReportInWorkspaceChat(reportCard);
+            queue.reportActionCard.onShown(reportCard.cardId);
+          }}
+          variant="secondary"
+        >
+          Show in Workspace Chat
+        </Button>
         <Button
           disabled={!queue.diffReview.canCreate}
           onClick={() => queue.diffReview.onCreate()}

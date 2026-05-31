@@ -6,6 +6,7 @@ import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholder
 import type { WidgetDefinition, WidgetInstance } from "./types";
 import type {
   DirectWorkStreamEvent,
+  AgentQueueReportActionCard,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
   KnowledgeDocument,
@@ -16,6 +17,12 @@ import type {
 type CreateQueueTaskInput = Parameters<
   NonNullable<
     Parameters<typeof InteractiveAgentPlaceholderWidget>[0]["onCreateAgentQueueTask"]
+  >
+>[0];
+
+type UpdateQueueTaskInput = Parameters<
+  NonNullable<
+    Parameters<typeof InteractiveAgentPlaceholderWidget>[0]["onUpdateAgentQueueTask"]
   >
 >[0];
 
@@ -1728,6 +1735,107 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
+  it("renders Queue report action cards without calling provider or Executor", async () => {
+    const provider = vi.fn();
+    const createQueueTask = vi.fn(async (request: CreateQueueTaskInput) => ({
+      assignedExecutorWidgetId: null,
+      createdAt: "2026-05-31T10:03:00.000Z",
+      description: request.description,
+      executionPolicy: request.executionPolicy,
+      itemType: request.itemType,
+      priority: request.priority,
+      prompt: request.prompt,
+      queueItemId: "follow-up-1",
+      queueTagId: request.queueTagId,
+      queueTagName: request.queueTagName,
+      status: request.status,
+      title: request.title,
+      updatedAt: "2026-05-31T10:03:00.000Z",
+      validationStatus: request.validationStatus,
+      workspaceId: "workspace-1",
+    }));
+
+    renderWidget({
+      onCreateAgentQueueTask: createQueueTask,
+      onGenerateCoordinatorProviderResponse: provider,
+      queueReportActionCardRequest: queueReportCardRequest(queueReportCard()),
+    });
+
+    expect(document.body.textContent).toContain("Queue report action card");
+    expect(document.body.textContent).toContain("Source Queue item");
+    expect(document.body.textContent).toContain("Implementation");
+    expect(document.body.textContent).toContain("needs_follow_up");
+    expect(document.body.textContent).toContain("src/report-card.tsx");
+    expect(document.body.textContent).toContain("1 warning(s)");
+    expect(document.body.textContent).toContain("1 error(s)");
+    expect(document.body.textContent).toContain("abc1234");
+    expect(document.body.textContent).toContain("No final status applied");
+    expect(provider).not.toHaveBeenCalled();
+
+    await clickButton("Create follow-up");
+
+    expect(createQueueTask).toHaveBeenCalledTimes(1);
+    expect(createQueueTask.mock.calls[0][0]).toMatchObject({
+      executionPolicy: "manual",
+      itemType: "follow_up",
+      queueTagName: "Implementation",
+      status: "queued",
+      validationStatus: "not_started",
+    });
+    expect(document.body.textContent).toContain(
+      "Queued follow-up item follow-up-1. It was not run.",
+    );
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("marks Queue report needs changes without finalizing done or failed", async () => {
+    const updateQueueTask = vi.fn(async (request: UpdateQueueTaskInput) => ({
+      assignedExecutorWidgetId: null,
+      createdAt: "2026-05-31T10:00:00.000Z",
+      updatedAt: "2026-05-31T10:04:00.000Z",
+      workspaceId: "workspace-1",
+      ...request,
+    }));
+
+    renderWidget({
+      onUpdateAgentQueueTask: updateQueueTask,
+      queueReportActionCardRequest: queueReportCardRequest(queueReportCard()),
+    });
+
+    await clickButton("Needs changes");
+
+    expect(updateQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queueItemId: "source-1",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    );
+    expect(updateQueueTask.mock.calls[0][0].status).not.toMatch(
+      /completed|failed/,
+    );
+    expect(document.body.textContent).toContain(
+      "It was not finalized as done or failed.",
+    );
+  });
+
+  it("opens linked Queue items from report cards through visible plumbing", async () => {
+    const onOpenAgentQueueItem = vi.fn();
+
+    renderWidget({
+      onOpenAgentQueueItem,
+      queueReportActionCardRequest: queueReportCardRequest(
+        queueReportCard({ linkedDiffReviewItemId: "diff-review-1" }),
+      ),
+    });
+
+    await clickButton("Open source item");
+    await clickButton("Open linked diff review");
+
+    expect(onOpenAgentQueueItem).toHaveBeenCalledWith("source-1");
+    expect(onOpenAgentQueueItem).toHaveBeenCalledWith("diff-review-1");
+  });
+
   it("allows visible attached context to be removed before send", async () => {
     renderWidget({
       coordinatorAttachedContextRequest: attachedContextRequest({
@@ -2807,6 +2915,90 @@ function attachedContextRequest(overrides: {
     id: 1,
     sourceLabel: overrides.sourceLabel,
     targetCoordinatorWidgetInstanceId: "coordinator_widget",
+  };
+}
+
+function queueReportCardRequest(card: AgentQueueReportActionCard) {
+  return {
+    card,
+    id: 1,
+    targetCoordinatorWidgetInstanceId: "coordinator_widget",
+  };
+}
+
+function queueReportCard(
+  overrides: Partial<AgentQueueReportActionCard> = {},
+): AgentQueueReportActionCard {
+  return {
+    cardId: "queue-report-card-source-1-report-1",
+    changedFiles: ["src/report-card.tsx"],
+    commitHash: "abc1234",
+    createdAt: "2026-05-31T10:02:00.000Z",
+    dependentItemIds: ["dependent-1"],
+    errors: ["One validation failed."],
+    followUpRecommendation: "Create a focused follow-up item.",
+    linkedFollowUpItemIds: [],
+    recommendedActions: [
+      {
+        actionId: "open_source_item",
+        description: "Open the source Queue item.",
+        enabled: true,
+        label: "Open source item",
+        type: "open_source_item",
+      },
+      {
+        actionId: "mark_needs_changes",
+        description: "Mark source item needs changes.",
+        enabled: true,
+        label: "Needs changes",
+        type: "mark_needs_changes",
+      },
+      {
+        actionId: "create_follow_up",
+        description: "Create a queued follow-up.",
+        enabled: true,
+        label: "Create follow-up",
+        type: "create_follow_up",
+      },
+      {
+        actionId: "create_diff_review",
+        description: "Create a queued Diff Review.",
+        enabled: true,
+        label: "Create diff review",
+        type: "create_diff_review",
+      },
+      {
+        actionId: "open_linked_diff_review",
+        description: "Open linked Diff Review.",
+        enabled: true,
+        label: "Open linked diff review",
+        type: "open_linked_diff_review",
+      },
+      {
+        actionId: "mark_rollback_required",
+        description: "Mark rollback required without execution.",
+        enabled: true,
+        label: "Rollback required",
+        type: "mark_rollback_required",
+      },
+    ],
+    reportKind: "worker_execution",
+    reportStatus: "needs_follow_up",
+    reportSummary: "Worker report summary.",
+    rollbackRecommendation: "Review rollback need.",
+    sourceItemDescription: "Source description",
+    sourceItemId: "source-1",
+    sourceItemPriority: 1,
+    sourceItemPrompt: "Source prompt",
+    sourceItemStatus: "queued",
+    sourceItemTitle: "Source Queue item",
+    sourceItemType: "implementation",
+    sourceQueueTag: "Implementation",
+    sourceQueueTagId: "implementation",
+    sourceReportId: "report-1",
+    sourceValidationStatus: "not_started",
+    warnings: ["Diff review recommended."],
+    ...overrides,
   };
 }
 

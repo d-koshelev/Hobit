@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
@@ -31,6 +31,7 @@ export function AgentQueuePlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  agentQueueItemOpenRequest,
   agentExecutorSlots = [],
   onAssignAgentQueueTaskToExecutor,
   onClearAgentQueueTaskAssignment,
@@ -46,6 +47,7 @@ export function AgentQueuePlaceholderWidget({
   onListAgentQueueWorkers,
   onLoadLogs,
   onAttachContextToCoordinator,
+  onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
   onDirectWorkRunHandoffStarted,
   queueTaskAutoRefreshRequest,
@@ -119,6 +121,17 @@ export function AgentQueuePlaceholderWidget({
     statusFilter,
     tasks,
   } = queue;
+
+  useEffect(() => {
+    if (
+      !agentQueueItemOpenRequest ||
+      agentQueueItemOpenRequest.targetQueueWidgetInstanceId !== instance.id
+    ) {
+      return;
+    }
+
+    void selectTask(agentQueueItemOpenRequest.queueItemId);
+  }, [agentQueueItemOpenRequest?.id]);
 
   const queueFrameActions = (
     <>
@@ -264,6 +277,9 @@ export function AgentQueuePlaceholderWidget({
                   promptInputId={promptInputId}
                   queue={queue}
                   onAttachContextToCoordinator={onAttachContextToCoordinator}
+                  onShowQueueReportInWorkspaceChat={
+                    onShowQueueReportInWorkspaceChat
+                  }
                   onOpenAgentExecutorRun={onOpenAgentExecutorRun}
                   selectedTaskHint={selectedTaskHint}
                   statusInputId={statusInputId}

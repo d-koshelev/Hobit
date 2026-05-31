@@ -12,6 +12,7 @@ import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   isUserFacingWidgetDefinition,
@@ -21,12 +22,15 @@ import { useWorkbenchLayoutInteractions } from "./useWorkbenchLayoutInteractions
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  AgentQueueItemOpenRequest,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
+  WorkspaceAgentQueueReportActionCardRequest,
   WidgetInstanceId,
   WorkbenchLayoutMode,
   WorkbenchViewState,
 } from "./types";
+import type { AgentQueueReportActionCard } from "../workspace/types";
 import {
   clampPopoutPosition,
   defaultPopoutPosition,
@@ -78,6 +82,9 @@ export function WorkbenchCanvas({
   const agentExecutorRunOpenRequestIdRef = useRef(0);
   const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
     useState<AgentExecutorRunOpenRequest | null>(null);
+  const agentQueueItemOpenRequestIdRef = useRef(0);
+  const [agentQueueItemOpenRequest, setAgentQueueItemOpenRequest] =
+    useState<AgentQueueItemOpenRequest | null>(null);
   const [agentActivityEvents, setAgentActivityEvents] = useState<
     AgentActivityEvent[]
   >([]);
@@ -86,6 +93,11 @@ export function WorkbenchCanvas({
     coordinatorAttachedContextRequest,
     setCoordinatorAttachedContextRequest,
   ] = useState<CoordinatorAttachedContextRequest | null>(null);
+  const queueReportActionCardRequestIdRef = useRef(0);
+  const [
+    queueReportActionCardRequest,
+    setQueueReportActionCardRequest,
+  ] = useState<WorkspaceAgentQueueReportActionCardRequest | null>(null);
   const userFacingWidgets = viewState.widgets.filter((widget) =>
     isUserFacingWidgetDefinition(widget.definitionId),
   );
@@ -97,6 +109,9 @@ export function WorkbenchCanvas({
   );
   const coordinatorWidget = visibleWidgets.find(
     (widget) => widget.definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  );
+  const queueWidget = visibleWidgets.find(
+    (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
@@ -348,6 +363,54 @@ export function WorkbenchCanvas({
     });
   }
 
+  function showQueueReportInWorkspaceChat(card: AgentQueueReportActionCard) {
+    if (!coordinatorWidget) {
+      return;
+    }
+
+    const target =
+      typeof document === "undefined"
+        ? null
+        : Array.from(
+            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+          ).find(
+            (element) => element.dataset.widgetInstanceId === coordinatorWidget.id,
+          );
+
+    target?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+    setQueueReportActionCardRequest({
+      card,
+      id: ++queueReportActionCardRequestIdRef.current,
+      targetCoordinatorWidgetInstanceId: coordinatorWidget.id,
+    });
+  }
+
+  function openAgentQueueItem(queueItemId: string) {
+    if (!queueWidget) {
+      return;
+    }
+
+    const target =
+      typeof document === "undefined"
+        ? null
+        : Array.from(
+            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+          ).find((element) => element.dataset.widgetInstanceId === queueWidget.id);
+
+    target?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+    setAgentQueueItemOpenRequest({
+      id: ++agentQueueItemOpenRequestIdRef.current,
+      queueItemId,
+      targetQueueWidgetInstanceId: queueWidget.id,
+    });
+  }
+
   function publishAgentActivityEvents(events: AgentActivityEvent[]) {
     const workspaceId = viewState.workspace.id;
     const scopedEvents = events.filter((event) => event.workspaceId === workspaceId);
@@ -431,8 +494,12 @@ export function WorkbenchCanvas({
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
                         }
+                        agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                         coordinatorAttachedContextRequest={
                           coordinatorAttachedContextRequest
+                        }
+                        queueReportActionCardRequest={
+                          queueReportActionCardRequest
                         }
                         directWorkGitReview={directWorkGitReview}
                         directWorkRunHandoff={directWorkRunHandoff}
@@ -444,6 +511,14 @@ export function WorkbenchCanvas({
                           coordinatorWidget
                             ? attachContextToCoordinator
                             : undefined
+                        }
+                        onShowQueueReportInWorkspaceChat={
+                          coordinatorWidget
+                            ? showQueueReportInWorkspaceChat
+                            : undefined
+                        }
+                        onOpenAgentQueueItem={
+                          queueWidget ? openAgentQueueItem : undefined
                         }
                         onPublishAgentActivityEvents={
                           publishAgentActivityEvents
@@ -464,9 +539,11 @@ export function WorkbenchCanvas({
                       agentActivityEvents={agentActivityEvents}
                       agentExecutorSlots={agentExecutorSlots}
                       agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
+                      agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                       coordinatorAttachedContextRequest={
                         coordinatorAttachedContextRequest
                       }
+                      queueReportActionCardRequest={queueReportActionCardRequest}
                       dockedSize={dockedSize}
                       directWorkGitReview={directWorkGitReview}
                       directWorkRunHandoff={directWorkRunHandoff}
@@ -476,6 +553,12 @@ export function WorkbenchCanvas({
                       onDockBack={dockBackWidget}
                       onAttachContextToCoordinator={
                         coordinatorWidget ? attachContextToCoordinator : undefined
+                      }
+                      onShowQueueReportInWorkspaceChat={
+                        coordinatorWidget ? showQueueReportInWorkspaceChat : undefined
+                      }
+                      onOpenAgentQueueItem={
+                        queueWidget ? openAgentQueueItem : undefined
                       }
                       onPublishAgentActivityEvents={publishAgentActivityEvents}
                       onOpenAgentExecutorRun={openAgentExecutorRun}

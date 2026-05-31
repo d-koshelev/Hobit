@@ -368,9 +368,11 @@ function renderPropsFor(
   return widgetHostRenderProps({
     agentActivityEvents: [],
     agentExecutorRunOpenRequest: null,
+    agentQueueItemOpenRequest: null,
     agentExecutorSlots: [],
     componentKey,
     coordinatorAttachedContextRequest: null,
+    queueReportActionCardRequest: null,
     directWorkGitReview: directWorkGitReviewHandoff(),
     directWorkRunHandoff: directWorkRunHandoffController(),
     hasGitWidget: false,

@@ -95,9 +95,15 @@ behavior, or Workspace Agent context wiring.
   awaiting coordinator review. Worker reports are evidence only: they do not
   finalize Queue item status, start validation, launch Agent Executor/Codex,
   call providers, claim work, create follow-ups automatically, execute
-  rollback, mutate Git, persist live worker process state, or change
-  Workspace Agent behavior. Workspace Chat report delivery and action cards
-  remain future work.
+  rollback, mutate Git, persist live worker process state, or change Agent
+  Executor/Codex runtime behavior. Worker and Diff Review report metadata can
+  now be shown explicitly in Workspace Chat as current-session Queue report
+  action cards. These cards let the coordinator open linked Queue items, create
+  queued follow-up or Diff Review items, mark needs-changes/review state where
+  safe frontend update plumbing exists, and record rollback or pause requests
+  as UI/model markers. Cards do not insert report text into the composer
+  prompt, call providers, start Executor/Codex, run Git diff, auto-dispatch
+  Queue work, execute rollback, kill processes, or auto-finalize item status.
   Queue can explicitly create independent Diff Review work items from a
   selected source item/report. The created item is queued, linked to the source
   item/report with frontend/model metadata, uses the same queue tag by default,

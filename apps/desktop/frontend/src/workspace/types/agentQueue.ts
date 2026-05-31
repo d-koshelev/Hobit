@@ -125,6 +125,60 @@ export type AgentQueueWorkerExecutionReport = {
   rawReportPreview?: string;
 };
 
+export type AgentQueueReportKind =
+  | "worker_execution"
+  | "diff_review"
+  | "validation";
+
+export type AgentQueueReportActionType =
+  | "open_source_item"
+  | "open_linked_diff_review"
+  | "mark_ready_for_finalization"
+  | "mark_needs_changes"
+  | "create_follow_up"
+  | "create_diff_review"
+  | "mark_rollback_required"
+  | "pause_dependent_items"
+  | "pause_queue_tag";
+
+export type AgentQueueReportAction = {
+  actionId: string;
+  type: AgentQueueReportActionType;
+  label: string;
+  description: string;
+  enabled: boolean;
+};
+
+export type AgentQueueReportActionCard = {
+  cardId: string;
+  sourceItemId: string;
+  sourceReportId: string;
+  sourceItemTitle: string;
+  sourceItemDescription?: string;
+  sourceItemPrompt?: string;
+  sourceItemPriority: number;
+  sourceItemStatus: AgentQueueTaskStatus;
+  sourceItemType: AgentQueueTaskItemType;
+  sourceQueueTag: string;
+  sourceQueueTagId?: string;
+  sourceValidationStatus?: AgentQueueTaskValidationStatus;
+  reportKind: AgentQueueReportKind;
+  reportSummary: string;
+  reportStatus: string;
+  createdAt: string;
+  recommendedActions: AgentQueueReportAction[];
+  changedFiles: string[];
+  warnings: string[];
+  errors: string[];
+  commitHash?: string;
+  followUpRecommendation?: string;
+  rollbackRecommendation?: string;
+  linkedDiffReviewItemId?: string;
+  linkedDiffReviewStatus?: AgentQueueTaskStatus;
+  linkedFollowUpItemIds?: string[];
+  dependentItemIds?: string[];
+};
+
 export type AgentQueueTagPauseReason = "manual" | "edit_review";
 
 export type AgentQueueTagSummary = {
@@ -373,6 +427,8 @@ export type AgentQueueTask = {
   assignedWorkerId?: string | null;
   executionPlanPreview?: AgentQueueExecutionPlanPreview | null;
   workerExecutionReports?: AgentQueueWorkerExecutionReport[];
+  workspaceChatReportCardId?: string;
+  workspaceChatReportCardStatus?: "not_shown" | "shown";
   coordinatorStatus?:
     | "not_reported"
     | "worker_reported"

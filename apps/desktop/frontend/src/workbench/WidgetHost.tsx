@@ -22,6 +22,9 @@ import type { AgentActivityEvent } from "./agentActivityModel";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type {
+  AgentQueueReportActionCard,
+} from "../workspace/types";
+import type {
   WidgetInstance,
   WidgetDefinition,
   WidgetPresentationMode,
@@ -29,9 +32,11 @@ import type {
   WorkbenchLayoutMode,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  AgentQueueItemOpenRequest,
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
+  WorkspaceAgentQueueReportActionCardRequest,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
@@ -76,7 +81,9 @@ type WidgetHostProps = {
   hasGitWidget: boolean;
   agentActivityEvents: AgentActivityEvent[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
+  agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
+  queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
@@ -88,6 +95,10 @@ type WidgetHostProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
+  onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
@@ -111,13 +122,17 @@ export function WidgetHost({
   hasGitWidget,
   agentActivityEvents,
   agentExecutorRunOpenRequest,
+  agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
+  queueReportActionCardRequest,
   agentExecutorSlots,
   instance,
   layoutMode,
   onDockBack,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
+  onShowQueueReportInWorkspaceChat,
+  onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   onStartDockedDrag,
   onStartPopoutDrag,
@@ -217,13 +232,17 @@ export function WidgetHost({
     agentActivityEvents,
     agentExecutorSlots,
     agentExecutorRunOpenRequest,
+    agentQueueItemOpenRequest,
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
+    queueReportActionCardRequest,
     directWorkGitReview,
     directWorkRunHandoff,
     hasGitWidget,
     instanceId: instance.id,
     onAttachContextToCoordinator,
+    onShowQueueReportInWorkspaceChat,
+    onOpenAgentQueueItem,
     onOpenAgentExecutorRun,
     onPublishAgentActivityEvents,
     widgetActions,

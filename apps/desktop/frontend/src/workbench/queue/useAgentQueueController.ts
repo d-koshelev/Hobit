@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
 import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -48,6 +48,10 @@ import {
   linkedDiffReviewTasks,
 } from "./agentQueueDiffReviewModel";
 import {
+  buildDiffReviewReportActionCard,
+  buildWorkerExecutionReportActionCard,
+} from "./agentQueueReportActionCardModel";
+import {
   createAgentQueueWorkerActions,
 } from "./useAgentQueueWorkerActions";
 
@@ -62,6 +66,7 @@ export type {
   AgentQueueFoundationController,
   AgentQueueLatestRunLinkController,
   AgentQueueOrderingController,
+  AgentQueueReportActionCardController,
   AgentQueueRunController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
@@ -388,6 +393,50 @@ export function useAgentQueueController({
       setMaxExecutors(workers.length);
     }
   }, [maxExecutors, workers.length]);
+
+  const linkedReviewsForSelectedTask = useMemo(
+    () => linkedDiffReviewTasks(selectedTask, tasks),
+    [selectedTask, tasks],
+  );
+  const dependentTasksForSelectedTask = useMemo(
+    () =>
+      selectedTask
+        ? tasks.filter((task) =>
+            (task.dependsOn ?? []).includes(selectedTask.queueItemId),
+          )
+        : [],
+    [selectedTask, tasks],
+  );
+  const workerReportActionCard = useMemo(() => {
+    const latestReport =
+      selectedTask?.workerExecutionReports?.[
+        selectedTask.workerExecutionReports.length - 1
+      ] ?? null;
+
+    if (!selectedTask || !latestReport) {
+      return null;
+    }
+
+    return buildWorkerExecutionReportActionCard({
+      dependentTasks: dependentTasksForSelectedTask,
+      linkedDiffReviewTask: linkedReviewsForSelectedTask[0] ?? null,
+      report: latestReport,
+      sourceTask: selectedTask,
+    });
+  }, [dependentTasksForSelectedTask, linkedReviewsForSelectedTask, selectedTask]);
+  const diffReviewReportActionCard = useMemo(() => {
+    if (!selectedTask || normalizeItemType(selectedTask.itemType) !== "diff_review") {
+      return null;
+    }
+
+    return buildDiffReviewReportActionCard({
+      diffReviewTask: selectedTask,
+      sourceTask:
+        tasks.find(
+          (task) => task.queueItemId === selectedTask.diffReview?.sourceItemId,
+        ) ?? null,
+    });
+  }, [selectedTask, tasks]);
 
   const loadTasks = useCallback(
     async (
@@ -830,6 +879,31 @@ export function useAgentQueueController({
     updateRepoRootDraft,
   } = runActions;
 
+  function markReportActionCardShown(cardId: string) {
+    if (!selectedTask) {
+      return;
+    }
+
+    const taskFoundation = {
+      ...(localTaskFieldsRef.current.get(selectedTask.queueItemId) ?? {}),
+      workspaceChatReportCardId: cardId,
+      workspaceChatReportCardStatus: "shown" as const,
+    };
+    const updatedTask = {
+      ...selectedTask,
+      workspaceChatReportCardId: cardId,
+      workspaceChatReportCardStatus: "shown" as const,
+    };
+
+    setLocalTaskFields((current) =>
+      new Map(current).set(selectedTask.queueItemId, taskFoundation),
+    );
+    applyUpdatedTask(updatedTask, { select: true });
+    setWorkerReportMessage(
+      "Report card shown in Workspace Chat. Coordinator action is still required; no final status was applied.",
+    );
+  }
+
   return {
     agentExecutorSlots,
     apiAvailable,
@@ -902,6 +976,13 @@ export function useAgentQueueController({
       message: workerReportMessage,
       onCreate: () => void createDiffReviewTask(),
     } satisfies AgentQueueDiffReviewController,
+    reportActionCard: {
+      diffReviewReportCard: diffReviewReportActionCard,
+      latestShownCardId: selectedTask?.workspaceChatReportCardId ?? null,
+      message: workerReportMessage,
+      onShown: markReportActionCardShown,
+      workerReportCard: workerReportActionCard,
+    } satisfies AgentQueueReportActionCardController,
     run: {
       approvalPolicy,
       canStart,

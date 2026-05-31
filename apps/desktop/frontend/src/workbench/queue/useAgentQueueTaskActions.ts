@@ -55,6 +55,8 @@ export type AgentQueueLocalTaskFields = Pick<
   | "validationStatus"
   | "executionPlanPreview"
   | "workerExecutionReports"
+  | "workspaceChatReportCardId"
+  | "workspaceChatReportCardStatus"
 >;
 
 type TaskActionsContext = Pick<

@@ -1,4 +1,5 @@
 import type { GitRepositoryStatus } from "../workspace/types";
+import type { AgentQueueReportActionCard } from "../workspace/types";
 
 export type WidgetCategory =
   | "observability"
@@ -235,6 +236,18 @@ export type CoordinatorAttachedContextRequest =
     id: number;
     targetCoordinatorWidgetInstanceId: WidgetInstanceId;
   };
+
+export type WorkspaceAgentQueueReportActionCardRequest = {
+  card: AgentQueueReportActionCard;
+  id: number;
+  targetCoordinatorWidgetInstanceId: WidgetInstanceId;
+};
+
+export type AgentQueueItemOpenRequest = {
+  id: number;
+  queueItemId: string;
+  targetQueueWidgetInstanceId: WidgetInstanceId;
+};
 
 export type DirectWorkQueueTaskAutoRefreshRequest = Omit<
   DirectWorkRunHandoff,

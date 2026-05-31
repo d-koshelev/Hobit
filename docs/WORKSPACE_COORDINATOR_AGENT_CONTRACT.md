@@ -551,9 +551,19 @@ collapsed raw preview. A report can mark the item as reported / awaiting
 coordinator review, but it must not mark the item done or failed, start
 validation, create follow-up items automatically, execute rollback, claim work,
 launch Agent Executor/Codex, call providers, or change Workspace Agent
-behavior. The target delivery path is Workspace Chat / coordinator report
-messages and action cards; until that future block exists, Queue may display
-the report evidence locally.
+behavior. Worker execution reports and Diff Review report metadata can now be
+shown explicitly in Workspace Chat as current-session coordinator action cards.
+The card is evidence and a UI/control artifact, not a final status. It shows
+source item, item type, queue tag, report status, summary, changed-file preview,
+warning/error counts, optional commit hash, follow-up and rollback
+recommendations, and linked Diff Review state when available. Card actions may
+open linked Queue items, create queued follow-up/sub-block items, create queued
+Diff Review items, mark needs-changes/coordinator-review state when explicit
+Queue update plumbing is available, or record rollback/pause requests as
+coordinator review markers. These actions are explicit operator clicks only
+and must not call a provider, start Executor/Codex, run Git diff, claim work,
+auto-run Queue items, kill processes, execute rollback, or auto-finalize Queue
+items.
 
 Current Queue UI can also explicitly create an independent Diff Review work
 item from a selected source item with a Worker execution report or

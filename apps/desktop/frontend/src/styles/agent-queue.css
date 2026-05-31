@@ -1511,6 +1511,13 @@
   overflow-wrap: anywhere;
 }
 
+.agent-queue-report-card-linkage {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
 .agent-queue-plan-list,
 .agent-queue-report-list {
   display: grid;

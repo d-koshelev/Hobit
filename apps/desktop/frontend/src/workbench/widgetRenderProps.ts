@@ -22,6 +22,7 @@ import type {
   AgentExecutorRunDetail,
   AgentExecutorRunHistory,
   AgentQueueRunnerSnapshot,
+  AgentQueueReportActionCard,
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
@@ -78,10 +79,12 @@ import type {
 import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   AgentExecutorSlot,
+  AgentQueueItemOpenRequest,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
+  WorkspaceAgentQueueReportActionCardRequest,
   DirectWorkGitReviewRequest,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
@@ -105,7 +108,9 @@ export type WidgetRenderProps = {
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
+  agentQueueItemOpenRequest?: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest?: CoordinatorAttachedContextRequest | null;
+  queueReportActionCardRequest?: WorkspaceAgentQueueReportActionCardRequest | null;
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
@@ -353,6 +358,10 @@ export type WidgetRenderProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
+  onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onStartAssignedAgentQueueTask?: (

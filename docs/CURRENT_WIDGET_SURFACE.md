@@ -622,9 +622,16 @@ Workspace Agent is the foreground interactive agent surface.
   not start a worker, claim an item, launch Agent Executor/Codex, call a
   provider, run validation, mutate Git, persist live worker process state,
   create a follow-up automatically, execute rollback, or finalize item status.
-  Worker reports are intended to be delivered to Workspace Chat / coordinator
-  review as future report messages or action cards; this block models and
-  displays them in Queue only.
+  Worker reports can be explicitly shown in Workspace Chat as current-session
+  Queue report action cards. The Queue item details show whether the latest
+  report card has been shown and the linked card id when available. Report
+  cards are coordinator UI/control artifacts: they summarize the source Queue
+  item, queue tag, report status, changed files, warnings/errors, commit hash,
+  follow-up recommendation, rollback recommendation, and linked Diff Review
+  status when available. Sending/showing the card does not copy the report into
+  the Workspace Agent composer prompt, call a provider, start Agent Executor,
+  launch Codex, auto-run Queue work, execute rollback, pause/kill live work, or
+  finalize item status.
 - From worker report evidence or an item awaiting coordinator review, the
   Queue UI exposes an explicit "Create diff review item" action. The generated
   Diff Review prompt asks future work to inspect actual Git diff, compare it
@@ -635,6 +642,13 @@ Workspace Agent is the foreground interactive agent surface.
   show a "Diff review requested" marker and simple link when a linked review
   item exists; Diff Review rows/details/Flow Map blocks show source item,
   report/commit, and review target summary when available.
+- Workspace Chat Queue report action cards can explicitly create queued
+  follow-up/sub-block or Diff Review items from the card. These create
+  operator-requested Queue records only and do not assign, run, auto-dispatch,
+  launch Executor/Codex, or finalize the source item. Needs-changes and
+  rollback-required card actions remain coordinator review markers or safe
+  Queue state updates where explicit frontend plumbing exists; rollback
+  execution and automatic finalization remain unimplemented.
 - Final item status is coordinator/workspace-owned in the model. Worker
   reports, validation results, and Diff Review reports are inputs for later
   coordinator decisions; workers must not directly finalize items as

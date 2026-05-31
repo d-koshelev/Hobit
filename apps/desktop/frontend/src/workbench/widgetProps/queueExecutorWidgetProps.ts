@@ -2,8 +2,12 @@ import type { AgentActivityEvent } from "../agentActivityModel";
 import type { DirectWorkGitReviewHandoff } from "../useDirectWorkGitReviewHandoff";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
 import type {
+  AgentQueueReportActionCard,
+} from "../../workspace/types";
+import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  AgentQueueItemOpenRequest,
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
   WidgetInstanceId,
@@ -47,10 +51,14 @@ type AgentExecutorActions = Pick<
 
 type AgentQueueWidgetPropsOptions = {
   actions: AgentQueueActions;
+  agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
   directWorkRunHandoff: DirectWorkRunHandoffController;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
+  ) => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
   ) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
@@ -72,15 +80,19 @@ type AgentExecutorWidgetPropsOptions = {
 
 export function agentQueueWidgetProps({
   actions,
+  agentQueueItemOpenRequest,
   agentExecutorSlots,
   directWorkRunHandoff,
   onAttachContextToCoordinator,
+  onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
 }: AgentQueueWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
+    agentQueueItemOpenRequest,
     agentExecutorSlots,
     onAssignAgentQueueTaskToExecutor: actions.assignAgentQueueTaskToExecutor,
     onAttachContextToCoordinator,
+    onShowQueueReportInWorkspaceChat,
     onClearAgentQueueTaskAssignment: actions.clearAgentQueueTaskAssignment,
     onCreateAgentQueueTask: actions.createAgentQueueTask,
     onCreateAgentQueueWorker: actions.createAgentQueueWorker,
