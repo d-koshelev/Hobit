@@ -3,6 +3,8 @@ import { Badge } from "../design-system/Badge";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   assignmentLabel,
+  coordinatorStatusBadgeVariant,
+  coordinatorStatusLabel,
   displayTaskTitle,
   FILTERS,
   formatUpdatedTimestamp,
@@ -231,6 +233,15 @@ export function AgentQueueTaskList({
                   {hasWorkerReport ? (
                     <Badge variant="info">Report received</Badge>
                   ) : null}
+                  {task.coordinatorStatus ? (
+                    <Badge
+                      variant={coordinatorStatusBadgeVariant(
+                        task.coordinatorStatus,
+                      )}
+                    >
+                      {coordinatorStatusLabel(task.coordinatorStatus)}
+                    </Badge>
+                  ) : null}
                   {linkedDiffReviewCount > 0 ? (
                     <Badge variant="warning">Diff review requested</Badge>
                   ) : null}
@@ -255,6 +266,11 @@ export function AgentQueueTaskList({
                   <span>{executionPlanStatusLabel(task.executionPlanPreview)}</span>
                   {hasWorkerReport ? (
                     <span>Awaiting coordinator review</span>
+                  ) : null}
+                  {task.coordinatorStatus ? (
+                    <span>
+                      Coordinator {coordinatorStatusLabel(task.coordinatorStatus)}
+                    </span>
                   ) : null}
                   {linkedDiffReviewCount > 0 ? (
                     <span>

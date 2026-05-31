@@ -645,14 +645,22 @@ Workspace Agent is the foreground interactive agent surface.
 - Workspace Chat Queue report action cards can explicitly create queued
   follow-up/sub-block or Diff Review items from the card. These create
   operator-requested Queue records only and do not assign, run, auto-dispatch,
-  launch Executor/Codex, or finalize the source item. Needs-changes and
-  rollback-required card actions remain coordinator review markers or safe
-  Queue state updates where explicit frontend plumbing exists; rollback
-  execution and automatic finalization remain unimplemented.
-- Final item status is coordinator/workspace-owned in the model. Worker
-  reports, validation results, and Diff Review reports are inputs for later
-  coordinator decisions; workers must not directly finalize items as
-  done/failure automatically.
+  launch Executor/Codex, or finalize the source item automatically. Card
+  actions can also mark ready for finalization, finalized/accepted, needs
+  changes, follow-up required, blocked, failed/rejected, or rollback required
+  through explicit safe Queue update plumbing where available. These actions
+  are coordinator clicks only; they do not call providers, start dependent
+  items, execute rollback, run Git reset/revert, or kill processes.
+- Final item status is coordinator/workspace-owned in the model. The Queue
+  details panel exposes explicit coordinator finalization actions for ready
+  for finalization, finalized/accepted, needs changes, follow-up required,
+  create follow-up item, blocked, failed/rejected, and rollback required.
+  Worker reports, validation results, and Diff Review reports are evidence
+  inputs only; workers must not directly finalize items as done/failure
+  automatically. Dependencies unblock only when the prerequisite is completed
+  and coordinator-finalized/accepted. Follow-up/sub-block creation is explicit
+  and queued. Rollback required is a marker/recommendation only; rollback
+  execution remains unimplemented.
 - Task deletion is explicit and confirmation-gated, blocks running/current
   active runner tasks, and removes only the Queue task row. It does not delete
   Agent Executor runs, logs, results, artifacts, or Direct Work history.

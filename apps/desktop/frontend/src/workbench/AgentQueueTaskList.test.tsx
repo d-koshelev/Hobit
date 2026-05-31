@@ -207,6 +207,33 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
       document.querySelector(".agent-queue-executor-info-box")?.textContent,
     ).toContain("Reported");
   });
+
+  it("renders coordinator finalization decision states on task rows", () => {
+    renderList([
+      queueTask({
+        coordinatorStatus: "finalized",
+        queueItemId: "accepted",
+        status: "completed",
+        title: "Accepted task",
+      }),
+      queueTask({
+        coordinatorStatus: "follow_up_required",
+        queueItemId: "follow-up-required",
+        status: "review_needed",
+        title: "Follow-up required task",
+      }),
+      queueTask({
+        coordinatorStatus: "rollback_required",
+        queueItemId: "rollback-required",
+        status: "review_needed",
+        title: "Rollback required task",
+      }),
+    ]);
+
+    expect(document.body.textContent).toContain("Finalized / accepted");
+    expect(document.body.textContent).toContain("Follow-up required");
+    expect(document.body.textContent).toContain("Rollback required");
+  });
 });
 
 function renderList(

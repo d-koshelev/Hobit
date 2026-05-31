@@ -24,6 +24,10 @@ import {
 } from "./agentQueueRoutingModel";
 import { executionPlanStatusLabel } from "./agentQueueExecutionPlanModel";
 import type { AgentQueueSchedulerPlan } from "./agentQueueSchedulerModel";
+import {
+  coordinatorStatusLabel,
+  normalizeCoordinatorStatus,
+} from "../agentQueueStatusLabels";
 
 export type QueueFlowTagColorToken =
   | "queue-flow-tag-1"
@@ -68,6 +72,8 @@ export type QueueFlowItemBlock = {
   hasWorkerReport: boolean;
   hasLinkedDiffReview: boolean;
   planStatusLabel: string;
+  coordinatorStatusLabel: string;
+  coordinatorStatus: NonNullable<AgentQueueTask["coordinatorStatus"]>;
   priorityLabel: string;
   queueItemId: string;
   queueTagId: string;
@@ -311,6 +317,8 @@ function queueFlowItemBlock({
     hasWorkerReport: hasWorkerReport(task),
     itemType: itemTypeLabel(itemType),
     planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
+    coordinatorStatus: normalizeCoordinatorStatus(task.coordinatorStatus),
+    coordinatorStatusLabel: coordinatorStatusLabel(task.coordinatorStatus),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),
     queueItemId: task.queueItemId,
     queueTagId: queueTag.queueTagId,

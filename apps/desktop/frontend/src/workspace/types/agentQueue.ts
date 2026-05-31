@@ -39,6 +39,19 @@ export type AgentQueueTaskValidationStatus =
   | "failed"
   | "needs_review";
 
+export type AgentQueueCoordinatorStatus =
+  | "not_reported"
+  | "worker_reported"
+  | "awaiting_validation"
+  | "awaiting_coordinator_review"
+  | "ready_for_finalization"
+  | "finalized"
+  | "needs_changes"
+  | "follow_up_required"
+  | "blocked"
+  | "failed"
+  | "rollback_required";
+
 export type AgentQueueTaskItemType =
   | "implementation"
   | "diff_review"
@@ -134,9 +147,13 @@ export type AgentQueueReportActionType =
   | "open_source_item"
   | "open_linked_diff_review"
   | "mark_ready_for_finalization"
+  | "finalize_accept_item"
   | "mark_needs_changes"
+  | "mark_follow_up_required"
   | "create_follow_up"
   | "create_diff_review"
+  | "mark_blocked"
+  | "mark_failed_rejected"
   | "mark_rollback_required"
   | "pause_dependent_items"
   | "pause_queue_tag";
@@ -177,6 +194,7 @@ export type AgentQueueReportActionCard = {
   linkedDiffReviewStatus?: AgentQueueTaskStatus;
   linkedFollowUpItemIds?: string[];
   dependentItemIds?: string[];
+  sourceCoordinatorStatus?: AgentQueueCoordinatorStatus;
 };
 
 export type AgentQueueTagPauseReason = "manual" | "edit_review";
@@ -429,12 +447,7 @@ export type AgentQueueTask = {
   workerExecutionReports?: AgentQueueWorkerExecutionReport[];
   workspaceChatReportCardId?: string;
   workspaceChatReportCardStatus?: "not_shown" | "shown";
-  coordinatorStatus?:
-    | "not_reported"
-    | "worker_reported"
-    | "awaiting_validation"
-    | "awaiting_coordinator_review"
-    | "finalized";
+  coordinatorStatus?: AgentQueueCoordinatorStatus;
   assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;

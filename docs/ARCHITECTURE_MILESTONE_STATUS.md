@@ -29,7 +29,10 @@ behavior, or Workspace Agent context wiring.
   execution state (`started`, `stopped`, and `stop_kill_requested`) behind the
   local START / STOP / STOP + KILL RUNNING controls, item types including
   independent Diff Review work items, and coordinator-owned finalization
-  vocabulary. START allows dry-run recommendations only; STOP suppresses new
+  vocabulary/actions. Current coordinator finalization states include
+  ready for finalization, finalized/accepted, needs changes, follow-up
+  required, blocked, failed/rejected, and rollback required, with compatibility
+  names retained where existing code already used them. START allows dry-run recommendations only; STOP suppresses new
   recommendations; STOP + KILL RUNNING suppresses new recommendations and
   represents running work as requiring termination/coordinator review in
   model/UI only. None of those state transitions auto-run items, start
@@ -99,11 +102,12 @@ behavior, or Workspace Agent context wiring.
   Executor/Codex runtime behavior. Worker and Diff Review report metadata can
   now be shown explicitly in Workspace Chat as current-session Queue report
   action cards. These cards let the coordinator open linked Queue items, create
-  queued follow-up or Diff Review items, mark needs-changes/review state where
-  safe frontend update plumbing exists, and record rollback or pause requests
-  as UI/model markers. Cards do not insert report text into the composer
-  prompt, call providers, start Executor/Codex, run Git diff, auto-dispatch
-  Queue work, execute rollback, kill processes, or auto-finalize item status.
+  queued follow-up or Diff Review items, and explicitly mark ready for
+  finalization, finalized/accepted, needs changes, follow-up required, blocked,
+  failed/rejected, or rollback required where safe frontend update plumbing
+  exists. Cards do not insert report text into the composer prompt, call
+  providers, start Executor/Codex, run Git diff, auto-dispatch Queue work,
+  execute rollback, kill processes, or auto-finalize item status.
   Queue can explicitly create independent Diff Review work items from a
   selected source item/report. The created item is queued, linked to the source
   item/report with frontend/model metadata, uses the same queue tag by default,
@@ -111,6 +115,10 @@ behavior, or Workspace Agent context wiring.
   declared scope, and contracts. Creating a Diff Review item does not run it,
   read Git diff automatically, start Agent Executor/Codex, call providers, run
   validation, finalize the source item, or create rollback execution.
+  Coordinator finalization is a separate explicit Queue detail/card action;
+  dependencies unblock only after the prerequisite is completed and
+  coordinator-finalized/accepted. Follow-up/sub-block creation is explicit and
+  queued. Rollback required is a marker/recommendation only.
   The Queue widget also has a Flow Map view that visualizes queue tags,
   dependency layers/barriers, the embedded Agent Executor section with
   max/spare/working facts, executor lanes, spare executors with scheduler
@@ -128,9 +136,10 @@ behavior, or Workspace Agent context wiring.
   evidence, execution/report metadata, validation/review status, and a compact
   executor-info box derived from existing state. The executor-info box is
   presentation-only. Opening details, clicking compact Flow Map/list items,
-  attaching report evidence, or generating plan metadata does not start
-  workers, claim items, launch Agent Executor/Codex, call providers, finalize
-  status, run validation, or create hidden runtime work.
+  attaching report evidence, generating plan metadata, or applying coordinator
+  finalization markers does not start workers, claim items, launch Agent
+  Executor/Codex, call providers, run validation, execute rollback, kill
+  processes, or create hidden runtime work.
   Tag deletion is safe-only: empty tags can be deleted after confirmation,
   non-empty tags require reassign/merge later, and running items block deletion.
   Queue still has no backend scheduler, durable runner, reconnect/resume, real

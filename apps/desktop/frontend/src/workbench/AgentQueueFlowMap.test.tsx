@@ -173,6 +173,35 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).not.toContain("Completed");
   });
 
+  it("renders finalized, needs changes, and rollback required coordinator markers", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          coordinatorStatus: "finalized",
+          queueItemId: "finalized-task",
+          status: "completed",
+          title: "Accepted task",
+        }),
+        queueTask({
+          coordinatorStatus: "needs_changes",
+          queueItemId: "needs-changes-task",
+          status: "review_needed",
+          title: "Needs changes task",
+        }),
+        queueTask({
+          coordinatorStatus: "rollback_required",
+          queueItemId: "rollback-task",
+          status: "review_needed",
+          title: "Rollback task",
+        }),
+      ],
+    });
+
+    expect(document.body.textContent).toContain("Finalized / accepted");
+    expect(document.body.textContent).toContain("Needs changes");
+    expect(document.body.textContent).toContain("Rollback required");
+  });
+
   it("renders diff review source metadata and source-item requested marker", () => {
     renderFlowMap({
       tasks: [

@@ -7,6 +7,8 @@ import { Button } from "../design-system/Button";
 import {
   displayTaskTitle,
   formatUpdatedTimestamp,
+  coordinatorStatusBadgeVariant,
+  coordinatorStatusLabel,
   itemTypeLabel,
   normalizeItemType,
   normalizeQueueTag,
@@ -136,6 +138,8 @@ export function AgentQueueTaskDetailsPanel({
             queue={queue}
           />
 
+          <CoordinatorFinalizationPanel queue={queue} />
+
           <AgentQueueTaskSection
             deleteTask={deleteTask}
             descriptionInputId={descriptionInputId}
@@ -217,6 +221,97 @@ export function AgentQueueTaskDetailsPanel({
       ) : (
         <AgentQueueEmptySelection hasTasks={tasks.length > 0} />
       )}
+    </section>
+  );
+}
+
+function CoordinatorFinalizationPanel({
+  queue,
+}: {
+  queue: AgentQueueController;
+}) {
+  const finalization = queue.coordinatorFinalization;
+
+  return (
+    <section
+      aria-label="Coordinator finalization"
+      className="agent-queue-expanded-section agent-queue-finalization"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-execution-group-title">
+            Coordinator finalization
+          </p>
+          <p className="agent-queue-run-note">
+            Reports and Diff Review evidence are not final. The coordinator owns
+            acceptance, changes, follow-up, block, failure, and rollback markers.
+          </p>
+        </div>
+        <Badge variant={coordinatorStatusBadgeVariant(finalization.status)}>
+          {coordinatorStatusLabel(finalization.status)}
+        </Badge>
+      </div>
+      <div className="agent-queue-finalization-actions">
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkReadyForFinalization()}
+          variant="secondary"
+        >
+          Mark ready for finalization
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onFinalize()}
+          variant="primary"
+        >
+          Finalize / Accept item
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkNeedsChanges()}
+          variant="secondary"
+        >
+          Mark needs changes
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkFollowUpRequired()}
+          variant="secondary"
+        >
+          Mark follow-up required
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onCreateFollowUp()}
+          variant="secondary"
+        >
+          Create follow-up item
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkBlocked()}
+          variant="secondary"
+        >
+          Mark blocked
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkFailedRejected()}
+          variant="secondary"
+        >
+          Mark failed/rejected
+        </Button>
+        <Button
+          disabled={!finalization.canAct}
+          onClick={() => finalization.onMarkRollbackRequired()}
+          variant="secondary"
+        >
+          Mark rollback required
+        </Button>
+      </div>
+      {finalization.message ? (
+        <p className="agent-queue-message">{finalization.message}</p>
+      ) : null}
     </section>
   );
 }
@@ -304,6 +399,10 @@ function ExpandedTaskHeader({
         <div>
           <dt>Validation</dt>
           <dd>{validationStatusLabel(validationStatus)}</dd>
+        </div>
+        <div>
+          <dt>Coordinator</dt>
+          <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
         </div>
         <div>
           <dt>Report</dt>

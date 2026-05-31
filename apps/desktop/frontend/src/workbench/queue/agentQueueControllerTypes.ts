@@ -1,5 +1,6 @@
 import type {
   AgentQueueExecutionPlanPreview,
+  AgentQueueCoordinatorStatus,
   AgentQueueReportActionCard,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
@@ -143,6 +144,20 @@ export type AgentQueueDiffReviewController = {
   linkedReviewTasks: AgentQueueTask[];
   message: string | null;
   onCreate: () => void;
+};
+
+export type AgentQueueCoordinatorFinalizationController = {
+  canAct: boolean;
+  message: string | null;
+  onCreateFollowUp: () => void;
+  onFinalize: () => void;
+  onMarkBlocked: () => void;
+  onMarkFailedRejected: () => void;
+  onMarkFollowUpRequired: () => void;
+  onMarkNeedsChanges: () => void;
+  onMarkReadyForFinalization: () => void;
+  onMarkRollbackRequired: () => void;
+  status: AgentQueueCoordinatorStatus;
 };
 
 export type AgentQueueOrderingController = {

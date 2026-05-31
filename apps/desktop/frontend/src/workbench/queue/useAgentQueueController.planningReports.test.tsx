@@ -1,4 +1,8 @@
 import { act } from "react";
+import type {
+  AgentQueueCoordinatorStatus,
+  AgentQueueTaskStatus,
+} from "../../workspace/types";
 
 import {
   createQueueHarness,
@@ -159,6 +163,124 @@ describe("useAgentQueueController planning and reports", () => {
     hook.unmount();
   });
 
+  it("applies explicit coordinator finalization actions without starting runtime work", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Review completed work",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onMarkReadyForFinalization();
+      await flushHookEffects();
+    });
+
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "ready_for_finalization",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("review_needed");
+
+    hook.unmount();
+
+    const finalizeHarness = createQueueHarness([
+      queueTask({
+        prompt: "Review completed work",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    ]);
+    const finalizeHook = renderQueueController(finalizeHarness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      finalizeHook.result.current.coordinatorFinalization.onFinalize();
+      await flushHookEffects();
+    });
+
+    expect(finalizeHook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "finalized",
+    );
+    expect(finalizeHook.result.current.selectedTask?.status).toBe("completed");
+    expect(finalizeHook.result.current.selectedTask?.validationStatus).toBe(
+      "passed",
+    );
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(finalizeHarness.updateRequests).toHaveLength(1);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+    expect(finalizeHarness.startRequests).toHaveLength(0);
+    expect(finalizeHarness.autorunStartRequests).toHaveLength(0);
+
+    finalizeHook.unmount();
+  });
+
+  it("marks coordinator needs changes, rollback, blocked, and failed as model-only decisions", async () => {
+    await expectCoordinatorDecision("onMarkNeedsChanges", {
+      coordinatorStatus: "needs_changes",
+      status: "review_needed",
+    });
+    await expectCoordinatorDecision("onMarkRollbackRequired", {
+      coordinatorStatus: "rollback_required",
+      messageIncludes: "No rollback",
+      status: "review_needed",
+    });
+    await expectCoordinatorDecision("onMarkBlocked", {
+      coordinatorStatus: "blocked",
+      status: "review_needed",
+    });
+    await expectCoordinatorDecision("onMarkFailedRejected", {
+      coordinatorStatus: "failed",
+      status: "failed",
+    });
+  });
+
+  it("creates an explicit queued follow-up item and leaves the source unfinalized", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Needs follow-up",
+        queueItemId: "queue-1",
+        queueTagId: "implementation",
+        queueTagName: "Implementation",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onCreateFollowUp();
+      await flushHookEffects();
+    });
+
+    expect(harness.createRequests[0]?.executionPolicy).toBe("manual");
+    expect(harness.createRequests[0]?.itemType).toBe("follow_up");
+    expect(harness.createRequests[0]?.queueTagId).toBe("implementation");
+    expect(harness.createRequests[0]?.queueTagName).toBe("Implementation");
+    expect(harness.createRequests[0]?.status).toBe("queued");
+    expect(harness.createRequests[0]?.validationStatus).toBe("not_started");
+    expect(
+      hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
+        ?.coordinatorStatus,
+    ).toBe("follow_up_required");
+    expect(hook.result.current.tasks.find(
+      (task) => task.queueItemId !== "queue-1",
+    )?.itemType).toBe("follow_up");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("generates a local plan preview without starting Executor, Codex, or Autorun", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -236,3 +358,48 @@ describe("useAgentQueueController planning and reports", () => {
     hook.unmount();
   });
 });
+
+async function expectCoordinatorDecision(
+  actionName:
+    | "onMarkBlocked"
+    | "onMarkFailedRejected"
+    | "onMarkNeedsChanges"
+    | "onMarkRollbackRequired",
+  expected: {
+    coordinatorStatus: AgentQueueCoordinatorStatus;
+    messageIncludes?: string;
+    status: AgentQueueTaskStatus;
+  },
+) {
+  const harness = createQueueHarness([
+    queueTask({
+      prompt: "Needs coordinator decision",
+      queueItemId: "queue-1",
+      status: "review_needed",
+    }),
+  ]);
+  const hook = renderQueueController(harness);
+
+  await flushControllerLoad();
+
+  await act(async () => {
+    hook.result.current.coordinatorFinalization[actionName]();
+    await flushHookEffects();
+  });
+
+  expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+    expected.coordinatorStatus,
+  );
+  expect(hook.result.current.selectedTask?.status).toBe(expected.status);
+  if (expected.messageIncludes) {
+    expect(
+      hook.result.current.coordinatorFinalization.message?.includes(
+        expected.messageIncludes,
+      ),
+    ).toBe(true);
+  }
+  expect(harness.startRequests).toHaveLength(0);
+  expect(harness.autorunStartRequests).toHaveLength(0);
+
+  hook.unmount();
+}

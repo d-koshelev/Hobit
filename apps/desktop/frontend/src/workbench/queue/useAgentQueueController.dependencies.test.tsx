@@ -57,6 +57,22 @@ describe("useAgentQueueController dependency gates", () => {
         queueItemId: "queue-1",
         status: "completed",
         title: "Prerequisite",
+        workerExecutionReports: [
+          {
+            changedFiles: [],
+            commandsRun: [],
+            createdAt: "2026-05-20T10:02:00.000Z",
+            errors: [],
+            itemId: "queue-1",
+            reportId: "report-1",
+            reportStatus: "completed",
+            summary: "Worker says complete.",
+            validationCommandsSuggested: [],
+            validationResult: "passed",
+            warnings: [],
+            workerId: "executor-1",
+          },
+        ],
       }),
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -106,6 +122,40 @@ describe("useAgentQueueController dependency gates", () => {
     expect(hook.result.current.run.canStart).toBe(true);
 
     hook.unmount();
+  });
+
+  it("keeps dependencies blocked for needs changes, follow-up, rollback, blocked, and failed coordinator states", () => {
+    for (const coordinatorStatus of [
+      "needs_changes",
+      "follow_up_required",
+      "rollback_required",
+      "blocked",
+      "failed",
+      "ready_for_finalization",
+    ] as const) {
+      const prerequisite = queueTask({
+        coordinatorStatus,
+        queueItemId: "queue-1",
+        status: coordinatorStatus === "failed" ? "failed" : "completed",
+        title: "Prerequisite",
+      });
+      const dependent = queueTask({
+        dependsOn: ["queue-1"],
+        queueItemId: "queue-2",
+        status: "ready",
+        title: "Dependent",
+      });
+
+      const dependencyState = getQueueTaskDependencyState(dependent, [
+        prerequisite,
+        dependent,
+      ]);
+
+      expect(dependencyState.status).toBe("blocked");
+      expect(dependencyState.blockedBy[0]?.reason).toBe(
+        coordinatorStatus === "failed" ? "not_completed" : "not_finalized",
+      );
+    }
   });
 
   it("dependency edits pause the queue tag and do not start Executor work", async () => {

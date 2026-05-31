@@ -38,6 +38,17 @@ describe("agentQueueReportActionCardModel", () => {
     expect(card.recommendedActions.map((action) => action.type)).toContain(
       "create_follow_up",
     );
+    expect(card.recommendedActions.map((action) => action.type)).toEqual(
+      expect.arrayContaining([
+        "mark_ready_for_finalization",
+        "finalize_accept_item",
+        "mark_needs_changes",
+        "mark_follow_up_required",
+        "mark_blocked",
+        "mark_failed_rejected",
+        "mark_rollback_required",
+      ]),
+    );
   });
 
   it("builds queued follow-up and diff-review prompts without runtime instructions", () => {

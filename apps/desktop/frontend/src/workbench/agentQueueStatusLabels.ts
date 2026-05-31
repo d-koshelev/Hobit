@@ -1,4 +1,5 @@
 import type {
+  AgentQueueCoordinatorStatus,
   AgentQueueGlobalExecutionState,
   AgentQueueTask,
   AgentQueueTaskExecutionPolicy,
@@ -272,6 +273,87 @@ export function validationBadgeVariant(status: string): BadgeVariant {
   }
 }
 
+export function normalizeCoordinatorStatus(
+  status: string | null | undefined,
+): AgentQueueCoordinatorStatus {
+  return isAgentQueueCoordinatorStatus(status) ? status : "not_reported";
+}
+
+export function coordinatorStatusLabel(
+  status: string | null | undefined,
+) {
+  switch (normalizeCoordinatorStatus(status)) {
+    case "worker_reported":
+      return "Worker reported";
+    case "awaiting_validation":
+      return "Awaiting validation";
+    case "awaiting_coordinator_review":
+      return "Awaiting coordinator review";
+    case "ready_for_finalization":
+      return "Ready for finalization";
+    case "finalized":
+      return "Finalized / accepted";
+    case "needs_changes":
+      return "Needs changes";
+    case "follow_up_required":
+      return "Follow-up required";
+    case "blocked":
+      return "Blocked";
+    case "failed":
+      return "Failed / rejected";
+    case "rollback_required":
+      return "Rollback required";
+    case "not_reported":
+    default:
+      return "Not ready";
+  }
+}
+
+export function coordinatorStatusBadgeVariant(
+  status: string | null | undefined,
+): BadgeVariant {
+  switch (normalizeCoordinatorStatus(status)) {
+    case "finalized":
+      return "success";
+    case "ready_for_finalization":
+    case "worker_reported":
+      return "info";
+    case "needs_changes":
+    case "follow_up_required":
+    case "blocked":
+    case "rollback_required":
+    case "awaiting_validation":
+    case "awaiting_coordinator_review":
+      return "warning";
+    case "failed":
+      return "error";
+    case "not_reported":
+    default:
+      return "neutral";
+  }
+}
+
+export function coordinatorStatusBlocksNewWork(
+  status: string | null | undefined,
+) {
+  switch (normalizeCoordinatorStatus(status)) {
+    case "awaiting_validation":
+    case "awaiting_coordinator_review":
+    case "ready_for_finalization":
+    case "worker_reported":
+    case "needs_changes":
+    case "follow_up_required":
+    case "blocked":
+    case "failed":
+    case "rollback_required":
+      return true;
+    case "finalized":
+    case "not_reported":
+    default:
+      return false;
+  }
+}
+
 export function itemTypeLabel(itemType: string) {
   return (
     ITEM_TYPE_OPTIONS.find((option) => option.value === itemType)?.label ??
@@ -309,4 +391,22 @@ function isAgentQueueTaskItemType(
   itemType: string | null | undefined,
 ): itemType is AgentQueueTaskItemType {
   return ITEM_TYPE_OPTIONS.some((option) => option.value === itemType);
+}
+
+function isAgentQueueCoordinatorStatus(
+  status: string | null | undefined,
+): status is AgentQueueCoordinatorStatus {
+  return (
+    status === "not_reported" ||
+    status === "worker_reported" ||
+    status === "awaiting_validation" ||
+    status === "awaiting_coordinator_review" ||
+    status === "ready_for_finalization" ||
+    status === "finalized" ||
+    status === "needs_changes" ||
+    status === "follow_up_required" ||
+    status === "blocked" ||
+    status === "failed" ||
+    status === "rollback_required"
+  );
 }

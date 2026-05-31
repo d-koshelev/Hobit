@@ -7,7 +7,9 @@ import type { AgentExecutorSlot, WidgetInstance } from "./types";
 import {
   DEFAULT_QUEUE_TAG_ID,
   DEFAULT_QUEUE_TAG_NAME,
+  coordinatorStatusBlocksNewWork,
   displayTaskTitle,
+  coordinatorStatusLabel,
   normalizeTaskPriority,
   normalizeValidationStatus,
 } from "./agentQueueStatusLabels";
@@ -206,11 +208,21 @@ export function queueExecutorInfoForTask({
     };
   }
 
-  if (
-    task.status === "review_needed" ||
-    validationStatus === "needs_review" ||
-    task.coordinatorStatus === "awaiting_coordinator_review"
-  ) {
+  if (coordinatorStatusBlocksNewWork(task.coordinatorStatus)) {
+    return {
+      detail: `${coordinatorStatusLabel(task.coordinatorStatus)}. Coordinator action controls final status.`,
+      label: coordinatorStatusLabel(task.coordinatorStatus),
+      tone:
+        task.coordinatorStatus === "failed"
+          ? "failed"
+          : task.coordinatorStatus === "ready_for_finalization" ||
+              task.coordinatorStatus === "worker_reported"
+            ? "reported"
+            : "needs_review",
+    };
+  }
+
+  if (task.status === "review_needed" || validationStatus === "needs_review") {
     return {
       detail: "Queue item needs operator or coordinator review.",
       label: "Needs review",

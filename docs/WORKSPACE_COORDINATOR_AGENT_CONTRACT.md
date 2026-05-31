@@ -559,11 +559,25 @@ warning/error counts, optional commit hash, follow-up and rollback
 recommendations, and linked Diff Review state when available. Card actions may
 open linked Queue items, create queued follow-up/sub-block items, create queued
 Diff Review items, mark needs-changes/coordinator-review state when explicit
-Queue update plumbing is available, or record rollback/pause requests as
-coordinator review markers. These actions are explicit operator clicks only
-and must not call a provider, start Executor/Codex, run Git diff, claim work,
-auto-run Queue items, kill processes, execute rollback, or auto-finalize Queue
-items.
+Queue update plumbing is available, explicitly mark ready for finalization,
+finalized/accepted, follow-up required, blocked, failed/rejected, or rollback
+required, or record pause requests as coordinator review markers. These
+actions are explicit operator clicks only and must not call a provider, start
+Executor/Codex, run Git diff, claim work, auto-run Queue items, kill
+processes, execute rollback, or auto-finalize Queue items.
+
+Current Queue UI has explicit coordinator-owned finalization actions in the
+selected item details. The supported frontend/model states are not ready /
+not reported, awaiting review, ready for finalization, finalized/accepted,
+needs changes, follow-up required, blocked, failed/rejected, and rollback
+required, with retained compatibility names where existing code already uses
+them. Finalize / Accept is the only action that marks the item coordinator
+finalized/accepted; it preserves report evidence and does not start dependent
+items. Scheduler dry-run may show newly eligible dependent items only as
+recommendations. Needs changes, follow-up required, blocked, failed/rejected,
+and rollback required keep dependent items blocked. Creating a follow-up is an
+explicit queued `follow_up` item only and does not run it. Rollback required is
+a marker/recommendation only; rollback execution remains future work.
 
 Current Queue UI can also explicitly create an independent Diff Review work
 item from a selected source item with a Worker execution report or
@@ -574,8 +588,8 @@ Git diff against the worker report, declared scope, and Hobit contracts. This
 creation action is a coordinator/operator action only: it does not run the
 review, read Git diff automatically, start Agent Executor/Codex, call
 providers, run validation, finalize the source item, or execute rollback.
-Workspace/coordinator finalization based on Diff Review reports remains future
-work.
+Diff Review reports are evidence only; coordinator finalization remains an
+explicit separate action.
 
 Agent Executor functionality is being embedded into Queue as the primary
 execution management surface for Queue work. The embedded Agent Executor
@@ -594,7 +608,7 @@ changes are explicit item edits. Dependency self-links, missing ids, and cycles
 must be rejected. A dependent item is eligible only after each prerequisite is
 completed and coordinator-finalized in the current model; this is the safest
 available approximation for completed, reviewed, and accepted work until a
-full coordinator acceptance model exists. Dependency edits pause the affected
+explicit coordinator finalization model exists. Dependency edits pause the affected
 queue tag and require coordinator review through the same edit-save safety
 flow. Deleting a prerequisite is blocked while dependents reference it. This
 readiness layer must not become dependency execution, worker claiming,

@@ -53,6 +53,7 @@ export function buildWorkerExecutionReportActionCard({
     sourceItemStatus: normalizeTaskStatus(sourceTask.status),
     sourceItemTitle: displayTaskTitle(sourceTask),
     sourceItemType: normalizeItemType(sourceTask.itemType),
+    sourceCoordinatorStatus: sourceTask.coordinatorStatus,
     sourceQueueTag: queueTag.queueTagName,
     sourceQueueTagId: queueTag.queueTagId,
     sourceReportId: report.reportId,
@@ -107,6 +108,7 @@ export function buildDiffReviewReportActionCard({
     sourceItemStatus: normalizeTaskStatus(source?.status ?? "review_needed"),
     sourceItemTitle: source ? displayTaskTitle(source) : metadata?.sourceItemId ?? "Source item",
     sourceItemType: normalizeItemType(source?.itemType ?? "implementation"),
+    sourceCoordinatorStatus: source?.coordinatorStatus,
     sourceQueueTag: queueTag.queueTagName,
     sourceQueueTagId: queueTag.queueTagId,
     sourceReportId,
@@ -175,12 +177,22 @@ function workerReportActions(hasLinkedDiffReview: boolean): AgentQueueReportActi
     reportAction(
       "mark_ready_for_finalization",
       "Ready for finalization",
-      "Mark the report card as ready for coordinator finalization review. No final status is applied.",
+      "Mark the source item ready for explicit coordinator finalization. No work starts.",
+    ),
+    reportAction(
+      "finalize_accept_item",
+      "Finalize / accept",
+      "Explicitly accept the source Queue item. Dependent work may become eligible only in dry-run.",
     ),
     reportAction(
       "mark_needs_changes",
       "Needs changes",
       "Mark the source Queue item for coordinator review/needs changes when the Queue task update path is available.",
+    ),
+    reportAction(
+      "mark_follow_up_required",
+      "Follow-up required",
+      "Mark the source item as requiring follow-up before finalization.",
     ),
     reportAction(
       "create_follow_up",
@@ -200,6 +212,16 @@ function workerReportActions(hasLinkedDiffReview: boolean): AgentQueueReportActi
       "Open linked diff review",
       "Open the linked Diff Review item when one exists.",
       hasLinkedDiffReview,
+    ),
+    reportAction(
+      "mark_blocked",
+      "Blocked",
+      "Mark the source item blocked. No follow-up or runtime action is started.",
+    ),
+    reportAction(
+      "mark_failed_rejected",
+      "Failed / rejected",
+      "Reject the source item as failed while preserving report evidence.",
     ),
     reportAction(
       "mark_rollback_required",
@@ -230,7 +252,12 @@ function diffReviewReportActions(): AgentQueueReportAction[] {
     reportAction(
       "mark_ready_for_finalization",
       "Ready for finalization",
-      "Mark the report card as ready for coordinator finalization review. No final status is applied.",
+      "Mark the source item ready for explicit coordinator finalization. No work starts.",
+    ),
+    reportAction(
+      "finalize_accept_item",
+      "Finalize / accept",
+      "Explicitly accept the source Queue item. Dependent work may become eligible only in dry-run.",
     ),
     reportAction(
       "mark_needs_changes",
@@ -238,9 +265,24 @@ function diffReviewReportActions(): AgentQueueReportAction[] {
       "Mark the source Queue item for coordinator review/needs changes when the Queue task update path is available.",
     ),
     reportAction(
+      "mark_follow_up_required",
+      "Follow-up required",
+      "Mark the source item as requiring follow-up before finalization.",
+    ),
+    reportAction(
       "create_follow_up",
       "Create follow-up",
       "Create a queued follow-up/sub-block item. It will not run automatically.",
+    ),
+    reportAction(
+      "mark_blocked",
+      "Blocked",
+      "Mark the source item blocked. No follow-up or runtime action is started.",
+    ),
+    reportAction(
+      "mark_failed_rejected",
+      "Failed / rejected",
+      "Reject the source item as failed while preserving report evidence.",
     ),
     reportAction(
       "mark_rollback_required",

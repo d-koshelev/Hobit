@@ -164,6 +164,56 @@ describe("agent queue scheduler model", () => {
     expect(reasonCodes(plan, "paused").includes("queue_tag_paused")).toBe(true);
   });
 
+  it("shows dependent work eligible only after prerequisite is coordinator finalized", () => {
+    const reportedPrerequisite = queueTask({
+      coordinatorStatus: "awaiting_coordinator_review",
+      queueItemId: "prereq",
+      status: "completed",
+      title: "Reported prerequisite",
+      workerExecutionReports: [
+        {
+          changedFiles: [],
+          commandsRun: [],
+          createdAt: "2026-05-20T10:02:00.000Z",
+          errors: [],
+          itemId: "prereq",
+          reportId: "report-1",
+          reportStatus: "completed",
+          summary: "Report only.",
+          validationCommandsSuggested: [],
+          warnings: [],
+          workerId: "worker-1",
+        },
+      ],
+    });
+    const dependent = queueTask({
+      dependsOn: ["prereq"],
+      prompt: "Run dependent",
+      queueItemId: "dependent",
+      status: "ready",
+    });
+    const blocked = buildPlan({
+      globalExecutionState: "started",
+      tasks: [reportedPrerequisite, dependent],
+    });
+    const unblocked = buildPlan({
+      globalExecutionState: "started",
+      tasks: [
+        { ...reportedPrerequisite, coordinatorStatus: "finalized" },
+        dependent,
+      ],
+    });
+
+    expect(
+      reasonCodes(blocked, "dependent").includes("waiting_for_dependencies"),
+    ).toBe(true);
+    expect(
+      unblocked.itemEligibility.find((item) => item.queueItemId === "dependent")
+        ?.isSchedulable,
+    ).toBe(true);
+    expect(unblocked.recommendations[0]?.queueItemId).toBe("dependent");
+  });
+
   it("does not recommend new work while STOP or STOP + KILL RUNNING is active", () => {
     const stopped = buildPlan({
       globalExecutionState: "stopped",

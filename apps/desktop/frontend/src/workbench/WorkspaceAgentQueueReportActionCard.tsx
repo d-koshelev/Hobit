@@ -4,6 +4,7 @@ import { Button } from "../design-system/Button";
 import type {
   AgentQueueReportActionCard,
   AgentQueueReportActionType,
+  AgentQueueCoordinatorStatus,
   AgentQueueTask,
   CreateAgentQueueTaskRequest,
   UpdateAgentQueueTaskRequest,
@@ -21,6 +22,7 @@ export type WorkspaceAgentQueueReportActionResult = {
 export type WorkspaceAgentQueueReportActionCardPatch = {
   linkedDiffReviewItemId?: string;
   linkedFollowUpItemIds?: string[];
+  sourceCoordinatorStatus?: AgentQueueCoordinatorStatus;
 };
 
 type WorkspaceAgentQueueReportActionCardProps = {
@@ -104,11 +106,61 @@ export function WorkspaceAgentQueueReportActionCard({
       case "create_diff_review":
         return createDiffReviewItem();
       case "mark_needs_changes":
-        return markNeedsChanges();
+        return markSourceDecision({
+          coordinatorStatus: "needs_changes",
+          result:
+            "Source Queue item marked needs changes. It was not finalized as done or failed.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        });
       case "mark_ready_for_finalization":
-        return "Report marked ready for coordinator finalization review on this card. No final Queue status was applied.";
+        return markSourceDecision({
+          coordinatorStatus: "ready_for_finalization",
+          result:
+            "Source Queue item marked ready for explicit coordinator finalization. No work was started.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        });
+      case "finalize_accept_item":
+        return markSourceDecision({
+          coordinatorStatus: "finalized",
+          result:
+            "Source Queue item finalized / accepted by explicit coordinator action. No dependent work was started.",
+          status: "completed",
+          validationStatus: "passed",
+        });
+      case "mark_follow_up_required":
+        return markSourceDecision({
+          coordinatorStatus: "follow_up_required",
+          result:
+            "Source Queue item marked follow-up required. Dependencies remain blocked.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        });
+      case "mark_blocked":
+        return markSourceDecision({
+          coordinatorStatus: "blocked",
+          result:
+            "Source Queue item marked blocked by coordinator. No follow-up was auto-run.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        });
+      case "mark_failed_rejected":
+        return markSourceDecision({
+          coordinatorStatus: "failed",
+          result:
+            "Source Queue item marked failed / rejected. Evidence was preserved and rollback was not executed.",
+          status: "failed",
+          validationStatus: "failed",
+        });
       case "mark_rollback_required":
-        return "Rollback marked required on this card only. No rollback execution was started.";
+        return markSourceDecision({
+          coordinatorStatus: "rollback_required",
+          result:
+            "Rollback required marker recorded. No rollback, git reset, or process kill was started.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        });
       case "pause_dependent_items":
         return card.dependentItemIds?.length
           ? `Pause requested for ${card.dependentItemIds.length.toString()} dependent task(s) on this card. No process was killed.`
@@ -177,9 +229,20 @@ export function WorkspaceAgentQueueReportActionCard({
     return `Queued Diff Review item ${createdTask.queueItemId}. It was not run.`;
   }
 
-  async function markNeedsChanges() {
+  async function markSourceDecision({
+    coordinatorStatus,
+    result,
+    status,
+    validationStatus,
+  }: {
+    coordinatorStatus: AgentQueueCoordinatorStatus;
+    result: string;
+    status: UpdateAgentQueueTaskRequest["status"];
+    validationStatus: NonNullable<UpdateAgentQueueTaskRequest["validationStatus"]>;
+  }) {
     if (!onUpdateQueueTask || !card.sourceItemPrompt) {
-      return "Needs-changes marker recorded on this card only. Source Queue update is unavailable.";
+      onPatchCard(card.cardId, { sourceCoordinatorStatus: coordinatorStatus });
+      return `${result} Source Queue update is unavailable, so only this card was marked.`;
     }
 
     await onUpdateQueueTask({
@@ -191,12 +254,13 @@ export function WorkspaceAgentQueueReportActionCard({
       queueItemId: card.sourceItemId,
       queueTagId: card.sourceQueueTagId,
       queueTagName: card.sourceQueueTag,
-      status: "review_needed",
+      status,
       title: card.sourceItemTitle,
-      validationStatus: "needs_review",
+      validationStatus,
     });
+    onPatchCard(card.cardId, { sourceCoordinatorStatus: coordinatorStatus });
 
-    return "Source Queue item marked review_needed / needs_review. It was not finalized as done or failed.";
+    return result;
   }
 
   return (
@@ -211,7 +275,11 @@ export function WorkspaceAgentQueueReportActionCard({
         </div>
         <div className="coordinator-proposal-badges">
           <Badge variant="warning">Coordinator action required</Badge>
-          <Badge variant="neutral">No final status applied</Badge>
+          <Badge variant="neutral">
+            {card.sourceCoordinatorStatus === "finalized"
+              ? "Finalized by coordinator"
+              : "No automatic final status"}
+          </Badge>
         </div>
       </div>
 
@@ -220,6 +288,9 @@ export function WorkspaceAgentQueueReportActionCard({
         <ReportFact label="Queue tag" value={card.sourceQueueTag} />
         <ReportFact label="Report" value={card.reportKind} />
         <ReportFact label="Status" value={card.reportStatus} />
+        {card.sourceCoordinatorStatus ? (
+          <ReportFact label="Coordinator" value={card.sourceCoordinatorStatus} />
+        ) : null}
         {card.commitHash ? <ReportFact label="Commit" value={card.commitHash} /> : null}
       </dl>
 
@@ -265,8 +336,8 @@ export function WorkspaceAgentQueueReportActionCard({
 
       <p className="coordinator-proposal-note">
         Report received. Actions create/update Queue state only where explicit
-        plumbing exists. No provider, Executor, Codex, rollback, or finalization
-        runs from this card.
+        plumbing exists. No provider, Executor, Codex, rollback execution, or
+        automatic finalization runs from this card.
       </p>
 
       <div className="workspace-agent-report-card-actions">
@@ -309,7 +380,9 @@ function ReportFact({ label, value }: { label: string; value: string }) {
 }
 
 function primaryActionVariant(actionType: AgentQueueReportActionType) {
-  return actionType === "create_follow_up" || actionType === "create_diff_review"
+  return actionType === "create_follow_up" ||
+    actionType === "create_diff_review" ||
+    actionType === "finalize_accept_item"
     ? "primary"
     : "secondary";
 }

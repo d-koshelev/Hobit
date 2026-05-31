@@ -1,7 +1,14 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { MutableRefObject } from "react";
 
-import type { AgentQueueRunnerSnapshot, AgentQueueTask } from "../../workspace/types";
+import type {
+  AgentQueueCoordinatorStatus,
+  AgentQueueReportActionType,
+  AgentQueueRunnerSnapshot,
+  AgentQueueTask,
+  AgentQueueTaskStatus,
+  AgentQueueTaskValidationStatus,
+} from "../../workspace/types";
 import {
   clamp,
   DEFAULT_TASK_TITLE,
@@ -96,6 +103,7 @@ type TaskActionsContext = Pick<
   setDeleteMessage: Dispatch<SetStateAction<string | null>>;
   setDraft: Dispatch<SetStateAction<TaskDraft>>;
   setEditorError: Dispatch<SetStateAction<string | null>>;
+  setCoordinatorFinalizationMessage: Dispatch<SetStateAction<string | null>>;
   setExecutionPlanMessage: Dispatch<SetStateAction<string | null>>;
   setGlobalMessage: Dispatch<SetStateAction<string | null>>;
   setIsConfirmingDelete: Dispatch<SetStateAction<boolean>>;
@@ -150,6 +158,7 @@ export function createAgentQueueTaskActions({
   setDeleteMessage,
   setDraft,
   setEditorError,
+  setCoordinatorFinalizationMessage,
   setExecutionPlanMessage,
   setGlobalMessage,
   setIsConfirmingDelete,
@@ -327,6 +336,185 @@ export function createAgentQueueTaskActions({
       return true;
     } catch (error) {
       setEditorError(errorToMessage(error, "Unable to create diff review item."));
+      return false;
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function applyCoordinatorFinalization(
+    actionType: AgentQueueReportActionType,
+  ) {
+    if (!selectedTask || hasOpenTaskEdit || isSaving || isCreating) {
+      return false;
+    }
+
+    if (actionType === "create_follow_up") {
+      return createFollowUpTaskFromSelectedTask();
+    }
+
+    const decision = coordinatorDecisionForAction(actionType);
+
+    if (!decision) {
+      setCoordinatorFinalizationMessage(
+        "Coordinator action is not supported for Queue finalization.",
+      );
+      return false;
+    }
+
+    setIsSaving(true);
+    setEditorError(null);
+    setCoordinatorFinalizationMessage(null);
+    setValidationMessage(null);
+
+    try {
+      const updatedTask = onUpdateAgentQueueTask
+        ? await onUpdateAgentQueueTask({
+            description: selectedTask.description,
+            executionPolicy: normalizeTaskExecutionPolicy(
+              selectedTask.executionPolicy,
+            ),
+            itemType: normalizeItemType(selectedTask.itemType),
+            priority: selectedTask.priority,
+            prompt: selectedTask.prompt,
+            queueItemId: selectedTask.queueItemId,
+            queueTagId: normalizeQueueTag(selectedTask).queueTagId,
+            queueTagName: normalizeQueueTag(selectedTask).queueTagName,
+            status: decision.status,
+            title: selectedTask.title,
+            validationStatus: decision.validationStatus,
+          })
+        : selectedTask;
+
+      if (!updatedTask) {
+        setCoordinatorFinalizationMessage(
+          "The source Queue item could not be found. No hidden work ran.",
+        );
+        return false;
+      }
+
+      const taskFoundation: Partial<AgentQueueTask> = {
+        coordinatorStatus: decision.coordinatorStatus,
+        validationStatus: decision.validationStatus,
+      };
+      setLocalTaskFields((current) =>
+        new Map(current).set(updatedTask.queueItemId, {
+          ...(current.get(updatedTask.queueItemId) ?? {}),
+          ...taskFoundation,
+        }),
+      );
+      applyUpdatedTask(
+        {
+          ...updatedTask,
+          ...taskFoundation,
+          status: decision.status,
+        },
+        { select: true },
+      );
+      setCoordinatorFinalizationMessage(decision.message);
+      setSaveStateText("Saved");
+      return true;
+    } catch (error) {
+      setCoordinatorFinalizationMessage(
+        errorToMessage(error, "Unable to apply coordinator finalization action."),
+      );
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function createFollowUpTaskFromSelectedTask() {
+    if (!selectedTask || !onCreateAgentQueueTask || isCreating || isSaving) {
+      setCoordinatorFinalizationMessage(
+        "Queue task creation is unavailable. No follow-up work ran.",
+      );
+      return false;
+    }
+
+    const queueTag = normalizeQueueTag(selectedTask);
+    const report =
+      selectedTask.workerExecutionReports?.[
+        selectedTask.workerExecutionReports.length - 1
+      ] ?? null;
+
+    setIsCreating(true);
+    setCoordinatorFinalizationMessage(null);
+    setEditorError(null);
+    setValidationMessage(null);
+
+    try {
+      const createdTask = await onCreateAgentQueueTask({
+        description: `Follow-up/sub-block for ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}.`,
+        executionPolicy: "manual",
+        itemType: "follow_up",
+        priority: selectedTask.priority,
+        prompt: followUpPromptFromTask(selectedTask),
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        status: "queued",
+        title: `Follow-up: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
+        validationStatus: "not_started",
+      });
+      const createdFoundation = {
+        coordinatorStatus: "not_reported" as const,
+        dependsOn: [],
+        itemType: "follow_up" as const,
+        orderIndex: nextOrderIndexForQueueTag({
+          insertPosition: "bottom",
+          queueTagId: queueTag.queueTagId,
+          tasks: tasksRef.current,
+        }),
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        validationStatus: "not_started" as const,
+        workerExecutionReports: [],
+      };
+      const sourceFoundation = {
+        coordinatorStatus: "follow_up_required" as const,
+        validationStatus: "needs_review" as const,
+      };
+
+      setLocalTaskFields((current) => {
+        const next = new Map(current);
+        next.set(createdTask.queueItemId, createdFoundation);
+        next.set(selectedTask.queueItemId, {
+          ...(next.get(selectedTask.queueItemId) ?? {}),
+          ...sourceFoundation,
+        });
+        return next;
+      });
+      const nextTasks = sortQueueTasksForDisplay([
+        ...tasksRef.current.map((task) =>
+          task.queueItemId === selectedTask.queueItemId
+            ? {
+                ...task,
+                ...sourceFoundation,
+                status: "review_needed" as const,
+              }
+            : task,
+        ),
+        { ...createdTask, ...createdFoundation },
+      ]);
+
+      tasksRef.current = nextTasks;
+      setTasks(nextTasks);
+      applyUpdatedTask(
+        {
+          ...selectedTask,
+          ...sourceFoundation,
+          status: "review_needed",
+        },
+        { select: true },
+      );
+      setCoordinatorFinalizationMessage(
+        `Follow-up item ${createdTask.queueItemId} was queued. Source remains follow-up required; no work was started.${report?.reportId ? ` Source report: ${report.reportId}.` : ""}`,
+      );
+      return true;
+    } catch (error) {
+      setCoordinatorFinalizationMessage(
+        errorToMessage(error, "Unable to create follow-up item."),
+      );
       return false;
     } finally {
       setIsCreating(false);
@@ -674,6 +862,7 @@ export function createAgentQueueTaskActions({
     confirmDeleteSelectedTask,
     createTask,
     createDiffReviewTask,
+    applyCoordinatorFinalization,
     refreshTasks,
     requestDeleteSelectedTask,
     saveTask,
@@ -682,4 +871,99 @@ export function createAgentQueueTaskActions({
     updateDraft,
     updatePriority,
   };
+}
+
+function coordinatorDecisionForAction(
+  actionType: AgentQueueReportActionType,
+):
+  | {
+      coordinatorStatus: AgentQueueCoordinatorStatus;
+      message: string;
+      status: AgentQueueTaskStatus;
+      validationStatus: AgentQueueTaskValidationStatus;
+    }
+  | null {
+  switch (actionType) {
+    case "mark_ready_for_finalization":
+      return {
+        coordinatorStatus: "ready_for_finalization",
+        message:
+          "Marked ready for coordinator finalization. No dependent item was started.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      };
+    case "finalize_accept_item":
+      return {
+        coordinatorStatus: "finalized",
+        message:
+          "Finalized / accepted by coordinator. Dependencies may now be eligible in dry-run only; no work was started.",
+        status: "completed",
+        validationStatus: "passed",
+      };
+    case "mark_needs_changes":
+      return {
+        coordinatorStatus: "needs_changes",
+        message:
+          "Marked needs changes. Dependencies remain blocked; create a follow-up when ready.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      };
+    case "mark_follow_up_required":
+      return {
+        coordinatorStatus: "follow_up_required",
+        message:
+          "Marked follow-up required. Dependencies remain blocked until reviewed and accepted.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      };
+    case "mark_blocked":
+      return {
+        coordinatorStatus: "blocked",
+        message:
+          "Marked blocked by coordinator. The item remains visible and no follow-up was auto-run.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      };
+    case "mark_failed_rejected":
+      return {
+        coordinatorStatus: "failed",
+        message:
+          "Marked failed / rejected by coordinator. Evidence is preserved and rollback was not executed.",
+        status: "failed",
+        validationStatus: "failed",
+      };
+    case "mark_rollback_required":
+      return {
+        coordinatorStatus: "rollback_required",
+        message:
+          "Marked rollback required as a coordinator decision marker only. No rollback, git reset, or process kill ran.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      };
+    default:
+      return null;
+  }
+}
+
+function followUpPromptFromTask(task: AgentQueueTask) {
+  const report = task.workerExecutionReports?.[
+    task.workerExecutionReports.length - 1
+  ];
+
+  return [
+    `Follow-up/sub-block for Queue item ${task.queueItemId}.`,
+    "",
+    `Source title: ${task.title.trim() || DEFAULT_TASK_TITLE}`,
+    `Source status: ${task.status}`,
+    `Coordinator decision: follow-up required`,
+    report ? `Source report: ${report.reportId}` : null,
+    report?.summary ? `Report summary: ${report.summary}` : null,
+    report?.followUpRecommendation
+      ? `Follow-up recommendation: ${report.followUpRecommendation}`
+      : "Follow-up recommendation: coordinator requested changes before finalization.",
+    "",
+    "Do not run automatically. Complete this focused sub-block and return it for coordinator review.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

@@ -3,6 +3,7 @@ import {
   getQueueTaskDependencyState,
   normalizeQueueTag,
   normalizeTaskPriority,
+  coordinatorStatusBlocksNewWork,
   queueGlobalExecutionStateBlocksNewWork,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
@@ -98,7 +99,7 @@ export function getWorkerItemBlockedReasons(
     reasons.push(reason("item_validation_in_progress"));
   }
 
-  if (item.coordinatorStatus === "awaiting_coordinator_review") {
+  if (coordinatorStatusBlocksNewWork(item.coordinatorStatus)) {
     reasons.push(reason("item_awaiting_coordinator_review"));
   }
 

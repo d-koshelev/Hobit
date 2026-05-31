@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
 import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -59,6 +59,7 @@ export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
 export type {
   AgentQueueAutorunController,
+  AgentQueueCoordinatorFinalizationController,
   AgentQueueDeleteController,
   AgentQueueDiffReviewController,
   AgentQueueEditController,
@@ -204,6 +205,8 @@ export function useAgentQueueController({
   const [workerReportMessage, setWorkerReportMessage] = useState<string | null>(
     null,
   );
+  const [coordinatorFinalizationMessage, setCoordinatorFinalizationMessage] =
+    useState<string | null>(null);
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
   const selectionModel = createAgentQueueSelectionModel({
@@ -753,6 +756,7 @@ export function useAgentQueueController({
     setDraft,
     setEditorError,
     setExecutionPlanMessage,
+    setCoordinatorFinalizationMessage,
     setGlobalMessage,
     setIsConfirmingDelete,
     setIsCreating,
@@ -785,6 +789,7 @@ export function useAgentQueueController({
     startEditingSelectedTask,
     updateDraft,
     updatePriority,
+    applyCoordinatorFinalization,
   } = taskActions;
   const planningActions = createAgentQueuePlanningActions({
     applyUpdatedTask,
@@ -983,6 +988,24 @@ export function useAgentQueueController({
       onShown: markReportActionCardShown,
       workerReportCard: workerReportActionCard,
     } satisfies AgentQueueReportActionCardController,
+    coordinatorFinalization: {
+      canAct: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving && !isCreating),
+      message: coordinatorFinalizationMessage,
+      onCreateFollowUp: () => void applyCoordinatorFinalization("create_follow_up"),
+      onFinalize: () => void applyCoordinatorFinalization("finalize_accept_item"),
+      onMarkBlocked: () => void applyCoordinatorFinalization("mark_blocked"),
+      onMarkFailedRejected: () =>
+        void applyCoordinatorFinalization("mark_failed_rejected"),
+      onMarkFollowUpRequired: () =>
+        void applyCoordinatorFinalization("mark_follow_up_required"),
+      onMarkNeedsChanges: () =>
+        void applyCoordinatorFinalization("mark_needs_changes"),
+      onMarkReadyForFinalization: () =>
+        void applyCoordinatorFinalization("mark_ready_for_finalization"),
+      onMarkRollbackRequired: () =>
+        void applyCoordinatorFinalization("mark_rollback_required"),
+      status: selectedTask?.coordinatorStatus ?? "not_reported",
+    } satisfies AgentQueueCoordinatorFinalizationController,
     run: {
       approvalPolicy,
       canStart,

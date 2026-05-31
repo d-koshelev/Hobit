@@ -3,6 +3,7 @@ import { Badge } from "../design-system/Badge";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   validationBadgeVariant,
+  coordinatorStatusBadgeVariant,
   statusBadgeVariant,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
@@ -426,6 +427,9 @@ function FlowItemBlock({
         {item.hasWorkerReport ? (
           <Badge variant="info">Report received</Badge>
         ) : null}
+        <Badge variant={coordinatorStatusBadgeVariant(item.coordinatorStatus)}>
+          {item.coordinatorStatusLabel}
+        </Badge>
         {item.hasLinkedDiffReview ? (
           <Badge variant="warning">Diff review requested</Badge>
         ) : null}
@@ -527,6 +531,7 @@ function itemTitle(item: QueueFlowItemBlock) {
     `Executor: ${item.executorInfoLabel}`,
     `Plan: ${item.planStatusLabel}`,
     item.hasWorkerReport ? "Worker report: received / not final" : null,
+    `Coordinator: ${item.coordinatorStatusLabel}`,
     item.hasLinkedDiffReview ? "Diff review: requested" : null,
     item.sourceItemLabel ? `Source item: ${item.sourceItemLabel}` : null,
     item.reviewTargetSummary ? `Review target: ${item.reviewTargetSummary}` : null,

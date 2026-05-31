@@ -1769,7 +1769,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("1 warning(s)");
     expect(document.body.textContent).toContain("1 error(s)");
     expect(document.body.textContent).toContain("abc1234");
-    expect(document.body.textContent).toContain("No final status applied");
+    expect(document.body.textContent).toContain("No automatic final status");
     expect(provider).not.toHaveBeenCalled();
 
     await clickButton("Create follow-up");
@@ -1817,6 +1817,77 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain(
       "It was not finalized as done or failed.",
     );
+  });
+
+  it("applies explicit Queue report ready, finalize, and rollback markers without runtime calls", async () => {
+    const updateQueueTask = vi.fn(async (request: UpdateQueueTaskInput) => ({
+      assignedExecutorWidgetId: null,
+      createdAt: "2026-05-31T10:00:00.000Z",
+      updatedAt: "2026-05-31T10:04:00.000Z",
+      workspaceId: "workspace-1",
+      ...request,
+    }));
+    const provider = vi.fn();
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onUpdateAgentQueueTask: updateQueueTask,
+      queueReportActionCardRequest: queueReportCardRequest(
+        queueReportCard({
+          recommendedActions: [
+            {
+              actionId: "mark_ready_for_finalization",
+              description: "Ready for finalization.",
+              enabled: true,
+              label: "Ready for finalization",
+              type: "mark_ready_for_finalization",
+            },
+            {
+              actionId: "finalize_accept_item",
+              description: "Finalize.",
+              enabled: true,
+              label: "Finalize / accept",
+              type: "finalize_accept_item",
+            },
+            {
+              actionId: "mark_rollback_required",
+              description: "Rollback required.",
+              enabled: true,
+              label: "Rollback required",
+              type: "mark_rollback_required",
+            },
+          ],
+        }),
+      ),
+    });
+
+    await clickButton("Ready for finalization");
+    await clickButton("Finalize / accept");
+    await clickButton("Rollback required");
+
+    expect(updateQueueTask).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    );
+    expect(updateQueueTask).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: "completed",
+        validationStatus: "passed",
+      }),
+    );
+    expect(updateQueueTask).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    );
+    expect(document.body.textContent).toContain("No rollback");
+    expect(provider).not.toHaveBeenCalled();
   });
 
   it("opens linked Queue items from report cards through visible plumbing", async () => {

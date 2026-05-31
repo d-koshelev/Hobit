@@ -1276,6 +1276,7 @@
 .agent-queue-dependency-add-row,
 .agent-queue-dependency-header,
 .agent-queue-dependency-row,
+.agent-queue-finalization-actions,
 .agent-queue-run-actions,
 .agent-queue-execution-header,
 .agent-queue-execution-group-header {
@@ -1344,6 +1345,7 @@
 }
 
 .agent-queue-execution-badges,
+.agent-queue-finalization-actions,
 .agent-queue-run-actions {
   flex-wrap: wrap;
 }
@@ -1356,6 +1358,10 @@
 }
 
 .agent-queue-run-actions {
+  align-items: center;
+}
+
+.agent-queue-finalization-actions {
   align-items: center;
 }
 

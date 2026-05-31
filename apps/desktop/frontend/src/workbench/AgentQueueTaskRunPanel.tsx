@@ -3,6 +3,7 @@ import { Button } from "../design-system/Button";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   assignmentLabel,
+  coordinatorStatusLabel,
   itemTypeLabel,
   isAssignmentLockedQueueTaskStatus,
   isFinalQueueTaskStatus,
@@ -414,22 +415,6 @@ function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
     block: "nearest",
     inline: "nearest",
   });
-}
-
-function coordinatorStatusLabel(status: AgentQueueTask["coordinatorStatus"]) {
-  switch (status) {
-    case "worker_reported":
-      return "worker reported";
-    case "awaiting_validation":
-      return "awaiting validation";
-    case "awaiting_coordinator_review":
-      return "awaiting coordinator review";
-    case "finalized":
-      return "finalized";
-    case "not_reported":
-    default:
-      return "not reported";
-  }
 }
 
 function tagPauseDetail(reason: string | null | undefined) {

@@ -464,6 +464,27 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onAttachDemoReport).toHaveBeenCalledTimes(1);
   });
 
+  it("renders explicit coordinator finalization actions", () => {
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "ready_for_finalization" as const,
+      status: "review_needed" as const,
+      validationStatus: "needs_review" as const,
+    };
+
+    renderDetailsPanel({
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    expect(document.body.textContent).toContain("Coordinator finalization");
+    expect(document.body.textContent).toContain("Ready for finalization");
+    expect(document.body.textContent).toContain("Finalize / Accept item");
+    expect(document.body.textContent).toContain("Mark needs changes");
+    expect(document.body.textContent).toContain("Create follow-up item");
+    expect(document.body.textContent).toContain("Mark rollback required");
+  });
+
   it("shows create diff review action and source linkage without starting execution", () => {
     const report = workerReport({
       commitHash: "abc1234",
@@ -752,6 +773,19 @@ function renderDetailsPanel({
     editorError: null,
     executionPlan,
     filteredTasks: tasks,
+    coordinatorFinalization: {
+      canAct: true,
+      message: null,
+      onCreateFollowUp: vi.fn(),
+      onFinalize: vi.fn(),
+      onMarkBlocked: vi.fn(),
+      onMarkFailedRejected: vi.fn(),
+      onMarkFollowUpRequired: vi.fn(),
+      onMarkNeedsChanges: vi.fn(),
+      onMarkReadyForFinalization: vi.fn(),
+      onMarkRollbackRequired: vi.fn(),
+      status: selectedTask.coordinatorStatus ?? "not_reported",
+    },
     foundation: {
       embeddedExecutor: buildAgentQueueEmbeddedExecutorSection({
         dependencyStates,
