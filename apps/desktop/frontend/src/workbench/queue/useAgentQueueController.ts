@@ -789,6 +789,7 @@ export function useAgentQueueController({
     startEditingSelectedTask,
     updateDraft,
     updatePriority,
+    promoteSelectedDraftToQueued,
     applyCoordinatorFinalization,
   } = taskActions;
   const planningActions = createAgentQueuePlanningActions({
@@ -954,6 +955,17 @@ export function useAgentQueueController({
       onCancel: cancelSelectedTaskEdits,
       onStart: startEditingSelectedTask,
     } satisfies AgentQueueEditController,
+    draftPromotion: {
+      canPromote: Boolean(
+        selectedTask?.status === "draft" &&
+          onUpdateAgentQueueTask &&
+          !hasOpenTaskEdit &&
+          !isSaving &&
+          !isCreating,
+      ),
+      isPromoting: Boolean(selectedTask?.status === "draft" && isSaving),
+      onPromote: () => void promoteSelectedDraftToQueued(),
+    },
     executionPlan: {
       canGenerate: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
       message: executionPlanMessage,

@@ -1356,6 +1356,9 @@
 .agent-queue-dependency-header,
 .agent-queue-dependency-row,
 .agent-queue-finalization-actions,
+.agent-queue-prepare-header,
+.agent-queue-prepare-item,
+.agent-queue-prepare-item-main,
 .agent-queue-run-actions,
 .agent-queue-execution-header,
 .agent-queue-execution-group-header {
@@ -1364,9 +1367,17 @@
 }
 
 .agent-queue-execution-header,
-.agent-queue-execution-group-header {
+.agent-queue-execution-group-header,
+.agent-queue-prepare-header,
+.agent-queue-prepare-item {
   align-items: flex-start;
   justify-content: space-between;
+}
+
+.agent-queue-prepare-item-main {
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--space-xs);
 }
 
 .agent-queue-assignment-controls {
@@ -1466,6 +1477,33 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(150px, 0.45fr);
   gap: var(--space-sm);
+}
+
+.agent-queue-prepare-local-run {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.agent-queue-prepare-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.agent-queue-prepare-item {
+  min-width: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.agent-queue-prepare-item:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .agent-queue-autorun-facts {
@@ -1667,6 +1705,9 @@
 .agent-queue-assignment-note,
 .agent-queue-execution-title,
 .agent-queue-execution-group-title,
+.agent-queue-prepare-title,
+.agent-queue-prepare-item-title,
+.agent-queue-prepare-item-copy,
 .agent-queue-run-note,
 .agent-queue-run-warning,
 .agent-queue-delete-note,
@@ -1678,11 +1719,26 @@
 }
 
 .agent-queue-execution-title,
-.agent-queue-execution-group-title {
+.agent-queue-execution-group-title,
+.agent-queue-prepare-title {
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 720;
   line-height: var(--line-tight);
+}
+
+.agent-queue-prepare-item-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--line-tight);
+}
+
+.agent-queue-prepare-item-copy {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
 }
 
 .agent-queue-assignment-note,
@@ -1865,6 +1921,8 @@
   .agent-queue-dependency-add-row,
   .agent-queue-execution-header,
   .agent-queue-execution-group-header,
+  .agent-queue-prepare-header,
+  .agent-queue-prepare-item,
   .agent-queue-run-actions {
     align-items: flex-start;
     flex-direction: column;
@@ -1923,6 +1981,8 @@
   .agent-queue-dependency-add-row,
   .agent-queue-execution-header,
   .agent-queue-execution-group-header,
+  .agent-queue-prepare-header,
+  .agent-queue-prepare-item,
   .agent-queue-run-actions {
     align-items: flex-start;
     flex-direction: column;

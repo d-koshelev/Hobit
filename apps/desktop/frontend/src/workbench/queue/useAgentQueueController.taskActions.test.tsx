@@ -130,6 +130,42 @@ describe("useAgentQueueController task actions", () => {
     hook.unmount();
   });
 
+  it("promotes a draft task to queued through the existing update path without starting work", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this local Hobit task",
+        queueItemId: "queue-1",
+        status: "draft",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.draftPromotion.canPromote).toBe(true);
+
+    await act(async () => {
+      hook.result.current.draftPromotion.onPromote();
+      await flushHookEffects();
+    });
+
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0].prompt).toBe("Run this local Hobit task");
+    expect(harness.updateRequests[0].queueItemId).toBe("queue-1");
+    expect(harness.updateRequests[0].status).toBe("queued");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+    expect(hook.result.current.selectedTask?.status).toBe("queued");
+    expect(
+      hook.result.current.validationMessage?.startsWith(
+        "Task promoted to queued. No Executor run",
+      ),
+    ).toBe(true);
+
+    hook.unmount();
+  });
+
   it("reloads the selected task when manual Refresh is requested", async () => {
     const harness = createQueueHarness([
       queueTask({ queueItemId: "queue-1" }),

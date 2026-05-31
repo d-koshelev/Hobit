@@ -138,6 +138,7 @@ export function AgentQueueTaskDetailsPanel({
             dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
             executorSlots={agentExecutorSlots}
             executionPlan={queue.executionPlan}
+            globalExecutionState={queue.foundation.globalExecutionState}
             hasExecutorSlots={agentExecutorSlots.length > 0}
             inputId={assignmentInputId}
             isAssigning={isAssigning}
@@ -145,11 +146,14 @@ export function AgentQueueTaskDetailsPanel({
             latestRun={queue.latestRun}
             onAssign={() => void assignSelectedTask()}
             onClear={() => void clearSelectedTaskAssignment()}
+            onPromoteDraftToQueued={() => queue.draftPromotion.onPromote()}
             onOpenAgentExecutorRun={onOpenAgentExecutorRun}
             onAttachContextToCoordinator={onAttachContextToCoordinator}
             onSelectionChange={(executorWidgetInstanceId) => {
               selectExecutorWidget(executorWidgetInstanceId);
             }}
+            onStartWorkers={() => queue.foundation.onStartWorkers()}
+            canPromoteDraftToQueued={queue.draftPromotion.canPromote}
             run={run}
             runHistory={queue.runHistory}
             runner={queue.runner}

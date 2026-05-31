@@ -725,6 +725,114 @@ export function createAgentQueueTaskActions({
     }
   }
 
+  async function promoteSelectedDraftToQueued() {
+    if (!selectedTask || selectedTask.status !== "draft") {
+      return false;
+    }
+
+    if (!onUpdateAgentQueueTask) {
+      setValidationMessage(
+        "Queue task updates are unavailable. Use Task edit when persistence is available.",
+      );
+      return false;
+    }
+
+    if (hasOpenTaskEdit) {
+      setValidationMessage("Save or cancel task edits before promoting.");
+      return false;
+    }
+
+    if (isSaving || isCreating) {
+      return false;
+    }
+
+    const queueTag = normalizeQueueTag(selectedTask);
+    const validationStatus = normalizeValidationStatus(
+      selectedTask.validationStatus,
+    );
+    const nextDraft: TaskDraft = {
+      dependsOn: normalizeTaskDependencies(selectedTask.dependsOn),
+      description: selectedTask.description,
+      executionPolicy: normalizeTaskExecutionPolicy(
+        selectedTask.executionPolicy,
+      ),
+      itemType: normalizeItemType(selectedTask.itemType),
+      priority: selectedTask.priority,
+      prompt: selectedTask.prompt,
+      queueTagName: queueTag.queueTagName,
+      status: "queued",
+      title: selectedTask.title,
+      validationStatus,
+    };
+    const validationError = validateDraft(nextDraft);
+
+    if (validationError) {
+      setValidationMessage(validationError);
+      return false;
+    }
+
+    setIsSaving(true);
+    setEditorError(null);
+    setAssignmentError(null);
+    setAssignmentMessage(null);
+    setValidationMessage(null);
+    setSaveStateText("Saving");
+
+    try {
+      const updatedTask = await onUpdateAgentQueueTask({
+        description: selectedTask.description,
+        executionPolicy: nextDraft.executionPolicy,
+        itemType: nextDraft.itemType,
+        priority: selectedTask.priority,
+        prompt: selectedTask.prompt,
+        queueItemId: selectedTask.queueItemId,
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        status: "queued",
+        title: selectedTask.title,
+        validationStatus,
+      });
+
+      if (!updatedTask) {
+        setEditorError("The selected queue task could not be found.");
+        setSaveStateText("Unsaved changes");
+        return false;
+      }
+
+      const taskFoundation: Partial<AgentQueueTask> = {
+        dependsOn: nextDraft.dependsOn,
+        executionPlanPreview: selectedTask.executionPlanPreview,
+        itemType: nextDraft.itemType,
+        orderIndex: selectedTask.orderIndex,
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        validationStatus,
+        coordinatorStatus: selectedTask.coordinatorStatus ?? "not_reported",
+      };
+
+      setLocalTaskFields((current) =>
+        new Map(current).set(updatedTask.queueItemId, {
+          ...(current.get(updatedTask.queueItemId) ?? {}),
+          ...taskFoundation,
+        }),
+      );
+      applyUpdatedTask({ ...updatedTask, ...taskFoundation }, { select: true });
+      setDraft(nextDraft);
+      setSaveStateText("Saved");
+      setIsEditing(false);
+      setValidationMessage(
+        "Task promoted to queued. No Executor run, validation, Git action, or coordinator finalization was started.",
+      );
+      return true;
+    } catch (error) {
+      setEditorError(errorToMessage(error, "Unable to promote queue task."));
+      setSaveStateText("Unsaved changes");
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   function requestDeleteSelectedTask() {
     const blockedReason = queueTaskDeleteBlockedReason({
       apiAvailable: Boolean(onDeleteAgentQueueTask),
@@ -867,6 +975,7 @@ export function createAgentQueueTaskActions({
     requestDeleteSelectedTask,
     saveTask,
     selectTask,
+    promoteSelectedDraftToQueued,
     startEditingSelectedTask,
     updateDraft,
     updatePriority,

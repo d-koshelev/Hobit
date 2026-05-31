@@ -21,6 +21,7 @@ import {
   workerLabel,
   type AgentWorkerSummary,
   type AgentQueueDependencyState,
+  type QueueGlobalStatus,
   type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
@@ -56,12 +57,14 @@ type AgentQueueTaskRunPanelProps = {
   executorSlots: AgentExecutorSlot[];
   executionPlan: AgentQueueExecutionPlanController;
   hasExecutorSlots: boolean;
+  globalExecutionState: QueueGlobalStatus;
   inputId: string;
   isAssigning: boolean;
   isDirty: boolean;
   latestRun: AgentQueueLatestRunLinkController;
   onAssign: () => void;
   onClear: () => void;
+  onPromoteDraftToQueued: () => void;
   onOpenAgentExecutorRun?: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
@@ -69,6 +72,8 @@ type AgentQueueTaskRunPanelProps = {
     request: CoordinatorAttachedContextInput,
   ) => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
+  onStartWorkers: () => void;
+  canPromoteDraftToQueued: boolean;
   run: AgentQueueRunController;
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
@@ -88,15 +93,19 @@ export function AgentQueueTaskRunPanel({
   executorSlots,
   executionPlan,
   hasExecutorSlots,
+  globalExecutionState,
   inputId,
   isAssigning,
   isDirty,
   latestRun,
   onAssign,
   onClear,
+  onPromoteDraftToQueued,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
   onSelectionChange,
+  onStartWorkers,
+  canPromoteDraftToQueued,
   run,
   runHistory,
   runner,
@@ -391,7 +400,22 @@ export function AgentQueueTaskRunPanel({
         ) : null}
       </div>
 
-      <AgentQueueRunReadinessPanel run={run} />
+      <AgentQueueRunReadinessPanel
+        canAssignSelectedWorker={!workerAssignmentDisabled}
+        canPromoteDraftToQueued={canPromoteDraftToQueued}
+        currentSelection={currentSelection}
+        executorSlots={executorSlots}
+        globalExecutionState={globalExecutionState}
+        hasExecutorSlots={hasExecutorSlots}
+        isAssigning={isAssigning}
+        onAssignSelectedWorker={onAssign}
+        onPromoteDraftToQueued={onPromoteDraftToQueued}
+        onStartWorkers={onStartWorkers}
+        routingState={routingState}
+        run={run}
+        selectedTask={selectedTask}
+        selectedWorker={selectedWorker}
+      />
 
       <AgentQueueSequentialRunnerPanel runner={runner} />
 

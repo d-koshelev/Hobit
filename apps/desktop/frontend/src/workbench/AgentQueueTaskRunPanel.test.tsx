@@ -352,6 +352,72 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     );
     expect(document.body.textContent).toContain("will still not auto-commit");
   });
+
+  it("shows a compact Prepare local run checklist with setup blockers", () => {
+    renderPanel({
+      currentSelection: "",
+      executorSlots: [],
+      globalExecutionState: "stopped",
+      hasExecutorSlots: false,
+      run: {
+        ...runController(),
+        codexExecutableDraft: "",
+        readinessMessage:
+          "Queue is stopped. Click START before running the selected task.",
+        repoRootDraft: "",
+        sandbox: "read_only",
+      },
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        status: "draft",
+      },
+    });
+
+    expect(document.body.textContent).toContain("Prepare local run");
+    expect(document.body.textContent).toContain("Agent Executor availability");
+    expect(document.body.textContent).toContain(
+      "No Agent Executor available. Add an Agent Executor widget to run Queue tasks.",
+    );
+    expect(document.body.textContent).toContain(
+      "Queue is stopped. Click START before running the selected task.",
+    );
+    expect(document.body.textContent).toContain(
+      "Set workspace to the Hobit repo root before running this task.",
+    );
+    expect(document.body.textContent).toContain(
+      "Codex executable is required before running.",
+    );
+    expect(document.body.textContent).toContain(
+      "This Windows environment may require danger_full_access for local Hobit dogfooding.",
+    );
+    expect(document.body.textContent).toContain(
+      "Draft tasks are not runnable. Promote to queued",
+    );
+  });
+
+  it("exposes explicit checklist actions for START and draft promotion", () => {
+    const onStartWorkers = vi.fn();
+    const onPromoteDraftToQueued = vi.fn();
+
+    renderPanel({
+      canPromoteDraftToQueued: true,
+      globalExecutionState: "stopped",
+      onPromoteDraftToQueued,
+      onStartWorkers,
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        status: "draft",
+      },
+    });
+
+    clickFirstButton("START");
+    clickFirstButton("Promote to queued");
+
+    expect(onStartWorkers).toHaveBeenCalledTimes(1);
+    expect(onPromoteDraftToQueued).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("AgentQueueTaskDetailsPanel expanded detail", () => {
@@ -739,6 +805,7 @@ function renderPanel(
         currentSelection="executor_visible"
         executorSlots={executorSlots()}
         executionPlan={executionPlanController(null)}
+        globalExecutionState="started"
         hasExecutorSlots={true}
         inputId="executor-select"
         isAssigning={false}
@@ -746,8 +813,11 @@ function renderPanel(
         latestRun={latestRunController(null)}
         onAssign={vi.fn()}
         onClear={vi.fn()}
+        onPromoteDraftToQueued={vi.fn()}
         onOpenAgentExecutorRun={vi.fn()}
         onSelectionChange={vi.fn()}
+        onStartWorkers={vi.fn()}
+        canPromoteDraftToQueued={false}
         run={runController()}
         runHistory={runHistoryController([])}
         runner={runnerController()}
@@ -870,6 +940,11 @@ function renderDetailsPanel({
     dependencyStates,
     draft: draftFromTask(selectedTask),
     editTask,
+    draftPromotion: {
+      canPromote: selectedTask.status === "draft",
+      isPromoting: false,
+      onPromote: vi.fn(),
+    },
     editorError: null,
     executionPlan,
     filteredTasks: tasks,
