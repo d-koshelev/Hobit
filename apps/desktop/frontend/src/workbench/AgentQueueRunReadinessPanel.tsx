@@ -368,7 +368,7 @@ function buildPrepareLocalRunChecklist({
         )
       : blockedItem(
           "Agent Executor availability",
-          "No local executor slot is visible. Queue-owned slot creation needs a backend follow-up; use an existing Agent Executor slot for now.",
+          "No local executor is available. Add or enable a local executor.",
         ),
   );
 
@@ -404,7 +404,14 @@ function buildPrepareLocalRunChecklist({
     }),
   );
 
-  if (!assignedWorkerId) {
+  if (run.usesDefaultExecutorOnStart && currentSelection) {
+    items.push(
+      okItem(
+        "Worker / executor assignment",
+        `Executor selected automatically: ${selectedExecutorLabel}.`,
+      ),
+    );
+  } else if (!assignedWorkerId) {
     items.push({
       action: hasExecutorSlots
         ? {
@@ -417,7 +424,7 @@ function buildPrepareLocalRunChecklist({
       ...blockedItem(
         "Worker / executor assignment",
         hasExecutorSlots
-          ? `Assign a Worker / Executor before running. Current selection: ${selectedExecutorLabel}.`
+          ? `Select an available Worker / Executor before running. Current selection: ${selectedExecutorLabel}.`
           : "Assign a Worker / Executor before running.",
       ),
     });

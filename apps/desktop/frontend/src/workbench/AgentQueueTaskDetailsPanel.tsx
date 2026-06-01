@@ -454,6 +454,12 @@ function nextActionForSelectedTask(
   }> = [];
 
   if (queue.run.canStart) {
+    const executorCopy = queue.run.executorSelectionMessage?.startsWith(
+      "Executor selected automatically",
+    )
+      ? `${queue.run.executorSelectionMessage} `
+      : "";
+
     actions.push({
       label: queue.run.isStarting ? "Starting" : "Run task",
       onClick: () => queue.run.onStartAssignedTask(),
@@ -465,7 +471,7 @@ function nextActionForSelectedTask(
       badge: "Ready",
       badgeVariant: "success" as const,
       copy:
-        "This item has a runnable status, an assigned worker, a prompt, and execution settings. Start it explicitly when ready.",
+        `${executorCopy}This item has a runnable status, a selected executor, a prompt, and execution settings. Start it explicitly when ready.`,
       secondaryCopy: "Agent Executor owns live logs, stop controls, and results.",
       title: "Ready to run",
       tone: "ready",
@@ -1551,15 +1557,26 @@ function overviewNextStep(
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
 ) {
   if (queue.run.canStart) {
-    return "Next: review settings, then click Run task when ready.";
+    return queue.run.executorSelectionMessage?.startsWith(
+      "Executor selected automatically",
+    )
+      ? `Next: ${queue.run.executorSelectionMessage} Click Run task when ready.`
+      : "Next: review settings, then click Run task when ready.";
   }
 
   if (selectedTask.status === "draft") {
     return "Next: confirm the prompt, then promote it to queued when it is ready.";
   }
 
+  if (
+    !selectedTask.assignedExecutorWidgetId &&
+    queue.run.executorSelectionMessage
+  ) {
+    return `Next: ${queue.run.executorSelectionMessage}`;
+  }
+
   if (!selectedTask.assignedExecutorWidgetId) {
-    return "Next: choose and assign an Agent Executor.";
+    return "Next: No local executor is available. Add or enable a local executor.";
   }
 
   if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {

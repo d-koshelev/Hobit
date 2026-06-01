@@ -197,14 +197,18 @@ export function AgentQueueTaskRunPanel({
         {!hasExecutorSlots ? (
           <div className="agent-queue-attention-message" role="alert">
             <p className="agent-queue-attention-title">
-              No local executor slot available
+              No local executor is available.
             </p>
             <p className="agent-queue-attention-copy">
-              Queue can use an existing Agent Executor slot. Queue-owned local
-              executor slot creation needs a backend follow-up before this
-              panel can create a real runtime slot itself.
+              Add or enable a local executor.
             </p>
           </div>
+        ) : null}
+
+        {run.executorSelectionMessage ? (
+          <p className="agent-queue-assignment-note">
+            {run.executorSelectionMessage}
+          </p>
         ) : null}
 
         {assignmentDisabledReason ? (
@@ -226,64 +230,67 @@ export function AgentQueueTaskRunPanel({
         ) : null}
 
         {hasExecutorSlots ? (
-          <div className="agent-queue-assignment-controls">
-            <div className="agent-queue-assignment-field">
-              <label className="field-label" htmlFor={inputId}>
-                Worker / Executor
-              </label>
-              <select
-                className="input agent-queue-assignment-select"
-                disabled={
-                  !apiAvailable ||
-                  isDirty ||
-                  isAssignmentLockedStatus ||
-                  isAssigning
-                }
-                id={inputId}
-                onChange={(event) =>
-                  onSelectionChange(event.currentTarget.value)
-                }
-                value={currentSelection}
-              >
-                {executorSlots.map((slot) => (
-                  <option
-                    key={slot.widgetInstanceId}
-                    value={slot.widgetInstanceId}
-                  >
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="agent-queue-assignment-buttons">
-              <Button
-                disabled={workerAssignmentDisabled}
-                onClick={() => onAssign()}
-                variant="secondary"
-              >
-                {isAssigning ? "Assigning" : "Assign"}
-              </Button>
-              {hasAssignedExecutor ? (
+          <details className="agent-queue-details agent-queue-secondary-details">
+            <summary>Advanced executor override</summary>
+            <div className="agent-queue-assignment-controls">
+              <div className="agent-queue-assignment-field">
+                <label className="field-label" htmlFor={inputId}>
+                  Worker / Executor
+                </label>
+                <select
+                  className="input agent-queue-assignment-select"
+                  disabled={
+                    !apiAvailable ||
+                    isDirty ||
+                    isAssignmentLockedStatus ||
+                    isAssigning
+                  }
+                  id={inputId}
+                  onChange={(event) =>
+                    onSelectionChange(event.currentTarget.value)
+                  }
+                  value={currentSelection}
+                >
+                  {executorSlots.map((slot) => (
+                    <option
+                      key={slot.widgetInstanceId}
+                      value={slot.widgetInstanceId}
+                    >
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="agent-queue-assignment-buttons">
                 <Button
-                  disabled={clearDisabled}
-                  onClick={() => onClear()}
+                  disabled={workerAssignmentDisabled}
+                  onClick={() => onAssign()}
+                  variant="secondary"
+                >
+                  {isAssigning ? "Assigning" : "Assign"}
+                </Button>
+                {hasAssignedExecutor ? (
+                  <Button
+                    disabled={clearDisabled}
+                    onClick={() => onClear()}
+                    variant="ghost"
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+                <Button
+                  disabled={!selectedTask.assignedExecutorWidgetId}
+                  onClick={() =>
+                    openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
+                  }
+                  title="Scroll to the assigned Agent Executor for live logs and result."
                   variant="ghost"
                 >
-                  Clear
+                  Open assigned Executor
                 </Button>
-              ) : null}
-              <Button
-                disabled={!selectedTask.assignedExecutorWidgetId}
-                onClick={() =>
-                  openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
-                }
-                title="Scroll to the assigned Agent Executor for live logs and result."
-                variant="ghost"
-              >
-                Open assigned Executor
-              </Button>
+              </div>
             </div>
-          </div>
+          </details>
         ) : hasAssignedExecutor ? (
           <div className="agent-queue-assignment-buttons">
             <Button

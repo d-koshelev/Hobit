@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
-import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
+import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
 import type { AgentQueueAutorunController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
@@ -133,6 +133,8 @@ export function useAgentQueueController({
   );
   const [selectedExecutorWidgetId, setSelectedExecutorWidgetId] =
     useState("");
+  const [manualExecutorOverrideTaskId, setManualExecutorOverrideTaskId] =
+    useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
@@ -495,31 +497,32 @@ export function useAgentQueueController({
   }, [onGetAgentQueueRunnerSnapshot]);
 
   useEffect(() => {
+    setManualExecutorOverrideTaskId(null);
+  }, [selectedTask?.queueItemId]);
+
+  useEffect(() => {
     if (!selectedTask) {
       setSelectedExecutorWidgetId("");
       return;
     }
 
     setSelectedExecutorWidgetId((currentSelection) => {
-      if (selectedTask.assignedExecutorWidgetId) {
-        return selectedTask.assignedExecutorWidgetId;
-      }
+      const selection = selectBestAvailableExecutorForTask({
+        currentSelection,
+        executorSlots: agentExecutorSlots,
+        manualOverride:
+          manualExecutorOverrideTaskId === selectedTask.queueItemId,
+        task: selectedTask,
+        workers,
+      });
 
-      if (
-        currentSelection &&
-        agentExecutorSlots.some(
-          (slot) => slot.widgetInstanceId === currentSelection,
-        )
-      ) {
-        return currentSelection;
-      }
-
-      return agentExecutorSlots[0]?.widgetInstanceId ?? "";
+      return selection.executorWidgetId ?? "";
     });
   }, [
     agentExecutorSlots,
-    selectedTask?.assignedExecutorWidgetId,
-    selectedTask?.queueItemId,
+    manualExecutorOverrideTaskId,
+    selectedTask,
+    workers,
   ]);
 
   useEffect(() => {
@@ -565,6 +568,15 @@ export function useAgentQueueController({
   const selectedTaskAssignedWorkerRouting = selectedTask
     ? assignedWorkerRoutingStates.get(selectedTask.queueItemId)
     : null;
+  const selectedExecutorSelection = selectBestAvailableExecutorForTask({
+    currentSelection: selectedExecutorWidgetId,
+    executorSlots: agentExecutorSlots,
+    manualOverride: selectedTask
+      ? manualExecutorOverrideTaskId === selectedTask.queueItemId
+      : false,
+    task: selectedTask,
+    workers,
+  });
   const selectedTaskRoutingMessage =
     selectedTaskAssignedWorkerRouting &&
     selectedTaskAssignedWorkerRouting.blockedReasons.length > 0
@@ -581,17 +593,34 @@ export function useAgentQueueController({
   const canUseDefaultLocalExecutor =
     Boolean(
       selectedTask &&
-        !selectedTask.assignedExecutorWidgetId &&
         assignmentApiAvailable &&
-        agentExecutorSlots.length === 1 &&
+        selectedExecutorSelection.executorWidgetId &&
+        selectedTask.assignedExecutorWidgetId !==
+          selectedExecutorSelection.executorWidgetId &&
         selectedExecutorWidgetId,
     );
+  const effectiveSelectedTaskRoutingMessage =
+    canUseDefaultLocalExecutor &&
+    (selectedTaskAssignedWorkerRouting?.blockedReasons.some(
+      (reason) =>
+        reason.code === "assigned_worker_unavailable" ||
+        reason.code === "worker_disabled" ||
+        reason.code === "worker_scope_mismatch",
+    ) ??
+      false)
+      ? null
+      : selectedTaskRoutingMessage;
+  const executorAvailabilityMessage =
+    selectedTask && !selectedExecutorSelection.executorWidgetId
+      ? "No local executor is available. Add or enable a local executor."
+      : null;
   const readinessMessage = globalRunBlockMessage
     ? globalRunBlockMessage
     : selectedQueueTagPaused
     ? "Resume this queue tag before running the selected task."
     : selectedTask
-        ? queueRunReadinessMessage({
+        ? executorAvailabilityMessage ??
+        queueRunReadinessMessage({
           allowDefaultExecutorAssignment: canUseDefaultLocalExecutor,
           isDirty: hasOpenTaskEdit,
           selectedTask,
@@ -601,7 +630,7 @@ export function useAgentQueueController({
           dependencyStates.get(selectedTask.queueItemId) ??
             getQueueTaskDependencyState(selectedTask, tasks),
         ) ??
-        selectedTaskRoutingMessage
+        effectiveSelectedTaskRoutingMessage
       : "Assign an Agent Executor before running.";
   const preconditionMessages = useMemo(
     () =>
@@ -874,6 +903,7 @@ export function useAgentQueueController({
     setIsAutorunStopping,
     setIsStarting,
     setLocalTaskFields,
+    setManualExecutorOverrideTaskId,
     setRepoRootDraft,
     setSelectedExecutorWidgetId,
     setStartError,
@@ -1046,6 +1076,11 @@ export function useAgentQueueController({
       startedRunId,
       startMessage,
       usesDefaultExecutorOnStart: canUseDefaultLocalExecutor,
+      executorSelectionMessage: executorSelectionMessage({
+        assignedExecutorWidgetId: selectedTask?.assignedExecutorWidgetId ?? null,
+        label: selectedExecutorSelection.label,
+        source: selectedExecutorSelection.source,
+      }),
     } satisfies AgentQueueRunController,
     latestRun: {
       apiAvailable: Boolean(
@@ -1132,4 +1167,30 @@ export function useAgentQueueController({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
+}
+
+function executorSelectionMessage({
+  assignedExecutorWidgetId,
+  label,
+  source,
+}: {
+  assignedExecutorWidgetId: string | null;
+  label: string | null;
+  source: "assigned" | "automatic" | "manual" | null;
+}) {
+  if (!label || !source) {
+    return null;
+  }
+
+  if (source === "assigned") {
+    return `Executor assigned: ${label}.`;
+  }
+
+  if (source === "manual") {
+    return `Executor override selected: ${label}.`;
+  }
+
+  return assignedExecutorWidgetId
+    ? `Executor selected automatically: ${label}. The previous assignment is unavailable.`
+    : `Executor selected automatically: ${label}.`;
 }

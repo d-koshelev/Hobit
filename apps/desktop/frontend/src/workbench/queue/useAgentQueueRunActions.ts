@@ -66,6 +66,7 @@ type RunActionsContext = Pick<
   setLocalTaskFields: Dispatch<
     SetStateAction<Map<string, AgentQueueLocalTaskFields>>
   >;
+  setManualExecutorOverrideTaskId: Dispatch<SetStateAction<string | null>>;
   setRepoRootDraft: Dispatch<SetStateAction<string>>;
   setSelectedExecutorWidgetId: Dispatch<SetStateAction<string>>;
   setStartError: Dispatch<SetStateAction<string | null>>;
@@ -117,6 +118,7 @@ export function createAgentQueueRunActions({
   setIsAutorunStopping,
   setIsStarting,
   setLocalTaskFields,
+  setManualExecutorOverrideTaskId,
   setRepoRootDraft,
   setSelectedExecutorWidgetId,
   setStartError,
@@ -285,7 +287,7 @@ export function createAgentQueueRunActions({
 
     let taskForRun = selectedTask;
 
-    if (!taskForRun.assignedExecutorWidgetId) {
+    if (taskForRun.assignedExecutorWidgetId !== selectedExecutorWidgetId) {
       if (!canAutoAssignSelectedTask) {
         setStartError("Assign a local executor before running this task.");
         startInFlightRef.current = false;
@@ -446,6 +448,7 @@ export function createAgentQueueRunActions({
 
   function selectExecutorWidget(executorWidgetInstanceId: string) {
     setSelectedExecutorWidgetId(executorWidgetInstanceId);
+    setManualExecutorOverrideTaskId(selectedTask?.queueItemId ?? null);
     setAssignmentError(null);
     setAssignmentMessage(null);
     queueRunnerClearError();

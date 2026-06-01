@@ -554,3 +554,103 @@ function workerConfigsWithVisibleExecutorSlots(
 
   return [...workerConfigs, ...missingSlotConfigs];
 }
+
+export type AgentQueueExecutorSelection = {
+  executorWidgetId: string | null;
+  label: string | null;
+  source: "assigned" | "automatic" | "manual" | null;
+};
+
+export function selectBestAvailableExecutorForTask({
+  currentSelection,
+  executorSlots,
+  manualOverride,
+  task,
+  workers,
+}: {
+  currentSelection?: string | null;
+  executorSlots: AgentExecutorSlot[];
+  manualOverride?: boolean;
+  task: AgentQueueTask | null;
+  workers: AgentWorkerSummary[];
+}): AgentQueueExecutorSelection {
+  if (!task) {
+    return { executorWidgetId: null, label: null, source: null };
+  }
+
+  const visibleSlotIds = new Set(
+    executorSlots.map((slot) => slot.widgetInstanceId),
+  );
+  const queueTag = normalizeQueueTag(task);
+  const candidates = workers
+    .filter((worker) => visibleSlotIds.has(worker.workerId))
+    .filter((worker) => worker.enabled)
+    .filter((worker) => worker.status === "idle")
+    .filter(
+      (worker) =>
+        worker.scope.kind === "all" ||
+        worker.scope.queueTagId === queueTag.queueTagId,
+    );
+
+  if (manualOverride && currentSelection) {
+    const manualCandidate = candidates.find(
+      (worker) => worker.workerId === currentSelection,
+    );
+
+    if (manualCandidate) {
+      return {
+        executorWidgetId: manualCandidate.workerId,
+        label: executorLabelForWorker(manualCandidate, executorSlots),
+        source: "manual",
+      };
+    }
+  }
+
+  const assignedCandidate = candidates.find(
+    (worker) => worker.workerId === task.assignedExecutorWidgetId,
+  );
+
+  if (assignedCandidate) {
+    return {
+      executorWidgetId: assignedCandidate.workerId,
+      label: executorLabelForWorker(assignedCandidate, executorSlots),
+      source: "assigned",
+    };
+  }
+
+  const bestCandidate = [...candidates].sort(compareExecutorCandidates)[0];
+
+  return bestCandidate
+    ? {
+        executorWidgetId: bestCandidate.workerId,
+        label: executorLabelForWorker(bestCandidate, executorSlots),
+        source: "automatic",
+      }
+    : { executorWidgetId: null, label: null, source: null };
+}
+
+function compareExecutorCandidates(
+  first: AgentWorkerSummary,
+  second: AgentWorkerSummary,
+) {
+  return (
+    executorScopeRank(first.scope) - executorScopeRank(second.scope) ||
+    first.displayOrder - second.displayOrder ||
+    first.name.localeCompare(second.name) ||
+    first.workerId.localeCompare(second.workerId)
+  );
+}
+
+function executorScopeRank(scope: WorkerScope) {
+  return scope.kind === "all" ? 0 : 1;
+}
+
+function executorLabelForWorker(
+  worker: AgentWorkerSummary,
+  executorSlots: AgentExecutorSlot[],
+) {
+  return (
+    executorSlots.find((slot) => slot.widgetInstanceId === worker.workerId)
+      ?.label ?? worker.name
+  );
+}

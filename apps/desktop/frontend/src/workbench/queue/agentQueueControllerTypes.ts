@@ -47,6 +47,7 @@ export type AgentQueueRunController = {
   approvalPolicy: DirectWorkApprovalPolicy;
   canStart: boolean;
   codexExecutableDraft: string;
+  executorSelectionMessage: string | null;
   isStarting: boolean;
   onApprovalPolicyChange: (approvalPolicy: DirectWorkApprovalPolicy) => void;
   onCodexExecutableDraftChange: (codexExecutable: string) => void;

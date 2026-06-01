@@ -377,7 +377,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("Run task");
     expect(document.body.textContent).toContain("Agent Executor availability");
     expect(document.body.textContent).toContain(
-      "No local executor slot is visible. Queue-owned slot creation needs a backend follow-up",
+      "No local executor is available. Add or enable a local executor.",
     );
     expect(document.body.textContent).toContain(
       "Set workspace to the Hobit repo root before running this task.",
@@ -422,6 +422,41 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
 
     expect(onStartWorkers).not.toHaveBeenCalled();
     expect(onPromoteDraftToQueued).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows automatic executor selection without requiring visible Assign", () => {
+    renderPanel({
+      currentSelection: "executor_visible",
+      run: {
+        ...runController(),
+        executorSelectionMessage:
+          "Executor selected automatically: Agent Executor visible.",
+        readinessMessage: null,
+        repoRootDraft: "C:\\repo",
+        sandbox: "danger_full_access",
+        usesDefaultExecutorOnStart: true,
+      },
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        status: "ready",
+      },
+    });
+
+    expect(document.body.textContent).toContain(
+      "Executor selected automatically: Agent Executor visible.",
+    );
+    expect(document.body.textContent).toContain(
+      "Ready to run once the operator starts it explicitly.",
+    );
+    expect(document.body.textContent).toContain("Advanced executor override");
+
+    const assignButton = buttonByText("Assign");
+
+    expect(assignButton).not.toBeUndefined();
+    expect(
+      assignButton?.closest("details")?.querySelector("summary")?.textContent,
+    ).toBe("Advanced executor override");
   });
 });
 
@@ -1341,6 +1376,7 @@ function runController(): AgentQueueRunController {
     approvalPolicy: "never",
     canStart: false,
     codexExecutableDraft: "codex",
+    executorSelectionMessage: null,
     isStarting: false,
     onApprovalPolicyChange: vi.fn(),
     onCodexExecutableDraftChange: vi.fn(),

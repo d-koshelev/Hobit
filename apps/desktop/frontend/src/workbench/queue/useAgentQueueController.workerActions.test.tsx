@@ -274,8 +274,9 @@ describe("useAgentQueueController worker actions", () => {
     });
 
     expect(harness.assignRequests).toHaveLength(0);
-    expect(hook.result.current.assignmentError).toBe(
-      "Selected worker is scoped to another queue tag. Choose a matching worker or change the worker scope.",
+    expect(hook.result.current.assignmentError).toBeNull();
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "No local executor is available. Add or enable a local executor.",
     );
     expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
 
@@ -304,7 +305,9 @@ describe("useAgentQueueController worker actions", () => {
       hook.result.current.foundation.onStartWorkers();
     });
 
-    expect(hook.result.current.run.readinessMessage).toBe("Worker is disabled");
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "No local executor is available. Add or enable a local executor.",
+    );
     expect(hook.result.current.run.canStart).toBe(false);
 
     await act(async () => {
@@ -315,8 +318,9 @@ describe("useAgentQueueController worker actions", () => {
     });
 
     expect(harness.assignRequests).toHaveLength(0);
-    expect(hook.result.current.assignmentError).toBe(
-      "Selected worker is disabled. Enable it before assigning new work.",
+    expect(hook.result.current.assignmentError).toBeNull();
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "No local executor is available. Add or enable a local executor.",
     );
     expect(harness.startRequests).toHaveLength(0);
 

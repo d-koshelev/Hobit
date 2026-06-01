@@ -142,6 +142,212 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
+  it("selects a deterministic executor when multiple visible idle executors are available", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        queueTagId: "review",
+        queueTagName: "Review",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [
+      { label: "Agent Executor scoped", widgetInstanceId: "executor-scoped" },
+      { label: "Agent Executor all", widgetInstanceId: "executor-all" },
+    ];
+    harness.replaceWorker(
+      agentQueueWorker({
+        displayOrder: 0,
+        name: "Scoped",
+        queueTagId: "review",
+        queueTagName: "Review",
+        scopeKind: "queue_tag",
+        workerId: "executor-scoped",
+      }),
+    );
+    harness.replaceWorker(
+      agentQueueWorker({
+        displayOrder: 1,
+        name: "All",
+        scopeKind: "all",
+        workerId: "executor-all",
+      }),
+    );
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-all");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toEqual([
+      {
+        executorWidgetInstanceId: "executor-all",
+        queueItemId: "queue-1",
+      },
+    ]);
+    expect(harness.startRequests).toHaveLength(1);
+
+    hook.unmount();
+  });
+
+  it("preserves an existing valid executor assignment", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-2",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [
+      { label: "Agent Executor 1", widgetInstanceId: "executor-1" },
+      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+    ];
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.usesDefaultExecutorOnStart).toBe(false);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(1);
+
+    hook.unmount();
+  });
+
+  it("falls back from an unavailable assignment to another visible compatible executor", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-missing",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [
+      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+    ];
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.usesDefaultExecutorOnStart).toBe(true);
+    expect(
+      hook.result.current.run.executorSelectionMessage?.includes(
+        "previous assignment is unavailable",
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toEqual([
+      {
+        executorWidgetInstanceId: "executor-2",
+        queueItemId: "queue-1",
+      },
+    ]);
+    expect(harness.startRequests).toHaveLength(1);
+
+    hook.unmount();
+  });
+
+  it("shows a clear blocker when no local executor is available", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [];
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("");
+    expect(hook.result.current.run.readinessMessage).toBe(
+      "No local executor is available. Add or enable a local executor.",
+    );
+    expect(hook.result.current.run.canStart).toBe(false);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("allows advanced executor override without starting work", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [
+      { label: "Agent Executor 1", widgetInstanceId: "executor-1" },
+      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+    ];
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.selectExecutorWidget("executor-2");
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
+    expect(hook.result.current.run.executorSelectionMessage).toBe(
+      "Executor override selected: Agent Executor 2.",
+    );
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("assigns an unassigned auto task before starting it", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -389,7 +595,7 @@ describe("useAgentQueueController execution state", () => {
     });
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
-        "No assigned auto task is currently eligible for the selected worker.",
+        "Select one Agent Executor before arming Queue Autorun.",
       ),
     ).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);
