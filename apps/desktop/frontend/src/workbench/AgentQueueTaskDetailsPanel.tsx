@@ -172,7 +172,6 @@ export function AgentQueueTaskDetailsPanel({
             dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
             executorSlots={agentExecutorSlots}
             executionPlan={queue.executionPlan}
-            globalExecutionState={queue.foundation.globalExecutionState}
             hasExecutorSlots={agentExecutorSlots.length > 0}
             includeAdvancedDetails={false}
             inputId={assignmentInputId}
@@ -187,7 +186,6 @@ export function AgentQueueTaskDetailsPanel({
             onSelectionChange={(executorWidgetInstanceId) => {
               selectExecutorWidget(executorWidgetInstanceId);
             }}
-            onStartWorkers={() => queue.foundation.onStartWorkers()}
             canPromoteDraftToQueued={queue.draftPromotion.canPromote}
             run={run}
             runHistory={queue.runHistory}
@@ -453,6 +451,63 @@ function nextActionForSelectedTask(
     variant: "primary" | "secondary" | "ghost";
   }> = [];
 
+  if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
+    return {
+      actions,
+      badge: "Running",
+      badgeVariant: "info" as const,
+      copy: "Waiting for worker report.",
+      secondaryCopy: runningRunSummary(queue),
+      title: "Waiting for worker report",
+      tone: "waiting",
+    };
+  }
+
+  if (isReportReadyStatus(selectedTask.status) || hasReport) {
+    actions.push({
+      label: "View report",
+      onClick: () => scrollToSelectedTaskReport(),
+      variant: "primary",
+    });
+
+    if (queue.coordinatorFinalization.status === "ready_for_finalization") {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Finalize / Accept",
+        onClick: () => queue.coordinatorFinalization.onFinalize(),
+        variant: "secondary",
+      });
+    } else {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Mark ready for finalization",
+        onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
+        variant: "secondary",
+      });
+    }
+
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Request changes",
+      onClick: () => queue.coordinatorFinalization.onMarkNeedsChanges(),
+      variant: "secondary",
+    });
+
+    return {
+      actions,
+      badge: hasReport ? "Report ready" : statusLabel(selectedTask.status),
+      badgeVariant: hasReport ? ("info" as const) : statusBadgeVariant(selectedTask.status),
+      copy: hasReport
+        ? "Report ready / awaiting coordinator review."
+        : "Run finished. Review the report area and make an explicit coordinator decision.",
+      secondaryCopy: hasReport
+        ? "Use View report, then coordinator actions when relevant."
+        : "No worker report is attached yet.",
+      title: "Awaiting coordinator review",
+      tone: "review",
+    };
+  }
+
   if (queue.run.canStart) {
     const executorCopy = queue.run.executorSelectionMessage?.startsWith(
       "Local executor selected automatically",
@@ -589,25 +644,6 @@ function nextActionForSelectedTask(
     };
   }
 
-  if (!hasReport && isReviewLikeStatus(selectedTask.status)) {
-    actions.push({
-      label: "View report",
-      onClick: () => scrollToSelectedTaskReport(),
-      variant: "secondary",
-    });
-
-    return {
-      actions,
-      badge: "No report",
-      badgeVariant: "neutral" as const,
-      copy:
-        "No worker report yet. Run or attach a worker report to review evidence.",
-      secondaryCopy: "Coordinator finalization stays secondary until evidence exists.",
-      title: "No worker report yet",
-      tone: "waiting",
-    };
-  }
-
   if (!readinessMessage && preconditionMessage) {
     return {
       actions,
@@ -661,8 +697,27 @@ function compactNextActionBlocker(message: string | null | undefined) {
   return message;
 }
 
-function isReviewLikeStatus(status: string) {
-  return status === "review_needed" || status === "completed";
+function isReportReadyStatus(status: string) {
+  return (
+    status === "completed" ||
+    status === "review_needed" ||
+    status === "failed" ||
+    status === "cancelled"
+  );
+}
+
+function runningRunSummary(queue: AgentQueueController) {
+  const link = queue.latestRun.link;
+  const executorId =
+    link?.executorWidgetId ?? queue.selectedTask?.assignedExecutorWidgetId ?? null;
+  const runId = link?.directWorkRunId ?? queue.run.startedRunId;
+  const parts = [
+    executorId ? `Local executor: ${executorId}.` : null,
+    runId ? `Run id: ${runId}.` : null,
+    link?.startedAt ? `Started: ${formatTimestamp(link.startedAt)}.` : null,
+  ];
+
+  return parts.filter((part): part is string => Boolean(part)).join(" ");
 }
 
 function scrollToSelectedTaskReport() {
@@ -703,8 +758,12 @@ function HumanReadableActivityPanel({
             Readable task activity. Technical run metadata stays in Internal details.
           </p>
         </div>
-        <Badge variant={report ? "info" : "neutral"}>
-          {report ? "Report attached" : "No report"}
+        <Badge variant={report ? "info" : selectedTask.status === "running" ? "warning" : "neutral"}>
+          {report
+            ? "Report attached"
+            : selectedTask.status === "running"
+              ? "Report pending"
+              : "No report"}
         </Badge>
       </div>
 
@@ -766,7 +825,9 @@ function HumanReadableActivityPanel({
         </div>
       ) : (
         <p className="agent-queue-run-note">
-          No worker report has been attached yet.
+          {selectedTask.status === "running"
+            ? "Report pending. The local executor has not reported a final result yet."
+            : "No worker report has been attached yet."}
         </p>
       )}
     </section>
@@ -815,7 +876,10 @@ function buildHumanTimeline(
       badge: "Assigned",
       badgeVariant: "info",
       key: "assigned",
-      message: "Local executor selected. Work has not started.",
+      message:
+        selectedTask.status === "running"
+          ? "Local executor is running this task."
+          : "Local executor selected. Work has not started.",
       time: selectedTask.updatedAt,
       title: "Selected local executor",
     });
@@ -835,7 +899,10 @@ function buildHumanTimeline(
       badge: runTimelineBadge(latestRun.status),
       badgeVariant: runTimelineBadgeVariant(latestRun.status),
       key: "run-finished",
-      message: `Latest linked run is ${latestRun.status}.`,
+      message:
+        latestRun.status === "running"
+          ? "Waiting for worker report."
+          : `Latest linked run is ${latestRun.status}.`,
       time: latestRun.completedAt,
       title:
         latestRun.status === "running" ? "Run still running" : "Run completed / failed",
@@ -1542,7 +1609,7 @@ function overviewStateSentence(
     case "draft":
       return "Draft task. It will not run until the operator promotes it.";
     case "running":
-      return `${executorLabel} is running this task.`;
+      return `Running. ${executorLabel} is executing this task.`;
     case "completed":
       return "Execution completed. Review the report before accepting the work.";
     case "failed":
@@ -1563,6 +1630,14 @@ function overviewNextStep(
   queue: AgentQueueController,
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
 ) {
+  if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
+    return "Next: Waiting for worker report.";
+  }
+
+  if (isReportReadyStatus(selectedTask.status) || latestReportLabel(selectedTask) !== "No worker report") {
+    return "Next: view the report and make an explicit coordinator decision.";
+  }
+
   if (queue.run.canStart) {
     return queue.run.executorSelectionMessage?.startsWith(
       "Local executor selected automatically",

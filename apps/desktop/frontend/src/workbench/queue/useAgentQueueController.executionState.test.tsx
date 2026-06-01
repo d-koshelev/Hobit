@@ -14,7 +14,7 @@ import {
 } from "./useAgentQueueControllerTestHelpers";
 
 describe("useAgentQueueController execution state", () => {
-  it("uses explicit global execution state to gate selected runs, Autorun, and Sequential Runner", async () => {
+  it("uses explicit global execution state for Autorun and Sequential Runner without blocking a selected manual run", async () => {
     const harness = createQueueHarness([
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -42,10 +42,10 @@ describe("useAgentQueueController execution state", () => {
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
     expect(hook.result.current.run.readinessMessage).toBeNull();
-    expect(hook.result.current.run.canStart).toBe(false);
+    expect(hook.result.current.run.canStart).toBe(true);
     expect(
       hook.result.current.run.preconditionMessages.includes("Start queue."),
-    ).toBe(true);
+    ).toBe(false);
     expect(hook.result.current.autorun.canArm).toBe(false);
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
@@ -75,7 +75,7 @@ describe("useAgentQueueController execution state", () => {
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
     expect(hook.result.current.run.readinessMessage).toBeNull();
-    expect(hook.result.current.run.canStart).toBe(false);
+    expect(hook.result.current.run.canStart).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);
 
     act(() => {

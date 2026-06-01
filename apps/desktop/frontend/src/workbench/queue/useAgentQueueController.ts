@@ -526,7 +526,6 @@ export function useAgentQueueController({
   ]);
 
   useEffect(() => {
-    setRepoRootDraft("");
     setStartMessage(null);
     setStartedRunId(null);
     setStartError(null);
@@ -642,18 +641,14 @@ export function useAgentQueueController({
         ? []
         : runPreconditionMessages({
             codexExecutable,
-            globalExecutionState,
             isStarting,
             repoRoot,
-            sandbox,
           }),
     [
       codexExecutable,
-      globalExecutionState,
       isStarting,
       readinessMessage,
       repoRoot,
-      sandbox,
     ],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;

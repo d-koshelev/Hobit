@@ -1,10 +1,17 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import type { AgentQueueTask } from "../workspace/types";
+import type {
+  AgentQueueTask,
+  DirectWorkApprovalPolicy,
+  DirectWorkSandbox,
+} from "../workspace/types";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
 import { AgentQueueLayout } from "./AgentQueueLayout";
-import { AgentQueueNewTaskDialog } from "./AgentQueueNewTaskDialog";
+import {
+  AgentQueueNewTaskDialog,
+  type AgentQueueNewTaskRunSetup,
+} from "./AgentQueueNewTaskDialog";
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
 import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
@@ -20,6 +27,7 @@ import {
 } from "./agentQueueTaskUiModel";
 import {
   useAgentQueueController,
+  type AgentQueueRunController,
   type QueueTaskInsertPosition,
 } from "./queue/useAgentQueueController";
 import type { WidgetRenderProps } from "./types";
@@ -72,6 +80,11 @@ export function AgentQueuePlaceholderWidget({
   const createPromptInputId = useId();
   const createPriorityInputId = useId();
   const createExecutionPolicyInputId = useId();
+  const createExecutionStateInputId = useId();
+  const createRunWorkspaceInputId = useId();
+  const createRunCodexExecutableInputId = useId();
+  const createRunSandboxInputId = useId();
+  const createRunApprovalPolicyInputId = useId();
   const createDialogTitleId = useId();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<TaskDraft>(() =>
@@ -79,6 +92,8 @@ export function AgentQueuePlaceholderWidget({
   );
   const [createInsertPosition, setCreateInsertPosition] =
     useState<QueueTaskInsertPosition>("bottom");
+  const [createRunSetup, setCreateRunSetup] =
+    useState<AgentQueueNewTaskRunSetup>(() => defaultCreateRunSetup());
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
@@ -158,6 +173,7 @@ export function AgentQueuePlaceholderWidget({
         onClick={() => {
           setCreateDraft(newTaskDialogDraft(selectedTask));
           setCreateInsertPosition("bottom");
+          setCreateRunSetup(runSetupFromQueueRun(queue.run));
           setCreateDialogError(null);
           setIsCreateDialogOpen(true);
         }}
@@ -191,17 +207,38 @@ export function AgentQueuePlaceholderWidget({
     updateCreateDraft({ priority });
   }
 
+  function updateCreateRunSetup(nextSetup: Partial<AgentQueueNewTaskRunSetup>) {
+    setCreateRunSetup((currentSetup) => ({
+      ...currentSetup,
+      ...nextSetup,
+    }));
+    setCreateDialogError(null);
+  }
+
   function cancelCreateTask() {
     setIsCreateDialogOpen(false);
     setCreateDialogError(null);
   }
 
-  async function confirmCreateTask() {
-    const validationError = validateDraft(createDraft);
+  async function confirmCreateTask(mode: "draft" | "queued") {
+    const nextDraft = {
+      ...createDraft,
+      status: mode === "queued" ? "queued" as const : "draft" as const,
+    };
+    const validationError = validateDraft(nextDraft);
 
     if (validationError) {
       setCreateDialogError(validationError);
       return;
+    }
+
+    if (mode === "queued") {
+      const setupError = validateQueuedRunSetup(nextDraft, createRunSetup);
+
+      if (setupError) {
+        setCreateDialogError(setupError);
+        return;
+      }
     }
 
     if (isDirty) {
@@ -209,13 +246,16 @@ export function AgentQueuePlaceholderWidget({
       return;
     }
 
-    const didCreate = await createTask(createDraft, {
+    applyCreateRunSetupToQueueRun(createRunSetup, queue.run);
+
+    const didCreate = await createTask(nextDraft, {
       insertPosition: createInsertPosition,
     });
 
     if (didCreate) {
       setCreateDraft(newTaskDialogDraft(selectedTask));
       setCreateInsertPosition("bottom");
+      setCreateRunSetup(createRunSetup);
       setCreateDialogError(null);
       setIsCreateDialogOpen(false);
     }
@@ -296,15 +336,23 @@ export function AgentQueuePlaceholderWidget({
             createDialogTitleId={createDialogTitleId}
             createDraft={createDraft}
             createExecutionPolicyInputId={createExecutionPolicyInputId}
+            createExecutionStateInputId={createExecutionStateInputId}
             createPriorityInputId={createPriorityInputId}
             createPromptInputId={createPromptInputId}
+            createRunApprovalPolicyInputId={createRunApprovalPolicyInputId}
+            createRunCodexExecutableInputId={createRunCodexExecutableInputId}
+            createRunSandboxInputId={createRunSandboxInputId}
+            createRunWorkspaceInputId={createRunWorkspaceInputId}
             createTitleInputId={createTitleInputId}
             isCreating={isCreating}
             onCancel={cancelCreateTask}
-            onConfirm={() => void confirmCreateTask()}
+            onConfirmDraft={() => void confirmCreateTask("draft")}
+            onConfirmQueued={() => void confirmCreateTask("queued")}
             onDraftChange={updateCreateDraft}
             onInsertPositionChange={setCreateInsertPosition}
             onPriorityChange={updateCreatePriority}
+            onRunSetupChange={updateCreateRunSetup}
+            runSetup={createRunSetup}
             insertPosition={createInsertPosition}
           />
         ) : null}
@@ -321,4 +369,77 @@ function newTaskDialogDraft(selectedTask?: AgentQueueTask | null): TaskDraft {
       : emptyDraft().queueTagName,
     title: "New task",
   };
+}
+
+function defaultCreateRunSetup(): AgentQueueNewTaskRunSetup {
+  return {
+    approvalPolicy: "never",
+    codexExecutableDraft: "codex.cmd",
+    repoRootDraft: "",
+    sandbox: "read_only",
+  };
+}
+
+function runSetupFromQueueRun(
+  run: AgentQueueRunController,
+): AgentQueueNewTaskRunSetup {
+  return {
+    approvalPolicy: normalizeApprovalPolicy(run.approvalPolicy),
+    codexExecutableDraft: run.codexExecutableDraft.trim() || "codex.cmd",
+    repoRootDraft: run.repoRootDraft,
+    sandbox: normalizeSandbox(run.sandbox),
+  };
+}
+
+function applyCreateRunSetupToQueueRun(
+  setup: AgentQueueNewTaskRunSetup,
+  run: AgentQueueRunController,
+) {
+  run.onRepoRootDraftChange(setup.repoRootDraft);
+  run.onCodexExecutableDraftChange(setup.codexExecutableDraft);
+  run.onSandboxChange(setup.sandbox);
+  run.onApprovalPolicyChange(setup.approvalPolicy);
+}
+
+function validateQueuedRunSetup(
+  draft: TaskDraft,
+  setup: AgentQueueNewTaskRunSetup,
+) {
+  if (!draft.title.trim()) {
+    return "Title is required before creating a queued task.";
+  }
+
+  if (!draft.prompt.trim()) {
+    return "Prompt is required before creating a queued task.";
+  }
+
+  if (!setup.repoRootDraft.trim()) {
+    return "Execution workspace is required before creating a queued task.";
+  }
+
+  if (!setup.codexExecutableDraft.trim()) {
+    return "Codex executable is required before creating a queued task.";
+  }
+
+  if (!setup.sandbox) {
+    return "Sandbox is required before creating a queued task.";
+  }
+
+  if (!setup.approvalPolicy) {
+    return "Approval policy is required before creating a queued task.";
+  }
+
+  return null;
+}
+
+function normalizeSandbox(value: DirectWorkSandbox): DirectWorkSandbox {
+  return value === "workspace_write" || value === "danger_full_access"
+    ? value
+    : "read_only";
+}
+
+function normalizeApprovalPolicy(
+  value: DirectWorkApprovalPolicy,
+): DirectWorkApprovalPolicy {
+  return value === "on_request" || value === "untrusted" ? value : "never";
 }

@@ -127,6 +127,167 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
   });
 });
 
+describe("AgentQueuePlaceholderWidget new task dialog", () => {
+  it("shows run setup fields with safe session defaults", async () => {
+    renderQueueWidget({
+      agentExecutorSlots: [],
+      onListAgentQueueTasks: async () => [],
+    });
+    await flushRender();
+
+    clickButton("New task");
+
+    expect(document.body.textContent).toContain("Run setup");
+    expect(document.body.textContent).toContain("Session run defaults");
+    expect(document.body.textContent).toContain("Execution workspace");
+    expect(document.body.textContent).toContain("Codex executable");
+    expect(document.body.textContent).toContain("Sandbox");
+    expect(document.body.textContent).toContain("Approval policy");
+    expect(document.body.textContent).toContain("Initial state");
+    expect(document.body.textContent).toContain("Execution policy");
+    expect(inputByLabel("Codex executable").value).toBe("codex.cmd");
+    expect(selectByLabel("Sandbox").value).toBe("read_only");
+    expect(selectByLabel("Approval policy").value).toBe("never");
+    expect(buttonByText("Create queued task")?.disabled).toBe(true);
+  });
+
+  it("creates a draft task without starting execution", async () => {
+    const onCreateAgentQueueTask = vi.fn(async (request) =>
+      queueTask({
+        description: request.description,
+        executionPolicy: request.executionPolicy,
+        priority: request.priority,
+        prompt: request.prompt,
+        queueItemId: "created-draft",
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const onStartAssignedAgentQueueTask = vi.fn();
+
+    renderQueueWidget({
+      agentExecutorSlots: [],
+      onCreateAgentQueueTask,
+      onListAgentQueueTasks: async () => [],
+      onStartAssignedAgentQueueTask,
+    });
+    await flushRender();
+
+    clickButton("New task");
+    await changeValue(inputByLabel("Title"), "Draft from dialog");
+    clickButton("Create draft");
+    await flushRender();
+
+    expect(onCreateAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPolicy: "manual",
+        prompt: "",
+        status: "draft",
+        title: "Draft from dialog",
+      }),
+    );
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("creates a queued runnable task with session run settings and waits for explicit Run task", async () => {
+    const createRequests: unknown[] = [];
+    const startRequests: unknown[] = [];
+    const onCreateAgentQueueTask = vi.fn(async (request) => {
+      createRequests.push(request);
+      return queueTask({
+        description: request.description,
+        executionPolicy: request.executionPolicy,
+        priority: request.priority,
+        prompt: request.prompt,
+        queueItemId: "created-queued",
+        queueTagName: request.queueTagName,
+        status: request.status,
+        title: request.title,
+      });
+    });
+    const onStartAssignedAgentQueueTask = vi.fn(async (request) => {
+      startRequests.push(request);
+      return {
+        executorWidgetInstanceId:
+          request.queueOwnerWidgetInstanceId ?? "queue-widget-1",
+        queueItemId: request.queueItemId,
+        runId: "run-created",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      };
+    });
+
+    renderQueueWidget({
+      agentExecutorSlots: [],
+      onCreateAgentQueueTask,
+      onListAgentQueueTasks: async () => [],
+      onStartAssignedAgentQueueTask,
+    });
+    await flushRender();
+
+    clickButton("New task");
+    await changeValue(inputByLabel("Title"), "Queued from dialog");
+    await changeValue(textareaByLabel("Prompt"), "Implement the queued task.");
+    await changeValue(inputByLabel("Execution workspace"), "C:\\repo");
+    await changeValue(inputByLabel("Codex executable"), "codex.cmd");
+    await changeSelect("Sandbox", "workspace_write");
+    await changeSelect("Approval policy", "never");
+
+    const createQueued = buttonByText("Create queued task");
+    expect(createQueued?.disabled).toBe(false);
+    clickButton("Create queued task");
+    await flushRender();
+
+    expect(onCreateAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPolicy: "manual",
+        priority: 0,
+        prompt: "Implement the queued task.",
+        queueTagName: "Default",
+        status: "queued",
+        title: "Queued from dialog",
+      }),
+    );
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Ready to run");
+    expect(document.body.textContent).toContain("Run task");
+    expect(document.body.textContent).not.toContain("Promote to queued");
+
+    clickButton("Run task");
+    await flushRender();
+
+    expect(onStartAssignedAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        queueItemId: "created-queued",
+        queueOwnerWidgetInstanceId: "queue-widget-1",
+        repoRoot: "C:\\repo",
+        sandbox: "workspace_write",
+      }),
+    );
+    expect(createRequests).toHaveLength(1);
+    expect(startRequests).toHaveLength(1);
+  });
+
+  it("shows a compact danger_full_access warning in the create dialog", async () => {
+    renderQueueWidget({
+      agentExecutorSlots: [],
+      onListAgentQueueTasks: async () => [],
+    });
+    await flushRender();
+
+    clickButton("New task");
+    await changeSelect("Sandbox", "danger_full_access");
+
+    expect(document.body.textContent).toContain(
+      "danger_full_access is unsafe local-dev mode",
+    );
+    expect(document.body.textContent).toContain("will not auto-run");
+  });
+});
+
 function renderQueueWidget(
   overrides: Partial<WidgetRenderProps> = {},
 ) {
@@ -204,6 +365,93 @@ async function flushRender() {
     await Promise.resolve();
     await Promise.resolve();
   });
+}
+
+function clickButton(text: string) {
+  const button = buttonByText(text);
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`);
+  }
+
+  act(() => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function buttonByText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+async function changeValue(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  await act(async () => {
+    setNativeValue(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+async function changeSelect(label: string, value: string) {
+  const select = selectByLabel(label);
+
+  await act(async () => {
+    setNativeValue(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function setNativeValue(
+  field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  value: string,
+) {
+  const prototype = Object.getPrototypeOf(field);
+  const valueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  const ownValueSetter = Object.getOwnPropertyDescriptor(field, "value")?.set;
+
+  if (valueSetter && ownValueSetter !== valueSetter) {
+    valueSetter.call(field, value);
+    return;
+  }
+
+  field.value = value;
+}
+
+function inputByLabel(labelText: string) {
+  return fieldByLabel<HTMLInputElement>(labelText, "input");
+}
+
+function textareaByLabel(labelText: string) {
+  return fieldByLabel<HTMLTextAreaElement>(labelText, "textarea");
+}
+
+function selectByLabel(labelText: string) {
+  return fieldByLabel<HTMLSelectElement>(labelText, "select");
+}
+
+function fieldByLabel<T extends HTMLElement>(
+  labelText: string,
+  selector: string,
+) {
+  const label = Array.from(document.querySelectorAll("label")).find(
+    (candidate) => candidate.textContent === labelText,
+  );
+  const fieldId = label?.getAttribute("for");
+
+  if (!fieldId) {
+    throw new Error(`Label not found: ${labelText}`);
+  }
+
+  const field = document.getElementById(fieldId);
+
+  if (!field || !field.matches(selector)) {
+    throw new Error(`Field not found for label: ${labelText}`);
+  }
+
+  return field as T;
 }
 
 function detailsBySummary(text: string) {

@@ -6,7 +6,6 @@ import {
   assignmentLabel,
   statusLabel,
   type AgentWorkerSummary,
-  type QueueGlobalStatus,
 } from "./agentQueueTaskUiModel";
 import type {
   AgentQueueTask,
@@ -22,12 +21,10 @@ type AgentQueueRunReadinessPanelProps = {
   canPromoteDraftToQueued: boolean;
   currentSelection: string;
   executorSlots: AgentExecutorSlot[];
-  globalExecutionState: QueueGlobalStatus;
   hasExecutorSlots: boolean;
   isAssigning: boolean;
   onAssignSelectedWorker: () => void;
   onPromoteDraftToQueued: () => void;
-  onStartWorkers: () => void;
   routingState?: AgentQueueAssignedWorkerRoutingState;
   run: AgentQueueRunController;
   selectedTask: AgentQueueTask;
@@ -40,12 +37,10 @@ export function AgentQueueRunReadinessPanel({
   canPromoteDraftToQueued,
   currentSelection,
   executorSlots,
-  globalExecutionState,
   hasExecutorSlots,
   isAssigning,
   onAssignSelectedWorker,
   onPromoteDraftToQueued,
-  onStartWorkers,
   routingState,
   run,
   selectedTask,
@@ -61,12 +56,10 @@ export function AgentQueueRunReadinessPanel({
     canPromoteDraftToQueued,
     currentSelection,
     executorSlots,
-    globalExecutionState,
     hasExecutorSlots,
     isAssigning,
     onAssignSelectedWorker,
     onPromoteDraftToQueued,
-    onStartWorkers,
     routingState,
     run,
     selectedTask,
@@ -76,7 +69,6 @@ export function AgentQueueRunReadinessPanel({
   const settingsNeedSetup =
     !run.repoRootDraft.trim() ||
     !run.codexExecutableDraft.trim() ||
-    run.sandbox !== "danger_full_access" ||
     run.preconditionMessages.length > 0;
 
   return (
@@ -266,12 +258,10 @@ function buildPrepareLocalRunChecklist({
   canPromoteDraftToQueued,
   currentSelection,
   executorSlots,
-  globalExecutionState,
   hasExecutorSlots,
   isAssigning,
   onAssignSelectedWorker,
   onPromoteDraftToQueued,
-  onStartWorkers,
   routingState,
   run,
   selectedTask,
@@ -288,17 +278,6 @@ function buildPrepareLocalRunChecklist({
   const selectedExecutorIsQueueOwned =
     executorSlots.find((slot) => slot.widgetInstanceId === currentSelection)
       ?.ownerKind === "agent_queue";
-
-  if (globalExecutionState === "stopped") {
-    items.push({
-      action: {
-        label: "Start queue",
-        onClick: onStartWorkers,
-        variant: "secondary",
-      },
-      ...blockedItem("Start queue", "Queue stopped."),
-    });
-  }
 
   items.push(
     hasExecutorSlots
@@ -467,10 +446,7 @@ function sandboxChecklistItem(
     );
   }
 
-  return fixItem(
-    "Select danger_full_access",
-    "Unsafe local dev mode.",
-  );
+  return okItem("Sandbox selected", sandbox);
 }
 
 function okItem(

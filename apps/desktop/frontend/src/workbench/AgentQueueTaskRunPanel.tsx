@@ -16,7 +16,6 @@ import {
   workerLabel,
   type AgentWorkerSummary,
   type AgentQueueDependencyState,
-  type QueueGlobalStatus,
   type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueAutorunPanel } from "./AgentQueueAutorunPanel";
@@ -52,7 +51,6 @@ type AgentQueueTaskRunPanelProps = {
   executorSlots: AgentExecutorSlot[];
   executionPlan: AgentQueueExecutionPlanController;
   hasExecutorSlots: boolean;
-  globalExecutionState: QueueGlobalStatus;
   includeAdvancedDetails?: boolean;
   inputId: string;
   isAssigning: boolean;
@@ -68,7 +66,6 @@ type AgentQueueTaskRunPanelProps = {
     request: CoordinatorAttachedContextInput,
   ) => void;
   onSelectionChange: (executorWidgetInstanceId: string) => void;
-  onStartWorkers: () => void;
   canPromoteDraftToQueued: boolean;
   run: AgentQueueRunController;
   runHistory: AgentQueueRunHistoryController;
@@ -89,7 +86,6 @@ export function AgentQueueTaskRunPanel({
   executorSlots,
   executionPlan,
   hasExecutorSlots,
-  globalExecutionState,
   includeAdvancedDetails = true,
   inputId,
   isAssigning,
@@ -101,7 +97,6 @@ export function AgentQueueTaskRunPanel({
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
   onSelectionChange,
-  onStartWorkers,
   canPromoteDraftToQueued,
   run,
   runHistory,
@@ -156,6 +151,52 @@ export function AgentQueueTaskRunPanel({
   const workerAssignmentDisabled = Boolean(
     scopedAssignmentDisabled || workerDisabled || selectedExecutorIsQueueOwned,
   );
+  const isRunningTask =
+    selectedTask.status === "running" || latestRun.link?.status === "running";
+  const hasWorkerReport =
+    (selectedTask.workerExecutionReports?.length ?? 0) > 0;
+  const isReportReadyTask =
+    !isRunningTask &&
+    (hasWorkerReport ||
+      selectedTask.status === "completed" ||
+      selectedTask.status === "review_needed" ||
+      selectedTask.status === "failed" ||
+      selectedTask.status === "cancelled");
+
+  if (isRunningTask || isReportReadyTask) {
+    return (
+      <section
+        aria-label="Queue task execution"
+        className="agent-queue-execution-section"
+      >
+        <QueueTaskRunStatePanel
+          latestRun={latestRun}
+          selectedTask={selectedTask}
+          status={isRunningTask ? "running" : "report-ready"}
+        />
+
+        {includeAdvancedDetails ? (
+          <AgentQueueTaskRunAdvancedDetails
+            autorun={autorun}
+            dependencyState={dependencyState}
+            executorSlots={executorSlots}
+            executionPlan={executionPlan}
+            latestRun={latestRun}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+            queueTag={queueTag}
+            queueTagSummary={queueTagSummary}
+            routingBlockedLabel={routingBlockedLabel}
+            routingState={routingState}
+            run={run}
+            runHistory={runHistory}
+            runner={runner}
+            selectedTask={selectedTask}
+          />
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -321,12 +362,10 @@ export function AgentQueueTaskRunPanel({
         canPromoteDraftToQueued={canPromoteDraftToQueued}
         currentSelection={currentSelection}
         executorSlots={executorSlots}
-        globalExecutionState={globalExecutionState}
         hasExecutorSlots={hasExecutorSlots}
         isAssigning={isAssigning}
         onAssignSelectedWorker={onAssign}
         onPromoteDraftToQueued={onPromoteDraftToQueued}
-        onStartWorkers={onStartWorkers}
         routingState={routingState}
         run={run}
         selectedTask={selectedTask}
@@ -354,6 +393,94 @@ export function AgentQueueTaskRunPanel({
         />
       ) : null}
     </section>
+  );
+}
+
+function QueueTaskRunStatePanel({
+  latestRun,
+  selectedTask,
+  status,
+}: {
+  latestRun: AgentQueueLatestRunLinkController;
+  selectedTask: AgentQueueTask;
+  status: "running" | "report-ready";
+}) {
+  const link = latestRun.link;
+  const runId = link?.directWorkRunId ?? null;
+  const executorId =
+    link?.executorWidgetId ?? selectedTask.assignedExecutorWidgetId ?? null;
+  const isRunning = status === "running";
+
+  return (
+    <div className="agent-queue-execution-group agent-queue-run-state-panel">
+      <div className="agent-queue-execution-group-header">
+        <div>
+          <p
+            className="agent-queue-execution-group-title"
+            title={
+              isRunning
+                ? "The selected Queue task is already running in a local executor."
+                : "The selected Queue task has finished or reported evidence for coordinator review."
+            }
+          >
+            {isRunning ? "Running in local executor" : "Report ready"}
+          </p>
+          <p className="agent-queue-run-note">
+            {isRunning
+              ? "Waiting for report. Pre-run readiness checks are not the current action."
+              : "Awaiting coordinator review. Pre-run readiness checks are not the current action."}
+          </p>
+        </div>
+        <div className="agent-queue-execution-badges">
+          <Badge variant={isRunning ? "info" : "warning"}>
+            {isRunning ? "Executing" : "Awaiting review"}
+          </Badge>
+        </div>
+      </div>
+
+      <dl className="agent-queue-run-state-facts">
+        <div>
+          <dt>Local executor</dt>
+          <dd>{executorId ?? "Not recorded"}</dd>
+        </div>
+        <div>
+          <dt>Run id</dt>
+          <dd>{runId ?? "Not recorded"}</dd>
+        </div>
+        <div>
+          <dt>Started</dt>
+          <dd>{link?.startedAt ? formatRunStateTimestamp(link.startedAt) : "Not recorded"}</dd>
+        </div>
+        <div>
+          <dt>Duration</dt>
+          <dd>{runDurationLabel(link?.startedAt, link?.completedAt)}</dd>
+        </div>
+      </dl>
+
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!latestRun.apiAvailable || latestRun.isLoading}
+          onClick={() => latestRun.onRefresh()}
+          variant="secondary"
+        >
+          Refresh status
+        </Button>
+        {isRunning ? null : (
+          <Button onClick={() => scrollToSelectedTaskReport()} variant="primary">
+            View report
+          </Button>
+        )}
+      </div>
+
+      {latestRun.error ? (
+        <p
+          className="agent-queue-message agent-queue-message-error"
+          role="alert"
+        >
+          {latestRun.error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -530,6 +657,67 @@ function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
   target?.scrollIntoView({
     block: "nearest",
     inline: "nearest",
+  });
+}
+
+function scrollToSelectedTaskReport() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document
+    .getElementById("agent-queue-human-log-report")
+    ?.scrollIntoView({ block: "nearest" });
+}
+
+function runDurationLabel(
+  startedAt: string | null | undefined,
+  completedAt: string | null | undefined,
+) {
+  if (!startedAt) {
+    return "Not recorded";
+  }
+
+  const started = new Date(startedAt);
+  const ended = completedAt ? new Date(completedAt) : new Date();
+
+  if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) {
+    return completedAt ? "Recorded" : "Running";
+  }
+
+  const seconds = Math.max(0, Math.round((ended.getTime() - started.getTime()) / 1000));
+
+  if (seconds < 60) {
+    return `${seconds.toString()}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (minutes < 60) {
+    return remainingSeconds
+      ? `${minutes.toString()}m ${remainingSeconds.toString()}s`
+      : `${minutes.toString()}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return remainingMinutes
+    ? `${hours.toString()}h ${remainingMinutes.toString()}m`
+    : `${hours.toString()}h`;
+}
+
+function formatRunStateTimestamp(value: string) {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
   });
 }
 

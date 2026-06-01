@@ -359,7 +359,6 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     renderPanel({
       currentSelection: "",
       executorSlots: [],
-      globalExecutionState: "stopped",
       hasExecutorSlots: false,
       run: {
         ...runController(),
@@ -377,12 +376,13 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
 
     expect(document.body.textContent).toContain("Before run");
     expect(document.body.textContent).toContain("Run task");
-    expect(document.body.textContent).toContain("Start queue");
     expect(document.body.textContent).toContain("Local executor unavailable");
     expect(document.body.textContent).toContain("Set workspace");
     expect(document.body.textContent).toContain("Set Codex executable");
-    expect(document.body.textContent).toContain("Select danger_full_access");
+    expect(document.body.textContent).toContain("read_only");
     expect(document.body.textContent).toContain("Promote to queued");
+    expect(document.body.textContent).not.toContain("Start queue");
+    expect(document.body.textContent).not.toContain("Select danger_full_access");
     expect(document.body.textContent).not.toContain(
       "Click START before running the selected task.",
     );
@@ -393,24 +393,18 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 
-  it("exposes queue start and draft promotion without starting execution", () => {
-    const onStartWorkers = vi.fn();
+  it("exposes draft promotion without starting execution", () => {
     const onPromoteDraftToQueued = vi.fn();
 
     renderPanel({
       canPromoteDraftToQueued: true,
-      globalExecutionState: "stopped",
       onPromoteDraftToQueued,
-      onStartWorkers,
       selectedTask: {
         ...queueTask(),
         assignedExecutorWidgetId: null,
         status: "draft",
       },
     });
-
-    clickFirstButton("Start queue");
-    expect(onStartWorkers).toHaveBeenCalledTimes(1);
 
     clickFirstButton("Promote to queued");
 
@@ -450,6 +444,85 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(
       assignButton?.closest("details")?.querySelector("summary")?.textContent,
     ).toBe("Advanced executor override");
+  });
+
+  it("shows running state without pre-run readiness blockers", () => {
+    renderPanel({
+      currentSelection: "",
+      hasExecutorSlots: false,
+      includeAdvancedDetails: false,
+      latestRun: latestRunController(runLink({
+        completedAt: null,
+        directWorkRunId: "run_active_123456",
+        executorWidgetId: "queue_owned_executor",
+        startedAt: "2026-05-22T10:00:00.000Z",
+        status: "running",
+      })),
+      run: {
+        ...runController(),
+        readinessMessage: "Local executor unavailable.",
+        repoRootDraft: "",
+      },
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        status: "running",
+      },
+    });
+
+    const executionText = executionSectionText();
+
+    expect(executionText).toContain("Running in local executor");
+    expect(executionText).toContain("Waiting for report");
+    expect(executionText).toContain("queue_owned_executor");
+    expect(executionText).toContain("run_active_123456");
+    expect(executionText).toContain("Refresh status");
+    expect(executionText).not.toContain("Local executor unavailable");
+    expect(executionText).not.toContain("Select local executor");
+    expect(executionText).not.toContain("Assign");
+    expect(executionText).not.toContain("Run task");
+    expect(executionText).not.toContain("Before run");
+    expect(executionText).not.toContain("Promote to queued");
+    expect(executionText).not.toContain("Assignment locked");
+  });
+
+  it("shows report-ready state without run or assignment controls", () => {
+    renderPanel({
+      currentSelection: "",
+      hasExecutorSlots: false,
+      includeAdvancedDetails: false,
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      run: {
+        ...runController(),
+        readinessMessage: "Local executor unavailable.",
+        repoRootDraft: "",
+      },
+      selectedTask: {
+        ...queueTask(),
+        assignedExecutorWidgetId: null,
+        status: "completed",
+        workerExecutionReports: [workerReport()],
+      },
+    });
+
+    const executionText = executionSectionText();
+
+    expect(executionText).toContain("Report ready");
+    expect(executionText).toContain("Awaiting coordinator review");
+    expect(executionText).toContain("View report");
+    expect(executionText).toContain("queue_owned_executor");
+    expect(executionText).toContain("run_done_123456");
+    expect(executionText).not.toContain("Local executor unavailable");
+    expect(executionText).not.toContain("Select local executor");
+    expect(executionText).not.toContain("Assign");
+    expect(executionText).not.toContain("Run task");
+    expect(executionText).not.toContain("Before run");
+    expect(executionText).not.toContain("Promote to queued");
   });
 });
 
@@ -566,6 +639,95 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     expect(document.body.textContent).toContain("Set run settings");
     expect(document.body.textContent).toContain("Set workspace.");
+  });
+
+  it("prioritizes running status over selected-item pre-run blockers", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      status: "running" as const,
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        completedAt: null,
+        directWorkRunId: "run_active_123456",
+        executorWidgetId: "queue_owned_executor",
+        startedAt: "2026-05-22T10:00:00.000Z",
+        status: "running",
+      })),
+      run: {
+        ...runController(),
+        readinessMessage: "Local executor unavailable.",
+        repoRootDraft: "",
+      },
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    const overviewText = sectionText("Selected task overview");
+    const actionsText = sectionText("Selected task actions and settings");
+    const reportText = sectionText("Human-readable logs and report");
+
+    expect(overviewText).toContain("Running.");
+    expect(overviewText).toContain("Next: Waiting for worker report.");
+    expect(actionsText).toContain("Waiting for worker report");
+    expect(actionsText).toContain("Running in local executor");
+    expect(actionsText).toContain("queue_owned_executor");
+    expect(actionsText).toContain("run_active_123456");
+    expect(reportText).toContain("Report pending");
+    expect(reportText).toContain("Waiting for worker report.");
+    expect(actionsText).not.toContain("Local executor unavailable");
+    expect(actionsText).not.toContain("Select local executor");
+    expect(actionsText).not.toContain("Assign");
+    expect(actionsText).not.toContain("Run task");
+    expect(actionsText).not.toContain("Before run");
+    expect(actionsText).not.toContain("Promote to queued");
+  });
+
+  it("shows completed reported tasks as awaiting coordinator review", () => {
+    const report = workerReport();
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      run: {
+        ...runController(),
+        readinessMessage: "Local executor unavailable.",
+        repoRootDraft: "",
+      },
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    const overviewText = sectionText("Selected task overview");
+    const actionsText = sectionText("Selected task actions and settings");
+
+    expect(overviewText).toContain(
+      "Next: view the report and make an explicit coordinator decision.",
+    );
+    expect(actionsText).toContain("Report ready");
+    expect(actionsText).toContain("Awaiting coordinator review");
+    expect(actionsText).toContain("View report");
+    expect(actionsText).toContain("Request changes");
+    expect(actionsText).not.toContain("Local executor unavailable");
+    expect(actionsText).not.toContain("Select local executor");
+    expect(actionsText).not.toContain("Assign");
+    expect(actionsText).not.toContain("Run task");
+    expect(actionsText).not.toContain("Before run");
+    expect(actionsText).not.toContain("Promote to queued");
   });
 
   it("keeps coordinator finalization collapsed before worker evidence exists", () => {
@@ -844,7 +1006,6 @@ function renderPanel(
         currentSelection="executor_visible"
         executorSlots={executorSlots()}
         executionPlan={executionPlanController(null)}
-        globalExecutionState="started"
         hasExecutorSlots={true}
         inputId="executor-select"
         isAssigning={false}
@@ -855,7 +1016,6 @@ function renderPanel(
         onPromoteDraftToQueued={vi.fn()}
         onOpenAgentExecutorRun={vi.fn()}
         onSelectionChange={vi.fn()}
-        onStartWorkers={vi.fn()}
         canPromoteDraftToQueued={false}
         run={runController()}
         runHistory={runHistoryController([])}
@@ -1282,6 +1442,20 @@ function detailsBySummary(text: string) {
   return Array.from(document.querySelectorAll<HTMLDetailsElement>("details")).find(
     (details) => details.querySelector("summary")?.textContent === text,
   );
+}
+
+function executionSectionText() {
+  return sectionText("Queue task execution");
+}
+
+function sectionText(label: string) {
+  const section = document.querySelector(`[aria-label="${label}"]`);
+
+  if (!section) {
+    throw new Error(`Section not found: ${label}`);
+  }
+
+  return section.textContent ?? "";
 }
 
 function queueTask(): AgentQueueTask {

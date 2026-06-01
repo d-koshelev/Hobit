@@ -2,7 +2,6 @@ import type {
   AgentQueueGlobalExecutionState,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
-  DirectWorkSandbox,
 } from "../../workspace/types";
 import {
   dependentTasksForQueueItem,
@@ -14,7 +13,6 @@ import {
 } from "../agentQueueTaskUiModel";
 import { getNextQueueRunnerTaskDecision } from "./queueRunner";
 
-const DEFAULT_CODEX_EXECUTABLE = "codex";
 const WINDOWS_CODEX_EXECUTABLE = "codex.cmd";
 
 export type AgentQueueRunnerStatus =
@@ -32,13 +30,11 @@ export function runPreconditionMessages({
   globalExecutionState,
   isStarting,
   repoRoot,
-  sandbox,
 }: {
   codexExecutable: string;
   globalExecutionState?: AgentQueueGlobalExecutionState;
   isStarting: boolean;
   repoRoot: string;
-  sandbox?: DirectWorkSandbox;
 }) {
   const messages: string[] = [];
 
@@ -52,10 +48,6 @@ export function runPreconditionMessages({
 
   if (!codexExecutable) {
     messages.push("Set Codex executable.");
-  }
-
-  if (sandbox && sandbox !== "danger_full_access") {
-    messages.push("Select danger_full_access.");
   }
 
   if (isStarting) {
@@ -397,14 +389,7 @@ export function nextQueueTaskSelection(
 }
 
 export function defaultCodexExecutable(): string {
-  if (typeof navigator === "undefined") {
-    return DEFAULT_CODEX_EXECUTABLE;
-  }
-
-  const platformText = `${navigator.userAgent} ${navigator.platform}`;
-  return /(Windows|Win32|Win64|WOW64)/i.test(platformText)
-    ? WINDOWS_CODEX_EXECUTABLE
-    : DEFAULT_CODEX_EXECUTABLE;
+  return WINDOWS_CODEX_EXECUTABLE;
 }
 
 export function areStringArraysEqual(first: string[], second: string[]) {
