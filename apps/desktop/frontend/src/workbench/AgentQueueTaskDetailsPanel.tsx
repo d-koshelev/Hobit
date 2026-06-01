@@ -379,10 +379,14 @@ function FlowSelectionSummary({
           {selectedTask.prompt.trim() || "No prompt has been written for this task."}
         </pre>
       </details>
-      <p className="agent-queue-run-note">
-        Flow Map blocks only select Queue items. Execution, edits, reports, and
-        finalization remain in the Table/list detail view or explicit controls.
-      </p>
+      <details className="agent-queue-details agent-queue-rail-details">
+        <summary>Flow-mode boundary</summary>
+        <p className="agent-queue-run-note">
+          Flow Map blocks only select Queue items. Execution, edits, reports,
+          and finalization remain in the Table/list detail view or explicit
+          controls.
+        </p>
+      </details>
     </div>
   );
 }

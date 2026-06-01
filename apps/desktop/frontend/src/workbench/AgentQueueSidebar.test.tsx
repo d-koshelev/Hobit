@@ -33,14 +33,16 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Scheduler dry run");
     expect(document.body.textContent).toContain("Dry-run only");
-    expect(document.body.textContent).toContain("Agent Executor section");
+    expect(document.body.textContent).toContain("Executor capacity");
     expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Configured");
     expect(document.body.textContent).toContain("Spare");
     expect(document.body.textContent).toContain("Default");
     expect(document.body.textContent).toContain("Agent Executor 1");
     expect(document.body.textContent).toContain("0 schedulable items");
-    expect(document.body.textContent).toContain("Idle: Queue is stopped");
+    expect(document.body.textContent).toContain("Dry-run paused");
+    expect(document.body.textContent).toContain("Manage tags");
+    expect(document.body.textContent).toContain("Worker controls");
     expect(document.body.textContent).toContain("Add worker");
     expect(document.body.textContent).toContain("Needs review");
   });
