@@ -33,6 +33,7 @@ type AgentQueueRunReadinessPanelProps = {
   run: AgentQueueRunController;
   selectedTask: AgentQueueTask;
   selectedWorker?: AgentWorkerSummary;
+  showRunButton?: boolean;
 };
 
 export function AgentQueueRunReadinessPanel({
@@ -50,6 +51,7 @@ export function AgentQueueRunReadinessPanel({
   run,
   selectedTask,
   selectedWorker,
+  showRunButton = true,
 }: AgentQueueRunReadinessPanelProps) {
   const repoRootInputId = useId();
   const codexExecutableInputId = useId();
@@ -71,6 +73,11 @@ export function AgentQueueRunReadinessPanel({
     selectedTask,
     selectedWorker,
   });
+  const blockingChecklist = checklist.filter((item) => item.state !== "ok");
+  const settingsNeedSetup =
+    !run.repoRootDraft.trim() ||
+    !run.codexExecutableDraft.trim() ||
+    run.preconditionMessages.length > 0;
 
   return (
     <div className="agent-queue-execution-group">
@@ -90,14 +97,59 @@ export function AgentQueueRunReadinessPanel({
             })}
           </p>
         </div>
-        <Button
-          disabled={!run.canStart}
-          onClick={() => run.onStartAssignedTask()}
-          variant="primary"
-        >
-          {run.isStarting ? "Starting" : "Run task"}
-        </Button>
+        {showRunButton ? (
+          <Button
+            disabled={!run.canStart}
+            onClick={() => run.onStartAssignedTask()}
+            variant="primary"
+          >
+            {run.isStarting ? "Starting" : "Run task"}
+          </Button>
+        ) : null}
       </div>
+
+      {blockingChecklist.length > 0 ? (
+        <div className="agent-queue-setup-fixes" role="status">
+          <p className="agent-queue-setup-fixes-title">Needed before run</p>
+          <ul>
+            {blockingChecklist.slice(0, 3).map((item) => (
+              <li key={item.label}>{item.copy}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="agent-queue-run-note">
+          Ready to run once the operator starts it explicitly.
+        </p>
+      )}
+
+      <dl className="agent-queue-run-settings-summary">
+        <div>
+          <dt>Execution workspace</dt>
+          <dd>{run.repoRootDraft.trim() || "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Codex executable</dt>
+          <dd>{run.codexExecutableDraft.trim() || "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Sandbox</dt>
+          <dd>{run.sandbox}</dd>
+        </div>
+        <div>
+          <dt>Approval policy</dt>
+          <dd>{run.approvalPolicy}</dd>
+        </div>
+      </dl>
+
+      {run.sandbox === "danger_full_access" ? (
+        <p className="agent-queue-run-warning" role="alert">
+          danger_full_access is unsafe and intended only for trusted local
+          development. It disables Codex sandbox restrictions. Git mutations
+          remain forbidden unless explicitly requested; Hobit will still not
+          auto-commit, push, reset, clean, stash, or roll back changes.
+        </p>
+      ) : null}
 
       <details
         aria-label="Prepare local run checklist"
@@ -149,7 +201,10 @@ export function AgentQueueRunReadinessPanel({
         <p className="agent-queue-run-note">{run.readinessMessage}</p>
       ) : null}
 
-      <details className="agent-queue-details agent-queue-secondary-details agent-queue-run-settings-details">
+      <details
+        className="agent-queue-details agent-queue-secondary-details agent-queue-run-settings-details"
+        open={settingsNeedSetup}
+      >
         <summary>Advanced execution settings</summary>
         <div className="agent-queue-run-controls">
           <div className="agent-queue-run-field agent-queue-run-field-wide">
@@ -240,14 +295,6 @@ export function AgentQueueRunReadinessPanel({
               </p>
             ))}
           </div>
-        ) : null}
-        {run.sandbox === "danger_full_access" ? (
-          <p className="agent-queue-run-warning" role="alert">
-            danger_full_access is unsafe and intended only for trusted local
-            development. It disables Codex sandbox restrictions. Git mutations
-            remain forbidden unless explicitly requested; Hobit will still not
-            auto-commit, push, reset, clean, stash, or roll back changes.
-          </p>
         ) : null}
       </details>
 

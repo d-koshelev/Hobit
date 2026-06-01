@@ -11,12 +11,7 @@ import {
   normalizeQueueTag,
   normalizeValidationStatus,
   queueTaskPriorityLabel,
-  queueDependencyBadgeVariant,
   queueDependencyBlockedSummary,
-  queueDependencyStatusLabel,
-  statusBadgeVariant,
-  statusLabel,
-  validationBadgeVariant,
   validationStatusLabel,
   workerLabel,
   type AgentWorkerSummary,
@@ -58,6 +53,7 @@ type AgentQueueTaskRunPanelProps = {
   executionPlan: AgentQueueExecutionPlanController;
   hasExecutorSlots: boolean;
   globalExecutionState: QueueGlobalStatus;
+  includeAdvancedDetails?: boolean;
   inputId: string;
   isAssigning: boolean;
   isDirty: boolean;
@@ -94,6 +90,7 @@ export function AgentQueueTaskRunPanel({
   executionPlan,
   hasExecutorSlots,
   globalExecutionState,
+  includeAdvancedDetails = true,
   inputId,
   isAssigning,
   isDirty,
@@ -119,9 +116,6 @@ export function AgentQueueTaskRunPanel({
   const queueTagSummary = queueTags.find(
     (tag) => tag.queueTagId === queueTag.queueTagId,
   );
-  const queueTagPaused = queueTagSummary?.status === "paused";
-  const validationStatus = normalizeValidationStatus(selectedTask.validationStatus);
-  const itemType = normalizeItemType(selectedTask.itemType);
   const isFinalStatus = isFinalQueueTaskStatus(selectedTask.status);
   const isAssignmentLockedStatus = isAssignmentLockedQueueTaskStatus(
     selectedTask.status,
@@ -169,7 +163,11 @@ export function AgentQueueTaskRunPanel({
             className="agent-queue-execution-title"
             title="Select an Agent Executor, configure Direct Work, then run the task."
           >
-            Execution
+            Actions and settings
+          </p>
+          <p className="agent-queue-run-note">
+            Runs are explicit. Assignment records intent only; it does not start
+            work.
           </p>
         </div>
         <div className="agent-queue-execution-badges">
@@ -178,101 +176,10 @@ export function AgentQueueTaskRunPanel({
           >
             {assignmentLabel(selectedTask.assignedExecutorWidgetId)}
           </Badge>
-          <Badge variant={statusBadgeVariant(selectedTask.status)}>
-            {statusLabel(selectedTask.status)}
-          </Badge>
-          {queueTagPaused ? <Badge variant="warning">Tag paused</Badge> : null}
-          {dependencyState && dependencyState.dependsOn.length > 0 ? (
-            <Badge variant={queueDependencyBadgeVariant(dependencyState.status)}>
-              {queueDependencyStatusLabel(dependencyState.status)}
-            </Badge>
-          ) : null}
-          <Badge
-            className={
-              validationStatus === "validating"
-                ? "agent-queue-validation-animating"
-                : undefined
-            }
-            variant={validationBadgeVariant(validationStatus)}
-          >
-            {validationStatusLabel(validationStatus)}
-          </Badge>
         </div>
       </div>
 
-      <dl className="agent-queue-item-foundation-facts">
-        <div>
-          <dt>Queue tag</dt>
-          <dd>
-            {queueTag.queueTagName}
-            {queueTagPaused ? " (paused)" : ""}
-          </dd>
-        </div>
-        <div>
-          <dt>Priority</dt>
-          <dd>{queueTaskPriorityLabel(selectedTask.priority)}</dd>
-        </div>
-        <div>
-          <dt>Tag gate</dt>
-          <dd>
-            {queueTagPaused
-              ? tagPauseDetail(queueTagSummary?.pauseReason)
-              : "Active"}
-          </dd>
-        </div>
-        <div>
-          <dt>Item type</dt>
-          <dd>{itemTypeLabel(itemType)}</dd>
-        </div>
-        <div>
-          <dt>Assigned worker</dt>
-          <dd>
-            {workerLabel(
-              selectedTask.assignedWorkerId ??
-                selectedTask.assignedExecutorWidgetId,
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt>Worker route</dt>
-          <dd>
-            {routingState?.assignedWorker
-              ? routingState.canTake
-                ? "Eligible"
-                : routingBlockedLabel ?? "Blocked"
-              : selectedTask.assignedExecutorWidgetId
-                ? routingBlockedLabel ?? "Assigned worker unavailable"
-                : "Unassigned"}
-          </dd>
-        </div>
-        <div>
-          <dt>Coordinator</dt>
-          <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
-        </div>
-        <div>
-          <dt>Dependency gate</dt>
-          <dd>
-            {dependencyState && dependencyState.dependsOn.length > 0
-              ? queueDependencyBlockedSummary(dependencyState)
-              : "No dependencies"}
-          </dd>
-        </div>
-      </dl>
-
-      <AgentQueueExecutionPlanPanel executionPlan={executionPlan} />
-
-      <AgentQueueRunHistoryPanel
-        executorSlots={executorSlots}
-        latestRun={latestRun}
-        onAttachContextToCoordinator={onAttachContextToCoordinator}
-        onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-        runHistory={runHistory}
-        selectedTask={selectedTask}
-      />
-
-      <details className="agent-queue-details agent-queue-secondary-details agent-queue-local-executor-details">
-        <summary>Advanced local executor</summary>
-        <div className="agent-queue-execution-group agent-queue-execution-group-nested">
+      <div className="agent-queue-execution-group agent-queue-execution-group-nested agent-queue-assignment-group">
         <div className="agent-queue-execution-group-header">
           <div>
             <p
@@ -373,7 +280,7 @@ export function AgentQueueTaskRunPanel({
                 title="Scroll to the assigned Agent Executor for live logs and result."
                 variant="ghost"
               >
-                Open Executor
+                Open assigned Executor
               </Button>
             </div>
           </div>
@@ -402,8 +309,7 @@ export function AgentQueueTaskRunPanel({
             {assignmentError}
           </p>
         ) : null}
-        </div>
-      </details>
+      </div>
 
       <AgentQueueRunReadinessPanel
         canAssignSelectedWorker={!workerAssignmentDisabled}
@@ -420,12 +326,151 @@ export function AgentQueueTaskRunPanel({
         run={run}
         selectedTask={selectedTask}
         selectedWorker={selectedWorker}
+        showRunButton={includeAdvancedDetails}
+      />
+
+      {includeAdvancedDetails ? (
+        <AgentQueueTaskRunAdvancedDetails
+          autorun={autorun}
+          dependencyState={dependencyState}
+          executorSlots={executorSlots}
+          executionPlan={executionPlan}
+          latestRun={latestRun}
+          onAttachContextToCoordinator={onAttachContextToCoordinator}
+          onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+          queueTag={queueTag}
+          queueTagSummary={queueTagSummary}
+          routingBlockedLabel={routingBlockedLabel}
+          routingState={routingState}
+          runHistory={runHistory}
+          runner={runner}
+          selectedTask={selectedTask}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+export function AgentQueueTaskRunAdvancedDetails({
+  autorun,
+  dependencyState,
+  executorSlots,
+  executionPlan,
+  latestRun,
+  onAttachContextToCoordinator,
+  onOpenAgentExecutorRun,
+  queueTag,
+  queueTagSummary,
+  routingBlockedLabel,
+  routingState,
+  runHistory,
+  runner,
+  selectedTask,
+}: {
+  autorun: AgentQueueAutorunController;
+  dependencyState?: AgentQueueDependencyState;
+  executorSlots: AgentExecutorSlot[];
+  executionPlan: AgentQueueExecutionPlanController;
+  latestRun: AgentQueueLatestRunLinkController;
+  onAttachContextToCoordinator?: (
+    request: CoordinatorAttachedContextInput,
+  ) => void;
+  onOpenAgentExecutorRun?: (
+    request: AgentExecutorRunOpenRequestInput,
+  ) => void;
+  queueTag: ReturnType<typeof normalizeQueueTag>;
+  queueTagSummary?: QueueTagSummary;
+  routingBlockedLabel: string | null;
+  routingState?: AgentQueueAssignedWorkerRoutingState;
+  runHistory: AgentQueueRunHistoryController;
+  runner: AgentQueueRunnerController;
+  selectedTask: AgentQueueTask;
+}) {
+  const queueTagPaused = queueTagSummary?.status === "paused";
+  const validationStatus = normalizeValidationStatus(selectedTask.validationStatus);
+  const itemType = normalizeItemType(selectedTask.itemType);
+
+  return (
+    <details className="agent-queue-details agent-queue-secondary-details agent-queue-developer-details">
+      <summary>Developer details</summary>
+      <dl className="agent-queue-item-foundation-facts">
+        <div>
+          <dt>Queue tag</dt>
+          <dd>
+            {queueTag.queueTagName}
+            {queueTagPaused ? " (paused)" : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Priority</dt>
+          <dd>{queueTaskPriorityLabel(selectedTask.priority)}</dd>
+        </div>
+        <div>
+          <dt>Tag gate</dt>
+          <dd>
+            {queueTagPaused
+              ? tagPauseDetail(queueTagSummary?.pauseReason)
+              : "Active"}
+          </dd>
+        </div>
+        <div>
+          <dt>Item type</dt>
+          <dd>{itemTypeLabel(itemType)}</dd>
+        </div>
+        <div>
+          <dt>Assigned worker</dt>
+          <dd>
+            {workerLabel(
+              selectedTask.assignedWorkerId ??
+                selectedTask.assignedExecutorWidgetId,
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Worker route</dt>
+          <dd>
+            {routingState?.assignedWorker
+              ? routingState.canTake
+                ? "Eligible"
+                : routingBlockedLabel ?? "Blocked"
+              : selectedTask.assignedExecutorWidgetId
+                ? routingBlockedLabel ?? "Assigned worker unavailable"
+                : "Unassigned"}
+          </dd>
+        </div>
+        <div>
+          <dt>Coordinator</dt>
+          <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
+        </div>
+        <div>
+          <dt>Validation</dt>
+          <dd>{validationStatusLabel(validationStatus)}</dd>
+        </div>
+        <div>
+          <dt>Dependency gate</dt>
+          <dd>
+            {dependencyState && dependencyState.dependsOn.length > 0
+              ? queueDependencyBlockedSummary(dependencyState)
+              : "No dependencies"}
+          </dd>
+        </div>
+      </dl>
+
+      <AgentQueueExecutionPlanPanel executionPlan={executionPlan} />
+
+      <AgentQueueRunHistoryPanel
+        executorSlots={executorSlots}
+        latestRun={latestRun}
+        onAttachContextToCoordinator={onAttachContextToCoordinator}
+        onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+        runHistory={runHistory}
+        selectedTask={selectedTask}
       />
 
       <AgentQueueSequentialRunnerPanel runner={runner} />
 
       <AgentQueueAutorunPanel autorun={autorun} />
-    </section>
+    </details>
   );
 }
 

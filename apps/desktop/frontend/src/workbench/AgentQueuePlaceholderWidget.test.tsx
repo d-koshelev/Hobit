@@ -41,10 +41,11 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(document.body.textContent).toContain("Flow map");
     expect(document.body.textContent).not.toContain("Table/list");
     expect(document.body.textContent).not.toContain("Agent Queue view mode");
-    expect(document.body.textContent).toContain("Selected work item");
+    expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Prompt");
-    expect(document.body.textContent).toContain("Run task");
-    expect(detailsBySummary("Advanced execution settings")?.open).toBe(false);
+    expect(document.body.textContent).toContain("Actions and settings");
+    expect(document.body.textContent).toContain("Run selected task");
+    expect(detailsBySummary("Advanced execution settings")?.open).toBe(true);
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 

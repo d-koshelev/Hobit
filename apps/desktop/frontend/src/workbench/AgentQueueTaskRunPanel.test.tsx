@@ -396,10 +396,9 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     );
 
     const advancedSettings = detailsBySummary("Advanced execution settings");
-    const advancedExecutor = detailsBySummary("Advanced local executor");
 
-    expect(advancedSettings?.open).toBe(false);
-    expect(advancedExecutor?.open).toBe(false);
+    expect(advancedSettings?.open).toBe(true);
+    expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 
   it("exposes draft promotion without a separate START gate for selected-task runs", () => {
@@ -452,7 +451,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       tasks: [selectedTask],
     });
 
-    expect(document.body.textContent).toContain("Selected work item");
+    expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Expanded queue detail");
     expect(document.body.textContent).toContain("Implementation");
     expect(document.body.textContent).toContain("Priority P1");
@@ -469,6 +468,24 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     expect(onGenerate).toHaveBeenCalledTimes(1);
     expect(onStartAssignedTask).not.toHaveBeenCalled();
+  });
+
+  it("orders the selected rail as overview, prompt, actions, logs, then internals", () => {
+    renderDetailsPanel();
+
+    const text = document.body.textContent ?? "";
+    const overviewIndex = text.indexOf("Overview");
+    const promptIndex = text.indexOf("Prompt");
+    const actionsIndex = text.indexOf("Actions and settings");
+    const logsIndex = text.indexOf("Logs and report");
+    const internalIndex = text.indexOf("Internal details");
+
+    expect(overviewIndex).toBeGreaterThanOrEqual(0);
+    expect(promptIndex).toBeGreaterThan(overviewIndex);
+    expect(actionsIndex).toBeGreaterThan(promptIndex);
+    expect(logsIndex).toBeGreaterThan(actionsIndex);
+    expect(internalIndex).toBeGreaterThan(logsIndex);
+    expect(detailsBySummary("Internal details")?.open).toBe(false);
   });
 
   it("explains that a new draft prompt item needs a ready state before execution", () => {
@@ -650,7 +667,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(document.body.textContent).toContain("Coordinator finalization");
     expect(document.body.textContent).toContain("Ready for finalization");
     expect(document.body.textContent).toContain("Finalize / Accept item");
-    expect(document.body.textContent).toContain("Mark needs changes");
+    expect(document.body.textContent).toContain("Request changes");
     expect(document.body.textContent).toContain("Create follow-up item");
     expect(document.body.textContent).toContain("Mark rollback required");
   });

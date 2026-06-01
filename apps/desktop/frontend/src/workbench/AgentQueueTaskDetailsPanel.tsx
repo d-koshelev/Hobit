@@ -1,6 +1,9 @@
 import type { useAgentQueueController } from "./queue/useAgentQueueController";
 import { AgentQueueEmptySelection } from "./AgentQueueEmptySelection";
-import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
+import {
+  AgentQueueTaskRunAdvancedDetails,
+  AgentQueueTaskRunPanel,
+} from "./AgentQueueTaskRunPanel";
 import { AgentQueueTaskSection } from "./AgentQueueTaskSection";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
@@ -10,7 +13,6 @@ import {
   coordinatorStatusBlocksNewWork,
   coordinatorStatusBadgeVariant,
   coordinatorStatusLabel,
-  itemTypeLabel,
   normalizeItemType,
   normalizeQueueTag,
   normalizeValidationStatus,
@@ -151,14 +153,15 @@ export function AgentQueueTaskDetailsPanel({
         </div>
       ) : selectedTask ? (
         <div className="agent-queue-task-editor">
-          <ExpandedTaskHeader
-            queue={queue}
-            selectedTask={selectedTask}
-          />
-
-          <NextActionPanel queue={queue} selectedTask={selectedTask} />
+          <SelectedTaskOverview queue={queue} selectedTask={selectedTask} />
 
           <PromptPreview prompt={selectedTask.prompt} />
+
+          <section
+            aria-label="Selected task actions and settings"
+            className="agent-queue-actions-settings"
+          >
+            <NextActionPanel queue={queue} selectedTask={selectedTask} />
 
           <AgentQueueTaskRunPanel
             apiAvailable={assignmentApiAvailable}
@@ -171,6 +174,7 @@ export function AgentQueueTaskDetailsPanel({
             executionPlan={queue.executionPlan}
             globalExecutionState={queue.foundation.globalExecutionState}
             hasExecutorSlots={agentExecutorSlots.length > 0}
+            includeAdvancedDetails={false}
             inputId={assignmentInputId}
             isAssigning={isAssigning}
             isDirty={isDirty || editTask.isEditing}
@@ -195,18 +199,54 @@ export function AgentQueueTaskDetailsPanel({
             queueTags={queue.foundation.queueTags}
             workers={queue.foundation.workers}
           />
+          </section>
 
-          <DiffReviewLinkagePanel
+          <HumanReadableActivityPanel
             onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
             queue={queue}
-          />
-
-          <WorkerExecutionReportPanel
-            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-            queue={queue}
+            selectedTask={selectedTask}
           />
 
           <CoordinatorFinalizationPanel queue={queue} />
+
+          <details className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details">
+            <summary>Internal details</summary>
+            <DiffReviewLinkagePanel
+              onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+              queue={queue}
+            />
+            <WorkerExecutionReportPanel
+              onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+              queue={queue}
+            />
+            <AgentQueueTaskRunAdvancedDetails
+              autorun={queue.autorun}
+              dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
+              executorSlots={agentExecutorSlots}
+              executionPlan={queue.executionPlan}
+              latestRun={queue.latestRun}
+              onAttachContextToCoordinator={onAttachContextToCoordinator}
+              onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+              queueTag={normalizeQueueTag(selectedTask)}
+              queueTagSummary={queue.foundation.queueTags.find(
+                (tag) =>
+                  tag.queueTagId === normalizeQueueTag(selectedTask).queueTagId,
+              )}
+              routingBlockedLabel={
+                queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+                  ?.canTake === false
+                  ? queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+                      ?.blockedReasons[0]?.label ?? null
+                  : null
+              }
+              routingState={queue.assignedWorkerRoutingStates.get(
+                selectedTask.queueItemId,
+              )}
+              runHistory={queue.runHistory}
+              runner={queue.runner}
+              selectedTask={selectedTask}
+            />
+          </details>
 
           <details
             className="agent-queue-details agent-queue-secondary-details"
@@ -415,7 +455,7 @@ function nextActionForSelectedTask(
 
   if (queue.run.canStart) {
     actions.push({
-      label: queue.run.isStarting ? "Starting" : "Run assigned task",
+      label: queue.run.isStarting ? "Starting" : "Run task",
       onClick: () => queue.run.onStartAssignedTask(),
       variant: "primary",
     });
@@ -433,6 +473,35 @@ function nextActionForSelectedTask(
   }
 
   if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
+    actions.push({
+      label: "View report",
+      onClick: () => scrollToSelectedTaskReport(),
+      variant: "primary",
+    });
+
+    if (queue.coordinatorFinalization.status === "ready_for_finalization") {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Finalize / Accept",
+        onClick: () => queue.coordinatorFinalization.onFinalize(),
+        variant: "secondary",
+      });
+    } else {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Mark ready for finalization",
+        onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
+        variant: "secondary",
+      });
+    }
+
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Request changes",
+      onClick: () => queue.coordinatorFinalization.onMarkNeedsChanges(),
+      variant: "secondary",
+    });
+
     return {
       actions,
       badge: coordinatorStatusLabel(selectedTask.coordinatorStatus),
@@ -448,6 +517,14 @@ function nextActionForSelectedTask(
   }
 
   if (selectedTask.status === "draft") {
+    if (queue.draftPromotion.canPromote) {
+      actions.push({
+        label: "Promote to queued",
+        onClick: () => queue.draftPromotion.onPromote(),
+        variant: "primary",
+      });
+    }
+
     actions.push({
       label: queue.editTask.isEditing ? "Editing status" : "Edit status",
       onClick: () => queue.editTask.onStart(),
@@ -475,6 +552,16 @@ function nextActionForSelectedTask(
   }
 
   if (readinessMessage?.startsWith("Assign an Agent Executor")) {
+    actions.push({
+      disabled:
+        queue.isAssigning ||
+        !queue.selectedExecutorWidgetId ||
+        !queue.assignmentApiAvailable,
+      label: queue.isAssigning ? "Assigning" : "Assign executor",
+      onClick: () => void queue.assignSelectedTask(),
+      variant: "primary",
+    });
+
     return {
       actions,
       badge: "Unassigned",
@@ -506,6 +593,12 @@ function nextActionForSelectedTask(
   }
 
   if (!hasReport && isReviewLikeStatus(selectedTask.status)) {
+    actions.push({
+      label: "View report",
+      onClick: () => scrollToSelectedTaskReport(),
+      variant: "secondary",
+    });
+
     return {
       actions,
       badge: "No report",
@@ -546,6 +639,281 @@ function nextActionForSelectedTask(
 
 function isReviewLikeStatus(status: string) {
   return status === "review_needed" || status === "completed";
+}
+
+function scrollToSelectedTaskReport() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document
+    .getElementById("agent-queue-human-log-report")
+    ?.scrollIntoView({ block: "nearest" });
+}
+
+function HumanReadableActivityPanel({
+  onShowQueueReportInWorkspaceChat,
+  queue,
+  selectedTask,
+}: {
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
+  queue: AgentQueueController;
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>;
+}) {
+  const report = queue.workerReport.latestReport;
+  const reportCard = queue.reportActionCard.workerReportCard;
+  const entries = buildHumanTimeline(queue, selectedTask);
+
+  return (
+    <section
+      aria-label="Human-readable logs and report"
+      className="agent-queue-expanded-section agent-queue-human-log-report"
+      id="agent-queue-human-log-report"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-execution-group-title">Logs and report</p>
+          <p className="agent-queue-run-note">
+            Readable task activity. Raw run metadata stays in Internal details.
+          </p>
+        </div>
+        <Badge variant={report ? "info" : "neutral"}>
+          {report ? "Report attached" : "No report"}
+        </Badge>
+      </div>
+
+      <div className="agent-queue-human-timeline">
+        {entries.map((entry) => (
+          <div className="agent-queue-human-timeline-item" key={entry.key}>
+            <Badge variant={entry.badgeVariant}>{entry.badge}</Badge>
+            <div>
+              <p className="agent-queue-human-timeline-title">
+                {entry.title}
+              </p>
+              <p className="agent-queue-human-timeline-copy">
+                {entry.message}
+              </p>
+              {entry.time ? (
+                <p className="agent-queue-human-timeline-time">
+                  {formatTimestamp(entry.time)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {report ? (
+        <div className="agent-queue-human-report-summary">
+          <p className="agent-queue-worker-report-summary">{report.summary}</p>
+          {report.commandsRun.length > 0 ? (
+            <p className="agent-queue-run-note">
+              Commands reported: {report.commandsRun.join("; ")}
+            </p>
+          ) : null}
+          {report.changedFiles.length > 0 ? (
+            <p className="agent-queue-run-note">
+              Changed files: {report.changedFiles.join(", ")}
+            </p>
+          ) : null}
+          {report.errors.length > 0 ? (
+            <p className="agent-queue-run-warning">
+              Needs attention: {report.errors[0]}
+            </p>
+          ) : null}
+          <div className="agent-queue-run-actions">
+            <Button
+              disabled={!reportCard || !onShowQueueReportInWorkspaceChat}
+              onClick={() => {
+                if (!reportCard || !onShowQueueReportInWorkspaceChat) {
+                  return;
+                }
+
+                onShowQueueReportInWorkspaceChat(reportCard);
+                queue.reportActionCard.onShown(reportCard.cardId);
+              }}
+              variant="secondary"
+            >
+              View report in Workspace Chat
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="agent-queue-run-note">
+          No worker report has been attached yet. Execution output remains owned
+          by Agent Executor.
+        </p>
+      )}
+
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Raw details</summary>
+        <p className="agent-queue-run-note">
+          Raw run links, expected plan internals, worker route, and full report
+          fields are available in Internal details below. Queue does not copy
+          Executor stdout, stderr, final responses, diffs, repo paths, secrets,
+          or raw payloads.
+        </p>
+      </details>
+    </section>
+  );
+}
+
+type HumanTimelineEntry = {
+  badge: string;
+  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
+  key: string;
+  message: string;
+  time?: string | null;
+  title: string;
+};
+
+function buildHumanTimeline(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+): HumanTimelineEntry[] {
+  const report = queue.workerReport.latestReport;
+  const latestRun = queue.latestRun.link;
+  const entries: HumanTimelineEntry[] = [
+    {
+      badge: "Created",
+      badgeVariant: "neutral",
+      key: "created",
+      message: "Task was created in this Workspace Queue.",
+      time: selectedTask.createdAt,
+      title: "Created task",
+    },
+  ];
+
+  if (selectedTask.status !== "draft") {
+    entries.push({
+      badge: "Queued",
+      badgeVariant: "info",
+      key: "queued",
+      message: `Task is ${statusLabel(selectedTask.status).toLowerCase()} for explicit operator-controlled work.`,
+      time: selectedTask.updatedAt,
+      title: "Promoted to queued",
+    });
+  }
+
+  if (selectedTask.assignedExecutorWidgetId) {
+    entries.push({
+      badge: "Assigned",
+      badgeVariant: "info",
+      key: "assigned",
+      message: `${selectedTask.assignedExecutorWidgetId} is assigned. Assignment did not start work.`,
+      time: selectedTask.updatedAt,
+      title: "Assigned executor",
+    });
+  }
+
+  if (latestRun) {
+    entries.push({
+      badge: "Started",
+      badgeVariant: "info",
+      key: "run-started",
+      message: "An explicit Agent Executor run was started for this task.",
+      time: latestRun.startedAt,
+      title: "Run started",
+    });
+
+    entries.push({
+      badge: runTimelineBadge(latestRun.status),
+      badgeVariant: runTimelineBadgeVariant(latestRun.status),
+      key: "run-finished",
+      message: `Latest linked Executor run is ${latestRun.status}.`,
+      time: latestRun.completedAt,
+      title:
+        latestRun.status === "running" ? "Run still running" : "Run completed / failed",
+    });
+  }
+
+  if (report?.commandsRun.length) {
+    entries.push({
+      badge: "Command",
+      badgeVariant: "neutral",
+      key: "command",
+      message:
+        report.commandsRun.length === 1
+          ? report.commandsRun[0]
+          : `${report.commandsRun.length.toString()} commands were reported.`,
+      time: report.createdAt,
+      title: "Command executed",
+    });
+  }
+
+  if (report) {
+    entries.push({
+      badge: "Report",
+      badgeVariant:
+        report.reportStatus === "failed" ? "error" : "info",
+      key: "report",
+      message: report.summary,
+      time: report.createdAt,
+      title: "Report attached",
+    });
+  }
+
+  if (queue.diffReview.linkedReviewTasks.length > 0) {
+    entries.push({
+      badge: "Review",
+      badgeVariant: "warning",
+      key: "diff-review",
+      message: `${queue.diffReview.linkedReviewTasks.length.toString()} diff review item${
+        queue.diffReview.linkedReviewTasks.length === 1 ? "" : "s"
+      } requested. No review runs automatically.`,
+      time: selectedTask.updatedAt,
+      title: "Diff review created",
+    });
+  }
+
+  if (
+    selectedTask.coordinatorStatus &&
+    selectedTask.coordinatorStatus !== "not_reported"
+  ) {
+    entries.push({
+      badge: "Review",
+      badgeVariant: coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)
+        ? "warning"
+        : "success",
+      key: "coordinator",
+      message: coordinatorStatusLabel(selectedTask.coordinatorStatus),
+      time: selectedTask.updatedAt,
+      title:
+        selectedTask.coordinatorStatus === "finalized"
+          ? "Coordinator finalized"
+          : "Coordinator review updated",
+    });
+  }
+
+  return entries;
+}
+
+function runTimelineBadge(status: string) {
+  if (status === "completed") {
+    return "Done";
+  }
+
+  if (status === "running") {
+    return "Running";
+  }
+
+  return "Failed";
+}
+
+function runTimelineBadgeVariant(
+  status: string,
+): HumanTimelineEntry["badgeVariant"] {
+  if (status === "completed") {
+    return "success";
+  }
+
+  if (status === "running") {
+    return "info";
+  }
+
+  return "error";
 }
 
 function CoordinatorFinalizationPanel({
@@ -612,7 +980,7 @@ function CoordinatorFinalizationPanel({
           onClick={() => finalization.onMarkNeedsChanges()}
           variant="secondary"
         >
-          Mark needs changes
+          Request changes
         </Button>
         <Button
           disabled={!finalization.canAct}
@@ -657,7 +1025,7 @@ function CoordinatorFinalizationPanel({
   );
 }
 
-function ExpandedTaskHeader({
+function SelectedTaskOverview({
   queue,
   selectedTask,
 }: {
@@ -680,13 +1048,16 @@ function ExpandedTaskHeader({
 
   return (
     <section
-      aria-label="Expanded Queue item header"
-      className="agent-queue-expanded-header"
+      aria-label="Selected task overview"
+      className="agent-queue-expanded-header agent-queue-overview"
     >
       <div className="agent-queue-expanded-heading">
         <div>
-          <p className="agent-queue-expanded-kicker">Selected work item</p>
+          <p className="agent-queue-expanded-kicker">Overview</p>
           <h3>{displayTaskTitle(selectedTask)}</h3>
+          <p className="agent-queue-overview-state">
+            {overviewStateSentence(selectedTask, executorInfo.label)}
+          </p>
         </div>
         <div
           className={[
@@ -703,7 +1074,6 @@ function ExpandedTaskHeader({
 
       <div className="agent-queue-expanded-badges">
         <Badge variant="neutral">{queueTag.queueTagName}</Badge>
-        <Badge variant="neutral">{itemTypeLabel(normalizeItemType(selectedTask.itemType))}</Badge>
         <Badge variant="neutral">
           Priority {queueTaskPriorityLabel(selectedTask.priority)}
         </Badge>
@@ -713,51 +1083,29 @@ function ExpandedTaskHeader({
         <Badge variant={statusBadgeVariant(selectedTask.status)}>
           {statusLabel(selectedTask.status)}
         </Badge>
-        <Badge
-          className={
-            validationStatus === "validating"
-              ? "agent-queue-validation-animating"
-              : undefined
-          }
-          variant={validationBadgeVariant(validationStatus)}
-        >
-          {validationStatusLabel(validationStatus)}
-        </Badge>
-        <Badge variant={queueExecutorInfoBadgeVariant(executorInfo.tone)}>
-          {executorInfo.label}
-        </Badge>
+        {selectedTask.coordinatorStatus &&
+        selectedTask.coordinatorStatus !== "not_reported" ? (
+          <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
+            {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
+          </Badge>
+        ) : null}
       </div>
 
-      <dl className="agent-queue-expanded-facts">
-        <div>
-          <dt>Plan</dt>
-          <dd>{executionPlanStatusLabel(selectedTask.executionPlanPreview)}</dd>
-        </div>
-        <div>
-          <dt>Execution</dt>
-          <dd>{statusLabel(selectedTask.status)}</dd>
-        </div>
-        <div>
-          <dt>Validation</dt>
-          <dd>{validationStatusLabel(validationStatus)}</dd>
-        </div>
-        <div>
-          <dt>Coordinator</dt>
-          <dd>{coordinatorStatusLabel(selectedTask.coordinatorStatus)}</dd>
-        </div>
-        <div>
-          <dt>Report</dt>
-          <dd>{latestReportLabel(selectedTask)}</dd>
-        </div>
-        <div>
-          <dt>Diff review</dt>
-          <dd>{diffReviewHeaderLabel(queue, selectedTask)}</dd>
-        </div>
-        <div>
-          <dt>Live timer</dt>
-          <dd>{liveTimerCopy(queue)}</dd>
-        </div>
-      </dl>
+      <p className="agent-queue-overview-next">
+        {overviewNextStep(queue, selectedTask)}
+      </p>
+      <div className="agent-queue-overview-secondary">
+        <span>{executorInfo.label}</span>
+        {latestReportLabel(selectedTask) !== "No worker report" ? (
+          <span>{latestReportLabel(selectedTask)}</span>
+        ) : null}
+        {validationStatus !== "not_started" ? (
+          <span>{validationStatusLabel(validationStatus)}</span>
+        ) : null}
+        {diffReviewHeaderLabel(queue, selectedTask) !== "Not requested" ? (
+          <span>{diffReviewHeaderLabel(queue, selectedTask)}</span>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -1165,12 +1513,64 @@ function PromptPreview({ prompt }: { prompt: string }) {
   return (
     <details className="agent-queue-expanded-section agent-queue-prompt-preview" open>
       <summary>Prompt</summary>
-      <pre>{prompt.trim() || "No prompt has been written for this task."}</pre>
+      <pre>{prompt || "No prompt has been written for this task."}</pre>
       <p className="agent-queue-run-note">
         Expected plan metadata is kept separate from the prompt text.
       </p>
     </details>
   );
+}
+
+function overviewStateSentence(
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+  executorLabel: string,
+) {
+  switch (selectedTask.status) {
+    case "draft":
+      return "Draft task. It will not run until the operator promotes it.";
+    case "running":
+      return `${executorLabel} is running this task. Agent Executor owns live output.`;
+    case "completed":
+      return "Execution completed. Review the report before accepting the work.";
+    case "failed":
+      return "Execution failed. Review the report and request changes if needed.";
+    case "cancelled":
+      return "Execution was cancelled by operator action.";
+    case "review_needed":
+      return "Output is ready for human review.";
+    case "queued":
+    case "ready":
+      return `${statusLabel(selectedTask.status)} task. It runs only after an explicit operator action.`;
+    default:
+      return `${statusLabel(selectedTask.status)} task.`;
+  }
+}
+
+function overviewNextStep(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  if (queue.run.canStart) {
+    return "Next: review settings, then click Run task when ready.";
+  }
+
+  if (selectedTask.status === "draft") {
+    return "Next: confirm the prompt, then promote it to queued when it is ready.";
+  }
+
+  if (!selectedTask.assignedExecutorWidgetId) {
+    return "Next: choose and assign an Agent Executor.";
+  }
+
+  if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
+    return "Next: review the report and make an explicit coordinator decision.";
+  }
+
+  if (queue.run.readinessMessage) {
+    return `Next: ${queue.run.readinessMessage}`;
+  }
+
+  return "Next: check the prompt, settings, and latest activity before acting.";
 }
 
 function formatTimestamp(value: string) {
@@ -1251,14 +1651,4 @@ function workerReportValidationLabel(
     default:
       return "not run";
   }
-}
-
-function liveTimerCopy(queue: AgentQueueController) {
-  const link = queue.latestRun.link;
-
-  if (link?.status === "running" && link.startedAt) {
-    return `Started ${formatTimestamp(link.startedAt)}. Live timer appears when runtime execution is wired.`;
-  }
-
-  return "Live timer appears when runtime execution is wired.";
 }
