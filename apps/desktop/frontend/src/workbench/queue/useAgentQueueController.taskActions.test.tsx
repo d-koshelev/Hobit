@@ -1,6 +1,7 @@
 import { act } from "react";
 
 import {
+  agentQueueWorker,
   createQueueHarness,
   flushControllerLoad,
   flushHookEffects,
@@ -162,6 +163,57 @@ describe("useAgentQueueController task actions", () => {
         "Task promoted to queued. No Executor run",
       ),
     ).toBe(true);
+
+    hook.unmount();
+  });
+
+  it("treats an assigned visible idle executor slot as available even when worker configs omit it", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this local Hobit task",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.replaceWorker(
+      agentQueueWorker({
+        name: "Legacy worker config",
+        workerId: "legacy-worker",
+      }),
+    );
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+      hook.result.current.run.onRepoRootDraftChange("C:\\repo");
+    });
+
+    const visibleSlotWorker = hook.result.current.foundation.workers.find(
+      (worker) => worker.workerId === "executor-1",
+    );
+
+    expect(visibleSlotWorker?.status).toBe("idle");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
+    expect(harness.startRequests).toHaveLength(0);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toEqual([
+      {
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        queueItemId: "queue-1",
+        repoRoot: "C:\\repo",
+        sandbox: "read_only",
+      },
+    ]);
+    expect(harness.autorunStartRequests).toHaveLength(0);
 
     hook.unmount();
   });

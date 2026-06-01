@@ -462,7 +462,7 @@ export function workersFromExecutorSlots({
 }): AgentWorkerSummary[] {
   const configs =
     workerConfigs && workerConfigs.length > 0
-      ? workerConfigs
+      ? workerConfigsWithVisibleExecutorSlots(workerConfigs, slots)
       : slots.map((slot, index) => ({
           createdAt: "",
           displayOrder: index,
@@ -521,4 +521,36 @@ export function workersFromExecutorSlots({
         workerId: workerConfig.workerId,
       };
     });
+}
+
+function workerConfigsWithVisibleExecutorSlots(
+  workerConfigs: AgentQueueWorkerConfig[],
+  slots: AgentExecutorSlot[],
+): AgentQueueWorkerConfig[] {
+  const configuredWorkerIds = new Set(
+    workerConfigs.map((worker) => worker.workerId),
+  );
+  const maxDisplayOrder = workerConfigs.reduce(
+    (maxOrder, worker) =>
+      Number.isFinite(worker.displayOrder)
+        ? Math.max(maxOrder, worker.displayOrder)
+        : maxOrder,
+    -1,
+  );
+  const missingSlotConfigs = slots
+    .filter((slot) => !configuredWorkerIds.has(slot.widgetInstanceId))
+    .map((slot, index) => ({
+      createdAt: "",
+      displayOrder: maxDisplayOrder + index + 1,
+      enabled: true,
+      name: slot.label,
+      queueTagId: null,
+      queueTagName: null,
+      scopeKind: "all" as const,
+      updatedAt: "",
+      workerId: slot.widgetInstanceId,
+      workspaceId: "",
+    }));
+
+  return [...workerConfigs, ...missingSlotConfigs];
 }
