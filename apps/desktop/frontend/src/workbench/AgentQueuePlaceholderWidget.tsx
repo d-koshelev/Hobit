@@ -7,7 +7,6 @@ import { AgentQueueLayout } from "./AgentQueueLayout";
 import { AgentQueueNewTaskDialog } from "./AgentQueueNewTaskDialog";
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
 import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
-import { AgentQueueTaskList } from "./AgentQueueTaskList";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import {
   emptyDraft,
@@ -75,9 +74,6 @@ export function AgentQueuePlaceholderWidget({
   const createExecutionPolicyInputId = useId();
   const createDialogTitleId = useId();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"flow" | "list">(
-    DEFAULT_AGENT_QUEUE_VIEW_MODE,
-  );
   const [createDraft, setCreateDraft] = useState<TaskDraft>(() =>
     newTaskDialogDraft(),
   );
@@ -111,7 +107,6 @@ export function AgentQueuePlaceholderWidget({
   const {
     apiAvailable,
     createTask,
-    filteredTasks,
     isCreating,
     isDirty,
     isLoading,
@@ -121,8 +116,6 @@ export function AgentQueuePlaceholderWidget({
     refreshTasks,
     selectedTask,
     selectTask,
-    setStatusFilter,
-    statusFilter,
     tasks,
   } = queue;
 
@@ -244,88 +237,42 @@ export function AgentQueuePlaceholderWidget({
             <p className="empty-state-text">{singleState.text}</p>
           </div>
         ) : (
-          <>
-            <div
-              aria-label="Agent Queue view mode"
-              className="agent-queue-view-toggle"
-              role="group"
-            >
-              <button
-                aria-pressed={viewMode === "flow"}
-                className={viewMode === "flow" ? "agent-queue-view-toggle-active" : ""}
-                onClick={() => setViewMode("flow")}
-                type="button"
-              >
-                Flow map
-              </button>
-              <button
-                aria-pressed={viewMode === "list"}
-                className={viewMode === "list" ? "agent-queue-view-toggle-active" : ""}
-                onClick={() => setViewMode("list")}
-                type="button"
-              >
-                Table/list
-              </button>
-            </div>
-            <AgentQueueLayout
-              isFlowMapView={viewMode === "flow"}
-              isTaskPaneResizable={Boolean(frameMoveEnabled) && viewMode === "list"}
-              sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
-              detailsPanel={
-                <AgentQueueTaskDetailsPanel
-                  agentExecutorSlots={agentExecutorSlots}
-                  assignmentInputId={assignmentInputId}
-                  descriptionInputId={descriptionInputId}
-                  executionPolicyInputId={executionPolicyInputId}
-                  priorityInputId={priorityInputId}
-                  promptInputId={promptInputId}
-                  presentation={
-                    viewMode === "flow" ? "flow-summary" : "full"
-                  }
-                  queue={queue}
-                  onAttachContextToCoordinator={onAttachContextToCoordinator}
-                  onShowQueueReportInWorkspaceChat={
-                    onShowQueueReportInWorkspaceChat
-                  }
-                  onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                  selectedTaskHint={selectedTaskHint}
-                  statusInputId={statusInputId}
-                  titleInputId={titleInputId}
-                />
-              }
-              taskList={
-                viewMode === "flow" ? (
-                  <AgentQueueFlowMap
-                    dependencyStates={queue.dependencyStates}
-                    embeddedExecutor={queue.foundation.embeddedExecutor}
-                    isSelecting={isSelecting}
-                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
-                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
-                    routingStates={queue.assignedWorkerRoutingStates}
-                    schedulerPlan={queue.foundation.schedulerPlan}
-                    selectedTask={selectedTask}
-                    tasks={tasks}
-                    workers={queue.foundation.workers}
-                  />
-                ) : (
-                  <AgentQueueTaskList
-                    dependencyStates={queue.dependencyStates}
-                    filteredTasks={filteredTasks}
-                    isLoading={isLoading}
-                    isSelecting={isSelecting}
-                    loadError={loadError}
-                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
-                    onStatusFilterChange={setStatusFilter}
-                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
-                    routingStates={queue.assignedWorkerRoutingStates}
-                    selectedTask={selectedTask}
-                    statusFilter={statusFilter}
-                    tasks={tasks}
-                  />
-                )
-              }
-            />
-          </>
+          <AgentQueueLayout
+            isFlowMapView
+            sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
+            detailsPanel={
+              <AgentQueueTaskDetailsPanel
+                agentExecutorSlots={agentExecutorSlots}
+                assignmentInputId={assignmentInputId}
+                descriptionInputId={descriptionInputId}
+                executionPolicyInputId={executionPolicyInputId}
+                priorityInputId={priorityInputId}
+                promptInputId={promptInputId}
+                presentation="full"
+                queue={queue}
+                onAttachContextToCoordinator={onAttachContextToCoordinator}
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+                selectedTaskHint={selectedTaskHint}
+                statusInputId={statusInputId}
+                titleInputId={titleInputId}
+              />
+            }
+            taskList={
+              <AgentQueueFlowMap
+                dependencyStates={queue.dependencyStates}
+                embeddedExecutor={queue.foundation.embeddedExecutor}
+                isSelecting={isSelecting}
+                onSelectTask={(queueItemId) => void selectTask(queueItemId)}
+                pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+                routingStates={queue.assignedWorkerRoutingStates}
+                schedulerPlan={queue.foundation.schedulerPlan}
+                selectedTask={selectedTask}
+                tasks={tasks}
+                workers={queue.foundation.workers}
+              />
+            }
+          />
         )}
         {isCreateDialogOpen ? (
           <AgentQueueNewTaskDialog

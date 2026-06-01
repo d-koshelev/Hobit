@@ -362,8 +362,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       run: {
         ...runController(),
         codexExecutableDraft: "",
-        readinessMessage:
-          "Queue is stopped. Click START before running the selected task.",
+        readinessMessage: null,
         repoRootDraft: "",
         sandbox: "read_only",
       },
@@ -375,12 +374,10 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     expect(document.body.textContent).toContain("Prepare local run");
+    expect(document.body.textContent).toContain("Run task");
     expect(document.body.textContent).toContain("Agent Executor availability");
     expect(document.body.textContent).toContain(
-      "No Agent Executor available. Add an Agent Executor widget to run Queue tasks.",
-    );
-    expect(document.body.textContent).toContain(
-      "Queue is stopped. Click START before running the selected task.",
+      "No local executor slot is visible. Queue-owned slot creation needs a backend follow-up",
     );
     expect(document.body.textContent).toContain(
       "Set workspace to the Hobit repo root before running this task.",
@@ -394,9 +391,18 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain(
       "Draft tasks are not runnable. Promote to queued",
     );
+    expect(document.body.textContent).not.toContain(
+      "Click START before running the selected task.",
+    );
+
+    const advancedSettings = detailsBySummary("Advanced execution settings");
+    const advancedExecutor = detailsBySummary("Advanced local executor");
+
+    expect(advancedSettings?.open).toBe(false);
+    expect(advancedExecutor?.open).toBe(false);
   });
 
-  it("exposes explicit checklist actions for START and draft promotion", () => {
+  it("exposes draft promotion without a separate START gate for selected-task runs", () => {
     const onStartWorkers = vi.fn();
     const onPromoteDraftToQueued = vi.fn();
 
@@ -412,10 +418,10 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       },
     });
 
-    clickFirstButton("START");
+    expect(buttonByText("START")).toBeUndefined();
     clickFirstButton("Promote to queued");
 
-    expect(onStartWorkers).toHaveBeenCalledTimes(1);
+    expect(onStartWorkers).not.toHaveBeenCalled();
     expect(onPromoteDraftToQueued).toHaveBeenCalledTimes(1);
   });
 });
@@ -1222,9 +1228,7 @@ function planPreview(
 }
 
 function clickFirstButton(text: string) {
-  const button = Array.from(document.querySelectorAll("button")).find(
-    (button) => button.textContent === text,
-  );
+  const button = buttonByText(text);
 
   if (!button) {
     throw new Error(`Button not found: ${text}`);
@@ -1233,6 +1237,18 @@ function clickFirstButton(text: string) {
   act(() => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+function buttonByText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+function detailsBySummary(text: string) {
+  return Array.from(document.querySelectorAll<HTMLDetailsElement>("details")).find(
+    (details) => details.querySelector("summary")?.textContent === text,
+  );
 }
 
 function queueTask(): AgentQueueTask {
@@ -1321,6 +1337,7 @@ function runController(): AgentQueueRunController {
     startError: null,
     startedRunId: null,
     startMessage: null,
+    usesDefaultExecutorOnStart: false,
   };
 }
 

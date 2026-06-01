@@ -45,9 +45,9 @@ export const widgetLayoutDefaultsByDefinitionId: Record<
     minHeight: 432,
   },
   [AGENT_QUEUE_WIDGET_DEFINITION_ID]: {
-    defaultWidth: 672,
-    defaultHeight: 552,
-    minWidth: 528,
+    defaultWidth: 1160,
+    defaultHeight: 680,
+    minWidth: 720,
     minHeight: 432,
   },
   [AGENT_RUN_WIDGET_DEFINITION_ID]: {

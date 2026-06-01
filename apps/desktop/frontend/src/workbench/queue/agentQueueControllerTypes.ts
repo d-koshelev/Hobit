@@ -60,6 +60,7 @@ export type AgentQueueRunController = {
   startError: string | null;
   startedRunId: string | null;
   startMessage: string | null;
+  usesDefaultExecutorOnStart: boolean;
 };
 
 export type AgentQueueRunnerController = {

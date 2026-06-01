@@ -14,7 +14,7 @@ import {
 } from "./useAgentQueueControllerTestHelpers";
 
 describe("useAgentQueueController execution state", () => {
-  it("uses explicit global execution state to gate manual run, Autorun, and Sequential Runner", async () => {
+  it("uses explicit global execution state to gate Autorun and Sequential Runner without blocking selected-task runs", async () => {
     const harness = createQueueHarness([
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -40,9 +40,8 @@ describe("useAgentQueueController execution state", () => {
     });
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
-    expect(
-      hook.result.current.run.readinessMessage?.includes("Queue is stopped"),
-    ).toBe(true);
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
@@ -70,9 +69,8 @@ describe("useAgentQueueController execution state", () => {
     });
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
-    expect(
-      hook.result.current.run.readinessMessage?.includes("Queue is stopped"),
-    ).toBe(true);
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);
 
     act(() => {
@@ -94,7 +92,6 @@ describe("useAgentQueueController execution state", () => {
     ).toBe(true);
 
     await act(async () => {
-      hook.result.current.run.onStartAssignedTask();
       hook.result.current.autorun.onArm();
       hook.result.current.runner.onStart();
       await flushHookEffects();
@@ -102,6 +99,45 @@ describe("useAgentQueueController execution state", () => {
 
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("assigns the visible local executor before a selected unassigned task run", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "manual",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+    });
+
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
+    expect(hook.result.current.run.usesDefaultExecutorOnStart).toBe(true);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toEqual([
+      {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "queue-1",
+      },
+    ]);
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+    expect(harness.handoffs).toHaveLength(1);
 
     hook.unmount();
   });

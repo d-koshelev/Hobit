@@ -168,10 +168,10 @@ describe("widgetCatalogTemplates", () => {
       minWidth: 576,
     });
     expect(templateFor(AGENT_QUEUE_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
-      defaultHeight: 552,
-      defaultWidth: 672,
+      defaultHeight: 680,
+      defaultWidth: 1160,
       minHeight: 432,
-      minWidth: 528,
+      minWidth: 720,
     });
   });
 

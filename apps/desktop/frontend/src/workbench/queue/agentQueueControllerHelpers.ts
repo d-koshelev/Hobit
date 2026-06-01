@@ -225,10 +225,12 @@ export function reconcileQueueTask(
 }
 
 export function queueRunReadinessMessage({
+  allowDefaultExecutorAssignment = false,
   isDirty,
   selectedTask,
   startApiAvailable,
 }: {
+  allowDefaultExecutorAssignment?: boolean;
   isDirty: boolean;
   selectedTask: AgentQueueTask;
   startApiAvailable: boolean;
@@ -237,7 +239,7 @@ export function queueRunReadinessMessage({
     return "Assigned-task execution is not available in this runtime.";
   }
 
-  if (!selectedTask.assignedExecutorWidgetId) {
+  if (!selectedTask.assignedExecutorWidgetId && !allowDefaultExecutorAssignment) {
     return "Assign an Agent Executor before running.";
   }
 

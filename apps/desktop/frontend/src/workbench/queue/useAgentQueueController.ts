@@ -569,21 +569,30 @@ export function useAgentQueueController({
     selectedTaskAssignedWorkerRouting &&
     selectedTaskAssignedWorkerRouting.blockedReasons.length > 0
       ? firstRoutingBlockedReasonLabel(
-          selectedTaskAssignedWorkerRouting.blockedReasons,
+          selectedTaskAssignedWorkerRouting.blockedReasons.filter(
+            (reason) => reason.code !== "queue_stopped",
+          ),
         )
       : null;
   const globalRunBlockMessage =
-    globalExecutionState === "stopped"
-      ? "Queue is stopped. Click START before running the selected task."
-      : globalExecutionState === "stop_kill_requested"
+    globalExecutionState === "stop_kill_requested"
         ? "STOP + KILL RUNNING is requested. Review running work or click START before starting new work."
         : null;
+  const canUseDefaultLocalExecutor =
+    Boolean(
+      selectedTask &&
+        !selectedTask.assignedExecutorWidgetId &&
+        assignmentApiAvailable &&
+        agentExecutorSlots.length === 1 &&
+        selectedExecutorWidgetId,
+    );
   const readinessMessage = globalRunBlockMessage
     ? globalRunBlockMessage
     : selectedQueueTagPaused
     ? "Resume this queue tag before running the selected task."
     : selectedTask
         ? queueRunReadinessMessage({
+          allowDefaultExecutorAssignment: canUseDefaultLocalExecutor,
           isDirty: hasOpenTaskEdit,
           selectedTask,
           startApiAvailable,
@@ -828,6 +837,7 @@ export function useAgentQueueController({
   const runActions = createAgentQueueRunActions({
     applyUpdatedTask,
     approvalPolicy,
+    canAutoAssignSelectedTask: canUseDefaultLocalExecutor,
     canArmAutorun,
     canStart,
     codexExecutable,
@@ -1035,6 +1045,7 @@ export function useAgentQueueController({
       startError,
       startedRunId,
       startMessage,
+      usesDefaultExecutorOnStart: canUseDefaultLocalExecutor,
     } satisfies AgentQueueRunController,
     latestRun: {
       apiAvailable: Boolean(

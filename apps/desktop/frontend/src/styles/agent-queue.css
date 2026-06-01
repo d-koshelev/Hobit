@@ -136,8 +136,10 @@
 
 .agent-queue-product-layout-flow {
   grid-template-columns:
-    minmax(152px, 188px) minmax(560px, 1fr)
-    minmax(176px, 216px);
+    minmax(180px, var(--agent-queue-left-rail-width, 220px)) 10px
+    minmax(520px, 1fr) 10px
+    minmax(220px, var(--agent-queue-right-rail-width, 320px));
+  gap: var(--space-xs);
 }
 
 .agent-queue-product-layout-flow .agent-queue-sidebar,
@@ -249,7 +251,8 @@
   color: var(--color-text-primary);
 }
 
-.agent-queue-task-pane-resize-handle {
+.agent-queue-task-pane-resize-handle,
+.agent-queue-column-resize-handle {
   align-self: stretch;
   width: 10px;
   min-width: 10px;
@@ -262,7 +265,10 @@
 
 .agent-queue-task-pane-resize-handle:hover,
 .agent-queue-task-pane-resize-handle:focus-visible,
-.agent-queue-product-layout-resizing .agent-queue-task-pane-resize-handle {
+.agent-queue-column-resize-handle:hover,
+.agent-queue-column-resize-handle:focus-visible,
+.agent-queue-product-layout-resizing .agent-queue-task-pane-resize-handle,
+.agent-queue-product-layout-resizing .agent-queue-column-resize-handle {
   background: color-mix(
     in srgb,
     var(--color-primary-soft) 72%,
@@ -271,7 +277,8 @@
   outline: none;
 }
 
-.agent-queue-task-pane-resize-handle:focus-visible {
+.agent-queue-task-pane-resize-handle:focus-visible,
+.agent-queue-column-resize-handle:focus-visible {
   box-shadow: inset 0 0 0 2px var(--color-primary-hairline);
 }
 
@@ -1996,6 +2003,11 @@
   padding-top: 0;
 }
 
+.agent-queue-execution-group-nested {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .agent-queue-assignment-controls,
 .agent-queue-assignment-buttons,
 .agent-queue-dependency-add-row,
@@ -2592,7 +2604,8 @@
     grid-template-columns: 1fr;
   }
 
-  .agent-queue-task-pane-resize-handle {
+  .agent-queue-task-pane-resize-handle,
+  .agent-queue-column-resize-handle {
     display: none;
   }
 
@@ -2615,6 +2628,16 @@
   .agent-queue-task-control-row,
   .agent-queue-run-controls {
     grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 1120px) {
+  .agent-queue-product-layout-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-queue-product-layout-flow .agent-queue-column-resize-handle {
+    display: none;
   }
 }
 
@@ -2649,7 +2672,8 @@
     grid-template-columns: 1fr;
   }
 
-  .agent-queue-task-pane-resize-handle {
+  .agent-queue-task-pane-resize-handle,
+  .agent-queue-column-resize-handle {
     display: none;
   }
 

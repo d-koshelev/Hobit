@@ -82,18 +82,34 @@ export function AgentQueueRunReadinessPanel({
           >
             Run selected task
           </p>
+          <p className="agent-queue-run-note">
+            {runPrimarySummary({
+              checklist,
+              run,
+              selectedTask,
+            })}
+          </p>
         </div>
+        <Button
+          disabled={!run.canStart}
+          onClick={() => run.onStartAssignedTask()}
+          variant="primary"
+        >
+          {run.isStarting ? "Starting" : "Run task"}
+        </Button>
       </div>
 
-      <div
+      <details
         aria-label="Prepare local run checklist"
-        className="agent-queue-prepare-local-run"
+        className="agent-queue-details agent-queue-secondary-details agent-queue-readiness-details"
       >
-        <div className="agent-queue-prepare-header">
+        <summary>Readiness details</summary>
+        <div className="agent-queue-prepare-local-run">
+          <div className="agent-queue-prepare-header">
           <div>
             <p className="agent-queue-prepare-title">Prepare local run</p>
             <p className="agent-queue-run-note">
-              Check the local gates before starting the assigned task.
+              Check the local gates before starting the selected task.
             </p>
           </div>
           <Badge
@@ -103,143 +119,137 @@ export function AgentQueueRunReadinessPanel({
               ? "Ready"
               : "Needs setup"}
           </Badge>
-        </div>
-        <div className="agent-queue-prepare-list">
-          {checklist.map((item) => (
-            <div className="agent-queue-prepare-item" key={item.label}>
-              <div className="agent-queue-prepare-item-main">
-                <Badge variant={item.badgeVariant}>{item.badge}</Badge>
-                <div>
-                  <p className="agent-queue-prepare-item-title">{item.label}</p>
-                  <p className="agent-queue-prepare-item-copy">{item.copy}</p>
+          </div>
+          <div className="agent-queue-prepare-list">
+            {checklist.map((item) => (
+              <div className="agent-queue-prepare-item" key={item.label}>
+                <div className="agent-queue-prepare-item-main">
+                  <Badge variant={item.badgeVariant}>{item.badge}</Badge>
+                  <div>
+                    <p className="agent-queue-prepare-item-title">{item.label}</p>
+                    <p className="agent-queue-prepare-item-copy">{item.copy}</p>
+                  </div>
                 </div>
+                {item.action ? (
+                  <Button
+                    disabled={item.action.disabled}
+                    onClick={item.action.onClick}
+                    variant={item.action.variant}
+                  >
+                    {item.action.label}
+                  </Button>
+                ) : null}
               </div>
-              {item.action ? (
-                <Button
-                  disabled={item.action.disabled}
-                  onClick={item.action.onClick}
-                  variant={item.action.variant}
-                >
-                  {item.action.label}
-                </Button>
-              ) : null}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </details>
 
       {run.readinessMessage ? (
         <p className="agent-queue-run-note">{run.readinessMessage}</p>
       ) : null}
 
-      <div className="agent-queue-run-controls">
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label
-            className="field-label"
-            htmlFor={repoRootInputId}
-            title="Use an existing repository or local project folder."
-          >
-            Execution workspace
-          </label>
-          <Input
-            autoComplete="off"
-            id={repoRootInputId}
-            onChange={(event) => {
-              run.onRepoRootDraftChange(event.currentTarget.value);
-            }}
-            placeholder="C:\\path\\to\\repo-or-project"
-            spellCheck={false}
-            type="text"
-            value={run.repoRootDraft}
-          />
+      <details className="agent-queue-details agent-queue-secondary-details agent-queue-run-settings-details">
+        <summary>Advanced execution settings</summary>
+        <div className="agent-queue-run-controls">
+          <div className="agent-queue-run-field agent-queue-run-field-wide">
+            <label
+              className="field-label"
+              htmlFor={repoRootInputId}
+              title="Use an existing repository or local project folder."
+            >
+              Execution workspace
+            </label>
+            <Input
+              autoComplete="off"
+              id={repoRootInputId}
+              onChange={(event) => {
+                run.onRepoRootDraftChange(event.currentTarget.value);
+              }}
+              placeholder="C:\\path\\to\\repo-or-project"
+              spellCheck={false}
+              type="text"
+              value={run.repoRootDraft}
+            />
+          </div>
+
+          <div className="agent-queue-run-field agent-queue-run-field-wide">
+            <label className="field-label" htmlFor={codexExecutableInputId}>
+              Codex executable
+            </label>
+            <Input
+              autoComplete="off"
+              id={codexExecutableInputId}
+              onChange={(event) => {
+                run.onCodexExecutableDraftChange(event.currentTarget.value);
+              }}
+              spellCheck={false}
+              type="text"
+              value={run.codexExecutableDraft}
+            />
+          </div>
+
+          <div className="agent-queue-run-field">
+            <label className="field-label" htmlFor={sandboxInputId}>
+              Sandbox
+            </label>
+            <select
+              className="input agent-queue-run-select"
+              id={sandboxInputId}
+              onChange={(event) =>
+                run.onSandboxChange(
+                  event.currentTarget.value as DirectWorkSandbox,
+                )
+              }
+              value={run.sandbox}
+            >
+              <option value="read_only">read_only</option>
+              <option value="workspace_write">workspace_write</option>
+              <option value="danger_full_access">
+                danger_full_access (unsafe local dev)
+              </option>
+            </select>
+          </div>
+
+          <div className="agent-queue-run-field">
+            <label className="field-label" htmlFor={approvalPolicyInputId}>
+              Approval policy
+            </label>
+            <select
+              className="input agent-queue-run-select"
+              id={approvalPolicyInputId}
+              onChange={(event) =>
+                run.onApprovalPolicyChange(
+                  event.currentTarget.value as DirectWorkApprovalPolicy,
+                )
+              }
+              value={run.approvalPolicy}
+            >
+              <option value="never">never</option>
+              <option value="on_request">on_request</option>
+              <option value="untrusted">untrusted</option>
+            </select>
+          </div>
         </div>
 
-        <div className="agent-queue-run-field agent-queue-run-field-wide">
-          <label className="field-label" htmlFor={codexExecutableInputId}>
-            Codex executable
-          </label>
-          <Input
-            autoComplete="off"
-            id={codexExecutableInputId}
-            onChange={(event) => {
-              run.onCodexExecutableDraftChange(event.currentTarget.value);
-            }}
-            spellCheck={false}
-            type="text"
-            value={run.codexExecutableDraft}
-          />
-        </div>
-
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={sandboxInputId}>
-            Sandbox
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={sandboxInputId}
-            onChange={(event) =>
-              run.onSandboxChange(
-                event.currentTarget.value as DirectWorkSandbox,
-              )
-            }
-            value={run.sandbox}
-          >
-            <option value="read_only">read_only</option>
-            <option value="workspace_write">workspace_write</option>
-            <option value="danger_full_access">
-              danger_full_access (unsafe local dev)
-            </option>
-          </select>
-        </div>
-
-        <div className="agent-queue-run-field">
-          <label className="field-label" htmlFor={approvalPolicyInputId}>
-            Approval policy
-          </label>
-          <select
-            className="input agent-queue-run-select"
-            id={approvalPolicyInputId}
-            onChange={(event) =>
-              run.onApprovalPolicyChange(
-                event.currentTarget.value as DirectWorkApprovalPolicy,
-              )
-            }
-            value={run.approvalPolicy}
-          >
-            <option value="never">never</option>
-            <option value="on_request">on_request</option>
-            <option value="untrusted">untrusted</option>
-          </select>
-        </div>
-      </div>
-
-      {!run.readinessMessage && run.preconditionMessages.length > 0 ? (
-        <div className="agent-queue-run-warning-list">
-          {run.preconditionMessages.map((message) => (
-            <p className="agent-queue-run-warning" key={message}>
-              {message}
-            </p>
-          ))}
-        </div>
-      ) : null}
-      {run.sandbox === "danger_full_access" ? (
-        <p className="agent-queue-run-warning" role="alert">
-          danger_full_access is unsafe and intended only for trusted local
-          development. It disables Codex sandbox restrictions. Git mutations
-          remain forbidden unless explicitly requested; Hobit will still not
-          auto-commit, push, reset, clean, stash, or roll back changes.
-        </p>
-      ) : null}
-
-      <div className="agent-queue-run-actions">
-        <Button
-          disabled={!run.canStart}
-          onClick={() => run.onStartAssignedTask()}
-          variant="primary"
-        >
-          {run.isStarting ? "Starting" : "Run this task"}
-        </Button>
-      </div>
+        {!run.readinessMessage && run.preconditionMessages.length > 0 ? (
+          <div className="agent-queue-run-warning-list">
+            {run.preconditionMessages.map((message) => (
+              <p className="agent-queue-run-warning" key={message}>
+                {message}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {run.sandbox === "danger_full_access" ? (
+          <p className="agent-queue-run-warning" role="alert">
+            danger_full_access is unsafe and intended only for trusted local
+            development. It disables Codex sandbox restrictions. Git mutations
+            remain forbidden unless explicitly requested; Hobit will still not
+            auto-commit, push, reset, clean, stash, or roll back changes.
+          </p>
+        ) : null}
+      </details>
 
       {run.startMessage ? (
         <>
@@ -283,12 +293,10 @@ function buildPrepareLocalRunChecklist({
   canPromoteDraftToQueued,
   currentSelection,
   executorSlots,
-  globalExecutionState,
   hasExecutorSlots,
   isAssigning,
   onAssignSelectedWorker,
   onPromoteDraftToQueued,
-  onStartWorkers,
   routingState,
   run,
   selectedTask,
@@ -313,37 +321,9 @@ function buildPrepareLocalRunChecklist({
         )
       : blockedItem(
           "Agent Executor availability",
-          "No Agent Executor available. Add an Agent Executor widget to run Queue tasks.",
+          "No local executor slot is visible. Queue-owned slot creation needs a backend follow-up; use an existing Agent Executor slot for now.",
         ),
   );
-
-  if (globalExecutionState === "started") {
-    items.push(okItem("Queue START/STOP state", "Queue is in START state."));
-  } else if (globalExecutionState === "stop_kill_requested") {
-    items.push({
-      action: {
-        label: "START",
-        onClick: onStartWorkers,
-        variant: "secondary",
-      },
-      ...blockedItem(
-        "Queue START/STOP state",
-        "STOP + KILL RUNNING is requested. Review running work or click START before starting new work.",
-      ),
-    });
-  } else {
-    items.push({
-      action: {
-        label: "START",
-        onClick: onStartWorkers,
-        variant: "secondary",
-      },
-      ...blockedItem(
-        "Queue START/STOP state",
-        "Queue is stopped. Click START before running the selected task.",
-      ),
-    });
-  }
 
   items.push(
     run.repoRootDraft.trim()
@@ -401,12 +381,14 @@ function buildPrepareLocalRunChecklist({
         "Selected worker is disabled. Enable it before assigning new work.",
       ),
     );
-  } else if (routingState && !routingState.canTake) {
+  } else if (manualRunRoutingBlocker(routingState)) {
+    const blocker = routingState?.blockedReasons.find(
+      (reason) => reason.code !== "queue_stopped",
+    );
     items.push(
       blockedItem(
         "Worker / executor assignment",
-        routingState.blockedReasons[0]?.label ??
-          "Assigned worker cannot take this task yet.",
+        blocker?.label ?? "Assigned worker cannot take this task yet.",
       ),
     );
   } else {
@@ -419,6 +401,48 @@ function buildPrepareLocalRunChecklist({
   }
 
   return items;
+}
+
+function runPrimarySummary({
+  checklist,
+  run,
+  selectedTask,
+}: {
+  checklist: PrepareLocalRunChecklistItem[];
+  run: AgentQueueRunController;
+  selectedTask: AgentQueueTask;
+}) {
+  if (run.canStart) {
+    const executorCopy = run.usesDefaultExecutorOnStart
+      ? " The visible local executor will be assigned as part of this explicit run."
+      : "";
+
+    return `Ready for an explicit local run.${executorCopy}`;
+  }
+
+  if (run.readinessMessage) {
+    return run.readinessMessage;
+  }
+
+  const firstFix = checklist.find((item) => item.state !== "ok");
+
+  if (firstFix) {
+    return `${firstFix.label}: ${firstFix.copy}`;
+  }
+
+  return `${statusLabel(selectedTask.status)} task needs setup before it can run.`;
+}
+
+function manualRunRoutingBlocker(
+  routingState?: AgentQueueAssignedWorkerRoutingState,
+) {
+  if (!routingState || routingState.canTake) {
+    return false;
+  }
+
+  return routingState.blockedReasons.some(
+    (reason) => reason.code !== "queue_stopped",
+  );
 }
 
 function taskStatusChecklistItem({

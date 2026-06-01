@@ -270,7 +270,9 @@ export function AgentQueueTaskRunPanel({
         selectedTask={selectedTask}
       />
 
-      <div className="agent-queue-execution-group">
+      <details className="agent-queue-details agent-queue-secondary-details agent-queue-local-executor-details">
+        <summary>Advanced local executor</summary>
+        <div className="agent-queue-execution-group agent-queue-execution-group-nested">
         <div className="agent-queue-execution-group-header">
           <div>
             <p
@@ -288,10 +290,12 @@ export function AgentQueueTaskRunPanel({
         {!hasExecutorSlots ? (
           <div className="agent-queue-attention-message" role="alert">
             <p className="agent-queue-attention-title">
-              No Agent Executor available
+              No local executor slot available
             </p>
             <p className="agent-queue-attention-copy">
-              Add an Agent Executor widget to run Queue tasks.
+              Queue can use an existing Agent Executor slot. Queue-owned local
+              executor slot creation needs a backend follow-up before this
+              panel can create a real runtime slot itself.
             </p>
           </div>
         ) : null}
@@ -398,7 +402,8 @@ export function AgentQueueTaskRunPanel({
             {assignmentError}
           </p>
         ) : null}
-      </div>
+        </div>
+      </details>
 
       <AgentQueueRunReadinessPanel
         canAssignSelectedWorker={!workerAssignmentDisabled}

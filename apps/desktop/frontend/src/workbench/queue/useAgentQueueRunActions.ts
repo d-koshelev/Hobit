@@ -28,6 +28,7 @@ type RunActionsContext = Pick<
     options?: { select?: boolean },
   ) => void;
   approvalPolicy: DirectWorkApprovalPolicy;
+  canAutoAssignSelectedTask: boolean;
   canArmAutorun: boolean;
   canStart: boolean;
   codexExecutable: string;
@@ -80,6 +81,7 @@ type RunActionsContext = Pick<
 export function createAgentQueueRunActions({
   applyUpdatedTask,
   approvalPolicy,
+  canAutoAssignSelectedTask,
   canArmAutorun,
   canStart,
   codexExecutable,
@@ -132,7 +134,7 @@ export function createAgentQueueRunActions({
       isAssigning ||
       hasOpenTaskEdit
     ) {
-      return;
+      return null;
     }
 
     const selectedWorkerScope = workerScopes.get(selectedExecutorWidgetId);
@@ -146,7 +148,7 @@ export function createAgentQueueRunActions({
         "Selected worker is disabled. Enable it before assigning new work.",
       );
       setAssignmentMessage(null);
-      return;
+      return null;
     }
 
     if (
@@ -157,7 +159,7 @@ export function createAgentQueueRunActions({
         "Selected worker is scoped to another queue tag. Choose a matching worker or change the worker scope.",
       );
       setAssignmentMessage(null);
-      return;
+      return null;
     }
 
     setIsAssigning(true);
@@ -199,8 +201,10 @@ export function createAgentQueueRunActions({
           ? "Assignment saved. Existing plan preview is stale for this worker."
           : "Assignment saved.",
       );
+      return updatedTask;
     } catch (error) {
       setAssignmentError(errorToMessage(error, "Unable to assign queue task."));
+      return null;
     } finally {
       setIsAssigning(false);
     }
@@ -279,10 +283,32 @@ export function createAgentQueueRunActions({
     setStartedRunId(null);
     setStartError(null);
 
+    let taskForRun = selectedTask;
+
+    if (!taskForRun.assignedExecutorWidgetId) {
+      if (!canAutoAssignSelectedTask) {
+        setStartError("Assign a local executor before running this task.");
+        startInFlightRef.current = false;
+        setIsStarting(false);
+        return;
+      }
+
+      const assignedTask = await assignSelectedTask();
+
+      if (!assignedTask) {
+        setStartError("Local executor assignment failed. No work was started.");
+        startInFlightRef.current = false;
+        setIsStarting(false);
+        return;
+      }
+
+      taskForRun = assignedTask;
+    }
+
     const request: AgentQueueTaskStartRequest = {
       approvalPolicy,
       codexExecutable,
-      queueItemId: selectedTask.queueItemId,
+      queueItemId: taskForRun.queueItemId,
       repoRoot,
       sandbox,
     };
@@ -295,7 +321,7 @@ export function createAgentQueueRunActions({
         repoRoot: request.repoRoot,
         runId: response.runId,
         startedAt: new Date().toISOString(),
-        taskTitle: selectedTask.title,
+        taskTitle: taskForRun.title,
         workbenchId: response.workbenchId,
         workspaceId: response.workspaceId,
       });
