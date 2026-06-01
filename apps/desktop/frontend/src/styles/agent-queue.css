@@ -2279,18 +2279,57 @@
 .agent-queue-setup-fixes {
   display: grid;
   min-width: 0;
-  gap: 4px;
-  border: 1px solid var(--color-warning);
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+  background: color-mix(
+    in srgb,
+    var(--color-nested-surface) 68%,
+    transparent
+  );
+  color: var(--color-text-primary);
   padding: var(--space-xs);
 }
 
 .agent-queue-setup-fixes-title {
+  margin: 0;
+  color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-weight: 720;
   line-height: var(--line-tight);
+}
+
+.agent-queue-compact-blocker-list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-queue-compact-blocker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-compact-blocker-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.agent-queue-compact-blocker-row > span {
+  overflow-wrap: anywhere;
+}
+
+.agent-queue-compact-blocker-row > span:first-child {
+  color: var(--color-text-primary);
+  font-weight: 650;
 }
 
 .agent-queue-setup-fixes ul {

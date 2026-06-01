@@ -122,6 +122,7 @@ export type WorkbenchViewState = {
 
 export type AgentExecutorSlot = {
   label: string;
+  ownerKind?: "agent_executor" | "agent_queue";
   widgetInstanceId: WidgetInstanceId;
 };
 

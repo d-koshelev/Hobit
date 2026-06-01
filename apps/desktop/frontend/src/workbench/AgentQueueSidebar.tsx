@@ -467,11 +467,11 @@ function ExecutorCapacitySection({
 }) {
   return (
     <section
-      aria-label="Agent Executor section"
+      aria-label="Local executor capacity"
       className="agent-queue-sidebar-section"
     >
       <div className="agent-queue-section-header">
-        <p className="agent-queue-section-title">Executor capacity</p>
+        <p className="agent-queue-section-title">Local executor capacity</p>
         <Badge
           variant={
             foundation.embeddedExecutor.capacityRecommendation.code ===
@@ -527,7 +527,7 @@ function ExecutorCapacitySection({
       <details className="agent-queue-details agent-queue-rail-details">
         <summary>Capacity note</summary>
         <p className="agent-queue-run-note">
-          Capacity is dry-run only; edits do not start or stop Executor work.
+          Capacity is Queue-owned. Edits do not start or stop local work.
         </p>
       </details>
     </section>

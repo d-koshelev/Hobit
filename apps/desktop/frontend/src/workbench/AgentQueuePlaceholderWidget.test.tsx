@@ -45,7 +45,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(document.body.textContent).toContain("Prompt");
     expect(document.body.textContent).toContain("Actions and settings");
     expect(document.body.textContent).toContain("Run selected task");
-    expect(detailsBySummary("Advanced execution settings")?.open).toBe(true);
+    expect(detailsBySummary("Execution settings")?.open).toBe(true);
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 

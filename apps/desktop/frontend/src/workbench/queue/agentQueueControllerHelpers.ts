@@ -2,6 +2,7 @@ import type {
   AgentQueueGlobalExecutionState,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  DirectWorkSandbox,
 } from "../../workspace/types";
 import {
   dependentTasksForQueueItem,
@@ -28,21 +29,33 @@ export type AgentQueueRunnerStatus =
 
 export function runPreconditionMessages({
   codexExecutable,
+  globalExecutionState,
   isStarting,
   repoRoot,
+  sandbox,
 }: {
   codexExecutable: string;
+  globalExecutionState?: AgentQueueGlobalExecutionState;
   isStarting: boolean;
   repoRoot: string;
+  sandbox?: DirectWorkSandbox;
 }) {
   const messages: string[] = [];
 
+  if (globalExecutionState === "stopped") {
+    messages.push("Start queue.");
+  }
+
   if (!repoRoot) {
-    messages.push("Execution workspace is required for Codex Direct Work execution.");
+    messages.push("Set workspace.");
   }
 
   if (!codexExecutable) {
-    messages.push("Codex executable is required before running.");
+    messages.push("Set Codex executable.");
+  }
+
+  if (sandbox && sandbox !== "danger_full_access") {
+    messages.push("Select danger_full_access.");
   }
 
   if (isStarting) {
@@ -100,7 +113,7 @@ export function queueRunnerPreconditionMessages({
   }
 
   if (!hasExecutorSelection) {
-    messages.unshift("Select one Agent Executor for the Sequential Queue Runner.");
+    messages.unshift("Select one local executor for the Sequential Queue Runner.");
   }
 
   if (taskCount === 0) {
@@ -146,11 +159,11 @@ export function queueAutorunPreconditionMessages({
   }
 
   if (!hasExecutorSelection) {
-    messages.push("Select one Agent Executor before arming Queue Autorun.");
+    messages.push("Select one local executor before arming Queue Autorun.");
   }
 
   if (!repoRoot) {
-    messages.push("Execution workspace is required before arming Queue Autorun.");
+    messages.push("Set workspace.");
   }
 
   if (!codexExecutable) {
@@ -181,7 +194,7 @@ type QueueRunnerStopDecision = Extract<
 export function queueRunnerStopMessage(decision: QueueRunnerStopDecision) {
   switch (decision.reason) {
     case "assigned_to_different_executor":
-      return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another Agent Executor.`;
+      return `Sequential Queue Runner stopped because "${decision.task.title}" is assigned to another local executor.`;
     case "dependency_blocked":
       return `Sequential Queue Runner stopped before "${decision.task.title}" because dependencies are not ready. ${
         decision.dependencyState
@@ -240,7 +253,7 @@ export function queueRunReadinessMessage({
   }
 
   if (!selectedTask.assignedExecutorWidgetId && !allowDefaultExecutorAssignment) {
-    return "Assign an Agent Executor before running.";
+    return "Local executor unavailable.";
   }
 
   if (isDirty) {
@@ -256,7 +269,7 @@ export function queueRunReadinessMessage({
   }
 
   if (selectedTask.status === "running") {
-    return "This task is already running in its assigned Agent Executor.";
+    return "This task is already running.";
   }
 
   if (isFinalQueueTaskStatus(selectedTask.status)) {
@@ -278,11 +291,11 @@ export function queueRunStartErrorMessage(error: unknown) {
   const message = errorToMessage(error, "Unable to start assigned queue task.");
 
   if (/already has an active Direct Work run/i.test(message)) {
-    return "Assigned Agent Executor is already running another task.";
+    return "Local executor is already running another task.";
   }
 
   if (/repo root must not be empty/i.test(message)) {
-    return "Execution workspace is required for Codex Direct Work execution.";
+    return "Set workspace.";
   }
 
   if (/queue task status cannot be run/i.test(message)) {

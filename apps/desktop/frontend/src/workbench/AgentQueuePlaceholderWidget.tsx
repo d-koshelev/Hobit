@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
@@ -82,8 +82,22 @@ export function AgentQueuePlaceholderWidget({
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
+  const queueOwnedExecutorSlots = useMemo(
+    () => [
+      {
+        label: "Local executor ready",
+        ownerKind: "agent_queue" as const,
+        widgetInstanceId: instance.id,
+      },
+      ...agentExecutorSlots.map((slot) => ({
+        ...slot,
+        ownerKind: slot.ownerKind ?? ("agent_executor" as const),
+      })),
+    ],
+    [agentExecutorSlots, instance.id],
+  );
   const queue = useAgentQueueController({
-    agentExecutorSlots,
+    agentExecutorSlots: queueOwnedExecutorSlots,
     onAssignAgentQueueTaskToExecutor,
     onClearAgentQueueTaskAssignment,
     onCreateAgentQueueTask,
@@ -242,7 +256,7 @@ export function AgentQueuePlaceholderWidget({
             sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
             detailsPanel={
               <AgentQueueTaskDetailsPanel
-                agentExecutorSlots={agentExecutorSlots}
+                agentExecutorSlots={queueOwnedExecutorSlots}
                 assignmentInputId={assignmentInputId}
                 descriptionInputId={descriptionInputId}
                 executionPolicyInputId={executionPolicyInputId}

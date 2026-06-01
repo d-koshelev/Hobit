@@ -6,7 +6,6 @@ import type {
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
@@ -126,23 +125,6 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Explicit assigned-task starts",
     ],
     futureWidgetDefinitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Executor",
-    catalogCategory: "agents",
-    category: "core",
-    description:
-      "Secondary compatibility/debug surface for explicit Direct Work runs.",
-    readiness: "ready",
-    availability: "available",
-    layoutDefaults: getWidgetLayoutDefaults(AGENT_RUN_WIDGET_DEFINITION_ID),
-    capabilitySummary: [
-      "Codex Direct Work execution slot",
-      "Live logs, result, changed files, and validation",
-      "Normal execution management now lives in Agent Queue",
-    ],
-    futureWidgetDefinitionId: AGENT_RUN_WIDGET_DEFINITION_ID,
   },
   {
     id: SKILL_LIBRARY_WIDGET_DEFINITION_ID,

@@ -143,13 +143,18 @@ export function AgentQueueTaskRunPanel({
   const selectedWorker = workers.find(
     (worker) => worker.workerId === currentSelection,
   );
+  const selectedExecutorSlot = executorSlots.find(
+    (slot) => slot.widgetInstanceId === currentSelection,
+  );
+  const selectedExecutorIsQueueOwned =
+    selectedExecutorSlot?.ownerKind === "agent_queue";
   const workerScopeMismatch =
     selectedWorker?.scope.kind === "queue_tag" &&
     selectedWorker.scope.queueTagId !== queueTag.queueTagId;
   const workerDisabled = Boolean(selectedWorker && !selectedWorker.enabled);
   const scopedAssignmentDisabled = Boolean(assignDisabled || workerScopeMismatch);
   const workerAssignmentDisabled = Boolean(
-    scopedAssignmentDisabled || workerDisabled,
+    scopedAssignmentDisabled || workerDisabled || selectedExecutorIsQueueOwned,
   );
 
   return (
@@ -161,14 +166,11 @@ export function AgentQueueTaskRunPanel({
         <div>
           <p
             className="agent-queue-execution-title"
-            title="Select an Agent Executor, configure Direct Work, then run the task."
+            title="Configure the selected Queue task, then run it explicitly."
           >
             Actions and settings
           </p>
-          <p className="agent-queue-run-note">
-            Runs are explicit. Assignment records intent only; it does not start
-            work.
-          </p>
+          <p className="agent-queue-run-note">Runs are explicit.</p>
         </div>
         <div className="agent-queue-execution-badges">
           <Badge
@@ -184,27 +186,15 @@ export function AgentQueueTaskRunPanel({
           <div>
             <p
               className="agent-queue-execution-group-title"
-              title="Assignment chooses the Agent Executor slot. It does not start work."
+              title="Queue chooses the local executor slot for explicit runs."
             >
-              Executor
+              Local executor
             </p>
           </div>
           <Badge variant={hasAssignedExecutor ? "info" : "neutral"}>
             {assignmentLabel(selectedTask.assignedExecutorWidgetId)}
           </Badge>
         </div>
-
-        {!hasExecutorSlots ? (
-          <div className="agent-queue-attention-message" role="alert">
-            <p className="agent-queue-attention-title">
-              No local executor is available.
-            </p>
-            <p className="agent-queue-attention-copy">
-              Add or enable a local executor.
-            </p>
-          </div>
-        ) : null}
-
         {run.executorSelectionMessage ? (
           <p className="agent-queue-assignment-note">
             {run.executorSelectionMessage}
@@ -214,6 +204,11 @@ export function AgentQueueTaskRunPanel({
         {assignmentDisabledReason ? (
           <p className="agent-queue-assignment-note">
             {assignmentDisabledReason}
+          </p>
+        ) : null}
+        {selectedExecutorIsQueueOwned ? (
+          <p className="agent-queue-assignment-note">
+            Local executor ready. Queue owns this slot for explicit runs.
           </p>
         ) : null}
 
@@ -279,14 +274,17 @@ export function AgentQueueTaskRunPanel({
                   </Button>
                 ) : null}
                 <Button
-                  disabled={!selectedTask.assignedExecutorWidgetId}
+                  disabled={
+                    !selectedTask.assignedExecutorWidgetId ||
+                    selectedExecutorIsQueueOwned
+                  }
                   onClick={() =>
                     openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
                   }
-                  title="Scroll to the assigned Agent Executor for live logs and result."
+                  title="Scroll to the assigned local executor compatibility surface."
                   variant="ghost"
                 >
-                  Open assigned Executor
+                  Open compatibility surface
                 </Button>
               </div>
             </div>
@@ -349,6 +347,7 @@ export function AgentQueueTaskRunPanel({
           queueTagSummary={queueTagSummary}
           routingBlockedLabel={routingBlockedLabel}
           routingState={routingState}
+          run={run}
           runHistory={runHistory}
           runner={runner}
           selectedTask={selectedTask}
@@ -370,6 +369,7 @@ export function AgentQueueTaskRunAdvancedDetails({
   queueTagSummary,
   routingBlockedLabel,
   routingState,
+  run,
   runHistory,
   runner,
   selectedTask,
@@ -389,6 +389,7 @@ export function AgentQueueTaskRunAdvancedDetails({
   queueTagSummary?: QueueTagSummary;
   routingBlockedLabel: string | null;
   routingState?: AgentQueueAssignedWorkerRoutingState;
+  run: AgentQueueRunController;
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
@@ -461,7 +462,41 @@ export function AgentQueueTaskRunAdvancedDetails({
               : "No dependencies"}
           </dd>
         </div>
+        <div>
+          <dt>Execution workspace</dt>
+          <dd>{run.repoRootDraft.trim() || "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Codex executable</dt>
+          <dd>{run.codexExecutableDraft.trim() || "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Sandbox</dt>
+          <dd>{run.sandbox}</dd>
+        </div>
+        <div>
+          <dt>Approval policy</dt>
+          <dd>{run.approvalPolicy}</dd>
+        </div>
+        <div>
+          <dt>Readiness</dt>
+          <dd>
+            {run.readinessMessage ??
+              (run.preconditionMessages.join("; ") ||
+                "Ready after explicit Run task")}
+          </dd>
+        </div>
       </dl>
+
+      {run.sandbox === "danger_full_access" ? (
+        <p className="agent-queue-run-warning">
+          danger_full_access is unsafe and intended only for trusted local
+          development. It disables Codex sandbox restrictions. Hobit will still
+          not auto-commit, push, reset, clean, stash, roll back changes,
+          finalize coordinator review, run validation automatically, or launch
+          Git automation.
+        </p>
+      ) : null}
 
       <AgentQueueExecutionPlanPanel executionPlan={executionPlan} />
 

@@ -207,12 +207,12 @@ function RunHistorySummary({
                   }
                   title={
                     executorSlot
-                      ? "Open the Agent Executor that owns this run."
-                      : "Owning Agent Executor is not visible on this Workbench."
+                      ? "Open the local executor run detail."
+                      : "Owning local executor is not visible on this Workbench."
                   }
                   variant="ghost"
                 >
-                  Open Executor
+                  Open run detail
                 </Button>
                 <Button
                   disabled={!onAttachContextToCoordinator}
@@ -221,7 +221,7 @@ function RunHistorySummary({
                       contextText: queueRunAttachedContextText({
                         executorLabel:
                           executorSlot?.label ??
-                          `Agent Executor ${shortWidgetInstanceId(link.executorWidgetId)}`,
+                          `Local executor ${shortWidgetInstanceId(link.executorWidgetId)}`,
                         link,
                         selectedTask,
                       }),
@@ -237,7 +237,7 @@ function RunHistorySummary({
                 >
                   Attach to Workspace Agent
                 </Button>
-                {!executorSlot ? <span>Executor not visible</span> : null}
+                {!executorSlot ? <span>Local executor not visible</span> : null}
               </div>
             </div>
           );
@@ -280,7 +280,7 @@ function LatestRunSummary({
     (slot) => slot.widgetInstanceId === link.executorWidgetId,
   );
   const executorLabel =
-    executorSlot?.label ?? `Agent Executor ${shortWidgetInstanceId(link.executorWidgetId)}`;
+    executorSlot?.label ?? `Local executor ${shortWidgetInstanceId(link.executorWidgetId)}`;
 
   return (
     <>
@@ -321,12 +321,12 @@ function LatestRunSummary({
           }
           title={
             executorSlot
-              ? "Open the Agent Executor that owns this run."
-              : "Owning Agent Executor is not visible on this Workbench."
+              ? "Open the local executor run detail."
+              : "Owning local executor is not visible on this Workbench."
           }
           variant="ghost"
         >
-          Open Executor
+          Open run detail
         </Button>
         <Button
           disabled={!onAttachContextToCoordinator}
@@ -355,7 +355,7 @@ function LatestRunSummary({
       </div>
       {!executorSlot ? (
         <p className="agent-queue-run-note">
-          Owning Agent Executor is not visible on this Workbench.
+          Owning local executor is not visible on this Workbench.
         </p>
       ) : null}
     </>

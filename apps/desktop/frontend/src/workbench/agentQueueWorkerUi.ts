@@ -325,7 +325,7 @@ export function shortWidgetInstanceId(widgetInstanceId: string) {
 }
 
 export function agentExecutorSlotLabel(widgetInstanceId: string) {
-  return `Agent Executor ${shortWidgetInstanceId(widgetInstanceId)}`;
+  return `Local executor ${shortWidgetInstanceId(widgetInstanceId)}`;
 }
 
 export function agentExecutorSlotsFromWidgets(
@@ -480,12 +480,24 @@ export function workersFromExecutorSlots({
     .slice()
     .sort((first, second) => first.displayOrder - second.displayOrder)
     .map((workerConfig, index) => {
+      const slot = slots.find(
+        (candidate) => candidate.widgetInstanceId === workerConfig.workerId,
+      );
       const currentTask =
         tasks.find(
           (task) =>
             task.assignedWorkerId === workerConfig.workerId ||
             task.assignedExecutorWidgetId === workerConfig.workerId,
-        ) ?? null;
+        ) ??
+        (slot?.ownerKind === "agent_queue"
+          ? tasks.find(
+              (task) =>
+                task.status === "running" &&
+                !task.assignedWorkerId &&
+                !task.assignedExecutorWidgetId,
+            )
+          : null) ??
+        null;
       const persistedScope =
         workerConfig.scopeKind === "queue_tag" &&
         workerConfig.queueTagId &&

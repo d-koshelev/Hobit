@@ -362,7 +362,7 @@ function schedulerGlobalState({
       allowsScheduling: false,
       code: globalExecutionState,
       explanation:
-        "STOP + KILL RUNNING requested. No new work is recommended; affected running items need Agent Executor and coordinator review.",
+        "STOP + KILL RUNNING requested. No new work is recommended; affected running items need local executor and coordinator review.",
       label: queueGlobalExecutionStateLabel(globalExecutionState),
       runningItemCount: affectedRunningItemIds.length,
     };

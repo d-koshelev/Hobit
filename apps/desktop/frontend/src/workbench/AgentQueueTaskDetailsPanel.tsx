@@ -242,6 +242,7 @@ export function AgentQueueTaskDetailsPanel({
               routingState={queue.assignedWorkerRoutingStates.get(
                 selectedTask.queueItemId,
               )}
+              run={run}
               runHistory={queue.runHistory}
               runner={queue.runner}
               selectedTask={selectedTask}
@@ -422,9 +423,8 @@ function FlowSelectionSummary({
       <details className="agent-queue-details agent-queue-rail-details">
         <summary>Flow-mode boundary</summary>
         <p className="agent-queue-run-note">
-          Flow Map blocks only select Queue items. Execution, edits, reports,
-          and finalization remain in the Table/list detail view or explicit
-          controls.
+          Flow Map blocks select Queue items. Execution, edits, reports, and
+          finalization remain explicit.
         </p>
       </details>
     </div>
@@ -455,7 +455,7 @@ function nextActionForSelectedTask(
 
   if (queue.run.canStart) {
     const executorCopy = queue.run.executorSelectionMessage?.startsWith(
-      "Executor selected automatically",
+      "Local executor selected automatically",
     )
       ? `${queue.run.executorSelectionMessage} `
       : "";
@@ -470,9 +470,8 @@ function nextActionForSelectedTask(
       actions,
       badge: "Ready",
       badgeVariant: "success" as const,
-      copy:
-        `${executorCopy}This item has a runnable status, a selected executor, a prompt, and execution settings. Start it explicitly when ready.`,
-      secondaryCopy: "Agent Executor owns live logs, stop controls, and results.",
+      copy: `${executorCopy}Start this task explicitly when ready.`,
+      secondaryCopy: "Worker report appears below after execution.",
       title: "Ready to run",
       tone: "ready",
     };
@@ -549,15 +548,14 @@ function nextActionForSelectedTask(
       actions,
       badge: "Not runnable",
       badgeVariant: "warning" as const,
-      copy:
-        "This item is Draft, so workers cannot take it yet. Set Execution status to Queued or Ready in Task edit and save when the prompt is ready.",
-      secondaryCopy: `Top blocker: Item is not in a runnable execution state. ${planLabel}.`,
-      title: "Needs plan / ready state",
+      copy: "Draft task.",
+      secondaryCopy: planLabel,
+      title: "Promote to queued",
       tone: "blocked",
     };
   }
 
-  if (readinessMessage?.startsWith("Assign an Agent Executor")) {
+  if (readinessMessage === "Local executor unavailable.") {
     actions.push({
       disabled:
         queue.isAssigning ||
@@ -572,10 +570,9 @@ function nextActionForSelectedTask(
       actions,
       badge: "Unassigned",
       badgeVariant: "warning" as const,
-      copy:
-        "Choose a Worker / Executor in the Execution section and click Assign. Assignment records routing only; it does not start work.",
-      secondaryCopy: readinessMessage,
-      title: "Needs assignment",
+      copy: "Local executor unavailable.",
+      secondaryCopy: null,
+      title: "Select local executor",
       tone: "blocked",
     };
   }
@@ -585,14 +582,8 @@ function nextActionForSelectedTask(
       actions,
       badge: "Blocked",
       badgeVariant: "warning" as const,
-      copy:
-        readinessMessage ??
-        routingBlocker ??
-        "This item is blocked before execution.",
-      secondaryCopy:
-        routingBlocker && routingBlocker !== readinessMessage
-          ? `Top blocker: ${routingBlocker}.`
-          : "Top blocker: Item is not in a runnable execution state.",
+      copy: compactNextActionBlocker(readinessMessage ?? routingBlocker),
+      secondaryCopy: null,
       title: "Not runnable yet",
       tone: "blocked",
     };
@@ -622,10 +613,9 @@ function nextActionForSelectedTask(
       actions,
       badge: "Ready",
       badgeVariant: "info" as const,
-      copy:
-        "This item is runnable and assigned. Enter the execution workspace and keep Codex settings visible before starting.",
-      secondaryCopy: preconditionMessage,
-      title: "Ready to run after setup",
+      copy: compactNextActionBlocker(preconditionMessage),
+      secondaryCopy: null,
+      title: "Set run settings",
       tone: "ready",
     };
   }
@@ -635,12 +625,40 @@ function nextActionForSelectedTask(
     badge: readinessMessage ? "Blocked" : "Waiting",
     badgeVariant: readinessMessage ? ("warning" as const) : ("neutral" as const),
     copy:
-      readinessMessage ??
-      "Review assignment, worker state, and execution settings before starting.",
-    secondaryCopy: routingBlocker ? `Top blocker: ${routingBlocker}.` : null,
+      compactNextActionBlocker(readinessMessage ?? routingBlocker) ??
+      "Review settings, then run explicitly.",
+    secondaryCopy: null,
     title: readinessMessage ? "Blocked before execution" : "Waiting for action",
     tone: readinessMessage ? "blocked" : "waiting",
   };
+}
+
+function compactNextActionBlocker(message: string | null | undefined) {
+  if (!message) {
+    return null;
+  }
+
+  if (/No local executor|Local executor unavailable|assigned worker unavailable|worker is disabled/i.test(message)) {
+    return "Local executor unavailable.";
+  }
+
+  if (/workspace|repo root/i.test(message)) {
+    return "Set workspace.";
+  }
+
+  if (/danger_full_access|sandbox/i.test(message)) {
+    return "Select danger_full_access.";
+  }
+
+  if (/Draft/i.test(message)) {
+    return "Promote to queued.";
+  }
+
+  if (/START|Start queue|stopped/i.test(message)) {
+    return "Start queue.";
+  }
+
+  return message;
 }
 
 function isReviewLikeStatus(status: string) {
@@ -682,7 +700,7 @@ function HumanReadableActivityPanel({
         <div>
           <p className="agent-queue-execution-group-title">Logs and report</p>
           <p className="agent-queue-run-note">
-            Readable task activity. Raw run metadata stays in Internal details.
+            Readable task activity. Technical run metadata stays in Internal details.
           </p>
         </div>
         <Badge variant={report ? "info" : "neutral"}>
@@ -748,20 +766,9 @@ function HumanReadableActivityPanel({
         </div>
       ) : (
         <p className="agent-queue-run-note">
-          No worker report has been attached yet. Execution output remains owned
-          by Agent Executor.
+          No worker report has been attached yet.
         </p>
       )}
-
-      <details className="agent-queue-details agent-queue-secondary-details">
-        <summary>Raw details</summary>
-        <p className="agent-queue-run-note">
-          Raw run links, expected plan internals, worker route, and full report
-          fields are available in Internal details below. Queue does not copy
-          Executor stdout, stderr, final responses, diffs, repo paths, secrets,
-          or raw payloads.
-        </p>
-      </details>
     </section>
   );
 }
@@ -808,9 +815,9 @@ function buildHumanTimeline(
       badge: "Assigned",
       badgeVariant: "info",
       key: "assigned",
-      message: `${selectedTask.assignedExecutorWidgetId} is assigned. Assignment did not start work.`,
+      message: "Local executor selected. Work has not started.",
       time: selectedTask.updatedAt,
-      title: "Assigned executor",
+      title: "Selected local executor",
     });
   }
 
@@ -819,7 +826,7 @@ function buildHumanTimeline(
       badge: "Started",
       badgeVariant: "info",
       key: "run-started",
-      message: "An explicit Agent Executor run was started for this task.",
+      message: "An explicit Queue run was started for this task.",
       time: latestRun.startedAt,
       title: "Run started",
     });
@@ -828,7 +835,7 @@ function buildHumanTimeline(
       badge: runTimelineBadge(latestRun.status),
       badgeVariant: runTimelineBadgeVariant(latestRun.status),
       key: "run-finished",
-      message: `Latest linked Executor run is ${latestRun.status}.`,
+      message: `Latest linked run is ${latestRun.status}.`,
       time: latestRun.completedAt,
       title:
         latestRun.status === "running" ? "Run still running" : "Run completed / failed",
@@ -1535,7 +1542,7 @@ function overviewStateSentence(
     case "draft":
       return "Draft task. It will not run until the operator promotes it.";
     case "running":
-      return `${executorLabel} is running this task. Agent Executor owns live output.`;
+      return `${executorLabel} is running this task.`;
     case "completed":
       return "Execution completed. Review the report before accepting the work.";
     case "failed":
@@ -1558,25 +1565,25 @@ function overviewNextStep(
 ) {
   if (queue.run.canStart) {
     return queue.run.executorSelectionMessage?.startsWith(
-      "Executor selected automatically",
+      "Local executor selected automatically",
     )
-      ? `Next: ${queue.run.executorSelectionMessage} Click Run task when ready.`
-      : "Next: review settings, then click Run task when ready.";
+      ? "Next: click Run task when ready."
+      : "Next: review settings, then click Run task.";
   }
 
   if (selectedTask.status === "draft") {
-    return "Next: confirm the prompt, then promote it to queued when it is ready.";
+    return "Next: promote to queued.";
   }
 
   if (
     !selectedTask.assignedExecutorWidgetId &&
     queue.run.executorSelectionMessage
   ) {
-    return `Next: ${queue.run.executorSelectionMessage}`;
+    return "Next: local executor selected automatically.";
   }
 
   if (!selectedTask.assignedExecutorWidgetId) {
-    return "Next: No local executor is available. Add or enable a local executor.";
+    return "Next: local executor unavailable.";
   }
 
   if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
@@ -1584,7 +1591,7 @@ function overviewNextStep(
   }
 
   if (queue.run.readinessMessage) {
-    return `Next: ${queue.run.readinessMessage}`;
+    return `Next: ${compactNextActionBlocker(queue.run.readinessMessage)}`;
   }
 
   return "Next: check the prompt, settings, and latest activity before acting.";

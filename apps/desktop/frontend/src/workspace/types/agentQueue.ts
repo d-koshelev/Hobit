@@ -298,6 +298,7 @@ export type StartAssignedAgentQueueTaskRequest = Omit<
   "workbenchId" | "widgetInstanceId" | "operatorPrompt"
 > & {
   queueItemId: string;
+  queueOwnerWidgetInstanceId?: string;
 };
 
 export type StartAssignedAgentQueueTaskResponse = {

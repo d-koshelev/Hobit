@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct StartAssignedAgentQueueTaskRequest {
     pub workspace_id: String,
     pub queue_item_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
     pub codex_executable: String,
     pub repo_root: String,
     pub sandbox: String,
@@ -62,6 +63,7 @@ impl From<StartAssignedAgentQueueTaskRequest> for StartAssignedAgentQueueTaskInp
         Self {
             workspace_id: request.workspace_id,
             queue_item_id: request.queue_item_id,
+            queue_owner_widget_instance_id: request.queue_owner_widget_instance_id,
             codex_executable: request.codex_executable,
             repo_root: PathBuf::from(request.repo_root),
             sandbox: request.sandbox,

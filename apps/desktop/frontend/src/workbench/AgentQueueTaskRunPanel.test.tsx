@@ -156,7 +156,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     const openButtons = Array.from(document.querySelectorAll("button")).filter(
-      (button) => button.textContent === "Open Executor",
+      (button) => button.textContent === "Open run detail",
     );
 
     act(() => {
@@ -216,7 +216,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     const openButtons = Array.from(document.querySelectorAll("button")).filter(
-      (button) => button.textContent === "Open Executor",
+      (button) => button.textContent === "Open run detail",
     );
 
     act(() => {
@@ -279,12 +279,12 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     expect(document.body.textContent).toContain(
-      "Owning Agent Executor is not visible on this Workbench.",
+      "Owning local executor is not visible on this Workbench.",
     );
-    expect(document.body.textContent).toContain("Executor not visible");
+    expect(document.body.textContent).toContain("Local executor not visible");
 
     const openButtons = Array.from(document.querySelectorAll("button")).filter(
-      (button) => button.textContent === "Open Executor",
+      (button) => button.textContent === "Open run detail",
     );
 
     expect(openButtons).toHaveLength(2);
@@ -314,7 +314,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
           displayOrder: 0,
           enabled: true,
           lastReportSummary: null,
-          name: "Agent Executor visible",
+          name: "Local executor visible",
           scope: {
             kind: "queue_tag",
             queueTagId: "review",
@@ -344,6 +344,8 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     expect(document.body.textContent).toContain("danger_full_access");
+    expect(document.body.textContent).toContain("Unsafe local dev mode.");
+    expect(detailsBySummary("Developer details")?.open).toBe(false);
     expect(document.body.textContent).toContain(
       "danger_full_access is unsafe",
     );
@@ -353,7 +355,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("will still not auto-commit");
   });
 
-  it("shows a compact Prepare local run checklist with setup blockers", () => {
+  it("shows compact selected-run blocker rows", () => {
     renderPanel({
       currentSelection: "",
       executorSlots: [],
@@ -373,35 +375,25 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       },
     });
 
-    expect(document.body.textContent).toContain("Prepare local run");
+    expect(document.body.textContent).toContain("Before run");
     expect(document.body.textContent).toContain("Run task");
-    expect(document.body.textContent).toContain("Agent Executor availability");
-    expect(document.body.textContent).toContain(
-      "No local executor is available. Add or enable a local executor.",
-    );
-    expect(document.body.textContent).toContain(
-      "Set workspace to the Hobit repo root before running this task.",
-    );
-    expect(document.body.textContent).toContain(
-      "Codex executable is required before running.",
-    );
-    expect(document.body.textContent).toContain(
-      "This Windows environment may require danger_full_access for local Hobit dogfooding.",
-    );
-    expect(document.body.textContent).toContain(
-      "Draft tasks are not runnable. Promote to queued",
-    );
+    expect(document.body.textContent).toContain("Start queue");
+    expect(document.body.textContent).toContain("Local executor unavailable");
+    expect(document.body.textContent).toContain("Set workspace");
+    expect(document.body.textContent).toContain("Set Codex executable");
+    expect(document.body.textContent).toContain("Select danger_full_access");
+    expect(document.body.textContent).toContain("Promote to queued");
     expect(document.body.textContent).not.toContain(
       "Click START before running the selected task.",
     );
 
-    const advancedSettings = detailsBySummary("Advanced execution settings");
+    const advancedSettings = detailsBySummary("Execution settings");
 
     expect(advancedSettings?.open).toBe(true);
     expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 
-  it("exposes draft promotion without a separate START gate for selected-task runs", () => {
+  it("exposes queue start and draft promotion without starting execution", () => {
     const onStartWorkers = vi.fn();
     const onPromoteDraftToQueued = vi.fn();
 
@@ -417,10 +409,11 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       },
     });
 
-    expect(buttonByText("START")).toBeUndefined();
+    clickFirstButton("Start queue");
+    expect(onStartWorkers).toHaveBeenCalledTimes(1);
+
     clickFirstButton("Promote to queued");
 
-    expect(onStartWorkers).not.toHaveBeenCalled();
     expect(onPromoteDraftToQueued).toHaveBeenCalledTimes(1);
   });
 
@@ -430,7 +423,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
       run: {
         ...runController(),
         executorSelectionMessage:
-          "Executor selected automatically: Agent Executor visible.",
+          "Local executor selected automatically: Local executor visible.",
         readinessMessage: null,
         repoRootDraft: "C:\\repo",
         sandbox: "danger_full_access",
@@ -444,7 +437,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     });
 
     expect(document.body.textContent).toContain(
-      "Executor selected automatically: Agent Executor visible.",
+      "Local executor selected automatically: Local executor visible.",
     );
     expect(document.body.textContent).toContain(
       "Ready to run once the operator starts it explicitly.",
@@ -545,13 +538,8 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     });
 
     expect(document.body.textContent).toContain("Next action");
-    expect(document.body.textContent).toContain("Needs plan / ready state");
-    expect(document.body.textContent).toContain(
-      "Top blocker: Item is not in a runnable execution state.",
-    );
-    expect(document.body.textContent).toContain(
-      "Set Execution status to Queued or Ready",
-    );
+    expect(document.body.textContent).toContain("Promote to queued");
+    expect(document.body.textContent).toContain("Draft task.");
     expect(document.body.textContent).toContain("No worker report yet.");
 
     clickFirstButton("Edit status");
@@ -569,22 +557,15 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     renderDetailsPanel({
       run: {
         ...runController(),
-        preconditionMessages: [
-          "Execution workspace is required for Codex Direct Work execution.",
-        ],
+        preconditionMessages: ["Set workspace."],
         readinessMessage: null,
       },
       selectedTask,
       tasks: [selectedTask],
     });
 
-    expect(document.body.textContent).toContain("Ready to run after setup");
-    expect(document.body.textContent).toContain(
-      "Enter the execution workspace",
-    );
-    expect(document.body.textContent).toContain(
-      "Execution workspace is required for Codex Direct Work execution.",
-    );
+    expect(document.body.textContent).toContain("Set run settings");
+    expect(document.body.textContent).toContain("Set workspace.");
   });
 
   it("keeps coordinator finalization collapsed before worker evidence exists", () => {
@@ -886,7 +867,7 @@ function renderPanel(
           displayOrder: 0,
           enabled: true,
           lastReportSummary: null,
-            name: "Agent Executor visible",
+            name: "Local executor visible",
             scope: { kind: "all" },
             status: "idle",
             workerId: "executor_visible",
@@ -942,7 +923,7 @@ function renderDetailsPanel({
       displayOrder: 0,
       enabled: true,
       lastReportSummary: null,
-      name: "Agent Executor visible",
+      name: "Local executor visible",
       scope: { kind: "all" as const },
       status: selectedTask.status === "running" ? "running" as const : "idle" as const,
       workerId: "executor_visible",
@@ -1342,7 +1323,7 @@ function runLink(
 
 function executorSlots(): AgentExecutorSlot[] {
   return [
-    { label: "Agent Executor visible", widgetInstanceId: "executor_visible" },
+    { label: "Local executor visible", widgetInstanceId: "executor_visible" },
   ];
 }
 

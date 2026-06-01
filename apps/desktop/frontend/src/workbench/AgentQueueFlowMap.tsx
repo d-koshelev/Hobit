@@ -448,11 +448,11 @@ function QueueFlowExecutorSection({
 }) {
   return (
     <section
-      aria-label="Agent Executor section / Working executors"
+      aria-label="Local executor section / Working executors"
       className="agent-queue-flow-zone agent-queue-flow-executors"
     >
       <div className="agent-queue-flow-zone-header">
-        <QueueFlowSectionBaseline label="Agent Executor section / Working executors" />
+        <QueueFlowSectionBaseline label="Local executor section / Working executors" />
         {schedulerPlan ? (
           <Badge
             variant={

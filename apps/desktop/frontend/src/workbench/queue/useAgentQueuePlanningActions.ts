@@ -161,7 +161,7 @@ export function createAgentQueuePlanningActions({
         "stopped",
       )}: ${queueGlobalExecutionStateDescription(
         "stopped",
-      )} Running Executor work stays in Agent Executor.`,
+      )} Running local executor work stays in Queue run details.`,
     );
   }
 

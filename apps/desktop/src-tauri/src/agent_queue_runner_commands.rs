@@ -176,6 +176,7 @@ async fn start_agent_queue_runner_session_once(
         StartAssignedAgentQueueTaskRequest {
             workspace_id: request.workspace_id,
             queue_item_id: queue_item_id.clone(),
+            queue_owner_widget_instance_id: None,
             codex_executable: request.codex_executable,
             repo_root: request.repo_root,
             sandbox: request.sandbox,
@@ -259,6 +260,7 @@ fn start_agent_queue_runner_session_once_without_background(
         StartAssignedAgentQueueTaskRequest {
             workspace_id: request.workspace_id,
             queue_item_id,
+            queue_owner_widget_instance_id: None,
             codex_executable: request.codex_executable,
             repo_root: request.repo_root,
             sandbox: request.sandbox,
@@ -560,6 +562,7 @@ fn continuation_start_request(
     StartAssignedAgentQueueTaskRequest {
         workspace_id: request.workspace_id.clone(),
         queue_item_id,
+        queue_owner_widget_instance_id: None,
         codex_executable: request.runtime_config.codex_executable.clone(),
         repo_root: request.runtime_config.repo_root.clone(),
         sandbox: request.runtime_config.sandbox.clone(),

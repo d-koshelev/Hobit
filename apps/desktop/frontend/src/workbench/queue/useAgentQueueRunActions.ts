@@ -27,6 +27,7 @@ type RunActionsContext = Pick<
     task: AgentQueueTask,
     options?: { select?: boolean },
   ) => void;
+  agentExecutorSlots: NonNullable<WidgetRenderProps["agentExecutorSlots"]>;
   approvalPolicy: DirectWorkApprovalPolicy;
   canAutoAssignSelectedTask: boolean;
   canArmAutorun: boolean;
@@ -81,6 +82,7 @@ type RunActionsContext = Pick<
 
 export function createAgentQueueRunActions({
   applyUpdatedTask,
+  agentExecutorSlots,
   approvalPolicy,
   canAutoAssignSelectedTask,
   canArmAutorun,
@@ -286,8 +288,16 @@ export function createAgentQueueRunActions({
     setStartError(null);
 
     let taskForRun = selectedTask;
+    const selectedExecutorSlot = agentExecutorSlots.find(
+      (slot) => slot.widgetInstanceId === selectedExecutorWidgetId,
+    );
+    const selectedExecutorIsQueueOwned =
+      selectedExecutorSlot?.ownerKind === "agent_queue";
 
-    if (taskForRun.assignedExecutorWidgetId !== selectedExecutorWidgetId) {
+    if (
+      taskForRun.assignedExecutorWidgetId !== selectedExecutorWidgetId &&
+      !selectedExecutorIsQueueOwned
+    ) {
       if (!canAutoAssignSelectedTask) {
         setStartError("Assign a local executor before running this task.");
         startInFlightRef.current = false;
@@ -311,6 +321,9 @@ export function createAgentQueueRunActions({
       approvalPolicy,
       codexExecutable,
       queueItemId: taskForRun.queueItemId,
+      queueOwnerWidgetInstanceId: selectedExecutorIsQueueOwned
+        ? selectedExecutorWidgetId
+        : undefined,
       repoRoot,
       sandbox,
     };
@@ -330,7 +343,7 @@ export function createAgentQueueRunActions({
       await loadTasks(response.queueItemId);
       await refreshLatestRunLink(response.queueItemId, { silent: true });
       setStartMessage(
-        `Task started in Agent Executor ${shortWidgetInstanceId(
+        `Task started in local executor ${shortWidgetInstanceId(
           response.executorWidgetInstanceId,
         )}.`,
       );

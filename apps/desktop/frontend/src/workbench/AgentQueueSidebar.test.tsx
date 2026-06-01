@@ -33,7 +33,7 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Scheduler dry run");
     expect(document.body.textContent).toContain("Dry-run only");
-    expect(document.body.textContent).toContain("Executor capacity");
+    expect(document.body.textContent).toContain("Local executor capacity");
     expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Configured");
     expect(document.body.textContent).toContain("Spare");

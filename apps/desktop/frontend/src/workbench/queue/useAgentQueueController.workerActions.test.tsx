@@ -114,7 +114,7 @@ describe("useAgentQueueController worker actions", () => {
     harness.replaceWorker(
       agentQueueWorker({
         displayOrder: 1,
-        name: "Agent Executor 2",
+        name: "Local executor 2",
         workerId: "executor-2",
       }),
     );
@@ -276,7 +276,7 @@ describe("useAgentQueueController worker actions", () => {
     expect(harness.assignRequests).toHaveLength(0);
     expect(hook.result.current.assignmentError).toBeNull();
     expect(hook.result.current.run.readinessMessage).toBe(
-      "No local executor is available. Add or enable a local executor.",
+      "Local executor unavailable.",
     );
     expect(hook.result.current.selectedTask?.assignedExecutorWidgetId).toBeNull();
 
@@ -306,7 +306,7 @@ describe("useAgentQueueController worker actions", () => {
     });
 
     expect(hook.result.current.run.readinessMessage).toBe(
-      "No local executor is available. Add or enable a local executor.",
+      "Local executor unavailable.",
     );
     expect(hook.result.current.run.canStart).toBe(false);
 
@@ -320,7 +320,7 @@ describe("useAgentQueueController worker actions", () => {
     expect(harness.assignRequests).toHaveLength(0);
     expect(hook.result.current.assignmentError).toBeNull();
     expect(hook.result.current.run.readinessMessage).toBe(
-      "No local executor is available. Add or enable a local executor.",
+      "Local executor unavailable.",
     );
     expect(harness.startRequests).toHaveLength(0);
 

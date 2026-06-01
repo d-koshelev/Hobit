@@ -593,8 +593,12 @@ export function useAgentQueueController({
   const canUseDefaultLocalExecutor =
     Boolean(
       selectedTask &&
-        assignmentApiAvailable &&
         selectedExecutorSelection.executorWidgetId &&
+        (agentExecutorSlots.find(
+          (slot) =>
+            slot.widgetInstanceId === selectedExecutorSelection.executorWidgetId,
+        )?.ownerKind === "agent_queue" ||
+          assignmentApiAvailable) &&
         selectedTask.assignedExecutorWidgetId !==
           selectedExecutorSelection.executorWidgetId &&
         selectedExecutorWidgetId,
@@ -612,13 +616,13 @@ export function useAgentQueueController({
       : selectedTaskRoutingMessage;
   const executorAvailabilityMessage =
     selectedTask && !selectedExecutorSelection.executorWidgetId
-      ? "No local executor is available. Add or enable a local executor."
+      ? "Local executor unavailable."
       : null;
   const readinessMessage = globalRunBlockMessage
     ? globalRunBlockMessage
     : selectedQueueTagPaused
-    ? "Resume this queue tag before running the selected task."
-    : selectedTask
+      ? "Resume this queue tag before running the selected task."
+      : selectedTask
         ? executorAvailabilityMessage ??
         queueRunReadinessMessage({
           allowDefaultExecutorAssignment: canUseDefaultLocalExecutor,
@@ -631,17 +635,26 @@ export function useAgentQueueController({
             getQueueTaskDependencyState(selectedTask, tasks),
         ) ??
         effectiveSelectedTaskRoutingMessage
-      : "Assign an Agent Executor before running.";
+      : "Local executor unavailable.";
   const preconditionMessages = useMemo(
     () =>
       readinessMessage
         ? []
         : runPreconditionMessages({
             codexExecutable,
+            globalExecutionState,
             isStarting,
             repoRoot,
+            sandbox,
           }),
-    [codexExecutable, isStarting, readinessMessage, repoRoot],
+    [
+      codexExecutable,
+      globalExecutionState,
+      isStarting,
+      readinessMessage,
+      repoRoot,
+      sandbox,
+    ],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
   const queueRunner = useAgentQueueSequentialRunner({
@@ -865,6 +878,7 @@ export function useAgentQueueController({
   } = planningActions;
   const runActions = createAgentQueueRunActions({
     applyUpdatedTask,
+    agentExecutorSlots,
     approvalPolicy,
     canAutoAssignSelectedTask: canUseDefaultLocalExecutor,
     canArmAutorun,
@@ -1183,14 +1197,14 @@ function executorSelectionMessage({
   }
 
   if (source === "assigned") {
-    return `Executor assigned: ${label}.`;
+    return `Local executor assigned: ${label}.`;
   }
 
   if (source === "manual") {
-    return `Executor override selected: ${label}.`;
+    return `Local executor override selected: ${label}.`;
   }
 
   return assignedExecutorWidgetId
-    ? `Executor selected automatically: ${label}. The previous assignment is unavailable.`
-    : `Executor selected automatically: ${label}.`;
+    ? `Local executor selected automatically: ${label}. The previous assignment is unavailable.`
+    : `Local executor selected automatically: ${label}.`;
 }

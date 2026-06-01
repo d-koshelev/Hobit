@@ -224,6 +224,7 @@ const COORDINATOR_CHAT_WIDGET_DEFINITION_ID: &str = "interactive-agent";
 const AGENT_QUEUE_PROPOSAL_REVIEW_ITEM_KIND: &str = "agent_queue_proposal_review";
 const AGENT_QUEUE_STATUS_NEEDS_REVIEW: &str = "needs_review";
 const AGENT_QUEUE_DECISION_PENDING_REVIEW: &str = "pending_review";
+const AGENT_QUEUE_WIDGET_DEFINITION_ID: &str = "agent-queue";
 // Agent Executor reuses the internal agent-run id for persisted compatibility.
 const AGENT_RUN_WIDGET_DEFINITION_ID: &str = "agent-run";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";

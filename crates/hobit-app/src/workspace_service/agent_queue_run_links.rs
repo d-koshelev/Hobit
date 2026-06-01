@@ -6,8 +6,7 @@ use crate::WorkspaceServiceError;
 
 use super::{
     agent_queue_tasks::{
-        load_agent_executor_widget, load_agent_queue_task, map_storage_agent_queue_task_error,
-        storage_invalid_input,
+        load_agent_queue_task, map_storage_agent_queue_task_error, storage_invalid_input,
     },
     direct_work::{can_initiate_direct_work, CODEX_DIRECT_WORK_COMMAND_KIND},
     placeholder_id, placeholder_timestamp,
@@ -15,6 +14,7 @@ use super::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput, WorkspaceService,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
 impl WorkspaceService {
@@ -290,13 +290,30 @@ fn validate_queue_task_executor_run_link(
     direct_work_run_id: &str,
 ) -> Result<(), hobit_storage_sqlite::StorageError> {
     let task = load_agent_queue_task(store, workspace_id, queue_task_id)?;
-    if task.assigned_executor_widget_id.as_deref() != Some(executor_widget_id) {
+    let Some(executor) = store.get_widget_instance(executor_widget_id)? else {
+        return Err(storage_invalid_input(format!(
+            "queue task run owner not found: {executor_widget_id}"
+        )));
+    };
+    if executor.workspace_id != workspace_id {
+        return Err(storage_invalid_input(format!(
+            "queue task run owner does not belong to workspace: {executor_widget_id}"
+        )));
+    }
+    if executor.definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
+        && task.assigned_executor_widget_id.as_deref() != Some(executor_widget_id)
+    {
         return Err(storage_invalid_input(
             "queue task is not assigned to the linked Agent Executor".to_owned(),
         ));
+    } else if executor.definition_id != AGENT_RUN_WIDGET_DEFINITION_ID
+        && executor.definition_id != AGENT_QUEUE_WIDGET_DEFINITION_ID
+    {
+        return Err(storage_invalid_input(format!(
+            "queue task run owner is not a Direct Work owner: {executor_widget_id}"
+        )));
     }
 
-    let executor = load_agent_executor_widget(store, workspace_id, executor_widget_id)?;
     let Some((_workspace, _workbench, widget, run)) = validate_widget_run_ownership(
         store,
         workspace_id,

@@ -11,7 +11,6 @@ import type {
 } from "../workspace/types";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
-  AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
@@ -238,11 +237,6 @@ describe("WorkbenchShell widget layout controls", () => {
       "Agent Activity",
       AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
       { width: 600, height: 600 },
-    ],
-    [
-      "Agent Executor",
-      AGENT_RUN_WIDGET_DEFINITION_ID,
-      { width: 672, height: 600 },
     ],
     [
       "Notes",

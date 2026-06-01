@@ -32,7 +32,7 @@ describe("useAgentQueueController load and defaults", () => {
     expect(hook.result.current.foundation.queueTags[0]?.status).toBe("running");
     expect(hook.result.current.foundation.queueTags[0]?.taskCount).toBe(1);
     expect(hook.result.current.foundation.workers[0]?.name).toBe(
-      "Agent Executor 1",
+      "Local executor 1",
     );
     expect(hook.result.current.foundation.workers[0]?.scope).toEqual({
       kind: "all",
@@ -66,12 +66,12 @@ describe("useAgentQueueController load and defaults", () => {
     await flushControllerLoad();
 
     expect(harness.createWorkerRequests[0]?.enabled).toBe(true);
-    expect(harness.createWorkerRequests[0]?.name).toBe("Agent Executor 1");
+    expect(harness.createWorkerRequests[0]?.name).toBe("Local executor 1");
     expect(harness.createWorkerRequests[0]?.scopeKind).toBe("all");
     expect(harness.createWorkerRequests[0]?.workerId).toBe("executor-1");
     expect(hook.result.current.foundation.workers[0]?.enabled).toBe(true);
     expect(hook.result.current.foundation.workers[0]?.name).toBe(
-      "Agent Executor 1",
+      "Local executor 1",
     );
     expect(hook.result.current.foundation.workers[0]?.workerId).toBe(
       "executor-1",

@@ -1,5 +1,4 @@
 import { useId } from "react";
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
 import type { BadgeVariant } from "./agentQueueFormatting";
@@ -77,6 +76,7 @@ export function AgentQueueRunReadinessPanel({
   const settingsNeedSetup =
     !run.repoRootDraft.trim() ||
     !run.codexExecutableDraft.trim() ||
+    run.sandbox !== "danger_full_access" ||
     run.preconditionMessages.length > 0;
 
   return (
@@ -85,16 +85,12 @@ export function AgentQueueRunReadinessPanel({
         <div>
           <p
             className="agent-queue-execution-group-title"
-            title="Starts only the selected task in the assigned Agent Executor."
+            title="Starts only the selected Queue task."
           >
             Run selected task
           </p>
           <p className="agent-queue-run-note">
-            {runPrimarySummary({
-              checklist,
-              run,
-              selectedTask,
-            })}
+            Explicit selected-task run. No work starts until Run task.
           </p>
         </div>
         {showRunButton ? (
@@ -110,78 +106,12 @@ export function AgentQueueRunReadinessPanel({
 
       {blockingChecklist.length > 0 ? (
         <div className="agent-queue-setup-fixes" role="status">
-          <p className="agent-queue-setup-fixes-title">Needed before run</p>
-          <ul>
-            {blockingChecklist.slice(0, 3).map((item) => (
-              <li key={item.label}>{item.copy}</li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p className="agent-queue-run-note">
-          Ready to run once the operator starts it explicitly.
-        </p>
-      )}
-
-      <dl className="agent-queue-run-settings-summary">
-        <div>
-          <dt>Execution workspace</dt>
-          <dd>{run.repoRootDraft.trim() || "Not set"}</dd>
-        </div>
-        <div>
-          <dt>Codex executable</dt>
-          <dd>{run.codexExecutableDraft.trim() || "Not set"}</dd>
-        </div>
-        <div>
-          <dt>Sandbox</dt>
-          <dd>{run.sandbox}</dd>
-        </div>
-        <div>
-          <dt>Approval policy</dt>
-          <dd>{run.approvalPolicy}</dd>
-        </div>
-      </dl>
-
-      {run.sandbox === "danger_full_access" ? (
-        <p className="agent-queue-run-warning" role="alert">
-          danger_full_access is unsafe and intended only for trusted local
-          development. It disables Codex sandbox restrictions. Git mutations
-          remain forbidden unless explicitly requested; Hobit will still not
-          auto-commit, push, reset, clean, stash, or roll back changes.
-        </p>
-      ) : null}
-
-      <details
-        aria-label="Prepare local run checklist"
-        className="agent-queue-details agent-queue-secondary-details agent-queue-readiness-details"
-      >
-        <summary>Readiness details</summary>
-        <div className="agent-queue-prepare-local-run">
-          <div className="agent-queue-prepare-header">
-          <div>
-            <p className="agent-queue-prepare-title">Prepare local run</p>
-            <p className="agent-queue-run-note">
-              Check the local gates before starting the selected task.
-            </p>
-          </div>
-          <Badge
-            variant={checklist.every((item) => item.state === "ok") ? "success" : "warning"}
-          >
-            {checklist.every((item) => item.state === "ok")
-              ? "Ready"
-              : "Needs setup"}
-          </Badge>
-          </div>
-          <div className="agent-queue-prepare-list">
-            {checklist.map((item) => (
-              <div className="agent-queue-prepare-item" key={item.label}>
-                <div className="agent-queue-prepare-item-main">
-                  <Badge variant={item.badgeVariant}>{item.badge}</Badge>
-                  <div>
-                    <p className="agent-queue-prepare-item-title">{item.label}</p>
-                    <p className="agent-queue-prepare-item-copy">{item.copy}</p>
-                  </div>
-                </div>
+          <p className="agent-queue-setup-fixes-title">Before run</p>
+          <div className="agent-queue-compact-blocker-list">
+            {blockingChecklist.map((item) => (
+              <div className="agent-queue-compact-blocker-row" key={item.label}>
+                <span>{item.label}</span>
+                <span>{item.copy}</span>
                 {item.action ? (
                   <Button
                     disabled={item.action.disabled}
@@ -195,17 +125,23 @@ export function AgentQueueRunReadinessPanel({
             ))}
           </div>
         </div>
-      </details>
+      ) : (
+        <p className="agent-queue-run-note">
+          Ready to run once the operator starts it explicitly.
+        </p>
+      )}
 
-      {run.readinessMessage ? (
-        <p className="agent-queue-run-note">{run.readinessMessage}</p>
+      {run.sandbox === "danger_full_access" ? (
+        <p className="agent-queue-run-warning" role="alert">
+          Unsafe local dev mode.
+        </p>
       ) : null}
 
       <details
         className="agent-queue-details agent-queue-secondary-details agent-queue-run-settings-details"
         open={settingsNeedSetup}
       >
-        <summary>Advanced execution settings</summary>
+        <summary>Execution settings</summary>
         <div className="agent-queue-run-controls">
           <div className="agent-queue-run-field agent-queue-run-field-wide">
             <label
@@ -286,16 +222,6 @@ export function AgentQueueRunReadinessPanel({
             </select>
           </div>
         </div>
-
-        {!run.readinessMessage && run.preconditionMessages.length > 0 ? (
-          <div className="agent-queue-run-warning-list">
-            {run.preconditionMessages.map((message) => (
-              <p className="agent-queue-run-warning" key={message}>
-                {message}
-              </p>
-            ))}
-          </div>
-        ) : null}
       </details>
 
       {run.startMessage ? (
@@ -305,7 +231,7 @@ export function AgentQueueRunReadinessPanel({
             {run.startedRunId ? ` Run id: ${run.startedRunId}.` : ""}
           </p>
           <p className="agent-queue-run-note">
-            Result appears in the assigned Agent Executor.
+            Result appears in Logs/report when available.
           </p>
         </>
       ) : null}
@@ -340,10 +266,12 @@ function buildPrepareLocalRunChecklist({
   canPromoteDraftToQueued,
   currentSelection,
   executorSlots,
+  globalExecutionState,
   hasExecutorSlots,
   isAssigning,
   onAssignSelectedWorker,
   onPromoteDraftToQueued,
+  onStartWorkers,
   routingState,
   run,
   selectedTask,
@@ -357,36 +285,50 @@ function buildPrepareLocalRunChecklist({
   const selectedExecutorLabel =
     executorSlots.find((slot) => slot.widgetInstanceId === currentSelection)
       ?.label ?? assignmentLabel(currentSelection || null);
+  const selectedExecutorIsQueueOwned =
+    executorSlots.find((slot) => slot.widgetInstanceId === currentSelection)
+      ?.ownerKind === "agent_queue";
+
+  if (globalExecutionState === "stopped") {
+    items.push({
+      action: {
+        label: "Start queue",
+        onClick: onStartWorkers,
+        variant: "secondary",
+      },
+      ...blockedItem("Start queue", "Queue stopped."),
+    });
+  }
 
   items.push(
     hasExecutorSlots
       ? okItem(
-          "Agent Executor availability",
-          `${executorSlots.length.toString()} Agent Executor slot${
+          "Local executor ready",
+          `${executorSlots.length.toString()} local slot${
             executorSlots.length === 1 ? "" : "s"
-          } visible.`,
+          }.`,
         )
       : blockedItem(
-          "Agent Executor availability",
-          "No local executor is available. Add or enable a local executor.",
+          "Local executor unavailable",
+          "No local slot.",
         ),
   );
 
   items.push(
     run.repoRootDraft.trim()
-      ? okItem("Execution workspace", run.repoRootDraft.trim())
+      ? okItem("Workspace set", run.repoRootDraft.trim())
       : fixItem(
-          "Execution workspace",
-          "Set workspace to the Hobit repo root before running this task.",
+          "Set workspace",
+          "Choose repo/project path.",
         ),
   );
 
   items.push(
     run.codexExecutableDraft.trim()
-      ? okItem("Codex executable", run.codexExecutableDraft.trim())
+      ? okItem("Codex executable set", run.codexExecutableDraft.trim())
       : fixItem(
-          "Codex executable",
-          "Codex executable is required before running. Set the executable in this field.",
+          "Set Codex executable",
+          "Required before run.",
         ),
   );
 
@@ -404,35 +346,31 @@ function buildPrepareLocalRunChecklist({
     }),
   );
 
-  if (run.usesDefaultExecutorOnStart && currentSelection) {
+  if ((run.usesDefaultExecutorOnStart || selectedExecutorIsQueueOwned) && currentSelection) {
     items.push(
       okItem(
-        "Worker / executor assignment",
-        `Executor selected automatically: ${selectedExecutorLabel}.`,
+        "Local executor selected",
+        selectedExecutorLabel,
       ),
     );
-  } else if (!assignedWorkerId) {
+  } else if (!assignedWorkerId && hasExecutorSlots) {
     items.push({
-      action: hasExecutorSlots
-        ? {
-            disabled: !canAssignSelectedWorker,
-            label: isAssigning ? "Assigning" : "Assign",
-            onClick: onAssignSelectedWorker,
-            variant: "secondary",
-          }
-        : undefined,
+      action: {
+        disabled: !canAssignSelectedWorker,
+        label: isAssigning ? "Assigning" : "Assign",
+        onClick: onAssignSelectedWorker,
+        variant: "secondary",
+      },
       ...blockedItem(
-        "Worker / executor assignment",
-        hasExecutorSlots
-          ? `Select an available Worker / Executor before running. Current selection: ${selectedExecutorLabel}.`
-          : "Assign a Worker / Executor before running.",
+        "Select local executor",
+        selectedExecutorLabel,
       ),
     });
   } else if (selectedWorker && !selectedWorker.enabled) {
     items.push(
       blockedItem(
-        "Worker / executor assignment",
-        "Selected worker is disabled. Enable it before assigning new work.",
+        "Local executor unavailable",
+        "Selected worker disabled.",
       ),
     );
   } else if (manualRunRoutingBlocker(routingState)) {
@@ -441,50 +379,20 @@ function buildPrepareLocalRunChecklist({
     );
     items.push(
       blockedItem(
-        "Worker / executor assignment",
-        blocker?.label ?? "Assigned worker cannot take this task yet.",
+        "Local executor unavailable",
+        blocker?.label ?? "Assigned worker blocked.",
       ),
     );
   } else {
     items.push(
       okItem(
-        "Worker / executor assignment",
-        `${assignmentLabel(assignedWorkerId)} is assigned.`,
+        "Local executor selected",
+        assignmentLabel(assignedWorkerId),
       ),
     );
   }
 
   return items;
-}
-
-function runPrimarySummary({
-  checklist,
-  run,
-  selectedTask,
-}: {
-  checklist: PrepareLocalRunChecklistItem[];
-  run: AgentQueueRunController;
-  selectedTask: AgentQueueTask;
-}) {
-  if (run.canStart) {
-    const executorCopy = run.usesDefaultExecutorOnStart
-      ? " The visible local executor will be assigned as part of this explicit run."
-      : "";
-
-    return `Ready for an explicit local run.${executorCopy}`;
-  }
-
-  if (run.readinessMessage) {
-    return run.readinessMessage;
-  }
-
-  const firstFix = checklist.find((item) => item.state !== "ok");
-
-  if (firstFix) {
-    return `${firstFix.label}: ${firstFix.copy}`;
-  }
-
-  return `${statusLabel(selectedTask.status)} task needs setup before it can run.`;
 }
 
 function manualRunRoutingBlocker(
@@ -513,8 +421,8 @@ function taskStatusChecklistItem({
     case "ready":
     case "review_needed":
       return okItem(
-        "Task execution status",
-        `${statusLabel(selectedTask.status)} is runnable for manual Queue start.`,
+        "Task runnable",
+        statusLabel(selectedTask.status),
       );
     case "draft":
       return {
@@ -525,28 +433,26 @@ function taskStatusChecklistItem({
           variant: "primary",
         },
         ...blockedItem(
-          "Task execution status",
-          "Draft tasks are not runnable. Promote to queued or open Task edit and set Execution status to Queued.",
+          "Promote to queued",
+          "Draft task.",
         ),
       };
     case "running":
       return blockedItem(
-        "Task execution status",
-        "This task is already running in its assigned Agent Executor.",
+        "Task already running",
+        "Wait for result.",
       );
     case "completed":
     case "failed":
     case "cancelled":
       return blockedItem(
-        "Task execution status",
-        `Final-status tasks cannot be run in this version. Current status: ${statusLabel(
-          selectedTask.status,
-        )}.`,
+        "Task final",
+        statusLabel(selectedTask.status),
       );
     default:
       return blockedItem(
-        "Task execution status",
-        `Task status cannot be run: ${statusLabel(selectedTask.status)}.`,
+        "Task not runnable",
+        statusLabel(selectedTask.status),
       );
   }
 }
@@ -556,14 +462,14 @@ function sandboxChecklistItem(
 ): PrepareLocalRunChecklistItem {
   if (sandbox === "danger_full_access") {
     return okItem(
-      "Sandbox mode",
-      "danger_full_access selected. Unsafe / trusted local development only.",
+      "Sandbox selected",
+      "Unsafe local dev mode.",
     );
   }
 
   return fixItem(
-    "Sandbox mode",
-    `${sandbox} selected. This Windows environment may require danger_full_access for local Hobit dogfooding. Change Sandbox to danger_full_access only for trusted local development.`,
+    "Select danger_full_access",
+    "Unsafe local dev mode.",
   );
 }
 

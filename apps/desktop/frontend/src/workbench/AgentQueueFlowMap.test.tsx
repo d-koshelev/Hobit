@@ -87,7 +87,7 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Blocked by: Review blocker");
     expect(document.body.textContent).toContain("Validating");
     expect(document.body.textContent).toContain(
-      "Agent Executor section / Working executors",
+      "Local executor section / Working executors",
     );
     expect(document.body.textContent).toContain("Max executors");
     expect(document.body.textContent).toContain("Spare executor");
@@ -210,7 +210,7 @@ describe("AgentQueueFlowMap", () => {
     expect(document.body.textContent).toContain("Waiting / Not runnable");
     expect(document.body.textContent).toContain("Blocked work");
     expect(document.body.textContent).toContain(
-      "Agent Executor section / Working executors",
+      "Local executor section / Working executors",
     );
     expect(document.body.textContent).toContain(
       "Results / Reports / Completed work",

@@ -77,7 +77,7 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const options: AgentQueueControllerOptions = {
     agentExecutorSlots: [
       {
-        label: "Agent Executor 1",
+        label: "Local executor 1",
         widgetInstanceId: "executor-1",
       },
     ],
@@ -199,8 +199,10 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     ): Promise<StartAssignedAgentQueueTaskResponse> => {
       startRequests.push(request);
       const task = tasks.get(request.queueItemId);
+      const executorWidgetInstanceId =
+        request.queueOwnerWidgetInstanceId ?? task?.assignedExecutorWidgetId;
 
-      if (!task?.assignedExecutorWidgetId) {
+      if (!task || !executorWidgetInstanceId) {
         throw new Error("Queue task must be assigned before start.");
       }
 
@@ -211,7 +213,7 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
       });
 
       return {
-        executorWidgetInstanceId: task.assignedExecutorWidgetId,
+        executorWidgetInstanceId,
         queueItemId: task.queueItemId,
         runId: `run-${startRequests.length.toString()}`,
         status: "running",
@@ -312,7 +314,7 @@ export function agentQueueWorker(
     createdAt: "2026-05-20T10:00:00.000Z",
     displayOrder: 0,
     enabled: true,
-    name: "Agent Executor 1",
+    name: "Local executor 1",
     queueTagId: null,
     queueTagName: null,
     scopeKind: "all",

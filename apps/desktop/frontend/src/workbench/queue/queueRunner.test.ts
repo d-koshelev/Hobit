@@ -306,7 +306,7 @@ describe("queue runner task selection", () => {
           displayOrder: 0,
           enabled: true,
           lastReportSummary: null,
-          name: "Agent Executor 1",
+          name: "Local executor 1",
           scope: {
             kind: "queue_tag",
             queueTagId: "default",

@@ -14,7 +14,7 @@ import {
 } from "./useAgentQueueControllerTestHelpers";
 
 describe("useAgentQueueController execution state", () => {
-  it("uses explicit global execution state to gate Autorun and Sequential Runner without blocking selected-task runs", async () => {
+  it("uses explicit global execution state to gate selected runs, Autorun, and Sequential Runner", async () => {
     const harness = createQueueHarness([
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -37,11 +37,15 @@ describe("useAgentQueueController execution state", () => {
 
     act(() => {
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
     expect(hook.result.current.run.readinessMessage).toBeNull();
-    expect(hook.result.current.run.canStart).toBe(true);
+    expect(hook.result.current.run.canStart).toBe(false);
+    expect(
+      hook.result.current.run.preconditionMessages.includes("Start queue."),
+    ).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
@@ -61,6 +65,7 @@ describe("useAgentQueueController execution state", () => {
 
     expect(hook.result.current.foundation.globalStatus).toBe("started");
     expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(true);
     expect(hook.result.current.runner.canStart).toBe(true);
 
@@ -70,7 +75,7 @@ describe("useAgentQueueController execution state", () => {
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
     expect(hook.result.current.run.readinessMessage).toBeNull();
-    expect(hook.result.current.run.canStart).toBe(true);
+    expect(hook.result.current.run.canStart).toBe(false);
     expect(hook.result.current.autorun.canArm).toBe(false);
 
     act(() => {
@@ -117,7 +122,9 @@ describe("useAgentQueueController execution state", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.run.readinessMessage).toBeNull();
@@ -142,6 +149,52 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
+  it("starts a selected task through the Queue-owned local executor without assignment", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "manual",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.agentExecutorSlots = [
+      {
+        label: "Local executor ready",
+        ownerKind: "agent_queue",
+        widgetInstanceId: "queue-widget-1",
+      },
+    ];
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+      hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
+    });
+
+    expect(hook.result.current.selectedExecutorWidgetId).toBe("queue-widget-1");
+    expect(hook.result.current.run.readinessMessage).toBeNull();
+    expect(hook.result.current.run.canStart).toBe(true);
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.assignRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+    expect(harness.startRequests[0].queueOwnerWidgetInstanceId).toBe(
+      "queue-widget-1",
+    );
+    expect(harness.handoffs[0].executorWidgetInstanceId).toBe("queue-widget-1");
+
+    hook.unmount();
+  });
+
   it("selects a deterministic executor when multiple visible idle executors are available", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -153,8 +206,8 @@ describe("useAgentQueueController execution state", () => {
       }),
     ]);
     harness.options.agentExecutorSlots = [
-      { label: "Agent Executor scoped", widgetInstanceId: "executor-scoped" },
-      { label: "Agent Executor all", widgetInstanceId: "executor-all" },
+      { label: "Local executor scoped", widgetInstanceId: "executor-scoped" },
+      { label: "Local executor all", widgetInstanceId: "executor-all" },
     ];
     harness.replaceWorker(
       agentQueueWorker({
@@ -179,7 +232,9 @@ describe("useAgentQueueController execution state", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-all");
@@ -212,15 +267,17 @@ describe("useAgentQueueController execution state", () => {
       }),
     ]);
     harness.options.agentExecutorSlots = [
-      { label: "Agent Executor 1", widgetInstanceId: "executor-1" },
-      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+      { label: "Local executor 1", widgetInstanceId: "executor-1" },
+      { label: "Local executor 2", widgetInstanceId: "executor-2" },
     ];
     const hook = renderQueueController(harness);
 
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
@@ -248,14 +305,16 @@ describe("useAgentQueueController execution state", () => {
       }),
     ]);
     harness.options.agentExecutorSlots = [
-      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+      { label: "Local executor 2", widgetInstanceId: "executor-2" },
     ];
     const hook = renderQueueController(harness);
 
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
@@ -298,11 +357,12 @@ describe("useAgentQueueController execution state", () => {
 
     act(() => {
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.selectedExecutorWidgetId).toBe("");
     expect(hook.result.current.run.readinessMessage).toBe(
-      "No local executor is available. Add or enable a local executor.",
+      "Local executor unavailable.",
     );
     expect(hook.result.current.run.canStart).toBe(false);
 
@@ -326,8 +386,8 @@ describe("useAgentQueueController execution state", () => {
       }),
     ]);
     harness.options.agentExecutorSlots = [
-      { label: "Agent Executor 1", widgetInstanceId: "executor-1" },
-      { label: "Agent Executor 2", widgetInstanceId: "executor-2" },
+      { label: "Local executor 1", widgetInstanceId: "executor-1" },
+      { label: "Local executor 2", widgetInstanceId: "executor-2" },
     ];
     const hook = renderQueueController(harness);
 
@@ -336,11 +396,12 @@ describe("useAgentQueueController execution state", () => {
     act(() => {
       hook.result.current.selectExecutorWidget("executor-2");
       hook.result.current.run.onRepoRootDraftChange("/repo");
+      hook.result.current.run.onSandboxChange("danger_full_access");
     });
 
     expect(hook.result.current.selectedExecutorWidgetId).toBe("executor-2");
     expect(hook.result.current.run.executorSelectionMessage).toBe(
-      "Executor override selected: Agent Executor 2.",
+      "Local executor override selected: Local executor 2.",
     );
     expect(harness.assignRequests).toHaveLength(0);
     expect(harness.startRequests).toHaveLength(0);
@@ -595,7 +656,7 @@ describe("useAgentQueueController execution state", () => {
     });
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
-        "Select one Agent Executor before arming Queue Autorun.",
+        "Select one local executor before arming Queue Autorun.",
       ),
     ).toBe(true);
     expect(hook.result.current.autorun.canArm).toBe(false);

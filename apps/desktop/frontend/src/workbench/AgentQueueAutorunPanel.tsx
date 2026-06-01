@@ -23,7 +23,7 @@ export function AgentQueueAutorunPanel({
         <div>
           <p
             className="agent-queue-execution-group-title"
-            title="Starts eligible assigned Queue tasks through the existing Queue-to-Executor path."
+            title="Starts eligible assigned Queue tasks through the Queue local execution path."
           >
             Queue Autorun
           </p>
@@ -44,9 +44,9 @@ export function AgentQueueAutorunPanel({
 
       <dl className="agent-queue-autorun-facts">
         <div>
-          <dt>Executor</dt>
+          <dt>Local executor</dt>
           <dd>
-            {autorun.selectedExecutorLabel ?? "No Agent Executor selected"}
+            {autorun.selectedExecutorLabel ?? "No local executor selected"}
           </dd>
         </div>
         <div>
@@ -128,7 +128,7 @@ export function AgentQueueAutorunPanel({
         <summary>Limits</summary>
         <p className="agent-queue-run-note">
           Current-session only. Stop Autorun stops future scheduling, not the
-          active Agent Executor run.
+          active local executor run.
         </p>
       </details>
       {autorun.error ? (
@@ -165,7 +165,7 @@ function autorunStateText(snapshot: AgentQueueAutorunController["snapshot"]) {
   }
 
   if (snapshot.status === "waiting_for_executor") {
-    return "Waiting for Agent Executor";
+    return "Waiting for local executor";
   }
 
   if (

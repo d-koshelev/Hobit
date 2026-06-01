@@ -237,7 +237,7 @@ export function createAgentQueueTagActions({
 
     if (tag.runningCount > 0) {
       setTagManagementError(
-        "Queue tags with running items cannot be deleted. Stop or finish the Agent Executor work first.",
+        "Queue tags with running items cannot be deleted. Stop or finish local executor work first.",
       );
       return false;
     }

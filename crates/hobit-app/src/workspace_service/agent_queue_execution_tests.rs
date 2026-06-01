@@ -62,6 +62,58 @@ fn assigned_queue_task_start_creates_direct_work_run_and_marks_running() {
 }
 
 #[test]
+fn queue_owned_task_start_does_not_require_agent_executor_assignment() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+    let queue_widget_id = add_widget(
+        &service,
+        &workspace.id,
+        workbench_id,
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        "Agent Queue",
+    );
+    let task = create_task(
+        &service,
+        &workspace.id,
+        "queued",
+        "Run this queue-owned task.",
+    );
+    let mut input = start_input(&workspace.id, &task.queue_item_id);
+    input.queue_owner_widget_instance_id = Some(queue_widget_id.clone());
+
+    let plan = service
+        .prepare_assigned_agent_queue_task_run(input.clone())
+        .expect("prepare queue-owned task run");
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("start queue-owned task");
+    let stored_task = service
+        .get_agent_queue_task(&workspace.id, &task.queue_item_id)
+        .expect("get queue task")
+        .expect("queue task");
+    let run = service
+        .store
+        .get_widget_run(&start.run_id)
+        .expect("get Direct Work run")
+        .expect("Direct Work run");
+    let link = service
+        .get_latest_agent_queue_task_run_link(&workspace.id, &task.queue_item_id)
+        .expect("get latest run link")
+        .expect("latest run link");
+
+    assert_eq!(plan.executor_widget_instance_id, queue_widget_id);
+    assert_eq!(start.executor_widget_instance_id, queue_widget_id);
+    assert_eq!(stored_task.assigned_executor_widget_id, None);
+    assert_eq!(stored_task.status, "running");
+    assert_eq!(run.widget_instance_id, queue_widget_id);
+    assert_eq!(link.executor_widget_id, queue_widget_id);
+    assert_eq!(link.direct_work_run_id, start.run_id);
+}
+
+#[test]
 fn assigned_queue_task_start_rejects_invalid_preconditions_without_run() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
@@ -71,7 +123,7 @@ fn assigned_queue_task_start_rejects_invalid_preconditions_without_run() {
         &service,
         &workspace_id,
         &unassigned.queue_item_id,
-        "must be assigned",
+        "Queue-owned local executor",
     );
 
     for status in ["draft", "running", "completed", "failed", "cancelled"] {
@@ -371,6 +423,7 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
     StartAssignedAgentQueueTaskInput {
         workspace_id: workspace_id.to_owned(),
         queue_item_id: queue_item_id.to_owned(),
+        queue_owner_widget_instance_id: None,
         codex_executable: "codex".to_owned(),
         repo_root: std::env::current_dir().expect("current dir"),
         sandbox: "workspace_write".to_owned(),

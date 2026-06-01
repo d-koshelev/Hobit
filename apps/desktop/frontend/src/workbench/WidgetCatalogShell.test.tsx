@@ -10,7 +10,6 @@ import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
@@ -46,7 +45,7 @@ describe("WidgetCatalogShell", () => {
     expect(document.body.textContent).toContain("Git");
     expect(document.body.textContent).toContain("Terminal");
     expect(document.body.textContent).toContain("Agent Queue");
-    expect(document.body.textContent).toContain("Agent Executor");
+    expect(document.body.textContent).not.toContain("Agent Executor");
     expect(document.body.textContent).toContain("Database / JDBC");
     expect(document.body.textContent).toContain("Runbook");
     expect(document.body.textContent).not.toContain("Coordinator Chat");
@@ -108,7 +107,6 @@ describe("widgetCatalogTemplates", () => {
       INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
       AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
       AGENT_QUEUE_WIDGET_DEFINITION_ID,
-      AGENT_RUN_WIDGET_DEFINITION_ID,
       SKILL_LIBRARY_WIDGET_DEFINITION_ID,
       NOTES_WIDGET_DEFINITION_ID,
       GIT_WIDGET_DEFINITION_ID,
@@ -136,12 +134,6 @@ describe("widgetCatalogTemplates", () => {
       defaultWidth: 600,
       minHeight: 432,
       minWidth: 480,
-    });
-    expect(templateFor(AGENT_RUN_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
-      defaultHeight: 600,
-      defaultWidth: 672,
-      minHeight: 480,
-      minWidth: 576,
     });
     expect(templateFor(NOTES_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
       defaultHeight: 552,

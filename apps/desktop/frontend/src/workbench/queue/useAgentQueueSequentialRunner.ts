@@ -138,7 +138,7 @@ export function useAgentQueueSequentialRunner({
     setError(null);
     setStatus("stopped");
     setMessage(
-      "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
+      "Sequential Queue Runner stopped. The active local executor run was not stopped.",
     );
   }
 
@@ -269,14 +269,14 @@ export function useAgentQueueSequentialRunner({
       if (stopRequestedRef.current) {
         setStatus("stopped");
         setMessage(
-          "Sequential Queue Runner stopped. The active Agent Executor run was not stopped.",
+          "Sequential Queue Runner stopped. The active local executor run was not stopped.",
         );
         return;
       }
 
       setStatus("waiting_for_executor");
       setMessage(
-        `Waiting for Agent Executor ${shortWidgetInstanceId(
+        `Waiting for local executor ${shortWidgetInstanceId(
           response.executorWidgetInstanceId,
         )} to finish "${task.title}".`,
       );

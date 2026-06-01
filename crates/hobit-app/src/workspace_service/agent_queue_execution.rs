@@ -23,6 +23,7 @@ use super::{
     AgentQueueTaskRunSource, AgentQueueTaskSummary, AssignedAgentQueueTaskRunPlan,
     AssignedAgentQueueTaskStartSummary, FinishAssignedAgentQueueTaskRunInput,
     RunCodexDirectWorkInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
 impl WorkspaceService {
@@ -31,20 +32,14 @@ impl WorkspaceService {
         input: StartAssignedAgentQueueTaskInput,
     ) -> Result<AssignedAgentQueueTaskRunPlan, WorkspaceServiceError> {
         let input = normalize_start_assigned_agent_queue_task_input(input)?;
-        let task = load_runnable_assigned_agent_queue_task(
+        let task =
+            load_runnable_agent_queue_task(&self.store, &input.workspace_id, &input.queue_item_id)
+                .map_err(map_storage_agent_queue_task_error)?;
+        let executor = load_agent_queue_direct_work_owner(
             &self.store,
             &input.workspace_id,
-            &input.queue_item_id,
-        )
-        .map_err(map_storage_agent_queue_task_error)?;
-        let executor_widget_instance_id = task
-            .assigned_executor_widget_id
-            .clone()
-            .expect("runnable assigned task has executor");
-        let executor = load_agent_executor_widget(
-            &self.store,
-            &input.workspace_id,
-            &executor_widget_instance_id,
+            input.queue_owner_widget_instance_id.as_deref(),
+            task.assigned_executor_widget_id.as_deref(),
         )
         .map_err(map_storage_agent_queue_task_error)?;
         let direct_work_input = build_direct_work_input(
@@ -80,22 +75,16 @@ impl WorkspaceService {
 
         self.store
             .with_immediate_transaction(|store| {
-                let task = load_runnable_assigned_agent_queue_task(
+                let task = load_runnable_agent_queue_task(
                     store,
                     &input.workspace_id,
                     &input.queue_item_id,
                 )?;
-                let executor_widget_instance_id =
-                    task.assigned_executor_widget_id.clone().ok_or_else(|| {
-                        storage_invalid_input(
-                            "queue task must be assigned to an Agent Executor before running"
-                                .to_owned(),
-                        )
-                    })?;
-                let executor = load_agent_executor_widget(
+                let executor = load_agent_queue_direct_work_owner(
                     store,
                     &input.workspace_id,
-                    &executor_widget_instance_id,
+                    input.queue_owner_widget_instance_id.as_deref(),
+                    task.assigned_executor_widget_id.as_deref(),
                 )?;
                 let direct_work_input = build_direct_work_input(
                     &input,
@@ -165,12 +154,14 @@ impl WorkspaceService {
                     )));
                 }
 
-                let executor = load_agent_executor_widget(
+                let executor = load_agent_queue_direct_work_owner_by_id(
                     store,
                     &input.workspace_id,
                     &input.executor_widget_instance_id,
                 )?;
-                if task.assigned_executor_widget_id.as_deref() != Some(executor.id.as_str()) {
+                if executor.definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
+                    && task.assigned_executor_widget_id.as_deref() != Some(executor.id.as_str())
+                {
                     return Err(storage_invalid_input(
                         "queue task is not assigned to the completed executor".to_owned(),
                     ));
@@ -226,6 +217,7 @@ impl WorkspaceService {
 struct NormalizedStartAssignedAgentQueueTaskInput {
     workspace_id: String,
     queue_item_id: String,
+    queue_owner_widget_instance_id: Option<String>,
     codex_executable: String,
     repo_root: std::path::PathBuf,
     sandbox: String,
@@ -256,6 +248,10 @@ fn normalize_start_assigned_agent_queue_task_input(
     Ok(NormalizedStartAssignedAgentQueueTaskInput {
         workspace_id: required_input(&input.workspace_id, "workspace id")?.to_owned(),
         queue_item_id: required_input(&input.queue_item_id, "queue item id")?.to_owned(),
+        queue_owner_widget_instance_id: input
+            .queue_owner_widget_instance_id
+            .map(|widget_id| widget_id.trim().to_owned())
+            .filter(|widget_id| !widget_id.is_empty()),
         codex_executable: required_input(&input.codex_executable, "codex executable")?.to_owned(),
         repo_root: input.repo_root,
         sandbox: required_input(&input.sandbox, "direct work sandbox")?.to_owned(),
@@ -284,18 +280,12 @@ fn normalize_finish_assigned_agent_queue_task_run_input(
     })
 }
 
-fn load_runnable_assigned_agent_queue_task(
+fn load_runnable_agent_queue_task(
     store: &hobit_storage_sqlite::SqliteStore,
     workspace_id: &str,
     queue_item_id: &str,
 ) -> Result<hobit_storage_sqlite::AgentQueueTaskRow, hobit_storage_sqlite::StorageError> {
     let task = load_agent_queue_task(store, workspace_id, queue_item_id)?;
-
-    if task.assigned_executor_widget_id.is_none() {
-        return Err(storage_invalid_input(
-            "queue task must be assigned to an Agent Executor before running".to_owned(),
-        ));
-    }
 
     if !is_runnable_agent_queue_task_status(&task.status) {
         return Err(storage_invalid_input(format!(
@@ -311,6 +301,71 @@ fn load_runnable_assigned_agent_queue_task(
     }
 
     Ok(task)
+}
+
+fn load_agent_queue_direct_work_owner(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    queue_owner_widget_instance_id: Option<&str>,
+    assigned_executor_widget_id: Option<&str>,
+) -> Result<hobit_storage_sqlite::WidgetInstanceRow, hobit_storage_sqlite::StorageError> {
+    if let Some(queue_owner_widget_instance_id) = queue_owner_widget_instance_id {
+        let Some(widget) = store.get_widget_instance(queue_owner_widget_instance_id)? else {
+            return Err(storage_invalid_input(format!(
+                "queue local executor owner not found: {queue_owner_widget_instance_id}"
+            )));
+        };
+
+        if widget.workspace_id != workspace_id {
+            return Err(storage_invalid_input(format!(
+                "queue local executor owner does not belong to workspace: {queue_owner_widget_instance_id}"
+            )));
+        }
+
+        if widget.definition_id != AGENT_QUEUE_WIDGET_DEFINITION_ID {
+            return Err(storage_invalid_input(format!(
+                "queue local executor owner is not an Agent Queue widget: {queue_owner_widget_instance_id}"
+            )));
+        }
+
+        return Ok(widget);
+    }
+
+    let Some(assigned_executor_widget_id) = assigned_executor_widget_id else {
+        return Err(storage_invalid_input(
+            "queue task needs a Queue-owned local executor before running".to_owned(),
+        ));
+    };
+
+    load_agent_executor_widget(store, workspace_id, assigned_executor_widget_id)
+}
+
+fn load_agent_queue_direct_work_owner_by_id(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    widget_instance_id: &str,
+) -> Result<hobit_storage_sqlite::WidgetInstanceRow, hobit_storage_sqlite::StorageError> {
+    let Some(widget) = store.get_widget_instance(widget_instance_id)? else {
+        return Err(storage_invalid_input(format!(
+            "queue local executor owner not found: {widget_instance_id}"
+        )));
+    };
+
+    if widget.workspace_id != workspace_id {
+        return Err(storage_invalid_input(format!(
+            "queue local executor owner does not belong to workspace: {widget_instance_id}"
+        )));
+    }
+
+    if widget.definition_id != AGENT_QUEUE_WIDGET_DEFINITION_ID
+        && widget.definition_id != AGENT_RUN_WIDGET_DEFINITION_ID
+    {
+        return Err(storage_invalid_input(format!(
+            "queue local executor owner is not a Direct Work owner: {widget_instance_id}"
+        )));
+    }
+
+    Ok(widget)
 }
 
 fn is_runnable_agent_queue_task_status(status: &str) -> bool {
