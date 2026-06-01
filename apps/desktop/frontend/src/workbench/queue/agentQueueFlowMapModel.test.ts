@@ -7,6 +7,7 @@ import {
   buildQueueFlowMap,
   queueTagColorToken,
 } from "./agentQueueFlowMapModel";
+import { buildSampleQueueFlowMapTopology } from "./sampleQueueFlowMapFixture";
 
 describe("agent queue flow map model", () => {
   it("groups work item blocks by queue tag with stable tag color tokens", () => {
@@ -301,6 +302,142 @@ describe("agent queue flow map model", () => {
       status: "queued",
       statusLabel: "Queued",
     });
+  });
+
+  it("builds deterministic sample topology for visual Flow Map review", () => {
+    const sample = buildSampleQueueFlowMapTopology();
+    const workItems = itemsInColumns(sample.flowMap.workColumns);
+    const waitingItems = itemsInColumns(sample.flowMap.waitingColumns);
+    const blockedItems = itemsInColumns(sample.flowMap.blockedColumns);
+    const executorItems = sample.flowMap.executorLanes.flatMap((lane) =>
+      lane.activeItem ? [lane.activeItem] : [],
+    );
+    const resultItems = sample.flowMap.resultGroups.flatMap((group) => group.items);
+    const allPrimaryItems = [
+      ...workItems,
+      ...waitingItems,
+      ...blockedItems,
+      ...executorItems,
+      ...resultItems,
+    ];
+
+    expect(workItems.map((item) => item.queueItemId)).toEqual([
+      "sample-backlog-default",
+      "sample-dense-lane-a-01",
+      "sample-dense-lane-a-02",
+      "sample-dense-lane-a-03",
+      "sample-dense-lane-a-04",
+      "sample-dense-lane-a-05",
+      "sample-dense-lane-a-06",
+      "sample-dense-lane-a-07",
+      "sample-dense-lane-a-08",
+      "sample-dense-lane-a-09",
+      "sample-dense-lane-a-10",
+      "sample-dense-lane-a-11",
+      "sample-dense-lane-a-12",
+      "sample-dense-lane-a-13",
+      "sample-dense-lane-a-14",
+      "sample-dense-lane-a-15",
+      "sample-backlog-docs",
+      "sample-backlog-implementation",
+      "sample-backlog-p0",
+    ]);
+    expect(
+      workItems
+        .filter((item) => item.queueTagId === "dense-lane-a-15-stack")
+        .map((item) => item.title),
+    ).toEqual([
+      "Q-01",
+      "Q-02",
+      "Q-03",
+      "Q-04",
+      "Q-05",
+      "Q-06",
+      "Q-07",
+      "Q-08",
+      "Q-09",
+      "Q-10",
+      "Q-11",
+      "Q-12",
+      "Q-13",
+      "Q-14",
+      "Q-15",
+    ]);
+    expect(waitingItems.map((item) => item.queueItemId)).toEqual([
+      "sample-waiting-draft",
+      "sample-dense-lane-b-01",
+      "sample-dense-lane-b-02",
+      "sample-dense-lane-b-03",
+      "sample-dense-lane-b-04",
+      "sample-dense-lane-b-05",
+      "sample-dense-lane-b-06",
+      "sample-dense-lane-b-07",
+      "sample-dense-lane-b-08",
+      "sample-dense-lane-b-09",
+      "sample-dense-lane-b-10",
+      "sample-dense-lane-b-11",
+      "sample-dense-lane-b-12",
+      "sample-dense-lane-b-13",
+      "sample-dense-lane-b-14",
+      "sample-dense-lane-b-15",
+      "sample-waiting-plan-needed",
+    ]);
+    expect(
+      waitingItems
+        .filter((item) => item.queueTagId === "dense-lane-b-15-stack")
+        .map((item) => item.title),
+    ).toEqual([
+      "API-01",
+      "API-02",
+      "API-03",
+      "API-04",
+      "API-05",
+      "API-06",
+      "API-07",
+      "API-08",
+      "API-09",
+      "API-10",
+      "API-11",
+      "API-12",
+      "API-13",
+      "API-14",
+      "API-15",
+    ]);
+    expect(blockedItems.map((item) => item.queueItemId)).toEqual([
+      "sample-blocked-routing",
+      "sample-blocked-dependency",
+    ]);
+    expect(executorItems.map((item) => item.queueItemId)).toEqual([
+      "sample-running-worker",
+      "sample-assigned-progress",
+    ]);
+    expect(resultItems.map((item) => item.queueItemId)).toEqual([
+      "sample-completed-finalized",
+      "sample-reported-awaiting-review",
+      "sample-failed-needs-changes",
+    ]);
+    expect(sample.flowMap.executorLanes.filter((lane) => lane.isWorking)).toHaveLength(2);
+    expect(sample.flowMap.executorLanes.some((lane) => !lane.isWorking)).toBe(true);
+    expect(sample.flowMap.columns.flatMap((column) => column.barriersAfter)).not.toHaveLength(
+      0,
+    );
+    expect(new Set(allPrimaryItems.map((item) => item.queueItemId)).size).toBe(
+      sample.taskCount,
+    );
+    expect(new Set(allPrimaryItems.map((item) => item.queueTagName))).toEqual(
+      new Set([
+        "Default",
+        "Dense lane A / 15-task stack",
+        "Dense lane B / 15-task stack",
+        "Docs/Review",
+        "Follow-up/Routing",
+        "Implementation",
+        "Priority P0",
+      ]),
+    );
+    expect(new Set(allPrimaryItems.map((item) => item.colorToken)).size).toBeGreaterThanOrEqual(
+      5,
+    );
   });
 });
 

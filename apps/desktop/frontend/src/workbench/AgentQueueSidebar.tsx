@@ -82,7 +82,7 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
         <p className="agent-queue-sidebar-row-meta agent-queue-compact-summary">
           {pausedTagCount > 0
             ? `${pausedTagCount.toString()} paused`
-            : "All tags available"}
+            : "Tags ready"}
         </p>
         <div className="agent-queue-sidebar-list">
           {foundation.queueTags.map((tag) => (
@@ -114,15 +114,14 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
                   {tag.taskCount} items, {tag.runningCount} running
                 </p>
                 <p className="agent-queue-sidebar-row-meta">
-                  {tag.validatingCount} validating, {tag.needsReviewCount} needs
-                  review
+                  Val {tag.validatingCount}, review {tag.needsReviewCount}
                   {tag.failedValidationCount > 0
                     ? `, ${tag.failedValidationCount.toString()} failed`
                     : ""}
                 </p>
                 {tag.coordinatorReviewCount > 0 ? (
                   <p className="agent-queue-sidebar-row-meta">
-                    {tag.coordinatorReviewCount} awaiting coordinator review
+                    {tag.coordinatorReviewCount} coord review
                   </p>
                 ) : null}
                 {tag.pauseReason ? (
@@ -279,7 +278,7 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
         </p>
         <div className="agent-queue-sidebar-list">
           {foundation.workers.length === 0 ? (
-            <p className="agent-queue-run-note">No Agent Workers configured.</p>
+            <p className="agent-queue-run-note">No workers.</p>
           ) : (
             foundation.workers.map((worker) => (
               <WorkerRow
@@ -446,7 +445,7 @@ function QueueStateSection({
           </div>
         </dl>
         <details className="agent-queue-details agent-queue-rail-details">
-          <summary>Dry-run reason</summary>
+          <summary>Reason</summary>
           <p className="agent-queue-run-note">
             {foundation.schedulerPlan.explanation}
           </p>
@@ -526,10 +525,9 @@ function ExecutorCapacitySection({
         </div>
       </dl>
       <details className="agent-queue-details agent-queue-rail-details">
-        <summary>Capacity boundary</summary>
+        <summary>Capacity note</summary>
         <p className="agent-queue-run-note">
-          Scheduler capacity is a dry run only; changing this value does not
-          start or stop Agent Executor work.
+          Capacity is dry-run only; edits do not start or stop Executor work.
         </p>
       </details>
     </section>
@@ -562,9 +560,9 @@ function WorkerRow({
     ? `${plan.eligibleItemCount.toString()} schedulable item${
         plan.eligibleItemCount === 1 ? "" : "s"
       }`
-    : "Scheduler not evaluated";
+    : "No dry run";
   const dryRunNote = plan?.bestNextItem
-    ? `Dry-run next: ${plan.bestNextItem.title}`
+    ? `Next: ${plan.bestNextItem.title}`
     : plan?.idleReason && globalExecutionState !== "stopped"
       ? `Idle: ${plan.idleReason}`
       : globalExecutionState === "stopped"
@@ -596,8 +594,8 @@ function WorkerRow({
         <p className="agent-queue-sidebar-row-meta">
           {worker.enabled ? "Enabled" : "Disabled"}
           {worker.scope.kind === "queue_tag"
-            ? `, scoped to ${worker.scope.queueTagName}`
-            : ", all queues"}
+            ? `, tag: ${worker.scope.queueTagName}`
+            : ", all tags"}
         </p>
         <p className="agent-queue-sidebar-row-meta">{planLabel}</p>
         {dryRunNote ? (
@@ -609,7 +607,7 @@ function WorkerRow({
           </p>
         ) : null}
         {worker.scope.kind === "queue_tag" && worker.status === "paused" ? (
-          <p className="agent-queue-sidebar-row-meta">Scoped tag is paused.</p>
+          <p className="agent-queue-sidebar-row-meta">Tag paused.</p>
         ) : null}
       </div>
       <div className="agent-queue-sidebar-row-actions agent-queue-worker-quick-facts">

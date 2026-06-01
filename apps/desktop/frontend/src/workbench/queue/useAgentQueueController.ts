@@ -173,7 +173,7 @@ export function useAgentQueueController({
   const [globalExecutionState, setGlobalExecutionState] =
     useState<QueueGlobalStatus>(DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE);
   const [globalMessage, setGlobalMessage] = useState<string | null>(
-    "Workers are stopped. START only opens local scheduling; it does not run tasks automatically.",
+    "STOP active. START arms local scheduling only.",
   );
   const [queueTagPauseStates, setQueueTagPauseStates] = useState<
     Map<string, QueueTagPauseState>

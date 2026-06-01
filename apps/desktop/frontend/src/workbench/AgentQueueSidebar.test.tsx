@@ -67,7 +67,7 @@ describe("AgentQueueSidebar", () => {
 
     renderSidebar(foundation);
 
-    expect(document.body.textContent).toContain("Dry-run next: Queue task");
+    expect(document.body.textContent).toContain("Next: Queue task");
     expect(document.body.textContent).toContain("Plan needed");
   });
 
@@ -111,8 +111,8 @@ describe("AgentQueueSidebar", () => {
     renderSidebar(foundation);
 
     expect(document.body.textContent).toContain("paused");
-    expect(document.body.textContent).toContain("1 validating, 2 needs review, 1 failed");
-    expect(document.body.textContent).toContain("1 awaiting coordinator review");
+    expect(document.body.textContent).toContain("Val 1, review 2, 1 failed");
+    expect(document.body.textContent).toContain("1 coord review");
 
     clickButton("Resume tag");
 

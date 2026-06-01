@@ -150,7 +150,7 @@ export function createAgentQueuePlanningActions({
         "started",
       )}: ${queueGlobalExecutionStateDescription(
         "started",
-      )} This does not start real workers or run tasks automatically.`,
+      )} No task starts without Queue runner/Executor controls.`,
     );
   }
 
@@ -161,7 +161,7 @@ export function createAgentQueuePlanningActions({
         "stopped",
       )}: ${queueGlobalExecutionStateDescription(
         "stopped",
-      )} Running Executor work, if any, remains owned by Agent Executor.`,
+      )} Running Executor work stays in Agent Executor.`,
     );
   }
 
@@ -172,7 +172,7 @@ export function createAgentQueuePlanningActions({
         "stop_kill_requested",
       )}: ${queueGlobalExecutionStateDescription(
         "stop_kill_requested",
-      )} Queue does not kill processes in this block.`,
+      )} Queue does not kill processes here.`,
     );
   }
 

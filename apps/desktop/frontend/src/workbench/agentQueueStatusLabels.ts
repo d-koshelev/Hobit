@@ -116,12 +116,12 @@ export function queueGlobalExecutionStateDescription(
 ) {
   switch (state) {
     case "started":
-      return "Workers may take eligible queue items.";
+      return "Eligible work may start.";
     case "stop_kill_requested":
-      return "Scheduling is stopped; running work requires termination/coordinator review where runtime supports it.";
+      return "New starts blocked; review running work.";
     case "stopped":
     default:
-      return "No new work is scheduled; running work may finish.";
+      return "New starts paused.";
   }
 }
 

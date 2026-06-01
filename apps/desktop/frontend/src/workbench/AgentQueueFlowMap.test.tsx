@@ -151,9 +151,175 @@ describe("AgentQueueFlowMap", () => {
 
     expect(document.querySelectorAll(".agent-queue-flow-top-lane")).toHaveLength(3);
     expect(document.querySelectorAll(".agent-queue-flow-block")).toHaveLength(0);
-    expect(document.body.textContent).toContain("No ready backlog blocks.");
-    expect(document.body.textContent).toContain("No not-runnable blocks.");
-    expect(document.body.textContent).toContain("No blocked blocks.");
+    expect(document.body.textContent).toContain("Backlog clear");
+    expect(document.body.textContent).toContain("No waiting work");
+    expect(document.body.textContent).toContain("No blocked work");
+    expect(document.querySelectorAll(".agent-queue-flow-zone-empty")).toHaveLength(3);
+  });
+
+  it("shows the dev sample topology control without replacing real queue items by default", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          queueItemId: "real-queue-item",
+          title: "Real queue item",
+        }),
+      ],
+    });
+
+    expect(document.body.textContent).toContain("Sample topology");
+    expect(document.body.textContent).toContain("1 work item");
+    expect(document.body.textContent).toContain("Real queue item");
+    expect(document.body.textContent).not.toContain("Prepare API boundary patch");
+    expect(
+      document.querySelector('[data-queue-item-id="real-queue-item"]'),
+    ).not.toBeNull();
+  });
+
+  it("does not apply dense sample layout to real Queue groups", () => {
+    renderFlowMap({
+      tasks: Array.from({ length: 15 }, (_, index) =>
+        queueTask({
+          orderIndex: index,
+          queueItemId: `real-dense-${index + 1}`,
+          queueTagId: "real-stack",
+          queueTagName: "Real stack",
+          title: `Real ${index + 1}`,
+        }),
+      ),
+    });
+
+    expect(document.body.textContent).toContain("15 work items");
+    expect(document.body.textContent).toContain("Real stack");
+    expect(document.querySelector(".agent-queue-flow-group-dense")).toBeNull();
+    expect(document.querySelectorAll("[data-queue-item-id^='real-dense-']")).toHaveLength(
+      15,
+    );
+  });
+
+  it("renders representative sample topology zones for visual QA", () => {
+    renderFlowMap({
+      tasks: [],
+    });
+
+    clickButton("Sample topology");
+
+    expect(document.body.textContent).toContain("43 sample blocks - Flow Map only");
+    expect(document.body.textContent).toContain("Sample topology active.");
+    expect(document.body.textContent).toContain("Work Queue / Backlog");
+    expect(document.body.textContent).toContain("Waiting / Not runnable");
+    expect(document.body.textContent).toContain("Blocked work");
+    expect(document.body.textContent).toContain(
+      "Agent Executor section / Working executors",
+    );
+    expect(document.body.textContent).toContain(
+      "Results / Reports / Completed work",
+    );
+    expect(document.body.textContent).toContain("IN-01");
+    expect(document.body.textContent).toContain("Dense lane A / 15-task stack");
+    expect(document.body.textContent).toContain("Dense lane B / 15-task stack");
+    expect(document.body.textContent).toContain("Q-01");
+    expect(document.body.textContent).toContain("Q-15");
+    expect(document.body.textContent).toContain("API-01");
+    expect(document.body.textContent).toContain("API-15");
+    expect(document.body.textContent).toContain("PLAN-01");
+    expect(document.body.textContent).toContain("DEP-01");
+    expect(document.body.textContent).toContain("RUN-01");
+    expect(document.body.textContent).toContain("RUN-02");
+    expect(document.body.textContent).toContain("Executor C");
+    expect(document.body.textContent).toContain("OUT-01");
+    expect(document.body.textContent).toContain("OUT-02");
+    expect(document.body.textContent).toContain("FIX-01");
+    expect(document.body.textContent).toContain("Default");
+    expect(document.body.textContent).toContain("Implementation");
+    expect(document.body.textContent).toContain("Priority P0");
+    expect(document.body.textContent).toContain("Docs/Review");
+    expect(document.body.textContent).toContain("Follow-up/Routing");
+    expect(document.querySelector(".agent-queue-flow-canvas-sample")).not.toBeNull();
+    expect(document.querySelectorAll(".agent-queue-flow-group-dense")).toHaveLength(2);
+    expect(
+      Array.from(document.querySelectorAll(".agent-queue-flow-block")).every(
+        (block) => block.classList.contains("agent-queue-flow-block-compact"),
+      ),
+    ).toBe(true);
+    expect(
+      Array.from(document.querySelectorAll(".agent-queue-flow-block")).some((block) =>
+        block.textContent?.includes("Sample"),
+      ),
+    ).toBe(false);
+    expect(document.body.textContent).not.toContain("Triage workspace startup regression");
+  });
+
+  it("renders deterministic compact labels in both dense sample lanes", () => {
+    renderFlowMap({
+      tasks: [],
+    });
+
+    clickButton("Sample topology");
+
+    const denseBlockLabels = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        ".agent-queue-flow-group-dense [data-queue-item-id]",
+      ),
+    ).map((block) => block.textContent?.trim());
+
+    expect(denseBlockLabels).toEqual(
+      [
+        ...Array.from({ length: 15 }, (_, index) =>
+          `Q-${(index + 1).toString().padStart(2, "0")}`,
+        ),
+        ...Array.from({ length: 15 }, (_, index) =>
+          `API-${(index + 1).toString().padStart(2, "0")}`,
+        ),
+      ],
+    );
+  });
+
+  it("does not duplicate sample nodes across primary Flow Map zones", () => {
+    renderFlowMap({
+      tasks: [],
+    });
+
+    clickButton("Sample topology");
+
+    const sampleItemIds = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-queue-item-id^='sample-']"),
+    ).map((item) => item.dataset.queueItemId);
+
+    expect(sampleItemIds).toHaveLength(43);
+    expect(new Set(sampleItemIds).size).toBe(43);
+  });
+
+  it("keeps sample selection local and restores real selection when sample mode is off", () => {
+    const onSelectTask = vi.fn();
+
+    renderFlowMap({
+      onSelectTask,
+      tasks: [
+        queueTask({
+          queueItemId: "real-selected",
+          title: "Real selected item",
+        }),
+      ],
+    });
+
+    clickButton("Sample topology");
+    clickButton("API-00");
+
+    expect(onSelectTask).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Sample selected: API-00");
+
+    clickButton("Sample topology");
+
+    expect(
+      document
+        .querySelector('[data-queue-item-id="real-selected"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("true");
+
+    clickButton("Real selected item");
+
+    expect(onSelectTask).toHaveBeenCalledWith("real-selected");
   });
 
   it("renders each queue item once across primary flow-map zones", () => {
