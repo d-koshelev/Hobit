@@ -536,6 +536,53 @@ fn queue_run_links_keep_raw_executor_payload_owned_by_executor_detail() {
 }
 
 #[test]
+fn get_agent_executor_run_detail_reads_queue_owned_direct_work_result() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue owned detail", None)
+        .expect("create workspace");
+    let workspace_id = workspace.id;
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id")
+        .to_owned();
+    let state = service
+        .add_widget_instance_to_workbench(
+            &workspace_id,
+            &workbench_id,
+            AGENT_QUEUE_WIDGET_DEFINITION_ID,
+            "Agent Queue",
+            "agent",
+        )
+        .expect("add queue")
+        .expect("state after add");
+    let queue_widget_id = state.widget_instances[0].id.clone();
+    let direct = run_direct_work(&service, &workspace_id, &workbench_id, &queue_widget_id);
+
+    let detail = service
+        .get_agent_executor_run_detail(
+            &workspace_id,
+            &workbench_id,
+            &queue_widget_id,
+            &direct.run_id,
+        )
+        .expect("get queue-owned Direct Work detail")
+        .expect("detail");
+
+    assert_eq!(detail.summary.run_id, direct.run_id);
+    assert_eq!(
+        detail.summary.result_type.as_deref(),
+        Some("codex_direct_work_result")
+    );
+    assert_eq!(detail.final_message.as_deref(), Some("Final response"));
+    assert!(detail
+        .logs
+        .iter()
+        .all(|log| log.widget_instance_id == queue_widget_id));
+}
+
+#[test]
 fn get_agent_executor_run_detail_returns_none_for_unknown_or_retired_artifacts() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_agent_executor_widget(&service);

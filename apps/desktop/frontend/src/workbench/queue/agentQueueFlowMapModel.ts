@@ -12,6 +12,7 @@ import {
   queueDependencyBlockedSummary,
   queueExecutorInfoForTask,
   queueTaskPriorityLabel,
+  statusBadgeVariant,
   statusLabel,
   validationStatusLabel,
   type AgentQueueDependencyState,
@@ -91,6 +92,7 @@ export type QueueFlowItemBlock = {
   queueItemId: string;
   queueTagId: string;
   queueTagName: string;
+  statusBadgeVariant: ReturnType<typeof statusBadgeVariant>;
   shortId: string;
   status: AgentQueueTask["status"];
   statusLabel: string;
@@ -292,6 +294,7 @@ function queueFlowItemBlock({
     routingState,
     task,
   });
+  const flowExecutorInfo = flowExecutorInfoForTask(task, executorInfo);
   const blockedReasons = [
     pausedQueueTagIds.has(queueTag.queueTagId) ? "Queue tag is paused" : null,
     normalizedDependencyState.dependsOn.length > 0 &&
@@ -312,9 +315,9 @@ function queueFlowItemBlock({
     colorToken: queueTagColorToken(queueTag.queueTagId),
     dependencyStatus: normalizedDependencyState.status,
     dependsOn: normalizedDependencyState.dependsOn,
-    executorInfoDetail: executorInfo.detail,
-    executorInfoLabel: executorInfo.label,
-    executorInfoTone: executorInfo.tone,
+    executorInfoDetail: flowExecutorInfo.detail,
+    executorInfoLabel: flowExecutorInfo.label,
+    executorInfoTone: flowExecutorInfo.tone,
     hasLinkedDiffReview: tasks.some(
       (candidate) =>
         normalizeItemType(candidate.itemType) === "diff_review" &&
@@ -324,11 +327,12 @@ function queueFlowItemBlock({
     itemType: itemTypeLabel(itemType),
     planStatusLabel: executionPlanStatusLabel(task.executionPlanPreview),
     coordinatorStatus: normalizeCoordinatorStatus(task.coordinatorStatus),
-    coordinatorStatusLabel: coordinatorStatusLabel(task.coordinatorStatus),
+    coordinatorStatusLabel: flowCoordinatorStatusLabel(task.coordinatorStatus),
     priorityLabel: queueTaskPriorityLabel(normalizeTaskPriority(task.priority)),
     queueItemId: task.queueItemId,
     queueTagId: queueTag.queueTagId,
     queueTagName: queueTag.queueTagName,
+    statusBadgeVariant: flowStatusBadgeVariant(task),
     shortId: shortQueueItemId(task.queueItemId),
     sourceItemLabel: sourceItemId
       ? sourceTask
@@ -336,7 +340,7 @@ function queueFlowItemBlock({
         : sourceItemId
       : null,
     status: task.status,
-    statusLabel: statusLabel(task.status),
+    statusLabel: flowStatusLabel(task),
     reviewTargetSummary: task.diffReview?.reviewTargetSummary ?? null,
     routingBlockedReasonCodes,
     title: displayTaskTitle(task),
@@ -352,6 +356,78 @@ function queueFlowItemBlock({
 
 function hasWorkerReport(task: AgentQueueTask) {
   return (task.workerExecutionReports?.length ?? 0) > 0;
+}
+
+function flowStatusLabel(task: AgentQueueTask) {
+  const coordinatorStatus = normalizeCoordinatorStatus(task.coordinatorStatus);
+
+  if (task.status === "completed") {
+    return coordinatorStatus === "finalized" ? "Done" : "Execution complete";
+  }
+
+  if (task.status === "review_needed") {
+    return "Awaiting review";
+  }
+
+  if (task.status === "failed") {
+    return "Run failed";
+  }
+
+  if (task.status === "cancelled") {
+    return "Run cancelled";
+  }
+
+  if (hasWorkerReport(task)) {
+    return "Report ready";
+  }
+
+  return statusLabel(task.status);
+}
+
+function flowStatusBadgeVariant(task: AgentQueueTask) {
+  const coordinatorStatus = normalizeCoordinatorStatus(task.coordinatorStatus);
+
+  if (task.status === "completed" && coordinatorStatus !== "finalized") {
+    return "warning" as const;
+  }
+
+  if (task.status === "review_needed" || hasWorkerReport(task)) {
+    return "warning" as const;
+  }
+
+  return statusBadgeVariant(task.status);
+}
+
+function flowCoordinatorStatusLabel(
+  status: AgentQueueTask["coordinatorStatus"],
+) {
+  switch (normalizeCoordinatorStatus(status)) {
+    case "awaiting_coordinator_review":
+      return "Awaiting review";
+    case "finalized":
+      return "Finalized";
+    default:
+      return coordinatorStatusLabel(status);
+  }
+}
+
+function flowExecutorInfoForTask(
+  task: AgentQueueTask,
+  executorInfo: ReturnType<typeof queueExecutorInfoForTask>,
+) {
+  if (
+    task.status === "completed" &&
+    normalizeCoordinatorStatus(task.coordinatorStatus) !== "finalized"
+  ) {
+    return {
+      detail:
+        "Execution is complete and report evidence is ready. Coordinator review is still required.",
+      label: "Report ready",
+      tone: "reported" as const,
+    };
+  }
+
+  return executorInfo;
 }
 
 function groupBlocksByTag(blocks: QueueFlowItemBlock[]): QueueFlowGroup[] {

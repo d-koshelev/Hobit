@@ -3,6 +3,7 @@ import {
   forceKillCodexDirectWorkRun,
   getAgentExecutorDiffSummary,
   getAgentExecutorRunDetail,
+  listenToDirectWorkStreamEvents,
   listAgentExecutorRuns,
   runCodexDirectWork,
   runDirectWorkValidation,
@@ -63,6 +64,9 @@ export type AgentExecutorWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     limit?: number,
   ) => Promise<AgentExecutorRunHistory | null>;
+  listenToDirectWorkStreamEvents: (
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<() => void>;
   runCodexDirectWork: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
@@ -338,6 +342,7 @@ export function createAgentExecutorWidgetActions({
     getAgentExecutorDiffSummary: loadAgentExecutorDiffSummary,
     getAgentExecutorRunDetail: loadAgentExecutorRunDetail,
     listAgentExecutorRuns: loadAgentExecutorRuns,
+    listenToDirectWorkStreamEvents,
     runCodexDirectWork: runCodexDirectWorkForWidget,
     runDirectWorkValidation: runDirectWorkValidationForWidget,
     startCodexDirectWorkStream: startCodexDirectWorkStreamForWidget,

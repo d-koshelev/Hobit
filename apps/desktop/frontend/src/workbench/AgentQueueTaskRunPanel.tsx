@@ -410,6 +410,7 @@ function QueueTaskRunStatePanel({
   const executorId =
     link?.executorWidgetId ?? selectedTask.assignedExecutorWidgetId ?? null;
   const isRunning = status === "running";
+  const failed = isFailedRunState(link?.status ?? selectedTask.status);
 
   return (
     <div className="agent-queue-execution-group agent-queue-run-state-panel">
@@ -423,17 +424,23 @@ function QueueTaskRunStatePanel({
                 : "The selected Queue task has finished or reported evidence for coordinator review."
             }
           >
-            {isRunning ? "Running in local executor" : "Report ready"}
+            {isRunning
+              ? "Running in local executor"
+              : failed
+                ? "Run failed"
+                : "Execution complete"}
           </p>
           <p className="agent-queue-run-note">
             {isRunning
               ? "Waiting for report. Pre-run readiness checks are not the current action."
-              : "Awaiting coordinator review. Pre-run readiness checks are not the current action."}
+              : failed
+                ? "Failure evidence is ready for coordinator review. Pre-run readiness checks are not the current action."
+                : "Report ready. Awaiting coordinator review. Pre-run readiness checks are not the current action."}
           </p>
         </div>
         <div className="agent-queue-execution-badges">
-          <Badge variant={isRunning ? "info" : "warning"}>
-            {isRunning ? "Executing" : "Awaiting review"}
+          <Badge variant={isRunning ? "info" : failed ? "error" : "warning"}>
+            {isRunning ? "Executing" : failed ? "Run failed" : "Awaiting review"}
           </Badge>
         </div>
       </div>
@@ -481,6 +488,15 @@ function QueueTaskRunStatePanel({
         </p>
       ) : null}
     </div>
+  );
+}
+
+function isFailedRunState(status: string | null | undefined) {
+  return (
+    status === "failed" ||
+    status === "timed_out" ||
+    status === "cancelled" ||
+    status === "failed_to_start"
   );
 }
 

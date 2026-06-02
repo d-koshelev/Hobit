@@ -4,7 +4,6 @@ import type { AgentQueueTask } from "../workspace/types";
 import {
   validationBadgeVariant,
   coordinatorStatusBadgeVariant,
-  statusBadgeVariant,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
 } from "./agentQueueTaskUiModel";
@@ -629,12 +628,12 @@ function FlowItemBlock({
       </span>
       {isCompact ? null : (
         <span className="agent-queue-flow-block-badges">
-          <Badge variant={statusBadgeVariant(item.status)}>{item.statusLabel}</Badge>
+          <Badge variant={item.statusBadgeVariant}>{item.statusLabel}</Badge>
           <Badge variant="neutral">
             {item.assignedWorkerLabel ?? item.executorInfoLabel}
           </Badge>
           {item.hasWorkerReport ? (
-            <Badge variant="info">Report</Badge>
+            <Badge variant="info">Report ready</Badge>
           ) : null}
           {item.coordinatorStatus !== "not_reported" ? (
             <Badge variant={coordinatorStatusBadgeVariant(item.coordinatorStatus)}>
@@ -731,7 +730,7 @@ function ExecutorLaneBlock({
           </span>
           {lane.activeItem ? (
             <span className="agent-queue-flow-executor-badges">
-              <Badge variant={statusBadgeVariant(lane.activeItem.status)}>
+              <Badge variant={lane.activeItem.statusBadgeVariant}>
                 {lane.activeItem.statusLabel}
               </Badge>
               {lane.activeItem.validationStatus !== "not_started" ? (

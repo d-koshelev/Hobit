@@ -6,6 +6,7 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerExecutionReport,
+  AgentExecutorRunDetail,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../../workspace/types";
@@ -29,9 +30,11 @@ export type UseAgentQueueControllerOptions = Pick<
   | "onCreateAgentQueueWorker"
   | "onDeleteAgentQueueWorker"
   | "onDirectWorkRunHandoffStarted"
+  | "onGetAgentExecutorRunDetail"
   | "onGetAgentQueueTask"
   | "onGetAgentQueueTaskLatestRunLink"
   | "onGetAgentQueueRunnerSnapshot"
+  | "onListenToDirectWorkStreamEvents"
   | "onListAgentQueueTaskRunLinks"
   | "onListAgentQueueTasks"
   | "onListAgentQueueWorkers"
@@ -105,6 +108,14 @@ export type AgentQueueRunHistoryController = {
   links: AgentQueueTaskRunLinkSummary[];
   onRefresh: () => void;
   totalCount: number;
+};
+
+export type AgentQueueRunEvidenceController = {
+  apiAvailable: boolean;
+  detail: AgentExecutorRunDetail | null;
+  error: string | null;
+  isLoading: boolean;
+  onRefresh: () => void;
 };
 
 export type AgentQueueDeleteController = {

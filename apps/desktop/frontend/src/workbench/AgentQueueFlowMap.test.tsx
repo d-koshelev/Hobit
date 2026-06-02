@@ -414,14 +414,39 @@ describe("AgentQueueFlowMap", () => {
       "Results / Reports / Completed work",
     );
     expect(document.body.textContent).toContain("Reported task");
-    expect(document.body.textContent).toContain("Report");
-    expect(document.body.textContent).toContain("Queued");
+    expect(document.body.textContent).toContain("Report ready");
+    expect(document.body.textContent).toContain("Awaiting review");
+    expect(document.querySelector(".agent-queue-flow-result-group")?.textContent).not.toContain(
+      "Queued",
+    );
     expect(document.querySelector(".agent-queue-flow-result-group")?.textContent).not.toContain(
       "Completed",
     );
     expect(document.querySelector(".agent-queue-flow-results")?.textContent).toContain(
       "Reported task",
     );
+  });
+
+  it("shows execution-complete unfinalized results without completed or done labels", () => {
+    renderFlowMap({
+      tasks: [
+        queueTask({
+          coordinatorStatus: "awaiting_coordinator_review",
+          queueItemId: "execution-complete-task",
+          status: "completed",
+          title: "Execution evidence task",
+        }),
+      ],
+    });
+
+    const resultsText =
+      document.querySelector(".agent-queue-flow-result-group")?.textContent ?? "";
+
+    expect(resultsText).toContain("Execution evidence task");
+    expect(resultsText).toContain("Execution complete");
+    expect(resultsText).toContain("Awaiting review");
+    expect(resultsText).not.toContain("Completed");
+    expect(resultsText).not.toContain("Done");
   });
 
   it("renders finalized, needs changes, and rollback required coordinator markers", () => {
@@ -448,7 +473,7 @@ describe("AgentQueueFlowMap", () => {
       ],
     });
 
-    expect(document.body.textContent).toContain("Finalized / accepted");
+    expect(document.body.textContent).toContain("Finalized");
     expect(document.body.textContent).toContain("Needs changes");
     expect(document.body.textContent).toContain("Rollback required");
   });

@@ -59,7 +59,9 @@ export function AgentQueuePlaceholderWidget({
   onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
   onDirectWorkRunHandoffStarted,
+  onGetAgentExecutorRunDetail,
   queueTaskAutoRefreshRequest,
+  onListenToDirectWorkStreamEvents,
   onStartFrameMove,
   onStartAssignedAgentQueueTask,
   onStartAgentQueueRunnerSession,
@@ -94,6 +96,8 @@ export function AgentQueuePlaceholderWidget({
     useState<QueueTaskInsertPosition>("bottom");
   const [createRunSetup, setCreateRunSetup] =
     useState<AgentQueueNewTaskRunSetup>(() => defaultCreateRunSetup());
+  const [pendingSelectedTaskRunSetup, setPendingSelectedTaskRunSetup] =
+    useState<AgentQueueNewTaskRunSetup | null>(null);
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
@@ -120,8 +124,10 @@ export function AgentQueuePlaceholderWidget({
     onDeleteAgentQueueTask,
     onDeleteAgentQueueWorker,
     onDirectWorkRunHandoffStarted,
+    onGetAgentExecutorRunDetail,
     onGetAgentQueueTask,
     onGetAgentQueueTaskLatestRunLink,
+    onListenToDirectWorkStreamEvents,
     onGetAgentQueueRunnerSnapshot,
     onListAgentQueueTaskRunLinks,
     onListAgentQueueTasks,
@@ -158,6 +164,15 @@ export function AgentQueuePlaceholderWidget({
 
     void selectTask(agentQueueItemOpenRequest.queueItemId);
   }, [agentQueueItemOpenRequest?.id]);
+
+  useEffect(() => {
+    if (!pendingSelectedTaskRunSetup || !selectedTask) {
+      return;
+    }
+
+    applyCreateRunSetupToQueueRun(pendingSelectedTaskRunSetup, queue.run);
+    setPendingSelectedTaskRunSetup(null);
+  }, [pendingSelectedTaskRunSetup, selectedTask?.queueItemId]);
 
   const queueFrameActions = (
     <>
@@ -246,13 +261,18 @@ export function AgentQueuePlaceholderWidget({
       return;
     }
 
-    applyCreateRunSetupToQueueRun(createRunSetup, queue.run);
+    if (mode === "queued") {
+      applyCreateRunSetupToQueueRun(createRunSetup, queue.run);
+    }
 
     const didCreate = await createTask(nextDraft, {
       insertPosition: createInsertPosition,
     });
 
     if (didCreate) {
+      if (mode === "queued") {
+        setPendingSelectedTaskRunSetup({ ...createRunSetup });
+      }
       setCreateDraft(newTaskDialogDraft(selectedTask));
       setCreateInsertPosition("bottom");
       setCreateRunSetup(createRunSetup);
@@ -293,6 +313,7 @@ export function AgentQueuePlaceholderWidget({
         ) : (
           <AgentQueueLayout
             isFlowMapView
+            layoutKey={instance.id}
             sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
             detailsPanel={
               <AgentQueueTaskDetailsPanel

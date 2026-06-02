@@ -14,7 +14,7 @@ use super::{
     mapping,
     validation::{required_input, validate_widget_ownership},
     AgentExecutorRunDetail, AgentExecutorRunHistory, AgentExecutorRunSummary, WorkspaceService,
-    AGENT_RUN_WIDGET_DEFINITION_ID,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
 };
 
 const DEFAULT_AGENT_EXECUTOR_HISTORY_LIMIT: usize = 20;
@@ -25,6 +25,8 @@ const AGENT_EXECUTOR_RUN_DETAIL_LOG_LIMIT: usize = 100;
 const AGENT_EXECUTOR_TEXT_PREVIEW_LIMIT: usize = 16 * 1024;
 const AGENT_EXECUTOR_HISTORY_WIDGET_ERROR: &str =
     "Agent Executor run history is only available for Agent Executor widgets.";
+const DIRECT_WORK_DETAIL_OWNER_ERROR: &str =
+    "Direct Work run detail is only available for Agent Executor or Agent Queue Direct Work owners.";
 
 impl WorkspaceService {
     pub fn list_agent_executor_runs(
@@ -151,7 +153,7 @@ impl WorkspaceService {
             return Ok(None);
         };
 
-        ensure_agent_executor_widget(&widget.definition_id)?;
+        ensure_direct_work_detail_owner(&widget.definition_id)?;
 
         let Some(run) = self.store.get_widget_run(run_id)? else {
             return Ok(None);
@@ -206,6 +208,18 @@ fn ensure_agent_executor_widget(definition_id: &str) -> Result<(), WorkspaceServ
     if definition_id != AGENT_RUN_WIDGET_DEFINITION_ID {
         return Err(WorkspaceServiceError::InvalidInput(
             AGENT_EXECUTOR_HISTORY_WIDGET_ERROR.to_owned(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn ensure_direct_work_detail_owner(definition_id: &str) -> Result<(), WorkspaceServiceError> {
+    if definition_id != AGENT_RUN_WIDGET_DEFINITION_ID
+        && definition_id != AGENT_QUEUE_WIDGET_DEFINITION_ID
+    {
+        return Err(WorkspaceServiceError::InvalidInput(
+            DIRECT_WORK_DETAIL_OWNER_ERROR.to_owned(),
         ));
     }
 

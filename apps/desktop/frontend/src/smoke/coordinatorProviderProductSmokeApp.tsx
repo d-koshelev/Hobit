@@ -115,6 +115,7 @@ class CoordinatorProviderProductSmokeRuntime {
       assignAgentQueueTaskToExecutor: this.queueDispatchUnsupported,
       attachToCodexDirectWorkStream: this.executorUnsupported,
       cancelCodexDirectWorkRun: this.executorUnsupported,
+      listenToDirectWorkStreamEvents: async () => () => undefined,
       clearAgentQueueTaskAssignment: this.queueDispatchUnsupported,
       closeTerminalPtySession: this.terminalUnsupported,
       createAgentQueueTask: async (request) => {

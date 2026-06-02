@@ -32,8 +32,10 @@ import type {
   CoordinatorAttachedContextInput,
 } from "./types";
 import type {
+  AgentExecutorRunDetail,
   AgentQueueReportActionCard,
   AgentQueueWorkerExecutionReport,
+  AgentQueueTaskRunLinkSummary,
 } from "../workspace/types";
 
 type AgentQueueController = ReturnType<typeof useAgentQueueController>;
@@ -405,7 +407,7 @@ function FlowSelectionSummary({
         </div>
         <div>
           <dt>Report</dt>
-          <dd>{latestReportLabel(selectedTask)}</dd>
+          <dd>{latestReportLabel(queue, selectedTask)}</dd>
         </div>
         <div>
           <dt>Dependencies</dt>
@@ -434,6 +436,9 @@ function nextActionForSelectedTask(
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
 ) {
   const hasReport = (selectedTask.workerExecutionReports?.length ?? 0) > 0;
+  const runEvidence = directWorkEvidenceForQueue(queue);
+  const hasRunEvidence = Boolean(runEvidence) || hasFinishedRunLink(queue);
+  const hasReviewEvidence = hasReport || hasRunEvidence;
   const planLabel = executionPlanStatusLabel(selectedTask.executionPlanPreview);
   const readinessMessage = queue.run.readinessMessage;
   const preconditionMessage = queue.run.preconditionMessages[0] ?? null;
@@ -463,28 +468,25 @@ function nextActionForSelectedTask(
     };
   }
 
-  if (isReportReadyStatus(selectedTask.status) || hasReport) {
+  if (isReportReadyStatus(selectedTask.status) || hasReviewEvidence) {
     actions.push({
       label: "View report",
       onClick: () => scrollToSelectedTaskReport(),
       variant: "primary",
     });
 
-    if (queue.coordinatorFinalization.status === "ready_for_finalization") {
-      actions.push({
-        disabled: !queue.coordinatorFinalization.canAct,
-        label: "Finalize / Accept",
-        onClick: () => queue.coordinatorFinalization.onFinalize(),
-        variant: "secondary",
-      });
-    } else {
-      actions.push({
-        disabled: !queue.coordinatorFinalization.canAct,
-        label: "Mark ready for finalization",
-        onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
-        variant: "secondary",
-      });
-    }
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Mark ready for finalization",
+      onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Finalize / Accept",
+      onClick: () => queue.coordinatorFinalization.onFinalize(),
+      variant: "secondary",
+    });
 
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,
@@ -492,18 +494,24 @@ function nextActionForSelectedTask(
       onClick: () => queue.coordinatorFinalization.onMarkNeedsChanges(),
       variant: "secondary",
     });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Follow-up required",
+      onClick: () => queue.coordinatorFinalization.onMarkFollowUpRequired(),
+      variant: "secondary",
+    });
+
+    const failed = isFailedRunEvidence(queue, selectedTask);
 
     return {
       actions,
-      badge: hasReport ? "Report ready" : statusLabel(selectedTask.status),
-      badgeVariant: hasReport ? ("info" as const) : statusBadgeVariant(selectedTask.status),
-      copy: hasReport
-        ? "Report ready / awaiting coordinator review."
-        : "Run finished. Review the report area and make an explicit coordinator decision.",
-      secondaryCopy: hasReport
-        ? "Use View report, then coordinator actions when relevant."
-        : "No worker report is attached yet.",
-      title: "Awaiting coordinator review",
+      badge: failed ? "Run failed" : "Report ready",
+      badgeVariant: failed ? ("error" as const) : ("info" as const),
+      copy: failed
+        ? "Run failed. Review the visible error evidence and make an explicit coordinator decision."
+        : "Execution complete. Review report evidence and make an explicit coordinator decision.",
+      secondaryCopy: "Coordinator finalization remains explicit; no item is accepted automatically.",
+      title: "Review report and make coordinator decision",
       tone: "review",
     };
   }
@@ -527,7 +535,7 @@ function nextActionForSelectedTask(
       badgeVariant: "success" as const,
       copy: `${executorCopy}Start this task explicitly when ready.`,
       secondaryCopy: "Worker report appears below after execution.",
-      title: "Ready to run",
+      title: "Run task",
       tone: "ready",
     };
   }
@@ -539,26 +547,29 @@ function nextActionForSelectedTask(
       variant: "primary",
     });
 
-    if (queue.coordinatorFinalization.status === "ready_for_finalization") {
-      actions.push({
-        disabled: !queue.coordinatorFinalization.canAct,
-        label: "Finalize / Accept",
-        onClick: () => queue.coordinatorFinalization.onFinalize(),
-        variant: "secondary",
-      });
-    } else {
-      actions.push({
-        disabled: !queue.coordinatorFinalization.canAct,
-        label: "Mark ready for finalization",
-        onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
-        variant: "secondary",
-      });
-    }
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Mark ready for finalization",
+      onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Finalize / Accept",
+      onClick: () => queue.coordinatorFinalization.onFinalize(),
+      variant: "secondary",
+    });
 
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,
       label: "Request changes",
       onClick: () => queue.coordinatorFinalization.onMarkNeedsChanges(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Follow-up required",
+      onClick: () => queue.coordinatorFinalization.onMarkFollowUpRequired(),
       variant: "secondary",
     });
 
@@ -568,9 +579,9 @@ function nextActionForSelectedTask(
       badgeVariant: coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus),
       copy:
         "Worker evidence or coordinator decisions are waiting for explicit review. Do not start more work until the coordinator state is resolved.",
-      secondaryCopy: hasReport
-        ? "Review the worker report below, then use coordinator finalization when it is relevant."
-        : "No worker report is attached yet.",
+      secondaryCopy: hasReviewEvidence
+        ? "Review the report evidence below, then use coordinator finalization when it is relevant."
+        : "No run evidence is attached yet.",
       title: "Awaiting coordinator review",
       tone: "review",
     };
@@ -645,14 +656,16 @@ function nextActionForSelectedTask(
   }
 
   if (!readinessMessage && preconditionMessage) {
+    const missingRunSetting = isRunSettingPrecondition(preconditionMessage);
+
     return {
       actions,
-      badge: "Ready",
-      badgeVariant: "info" as const,
+      badge: missingRunSetting ? "Not configured" : "Waiting",
+      badgeVariant: "warning" as const,
       copy: compactNextActionBlocker(preconditionMessage),
       secondaryCopy: null,
-      title: "Set run settings",
-      tone: "ready",
+      title: missingRunSetting ? "Set run settings" : "Waiting for run",
+      tone: "blocked",
     };
   }
 
@@ -695,6 +708,10 @@ function compactNextActionBlocker(message: string | null | undefined) {
   }
 
   return message;
+}
+
+function isRunSettingPrecondition(message: string) {
+  return /workspace|repo root|Codex executable/i.test(message);
 }
 
 function isReportReadyStatus(status: string) {
@@ -743,6 +760,9 @@ function HumanReadableActivityPanel({
 }) {
   const report = queue.workerReport.latestReport;
   const reportCard = queue.reportActionCard.workerReportCard;
+  const runEvidence = directWorkEvidenceForQueue(queue);
+  const hasRunResult = Boolean(runEvidence) || hasFinishedRunLink(queue);
+  const failed = isFailedRunEvidence(queue, selectedTask);
   const entries = buildHumanTimeline(queue, selectedTask);
 
   return (
@@ -758,12 +778,26 @@ function HumanReadableActivityPanel({
             Readable task activity. Technical run metadata stays in Internal details.
           </p>
         </div>
-        <Badge variant={report ? "info" : selectedTask.status === "running" ? "warning" : "neutral"}>
+        <Badge
+          variant={
+            report || hasRunResult
+              ? failed
+                ? "error"
+                : "info"
+              : selectedTask.status === "running"
+                ? "warning"
+                : "neutral"
+          }
+        >
           {report
             ? "Report attached"
-            : selectedTask.status === "running"
-              ? "Report pending"
-              : "No report"}
+            : hasRunResult
+              ? failed
+                ? "Run failed"
+                : "Report ready"
+              : selectedTask.status === "running"
+                ? "Report pending"
+                : "No report"}
         </Badge>
       </div>
 
@@ -823,6 +857,38 @@ function HumanReadableActivityPanel({
             </Button>
           </div>
         </div>
+      ) : runEvidence ? (
+        <DirectWorkEvidenceSummary evidence={runEvidence} queue={queue} />
+      ) : hasRunResult ? (
+        <div className="agent-queue-human-report-summary">
+          <p className="agent-queue-worker-report-summary">
+            {queue.runEvidence.isLoading
+              ? "Loading run result..."
+              : "Run result available."}
+          </p>
+          <p className="agent-queue-run-note">
+            {queue.runEvidence.isLoading
+              ? "Direct Work finished. Loading the linked result evidence for coordinator review."
+              : "Direct Work finished and linked evidence is available for coordinator review. Use Refresh if the final response has not loaded yet."}
+          </p>
+          {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
+            <p
+              className="agent-queue-message agent-queue-message-error"
+              role="alert"
+            >
+              {queue.runEvidence.error}
+            </p>
+          ) : null}
+          <div className="agent-queue-run-actions">
+            <Button
+              disabled={!queue.runEvidence.apiAvailable || queue.runEvidence.isLoading}
+              onClick={() => queue.runEvidence.onRefresh()}
+              variant="secondary"
+            >
+              Refresh result
+            </Button>
+          </div>
+        </div>
       ) : (
         <p className="agent-queue-run-note">
           {selectedTask.status === "running"
@@ -849,6 +915,7 @@ function buildHumanTimeline(
 ): HumanTimelineEntry[] {
   const report = queue.workerReport.latestReport;
   const latestRun = queue.latestRun.link;
+  const runEvidence = directWorkEvidenceForQueue(queue);
   const entries: HumanTimelineEntry[] = [
     {
       badge: "Created",
@@ -902,10 +969,26 @@ function buildHumanTimeline(
       message:
         latestRun.status === "running"
           ? "Waiting for worker report."
-          : `Latest linked run is ${latestRun.status}.`,
+          : runTimelineMessage(latestRun.status),
       time: latestRun.completedAt,
       title:
-        latestRun.status === "running" ? "Run still running" : "Run completed / failed",
+        latestRun.status === "running"
+          ? "Running"
+          : runTimelineTitle(latestRun.status),
+    });
+  }
+
+  if (runEvidence) {
+    entries.push({
+      badge: runEvidence.status === "failed" ? "Error" : "Result",
+      badgeVariant: runEvidence.status === "failed" ? "error" : "info",
+      key: "direct-work-result",
+      message: runEvidence.summary,
+      time: latestRun?.completedAt ?? selectedTask.updatedAt,
+      title:
+        runEvidence.status === "failed"
+          ? "Final error"
+          : "Final response / result summary",
     });
   }
 
@@ -949,6 +1032,18 @@ function buildHumanTimeline(
   }
 
   if (
+    hasReviewEvidenceForTask(queue, selectedTask) &&
+    selectedTask.coordinatorStatus !== "finalized"
+  ) {
+    entries.push({
+      badge: "Review",
+      badgeVariant: "warning",
+      key: "coordinator-review-required",
+      message: "Review report evidence and make an explicit coordinator decision.",
+      time: selectedTask.updatedAt,
+      title: "Coordinator review required",
+    });
+  } else if (
     selectedTask.coordinatorStatus &&
     selectedTask.coordinatorStatus !== "not_reported"
   ) {
@@ -972,7 +1067,7 @@ function buildHumanTimeline(
 
 function runTimelineBadge(status: string) {
   if (status === "completed") {
-    return "Done";
+    return "Complete";
   }
 
   if (status === "running") {
@@ -980,6 +1075,30 @@ function runTimelineBadge(status: string) {
   }
 
   return "Failed";
+}
+
+function runTimelineTitle(status: string) {
+  if (status === "completed" || status === "review_needed") {
+    return "Run completed";
+  }
+
+  if (status === "cancelled") {
+    return "Run cancelled";
+  }
+
+  return "Run failed";
+}
+
+function runTimelineMessage(status: string) {
+  if (status === "completed" || status === "review_needed") {
+    return "Execution complete. Evidence is available for coordinator review.";
+  }
+
+  if (status === "cancelled") {
+    return "Execution was cancelled. Coordinator review is still required.";
+  }
+
+  return "Execution failed. Review the visible error evidence.";
 }
 
 function runTimelineBadgeVariant(
@@ -996,6 +1115,234 @@ function runTimelineBadgeVariant(
   return "error";
 }
 
+type DirectWorkEvidence = {
+  changedFilesSummary: string | null;
+  commandSummary: string | null;
+  developerDetails: string | null;
+  error: string | null;
+  finalText: string;
+  status: "completed" | "failed";
+  summary: string;
+};
+
+function DirectWorkEvidenceSummary({
+  evidence,
+  queue,
+}: {
+  evidence: DirectWorkEvidence;
+  queue: AgentQueueController;
+}) {
+  return (
+    <div className="agent-queue-human-report-summary">
+      <p className="field-label">
+        {evidence.status === "failed"
+          ? "Run output evidence"
+          : "Direct Work result"}
+      </p>
+      <p className="agent-queue-worker-report-summary">{evidence.summary}</p>
+      {evidence.error ? (
+        <p className="agent-queue-run-warning">Final error: {evidence.error}</p>
+      ) : null}
+      {evidence.commandSummary ? (
+        <p className="agent-queue-run-note">
+          Command summary: {evidence.commandSummary}
+        </p>
+      ) : null}
+      {evidence.changedFilesSummary ? (
+        <p className="agent-queue-run-note">
+          Changed files: {evidence.changedFilesSummary}
+        </p>
+      ) : null}
+      <pre className="agent-queue-flow-selection-prompt">
+        {evidence.finalText}
+      </pre>
+      <p className="agent-queue-run-note">
+        Execution completion is evidence for coordinator review. It is not
+        coordinator acceptance or finalization.
+      </p>
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!queue.runEvidence.apiAvailable || queue.runEvidence.isLoading}
+          onClick={() => queue.runEvidence.onRefresh()}
+          variant="secondary"
+        >
+          Refresh result
+        </Button>
+      </div>
+      {evidence.developerDetails ? (
+        <details className="agent-queue-details agent-queue-secondary-details">
+          <summary>Developer details</summary>
+          <pre>{evidence.developerDetails}</pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function directWorkEvidenceForQueue(
+  queue: AgentQueueController,
+): DirectWorkEvidence | null {
+  const detail = queue.runEvidence.detail;
+
+  if (!detail) {
+    return null;
+  }
+
+  const failed = isFailedStatus(
+    detail.summary.status || detail.resultStatus || queue.latestRun.link?.status,
+  );
+  const error = firstNonEmpty([
+    detail.errorMessage,
+    failed ? detail.stderrPreview : null,
+    failed ? detail.resultSummary : null,
+  ]);
+  const finalText = firstNonEmpty([
+    detail.finalMessage,
+    detail.resultContent,
+    failed ? error : null,
+    detail.resultSummary,
+    detail.stdoutPreview,
+    "Direct Work finished without a captured final response.",
+  ]);
+  const summary = firstNonEmpty([
+    failed ? error : null,
+    detail.finalMessage,
+    detail.resultSummary,
+    detail.resultContent,
+    failed ? "Direct Work failed." : "Direct Work completed.",
+  ]);
+  const resultPayload = directWorkResultPayloadObject(detail);
+  const commandSummary = commandSummaryLabel(resultPayload?.command_summary);
+  const changedFilesSummary = firstNonEmpty([
+    detail.changedFilesSummary,
+    changedFilesSummaryLabel(resultPayload?.changed_files_summary),
+    changedFilesSummaryLabel(resultPayload?.changed_files),
+    changedFilesSummaryLabel(resultPayload?.git_changed_files_summary),
+  ]) || null;
+  const developerDetails = directWorkDeveloperDetails(detail);
+
+  return {
+    changedFilesSummary,
+    commandSummary,
+    developerDetails,
+    error,
+    finalText,
+    status: failed ? "failed" : "completed",
+    summary,
+  };
+}
+
+function directWorkDeveloperDetails(detail: AgentExecutorRunDetail) {
+  const sections = [
+    detail.resultPayload ? `Result payload:\n${detail.resultPayload}` : null,
+    detail.stdoutPreview ? `Stdout preview:\n${detail.stdoutPreview}` : null,
+    detail.stderrPreview ? `Stderr preview:\n${detail.stderrPreview}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return sections.length > 0 ? sections.join("\n\n") : null;
+}
+
+function directWorkResultPayloadObject(
+  detail: AgentExecutorRunDetail,
+): Record<string, unknown> | null {
+  if (!detail.resultPayload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(detail.resultPayload);
+
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function commandSummaryLabel(value: unknown) {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === "string" ? entry.trim() : null))
+      .filter((entry): entry is string => Boolean(entry))
+      .join(" ") || null;
+  }
+
+  return null;
+}
+
+function changedFilesSummaryLabel(value: unknown) {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (typeof entry === "string") {
+          return entry.trim();
+        }
+
+        if (entry && typeof entry === "object") {
+          const path = (entry as { path?: unknown }).path;
+          return typeof path === "string" ? path.trim() : null;
+        }
+
+        return null;
+      })
+      .filter((entry): entry is string => Boolean(entry))
+      .join(", ") || null;
+  }
+
+  return null;
+}
+
+function firstNonEmpty(values: Array<string | null | undefined>) {
+  return values.find((value) => value && value.trim())?.trim() ?? "";
+}
+
+function hasFinishedRunLink(queue: AgentQueueController) {
+  const status = queue.latestRun.link?.status;
+
+  return Boolean(status && status !== "running" && status !== "unknown");
+}
+
+function hasReviewEvidenceForTask(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  return (
+    (selectedTask.workerExecutionReports?.length ?? 0) > 0 ||
+    Boolean(directWorkEvidenceForQueue(queue)) ||
+    hasFinishedRunLink(queue) ||
+    isReportReadyStatus(selectedTask.status)
+  );
+}
+
+function isFailedRunEvidence(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  return (
+    isFailedStatus(selectedTask.status) ||
+    isFailedStatus(queue.latestRun.link?.status) ||
+    directWorkEvidenceForQueue(queue)?.status === "failed"
+  );
+}
+
+function isFailedStatus(status: string | null | undefined) {
+  return (
+    status === "failed" ||
+    status === "timed_out" ||
+    status === "cancelled" ||
+    status === "failed_to_start"
+  );
+}
+
 function CoordinatorFinalizationPanel({
   queue,
 }: {
@@ -1005,6 +1352,8 @@ function CoordinatorFinalizationPanel({
   const selectedTask = queue.selectedTask;
   const hasReport =
     (selectedTask?.workerExecutionReports?.length ?? 0) > 0 ||
+    Boolean(directWorkEvidenceForQueue(queue)) ||
+    hasFinishedRunLink(queue) ||
     Boolean(queue.reportActionCard.diffReviewReportCard);
   const isRelevant =
     hasReport || coordinatorStatusBlocksNewWork(finalization.status);
@@ -1161,12 +1510,16 @@ function SelectedTaskOverview({
           <Badge variant="neutral">Order {queue.ordering.orderLabel}</Badge>
         ) : null}
         <Badge variant={statusBadgeVariant(selectedTask.status)}>
-          {statusLabel(selectedTask.status)}
+          {selectedTaskStatusRailLabel(selectedTask)}
         </Badge>
         {selectedTask.coordinatorStatus &&
         selectedTask.coordinatorStatus !== "not_reported" ? (
           <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
             {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
+          </Badge>
+        ) : hasReviewEvidenceForTask(queue, selectedTask) ? (
+          <Badge variant="warning">
+            Awaiting coordinator review
           </Badge>
         ) : null}
       </div>
@@ -1176,8 +1529,8 @@ function SelectedTaskOverview({
       </p>
       <div className="agent-queue-overview-secondary">
         <span>{executorInfo.label}</span>
-        {latestReportLabel(selectedTask) !== "No worker report" ? (
-          <span>{latestReportLabel(selectedTask)}</span>
+        {latestReportLabel(queue, selectedTask) !== "No worker report" ? (
+          <span>{latestReportLabel(queue, selectedTask)}</span>
         ) : null}
         {validationStatus !== "not_started" ? (
           <span>{validationStatusLabel(validationStatus)}</span>
@@ -1328,6 +1681,8 @@ function WorkerExecutionReportPanel({
   const report = queue.workerReport.latestReport;
   const reportCard = queue.reportActionCard.workerReportCard;
   const shownCardId = queue.reportActionCard.latestShownCardId;
+  const runEvidence = directWorkEvidenceForQueue(queue);
+  const hasRunResult = Boolean(runEvidence) || hasFinishedRunLink(queue);
 
   if (!report) {
     return (
@@ -1341,10 +1696,14 @@ function WorkerExecutionReportPanel({
               Worker execution report
             </p>
             <p className="agent-queue-run-note">
-              No worker report yet. Run or attach a worker report to review evidence.
+              {hasRunResult
+                ? "No structured worker report is attached. Direct Work output is shown as run evidence."
+                : "No worker report yet. Run or attach a worker report to review evidence."}
             </p>
           </div>
-          <Badge variant="neutral">No report</Badge>
+          <Badge variant={hasRunResult ? "info" : "neutral"}>
+            {hasRunResult ? "Run result available" : "No report"}
+          </Badge>
         </div>
         <div className="agent-queue-run-actions">
           <Button
@@ -1611,7 +1970,7 @@ function overviewStateSentence(
     case "running":
       return `Running. ${executorLabel} is executing this task.`;
     case "completed":
-      return "Execution completed. Review the report before accepting the work.";
+      return "Execution complete. Awaiting coordinator review.";
     case "failed":
       return "Execution failed. Review the report and request changes if needed.";
     case "cancelled":
@@ -1634,8 +1993,8 @@ function overviewNextStep(
     return "Next: Waiting for worker report.";
   }
 
-  if (isReportReadyStatus(selectedTask.status) || latestReportLabel(selectedTask) !== "No worker report") {
-    return "Next: view the report and make an explicit coordinator decision.";
+  if (isReportReadyStatus(selectedTask.status) || latestReportLabel(queue, selectedTask) !== "No worker report") {
+    return "Next: review report and make coordinator decision.";
   }
 
   if (queue.run.canStart) {
@@ -1677,11 +2036,37 @@ function formatTimestamp(value: string) {
 }
 
 function latestReportLabel(
+  queue: AgentQueueController,
   task: NonNullable<AgentQueueController["selectedTask"]>,
 ) {
-  return task.workerExecutionReports && task.workerExecutionReports.length > 0
-    ? "Reported / awaiting coordinator review"
-    : "No worker report";
+  if (task.workerExecutionReports && task.workerExecutionReports.length > 0) {
+    return "Reported / awaiting coordinator review";
+  }
+
+  if (directWorkEvidenceForQueue(queue) || hasFinishedRunLink(queue)) {
+    return isFailedRunEvidence(queue, task)
+      ? "Run failed / awaiting coordinator review"
+      : "Run result available";
+  }
+
+  return "No worker report";
+}
+
+function selectedTaskStatusRailLabel(
+  task: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  switch (task.status) {
+    case "completed":
+      return "Execution complete";
+    case "failed":
+      return "Run failed";
+    case "cancelled":
+      return "Run cancelled";
+    case "review_needed":
+      return "Report ready";
+    default:
+      return statusLabel(task.status);
+  }
 }
 
 function diffReviewHeaderLabel(

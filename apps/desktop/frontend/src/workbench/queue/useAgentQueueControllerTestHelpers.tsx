@@ -14,6 +14,7 @@ import type {
   StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
   UpdateAgentQueueWorkerRequest,
+  DirectWorkStreamEvent,
 } from "../../workspace/types";
 import type { DirectWorkRunHandoffInput } from "../types";
 import {
@@ -72,6 +73,9 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
   const getRequests: string[] = [];
   const handoffs: DirectWorkRunHandoffInput[] = [];
   const runLinkRequests: string[] = [];
+  const directWorkStreamListeners: Array<
+    (event: DirectWorkStreamEvent) => void
+  > = [];
   let listRequests = 0;
   let autorunSnapshotRequests = 0;
   const options: AgentQueueControllerOptions = {
@@ -190,6 +194,15 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
       getRequests.push(queueItemId);
       return tasks.get(queueItemId) ?? null;
     },
+    onListenToDirectWorkStreamEvents: async (onEvent) => {
+      directWorkStreamListeners.push(onEvent);
+      return () => {
+        const index = directWorkStreamListeners.indexOf(onEvent);
+        if (index >= 0) {
+          directWorkStreamListeners.splice(index, 1);
+        }
+      };
+    },
     onListAgentQueueTasks: async () => {
       listRequests += 1;
       return Array.from(tasks.values());
@@ -271,6 +284,7 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     get getRequests() {
       return getRequests;
     },
+    directWorkStreamListeners,
     handoffs,
     get listRequests() {
       return listRequests;

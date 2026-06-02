@@ -145,6 +145,10 @@ class QueueExecutorSmokeRuntime {
         };
       },
       cancelCodexDirectWorkRun: async () => this.forbidden(null),
+      listenToDirectWorkStreamEvents: async (onEvent) => {
+        this.streamListeners.set("__queue-widget-listener__", onEvent);
+        return () => this.streamListeners.delete("__queue-widget-listener__");
+      },
       closeTerminalPtySession: async () => this.forbidden(null),
       forceKillCodexDirectWorkRun: async () => this.forbidden(null),
       clearAgentQueueTaskAssignment: async (request) => {
@@ -320,16 +324,22 @@ class QueueExecutorSmokeRuntime {
 
     this.finalEventEmitCallCount += 1;
     this.markFinalAvailable();
-    listener(this.streamEvent("stdout_line", { line: LIVE_LOG_TEXT }));
-    listener(this.streamEvent("final_message", { text: FINAL_RESPONSE_TEXT }));
-    listener(
+    const events = [
+      this.streamEvent("stdout_line", { line: LIVE_LOG_TEXT }),
+      this.streamEvent("final_message", { text: FINAL_RESPONSE_TEXT }),
       this.streamEvent("completed", {
         exitCode: 0,
         finalStatus: "completed",
         isFinal: true,
         status: "completed",
       }),
-    );
+    ];
+
+    for (const event of events) {
+      for (const streamListener of this.streamListeners.values()) {
+        streamListener(event);
+      }
+    }
   }
 
   snapshot(): SmokeSnapshot {

@@ -230,6 +230,9 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
   ) => Promise<AgentExecutorRunDetail | null>;
+  onListenToDirectWorkStreamEvents?: (
+    onEvent: (event: DirectWorkStreamEvent) => void,
+  ) => Promise<() => void>;
   onGetAgentQueueTask?: (
     queueItemId: string,
   ) => Promise<AgentQueueTask | null>;

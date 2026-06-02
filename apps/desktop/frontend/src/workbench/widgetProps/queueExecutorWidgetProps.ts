@@ -23,9 +23,11 @@ type AgentQueueActions = Pick<
   | "deleteAgentQueueTask"
   | "createAgentQueueWorker"
   | "deleteAgentQueueWorker"
+  | "getAgentExecutorRunDetail"
   | "getAgentQueueRunnerSnapshot"
   | "getAgentQueueTask"
   | "getAgentQueueTaskLatestRunLink"
+  | "listenToDirectWorkStreamEvents"
   | "listAgentQueueTaskRunLinks"
   | "listAgentQueueTasks"
   | "listAgentQueueWorkers"
@@ -99,10 +101,12 @@ export function agentQueueWidgetProps({
     onDeleteAgentQueueTask: actions.deleteAgentQueueTask,
     onDeleteAgentQueueWorker: actions.deleteAgentQueueWorker,
     onDirectWorkRunHandoffStarted: directWorkRunHandoff.recordHandoff,
+    onGetAgentExecutorRunDetail: actions.getAgentExecutorRunDetail,
     onGetAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
     onGetAgentQueueTask: actions.getAgentQueueTask,
     onGetAgentQueueTaskLatestRunLink: (queueItemId) =>
       actions.getAgentQueueTaskLatestRunLink({ queueItemId }),
+    onListenToDirectWorkStreamEvents: actions.listenToDirectWorkStreamEvents,
     onListAgentQueueTaskRunLinks: (queueItemId) =>
       actions.listAgentQueueTaskRunLinks({ queueItemId }),
     onListAgentQueueTasks: actions.listAgentQueueTasks,

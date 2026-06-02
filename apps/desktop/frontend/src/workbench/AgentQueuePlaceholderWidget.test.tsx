@@ -23,6 +23,7 @@ afterEach(() => {
   root = null;
   container = null;
   document.body.innerHTML = "";
+  window.sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -78,7 +79,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     );
 
     vi.spyOn(layout!, "getBoundingClientRect").mockReturnValue(
-      rect({ width: 1160 }),
+      rect({ width: 1400 }),
     );
 
     await act(async () => {
@@ -105,7 +106,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       rightHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 600 }));
     });
     await act(async () => {
-      window.dispatchEvent(pointerEvent("pointermove", { clientX: 500 }));
+      window.dispatchEvent(pointerEvent("pointermove", { clientX: 520 }));
     });
     expect(layout?.getAttribute("style")).toContain(
       "--agent-queue-right-rail-width: 400px",
@@ -124,6 +125,87 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       "--agent-queue-right-rail-width: 320px",
     );
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("preserves resized Queue rails across Queue widget remounts", async () => {
+    renderQueueWidget();
+    await flushRender();
+
+    let layout = document.querySelector<HTMLDivElement>(
+      ".agent-queue-product-layout-flow",
+    );
+    const leftHandle = document.querySelector<HTMLButtonElement>(
+      "[aria-label='Resize Queue controls rail']",
+    );
+    const rightHandle = document.querySelector<HTMLButtonElement>(
+      "[aria-label='Resize selected item rail']",
+    );
+
+    expect(layout).not.toBeNull();
+    vi.spyOn(layout!, "getBoundingClientRect").mockReturnValue(
+      rect({ width: 1400 }),
+    );
+
+    await act(async () => {
+      leftHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 300 }));
+    });
+    await act(async () => {
+      window.dispatchEvent(pointerEvent("pointermove", { clientX: 380 }));
+    });
+    await act(async () => {
+      window.dispatchEvent(pointerEvent("pointerup", { clientX: 380 }));
+    });
+    await act(async () => {
+      rightHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 600 }));
+    });
+    await act(async () => {
+      window.dispatchEvent(pointerEvent("pointermove", { clientX: 520 }));
+    });
+    await act(async () => {
+      window.dispatchEvent(pointerEvent("pointerup", { clientX: 500 }));
+    });
+
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-left-rail-width: 300px",
+    );
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-right-rail-width: 400px",
+    );
+
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+    root = null;
+    container = null;
+
+    renderQueueWidget();
+    await flushRender();
+
+    layout = document.querySelector<HTMLDivElement>(
+      ".agent-queue-product-layout-flow",
+    );
+    const resetHandle = document.querySelector<HTMLButtonElement>(
+      "[aria-label='Resize Queue controls rail']",
+    );
+
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-left-rail-width: 300px",
+    );
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-right-rail-width: 400px",
+    );
+
+    await act(async () => {
+      resetHandle?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-left-rail-width: 220px",
+    );
+    expect(layout?.getAttribute("style")).toContain(
+      "--agent-queue-right-rail-width: 320px",
+    );
   });
 });
 
@@ -250,9 +332,16 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
       }),
     );
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("Ready to run");
+    expect(sectionText("Next action")).toContain("Run task");
+    expect(sectionText("Next action")).not.toContain("Set run settings");
+    expect(sectionText("Queue task execution")).not.toContain("Set workspace");
     expect(document.body.textContent).toContain("Run task");
     expect(document.body.textContent).not.toContain("Promote to queued");
+    expect(inputByLabel("Execution workspace").value).toBe("C:\\repo");
+    expect(inputByLabel("Codex executable").value).toBe("codex.cmd");
+    expect(selectByLabel("Sandbox").value).toBe("workspace_write");
+    expect(selectByLabel("Approval policy").value).toBe("never");
+    expect(detailsBySummary("Execution settings")?.open).toBe(false);
 
     clickButton("Run task");
     await flushRender();
@@ -458,6 +547,16 @@ function detailsBySummary(text: string) {
   return Array.from(document.querySelectorAll<HTMLDetailsElement>("details")).find(
     (details) => details.querySelector("summary")?.textContent === text,
   );
+}
+
+function sectionText(label: string) {
+  const section = document.querySelector(`[aria-label="${label}"]`);
+
+  if (!section) {
+    throw new Error(`Section not found: ${label}`);
+  }
+
+  return section.textContent ?? "";
 }
 
 function pointerEvent(type: string, options: { clientX: number }) {

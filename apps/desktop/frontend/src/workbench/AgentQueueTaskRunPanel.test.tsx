@@ -10,6 +10,7 @@ import type {
   AgentQueueExecutionPlanController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
+  AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
   AgentQueueWorkerReportController,
@@ -27,6 +28,7 @@ import type { AgentExecutorSlot } from "./types";
 import type {
   AgentQueueExecutionPlanPreview,
   AgentQueueReportActionCard,
+  AgentExecutorRunDetail,
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
 } from "../workspace/types";
@@ -620,7 +622,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onStartEdit).toHaveBeenCalledTimes(1);
   });
 
-  it("shows assigned runnable items as ready after execution workspace setup", () => {
+  it("does not show a Ready badge when run settings are missing", () => {
     const selectedTask = {
       ...queueTask(),
       assignedExecutorWidgetId: "executor_visible",
@@ -637,8 +639,12 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       tasks: [selectedTask],
     });
 
-    expect(document.body.textContent).toContain("Set run settings");
-    expect(document.body.textContent).toContain("Set workspace.");
+    const nextActionText = sectionText("Next action");
+
+    expect(nextActionText).toContain("Set run settings");
+    expect(nextActionText).toContain("Set workspace.");
+    expect(nextActionText).toContain("Not configured");
+    expect(nextActionText).not.toContain("Ready");
   });
 
   it("prioritizes running status over selected-item pre-run blockers", () => {
@@ -716,7 +722,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     const actionsText = sectionText("Selected task actions and settings");
 
     expect(overviewText).toContain(
-      "Next: view the report and make an explicit coordinator decision.",
+      "Next: review report and make coordinator decision.",
     );
     expect(actionsText).toContain("Report ready");
     expect(actionsText).toContain("Awaiting coordinator review");
@@ -728,6 +734,183 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(actionsText).not.toContain("Run task");
     expect(actionsText).not.toContain("Before run");
     expect(actionsText).not.toContain("Promote to queued");
+  });
+
+  it("shows completed Direct Work output as report evidence without finalizing", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      run: {
+        ...runController(),
+        readinessMessage: "Local executor unavailable.",
+        repoRootDraft: "",
+      },
+      runEvidence: runEvidenceController(runDetail({
+        finalMessage: "Final Direct Work response visible to coordinator.",
+        resultPayload: JSON.stringify({
+          command_summary: ["codex", "exec", "--json"],
+          changed_files: ["apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx"],
+          status: "completed",
+        }),
+        resultSummary: "Codex Direct Work stream completed",
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const overviewText = sectionText("Selected task overview");
+    const actionsText = sectionText("Selected task actions and settings");
+    const reportText = sectionText("Human-readable logs and report");
+    const finalizationText = sectionText("Coordinator finalization");
+
+    expect(overviewText).toContain("Execution complete");
+    expect(overviewText).toContain("Awaiting coordinator review");
+    expect(actionsText).toContain("Review report and make coordinator decision");
+    expect(actionsText).toContain("Report ready");
+    expect(actionsText).toContain("Mark ready for finalization");
+    expect(actionsText).toContain("Finalize / Accept");
+    expect(actionsText).toContain("Request changes");
+    expect(actionsText).toContain("Follow-up required");
+    expect(reportText).toContain("Report ready");
+    expect(reportText).toContain("Run completed");
+    expect(reportText).toContain("Final response / result summary");
+    expect(reportText).toContain("Direct Work result");
+    expect(reportText).toContain("Command summary: codex exec --json");
+    expect(reportText).toContain(
+      "Changed files: apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx",
+    );
+    expect(reportText).toContain("Final Direct Work response visible to coordinator.");
+    expect(reportText).toContain("Coordinator review required");
+    expect(reportText).not.toContain("No report");
+    expect(reportText).not.toContain("No worker report");
+    expect(finalizationText).toContain("Awaiting coordinator review");
+    expect(finalizationText).toContain("Finalize / Accept item");
+    expect(finalizationText).not.toContain("Finalized");
+    expect(finalizationText).not.toContain("Accepted");
+    expect(detailsBySummary("Developer details")?.open).toBe(false);
+  });
+
+  it("shows loading result while Direct Work evidence is being fetched", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(null, {
+        error: "Unable to load Direct Work result evidence.",
+        isLoading: true,
+      }),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const reportText = sectionText("Human-readable logs and report");
+
+    expect(reportText).toContain("Report ready");
+    expect(reportText).toContain("Loading run result...");
+    expect(reportText).not.toContain("Unable to load Direct Work result evidence.");
+    expect(reportText).not.toContain("No report");
+  });
+
+  it("shows Direct Work evidence errors only after loading fails", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(null, {
+        error: "Unable to load Direct Work result evidence.",
+        isLoading: false,
+      }),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const reportText = sectionText("Human-readable logs and report");
+
+    expect(reportText).toContain("Report ready");
+    expect(reportText).toContain("Run result available.");
+    expect(reportText).toContain("Unable to load Direct Work result evidence.");
+    expect(reportText).toContain("Refresh result");
+    expect(reportText).not.toContain("No report");
+  });
+
+  it("shows failed Direct Work output visibly as run evidence", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "failed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_failed_123456",
+        executorWidgetId: "queue_owned_executor",
+        status: "failed",
+      })),
+      runEvidence: runEvidenceController(runDetail({
+        errorMessage: "Codex executable not found.",
+        finalMessage: null,
+        resultStatus: "failed",
+        resultSummary: "Codex Direct Work stream failed",
+        stderrPreview: "Codex executable not found.",
+        summary: {
+          ...runDetail().summary,
+          status: "failed",
+        },
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const actionsText = sectionText("Selected task actions and settings");
+    const reportText = sectionText("Human-readable logs and report");
+
+    expect(actionsText).toContain("Run failed");
+    expect(actionsText).toContain("Review report and make coordinator decision");
+    expect(reportText).toContain("Run failed");
+    expect(reportText).toContain("Run failed");
+    expect(reportText).toContain("Final error");
+    expect(reportText).toContain("Codex executable not found.");
+    expect(reportText).not.toContain("No report");
   });
 
   it("keeps coordinator finalization collapsed before worker evidence exists", () => {
@@ -1047,6 +1230,7 @@ function renderDetailsPanel({
   onShowQueueReportInWorkspaceChat,
   reportActionCard,
   run = runController(),
+  runEvidence = runEvidenceController(null),
   runHistory = runHistoryController([]),
   selectedTask = queueTask(),
   tasks = [selectedTask],
@@ -1068,6 +1252,7 @@ function renderDetailsPanel({
     typeof AgentQueueTaskDetailsPanel
   >["queue"]["reportActionCard"];
   run?: AgentQueueRunController;
+  runEvidence?: AgentQueueRunEvidenceController;
   runHistory?: AgentQueueRunHistoryController;
   selectedTask?: AgentQueueTask;
   tasks?: AgentQueueTask[];
@@ -1231,6 +1416,7 @@ function renderDetailsPanel({
       ...reportActionCard,
     },
     run,
+    runEvidence,
     runHistory,
     runner: runnerController(),
     saveStateText: "Saved",
@@ -1334,6 +1520,62 @@ function workerReportController(
       ? "Worker report attached as evidence. Awaiting validation/coordinator review; item status was not finalized."
       : null,
     onAttachDemoReport,
+  };
+}
+
+function runEvidenceController(
+  detail: AgentExecutorRunDetail | null,
+  overrides: Partial<AgentQueueRunEvidenceController> = {},
+): AgentQueueRunEvidenceController {
+  return {
+    apiAvailable: true,
+    detail,
+    error: null,
+    isLoading: false,
+    onRefresh: vi.fn(),
+    ...overrides,
+  };
+}
+
+function runDetail(
+  overrides: Partial<AgentExecutorRunDetail> = {},
+): AgentExecutorRunDetail {
+  const summary = {
+    commandKind: "codex_direct_work",
+    durationMs: 1000,
+    finishedAt: "2026-05-22T10:01:00.000Z",
+    hasResult: true,
+    logCount: 4,
+    mode: "Codex Direct Work",
+    repoRoot: "C:\\repo",
+    resultType: "codex_direct_work",
+    runId: "run_done_123456",
+    startedAt: "2026-05-22T10:00:00.000Z",
+    status: "completed",
+    title: "Codex Direct Work stream completed",
+    validationProfile: null,
+    validationStatus: null,
+  };
+
+  return {
+    changedFilesSummary: null,
+    errorMessage: null,
+    finalMessage: "Final Direct Work response.",
+    logs: [],
+    resultContent: null,
+    resultId: "result-1",
+    resultPayload: "{\"status\":\"completed\"}",
+    resultStatus: "completed",
+    resultSummary: "Codex Direct Work stream completed",
+    stderrPreview: null,
+    stdoutPreview: "stdout preview",
+    validationProfile: null,
+    validationStatus: null,
+    ...overrides,
+    summary: {
+      ...summary,
+      ...overrides.summary,
+    },
   };
 }
 

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
-import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
+import type { AgentExecutorRunDetail, AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox, DirectWorkStreamEvent } from "../../workspace/types";
+import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, errorToMessage, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -69,10 +69,13 @@ export type {
   AgentQueueOrderingController,
   AgentQueueReportActionCardController,
   AgentQueueRunController,
+  AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
   AgentQueueWorkerReportController,
 } from "./agentQueueControllerTypes";
+
+const SELECTED_ACTIVE_RUN_FALLBACK_POLL_MS = 60_000;
 
 export function useAgentQueueController({
   agentExecutorSlots = [],
@@ -83,9 +86,11 @@ export function useAgentQueueController({
   onDeleteAgentQueueTask,
   onDeleteAgentQueueWorker,
   onDirectWorkRunHandoffStarted,
+  onGetAgentExecutorRunDetail,
   onGetAgentQueueTask,
   onGetAgentQueueTaskLatestRunLink,
   onGetAgentQueueRunnerSnapshot,
+  onListenToDirectWorkStreamEvents,
   onListAgentQueueTaskRunLinks,
   onListAgentQueueTasks,
   onListAgentQueueWorkers,
@@ -159,7 +164,13 @@ export function useAgentQueueController({
     null,
   );
   const [isLatestRunLinkLoading, setIsLatestRunLinkLoading] = useState(false);
+  const [runEvidenceDetail, setRunEvidenceDetail] =
+    useState<AgentExecutorRunDetail | null>(null);
+  const [runEvidenceError, setRunEvidenceError] = useState<string | null>(null);
+  const [isRunEvidenceLoading, setIsRunEvidenceLoading] = useState(false);
   const startInFlightRef = useRef(false);
+  const activeRunPollInFlightRef = useRef(false);
+  const runEvidenceRequestKeyRef = useRef<string | null>(null);
   const tasksRef = useRef<AgentQueueTask[]>([]);
   const [autorunSnapshot, setAutorunSnapshot] =
     useState<AgentQueueRunnerSnapshot | null>(null);
@@ -553,6 +564,190 @@ export function useAgentQueueController({
   useEffect(() => {
     void refreshLatestRunLink(selectedTask?.queueItemId ?? null);
   }, [refreshLatestRunLink, selectedTask?.queueItemId]);
+
+  useEffect(() => {
+    const selectedTaskId = selectedTask?.queueItemId ?? null;
+    const hasActiveSelectedRun =
+      Boolean(selectedTaskId) &&
+      (selectedTask?.status === "running" || latestRunLink?.status === "running");
+
+    if (!selectedTaskId || !hasActiveSelectedRun) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function pollSelectedRunFallback() {
+      if (cancelled || activeRunPollInFlightRef.current) {
+        return;
+      }
+
+      activeRunPollInFlightRef.current = true;
+
+      try {
+        await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
+        await refreshLatestRunLink(selectedTaskId, { silent: true });
+      } finally {
+        activeRunPollInFlightRef.current = false;
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void pollSelectedRunFallback();
+    }, SELECTED_ACTIVE_RUN_FALLBACK_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    latestRunLink?.status,
+    loadTasks,
+    refreshLatestRunLink,
+    selectedTask?.queueItemId,
+    selectedTask?.status,
+  ]);
+
+  useEffect(() => {
+    const selectedTaskId = selectedTask?.queueItemId ?? null;
+    const selectedRunId = latestRunLink?.directWorkRunId ?? null;
+    const selectedExecutorWidgetId = latestRunLink?.executorWidgetId ?? null;
+    const hasActiveSelectedRun =
+      Boolean(selectedTaskId && selectedRunId && selectedExecutorWidgetId) &&
+      (selectedTask?.status === "running" || latestRunLink?.status === "running");
+
+    if (
+      !onListenToDirectWorkStreamEvents ||
+      !selectedTaskId ||
+      !selectedRunId ||
+      !selectedExecutorWidgetId ||
+      !hasActiveSelectedRun
+    ) {
+      return undefined;
+    }
+
+    const activeSelectedRunId = selectedRunId;
+    const activeSelectedExecutorWidgetId = selectedExecutorWidgetId;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+
+    async function refreshSelectedRunFromEvent(event: DirectWorkStreamEvent) {
+      if (
+        cancelled ||
+        !isSelectedQueueRunStreamEvent(event, {
+          runId: activeSelectedRunId,
+          widgetInstanceId: activeSelectedExecutorWidgetId,
+        }) ||
+        (!event.isFinal && activeRunPollInFlightRef.current)
+      ) {
+        return;
+      }
+
+      activeRunPollInFlightRef.current = true;
+
+      try {
+        if (event.isFinal) {
+          await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
+        }
+        await refreshLatestRunLink(selectedTaskId, { silent: true });
+      } finally {
+        activeRunPollInFlightRef.current = false;
+      }
+    }
+
+    void onListenToDirectWorkStreamEvents((event) => {
+      void refreshSelectedRunFromEvent(event);
+    }).then(
+      (stopListening) => {
+        if (cancelled) {
+          stopListening();
+          return;
+        }
+        unsubscribe = stopListening;
+      },
+      () => undefined,
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [
+    latestRunLink?.directWorkRunId,
+    latestRunLink?.executorWidgetId,
+    latestRunLink?.status,
+    loadTasks,
+    onListenToDirectWorkStreamEvents,
+    refreshLatestRunLink,
+    selectedTask?.queueItemId,
+    selectedTask?.status,
+  ]);
+
+  const refreshRunEvidence = useCallback(
+    async (
+      link: AgentQueueTaskRunLinkSummary | null | undefined,
+      options?: { silent?: boolean },
+    ) => {
+      if (!link || link.status === "running") {
+        runEvidenceRequestKeyRef.current = null;
+        setRunEvidenceDetail(null);
+        setRunEvidenceError(null);
+        setIsRunEvidenceLoading(false);
+        return;
+      }
+
+      const requestKey = `${link.executorWidgetId}:${link.directWorkRunId}`;
+      runEvidenceRequestKeyRef.current = requestKey;
+
+      if (!onGetAgentExecutorRunDetail) {
+        setRunEvidenceDetail(null);
+        setRunEvidenceError(
+          "Direct Work result detail is only available when Executor run detail APIs are available.",
+        );
+        setIsRunEvidenceLoading(false);
+        return;
+      }
+
+      if (!options?.silent) {
+        setIsRunEvidenceLoading(true);
+        setRunEvidenceError(null);
+      }
+
+      try {
+        const detail = await onGetAgentExecutorRunDetail(
+          link.executorWidgetId,
+          link.directWorkRunId,
+        );
+        if (runEvidenceRequestKeyRef.current !== requestKey) {
+          return;
+        }
+        setRunEvidenceDetail(detail);
+        setRunEvidenceError(detail ? null : "Direct Work result was not found.");
+      } catch (error) {
+        if (runEvidenceRequestKeyRef.current !== requestKey) {
+          return;
+        }
+        setRunEvidenceDetail(null);
+        setRunEvidenceError(
+          errorToMessage(error, "Unable to load Direct Work result evidence."),
+        );
+      } finally {
+        if (!options?.silent) {
+          setIsRunEvidenceLoading(false);
+        }
+      }
+    },
+    [onGetAgentExecutorRunDetail],
+  );
+
+  useEffect(() => {
+    void refreshRunEvidence(latestRunLink);
+  }, [
+    latestRunLink?.directWorkRunId,
+    latestRunLink?.executorWidgetId,
+    latestRunLink?.status,
+    refreshRunEvidence,
+  ]);
 
   const repoRoot = repoRootDraft.trim();
   const codexExecutable = codexExecutableDraft.trim();
@@ -1101,6 +1296,13 @@ export function useAgentQueueController({
       onRefresh: () =>
         void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
     } satisfies AgentQueueLatestRunLinkController,
+    runEvidence: {
+      apiAvailable: Boolean(onGetAgentExecutorRunDetail),
+      detail: runEvidenceDetail,
+      error: runEvidenceError,
+      isLoading: isRunEvidenceLoading,
+      onRefresh: () => void refreshRunEvidence(latestRunLink),
+    } satisfies AgentQueueRunEvidenceController,
     runHistory: {
       apiAvailable: Boolean(
         onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,
@@ -1202,4 +1404,17 @@ function executorSelectionMessage({
   return assignedExecutorWidgetId
     ? `Local executor selected automatically: ${label}. The previous assignment is unavailable.`
     : `Local executor selected automatically: ${label}.`;
+}
+
+function isSelectedQueueRunStreamEvent(
+  event: DirectWorkStreamEvent,
+  selectedRun: {
+    runId: string;
+    widgetInstanceId: string;
+  },
+) {
+  return (
+    event.runId === selectedRun.runId &&
+    event.widgetInstanceId === selectedRun.widgetInstanceId
+  );
 }

@@ -87,6 +87,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       assignAgentQueueTaskToExecutor: this.unsupported,
       attachToCodexDirectWorkStream: this.unsupported,
       cancelCodexDirectWorkRun: this.unsupported,
+      listenToDirectWorkStreamEvents: async () => () => undefined,
       clearAgentQueueTaskAssignment: this.unsupported,
       closeTerminalPtySession: this.unsupported,
       createAgentQueueTask: this.unsupported,

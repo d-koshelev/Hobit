@@ -1,6 +1,11 @@
-import type { AgentQueueRunnerSnapshot } from "../../workspace/types";
+import type {
+  AgentExecutorRunDetail,
+  AgentQueueRunnerSnapshot,
+  DirectWorkStreamEvent,
+} from "../../workspace/types";
 
 import { act } from "react";
+import { vi } from "vitest";
 
 import {
   agentQueueWorker,
@@ -575,6 +580,259 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
+  it("refreshes selected active runs from Direct Work stream events and loads evidence", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "running",
+      }),
+    ]);
+    const detailRequests: Array<{ runId: string; widgetId: string }> = [];
+    let linkStatus: "running" | "completed" = "running";
+    harness.options.onListAgentQueueTaskRunLinks = async (queueItemId) => {
+      harness.runLinkRequests.push(queueItemId);
+      return [
+        queueRunLink({
+          completedAt:
+            linkStatus === "completed"
+              ? "2026-05-20T10:02:00.000Z"
+              : null,
+          queueTaskId: queueItemId,
+          status: linkStatus,
+        }),
+      ];
+    };
+    harness.options.onGetAgentExecutorRunDetail = async (widgetId, runId) => {
+      detailRequests.push({ runId, widgetId });
+      return runDetail({ runId });
+    };
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.selectedTask?.status).toBe("running");
+    expect(hook.result.current.latestRun.link?.status).toBe("running");
+    expect(harness.directWorkStreamListeners).toHaveLength(1);
+
+    await act(async () => {
+      harness.directWorkStreamListeners[0]?.(
+        streamEvent({
+          eventKind: "stdout_line",
+          isFinal: false,
+          line: "working",
+          runId: "run-1",
+        }),
+      );
+      await flushHookEffects();
+    });
+
+    expect(harness.runLinkRequests).toEqual(["queue-1", "queue-1"]);
+    expect(detailRequests).toHaveLength(0);
+
+    linkStatus = "completed";
+    harness.replaceTask(
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "completed",
+      }),
+    );
+
+    await act(async () => {
+      harness.directWorkStreamListeners[0]?.(
+        streamEvent({
+          eventKind: "completed",
+          finalStatus: "completed",
+          isFinal: true,
+          runId: "run-1",
+          status: "completed",
+        }),
+      );
+      await flushHookEffects();
+    });
+    await flushControllerLoad();
+
+    expect(hook.result.current.selectedTask?.status).toBe("completed");
+    expect(hook.result.current.latestRun.link?.status).toBe("completed");
+    expect(detailRequests).toEqual([
+      { runId: "run-1", widgetId: "executor-1" },
+    ]);
+    expect(hook.result.current.runEvidence.detail?.finalMessage).toBe(
+      "Final Direct Work response.",
+    );
+
+    const requestsAfterTerminal = harness.runLinkRequests.length;
+
+    await act(async () => {
+      harness.directWorkStreamListeners[0]?.(
+        streamEvent({
+          eventKind: "completed",
+          finalStatus: "completed",
+          isFinal: true,
+          runId: "run-1",
+          status: "completed",
+        }),
+      );
+      await flushHookEffects();
+    });
+
+    expect(harness.runLinkRequests).toHaveLength(requestsAfterTerminal);
+
+    hook.unmount();
+  });
+
+  it("uses slow fallback polling only while the selected run is active", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          status: "running",
+        }),
+      ]);
+      const detailRequests: Array<{ runId: string; widgetId: string }> = [];
+      let linkStatus: "running" | "completed" = "running";
+      harness.options.onListAgentQueueTaskRunLinks = async (queueItemId) => {
+        harness.runLinkRequests.push(queueItemId);
+        return [
+          queueRunLink({
+            completedAt:
+              linkStatus === "completed"
+                ? "2026-05-20T10:02:00.000Z"
+                : null,
+            queueTaskId: queueItemId,
+            status: linkStatus,
+          }),
+        ];
+      };
+      harness.options.onGetAgentExecutorRunDetail = async (widgetId, runId) => {
+        detailRequests.push({ runId, widgetId });
+        return runDetail({ runId });
+      };
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      expect(hook.result.current.selectedTask?.status).toBe("running");
+      expect(hook.result.current.latestRun.link?.status).toBe("running");
+
+      expect(harness.directWorkStreamListeners).toHaveLength(1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(59_000);
+      });
+      await flushControllerLoad();
+
+      expect(harness.runLinkRequests).toEqual(["queue-1"]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1_000);
+      });
+      await flushControllerLoad();
+
+      expect(harness.runLinkRequests).toEqual(["queue-1", "queue-1"]);
+      expect(detailRequests).toHaveLength(0);
+
+      linkStatus = "completed";
+      harness.replaceTask(
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          status: "completed",
+        }),
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      await flushControllerLoad();
+
+      expect(hook.result.current.selectedTask?.status).toBe("completed");
+      expect(hook.result.current.latestRun.link?.status).toBe("completed");
+      expect(detailRequests).toEqual([
+        { runId: "run-1", widgetId: "executor-1" },
+      ]);
+      expect(hook.result.current.runEvidence.detail?.finalMessage).toBe(
+        "Final Direct Work response.",
+      );
+
+      const requestsAfterTerminal = harness.runLinkRequests.length;
+
+      await act(async () => {
+        vi.advanceTimersByTime(180_000);
+      });
+      await flushControllerLoad();
+
+      expect(harness.runLinkRequests).toHaveLength(requestsAfterTerminal);
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops selected-run polling when the selected task changes", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          status: "running",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          prompt: "Run later",
+          queueItemId: "queue-2",
+          status: "ready",
+        }),
+      ]);
+      harness.options.onListAgentQueueTaskRunLinks = async (queueItemId) => {
+        harness.runLinkRequests.push(queueItemId);
+        return queueItemId === "queue-1"
+          ? [queueRunLink({ queueTaskId: queueItemId, status: "running" })]
+          : [];
+      };
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      expect(hook.result.current.selectedTask?.queueItemId).toBe("queue-1");
+
+      await act(async () => {
+        hook.result.current.selectTask("queue-2");
+        await flushControllerLoad();
+      });
+
+      expect(hook.result.current.selectedTask?.queueItemId).toBe("queue-2");
+      const queueOneRequestsAfterSelection = harness.runLinkRequests.filter(
+        (queueItemId) => queueItemId === "queue-1",
+      ).length;
+
+      await act(async () => {
+        vi.advanceTimersByTime(180_000);
+      });
+      await flushControllerLoad();
+
+      expect(
+        harness.runLinkRequests.filter((queueItemId) => queueItemId === "queue-1"),
+      ).toHaveLength(queueOneRequestsAfterSelection);
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps Autorun arm task reload behavior unchanged", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -671,3 +929,67 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 });
+
+function runDetail(
+  overrides: Partial<AgentExecutorRunDetail["summary"]> = {},
+): AgentExecutorRunDetail {
+  const summary = {
+    commandKind: "codex_direct_work",
+    durationMs: 1000,
+    finishedAt: "2026-05-20T10:02:00.000Z",
+    hasResult: true,
+    logCount: 4,
+    mode: "Codex Direct Work",
+    repoRoot: "/repo",
+    resultType: "codex_direct_work_result",
+    runId: "run-1",
+    startedAt: "2026-05-20T10:01:00.000Z",
+    status: "completed",
+    title: "Codex Direct Work completed",
+    validationProfile: null,
+    validationStatus: null,
+    ...overrides,
+  };
+
+  return {
+    changedFilesSummary: null,
+    errorMessage: null,
+    finalMessage: "Final Direct Work response.",
+    logs: [],
+    resultContent: null,
+    resultId: "result-1",
+    resultPayload: "{\"status\":\"completed\"}",
+    resultStatus: "completed",
+    resultSummary: "Codex Direct Work completed",
+    stderrPreview: null,
+    stdoutPreview: "stdout preview",
+    summary,
+    validationProfile: null,
+    validationStatus: null,
+  };
+}
+
+function streamEvent(
+  overrides: Partial<DirectWorkStreamEvent> = {},
+): DirectWorkStreamEvent {
+  return {
+    codexThreadId: null,
+    elapsedMs: 1000,
+    errorMessage: null,
+    eventKind: "stdout_line",
+    exitCode: null,
+    failedStage: null,
+    finalStatus: null,
+    isFinal: false,
+    line: null,
+    parsedCodexEventType: null,
+    runId: "run-1",
+    status: null,
+    stderrPreview: null,
+    text: null,
+    widgetInstanceId: "executor-1",
+    workbenchId: "workbench-1",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}

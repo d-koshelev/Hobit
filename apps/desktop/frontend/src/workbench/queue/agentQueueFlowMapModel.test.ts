@@ -269,6 +269,39 @@ describe("agent queue flow map model", () => {
     ]);
   });
 
+  it("labels execution-complete unfinalized work as awaiting review evidence", () => {
+    const tasks = [
+      queueTask({
+        coordinatorStatus: "awaiting_coordinator_review",
+        queueItemId: "execution-complete",
+        status: "completed",
+      }),
+      queueTask({
+        coordinatorStatus: "finalized",
+        queueItemId: "finalized",
+        status: "completed",
+      }),
+    ];
+    const map = buildMap(tasks);
+    const resultItems = map.resultGroups.flatMap((group) => group.items);
+
+    expect(
+      resultItems.find((item) => item.queueItemId === "execution-complete"),
+    ).toMatchObject({
+      coordinatorStatusLabel: "Awaiting review",
+      executorInfoLabel: "Report ready",
+      statusBadgeVariant: "warning",
+      statusLabel: "Execution complete",
+    });
+    expect(
+      resultItems.find((item) => item.queueItemId === "finalized"),
+    ).toMatchObject({
+      coordinatorStatusLabel: "Finalized",
+      statusBadgeVariant: "success",
+      statusLabel: "Done",
+    });
+  });
+
   it("groups reported non-final blocks in results without changing status", () => {
     const tasks = [
       queueTask({
@@ -300,7 +333,8 @@ describe("agent queue flow map model", () => {
       hasWorkerReport: true,
       queueItemId: "reported-1",
       status: "queued",
-      statusLabel: "Queued",
+      statusBadgeVariant: "warning",
+      statusLabel: "Report ready",
     });
   });
 

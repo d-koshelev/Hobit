@@ -89,8 +89,8 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     renderList(
       [
         queueTask({
-          assignedExecutorWidgetId: "executor_visible",
-          assignedWorkerId: "executor_visible",
+          assignedExecutorWidgetId: "executor-1",
+          assignedWorkerId: "executor-1",
           queueTagId: "review",
           queueTagName: "Review",
         }),
@@ -99,7 +99,7 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     );
 
     expect(document.body.textContent).toContain("Tag paused");
-    expect(document.body.textContent).toContain("Worker Agent Executor");
+    expect(document.body.textContent).toContain("Worker Local executor");
     expect(document.querySelector(".agent-queue-task-row-paused")).not.toBeNull();
   });
 

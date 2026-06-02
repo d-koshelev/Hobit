@@ -11,6 +11,7 @@ import {
 type AgentQueueLayoutProps = {
   detailsPanel: ReactNode;
   isFlowMapView?: boolean;
+  layoutKey?: string;
   sidebar: ReactNode;
   taskList: ReactNode;
 };
@@ -23,12 +24,20 @@ const MIN_RIGHT_RAIL_WIDTH = 220;
 const MAX_RIGHT_RAIL_WIDTH = 520;
 const MIN_FLOW_MAP_WIDTH = 520;
 const RESIZE_HANDLE_TOTAL_WIDTH = 20;
+const RAIL_WIDTH_STORAGE_PREFIX = "hobit.agentQueue.railWidths.";
 
 type ResizeTarget = "left" | "right";
+type RailWidths = {
+  left: number;
+  right: number;
+};
+
+const sessionRailWidths = new Map<string, RailWidths>();
 
 export function AgentQueueLayout({
   detailsPanel,
   isFlowMapView = false,
+  layoutKey = "default",
   sidebar,
   taskList,
 }: AgentQueueLayoutProps) {
@@ -40,8 +49,12 @@ export function AgentQueueLayout({
     rightRailWidth: number;
     target: ResizeTarget;
   } | null>(null);
-  const [leftRailWidth, setLeftRailWidth] = useState(DEFAULT_LEFT_RAIL_WIDTH);
-  const [rightRailWidth, setRightRailWidth] = useState(DEFAULT_RIGHT_RAIL_WIDTH);
+  const [leftRailWidth, setLeftRailWidth] = useState(
+    () => readRailWidths(layoutKey).left,
+  );
+  const [rightRailWidth, setRightRailWidth] = useState(
+    () => readRailWidths(layoutKey).right,
+  );
   const [isResizing, setIsResizing] = useState(false);
 
   const clampRailWidth = useCallback(
@@ -73,6 +86,19 @@ export function AgentQueueLayout({
   );
 
   useEffect(() => {
+    const widths = readRailWidths(layoutKey);
+    setLeftRailWidth(widths.left);
+    setRightRailWidth(widths.right);
+  }, [layoutKey]);
+
+  const persistRailWidths = useCallback(
+    (nextWidths: RailWidths) => {
+      writeRailWidths(layoutKey, nextWidths);
+    },
+    [layoutKey],
+  );
+
+  useEffect(() => {
     if (!isResizing) {
       return undefined;
     }
@@ -90,29 +116,35 @@ export function AgentQueueLayout({
       }
 
       if (resizeStart.target === "left") {
-        setLeftRailWidth(
-          clampRailWidth({
+        const nextLeftWidth = clampRailWidth({
             layoutWidth: resizeStart.layoutWidth,
             max: MAX_LEFT_RAIL_WIDTH,
             min: MIN_LEFT_RAIL_WIDTH,
             nextWidth:
               resizeStart.leftRailWidth + event.clientX - resizeStart.clientX,
             otherRailWidth: resizeStart.rightRailWidth,
-          }),
-        );
+        });
+        setLeftRailWidth(nextLeftWidth);
+        persistRailWidths({
+          left: nextLeftWidth,
+          right: resizeStart.rightRailWidth,
+        });
         return;
       }
 
-      setRightRailWidth(
-        clampRailWidth({
+      const nextRightWidth = clampRailWidth({
           layoutWidth: resizeStart.layoutWidth,
           max: MAX_RIGHT_RAIL_WIDTH,
           min: MIN_RIGHT_RAIL_WIDTH,
           nextWidth:
             resizeStart.rightRailWidth - event.clientX + resizeStart.clientX,
           otherRailWidth: resizeStart.leftRailWidth,
-        }),
-      );
+      });
+      setRightRailWidth(nextRightWidth);
+      persistRailWidths({
+        left: resizeStart.leftRailWidth,
+        right: nextRightWidth,
+      });
     }
 
     function handlePointerUp() {
@@ -131,7 +163,7 @@ export function AgentQueueLayout({
       document.body.style.cursor = previousBodyCursor;
       document.body.style.userSelect = previousBodyUserSelect;
     };
-  }, [clampRailWidth, isResizing]);
+  }, [clampRailWidth, isResizing, persistRailWidths]);
 
   function startColumnResize(
     target: ResizeTarget,
@@ -162,6 +194,10 @@ export function AgentQueueLayout({
   function resetColumnWidths() {
     setLeftRailWidth(DEFAULT_LEFT_RAIL_WIDTH);
     setRightRailWidth(DEFAULT_RIGHT_RAIL_WIDTH);
+    persistRailWidths({
+      left: DEFAULT_LEFT_RAIL_WIDTH,
+      right: DEFAULT_RIGHT_RAIL_WIDTH,
+    });
   }
 
   const style = {
@@ -225,6 +261,80 @@ function agentQueueLayoutClassName({
   }
 
   return classNames.join(" ");
+}
+
+function readRailWidths(layoutKey: string): RailWidths {
+  const storedWidths =
+    readStoredRailWidths(layoutKey) ?? sessionRailWidths.get(layoutKey);
+
+  return {
+    left: clampStoredWidth(
+      storedWidths?.left,
+      MIN_LEFT_RAIL_WIDTH,
+      MAX_LEFT_RAIL_WIDTH,
+      DEFAULT_LEFT_RAIL_WIDTH,
+    ),
+    right: clampStoredWidth(
+      storedWidths?.right,
+      MIN_RIGHT_RAIL_WIDTH,
+      MAX_RIGHT_RAIL_WIDTH,
+      DEFAULT_RIGHT_RAIL_WIDTH,
+    ),
+  };
+}
+
+function writeRailWidths(layoutKey: string, widths: RailWidths) {
+  sessionRailWidths.set(layoutKey, widths);
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      `${RAIL_WIDTH_STORAGE_PREFIX}${layoutKey}`,
+      JSON.stringify(widths),
+    );
+  } catch {
+    // Session persistence is best effort; in-memory persistence still covers remounts.
+  }
+}
+
+function readStoredRailWidths(layoutKey: string): Partial<RailWidths> | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.sessionStorage.getItem(
+      `${RAIL_WIDTH_STORAGE_PREFIX}${layoutKey}`,
+    );
+
+    if (!rawValue) {
+      sessionRailWidths.delete(layoutKey);
+      return null;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<RailWidths>;
+    sessionRailWidths.set(layoutKey, {
+      left: Number(parsedValue.left),
+      right: Number(parsedValue.right),
+    });
+    return parsedValue;
+  } catch {
+    return null;
+  }
+}
+
+function clampStoredWidth(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : fallback;
 }
 
 function AgentQueueColumnResizeHandle({
