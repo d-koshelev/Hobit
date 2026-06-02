@@ -719,21 +719,22 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const actionsText = sectionText("Selected task actions and settings");
+    const resultText = sectionText("Result / Evidence");
+    const decisionText = sectionText("Coordinator decision");
 
     expect(overviewText).toContain(
       "Next: review report and make coordinator decision.",
     );
-    expect(actionsText).toContain("Report ready");
-    expect(actionsText).toContain("Awaiting coordinator review");
-    expect(actionsText).toContain("View report");
-    expect(actionsText).toContain("Request changes");
-    expect(actionsText).not.toContain("Local executor unavailable");
-    expect(actionsText).not.toContain("Select local executor");
-    expect(actionsText).not.toContain("Assign");
-    expect(actionsText).not.toContain("Run task");
-    expect(actionsText).not.toContain("Before run");
-    expect(actionsText).not.toContain("Promote to queued");
+    expect(resultText).toContain("Result: Passed");
+    expect(resultText).toContain("Report ready");
+    expect(decisionText).toContain("Awaiting coordinator review");
+    expect(decisionText).toContain("Accept result");
+    expect(decisionText).toContain("Request changes");
+    expect(decisionText).toContain("Create follow-up");
+    expect(decisionText).not.toContain("Finalize / Accept");
+    expect(resultText).not.toContain("Local executor unavailable");
+    expect(decisionText).not.toContain("Select local executor");
+    expect(resultText).not.toContain("Before run");
   });
 
   it("shows completed Direct Work output as report evidence without finalizing", () => {
@@ -772,35 +773,51 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const actionsText = sectionText("Selected task actions and settings");
-    const reportText = sectionText("Human-readable logs and report");
-    const finalizationText = sectionText("Coordinator finalization");
+    const promptText = sectionText("Prompt summary");
+    const resultText = sectionText("Result / Evidence");
+    const decisionText = sectionText("Coordinator decision");
+    const timelineText = sectionText("Activity timeline");
+    const fullOutput = detailsBySummary("Full output");
+    const developerDetails = detailsBySummary("Developer details / raw output");
+    const overviewIndex = document.body.textContent?.indexOf("Overview") ?? -1;
+    const promptIndex =
+      document.body.textContent?.indexOf("Prompt summary") ?? -1;
+    const resultIndex =
+      document.body.textContent?.indexOf("Result / Evidence") ?? -1;
+    const decisionIndex =
+      document.body.textContent?.indexOf("Coordinator decision") ?? -1;
+    const timelineIndex =
+      document.body.textContent?.indexOf("Activity timeline") ?? -1;
+    const developerIndex =
+      document.body.textContent?.indexOf("Developer details / raw output") ?? -1;
 
     expect(overviewText).toContain("Execution complete");
     expect(overviewText).toContain("Awaiting coordinator review");
-    expect(actionsText).toContain("Review report and make coordinator decision");
-    expect(actionsText).toContain("Report ready");
-    expect(actionsText).toContain("Mark ready for finalization");
-    expect(actionsText).toContain("Finalize / Accept");
-    expect(actionsText).toContain("Request changes");
-    expect(actionsText).toContain("Follow-up required");
-    expect(reportText).toContain("Report ready");
-    expect(reportText).toContain("Run completed");
-    expect(reportText).toContain("Final response / result summary");
-    expect(reportText).toContain("Direct Work result");
-    expect(reportText).toContain("Command summary: codex exec --json");
-    expect(reportText).toContain(
-      "Changed files: apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx",
-    );
-    expect(reportText).toContain("Final Direct Work response visible to coordinator.");
-    expect(reportText).toContain("Coordinator review required");
-    expect(reportText).not.toContain("No report");
-    expect(reportText).not.toContain("No worker report");
-    expect(finalizationText).toContain("Awaiting coordinator review");
-    expect(finalizationText).toContain("Finalize / Accept item");
-    expect(finalizationText).not.toContain("Finalized");
-    expect(finalizationText).not.toContain("Accepted");
-    expect(detailsBySummary("Developer details")?.open).toBe(false);
+    expect(promptText).toContain("Prompt");
+    expect(resultText).toContain("Report ready");
+    expect(resultText).toContain("StatusPassed");
+    expect(resultText).toContain("Working directoryC:\\repo");
+    expect(resultText).toContain("Files changed by this run1 reported");
+    expect(resultText).toContain("Command summary: codex exec --json");
+    expect(resultText).toContain("Final Direct Work response visible to coordinator.");
+    expect(resultText).not.toContain("No report");
+    expect(resultText).not.toContain("No worker report");
+    expect(decisionText).toContain("Awaiting coordinator review");
+    expect(decisionText).toContain("Accept result");
+    expect(decisionText).toContain("Request changes");
+    expect(decisionText).toContain("Create follow-up");
+    expect(decisionText).not.toContain("Finalize / Accept item");
+    expect(timelineText).toContain("Run completed");
+    expect(timelineText).toContain("Report ready");
+    expect(timelineText).toContain("Coordinator review required");
+    expect(fullOutput?.open).toBe(false);
+    expect(developerDetails?.open).toBe(false);
+    expect(overviewIndex).toBeGreaterThanOrEqual(0);
+    expect(promptIndex).toBeGreaterThan(overviewIndex);
+    expect(resultIndex).toBeGreaterThan(promptIndex);
+    expect(decisionIndex).toBeGreaterThan(resultIndex);
+    expect(timelineIndex).toBeGreaterThan(decisionIndex);
+    expect(developerIndex).toBeGreaterThan(timelineIndex);
   });
 
   it("shows loading result while Direct Work evidence is being fetched", () => {
@@ -828,7 +845,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       workerReport: workerReportController(null),
     });
 
-    const reportText = sectionText("Human-readable logs and report");
+    const reportText = sectionText("Result / Evidence");
 
     expect(reportText).toContain("Report ready");
     expect(reportText).toContain("Loading run result...");
@@ -861,7 +878,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       workerReport: workerReportController(null),
     });
 
-    const reportText = sectionText("Human-readable logs and report");
+    const reportText = sectionText("Result / Evidence");
 
     expect(reportText).toContain("Report ready");
     expect(reportText).toContain("Run result available.");
@@ -901,13 +918,14 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       workerReport: workerReportController(null),
     });
 
-    const actionsText = sectionText("Selected task actions and settings");
-    const reportText = sectionText("Human-readable logs and report");
+    const decisionText = sectionText("Coordinator decision");
+    const reportText = sectionText("Result / Evidence");
 
-    expect(actionsText).toContain("Run failed");
-    expect(actionsText).toContain("Review report and make coordinator decision");
-    expect(reportText).toContain("Run failed");
-    expect(reportText).toContain("Run failed");
+    expect(decisionText).toContain("Accept result");
+    expect(decisionText).toContain("Request changes");
+    expect(decisionText).toContain("Create follow-up");
+    expect(reportText).toContain("Result: Failed");
+    expect(reportText).toContain("StatusFailed");
     expect(reportText).toContain("Final error");
     expect(reportText).toContain("Codex executable not found.");
     expect(reportText).not.toContain("No report");
@@ -1025,12 +1043,16 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       tasks: [selectedTask],
     });
 
-    expect(document.body.textContent).toContain("Coordinator finalization");
-    expect(document.body.textContent).toContain("Ready for finalization");
-    expect(document.body.textContent).toContain("Finalize / Accept item");
-    expect(document.body.textContent).toContain("Request changes");
-    expect(document.body.textContent).toContain("Create follow-up item");
-    expect(document.body.textContent).toContain("Mark rollback required");
+    const decisionText = sectionText("Coordinator decision");
+
+    expect(decisionText).toContain("Coordinator decision");
+    expect(decisionText).toContain("Ready for finalization");
+    expect(decisionText).toContain("Accept result");
+    expect(decisionText).toContain("Request changes");
+    expect(decisionText).toContain("Create follow-up");
+    expect(decisionText).toContain("More");
+    expect(decisionText).toContain("Mark rollback required");
+    expect(decisionText).not.toContain("Finalize / Accept item");
   });
 
   it("shows create diff review action and source linkage without starting execution", () => {

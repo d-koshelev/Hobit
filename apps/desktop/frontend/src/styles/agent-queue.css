@@ -1768,7 +1768,8 @@
   overflow-wrap: anywhere;
 }
 
-.agent-queue-prompt-preview > summary {
+.agent-queue-prompt-preview > summary,
+.agent-queue-prompt-preview summary {
   color: var(--color-text-primary);
   cursor: pointer;
   font-size: var(--text-sm);
@@ -1789,6 +1790,14 @@
   line-height: var(--line-normal);
   padding: var(--space-sm);
   white-space: pre-wrap;
+}
+
+.agent-queue-prompt-preview-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
 }
 
 .agent-queue-executor-info-box {
@@ -2357,6 +2366,7 @@
 }
 
 .agent-queue-plan-facts,
+.agent-queue-result-evidence-facts,
 .agent-queue-worker-report-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2431,6 +2441,7 @@
 }
 
 .agent-queue-plan-facts > div,
+.agent-queue-result-evidence-facts > div,
 .agent-queue-worker-report-facts > div {
   display: grid;
   min-width: 0;
@@ -2455,6 +2466,7 @@
 }
 
 .agent-queue-plan-facts dt,
+.agent-queue-result-evidence-facts dt,
 .agent-queue-worker-report-facts dt {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -2471,6 +2483,7 @@
 }
 
 .agent-queue-plan-facts dd,
+.agent-queue-result-evidence-facts dd,
 .agent-queue-worker-report-facts dd {
   color: var(--color-text-primary);
   font-size: var(--text-xs);
@@ -2853,6 +2866,7 @@
   .agent-queue-latest-run-facts,
   .agent-queue-run-state-facts,
   .agent-queue-plan-facts,
+  .agent-queue-result-evidence-facts,
   .agent-queue-worker-report-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-settings-summary,
@@ -2924,6 +2938,7 @@
   .agent-queue-latest-run-facts,
   .agent-queue-run-state-facts,
   .agent-queue-plan-facts,
+  .agent-queue-result-evidence-facts,
   .agent-queue-worker-report-facts,
   .agent-queue-task-control-row,
   .agent-queue-run-settings-summary,
