@@ -297,9 +297,12 @@ function reportSummaryForTask({
   if (latestReport) {
     return {
       changedFilesCount: latestReport.changedFiles.length,
+      errorMessage: latestReport.errors[0],
       errorsCount: latestReport.errors.length,
+      failedCommand: failedCommandForReport(latestReport),
       status: "report_ready",
       summary: latestReport.summary,
+      validationSummary: validationSummaryForReport(latestReport),
       warningsCount: latestReport.warnings.length,
     };
   }
@@ -334,6 +337,36 @@ function latestWorkerReport(
   const reports = task.workerExecutionReports ?? [];
 
   return reports[reports.length - 1] ?? null;
+}
+
+function failedCommandForReport(report: AgentQueueWorkerExecutionReport) {
+  if (
+    report.reportStatus !== "failed" &&
+    report.validationResult !== "failed" &&
+    report.errors.length === 0
+  ) {
+    return undefined;
+  }
+
+  return (
+    report.validationCommandsRun?.[0] ??
+    report.commandsRun[report.commandsRun.length - 1] ??
+    undefined
+  );
+}
+
+function validationSummaryForReport(report: AgentQueueWorkerExecutionReport) {
+  const result = report.validationResult
+    ? `Validation result: ${report.validationResult}.`
+    : null;
+  const commands =
+    report.validationCommandsRun && report.validationCommandsRun.length > 0
+      ? `Validation commands already reported: ${report.validationCommandsRun.join("; ")}.`
+      : report.validationCommandsSuggested.length > 0
+        ? `Validation commands suggested: ${report.validationCommandsSuggested.join("; ")}.`
+        : null;
+
+  return [result, commands].filter(Boolean).join(" ") || undefined;
 }
 
 function itemCounts(items: QueueWidgetItemSnapshot[]): QueueWidgetItemCounts {

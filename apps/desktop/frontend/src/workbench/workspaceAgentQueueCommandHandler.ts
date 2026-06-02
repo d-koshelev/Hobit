@@ -24,6 +24,7 @@ import type {
 
 export type WorkspaceAgentQueueCommand =
   | { type: "analyzeQueue" }
+  | { type: "explainFailure" }
   | {
       prompt: string;
       title: string;
@@ -64,6 +65,20 @@ const ANALYZE_PHRASES = [
   "what should run next",
   "\u043f\u0440\u043e\u0430\u043d\u0430\u043b\u0438\u0437\u0438\u0440\u0443\u0439 \u043e\u0447\u0435\u0440\u0435\u0434\u044c",
   "\u0447\u0442\u043e \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438",
+];
+
+const FAILURE_EXPLANATION_PATTERNS = [
+  /\bwhy\s+(?:it|this|that|the\s+(?:queue\s+)?task)\s+failed\b/i,
+  /\bwhy\s+did\s+(?:it|this|that|the\s+(?:queue\s+)?task)\s+fail\b/i,
+  /\bexplain\s+(?:this\s+)?failure\b/i,
+  /\bwhat\s+failed\b/i,
+  /\bwhy\s+failed\b/i,
+  /\bwhy\s+(?:задача|task)\s+failed\b/i,
+  /почему\s+упало/i,
+  /почему\s+ошибка/i,
+  /объясни\s+ошибку/i,
+  /почему\s+задача\s+failed/i,
+  /почему\s+task\s+failed/i,
 ];
 
 const RUN_AUTONOMOUS_PHRASES = [
@@ -118,6 +133,10 @@ export function parseWorkspaceAgentQueueCommand(
     return { type: "analyzeQueue" };
   }
 
+  if (isFailureExplanationIntent(visibleText)) {
+    return { type: "explainFailure" };
+  }
+
   if (startsWithAnyPhrase(visibleText, RUN_AUTONOMOUS_PHRASES)) {
     return { type: "runAutonomousQueue" };
   }
@@ -169,6 +188,11 @@ export async function runWorkspaceAgentQueueCommand(
     case "analyzeQueue":
       return {
         body: await analyzeQueue(options.bridge),
+        handled: true,
+      };
+    case "explainFailure":
+      return {
+        body: await explainQueueFailure(options.bridge),
         handled: true,
       };
     case "createItem":
@@ -344,6 +368,23 @@ async function analyzeQueue(bridge: WorkspaceAgentQueueBridge) {
   }
 }
 
+async function explainQueueFailure(bridge: WorkspaceAgentQueueBridge) {
+  try {
+    const result = await bridge.getSnapshot({ includeSelectedItem: true });
+    const snapshot = result.snapshot ?? result.item;
+
+    if (!result.ok || !snapshot) {
+      return `Queue failure evidence could not be loaded: ${
+        result.error?.message ?? result.message
+      }`;
+    }
+
+    return queueFailureExplanation(snapshot);
+  } catch (error) {
+    return `Queue failure evidence could not be loaded: ${errorToMessage(error)}`;
+  }
+}
+
 async function createQueueItem(
   command: Extract<WorkspaceAgentQueueCommand, { type: "createItem" }>,
   options: WorkspaceAgentQueueCommandHandlerOptions,
@@ -498,6 +539,122 @@ function queueSummary(snapshot: QueueWidgetSnapshot) {
   ].join(" ");
 }
 
+function queueFailureExplanation(snapshot: QueueWidgetSnapshot) {
+  const item = failureExplanationTarget(snapshot);
+
+  if (!item) {
+    return [
+      "No failure evidence is available for this item.",
+      "Open/refresh the Queue report or select the failed item.",
+    ].join(" ");
+  }
+
+  if (!hasFailureEvidence(item)) {
+    return [
+      `Queue item: ${item.id} - ${item.title}.`,
+      "No failure evidence is available for this item.",
+      "Open/refresh the Queue report or select the failed item.",
+    ].join(" ");
+  }
+
+  const latestRun = item.runLinks[0] ?? null;
+  const failedCommand = firstNonEmpty([
+    item.reportSummary.failedCommand,
+    latestRun?.directWorkRunId
+      ? `Direct Work run ${latestRun.directWorkRunId}`
+      : null,
+  ]);
+  const errorMessage = firstNonEmpty([
+    item.reportSummary.errorMessage,
+    item.blockers.find((blocker) => blocker.code === "validation_failed")
+      ?.message,
+    item.blockers[0]?.message,
+  ]);
+  const resultStatus = item.reportSummary.status;
+  const evidenceStatus = item.evidenceSummary.status;
+  const validationSummary = firstNonEmpty([
+    item.reportSummary.validationSummary,
+    item.validationStatus ? `Validation status: ${item.validationStatus}.` : null,
+    item.evidenceSummary.validationStatus
+      ? `Validation status: ${item.evidenceSummary.validationStatus}.`
+      : null,
+  ]);
+  const finalSummary = firstNonEmpty([
+    item.reportSummary.summary,
+    latestRun
+      ? `Latest run ${latestRun.directWorkRunId} is ${latestRun.status}.`
+      : null,
+  ]);
+
+  return [
+    `Queue item: ${item.id} - ${item.title}.`,
+    `Execution status: ${item.executionStatus}.`,
+    `Coordinator/review status: ${item.coordinatorStatus ?? "not reported"}.`,
+    `Result/evidence status: report ${resultStatus}, evidence ${evidenceStatus}.`,
+    `Failed command: ${failedCommand || "not available in Queue evidence"}.`,
+    `Error message: ${errorMessage || "not available in Queue evidence"}.`,
+    `Worker report / final response summary: ${
+      finalSummary || "not available in Queue evidence"
+    }.`,
+    `Validation summary: ${
+      validationSummary || "not available in Queue evidence"
+    }.`,
+    `Suggested next action: ${failureExplanationNextAction(item)}.`,
+  ].join(" ");
+}
+
+function failureExplanationTarget(snapshot: QueueWidgetSnapshot) {
+  if (snapshot.selectedItem && hasFailureEvidence(snapshot.selectedItem)) {
+    return snapshot.selectedItem;
+  }
+
+  const failedItems = snapshot.items
+    .filter(hasFailureEvidence)
+    .sort((left, right) => timestampValue(right.updatedAt) - timestampValue(left.updatedAt));
+
+  if (failedItems[0]) {
+    return failedItems[0];
+  }
+
+  return snapshot.selectedItem;
+}
+
+function hasFailureEvidence(item: QueueWidgetItemSnapshot) {
+  return (
+    item.status === "failed" ||
+    item.executionStatus === "failed" ||
+    item.coordinatorStatus === "failed" ||
+    item.validationStatus === "failed" ||
+    item.evidenceSummary.validationStatus === "failed" ||
+    item.reportSummary.status === "evidence_missing" ||
+    Boolean(item.reportSummary.errorMessage) ||
+    Boolean(item.reportSummary.failedCommand) ||
+    item.blockers.some((blocker) => blocker.code === "validation_failed") ||
+    item.runLinks.some((link) =>
+      ["failed", "timed_out", "cancelled"].includes(link.status),
+    )
+  );
+}
+
+function failureExplanationNextAction(item: QueueWidgetItemSnapshot) {
+  if (item.reportSummary.status === "evidence_missing") {
+    return "refresh or open the Queue report so existing evidence can load; do not rerun validation unless explicitly requested";
+  }
+
+  if (item.reportSummary.errorMessage || item.reportSummary.failedCommand) {
+    return "review the existing failed command/error in the Queue report, then decide whether to create a focused follow-up";
+  }
+
+  if (
+    item.validationStatus === "failed" ||
+    item.evidenceSummary.validationStatus === "failed"
+  ) {
+    return "inspect the existing validation evidence in the Queue report before deciding on a rerun";
+  }
+
+  return "open the Queue report for this item and review the linked evidence before taking action";
+}
+
 function queueRecommendation(
   snapshot: QueueWidgetSnapshot,
   nextItem: QueueWidgetItemSnapshot | undefined,
@@ -585,6 +742,10 @@ function autonomousResultMessage(
 
 function startsWithAnyPhrase(text: string, phrases: string[]) {
   return phrases.some((phrase) => stripLeadingPhrase(text, [phrase]) !== null);
+}
+
+function isFailureExplanationIntent(text: string) {
+  return FAILURE_EXPLANATION_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 function stripLeadingPhrase(text: string, phrases: string[]) {
@@ -676,7 +837,7 @@ function structuredCreateQueueTaskPrompt(rawIntent: string) {
       "",
       "* status",
       "* changes made, or confirmation that no files were changed",
-      "* validation run, or why validation was not run",
+      "* validation status only if explicitly requested or already present",
       "* risks or blockers",
     ].join("\n"),
     title: "Workspace Agent task",
@@ -750,6 +911,19 @@ function firstSentence(text: string) {
 
   const match = normalized.match(/^(.+?)(?:[.!?](?:\s|$)|$)/);
   return compactTitle(match?.[1] ?? normalized);
+}
+
+function firstNonEmpty(values: Array<string | null | undefined>) {
+  return values.find((value) => value && value.trim())?.trim() ?? "";
+}
+
+function timestampValue(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function compactTitle(text: string) {

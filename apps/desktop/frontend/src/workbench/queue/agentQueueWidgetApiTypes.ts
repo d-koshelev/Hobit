@@ -118,9 +118,12 @@ export type QueueWidgetLocalExecutorState = {
 
 export type QueueWidgetReportSummary = {
   changedFilesCount?: number;
+  errorMessage?: string;
   errorsCount?: number;
+  failedCommand?: string;
   status: "none" | "pending" | "report_ready" | "evidence_missing" | "unknown";
   summary?: string;
+  validationSummary?: string;
   warningsCount?: number;
 };
 

@@ -429,6 +429,131 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     expect(document.body.textContent).toContain("Autonomous Queue started.");
   });
 
+  it("explains failed Queue evidence without Direct Work, provider, Queue creation, or Autorun", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+    const provider = vi.fn();
+    const startCodex = vi.fn();
+    const runTerminal = vi.fn();
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult(
+        queueSnapshot({
+          itemCounts: countsFixture({
+            failed: 1,
+            total: 1,
+          }),
+          items: [
+            queueItemSnapshot({
+              coordinatorStatus: "awaiting_coordinator_review",
+              evidenceSummary: {
+                reviewStatus: "review_needed",
+                runRefs: ["run-failed"],
+                status: "available",
+                validationStatus: "failed",
+              },
+              executionStatus: "failed",
+              id: "queue-failed",
+              reportSummary: {
+                errorMessage: "typecheck exited with code 2",
+                failedCommand: "npm.cmd run typecheck --prefix apps/desktop/frontend",
+                status: "report_ready",
+                summary: "Worker report summary: frontend typecheck failed.",
+                validationSummary: "Validation result: failed.",
+              },
+              status: "failed",
+              title: "Failed Queue task",
+              validationStatus: "failed",
+            }),
+          ],
+        }),
+      ),
+    );
+    const bridge = queueBridge({
+      createItem,
+      getSnapshot,
+      runAutonomousQueue,
+    });
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startCodex,
+      workspaceAgentQueueBridge: bridge,
+    });
+
+    await sendWorkspaceAgentMessage("why it failed", "Run with Codex");
+
+    expect(getSnapshot).toHaveBeenCalledWith({ includeSelectedItem: true });
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Queue item: queue-failed - Failed Queue task.",
+    );
+    expect(document.body.textContent).toContain(
+      "Failed command: npm.cmd run typecheck --prefix apps/desktop/frontend.",
+    );
+    expect(document.body.textContent).toContain(
+      "Error message: typecheck exited with code 2.",
+    );
+    expect(document.body.textContent).not.toContain("validate.ps1");
+  });
+
+  it("explains Russian failure questions through the same read-only path", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const runAutonomousQueue = vi.fn();
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult(
+        queueSnapshot({
+          items: [
+            queueItemSnapshot({
+              evidenceSummary: {
+                reviewStatus: null,
+                runRefs: [],
+                status: "missing",
+                validationStatus: "failed",
+              },
+              id: "queue-russian",
+              reportSummary: {
+                status: "evidence_missing",
+              },
+              status: "completed",
+              title: "Russian failure item",
+              validationStatus: "failed",
+            }),
+          ],
+        }),
+      ),
+    );
+    const bridge = queueBridge({
+      createItem,
+      getSnapshot,
+      runAutonomousQueue,
+    });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage("\u043f\u043e\u0447\u0435\u043c\u0443 \u0443\u043f\u0430\u043b\u043e");
+
+    expect(getSnapshot).toHaveBeenCalledWith({ includeSelectedItem: true });
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Queue item: queue-russian - Russian failure item.",
+    );
+    expect(document.body.textContent).toContain(
+      "do not rerun validation unless explicitly requested",
+    );
+    expect(document.body.textContent).not.toContain("validate.ps1");
+  });
+
   it("renders a create Queue intent draft from visible Workspace Agent text", async () => {
     renderWidget({ workspaceAgentQueueBridge: queueBridge() });
 
