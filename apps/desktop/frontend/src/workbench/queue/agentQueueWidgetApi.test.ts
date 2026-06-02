@@ -164,17 +164,29 @@ describe("agentQueueWidgetApi", () => {
         status: "draft",
       }),
     ]);
+    const refreshAfterMutation = vi.fn(async () => undefined);
     const bridge = createWorkspaceAgentQueueBridge({
       queueApi: harness.api,
+      queueViewControls: {
+        getRunSettingsDefaults: () => ({
+          approvalPolicy: "never",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          sandbox: "read_only",
+        }),
+        refreshAfterMutation,
+      },
       workspaceId: "workspace-1",
     });
 
     const snapshot = await bridge.getSnapshot();
+    const defaults = bridge.getRunSettingsDefaults?.();
     const created = await bridge.createItem({
       prompt: "Create through bridge",
       status: "queued",
       title: "Bridge task",
     });
+    const snapshotAfterCreate = await bridge.getSnapshot();
     const updated = await bridge.updateItem({
       itemId: created.item?.id ?? "missing",
       patch: {
@@ -183,10 +195,18 @@ describe("agentQueueWidgetApi", () => {
     });
 
     expect(snapshot.ok).toBe(true);
+    expect(defaults?.executionWorkspace).toBe("C:/repo");
     expect(created.ok).toBe(true);
+    expect(
+      snapshotAfterCreate.snapshot?.items.some(
+        (item) => item.id === created.item?.id,
+      ),
+    ).toBe(true);
     expect(updated.ok).toBe(true);
     expect(created.events[0]?.actor).toBe("workspace_agent");
     expect(updated.item?.description).toBe("Updated through bridge");
+    expect(refreshAfterMutation).toHaveBeenCalledWith(created.item?.id);
+    expect(refreshAfterMutation).toHaveBeenCalledWith(updated.item?.id);
     expect(harness.createRequests).toHaveLength(1);
     expect(harness.updateRequests).toHaveLength(1);
   });

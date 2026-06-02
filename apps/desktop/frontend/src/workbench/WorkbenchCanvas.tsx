@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
@@ -31,6 +31,10 @@ import type {
   WorkbenchViewState,
 } from "./types";
 import type { AgentQueueReportActionCard } from "../workspace/types";
+import type {
+  WorkspaceAgentQueueAutonomousControls,
+  WorkspaceAgentQueueViewControls,
+} from "./workspaceAgentQueueBridge";
 import {
   clampPopoutPosition,
   defaultPopoutPosition,
@@ -88,6 +92,12 @@ export function WorkbenchCanvas({
   const [agentActivityEvents, setAgentActivityEvents] = useState<
     AgentActivityEvent[]
   >([]);
+  const [
+    agentQueueAutonomousControls,
+    setAgentQueueAutonomousControls,
+  ] = useState<WorkspaceAgentQueueAutonomousControls | null>(null);
+  const [agentQueueViewControls, setAgentQueueViewControls] =
+    useState<WorkspaceAgentQueueViewControls | null>(null);
   const coordinatorAttachedContextRequestIdRef = useRef(0);
   const [
     coordinatorAttachedContextRequest,
@@ -154,6 +164,32 @@ export function WorkbenchCanvas({
   useEffect(() => {
     setAgentActivityEvents([]);
   }, [viewState.workspace.id]);
+
+  const registerAgentQueueAutonomousControls = useCallback(
+    (controls: WorkspaceAgentQueueAutonomousControls) => {
+      setAgentQueueAutonomousControls(controls);
+
+      return () => {
+        setAgentQueueAutonomousControls((currentControls) =>
+          currentControls === controls ? null : currentControls,
+        );
+      };
+    },
+    [],
+  );
+
+  const registerAgentQueueViewControls = useCallback(
+    (controls: WorkspaceAgentQueueViewControls) => {
+      setAgentQueueViewControls(controls);
+
+      return () => {
+        setAgentQueueViewControls((currentControls) =>
+          currentControls === controls ? null : currentControls,
+        );
+      };
+    },
+    [],
+  );
 
   useEffect(() => {
     const surface = layoutSurfaceRef.current;
@@ -494,6 +530,10 @@ export function WorkbenchCanvas({
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
                         }
+                        agentQueueAutonomousControls={
+                          agentQueueAutonomousControls
+                        }
+                        agentQueueViewControls={agentQueueViewControls}
                         agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                         coordinatorAttachedContextRequest={
                           coordinatorAttachedContextRequest
@@ -523,6 +563,12 @@ export function WorkbenchCanvas({
                         onPublishAgentActivityEvents={
                           publishAgentActivityEvents
                         }
+                        onRegisterAgentQueueAutonomousControls={
+                          registerAgentQueueAutonomousControls
+                        }
+                        onRegisterAgentQueueViewControls={
+                          registerAgentQueueViewControls
+                        }
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
@@ -539,6 +585,10 @@ export function WorkbenchCanvas({
                       agentActivityEvents={agentActivityEvents}
                       agentExecutorSlots={agentExecutorSlots}
                       agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
+                      agentQueueAutonomousControls={
+                        agentQueueAutonomousControls
+                      }
+                      agentQueueViewControls={agentQueueViewControls}
                       agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                       coordinatorAttachedContextRequest={
                         coordinatorAttachedContextRequest
@@ -561,6 +611,12 @@ export function WorkbenchCanvas({
                         queueWidget ? openAgentQueueItem : undefined
                       }
                       onPublishAgentActivityEvents={publishAgentActivityEvents}
+                      onRegisterAgentQueueAutonomousControls={
+                        registerAgentQueueAutonomousControls
+                      }
+                      onRegisterAgentQueueViewControls={
+                        registerAgentQueueViewControls
+                      }
                       onOpenAgentExecutorRun={openAgentExecutorRun}
                       onPopOut={popOutWidget}
                       onStartDockedDrag={startDockedDrag}

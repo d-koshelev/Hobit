@@ -857,6 +857,15 @@ export function useAgentQueueController({
       selectedTaskSandbox,
     ],
   );
+
+  const refreshAfterExternalMutation = useCallback(
+    async (queueItemId?: string | null) => {
+      await loadTasks(queueItemId ?? selectedTask?.queueItemId ?? null, {
+        preserveCurrentOnError: true,
+      });
+    },
+    [loadTasks, selectedTask?.queueItemId],
+  );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
   const selectedTaskSandboxForRun =
     selectedTaskSandbox === "read_only" ||
@@ -1535,6 +1544,7 @@ export function useAgentQueueController({
     runner: {
       ...queueRunner.controller,
     } satisfies AgentQueueRunnerController,
+    refreshAfterExternalMutation,
     refreshTasks,
     saveStateText,
     saveTask,

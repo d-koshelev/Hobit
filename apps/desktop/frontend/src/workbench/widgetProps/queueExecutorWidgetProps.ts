@@ -65,6 +65,8 @@ type AgentQueueWidgetPropsOptions = {
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
+  onRegisterAgentQueueAutonomousControls?: WidgetRenderProps["onRegisterAgentQueueAutonomousControls"];
+  onRegisterAgentQueueViewControls?: WidgetRenderProps["onRegisterAgentQueueViewControls"];
 };
 
 type AgentExecutorWidgetPropsOptions = {
@@ -88,6 +90,8 @@ export function agentQueueWidgetProps({
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
+  onRegisterAgentQueueAutonomousControls,
+  onRegisterAgentQueueViewControls,
 }: AgentQueueWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
     agentQueueItemOpenRequest,
@@ -112,6 +116,8 @@ export function agentQueueWidgetProps({
     onListAgentQueueTasks: actions.listAgentQueueTasks,
     onListAgentQueueWorkers: actions.listAgentQueueWorkers,
     onOpenAgentExecutorRun,
+    onRegisterAgentQueueAutonomousControls,
+    onRegisterAgentQueueViewControls,
     onStartAgentQueueRunnerSession: actions.startAgentQueueRunnerSession,
     onStartAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,
     onStopAgentQueueRunnerSession: actions.stopAgentQueueRunnerSession,

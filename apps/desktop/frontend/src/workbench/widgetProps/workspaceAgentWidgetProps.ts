@@ -8,7 +8,11 @@ import type {
   WorkspaceAgentQueueReportActionCardRequest,
 } from "../types";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
-import { createWorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import {
+  createWorkspaceAgentQueueBridge,
+  type WorkspaceAgentQueueAutonomousControls,
+  type WorkspaceAgentQueueViewControls,
+} from "../workspaceAgentQueueBridge";
 
 type WorkspaceAgentActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -32,6 +36,8 @@ type WorkspaceAgentActions = Pick<
 type WorkspaceAgentWidgetPropsOptions = {
   actions: WorkspaceAgentActions;
   agentExecutorSlots: AgentExecutorSlot[];
+  agentQueueAutonomousControls?: WorkspaceAgentQueueAutonomousControls | null;
+  agentQueueViewControls?: WorkspaceAgentQueueViewControls | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   instanceId: WidgetInstanceId;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
@@ -43,6 +49,8 @@ type WorkspaceAgentWidgetPropsOptions = {
 export function workspaceAgentWidgetProps({
   actions,
   agentExecutorSlots,
+  agentQueueAutonomousControls,
+  agentQueueViewControls,
   coordinatorAttachedContextRequest,
   instanceId,
   onOpenAgentQueueItem,
@@ -88,7 +96,9 @@ export function workspaceAgentWidgetProps({
     onStartCodexDirectWorkStream: actions.startCodexDirectWorkStream,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
     workspaceAgentQueueBridge: createWorkspaceAgentQueueBridge({
+      autonomousControls: agentQueueAutonomousControls,
       queueApi,
+      queueViewControls: agentQueueViewControls,
       workspaceId,
     }),
   };

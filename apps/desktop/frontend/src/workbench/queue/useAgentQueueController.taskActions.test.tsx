@@ -241,6 +241,41 @@ describe("useAgentQueueController task actions", () => {
     hook.unmount();
   });
 
+  it("refreshes and selects a Queue item created through an external bridge mutation", async () => {
+    const harness = createQueueHarness([]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.tasks).toEqual([]);
+
+    harness.replaceTask(
+      queueTask({
+        executionWorkspace: "C:/repo",
+        prompt: "read AGENTS.md first line",
+        queueItemId: "queue-created",
+        status: "queued",
+        title: "read AGENTS.md first line",
+      }),
+    );
+
+    await act(async () => {
+      await hook.result.current.refreshAfterExternalMutation("queue-created");
+    });
+    await flushControllerLoad();
+
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual([
+      "queue-created",
+    ]);
+    expect(hook.result.current.selectedTask?.queueItemId).toBe(
+      "queue-created",
+    );
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("loads an existing task executionPolicy into the editor draft", async () => {
     const harness = createQueueHarness([
       queueTask({

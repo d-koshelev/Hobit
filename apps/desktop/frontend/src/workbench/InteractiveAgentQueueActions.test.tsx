@@ -250,6 +250,185 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     expect(runTerminal).not.toHaveBeenCalled();
   });
 
+  it("handles analyze Queue chat commands through getSnapshot", async () => {
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult(
+        queueSnapshot({
+          blockers: [
+            {
+              code: "missing_execution_workspace",
+              itemId: "queue-blocked",
+              message: "Execution workspace is not set.",
+            },
+          ],
+          itemCounts: countsFixture({
+            blocked: 1,
+            queued: 2,
+            reportReady: 1,
+            running: 1,
+            total: 5,
+          }),
+          items: [
+            queueItemSnapshot({
+              id: "queue-next",
+              status: "queued",
+              title: "Next Queue task",
+            }),
+          ],
+        }),
+      ),
+    );
+    const bridge = queueBridge({ getSnapshot });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage("analyze queue");
+
+    expect(getSnapshot).toHaveBeenCalledWith({ includeSelectedItem: true });
+    expect(document.body.textContent).toContain(
+      "Queue has 5 items: 2 queued, 1 running, 1 blocked, 1 report-ready",
+    );
+    expect(document.body.textContent).toContain("queue-next - Next Queue task");
+    expect(document.body.textContent).toContain(
+      "queue-blocked: Execution workspace is not set.",
+    );
+  });
+
+  it("handles create task chat commands through createItem without Direct Work", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult("queue.createItem", {
+          approvalPolicy: request.approvalPolicy,
+          codexExecutable: request.codexExecutable,
+          executionPolicy: request.executionPolicy,
+          executionWorkspace: request.executionWorkspace ?? "",
+          id: "queue-chat-created",
+          priority: request.priority,
+          prompt: request.prompt,
+          queueTag: request.queueTag
+            ? {
+                id: request.queueTag.id ?? null,
+                name: request.queueTag.name ?? null,
+              }
+            : undefined,
+          sandbox: request.sandbox,
+          status: request.status,
+          title: request.title,
+        }),
+    );
+    const legacyCreate = vi.fn();
+    const provider = vi.fn();
+    const startCodex = vi.fn();
+    const runTerminal = vi.fn();
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({
+      onCreateAgentQueueTask: legacyCreate,
+      onGenerateCoordinatorProviderResponse: provider,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startCodex,
+      workspaceAgentQueueBridge: bridge,
+    });
+
+    await sendWorkspaceAgentMessage(
+      "create task read AGENTS.md first line",
+      "Run with Codex",
+    );
+
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executionWorkspace: "C:/repo",
+        priority: 0,
+        prompt: expect.stringContaining(
+          "Get-Content .\\AGENTS.md -TotalCount 1",
+        ),
+        queueTag: { name: "Default" },
+        sandbox: "read_only",
+        status: "queued",
+        title: "Read AGENTS.md first line",
+      }),
+    );
+    const request = createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Do not edit files.");
+    expect(request?.prompt).toContain("Do not create files.");
+    expect(request?.prompt).toContain("Do not delete files.");
+    expect(request?.prompt).toContain("Report:");
+    expect(request?.prompt).toContain("* AGENTS.md first line");
+    expect(request?.prompt).toContain(
+      "* confirmation that no files were changed",
+    );
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(legacyCreate).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Created Queue item: queue-chat-created \u2014 Read AGENTS.md first line. Status: queued.",
+    );
+    expect(document.body.textContent).toContain("Task workspace: C:/repo");
+  });
+
+  it("handles update task chat commands through updateItem", async () => {
+    const updateItem: WorkspaceAgentQueueBridge["updateItem"] = vi.fn(
+      async (request) =>
+        itemResult("queue.updateItem", {
+          id: request.itemId,
+          title: request.patch.title ?? "Queue item",
+        }),
+    );
+    const bridge = queueBridge({
+      getSnapshot: vi.fn(async () =>
+        snapshotResult(
+          queueSnapshot({
+            items: [
+              queueItemSnapshot({
+                id: "queue-chat-created",
+                title: "read AGENTS.md first line",
+              }),
+            ],
+          }),
+        ),
+      ),
+      updateItem,
+    });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      "update task queue-chat-created title Read AGENTS smoke",
+    );
+
+    expect(updateItem).toHaveBeenCalledWith({
+      itemId: "queue-chat-created",
+      patch: {
+        title: "Read AGENTS smoke",
+      },
+    });
+    expect(document.body.textContent).toContain(
+      "Updated Queue item: queue-chat-created - Read AGENTS smoke.",
+    );
+  });
+
+  it("handles run autonomous queue chat commands through the autonomous bridge action", async () => {
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+    const bridge = queueBridge({ runAutonomousQueue });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage("run autonomous queue");
+
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Autonomous Queue started.");
+  });
+
   it("renders a create Queue intent draft from visible Workspace Agent text", async () => {
     renderWidget({ workspaceAgentQueueBridge: queueBridge() });
 
@@ -581,7 +760,7 @@ function setNativeValue(
   descriptor?.set?.call(field, value);
 }
 
-async function sendWorkspaceAgentMessage(message: string) {
+async function sendWorkspaceAgentMessage(message: string, buttonText = "Send") {
   const composer = document.querySelector<HTMLTextAreaElement>(
     ".interactive-agent-input",
   );
@@ -596,7 +775,7 @@ async function sendWorkspaceAgentMessage(message: string) {
     await Promise.resolve();
   });
 
-  await clickButton("Send");
+  await clickButton(buttonText);
 }
 
 function queueIntentBlock(intent: Record<string, unknown>) {
@@ -633,6 +812,12 @@ function queueBridge(
 ): WorkspaceAgentQueueBridge {
   return {
     createItem: vi.fn(async () => itemResult("queue.createItem")),
+    getRunSettingsDefaults: vi.fn(() => ({
+      approvalPolicy: "never" as const,
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:/repo",
+      sandbox: "read_only" as const,
+    })),
     getSnapshot: vi.fn(async () => snapshotResult(queueSnapshot())),
     updateItem: vi.fn(async () => itemResult("queue.updateItem")),
     ...overrides,

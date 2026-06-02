@@ -39,11 +39,17 @@ import {
   SKILL_LIBRARY_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
+import type {
+  WorkspaceAgentQueueAutonomousControls,
+  WorkspaceAgentQueueViewControls,
+} from "./workspaceAgentQueueBridge";
 
 type WidgetHostRenderPropsOptions = {
   agentActivityEvents: AgentActivityEvent[];
   agentExecutorSlots: AgentExecutorSlot[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
+  agentQueueAutonomousControls: WorkspaceAgentQueueAutonomousControls | null;
+  agentQueueViewControls: WorkspaceAgentQueueViewControls | null;
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
@@ -63,6 +69,12 @@ type WidgetHostRenderPropsOptions = {
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
+  onRegisterAgentQueueAutonomousControls?: (
+    controls: WorkspaceAgentQueueAutonomousControls,
+  ) => () => void;
+  onRegisterAgentQueueViewControls?: (
+    controls: WorkspaceAgentQueueViewControls,
+  ) => () => void;
   widgetActions: WorkbenchWidgetInstanceActions;
   workspaceId: string;
 };
@@ -71,6 +83,8 @@ export function widgetHostRenderProps({
   agentActivityEvents,
   agentExecutorSlots,
   agentExecutorRunOpenRequest,
+  agentQueueAutonomousControls,
+  agentQueueViewControls,
   agentQueueItemOpenRequest,
   componentKey,
   coordinatorAttachedContextRequest,
@@ -84,6 +98,8 @@ export function widgetHostRenderProps({
   onOpenAgentQueueItem,
   onOpenAgentExecutorRun,
   onPublishAgentActivityEvents,
+  onRegisterAgentQueueAutonomousControls,
+  onRegisterAgentQueueViewControls,
   widgetActions,
   workspaceId,
 }: WidgetHostRenderPropsOptions): Partial<WidgetRenderProps> {
@@ -107,6 +123,8 @@ export function widgetHostRenderProps({
         onAttachContextToCoordinator,
         onShowQueueReportInWorkspaceChat,
         onOpenAgentExecutorRun,
+        onRegisterAgentQueueAutonomousControls,
+        onRegisterAgentQueueViewControls,
       }),
     };
   }
@@ -140,6 +158,8 @@ export function widgetHostRenderProps({
       ...workspaceAgentWidgetProps({
         actions: widgetActions,
         agentExecutorSlots,
+        agentQueueAutonomousControls,
+        agentQueueViewControls,
         coordinatorAttachedContextRequest,
         instanceId,
         onOpenAgentQueueItem,

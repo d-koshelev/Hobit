@@ -1,11 +1,7 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import type {
-  AgentQueueTask,
-  DirectWorkApprovalPolicy,
-  DirectWorkSandbox,
-} from "../workspace/types";
+import type { AgentQueueTask } from "../workspace/types";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
 import { AgentQueueLayout } from "./AgentQueueLayout";
 import {
@@ -30,7 +26,21 @@ import {
   type AgentQueueRunController,
   type QueueTaskInsertPosition,
 } from "./queue/useAgentQueueController";
+import {
+  agentQueueTaskRunSettingsDefaultsFromRun,
+  defaultAgentQueueTaskRunSettings,
+} from "./queue/agentQueueRunSettingsDefaults";
+import {
+  NO_ELIGIBLE_TASK_BLOCKER,
+} from "./queue/agentQueueAutonomousRunnerModel";
+import type { AgentQueueAutonomousController } from "./queue/agentQueueControllerTypes";
 import type { WidgetRenderProps } from "./types";
+import type {
+  WorkspaceAgentQueueAutonomousActionName,
+  WorkspaceAgentQueueAutonomousActionResult,
+  WorkspaceAgentQueueAutonomousControls,
+  WorkspaceAgentQueueViewControls,
+} from "./workspaceAgentQueueBridge";
 
 export const DEFAULT_AGENT_QUEUE_VIEW_MODE = "flow";
 
@@ -68,6 +78,8 @@ export function AgentQueuePlaceholderWidget({
   onStopAgentQueueRunnerSession,
   onUpdateAgentQueueTask,
   onUpdateAgentQueueWorker,
+  onRegisterAgentQueueAutonomousControls,
+  onRegisterAgentQueueViewControls,
   title,
 }: WidgetRenderProps) {
   const titleInputId = useId();
@@ -138,6 +150,10 @@ export function AgentQueuePlaceholderWidget({
     queueWidgetInstanceId: instance.id,
     queueTaskAutoRefreshRequest,
   });
+  const autonomousControlsRef =
+    useRef<WorkspaceAgentQueueAutonomousControls | null>(null);
+  const queueViewControlsRef =
+    useRef<WorkspaceAgentQueueViewControls | null>(null);
   const {
     apiAvailable,
     createTask,
@@ -148,10 +164,73 @@ export function AgentQueuePlaceholderWidget({
     isSelecting,
     loadError,
     refreshTasks,
+    refreshAfterExternalMutation,
     selectedTask,
     selectTask,
     tasks,
   } = queue;
+
+  autonomousControlsRef.current = {
+    runAutonomousQueue: () => runAutonomousQueue(queue.autonomous),
+    stopAutonomousQueueAfterCurrent: () =>
+      stopAutonomousQueueAfterCurrent(queue.autonomous),
+  };
+  queueViewControlsRef.current = {
+    getRunSettingsDefaults: () =>
+      agentQueueTaskRunSettingsDefaultsFromRun(queue.run),
+    refreshAfterMutation: (queueItemId) =>
+      refreshAfterExternalMutation(queueItemId),
+  };
+
+  useEffect(() => {
+    if (!onRegisterAgentQueueAutonomousControls) {
+      return undefined;
+    }
+
+    const controls: WorkspaceAgentQueueAutonomousControls = {
+      runAutonomousQueue: () =>
+        autonomousControlsRef.current?.runAutonomousQueue() ??
+        Promise.resolve(
+          autonomousQueueResult({
+            action: "queue.runAutonomousQueue",
+            code: "autonomous_controls_unavailable",
+            message: "Queue autonomous controls are unavailable.",
+            ok: false,
+            status: "unavailable",
+          }),
+        ),
+      stopAutonomousQueueAfterCurrent: () =>
+        autonomousControlsRef.current?.stopAutonomousQueueAfterCurrent() ??
+        Promise.resolve(
+          autonomousQueueResult({
+            action: "queue.stopAutonomousQueueAfterCurrent",
+            code: "autonomous_controls_unavailable",
+            message: "Queue autonomous controls are unavailable.",
+            ok: false,
+            status: "unavailable",
+          }),
+        ),
+    };
+
+    return onRegisterAgentQueueAutonomousControls(controls);
+  }, [onRegisterAgentQueueAutonomousControls]);
+
+  useEffect(() => {
+    if (!onRegisterAgentQueueViewControls) {
+      return undefined;
+    }
+
+    const controls: WorkspaceAgentQueueViewControls = {
+      getRunSettingsDefaults: () =>
+        queueViewControlsRef.current?.getRunSettingsDefaults() ??
+        defaultAgentQueueTaskRunSettings(),
+      refreshAfterMutation: (queueItemId) =>
+        queueViewControlsRef.current?.refreshAfterMutation(queueItemId) ??
+        Promise.resolve(),
+    };
+
+    return onRegisterAgentQueueViewControls(controls);
+  }, [onRegisterAgentQueueViewControls]);
 
   useEffect(() => {
     if (
@@ -385,22 +464,26 @@ function newTaskDialogDraft(selectedTask?: AgentQueueTask | null): TaskDraft {
 }
 
 function defaultCreateRunSetup(): AgentQueueNewTaskRunSetup {
+  const defaults = defaultAgentQueueTaskRunSettings();
+
   return {
-    approvalPolicy: "never",
-    codexExecutableDraft: "codex.cmd",
-    repoRootDraft: "",
-    sandbox: "read_only",
+    approvalPolicy: defaults.approvalPolicy,
+    codexExecutableDraft: defaults.codexExecutable,
+    repoRootDraft: defaults.executionWorkspace,
+    sandbox: defaults.sandbox,
   };
 }
 
 function runSetupFromQueueRun(
   run: AgentQueueRunController,
 ): AgentQueueNewTaskRunSetup {
+  const defaults = agentQueueTaskRunSettingsDefaultsFromRun(run);
+
   return {
-    approvalPolicy: normalizeApprovalPolicy(run.approvalPolicy),
-    codexExecutableDraft: run.codexExecutableDraft.trim() || "codex.cmd",
-    repoRootDraft: run.repoRootDraft,
-    sandbox: normalizeSandbox(run.sandbox),
+    approvalPolicy: defaults.approvalPolicy,
+    codexExecutableDraft: defaults.codexExecutable,
+    repoRootDraft: defaults.executionWorkspace,
+    sandbox: defaults.sandbox,
   };
 }
 
@@ -435,14 +518,101 @@ function validateQueuedRunSetup(
   return null;
 }
 
-function normalizeSandbox(value: DirectWorkSandbox | ""): DirectWorkSandbox {
-  return value === "workspace_write" || value === "danger_full_access"
-    ? value
-    : "read_only";
+function runAutonomousQueue(
+  autonomous: AgentQueueAutonomousController,
+): Promise<WorkspaceAgentQueueAutonomousActionResult> {
+  if (!autonomous.apiAvailable || !autonomous.canStart) {
+    return Promise.resolve(
+      autonomousQueueResult({
+        action: "queue.runAutonomousQueue",
+        code: "autonomous_start_blocked",
+        message: autonomousStartBlockerMessage(autonomous),
+        ok: false,
+        status: autonomous.status,
+      }),
+    );
+  }
+
+  if (autonomous.remainingEligibleCount <= 0) {
+    return Promise.resolve(
+      autonomousQueueResult({
+        action: "queue.runAutonomousQueue",
+        code: "autonomous_no_eligible_tasks",
+        message: NO_ELIGIBLE_TASK_BLOCKER,
+        ok: false,
+        status: autonomous.status,
+      }),
+    );
+  }
+
+  autonomous.onStart();
+
+  return Promise.resolve(
+    autonomousQueueResult({
+      action: "queue.runAutonomousQueue",
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: autonomous.status,
+    }),
+  );
 }
 
-function normalizeApprovalPolicy(
-  value: DirectWorkApprovalPolicy | "",
-): DirectWorkApprovalPolicy {
-  return value === "on_request" || value === "untrusted" ? value : "never";
+function stopAutonomousQueueAfterCurrent(
+  autonomous: AgentQueueAutonomousController,
+): Promise<WorkspaceAgentQueueAutonomousActionResult> {
+  if (autonomous.status !== "running" && autonomous.status !== "stopping") {
+    return Promise.resolve(
+      autonomousQueueResult({
+        action: "queue.stopAutonomousQueueAfterCurrent",
+        code: "autonomous_not_running",
+        message: "Autonomous Queue is not running.",
+        ok: false,
+        status: autonomous.status,
+      }),
+    );
+  }
+
+  autonomous.onStopAfterCurrent();
+
+  return Promise.resolve(
+    autonomousQueueResult({
+      action: "queue.stopAutonomousQueueAfterCurrent",
+      message: "Autonomous Queue will stop after the current task.",
+      ok: true,
+      status: autonomous.status,
+    }),
+  );
+}
+
+function autonomousStartBlockerMessage(
+  autonomous: AgentQueueAutonomousController,
+) {
+  return (
+    autonomous.preconditionMessages[0] ??
+    autonomous.error ??
+    autonomous.message ??
+    "Autonomous Queue is not ready."
+  );
+}
+
+function autonomousQueueResult({
+  action,
+  code,
+  message,
+  ok,
+  status,
+}: {
+  action: WorkspaceAgentQueueAutonomousActionName;
+  code?: string;
+  message: string;
+  ok: boolean;
+  status: string;
+}): WorkspaceAgentQueueAutonomousActionResult {
+  return {
+    action,
+    error: ok || !code ? undefined : { code, message },
+    message,
+    ok,
+    status,
+  };
 }

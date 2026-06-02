@@ -60,6 +60,10 @@ import {
   workspaceAgentQueueIntentDraftsFromText,
   type WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
+import {
+  parseWorkspaceAgentQueueCommand,
+  runWorkspaceAgentQueueCommand,
+} from "./workspaceAgentQueueCommandHandler";
 import type {
   WorkspaceAgentQueueReportActionCardPatch,
   WorkspaceAgentQueueReportActionResult,
@@ -158,6 +162,7 @@ export function InteractiveAgentPlaceholderWidget({
   const sessionScopeKey = `${workspaceScopeId}\u0000${instance.id}`;
   const sessionScopeKeyRef = useRef(sessionScopeKey);
   const trimmedDraftLength = draft.trim().length;
+  const isQueueCommandDraft = Boolean(parseWorkspaceAgentQueueCommand(draft));
   const directWork = useWorkspaceAgentDirectWorkController({
     draft,
     instanceId: instance.id,
@@ -283,6 +288,10 @@ export function InteractiveAgentPlaceholderWidget({
   async function sendCoordinatorMessage() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || isProviderPending) {
+      return;
+    }
+
+    if (await sendQueueCommandFromDraft(trimmedDraft)) {
       return;
     }
 
@@ -467,6 +476,37 @@ export function InteractiveAgentPlaceholderWidget({
     } finally {
       setIsProviderPending(false);
     }
+  }
+
+  async function sendQueueCommandFromDraft(trimmedDraft: string) {
+    if (!trimmedDraft || isProviderPending) {
+      return false;
+    }
+
+    const result = await runWorkspaceAgentQueueCommand(trimmedDraft, {
+      bridge: workspaceAgentQueueBridge,
+      currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(
+        directWork.directWorkDirectory,
+      ),
+    });
+
+    if (!result.handled) {
+      return false;
+    }
+
+    const operatorMessage = createLocalMessage("operator", trimmedDraft);
+    const assistantMessage = createLocalMessage("assistant", result.body);
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      operatorMessage,
+      assistantMessage,
+    ]);
+    setDraft("");
+    setVisibleAttachedContext(null);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+
+    return true;
   }
 
   function resetCurrentSessionState() {
@@ -817,7 +857,9 @@ export function InteractiveAgentPlaceholderWidget({
             isDirectModeEnabled
               ? {
                   activitySummary: directWork.directWorkActivitySummary,
-                  canStartDirectWork: directWork.canStartDirectWork,
+                  canStartDirectWork:
+                    directWork.canStartDirectWork ||
+                    (isQueueCommandDraft && !isProviderPending),
                   canStopDirectWork: directWork.canStopDirectWork,
                   directWorkDirectory: directWork.directWorkDirectory,
                   directWorkSandbox: directWork.directWorkSandbox,
@@ -843,7 +885,13 @@ export function InteractiveAgentPlaceholderWidget({
           isProviderPending={isProviderPending}
           onMessageChange={setDraft}
           onRemoveVisibleContext={removeVisibleAttachedContext}
-          onRunWithCodex={directWork.handleRunWithCodex}
+          onRunWithCodex={async () => {
+            if (await sendQueueCommandFromDraft(draft.trim())) {
+              return;
+            }
+
+            await directWork.handleRunWithCodex();
+          }}
           onSend={sendCoordinatorMessage}
           textareaRef={textareaRef}
           visibleAttachedContext={visibleAttachedContext}
@@ -851,4 +899,13 @@ export function InteractiveAgentPlaceholderWidget({
       </div>
     </WidgetFrame>
   );
+}
+
+function explicitQueueCommandWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || trimmed === "~") {
+    return null;
+  }
+
+  return trimmed;
 }
