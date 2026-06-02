@@ -573,19 +573,21 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
-  it("orders the selected rail as overview, prompt, actions, logs, then internals", () => {
+  it("orders the selected rail as overview, prompt, evidence, actions, logs, then internals", () => {
     renderDetailsPanel();
 
     const text = document.body.textContent ?? "";
     const overviewIndex = text.indexOf("Overview");
     const promptIndex = text.indexOf("Prompt");
+    const evidenceIndex = text.indexOf("Result / Evidence");
     const actionsIndex = text.indexOf("Actions and settings");
     const logsIndex = text.indexOf("Logs and report");
     const internalIndex = text.indexOf("Internal details");
 
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(promptIndex).toBeGreaterThan(overviewIndex);
-    expect(actionsIndex).toBeGreaterThan(promptIndex);
+    expect(evidenceIndex).toBeGreaterThan(promptIndex);
+    expect(actionsIndex).toBeGreaterThan(evidenceIndex);
     expect(logsIndex).toBeGreaterThan(actionsIndex);
     expect(internalIndex).toBeGreaterThan(logsIndex);
     expect(detailsBySummary("Internal details")?.open).toBe(false);
@@ -725,7 +727,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(overviewText).toContain(
       "Next: review report and make coordinator decision.",
     );
-    expect(resultText).toContain("Result: Passed");
+    expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Report ready");
     expect(decisionText).toContain("Awaiting coordinator review");
     expect(decisionText).toContain("Accept result");
@@ -820,6 +822,81 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(developerIndex).toBeGreaterThan(timelineIndex);
   });
 
+  it("shows completed tasks without evidence as not ready for coordinator review", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      prompt: [
+        "Hobit Queue UX block: Q-UX-08B",
+        "",
+        "Mode:",
+        "frontend-only right rail state/copy fix",
+        "",
+        "Objective:",
+        "Fix contradictory post-run states in the Agent Queue selected-item right rail. Keep runtime unchanged.",
+        "",
+        "Expected report:",
+        "* Status",
+        "* Files changed",
+      ].join("\n"),
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(null, {
+        error: "Direct Work result was not found.",
+        isLoading: false,
+      }),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const overviewText = sectionText("Selected task overview");
+    const resultText = sectionText("Result / Evidence");
+    const decisionText = sectionText("Coordinator decision");
+    const timelineText = sectionText("Human-readable logs and report");
+
+    expect(overviewText).toContain("Execution complete");
+    expect(overviewText).toContain("Evidence missing");
+    expect(overviewText).toContain("Review not ready");
+    expect(overviewText).not.toContain("Awaiting coordinator review");
+    const promptSummaryText =
+      document.querySelector(".agent-queue-prompt-preview-text")?.textContent ??
+      "";
+
+    expect(promptSummaryText).toContain("Hobit Queue UX block: Q-UX-08B");
+    expect(promptSummaryText).toContain("Mode: frontend-only right rail state/copy fix");
+    expect(promptSummaryText).toContain(
+      "Objective: Fix contradictory post-run states in the Agent Queue selected-item right rail.",
+    );
+    expect(promptSummaryText).not.toContain("Expected report");
+    expect(promptSummaryText).not.toContain("Files changed");
+    expect(detailsBySummary("Full prompt")?.open).toBe(false);
+    expect(resultText).toContain("Evidence missing");
+    expect(resultText).toContain("No run evidence attached");
+    expect(resultText).toContain("Review is not ready");
+    expect(resultText).toContain("Direct Work result was not found.");
+    expect(resultText).not.toContain("Report ready");
+    expect(decisionText).toContain("Evidence is missing");
+    expect(decisionText).toContain("Accept result");
+    expect(buttonByText("Accept result")?.disabled).toBe(true);
+    expect(decisionText).not.toContain("Awaiting coordinator review");
+    expect(timelineText).toContain("Run completed");
+    expect(timelineText).toContain("Evidence is missing");
+    expect(timelineText).not.toContain("Report ready");
+    expect(timelineText).not.toContain("Coordinator review required");
+    expect(detailsBySummary("Internal details")?.open).toBe(false);
+  });
+
   it("shows loading result while Direct Work evidence is being fetched", () => {
     const selectedTask = {
       ...queueTask(),
@@ -847,7 +924,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     const reportText = sectionText("Result / Evidence");
 
-    expect(reportText).toContain("Report ready");
+    expect(reportText).toContain("Evidence missing");
     expect(reportText).toContain("Loading run result...");
     expect(reportText).not.toContain("Unable to load Direct Work result evidence.");
     expect(reportText).not.toContain("No report");
@@ -880,8 +957,8 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     const reportText = sectionText("Result / Evidence");
 
-    expect(reportText).toContain("Report ready");
-    expect(reportText).toContain("Run result available.");
+    expect(reportText).toContain("Evidence missing");
+    expect(reportText).toContain("No run evidence attached.");
     expect(reportText).toContain("Unable to load Direct Work result evidence.");
     expect(reportText).toContain("Refresh result");
     expect(reportText).not.toContain("No report");
@@ -924,7 +1001,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(decisionText).toContain("Accept result");
     expect(decisionText).toContain("Request changes");
     expect(decisionText).toContain("Create follow-up");
-    expect(reportText).toContain("Result: Failed");
+    expect(reportText).toContain("Run failed");
     expect(reportText).toContain("StatusFailed");
     expect(reportText).toContain("Final error");
     expect(reportText).toContain("Codex executable not found.");
@@ -1031,16 +1108,19 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
   });
 
   it("renders explicit coordinator finalization actions", () => {
+    const report = workerReport();
     const selectedTask = {
       ...queueTask(),
       coordinatorStatus: "ready_for_finalization" as const,
       status: "review_needed" as const,
       validationStatus: "needs_review" as const,
+      workerExecutionReports: [report],
     };
 
     renderDetailsPanel({
       selectedTask,
       tasks: [selectedTask],
+      workerReport: workerReportController(report),
     });
 
     const decisionText = sectionText("Coordinator decision");

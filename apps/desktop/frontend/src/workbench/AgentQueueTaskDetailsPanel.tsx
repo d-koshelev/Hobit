@@ -159,14 +159,14 @@ export function AgentQueueTaskDetailsPanel({
 
           <PromptPreview prompt={selectedTask.prompt} />
 
+          <ResultEvidencePanel
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+            selectedTask={selectedTask}
+          />
+
           {hasReviewEvidenceForTask(queue, selectedTask) ? (
             <>
-              <ResultEvidencePanel
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-              />
-
               <CoordinatorFinalizationPanel queue={queue} />
 
               <ActivityTimelinePanel queue={queue} selectedTask={selectedTask} />
@@ -525,7 +525,7 @@ function nextActionForSelectedTask(
 ) {
   const hasReport = (selectedTask.workerExecutionReports?.length ?? 0) > 0;
   const runEvidence = directWorkEvidenceForQueue(queue);
-  const hasRunEvidence = Boolean(runEvidence) || hasFinishedRunLink(queue);
+  const hasRunEvidence = Boolean(runEvidence);
   const hasReviewEvidence = hasReport || hasRunEvidence;
   const planLabel = executionPlanStatusLabel(selectedTask.executionPlanPreview);
   const readinessMessage = queue.run.readinessMessage;
@@ -556,7 +556,7 @@ function nextActionForSelectedTask(
     };
   }
 
-  if (isReportReadyStatus(selectedTask.status) || hasReviewEvidence) {
+  if (hasReviewEvidence) {
     actions.push({
       label: "View report",
       onClick: () => scrollToSelectedTaskReport(),
@@ -601,6 +601,48 @@ function nextActionForSelectedTask(
       secondaryCopy: "Coordinator finalization remains explicit; no item is accepted automatically.",
       title: "Review report and make coordinator decision",
       tone: "review",
+    };
+  }
+
+  if (
+    hasFinishedRunLink(queue) ||
+    isReportReadyStatus(selectedTask.status) ||
+    coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)
+  ) {
+    if (queue.runEvidence.apiAvailable) {
+      actions.push({
+        disabled: queue.runEvidence.isLoading,
+        label: queue.runEvidence.isLoading ? "Loading evidence" : "Refresh result",
+        onClick: () => queue.runEvidence.onRefresh(),
+        variant: "primary",
+      });
+    }
+
+    actions.push({
+      disabled: !queue.workerReport.canAttach,
+      label: "Attach report",
+      onClick: () => queue.workerReport.onAttachDemoReport(),
+      variant: "secondary",
+    });
+
+    actions.push({
+      label: "Developer details",
+      onClick: () => scrollToDeveloperDetails(),
+      variant: "ghost",
+    });
+
+    const failed = isFailedRunEvidence(queue, selectedTask);
+
+    return {
+      actions,
+      badge: failed ? "Failure evidence missing" : "Evidence missing",
+      badgeVariant: "warning" as const,
+      copy: failed
+        ? "The run failed, but no worker report or Direct Work result evidence is attached. Review is not ready."
+        : "Execution is complete, but no worker report or Direct Work result evidence is attached. Review is not ready.",
+      secondaryCopy: "Rerun the task, attach a report, or inspect Developer details before making a coordinator decision.",
+      title: failed ? "Failure evidence missing" : "Evidence missing",
+      tone: "blocked",
     };
   }
 
@@ -849,8 +891,8 @@ function ResultEvidencePanel({
   const report = queue.workerReport.latestReport;
   const reportCard = queue.reportActionCard.workerReportCard;
   const runEvidence = directWorkEvidenceForQueue(queue);
-  const hasRunResult = Boolean(runEvidence) || hasFinishedRunLink(queue);
   const failed = isFailedRunEvidence(queue, selectedTask);
+  const state = resultEvidenceState(queue, selectedTask, report, runEvidence);
 
   return (
     <section
@@ -862,31 +904,13 @@ function ResultEvidencePanel({
         <div>
           <p className="agent-queue-expanded-kicker">Result / Evidence</p>
           <p className="agent-queue-execution-group-title">
-            {failed ? "Result: Failed" : hasRunResult || report ? "Result: Passed" : "Result pending"}
+            {state.title}
           </p>
           <p className="agent-queue-run-note">
-            Evidence summary for coordinator review. Raw output is collapsed below.
+            {state.copy}
           </p>
         </div>
-        <Badge
-          variant={
-            failed
-              ? "error"
-              : report || hasRunResult
-                ? "success"
-                : selectedTask.status === "running"
-                  ? "warning"
-                  : "neutral"
-          }
-        >
-          {failed
-            ? "Failed"
-            : report || hasRunResult
-              ? "Report ready"
-              : selectedTask.status === "running"
-                ? "Running"
-                : "No report"}
-        </Badge>
+        <Badge variant={state.badgeVariant}>{state.badge}</Badge>
       </div>
 
       {report ? (
@@ -898,17 +922,19 @@ function ResultEvidencePanel({
         />
       ) : runEvidence ? (
         <DirectWorkEvidenceSummary evidence={runEvidence} queue={queue} />
-      ) : hasRunResult ? (
+      ) : hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status) ? (
         <div className="agent-queue-human-report-summary">
           <p className="agent-queue-worker-report-summary">
             {queue.runEvidence.isLoading
               ? "Loading run result..."
-              : "Run result available."}
+              : failed
+                ? "Failure evidence missing."
+                : "No run evidence attached."}
           </p>
           <p className="agent-queue-run-note">
             {queue.runEvidence.isLoading
-              ? "Direct Work finished. Loading the linked result evidence for coordinator review."
-              : "Direct Work finished and linked evidence is available for coordinator review. Use Refresh if the final response has not loaded yet."}
+              ? "Direct Work finished. Hobit is loading the linked result evidence before coordinator review."
+              : "Review is not ready. Rerun the task, attach a report, or inspect Developer details before making a coordinator decision."}
           </p>
           {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
             <p
@@ -926,17 +952,71 @@ function ResultEvidencePanel({
             >
               Refresh result
             </Button>
+            <Button
+              disabled={!queue.workerReport.canAttach}
+              onClick={() => queue.workerReport.onAttachDemoReport()}
+              variant="secondary"
+            >
+              Attach report
+            </Button>
+            <Button onClick={() => scrollToDeveloperDetails()} variant="ghost">
+              Developer details
+            </Button>
           </div>
         </div>
       ) : (
         <p className="agent-queue-run-note">
           {selectedTask.status === "running"
             ? "Report pending. The local executor has not reported a final result yet."
-            : "No worker report has been attached yet."}
+            : "No run evidence attached. Run the task or attach a report before coordinator review."}
         </p>
       )}
     </section>
   );
+}
+
+function resultEvidenceState(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+  report: AgentQueueWorkerExecutionReport | null,
+  runEvidence: DirectWorkEvidence | null,
+) {
+  const failed = isFailedRunEvidence(queue, selectedTask);
+  const hasEvidence = Boolean(report || runEvidence);
+
+  if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
+    return {
+      badge: "Report pending",
+      badgeVariant: "warning" as const,
+      copy: "The local executor is still running. Coordinator review waits for evidence.",
+      title: "Report pending",
+    };
+  }
+
+  if (hasEvidence) {
+    return {
+      badge: failed ? "Run failed" : "Report ready",
+      badgeVariant: failed ? ("error" as const) : ("success" as const),
+      copy: "Evidence summary for coordinator review. Raw output is collapsed below.",
+      title: failed ? "Run failed" : "Report ready",
+    };
+  }
+
+  if (hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status)) {
+    return {
+      badge: failed ? "Failure evidence missing" : "Evidence missing",
+      badgeVariant: "warning" as const,
+      copy: "Execution finished without loaded worker report or Direct Work result evidence.",
+      title: failed ? "Failure evidence missing" : "Evidence missing",
+    };
+  }
+
+  return {
+    badge: "No run evidence",
+    badgeVariant: "neutral" as const,
+    copy: "Run the task or attach a report before coordinator review.",
+    title: "No run evidence attached",
+  };
 }
 
 function ActivityTimelinePanel({
@@ -1002,7 +1082,7 @@ function HumanReadableActivityPanel({
   const report = queue.workerReport.latestReport;
   const reportCard = queue.reportActionCard.workerReportCard;
   const runEvidence = directWorkEvidenceForQueue(queue);
-  const hasRunResult = Boolean(runEvidence) || hasFinishedRunLink(queue);
+  const hasRunResult = Boolean(runEvidence);
   const failed = isFailedRunEvidence(queue, selectedTask);
   const entries = buildHumanTimeline(queue, selectedTask);
 
@@ -1100,17 +1180,19 @@ function HumanReadableActivityPanel({
         </div>
       ) : runEvidence ? (
         <DirectWorkEvidenceSummary evidence={runEvidence} queue={queue} />
-      ) : hasRunResult ? (
+      ) : hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status) ? (
         <div className="agent-queue-human-report-summary">
           <p className="agent-queue-worker-report-summary">
             {queue.runEvidence.isLoading
               ? "Loading run result..."
-              : "Run result available."}
+              : failed
+                ? "Failure evidence missing."
+                : "No run evidence attached."}
           </p>
           <p className="agent-queue-run-note">
             {queue.runEvidence.isLoading
-              ? "Direct Work finished. Loading the linked result evidence for coordinator review."
-              : "Direct Work finished and linked evidence is available for coordinator review. Use Refresh if the final response has not loaded yet."}
+              ? "Direct Work finished. Hobit is loading the linked result evidence before coordinator review."
+              : "Review is not ready. Rerun the task, attach a report, or inspect Internal details before making a coordinator decision."}
           </p>
           {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
             <p
@@ -1203,20 +1285,28 @@ function buildHumanTimeline(
       title: "Run started",
     });
 
-    entries.push({
-      badge: runTimelineBadge(latestRun.status),
-      badgeVariant: runTimelineBadgeVariant(latestRun.status),
-      key: "run-finished",
-      message:
-        latestRun.status === "running"
-          ? "Waiting for worker report."
-          : runTimelineMessage(latestRun.status),
-      time: latestRun.completedAt,
-      title:
-        latestRun.status === "running"
-          ? "Running"
-          : runTimelineTitle(latestRun.status),
-    });
+    if (latestRun.status === "running") {
+      entries.push({
+        badge: "Running",
+        badgeVariant: "info",
+        key: "run-running",
+        message: "Waiting for worker report.",
+        time: null,
+        title: "Running",
+      });
+    } else if (latestRun.completedAt) {
+      entries.push({
+        badge: runTimelineBadge(latestRun.status),
+        badgeVariant: runTimelineBadgeVariant(latestRun.status),
+        key: "run-finished",
+        message: runTimelineMessage(
+          latestRun.status,
+          Boolean(runEvidence || report),
+        ),
+        time: latestRun.completedAt,
+        title: runTimelineTitle(latestRun.status),
+      });
+    }
   }
 
   if (runEvidence) {
@@ -1233,7 +1323,7 @@ function buildHumanTimeline(
     });
   }
 
-  if (runEvidence || report || hasFinishedRunLink(queue)) {
+  if (runEvidence || report) {
     entries.push({
       badge: "Report",
       badgeVariant: runEvidence?.status === "failed" ? "error" : "info",
@@ -1343,16 +1433,22 @@ function runTimelineTitle(status: string) {
   return "Run failed";
 }
 
-function runTimelineMessage(status: string) {
+function runTimelineMessage(status: string, hasEvidence: boolean) {
   if (status === "completed" || status === "review_needed") {
-    return "Execution complete. Evidence is available for coordinator review.";
+    return hasEvidence
+      ? "Execution complete. Evidence is available for coordinator review."
+      : "Execution complete. Evidence is missing; review is not ready.";
   }
 
   if (status === "cancelled") {
-    return "Execution was cancelled. Coordinator review is still required.";
+    return hasEvidence
+      ? "Execution was cancelled. Evidence is available for coordinator review."
+      : "Execution was cancelled. Failure evidence is missing.";
   }
 
-  return "Execution failed. Review the visible error evidence.";
+  return hasEvidence
+    ? "Execution failed. Review the visible error evidence."
+    : "Execution failed. Failure evidence is missing.";
 }
 
 function runTimelineBadgeVariant(
@@ -1840,9 +1936,7 @@ function hasReviewEvidenceForTask(
 ) {
   return (
     (selectedTask.workerExecutionReports?.length ?? 0) > 0 ||
-    Boolean(directWorkEvidenceForQueue(queue)) ||
-    hasFinishedRunLink(queue) ||
-    isReportReadyStatus(selectedTask.status)
+    Boolean(directWorkEvidenceForQueue(queue))
   );
 }
 
@@ -1873,11 +1967,10 @@ function CoordinatorFinalizationPanel({
 }) {
   const finalization = queue.coordinatorFinalization;
   const selectedTask = queue.selectedTask;
-  const hasReport =
-    (selectedTask?.workerExecutionReports?.length ?? 0) > 0 ||
-    Boolean(directWorkEvidenceForQueue(queue)) ||
-    hasFinishedRunLink(queue) ||
-    Boolean(queue.reportActionCard.diffReviewReportCard);
+  const hasReport = selectedTask
+    ? hasReviewEvidenceForTask(queue, selectedTask) ||
+      Boolean(queue.reportActionCard.diffReviewReportCard)
+    : false;
   const isRelevant =
     hasReport || coordinatorStatusBlocksNewWork(finalization.status);
 
@@ -1890,6 +1983,53 @@ function CoordinatorFinalizationPanel({
           diff review, or explicit coordinator-review state exists.
         </p>
       </details>
+    );
+  }
+
+  if (!hasReport) {
+    return (
+      <section
+        aria-label="Coordinator decision"
+        className="agent-queue-expanded-section agent-queue-finalization"
+      >
+        <div className="agent-queue-expanded-section-header">
+          <div>
+            <p className="agent-queue-execution-group-title">
+              Coordinator decision
+            </p>
+            <p className="agent-queue-run-note">
+              Evidence is missing. Final acceptance is disabled until a worker
+              report or Direct Work result is attached.
+            </p>
+          </div>
+          <Badge variant="warning">Evidence missing</Badge>
+        </div>
+        <div className="agent-queue-finalization-actions">
+          <Button disabled={true} onClick={() => finalization.onFinalize()} variant="secondary">
+            Accept result
+          </Button>
+          <Button
+            disabled={!finalization.canAct}
+            onClick={() => finalization.onMarkNeedsChanges()}
+            variant="secondary"
+          >
+            Request changes
+          </Button>
+          <Button
+            disabled={!finalization.canAct}
+            onClick={() => finalization.onCreateFollowUp()}
+            variant="secondary"
+          >
+            Create follow-up
+          </Button>
+          <Button onClick={() => scrollToDeveloperDetails()} variant="ghost">
+            Developer details
+          </Button>
+        </div>
+        {finalization.message ? (
+          <p className="agent-queue-message">{finalization.message}</p>
+        ) : null}
+      </section>
     );
   }
 
@@ -2019,7 +2159,7 @@ function SelectedTaskOverview({
           <p className="agent-queue-expanded-kicker">Overview</p>
           <h3>{displayTaskTitle(selectedTask)}</h3>
           <p className="agent-queue-overview-state">
-            {overviewStateSentence(selectedTask, executorInfo.label)}
+            {overviewStateSentence(queue, selectedTask, executorInfo.label)}
           </p>
         </div>
         <div
@@ -2047,7 +2187,8 @@ function SelectedTaskOverview({
           {selectedTaskStatusRailLabel(selectedTask)}
         </Badge>
         {selectedTask.coordinatorStatus &&
-        selectedTask.coordinatorStatus !== "not_reported" ? (
+        selectedTask.coordinatorStatus !== "not_reported" &&
+        hasReviewEvidenceForTask(queue, selectedTask) ? (
           <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
             {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
           </Badge>
@@ -2484,6 +2625,7 @@ function SubmittedMetadata({
 
 function PromptPreview({ prompt }: { prompt: string }) {
   const promptText = prompt || "No prompt has been written for this task.";
+  const summary = promptSummary(promptText);
 
   return (
     <section
@@ -2493,7 +2635,7 @@ function PromptPreview({ prompt }: { prompt: string }) {
       <div>
         <p className="agent-queue-expanded-kicker">Prompt summary</p>
         <p className="agent-queue-prompt-preview-text">
-          {previewText(promptText, 180)}
+          {summary}
         </p>
       </div>
       <details className="agent-queue-details agent-queue-secondary-details">
@@ -2504,23 +2646,111 @@ function PromptPreview({ prompt }: { prompt: string }) {
   );
 }
 
+function promptSummary(prompt: string) {
+  const lines = meaningfulPromptLines(prompt);
+
+  if (lines.length === 0) {
+    return "No prompt has been written for this task.";
+  }
+
+  const title = firstPromptTitle(lines);
+  const mode = labeledPromptValue(lines, "mode");
+  const objective = firstSentence(labeledPromptValue(lines, "objective"));
+  const parts = [
+    title ? previewText(title, 90) : null,
+    mode ? `Mode: ${previewText(mode, 70)}` : null,
+    objective ? `Objective: ${previewText(objective, 140)}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  if (parts.length > 0) {
+    return parts.join(" | ");
+  }
+
+  return previewText(lines.slice(0, 2).join(" "), 180);
+}
+
+function meaningfulPromptLines(prompt: string) {
+  return prompt
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^[-*]\s+/.test(line));
+}
+
+function firstPromptTitle(lines: string[]) {
+  const titleLine = lines.find((line) => /^title\s*:/i.test(line));
+
+  if (titleLine) {
+    return titleLine.replace(/^title\s*:\s*/i, "").trim();
+  }
+
+  const firstLine = lines.find((line) => !/^(mode|objective)\s*:/i.test(line));
+
+  return firstLine?.replace(/^#+\s*/, "").trim() || null;
+}
+
+function labeledPromptValue(lines: string[], label: "mode" | "objective") {
+  const labelPattern = new RegExp(`^${label}\\s*:\\s*(.*)$`, "i");
+  const labelOnlyPattern = new RegExp(`^${label}\\s*:?\\s*$`, "i");
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    const inlineMatch = line.match(labelPattern);
+
+    if (inlineMatch?.[1]?.trim()) {
+      return inlineMatch[1].trim();
+    }
+
+    if (labelOnlyPattern.test(line)) {
+      const next = lines
+        .slice(index + 1)
+        .find((entry) => !/^[A-Z][A-Za-z /-]*\s*:?\s*$/.test(entry));
+
+      return next ?? null;
+    }
+  }
+
+  return null;
+}
+
+function firstSentence(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
+
+  return (match?.[1] ?? value).trim();
+}
+
 function overviewStateSentence(
+  queue: AgentQueueController,
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
   executorLabel: string,
 ) {
+  const hasEvidence = hasReviewEvidenceForTask(queue, selectedTask);
+
   switch (selectedTask.status) {
     case "draft":
       return "Draft task. It will not run until the operator promotes it.";
     case "running":
       return `Running. ${executorLabel} is executing this task.`;
     case "completed":
-      return "Execution complete. Awaiting coordinator review.";
+      return hasEvidence
+        ? "Execution complete. Evidence is ready for coordinator review."
+        : "Execution complete. Evidence missing. Review not ready.";
     case "failed":
-      return "Execution failed. Review the report and request changes if needed.";
+      return hasEvidence
+        ? "Execution failed. Review the evidence and request changes if needed."
+        : "Execution failed. Failure evidence missing. Review not ready.";
     case "cancelled":
-      return "Execution was cancelled by operator action.";
+      return hasEvidence
+        ? "Execution was cancelled. Review the attached evidence."
+        : "Execution was cancelled. Evidence missing. Review not ready.";
     case "review_needed":
-      return "Output is ready for human review.";
+      return hasEvidence
+        ? "Evidence is ready for human review."
+        : "Review requested, but evidence is missing.";
     case "queued":
     case "ready":
       return `${statusLabel(selectedTask.status)} task. It runs only after an explicit operator action.`;
@@ -2537,8 +2767,12 @@ function overviewNextStep(
     return "Next: Waiting for worker report.";
   }
 
-  if (isReportReadyStatus(selectedTask.status) || latestReportLabel(queue, selectedTask) !== "No worker report") {
+  if (hasReviewEvidenceForTask(queue, selectedTask)) {
     return "Next: review report and make coordinator decision.";
+  }
+
+  if (isReportReadyStatus(selectedTask.status) || hasFinishedRunLink(queue)) {
+    return "Next: rerun task, attach report, or inspect developer details.";
   }
 
   if (queue.run.canStart) {
@@ -2565,7 +2799,7 @@ function overviewNextStep(
   }
 
   if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
-    return "Next: review the report and make an explicit coordinator decision.";
+    return "Next: attach evidence before making a coordinator decision.";
   }
 
   if (queue.run.readinessMessage) {
@@ -2587,10 +2821,16 @@ function latestReportLabel(
     return "Reported / awaiting coordinator review";
   }
 
-  if (directWorkEvidenceForQueue(queue) || hasFinishedRunLink(queue)) {
+  if (directWorkEvidenceForQueue(queue)) {
     return isFailedRunEvidence(queue, task)
       ? "Run failed / awaiting coordinator review"
       : "Run result available";
+  }
+
+  if (hasFinishedRunLink(queue) || isReportReadyStatus(task.status)) {
+    return isFailedRunEvidence(queue, task)
+      ? "Failure evidence missing"
+      : "Evidence missing";
   }
 
   return "No worker report";

@@ -155,15 +155,18 @@ export function AgentQueueTaskRunPanel({
     selectedTask.status === "running" || latestRun.link?.status === "running";
   const hasWorkerReport =
     (selectedTask.workerExecutionReports?.length ?? 0) > 0;
-  const isReportReadyTask =
+  const isFinalTaskWithoutEvidence =
     !isRunningTask &&
-    (hasWorkerReport ||
-      selectedTask.status === "completed" ||
+    !hasWorkerReport &&
+    (selectedTask.status === "completed" ||
       selectedTask.status === "review_needed" ||
       selectedTask.status === "failed" ||
       selectedTask.status === "cancelled");
+  const isReportReadyTask =
+    !isRunningTask &&
+    hasWorkerReport;
 
-  if (isRunningTask || isReportReadyTask) {
+  if (isRunningTask || isReportReadyTask || isFinalTaskWithoutEvidence) {
     return (
       <section
         aria-label="Queue task execution"
@@ -172,7 +175,13 @@ export function AgentQueueTaskRunPanel({
         <QueueTaskRunStatePanel
           latestRun={latestRun}
           selectedTask={selectedTask}
-          status={isRunningTask ? "running" : "report-ready"}
+          status={
+            isRunningTask
+              ? "running"
+              : isFinalTaskWithoutEvidence
+                ? "evidence-missing"
+                : "report-ready"
+          }
         />
 
         {includeAdvancedDetails ? (
@@ -403,13 +412,14 @@ function QueueTaskRunStatePanel({
 }: {
   latestRun: AgentQueueLatestRunLinkController;
   selectedTask: AgentQueueTask;
-  status: "running" | "report-ready";
+  status: "running" | "report-ready" | "evidence-missing";
 }) {
   const link = latestRun.link;
   const runId = link?.directWorkRunId ?? null;
   const executorId =
     link?.executorWidgetId ?? selectedTask.assignedExecutorWidgetId ?? null;
   const isRunning = status === "running";
+  const evidenceMissing = status === "evidence-missing";
   const failed = isFailedRunState(link?.status ?? selectedTask.status);
 
   return (
@@ -421,7 +431,9 @@ function QueueTaskRunStatePanel({
             title={
               isRunning
                 ? "The selected Queue task is already running in a local executor."
-                : "The selected Queue task has finished or reported evidence for coordinator review."
+                : evidenceMissing
+                  ? "The selected Queue task has finished, but no report evidence is attached."
+                  : "The selected Queue task has reported evidence for coordinator review."
             }
           >
             {isRunning
@@ -433,14 +445,36 @@ function QueueTaskRunStatePanel({
           <p className="agent-queue-run-note">
             {isRunning
               ? "Waiting for report. Pre-run readiness checks are not the current action."
+              : evidenceMissing
+                ? failed
+                  ? "Failure evidence missing. Review is not ready."
+                  : "Evidence missing. Review is not ready."
               : failed
                 ? "Failure evidence is ready for coordinator review. Pre-run readiness checks are not the current action."
                 : "Report ready. Awaiting coordinator review. Pre-run readiness checks are not the current action."}
           </p>
         </div>
         <div className="agent-queue-execution-badges">
-          <Badge variant={isRunning ? "info" : failed ? "error" : "warning"}>
-            {isRunning ? "Executing" : failed ? "Run failed" : "Awaiting review"}
+          <Badge
+            variant={
+              isRunning
+                ? "info"
+                : evidenceMissing
+                  ? "warning"
+                  : failed
+                    ? "error"
+                    : "warning"
+            }
+          >
+            {isRunning
+              ? "Executing"
+              : evidenceMissing
+                ? failed
+                  ? "Failure evidence missing"
+                  : "Evidence missing"
+                : failed
+                  ? "Run failed"
+                  : "Awaiting review"}
           </Badge>
         </div>
       </div>
@@ -472,7 +506,7 @@ function QueueTaskRunStatePanel({
         >
           Refresh status
         </Button>
-        {isRunning ? null : (
+        {isRunning || evidenceMissing ? null : (
           <Button onClick={() => scrollToSelectedTaskReport()} variant="primary">
             View report
           </Button>
