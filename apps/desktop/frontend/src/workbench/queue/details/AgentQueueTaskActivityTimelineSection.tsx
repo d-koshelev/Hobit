@@ -35,6 +35,7 @@ export function AgentQueueTaskActivityTimelineSection({
     activity.recentEvents.length > 0
       ? activity.recentEvents.map(activityDisplayEvent)
       : buildFallbackActivityEvents(queue, selectedTask);
+  const currentEvent = recentEvents[recentEvents.length - 1];
 
   return (
     <section
@@ -46,9 +47,6 @@ export function AgentQueueTaskActivityTimelineSection({
           <p className="agent-queue-expanded-kicker">Agent activity</p>
           <p className="agent-queue-execution-group-title">
             {activity.statusLine}
-          </p>
-          <p className="agent-queue-run-note">
-            Live events from the selected Direct Work run. Manual refresh is a fallback.
           </p>
         </div>
         <div className="agent-queue-execution-badges">
@@ -66,44 +64,70 @@ export function AgentQueueTaskActivityTimelineSection({
         </div>
       </div>
 
-      <dl className="agent-queue-agent-activity-current">
-        <div>
-          <dt>Current stage</dt>
-          <dd>{activity.currentStage}</dd>
-        </div>
-        <div>
-          <dt>Current event</dt>
-          <dd>{activity.currentMessage}</dd>
-        </div>
-        {activity.lastCommand ? (
+      {currentEvent ? (
+        <div className="agent-queue-current-event">
+          <Badge variant={currentEvent.badgeVariant}>{currentEvent.badge}</Badge>
           <div>
-            <dt>Last command</dt>
-            <dd className="agent-queue-mono">{activity.lastCommand}</dd>
+            <p className="agent-queue-human-timeline-title">
+              {currentEvent.title}
+            </p>
+            <p className="agent-queue-human-timeline-copy">
+              {currentEvent.message}
+            </p>
           </div>
-        ) : null}
-        {activity.lastCommandStatus ? (
-          <div>
-            <dt>Command status</dt>
-            <dd>{activity.lastCommandStatus}</dd>
-          </div>
-        ) : null}
-      </dl>
+        </div>
+      ) : (
+        <p className="agent-queue-run-note">
+          No run events yet. Start an assigned task to see activity.
+        </p>
+      )}
 
-      <div className="agent-queue-human-timeline agent-queue-live-events">
-        {recentEvents.map((entry) => (
-          <div className="agent-queue-human-timeline-item" key={entry.key}>
-            <Badge variant={entry.badgeVariant}>{entry.badge}</Badge>
-            <div>
-              <p className="agent-queue-human-timeline-title">
-                {entry.title}
-              </p>
-              <p className="agent-queue-human-timeline-copy">
-                {entry.message}
-              </p>
-            </div>
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Activity details</summary>
+        <dl className="agent-queue-agent-activity-current">
+          <div>
+            <dt>Current stage</dt>
+            <dd>{activity.currentStage}</dd>
           </div>
-        ))}
-      </div>
+          <div>
+            <dt>Current event</dt>
+            <dd>{activity.currentMessage}</dd>
+          </div>
+          {activity.lastCommand ? (
+            <div>
+              <dt>Last command</dt>
+              <dd className="agent-queue-mono">{activity.lastCommand}</dd>
+            </div>
+          ) : null}
+          {activity.lastCommandStatus ? (
+            <div>
+              <dt>Command status</dt>
+              <dd>{activity.lastCommandStatus}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </details>
+
+      {recentEvents.length > 1 ? (
+        <details className="agent-queue-details agent-queue-secondary-details">
+          <summary>{recentEvents.length.toString()} recent events</summary>
+          <div className="agent-queue-human-timeline agent-queue-live-events">
+            {recentEvents.map((entry) => (
+              <div className="agent-queue-human-timeline-item" key={entry.key}>
+                <Badge variant={entry.badgeVariant}>{entry.badge}</Badge>
+                <div>
+                  <p className="agent-queue-human-timeline-title">
+                    {entry.title}
+                  </p>
+                  <p className="agent-queue-human-timeline-copy">
+                    {entry.message}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       <div className="agent-queue-run-actions">
         <Button
