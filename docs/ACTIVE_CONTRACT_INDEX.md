@@ -168,6 +168,19 @@ unless the task explicitly requests it.
   safety/action levels, widget capability use, and Queue/Executor role
   boundaries. It is docs-only target architecture and does not add current
   runtime behavior.
+- `docs/WORKSPACE_AGENT_COORDINATOR_MODEL.md` - active docs-only architecture
+  contract for the MVP single Workspace Agent Coordinator model, the canonical
+  per-Workspace Agent Queue ledger, Coordinator identity, explicit
+  coordinate-versus-execute boundaries, semantic widget testing, and future
+  multi-coordinator compatibility. It does not add multi-coordinator runtime,
+  Queue runtime behavior, storage/schema, provider tools, or widget action
+  execution.
+- `docs/WORKSPACE_WIDGET_API_CONTRACT.md` - active docs-only architecture
+  contract for Widget APIs as app-native Workspace capability boundaries:
+  identity, safe state snapshots, capabilities, actions, events, evidence/logs,
+  test hooks, safety policy, app-native action rules, and semantic widget
+  testing. It does not add runtime APIs, Finder, storage/schema, backend/Tauri
+  commands, provider tools, or widget behavior changes.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Workspace Agent or future
   AI surfaces use widgets through controlled capabilities.
 - `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
@@ -369,6 +382,14 @@ These documents should not override the Workspace Agent model or
 
 - Docs-only product model work: read the default set plus the affected domain
   contract.
+- Workspace Widget API or semantic widget testing model work: read
+  `docs/WORKSPACE_WIDGET_API_CONTRACT.md`,
+  `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and the affected widget/domain
+  contract.
+- Workspace Agent Coordinator, Queue coordination, or multi-coordinator
+  compatibility work: read `docs/WORKSPACE_AGENT_COORDINATOR_MODEL.md`,
+  `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and the affected Queue/Executor or
+  widget/domain contract.
 - Frontend widget UI work: read the default set,
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
