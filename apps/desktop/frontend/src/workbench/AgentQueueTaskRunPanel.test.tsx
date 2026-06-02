@@ -7,6 +7,7 @@ import { AgentQueueTaskRunPanel } from "./AgentQueueTaskRunPanel";
 import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
 import type {
   AgentQueueAutorunController,
+  AgentQueueAutonomousController,
   AgentQueueExecutionPlanController,
   AgentQueueLatestRunLinkController,
   AgentQueueRunController,
@@ -411,6 +412,62 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     clickFirstButton("Promote to queued");
 
     expect(onPromoteDraftToQueued).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps manual Run task visible when Autonomous Queue is idle", () => {
+    renderDetailsPanel({
+      run: {
+        ...runController(),
+        canStart: true,
+        executorSelectionMessage:
+          "Local executor selected automatically: Local executor visible.",
+        readinessMessage: null,
+        repoRootDraft: "C:\\repo",
+      },
+      selectedTask: {
+        ...queueTask(),
+        approvalPolicy: "never",
+        codexExecutable: "codex",
+        executionWorkspace: "C:\\repo",
+        sandbox: "read_only",
+        status: "ready",
+      },
+    });
+
+    const nextActionText = sectionText("Next action");
+
+    expect(nextActionText).toContain("Run task");
+    expect(nextActionText).toContain("Ready");
+  });
+
+  it("shows autonomous ownership instead of manual Run task while Autonomous Queue is active", () => {
+    renderDetailsPanel({
+      autonomous: autonomousController({
+        status: "running",
+      }),
+      run: {
+        ...runController(),
+        canStart: true,
+        executorSelectionMessage:
+          "Local executor selected automatically: Local executor visible.",
+        readinessMessage: null,
+        repoRootDraft: "C:\\repo",
+      },
+      selectedTask: {
+        ...queueTask(),
+        approvalPolicy: "never",
+        codexExecutable: "codex",
+        executionWorkspace: "C:\\repo",
+        sandbox: "read_only",
+        status: "ready",
+      },
+    });
+
+    const nextActionText = sectionText("Next action");
+
+    expect(nextActionText).toContain("Queued for autonomous execution");
+    expect(nextActionText).toContain("Autonomous runner will start this task.");
+    expect(nextActionText).not.toContain("Run task");
   });
 
   it("shows automatic executor selection without requiring visible Assign", () => {
@@ -1326,6 +1383,7 @@ function renderPanel(
 }
 
 function renderDetailsPanel({
+  autonomous = autonomousController(),
   editTask = editController(),
   executionPlan = executionPlanController(null),
   latestRun = latestRunController(null),
@@ -1343,6 +1401,7 @@ function renderDetailsPanel({
   ),
   diffReview,
 }: {
+  autonomous?: AgentQueueAutonomousController;
   diffReview?: ComponentProps<typeof AgentQueueTaskDetailsPanel>["queue"]["diffReview"];
   editTask?: ReturnType<typeof editController>;
   executionPlan?: AgentQueueExecutionPlanController;
@@ -1412,6 +1471,7 @@ function renderDetailsPanel({
     assignmentError: null,
     assignmentMessage: null,
     autorun: autorunController(),
+    autonomous,
     clearSelectedTaskAssignment: vi.fn(),
     createTask: vi.fn(),
     deleteTask: deleteController(),
@@ -1926,5 +1986,39 @@ function autorunController(): AgentQueueAutorunController {
     preconditionMessages: [],
     selectedExecutorLabel: null,
     snapshot: null,
+  };
+}
+
+function autonomousController(
+  overrides: Partial<AgentQueueAutonomousController> = {},
+): AgentQueueAutonomousController {
+  return {
+    activeQueueItemId: null,
+    activeTaskTitle: null,
+    apiAvailable: true,
+    approvalPolicy: "never",
+    canStart: true,
+    codexExecutableDraft: "codex",
+    completedCount: 0,
+    currentStage: null,
+    currentWorkspaceRoot: null,
+    error: null,
+    failedCount: 0,
+    latestReportState: null,
+    message: null,
+    onApprovalPolicyChange: vi.fn(),
+    onCodexExecutableDraftChange: vi.fn(),
+    onRepoRootDraftChange: vi.fn(),
+    onSandboxChange: vi.fn(),
+    onStart: vi.fn(),
+    onStopAfterCurrent: vi.fn(),
+    preconditionMessages: [],
+    remainingEligibleCount: 0,
+    repoRootDraft: "C:\\repo",
+    sandbox: "read_only",
+    skippedBlockedCount: 0,
+    status: "idle",
+    timeline: [],
+    ...overrides,
   };
 }

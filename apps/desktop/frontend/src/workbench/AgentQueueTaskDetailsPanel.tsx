@@ -604,6 +604,12 @@ function nextActionForSelectedTask(
     };
   }
 
+  const autonomousAction = autonomousNextActionForSelectedTask(queue, selectedTask);
+
+  if (autonomousAction) {
+    return autonomousAction;
+  }
+
   if (
     hasFinishedRunLink(queue) ||
     isReportReadyStatus(selectedTask.status) ||
@@ -2807,6 +2813,68 @@ function overviewNextStep(
   }
 
   return "Next: check the prompt, settings, and latest activity before acting.";
+}
+
+function autonomousNextActionForSelectedTask(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  const isAutonomousActive =
+    queue.autonomous.status === "running" || queue.autonomous.status === "stopping";
+
+  if (!isAutonomousActive) {
+    return null;
+  }
+
+  if (queue.autonomous.activeQueueItemId === selectedTask.queueItemId) {
+    return {
+      actions: [],
+      badge: "Executing",
+      badgeVariant: "info" as const,
+      copy:
+        "Autonomous runner started this task. Waiting for worker report.",
+      secondaryCopy: queue.autonomous.currentStage
+        ? `Stage: ${queue.autonomous.currentStage}.`
+        : "No per-task Run task click is needed.",
+      title: "Running in autonomous queue",
+      tone: "waiting",
+    };
+  }
+
+  if (!selectedTaskIsAutonomousEligible(queue, selectedTask)) {
+    return null;
+  }
+
+  return {
+    actions: [],
+    badge: "Autonomous",
+    badgeVariant: "info" as const,
+    copy: "Autonomous runner will start this task.",
+    secondaryCopy:
+      "Manual controls return when the autonomous runner is idle.",
+    title: "Queued for autonomous execution",
+    tone: "waiting",
+  };
+}
+
+function selectedTaskIsAutonomousEligible(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  const dependencyState = queue.dependencyStates.get(selectedTask.queueItemId);
+  const status = selectedTask.status;
+
+  return (
+    (status === "queued" || status === "ready" || status === "review_needed") &&
+    selectedTask.prompt.trim().length > 0 &&
+    (dependencyState?.status ?? "ready") === "ready" &&
+    !coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus) &&
+    normalizeValidationStatus(selectedTask.validationStatus) !== "failed" &&
+    Boolean(selectedTask.executionWorkspace?.trim()) &&
+    Boolean(selectedTask.codexExecutable?.trim()) &&
+    Boolean(selectedTask.sandbox) &&
+    Boolean(selectedTask.approvalPolicy)
+  );
 }
 
 function formatTimestamp(value: string) {

@@ -196,6 +196,7 @@ function autonomousController(
   overrides: Partial<AgentQueueAutonomousController> = {},
 ): AgentQueueAutonomousController {
   return {
+    activeQueueItemId: null,
     activeTaskTitle: null,
     apiAvailable: true,
     approvalPolicy: "never",

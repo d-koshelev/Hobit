@@ -93,6 +93,7 @@ type TaskActionsContext = Pick<
     preferredTaskId?: string | null,
     options?: { preserveCurrentOnError?: boolean },
   ) => Promise<string | null>;
+  localTaskFieldsRef: MutableRefObject<Map<string, AgentQueueLocalTaskFields>>;
   mergeTaskFoundation: (task: AgentQueueTask) => AgentQueueTask;
   queueRunnerActiveQueueItemId: string | null;
   queueRunnerStatus: AgentQueueRunnerStatus;
@@ -143,6 +144,7 @@ export function createAgentQueueTaskActions({
   isSaving,
   isSelecting,
   loadTasks,
+  localTaskFieldsRef,
   mergeTaskFoundation,
   onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
@@ -353,7 +355,7 @@ export function createAgentQueueTaskActions({
   async function applyCoordinatorFinalization(
     actionType: AgentQueueReportActionType,
   ) {
-    if (!selectedTask || hasOpenTaskEdit || isSaving || isCreating) {
+    if (!selectedTask || isEditing || isSaving || isCreating) {
       return false;
     }
 
@@ -409,12 +411,15 @@ export function createAgentQueueTaskActions({
         coordinatorStatus: decision.coordinatorStatus,
         validationStatus: decision.validationStatus,
       };
-      setLocalTaskFields((current) =>
-        new Map(current).set(updatedTask.queueItemId, {
-          ...(current.get(updatedTask.queueItemId) ?? {}),
+      const nextLocalTaskFields = new Map(localTaskFieldsRef.current).set(
+        updatedTask.queueItemId,
+        {
+          ...(localTaskFieldsRef.current.get(updatedTask.queueItemId) ?? {}),
           ...taskFoundation,
-        }),
+        },
       );
+      localTaskFieldsRef.current = nextLocalTaskFields;
+      setLocalTaskFields(nextLocalTaskFields);
       applyUpdatedTask(
         {
           ...updatedTask,
@@ -1033,7 +1038,7 @@ function coordinatorDecisionForAction(
       return {
         coordinatorStatus: "finalized",
         message:
-          "Finalized / accepted by coordinator. Dependencies may now be eligible in dry-run only; no work was started.",
+          "Finalized / accepted by coordinator. This action did not auto-accept other work; an active Autonomous Queue may re-evaluate eligible dependencies.",
         status: "completed",
         validationStatus: "passed",
       };

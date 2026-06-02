@@ -1066,6 +1066,7 @@ export function useAgentQueueController({
     isSaving,
     isSelecting,
     loadTasks,
+    localTaskFieldsRef,
     mergeTaskFoundation,
     onClearAgentQueueTaskAssignment,
     onCreateAgentQueueTask,
@@ -1416,7 +1417,7 @@ export function useAgentQueueController({
       workerReportCard: workerReportActionCard,
     } satisfies AgentQueueReportActionCardController,
     coordinatorFinalization: {
-      canAct: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving && !isCreating),
+      canAct: Boolean(selectedTask && !isEditing && !isSaving && !isCreating),
       message: coordinatorFinalizationMessage,
       onCreateFollowUp: () => void applyCoordinatorFinalization("create_follow_up"),
       onFinalize: () => void applyCoordinatorFinalization("finalize_accept_item"),

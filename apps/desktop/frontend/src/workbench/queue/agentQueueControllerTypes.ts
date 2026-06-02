@@ -66,6 +66,7 @@ export type AgentQueueAutonomousTimelineEvent = {
 };
 
 export type AgentQueueAutonomousController = {
+  activeQueueItemId: string | null;
   activeTaskTitle: string | null;
   apiAvailable: boolean;
   canStart: boolean;

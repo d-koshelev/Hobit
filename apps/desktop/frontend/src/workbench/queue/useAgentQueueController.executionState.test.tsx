@@ -229,8 +229,10 @@ describe("useAgentQueueController execution state", () => {
       await flushHookEffects();
     });
 
-    expect(hook.result.current.autonomous.status).toBe("blocked");
-    expect(hook.result.current.autonomous.message).toBe("No eligible queued tasks.");
+    expect(hook.result.current.autonomous.status).toBe("completed");
+    expect(hook.result.current.autonomous.message).toBe(
+      "Autonomous Queue completed.",
+    );
     expect(hook.result.current.autonomous.failedCount).toBe(0);
     expect(harness.startRequests).toHaveLength(0);
 
@@ -382,6 +384,390 @@ describe("useAgentQueueController execution state", () => {
       expect(harness.startRequests).toHaveLength(2);
       expect(harness.startRequests[1].queueItemId).toBe("queue-2");
       expect(hook.result.current.autonomous.remainingEligibleCount).toBe(0);
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconciles a terminal active Autonomous Queue task without an auto-refresh callback", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "auto",
+        prompt: "Run first",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+      queueTask({
+        executionPolicy: "auto",
+        prompt: "Run second",
+        queueItemId: "queue-2",
+        status: "ready",
+        title: "Second task",
+      }),
+    ]);
+    harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.autonomous.onStart();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+    expect(hook.result.current.autonomous.message).toBe(
+      'Waiting for "Queue task" to finish.',
+    );
+
+    harness.replaceTask(
+      queueTask({
+        executionPolicy: "auto",
+        prompt: "Run first",
+        queueItemId: "queue-1",
+        status: "completed",
+      }),
+    );
+
+    await act(async () => {
+      await hook.result.current.refreshTasks();
+      await flushHookEffects();
+    });
+    await flushControllerLoad();
+
+    const lastUpdateRequest =
+      harness.updateRequests[harness.updateRequests.length - 1];
+    expect(lastUpdateRequest.queueItemId).toBe("queue-1");
+    expect(lastUpdateRequest.status).toBe("completed");
+    expect(lastUpdateRequest.validationStatus).toBe("needs_review");
+    expect(harness.startRequests).toHaveLength(2);
+    expect(harness.startRequests[1].queueItemId).toBe("queue-2");
+    expect(hook.result.current.autonomous.activeQueueItemId).toBe("queue-2");
+    expect(hook.result.current.autonomous.activeTaskTitle).toBe("Second task");
+    expect(hook.result.current.autonomous.message).toBe(
+      'Waiting for "Second task" to finish.',
+    );
+
+    hook.unmount();
+  });
+
+  it("keeps dependent Autonomous Queue tasks waiting for coordinator finalization", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run first",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+        queueTask({
+          dependsOn: ["queue-1"],
+          executionPolicy: "auto",
+          prompt: "Run dependent",
+          queueItemId: "queue-2",
+          status: "ready",
+          title: "Dependent task",
+        }),
+      ]);
+      harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      await act(async () => {
+        hook.result.current.autonomous.onStart();
+        await flushHookEffects();
+      });
+
+      expect(harness.startRequests).toHaveLength(1);
+      expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+
+      act(() => {
+        harness.replaceTask(
+          queueTask({
+            executionPolicy: "auto",
+            prompt: "Run first",
+            queueItemId: "queue-1",
+            status: "completed",
+          }),
+        );
+        harness.options.queueTaskAutoRefreshRequest = {
+          completedAt: "2026-05-20T10:02:00.000Z",
+          executorWidgetInstanceId: "executor-1",
+          finalStatus: "completed",
+          id: 1,
+          queueItemId: "queue-1",
+          repoRoot: "/repo",
+          runId: "run-1",
+          startedAt: "2026-05-20T10:01:00.000Z",
+          taskTitle: "Queue task",
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+        };
+      });
+      hook.rerender(undefined);
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+
+      expect(harness.startRequests).toHaveLength(1);
+      expect(hook.result.current.autonomous.status).toBe("blocked");
+      expect(hook.result.current.autonomous.message).toBe(
+        "Waiting on dependency-blocked tasks.",
+      );
+      expect(hook.result.current.autonomous.skippedBlockedCount).toBe(1);
+      expect(
+        hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
+          ?.coordinatorStatus,
+      ).toBe("awaiting_coordinator_review");
+      expect(
+        hook.result.current.tasks.find((task) => task.queueItemId === "queue-2")
+          ?.status,
+      ).toBe("ready");
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("starts a dependent Autonomous Queue task after manual coordinator finalization", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run first",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+        queueTask({
+          dependsOn: ["queue-1"],
+          executionPolicy: "auto",
+          prompt: "Run dependent",
+          queueItemId: "queue-2",
+          status: "ready",
+          title: "Dependent task",
+        }),
+      ]);
+      harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      await act(async () => {
+        hook.result.current.autonomous.onStart();
+        await flushHookEffects();
+      });
+
+      expect(harness.startRequests).toHaveLength(1);
+
+      act(() => {
+        harness.replaceTask(
+          queueTask({
+            executionPolicy: "auto",
+            prompt: "Run first",
+            queueItemId: "queue-1",
+            status: "completed",
+          }),
+        );
+        harness.options.queueTaskAutoRefreshRequest = {
+          completedAt: "2026-05-20T10:02:00.000Z",
+          executorWidgetInstanceId: "executor-1",
+          finalStatus: "completed",
+          id: 1,
+          queueItemId: "queue-1",
+          repoRoot: "/repo",
+          runId: "run-1",
+          startedAt: "2026-05-20T10:01:00.000Z",
+          taskTitle: "Queue task",
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+        };
+      });
+      hook.rerender(undefined);
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+
+      expect(hook.result.current.autonomous.status).toBe("blocked");
+      expect(harness.startRequests).toHaveLength(1);
+
+      await act(async () => {
+        await hook.result.current.selectTask("queue-1");
+        await flushControllerLoad();
+      });
+
+      await act(async () => {
+        hook.result.current.coordinatorFinalization.onFinalize();
+        await flushHookEffects();
+        await flushHookEffects();
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+      await flushControllerLoad();
+
+      expect(harness.updateRequests).toHaveLength(2);
+      expect(
+        hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
+          ?.coordinatorStatus,
+      ).toBe("finalized");
+      expect(harness.startRequests).toHaveLength(2);
+      expect(harness.startRequests[1].queueItemId).toBe("queue-2");
+      expect(hook.result.current.autonomous.status).toBe("running");
+      expect(hook.result.current.autonomous.activeTaskTitle).toBe(
+        "Dependent task",
+      );
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears stale active Autonomous Queue state when the active task is already finalized", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.autonomous.onStart();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(1);
+    expect(hook.result.current.autonomous.activeQueueItemId).toBe("queue-1");
+
+    harness.replaceTask(
+      queueTask({
+        coordinatorStatus: "finalized",
+        executionPolicy: "auto",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        status: "completed",
+        validationStatus: "passed",
+      }),
+    );
+
+    await act(async () => {
+      await hook.result.current.refreshTasks();
+      await flushHookEffects();
+    });
+    await flushControllerLoad();
+
+    expect(hook.result.current.autonomous.activeQueueItemId).toBeNull();
+    expect(hook.result.current.autonomous.status).toBe("completed");
+    expect(hook.result.current.autonomous.message).toBe(
+      "Autonomous Queue completed.",
+    );
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.updateRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("skips dependency-blocked Autonomous Queue tasks and starts another independent task", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run first",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+        queueTask({
+          dependsOn: ["queue-1"],
+          executionPolicy: "auto",
+          prompt: "Run dependent",
+          queueItemId: "queue-2",
+          status: "ready",
+          title: "Dependent task",
+        }),
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run independent",
+          queueItemId: "queue-3",
+          status: "ready",
+          title: "Independent task",
+        }),
+      ]);
+      harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      await act(async () => {
+        hook.result.current.autonomous.onStart();
+        await flushHookEffects();
+      });
+
+      expect(harness.startRequests).toHaveLength(1);
+      expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+
+      act(() => {
+        harness.replaceTask(
+          queueTask({
+            executionPolicy: "auto",
+            prompt: "Run first",
+            queueItemId: "queue-1",
+            status: "completed",
+          }),
+        );
+        harness.options.queueTaskAutoRefreshRequest = {
+          completedAt: "2026-05-20T10:02:00.000Z",
+          executorWidgetInstanceId: "executor-1",
+          finalStatus: "completed",
+          id: 1,
+          queueItemId: "queue-1",
+          repoRoot: "/repo",
+          runId: "run-1",
+          startedAt: "2026-05-20T10:01:00.000Z",
+          taskTitle: "Queue task",
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+        };
+      });
+      hook.rerender(undefined);
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+
+      expect(harness.startRequests).toHaveLength(2);
+      expect(harness.startRequests[1].queueItemId).toBe("queue-3");
+      expect(hook.result.current.autonomous.status).toBe("running");
+      expect(hook.result.current.autonomous.activeTaskTitle).toBe(
+        "Independent task",
+      );
+      expect(hook.result.current.autonomous.completedCount).toBe(1);
+      expect(hook.result.current.autonomous.skippedBlockedCount).toBe(1);
+      expect(hook.result.current.autonomous.remainingEligibleCount).toBe(0);
+      expect(
+        hook.result.current.tasks.find((task) => task.queueItemId === "queue-2")
+          ?.status,
+      ).toBe("ready");
 
       hook.unmount();
     } finally {

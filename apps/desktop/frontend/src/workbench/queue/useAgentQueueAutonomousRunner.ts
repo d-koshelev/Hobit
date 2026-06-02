@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,6 +20,8 @@ import {
   normalizeItemType,
   normalizeQueueTag,
   normalizeTaskExecutionPolicy,
+  normalizeTaskStatus,
+  normalizeValidationStatus,
   shortWidgetInstanceId,
 } from "../agentQueueTaskUiModel";
 import type { DirectWorkQueueTaskAutoRefreshRequest, WidgetRenderProps } from "../types";
@@ -34,6 +37,7 @@ import type {
 import type { AgentQueueLocalTaskFields } from "./useAgentQueueTaskActions";
 import {
   AUTONOMOUS_REPORT_READY_NOTE,
+  DEPENDENCY_BLOCKER,
   NO_ELIGIBLE_TASK_BLOCKER,
   assessAutonomousSuccess,
   autonomousPreconditionMessages,
@@ -131,7 +135,9 @@ export function useAgentQueueAutonomousRunner({
   });
   const activeRunRef = useRef<ActiveAutonomousRun | null>(null);
   const inFlightRef = useRef(false);
+  const lastDependencyWaitQueueSignatureRef = useRef<string | null>(null);
   const stopAfterCurrentRef = useRef(false);
+  const waitingForDependencyRef = useRef(false);
   const startedQueueItemIdsRef = useRef<Set<string>>(new Set());
   const countersRef = useRef(counters);
 
@@ -142,19 +148,46 @@ export function useAgentQueueAutonomousRunner({
       onStartAssignedAgentQueueTask &&
       onUpdateAgentQueueTask,
   );
+  const autonomousActive =
+    status === "running" ||
+    status === "stopping" ||
+    (status === "blocked" && waitingForDependencyRef.current);
   const preconditionMessages = useMemo(
     () =>
       autonomousPreconditionMessages({
         apiAvailable,
-        isStarting: isStarting || inFlightRef.current || isAutonomousActive(status),
+        isStarting: isStarting || inFlightRef.current || autonomousActive,
       }),
     [
       apiAvailable,
+      autonomousActive,
       isStarting,
-      status,
     ],
   );
   const canStart = preconditionMessages.length === 0;
+
+  useEffect(() => {
+    if (!autonomousActive || inFlightRef.current) {
+      return;
+    }
+
+    const activeRun = activeRunRef.current;
+    if (!activeRun) {
+      if (waitingForDependencyRef.current) {
+        const queueSignature = autonomousQueueStateSignature(tasksRef.current);
+        if (lastDependencyWaitQueueSignatureRef.current === queueSignature) {
+          return;
+        }
+
+        lastDependencyWaitQueueSignatureRef.current = queueSignature;
+        void advance();
+      }
+      return;
+    }
+
+    lastDependencyWaitQueueSignatureRef.current = null;
+    void reconcileActiveRunWithQueueState(activeRun);
+  });
 
   function start() {
     if (!canStart || inFlightRef.current) {
@@ -162,6 +195,8 @@ export function useAgentQueueAutonomousRunner({
     }
 
     stopAfterCurrentRef.current = false;
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
     startedQueueItemIdsRef.current = new Set();
     activeRunRef.current = null;
     setCounters({
@@ -219,7 +254,12 @@ export function useAgentQueueAutonomousRunner({
 
       if (!decision.task) {
         const taskBlockers = autonomousTaskBlockerMessages(preflightOptions);
-        block(taskBlockers[0] ?? NO_ELIGIBLE_TASK_BLOCKER);
+        const taskBlocker = taskBlockers[0] ?? NO_ELIGIBLE_TASK_BLOCKER;
+        if (taskBlocker === DEPENDENCY_BLOCKER) {
+          waitForDependencies(taskBlocker);
+        } else {
+          completeNoEligible(taskBlocker);
+        }
         return;
       }
 
@@ -237,6 +277,8 @@ export function useAgentQueueAutonomousRunner({
 
   async function advance() {
     if (stopAfterCurrentRef.current) {
+      waitingForDependencyRef.current = false;
+      lastDependencyWaitQueueSignatureRef.current = null;
       setStatus("completed");
       setCurrentStage(null);
       setActiveTaskTitle(null);
@@ -254,21 +296,19 @@ export function useAgentQueueAutonomousRunner({
     }));
 
     if (!decision.task) {
-      setStatus("completed");
-      setCurrentStage(null);
-      setActiveTaskTitle(null);
-      setMessage("Autonomous Queue completed.");
-      addTimeline(
-        "Autonomous Queue completed",
-        decision.skippedCount > 0
-          ? `Skipped ${decision.skippedCount.toString()} blocked or ineligible task(s).`
-          : "No eligible tasks remain.",
-        "success",
-      );
+      if (decision.skippedCount > 0) {
+        waitForDependencies(DEPENDENCY_BLOCKER);
+      } else {
+        completeNoEligible("No eligible tasks remain.");
+      }
       return;
     }
 
-      await startTask(decision.task);
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
+    setStatus("running");
+    setMessage("Starting next task.");
+    await startTask(decision.task);
   }
 
   async function startTask(task: AgentQueueTask) {
@@ -314,6 +354,7 @@ export function useAgentQueueAutonomousRunner({
         runId: response.runId,
         taskTitle: task.title,
       };
+      waitingForDependencyRef.current = false;
       startedQueueItemIdsRef.current.add(response.queueItemId);
       onDirectWorkRunHandoffStarted?.({
         executorWidgetInstanceId: response.executorWidgetInstanceId,
@@ -384,6 +425,8 @@ export function useAgentQueueAutonomousRunner({
         detail,
       });
       activeRunRef.current = null;
+      waitingForDependencyRef.current = false;
+      lastDependencyWaitQueueSignatureRef.current = null;
       incrementCounter("completed");
       setLatestReportState("Report ready. Awaiting coordinator review.");
       addTimeline("Report ready", AUTONOMOUS_REPORT_READY_NOTE, "success");
@@ -394,6 +437,70 @@ export function useAgentQueueAutonomousRunner({
       fail(errorToMessage(caughtError, "Autonomous Queue task completion failed."));
     } finally {
       inFlightRef.current = false;
+    }
+  }
+
+  async function reconcileActiveRunWithQueueState(activeRun: ActiveAutonomousRun) {
+    const currentTask = taskById(activeRun.queueItemId);
+
+    if (!currentTask) {
+      activeRunRef.current = null;
+      lastDependencyWaitQueueSignatureRef.current = null;
+      setActiveTaskTitle(null);
+      setCurrentStage("queue changed");
+      setMessage("Active task is no longer in the queue. Starting next task.");
+      addTimeline(
+        "Active task cleared",
+        "The active Queue item is no longer visible.",
+        "warning",
+      );
+      await advance();
+      return;
+    }
+
+    const taskStatus = normalizeTaskStatus(currentTask.status);
+    const validationStatus = normalizeValidationStatus(currentTask.validationStatus);
+    const coordinatorStatus = currentTask.coordinatorStatus ?? "not_reported";
+
+    if (taskStatus === "running" || taskStatus === "queued" || taskStatus === "ready") {
+      return;
+    }
+
+    if (
+      taskStatus === "failed" ||
+      taskStatus === "cancelled" ||
+      validationStatus === "failed" ||
+      coordinatorStatus === "failed"
+    ) {
+      activeRunRef.current = null;
+      lastDependencyWaitQueueSignatureRef.current = null;
+      fail(`Active task ${currentTask.title} ended with ${taskStatus}.`);
+      return;
+    }
+
+    if (taskStatus === "completed" && !taskHasReportReadyState(currentTask)) {
+      await completeTask(activeRun, "completed");
+      return;
+    }
+
+    if (taskReleasesAutonomousRunner(currentTask)) {
+      activeRunRef.current = null;
+      lastDependencyWaitQueueSignatureRef.current = null;
+      incrementCounter("completed");
+      setActiveTaskTitle(null);
+      setCurrentStage("starting next task");
+      setLatestReportState(
+        coordinatorStatus === "finalized"
+          ? "Coordinator finalized."
+          : "Report ready. Awaiting coordinator review.",
+      );
+      setMessage("Starting next eligible task.");
+      addTimeline(
+        "Active task released",
+        `${currentTask.title} is no longer running.`,
+        "success",
+      );
+      await advance();
     }
   }
 
@@ -501,6 +608,8 @@ export function useAgentQueueAutonomousRunner({
 
   function fail(reason: string) {
     activeRunRef.current = null;
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
     incrementCounter("failed");
     setLatestReportState("Failed.");
     setStatus("failed");
@@ -513,6 +622,8 @@ export function useAgentQueueAutonomousRunner({
 
   function needsSetup(reason: string) {
     activeRunRef.current = null;
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
     setStatus("needs_setup");
     setCurrentStage(null);
     setActiveTaskTitle(null);
@@ -523,12 +634,42 @@ export function useAgentQueueAutonomousRunner({
 
   function block(reason: string) {
     activeRunRef.current = null;
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
     setStatus("blocked");
     setCurrentStage(null);
     setActiveTaskTitle(null);
     setError(null);
     setMessage(reason);
     addTimeline("Autonomous Queue blocked", reason, "warning");
+  }
+
+  function waitForDependencies(reason: string) {
+    activeRunRef.current = null;
+    if (waitingForDependencyRef.current) {
+      return;
+    }
+
+    waitingForDependencyRef.current = true;
+    lastDependencyWaitQueueSignatureRef.current =
+      autonomousQueueStateSignature(tasksRef.current);
+    setStatus("blocked");
+    setCurrentStage("waiting for dependency finalization");
+    setActiveTaskTitle(null);
+    setError(null);
+    setMessage("Waiting on dependency-blocked tasks.");
+    addTimeline("Autonomous Queue waiting", reason, "warning");
+  }
+
+  function completeNoEligible(reason: string) {
+    activeRunRef.current = null;
+    waitingForDependencyRef.current = false;
+    lastDependencyWaitQueueSignatureRef.current = null;
+    setStatus("completed");
+    setCurrentStage(null);
+    setActiveTaskTitle(null);
+    setMessage("Autonomous Queue completed.");
+    addTimeline("Autonomous Queue completed", reason, "success");
   }
 
   function addTimeline(
@@ -560,6 +701,7 @@ export function useAgentQueueAutonomousRunner({
   return {
     activeQueueItemId: activeRunRef.current?.queueItemId ?? null,
     controller: {
+      activeQueueItemId: activeRunRef.current?.queueItemId ?? null,
       activeTaskTitle,
       apiAvailable,
       approvalPolicy,
@@ -593,12 +735,52 @@ export function useAgentQueueAutonomousRunner({
   };
 }
 
-function isAutonomousActive(status: AgentQueueAutonomousStatus) {
-  return status === "running" || status === "stopping";
-}
-
 function isRunReadinessBlocker(message: string) {
   return /Local executor is already running another task|Local executor unavailable/i.test(
     message,
   );
+}
+
+function taskHasReportReadyState(task: AgentQueueTask) {
+  const coordinatorStatus = task.coordinatorStatus ?? "not_reported";
+
+  return (
+    coordinatorStatus === "awaiting_coordinator_review" ||
+    coordinatorStatus === "ready_for_finalization" ||
+    coordinatorStatus === "finalized" ||
+    (task.workerExecutionReports?.length ?? 0) > 0 ||
+    normalizeValidationStatus(task.validationStatus) === "needs_review"
+  );
+}
+
+function taskReleasesAutonomousRunner(task: AgentQueueTask) {
+  const status = normalizeTaskStatus(task.status);
+  const coordinatorStatus = task.coordinatorStatus ?? "not_reported";
+
+  return (
+    status === "completed" ||
+    status === "review_needed" ||
+    coordinatorStatus === "awaiting_coordinator_review" ||
+    coordinatorStatus === "ready_for_finalization" ||
+    coordinatorStatus === "finalized" ||
+    coordinatorStatus === "needs_changes" ||
+    coordinatorStatus === "follow_up_required" ||
+    coordinatorStatus === "blocked" ||
+    coordinatorStatus === "rollback_required"
+  );
+}
+
+function autonomousQueueStateSignature(tasks: AgentQueueTask[]) {
+  return tasks
+    .map((task) =>
+      [
+        task.queueItemId,
+        task.status,
+        task.coordinatorStatus ?? "not_reported",
+        task.validationStatus ?? "not_started",
+        (task.workerExecutionReports?.length ?? 0).toString(),
+        (task.dependsOn ?? []).join(","),
+      ].join(":"),
+    )
+    .join("|");
 }

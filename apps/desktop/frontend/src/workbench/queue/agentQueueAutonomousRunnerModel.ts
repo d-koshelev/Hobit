@@ -57,17 +57,17 @@ export function autonomousPreflightBlockerMessages({
     messages.push(SAVE_TASK_EDITS_SETUP);
   }
 
-  const missingSettingsTask = firstRunnableCandidateMissingSetup(tasks);
-  if (missingSettingsTask) {
+  const scan = scanAutonomousTasks(tasks, new Set());
+  const missingSettingsTask = scan.firstSetupBlockedTask;
+  if (!scan.nextTask && missingSettingsTask) {
     const setupMessage = autonomousTaskSetupMessage(missingSettingsTask);
     if (setupMessage) {
       messages.push(setupMessage);
     }
   }
 
-  const decision = selectNextAutonomousTask(tasks, new Set());
-  if (!decision.task && !missingSettingsTask) {
-    messages.push(hasDependencyBlockedRunnableCandidate(tasks)
+  if (!scan.nextTask && !missingSettingsTask) {
+    messages.push(scan.dependencyBlockedCount > 0
       ? DEPENDENCY_BLOCKER
       : NO_ELIGIBLE_TASK_BLOCKER);
   }
@@ -103,62 +103,63 @@ export function selectNextAutonomousTask(
   tasks: AgentQueueTask[],
   startedQueueItemIds: ReadonlySet<string>,
 ) {
-  let skippedCount = 0;
+  const scan = scanAutonomousTasks(tasks, startedQueueItemIds);
+
+  return { skippedCount: scan.dependencyBlockedCount, task: scan.nextTask };
+}
+
+function scanAutonomousTasks(
+  tasks: AgentQueueTask[],
+  startedQueueItemIds: ReadonlySet<string>,
+) {
+  let dependencyBlockedCount = 0;
+  let eligibleCount = 0;
+  let firstSetupBlockedTask: AgentQueueTask | null = null;
+  let nextTask: AgentQueueTask | null = null;
 
   for (const task of sortQueueTasksForDisplay(tasks)) {
     if (startedQueueItemIds.has(task.queueItemId)) {
-      skippedCount += 1;
       continue;
     }
 
     const coordinatorStatus = task.coordinatorStatus ?? "not_reported";
     const dependencyState = getQueueTaskDependencyState(task, tasks);
-    const isEligible = taskIsAutonomousEligible(
-      task,
-      dependencyState.status,
-      coordinatorStatus,
-    );
 
-    if (!isEligible) {
-      skippedCount += 1;
+    if (!taskIsRunnableCandidate(task)) {
       continue;
     }
 
-    return { skippedCount, task };
+    if (dependencyState.status !== "ready") {
+      dependencyBlockedCount += 1;
+      continue;
+    }
+
+    if (coordinatorStatusBlocksAutonomousTask(coordinatorStatus)) {
+      continue;
+    }
+
+    if (autonomousTaskSetupMessage(task)) {
+      firstSetupBlockedTask = firstSetupBlockedTask ?? task;
+      continue;
+    }
+
+    eligibleCount += 1;
+    nextTask = nextTask ?? task;
   }
 
-  return { skippedCount, task: null };
+  return {
+    dependencyBlockedCount,
+    eligibleCount,
+    firstSetupBlockedTask,
+    nextTask,
+  };
 }
 
 export function countRemainingAutonomousEligibleTasks(
   tasks: AgentQueueTask[],
   startedQueueItemIds: ReadonlySet<string>,
 ) {
-  return sortQueueTasksForDisplay(tasks).filter((task) => {
-    if (startedQueueItemIds.has(task.queueItemId)) {
-      return false;
-    }
-
-    const dependencyState = getQueueTaskDependencyState(task, tasks);
-
-    return taskIsAutonomousEligible(
-      task,
-      dependencyState.status,
-      task.coordinatorStatus ?? "not_reported",
-    );
-  }).length;
-}
-
-function hasDependencyBlockedRunnableCandidate(tasks: AgentQueueTask[]) {
-  return sortQueueTasksForDisplay(tasks).some((task) => {
-    if (!taskIsRunnableCandidate(task)) {
-      return false;
-    }
-
-    const dependencyState = getQueueTaskDependencyState(task, tasks);
-
-    return dependencyState.status !== "ready";
-  });
+  return scanAutonomousTasks(tasks, startedQueueItemIds).eligibleCount;
 }
 
 export function autonomousTaskSetupMessage(task: AgentQueueTask) {
@@ -194,28 +195,17 @@ function taskIsRunnableCandidate(task: AgentQueueTask) {
   return (
     (status === "queued" || status === "ready" || status === "review_needed") &&
     task.prompt.trim().length > 0 &&
-    coordinatorStatus !== "awaiting_coordinator_review" &&
-    coordinatorStatus !== "finalized" &&
-    coordinatorStatus !== "blocked" &&
-    coordinatorStatus !== "failed" &&
+    !coordinatorStatusBlocksAutonomousTask(coordinatorStatus) &&
     normalizeValidationStatus(task.validationStatus) !== "failed"
   );
 }
 
-function taskIsAutonomousEligible(
-  task: AgentQueueTask,
-  dependencyStatus: string,
-  coordinatorStatus: string,
-) {
+function coordinatorStatusBlocksAutonomousTask(coordinatorStatus: string) {
   return (
-    taskIsRunnableCandidate(task) &&
-    dependencyStatus === "ready" &&
-    coordinatorStatus !== "awaiting_coordinator_review" &&
-    coordinatorStatus !== "finalized" &&
-    coordinatorStatus !== "blocked" &&
-    coordinatorStatus !== "failed" &&
-    normalizeValidationStatus(task.validationStatus) !== "failed" &&
-    !autonomousTaskSetupMessage(task)
+    coordinatorStatus === "awaiting_coordinator_review" ||
+    coordinatorStatus === "finalized" ||
+    coordinatorStatus === "blocked" ||
+    coordinatorStatus === "failed"
   );
 }
 

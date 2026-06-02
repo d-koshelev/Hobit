@@ -108,6 +108,35 @@ describe("Autonomous Queue runner model", () => {
     ).toBe("dependent");
   });
 
+  it("continues to an independent task while a completed prerequisite awaits review", () => {
+    const prerequisite = queueTask({
+      coordinatorStatus: "awaiting_coordinator_review",
+      queueItemId: "prereq",
+      status: "completed",
+    });
+    const dependent = queueTask({
+      dependsOn: ["prereq"],
+      orderIndex: 1,
+      queueItemId: "dependent",
+      title: "Dependent",
+    });
+    const independent = queueTask({
+      orderIndex: 2,
+      queueItemId: "independent",
+      title: "Independent",
+    });
+
+    expect(
+      selectNextAutonomousTask(
+        [prerequisite, dependent, independent],
+        new Set(["prereq"]),
+      ),
+    ).toEqual({
+      skippedCount: 1,
+      task: independent,
+    });
+  });
+
   it("reports dependency blockers when no task can run", () => {
     const prerequisite = queueTask({
       coordinatorStatus: "awaiting_coordinator_review",
@@ -125,6 +154,56 @@ describe("Autonomous Queue runner model", () => {
         tasks: [prerequisite, dependent],
       }),
     ).toEqual([DEPENDENCY_BLOCKER]);
+  });
+
+  it("does not let setup blockers for one candidate hide a later independent eligible task", () => {
+    expect(
+      autonomousPreflightBlockerMessages({
+        hasOpenTaskEdit: false,
+        tasks: [
+          queueTask({
+            executionWorkspace: null,
+            orderIndex: 0,
+            queueItemId: "missing-setup",
+          }),
+          queueTask({
+            orderIndex: 1,
+            queueItemId: "eligible",
+          }),
+        ],
+      }),
+    ).toEqual([]);
+
+    expect(
+      selectNextAutonomousTask(
+        [
+          queueTask({
+            executionWorkspace: null,
+            orderIndex: 0,
+            queueItemId: "missing-setup",
+          }),
+          queueTask({
+            orderIndex: 1,
+            queueItemId: "eligible",
+          }),
+        ],
+        new Set(),
+      ).task?.queueItemId,
+    ).toBe("eligible");
+  });
+
+  it("stops with setup guidance when all remaining runnable candidates lack settings", () => {
+    expect(
+      autonomousPreflightBlockerMessages({
+        hasOpenTaskEdit: false,
+        tasks: [
+          queueTask({
+            executionWorkspace: null,
+            queueItemId: "missing-setup",
+          }),
+        ],
+      }),
+    ).toEqual(["Task Queue task is missing execution workspace."]);
   });
 
   it("does not accept missing evidence, failed runs, or blocker text", () => {
