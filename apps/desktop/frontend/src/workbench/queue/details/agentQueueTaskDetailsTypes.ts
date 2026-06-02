@@ -30,6 +30,7 @@ export type DirectWorkEvidence = {
   error: string | null;
   finalText: string;
   gitStatusSummary: string | null;
+  outputExcerpt: string;
   status: "completed" | "failed";
   summary: string;
   visibleSummary: string;

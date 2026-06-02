@@ -902,9 +902,12 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       runEvidence: runEvidenceController(runDetail({
         finalMessage: "Final Direct Work response visible to coordinator.",
         resultPayload: JSON.stringify({
+          agents_md: "# AGENTS.md",
           command_summary: ["codex", "exec", "--json"],
-          changed_files: ["apps/desktop/frontend/src/workbench/AgentQueueTaskDetailsPanel.tsx"],
+          changed_files: [],
+          git_status_summary: "main...origin/main [ahead 1]",
           status: "completed",
+          working_directory: "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
         }),
         resultSummary: "Codex Direct Work stream completed",
       })),
@@ -937,10 +940,20 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(promptText).toContain("Prompt");
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("StatusPassed");
-    expect(resultText).toContain("Working directoryC:\\repo");
-    expect(resultText).toContain("Files changed by this run1 reported");
-    expect(resultText).toContain("Command summary: codex exec --json");
+    expect(resultText).toContain(
+      "Working directoryC:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+    );
+    expect(resultText).toContain("AGENTS.md first line# AGENTS.md");
+    expect(resultText).toContain("Git statusmain...origin/main [ahead 1]");
+    expect(resultText).toContain("Files changed by this runNone");
     expect(resultText).toContain("Final Direct Work response visible to coordinator.");
+    expect(resultText).not.toContain(
+      "Evidence summary for coordinator review. Raw output is collapsed below.",
+    );
+    expect(resultText).not.toContain("Command summary:");
+    expect(resultText).not.toContain(
+      "Execution completion is evidence for coordinator review.",
+    );
     expect(resultText).not.toContain("No report");
     expect(resultText).not.toContain("No worker report");
     expect(decisionText).toContain("Awaiting coordinator review");
@@ -1137,9 +1150,13 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       runEvidence: runEvidenceController(runDetail({
         errorMessage: "Codex executable not found.",
         finalMessage: null,
+        resultPayload: JSON.stringify({
+          command_summary: ["codex", "exec", "--json"],
+        }),
         resultStatus: "failed",
         resultSummary: "Codex Direct Work stream failed",
         stderrPreview: "Codex executable not found.",
+        stdoutPreview: null,
         summary: {
           ...runDetail().summary,
           status: "failed",
@@ -1158,7 +1175,13 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(decisionText).toContain("Create follow-up");
     expect(reportText).toContain("Run failed");
     expect(reportText).toContain("StatusFailed");
-    expect(reportText).toContain("Final error");
+    expect(reportText).toContain("Failed commandcodex exec --json");
+    expect(reportText).toContain("ErrorCodex executable not found.");
+    expect(reportText).toContain("OutputCodex Direct Work stream failed");
+    expect(reportText).not.toContain("Final error");
+    expect(reportText).not.toContain(
+      "Evidence summary for coordinator review. Raw output is collapsed below.",
+    );
     expect(reportText).toContain("Codex executable not found.");
     expect(reportText).not.toContain("No report");
   });

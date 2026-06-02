@@ -29,7 +29,7 @@ export function resultEvidenceState(
     return {
       badge: failed ? "Run failed" : "Report ready",
       badgeVariant: failed ? "error" : "success",
-      copy: "Evidence summary for coordinator review. Raw output is collapsed below.",
+      copy: "",
       title: failed ? "Run failed" : "Report ready",
     };
   }
@@ -128,6 +128,25 @@ export function directWorkEvidenceForQueue(
       extractGitStatusSummary(allText),
     ]) || null;
   const developerDetails = directWorkDeveloperDetails(detail);
+  const outputExcerpt = previewText(
+    failed
+      ? firstNonEmpty([
+          detail.stdoutPreview,
+          detail.resultSummary,
+          detail.resultContent,
+          detail.stderrPreview,
+          error,
+          "Direct Work failed.",
+        ])
+      : firstNonEmpty([
+          detail.resultSummary,
+          detail.resultContent,
+          detail.stdoutPreview,
+          detail.finalMessage,
+          "Direct Work completed.",
+        ]),
+    260,
+  );
   const visibleSummary = previewText(summary, 260);
 
   return {
@@ -138,6 +157,7 @@ export function directWorkEvidenceForQueue(
     error,
     finalText,
     gitStatusSummary,
+    outputExcerpt,
     status: failed ? "failed" : "completed",
     summary,
     visibleSummary,

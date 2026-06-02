@@ -53,9 +53,11 @@ export function AgentQueueTaskResultEvidenceSection({
           <p className="agent-queue-execution-group-title">
             {state.title}
           </p>
-          <p className="agent-queue-run-note">
-            {state.copy}
-          </p>
+          {state.copy ? (
+            <p className="agent-queue-run-note">
+              {state.copy}
+            </p>
+          ) : null}
         </div>
         <Badge variant={state.badgeVariant}>{state.badge}</Badge>
       </div>
@@ -137,7 +139,7 @@ function WorkerReportEvidenceSummary({
 }) {
   const changedFiles =
     report.changedFiles.length === 0
-      ? "none"
+      ? "None"
       : `${report.changedFiles.length.toString()} reported; see Developer details.`;
   const commandSummary =
     report.commandsRun.length === 0
@@ -204,10 +206,6 @@ function WorkerReportEvidenceSummary({
           View report in Workspace Chat
         </Button>
       </div>
-      <p className="agent-queue-run-note">
-        Coordinator acceptance remains explicit; this report did not finalize
-        the item.
-      </p>
     </div>
   );
 }
@@ -219,51 +217,63 @@ export function DirectWorkEvidenceSummary({
   evidence: DirectWorkEvidence;
   queue: AgentQueueController;
 }) {
+  const failed = evidence.status === "failed";
+
   return (
     <div className="agent-queue-human-report-summary">
-      <dl className="agent-queue-result-evidence-facts">
-        <div>
-          <dt>Status</dt>
-          <dd>{evidence.status === "failed" ? "Failed" : "Passed"}</dd>
-        </div>
-        <div>
-          <dt>Working directory</dt>
-          <dd>{evidence.workingDirectory ?? "Not reported"}</dd>
-        </div>
-        <div>
-          <dt>AGENTS.md</dt>
-          <dd>{evidence.agentsSummary ?? "Not reported"}</dd>
-        </div>
-        <div>
-          <dt>Git status</dt>
-          <dd>{evidence.gitStatusSummary ?? "Not reported"}</dd>
-        </div>
-        <div>
-          <dt>Files changed by this run</dt>
-          <dd>{evidence.changedFilesSummary ?? "none"}</dd>
-        </div>
-      </dl>
-      <p className="agent-queue-worker-report-summary">
-        {evidence.visibleSummary}
-      </p>
-      {evidence.error ? (
-        <p className="agent-queue-run-warning">Final error: {evidence.error}</p>
-      ) : null}
-      {evidence.commandSummary ? (
-        <p className="agent-queue-run-note">
-          Command summary: {evidence.commandSummary}
-        </p>
-      ) : null}
+      {failed ? (
+        <dl className="agent-queue-result-evidence-facts">
+          <div>
+            <dt>Status</dt>
+            <dd>Failed</dd>
+          </div>
+          <div>
+            <dt>Failed command</dt>
+            <dd className="agent-queue-mono">
+              {evidence.commandSummary ?? "Not reported"}
+            </dd>
+          </div>
+          <div>
+            <dt>Error</dt>
+            <dd>{evidence.error ?? "Not reported"}</dd>
+          </div>
+          <div>
+            <dt>Output</dt>
+            <dd>{evidence.outputExcerpt}</dd>
+          </div>
+        </dl>
+      ) : (
+        <dl className="agent-queue-result-evidence-facts">
+          <div>
+            <dt>Status</dt>
+            <dd>Passed</dd>
+          </div>
+          <div>
+            <dt>Working directory</dt>
+            <dd className="agent-queue-mono">
+              {evidence.workingDirectory ?? "Not reported"}
+            </dd>
+          </div>
+          <div>
+            <dt>AGENTS.md first line</dt>
+            <dd>{evidence.agentsSummary ?? "Not reported"}</dd>
+          </div>
+          <div>
+            <dt>Git status</dt>
+            <dd>{evidence.gitStatusSummary ?? "Not reported"}</dd>
+          </div>
+          <div>
+            <dt>Files changed by this run</dt>
+            <dd>{formatChangedFilesSummary(evidence.changedFilesSummary)}</dd>
+          </div>
+        </dl>
+      )}
       <details className="agent-queue-details agent-queue-secondary-details">
         <summary>Full output</summary>
         <pre className="agent-queue-flow-selection-prompt">
           {evidence.finalText}
         </pre>
       </details>
-      <p className="agent-queue-run-note">
-        Execution completion is evidence for coordinator review. It is not
-        coordinator acceptance or finalization.
-      </p>
       <div className="agent-queue-run-actions">
         <Button
           disabled={!queue.runEvidence.apiAvailable || queue.runEvidence.isLoading}
@@ -281,6 +291,14 @@ export function DirectWorkEvidenceSummary({
       ) : null}
     </div>
   );
+}
+
+function formatChangedFilesSummary(value: string | null) {
+  if (!value || value === "none") {
+    return "None";
+  }
+
+  return value;
 }
 
 function scrollToDeveloperDetails() {
