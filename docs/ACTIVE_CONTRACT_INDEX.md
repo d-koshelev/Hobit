@@ -38,6 +38,18 @@ checklist for future Codex-driven feature slices. It does not override product
 contracts, does not expand the global mandatory read set, and does not make
 Planned or Deferred behavior current.
 
+`docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` is the docs-only process contract for
+contract-first new widget and major widget change work. It requires product
+scenario, Widget API, state machine, UI composition, action/event, semantic
+test, file/component budget, and out-of-scope planning before implementation.
+It does not add runtime behavior, frontend UI, backend APIs, storage/schema,
+semantic test runner behavior, or new widgets.
+
+`docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
+authoring widget contracts before implementation. It includes Queue and Finder
+examples for planning vocabulary only; Finder remains future/reference unless
+explicitly implemented by a future block.
+
 `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
 a process/status document only. It does not override product contracts,
 `docs/CURRENT_WIDGET_SURFACE.md`, or task-specific domain contracts.
@@ -93,6 +105,14 @@ of truth for their domains.
 - `docs/development/FEATURE_SLICE_CHECKLIST.md` - process checklist for
   docs-only, frontend-only, dev/mock/fallback, persisted workspace,
   runtime/tooling, and compatibility/deprecation feature slices.
+- `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` - contract-first widget
+  implementation process, Definition of Ready/Done, Widget API, state machine,
+  UI composition, semantic testing, block hygiene, and file/component budget
+  rules for new widgets and major widget changes.
+- `docs/WIDGET_CONTRACT_TEMPLATE.md` - reusable widget contract template for
+  planning purpose, user, scenario, Widget API shape, state machine, UI
+  composition, safety, semantic tests, file plan, validation, acceptance, and
+  future compatibility notes.
 - `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` - Phase 1 completion status,
   validation baseline, deferred/backlog items, and recommended Phase 2 start.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - foundation refactor checkpoint,
@@ -181,6 +201,13 @@ unless the task explicitly requests it.
   test hooks, safety policy, app-native action rules, and semantic widget
   testing. It does not add runtime APIs, Finder, storage/schema, backend/Tauri
   commands, provider tools, or widget behavior changes.
+- `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` - read before any new widget or
+  major widget change. It defines the contract-first planning packet,
+  Definition of Ready/Done, state machine, UI composition, semantic testing,
+  block hygiene, refactor, and file/component budget rules.
+- `docs/WIDGET_CONTRACT_TEMPLATE.md` - use when drafting a new widget contract
+  or major widget change contract. It is a reusable process/template document,
+  not a current behavior contract by itself.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` - read when Workspace Agent or future
   AI surfaces use widgets through controlled capabilities.
 - `docs/WORKSPACE_CAPABILITY_BOUNDARY_CONTRACT.md` - read for Workspace
@@ -380,6 +407,13 @@ These documents should not override the Workspace Agent model or
 
 ## Choosing Docs Per Block
 
+- New widget or major widget change planning: read
+  `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md`, use
+  `docs/WIDGET_CONTRACT_TEMPLATE.md`, then add
+  `docs/WORKSPACE_WIDGET_API_CONTRACT.md`,
+  `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`, and the affected
+  widget/domain contract when one exists. Implementation should not start until
+  the contract packet reaches Definition of Ready.
 - Docs-only product model work: read the default set plus the affected domain
   contract.
 - Workspace Widget API or semantic widget testing model work: read
