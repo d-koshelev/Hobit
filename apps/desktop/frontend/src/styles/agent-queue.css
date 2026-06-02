@@ -2067,6 +2067,13 @@
   gap: var(--space-xs);
 }
 
+.agent-queue-live-events {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
 .agent-queue-human-timeline-item {
   display: grid;
   min-width: 0;
@@ -2376,6 +2383,7 @@
 }
 
 .agent-queue-latest-run-facts,
+.agent-queue-agent-activity-current,
 .agent-queue-run-state-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2452,6 +2460,7 @@
 }
 
 .agent-queue-latest-run-facts > div,
+.agent-queue-agent-activity-current > div,
 .agent-queue-run-state-facts > div {
   display: grid;
   min-width: 0;
@@ -2470,6 +2479,8 @@
 .agent-queue-autorun-facts dd,
 .agent-queue-latest-run-facts dt,
 .agent-queue-latest-run-facts dd,
+.agent-queue-agent-activity-current dt,
+.agent-queue-agent-activity-current dd,
 .agent-queue-run-state-facts dt,
 .agent-queue-run-state-facts dd {
   margin: 0;
@@ -2477,6 +2488,7 @@
 
 .agent-queue-autorun-facts dt,
 .agent-queue-latest-run-facts dt,
+.agent-queue-agent-activity-current dt,
 .agent-queue-run-state-facts dt {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -2493,6 +2505,7 @@
 
 .agent-queue-autorun-facts dd,
 .agent-queue-latest-run-facts dd,
+.agent-queue-agent-activity-current dd,
 .agent-queue-run-state-facts dd {
   color: var(--color-text-primary);
   font-size: var(--text-xs);
@@ -2883,6 +2896,7 @@
   .agent-queue-autorun-facts,
   .agent-queue-expanded-facts,
   .agent-queue-latest-run-facts,
+  .agent-queue-agent-activity-current,
   .agent-queue-run-state-facts,
   .agent-queue-plan-facts,
   .agent-queue-result-evidence-facts,
@@ -2956,6 +2970,7 @@
   .agent-queue-autorun-facts,
   .agent-queue-expanded-facts,
   .agent-queue-latest-run-facts,
+  .agent-queue-agent-activity-current,
   .agent-queue-run-state-facts,
   .agent-queue-plan-facts,
   .agent-queue-result-evidence-facts,

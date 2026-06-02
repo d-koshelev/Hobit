@@ -19,6 +19,10 @@ import type {
 import type { WidgetRenderProps } from "../types";
 import type { AgentQueueEmbeddedExecutorSectionModel, AgentQueueSchedulerPlan } from "./agentQueueSchedulerModel";
 import type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
+import type {
+  AgentQueueRunActivitySnapshot,
+  AgentQueueRunActivityState,
+} from "./agentQueueRunActivity";
 
 export type UseAgentQueueControllerOptions = Pick<
   WidgetRenderProps,
@@ -166,6 +170,10 @@ export type AgentQueueRunEvidenceController = {
   error: string | null;
   isLoading: boolean;
   onRefresh: () => void;
+};
+
+export type AgentQueueRunActivityController = AgentQueueRunActivitySnapshot & {
+  eventState: AgentQueueRunActivityState;
 };
 
 export type AgentQueueDeleteController = {

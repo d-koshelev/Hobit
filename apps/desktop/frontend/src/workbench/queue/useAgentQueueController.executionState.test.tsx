@@ -1380,16 +1380,27 @@ describe("useAgentQueueController execution state", () => {
     await act(async () => {
       harness.directWorkStreamListeners[0]?.(
         streamEvent({
-          eventKind: "stdout_line",
+          eventKind: "codex_json_event",
           isFinal: false,
-          line: "working",
+          line: JSON.stringify({
+            item: {
+              command: ["git", "status", "--short", "--branch"],
+              type: "command_execution",
+            },
+            type: "item.started",
+          }),
+          parsedCodexEventType: "item.started",
           runId: "run-1",
         }),
       );
       await flushHookEffects();
     });
 
-    expect(harness.runLinkRequests).toEqual(["queue-1", "queue-1"]);
+    expect(harness.runLinkRequests).toEqual(["queue-1"]);
+    expect(hook.result.current.runActivity.currentStage).toBe("Running commands");
+    expect(hook.result.current.runActivity.lastCommand).toBe(
+      "git status --short --branch",
+    );
     expect(detailRequests).toHaveLength(0);
 
     linkStatus = "completed";
@@ -1445,8 +1456,9 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
-  it("uses slow fallback polling only while the selected run is active", async () => {
+  it("does not use interval polling while the selected run is active", async () => {
     vi.useFakeTimers();
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
 
     try {
       const harness = createQueueHarness([
@@ -1480,24 +1492,18 @@ describe("useAgentQueueController execution state", () => {
 
       await flushControllerLoad();
 
+      expect(setIntervalSpy.mock.calls).toHaveLength(0);
       expect(hook.result.current.selectedTask?.status).toBe("running");
       expect(hook.result.current.latestRun.link?.status).toBe("running");
 
       expect(harness.directWorkStreamListeners).toHaveLength(1);
 
       await act(async () => {
-        vi.advanceTimersByTime(59_000);
+        vi.advanceTimersByTime(180_000);
       });
       await flushControllerLoad();
 
       expect(harness.runLinkRequests).toEqual(["queue-1"]);
-
-      await act(async () => {
-        vi.advanceTimersByTime(1_000);
-      });
-      await flushControllerLoad();
-
-      expect(harness.runLinkRequests).toEqual(["queue-1", "queue-1"]);
       expect(detailRequests).toHaveLength(0);
 
       linkStatus = "completed";
@@ -1511,7 +1517,15 @@ describe("useAgentQueueController execution state", () => {
       );
 
       await act(async () => {
-        vi.advanceTimersByTime(60_000);
+        harness.directWorkStreamListeners[0]?.(
+          streamEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId: "run-1",
+            status: "completed",
+          }),
+        );
       });
       await flushControllerLoad();
 

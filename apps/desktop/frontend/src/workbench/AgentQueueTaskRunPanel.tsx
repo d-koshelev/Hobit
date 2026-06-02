@@ -430,21 +430,21 @@ function QueueTaskRunStatePanel({
             className="agent-queue-execution-group-title"
             title={
               isRunning
-                ? "The selected Queue task is already running in a local executor."
+                ? "The selected Queue task is active."
                 : evidenceMissing
                   ? "The selected Queue task has finished, but no report evidence is attached."
                   : "The selected Queue task has reported evidence for coordinator review."
             }
           >
             {isRunning
-              ? "Running in local executor"
+              ? "Agent activity"
               : failed
                 ? "Run failed"
                 : "Execution complete"}
           </p>
           <p className="agent-queue-run-note">
             {isRunning
-              ? "Waiting for report. Pre-run readiness checks are not the current action."
+              ? "Running - waiting for final response."
               : evidenceMissing
                 ? failed
                   ? "Failure evidence missing. Review is not ready."
@@ -467,7 +467,7 @@ function QueueTaskRunStatePanel({
             }
           >
             {isRunning
-              ? "Executing"
+              ? "Running"
               : evidenceMissing
                 ? failed
                   ? "Failure evidence missing"
@@ -479,24 +479,30 @@ function QueueTaskRunStatePanel({
         </div>
       </div>
 
-      <dl className="agent-queue-run-state-facts">
-        <div>
-          <dt>Local executor</dt>
-          <dd>{executorId ?? "Not recorded"}</dd>
-        </div>
-        <div>
-          <dt>Run id</dt>
-          <dd>{runId ?? "Not recorded"}</dd>
-        </div>
-        <div>
-          <dt>Started</dt>
-          <dd>{link?.startedAt ? formatRunStateTimestamp(link.startedAt) : "Not recorded"}</dd>
-        </div>
-        <div>
-          <dt>Duration</dt>
-          <dd>{runDurationLabel(link?.startedAt, link?.completedAt)}</dd>
-        </div>
-      </dl>
+      {isRunning ? (
+        <p className="agent-queue-run-note">
+          Live events are shown in the selected task Agent activity panel.
+        </p>
+      ) : (
+        <dl className="agent-queue-run-state-facts">
+          <div>
+            <dt>Local executor</dt>
+            <dd>{executorId ?? "Not recorded"}</dd>
+          </div>
+          <div>
+            <dt>Run id</dt>
+            <dd>{runId ?? "Not recorded"}</dd>
+          </div>
+          <div>
+            <dt>Started</dt>
+            <dd>{link?.startedAt ? formatRunStateTimestamp(link.startedAt) : "Not recorded"}</dd>
+          </div>
+          <div>
+            <dt>Duration</dt>
+            <dd>{runDurationLabel(link?.startedAt, link?.completedAt)}</dd>
+          </div>
+        </dl>
+      )}
 
       <div className="agent-queue-run-actions">
         <Button
@@ -550,6 +556,7 @@ export function AgentQueueTaskRunAdvancedDetails({
   runHistory,
   runner,
   selectedTask,
+  wrapInDetails = true,
 }: {
   autorun: AgentQueueAutorunController;
   dependencyState?: AgentQueueDependencyState;
@@ -570,14 +577,14 @@ export function AgentQueueTaskRunAdvancedDetails({
   runHistory: AgentQueueRunHistoryController;
   runner: AgentQueueRunnerController;
   selectedTask: AgentQueueTask;
+  wrapInDetails?: boolean;
 }) {
   const queueTagPaused = queueTagSummary?.status === "paused";
   const validationStatus = normalizeValidationStatus(selectedTask.validationStatus);
   const itemType = normalizeItemType(selectedTask.itemType);
 
-  return (
-    <details className="agent-queue-details agent-queue-secondary-details agent-queue-developer-details">
-      <summary>Developer details</summary>
+  const content = (
+    <>
       <dl className="agent-queue-item-foundation-facts">
         <div>
           <dt>Queue tag</dt>
@@ -689,6 +696,17 @@ export function AgentQueueTaskRunAdvancedDetails({
       <AgentQueueSequentialRunnerPanel runner={runner} />
 
       <AgentQueueAutorunPanel autorun={autorun} />
+    </>
+  );
+
+  if (!wrapInDetails) {
+    return content;
+  }
+
+  return (
+    <details className="agent-queue-details agent-queue-secondary-details agent-queue-developer-details">
+      <summary>Developer details</summary>
+      {content}
     </details>
   );
 }

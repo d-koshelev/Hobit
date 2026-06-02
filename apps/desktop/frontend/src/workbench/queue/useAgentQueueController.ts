@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentExecutorRunDetail, AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox, DirectWorkStreamEvent } from "../../workspace/types";
 import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, errorToMessage, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueAutonomousController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueAutonomousController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunActivityController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -33,6 +33,11 @@ import {
 import {
   queueTaskOrderingControls,
 } from "./agentQueueOrderingActions";
+import {
+  appendAgentQueueRunActivityEvent,
+  buildAgentQueueRunActivitySnapshot,
+  emptyAgentQueueRunActivityState,
+} from "./agentQueueRunActivity";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 import { useAgentQueueAutonomousRunner } from "./useAgentQueueAutonomousRunner";
 import { createAgentQueuePlanningActions } from "./useAgentQueuePlanningActions";
@@ -70,14 +75,13 @@ export type {
   AgentQueueLatestRunLinkController,
   AgentQueueOrderingController,
   AgentQueueReportActionCardController,
+  AgentQueueRunActivityController,
   AgentQueueRunController,
   AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
   AgentQueueWorkerReportController,
 } from "./agentQueueControllerTypes";
-
-const SELECTED_ACTIVE_RUN_FALLBACK_POLL_MS = 60_000;
 
 export function useAgentQueueController({
   agentExecutorSlots = [],
@@ -172,8 +176,11 @@ export function useAgentQueueController({
   const [runEvidenceError, setRunEvidenceError] = useState<string | null>(null);
   const [isRunEvidenceLoading, setIsRunEvidenceLoading] = useState(false);
   const startInFlightRef = useRef(false);
-  const activeRunPollInFlightRef = useRef(false);
+  const selectedRunEventRefreshInFlightRef = useRef(false);
   const runEvidenceRequestKeyRef = useRef<string | null>(null);
+  const [runActivityState, setRunActivityState] = useState(
+    emptyAgentQueueRunActivityState,
+  );
   const tasksRef = useRef<AgentQueueTask[]>([]);
   const [autorunSnapshot, setAutorunSnapshot] =
     useState<AgentQueueRunnerSnapshot | null>(null);
@@ -549,6 +556,10 @@ export function useAgentQueueController({
     setStartError(null);
   }, [selectedTask?.queueItemId]);
 
+  useEffect(() => {
+    setRunActivityState(emptyAgentQueueRunActivityState());
+  }, [latestRunLink?.directWorkRunId, selectedTask?.queueItemId]);
+
   const refreshLatestRunLink = useCallback(
     async (
       queueItemId: string | null | undefined,
@@ -571,49 +582,6 @@ export function useAgentQueueController({
   useEffect(() => {
     void refreshLatestRunLink(selectedTask?.queueItemId ?? null);
   }, [refreshLatestRunLink, selectedTask?.queueItemId]);
-
-  useEffect(() => {
-    const selectedTaskId = selectedTask?.queueItemId ?? null;
-    const hasActiveSelectedRun =
-      Boolean(selectedTaskId) &&
-      (selectedTask?.status === "running" || latestRunLink?.status === "running");
-
-    if (!selectedTaskId || !hasActiveSelectedRun) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function pollSelectedRunFallback() {
-      if (cancelled || activeRunPollInFlightRef.current) {
-        return;
-      }
-
-      activeRunPollInFlightRef.current = true;
-
-      try {
-        await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
-        await refreshLatestRunLink(selectedTaskId, { silent: true });
-      } finally {
-        activeRunPollInFlightRef.current = false;
-      }
-    }
-
-    const intervalId = window.setInterval(() => {
-      void pollSelectedRunFallback();
-    }, SELECTED_ACTIVE_RUN_FALLBACK_POLL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [
-    latestRunLink?.status,
-    loadTasks,
-    refreshLatestRunLink,
-    selectedTask?.queueItemId,
-    selectedTask?.status,
-  ]);
 
   useEffect(() => {
     const selectedTaskId = selectedTask?.queueItemId ?? null;
@@ -645,20 +613,26 @@ export function useAgentQueueController({
           runId: activeSelectedRunId,
           widgetInstanceId: activeSelectedExecutorWidgetId,
         }) ||
-        (!event.isFinal && activeRunPollInFlightRef.current)
+        (!event.isFinal && selectedRunEventRefreshInFlightRef.current)
       ) {
         return;
       }
 
-      activeRunPollInFlightRef.current = true;
+      setRunActivityState((current) =>
+        appendAgentQueueRunActivityEvent(current, event),
+      );
+
+      if (!event.isFinal) {
+        return;
+      }
+
+      selectedRunEventRefreshInFlightRef.current = true;
 
       try {
-        if (event.isFinal) {
-          await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
-        }
+        await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
         await refreshLatestRunLink(selectedTaskId, { silent: true });
       } finally {
-        activeRunPollInFlightRef.current = false;
+        selectedRunEventRefreshInFlightRef.current = false;
       }
     }
 
@@ -1301,6 +1275,26 @@ export function useAgentQueueController({
     updateRepoRootDraft,
   } = runActions;
 
+  const runActivitySnapshot = useMemo(
+    () =>
+      selectedTask
+        ? buildAgentQueueRunActivitySnapshot({
+            activity: runActivityState,
+            latestRun: latestRunLink,
+            selectedTask,
+          })
+        : {
+            currentMessage: "No Queue task selected.",
+            currentStage: "Starting" as const,
+            lastCommand: null,
+            lastCommandStatus: null,
+            rawEvents: [],
+            recentEvents: [],
+            statusLine: "No active run selected.",
+          },
+    [latestRunLink, runActivityState, selectedTask],
+  );
+
   function markReportActionCardShown(cardId: string) {
     if (!selectedTask) {
       return;
@@ -1477,6 +1471,10 @@ export function useAgentQueueController({
       isLoading: isRunEvidenceLoading,
       onRefresh: () => void refreshRunEvidence(latestRunLink),
     } satisfies AgentQueueRunEvidenceController,
+    runActivity: {
+      ...runActivitySnapshot,
+      eventState: runActivityState,
+    } satisfies AgentQueueRunActivityController,
     runHistory: {
       apiAvailable: Boolean(
         onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,

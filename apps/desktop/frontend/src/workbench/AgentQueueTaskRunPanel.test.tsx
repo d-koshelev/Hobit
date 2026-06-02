@@ -10,6 +10,7 @@ import type {
   AgentQueueAutonomousController,
   AgentQueueExecutionPlanController,
   AgentQueueLatestRunLinkController,
+  AgentQueueRunActivityController,
   AgentQueueRunController,
   AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
@@ -531,10 +532,13 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
 
     const executionText = executionSectionText();
 
-    expect(executionText).toContain("Running in local executor");
-    expect(executionText).toContain("Waiting for report");
-    expect(executionText).toContain("queue_owned_executor");
-    expect(executionText).toContain("run_active_123456");
+    expect(executionText).toContain("Agent activity");
+    expect(executionText).toContain("Running - waiting for final response.");
+    expect(executionText).toContain(
+      "Live events are shown in the selected task Agent activity panel.",
+    );
+    expect(executionText).not.toContain("queue_owned_executor");
+    expect(executionText).not.toContain("run_active_123456");
     expect(executionText).toContain("Refresh status");
     expect(executionText).not.toContain("Local executor unavailable");
     expect(executionText).not.toContain("Select local executor");
@@ -630,24 +634,24 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
-  it("orders the selected rail as overview, prompt, evidence, actions, logs, then internals", () => {
+  it("orders the selected rail as overview, prompt, actions, agent activity, evidence, then developer details", () => {
     renderDetailsPanel();
 
     const text = document.body.textContent ?? "";
     const overviewIndex = text.indexOf("Overview");
     const promptIndex = text.indexOf("Prompt");
-    const evidenceIndex = text.indexOf("Result / Evidence");
     const actionsIndex = text.indexOf("Actions and settings");
-    const logsIndex = text.indexOf("Logs and report");
-    const internalIndex = text.indexOf("Internal details");
+    const activityIndex = text.indexOf("Agent activity");
+    const evidenceIndex = text.indexOf("Result / Evidence");
+    const developerIndex = text.indexOf("Developer details");
 
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(promptIndex).toBeGreaterThan(overviewIndex);
-    expect(evidenceIndex).toBeGreaterThan(promptIndex);
-    expect(actionsIndex).toBeGreaterThan(evidenceIndex);
-    expect(logsIndex).toBeGreaterThan(actionsIndex);
-    expect(internalIndex).toBeGreaterThan(logsIndex);
-    expect(detailsBySummary("Internal details")?.open).toBe(false);
+    expect(actionsIndex).toBeGreaterThan(promptIndex);
+    expect(activityIndex).toBeGreaterThan(actionsIndex);
+    expect(evidenceIndex).toBeGreaterThan(activityIndex);
+    expect(developerIndex).toBeGreaterThan(evidenceIndex);
+    expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 
   it("explains that a new draft prompt item needs a ready state before execution", () => {
@@ -674,7 +678,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(document.body.textContent).toContain("Next action");
     expect(document.body.textContent).toContain("Promote to queued");
     expect(document.body.textContent).toContain("Draft task.");
-    expect(document.body.textContent).toContain("No worker report yet.");
+    expect(document.body.textContent).toContain("No run evidence attached.");
 
     clickFirstButton("Edit status");
 
@@ -721,6 +725,51 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
         startedAt: "2026-05-22T10:00:00.000Z",
         status: "running",
       })),
+      runActivity: runActivityController({
+        currentMessage: "Running command: git status --short --branch",
+        currentStage: "Running commands",
+        lastCommand: "git status --short --branch",
+        lastCommandStatus: "Running",
+        rawEvents: [
+          {
+            codexThreadId: null,
+            elapsedMs: 1000,
+            errorMessage: null,
+            eventKind: "codex_json_event",
+            exitCode: null,
+            failedStage: null,
+            finalStatus: null,
+            isFinal: false,
+            line: "{\"type\":\"item.started\"}",
+            parsedCodexEventType: "item.started",
+            runId: "run_active_123456",
+            status: null,
+            stderrPreview: null,
+            text: null,
+            widgetInstanceId: "queue_owned_executor",
+            workbenchId: "workbench-1",
+            workspaceId: "workspace-1",
+          },
+        ],
+        recentEvents: [
+          {
+            command: "git status --short --branch",
+            id: "event-command",
+            runId: "run_active_123456",
+            severity: "info",
+            sourceKind: "agent-executor",
+            sourceLabel: "Queue local executor",
+            sourceWidgetInstanceId: "queue_owned_executor",
+            status: "running",
+            summary: "Running git status --short --branch",
+            timestamp: 1,
+            timestampLabel: "1s",
+            title: "Ran command",
+            workspaceId: "workspace-1",
+          },
+        ],
+        statusLine: "Running - waiting for final response.",
+      }),
       run: {
         ...runController(),
         readinessMessage: "Local executor unavailable.",
@@ -731,23 +780,35 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const actionsText = sectionText("Selected task actions and settings");
-    const reportText = sectionText("Human-readable logs and report");
+    const activityText = sectionText("Agent activity");
+    const resultText = sectionText("Result / Evidence");
+    const developerDetails = detailsBySummary("Developer details");
 
-    expect(overviewText).toContain("Running.");
-    expect(overviewText).toContain("Next: Waiting for worker report.");
-    expect(actionsText).toContain("Waiting for worker report");
-    expect(actionsText).toContain("Running in local executor");
-    expect(actionsText).toContain("queue_owned_executor");
-    expect(actionsText).toContain("run_active_123456");
-    expect(reportText).toContain("Report pending");
-    expect(reportText).toContain("Waiting for worker report.");
-    expect(actionsText).not.toContain("Local executor unavailable");
-    expect(actionsText).not.toContain("Select local executor");
-    expect(actionsText).not.toContain("Assign");
-    expect(actionsText).not.toContain("Run task");
-    expect(actionsText).not.toContain("Before run");
-    expect(actionsText).not.toContain("Promote to queued");
+    expect(overviewText).toContain("Agent is working on this task.");
+    expect(overviewText).toContain("Running");
+    expect(overviewText).toContain("Current stage: Running commands.");
+    expect(overviewText).not.toContain("queue_owned_executor");
+    expect(overviewText).not.toContain("run_active_123456");
+    expect(activityText).toContain("Running - waiting for final response.");
+    expect(activityText).toContain("Current stageRunning commands");
+    expect(activityText).toContain("Current eventRunning command: git status --short --branch");
+    expect(activityText).toContain("Last commandgit status --short --branch");
+    expect(activityText).toContain("Command statusRunning");
+    expect(activityText).toContain("Refresh status");
+    expect(resultText).toContain("Result will appear here when the run completes.");
+    expect(document.body.textContent).not.toContain("Report pending");
+    expect(document.body.textContent).not.toContain("Waiting for worker report");
+    expect(document.body.textContent).not.toContain(
+      "The local executor has not reported a final result yet",
+    );
+    expect(document.body.textContent).not.toContain("Coordinator decision");
+    expect(document.body.textContent).not.toContain("Actions and settings");
+    expect(document.body.textContent).not.toContain("Run task");
+    expect(overviewText).not.toContain("Local executor unavailable");
+    expect(activityText).not.toContain("Local executor unavailable");
+    expect(resultText).not.toContain("Local executor unavailable");
+    expect(developerDetails?.open).toBe(false);
+    expect(developerDetails?.textContent).toContain("Raw Direct Work events");
   });
 
   it("shows completed reported tasks as awaiting coordinator review", () => {
@@ -817,6 +878,27 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
         readinessMessage: "Local executor unavailable.",
         repoRootDraft: "",
       },
+      runActivity: runActivityController({
+        currentMessage: "Run completed.",
+        currentStage: "Report ready",
+        recentEvents: [
+          {
+            id: "event-completed",
+            runId: "run_done_123456",
+            severity: "success",
+            sourceKind: "agent-executor",
+            sourceLabel: "Queue local executor",
+            sourceWidgetInstanceId: "queue_owned_executor",
+            status: "completed",
+            summary: "Agent run completed.",
+            timestamp: 1,
+            timestampLabel: "1s",
+            title: "Completed run",
+            workspaceId: "workspace-1",
+          },
+        ],
+        statusLine: "Completed - final response received.",
+      }),
       runEvidence: runEvidenceController(runDetail({
         finalMessage: "Final Direct Work response visible to coordinator.",
         resultPayload: JSON.stringify({
@@ -833,22 +915,22 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
 
     const overviewText = sectionText("Selected task overview");
     const promptText = sectionText("Prompt summary");
+    const activityText = sectionText("Agent activity");
     const resultText = sectionText("Result / Evidence");
     const decisionText = sectionText("Coordinator decision");
-    const timelineText = sectionText("Activity timeline");
     const fullOutput = detailsBySummary("Full output");
-    const developerDetails = detailsBySummary("Developer details / raw output");
+    const developerDetails = detailsBySummary("Developer details");
     const overviewIndex = document.body.textContent?.indexOf("Overview") ?? -1;
     const promptIndex =
       document.body.textContent?.indexOf("Prompt summary") ?? -1;
+    const activityIndex =
+      document.body.textContent?.indexOf("Agent activity") ?? -1;
     const resultIndex =
       document.body.textContent?.indexOf("Result / Evidence") ?? -1;
     const decisionIndex =
       document.body.textContent?.indexOf("Coordinator decision") ?? -1;
-    const timelineIndex =
-      document.body.textContent?.indexOf("Activity timeline") ?? -1;
     const developerIndex =
-      document.body.textContent?.indexOf("Developer details / raw output") ?? -1;
+      document.body.textContent?.lastIndexOf("Developer details") ?? -1;
 
     expect(overviewText).toContain("Execution complete");
     expect(overviewText).toContain("Awaiting coordinator review");
@@ -866,17 +948,17 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(decisionText).toContain("Request changes");
     expect(decisionText).toContain("Create follow-up");
     expect(decisionText).not.toContain("Finalize / Accept item");
-    expect(timelineText).toContain("Run completed");
-    expect(timelineText).toContain("Report ready");
-    expect(timelineText).toContain("Coordinator review required");
+    expect(activityText).toContain("Run completed");
+    expect(activityText).toContain("Completed - final response received.");
+    expect(activityText).toContain("Report ready");
     expect(fullOutput?.open).toBe(false);
     expect(developerDetails?.open).toBe(false);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(promptIndex).toBeGreaterThan(overviewIndex);
-    expect(resultIndex).toBeGreaterThan(promptIndex);
+    expect(activityIndex).toBeGreaterThan(promptIndex);
+    expect(resultIndex).toBeGreaterThan(activityIndex);
     expect(decisionIndex).toBeGreaterThan(resultIndex);
-    expect(timelineIndex).toBeGreaterThan(decisionIndex);
-    expect(developerIndex).toBeGreaterThan(timelineIndex);
+    expect(developerIndex).toBeGreaterThan(decisionIndex);
   });
 
   it("shows completed tasks without evidence as not ready for coordinator review", () => {
@@ -912,15 +994,35 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
         error: "Direct Work result was not found.",
         isLoading: false,
       }),
+      runActivity: runActivityController({
+        currentMessage: "Run completed.",
+        currentStage: "Report ready",
+        recentEvents: [
+          {
+            id: "event-completed-missing-evidence",
+            runId: "run_done_123456",
+            severity: "success",
+            sourceKind: "agent-executor",
+            sourceLabel: "Queue local executor",
+            sourceWidgetInstanceId: "queue_owned_executor",
+            status: "completed",
+            summary: "Agent run completed.",
+            timestamp: 1,
+            timestampLabel: "1s",
+            title: "Completed run",
+            workspaceId: "workspace-1",
+          },
+        ],
+        statusLine: "Completed - final response received.",
+      }),
       selectedTask,
       tasks: [selectedTask],
       workerReport: workerReportController(null),
     });
 
     const overviewText = sectionText("Selected task overview");
+    const activityText = sectionText("Agent activity");
     const resultText = sectionText("Result / Evidence");
-    const decisionText = sectionText("Coordinator decision");
-    const timelineText = sectionText("Human-readable logs and report");
 
     expect(overviewText).toContain("Execution complete");
     expect(overviewText).toContain("Evidence missing");
@@ -943,15 +1045,11 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(resultText).toContain("Review is not ready");
     expect(resultText).toContain("Direct Work result was not found.");
     expect(resultText).not.toContain("Report ready");
-    expect(decisionText).toContain("Evidence is missing");
-    expect(decisionText).toContain("Accept result");
-    expect(buttonByText("Accept result")?.disabled).toBe(true);
-    expect(decisionText).not.toContain("Awaiting coordinator review");
-    expect(timelineText).toContain("Run completed");
-    expect(timelineText).toContain("Evidence is missing");
-    expect(timelineText).not.toContain("Report ready");
-    expect(timelineText).not.toContain("Coordinator review required");
-    expect(detailsBySummary("Internal details")?.open).toBe(false);
+    expect(activityText).toContain("Report ready");
+    expect(activityText).toContain("Run completed");
+    expect(document.body.textContent).not.toContain("Coordinator decision");
+    expect(buttonByText("Accept result")).toBeUndefined();
+    expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 
   it("shows loading result while Direct Work evidence is being fetched", () => {
@@ -1065,7 +1163,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(reportText).not.toContain("No report");
   });
 
-  it("keeps coordinator finalization collapsed before worker evidence exists", () => {
+  it("hides coordinator finalization before worker evidence exists", () => {
     renderDetailsPanel();
 
     const finalizationDetails = Array.from(
@@ -1076,8 +1174,9 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
       ),
     );
 
-    expect(finalizationDetails).not.toBeUndefined();
-    expect(finalizationDetails?.open).toBe(false);
+    expect(finalizationDetails).toBeUndefined();
+    expect(document.body.textContent).not.toContain("Coordinator decision");
+    expect(buttonByText("Accept result")).toBeUndefined();
   });
 
   it("shows stale and no-plan expected plan states", () => {
@@ -1390,6 +1489,7 @@ function renderDetailsPanel({
   onShowQueueReportInWorkspaceChat,
   reportActionCard,
   run = runController(),
+  runActivity = runActivityController(),
   runEvidence = runEvidenceController(null),
   runHistory = runHistoryController([]),
   selectedTask = queueTask(),
@@ -1413,6 +1513,7 @@ function renderDetailsPanel({
     typeof AgentQueueTaskDetailsPanel
   >["queue"]["reportActionCard"];
   run?: AgentQueueRunController;
+  runActivity?: AgentQueueRunActivityController;
   runEvidence?: AgentQueueRunEvidenceController;
   runHistory?: AgentQueueRunHistoryController;
   selectedTask?: AgentQueueTask;
@@ -1578,6 +1679,7 @@ function renderDetailsPanel({
       ...reportActionCard,
     },
     run,
+    runActivity,
     runEvidence,
     runHistory,
     runner: runnerController(),
@@ -1699,6 +1801,25 @@ function runEvidenceController(
     error: null,
     isLoading: false,
     onRefresh: vi.fn(),
+    ...overrides,
+  };
+}
+
+function runActivityController(
+  overrides: Partial<AgentQueueRunActivityController> = {},
+): AgentQueueRunActivityController {
+  return {
+    currentMessage: "Waiting for final response.",
+    currentStage: "Preparing",
+    eventState: {
+      events: [],
+      rawEvents: [],
+    },
+    lastCommand: null,
+    lastCommandStatus: null,
+    rawEvents: [],
+    recentEvents: [],
+    statusLine: "Running - waiting for final response.",
     ...overrides,
   };
 }

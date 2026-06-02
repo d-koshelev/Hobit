@@ -159,23 +159,71 @@ export function AgentQueueTaskDetailsPanel({
 
           <PromptPreview prompt={selectedTask.prompt} />
 
-          <ResultEvidencePanel
-            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-            queue={queue}
-            selectedTask={selectedTask}
-          />
-
-          {hasReviewEvidenceForTask(queue, selectedTask) ? (
+          {isSelectedTaskRunning(queue, selectedTask) ? (
             <>
-              <CoordinatorFinalizationPanel queue={queue} />
+              <AgentActivitySection queue={queue} selectedTask={selectedTask} />
 
-              <ActivityTimelinePanel queue={queue} selectedTask={selectedTask} />
+              <ResultEvidencePanel
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                queue={queue}
+                selectedTask={selectedTask}
+              />
 
               <details
                 className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details"
                 id="agent-queue-developer-details"
               >
-                <summary>Developer details / raw output</summary>
+                <summary>Developer details</summary>
+                <AgentQueueTaskRunAdvancedDetails
+                  autorun={queue.autorun}
+                  dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
+                  executorSlots={agentExecutorSlots}
+                  executionPlan={queue.executionPlan}
+                  latestRun={queue.latestRun}
+                  onAttachContextToCoordinator={onAttachContextToCoordinator}
+                  onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+                  queueTag={normalizeQueueTag(selectedTask)}
+                  queueTagSummary={queue.foundation.queueTags.find(
+                    (tag) =>
+                      tag.queueTagId === normalizeQueueTag(selectedTask).queueTagId,
+                  )}
+                  routingBlockedLabel={
+                    queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+                      ?.canTake === false
+                      ? queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+                          ?.blockedReasons[0]?.label ?? null
+                      : null
+                  }
+                  routingState={queue.assignedWorkerRoutingStates.get(
+                    selectedTask.queueItemId,
+                  )}
+                  run={run}
+                  runHistory={queue.runHistory}
+                  runner={queue.runner}
+                  selectedTask={selectedTask}
+                  wrapInDetails={false}
+                />
+                <RawRunActivityDetails queue={queue} />
+                <SubmittedMetadata queue={queue} />
+              </details>
+            </>
+          ) : hasReviewEvidenceForTask(queue, selectedTask) ? (
+            <>
+              <AgentActivitySection queue={queue} selectedTask={selectedTask} />
+
+              <ResultEvidencePanel
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                queue={queue}
+                selectedTask={selectedTask}
+              />
+
+              <CoordinatorFinalizationPanel queue={queue} />
+
+              <details
+                className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details"
+                id="agent-queue-developer-details"
+              >
+                <summary>Developer details</summary>
                 <DiffReviewLinkagePanel
                   onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                   queue={queue}
@@ -211,7 +259,9 @@ export function AgentQueueTaskDetailsPanel({
                   runHistory={queue.runHistory}
                   runner={queue.runner}
                   selectedTask={selectedTask}
+                  wrapInDetails={false}
                 />
+                <RawRunActivityDetails queue={queue} />
                 <SubmittedMetadata queue={queue} />
                 <details
                   className="agent-queue-details agent-queue-secondary-details"
@@ -287,16 +337,19 @@ export function AgentQueueTaskDetailsPanel({
                 />
               </section>
 
-              <HumanReadableActivityPanel
+              <AgentActivitySection queue={queue} selectedTask={selectedTask} />
+
+              <ResultEvidencePanel
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 queue={queue}
                 selectedTask={selectedTask}
               />
 
-              <CoordinatorFinalizationPanel queue={queue} />
-
-              <details className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details">
-                <summary>Internal details</summary>
+              <details
+                className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details"
+                id="agent-queue-developer-details"
+              >
+                <summary>Developer details</summary>
                 <DiffReviewLinkagePanel
                   onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                   queue={queue}
@@ -332,7 +385,9 @@ export function AgentQueueTaskDetailsPanel({
                   runHistory={queue.runHistory}
                   runner={queue.runner}
                   selectedTask={selectedTask}
+                  wrapInDetails={false}
                 />
+                <RawRunActivityDetails queue={queue} />
               </details>
 
               <details
@@ -384,9 +439,10 @@ export function AgentQueueTaskDetailsPanel({
           <details className="agent-queue-details agent-queue-safety-details">
             <summary>Queue boundaries</summary>
             <p className="agent-queue-boundary-note">
-              Queue tasks are workspace-local records. Queue does not show live
-              logs, run hidden background scheduling, launch Terminal commands,
-              or mutate Git.
+              Queue tasks are workspace-local records. Queue shows safe
+              event-driven activity for selected runs, while raw execution
+              detail remains Executor-owned. Queue does not run hidden
+              background scheduling, launch Terminal commands, or mutate Git.
             </p>
           </details>
         </div>
@@ -549,9 +605,9 @@ function nextActionForSelectedTask(
       actions,
       badge: "Running",
       badgeVariant: "info" as const,
-      copy: "Waiting for worker report.",
-      secondaryCopy: runningRunSummary(queue),
-      title: "Waiting for worker report",
+      copy: "Running - waiting for final response.",
+      secondaryCopy: null,
+      title: "Agent activity",
       tone: "waiting",
     };
   }
@@ -859,20 +915,6 @@ function isReportReadyStatus(status: string) {
   );
 }
 
-function runningRunSummary(queue: AgentQueueController) {
-  const link = queue.latestRun.link;
-  const executorId =
-    link?.executorWidgetId ?? queue.selectedTask?.assignedExecutorWidgetId ?? null;
-  const runId = link?.directWorkRunId ?? queue.run.startedRunId;
-  const parts = [
-    executorId ? `Local executor: ${executorId}.` : null,
-    runId ? `Run id: ${runId}.` : null,
-    link?.startedAt ? `Started: ${formatTimestamp(link.startedAt)}.` : null,
-  ];
-
-  return parts.filter((part): part is string => Boolean(part)).join(" ");
-}
-
 function scrollToSelectedTaskReport() {
   if (typeof document === "undefined") {
     return;
@@ -972,8 +1014,8 @@ function ResultEvidencePanel({
         </div>
       ) : (
         <p className="agent-queue-run-note">
-          {selectedTask.status === "running"
-            ? "Report pending. The local executor has not reported a final result yet."
+          {isSelectedTaskRunning(queue, selectedTask)
+            ? "Result will appear here when the run completes."
             : "No run evidence attached. Run the task or attach a report before coordinator review."}
         </p>
       )}
@@ -990,12 +1032,12 @@ function resultEvidenceState(
   const failed = isFailedRunEvidence(queue, selectedTask);
   const hasEvidence = Boolean(report || runEvidence);
 
-  if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
+  if (isSelectedTaskRunning(queue, selectedTask)) {
     return {
-      badge: "Report pending",
-      badgeVariant: "warning" as const,
-      copy: "The local executor is still running. Coordinator review waits for evidence.",
-      title: "Report pending",
+      badge: "Running",
+      badgeVariant: "info" as const,
+      copy: "Result will appear here when the run completes.",
+      title: "Result pending",
     };
   }
 
@@ -1023,6 +1065,235 @@ function resultEvidenceState(
     copy: "Run the task or attach a report before coordinator review.",
     title: "No run evidence attached",
   };
+}
+
+function AgentActivitySection({
+  queue,
+  selectedTask,
+}: {
+  queue: AgentQueueController;
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>;
+}) {
+  const activity = queue.runActivity;
+  const isRunning = isSelectedTaskRunning(queue, selectedTask);
+  const recentEvents =
+    activity.recentEvents.length > 0
+      ? activity.recentEvents.map(activityDisplayEvent)
+      : buildFallbackActivityEvents(queue, selectedTask);
+
+  return (
+    <section
+      aria-label="Agent activity"
+      className="agent-queue-expanded-section agent-queue-agent-activity"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <div>
+          <p className="agent-queue-expanded-kicker">Agent activity</p>
+          <p className="agent-queue-execution-group-title">
+            {activity.statusLine}
+          </p>
+          <p className="agent-queue-run-note">
+            Live events from the selected Direct Work run. Manual refresh is a fallback.
+          </p>
+        </div>
+        <div className="agent-queue-execution-badges">
+          <Badge
+            variant={
+              activity.currentStage === "Failed"
+                ? "error"
+                : isRunning
+                  ? "info"
+                  : "success"
+            }
+          >
+            {activity.currentStage}
+          </Badge>
+        </div>
+      </div>
+
+      <dl className="agent-queue-agent-activity-current">
+        <div>
+          <dt>Current stage</dt>
+          <dd>{activity.currentStage}</dd>
+        </div>
+        <div>
+          <dt>Current event</dt>
+          <dd>{activity.currentMessage}</dd>
+        </div>
+        {activity.lastCommand ? (
+          <div>
+            <dt>Last command</dt>
+            <dd className="agent-queue-mono">{activity.lastCommand}</dd>
+          </div>
+        ) : null}
+        {activity.lastCommandStatus ? (
+          <div>
+            <dt>Command status</dt>
+            <dd>{activity.lastCommandStatus}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      <div className="agent-queue-human-timeline agent-queue-live-events">
+        {recentEvents.map((entry) => (
+          <div className="agent-queue-human-timeline-item" key={entry.key}>
+            <Badge variant={entry.badgeVariant}>{entry.badge}</Badge>
+            <div>
+              <p className="agent-queue-human-timeline-title">
+                {entry.title}
+              </p>
+              <p className="agent-queue-human-timeline-copy">
+                {entry.message}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="agent-queue-run-actions">
+        <Button
+          disabled={!queue.latestRun.apiAvailable || queue.latestRun.isLoading}
+          onClick={() => queue.latestRun.onRefresh()}
+          variant="secondary"
+        >
+          Refresh status
+        </Button>
+      </div>
+
+      {queue.latestRun.error ? (
+        <p
+          className="agent-queue-message agent-queue-message-error"
+          role="alert"
+        >
+          {queue.latestRun.error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+type ActivityDisplayEntry = {
+  badge: string;
+  badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
+  key: string;
+  message: string;
+  title: string;
+};
+
+function activityDisplayEvent(event: {
+  id: string;
+  severity: "info" | "success" | "warning" | "error";
+  status: "pending" | "running" | "completed" | "failed";
+  summary?: string;
+  title: string;
+}): ActivityDisplayEntry {
+  return {
+    badge: activityDisplayBadge(event.status),
+    badgeVariant:
+      event.status === "failed"
+        ? "error"
+        : event.status === "completed"
+          ? "success"
+          : event.severity === "warning"
+            ? "warning"
+            : event.status === "running"
+              ? "info"
+              : "neutral",
+    key: event.id,
+    message: event.summary ?? event.title,
+    title: event.title === "Completed run" ? "Run completed" : event.title,
+  };
+}
+
+function activityDisplayBadge(status: ActivityDisplayEntry["badge"] | string) {
+  if (status === "completed") {
+    return "Done";
+  }
+
+  if (status === "failed") {
+    return "Failed";
+  }
+
+  if (status === "running") {
+    return "Running";
+  }
+
+  return "Event";
+}
+
+function RawRunActivityDetails({ queue }: { queue: AgentQueueController }) {
+  const rawEvents = queue.runActivity.rawEvents;
+
+  if (rawEvents.length === 0) {
+    return (
+      <section
+        aria-label="Raw Direct Work events"
+        className="agent-queue-expanded-section agent-queue-raw-events"
+      >
+        <div className="agent-queue-expanded-section-header">
+          <p className="agent-queue-execution-group-title">Raw Direct Work events</p>
+          <Badge variant="neutral">None</Badge>
+        </div>
+        <p className="agent-queue-run-note">
+          Raw stream events appear here after the selected run emits them.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Raw Direct Work events"
+      className="agent-queue-expanded-section agent-queue-raw-events"
+    >
+      <div className="agent-queue-expanded-section-header">
+        <p className="agent-queue-execution-group-title">Raw Direct Work events</p>
+        <Badge variant="neutral">{rawEvents.length.toString()} recent</Badge>
+      </div>
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Raw event payloads</summary>
+        <pre>{JSON.stringify(rawEvents, null, 2)}</pre>
+      </details>
+    </section>
+  );
+}
+
+function buildFallbackActivityEvents(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+): ActivityDisplayEntry[] {
+  const latestRun = queue.latestRun.link;
+  const entries: HumanTimelineEntry[] = [];
+
+  if (latestRun || queue.run.startedRunId || selectedTask.status === "running") {
+    entries.push({
+      badge: "Started",
+      badgeVariant: "info",
+      key: "fallback-started",
+      message: "Run was started from Queue.",
+      title: "Started run",
+    });
+  }
+
+  if (queue.runActivity.currentStage === "Report ready") {
+    entries.push({
+      badge: "Complete",
+      badgeVariant: "success",
+      key: "fallback-completed",
+      message: "Final response received.",
+      title: "Run completed",
+    });
+  } else if (isSelectedTaskRunning(queue, selectedTask)) {
+    entries.push({
+      badge: "Running",
+      badgeVariant: "info",
+      key: "fallback-running",
+      message: "Waiting for final response.",
+      title: queue.runActivity.currentStage,
+    });
+  }
+
+  return entries;
 }
 
 function ActivityTimelinePanel({
@@ -1118,12 +1389,12 @@ function HumanReadableActivityPanel({
         >
           {report
             ? "Report attached"
-            : hasRunResult
-              ? failed
-                ? "Run failed"
-                : "Report ready"
+              : hasRunResult
+                ? failed
+                  ? "Run failed"
+                  : "Report ready"
               : selectedTask.status === "running"
-                ? "Report pending"
+                ? "Running"
                 : "No report"}
         </Badge>
       </div>
@@ -1221,7 +1492,7 @@ function HumanReadableActivityPanel({
       ) : (
         <p className="agent-queue-run-note">
           {selectedTask.status === "running"
-            ? "Report pending. The local executor has not reported a final result yet."
+            ? "Result will appear here when the run completes."
             : "No worker report has been attached yet."}
         </p>
       )}
@@ -1296,7 +1567,7 @@ function buildHumanTimeline(
         badge: "Running",
         badgeVariant: "info",
         key: "run-running",
-        message: "Waiting for worker report.",
+        message: "Running - waiting for final response.",
         time: null,
         title: "Running",
       });
@@ -1936,6 +2207,13 @@ function hasFinishedRunLink(queue: AgentQueueController) {
   return Boolean(status && status !== "running" && status !== "unknown");
 }
 
+function isSelectedTaskRunning(
+  queue: AgentQueueController,
+  selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
+) {
+  return selectedTask.status === "running" || queue.latestRun.link?.status === "running";
+}
+
 function hasReviewEvidenceForTask(
   queue: AgentQueueController,
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
@@ -2154,6 +2432,7 @@ function SelectedTaskOverview({
     routingState,
     task: selectedTask,
   });
+  const isRunning = isSelectedTaskRunning(queue, selectedTask);
 
   return (
     <section
@@ -2165,61 +2444,80 @@ function SelectedTaskOverview({
           <p className="agent-queue-expanded-kicker">Overview</p>
           <h3>{displayTaskTitle(selectedTask)}</h3>
           <p className="agent-queue-overview-state">
-            {overviewStateSentence(queue, selectedTask, executorInfo.label)}
+            {isRunning
+              ? "Agent is working on this task."
+              : overviewStateSentence(queue, selectedTask, executorInfo.label)}
           </p>
         </div>
-        <div
-          className={[
-            "agent-queue-executor-info-box",
-            "agent-queue-executor-info-large",
-            `agent-queue-executor-info-${executorInfo.tone}`,
-          ].join(" ")}
-          title={executorInfo.detail}
-        >
-          <span>Executor</span>
-          <strong>{executorInfo.label}</strong>
-        </div>
+        {isRunning ? null : (
+          <div
+            className={[
+              "agent-queue-executor-info-box",
+              "agent-queue-executor-info-large",
+              `agent-queue-executor-info-${executorInfo.tone}`,
+            ].join(" ")}
+            title={executorInfo.detail}
+          >
+            <span>Executor</span>
+            <strong>{executorInfo.label}</strong>
+          </div>
+        )}
       </div>
 
       <div className="agent-queue-expanded-badges">
-        <Badge variant="neutral">{queueTag.queueTagName}</Badge>
-        <Badge variant="neutral">
-          Priority {queueTaskPriorityLabel(selectedTask.priority)}
-        </Badge>
-        {queue.ordering.orderLabel ? (
-          <Badge variant="neutral">Order {queue.ordering.orderLabel}</Badge>
-        ) : null}
         <Badge variant={statusBadgeVariant(selectedTask.status)}>
-          {selectedTaskStatusRailLabel(selectedTask)}
+          {isRunning ? "Running" : selectedTaskStatusRailLabel(selectedTask)}
         </Badge>
-        {selectedTask.coordinatorStatus &&
+        {isRunning ? (
+          <Badge variant="info">{queue.runActivity.currentStage}</Badge>
+        ) : (
+          <>
+            <Badge variant="neutral">{queueTag.queueTagName}</Badge>
+            <Badge variant="neutral">
+              Priority {queueTaskPriorityLabel(selectedTask.priority)}
+            </Badge>
+            {queue.ordering.orderLabel ? (
+              <Badge variant="neutral">Order {queue.ordering.orderLabel}</Badge>
+            ) : null}
+          </>
+        )}
+        {!isRunning &&
+        selectedTask.coordinatorStatus &&
         selectedTask.coordinatorStatus !== "not_reported" &&
         hasReviewEvidenceForTask(queue, selectedTask) ? (
           <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
             {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
           </Badge>
-        ) : hasReviewEvidenceForTask(queue, selectedTask) ? (
+        ) : !isRunning && hasReviewEvidenceForTask(queue, selectedTask) ? (
           <Badge variant="warning">
             Awaiting coordinator review
           </Badge>
         ) : null}
       </div>
 
-      <p className="agent-queue-overview-next">
-        {overviewNextStep(queue, selectedTask)}
-      </p>
-      <div className="agent-queue-overview-secondary">
-        <span>{executorInfo.label}</span>
-        {latestReportLabel(queue, selectedTask) !== "No worker report" ? (
-          <span>{latestReportLabel(queue, selectedTask)}</span>
-        ) : null}
-        {validationStatus !== "not_started" ? (
-          <span>{validationStatusLabel(validationStatus)}</span>
-        ) : null}
-        {diffReviewHeaderLabel(queue, selectedTask) !== "Not requested" ? (
-          <span>{diffReviewHeaderLabel(queue, selectedTask)}</span>
-        ) : null}
-      </div>
+      {isRunning ? (
+        <p className="agent-queue-overview-next">
+          Current stage: {queue.runActivity.currentStage}.
+        </p>
+      ) : (
+        <>
+          <p className="agent-queue-overview-next">
+            {overviewNextStep(queue, selectedTask)}
+          </p>
+          <div className="agent-queue-overview-secondary">
+            <span>{executorInfo.label}</span>
+            {latestReportLabel(queue, selectedTask) !== "No worker report" ? (
+              <span>{latestReportLabel(queue, selectedTask)}</span>
+            ) : null}
+            {validationStatus !== "not_started" ? (
+              <span>{validationStatusLabel(validationStatus)}</span>
+            ) : null}
+            {diffReviewHeaderLabel(queue, selectedTask) !== "Not requested" ? (
+              <span>{diffReviewHeaderLabel(queue, selectedTask)}</span>
+            ) : null}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -2770,7 +3068,7 @@ function overviewNextStep(
   selectedTask: NonNullable<AgentQueueController["selectedTask"]>,
 ) {
   if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
-    return "Next: Waiting for worker report.";
+    return "Running - waiting for final response.";
   }
 
   if (hasReviewEvidenceForTask(queue, selectedTask)) {
@@ -2832,7 +3130,7 @@ function autonomousNextActionForSelectedTask(
       badge: "Executing",
       badgeVariant: "info" as const,
       copy:
-        "Autonomous runner started this task. Waiting for worker report.",
+        "Autonomous runner started this task. Waiting for final response.",
       secondaryCopy: queue.autonomous.currentStage
         ? `Stage: ${queue.autonomous.currentStage}.`
         : "No per-task Run task click is needed.",

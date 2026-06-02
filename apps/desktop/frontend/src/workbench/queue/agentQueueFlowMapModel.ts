@@ -361,6 +361,12 @@ function hasWorkerReport(task: AgentQueueTask) {
 function flowStatusLabel(task: AgentQueueTask) {
   const coordinatorStatus = normalizeCoordinatorStatus(task.coordinatorStatus);
 
+  if (task.status === "running") {
+    return normalizeValidationStatus(task.validationStatus) === "validating"
+      ? "Validating"
+      : "Running commands";
+  }
+
   if (task.status === "completed") {
     return coordinatorStatus === "finalized" ? "Done" : "Execution complete";
   }
