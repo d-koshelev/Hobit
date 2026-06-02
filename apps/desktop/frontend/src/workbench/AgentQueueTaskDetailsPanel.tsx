@@ -833,8 +833,8 @@ function compactNextActionBlocker(message: string | null | undefined) {
     return "Promote to queued.";
   }
 
-  if (/START|Start queue|stopped/i.test(message)) {
-    return "Start queue.";
+  if (/Enable queue|disabled/i.test(message)) {
+    return "Enable queue.";
   }
 
   return message;

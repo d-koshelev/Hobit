@@ -306,7 +306,7 @@ function reason(
     case "queue_stopped":
       return {
         code,
-        label: "Queue is stopped",
+        label: "Queue is disabled",
       };
     case "queue_stop_kill_requested":
       return {

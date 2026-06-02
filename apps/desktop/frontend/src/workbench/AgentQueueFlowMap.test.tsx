@@ -545,7 +545,7 @@ describe("AgentQueueFlowMap", () => {
     );
   });
 
-  it("shows global STOP as the spare executor dry-run reason", () => {
+  it("shows global disabled state as the spare executor dry-run reason", () => {
     renderFlowMap({
       globalExecutionState: "stopped",
       tasks: [
@@ -557,7 +557,7 @@ describe("AgentQueueFlowMap", () => {
     });
 
     expect(document.querySelector(".agent-queue-flow-executor-spare")?.textContent).toContain(
-      "Queue is stopped",
+      "Queue is disabled",
     );
   });
 

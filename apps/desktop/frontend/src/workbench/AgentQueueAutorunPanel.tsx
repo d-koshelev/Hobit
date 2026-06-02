@@ -93,14 +93,14 @@ export function AgentQueueAutorunPanel({
           onClick={() => autorun.onArm()}
           variant="primary"
         >
-          {autorun.isStarting ? "Starting" : "Start Autorun"}
+          {autorun.isStarting ? "Enabling" : "Enable Autorun"}
         </Button>
         <Button
           disabled={!canStop}
           onClick={() => autorun.onStop()}
           variant="secondary"
         >
-          {autorun.isStopping ? "Stopping" : "Stop Autorun"}
+          {autorun.isStopping ? "Disabling" : "Disable Autorun"}
         </Button>
         <Button
           disabled={!autorun.apiAvailable || autorun.isLoading}
@@ -127,7 +127,7 @@ export function AgentQueueAutorunPanel({
       <details className="agent-queue-details">
         <summary>Limits</summary>
         <p className="agent-queue-run-note">
-          Current-session only. Stop Autorun stops future scheduling, not the
+          Current-session only. Disable Autorun stops future scheduling, not the
           active local executor run.
         </p>
       </details>

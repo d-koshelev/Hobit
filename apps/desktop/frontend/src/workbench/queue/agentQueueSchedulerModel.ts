@@ -22,7 +22,7 @@ export type AgentQueueSchedulerGlobalState = {
   affectedRunningItemIds: string[];
   code: QueueGlobalStatus;
   explanation: string;
-  label: "START" | "STOP" | "STOP + KILL RUNNING";
+  label: "Enabled" | "Disabled" | "STOP + KILL RUNNING";
   runningItemCount: number;
 };
 
@@ -373,7 +373,7 @@ function schedulerGlobalState({
       affectedRunningItemIds,
       allowsScheduling: false,
       code: globalExecutionState,
-      explanation: "Queue is stopped. No new work is recommended.",
+      explanation: "Queue is disabled. No new work is recommended.",
       label: queueGlobalExecutionStateLabel(globalExecutionState),
       runningItemCount: affectedRunningItemIds.length,
     };
@@ -384,7 +384,7 @@ function schedulerGlobalState({
     allowsScheduling: true,
     code: globalExecutionState,
     explanation:
-      "START is active. Dry-run recommendations show what would run without starting work.",
+      "Queue is enabled. Dry-run recommendations show what would run without starting work.",
     label: queueGlobalExecutionStateLabel(globalExecutionState),
     runningItemCount: affectedRunningItemIds.length,
   };
@@ -443,7 +443,7 @@ function workerIdleReason({
   if (!globalState.allowsScheduling) {
     return globalState.code === "stop_kill_requested"
       ? "STOP + KILL RUNNING requested"
-      : "Queue is stopped";
+      : "Queue is disabled";
   }
 
   if (!worker.enabled) {
@@ -518,10 +518,10 @@ function planExplanation(
   }
 
   if (recommendationCount === 0) {
-    return "START is active, but no worker has an eligible next item. Dry-run only; no work is started.";
+    return "Queue is enabled, but no worker has an eligible next item. Dry-run only; no work is started.";
   }
 
-  return `START is active. ${recommendationCount.toString()} worker recommendation${
+  return `Queue is enabled. ${recommendationCount.toString()} worker recommendation${
     recommendationCount === 1 ? "" : "s"
   } available. Dry-run only; no work is started.`;
 }
@@ -668,7 +668,7 @@ function schedulerReason(
     case "no_worker_configured":
       return { code, label: "No worker configured" };
     case "queue_stopped":
-      return { code, label: "Queue is stopped" };
+      return { code, label: "Queue is disabled" };
     case "queue_stop_kill_requested":
       return { code, label: "Stop + kill running requested" };
     case "queue_tag_paused":

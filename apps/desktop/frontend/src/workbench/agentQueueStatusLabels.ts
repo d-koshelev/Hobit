@@ -105,15 +105,15 @@ export const DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE =
 
 export function queueGlobalExecutionStateLabel(
   state: AgentQueueGlobalExecutionState,
-): "START" | "STOP" | "STOP + KILL RUNNING" {
+): "Enabled" | "Disabled" | "STOP + KILL RUNNING" {
   switch (state) {
     case "started":
-      return "START";
+      return "Enabled";
     case "stop_kill_requested":
       return "STOP + KILL RUNNING";
     case "stopped":
     default:
-      return "STOP";
+      return "Disabled";
   }
 }
 
@@ -122,12 +122,12 @@ export function queueGlobalExecutionStateDescription(
 ) {
   switch (state) {
     case "started":
-      return "Eligible work may start.";
+      return "Queue scheduling enabled.";
     case "stop_kill_requested":
       return "New starts blocked; review running work.";
     case "stopped":
     default:
-      return "New starts paused.";
+      return "Queue scheduling disabled.";
   }
 }
 

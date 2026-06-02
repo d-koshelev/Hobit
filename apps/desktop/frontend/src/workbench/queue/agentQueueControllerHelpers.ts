@@ -39,7 +39,7 @@ export function runPreconditionMessages({
   const messages: string[] = [];
 
   if (globalExecutionState === "stopped") {
-    messages.push("Start queue.");
+    messages.push("Enable queue.");
   }
 
   if (!repoRoot) {
@@ -90,10 +90,10 @@ export function queueRunnerPreconditionMessages({
 
   if (globalExecutionState === "stop_kill_requested") {
     messages.unshift(
-      "STOP + KILL RUNNING is requested. Review running work or click START before starting the Sequential Queue Runner.",
+      "STOP + KILL RUNNING is requested. Review running work or click Enable before starting the Sequential Queue Runner.",
     );
   } else if (globalExecutionState === "stopped") {
-    messages.unshift("Click START before starting the Sequential Queue Runner.");
+    messages.unshift("Click Enable before starting the Sequential Queue Runner.");
   }
 
   if (!startApiAvailable) {
@@ -144,10 +144,10 @@ export function queueAutorunPreconditionMessages({
 
   if (globalExecutionState === "stop_kill_requested") {
     messages.push(
-      "STOP + KILL RUNNING is requested. Review running work or click START before arming Queue Autorun.",
+      "STOP + KILL RUNNING is requested. Review running work or click Enable before arming Queue Autorun.",
     );
   } else if (globalExecutionState === "stopped") {
-    messages.push("Click START before arming Queue Autorun.");
+    messages.push("Click Enable before arming Queue Autorun.");
   }
 
   if (!hasExecutorSelection) {

@@ -189,7 +189,7 @@ export function useAgentQueueController({
   const [globalExecutionState, setGlobalExecutionState] =
     useState<QueueGlobalStatus>(DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE);
   const [globalMessage, setGlobalMessage] = useState<string | null>(
-    "STOP active. START arms local scheduling only.",
+    "Disabled. Enable arms local scheduling only.",
   );
   const [queueTagPauseStates, setQueueTagPauseStates] = useState<
     Map<string, QueueTagPauseState>
@@ -801,7 +801,7 @@ export function useAgentQueueController({
       : null;
   const globalRunBlockMessage =
     globalExecutionState === "stop_kill_requested"
-        ? "STOP + KILL RUNNING is requested. Review running work or click START before starting new work."
+        ? "STOP + KILL RUNNING is requested. Review running work or click Enable before starting new work."
         : null;
   const canUseDefaultLocalExecutor =
     Boolean(

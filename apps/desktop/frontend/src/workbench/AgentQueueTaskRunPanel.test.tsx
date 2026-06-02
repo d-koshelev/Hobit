@@ -383,10 +383,10 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("Set Codex executable");
     expect(document.body.textContent).toContain("read_only");
     expect(document.body.textContent).toContain("Promote to queued");
-    expect(document.body.textContent).not.toContain("Start queue");
+    expect(document.body.textContent).not.toContain("Enable queue");
     expect(document.body.textContent).not.toContain("Select danger_full_access");
     expect(document.body.textContent).not.toContain(
-      "Click START before running the selected task.",
+      "Click Enable before running the selected task.",
     );
 
     const advancedSettings = detailsBySummary("Execution settings");

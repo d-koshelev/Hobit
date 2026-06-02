@@ -7,7 +7,7 @@ import {
 } from "./agentQueueSchedulerModel";
 
 describe("agent queue scheduler model", () => {
-  it("recommends the next item for an enabled all-queues worker when START is active", () => {
+  it("recommends the next item for an enabled all-queues worker when queue scheduling is enabled", () => {
     const plan = buildPlan({
       globalExecutionState: "started",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
@@ -214,7 +214,7 @@ describe("agent queue scheduler model", () => {
     expect(unblocked.recommendations[0]?.queueItemId).toBe("dependent");
   });
 
-  it("does not recommend new work while STOP or STOP + KILL RUNNING is active", () => {
+  it("does not recommend new work while disabled or STOP + KILL RUNNING is active", () => {
     const stopped = buildPlan({
       globalExecutionState: "stopped",
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
@@ -224,10 +224,10 @@ describe("agent queue scheduler model", () => {
       tasks: [queueTask({ prompt: "Run this", status: "ready" })],
     });
 
-    expect(stopped.globalState.label).toBe("STOP");
+    expect(stopped.globalState.label).toBe("Disabled");
     expect(stopped.recommendations).toHaveLength(0);
     expect(
-      stopped.blockedItems[0]?.reasonLabels.includes("Queue is stopped"),
+      stopped.blockedItems[0]?.reasonLabels.includes("Queue is disabled"),
     ).toBe(true);
     expect(killRequested.globalState.label).toBe("STOP + KILL RUNNING");
     expect(killRequested.recommendations).toHaveLength(0);
@@ -292,7 +292,7 @@ describe("agent queue scheduler model", () => {
   });
 
   it("provides stable blocked reason labels for UI explanations", () => {
-    expect(schedulerBlockedReasonLabel("queue_stopped")).toBe("Queue is stopped");
+    expect(schedulerBlockedReasonLabel("queue_stopped")).toBe("Queue is disabled");
     expect(schedulerBlockedReasonLabel("queue_stop_kill_requested")).toBe(
       "Stop + kill running requested",
     );

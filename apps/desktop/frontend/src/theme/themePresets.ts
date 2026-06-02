@@ -7,7 +7,7 @@ import type {
   ThemeVariables,
 } from "./themeTypes";
 
-export const DEFAULT_THEME_ID = "dark-default";
+export const DEFAULT_THEME_ID = "graphite";
 export const CUSTOM_THEME_ID = "custom";
 
 export const editableThemeVariableLabels: Record<EditableThemeVariable, string> =
@@ -23,7 +23,7 @@ export const editableThemeVariableLabels: Record<EditableThemeVariable, string> 
 
 export const themePresets: ThemePreset[] = [
   {
-    id: DEFAULT_THEME_ID,
+    id: "dark-default",
     mode: "dark",
     name: "Dark / Default",
     variables: {
@@ -246,7 +246,9 @@ export const themePresets: ThemePreset[] = [
   },
 ];
 
-export const defaultThemePreset = themePresets[0];
+export const defaultThemePreset =
+  themePresets.find((preset) => preset.id === DEFAULT_THEME_ID) ??
+  themePresets[0];
 
 export function findThemePreset(themeId: string): ThemePreset {
   return (

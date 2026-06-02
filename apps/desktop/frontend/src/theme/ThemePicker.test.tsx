@@ -59,7 +59,7 @@ describe("ThemePicker", () => {
     await flushEffects();
 
     expect(document.documentElement.dataset.hobitTheme).toBe(DEFAULT_THEME_ID);
-    expect(rootStyle("--hb-bg-app")).toBe("#0b1320");
+    expect(rootStyle("--hb-bg-app")).toBe("#111315");
   });
 
   it("renders built-in presets", async () => {
@@ -188,9 +188,9 @@ describe("ThemePicker", () => {
 
     clickButton("Theme");
 
-    expect(textInput("Custom accent HEX").value).toBe("#4a84ff");
-    expect(textInput("Custom background HEX").value).toBe("#0b1320");
-    expect(textInput("Custom raised surface HEX").value).toBe("#182234");
+    expect(textInput("Custom accent HEX").value).toBe("#8ab4f8");
+    expect(textInput("Custom background HEX").value).toBe("#111315");
+    expect(textInput("Custom raised surface HEX").value).toBe("#20262c");
   });
 
   it("saves and applies a custom theme", async () => {
@@ -245,16 +245,16 @@ describe("ThemePicker", () => {
     await flushEffects();
 
     expect(document.documentElement.dataset.hobitTheme).toBe(DEFAULT_THEME_ID);
-    expect(rootStyle("--hb-accent-primary")).toBe("#4a84ff");
-    expect(textInput("Custom accent HEX").value).toBe("#4a84ff");
-    expect(storedTheme()?.customTheme.values.accent).toBe("#4a84ff");
+    expect(rootStyle("--hb-accent-primary")).toBe("#8ab4f8");
+    expect(textInput("Custom accent HEX").value).toBe("#8ab4f8");
+    expect(storedTheme()?.customTheme.values.accent).toBe("#8ab4f8");
 
     setTextInput("Custom accent HEX", "");
     await flushEffects();
 
     expect(document.documentElement.dataset.hobitTheme).toBe(DEFAULT_THEME_ID);
-    expect(textInput("Custom accent HEX").value).toBe("#4a84ff");
-    expect(storedTheme()?.customTheme.values.accent).toBe("#4a84ff");
+    expect(textInput("Custom accent HEX").value).toBe("#8ab4f8");
+    expect(storedTheme()?.customTheme.values.accent).toBe("#8ab4f8");
   });
 
   it("keeps the color picker and HEX input synchronized", async () => {
@@ -282,12 +282,12 @@ describe("ThemePicker", () => {
           basedOn: DEFAULT_THEME_ID,
           values: {
             accent: "not-a-color",
-            background: "#0b1320",
-            border: "#2d3b52",
-            mutedText: "#8d97aa",
-            surface: "#141d2c",
-            surfaceElevated: "#182234",
-            text: "#f3f6fb",
+            background: "#111315",
+            border: "#3a4148",
+            mutedText: "#a2abb7",
+            surface: "#1a1e22",
+            surfaceElevated: "#20262c",
+            text: "#f3f4f6",
           },
         },
         selectedThemeId: CUSTOM_THEME_ID,
@@ -299,7 +299,7 @@ describe("ThemePicker", () => {
     await flushEffects();
 
     expect(document.documentElement.dataset.hobitTheme).toBe(DEFAULT_THEME_ID);
-    expect(rootStyle("--hb-bg-app")).toBe("#0b1320");
+    expect(rootStyle("--hb-bg-app")).toBe("#111315");
     expect(storedTheme()?.selectedThemeId).toBe(DEFAULT_THEME_ID);
   });
 });
@@ -308,13 +308,13 @@ function defaultCustomThemeStorage() {
   return {
     basedOn: DEFAULT_THEME_ID,
     values: {
-      accent: "#4a84ff",
-      background: "#0b1320",
-      border: "#2d3b52",
-      mutedText: "#8d97aa",
-      surface: "#141d2c",
-      surfaceElevated: "#182234",
-      text: "#f3f6fb",
+      accent: "#8ab4f8",
+      background: "#111315",
+      border: "#3a4148",
+      mutedText: "#a2abb7",
+      surface: "#1a1e22",
+      surfaceElevated: "#20262c",
+      text: "#f3f4f6",
     },
   };
 }

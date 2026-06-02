@@ -49,18 +49,18 @@ describe("useAgentQueueController execution state", () => {
     expect(hook.result.current.run.readinessMessage).toBeNull();
     expect(hook.result.current.run.canStart).toBe(true);
     expect(
-      hook.result.current.run.preconditionMessages.includes("Start queue."),
+      hook.result.current.run.preconditionMessages.includes("Enable queue."),
     ).toBe(false);
     expect(hook.result.current.autorun.canArm).toBe(false);
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
-        "Click START before arming Queue Autorun.",
+        "Click Enable before arming Queue Autorun.",
       ),
     ).toBe(true);
     expect(hook.result.current.runner.canStart).toBe(false);
     expect(
       hook.result.current.runner.preconditionMessages.includes(
-        "Click START before starting the Sequential Queue Runner.",
+        "Click Enable before starting the Sequential Queue Runner.",
       ),
     ).toBe(true);
 
@@ -97,7 +97,7 @@ describe("useAgentQueueController execution state", () => {
     ).toBe(true);
     expect(
       hook.result.current.autorun.preconditionMessages.includes(
-        "STOP + KILL RUNNING is requested. Review running work or click START before arming Queue Autorun.",
+        "STOP + KILL RUNNING is requested. Review running work or click Enable before arming Queue Autorun.",
       ),
     ).toBe(true);
 
@@ -113,7 +113,7 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
-  it("allows Autonomous Queue preflight while normal Queue is stopped", async () => {
+  it("allows Autonomous Queue preflight while normal Queue is disabled", async () => {
     const harness = createQueueHarness([
       queueTask({
         approvalPolicy: "on_request",

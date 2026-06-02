@@ -429,7 +429,7 @@ export function createAgentQueueRunActions({
       }
       setAutorunMessage(
         snapshot.activeQueueItemId
-          ? "Queue Autorun started. It will continue automatically while Hobit is open."
+          ? "Queue Autorun enabled. It will continue automatically while Hobit is open."
           : "Queue Autorun found no eligible task to start.",
       );
     } catch (error) {
@@ -451,7 +451,7 @@ export function createAgentQueueRunActions({
     try {
       const snapshot = await onStopAgentQueueRunnerSession();
       setAutorunSnapshot(snapshot);
-      setAutorunMessage("Queue Autorun session stopped.");
+      setAutorunMessage("Queue Autorun disabled.");
     } catch (error) {
       setAutorunError(errorToMessage(error, "Unable to stop Queue Autorun."));
     } finally {

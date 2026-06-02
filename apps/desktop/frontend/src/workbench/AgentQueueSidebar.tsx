@@ -382,7 +382,7 @@ function QueueStateSection({
           onClick={() => foundation.onStartWorkers()}
           variant="secondary"
         >
-          START
+          Enable
         </Button>
         <Button
           className={
@@ -393,7 +393,7 @@ function QueueStateSection({
           onClick={() => foundation.onStopWorkers()}
           variant="ghost"
         >
-          STOP
+          Disable
         </Button>
         <Button
           className={[

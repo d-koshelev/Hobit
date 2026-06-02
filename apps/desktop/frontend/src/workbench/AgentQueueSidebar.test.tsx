@@ -31,8 +31,8 @@ describe("AgentQueueSidebar", () => {
   it("renders global controls, queue tags, workers, and validation summary", () => {
     renderSidebar();
 
-    expect(document.body.textContent).toContain("START");
-    expect(document.body.textContent).toContain("STOP");
+    expect(document.body.textContent).toContain("Enable");
+    expect(document.body.textContent).toContain("Disable");
     expect(document.body.textContent).toContain("STOP + KILL RUNNING");
     expect(document.body.textContent).toContain("Scheduler dry run");
     expect(document.body.textContent).toContain("Dry-run only");
@@ -54,8 +54,8 @@ describe("AgentQueueSidebar", () => {
     const foundation = foundationController();
     renderSidebar(foundation);
 
-    clickButton("START");
-    clickButton("STOP");
+    clickButton("Enable");
+    clickButton("Disable");
     clickButton("STOP + KILL RUNNING");
     clickButton("Pause");
 
@@ -65,7 +65,7 @@ describe("AgentQueueSidebar", () => {
     expect(foundation.onPauseQueueTag).toHaveBeenCalledWith("default");
   });
 
-  it("keeps Run autonomous queue clickable when normal Queue is stopped", () => {
+  it("keeps Run autonomous queue clickable when normal Queue is disabled", () => {
     const autonomous = autonomousController();
     renderSidebar(foundationController({ globalExecutionState: "stopped" }), autonomous);
 
