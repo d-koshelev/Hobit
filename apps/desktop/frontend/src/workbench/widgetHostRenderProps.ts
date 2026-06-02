@@ -64,6 +64,7 @@ type WidgetHostRenderPropsOptions = {
   ) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   widgetActions: WorkbenchWidgetInstanceActions;
+  workspaceId: string;
 };
 
 export function widgetHostRenderProps({
@@ -84,6 +85,7 @@ export function widgetHostRenderProps({
   onOpenAgentExecutorRun,
   onPublishAgentActivityEvents,
   widgetActions,
+  workspaceId,
 }: WidgetHostRenderPropsOptions): Partial<WidgetRenderProps> {
   const commonProps = sharedWidgetProps(widgetActions);
 
@@ -137,11 +139,13 @@ export function widgetHostRenderProps({
       ...commonProps,
       ...workspaceAgentWidgetProps({
         actions: widgetActions,
+        agentExecutorSlots,
         coordinatorAttachedContextRequest,
         instanceId,
         onOpenAgentQueueItem,
         onPublishAgentActivityEvents,
         queueReportActionCardRequest,
+        workspaceId,
       }),
     };
   }

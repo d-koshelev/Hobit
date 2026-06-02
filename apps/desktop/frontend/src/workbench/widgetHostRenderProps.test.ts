@@ -69,6 +69,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onGenerateCoordinatorProviderResponse).toBe(
       actions.generateCoordinatorProviderResponse,
     );
+    expect(props.workspaceAgentQueueBridge).toBeDefined();
     expect(props.onPublishAgentActivityEvents).toBe(publish);
     expect(props.onSearchKnowledgeDocuments).toBe(
       actions.searchKnowledgeDocuments,
@@ -381,6 +382,7 @@ function renderPropsFor(
     onOpenAgentExecutorRun: vi.fn(),
     onPublishAgentActivityEvents: vi.fn(),
     widgetActions: widgetActions(),
+    workspaceId: "workspace_1",
     ...overrides,
   });
 }

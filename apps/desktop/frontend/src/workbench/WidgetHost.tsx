@@ -246,6 +246,7 @@ export function WidgetHost({
     onOpenAgentExecutorRun,
     onPublishAgentActivityEvents,
     widgetActions,
+    workspaceId,
   });
 
   if (!Component) {

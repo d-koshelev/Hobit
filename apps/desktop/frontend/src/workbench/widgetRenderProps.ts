@@ -98,6 +98,7 @@ import type {
   WidgetLogEntry,
   WidgetState,
 } from "./types";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
@@ -367,6 +368,7 @@ export type WidgetRenderProps = {
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
+  workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;
