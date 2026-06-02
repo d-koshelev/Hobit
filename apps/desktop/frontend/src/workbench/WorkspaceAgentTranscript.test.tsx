@@ -148,6 +148,7 @@ function renderTranscript(overrides: Partial<TranscriptProps> = {}) {
     onUpdateQueueTaskFromReportCard: vi.fn(),
     plans: {},
     proposals: {},
+    queueActionResults: {},
     queueReportActionResults: {},
     queueReportCards: {},
     reviews: {},

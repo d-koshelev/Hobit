@@ -49,6 +49,13 @@ import {
   WorkspaceAgentTranscript,
   type WorkspaceAgentTranscriptMessage,
 } from "./WorkspaceAgentTranscript";
+import {
+  WorkspaceAgentQueueActionPanel,
+} from "./WorkspaceAgentQueueActionCards";
+import {
+  workspaceAgentQueueActionCardTitle,
+  type WorkspaceAgentQueueActionCardResult,
+} from "./workspaceAgentQueueActions";
 import type {
   WorkspaceAgentQueueReportActionCardPatch,
   WorkspaceAgentQueueReportActionResult,
@@ -96,6 +103,7 @@ export function InteractiveAgentPlaceholderWidget({
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask,
   queueReportActionCardRequest,
+  workspaceAgentQueueBridge,
   onStartFrameMove,
   title,
   workspaceId,
@@ -118,6 +126,9 @@ export function InteractiveAgentPlaceholderWidget({
   >({});
   const [queueReportActionResults, setQueueReportActionResults] = useState<
     Record<string, Record<string, WorkspaceAgentQueueReportActionResult>>
+  >({});
+  const [queueActionResults, setQueueActionResults] = useState<
+    Record<string, WorkspaceAgentQueueActionCardResult>
   >({});
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
     ReadonlySet<string>
@@ -242,6 +253,7 @@ export function InteractiveAgentPlaceholderWidget({
     planId?: string,
     reviewId?: string,
     queueReportCardId?: string,
+    queueActionResultId?: string,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -251,6 +263,7 @@ export function InteractiveAgentPlaceholderWidget({
       planId,
       proposalIds,
       providerMeta,
+      queueActionResultId,
       queueReportCardId,
       reviewId,
       role,
@@ -398,6 +411,7 @@ export function InteractiveAgentPlaceholderWidget({
     setProposals({});
     setQueueReportCards({});
     setQueueReportActionResults({});
+    setQueueActionResults({});
     setCreatingQueueProposalIds(new Set());
     setCreatingKnowledgeDocumentProposalIds(new Set());
     setCreatingNoteProposalIds(new Set());
@@ -542,6 +556,27 @@ export function InteractiveAgentPlaceholderWidget({
     }));
   }
 
+  function recordQueueActionResult(result: WorkspaceAgentQueueActionCardResult) {
+    const resultId = `queue-action-${nextMessageId.current}`;
+    setQueueActionResults((currentResults) => ({
+      ...currentResults,
+      [resultId]: result,
+    }));
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createLocalMessage(
+        "assistant",
+        workspaceAgentQueueActionCardTitle(result),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        resultId,
+      ),
+    ]);
+  }
+
   async function createQueueTaskFromProposal(proposalId: string) {
     await runCreateQueueTaskProposal({
       onCreateAgentQueueTask,
@@ -627,11 +662,17 @@ export function InteractiveAgentPlaceholderWidget({
           onUpdateQueueTaskFromReportCard={onUpdateAgentQueueTask}
           plans={plans}
           proposals={proposals}
+          queueActionResults={queueActionResults}
           queueReportActionResults={queueReportActionResults}
           queueReportCards={queueReportCards}
           reviews={reviews}
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
+        />
+
+        <WorkspaceAgentQueueActionPanel
+          bridge={workspaceAgentQueueBridge}
+          onActionResult={recordQueueActionResult}
         />
 
         <WorkspaceAgentComposer

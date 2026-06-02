@@ -28,6 +28,12 @@ import {
   type WorkspaceAgentQueueReportActionCardPatch,
   type WorkspaceAgentQueueReportActionResult,
 } from "./WorkspaceAgentQueueReportActionCard";
+import {
+  WorkspaceAgentQueueActionResultCard,
+} from "./WorkspaceAgentQueueActionCards";
+import type {
+  WorkspaceAgentQueueActionCardResult,
+} from "./workspaceAgentQueueActions";
 import type {
   WorkspaceAgentSuggestedPrompt,
 } from "./workspaceAgentSuggestedPrompts";
@@ -41,6 +47,7 @@ export type WorkspaceAgentTranscriptMessage = {
   planId?: string;
   proposalIds?: string[];
   providerMeta?: CoordinatorProviderMessageMeta;
+  queueActionResultId?: string;
   queueReportCardId?: string;
   reviewId?: string;
   role: "operator" | "assistant";
@@ -68,6 +75,7 @@ export function WorkspaceAgentTranscript({
   onSuggestionClick,
   plans,
   proposals,
+  queueActionResults,
   queueReportActionResults,
   queueReportCards,
   reviews,
@@ -108,6 +116,7 @@ export function WorkspaceAgentTranscript({
   onSuggestionClick: (prompt: string) => void;
   plans: Record<string, CoordinatorPlanDraft>;
   proposals: Record<string, CoordinatorActionProposal>;
+  queueActionResults: Record<string, WorkspaceAgentQueueActionCardResult>;
   queueReportActionResults: Record<
     string,
     Record<string, WorkspaceAgentQueueReportActionResult>
@@ -156,6 +165,12 @@ export function WorkspaceAgentTranscript({
               onPatchCard={onPatchQueueReportCard}
               onRecordActionResult={onQueueReportActionResult}
               onUpdateQueueTask={onUpdateQueueTaskFromReportCard}
+            />
+          ) : null}
+          {message.queueActionResultId &&
+          queueActionResults[message.queueActionResultId] ? (
+            <WorkspaceAgentQueueActionResultCard
+              result={queueActionResults[message.queueActionResultId]}
             />
           ) : null}
           {message.proposalIds ? (
