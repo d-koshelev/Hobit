@@ -208,6 +208,12 @@ unless the task explicitly requests it.
   classes, semantic test hooks, and Workspace Agent Coordinator integration.
   It is docs-only and does not add runtime APIs, frontend behavior,
   storage/schema changes, provider tools, Git automation, or hidden execution.
+- `docs/AGENT_QUEUE_WIDGET_API_IMPLEMENTATION_PLAN.md` - docs-only
+  implementation-facing plan for the first Queue Widget API slice:
+  `queue.getSnapshot`, `queue.createItem`, and `queue.updateItem`. Read before
+  implementing the first adapter/Workspace Agent bridge. It does not add
+  runtime APIs, frontend behavior, backend/Tauri commands, storage/schema
+  changes, tests, provider tools, Queue execution, or hidden automation.
 - `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` - read before any new widget or
   major widget change. It defines the contract-first planning packet,
   Definition of Ready/Done, state machine, UI composition, semantic testing,
@@ -289,6 +295,10 @@ unless the task explicitly requests it.
   semantic tests, Workspace Agent Coordinator integration, singleton Queue
   rules, task-scoped run settings, autonomous Queue semantics, and safety
   policy.
+- `docs/AGENT_QUEUE_WIDGET_API_IMPLEMENTATION_PLAN.md` - first implementation
+  plan for the minimal Queue Widget API adapter over `queue.getSnapshot`,
+  `queue.createItem`, and `queue.updateItem`. Read before coding
+  `QUEUE-API-03` or any first-slice Workspace Agent Queue action bridge.
 - `docs/QUEUE_PRODUCT_HANDOFF.md` - Queue product handoff after Block 026. It
   freezes the current Queue + Workers UI/model/runtime boundaries, identifies
   future runtime gaps, and directs the next phase toward product scenario
