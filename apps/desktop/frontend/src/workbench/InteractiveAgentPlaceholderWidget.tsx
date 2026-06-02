@@ -56,6 +56,10 @@ import {
   workspaceAgentQueueActionCardTitle,
   type WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
+import {
+  workspaceAgentQueueIntentDraftsFromText,
+  type WorkspaceAgentQueueIntentDraft,
+} from "./workspaceAgentQueueIntent";
 import type {
   WorkspaceAgentQueueReportActionCardPatch,
   WorkspaceAgentQueueReportActionResult,
@@ -129,6 +133,9 @@ export function InteractiveAgentPlaceholderWidget({
   >({});
   const [queueActionResults, setQueueActionResults] = useState<
     Record<string, WorkspaceAgentQueueActionCardResult>
+  >({});
+  const [queueIntentDrafts, setQueueIntentDrafts] = useState<
+    Record<string, WorkspaceAgentQueueIntentDraft>
   >({});
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
     ReadonlySet<string>
@@ -254,6 +261,7 @@ export function InteractiveAgentPlaceholderWidget({
     reviewId?: string,
     queueReportCardId?: string,
     queueActionResultId?: string,
+    queueIntentDraftIds?: string[],
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -264,6 +272,7 @@ export function InteractiveAgentPlaceholderWidget({
       proposalIds,
       providerMeta,
       queueActionResultId,
+      queueIntentDraftIds,
       queueReportCardId,
       reviewId,
       role,
@@ -286,11 +295,28 @@ export function InteractiveAgentPlaceholderWidget({
     const generatedProposalIds = generated.proposals.map(
       (proposal) => proposal.id,
     );
+    const queueIntentDraftsFromMessage =
+      workspaceAgentQueueIntentDraftsFromText(
+        trimmedDraft,
+        assistantMessageId,
+        {
+          includePlainTextIntents: true,
+          source: "local_text",
+        },
+      );
+    const queueIntentDraftIds = queueIntentDraftsFromMessage.map(
+      (queueIntentDraft) => queueIntentDraft.id,
+    );
     const assistantMessage = createLocalMessage(
       "assistant",
       onGenerateCoordinatorProviderResponse
         ? "Drafting from the visible chat."
-        : generated.responseBody,
+        : queueIntentDraftIds.length > 0 &&
+            generated.proposals.length === 0 &&
+            !generated.plan &&
+            !generated.review
+          ? "I drafted a Queue intent card from the visible chat. Review or edit the visible fields before applying it through the Queue API."
+          : generated.responseBody,
       generatedProposalIds.length > 0 ? generatedProposalIds : undefined,
       onGenerateCoordinatorProviderResponse
         ? coordinatorProviderPendingMeta(generatedProposalIds.length)
@@ -299,8 +325,23 @@ export function InteractiveAgentPlaceholderWidget({
           ),
       generated.plan?.id,
       generated.review?.id,
+      undefined,
+      undefined,
+      queueIntentDraftIds.length > 0 ? queueIntentDraftIds : undefined,
     );
     const providerConversation = [...messages, operatorMessage];
+
+    if (queueIntentDraftsFromMessage.length > 0) {
+      setQueueIntentDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        ...Object.fromEntries(
+          queueIntentDraftsFromMessage.map((queueIntentDraft) => [
+            queueIntentDraft.id,
+            queueIntentDraft,
+          ]),
+        ),
+      }));
+    }
 
     if (generated.proposals.length > 0) {
       setProposals((currentProposals) => ({
@@ -372,12 +413,33 @@ export function InteractiveAgentPlaceholderWidget({
       const providerProposalIds = providerProposals.map(
         (proposal) => proposal.id,
       );
+      const providerQueueIntentDrafts =
+        workspaceAgentQueueIntentDraftsFromText(
+          assistantText,
+          assistantMessage.id,
+          { source: "provider_text" },
+        );
+      const providerQueueIntentDraftIds = providerQueueIntentDrafts.map(
+        (queueIntentDraft) => queueIntentDraft.id,
+      );
 
       if (providerProposals.length > 0) {
         setProposals((currentProposals) => ({
           ...currentProposals,
           ...Object.fromEntries(
             providerProposals.map((proposal) => [proposal.id, proposal]),
+          ),
+        }));
+      }
+
+      if (providerQueueIntentDrafts.length > 0) {
+        setQueueIntentDrafts((currentDrafts) => ({
+          ...currentDrafts,
+          ...Object.fromEntries(
+            providerQueueIntentDrafts.map((queueIntentDraft) => [
+              queueIntentDraft.id,
+              queueIntentDraft,
+            ]),
           ),
         }));
       }
@@ -389,6 +451,10 @@ export function InteractiveAgentPlaceholderWidget({
           providerProposalIds.length > 0
             ? providerProposalIds
             : assistantMessage.proposalIds,
+        queueIntentDraftIds:
+          providerQueueIntentDraftIds.length > 0
+            ? providerQueueIntentDraftIds
+            : assistantMessage.queueIntentDraftIds,
       });
     } catch (error) {
       const message = errorToMessage(error, "Provider request failed.");
@@ -412,6 +478,7 @@ export function InteractiveAgentPlaceholderWidget({
     setQueueReportCards({});
     setQueueReportActionResults({});
     setQueueActionResults({});
+    setQueueIntentDrafts({});
     setCreatingQueueProposalIds(new Set());
     setCreatingKnowledgeDocumentProposalIds(new Set());
     setCreatingNoteProposalIds(new Set());
@@ -439,6 +506,10 @@ export function InteractiveAgentPlaceholderWidget({
       body,
       assistantMessage.id,
     );
+    const queueIntentDraftsFromMessage =
+      workspaceAgentQueueIntentDraftsFromText(body, assistantMessage.id, {
+        source: "local_text",
+      });
 
     if (catalogProposals.length > 0) {
       setProposals((currentProposals) => ({
@@ -449,6 +520,21 @@ export function InteractiveAgentPlaceholderWidget({
       }));
       assistantMessage.proposalIds = catalogProposals.map(
         (proposal) => proposal.id,
+      );
+    }
+
+    if (queueIntentDraftsFromMessage.length > 0) {
+      setQueueIntentDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        ...Object.fromEntries(
+          queueIntentDraftsFromMessage.map((queueIntentDraft) => [
+            queueIntentDraft.id,
+            queueIntentDraft,
+          ]),
+        ),
+      }));
+      assistantMessage.queueIntentDraftIds = queueIntentDraftsFromMessage.map(
+        (queueIntentDraft) => queueIntentDraft.id,
       );
     }
 
@@ -577,6 +663,51 @@ export function InteractiveAgentPlaceholderWidget({
     ]);
   }
 
+  function patchQueueIntentDraft(
+    draftId: string,
+    patch: Partial<WorkspaceAgentQueueIntentDraft>,
+  ) {
+    setQueueIntentDrafts((currentDrafts) => {
+      const queueIntentDraft = currentDrafts[draftId];
+
+      if (!queueIntentDraft) {
+        return currentDrafts;
+      }
+
+      return {
+        ...currentDrafts,
+        [draftId]: {
+          ...queueIntentDraft,
+          ...patch,
+        } as WorkspaceAgentQueueIntentDraft,
+      };
+    });
+  }
+
+  function discardQueueIntentDraft(draftId: string) {
+    setQueueIntentDrafts((currentDrafts) => {
+      if (!currentDrafts[draftId]) {
+        return currentDrafts;
+      }
+
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[draftId];
+      return nextDrafts;
+    });
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.queueIntentDraftIds?.includes(draftId)
+          ? {
+              ...message,
+              queueIntentDraftIds: message.queueIntentDraftIds.filter(
+                (queueIntentDraftId) => queueIntentDraftId !== draftId,
+              ),
+            }
+          : message,
+      ),
+    );
+  }
+
   async function createQueueTaskFromProposal(proposalId: string) {
     await runCreateQueueTaskProposal({
       onCreateAgentQueueTask,
@@ -655,7 +786,10 @@ export function InteractiveAgentPlaceholderWidget({
           onCreateSkill={(proposalId) => void createSkillFromProposal(proposalId)}
           onEditProposal={editProposal}
           onOpenAgentQueueItem={onOpenAgentQueueItem}
+          onDiscardQueueIntentDraft={discardQueueIntentDraft}
           onPatchQueueReportCard={patchQueueReportCard}
+          onPatchQueueIntentDraft={patchQueueIntentDraft}
+          onQueueActionResult={recordQueueActionResult}
           onQueueReportActionResult={recordQueueReportActionResult}
           onRejectProposal={rejectProposal}
           onSuggestionClick={useSuggestedPrompt}
@@ -663,11 +797,13 @@ export function InteractiveAgentPlaceholderWidget({
           plans={plans}
           proposals={proposals}
           queueActionResults={queueActionResults}
+          queueIntentDrafts={queueIntentDrafts}
           queueReportActionResults={queueReportActionResults}
           queueReportCards={queueReportCards}
           reviews={reviews}
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
+          workspaceAgentQueueBridge={workspaceAgentQueueBridge}
         />
 
         <WorkspaceAgentQueueActionPanel

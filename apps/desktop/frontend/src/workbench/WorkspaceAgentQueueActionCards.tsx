@@ -24,6 +24,17 @@ import {
   type WorkspaceAgentQueueCreateDraft,
   type WorkspaceAgentQueueUpdateDraft,
 } from "./workspaceAgentQueueActions";
+import {
+  validateWorkspaceAgentQueueIntentDraft,
+  workspaceAgentQueueCreateRequestFromIntentDraft,
+  workspaceAgentQueueIntentCanApply,
+  workspaceAgentQueueIntentPromptPreview,
+  workspaceAgentQueueIntentTitle,
+  workspaceAgentQueueUpdateRequestFromIntentDraft,
+  type WorkspaceAgentQueueCreateIntentDraft,
+  type WorkspaceAgentQueueIntentDraft,
+  type WorkspaceAgentQueueUpdateIntentDraft,
+} from "./workspaceAgentQueueIntent";
 import type { QueueWidgetActionName } from "./queue/agentQueueWidgetApiTypes";
 import type { QueueWidgetItemSnapshot } from "./queue/agentQueueWidgetApiTypes";
 
@@ -547,6 +558,356 @@ export function WorkspaceAgentQueueActionResultCard({
         was started.
       </p>
     </section>
+  );
+}
+
+export function WorkspaceAgentQueueIntentDraftCard({
+  bridge,
+  draft,
+  onActionResult,
+  onDiscard,
+  onPatchDraft,
+}: {
+  bridge?: WorkspaceAgentQueueBridge;
+  draft: WorkspaceAgentQueueIntentDraft;
+  onActionResult: (result: WorkspaceAgentQueueActionCardResult) => void;
+  onDiscard: (draftId: string) => void;
+  onPatchDraft: (
+    draftId: string,
+    patch: Partial<WorkspaceAgentQueueIntentDraft>,
+  ) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [pendingAction, setPendingAction] =
+    useState<QueueWidgetActionName | null>(null);
+  const validation = validateWorkspaceAgentQueueIntentDraft(draft);
+  const canApply =
+    Boolean(bridge) &&
+    workspaceAgentQueueIntentCanApply(draft) &&
+    !pendingAction;
+  const title = workspaceAgentQueueIntentTitle(draft);
+  const actionName =
+    draft.intentType === "createItem" ? "queue.createItem" : "queue.updateItem";
+  const applyLabel =
+    draft.intentType === "createItem" ? "Apply create" : "Apply update";
+
+  async function applyDraft() {
+    if (!bridge || !canApply) {
+      return;
+    }
+
+    setPendingAction(actionName);
+    try {
+      const result =
+        draft.intentType === "createItem"
+          ? await bridge.createItem(
+              workspaceAgentQueueCreateRequestFromIntentDraft(draft),
+            )
+          : await bridge.updateItem(
+              workspaceAgentQueueUpdateRequestFromIntentDraft(draft),
+            );
+      onActionResult(result);
+
+      if (result.ok) {
+        onDiscard(draft.id);
+      }
+    } catch (error) {
+      onActionResult(
+        workspaceAgentQueueActionFailureResult({
+          action: actionName,
+          error,
+        }),
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  return (
+    <section
+      aria-label={title}
+      className="workspace-agent-queue-action-card workspace-agent-queue-intent-card"
+    >
+      <div className="workspace-agent-queue-action-card-header">
+        <div>
+          <p className="coordinator-proposal-kicker">{actionName}</p>
+          <h4 className="coordinator-proposal-title">{title}</h4>
+        </div>
+        <Badge variant={validation.blockingMessages.length > 0 ? "warning" : "info"}>
+          {validation.blockingMessages.length > 0
+            ? "Needs review"
+            : "Ready to apply"}
+        </Badge>
+      </div>
+
+      <dl className="workspace-agent-queue-action-card-facts">
+        <ActionFact label="Action type" value={draft.intentType} />
+        {draft.intentType === "updateItem" ? (
+          <ActionFact
+            label="Target item"
+            value={draft.itemId.trim() || "Missing"}
+          />
+        ) : null}
+        <ActionFact label="Title" value={draft.title.trim() || "Missing"} />
+        <ActionFact label="Status" value={draft.status || "Preserve"} />
+        <ActionFact label="Queue tag" value={draft.queueTag.trim() || "None"} />
+        <ActionFact label="Priority" value={draft.priority.trim() || "Preserve"} />
+        <ActionFact
+          label="Policy"
+          value={draft.executionPolicy || "Preserve"}
+        />
+        <ActionFact
+          label="Task workspace"
+          value={draft.executionWorkspace.trim() || "Not set"}
+        />
+        <ActionFact
+          label="Codex executable"
+          value={draft.codexExecutable.trim() || "Not set"}
+        />
+        <ActionFact label="Sandbox" value={draft.sandbox || "Not set"} />
+        <ActionFact
+          label="Approval policy"
+          value={draft.approvalPolicy || "Not set"}
+        />
+      </dl>
+
+      <div className="coordinator-proposal-section">
+        <p className="coordinator-proposal-section-label">Prompt preview</p>
+        <p className="coordinator-proposal-section-value">
+          {workspaceAgentQueueIntentPromptPreview(draft)}
+        </p>
+      </div>
+
+      {validation.blockingMessages.length > 0 ? (
+        <div
+          aria-label="Queue intent validation"
+          className="workspace-agent-queue-intent-validation"
+        >
+          {validation.blockingMessages.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {isEditing ? (
+        <WorkspaceAgentQueueIntentDraftFields
+          draft={draft}
+          onPatchDraft={(patch) => onPatchDraft(draft.id, patch)}
+        />
+      ) : null}
+
+      <div className="coordinator-proposal-actions">
+        <Button
+          disabled={!canApply}
+          onClick={() => void applyDraft()}
+          variant="primary"
+        >
+          {pendingAction ? "Applying" : applyLabel}
+        </Button>
+        <Button
+          onClick={() => setIsEditing((current) => !current)}
+          variant="secondary"
+        >
+          {isEditing ? "Done editing" : "Edit fields"}
+        </Button>
+        <Button onClick={() => onDiscard(draft.id)} variant="ghost">
+          Discard draft
+        </Button>
+      </div>
+
+      <p className="coordinator-proposal-note">
+        Applying uses the Queue Widget API bridge only. It does not run the
+        task, start Queue Autorun, call Codex, launch Terminal, delete items, or
+        finalize coordinator state.
+      </p>
+    </section>
+  );
+}
+
+function WorkspaceAgentQueueIntentDraftFields({
+  draft,
+  onPatchDraft,
+}: {
+  draft: WorkspaceAgentQueueIntentDraft;
+  onPatchDraft: (patch: Partial<WorkspaceAgentQueueIntentDraft>) => void;
+}) {
+  if (draft.intentType === "createItem") {
+    return (
+      <div
+        aria-label="Edit Queue create intent fields"
+        className="workspace-agent-queue-action-grid"
+      >
+        <QueueTextInput
+          label="Title"
+          onChange={(title) => onPatchDraft({ title })}
+          value={draft.title}
+        />
+        <QueueTextInput
+          label="Queue tag"
+          onChange={(queueTag) => onPatchDraft({ queueTag })}
+          value={draft.queueTag}
+        />
+        <QueueTextarea
+          label="Prompt"
+          onChange={(prompt) => onPatchDraft({ prompt })}
+          value={draft.prompt}
+        />
+        <QueueTextarea
+          label="Description"
+          onChange={(description) => onPatchDraft({ description })}
+          value={draft.description}
+        />
+        <QueueTextInput
+          label="Priority"
+          onChange={(priority) => onPatchDraft({ priority })}
+          type="number"
+          value={draft.priority}
+        />
+        <QueueSelect
+          label="Initial status"
+          onChange={(status) =>
+            onPatchDraft({
+              status: status as WorkspaceAgentQueueCreateIntentDraft["status"],
+            })
+          }
+          options={CREATE_STATUS_OPTIONS}
+          value={draft.status}
+        />
+        <QueueSelect
+          label="Execution policy"
+          onChange={(executionPolicy) =>
+            onPatchDraft({
+              executionPolicy:
+                executionPolicy as AgentQueueTaskExecutionPolicy,
+            })
+          }
+          options={EXECUTION_POLICY_OPTIONS}
+          value={draft.executionPolicy}
+        />
+        <QueueRunSettingFields draft={draft} onPatchDraft={onPatchDraft} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-label="Edit Queue update intent fields"
+      className="workspace-agent-queue-action-grid"
+    >
+      <QueueTextInput
+        label="Item id"
+        onChange={(itemId) => onPatchDraft({ itemId })}
+        value={draft.itemId}
+      />
+      <QueueTextInput
+        label="Title"
+        onChange={(title) => onPatchDraft({ title })}
+        value={draft.title}
+      />
+      <QueueTextarea
+        label="Prompt"
+        onChange={(prompt) => onPatchDraft({ prompt })}
+        value={draft.prompt}
+      />
+      <QueueTextarea
+        label="Description"
+        onChange={(description) => onPatchDraft({ description })}
+        value={draft.description}
+      />
+      <QueueTextInput
+        label="Queue tag"
+        onChange={(queueTag) => onPatchDraft({ queueTag })}
+        value={draft.queueTag}
+      />
+      <QueueTextInput
+        label="Priority"
+        onChange={(priority) => onPatchDraft({ priority })}
+        type="number"
+        value={draft.priority}
+      />
+      <QueueSelect
+        allowBlank
+        label="Status"
+        onChange={(status) =>
+          onPatchDraft({
+            status: status as WorkspaceAgentQueueUpdateIntentDraft["status"],
+          })
+        }
+        options={UPDATE_STATUS_OPTIONS}
+        value={draft.status}
+      />
+      <QueueSelect
+        allowBlank
+        label="Execution policy"
+        onChange={(executionPolicy) =>
+          onPatchDraft({
+            executionPolicy:
+              executionPolicy as WorkspaceAgentQueueUpdateIntentDraft["executionPolicy"],
+          })
+        }
+        options={EXECUTION_POLICY_OPTIONS}
+        value={draft.executionPolicy}
+      />
+      <QueueRunSettingFields draft={draft} onPatchDraft={onPatchDraft} />
+      <QueueTextarea
+        label="Dependencies"
+        onChange={(value) =>
+          onPatchDraft({
+            dependencies: value
+              .split(/[\n,;]/)
+              .map((entry) => entry.trim())
+              .filter(Boolean),
+          })
+        }
+        value={draft.dependencies.join("\n")}
+      />
+    </div>
+  );
+}
+
+function QueueRunSettingFields({
+  draft,
+  onPatchDraft,
+}: {
+  draft: WorkspaceAgentQueueIntentDraft;
+  onPatchDraft: (patch: Partial<WorkspaceAgentQueueIntentDraft>) => void;
+}) {
+  return (
+    <>
+      <QueueTextInput
+        label="Execution workspace"
+        onChange={(executionWorkspace) => onPatchDraft({ executionWorkspace })}
+        value={draft.executionWorkspace}
+      />
+      <QueueTextInput
+        label="Codex executable"
+        onChange={(codexExecutable) => onPatchDraft({ codexExecutable })}
+        value={draft.codexExecutable}
+      />
+      <QueueSelect
+        allowBlank
+        label="Sandbox"
+        onChange={(sandbox) =>
+          onPatchDraft({
+            sandbox: sandbox as WorkspaceAgentQueueIntentDraft["sandbox"],
+          })
+        }
+        options={SANDBOX_OPTIONS}
+        value={draft.sandbox}
+      />
+      <QueueSelect
+        allowBlank
+        label="Approval policy"
+        onChange={(approvalPolicy) =>
+          onPatchDraft({
+            approvalPolicy:
+              approvalPolicy as WorkspaceAgentQueueIntentDraft["approvalPolicy"],
+          })
+        }
+        options={APPROVAL_POLICY_OPTIONS}
+        value={draft.approvalPolicy}
+      />
+    </>
   );
 }
 

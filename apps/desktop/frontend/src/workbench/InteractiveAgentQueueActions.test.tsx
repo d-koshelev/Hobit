@@ -249,6 +249,258 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     expect(startCodex).not.toHaveBeenCalled();
     expect(runTerminal).not.toHaveBeenCalled();
   });
+
+  it("renders a create Queue intent draft from visible Workspace Agent text", async () => {
+    renderWidget({ workspaceAgentQueueBridge: queueBridge() });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        prompt: "Implement the Queue API prefill card.",
+        queueTag: "QUEUE-API",
+        status: "draft",
+        title: "Draft create intent",
+        type: "createItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain("Draft Queue item");
+    expect(document.body.textContent).toContain("queue.createItem");
+    expect(document.body.textContent).toContain("Draft create intent");
+    expect(document.body.textContent).toContain("QUEUE-API");
+    expect(document.body.textContent).toContain(
+      "Implement the Queue API prefill card.",
+    );
+  });
+
+  it("applies a create Queue intent draft through the Queue bridge", async () => {
+    const createItem = vi.fn(async () =>
+      itemResult("queue.createItem", {
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/repo",
+        id: "queue-created-from-intent",
+        priority: 3,
+        prompt: "Create the reviewed Queue task.",
+        queueTag: { id: null, name: "prefill" },
+        sandbox: "workspace_write",
+        status: "queued",
+        title: "Create intent task",
+      }),
+    );
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/repo",
+        priority: 3,
+        prompt: "Create the reviewed Queue task.",
+        queueTag: "prefill",
+        sandbox: "workspace_write",
+        status: "queued",
+        title: "Create intent task",
+        type: "createItem",
+      }),
+    );
+    await clickButton("Apply create");
+
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/repo",
+        priority: 3,
+        prompt: "Create the reviewed Queue task.",
+        queueTag: { name: "prefill" },
+        sandbox: "workspace_write",
+        status: "queued",
+        title: "Create intent task",
+      }),
+    );
+    expect(document.body.textContent).toContain("Queue item created");
+    expect(document.body.textContent).toContain("queue-created-from-intent");
+  });
+
+  it("renders an update Queue intent draft from visible Workspace Agent text", async () => {
+    renderWidget({ workspaceAgentQueueBridge: queueBridge() });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        itemId: "queue-target",
+        priority: 5,
+        prompt: "Update the stored task prompt.",
+        status: "queued",
+        title: "Updated title draft",
+        type: "updateItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain("Draft Queue update");
+    expect(document.body.textContent).toContain("queue.updateItem");
+    expect(document.body.textContent).toContain("queue-target");
+    expect(document.body.textContent).toContain("Updated title draft");
+    expect(document.body.textContent).toContain("Update the stored task prompt.");
+  });
+
+  it("applies an update Queue intent draft through the Queue bridge", async () => {
+    const updateItem = vi.fn(async () =>
+      itemResult("queue.updateItem", {
+        id: "queue-target",
+        priority: 5,
+        status: "queued",
+        title: "Updated title draft",
+      }),
+    );
+    const bridge = queueBridge({ updateItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        itemId: "queue-target",
+        priority: 5,
+        prompt: "Update the stored task prompt.",
+        status: "queued",
+        title: "Updated title draft",
+        type: "updateItem",
+      }),
+    );
+    await clickButton("Apply update");
+
+    expect(updateItem).toHaveBeenCalledWith({
+      itemId: "queue-target",
+      patch: {
+        priority: 5,
+        prompt: "Update the stored task prompt.",
+        status: "queued",
+        title: "Updated title draft",
+      },
+    });
+    expect(document.body.textContent).toContain("Queue item updated");
+  });
+
+  it("blocks create Queue intent apply when title or prompt is missing", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        description: "Missing create title and prompt.",
+        type: "createItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain(
+      "Missing required fields: title, prompt.",
+    );
+    expect(buttonWithText("Apply create")?.disabled).toBe(true);
+    expect(createItem).not.toHaveBeenCalled();
+  });
+
+  it("shows missing run settings before applying a queued create Queue intent", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        prompt: "Queued work needs explicit run settings.",
+        status: "queued",
+        title: "Queued draft without settings",
+        type: "createItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain(
+      "Queued drafts need run settings before apply: execution workspace, Codex executable, sandbox, approval policy.",
+    );
+    expect(document.body.textContent).toContain("Task workspace");
+    expect(document.body.textContent).toContain("Codex executable");
+    expect(document.body.textContent).toContain("Sandbox");
+    expect(document.body.textContent).toContain("Approval policy");
+    expect(buttonWithText("Apply create")?.disabled).toBe(true);
+    expect(createItem).not.toHaveBeenCalled();
+  });
+
+  it("blocks update Queue intent apply when no fields are changed", async () => {
+    const updateItem = vi.fn(async () => itemResult("queue.updateItem"));
+    const bridge = queueBridge({ updateItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        itemId: "queue-target",
+        type: "updateItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain(
+      "At least one field must be changed before apply.",
+    );
+    expect(buttonWithText("Apply update")?.disabled).toBe(true);
+    expect(updateItem).not.toHaveBeenCalled();
+  });
+
+  it("discards a Queue intent draft without applying it", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        prompt: "Discard this visible draft.",
+        title: "Discarded Queue draft",
+        type: "createItem",
+      }),
+    );
+
+    expect(document.body.textContent).toContain("Discarded Queue draft");
+
+    await clickButton("Discard draft");
+
+    expect(document.querySelector('[aria-label="Draft Queue item"]')).toBeNull();
+    expect(createItem).not.toHaveBeenCalled();
+  });
+
+  it("does not use shell or legacy Queue callbacks when applying Queue intent drafts", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const legacyCreate = vi.fn();
+    const legacyUpdate = vi.fn();
+    const runTerminal = vi.fn();
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({
+      onCreateAgentQueueTask: legacyCreate,
+      onRunTerminalCommand: runTerminal,
+      onUpdateAgentQueueTask: legacyUpdate,
+      workspaceAgentQueueBridge: bridge,
+    });
+
+    await sendWorkspaceAgentMessage(
+      queueIntentBlock({
+        prompt: "Apply through Queue bridge only.",
+        title: "Bridge-only Queue draft",
+        type: "createItem",
+      }),
+    );
+    await clickButton("Apply create");
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(legacyCreate).not.toHaveBeenCalled();
+    expect(legacyUpdate).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+  });
 });
 
 function renderWidget(
@@ -327,6 +579,33 @@ function setNativeValue(
       : HTMLInputElement.prototype;
   const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
   descriptor?.set?.call(field, value);
+}
+
+async function sendWorkspaceAgentMessage(message: string) {
+  const composer = document.querySelector<HTMLTextAreaElement>(
+    ".interactive-agent-input",
+  );
+  if (!composer) {
+    throw new Error("Workspace Agent composer not found.");
+  }
+
+  await act(async () => {
+    setNativeValue(composer, message);
+    composer.dispatchEvent(new Event("input", { bubbles: true }));
+    composer.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+  });
+
+  await clickButton("Send");
+}
+
+function queueIntentBlock(intent: Record<string, unknown>) {
+  return [
+    "Please prepare this Queue intent for review.",
+    "```hobit-queue-intent",
+    JSON.stringify(intent),
+    "```",
+  ].join("\n");
 }
 
 function buttonWithText(text: string) {

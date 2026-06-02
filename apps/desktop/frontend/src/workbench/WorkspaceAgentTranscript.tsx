@@ -30,10 +30,15 @@ import {
 } from "./WorkspaceAgentQueueReportActionCard";
 import {
   WorkspaceAgentQueueActionResultCard,
+  WorkspaceAgentQueueIntentDraftCard,
 } from "./WorkspaceAgentQueueActionCards";
 import type {
   WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type {
+  WorkspaceAgentQueueIntentDraft,
+} from "./workspaceAgentQueueIntent";
 import type {
   WorkspaceAgentSuggestedPrompt,
 } from "./workspaceAgentSuggestedPrompts";
@@ -48,6 +53,7 @@ export type WorkspaceAgentTranscriptMessage = {
   proposalIds?: string[];
   providerMeta?: CoordinatorProviderMessageMeta;
   queueActionResultId?: string;
+  queueIntentDraftIds?: string[];
   queueReportCardId?: string;
   reviewId?: string;
   role: "operator" | "assistant";
@@ -66,8 +72,11 @@ export function WorkspaceAgentTranscript({
   onCreateQueueTask,
   onCreateQueueTaskFromReportCard,
   onCreateSkill,
+  onDiscardQueueIntentDraft,
   onOpenAgentQueueItem,
   onPatchQueueReportCard,
+  onPatchQueueIntentDraft,
+  onQueueActionResult,
   onQueueReportActionResult,
   onUpdateQueueTaskFromReportCard,
   onEditProposal,
@@ -76,11 +85,13 @@ export function WorkspaceAgentTranscript({
   plans,
   proposals,
   queueActionResults,
+  queueIntentDrafts,
   queueReportActionResults,
   queueReportCards,
   reviews,
   suggestedPrompts,
   transcriptRef,
+  workspaceAgentQueueBridge,
 }: {
   creatingKnowledgeDocumentProposalIds: ReadonlySet<string>;
   creatingNoteProposalIds: ReadonlySet<string>;
@@ -95,11 +106,17 @@ export function WorkspaceAgentTranscript({
     request: Omit<CreateAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<AgentQueueTask>;
   onCreateSkill: (proposalId: string) => void;
+  onDiscardQueueIntentDraft: (draftId: string) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPatchQueueReportCard: (
     cardId: string,
     patch: WorkspaceAgentQueueReportActionCardPatch,
   ) => void;
+  onPatchQueueIntentDraft: (
+    draftId: string,
+    patch: Partial<WorkspaceAgentQueueIntentDraft>,
+  ) => void;
+  onQueueActionResult: (result: WorkspaceAgentQueueActionCardResult) => void;
   onQueueReportActionResult: (
     cardId: string,
     actionType: AgentQueueReportActionType,
@@ -117,6 +134,7 @@ export function WorkspaceAgentTranscript({
   plans: Record<string, CoordinatorPlanDraft>;
   proposals: Record<string, CoordinatorActionProposal>;
   queueActionResults: Record<string, WorkspaceAgentQueueActionCardResult>;
+  queueIntentDrafts: Record<string, WorkspaceAgentQueueIntentDraft>;
   queueReportActionResults: Record<
     string,
     Record<string, WorkspaceAgentQueueReportActionResult>
@@ -125,6 +143,7 @@ export function WorkspaceAgentTranscript({
   reviews: Record<string, CoordinatorOutcomeReviewDraft>;
   suggestedPrompts: WorkspaceAgentSuggestedPrompt[];
   transcriptRef: Ref<HTMLDivElement>;
+  workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
 }) {
   return (
     <div
@@ -173,6 +192,22 @@ export function WorkspaceAgentTranscript({
               result={queueActionResults[message.queueActionResultId]}
             />
           ) : null}
+          {message.queueIntentDraftIds
+            ? message.queueIntentDraftIds.map((queueIntentDraftId) => {
+                const queueIntentDraft = queueIntentDrafts[queueIntentDraftId];
+
+                return queueIntentDraft ? (
+                  <WorkspaceAgentQueueIntentDraftCard
+                    bridge={workspaceAgentQueueBridge}
+                    draft={queueIntentDraft}
+                    key={queueIntentDraft.id}
+                    onActionResult={onQueueActionResult}
+                    onDiscard={onDiscardQueueIntentDraft}
+                    onPatchDraft={onPatchQueueIntentDraft}
+                  />
+                ) : null;
+              })
+            : null}
           {message.proposalIds ? (
             <WorkspaceAgentProposalList
               creatingKnowledgeDocumentProposalIds={
