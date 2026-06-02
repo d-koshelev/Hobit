@@ -154,7 +154,7 @@ export function AgentQueueFlowMap({
             .join(" ")}
           data-testid="queue-flow-topology-canvas"
         >
-          <QueueFlowSectionBaseline label="Work intake topology" />
+          <QueueFlowSectionHeading label="Work intake topology" />
 
           <div
             aria-label="Queue intake topology"
@@ -322,9 +322,6 @@ function QueueFlowLayer({
           />
         ))}
       </div>
-      {column.barriersAfter.map((barrier) => (
-        <QueueFlowBarrier barrier={barrier} key={barrier.id} />
-      ))}
     </div>
   );
 }
@@ -388,17 +385,15 @@ function QueueFlowBarrier({
   return (
     <div
       className="agent-queue-flow-barrier"
-      role="separator"
+      role="note"
       title={`${barrier.blockingItemIds.length.toString()} blockers, ${barrier.blockedItemIds.length.toString()} dependent items`}
     >
-      <span className="agent-queue-flow-barrier-line" />
       <span className="agent-queue-flow-barrier-body">
         <span className="agent-queue-flow-barrier-label">{barrier.label}</span>
         <span className="agent-queue-flow-barrier-copy">
           {barrier.blockingSummary} blocks {barrier.blockedSummary}
         </span>
       </span>
-      <span className="agent-queue-flow-barrier-line" />
     </div>
   );
 }
@@ -409,18 +404,12 @@ function QueueFlowDependencyBars({
   barriers: QueueFlowBarrierModel[];
 }) {
   if (barriers.length === 0) {
-    return (
-      <div
-        aria-hidden="true"
-        className="agent-queue-flow-dependency-bars agent-queue-flow-dependency-bars-empty"
-      >
-        <span />
-      </div>
-    );
+    return null;
   }
 
   return (
     <div className="agent-queue-flow-dependency-bars" aria-label="Dependency relationships">
+      <p className="agent-queue-flow-dependency-heading">Dependency blockers</p>
       {barriers.map((barrier) => (
         <QueueFlowBarrier barrier={barrier} key={barrier.id} />
       ))}
@@ -451,7 +440,7 @@ function QueueFlowExecutorSection({
       className="agent-queue-flow-zone agent-queue-flow-executors"
     >
       <div className="agent-queue-flow-zone-header">
-        <QueueFlowSectionBaseline label="Local executor section / Working executors" />
+        <QueueFlowSectionHeading label="Local executor section / Working executors" />
         {schedulerPlan ? (
           <Badge
             variant={
@@ -531,10 +520,9 @@ function QueueFlowResultsSection({
       aria-label="Results / Reports / Completed work"
       className="agent-queue-flow-zone agent-queue-flow-results"
     >
-      <QueueFlowSectionBaseline label="Results / Reports / Completed work" />
+      <QueueFlowSectionHeading label="Results / Reports / Completed work" />
       {groups.length === 0 ? (
         <div className="agent-queue-flow-result-empty">
-          <span className="agent-queue-flow-result-empty-rail" />
           <span>No results yet</span>
         </div>
       ) : (
@@ -556,12 +544,10 @@ function QueueFlowResultsSection({
   );
 }
 
-function QueueFlowSectionBaseline({ label }: { label: string }) {
+function QueueFlowSectionHeading({ label }: { label: string }) {
   return (
-    <div className="agent-queue-flow-section-baseline">
-      <span />
+    <div className="agent-queue-flow-section-heading">
       <p>{label}</p>
-      <span />
     </div>
   );
 }
@@ -569,7 +555,6 @@ function QueueFlowSectionBaseline({ label }: { label: string }) {
 function QueueFlowLaneLabel({ label }: { label: string }) {
   return (
     <div className="agent-queue-flow-lane-label">
-      <span />
       <p>{label}</p>
     </div>
   );
@@ -578,7 +563,6 @@ function QueueFlowLaneLabel({ label }: { label: string }) {
 function QueueFlowZoneEmpty({ text }: { text: string }) {
   return (
     <div className="agent-queue-flow-zone-empty">
-      <span className="agent-queue-flow-zone-empty-rail" />
       <span className="agent-queue-flow-zone-empty-node" />
       <span>{text}</span>
     </div>
