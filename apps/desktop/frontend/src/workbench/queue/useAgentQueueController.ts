@@ -155,7 +155,8 @@ export function useAgentQueueController({
   const [codexExecutableDraft, setCodexExecutableDraft] = useState(
     defaultCodexExecutable,
   );
-  const [sandbox, setSandbox] = useState<DirectWorkSandbox>("read_only");
+  const [sandbox, setSandbox] =
+    useState<DirectWorkSandbox>("danger_full_access");
   const [approvalPolicy, setApprovalPolicy] =
     useState<DirectWorkApprovalPolicy>("never");
   const [isStarting, setIsStarting] = useState(false);

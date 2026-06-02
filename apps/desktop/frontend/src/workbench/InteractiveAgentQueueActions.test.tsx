@@ -346,7 +346,7 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
           "Get-Content .\\AGENTS.md -TotalCount 1",
         ),
         queueTag: { name: "Default" },
-        sandbox: "read_only",
+        sandbox: "danger_full_access",
         status: "queued",
         title: "Read AGENTS.md first line",
       }),
@@ -369,6 +369,8 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
       "Created Queue item: queue-chat-created \u2014 Read AGENTS.md first line. Status: queued.",
     );
     expect(document.body.textContent).toContain("Task workspace: C:/repo");
+    expect(document.body.textContent).toContain("Sandbox: danger_full_access");
+    expect(document.body.textContent).toContain("Approval: never");
   });
 
   it("handles update task chat commands through updateItem", async () => {
@@ -941,7 +943,7 @@ function queueBridge(
       approvalPolicy: "never" as const,
       codexExecutable: "codex.cmd",
       executionWorkspace: "C:/repo",
-      sandbox: "read_only" as const,
+      sandbox: "danger_full_access" as const,
     })),
     getSnapshot: vi.fn(async () => snapshotResult(queueSnapshot())),
     updateItem: vi.fn(async () => itemResult("queue.updateItem")),

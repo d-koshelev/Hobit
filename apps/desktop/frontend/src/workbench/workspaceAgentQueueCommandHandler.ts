@@ -694,6 +694,8 @@ function createdItemSummary(item: QueueWidgetItemSnapshot) {
   return [
     `Created Queue item: ${item.id} \u2014 ${item.title}. Status: ${item.status}.`,
     `Task workspace: ${executionWorkspace}`,
+    `Sandbox: ${item.sandbox ?? "not set"}`,
+    `Approval: ${item.approvalPolicy ?? "not set"}`,
   ].join("\n");
 }
 

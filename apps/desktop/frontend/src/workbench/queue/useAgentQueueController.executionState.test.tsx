@@ -150,6 +150,46 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
+  it("uses the task-scoped sandbox when Autonomous Queue starts a task", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPolicy: "manual",
+        prompt: "Do not run this",
+        queueItemId: "queue-draft",
+        sandbox: "read_only",
+        status: "draft",
+      }),
+      queueTask({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/repo",
+        prompt: "Run this",
+        queueItemId: "queue-1",
+        sandbox: "danger_full_access",
+        status: "ready",
+      }),
+    ]);
+    harness.options.onGetAgentExecutorRunDetail = async () => runDetail();
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.autonomous.onStart();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.startRequests[0].approvalPolicy).toBe("never");
+    expect(harness.startRequests[0].codexExecutable).toBe("codex.cmd");
+    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+    expect(harness.startRequests[0].repoRoot).toBe("C:/repo");
+    expect(harness.startRequests[0].sandbox).toBe("danger_full_access");
+
+    hook.unmount();
+  });
+
   it("shows Autonomous Queue setup guidance when execution workspace is missing", async () => {
     const harness = createQueueHarness([
       queueTask({

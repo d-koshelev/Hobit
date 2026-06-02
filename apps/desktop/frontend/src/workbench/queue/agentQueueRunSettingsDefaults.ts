@@ -23,7 +23,7 @@ export function defaultAgentQueueTaskRunSettings(): AgentQueueTaskRunSettingsDef
     approvalPolicy: "never",
     codexExecutable: defaultCodexExecutable(),
     executionWorkspace: "",
-    sandbox: "read_only",
+    sandbox: "danger_full_access",
   };
 }
 
@@ -40,9 +40,11 @@ export function agentQueueTaskRunSettingsDefaultsFromRun(
 }
 
 function normalizeSandbox(value: DirectWorkSandbox | ""): DirectWorkSandbox {
-  return value === "workspace_write" || value === "danger_full_access"
+  return value === "read_only" ||
+    value === "workspace_write" ||
+    value === "danger_full_access"
     ? value
-    : "read_only";
+    : "danger_full_access";
 }
 
 function normalizeApprovalPolicy(

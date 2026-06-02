@@ -299,7 +299,7 @@ describe("workspaceAgentQueueCommandHandler", () => {
           "Get-Content .\\AGENTS.md -TotalCount 1",
         ),
         queueTag: { name: "Default" },
-        sandbox: "read_only",
+        sandbox: "danger_full_access",
         status: "queued",
         title: "Read AGENTS.md first line",
       }),
@@ -324,6 +324,8 @@ describe("workspaceAgentQueueCommandHandler", () => {
       "Created Queue item: Q-CREATED \u2014 Read AGENTS.md first line. Status: queued.",
     );
     expect(result.body).toContain("Task workspace: C:/repo");
+    expect(result.body).toContain("Sandbox: danger_full_access");
+    expect(result.body).toContain("Approval: never");
     expect(result.body).not.toContain("Missing settings");
   });
 
@@ -365,6 +367,58 @@ describe("workspaceAgentQueueCommandHandler", () => {
       }),
     );
     expect(result.body).toContain("Task workspace: D:/queue-default");
+  });
+
+  it("creates executable local dogfooding tasks with danger_full_access when Queue defaults are unavailable", async () => {
+    const hobitWorkspace = "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed";
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        approvalPolicy: request.approvalPolicy,
+        codexExecutable: request.codexExecutable,
+        executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace ?? "",
+        id: "Q-HOBIT",
+        prompt: request.prompt,
+        sandbox: request.sandbox,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(
+      "create task read AGENTS.md first line",
+      {
+        bridge: queueBridge({
+          createItem,
+          getRunSettingsDefaults: () => null,
+          runAutonomousQueue,
+        }),
+        currentWorkspaceRoot: hobitWorkspace,
+      },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executionWorkspace: hobitWorkspace,
+        prompt: expect.stringContaining(
+          "Get-Content .\\AGENTS.md -TotalCount 1",
+        ),
+        sandbox: "danger_full_access",
+        status: "queued",
+        title: "Read AGENTS.md first line",
+      }),
+    );
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain(`Task workspace: ${hobitWorkspace}`);
+    expect(result.body).toContain("Sandbox: danger_full_access");
+    expect(result.body).toContain("Approval: never");
   });
 
   it("creates a read-only location task with an exact Get-Location command", async () => {
