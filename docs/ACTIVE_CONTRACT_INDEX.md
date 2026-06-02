@@ -201,6 +201,13 @@ unless the task explicitly requests it.
   test hooks, safety policy, app-native action rules, and semantic widget
   testing. It does not add runtime APIs, Finder, storage/schema, backend/Tauri
   commands, provider tools, or widget behavior changes.
+- `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
+  API contract for Agent Queue. It defines the singleton Queue identity,
+  snapshot, item shape, app-native actions, QueuePatch model, events,
+  evidence/report semantics, state machine, autonomous Queue boundary, safety
+  classes, semantic test hooks, and Workspace Agent Coordinator integration.
+  It is docs-only and does not add runtime APIs, frontend behavior,
+  storage/schema changes, provider tools, Git automation, or hidden execution.
 - `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` - read before any new widget or
   major widget change. It defines the contract-first planning packet,
   Definition of Ready/Done, state machine, UI composition, semantic testing,
@@ -276,6 +283,12 @@ unless the task explicitly requests it.
 
 ### Agent Queue
 
+- `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
+  API contract for Agent Queue. Read for Queue app-native API identity,
+  snapshots, actions, events, evidence, state machine, QueuePatch proposals,
+  semantic tests, Workspace Agent Coordinator integration, singleton Queue
+  rules, task-scoped run settings, autonomous Queue semantics, and safety
+  policy.
 - `docs/QUEUE_PRODUCT_HANDOFF.md` - Queue product handoff after Block 026. It
   freezes the current Queue + Workers UI/model/runtime boundaries, identifies
   future runtime gaps, and directs the next phase toward product scenario
