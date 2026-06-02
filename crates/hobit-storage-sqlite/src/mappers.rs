@@ -153,9 +153,13 @@ pub(crate) fn agent_queue_task_row(row: &rusqlite::Row<'_>) -> Result<AgentQueue
         status: row.get(5)?,
         priority: row.get(6)?,
         execution_policy: row.get(7)?,
-        assigned_executor_widget_id: row.get(8)?,
-        created_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        execution_workspace: row.get(8)?,
+        codex_executable: row.get(9)?,
+        sandbox: row.get(10)?,
+        approval_policy: row.get(11)?,
+        assigned_executor_widget_id: row.get(12)?,
+        created_at: row.get(13)?,
+        updated_at: row.get(14)?,
     })
 }
 

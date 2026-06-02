@@ -47,12 +47,16 @@ export function createAgentQueueSelectionModel({
     setSelectedTask(mergedTask);
     setDraft({
       dependsOn: normalizeTaskDependencies(mergedTask.dependsOn),
+      approvalPolicy: mergedTask.approvalPolicy ?? "",
+      codexExecutable: mergedTask.codexExecutable ?? "",
       description: mergedTask.description,
       executionPolicy: normalizeTaskExecutionPolicy(mergedTask.executionPolicy),
+      executionWorkspace: mergedTask.executionWorkspace ?? "",
       itemType: normalizeItemType(mergedTask.itemType),
       priority: mergedTask.priority,
       prompt: mergedTask.prompt,
       queueTagName: queueTag.queueTagName,
+      sandbox: mergedTask.sandbox ?? "",
       status: normalizeTaskStatus(mergedTask.status),
       title: mergedTask.title,
       validationStatus: normalizeValidationStatus(mergedTask.validationStatus),

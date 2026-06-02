@@ -215,8 +215,11 @@ export function createAgentQueueTaskActions({
 
     try {
       const createdTask = await onCreateAgentQueueTask({
+        approvalPolicy: taskDraft.approvalPolicy || null,
+        codexExecutable: taskDraft.codexExecutable.trim() || null,
         title: taskDraft.title.trim(),
         description: taskDraft.description,
+        executionWorkspace: taskDraft.executionWorkspace.trim() || null,
         prompt: taskDraft.prompt,
         status: taskDraft.status,
         priority: taskDraft.priority,
@@ -224,6 +227,7 @@ export function createAgentQueueTaskActions({
         itemType: taskDraft.itemType,
         queueTagId: queueTagNameToId(taskDraft.queueTagName),
         queueTagName: taskDraft.queueTagName.trim(),
+        sandbox: taskDraft.sandbox || null,
         validationStatus: taskDraft.validationStatus,
       });
       const taskFoundation = {
@@ -295,14 +299,18 @@ export function createAgentQueueTaskActions({
 
     try {
       const createdTask = await onCreateAgentQueueTask({
+        approvalPolicy: selectedTask.approvalPolicy ?? null,
+        codexExecutable: selectedTask.codexExecutable ?? null,
         description:
           "Review the source implementation diff against the worker report, declared scope, and Hobit contracts.",
         executionPolicy: "manual",
+        executionWorkspace: selectedTask.executionWorkspace ?? null,
         itemType: "diff_review",
         priority: selectedTask.priority,
         prompt,
         queueTagId: queueTag.queueTagId,
         queueTagName: queueTag.queueTagName,
+        sandbox: selectedTask.sandbox ?? null,
         status: "queued",
         title: `Diff review: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
         validationStatus: "not_started",
@@ -374,6 +382,10 @@ export function createAgentQueueTaskActions({
             executionPolicy: normalizeTaskExecutionPolicy(
               selectedTask.executionPolicy,
             ),
+            executionWorkspace: selectedTask.executionWorkspace ?? null,
+            codexExecutable: selectedTask.codexExecutable ?? null,
+            sandbox: selectedTask.sandbox ?? null,
+            approvalPolicy: selectedTask.approvalPolicy ?? null,
             itemType: normalizeItemType(selectedTask.itemType),
             priority: selectedTask.priority,
             prompt: selectedTask.prompt,
@@ -445,13 +457,17 @@ export function createAgentQueueTaskActions({
 
     try {
       const createdTask = await onCreateAgentQueueTask({
+        approvalPolicy: selectedTask.approvalPolicy ?? null,
+        codexExecutable: selectedTask.codexExecutable ?? null,
         description: `Follow-up/sub-block for ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}.`,
         executionPolicy: "manual",
+        executionWorkspace: selectedTask.executionWorkspace ?? null,
         itemType: "follow_up",
         priority: selectedTask.priority,
         prompt: followUpPromptFromTask(selectedTask),
         queueTagId: queueTag.queueTagId,
         queueTagName: queueTag.queueTagName,
+        sandbox: selectedTask.sandbox ?? null,
         status: "queued",
         title: `Follow-up: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
         validationStatus: "not_started",
@@ -621,9 +637,12 @@ export function createAgentQueueTaskActions({
 
     try {
       const updatedTask = await onUpdateAgentQueueTask({
+        approvalPolicy: draft.approvalPolicy || null,
+        codexExecutable: draft.codexExecutable.trim() || null,
         queueItemId: selectedTask.queueItemId,
         title: draft.title.trim(),
         description: draft.description,
+        executionWorkspace: draft.executionWorkspace.trim() || null,
         prompt: draft.prompt,
         status: draft.status,
         priority: draft.priority,
@@ -631,6 +650,7 @@ export function createAgentQueueTaskActions({
         itemType: draft.itemType,
         queueTagId: queueTagNameToId(draft.queueTagName),
         queueTagName: draft.queueTagName.trim(),
+        sandbox: draft.sandbox || null,
         validationStatus: draft.validationStatus,
       });
 
@@ -750,19 +770,23 @@ export function createAgentQueueTaskActions({
     const validationStatus = normalizeValidationStatus(
       selectedTask.validationStatus,
     );
-    const nextDraft: TaskDraft = {
-      dependsOn: normalizeTaskDependencies(selectedTask.dependsOn),
-      description: selectedTask.description,
-      executionPolicy: normalizeTaskExecutionPolicy(
-        selectedTask.executionPolicy,
-      ),
-      itemType: normalizeItemType(selectedTask.itemType),
-      priority: selectedTask.priority,
-      prompt: selectedTask.prompt,
-      queueTagName: queueTag.queueTagName,
-      status: "queued",
-      title: selectedTask.title,
-      validationStatus,
+      const nextDraft: TaskDraft = {
+        dependsOn: normalizeTaskDependencies(selectedTask.dependsOn),
+        approvalPolicy: selectedTask.approvalPolicy ?? "",
+        codexExecutable: selectedTask.codexExecutable ?? "",
+        description: selectedTask.description,
+        executionPolicy: normalizeTaskExecutionPolicy(
+          selectedTask.executionPolicy,
+        ),
+        executionWorkspace: selectedTask.executionWorkspace ?? "",
+        itemType: normalizeItemType(selectedTask.itemType),
+        priority: selectedTask.priority,
+        prompt: selectedTask.prompt,
+        queueTagName: queueTag.queueTagName,
+        sandbox: selectedTask.sandbox ?? "",
+        status: "queued",
+        title: selectedTask.title,
+        validationStatus,
     };
     const validationError = validateDraft(nextDraft);
 
@@ -780,14 +804,18 @@ export function createAgentQueueTaskActions({
 
     try {
       const updatedTask = await onUpdateAgentQueueTask({
+        approvalPolicy: selectedTask.approvalPolicy ?? null,
+        codexExecutable: selectedTask.codexExecutable ?? null,
         description: selectedTask.description,
         executionPolicy: nextDraft.executionPolicy,
+        executionWorkspace: selectedTask.executionWorkspace ?? null,
         itemType: nextDraft.itemType,
         priority: selectedTask.priority,
         prompt: selectedTask.prompt,
         queueItemId: selectedTask.queueItemId,
         queueTagId: queueTag.queueTagId,
         queueTagName: queueTag.queueTagName,
+        sandbox: selectedTask.sandbox ?? null,
         status: "queued",
         title: selectedTask.title,
         validationStatus,

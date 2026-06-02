@@ -96,8 +96,6 @@ export function AgentQueuePlaceholderWidget({
     useState<QueueTaskInsertPosition>("bottom");
   const [createRunSetup, setCreateRunSetup] =
     useState<AgentQueueNewTaskRunSetup>(() => defaultCreateRunSetup());
-  const [pendingSelectedTaskRunSetup, setPendingSelectedTaskRunSetup] =
-    useState<AgentQueueNewTaskRunSetup | null>(null);
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
@@ -137,6 +135,7 @@ export function AgentQueuePlaceholderWidget({
     onStopAgentQueueRunnerSession,
     onUpdateAgentQueueTask,
     onUpdateAgentQueueWorker,
+    queueWidgetInstanceId: instance.id,
     queueTaskAutoRefreshRequest,
   });
   const {
@@ -164,15 +163,6 @@ export function AgentQueuePlaceholderWidget({
 
     void selectTask(agentQueueItemOpenRequest.queueItemId);
   }, [agentQueueItemOpenRequest?.id]);
-
-  useEffect(() => {
-    if (!pendingSelectedTaskRunSetup || !selectedTask) {
-      return;
-    }
-
-    applyCreateRunSetupToQueueRun(pendingSelectedTaskRunSetup, queue.run);
-    setPendingSelectedTaskRunSetup(null);
-  }, [pendingSelectedTaskRunSetup, selectedTask?.queueItemId]);
 
   const queueFrameActions = (
     <>
@@ -238,6 +228,10 @@ export function AgentQueuePlaceholderWidget({
   async function confirmCreateTask(mode: "draft" | "queued") {
     const nextDraft = {
       ...createDraft,
+      approvalPolicy: createRunSetup.approvalPolicy,
+      codexExecutable: createRunSetup.codexExecutableDraft,
+      executionWorkspace: createRunSetup.repoRootDraft,
+      sandbox: createRunSetup.sandbox,
       status: mode === "queued" ? "queued" as const : "draft" as const,
     };
     const validationError = validateDraft(nextDraft);
@@ -261,18 +255,11 @@ export function AgentQueuePlaceholderWidget({
       return;
     }
 
-    if (mode === "queued") {
-      applyCreateRunSetupToQueueRun(createRunSetup, queue.run);
-    }
-
     const didCreate = await createTask(nextDraft, {
       insertPosition: createInsertPosition,
     });
 
     if (didCreate) {
-      if (mode === "queued") {
-        setPendingSelectedTaskRunSetup({ ...createRunSetup });
-      }
       setCreateDraft(newTaskDialogDraft(selectedTask));
       setCreateInsertPosition("bottom");
       setCreateRunSetup(createRunSetup);
@@ -314,7 +301,12 @@ export function AgentQueuePlaceholderWidget({
           <AgentQueueLayout
             isFlowMapView
             layoutKey={instance.id}
-            sidebar={<AgentQueueSidebar foundation={queue.foundation} />}
+            sidebar={
+              <AgentQueueSidebar
+                autonomous={queue.autonomous}
+                foundation={queue.foundation}
+              />
+            }
             detailsPanel={
               <AgentQueueTaskDetailsPanel
                 agentExecutorSlots={queueOwnedExecutorSlots}
@@ -412,16 +404,6 @@ function runSetupFromQueueRun(
   };
 }
 
-function applyCreateRunSetupToQueueRun(
-  setup: AgentQueueNewTaskRunSetup,
-  run: AgentQueueRunController,
-) {
-  run.onRepoRootDraftChange(setup.repoRootDraft);
-  run.onCodexExecutableDraftChange(setup.codexExecutableDraft);
-  run.onSandboxChange(setup.sandbox);
-  run.onApprovalPolicyChange(setup.approvalPolicy);
-}
-
 function validateQueuedRunSetup(
   draft: TaskDraft,
   setup: AgentQueueNewTaskRunSetup,
@@ -435,7 +417,7 @@ function validateQueuedRunSetup(
   }
 
   if (!setup.repoRootDraft.trim()) {
-    return "Execution workspace is required before creating a queued task.";
+    return "Task workspace is required before creating a queued task.";
   }
 
   if (!setup.codexExecutableDraft.trim()) {
@@ -453,14 +435,14 @@ function validateQueuedRunSetup(
   return null;
 }
 
-function normalizeSandbox(value: DirectWorkSandbox): DirectWorkSandbox {
+function normalizeSandbox(value: DirectWorkSandbox | ""): DirectWorkSandbox {
   return value === "workspace_write" || value === "danger_full_access"
     ? value
     : "read_only";
 }
 
 function normalizeApprovalPolicy(
-  value: DirectWorkApprovalPolicy,
+  value: DirectWorkApprovalPolicy | "",
 ): DirectWorkApprovalPolicy {
   return value === "on_request" || value === "untrusted" ? value : "never";
 }

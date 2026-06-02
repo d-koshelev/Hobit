@@ -379,7 +379,7 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(document.body.textContent).toContain("Before run");
     expect(document.body.textContent).toContain("Run task");
     expect(document.body.textContent).toContain("Local executor unavailable");
-    expect(document.body.textContent).toContain("Set workspace");
+    expect(document.body.textContent).toContain("Set task workspace");
     expect(document.body.textContent).toContain("Set Codex executable");
     expect(document.body.textContent).toContain("read_only");
     expect(document.body.textContent).toContain("Promote to queued");
@@ -1558,12 +1558,16 @@ function renderDetailsPanel({
 function draftFromTask(task: AgentQueueTask): TaskDraft {
   return {
     dependsOn: task.dependsOn ?? [],
+    approvalPolicy: task.approvalPolicy ?? "",
+    codexExecutable: task.codexExecutable ?? "",
     description: task.description,
     executionPolicy: task.executionPolicy ?? "manual",
+    executionWorkspace: task.executionWorkspace ?? "",
     itemType: task.itemType ?? "implementation",
     priority: task.priority,
     prompt: task.prompt,
     queueTagName: task.queueTagName ?? "Default",
+    sandbox: task.sandbox ?? "",
     status: task.status,
     title: task.title,
     validationStatus: task.validationStatus ?? "not_started",
@@ -1876,11 +1880,13 @@ function runController(): AgentQueueRunController {
     canStart: false,
     codexExecutableDraft: "codex",
     executorSelectionMessage: null,
+    hasUnsavedTaskSettings: false,
     isStarting: false,
     onApprovalPolicyChange: vi.fn(),
     onCodexExecutableDraftChange: vi.fn(),
     onRepoRootDraftChange: vi.fn(),
     onSandboxChange: vi.fn(),
+    onSaveTaskSettings: vi.fn(),
     onStartAssignedTask: vi.fn(),
     preconditionMessages: [],
     readinessMessage: "Ready",

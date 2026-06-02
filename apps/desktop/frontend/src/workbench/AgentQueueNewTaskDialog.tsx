@@ -91,8 +91,8 @@ export function AgentQueueNewTaskDialog({
               New task
             </h3>
             <p className="agent-queue-create-dialog-copy">
-              Create a draft, or create a queued task with session run defaults
-              already set.
+              Create a draft, or create a queued task with task run settings
+              already saved.
             </p>
           </div>
           <Button disabled={isCreating} onClick={() => onCancel()} variant="ghost">
@@ -160,11 +160,11 @@ export function AgentQueueNewTaskDialog({
           <section className="agent-queue-create-section" aria-label="Run setup">
             <div className="agent-queue-create-section-header">
               <p className="agent-queue-create-section-title">Run setup</p>
-              <span>Session run defaults</span>
+              <span>Task settings</span>
             </div>
             <p className="agent-queue-create-section-copy">
-              These settings are applied to the selected Queue run controls after
-              creation. They are not persisted on the task record yet.
+              These settings are saved on this Queue item. Defaults only prefill
+              this dialog.
             </p>
             <div className="agent-queue-editor-grid agent-queue-create-run-grid">
               <div className="agent-queue-editor-field agent-queue-create-field-wide">
@@ -172,7 +172,7 @@ export function AgentQueueNewTaskDialog({
                   className="field-label"
                   htmlFor={createRunWorkspaceInputId}
                 >
-                  Execution workspace
+                  Task workspace
                 </label>
                 <input
                   autoComplete="off"

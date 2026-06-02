@@ -1316,6 +1316,10 @@ fn create_task(
             status: status.to_owned(),
             priority,
             execution_policy: Some(execution_policy.to_owned()),
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task");
 

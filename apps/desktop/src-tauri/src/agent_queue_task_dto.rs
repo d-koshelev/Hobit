@@ -14,6 +14,14 @@ pub(crate) struct CreateAgentQueueTaskRequest {
     pub priority: i64,
     #[serde(default)]
     pub execution_policy: Option<String>,
+    #[serde(default)]
+    pub execution_workspace: Option<String>,
+    #[serde(default)]
+    pub codex_executable: Option<String>,
+    #[serde(default)]
+    pub sandbox: Option<String>,
+    #[serde(default)]
+    pub approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -38,6 +46,14 @@ pub(crate) struct UpdateAgentQueueTaskRequest {
     pub priority: i64,
     #[serde(default)]
     pub execution_policy: Option<String>,
+    #[serde(default)]
+    pub execution_workspace: Option<String>,
+    #[serde(default)]
+    pub codex_executable: Option<String>,
+    #[serde(default)]
+    pub sandbox: Option<String>,
+    #[serde(default)]
+    pub approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -69,6 +85,10 @@ pub(crate) struct AgentQueueTaskDto {
     pub status: String,
     pub priority: i64,
     pub execution_policy: String,
+    pub execution_workspace: Option<String>,
+    pub codex_executable: Option<String>,
+    pub sandbox: Option<String>,
+    pub approval_policy: Option<String>,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -84,6 +104,10 @@ impl From<CreateAgentQueueTaskRequest> for CreateAgentQueueTaskInput {
             status: request.status,
             priority: request.priority,
             execution_policy: request.execution_policy,
+            execution_workspace: request.execution_workspace,
+            codex_executable: request.codex_executable,
+            sandbox: request.sandbox,
+            approval_policy: request.approval_policy,
         }
     }
 }
@@ -99,6 +123,10 @@ impl From<UpdateAgentQueueTaskRequest> for UpdateAgentQueueTaskInput {
             status: request.status,
             priority: request.priority,
             execution_policy: request.execution_policy,
+            execution_workspace: request.execution_workspace,
+            codex_executable: request.codex_executable,
+            sandbox: request.sandbox,
+            approval_policy: request.approval_policy,
         }
     }
 }
@@ -142,6 +170,10 @@ impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
             status: summary.status,
             priority: summary.priority,
             execution_policy: summary.execution_policy,
+            execution_workspace: summary.execution_workspace,
+            codex_executable: summary.codex_executable,
+            sandbox: summary.sandbox,
+            approval_policy: summary.approval_policy,
             assigned_executor_widget_id: summary.assigned_executor_widget_id,
             created_at: summary.created_at,
             updated_at: summary.updated_at,

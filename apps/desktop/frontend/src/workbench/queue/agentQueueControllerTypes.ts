@@ -44,23 +44,72 @@ export type UseAgentQueueControllerOptions = Pick<
   | "onUpdateAgentQueueTask"
   | "onUpdateAgentQueueWorker"
   | "queueTaskAutoRefreshRequest"
->;
+> & {
+  queueWidgetInstanceId?: string;
+};
+
+export type AgentQueueAutonomousStatus =
+  | "idle"
+  | "needs_setup"
+  | "blocked"
+  | "running"
+  | "stopping"
+  | "failed"
+  | "completed";
+
+export type AgentQueueAutonomousTimelineEvent = {
+  id: string;
+  title: string;
+  detail: string | null;
+  status: "info" | "success" | "warning" | "error";
+  timestamp: string;
+};
+
+export type AgentQueueAutonomousController = {
+  activeTaskTitle: string | null;
+  apiAvailable: boolean;
+  canStart: boolean;
+  completedCount: number;
+  currentStage: string | null;
+  error: string | null;
+  failedCount: number;
+  latestReportState: string | null;
+  message: string | null;
+  approvalPolicy: DirectWorkApprovalPolicy;
+  codexExecutableDraft: string;
+  currentWorkspaceRoot: string | null;
+  onApprovalPolicyChange: (approvalPolicy: DirectWorkApprovalPolicy) => void;
+  onCodexExecutableDraftChange: (codexExecutable: string) => void;
+  onRepoRootDraftChange: (repoRoot: string) => void;
+  onSandboxChange: (sandbox: DirectWorkSandbox) => void;
+  onStart: () => void;
+  onStopAfterCurrent: () => void;
+  preconditionMessages: string[];
+  repoRootDraft: string;
+  remainingEligibleCount: number;
+  sandbox: DirectWorkSandbox;
+  skippedBlockedCount: number;
+  status: AgentQueueAutonomousStatus;
+  timeline: AgentQueueAutonomousTimelineEvent[];
+};
 
 export type AgentQueueRunController = {
-  approvalPolicy: DirectWorkApprovalPolicy;
+  approvalPolicy: DirectWorkApprovalPolicy | "";
   canStart: boolean;
   codexExecutableDraft: string;
   executorSelectionMessage: string | null;
+  hasUnsavedTaskSettings: boolean;
   isStarting: boolean;
   onApprovalPolicyChange: (approvalPolicy: DirectWorkApprovalPolicy) => void;
   onCodexExecutableDraftChange: (codexExecutable: string) => void;
   onRepoRootDraftChange: (repoRoot: string) => void;
   onSandboxChange: (sandbox: DirectWorkSandbox) => void;
+  onSaveTaskSettings: () => void;
   onStartAssignedTask: () => void;
   preconditionMessages: string[];
   readinessMessage: string | null;
   repoRootDraft: string;
-  sandbox: DirectWorkSandbox;
+  sandbox: DirectWorkSandbox | "";
   startError: string | null;
   startedRunId: string | null;
   startMessage: string | null;

@@ -51,7 +51,7 @@ export async function createGitCommit(
   return response ? normalizeGitCommitResponse(response) : null;
 }
 
-function normalizeGitCommitResponse(
+export function normalizeGitCommitResponse(
   response: TauriGitCommitResponse,
 ): GitCommitResponse {
   return {

@@ -7,6 +7,10 @@ pub struct CreateAgentQueueTaskInput {
     pub status: String,
     pub priority: i64,
     pub execution_policy: Option<String>,
+    pub execution_workspace: Option<String>,
+    pub codex_executable: Option<String>,
+    pub sandbox: Option<String>,
+    pub approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -19,6 +23,10 @@ pub struct UpdateAgentQueueTaskInput {
     pub status: String,
     pub priority: i64,
     pub execution_policy: Option<String>,
+    pub execution_workspace: Option<String>,
+    pub codex_executable: Option<String>,
+    pub sandbox: Option<String>,
+    pub approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -93,6 +101,10 @@ pub struct AgentQueueTaskSummary {
     pub status: String,
     pub priority: i64,
     pub execution_policy: String,
+    pub execution_workspace: Option<String>,
+    pub codex_executable: Option<String>,
+    pub sandbox: Option<String>,
+    pub approval_policy: Option<String>,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,

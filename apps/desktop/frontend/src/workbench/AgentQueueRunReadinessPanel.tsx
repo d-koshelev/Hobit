@@ -69,6 +69,8 @@ export function AgentQueueRunReadinessPanel({
   const settingsNeedSetup =
     !run.repoRootDraft.trim() ||
     !run.codexExecutableDraft.trim() ||
+    !run.sandbox ||
+    !run.approvalPolicy ||
     run.preconditionMessages.length > 0;
 
   return (
@@ -141,7 +143,7 @@ export function AgentQueueRunReadinessPanel({
               htmlFor={repoRootInputId}
               title="Use an existing repository or local project folder."
             >
-              Execution workspace
+              Task workspace
             </label>
             <Input
               autoComplete="off"
@@ -186,6 +188,7 @@ export function AgentQueueRunReadinessPanel({
               }
               value={run.sandbox}
             >
+              <option value="">Select sandbox</option>
               <option value="read_only">read_only</option>
               <option value="workspace_write">workspace_write</option>
               <option value="danger_full_access">
@@ -208,12 +211,24 @@ export function AgentQueueRunReadinessPanel({
               }
               value={run.approvalPolicy}
             >
+              <option value="">Select approval policy</option>
               <option value="never">never</option>
               <option value="on_request">on_request</option>
               <option value="untrusted">untrusted</option>
             </select>
           </div>
         </div>
+        {run.hasUnsavedTaskSettings ? (
+          <div className="agent-queue-assignment-buttons">
+            <Button
+              disabled={!selectedTask.title.trim()}
+              onClick={() => run.onSaveTaskSettings()}
+              variant="secondary"
+            >
+              Save task settings
+            </Button>
+          </div>
+        ) : null}
       </details>
 
       {run.startMessage ? (
@@ -295,9 +310,9 @@ function buildPrepareLocalRunChecklist({
 
   items.push(
     run.repoRootDraft.trim()
-      ? okItem("Workspace set", run.repoRootDraft.trim())
+      ? okItem("Task workspace set", run.repoRootDraft.trim())
       : fixItem(
-          "Set workspace",
+          "Set task workspace",
           "Choose repo/project path.",
         ),
   );
@@ -311,10 +326,16 @@ function buildPrepareLocalRunChecklist({
         ),
   );
 
-  items.push(sandboxChecklistItem(run.sandbox));
+  items.push(
+    run.sandbox
+      ? sandboxChecklistItem(run.sandbox)
+      : fixItem("Set sandbox", "Required before run."),
+  );
 
   items.push(
-    okItem("Approval policy", `${run.approvalPolicy} selected for this run.`),
+    run.approvalPolicy
+      ? okItem("Approval policy", `${run.approvalPolicy} selected for this task.`)
+      : fixItem("Set approval policy", "Required before run."),
   );
 
   items.push(

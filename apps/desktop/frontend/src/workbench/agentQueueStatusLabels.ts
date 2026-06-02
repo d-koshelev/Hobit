@@ -5,6 +5,8 @@ import type {
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskItemType,
   AgentQueueTaskValidationStatus,
+  DirectWorkApprovalPolicy,
+  DirectWorkSandbox,
 } from "../workspace/types";
 import { clamp, formatStatus, type BadgeVariant } from "./agentQueueFormatting";
 
@@ -31,12 +33,16 @@ export type QueueGlobalStatus = AgentQueueGlobalExecutionState;
 
 export type TaskDraft = {
   dependsOn: string[];
+  approvalPolicy: DirectWorkApprovalPolicy | "";
+  codexExecutable: string;
   description: string;
   executionPolicy: AgentQueueTaskExecutionPolicy;
+  executionWorkspace: string;
   itemType: AgentQueueTaskItemType;
   priority: number;
   prompt: string;
   queueTagName: string;
+  sandbox: DirectWorkSandbox | "";
   status: QueueTaskStatus;
   title: string;
   validationStatus: AgentQueueTaskValidationStatus;
@@ -140,12 +146,16 @@ export function queueGlobalExecutionStateBlocksNewWork(
 export function emptyDraft(): TaskDraft {
   return {
     dependsOn: [],
+    approvalPolicy: "",
+    codexExecutable: "",
     description: "",
     executionPolicy: "manual",
+    executionWorkspace: "",
     itemType: "implementation",
     priority: 0,
     prompt: "",
     queueTagName: DEFAULT_QUEUE_TAG_NAME,
+    sandbox: "",
     status: "draft",
     title: "",
     validationStatus: "not_started",

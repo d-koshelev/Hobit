@@ -6,13 +6,18 @@ import {
   queueGlobalExecutionStateLabel,
 } from "./agentQueueTaskUiModel";
 import { executionPlanStatusLabel } from "./queue/agentQueueExecutionPlanModel";
-import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
+import type {
+  AgentQueueAutonomousController,
+  AgentQueueFoundationController,
+} from "./queue/useAgentQueueController";
+import { AgentQueueAutonomousSection } from "./AgentQueueAutonomousSection";
 
 type AgentQueueSidebarProps = {
+  autonomous: AgentQueueAutonomousController;
   foundation: AgentQueueFoundationController;
 };
 
-export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
+export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarProps) {
   const globalExecutionState = foundation.globalExecutionState;
   const [newTagName, setNewTagName] = useState("");
   const [renamingTagId, setRenamingTagId] = useState<string | null>(null);
@@ -69,6 +74,8 @@ export function AgentQueueSidebar({ foundation }: AgentQueueSidebarProps) {
   return (
     <aside aria-label="Queue and workers" className="agent-queue-sidebar">
       <QueueStateSection foundation={foundation} />
+
+      <AgentQueueAutonomousSection autonomous={autonomous} />
 
       <ExecutorCapacitySection foundation={foundation} />
 

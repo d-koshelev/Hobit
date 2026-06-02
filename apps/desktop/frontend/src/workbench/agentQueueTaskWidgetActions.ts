@@ -260,4 +260,6 @@ function requireOpenWorkbench(viewState: WorkbenchViewState, action: string) {
   if (!viewState.workbench.id) {
     throw new Error(`A workbench must be open to ${action}.`);
   }
+
+  return viewState.workbench.id;
 }

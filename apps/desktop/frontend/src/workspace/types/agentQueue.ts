@@ -256,6 +256,10 @@ export type CreateAgentQueueTaskRequest = {
   priority: number;
   dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  executionWorkspace?: string | null;
+  codexExecutable?: string | null;
+  sandbox?: RunCodexDirectWorkRequest["sandbox"] | null;
+  approvalPolicy?: RunCodexDirectWorkRequest["approvalPolicy"] | null;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;
   queueTagName?: string;
@@ -281,6 +285,10 @@ export type UpdateAgentQueueTaskRequest = {
   priority: number;
   dependsOn?: string[];
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  executionWorkspace?: string | null;
+  codexExecutable?: string | null;
+  sandbox?: RunCodexDirectWorkRequest["sandbox"] | null;
+  approvalPolicy?: RunCodexDirectWorkRequest["approvalPolicy"] | null;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;
   queueTagName?: string;
@@ -439,6 +447,10 @@ export type AgentQueueTask = {
   dependsOn?: string[];
   diffReview?: AgentQueueDiffReviewMetadata | null;
   executionPolicy?: AgentQueueTaskExecutionPolicy;
+  executionWorkspace?: string | null;
+  codexExecutable?: string | null;
+  sandbox?: RunCodexDirectWorkRequest["sandbox"] | null;
+  approvalPolicy?: RunCodexDirectWorkRequest["approvalPolicy"] | null;
   itemType?: AgentQueueTaskItemType;
   queueTagId?: string;
   queueTagName?: string;

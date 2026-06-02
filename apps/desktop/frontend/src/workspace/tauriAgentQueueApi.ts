@@ -80,6 +80,10 @@ type TauriAgentQueueTask = {
   status: AgentQueueTaskStatus;
   priority: number;
   execution_policy?: AgentQueueTaskExecutionPolicy | null;
+  execution_workspace?: string | null;
+  codex_executable?: string | null;
+  sandbox?: string | null;
+  approval_policy?: string | null;
   assigned_executor_widget_id: string | null;
   created_at: string;
   updated_at: string;
@@ -192,6 +196,10 @@ export async function createAgentQueueTask(
       status: request.status,
       priority: request.priority,
       execution_policy: request.executionPolicy ?? null,
+      execution_workspace: request.executionWorkspace ?? null,
+      codex_executable: request.codexExecutable ?? null,
+      sandbox: request.sandbox ?? null,
+      approval_policy: request.approvalPolicy ?? null,
     },
   });
 
@@ -241,6 +249,10 @@ export async function updateAgentQueueTask(
         status: request.status,
         priority: request.priority,
         execution_policy: request.executionPolicy ?? null,
+        execution_workspace: request.executionWorkspace ?? null,
+        codex_executable: request.codexExecutable ?? null,
+        sandbox: request.sandbox ?? null,
+        approval_policy: request.approvalPolicy ?? null,
       },
     },
   );
@@ -510,10 +522,42 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     status: task.status,
     priority: task.priority,
     executionPolicy: normalizeExecutionPolicy(task.execution_policy),
+    executionWorkspace: task.execution_workspace ?? null,
+    codexExecutable: task.codex_executable ?? null,
+    sandbox: normalizeSandbox(task.sandbox),
+    approvalPolicy: normalizeApprovalPolicy(task.approval_policy),
     assignedExecutorWidgetId: task.assigned_executor_widget_id,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };
+}
+
+function normalizeSandbox(
+  sandbox: string | null | undefined,
+): AgentQueueTask["sandbox"] {
+  if (
+    sandbox === "read_only" ||
+    sandbox === "workspace_write" ||
+    sandbox === "danger_full_access"
+  ) {
+    return sandbox;
+  }
+
+  return null;
+}
+
+function normalizeApprovalPolicy(
+  approvalPolicy: string | null | undefined,
+): AgentQueueTask["approvalPolicy"] {
+  if (
+    approvalPolicy === "never" ||
+    approvalPolicy === "on_request" ||
+    approvalPolicy === "untrusted"
+  ) {
+    return approvalPolicy;
+  }
+
+  return null;
 }
 
 function normalizeAgentQueueWorker(

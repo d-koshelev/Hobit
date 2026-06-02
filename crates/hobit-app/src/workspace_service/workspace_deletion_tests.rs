@@ -126,6 +126,10 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
             status: "queued".to_owned(),
             priority: 2,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create deleted queue task");
     let kept_task = service
@@ -137,6 +141,10 @@ fn delete_workspace_returns_remaining_workspaces_and_removes_local_artifacts() {
             status: "queued".to_owned(),
             priority: 2,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create kept queue task");
     service

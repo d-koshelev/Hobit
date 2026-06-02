@@ -70,6 +70,10 @@ fn workspace_summary_includes_created_opened_and_safe_stats() {
             status: "draft".to_owned(),
             priority: 0,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task");
 

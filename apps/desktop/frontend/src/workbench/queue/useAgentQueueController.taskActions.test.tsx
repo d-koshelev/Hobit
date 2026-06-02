@@ -209,6 +209,7 @@ describe("useAgentQueueController task actions", () => {
         approvalPolicy: "never",
         codexExecutable: "codex.cmd",
         queueItemId: "queue-1",
+        queueOwnerWidgetInstanceId: undefined,
         repoRoot: "C:\\repo",
         sandbox: "read_only",
       },

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentExecutorRunDetail, AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox, DirectWorkStreamEvent } from "../../workspace/types";
 import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, errorToMessage, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { AgentQueueAutorunController, AgentQueueAutonomousController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -34,6 +34,7 @@ import {
   queueTaskOrderingControls,
 } from "./agentQueueOrderingActions";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
+import { useAgentQueueAutonomousRunner } from "./useAgentQueueAutonomousRunner";
 import { createAgentQueuePlanningActions } from "./useAgentQueuePlanningActions";
 import {
   createAgentQueueTagActions,
@@ -59,6 +60,7 @@ export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
 export type {
   AgentQueueAutorunController,
+  AgentQueueAutonomousController,
   AgentQueueCoordinatorFinalizationController,
   AgentQueueDeleteController,
   AgentQueueDiffReviewController,
@@ -99,6 +101,7 @@ export function useAgentQueueController({
   onStopAgentQueueRunnerSession,
   onUpdateAgentQueueTask,
   onUpdateAgentQueueWorker,
+  queueWidgetInstanceId = "agent-queue",
   queueTaskAutoRefreshRequest,
 }: UseAgentQueueControllerOptions) {
   const apiAvailable = Boolean(
@@ -291,6 +294,8 @@ export function useAgentQueueController({
   const isDirty = Boolean(
     selectedTask &&
       (draft.title !== selectedTask.title ||
+        draft.approvalPolicy !== (selectedTask.approvalPolicy ?? "") ||
+        draft.codexExecutable !== (selectedTask.codexExecutable ?? "") ||
         draft.description !== selectedTask.description ||
         !areStringArraysEqual(
           draft.dependsOn,
@@ -298,9 +303,11 @@ export function useAgentQueueController({
         ) ||
         draft.executionPolicy !==
           normalizeTaskExecutionPolicy(selectedTask.executionPolicy) ||
+        draft.executionWorkspace !== (selectedTask.executionWorkspace ?? "") ||
         draft.itemType !== normalizeItemType(selectedTask.itemType) ||
         draft.prompt !== selectedTask.prompt ||
         draft.queueTagName !== normalizeQueueTag(selectedTask).queueTagName ||
+        draft.sandbox !== (selectedTask.sandbox ?? "") ||
         draft.status !== normalizeTaskStatus(selectedTask.status) ||
         draft.priority !== selectedTask.priority ||
         draft.validationStatus !==
@@ -749,8 +756,20 @@ export function useAgentQueueController({
     refreshRunEvidence,
   ]);
 
-  const repoRoot = repoRootDraft.trim();
-  const codexExecutable = codexExecutableDraft.trim();
+  const selectedTaskExecutionWorkspace = selectedTask
+    ? (isEditing || isDirty ? draft.executionWorkspace : selectedTask.executionWorkspace ?? "")
+    : repoRootDraft;
+  const selectedTaskCodexExecutable = selectedTask
+    ? (isEditing || isDirty ? draft.codexExecutable : selectedTask.codexExecutable ?? "")
+    : codexExecutableDraft;
+  const selectedTaskSandbox = selectedTask
+    ? (isEditing || isDirty ? draft.sandbox : selectedTask.sandbox ?? "")
+    : sandbox;
+  const selectedTaskApprovalPolicy = selectedTask
+    ? (isEditing || isDirty ? draft.approvalPolicy : selectedTask.approvalPolicy ?? "")
+    : approvalPolicy;
+  const repoRoot = selectedTaskExecutionWorkspace.trim();
+  const codexExecutable = selectedTaskCodexExecutable.trim();
   const startApiAvailable = Boolean(onStartAssignedAgentQueueTask);
   const selectedQueueTagId = selectedTask
     ? normalizeQueueTag(selectedTask).queueTagId
@@ -831,22 +850,59 @@ export function useAgentQueueController({
         effectiveSelectedTaskRoutingMessage
       : "Local executor unavailable.";
   const preconditionMessages = useMemo(
-    () =>
-      readinessMessage
-        ? []
-        : runPreconditionMessages({
+    () => {
+      if (readinessMessage) {
+        return [];
+      }
+
+      const messages = runPreconditionMessages({
             codexExecutable,
             isStarting,
             repoRoot,
-          }),
+          }).map((message) =>
+            message === "Set workspace." ? "Set task workspace." : message,
+          );
+
+      if (selectedTask && !selectedTaskSandbox) {
+        messages.push("Set sandbox.");
+      }
+
+      if (selectedTask && !selectedTaskApprovalPolicy) {
+        messages.push("Set approval policy.");
+      }
+
+      return messages;
+    },
     [
       codexExecutable,
       isStarting,
       readinessMessage,
       repoRoot,
+      selectedTask,
+      selectedTaskApprovalPolicy,
+      selectedTaskSandbox,
     ],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
+  const selectedTaskSandboxForRun =
+    selectedTaskSandbox === "read_only" ||
+    selectedTaskSandbox === "workspace_write" ||
+    selectedTaskSandbox === "danger_full_access"
+      ? selectedTaskSandbox
+      : sandbox;
+  const selectedTaskApprovalPolicyForRun =
+    selectedTaskApprovalPolicy === "never" ||
+    selectedTaskApprovalPolicy === "on_request" ||
+    selectedTaskApprovalPolicy === "untrusted"
+      ? selectedTaskApprovalPolicy
+      : approvalPolicy;
+  const hasUnsavedTaskSettings = Boolean(
+    selectedTask &&
+      (draft.executionWorkspace !== (selectedTask.executionWorkspace ?? "") ||
+        draft.codexExecutable !== (selectedTask.codexExecutable ?? "") ||
+        draft.sandbox !== (selectedTask.sandbox ?? "") ||
+        draft.approvalPolicy !== (selectedTask.approvalPolicy ?? "")),
+  );
   const queueRunner = useAgentQueueSequentialRunner({
     approvalPolicy,
     assignmentApiAvailable,
@@ -868,11 +924,40 @@ export function useAgentQueueController({
     globalExecutionState,
     workers,
   });
+  const autonomousRunner = useAgentQueueAutonomousRunner({
+    approvalPolicy,
+    codexExecutable,
+    codexExecutableDraft,
+    currentWorkspaceRoot: null,
+    hasOpenTaskEdit,
+    isStarting,
+    loadTasks,
+    onDirectWorkRunHandoffStarted,
+    onGetAgentExecutorRunDetail,
+    onStartAssignedAgentQueueTask,
+    onUpdateAgentQueueTask,
+    onApprovalPolicyChange: setApprovalPolicy,
+    onCodexExecutableDraftChange: setCodexExecutableDraft,
+    onRepoRootDraftChange: setRepoRootDraft,
+    onSandboxChange: setSandbox,
+    queueWidgetInstanceId,
+    repoRoot,
+    repoRootDraft,
+    sandbox,
+    selectedTask,
+    setLocalTaskFields,
+    setSelectedTask,
+    setTasks,
+    tasksRef,
+  });
   useQueueTaskAutoRefreshFromExecutor({
     autoRefreshRequest: queueTaskAutoRefreshRequest,
     isDirty: hasOpenTaskEdit,
     loadTasks,
-    onRefreshComplete: queueRunner.onAutoRefreshComplete,
+    onRefreshComplete: (request) => {
+      queueRunner.onAutoRefreshComplete(request);
+      autonomousRunner.onAutoRefreshComplete(request);
+    },
     setValidationMessage,
   });
   const autorunSelectedExecutor = agentExecutorSlots.find(
@@ -1066,10 +1151,96 @@ export function useAgentQueueController({
     stopWorkers,
     updateMaxExecutors,
   } = planningActions;
+  function updateSelectedTaskExecutionWorkspace(value: string) {
+    if (selectedTask) {
+      updateSelectedTaskRunSettings({ executionWorkspace: value });
+    } else {
+      setRepoRootDraft(value);
+    }
+    setStartError(null);
+    setDeleteError(null);
+    setDeleteMessage(null);
+  }
+
+  function updateSelectedTaskCodexExecutable(value: string) {
+    if (selectedTask) {
+      updateSelectedTaskRunSettings({ codexExecutable: value });
+    } else {
+      setCodexExecutableDraft(value);
+    }
+    setStartError(null);
+  }
+
+  function updateSelectedTaskSandbox(value: DirectWorkSandbox) {
+    if (selectedTask) {
+      updateSelectedTaskRunSettings({ sandbox: value });
+    } else {
+      setSandbox(value);
+    }
+    setStartError(null);
+  }
+
+  function updateSelectedTaskApprovalPolicy(value: DirectWorkApprovalPolicy) {
+    if (selectedTask) {
+      updateSelectedTaskRunSettings({ approvalPolicy: value });
+    } else {
+      setApprovalPolicy(value);
+    }
+    setStartError(null);
+  }
+
+  function updateSelectedTaskRunSettings(
+    nextSettings: Partial<Pick<
+      AgentQueueTask,
+      "executionWorkspace" | "codexExecutable" | "sandbox" | "approvalPolicy"
+    >>,
+  ) {
+    if (!selectedTask) {
+      return;
+    }
+
+    const currentSelectedTask =
+      tasksRef.current.find((task) => task.queueItemId === selectedTask.queueItemId) ??
+      selectedTask;
+    const updatedTask: AgentQueueTask = {
+      ...currentSelectedTask,
+      ...nextSettings,
+    };
+    applyUpdatedTask(updatedTask, { select: true });
+
+    if (!onUpdateAgentQueueTask) {
+      return;
+    }
+
+    void onUpdateAgentQueueTask({
+      approvalPolicy: updatedTask.approvalPolicy ?? null,
+      codexExecutable: updatedTask.codexExecutable ?? null,
+      description: updatedTask.description,
+      executionPolicy: normalizeTaskExecutionPolicy(updatedTask.executionPolicy),
+      executionWorkspace: updatedTask.executionWorkspace ?? null,
+      itemType: normalizeItemType(updatedTask.itemType),
+      priority: updatedTask.priority,
+      prompt: updatedTask.prompt,
+      queueItemId: updatedTask.queueItemId,
+      queueTagId: normalizeQueueTag(updatedTask).queueTagId,
+      queueTagName: normalizeQueueTag(updatedTask).queueTagName,
+      sandbox: updatedTask.sandbox ?? null,
+      status: normalizeTaskStatus(updatedTask.status),
+      title: updatedTask.title,
+      validationStatus: normalizeValidationStatus(updatedTask.validationStatus),
+    }).then((persistedTask) => {
+      if (persistedTask) {
+        applyUpdatedTask(persistedTask, { select: true });
+      }
+    }, (error) => {
+      setStartError(errorToMessage(error, "Unable to save task run settings."));
+    });
+  }
+
   const runActions = createAgentQueueRunActions({
     applyUpdatedTask,
     agentExecutorSlots,
-    approvalPolicy,
+    approvalPolicy: selectedTaskApprovalPolicyForRun,
     canAutoAssignSelectedTask: canUseDefaultLocalExecutor,
     canArmAutorun,
     canStart,
@@ -1090,7 +1261,7 @@ export function useAgentQueueController({
     queueRunnerClearError: queueRunner.clearError,
     refreshLatestRunLink,
     repoRoot,
-    sandbox,
+    sandbox: selectedTaskSandboxForRun,
     selectedExecutorWidgetId,
     selectedTask,
     setAssignmentError,
@@ -1263,19 +1434,21 @@ export function useAgentQueueController({
       status: selectedTask?.coordinatorStatus ?? "not_reported",
     } satisfies AgentQueueCoordinatorFinalizationController,
     run: {
-      approvalPolicy,
+      approvalPolicy: selectedTaskApprovalPolicy,
       canStart,
-      codexExecutableDraft,
+      codexExecutableDraft: selectedTaskCodexExecutable,
+      hasUnsavedTaskSettings,
       isStarting,
-      onApprovalPolicyChange: setApprovalPolicy,
-      onCodexExecutableDraftChange: updateCodexExecutableDraft,
-      onRepoRootDraftChange: updateRepoRootDraft,
-      onSandboxChange: setSandbox,
+      onApprovalPolicyChange: updateSelectedTaskApprovalPolicy,
+      onCodexExecutableDraftChange: updateSelectedTaskCodexExecutable,
+      onRepoRootDraftChange: updateSelectedTaskExecutionWorkspace,
+      onSandboxChange: updateSelectedTaskSandbox,
+      onSaveTaskSettings: () => void saveTask(),
       onStartAssignedTask: () => void startAssignedTask(),
       preconditionMessages,
       readinessMessage,
-      repoRootDraft,
-      sandbox,
+      repoRootDraft: selectedTaskExecutionWorkspace,
+      sandbox: selectedTaskSandbox,
       startError,
       startedRunId,
       startMessage,
@@ -1329,6 +1502,9 @@ export function useAgentQueueController({
       selectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
       snapshot: autorunSnapshot,
     } satisfies AgentQueueAutorunController,
+    autonomous: {
+      ...autonomousRunner.controller,
+    } satisfies AgentQueueAutonomousController,
     foundation: {
       embeddedExecutor,
       globalExecutionState,

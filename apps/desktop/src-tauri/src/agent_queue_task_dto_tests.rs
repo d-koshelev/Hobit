@@ -15,6 +15,10 @@ fn maps_create_agent_queue_task_request_to_app_input() {
         status: "queued".to_owned(),
         priority: 3,
         execution_policy: Some("auto".to_owned()),
+        execution_workspace: None,
+        codex_executable: None,
+        sandbox: None,
+        approval_policy: None,
     };
 
     let input: hobit_app::CreateAgentQueueTaskInput = request.into();
@@ -39,6 +43,10 @@ fn maps_update_agent_queue_task_request_to_app_input() {
         status: "running".to_owned(),
         priority: 4,
         execution_policy: Some("after_previous_success".to_owned()),
+        execution_workspace: None,
+        codex_executable: None,
+        sandbox: None,
+        approval_policy: None,
     };
 
     let input: hobit_app::UpdateAgentQueueTaskInput = request.into();
@@ -108,6 +116,10 @@ fn maps_agent_queue_task_summary_to_dto() {
         status: "running".to_owned(),
         priority: 3,
         execution_policy: "manual".to_owned(),
+        execution_workspace: None,
+        codex_executable: None,
+        sandbox: None,
+        approval_policy: None,
         assigned_executor_widget_id: Some("executor_1".to_owned()),
         created_at: "1".to_owned(),
         updated_at: "2".to_owned(),

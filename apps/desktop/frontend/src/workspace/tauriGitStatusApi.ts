@@ -60,7 +60,7 @@ export async function getGitRepositoryStatus(
   return status ? normalizeGitRepositoryStatus(status) : null;
 }
 
-function normalizeGitRepositoryStatus(
+export function normalizeGitRepositoryStatus(
   status: TauriGitRepositoryStatus,
 ): GitRepositoryStatus {
   return {

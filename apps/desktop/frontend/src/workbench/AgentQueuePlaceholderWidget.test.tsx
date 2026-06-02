@@ -210,7 +210,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
 });
 
 describe("AgentQueuePlaceholderWidget new task dialog", () => {
-  it("shows run setup fields with safe session defaults", async () => {
+  it("shows task run setup fields with safe defaults", async () => {
     renderQueueWidget({
       agentExecutorSlots: [],
       onListAgentQueueTasks: async () => [],
@@ -220,8 +220,8 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     clickButton("New task");
 
     expect(document.body.textContent).toContain("Run setup");
-    expect(document.body.textContent).toContain("Session run defaults");
-    expect(document.body.textContent).toContain("Execution workspace");
+    expect(document.body.textContent).toContain("Task settings");
+    expect(document.body.textContent).toContain("Task workspace");
     expect(document.body.textContent).toContain("Codex executable");
     expect(document.body.textContent).toContain("Sandbox");
     expect(document.body.textContent).toContain("Approval policy");
@@ -271,18 +271,22 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
-  it("creates a queued runnable task with session run settings and waits for explicit Run task", async () => {
+  it("creates a queued runnable task with task run settings and waits for explicit Run task", async () => {
     const createRequests: unknown[] = [];
     const startRequests: unknown[] = [];
     const onCreateAgentQueueTask = vi.fn(async (request) => {
       createRequests.push(request);
       return queueTask({
+        approvalPolicy: request.approvalPolicy,
+        codexExecutable: request.codexExecutable,
         description: request.description,
         executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace,
         priority: request.priority,
         prompt: request.prompt,
         queueItemId: "created-queued",
         queueTagName: request.queueTagName,
+        sandbox: request.sandbox,
         status: request.status,
         title: request.title,
       });
@@ -311,7 +315,7 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     clickButton("New task");
     await changeValue(inputByLabel("Title"), "Queued from dialog");
     await changeValue(textareaByLabel("Prompt"), "Implement the queued task.");
-    await changeValue(inputByLabel("Execution workspace"), "C:\\repo");
+    await changeValue(inputByLabel("Task workspace"), "C:\\repo");
     await changeValue(inputByLabel("Codex executable"), "codex.cmd");
     await changeSelect("Sandbox", "workspace_write");
     await changeSelect("Approval policy", "never");
@@ -324,6 +328,10 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     expect(onCreateAgentQueueTask).toHaveBeenCalledWith(
       expect.objectContaining({
         executionPolicy: "manual",
+        executionWorkspace: "C:\\repo",
+        codexExecutable: "codex.cmd",
+        sandbox: "workspace_write",
+        approvalPolicy: "never",
         priority: 0,
         prompt: "Implement the queued task.",
         queueTagName: "Default",
@@ -334,10 +342,10 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
     expect(sectionText("Next action")).toContain("Run task");
     expect(sectionText("Next action")).not.toContain("Set run settings");
-    expect(sectionText("Queue task execution")).not.toContain("Set workspace");
+    expect(sectionText("Queue task execution")).not.toContain("Set task workspace");
     expect(document.body.textContent).toContain("Run task");
     expect(document.body.textContent).not.toContain("Promote to queued");
-    expect(inputByLabel("Execution workspace").value).toBe("C:\\repo");
+    expect(inputByLabel("Task workspace").value).toBe("C:\\repo");
     expect(inputByLabel("Codex executable").value).toBe("codex.cmd");
     expect(selectByLabel("Sandbox").value).toBe("workspace_write");
     expect(selectByLabel("Approval policy").value).toBe("never");

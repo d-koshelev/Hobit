@@ -142,6 +142,22 @@ impl SqliteStore {
             "execution_policy",
             "execution_policy TEXT NOT NULL DEFAULT 'manual'",
         )?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "execution_workspace",
+            "execution_workspace TEXT NULL",
+        )?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "codex_executable",
+            "codex_executable TEXT NULL",
+        )?;
+        self.ensure_column("agent_queue_tasks", "sandbox", "sandbox TEXT NULL")?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "approval_policy",
+            "approval_policy TEXT NULL",
+        )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
         Ok(())
     }

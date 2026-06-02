@@ -391,6 +391,24 @@
   font-size: var(--text-xs);
 }
 
+.agent-queue-autonomous-setup[open] {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.agent-queue-autonomous-setup-grid {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.agent-queue-autonomous-workspace-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+}
+
 .agent-queue-management-details[open],
 .agent-queue-worker-management[open] {
   gap: var(--space-xs);
@@ -2860,6 +2878,7 @@
 
 @media (max-width: 560px) {
   .agent-queue-editor-grid,
+  .agent-queue-autonomous-workspace-row,
   .agent-queue-create-run-grid,
   .agent-queue-autorun-facts,
   .agent-queue-expanded-facts,
@@ -2932,6 +2951,7 @@
 
 @container (max-width: 560px) {
   .agent-queue-editor-grid,
+  .agent-queue-autonomous-workspace-row,
   .agent-queue-create-run-grid,
   .agent-queue-autorun-facts,
   .agent-queue-expanded-facts,

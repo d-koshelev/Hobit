@@ -7,7 +7,10 @@ import {
   buildAgentQueueEmbeddedExecutorSection,
   buildAgentQueueSchedulerPlan,
 } from "./queue/agentQueueSchedulerModel";
-import type { AgentQueueFoundationController } from "./queue/useAgentQueueController";
+import type {
+  AgentQueueAutonomousController,
+  AgentQueueFoundationController,
+} from "./queue/useAgentQueueController";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -60,6 +63,57 @@ describe("AgentQueueSidebar", () => {
     expect(foundation.onStopWorkers).toHaveBeenCalledTimes(1);
     expect(foundation.onStopAndKillRunning).toHaveBeenCalledTimes(1);
     expect(foundation.onPauseQueueTag).toHaveBeenCalledWith("default");
+  });
+
+  it("keeps Run autonomous queue clickable when normal Queue is stopped", () => {
+    const autonomous = autonomousController();
+    renderSidebar(foundationController({ globalExecutionState: "stopped" }), autonomous);
+
+    const button = buttonByText("Run autonomous queue");
+
+    expect(button?.disabled).toBe(false);
+    clickButton("Run autonomous queue");
+    expect(autonomous.onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Run autonomous queue clickable when autonomous setup is missing", () => {
+    const autonomous = autonomousController({
+      message: "Set execution workspace before autonomous run.",
+      repoRootDraft: "",
+      status: "needs_setup",
+    });
+    renderSidebar(foundationController({ globalExecutionState: "stopped" }), autonomous);
+
+    expect(document.body.textContent).toContain("needs setup");
+    expect(document.body.textContent).toContain(
+      "Set execution workspace before autonomous run.",
+    );
+    const button = buttonByText("Run autonomous queue");
+
+    expect(button?.disabled).toBe(false);
+    clickButton("Run autonomous queue");
+    expect(autonomous.onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render queue-level workspace setup for autonomous mode", () => {
+    const autonomous = autonomousController({
+      currentWorkspaceRoot: "C:\\repo",
+      repoRootDraft: "",
+      status: "needs_setup",
+    });
+    renderSidebar(foundationController(), autonomous);
+
+    expect(document.body.textContent).not.toContain("Autonomous setup");
+    expect(document.body.textContent).not.toContain("Use current workspace");
+  });
+
+  it("disables Run autonomous queue while Autonomous Queue is running", () => {
+    renderSidebar(
+      foundationController({ globalExecutionState: "stopped" }),
+      autonomousController({ canStart: false, status: "running" }),
+    );
+
+    expect(buttonByText("Run autonomous queue")?.disabled).toBe(true);
   });
 
   it("shows whether a worker dry-run next item has a plan", () => {
@@ -122,14 +176,53 @@ describe("AgentQueueSidebar", () => {
 
 function renderSidebar(
   foundation: AgentQueueFoundationController = foundationController(),
+  autonomous: AgentQueueAutonomousController = autonomousController(),
 ) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
 
   act(() => {
-    root?.render(<AgentQueueSidebar foundation={foundation} />);
+    root?.render(
+      <AgentQueueSidebar
+        autonomous={autonomous}
+        foundation={foundation}
+      />,
+    );
   });
+}
+
+function autonomousController(
+  overrides: Partial<AgentQueueAutonomousController> = {},
+): AgentQueueAutonomousController {
+  return {
+    activeTaskTitle: null,
+    apiAvailable: true,
+    approvalPolicy: "never",
+    canStart: true,
+    codexExecutableDraft: "codex.cmd",
+    completedCount: 0,
+    currentWorkspaceRoot: null,
+    currentStage: null,
+    error: null,
+    failedCount: 0,
+    latestReportState: null,
+    message: null,
+    onApprovalPolicyChange: vi.fn(),
+    onCodexExecutableDraftChange: vi.fn(),
+    onRepoRootDraftChange: vi.fn(),
+    onSandboxChange: vi.fn(),
+    onStart: vi.fn(),
+    onStopAfterCurrent: vi.fn(),
+    preconditionMessages: [],
+    repoRootDraft: "C:\\repo",
+    remainingEligibleCount: 0,
+    sandbox: "read_only",
+    skippedBlockedCount: 0,
+    status: "idle",
+    timeline: [],
+    ...overrides,
+  };
 }
 
 function clickButton(text: string) {

@@ -492,6 +492,10 @@ fn queue_run_links_keep_raw_executor_payload_owned_by_executor_detail() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task");
     service

@@ -111,6 +111,10 @@ fn deleting_worker_assigned_to_queue_task_is_blocked() {
             status: "queued".to_owned(),
             priority: 0,
             execution_policy: Some("manual".to_owned()),
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create task");
     service

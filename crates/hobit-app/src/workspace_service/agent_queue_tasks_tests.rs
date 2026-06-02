@@ -30,6 +30,10 @@ fn create_task(
             status: status.to_owned(),
             priority,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task")
 }
@@ -98,6 +102,10 @@ fn create_list_get_and_update_agent_queue_task() {
             status: "running".to_owned(),
             priority: 4,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("update queue task")
         .expect("updated queue task");
@@ -126,6 +134,10 @@ fn agent_queue_task_execution_policy_defaults_persists_updates_and_validates() {
             status: "queued".to_owned(),
             priority: 2,
             execution_policy: Some("auto".to_owned()),
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task");
 
@@ -141,6 +153,10 @@ fn agent_queue_task_execution_policy_defaults_persists_updates_and_validates() {
             status: "queued".to_owned(),
             priority: 2,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("update queue task")
         .expect("updated queue task");
@@ -157,6 +173,10 @@ fn agent_queue_task_execution_policy_defaults_persists_updates_and_validates() {
             status: "queued".to_owned(),
             priority: 2,
             execution_policy: Some("after_previous_success".to_owned()),
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("update queue task")
         .expect("updated queue task");
@@ -172,6 +192,10 @@ fn agent_queue_task_execution_policy_defaults_persists_updates_and_validates() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: Some("when_ready".to_owned()),
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("invalid execution policy rejected");
 
@@ -193,6 +217,10 @@ fn create_agent_queue_task_rejects_unknown_workspace() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("unknown workspace rejected");
 
@@ -236,6 +264,10 @@ fn get_and_update_agent_queue_task_reject_cross_workspace_access() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("cross-workspace update rejected");
     assert!(update_error
@@ -262,6 +294,10 @@ fn get_and_update_unknown_agent_queue_task_returns_none() {
             status: "draft".to_owned(),
             priority: 0,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("update unknown queue task")
         .is_none());
@@ -281,6 +317,10 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("empty title rejected");
     assert!(empty_title
@@ -296,6 +336,10 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             status: "blocked".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("invalid status rejected");
     assert!(invalid_status
@@ -311,6 +355,10 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             status: "queued".to_owned(),
             priority: 9,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("invalid priority rejected");
     assert!(invalid_priority
@@ -332,6 +380,10 @@ fn non_draft_agent_queue_task_rejects_empty_prompt() {
             status: "queued".to_owned(),
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect_err("empty prompt rejected");
 
@@ -593,6 +645,10 @@ fn running_task_assignment_and_clear_assignment_are_rejected() {
             status: "running".to_owned(),
             priority: assigned_task.priority,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("update to running")
         .expect("updated task");

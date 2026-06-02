@@ -44,6 +44,10 @@ impl WorkspaceService {
                     status: &input.status,
                     priority: input.priority,
                     execution_policy: Some(&input.execution_policy),
+                    execution_workspace: input.execution_workspace.as_deref(),
+                    codex_executable: input.codex_executable.as_deref(),
+                    sandbox: input.sandbox.as_deref(),
+                    approval_policy: input.approval_policy.as_deref(),
                     created_at: Some(&created_at),
                     updated_at: Some(&created_at),
                 })?;
@@ -109,6 +113,10 @@ impl WorkspaceService {
                     status: &input.status,
                     priority: input.priority,
                     execution_policy: input.execution_policy.as_deref(),
+                    execution_workspace: input.execution_workspace.as_deref(),
+                    codex_executable: input.codex_executable.as_deref(),
+                    sandbox: input.sandbox.as_deref(),
+                    approval_policy: input.approval_policy.as_deref(),
                     updated_at: Some(&updated_at),
                 },
             )?;
@@ -257,6 +265,10 @@ struct NormalizedCreateAgentQueueTaskInput {
     status: String,
     priority: i64,
     execution_policy: String,
+    execution_workspace: Option<String>,
+    codex_executable: Option<String>,
+    sandbox: Option<String>,
+    approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -269,6 +281,10 @@ struct NormalizedUpdateAgentQueueTaskInput {
     status: String,
     priority: i64,
     execution_policy: Option<String>,
+    execution_workspace: Option<String>,
+    codex_executable: Option<String>,
+    sandbox: Option<String>,
+    approval_policy: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -303,6 +319,10 @@ fn normalize_create_agent_queue_task_input(
         status,
         priority: normalize_priority(input.priority)?,
         execution_policy: normalize_execution_policy(input.execution_policy)?,
+        execution_workspace: normalize_optional_trimmed(input.execution_workspace),
+        codex_executable: normalize_optional_trimmed(input.codex_executable),
+        sandbox: normalize_optional_sandbox(input.sandbox)?,
+        approval_policy: normalize_optional_approval_policy(input.approval_policy)?,
     })
 }
 
@@ -320,6 +340,10 @@ fn normalize_update_agent_queue_task_input(
         status,
         priority: normalize_priority(input.priority)?,
         execution_policy: normalize_optional_execution_policy(input.execution_policy)?,
+        execution_workspace: normalize_optional_trimmed(input.execution_workspace),
+        codex_executable: normalize_optional_trimmed(input.codex_executable),
+        sandbox: normalize_optional_sandbox(input.sandbox)?,
+        approval_policy: normalize_optional_approval_policy(input.approval_policy)?,
     })
 }
 
@@ -415,6 +439,42 @@ fn normalize_optional_execution_policy(
             "unsupported queue task execution policy: {execution_policy}"
         ))),
     }
+}
+
+fn normalize_optional_sandbox(
+    sandbox: Option<String>,
+) -> Result<Option<String>, WorkspaceServiceError> {
+    let Some(sandbox) = normalize_optional_trimmed(sandbox) else {
+        return Ok(None);
+    };
+
+    match sandbox.as_str() {
+        "read_only" | "workspace_write" | "danger_full_access" => Ok(Some(sandbox)),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported task sandbox: {sandbox}"
+        ))),
+    }
+}
+
+fn normalize_optional_approval_policy(
+    approval_policy: Option<String>,
+) -> Result<Option<String>, WorkspaceServiceError> {
+    let Some(approval_policy) = normalize_optional_trimmed(approval_policy) else {
+        return Ok(None);
+    };
+
+    match approval_policy.as_str() {
+        "never" | "on_request" | "untrusted" => Ok(Some(approval_policy)),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported task approval policy: {approval_policy}"
+        ))),
+    }
+}
+
+fn normalize_optional_trimmed(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
 }
 
 fn required_owned(value: String, label: &str) -> Result<String, WorkspaceServiceError> {

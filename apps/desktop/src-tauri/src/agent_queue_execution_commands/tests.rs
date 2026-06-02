@@ -240,6 +240,10 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
             },
             priority: 1,
             execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
         })
         .expect("create queue task");
     service
@@ -260,6 +264,10 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
                 status: "completed".to_owned(),
                 priority: task.priority,
                 execution_policy: None,
+                execution_workspace: None,
+                codex_executable: None,
+                sandbox: None,
+                approval_policy: None,
             })
             .expect("force final status");
     }
