@@ -5,11 +5,12 @@
 This contract defines the Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
 
 The full future Git review cockpit is not implemented yet. This document is a
-product/domain contract. The current frontend has an insertable Git widget with
-a transient explicit repository-root input, a manual desktop-only read-only
-status refresh through `get_git_repository_status`, compact Changes / Diff /
-History / Commit sections, grouped changed files, bounded selected-file diff
-review, recent history, and an explicit local commit UI owned by Git Widget.
+product/domain contract. The old standalone Git widget code remains as an
+internal/deprecated compatibility surface with a transient explicit
+repository-root input, manual desktop-only read-only status refresh through
+`get_git_repository_status`, compact Changes / Diff / History / Commit
+sections, grouped changed files, bounded selected-file diff review, recent
+history, and an explicit local commit UI owned by Git Widget.
 Local commit creation is selected-file based, uses an
 operator-provided message, and requires operator confirmation. Agent Executor
 also has a read-only backend/Tauri diff summary API and compact frontend diff
@@ -21,10 +22,10 @@ auto-commit, Agent Executor auto-commit, or broader runtime behavior.
 
 Future Stable v0.1 product UX should place common Git review inside Finder
 space, as defined in `docs/FINDER_UX_CONTRACT.md`: changed-file indicators and
-selected-file diffs belong next to file navigation and preview. The current
-standalone Git Widget remains the implemented supporting/compatibility surface
-until an explicit future Finder/Git migration or implementation block changes
-that behavior.
+selected-file diffs belong next to file navigation and preview. The standalone
+Git Widget must not be offered as a normal product Widget Catalog entry unless
+an explicit future Finder/Git migration or implementation block changes that
+behavior.
 
 Current and future explicit local commit support must also follow
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
@@ -454,23 +455,26 @@ This contract does not implement:
 
 ## Current Implementation Boundary
 
-The current repository has an insertable Git widget in the frontend Widget
-Catalog. It renders through the existing `WidgetHost`/`WidgetFrame` path, has a
-transient explicit repository-root input, and can manually refresh a
-desktop-only read-only Git status snapshot through the Tauri
+The current repository keeps the old standalone Git widget code registered only
+as internal/deprecated compatibility implementation. It is not offered as a
+normal frontend Widget Catalog product entry. The compatibility component can
+render through the existing `WidgetHost`/`WidgetFrame` path when explicitly
+retained internally, has a transient explicit repository-root input, and can
+manually refresh a desktop-only read-only Git status snapshot through the Tauri
 `get_git_repository_status` command. The result is rendered as a compact visual
 status/diff surface with branch, clean/dirty state, counts, ahead/behind data
 when available, warnings, last commit data when available, and a grouped
-changed-files summary. The widget can also read a bounded selected-file diff
-and recent history through Git-widget-owned read-only Tauri commands.
+changed-files summary. The compatibility component can also read a bounded
+selected-file diff and recent history through Git-widget-owned read-only Tauri
+commands.
 
 The visible Git Widget surface has read-only repository review plus explicit
 local-only commit controls. The repository root and refreshed status stay in
 local React state only; they are not persisted, restored, polled, watched,
 validated into Workspace state, or reused after reopening. Browser/Vite
-fallback keeps the widget insertable but cannot read local Git status, diffs,
-history, or create local commits. Agent Executor has a read-only diff summary
-API and compact frontend diff summary UI for an explicit repository root;
+fallback cannot read local Git status, diffs, history, or create local commits.
+Agent Executor has a read-only diff summary API and compact frontend diff
+summary UI for an explicit repository root;
 untracked file patch previews are not included in that MVP. Git review beyond
 these manual status/selected-diff/history surfaces and the explicit local
 commit flow remains future optional capability work.

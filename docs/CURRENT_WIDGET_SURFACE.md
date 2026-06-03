@@ -228,8 +228,10 @@ v0.1 product widget.
   Commit sections. Selecting a changed file opens its read-only diff review.
 - Supports explicit selected-file local commit with an operator-provided
   message and operator confirmation.
-- Browser/Vite fallback keeps the widget insertable but cannot perform real
-  Git reads.
+- The old standalone Git widget code is internal/deprecated compatibility
+  implementation only and is not offered as a normal Widget Catalog product
+  widget.
+- Browser/Vite fallback cannot perform real Git reads.
 - Does not persist repository roots, poll, watch, fetch, push, reset, clean,
   stash, checkout/switch branches, revert files, auto-commit Agent Executor
   output, or mutate Git outside the explicit local commit path.

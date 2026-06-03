@@ -29,6 +29,8 @@ import type { WidgetRenderProps } from "./types";
 
 type GitTab = "changes" | "diff" | "history" | "commit";
 
+// Deprecated compatibility surface. Kept so old/internal Git instances and
+// targeted tests can render without making Git a normal product widget.
 export function GitPlaceholderWidget({
   directWorkGitReviewRequest,
   frameActions,

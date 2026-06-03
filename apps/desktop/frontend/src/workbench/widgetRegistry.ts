@@ -11,6 +11,8 @@ export const AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY =
   "agent-queue-placeholder";
 export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
 export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
+// Deprecated compatibility identity only. Git must not be offered as a normal
+// product catalog widget; Workspace Git APIs own current Git reads.
 export const GIT_WIDGET_DEFINITION_ID = "git";
 export const GIT_PLACEHOLDER_COMPONENT_KEY = "git-placeholder";
 export const JDBC_WIDGET_DEFINITION_ID = "database-jdbc";

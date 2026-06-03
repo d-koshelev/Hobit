@@ -14,7 +14,6 @@ import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   isUserFacingWidgetDefinition,
 } from "./widgetRegistry";
@@ -105,9 +104,9 @@ export function WorkbenchCanvas({
   const visibleWidgets = userFacingWidgets
     .filter((widget) => widget.visible)
     .sort((first, second) => first.layout.order - second.layout.order);
-  const hasGitWidget = userFacingWidgets.some(
-    (widget) => widget.definitionId === GIT_WIDGET_DEFINITION_ID,
-  );
+  // Deprecated Git widget instances are filtered out of the product canvas.
+  // Direct Work review uses Workspace Git APIs instead of a visible Git widget.
+  const hasGitWidget = false;
   const coordinatorWidget = visibleWidgets.find(
     (widget) => widget.definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   );

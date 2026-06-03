@@ -18,6 +18,8 @@ import {
   RUNBOOK_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
+  getWidgetDefinition,
+  internalDeprecatedWidgetDefinitionIds,
   isUserFacingWidgetDefinition,
 } from "./widgetRegistry";
 
@@ -186,9 +188,18 @@ describe("widgetCatalogTemplates", () => {
     expect(isUserFacingWidgetDefinition(AGENT_RUN_WIDGET_DEFINITION_ID)).toBe(
       false,
     );
-    expect(widgetCatalogTemplates.some((template) => template.id === GIT_WIDGET_DEFINITION_ID))
-      .toBe(false);
+    expect(
+      widgetCatalogTemplates.some(
+        (template) => template.id === GIT_WIDGET_DEFINITION_ID,
+      ),
+    ).toBe(false);
     expect(isUserFacingWidgetDefinition(GIT_WIDGET_DEFINITION_ID)).toBe(false);
+    expect(
+      internalDeprecatedWidgetDefinitionIds.has(GIT_WIDGET_DEFINITION_ID),
+    ).toBe(true);
+    expect(getWidgetDefinition(GIT_WIDGET_DEFINITION_ID)?.description).toMatch(
+      /internal\/deprecated compatibility surface/i,
+    );
   });
 
   it("describes Terminal with the current MVP surface", () => {
