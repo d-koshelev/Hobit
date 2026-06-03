@@ -32,23 +32,35 @@ The product should feel like a precise dark operator workbench, not an IDE
 clone, generic dashboard, terminal wrapper, chat app, runbook runner, hidden
 automation shell, or demo page.
 
-## Current Widget Surface
+## Stable v0.1 Product Surface
 
-The current user-facing widgets are:
+The Stable v0.1 product-facing widgets are:
 
-Ready:
+Core dogfooding loop:
 
-- Agent Executor
-- Git
+- Workspace Agent
+- Agent Queue
+
+Ready / MVP capabilities:
+
 - Terminal
+- Agent Activity
 - Notes
+- Knowledge / Skills
 
 Preview:
 
-- Agent Queue
-- Coordinator Chat
 - Database / JDBC
 - Runbook
+
+Required gap:
+
+- Finder, not implemented yet
+
+Supporting / compatibility surfaces:
+
+- Agent Executor, for Direct Work runtime detail and diagnostics
+- Git, for explicit repository review/control
 
 Old or future surfaces such as Agent Chat, Agent Monitoring, Template Library,
 Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit,
@@ -302,7 +314,9 @@ implemented.
 
 ### Agent Executor
 
-Agent Executor is the primary execution surface.
+Agent Executor is a supporting execution-detail and diagnostics surface, not a
+Stable v0.1 product widget. Queue owns the product-facing execution management
+loop.
 
 Target direction:
 
@@ -323,7 +337,8 @@ quality. It is not a separate current widget.
 
 ### Git
 
-Git is the visual review and explicit local commit surface.
+Git is a supporting visual review and explicit local commit surface, not a
+Stable v0.1 product widget.
 
 Target direction:
 
@@ -342,7 +357,8 @@ reset, clean, stash, or mutate repositories without explicit operator action.
 
 ### Terminal
 
-Terminal target direction is a full shell with tabs and split panes.
+Terminal is the explicit operator command surface. A fuller shell with tabs
+and split panes remains future work.
 
 Rules:
 
@@ -397,11 +413,10 @@ Automatic dispatch, automatic scheduler behavior, and automatic acceptance
 must not be implied. Explicit assigned-task starts belong behind visible
 operator controls and Agent Executor ownership.
 
-### Coordinator Chat
+### Workspace Agent
 
-Coordinator Chat is the primary operator-facing AI chat surface. The current
-implementation is a local placeholder using the existing Interactive Agent
-compatibility component.
+Workspace Agent is the primary operator-facing AI work surface. The current
+implementation uses the existing Interactive Agent compatibility component.
 
 Rules:
 
@@ -479,13 +494,13 @@ Current product UI must not overclaim capability.
 Explicit prohibitions:
 
 - No separate Validation widget in the current model.
-- No separate legacy Coordinator surface beyond Coordinator Chat.
+- No separate legacy Coordinator surface beyond Workspace Agent.
 - No Terminal full shell UI until PTY/session support exists.
 - No Notes multi-note UI until storage/API exists.
 - No Queue scheduler UI until task model/dispatch exists.
 - No Git push controls until push contract/API/UI exists.
 - No auto-commit or hidden Git mutation.
-- No fake provider/tool claims in Coordinator Chat.
+- No fake provider/tool claims in Workspace Agent.
 - No hidden Queue execution.
 - No background scheduler implied by status chips.
 - No Git mutations hidden behind refresh, review, or completion states.
@@ -501,7 +516,7 @@ Current follow-up references:
 - Terminal PTY follow-up blocks are defined in
   `docs/TERMINAL_PTY_WIDGET_CONTRACT.md` and start with the backend
   foundation slice.
-- Notes, Git, Agent Queue, Coordinator, JDBC, and other widget follow-up blocks
+- Notes, Git, Agent Queue, Workspace Agent, JDBC, and other widget follow-up blocks
   should use their focused domain contracts and `docs/CURRENT_WIDGET_SURFACE.md`
   as the current-surface inventory.
 

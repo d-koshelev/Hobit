@@ -53,8 +53,8 @@ semantic test runner behavior, or new widgets.
 
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
-examples for planning vocabulary only; Finder remains future/reference unless
-explicitly implemented by a future block.
+examples for planning vocabulary only; Finder is a required Stable v0.1 gap but
+remains unimplemented unless explicitly scoped by a future block.
 
 `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
 a process/status document only. It does not override product contracts,
@@ -264,7 +264,10 @@ unless the task explicitly requests it.
   what the recent foundation series completed, what remains type-only, and
   which future steps are safe docs/inspect-first blocks.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
-  user-facing current-state language.
+  user-facing current-state language. Stable v0.1 product-surface language
+  treats Workspace Agent plus Agent Queue as the core dogfooding loop, Terminal
+  as the explicit command surface, Finder as a required gap, and Agent Executor
+  plus Git as supporting/compatibility surfaces rather than product widgets.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,
   presentation, registry, and Workbench composition rules.
 - `docs/WORKSPACE_CONTRACT.md` - read for Workspace isolation, Workbench

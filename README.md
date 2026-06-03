@@ -15,7 +15,7 @@ The workbench is the product surface. It is not centered on a single chat stream
 
 Hobit is an AI Workbench for composing work surfaces around a task. Operators choose the widgets and presets that expose the capabilities needed right now, while agents propose actions, report activity, and request approval through explicit workbench surfaces.
 
-The current frontend opens new Workspaces into the Workspace Agent MVP surface, with Empty Workbench still available as an advanced/manual start mode. The user-facing widget set is Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes. Workspace Agent reuses the existing `interactive-agent` widget id/component for compatibility, can run foreground Codex Direct Work with current-session thread scoping and an explicit working directory, and keeps visible-context-only provider/fallback boundaries with `allowed_tools: []`. Multiple Workspace Agent widgets can exist independently in one Workspace. Agent Activity is a current-session readable timeline for Workspace Agent and Agent Executor streaming Direct Work events; it is not persisted history. Knowledge / Skills supports Skills plus workspace-local and local-global Knowledge Documents, explicit text/Markdown import, enabled-only visible retrieval for Workspace Agent Codex runs, and local scope labels. Agent Executor reuses the existing `agent-run` widget identity and keeps Codex Direct Work explicit, bounded, and no-auto-commit/no-auto-push. Terminal is a desktop PTY-first xterm manual shell surface with Windows and Linux PTY backends, macOS deferred, and a collapsed one-shot fallback. Git remains explicit-root review/control with status, changes, selected-file diff, recent history, and explicit local selected-file commit only. Agent Queue can manage manual tasks, visible Executor assignment, explicit assigned-task start, selected-task safe run-link history, and an explicit operator-armed Queue Autorun path that runs at most one eligible assigned task at a time while Hobit remains open. Queue still has no backend scheduler, durable reconnect/resume, server worker, or hidden auto-dispatch. Database / JDBC is a Preview connector metadata and bounded mock/safe read-only query surface, with no credentials or real external database execution. Runbook is a Preview local/manual steps surface only. There is no background scheduler, broad Workspace Agent widget-tool runtime, Agent Chat proposal surface, Agent Monitoring surface, Template Library, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, unarmed automatic queue dispatch, Git push/reset/clean/stash/fetch/checkout, provider settings UI, direct HTTPS vendor adapter, or secrets UI in the current user-facing workbench surface. The current widget inventory is summarized in `docs/CURRENT_WIDGET_SURFACE.md`, and contract-reading navigation is in `docs/ACTIVE_CONTRACT_INDEX.md`.
+The current frontend opens new Workspaces into the Workspace Agent MVP surface, with Empty Workbench still available as an advanced/manual start mode. Stable v0.1 is centered on the Workspace Agent + Agent Queue dogfooding loop: Workspace Agent is the foreground planning/review/coding surface, and Agent Queue is the operator-controlled task organization and execution-follow-up surface. Terminal is the explicit operator command surface, not hidden automation. Agent Activity, Notes, Knowledge / Skills, Database / JDBC Preview, and Runbook Preview remain workbench capabilities. Finder is a required Stable v0.1 product gap and is not implemented yet. Agent Executor and Git remain implemented/supporting compatibility surfaces for Direct Work execution detail and explicit repository review, but they are not Stable v0.1 product widgets. Workspace Agent reuses the existing `interactive-agent` widget id/component for compatibility, can run foreground Codex Direct Work with current-session thread scoping and an explicit working directory, and keeps visible-context-only provider/fallback boundaries with `allowed_tools: []`. Multiple Workspace Agent widgets can exist independently in one Workspace. Agent Activity is a current-session readable timeline for Workspace Agent and Direct Work events; it is not persisted history. Knowledge / Skills supports Skills plus workspace-local and local-global Knowledge Documents, explicit text/Markdown import, enabled-only visible retrieval for Workspace Agent Codex runs, and local scope labels. Agent Queue can manage manual tasks, visible worker/execution assignment, explicit assigned-task start, selected-task safe run-link history, and an explicit operator-armed Queue Autorun path that runs at most one eligible assigned task at a time while Hobit remains open. Queue still has no backend scheduler, durable reconnect/resume, server worker, or hidden auto-dispatch. Database / JDBC is a Preview connector metadata and bounded mock/safe read-only query surface, with no credentials or real external database execution. Runbook is a Preview local/manual steps surface only. There is no background scheduler, broad Workspace Agent widget-tool runtime, Agent Chat proposal surface, Agent Monitoring surface, Template Library, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, Finder implementation, unarmed automatic queue dispatch, Git push/reset/clean/stash/fetch/checkout, provider settings UI, direct HTTPS vendor adapter, or secrets UI in the current user-facing workbench surface. The current widget inventory is summarized in `docs/CURRENT_WIDGET_SURFACE.md`, and contract-reading navigation is in `docs/ACTIVE_CONTRACT_INDEX.md`.
 
 ## Desktop Development Baseline
 
@@ -40,20 +40,19 @@ These functions may appear as optional widgets, but Hobit remains workbench-firs
 
 ## Optional Widgets And Capabilities
 
-The current user-facing widget set is:
+The Stable v0.1 product-facing workbench surface is:
 
-- Agent Executor
-- Agent Queue
 - Workspace Agent
+- Agent Queue
+- Terminal
 - Agent Activity
 - Knowledge / Skills
 - Database / JDBC
 - Runbook
-- Git
-- Terminal
 - Notes
+- Finder, required gap, not implemented
 
-Each capability should be expressed as a widget, tool, or shared state surface that can be added, removed, configured, and composed through presets.
+Agent Executor and Git are supporting/compatibility surfaces, not Stable v0.1 product widgets. Each capability should be expressed as a widget, tool, or shared state surface that can be added, removed, configured, and composed through presets.
 
 ## Product Principles
 

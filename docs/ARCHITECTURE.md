@@ -26,10 +26,14 @@ and does not add runtime behavior.
 
 The current repository contains a root Rust workspace that includes the core
 crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
-workspace bridge, and a SQLite workspace persistence foundation. The current
-user-facing widget set is Workspace Agent, Agent Activity, Agent Executor,
-Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and
-Notes. Workspace Agent reuses the
+workspace bridge, and a SQLite workspace persistence foundation. Stable v0.1
+is centered on the Workspace Agent + Agent Queue dogfooding loop, with
+Terminal as the explicit command surface. Agent Activity, Notes, Knowledge /
+Skills, Database / JDBC Preview, and Runbook Preview remain workbench
+capabilities. Finder is a required Stable v0.1 product gap and is not
+implemented yet. Agent Executor and Git remain implemented supporting /
+compatibility surfaces, but they are not Stable v0.1 product widgets.
+Workspace Agent reuses the
 existing `interactive-agent` widget id/component for compatibility and is a
 foreground chat-based AI agent widget for planning, reasoning, task drafting,
 outcome review, visible attachment review, and deciding what should be
@@ -40,8 +44,8 @@ not the capability limit. Multiple Workspace Agent widgets can exist in one
 Workspace, each with independent context, thread state, and working directory.
 Coordinator was the previous user-facing name for this surface and remains a
 legacy compatibility term. Agent Executor reuses the existing `agent-run`
-widget identity for persistence compatibility, shows each widget instance as a
-visible async/background execution slot for Queue/Executor work, owns run
+widget identity for persistence compatibility, remains a supporting
+async/background execution detail surface for Queue/Executor work, owns run
 detail/logs/final responses, and keeps the current Codex CLI Direct Work
 behavior: explicit Workspace, Workbench, owning
 widget instance, executable, execution workspace path, operator prompt,
@@ -52,15 +56,17 @@ implemented and must not default to user home. The Codex launch helper is
 platform-aware: Windows preserves `codex.cmd` as the default helper path and
 wraps `.cmd`/`.bat` shims with `cmd.exe /D /C`, while Unix/Linux defaults to
 `codex` and runs explicit executable paths directly without a shell wrapper.
-Terminal has a visible desktop xterm PTY session
-surface for explicit Terminal widget owners, but shipped backend PTY session
+Terminal is the explicit operator command surface and has a visible desktop
+xterm PTY session surface for explicit Terminal widget owners, but shipped
+backend PTY session
 support is currently implemented for Windows and Linux; other desktop builds
 return an unsupported-platform error for live PTY creation until platform
 support or catalog gating is added. Terminal preserves the bounded one-shot
-command path as a demoted legacy fallback for persisted Terminal widget instances. Git has a narrow manual
-desktop-only status/diff review surface plus explicit selected-file local
-commit UI with operator confirmation. Agent Queue is a preview async
-execution-support surface for promoted/larger work blocks backed by
+command path as a demoted legacy fallback for persisted Terminal widget
+instances. Git has a narrow supporting manual desktop-only status/diff review
+surface plus explicit selected-file local commit UI with operator confirmation.
+Agent Queue is the core Stable v0.1 async task organization and execution
+follow-up surface for promoted/larger work blocks backed by
 Workspace-scoped task storage/API, assignment API/UI, explicit assigned-task
 start, safe selected-task Executor run-link visibility, and an operator-armed
 desktop-local Queue Autorun preview. Queue is not the default destination for
@@ -288,14 +294,14 @@ adding a second separate chat concept.
 
 `RUNBOOK_WIDGET_CONTRACT.md` defines Runbook as a separate step-based procedural work surface. It is not Agent Queue, Agent Executor, Workspace Agent, automatic scheduling, tool execution, Terminal automation, Git mutation, or an approval/apply workflow.
 
-`AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has an insertable Agent Executor surface backed by Codex Direct Work artifacts. Full frontend runtime log viewing, Terminal result monitoring, arbitrary widget result monitoring, overview summarizers, response validation, broader executor integration, and real agent runtime UI are not implemented yet.
+`AGENT_RUN_OBSERVABILITY_CONTRACT.md` defines future Raw Log, Overview Log, and Result Report views for agent/task execution. The frontend has an insertable supporting Agent Executor surface backed by Codex Direct Work artifacts. Full frontend runtime log viewing, Terminal result monitoring, arbitrary widget result monitoring, overview summarizers, response validation, broader executor integration, and real agent runtime UI are not implemented yet.
 
 `SCRIPT_RUNNER_WIDGET_CONTRACT.md` defines the future Script Runner Widget as an explicit operator-controlled configured local script action with visible script path, argv arguments, working directory, timeout, output caps, logs, results, and safety boundaries. Script Runner is not part of the current Widget Catalog, and no Script Runner UI, widget insertion, backend execution, Tauri command, storage, or runtime behavior is implemented.
 
 `GIT_WIDGET_CONTRACT.md` defines the Git Widget / Git Plugin as a visual,
 approval-aware review/control surface for repository state after
-agent-assisted code work. An insertable frontend Git widget exists with a
-transient explicit repository-root input, manual desktop-only read-only
+agent-assisted code work. An insertable supporting frontend Git surface exists
+with a transient explicit repository-root input, manual desktop-only read-only
 status/diff review, grouped changed files, and explicit selected-file local
 commit UI with operator confirmation. Repository root/status persistence,
 polling, watching, fetch, log/show UI, validation association, Git-response
@@ -648,9 +654,9 @@ UI, sync/import/export, or AI-in-Notes implementation.
 
 The Terminal widget is PTY-first. Its normal visible surface starts a manual operator-controlled shell through the desktop PTY API with explicit shell executable, optional shell args, explicit execution workspace / working directory, bounded session-only output display, stdin send, manual refresh/polling, resize by columns/rows, Stop, Kill with confirmation, and Close. Live PTY backend support is currently implemented for Windows and Linux; other desktop platforms return an unsupported-platform error until platform support or catalog gating is added. A collapsed legacy one-shot fallback preserves the existing command runner with explicit program, one argument per textarea line, explicit working directory, timeout, stdout/stderr caps, widget run/log/result records, and final stdout/stderr result. Browser/Vite fallback reports Terminal PTY sessions and local command execution as unsupported. Terminal still does not implement tabs, split panes, persistent command history, persistent transcripts, shell profiles, environment/secrets support, Agent-triggered execution, Queue-triggered execution, Workspace Agent control, or Script Runner behavior.
 
-The Agent Executor widget reuses the existing `agent-run` definition id for persistence compatibility. It is the runtime execution slot for Direct Work and Queue-started assigned tasks. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it owns run detail, logs, final responses, history, and persisted widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
+The Agent Executor surface reuses the existing `agent-run` definition id for persistence compatibility. It is supporting runtime/detail infrastructure for Direct Work and Queue-started assigned tasks, not a Stable v0.1 product widget. It keeps the Codex CLI Direct Work launch panel and does not include the retired Agent Monitoring proposal viewer. It accepts explicit Workspace, Workbench, owning widget instance, executable, execution workspace path, operator prompt, sandbox, approval policy, timeout, and output caps, and it owns run detail, logs, final responses, history, and persisted widget run/log/result artifacts without Git mutation, auto-commit, auto-push, or automatic Queue dispatch. The compatibility field remains `repo_root` for current existing repository/local project execution workspaces.
 
-The Agent Queue widget is a preview async task organization and execution-support surface for promoted/larger work blocks. It is not the default place for every Workspace Agent idea, small task, or quick operator action. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
+The Agent Queue widget is the Stable v0.1 core dogfooding-loop task organization and execution-follow-up surface for promoted/larger work blocks. Some execution-support behavior remains preview-limited. It is not the default place for every Workspace Agent idea, small task, or quick operator action. Existing proposal-review compatibility paths remain available when review records exist, and the frontend product UI consumes the manual Workspace-scoped task API for create, list, select, edit, status, priority, explicit save, visible Executor assignment, and explicit assigned-task start. Automatic dispatch is not implemented. It does not auto-run queue items, approve or apply proposals, launch Terminal, run a background queue, capture responses outside normal Agent Executor artifacts, parse or validate responses, associate Git review, automatically accept work, mutate Notes/Git/files outside the selected Direct Work execution workspace, or write task edits outside explicit task save and assignment actions.
 
 Workspace Agent is a foreground chat-based agent work surface using the
 existing Interactive Agent compatibility component. It is where the operator
@@ -690,12 +696,12 @@ steps MVP with states such as pending, running, done, failed, skipped, and
 blocked, plus local notes/evidence. It has no persistence, step execution, edit
 mode, builder, Queue integration, or agent-assisted steps.
 
-The Git widget has a transient explicit repository-root input. In the Tauri
+The supporting Git surface has a transient explicit repository-root input. In the Tauri
 desktop path, it manually refreshes a read-only status snapshot through
 `get_git_repository_status`, backed by `hobit-tools`, and renders compact
 branch/clean-dirty/count/ahead-behind data plus grouped changed files. It can
 also load a bounded selected-file diff and recent Git history through
-Git-widget-owned read-only Tauri commands. It exposes explicit selected-file
+Git-surface-owned read-only Tauri commands. It exposes explicit selected-file
 local commit UI with an operator-provided message and operator confirmation.
 The repository root, refreshed status, selected diff, and recent history are
 local React state only. Browser/Vite fallback cannot read Git status, diffs,
@@ -798,8 +804,8 @@ Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills,
 Database / JDBC, Runbook, Git, Terminal, and Notes, Terminal tabs/splits/history, executable
 Workspace Agent runtime, automatic Agent Queue dispatch or real scheduler behavior
 beyond explicit assigned-task starts, Template Library execution, Git behavior
-beyond manual status/diff review and selected-file local commit, or automatic
-agent runtime behavior.
+beyond manual status/diff review and selected-file local commit, Finder
+implementation, or automatic agent runtime behavior.
 
 ## Current Notes Model Boundary
 
@@ -817,9 +823,10 @@ behavior is Deferred unless explicitly scoped. Source text must remain the
 durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
-The current app has Workspace Agent, Agent Activity, Agent Executor, Agent
-Queue, Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes
-widgets.
+The current app includes Workspace Agent, Agent Activity, Agent Queue,
+Knowledge / Skills, Database / JDBC, Runbook, Terminal, and Notes product-facing
+widgets, with Agent Executor and Git retained as supporting/compatibility
+surfaces. Finder is a required Stable v0.1 gap and is not implemented.
 Workspace Agent is the current foreground chat-based agent work surface and
 compatibility foundation for the target foreground Workspace Agent. It has
 local current-session chat state through the existing `interactive-agent`
@@ -827,24 +834,26 @@ compatibility component, deterministic local proposal generation from explicit
 chat text, visible attachments, Skill attach, Queue/Executor result metadata
 attach, Executor selected excerpt / preview attach, pasted result review, and
 an explicit approved-proposal bridge for creating draft Queue tasks and
-workspace-local Notes only. Agent Queue has a preview async task
-product UI backed by manual task storage/API only for promoted/larger work
+workspace-local Notes only. Agent Queue is the core dogfooding-loop task
+surface backed by manual task storage/API only for promoted/larger work
 blocks. Agent Executor keeps backend/Tauri Codex Direct Work run/result
 persistence for the existing `agent-run` owner, requires an explicit execution
-workspace path, and owns run detail/logs/final responses. JDBC suggestions
+workspace path, and owns run detail/logs/final responses as supporting
+runtime detail. JDBC suggestions
 remain non-executing
 review/copy text, and Runbook has local current-session step state plus
 notes/evidence only. Database / JDBC can manage non-secret connector metadata
 and perform bounded mock/safe read-only SQL validation/execution preview only.
-The Git widget supports manual desktop status/diff review and explicit
-selected-file local commit with operator confirmation for a transient explicit
-repository root. Terminal supports a visible desktop PTY session surface plus a
-collapsed legacy one-shot command fallback in the current frontend, with live
-PTY backend support currently implemented for Windows and Linux.
+The supporting Git surface supports manual desktop status/diff review and
+explicit selected-file local commit with operator confirmation for a transient
+explicit repository root. Terminal supports a visible explicit command PTY
+session surface plus a collapsed legacy one-shot command fallback in the
+current frontend, with live PTY backend support currently implemented for
+Windows and Linux.
 There is no Notebook tab model, text formatting tool surface, folder UI,
 Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block
 preview system, autosave, archive/delete UI, tags, sync, Knowledge ingestion
-flow, AI-in-Notes behavior, Agent Queue automatic execution/response
+flow, AI-in-Notes behavior, Finder implementation, Agent Queue automatic execution/response
 capture/validation, real external JDBC SQL execution, Template Library runtime,
 template storage/editing/request generation/response validation, Git behavior
 beyond status/diff review and selected-file local commit, or executable
@@ -898,8 +907,9 @@ The current repository state is documentation, repository hygiene, a root Rust
 workspace including the Tauri shell, core Rust domain/storage/application
 crates, a frontend Workspace Start Screen, Workspace Agent MVP surface, and
 advanced Empty Workbench shell, a Widget
-Catalog with Workspace Agent, Agent Activity, Agent Executor, Agent Queue,
-Knowledge / Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, a
+Catalog with Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills,
+Database / JDBC, Runbook, Terminal, and Notes product-facing surfaces plus
+supporting/compatibility Agent Executor and Git entries, a
 minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,
@@ -911,8 +921,9 @@ scaffold that returns sanitized mock/not-configured/unsupported statuses only,
 plus backend-only opt-in runtime config parsing that does not switch the
 product default away from mock execution, retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
-desktop-only Git status/diff and selected-file local commit path for the Git
-widget. Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/`
+desktop-only Git status/diff and selected-file local commit path for the
+supporting Git surface. Finder is not implemented. Generated Tauri schema
+artifacts under `apps/desktop/src-tauri/gen/`
 are ignored.
 
 Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.

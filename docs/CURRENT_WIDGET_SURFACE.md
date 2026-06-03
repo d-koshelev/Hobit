@@ -37,33 +37,45 @@ If this document conflicts with broader or older contracts, this document and
 `docs/ACTIVE_CONTRACT_INDEX.md` are authoritative for current implemented
 widget behavior.
 
-## Current User-Facing Catalog
+## Stable v0.1 Product Surface And Current Inventory
 
-Current Ready / MVP catalog surfaces:
+Stable v0.1 product-facing workbench surfaces:
 
 - Workspace Agent
-- Agent Activity
-- Agent Executor
-- Git
+- Agent Queue
 - Terminal
+- Agent Activity
 - Notes
 - Knowledge / Skills
 
 Current preview surfaces:
 
-- Agent Queue
 - Database / JDBC
 - Runbook
 
-The current catalog uses these preferred user-facing names. Compatibility IDs
-and component keys may still appear in code and persistence.
+Required Stable v0.1 gap:
+
+- Finder, not implemented yet.
+
+Supporting / compatibility surfaces that may remain implemented or insertable
+for transition, diagnostics, or runtime detail but are not Stable v0.1 product
+widgets:
+
+- Agent Executor
+- Git
+
+The current product surface uses these preferred user-facing names.
+Compatibility IDs and component keys may still appear in code and persistence.
 
 ## Current Default Workspace
 
 New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
-Agent Queue, Agent Executor, Git, Terminal, Database / JDBC, Knowledge / Skills, and Runbook
-remain optional widgets added when needed.
+Agent Queue, Terminal, Database / JDBC, Knowledge / Skills, and Runbook remain
+optional product-facing widgets added when needed. Agent Executor and Git may
+remain available as supporting/compatibility surfaces, but they are not Stable
+v0.1 product widgets. Finder is a required Stable v0.1 gap and is not
+implemented by this inventory.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
 Workspace Start Screen. Close is navigation only: it does not delete the
@@ -128,12 +140,14 @@ Agent Executor, run history, and future Artifacts/Evidence. Those capabilities
 are not implemented by this inventory unless explicitly listed as current
 behavior below.
 
-Queue is the async task pipeline for promoted, larger, delayed, or overnight
-work. Agent Executor is a background worker for queued tasks and owns queued
-run detail/logs/results. Executor is not the only agent that can do work;
-Workspace Agent is the foreground interactive agent surface.
+Workspace Agent plus Agent Queue form the Stable v0.1 dogfooding loop:
+Workspace Agent is the foreground interactive surface, and Queue is the
+operator-controlled task organization, sequencing, and follow-up surface for
+promoted, larger, delayed, or overnight work. Agent Executor is supporting
+runtime/detail infrastructure for queued/background Direct Work, not a Stable
+v0.1 product widget.
 
-## Current Ready Surfaces
+## Current Ready / Supporting Surfaces
 
 ### Agent Activity
 
@@ -162,7 +176,8 @@ Workspace Agent is the foreground interactive agent surface.
 
 ### Agent Executor
 
-- Current explicit Codex Direct Work execution surface and runtime slot.
+- Supporting / compatibility explicit Codex Direct Work execution surface and
+  runtime slot. It is not a Stable v0.1 product widget.
   Normal Queue execution management is moving into Agent Queue; the standalone
   Agent Executor widget remains available as a compatibility/debug/secondary
   surface during this transition.
@@ -200,8 +215,9 @@ Workspace Agent is the foreground interactive agent surface.
 
 ### Git
 
-- Current desktop Git review/control widget for an explicit operator-provided
-  repository root.
+- Supporting / compatibility desktop Git review/control surface for an
+  explicit operator-provided repository root. It is not a Stable v0.1 product
+  widget.
 - Reads a manual read-only status snapshot, grouped changed-file data,
   selected-file diff, and recent Git history in the Tauri desktop shell.
 - The compact widget surface is organized as Changes, Diff, History, and
@@ -216,9 +232,9 @@ Workspace Agent is the foreground interactive agent surface.
 
 ### Terminal
 
-- Current desktop-only Terminal widget with a classic terminal-first PTY
-  surface plus collapsed Terminal settings for advanced PTY configuration and
-  the legacy one-shot command fallback.
+- Current product-facing explicit command surface with a desktop-only
+  terminal-first PTY UI plus collapsed Terminal settings for advanced PTY
+  configuration and the legacy one-shot command fallback.
 - PTY UI accepts an explicit shell executable, optional shell argv, explicit
   working directory, cols/rows, stdin sends, manual refresh/polling, resize,
   Stop, Kill with confirmation, and Close.
@@ -417,12 +433,13 @@ Workspace Agent is the foreground interactive agent surface.
   operator-provided working directory, but Hobit still performs no automatic
   commit, push, reset, clean, stash, or Queue/Executor handoff.
 
-## Current Preview Surfaces
+## Current Core / Preview Surfaces
 
 ### Agent Queue
 
-- Current preview Queue + Workers async task organization and
-  execution-support surface.
+- Current core Stable v0.1 dogfooding-loop surface for Queue + Workers async
+  task organization and execution follow-up. Some execution-support behavior
+  remains intentionally preview-limited.
 - `docs/QUEUE_PRODUCT_HANDOFF.md` freezes the current Queue product state after
   the Queue handoff block. Further Queue feature development should stop in
   this chat and resume only from a new product-scenario/design-first thread
@@ -924,6 +941,9 @@ Workspace Agent is the foreground interactive agent surface.
   boundary and cleanup options.
 - The Terminal one-shot command runner is a Compatibility fallback, not the
   normal Terminal surface and not Script Runner.
+- Agent Executor and Git are supporting/compatibility surfaces for current
+  Direct Work detail and explicit repository review. They are not Stable v0.1
+  product widgets.
 - The older Notes widget-local `{ "body": "..." }` state is
   Compatibility/Deprecated for new product work.
 
@@ -941,6 +961,7 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
+- Finder implementation, despite being a required Stable v0.1 product gap
 - separate legacy Coordinator preview surface
 - Knowledge Catalog
 - Stages
