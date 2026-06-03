@@ -112,6 +112,17 @@ const RUN_AUTONOMOUS_PHRASES = [
   "\u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u043e\u0447\u0435\u0440\u0435\u0434\u044c",
 ];
 
+const PROMPT_THROUGH_QUEUE_PHRASES = [
+  "run this prompt through queue",
+  "run these prompts through queue",
+  "execute this prompt through queue",
+  "execute these prompts through queue",
+  "\u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u044d\u0442\u043e\u0442 \u043f\u0440\u043e\u043c\u043f\u0442 \u0447\u0435\u0440\u0435\u0437 queue",
+  "\u0432\u044b\u043f\u043e\u043b\u043d\u0438 \u044d\u0442\u0438 \u043f\u0440\u043e\u043c\u043f\u0442\u044b \u0447\u0435\u0440\u0435\u0437 queue",
+  "\u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u043f\u0440\u043e\u043c\u043f\u0442\u044b \u0447\u0435\u0440\u0435\u0437 \u043e\u0447\u0435\u0440\u0435\u0434\u044c",
+  "\u0441\u043e\u0437\u0434\u0430\u0439 \u0438 \u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0438",
+];
+
 const STOP_AUTONOMOUS_PHRASES = [
   "stop autonomous queue",
   "stop after current task",
@@ -150,6 +161,7 @@ const QUEUE_ONLY_PATTERNS = [
 const QUEUE_CONTROL_PATTERNS = [
   /\bcreate\s+(?:\w+\s+){0,4}(?:queued\s+)?(?:queue\s+)?tasks?\b/i,
   /\badd\s+(?:these\s+)?tasks?\s+to\s+(?:the\s+)?queue\b/i,
+  /\b(?:run|execute)\s+th(?:is|ese)\s+prompts?\s+through\s+queue\b/i,
   /\banalyze\s+queue\b/i,
   /\brun\s+autonomous\s+queue\b/i,
   /\bstart\s+autonomous\s+queue\b/i,
@@ -168,6 +180,11 @@ export function parseWorkspaceAgentQueueCommand(
   const batchCommand = parseBatchQueueCommand(visibleText);
   if (batchCommand) {
     return batchCommand;
+  }
+
+  const promptThroughQueueCommand = parsePromptThroughQueueCommand(visibleText);
+  if (promptThroughQueueCommand) {
+    return promptThroughQueueCommand;
   }
 
   const visibleNonFencedText = stripFenceBlocks(visibleText);
@@ -325,6 +342,51 @@ function parseBatchQueueCommand(
   };
 }
 
+function parsePromptThroughQueueCommand(
+  text: string,
+): WorkspaceAgentQueueCommand | null {
+  const body = stripLeadingPhrase(text, PROMPT_THROUGH_QUEUE_PHRASES);
+
+  if (body === null) {
+    return null;
+  }
+
+  const explicitPrompt = fencedPrompt(text);
+  const promptIntents = numberedTaskIntents(body);
+  const taskIntents =
+    promptIntents.length > 0
+      ? promptIntents
+      : [singlePromptThroughQueueIntent(explicitPrompt ?? body)].filter(
+          Boolean,
+        );
+
+  if (taskIntents.length === 0) {
+    return { type: "unsupportedQueueCommand" };
+  }
+
+  const runSettings = promptThroughQueueRunSettings(text);
+  const commands: WorkspaceAgentQueueCommand[] = taskIntents.map((intent) => {
+    const structuredPrompt = structuredCreateQueueTaskPrompt(intent);
+
+    return {
+      executionPolicy: "auto",
+      prompt: structuredPrompt.prompt,
+      runSettings,
+      status: "queued",
+      title: structuredPrompt.title,
+      type: "createItem",
+    };
+  });
+
+  commands.push({ type: "runAutonomousQueue" });
+
+  return {
+    commands,
+    forceLocal: true,
+    type: "batch",
+  };
+}
+
 function isMultiTaskQueueCreateIntent(text: string) {
   return (
     /\bcreate\s+(?:two|three|four|five|\d+)\s+(?:separate\s+)?(?:queued\s+)?(?:queue\s+)?tasks?\b/i.test(
@@ -352,6 +414,23 @@ function numberedTaskIntents(text: string) {
   return taskIntents;
 }
 
+function singlePromptThroughQueueIntent(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !isQueueRunSettingLine(line));
+
+  return lines.join("\n").trim();
+}
+
+function isQueueRunSettingLine(line: string) {
+  const normalized = line.replace(/^[*-]\s+/, "").trim().toLowerCase();
+
+  return /^(?:execution\s+workspace|task\s+workspace|workspace|codex\s+executable|codex|sandbox|approval\s+policy|approval)\s*:/.test(
+    normalized,
+  );
+}
+
 function queueRunSettingsFromText(
   text: string,
 ): Partial<AgentQueueTaskRunSettingsDefaults> {
@@ -374,6 +453,17 @@ function queueRunSettingsFromText(
     ...(codexExecutable ? { codexExecutable } : {}),
     ...(executionWorkspace ? { executionWorkspace } : {}),
     ...(sandbox ? { sandbox } : {}),
+  };
+}
+
+function promptThroughQueueRunSettings(
+  text: string,
+): Partial<AgentQueueTaskRunSettingsDefaults> {
+  return {
+    ...queueRunSettingsFromText(text),
+    approvalPolicy: "never",
+    codexExecutable: "codex.cmd",
+    sandbox: "danger_full_access",
   };
 }
 
@@ -432,6 +522,7 @@ function embeddedQueueCommandText(text: string) {
   const phraseIndexes = [
     ...CREATE_PHRASES,
     ...ANALYZE_PHRASES,
+    ...PROMPT_THROUGH_QUEUE_PHRASES,
     ...RUN_AUTONOMOUS_PHRASES,
     ...STOP_AUTONOMOUS_PHRASES,
   ]
@@ -447,6 +538,7 @@ function startsWithAnyKnownQueuePhrase(text: string) {
   return startsWithAnyPhrase(text, [
     ...CREATE_PHRASES,
     ...ANALYZE_PHRASES,
+    ...PROMPT_THROUGH_QUEUE_PHRASES,
     ...RUN_AUTONOMOUS_PHRASES,
     ...STOP_AUTONOMOUS_PHRASES,
   ]);
@@ -654,6 +746,13 @@ async function runQueueCommandBatch(
   const failedMessages: string[] = [];
   let autonomousStarted = false;
   let autonomousMessage = "";
+  const shouldRunAutonomous = command.commands.some(
+    (batchCommand) => batchCommand.type === "runAutonomousQueue",
+  );
+
+  if (shouldRunAutonomous && hasQueuedCreateWithoutWorkspace(command, options)) {
+    return "Queue action failed: task workspace is missing. No Queue items were created or run.";
+  }
 
   for (const batchCommand of command.commands) {
     if (batchCommand.type === "createItem") {
@@ -730,9 +829,24 @@ function queueCreateItemRequest(
     prompt: command.prompt,
     queueTag: { name: "Default" },
     sandbox: runSettings.sandbox,
-    status: command.status ?? (hasExecutionWorkspace ? "queued" : "draft"),
+    status: hasExecutionWorkspace ? command.status ?? "queued" : "draft",
     title: command.title,
   };
+}
+
+function hasQueuedCreateWithoutWorkspace(
+  command: Extract<WorkspaceAgentQueueCommand, { type: "batch" }>,
+  options: WorkspaceAgentQueueCommandHandlerOptions,
+) {
+  return command.commands.some((batchCommand) => {
+    if (batchCommand.type !== "createItem") {
+      return false;
+    }
+
+    const runSettings = queueCreateRunSettings(options, batchCommand.runSettings);
+
+    return batchCommand.status === "queued" && !runSettings.executionWorkspace;
+  });
 }
 
 async function updateQueueItem(
@@ -1134,6 +1248,17 @@ function structuredCreateQueueTaskPrompt(rawIntent: string) {
   }
 
   const objective = rawIntent.trim() || "Create a Workspace Agent Queue task.";
+  const safetyBoundaries = explicitEditIntent(objective)
+    ? [
+        "Stay within the explicit objective.",
+        "Do not commit, push, reset, clean, stash, or rollback.",
+      ]
+    : [
+        "Do not edit files.",
+        "Do not create files.",
+        "Do not delete files.",
+        "Do not commit, push, reset, clean, stash, or rollback.",
+      ];
 
   return {
     prompt: [
@@ -1143,10 +1268,7 @@ function structuredCreateQueueTaskPrompt(rawIntent: string) {
       "Objective:",
       objective,
       "",
-      "Do not edit files.",
-      "Do not create files.",
-      "Do not delete files.",
-      "Do not commit, push, reset, clean, stash, or rollback.",
+      ...safetyBoundaries,
       "",
       "Report:",
       "",
@@ -1157,6 +1279,12 @@ function structuredCreateQueueTaskPrompt(rawIntent: string) {
     ].join("\n"),
     title: "Workspace Agent task",
   };
+}
+
+function explicitEditIntent(value: string) {
+  return /\b(?:edit|modify|change|update)\s+(?:the\s+)?(?:file|files|code|implementation)\b/i.test(
+    value,
+  );
 }
 
 function knownReadOnlyPrompt({

@@ -480,6 +480,75 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     );
   });
 
+  it("handles prompt-through-Queue chat locally without provider, Codex, or shell callbacks", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult("queue.createItem", {
+          approvalPolicy: request.approvalPolicy,
+          codexExecutable: request.codexExecutable,
+          executionPolicy: request.executionPolicy,
+          executionWorkspace: request.executionWorkspace ?? "",
+          id: `queue-prompt-${(createItem.mock.calls.length + 1).toString()}`,
+          prompt: request.prompt,
+          sandbox: request.sandbox,
+          status: request.status,
+          title: request.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+    const provider = vi.fn(async () => providerResponse());
+    const startCodex = vi.fn();
+    const runTerminal = vi.fn();
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startCodex,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        runAutonomousQueue,
+      }),
+    });
+
+    await sendWorkspaceAgentMessage(
+      [
+        "Run these prompts through Queue:",
+        "",
+        "1. read AGENTS.md first line",
+        "2. show current location",
+        "3. show git status",
+      ].join("\n"),
+      "Run with Codex",
+    );
+
+    expect(createItem).toHaveBeenCalledTimes(3);
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(createItem.mock.calls.map((call) => call[0].title)).toEqual([
+      "Read AGENTS.md first line",
+      "Show current location",
+      "Show git status",
+    ]);
+    expect(createItem.mock.calls[0]?.[0]).toMatchObject({
+      approvalPolicy: "never",
+      codexExecutable: "codex.cmd",
+      executionPolicy: "auto",
+      executionWorkspace: "C:/repo",
+      sandbox: "danger_full_access",
+      status: "queued",
+    });
+    expect(document.body.textContent).toContain(
+      "Created 3 Queue items and started Autonomous Queue.",
+    );
+  });
+
   it("shows a local Queue API error without provider fallback when the bridge is missing", async () => {
     const provider = vi.fn(async () => providerResponse());
     const startCodex = vi.fn();
