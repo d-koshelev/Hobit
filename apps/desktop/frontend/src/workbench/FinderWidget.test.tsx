@@ -4,11 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getWorkspaceGitFileDiff,
+  getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "../workspace/workspaceGitApi";
 import type {
   GitFileChange,
   GitFileDiff,
+  GitLog,
   GitRepositoryStatus,
 } from "../workspace/types";
 import { FinderWidget } from "./FinderWidget";
@@ -16,6 +18,7 @@ import type { WidgetDefinition, WidgetInstance } from "./types";
 
 vi.mock("../workspace/workspaceGitApi", () => ({
   getWorkspaceGitFileDiff: vi.fn(),
+  getWorkspaceGitLog: vi.fn(),
   getWorkspaceGitStatus: vi.fn(),
 }));
 
@@ -23,6 +26,7 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
 const getWorkspaceGitFileDiffMock = vi.mocked(getWorkspaceGitFileDiff);
+const getWorkspaceGitLogMock = vi.mocked(getWorkspaceGitLog);
 
 type FakeFileHandle = {
   createWritable: () => Promise<{
@@ -60,6 +64,7 @@ afterEach(() => {
   });
   getWorkspaceGitStatusMock.mockReset();
   getWorkspaceGitFileDiffMock.mockReset();
+  getWorkspaceGitLogMock.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -85,6 +90,12 @@ describe("FinderWidget", () => {
         "diff --git a/src/App.tsx b/src/App.tsx\n+  return 'hello';",
       ),
     );
+    getWorkspaceGitLogMock.mockResolvedValue(
+      gitLog([
+        gitLogEntry("abc123456789", "abc1234", "finder: add history"),
+        gitLogEntry("def456789012", "def4567", "finder: add diffs"),
+      ]),
+    );
     const showDirectoryPicker = vi.fn(async () => projectRoot);
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
@@ -100,13 +111,23 @@ describe("FinderWidget", () => {
     expect(getWorkspaceGitStatusMock).toHaveBeenCalledWith({
       repoRoot: "project",
     });
+    expect(getWorkspaceGitLogMock).toHaveBeenCalledWith({
+      limit: 30,
+      repoRoot: "project",
+    });
     expect(document.body.textContent).toContain("project");
     expect(document.body.textContent).toContain("src");
     expect(document.body.textContent).toContain("README.md");
     expect(document.body.textContent).toContain("2 changed");
     expect(document.body.textContent).toContain("Modified");
     expect(document.body.textContent).toContain("Added");
+    expect(document.body.textContent).toContain("finder: add history");
+    expect(document.body.textContent).toContain("abc123456789");
     expect(document.querySelectorAll(".finder-column")).toHaveLength(1);
+
+    await clickButtonContaining("finder: add diffs");
+
+    expect(document.body.textContent).toContain("def456789012");
 
     await clickButton("Changed files");
     expect(document.body.textContent).toContain("README.md");
@@ -173,6 +194,7 @@ describe("FinderWidget", () => {
   it("shows an honest unsupported listing state when only the native directory label picker is available", async () => {
     const onSelectWorkspaceDirectory = vi.fn(async () => "C:/work/project");
     getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
 
     renderWidget({ onSelectWorkspaceDirectory });
 
@@ -180,6 +202,10 @@ describe("FinderWidget", () => {
 
     expect(onSelectWorkspaceDirectory).toHaveBeenCalledTimes(1);
     expect(getWorkspaceGitStatusMock).toHaveBeenCalledWith({
+      repoRoot: "C:/work/project",
+    });
+    expect(getWorkspaceGitLogMock).toHaveBeenCalledWith({
+      limit: 30,
       repoRoot: "C:/work/project",
     });
     expect(document.body.textContent).toContain("C:/work/project");
@@ -205,6 +231,7 @@ describe("FinderWidget", () => {
         gitChange("untracked", "untracked", "scratch.ts"),
       ]),
     );
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: vi.fn(async () => projectRoot),
@@ -246,6 +273,7 @@ describe("FinderWidget", () => {
         "diff --git a/src/App.tsx b/src/App.tsx\n@@\n-export function App() {}\n+export function App() { return null; }",
       ),
     );
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
       value: vi.fn(async () => projectRoot),
@@ -422,6 +450,24 @@ function gitFileDiff(path: string, patch: string): GitFileDiff {
     path,
     repoRoot: "project",
     status: "available",
+  };
+}
+
+function gitLog(entries: GitLog["entries"]): GitLog {
+  return {
+    commandSummary: [{ args: ["log"], program: "git" }],
+    entries,
+    repoRoot: "project",
+  };
+}
+
+function gitLogEntry(hash: string, shortHash: string, subject: string) {
+  return {
+    author: "Hobit",
+    date: "2026-06-04",
+    hash,
+    shortHash,
+    subject,
   };
 }
 

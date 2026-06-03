@@ -50,6 +50,11 @@ export type GetWorkspaceGitFileDiffRequest = {
   maxPatchBytes?: number | null;
 };
 
+export type GetWorkspaceGitLogRequest = {
+  repoRoot: string;
+  limit?: number | null;
+};
+
 export type CreateWorkspaceGitCommitRequest = {
   repoRoot: string;
   commitMessage: string;

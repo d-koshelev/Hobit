@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::agent_executor_diff_dto::AgentExecutorDiffSummaryDto;
 use crate::git_commit_dto::GitCommitResponseDto;
-use crate::git_review_dto::GitFileDiffDto;
+use crate::git_review_dto::{GitFileDiffDto, GitLogDto};
 use crate::workspace_dto::GitRepositoryStatusDto;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -29,6 +29,12 @@ pub(crate) struct GetWorkspaceGitFileDiffRequest {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub(crate) struct GetWorkspaceGitLogRequest {
+    pub repo_root: String,
+    pub limit: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CreateWorkspaceGitCommitRequest {
     pub repo_root: String,
     pub commit_message: String,
@@ -38,6 +44,7 @@ pub(crate) struct CreateWorkspaceGitCommitRequest {
 pub(crate) type WorkspaceGitStatusDto = GitRepositoryStatusDto;
 pub(crate) type WorkspaceGitDiffSummaryDto = AgentExecutorDiffSummaryDto;
 pub(crate) type WorkspaceGitFileDiffDto = GitFileDiffDto;
+pub(crate) type WorkspaceGitLogDto = GitLogDto;
 pub(crate) type WorkspaceGitCommitResponseDto = GitCommitResponseDto;
 
 impl From<CreateWorkspaceGitCommitRequest> for CreateWorkspaceGitCommitInput {

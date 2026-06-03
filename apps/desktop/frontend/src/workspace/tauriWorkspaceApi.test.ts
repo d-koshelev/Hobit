@@ -35,6 +35,7 @@ import {
   createWorkspaceGitCommit,
   getWorkspaceGitDiffSummary,
   getWorkspaceGitFileDiff,
+  getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "./tauriWorkspaceGitApi";
 import {
@@ -240,6 +241,19 @@ describe("tauri workspace api adapter", () => {
         error_message: null,
         command_summary: [{ program: "git", args: ["diff"] }],
       })
+      .mockResolvedValueOnce({
+        repo_root: "C:/repo",
+        entries: [
+          {
+            hash: "abcdef123",
+            short_hash: "abcdef1",
+            subject: "commit",
+            author: "Hobit",
+            date: "2026-06-04",
+          },
+        ],
+        command_summary: [{ program: "git", args: ["log"] }],
+      })
       .mockResolvedValueOnce(tauriGitCommit());
 
     await getWorkspaceGitStatus({ repoRoot: "C:/repo" });
@@ -253,6 +267,10 @@ describe("tauri workspace api adapter", () => {
       repoRoot: "C:/repo",
       path: "src/lib.rs",
       maxPatchBytes: 42,
+    });
+    await getWorkspaceGitLog({
+      repoRoot: "C:/repo",
+      limit: 15,
     });
     await createWorkspaceGitCommit({
       repoRoot: "C:/repo",
@@ -290,6 +308,16 @@ describe("tauri workspace api adapter", () => {
     );
     expect(mocks.invoke).toHaveBeenNthCalledWith(
       4,
+      "get_workspace_git_log",
+      {
+        request: {
+          repo_root: "C:/repo",
+          limit: 15,
+        },
+      },
+    );
+    expect(mocks.invoke).toHaveBeenNthCalledWith(
+      5,
       "create_workspace_git_commit",
       {
         request: {
@@ -326,6 +354,19 @@ describe("tauri workspace api adapter", () => {
         ],
         command_summary: [{ program: "git", args: ["log"] }],
       })
+      .mockResolvedValueOnce({
+        repo_root: "C:/repo",
+        entries: [
+          {
+            hash: "fedcba987",
+            short_hash: "fedcba9",
+            subject: "workspace commit",
+            author: "Hobit",
+            date: "2026-06-04",
+          },
+        ],
+        command_summary: [{ program: "git", args: ["log"] }],
+      })
       .mockResolvedValueOnce(tauriGitCommit());
 
     await expect(getGitRepositoryStatus(gitScope())).resolves.toMatchObject({
@@ -341,6 +382,9 @@ describe("tauri workspace api adapter", () => {
       });
     await expect(getGitLog({ ...gitScope() })).resolves.toMatchObject({
       entries: [{ shortHash: "abcdef1" }],
+    });
+    await expect(getWorkspaceGitLog({ repoRoot: "C:/repo" })).resolves.toMatchObject({
+      entries: [{ shortHash: "fedcba9" }],
     });
     await expect(
       createGitCommit({

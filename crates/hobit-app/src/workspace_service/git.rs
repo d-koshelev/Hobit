@@ -132,6 +132,32 @@ impl WorkspaceService {
         Ok(GitFileDiffSummary::from(diff))
     }
 
+    pub fn get_workspace_git_log(
+        &self,
+        repo_root: &str,
+        limit: Option<usize>,
+    ) -> Result<GitLogSummary, WorkspaceServiceError> {
+        self.get_workspace_git_log_with_reader(repo_root, limit, read_git_log)
+    }
+
+    pub(super) fn get_workspace_git_log_with_reader<F>(
+        &self,
+        repo_root: &str,
+        limit: Option<usize>,
+        read_log: F,
+    ) -> Result<GitLogSummary, WorkspaceServiceError>
+    where
+        F: FnOnce(GitLogRequest) -> Result<ToolsGitLogResult, GitDiffError>,
+    {
+        let repo_root = required_input(repo_root, "repository root")?;
+        let repo_root = PathBuf::from(repo_root);
+        let _request_artifacts = GitDiffRuntimeArtifacts::from_request(&repo_root);
+        let log = read_log(GitLogRequest { repo_root, limit })
+            .map_err(classify_git_diff_error_passthrough)?;
+
+        Ok(GitLogSummary::from(log))
+    }
+
     pub fn get_git_repository_status(
         &self,
         workspace_id: &str,

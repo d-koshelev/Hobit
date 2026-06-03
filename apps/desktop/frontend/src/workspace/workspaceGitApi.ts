@@ -3,9 +3,11 @@ import type {
   CreateWorkspaceGitCommitRequest,
   GetWorkspaceGitDiffSummaryRequest,
   GetWorkspaceGitFileDiffRequest,
+  GetWorkspaceGitLogRequest,
   GetWorkspaceGitStatusRequest,
   GitCommitResponse,
   GitFileDiff,
+  GitLog,
   GitRepositoryStatus,
   WorkspaceGitDiffSummary,
 } from "./types";
@@ -26,6 +28,12 @@ export function getWorkspaceGitFileDiff(
   request: GetWorkspaceGitFileDiffRequest,
 ): Promise<GitFileDiff> {
   return getWorkspaceApi().getWorkspaceGitFileDiff(request);
+}
+
+export function getWorkspaceGitLog(
+  request: GetWorkspaceGitLogRequest,
+): Promise<GitLog> {
+  return getWorkspaceApi().getWorkspaceGitLog(request);
 }
 
 export function createWorkspaceGitCommit(

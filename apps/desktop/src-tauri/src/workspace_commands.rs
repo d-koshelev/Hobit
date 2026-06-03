@@ -48,8 +48,9 @@ use crate::workspace_dto::{
 };
 use crate::workspace_git_dto::{
     CreateWorkspaceGitCommitRequest, GetWorkspaceGitDiffSummaryRequest,
-    GetWorkspaceGitFileDiffRequest, GetWorkspaceGitStatusRequest, WorkspaceGitCommitResponseDto,
-    WorkspaceGitDiffSummaryDto, WorkspaceGitFileDiffDto, WorkspaceGitStatusDto,
+    GetWorkspaceGitFileDiffRequest, GetWorkspaceGitLogRequest, GetWorkspaceGitStatusRequest,
+    WorkspaceGitCommitResponseDto, WorkspaceGitDiffSummaryDto, WorkspaceGitFileDiffDto,
+    WorkspaceGitLogDto, WorkspaceGitStatusDto,
 };
 
 #[tauri::command]
@@ -805,6 +806,28 @@ fn get_workspace_git_file_diff_blocking(
     service
         .get_workspace_git_file_diff(&request.repo_root, &request.path, request.max_patch_bytes)
         .map(WorkspaceGitFileDiffDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_workspace_git_log(
+    request: GetWorkspaceGitLogRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitLogDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || get_workspace_git_log_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn get_workspace_git_log_blocking(
+    request: GetWorkspaceGitLogRequest,
+    db_path: PathBuf,
+) -> Result<WorkspaceGitLogDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_workspace_git_log(&request.repo_root, request.limit)
+        .map(WorkspaceGitLogDto::from)
         .map_err(command_error)
 }
 

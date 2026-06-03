@@ -3,11 +3,14 @@ import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
   getWorkspaceGitFileDiff,
+  getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "../workspace/workspaceGitApi";
 import type {
   GitFileChange,
   GitFileDiff,
+  GitLog,
+  GitLogEntry,
   GitRepositoryStatus,
 } from "../workspace/types";
 import { WidgetFrame } from "../design-system/WidgetFrame";
@@ -17,6 +20,7 @@ const MAX_DIRECTORY_ENTRIES = 200;
 const MAX_FILE_PREVIEW_BYTES = 100 * 1024;
 const MAX_GIT_DIFF_PATCH_BYTES = 96 * 1024;
 const MAX_GIT_DIFF_ATTACHMENT_CHARS = 6_000;
+const MAX_GIT_HISTORY_ENTRIES = 30;
 
 type FinderEntryKind = "directory" | "file";
 
@@ -107,6 +111,13 @@ type FinderGitDiffPreviewState = {
   path: string | null;
 };
 
+type FinderGitHistoryState = {
+  error: string | null;
+  loading: boolean;
+  log: GitLog | null;
+  selectedHash: string | null;
+};
+
 declare global {
   interface Window {
     showDirectoryPicker?: () => Promise<FinderDirectoryHandle>;
@@ -152,6 +163,12 @@ export function FinderWidget({
       loading: false,
       path: null,
     });
+  const [gitHistory, setGitHistory] = useState<FinderGitHistoryState>({
+    error: null,
+    loading: false,
+    log: null,
+    selectedHash: null,
+  });
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
@@ -179,6 +196,7 @@ export function FinderWidget({
       loading: false,
       status: null,
     });
+    resetGitHistory();
     setViewMode("all");
 
     try {
@@ -203,6 +221,7 @@ export function FinderWidget({
         ]);
         await loadColumn(directoryHandle, [], 0);
         await refreshGitStatusForRoot(rootLabel);
+        await loadGitHistoryForRoot(rootLabel);
         return;
       }
 
@@ -220,6 +239,7 @@ export function FinderWidget({
             "Directory listing is unavailable in this frontend runtime.",
           );
           await refreshGitStatusForRoot(selectedDirectory);
+          await loadGitHistoryForRoot(selectedDirectory);
         }
         return;
       }
@@ -315,6 +335,52 @@ export function FinderWidget({
             }
           : currentDiff,
       );
+    }
+  }
+
+  async function loadGitHistoryForRoot(repoRoot = root?.gitRoot ?? null) {
+    if (!repoRoot) {
+      setGitHistory({
+        error: "Git history requires an approved local root path.",
+        loading: false,
+        log: null,
+        selectedHash: null,
+      });
+      return;
+    }
+
+    setGitHistory((currentHistory) => ({
+      ...currentHistory,
+      error: null,
+      loading: true,
+    }));
+
+    try {
+      const log = await getWorkspaceGitLog({
+        limit: MAX_GIT_HISTORY_ENTRIES,
+        repoRoot,
+      });
+      setGitHistory((currentHistory) => {
+        const selectedHash =
+          currentHistory.selectedHash &&
+          log.entries.some((entry) => entry.hash === currentHistory.selectedHash)
+            ? currentHistory.selectedHash
+            : (log.entries[0]?.hash ?? null);
+
+        return {
+          error: null,
+          loading: false,
+          log,
+          selectedHash,
+        };
+      });
+    } catch (error) {
+      setGitHistory({
+        error: errorToReadableMessage(error),
+        loading: false,
+        log: null,
+        selectedHash: null,
+      });
     }
   }
 
@@ -638,6 +704,15 @@ export function FinderWidget({
     });
   }
 
+  function resetGitHistory() {
+    setGitHistory({
+      error: null,
+      loading: false,
+      log: null,
+      selectedHash: null,
+    });
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -684,8 +759,16 @@ export function FinderWidget({
         <FinderGitStatusPanel
           changedFiles={changedFiles}
           error={gitStatus.error}
+          history={gitHistory}
           loading={gitStatus.loading}
           onChangeViewMode={setViewMode}
+          onRefreshHistory={() => void loadGitHistoryForRoot()}
+          onSelectHistoryEntry={(hash) =>
+            setGitHistory((currentHistory) => ({
+              ...currentHistory,
+              selectedHash: hash,
+            }))
+          }
           status={gitStatus.status}
           viewMode={viewMode}
         />
@@ -1120,15 +1203,21 @@ function FinderColumnView({
 function FinderGitStatusPanel({
   changedFiles,
   error,
+  history,
   loading,
   onChangeViewMode,
+  onRefreshHistory,
+  onSelectHistoryEntry,
   status,
   viewMode,
 }: {
   changedFiles: GitFileChange[];
   error: string | null;
+  history: FinderGitHistoryState;
   loading: boolean;
   onChangeViewMode: (viewMode: FinderViewMode) => void;
+  onRefreshHistory: () => void;
+  onSelectHistoryEntry: (hash: string) => void;
   status: GitRepositoryStatus | null;
   viewMode: FinderViewMode;
 }) {
@@ -1206,7 +1295,137 @@ function FinderGitStatusPanel({
       ) : status && !loading ? (
         <p className="finder-column-state">No changed files in this Git snapshot.</p>
       ) : null}
+      <FinderGitHistoryPanel
+        history={history}
+        onRefreshHistory={onRefreshHistory}
+        onSelectHistoryEntry={onSelectHistoryEntry}
+      />
     </section>
+  );
+}
+
+function FinderGitHistoryPanel({
+  history,
+  onRefreshHistory,
+  onSelectHistoryEntry,
+}: {
+  history: FinderGitHistoryState;
+  onRefreshHistory: () => void;
+  onSelectHistoryEntry: (hash: string) => void;
+}) {
+  const entries = history.log?.entries ?? null;
+  const selectedEntry =
+    entries?.find((entry) => entry.hash === history.selectedHash) ??
+    entries?.[0] ??
+    null;
+
+  return (
+    <section aria-label="Finder Git history" className="finder-git-history">
+      <div className="finder-git-history-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Recent commits</p>
+          <p className="finder-text">
+            {entries
+              ? `${entries.length} commits loaded`
+              : "Read-only history for the approved root."}
+          </p>
+        </div>
+        <Button
+          disabled={history.loading}
+          onClick={onRefreshHistory}
+          variant="secondary"
+        >
+          {history.loading ? "Reading history" : "Refresh history"}
+        </Button>
+      </div>
+
+      {history.error ? (
+        <p className="finder-preview-error">{history.error}</p>
+      ) : null}
+
+      {history.loading ? (
+        <p className="finder-column-state">Reading recent commits...</p>
+      ) : entries && entries.length === 0 ? (
+        <p className="finder-column-state">Git returned no recent commits.</p>
+      ) : entries ? (
+        <div className="finder-git-history-layout">
+          <div className="finder-git-history-list" role="list">
+            {entries.map((entry) => (
+              <button
+                aria-pressed={entry.hash === selectedEntry?.hash}
+                className={[
+                  "finder-git-history-row",
+                  entry.hash === selectedEntry?.hash
+                    ? "finder-git-history-row-selected"
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={entry.hash}
+                onClick={() => onSelectHistoryEntry(entry.hash)}
+                type="button"
+              >
+                <code className="finder-git-history-hash">
+                  {entry.shortHash}
+                </code>
+                <span className="finder-git-history-main">
+                  <span className="finder-git-history-title">
+                    {entry.subject}
+                  </span>
+                  <span className="finder-git-history-meta">
+                    {entry.author} / {entry.date}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <FinderGitCommitDetails entry={selectedEntry} />
+        </div>
+      ) : (
+        <p className="finder-column-state">
+          Open a root or refresh history to list recent commits.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function FinderGitCommitDetails({ entry }: { entry: GitLogEntry | null }) {
+  if (!entry) {
+    return (
+      <div className="finder-git-commit-details">
+        <p className="finder-title">Commit details</p>
+        <p className="finder-text">Select a commit to inspect its metadata.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="finder-git-commit-details">
+      <p className="finder-title">Commit details</p>
+      <dl className="finder-git-commit-detail-list">
+        <div>
+          <dt>Hash</dt>
+          <dd>
+            <code>{entry.hash}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Title</dt>
+          <dd>{entry.subject}</dd>
+        </div>
+        <div>
+          <dt>Author/date</dt>
+          <dd>
+            {entry.author} / {entry.date}
+          </dd>
+        </div>
+      </dl>
+      <p className="finder-text">
+        Changed files and diff summary are not available for this selected
+        commit.
+      </p>
+    </div>
   );
 }
 

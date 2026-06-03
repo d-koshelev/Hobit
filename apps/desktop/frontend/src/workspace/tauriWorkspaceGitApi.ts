@@ -3,10 +3,13 @@ import type {
   CreateWorkspaceGitCommitRequest,
   GetWorkspaceGitDiffSummaryRequest,
   GetWorkspaceGitFileDiffRequest,
+  GetWorkspaceGitLogRequest,
   GetWorkspaceGitStatusRequest,
   GitCommitResponse,
   GitDiffCommandSummary,
   GitFileDiff,
+  GitLog,
+  GitLogEntry,
   GitRepositoryStatus,
   WorkspaceGitDiffSummary,
 } from "./types";
@@ -93,6 +96,20 @@ type TauriWorkspaceGitFileDiff = {
   command_summary: TauriGitDiffCommandSummary[];
 };
 
+type TauriWorkspaceGitLog = {
+  repo_root: string;
+  entries: TauriWorkspaceGitLogEntry[];
+  command_summary: TauriGitDiffCommandSummary[];
+};
+
+type TauriWorkspaceGitLogEntry = {
+  hash: string;
+  short_hash: string;
+  subject: string;
+  author: string;
+  date: string;
+};
+
 type TauriGitDiffCommandSummary = {
   program: string;
   args: string[];
@@ -174,6 +191,19 @@ export async function getWorkspaceGitFileDiff(
   return normalizeWorkspaceGitFileDiff(diff);
 }
 
+export async function getWorkspaceGitLog(
+  request: GetWorkspaceGitLogRequest,
+): Promise<GitLog> {
+  const log = await invoke<TauriWorkspaceGitLog>("get_workspace_git_log", {
+    request: {
+      repo_root: request.repoRoot,
+      limit: request.limit ?? null,
+    },
+  });
+
+  return normalizeWorkspaceGitLog(log);
+}
+
 export async function createWorkspaceGitCommit(
   request: CreateWorkspaceGitCommitRequest,
 ): Promise<GitCommitResponse> {
@@ -234,6 +264,26 @@ function normalizeWorkspaceGitFileDiff(
     patchTruncated: diff.patch_truncated,
     errorMessage: diff.error_message,
     commandSummary: diff.command_summary.map(normalizeGitDiffCommandSummary),
+  };
+}
+
+function normalizeWorkspaceGitLog(log: TauriWorkspaceGitLog): GitLog {
+  return {
+    repoRoot: log.repo_root,
+    entries: log.entries.map(normalizeWorkspaceGitLogEntry),
+    commandSummary: log.command_summary.map(normalizeGitDiffCommandSummary),
+  };
+}
+
+function normalizeWorkspaceGitLogEntry(
+  entry: TauriWorkspaceGitLogEntry,
+): GitLogEntry {
+  return {
+    hash: entry.hash,
+    shortHash: entry.short_hash,
+    subject: entry.subject,
+    author: entry.author,
+    date: entry.date,
   };
 }
 

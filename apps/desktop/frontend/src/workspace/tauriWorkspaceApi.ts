@@ -45,6 +45,7 @@ import {
   createWorkspaceGitCommit,
   getWorkspaceGitDiffSummary,
   getWorkspaceGitFileDiff,
+  getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "./tauriWorkspaceGitApi";
 import {
@@ -182,6 +183,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getWorkspaceGitStatus,
   getWorkspaceGitDiffSummary,
   getWorkspaceGitFileDiff,
+  getWorkspaceGitLog,
   createWorkspaceGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,

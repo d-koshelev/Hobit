@@ -71,6 +71,7 @@ import type {
   GetGitRepositoryStatusRequest,
   GetWorkspaceGitDiffSummaryRequest,
   GetWorkspaceGitFileDiffRequest,
+  GetWorkspaceGitLogRequest,
   GetWorkspaceGitStatusRequest,
   GetKnowledgeDocumentRequest,
   GetWorkspaceNoteRequest,
@@ -315,6 +316,7 @@ export type WorkspaceApi = {
   getWorkspaceGitFileDiff: (
     request: GetWorkspaceGitFileDiffRequest,
   ) => Promise<GitFileDiff>;
+  getWorkspaceGitLog: (request: GetWorkspaceGitLogRequest) => Promise<GitLog>;
   createWorkspaceGitCommit: (
     request: CreateWorkspaceGitCommitRequest,
   ) => Promise<GitCommitResponse>;
