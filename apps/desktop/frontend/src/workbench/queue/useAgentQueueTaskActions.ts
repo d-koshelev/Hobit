@@ -1,13 +1,6 @@
-import type { Dispatch, SetStateAction } from "react";
-import type { MutableRefObject } from "react";
-
 import type {
-  AgentQueueCoordinatorStatus,
   AgentQueueReportActionType,
-  AgentQueueRunnerSnapshot,
   AgentQueueTask,
-  AgentQueueTaskStatus,
-  AgentQueueTaskValidationStatus,
 } from "../../workspace/types";
 import {
   clamp,
@@ -26,16 +19,15 @@ import {
   sortQueueTasksForDisplay,
   validateDraft,
   validateQueueTaskDependencies,
-  type QueueTagPauseState,
   type TaskDraft,
-  type WorkerScope,
 } from "../agentQueueTaskUiModel";
-import type { WidgetRenderProps } from "../types";
 import {
   nextQueueTaskSelection,
   queueTaskDeleteBlockedReason,
-  type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
+import { coordinatorDecisionForAction } from "./agentQueueTaskCoordinatorActions";
+import { createFollowUpTaskFromSelectedTask } from "./agentQueueTaskFollowUpActions";
+import type { TaskActionsContext } from "./agentQueueTaskActionTypes";
 import {
   nextOrderIndexForQueueTag,
   withQueueOrderIndexes,
@@ -49,86 +41,7 @@ import {
   latestWorkerExecutionReport,
 } from "./agentQueueDiffReviewModel";
 
-export type AgentQueueLocalTaskFields = Pick<
-  AgentQueueTask,
-  | "assignedWorkerId"
-  | "coordinatorStatus"
-  | "dependsOn"
-  | "diffReview"
-  | "itemType"
-  | "orderIndex"
-  | "queueTagId"
-  | "queueTagName"
-  | "validationStatus"
-  | "executionPlanPreview"
-  | "workerExecutionReports"
-  | "workspaceChatReportCardId"
-  | "workspaceChatReportCardStatus"
->;
-
-type TaskActionsContext = Pick<
-  WidgetRenderProps,
-  | "onClearAgentQueueTaskAssignment"
-  | "onCreateAgentQueueTask"
-  | "onDeleteAgentQueueTask"
-  | "onGetAgentQueueTask"
-  | "onUpdateAgentQueueTask"
-> & {
-  applyUpdatedTask: (
-    task: AgentQueueTask,
-    options?: { select?: boolean },
-  ) => void;
-  autorunSnapshot: AgentQueueRunnerSnapshot | null;
-  draft: TaskDraft;
-  editPauseMessage: string;
-  hasOpenTaskEdit: boolean;
-  isCreating: boolean;
-  isDeleting: boolean;
-  isDirty: boolean;
-  isEditing: boolean;
-  isLoading: boolean;
-  isSaving: boolean;
-  isSelecting: boolean;
-  loadTasks: (
-    preferredTaskId?: string | null,
-    options?: { preserveCurrentOnError?: boolean },
-  ) => Promise<string | null>;
-  localTaskFieldsRef: MutableRefObject<Map<string, AgentQueueLocalTaskFields>>;
-  mergeTaskFoundation: (task: AgentQueueTask) => AgentQueueTask;
-  queueRunnerActiveQueueItemId: string | null;
-  queueRunnerStatus: AgentQueueRunnerStatus;
-  selectedTask: AgentQueueTask | null;
-  setAssignmentError: Dispatch<SetStateAction<string | null>>;
-  setAssignmentMessage: Dispatch<SetStateAction<string | null>>;
-  setDeleteError: Dispatch<SetStateAction<string | null>>;
-  setDeleteMessage: Dispatch<SetStateAction<string | null>>;
-  setDraft: Dispatch<SetStateAction<TaskDraft>>;
-  setEditorError: Dispatch<SetStateAction<string | null>>;
-  setCoordinatorFinalizationMessage: Dispatch<SetStateAction<string | null>>;
-  setExecutionPlanMessage: Dispatch<SetStateAction<string | null>>;
-  setGlobalMessage: Dispatch<SetStateAction<string | null>>;
-  setIsConfirmingDelete: Dispatch<SetStateAction<boolean>>;
-  setIsCreating: Dispatch<SetStateAction<boolean>>;
-  setIsDeleting: Dispatch<SetStateAction<boolean>>;
-  setIsEditing: Dispatch<SetStateAction<boolean>>;
-  setIsSaving: Dispatch<SetStateAction<boolean>>;
-  setIsSelecting: Dispatch<SetStateAction<boolean>>;
-  setLoadError: Dispatch<SetStateAction<string | null>>;
-  setLocalTaskFields: Dispatch<
-    SetStateAction<Map<string, AgentQueueLocalTaskFields>>
-  >;
-  setOrderingMessage: Dispatch<SetStateAction<string | null>>;
-  setQueueTagPauseStates: Dispatch<
-    SetStateAction<Map<string, QueueTagPauseState>>
-  >;
-  setSaveStateText: Dispatch<SetStateAction<string>>;
-  setSelectedDraft: (task: AgentQueueTask) => void;
-  setTasks: Dispatch<SetStateAction<AgentQueueTask[]>>;
-  setValidationMessage: Dispatch<SetStateAction<string | null>>;
-  setWorkerReportMessage: Dispatch<SetStateAction<string | null>>;
-  tasksRef: MutableRefObject<AgentQueueTask[]>;
-  workerScopes: Map<string, WorkerScope>;
-};
+export type { AgentQueueLocalTaskFields } from "./agentQueueTaskActionTypes";
 
 export function createAgentQueueTaskActions({
   applyUpdatedTask,
@@ -360,7 +273,20 @@ export function createAgentQueueTaskActions({
     }
 
     if (actionType === "create_follow_up") {
-      return createFollowUpTaskFromSelectedTask();
+      return createFollowUpTaskFromSelectedTask({
+        applyUpdatedTask,
+        isCreating,
+        isSaving,
+        onCreateAgentQueueTask,
+        selectedTask,
+        setCoordinatorFinalizationMessage,
+        setEditorError,
+        setIsCreating,
+        setLocalTaskFields,
+        setTasks,
+        setValidationMessage,
+        tasksRef,
+      });
     }
 
     const decision = coordinatorDecisionForAction(actionType);
@@ -438,107 +364,6 @@ export function createAgentQueueTaskActions({
       return false;
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function createFollowUpTaskFromSelectedTask() {
-    if (!selectedTask || !onCreateAgentQueueTask || isCreating || isSaving) {
-      setCoordinatorFinalizationMessage(
-        "Queue task creation is unavailable. No follow-up work ran.",
-      );
-      return false;
-    }
-
-    const queueTag = normalizeQueueTag(selectedTask);
-    const report =
-      selectedTask.workerExecutionReports?.[
-        selectedTask.workerExecutionReports.length - 1
-      ] ?? null;
-
-    setIsCreating(true);
-    setCoordinatorFinalizationMessage(null);
-    setEditorError(null);
-    setValidationMessage(null);
-
-    try {
-      const createdTask = await onCreateAgentQueueTask({
-        approvalPolicy: selectedTask.approvalPolicy ?? null,
-        codexExecutable: selectedTask.codexExecutable ?? null,
-        description: `Follow-up/sub-block for ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}.`,
-        executionPolicy: "manual",
-        executionWorkspace: selectedTask.executionWorkspace ?? null,
-        itemType: "follow_up",
-        priority: selectedTask.priority,
-        prompt: followUpPromptFromTask(selectedTask),
-        queueTagId: queueTag.queueTagId,
-        queueTagName: queueTag.queueTagName,
-        sandbox: selectedTask.sandbox ?? null,
-        status: "queued",
-        title: `Follow-up: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
-        validationStatus: "not_started",
-      });
-      const createdFoundation = {
-        coordinatorStatus: "not_reported" as const,
-        dependsOn: [],
-        itemType: "follow_up" as const,
-        orderIndex: nextOrderIndexForQueueTag({
-          insertPosition: "bottom",
-          queueTagId: queueTag.queueTagId,
-          tasks: tasksRef.current,
-        }),
-        queueTagId: queueTag.queueTagId,
-        queueTagName: queueTag.queueTagName,
-        validationStatus: "not_started" as const,
-        workerExecutionReports: [],
-      };
-      const sourceFoundation = {
-        coordinatorStatus: "follow_up_required" as const,
-        validationStatus: "needs_review" as const,
-      };
-
-      setLocalTaskFields((current) => {
-        const next = new Map(current);
-        next.set(createdTask.queueItemId, createdFoundation);
-        next.set(selectedTask.queueItemId, {
-          ...(next.get(selectedTask.queueItemId) ?? {}),
-          ...sourceFoundation,
-        });
-        return next;
-      });
-      const nextTasks = sortQueueTasksForDisplay([
-        ...tasksRef.current.map((task) =>
-          task.queueItemId === selectedTask.queueItemId
-            ? {
-                ...task,
-                ...sourceFoundation,
-                status: "review_needed" as const,
-              }
-            : task,
-        ),
-        { ...createdTask, ...createdFoundation },
-      ]);
-
-      tasksRef.current = nextTasks;
-      setTasks(nextTasks);
-      applyUpdatedTask(
-        {
-          ...selectedTask,
-          ...sourceFoundation,
-          status: "review_needed",
-        },
-        { select: true },
-      );
-      setCoordinatorFinalizationMessage(
-        `Follow-up item ${createdTask.queueItemId} was queued. Source remains follow-up required; no work was started.${report?.reportId ? ` Source report: ${report.reportId}.` : ""}`,
-      );
-      return true;
-    } catch (error) {
-      setCoordinatorFinalizationMessage(
-        errorToMessage(error, "Unable to create follow-up item."),
-      );
-      return false;
-    } finally {
-      setIsCreating(false);
     }
   }
 
@@ -1013,99 +838,4 @@ export function createAgentQueueTaskActions({
     updateDraft,
     updatePriority,
   };
-}
-
-function coordinatorDecisionForAction(
-  actionType: AgentQueueReportActionType,
-):
-  | {
-      coordinatorStatus: AgentQueueCoordinatorStatus;
-      message: string;
-      status: AgentQueueTaskStatus;
-      validationStatus: AgentQueueTaskValidationStatus;
-    }
-  | null {
-  switch (actionType) {
-    case "mark_ready_for_finalization":
-      return {
-        coordinatorStatus: "ready_for_finalization",
-        message:
-          "Marked ready for coordinator finalization. No dependent item was started.",
-        status: "review_needed",
-        validationStatus: "needs_review",
-      };
-    case "finalize_accept_item":
-      return {
-        coordinatorStatus: "finalized",
-        message:
-          "Finalized / accepted by coordinator. This action did not auto-accept other work; an active Autonomous Queue may re-evaluate eligible dependencies.",
-        status: "completed",
-        validationStatus: "passed",
-      };
-    case "mark_needs_changes":
-      return {
-        coordinatorStatus: "needs_changes",
-        message:
-          "Marked needs changes. Dependencies remain blocked; create a follow-up when ready.",
-        status: "review_needed",
-        validationStatus: "needs_review",
-      };
-    case "mark_follow_up_required":
-      return {
-        coordinatorStatus: "follow_up_required",
-        message:
-          "Marked follow-up required. Dependencies remain blocked until reviewed and accepted.",
-        status: "review_needed",
-        validationStatus: "needs_review",
-      };
-    case "mark_blocked":
-      return {
-        coordinatorStatus: "blocked",
-        message:
-          "Marked blocked by coordinator. The item remains visible and no follow-up was auto-run.",
-        status: "review_needed",
-        validationStatus: "needs_review",
-      };
-    case "mark_failed_rejected":
-      return {
-        coordinatorStatus: "failed",
-        message:
-          "Marked failed / rejected by coordinator. Evidence is preserved and rollback was not executed.",
-        status: "failed",
-        validationStatus: "failed",
-      };
-    case "mark_rollback_required":
-      return {
-        coordinatorStatus: "rollback_required",
-        message:
-          "Marked rollback required as a coordinator decision marker only. No rollback, git reset, or process kill ran.",
-        status: "review_needed",
-        validationStatus: "needs_review",
-      };
-    default:
-      return null;
-  }
-}
-
-function followUpPromptFromTask(task: AgentQueueTask) {
-  const report = task.workerExecutionReports?.[
-    task.workerExecutionReports.length - 1
-  ];
-
-  return [
-    `Follow-up/sub-block for Queue item ${task.queueItemId}.`,
-    "",
-    `Source title: ${task.title.trim() || DEFAULT_TASK_TITLE}`,
-    `Source status: ${task.status}`,
-    `Coordinator decision: follow-up required`,
-    report ? `Source report: ${report.reportId}` : null,
-    report?.summary ? `Report summary: ${report.summary}` : null,
-    report?.followUpRecommendation
-      ? `Follow-up recommendation: ${report.followUpRecommendation}`
-      : "Follow-up recommendation: coordinator requested changes before finalization.",
-    "",
-    "Do not run automatically. Complete this focused sub-block and return it for coordinator review.",
-  ]
-    .filter(Boolean)
-    .join("\n");
 }
