@@ -286,6 +286,9 @@ unless the task explicitly requests it.
   Knowledge/Skills/Evidence/Artifact separation.
 - `docs/PRODUCT_POSITIONING.md` - read for product positioning and to prevent
   drift into hidden automation or a generic script runner.
+- `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - read for frontend UI information
+  hierarchy, production/debug detail boundaries, state semantics, Queue right
+  rail design, and UI review checklist.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - read for frontend UI, widget layout,
   and visual polish blocks.
 - `docs/TOOL_ACTION_CONTRACT.md` - read for explicit, visible, approval-aware
@@ -399,6 +402,9 @@ unless the task explicitly requests it.
 
 ### UI / Product
 
+- `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - product UI information hierarchy,
+  debug detail boundaries, Queue right rail contract, state semantics, and UI
+  review checklist.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - current product visual direction.
 - `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` - Minimal, Operational, and
   Full / Expert display-level guidance when a widget surface grows.
