@@ -857,6 +857,55 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(resultText).not.toContain("Before run");
   });
 
+  it("shows worker report final response before secondary metadata", () => {
+    const report = workerReport({
+      rawReportPreview: "# AGENTS.md",
+      reportStatus: "completed",
+      validationResult: "passed",
+    });
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    const resultText = sectionText("Result / Evidence");
+    const finalResponse = document.querySelector(".agent-queue-final-response-text");
+    const reportMetadata = detailsBySummary("Report metadata");
+
+    expect(resultText).toContain("Report ready");
+    expect(resultText).toContain("Final response");
+    expect(finalResponse?.textContent?.trim()).toBe("# AGENTS.md");
+    expect(resultText).toContain("Files changed by this runNone");
+    expect(resultText).toContain("StatusPassed");
+    expect(resultText).toContain("Validationpassed");
+    expect(resultText).not.toContain("No commands reported");
+    expect(resultText.indexOf("Final response")).toBeLessThan(
+      resultText.indexOf("Files changed by this run"),
+    );
+    expect(resultText.indexOf("Files changed by this run")).toBeLessThan(
+      resultText.indexOf("StatusPassed"),
+    );
+    expect(resultText.indexOf("StatusPassed")).toBeLessThan(
+      resultText.indexOf("Report metadata"),
+    );
+    expect(reportMetadata?.open).toBe(false);
+  });
+
   it("shows completed Direct Work output as report evidence without finalizing", () => {
     const selectedTask = {
       ...queueTask(),
@@ -921,7 +970,8 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     const activityText = sectionText("Agent activity");
     const resultText = sectionText("Result / Evidence");
     const decisionText = sectionText("Coordinator decision");
-    const fullOutput = detailsBySummary("Full output");
+    const fullResponse = detailsBySummary("Full response");
+    const rawDirectWorkDetails = detailsBySummary("Raw Direct Work details");
     const developerDetails = detailsBySummary("Developer details");
     const overviewIndex = document.body.textContent?.indexOf("Overview") ?? -1;
     const promptIndex =
@@ -939,6 +989,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(overviewText).toContain("Awaiting coordinator review");
     expect(promptText).toContain("Prompt");
     expect(resultText).toContain("Report ready");
+    expect(resultText).toContain("Final response");
     expect(resultText).toContain("StatusPassed");
     expect(resultText).toContain(
       "Working directoryC:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
@@ -947,10 +998,17 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(resultText).toContain("Git statusmain...origin/main [ahead 1]");
     expect(resultText).toContain("Files changed by this runNone");
     expect(resultText).toContain("Final Direct Work response visible to coordinator.");
+    expect(resultText.indexOf("Final response")).toBeLessThan(
+      resultText.indexOf("Files changed by this run"),
+    );
+    expect(resultText.indexOf("Files changed by this run")).toBeLessThan(
+      resultText.indexOf("StatusPassed"),
+    );
     expect(resultText).not.toContain(
       "Evidence summary for coordinator review. Raw output is collapsed below.",
     );
     expect(resultText).not.toContain("Command summary:");
+    expect(resultText).not.toContain("No commands reported");
     expect(resultText).not.toContain(
       "Execution completion is evidence for coordinator review.",
     );
@@ -964,7 +1022,8 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(activityText).toContain("Run completed");
     expect(activityText).toContain("Completed - final response received.");
     expect(activityText).toContain("Report ready");
-    expect(fullOutput?.open).toBe(false);
+    expect(fullResponse).toBeUndefined();
+    expect(rawDirectWorkDetails?.open).toBe(false);
     expect(developerDetails?.open).toBe(false);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(promptIndex).toBeGreaterThan(overviewIndex);
@@ -972,6 +1031,84 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(resultIndex).toBeGreaterThan(activityIndex);
     expect(decisionIndex).toBeGreaterThan(resultIndex);
     expect(developerIndex).toBeGreaterThan(decisionIndex);
+  });
+
+  it("shows a short Direct Work final response fully in Result / Evidence", () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(runDetail({
+        finalMessage: "# AGENTS.md",
+        resultPayload: JSON.stringify({
+          changed_files: [],
+          status: "completed",
+        }),
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const resultText = sectionText("Result / Evidence");
+    const finalResponse = document.querySelector(".agent-queue-final-response-text");
+
+    expect(resultText).toContain("Report ready");
+    expect(resultText).toContain("Final response");
+    expect(finalResponse?.textContent?.trim()).toBe("# AGENTS.md");
+    expect(resultText).toContain("Files changed by this runNone");
+    expect(detailsBySummary("Full response")).toBeUndefined();
+  });
+
+  it("previews a long Direct Work final response with collapsed full response", () => {
+    const hiddenTail = "full response tail stays in details";
+    const longResponse = `Result start\n${"A".repeat(820)}\n${hiddenTail}`;
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(runDetail({
+        finalMessage: longResponse,
+        resultPayload: JSON.stringify({
+          changed_files: [],
+          status: "completed",
+        }),
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const preview = document.querySelector(".agent-queue-final-response-text");
+    const fullResponse = detailsBySummary("Full response");
+
+    expect(preview?.textContent).toContain("Result start");
+    expect(preview?.textContent).not.toContain(hiddenTail);
+    expect(preview?.textContent?.trim().endsWith("...")).toBe(true);
+    expect(fullResponse?.open).toBe(false);
+    expect(fullResponse?.textContent).toContain(hiddenTail);
   });
 
   it("shows completed tasks without evidence as not ready for coordinator review", () => {
@@ -1174,6 +1311,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(decisionText).toContain("Request changes");
     expect(decisionText).toContain("Create follow-up");
     expect(reportText).toContain("Run failed");
+    expect(reportText).toContain("Failure summary");
     expect(reportText).toContain("StatusFailed");
     expect(reportText).toContain("Failed commandcodex exec --json");
     expect(reportText).toContain("ErrorCodex executable not found.");

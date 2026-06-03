@@ -3,9 +3,12 @@ import { previewText, isReportReadyStatus } from "./agentQueueTaskDetailsFormatt
 import type {
   AgentQueueController,
   DirectWorkEvidence,
+  FinalResponseEvidence,
   ResultEvidenceState,
   SelectedAgentQueueTask,
 } from "./agentQueueTaskDetailsTypes";
+
+const FINAL_RESPONSE_PREVIEW_LENGTH = 720;
 
 export function resultEvidenceState(
   queue: AgentQueueController,
@@ -162,6 +165,30 @@ export function directWorkEvidenceForQueue(
     summary,
     visibleSummary,
     workingDirectory,
+  };
+}
+
+export function finalResponseEvidence(
+  value: string | null | undefined,
+): FinalResponseEvidence | null {
+  const text = value?.trim();
+
+  if (!text) {
+    return null;
+  }
+
+  if (text.length <= FINAL_RESPONSE_PREVIEW_LENGTH) {
+    return {
+      isLong: false,
+      preview: text,
+      text,
+    };
+  }
+
+  return {
+    isLong: true,
+    preview: `${text.slice(0, FINAL_RESPONSE_PREVIEW_LENGTH).trim()}...`,
+    text,
   };
 }
 

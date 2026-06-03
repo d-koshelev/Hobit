@@ -6,6 +6,7 @@ import type {
 } from "../../../workspace/types";
 import {
   directWorkEvidenceForQueue,
+  finalResponseEvidence,
   hasFinishedRunLink,
   isFailedRunEvidence,
   isSelectedTaskRunning,
@@ -21,6 +22,7 @@ import {
 import type {
   AgentQueueController,
   DirectWorkEvidence,
+  FinalResponseEvidence,
   SelectedAgentQueueTask,
 } from "./agentQueueTaskDetailsTypes";
 
@@ -141,45 +143,31 @@ function WorkerReportEvidenceSummary({
     report.changedFiles.length === 0
       ? "None"
       : `${report.changedFiles.length.toString()} reported; see Developer details.`;
-  const commandSummary =
-    report.commandsRun.length === 0
-      ? "No commands reported."
-      : `${report.commandsRun.length.toString()} command${
-          report.commandsRun.length === 1 ? "" : "s"
-        } reported.`;
+  const finalResponse = finalResponseEvidence(workerReportFinalResponse(report));
+  const failed = report.reportStatus === "failed";
 
   return (
     <div className="agent-queue-human-report-summary">
-      <dl className="agent-queue-result-evidence-facts">
-        <div>
-          <dt>Status</dt>
-          <dd>{report.reportStatus === "failed" ? "Failed" : "Passed"}</dd>
-        </div>
-        <div>
-          <dt>Worker</dt>
-          <dd>{workerNameForReport(queue, report)}</dd>
-        </div>
-        <div>
-          <dt>Validation</dt>
-          <dd>{workerReportValidationLabel(report.validationResult)}</dd>
-        </div>
-        <div>
-          <dt>Git status</dt>
-          <dd>{summarizeGitStatusText(report.finalGitStatus) ?? "Not reported"}</dd>
-        </div>
+      <FinalResponseBlock
+        label={failed && !report.rawReportPreview?.trim() ? "Failure summary" : "Final response"}
+        response={finalResponse}
+      />
+
+      <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
         <div>
           <dt>Files changed by this run</dt>
           <dd>{changedFiles}</dd>
         </div>
         <div>
-          <dt>Commands</dt>
-          <dd>{commandSummary}</dd>
+          <dt>Status</dt>
+          <dd>{failed ? "Failed" : "Passed"}</dd>
+        </div>
+        <div>
+          <dt>Validation</dt>
+          <dd>{workerReportValidationLabel(report.validationResult)}</dd>
         </div>
       </dl>
 
-      <p className="agent-queue-worker-report-summary">
-        {previewText(report.summary, 220)}
-      </p>
       {report.errors.length > 0 ? (
         <p className="agent-queue-run-warning">
           Final error: {previewText(report.errors[0], 220)}
@@ -190,6 +178,32 @@ function WorkerReportEvidenceSummary({
           Warning: {previewText(report.warnings[0], 220)}
         </p>
       ) : null}
+      <details className="agent-queue-details agent-queue-secondary-details">
+        <summary>Report metadata</summary>
+        <dl className="agent-queue-result-evidence-facts">
+          <div>
+            <dt>Worker</dt>
+            <dd>{workerNameForReport(queue, report)}</dd>
+          </div>
+          <div>
+            <dt>Git status</dt>
+            <dd>{summarizeGitStatusText(report.finalGitStatus) ?? "Not reported"}</dd>
+          </div>
+          {report.commandsRun.length > 0 ? (
+            <div>
+              <dt>Commands</dt>
+              <dd>
+                {`${report.commandsRun.length.toString()} command${
+                  report.commandsRun.length === 1 ? "" : "s"
+                } reported.`}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        <p className="agent-queue-worker-report-summary">
+          {previewText(report.summary, 220)}
+        </p>
+      </details>
       <div className="agent-queue-run-actions">
         <Button
           disabled={!reportCard || !onShowQueueReportInWorkspaceChat}
@@ -218,11 +232,16 @@ export function DirectWorkEvidenceSummary({
   queue: AgentQueueController;
 }) {
   const failed = evidence.status === "failed";
+  const finalResponse = finalResponseEvidence(evidence.finalText);
 
   return (
     <div className="agent-queue-human-report-summary">
+      <FinalResponseBlock
+        label={failed ? "Failure summary" : "Final response"}
+        response={finalResponse}
+      />
       {failed ? (
-        <dl className="agent-queue-result-evidence-facts">
+        <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
           <div>
             <dt>Status</dt>
             <dd>Failed</dd>
@@ -243,7 +262,11 @@ export function DirectWorkEvidenceSummary({
           </div>
         </dl>
       ) : (
-        <dl className="agent-queue-result-evidence-facts">
+        <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
+          <div>
+            <dt>Files changed by this run</dt>
+            <dd>{formatChangedFilesSummary(evidence.changedFilesSummary)}</dd>
+          </div>
           <div>
             <dt>Status</dt>
             <dd>Passed</dd>
@@ -262,18 +285,8 @@ export function DirectWorkEvidenceSummary({
             <dt>Git status</dt>
             <dd>{evidence.gitStatusSummary ?? "Not reported"}</dd>
           </div>
-          <div>
-            <dt>Files changed by this run</dt>
-            <dd>{formatChangedFilesSummary(evidence.changedFilesSummary)}</dd>
-          </div>
         </dl>
       )}
-      <details className="agent-queue-details agent-queue-secondary-details">
-        <summary>Full output</summary>
-        <pre className="agent-queue-flow-selection-prompt">
-          {evidence.finalText}
-        </pre>
-      </details>
       <div className="agent-queue-run-actions">
         <Button
           disabled={!queue.runEvidence.apiAvailable || queue.runEvidence.isLoading}
@@ -291,6 +304,52 @@ export function DirectWorkEvidenceSummary({
       ) : null}
     </div>
   );
+}
+
+function FinalResponseBlock({
+  label,
+  response,
+}: {
+  label: "Failure summary" | "Final response";
+  response: FinalResponseEvidence | null;
+}) {
+  if (!response) {
+    return (
+      <div className="agent-queue-final-response-block">
+        <p className="agent-queue-final-response-label">{label}</p>
+        <p className="agent-queue-run-note">No final response captured.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="agent-queue-final-response-block">
+      <p className="agent-queue-final-response-label">{label}</p>
+      <pre className="agent-queue-final-response-text">
+        {response.preview}
+      </pre>
+      {response.isLong ? (
+        <details className="agent-queue-details agent-queue-secondary-details">
+          <summary>Full response</summary>
+          <pre className="agent-queue-flow-selection-prompt">
+            {response.text}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function workerReportFinalResponse(report: AgentQueueWorkerExecutionReport) {
+  return firstReportText([
+    report.rawReportPreview,
+    report.reportStatus === "failed" ? report.errors[0] : null,
+    report.summary,
+  ]);
+}
+
+function firstReportText(values: Array<string | null | undefined>) {
+  return values.find((value) => value?.trim())?.trim() ?? "";
 }
 
 function formatChangedFilesSummary(value: string | null) {

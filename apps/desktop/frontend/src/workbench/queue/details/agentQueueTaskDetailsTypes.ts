@@ -37,6 +37,12 @@ export type DirectWorkEvidence = {
   workingDirectory: string | null;
 };
 
+export type FinalResponseEvidence = {
+  isLong: boolean;
+  preview: string;
+  text: string;
+};
+
 export type HumanTimelineEntry = {
   badge: string;
   badgeVariant: AgentQueueDetailsBadgeVariant;
