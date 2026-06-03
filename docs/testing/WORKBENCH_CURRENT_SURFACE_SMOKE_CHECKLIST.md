@@ -19,10 +19,11 @@ Ready surfaces are Current product smoke targets.
   `docs/testing/NOTES_SMOKE_CHECKLIST.md`.
 - [ ] Deferred Notebook behavior is not checked as current Notes behavior.
 
-### Agent Executor
+### Agent Executor / Direct Work Compatibility
 
-- [ ] Agent Executor can be added/opened as the current explicit Codex Direct
-  Work execution surface.
+- [ ] Agent Executor is not offered as a normal Widget Catalog product entry.
+- [ ] Direct Work compatibility remains limited to retained `agent-run`
+  ownership and Queue-owned local executor paths.
 - [ ] Smoke checks stay limited to visible operator-provided task inputs, run
   state/log/result visibility, explicit controls, and read-only review/history
   surfaces documented in `docs/CURRENT_WIDGET_SURFACE.md`.
@@ -31,7 +32,7 @@ Ready surfaces are Current product smoke targets.
 
 ### Git
 
-- [ ] Git can be added/opened as the current desktop Git review/control widget.
+- [ ] Git is not offered as a normal Widget Catalog product entry.
 - [ ] Smoke checks use an explicit operator-provided repository root.
 - [ ] Smoke checks stay limited to manual read-only status/diff review and the
   explicit selected-file local commit path with operator confirmation.

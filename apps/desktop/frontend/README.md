@@ -17,20 +17,21 @@ Workbench states are local to the current page session and are lost on refresh.
 Desktop-only actions report unsupported fallback errors instead of inventing
 local behavior.
 
-New workspaces start with an empty Workbench. The Widget Catalog currently
-exposes these user-facing surfaces:
+New workspaces open into the Workspace Agent workspace by default. Empty
+Workbench remains available as an advanced/manual start mode. The Widget
+Catalog currently exposes these user-facing surfaces:
 
 Ready:
 
-- Agent Executor
-- Git
+- Workspace Agent
+- Agent Activity
+- Knowledge / Skills
 - Terminal
 - Notes
 
 Preview:
 
 - Agent Queue
-- Coordinator Chat
 - Database / JDBC
 - Runbook
 
@@ -39,19 +40,17 @@ Template Library, Dock / Docking Station, Agent CLI, Script Runner, JIRA,
 Confluence, Image Edit, and separate legacy Coordinator preview surfaces are
 not current insertable catalog surfaces.
 
-Coordinator Chat uses the existing `interactive-agent` widget id/component as a
-local placeholder compatibility foundation. It has no provider connection,
-Queue integration, monitoring integration, widget tool execution, file
-mutation, Git mutation, SQL execution, Terminal execution, or persisted chat
-runtime.
+Workspace Agent uses the existing `interactive-agent` widget id/component as a
+compatibility foundation. It has visible current-session chat, proposal, and
+Codex Direct Work paths. It has no hidden widget tool execution, file mutation,
+Git mutation, SQL execution, Terminal execution, or hidden runtime.
 
 Agent Executor reuses the existing `agent-run` widget id for persistence
-compatibility. It can run explicit Codex Direct Work from operator-provided
-inputs, show live logs, stop/cancel, display final responses, show changed
-files, request read-only diff summaries, capture validation, show run history,
-and receive explicit Queue-started handoff. It does not auto-commit,
-auto-push, mutate Git, run hidden background work, or auto-dispatch Queue
-tasks.
+compatibility and remains internal/supporting Direct Work infrastructure. It
+is not a normal Widget Catalog product entry. Queue-owned local executor flows
+can still start explicit assigned tasks through the Direct Work path. It does
+not auto-commit, auto-push, mutate Git, run hidden background work, or
+auto-dispatch Queue tasks.
 
 Agent Queue is a Preview manual task organization surface. It supports
 workspace-scoped task create/list/read/update, visible assignment to an Agent
@@ -60,9 +59,10 @@ final-status auto-refresh. It does not schedule, auto-dispatch, approve/apply
 proposals, launch Terminal, mutate Notes, mutate Git, or show live execution
 logs.
 
-Git supports an explicit transient repository root, manual read-only status and
-diff review, and explicit local commit with operator confirmation. It does not
-push, reset, clean, stash, fetch, poll, watch, or auto-commit.
+Git remains a supporting/compatibility surface for explicit transient
+repository-root review and selected-file local commit where already wired. It
+is not a normal Widget Catalog product entry. It does not push, reset, clean,
+stash, fetch, poll, watch, or auto-commit.
 
 Terminal supports a desktop-only one-shot command form for persisted Terminal
 widget instances. It uses explicit program, argv, working directory, timeout,
@@ -123,16 +123,18 @@ registry.
 
 Current preset:
 
-- Empty Workbench: empty workbench surface
+- Workspace Agent Workspace: Workspace Agent plus Notes
+- Empty Workbench: advanced/manual empty workbench surface
 
 `WidgetHost` maps persisted widget instances to registered frontend
-components. The current registry contains Agent Executor, Agent Queue,
-Coordinator Chat through the existing `interactive-agent` renderer, Database /
-JDBC, Runbook, Git, Terminal, and Notes renderers.
+components. The current registry contains Workspace Agent through the existing
+`interactive-agent` renderer, Agent Activity, Agent Queue, Knowledge / Skills,
+Database / JDBC, Runbook, Terminal, and Notes renderers, plus retained
+compatibility renderers for Agent Executor (`agent-run`) and Git.
 
 The Widget Catalog template list remains separate metadata. Only Agent
-Executor, Agent Queue, Coordinator Chat, Database / JDBC, Runbook, Git,
-Terminal, and Notes are current insertion paths.
+Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills, Database /
+JDBC, Runbook, Terminal, and Notes are current insertion paths.
 
 ## Visual Direction
 

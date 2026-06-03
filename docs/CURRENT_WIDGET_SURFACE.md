@@ -60,9 +60,9 @@ Required Stable v0.1 gap:
   column navigation, Finder-owned preview/edit/diff panes, and future Git
   review inside Finder space. That contract does not make Finder current.
 
-Supporting / compatibility surfaces that may remain implemented or insertable
-for transition, diagnostics, or runtime detail but are not Stable v0.1 product
-widgets:
+Supporting / compatibility surfaces that may remain implemented for internal
+runtime detail, persisted compatibility, or focused transition work but are not
+Stable v0.1 product widgets or normal Widget Catalog entries:
 
 - Agent Executor
 - Git
@@ -76,8 +76,9 @@ New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
 Agent Queue, Terminal, Database / JDBC, Knowledge / Skills, and Runbook remain
 optional product-facing widgets added when needed. Agent Executor and Git may
-remain available as supporting/compatibility surfaces, but they are not Stable
-v0.1 product widgets. Finder is a required Stable v0.1 gap and is not
+remain implemented as supporting/compatibility surfaces, but they are not
+Stable v0.1 product widgets and are not normal Widget Catalog entries. Finder
+is a required Stable v0.1 gap and is not
 implemented by this inventory.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
@@ -181,9 +182,9 @@ v0.1 product widget.
 
 - Supporting / compatibility explicit Codex Direct Work execution surface and
   runtime slot. It is not a Stable v0.1 product widget.
-  Normal Queue execution management is moving into Agent Queue; the standalone
-  Agent Executor widget remains available as a compatibility/debug/secondary
-  surface during this transition.
+  Normal Queue execution management is owned by Agent Queue; the standalone
+  Agent Executor component and `agent-run` id remain compatibility/runtime
+  details, not a normal catalog or canvas product surface.
 - Uses the existing `agent-run` widget definition id for persistence
   compatibility.
 - Starts one operator-provided task from visible inputs: prompt, execution

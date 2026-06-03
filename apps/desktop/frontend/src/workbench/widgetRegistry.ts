@@ -226,10 +226,17 @@ export const internalDeprecatedWidgetDefinitionIds = new Set<WidgetDefinitionId>
   GIT_WIDGET_DEFINITION_ID,
 ]);
 
+export const internalCompatibilityWidgetDefinitionIds =
+  new Set<WidgetDefinitionId>([
+    AGENT_RUN_WIDGET_DEFINITION_ID,
+    GIT_WIDGET_DEFINITION_ID,
+  ]);
+
 export const userFacingWidgetDefinitionIds = new Set<WidgetDefinitionId>(
   widgetRegistry
     .filter(
-      (definition) => !internalDeprecatedWidgetDefinitionIds.has(definition.id),
+      (definition) =>
+        !internalCompatibilityWidgetDefinitionIds.has(definition.id),
     )
     .map((definition) => definition.id),
 );

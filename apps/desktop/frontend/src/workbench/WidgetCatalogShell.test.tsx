@@ -10,6 +10,7 @@ import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
@@ -176,7 +177,15 @@ describe("widgetCatalogTemplates", () => {
     ).toBe(true);
   });
 
-  it("does not offer Git as a normal catalog widget", () => {
+  it("does not offer Agent Executor or Git as normal catalog widgets", () => {
+    expect(
+      widgetCatalogTemplates.some(
+        (template) => template.id === AGENT_RUN_WIDGET_DEFINITION_ID,
+      ),
+    ).toBe(false);
+    expect(isUserFacingWidgetDefinition(AGENT_RUN_WIDGET_DEFINITION_ID)).toBe(
+      false,
+    );
     expect(widgetCatalogTemplates.some((template) => template.id === GIT_WIDGET_DEFINITION_ID))
       .toBe(false);
     expect(isUserFacingWidgetDefinition(GIT_WIDGET_DEFINITION_ID)).toBe(false);

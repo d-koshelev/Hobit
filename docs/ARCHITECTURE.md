@@ -381,18 +381,21 @@ Workbench shell remains available as an advanced/manual start mode.
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
 The current user-facing catalog exposes Ready / MVP templates for Workspace
-Agent, Agent Activity, Agent Executor, Knowledge / Skills, Git, Terminal, and
-Notes, plus Preview templates for Agent Queue, Database / JDBC, and Runbook.
+Agent, Agent Activity, Knowledge / Skills, Terminal, and Notes, plus Preview
+templates for Agent Queue, Database / JDBC, and Runbook.
 Workspace Agent uses the current
 `interactive-agent` compatibility/local-chat placeholder as the central
 operator work surface. Agent Executor reuses the existing `agent-run`
-definition id for persistence compatibility.
+definition id for persistence compatibility and internal/supporting Direct
+Work ownership, but it is not a normal Widget Catalog product entry.
 Database / JDBC is a Preview connector metadata surface with shipped mock/safe
 read-only SQL validation and bounded mock execution UI/API. Retired surfaces
 such as
 Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner,
 JIRA, Confluence, Image Edit, and separate legacy Coordinator previews are not
-shown in the current catalog or workbench surface.
+shown in the current catalog or workbench surface. Agent Executor and Git are
+retained as supporting/compatibility implementations rather than normal product
+catalog entries.
 
 There is no general shell execution outside the explicit Terminal PTY and
 legacy one-shot fallback surfaces, script execution, executable Workspace Agent
@@ -401,9 +404,9 @@ behavior, Agent Queue scheduler/automatic dispatch/runtime, Terminal result
 monitoring, arbitrary widget result monitoring, Template Library runtime, template
 storage/editing/request generation/response validation, Git behavior beyond
 manual desktop-only status/diff review and selected-file local commit for an
-explicit transient repository root, real capability widget insertion beyond
-Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge /
-Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
+explicit transient repository root, real product catalog widget insertion beyond
+Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills, Database /
+JDBC, Runbook, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
 mode behavior,
 persisted presence zones beyond current canvas/floating presentation, preset
 editor, full drag/drop layout editor, snapping, collision detection,
@@ -610,9 +613,9 @@ saved Workbench.
 This milestone uses Tauri workspace commands in desktop mode and an in-memory
 frontend fallback in browser mode. It loads persisted Workbench summary state
 before entering the Workbench, but it does not implement runtime restoration,
-widget runtime reconstruction, real capability widget insertion beyond
-Workspace Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge /
-Skills, Database / JDBC, Runbook, Git, Terminal, and Notes, or persisted
+widget runtime reconstruction, real product catalog widget insertion beyond
+Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills, Database /
+JDBC, Runbook, Terminal, and Notes, or persisted
 browser fallback state.
 
 ## Current Frontend Widget Milestone
@@ -625,15 +628,16 @@ Empty Workbench path.
 
 `WidgetHost` remains the mapping layer from persisted widget instances to React
 components. The current frontend registry contains Workspace Agent, Agent
-Activity, Agent Executor, Agent Queue, Knowledge / Skills, Database / JDBC,
-Runbook, Git, Terminal, and Notes renderers. Workspace Agent uses the existing
+Activity, Agent Queue, Knowledge / Skills, Database / JDBC, Runbook, Terminal,
+and Notes renderers, plus retained compatibility renderers for Agent Executor
+and Git. Workspace Agent uses the existing
 `interactive-agent` renderer, and Knowledge / Skills uses the existing
 `skill-library` renderer, for compatibility.
 
 The Widget Catalog has frontend-local template metadata for current surfaces.
-Ready / MVP templates are Workspace Agent, Agent Activity, Agent Executor,
-Knowledge / Skills, Git, Terminal, and Notes. Preview templates are Agent
-Queue, Database / JDBC, and Runbook. There is no
+Ready / MVP templates are Workspace Agent, Agent Activity, Knowledge / Skills,
+Terminal, and Notes. Preview templates are Agent Queue, Database / JDBC, and
+Runbook. There is no
 Planned section in the current user-facing catalog, no runtime widget loading,
 and no real capability widget insertion beyond those available
 templates/placeholders through the Tauri bridge yet.
@@ -799,9 +803,9 @@ The Workspace is the context-isolation boundary. Unrelated work such as Hobit de
 Full runtime restore is not implemented yet. There is no event replay, widget
 runtime reconstruction, preset editor, real Dock behavior, widget
 Full/Compact/Indicator view mode behavior, persisted presence zone model, full
-drag/drop layout editor, real capability widget insertion beyond Workspace
-Agent, Agent Activity, Agent Executor, Agent Queue, Knowledge / Skills,
-Database / JDBC, Runbook, Git, Terminal, and Notes, Terminal tabs/splits/history, executable
+drag/drop layout editor, real product catalog widget insertion beyond Workspace
+Agent, Agent Activity, Agent Queue, Knowledge / Skills, Database / JDBC,
+Runbook, Terminal, and Notes, Terminal tabs/splits/history, executable
 Workspace Agent runtime, automatic Agent Queue dispatch or real scheduler behavior
 beyond explicit assigned-task starts, Template Library execution, Git behavior
 beyond manual status/diff review and selected-file local commit, Finder
@@ -908,8 +912,9 @@ workspace including the Tauri shell, core Rust domain/storage/application
 crates, a frontend Workspace Start Screen, Workspace Agent MVP surface, and
 advanced Empty Workbench shell, a Widget
 Catalog with Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills,
-Database / JDBC, Runbook, Terminal, and Notes product-facing surfaces plus
-supporting/compatibility Agent Executor and Git entries, a
+Database / JDBC, Runbook, Terminal, and Notes product-facing surfaces, plus
+supporting/compatibility Agent Executor and Git implementations outside the
+normal product catalog, a
 minimal Tauri desktop host, SQLite-backed
 workspace/workbench state, widget state/layout, workspace event, widget-local
 log foundations in desktop mode, Terminal one-shot run/result persistence,
