@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AgentExecutorRunDetail, AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueTaskRunLinkSummary, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox, DirectWorkStreamEvent } from "../../workspace/types";
-import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, errorToMessage, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, queueDependencyStatesByTask, queueTagsFromTasks, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, validationSummary, workersFromExecutorSlots, type AgentWorkerSummary, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type QueueTagSummary, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
+import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
+import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
-import type { AgentQueueAutorunController, AgentQueueAutonomousController, AgentQueueCoordinatorFinalizationController, AgentQueueDeleteController, AgentQueueDiffReviewController, AgentQueueEditController, AgentQueueExecutionPlanController, AgentQueueFoundationController, AgentQueueLatestRunLinkController, AgentQueueOrderingController, AgentQueueReportActionCardController, AgentQueueRunActivityController, AgentQueueRunController, AgentQueueRunEvidenceController, AgentQueueRunHistoryController, AgentQueueRunnerController, AgentQueueWorkerReportController, UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import type { UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
+import { buildAgentQueueControllerViewModel } from "./agentQueueControllerViewModel";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
@@ -15,29 +16,11 @@ import {
 } from "./agentQueueControllerHelpers";
 import {
   loadAgentQueueTasks,
-  refreshAgentQueueRunLinks,
 } from "./agentQueueLoadHelpers";
 import { createAgentQueueSelectionModel } from "./agentQueueSelectionModel";
 import {
   firstRoutingBlockedReasonLabel,
-  getAssignedWorkerRoutingStates,
-  getWorkerRoutingSummary,
-  type AgentQueueRoutingContext,
 } from "./agentQueueRoutingModel";
-import {
-  buildAgentQueueEmbeddedExecutorSection,
-  buildAgentQueueSchedulerPlan,
-  type AgentQueueEmbeddedExecutorSectionModel,
-  type AgentQueueSchedulerPlan,
-} from "./agentQueueSchedulerModel";
-import {
-  queueTaskOrderingControls,
-} from "./agentQueueOrderingActions";
-import {
-  appendAgentQueueRunActivityEvent,
-  buildAgentQueueRunActivitySnapshot,
-  emptyAgentQueueRunActivityState,
-} from "./agentQueueRunActivity";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 import { useAgentQueueAutonomousRunner } from "./useAgentQueueAutonomousRunner";
 import { createAgentQueuePlanningActions } from "./useAgentQueuePlanningActions";
@@ -50,16 +33,12 @@ import {
 } from "./useAgentQueueTaskActions";
 import { createAgentQueueRunActions } from "./useAgentQueueRunActions";
 import {
-  canCreateDiffReviewItem,
-  linkedDiffReviewTasks,
-} from "./agentQueueDiffReviewModel";
-import {
-  buildDiffReviewReportActionCard,
-  buildWorkerExecutionReportActionCard,
-} from "./agentQueueReportActionCardModel";
-import {
   createAgentQueueWorkerActions,
 } from "./useAgentQueueWorkerActions";
+import { useAgentQueueRunMetadata } from "./useAgentQueueRunMetadata";
+import { useAgentQueueRunSettings } from "./useAgentQueueRunSettings";
+import { useAgentQueueWorkerState } from "./useAgentQueueWorkerState";
+import { useAgentQueueReportActionCards } from "./useAgentQueueReportActionCards";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -163,25 +142,7 @@ export function useAgentQueueController({
   const [startMessage, setStartMessage] = useState<string | null>(null);
   const [startedRunId, setStartedRunId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
-  const [latestRunLink, setLatestRunLink] =
-    useState<AgentQueueTaskRunLinkSummary | null>(null);
-  const [runHistoryLinks, setRunHistoryLinks] = useState<
-    AgentQueueTaskRunLinkSummary[]
-  >([]);
-  const [latestRunLinkError, setLatestRunLinkError] = useState<string | null>(
-    null,
-  );
-  const [isLatestRunLinkLoading, setIsLatestRunLinkLoading] = useState(false);
-  const [runEvidenceDetail, setRunEvidenceDetail] =
-    useState<AgentExecutorRunDetail | null>(null);
-  const [runEvidenceError, setRunEvidenceError] = useState<string | null>(null);
-  const [isRunEvidenceLoading, setIsRunEvidenceLoading] = useState(false);
   const startInFlightRef = useRef(false);
-  const selectedRunEventRefreshInFlightRef = useRef(false);
-  const runEvidenceRequestKeyRef = useRef<string | null>(null);
-  const [runActivityState, setRunActivityState] = useState(
-    emptyAgentQueueRunActivityState,
-  );
   const tasksRef = useRef<AgentQueueTask[]>([]);
   const [autorunSnapshot, setAutorunSnapshot] =
     useState<AgentQueueRunnerSnapshot | null>(null);
@@ -277,15 +238,7 @@ export function useAgentQueueController({
       onUpdateAgentQueueWorker,
     ],
   );
-  const {
-    changeWorkerScope,
-    createWorker,
-    deleteWorker,
-    loadWorkers,
-    persistWorkerScopeUpdates,
-    renameWorker,
-    setWorkerEnabled,
-  } = workerActions;
+  const { loadWorkers, persistWorkerScopeUpdates } = workerActions;
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -331,143 +284,34 @@ export function useAgentQueueController({
 
     return orderedTasks.filter((task) => task.status === statusFilter);
   }, [statusFilter, tasks]);
-  const pausedQueueTagIds = useMemo(
-    () =>
-      new Set(
-        Array.from(queueTagPauseStates.entries())
-          .filter(([, pauseState]) => pauseState.paused)
-          .map(([queueTagId]) => queueTagId),
-      ),
-    [queueTagPauseStates],
-  );
-  const queueTags = useMemo(
-    () => queueTagsFromTasks(tasks, queueTagPauseStates, managedQueueTags),
-    [managedQueueTags, queueTagPauseStates, tasks],
-  );
-  const dependencyStates = useMemo(
-    () => queueDependencyStatesByTask(tasks),
-    [tasks],
-  );
-  const routingContext = useMemo<AgentQueueRoutingContext>(
-    () => ({
-      dependencyStates,
-      globalExecutionState,
-      pausedQueueTagIds,
-      tasks,
-    }),
-    [dependencyStates, globalExecutionState, pausedQueueTagIds, tasks],
-  );
-  const workers = useMemo(
-    () => {
-      const baseWorkers = workersFromExecutorSlots({
-        pauseStates: queueTagPauseStates,
-        slots: agentExecutorSlots,
-        tasks,
-        workerConfigs,
-        workerScopes,
-      });
-
-      return baseWorkers.map((worker) => ({
-        ...worker,
-        routingSummary: getWorkerRoutingSummary(worker, tasks, routingContext),
-      }));
-    },
-    [
-      agentExecutorSlots,
-      dependencyStates,
-      pausedQueueTagIds,
-      queueTagPauseStates,
-      tasks,
-      workerConfigs,
-      workerScopes,
-    ],
-  );
-  const queueValidationSummary = useMemo(
-    () => validationSummary(tasks),
-    [tasks],
-  );
-  const assignedWorkerRoutingStates = useMemo(
-    () => getAssignedWorkerRoutingStates(tasks, workers, routingContext),
-    [routingContext, tasks, workers],
-  );
-  const schedulerPlan = useMemo(
-    () =>
-      buildAgentQueueSchedulerPlan({
-        dependencyStates,
-        globalExecutionState,
-        pausedQueueTagIds,
-        tasks,
-        workers,
-      }),
-    [
-      dependencyStates,
-      globalExecutionState,
-      pausedQueueTagIds,
-      tasks,
-      workers,
-    ],
-  );
-  const embeddedExecutor = useMemo(
-    () =>
-      buildAgentQueueEmbeddedExecutorSection({
-        dependencyStates,
-        maxExecutors,
-        schedulerPlan,
-        tasks,
-        workers,
-      }),
-    [dependencyStates, maxExecutors, schedulerPlan, tasks, workers],
-  );
-
-  useEffect(() => {
-    if (workers.length > maxExecutors) {
-      setMaxExecutors(workers.length);
-    }
-  }, [maxExecutors, workers.length]);
-
-  const linkedReviewsForSelectedTask = useMemo(
-    () => linkedDiffReviewTasks(selectedTask, tasks),
-    [selectedTask, tasks],
-  );
-  const dependentTasksForSelectedTask = useMemo(
-    () =>
-      selectedTask
-        ? tasks.filter((task) =>
-            (task.dependsOn ?? []).includes(selectedTask.queueItemId),
-          )
-        : [],
-    [selectedTask, tasks],
-  );
-  const workerReportActionCard = useMemo(() => {
-    const latestReport =
-      selectedTask?.workerExecutionReports?.[
-        selectedTask.workerExecutionReports.length - 1
-      ] ?? null;
-
-    if (!selectedTask || !latestReport) {
-      return null;
-    }
-
-    return buildWorkerExecutionReportActionCard({
-      dependentTasks: dependentTasksForSelectedTask,
-      linkedDiffReviewTask: linkedReviewsForSelectedTask[0] ?? null,
-      report: latestReport,
-      sourceTask: selectedTask,
-    });
-  }, [dependentTasksForSelectedTask, linkedReviewsForSelectedTask, selectedTask]);
-  const diffReviewReportActionCard = useMemo(() => {
-    if (!selectedTask || normalizeItemType(selectedTask.itemType) !== "diff_review") {
-      return null;
-    }
-
-    return buildDiffReviewReportActionCard({
-      diffReviewTask: selectedTask,
-      sourceTask:
-        tasks.find(
-          (task) => task.queueItemId === selectedTask.diffReview?.sourceItemId,
-        ) ?? null,
-    });
-  }, [selectedTask, tasks]);
+  const {
+    assignedWorkerRoutingStates,
+    dependencyStates,
+    embeddedExecutor,
+    pausedQueueTagIds,
+    queueTags,
+    queueValidationSummary,
+    schedulerPlan,
+    workers,
+  } = useAgentQueueWorkerState({
+    agentExecutorSlots,
+    globalExecutionState,
+    managedQueueTags,
+    maxExecutors,
+    queueTagPauseStates,
+    setMaxExecutors,
+    tasks,
+    workerConfigs,
+    workerScopes,
+  });
+  const {
+    diffReviewReportActionCard,
+    linkedReviewsForSelectedTask,
+    workerReportActionCard,
+  } = useAgentQueueReportActionCards({
+    selectedTask,
+    tasks,
+  });
 
   const loadTasks = useCallback(
     async (
@@ -557,194 +401,61 @@ export function useAgentQueueController({
     setStartError(null);
   }, [selectedTask?.queueItemId]);
 
-  useEffect(() => {
-    setRunActivityState(emptyAgentQueueRunActivityState());
-  }, [latestRunLink?.directWorkRunId, selectedTask?.queueItemId]);
-
-  const refreshLatestRunLink = useCallback(
-    async (
-      queueItemId: string | null | undefined,
-      options?: { silent?: boolean },
-    ) => {
-      await refreshAgentQueueRunLinks({
-        onGetAgentQueueTaskLatestRunLink,
-        onListAgentQueueTaskRunLinks,
-        options,
-        queueItemId,
-        setIsLatestRunLinkLoading,
-        setLatestRunLink,
-        setLatestRunLinkError,
-        setRunHistoryLinks,
-      });
-    },
-    [onGetAgentQueueTaskLatestRunLink, onListAgentQueueTaskRunLinks],
-  );
-
-  useEffect(() => {
-    void refreshLatestRunLink(selectedTask?.queueItemId ?? null);
-  }, [refreshLatestRunLink, selectedTask?.queueItemId]);
-
-  useEffect(() => {
-    const selectedTaskId = selectedTask?.queueItemId ?? null;
-    const selectedRunId = latestRunLink?.directWorkRunId ?? null;
-    const selectedExecutorWidgetId = latestRunLink?.executorWidgetId ?? null;
-    const hasActiveSelectedRun =
-      Boolean(selectedTaskId && selectedRunId && selectedExecutorWidgetId) &&
-      (selectedTask?.status === "running" || latestRunLink?.status === "running");
-
-    if (
-      !onListenToDirectWorkStreamEvents ||
-      !selectedTaskId ||
-      !selectedRunId ||
-      !selectedExecutorWidgetId ||
-      !hasActiveSelectedRun
-    ) {
-      return undefined;
-    }
-
-    const activeSelectedRunId = selectedRunId;
-    const activeSelectedExecutorWidgetId = selectedExecutorWidgetId;
-    let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
-
-    async function refreshSelectedRunFromEvent(event: DirectWorkStreamEvent) {
-      if (
-        cancelled ||
-        !isSelectedQueueRunStreamEvent(event, {
-          runId: activeSelectedRunId,
-          widgetInstanceId: activeSelectedExecutorWidgetId,
-        }) ||
-        (!event.isFinal && selectedRunEventRefreshInFlightRef.current)
-      ) {
-        return;
-      }
-
-      setRunActivityState((current) =>
-        appendAgentQueueRunActivityEvent(current, event),
-      );
-
-      if (!event.isFinal) {
-        return;
-      }
-
-      selectedRunEventRefreshInFlightRef.current = true;
-
-      try {
-        await loadTasks(selectedTaskId, { preserveCurrentOnError: true });
-        await refreshLatestRunLink(selectedTaskId, { silent: true });
-      } finally {
-        selectedRunEventRefreshInFlightRef.current = false;
-      }
-    }
-
-    void onListenToDirectWorkStreamEvents((event) => {
-      void refreshSelectedRunFromEvent(event);
-    }).then(
-      (stopListening) => {
-        if (cancelled) {
-          stopListening();
-          return;
-        }
-        unsubscribe = stopListening;
-      },
-      () => undefined,
-    );
-
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-  }, [
-    latestRunLink?.directWorkRunId,
-    latestRunLink?.executorWidgetId,
-    latestRunLink?.status,
-    loadTasks,
-    onListenToDirectWorkStreamEvents,
+  const {
+    isLatestRunLinkLoading,
+    isRunEvidenceLoading,
+    latestRunLink,
+    latestRunLinkError,
     refreshLatestRunLink,
-    selectedTask?.queueItemId,
-    selectedTask?.status,
-  ]);
-
-  const refreshRunEvidence = useCallback(
-    async (
-      link: AgentQueueTaskRunLinkSummary | null | undefined,
-      options?: { silent?: boolean },
-    ) => {
-      if (!link || link.status === "running") {
-        runEvidenceRequestKeyRef.current = null;
-        setRunEvidenceDetail(null);
-        setRunEvidenceError(null);
-        setIsRunEvidenceLoading(false);
-        return;
-      }
-
-      const requestKey = `${link.executorWidgetId}:${link.directWorkRunId}`;
-      runEvidenceRequestKeyRef.current = requestKey;
-
-      if (!onGetAgentExecutorRunDetail) {
-        setRunEvidenceDetail(null);
-        setRunEvidenceError(
-          "Direct Work result detail is only available when Executor run detail APIs are available.",
-        );
-        setIsRunEvidenceLoading(false);
-        return;
-      }
-
-      if (!options?.silent) {
-        setIsRunEvidenceLoading(true);
-        setRunEvidenceError(null);
-      }
-
-      try {
-        const detail = await onGetAgentExecutorRunDetail(
-          link.executorWidgetId,
-          link.directWorkRunId,
-        );
-        if (runEvidenceRequestKeyRef.current !== requestKey) {
-          return;
-        }
-        setRunEvidenceDetail(detail);
-        setRunEvidenceError(detail ? null : "Direct Work result was not found.");
-      } catch (error) {
-        if (runEvidenceRequestKeyRef.current !== requestKey) {
-          return;
-        }
-        setRunEvidenceDetail(null);
-        setRunEvidenceError(
-          errorToMessage(error, "Unable to load Direct Work result evidence."),
-        );
-      } finally {
-        if (!options?.silent) {
-          setIsRunEvidenceLoading(false);
-        }
-      }
-    },
-    [onGetAgentExecutorRunDetail],
-  );
-
-  useEffect(() => {
-    void refreshRunEvidence(latestRunLink);
-  }, [
-    latestRunLink?.directWorkRunId,
-    latestRunLink?.executorWidgetId,
-    latestRunLink?.status,
     refreshRunEvidence,
-  ]);
+    runActivitySnapshot,
+    runActivityState,
+    runEvidenceDetail,
+    runEvidenceError,
+    runHistoryLinks,
+  } = useAgentQueueRunMetadata({
+    loadTasks,
+    onGetAgentExecutorRunDetail,
+    onGetAgentQueueTaskLatestRunLink,
+    onListenToDirectWorkStreamEvents,
+    onListAgentQueueTaskRunLinks,
+    selectedTask,
+  });
 
-  const selectedTaskExecutionWorkspace = selectedTask
-    ? (isEditing || isDirty ? draft.executionWorkspace : selectedTask.executionWorkspace ?? "")
-    : repoRootDraft;
-  const selectedTaskCodexExecutable = selectedTask
-    ? (isEditing || isDirty ? draft.codexExecutable : selectedTask.codexExecutable ?? "")
-    : codexExecutableDraft;
-  const selectedTaskSandbox = selectedTask
-    ? (isEditing || isDirty ? draft.sandbox : selectedTask.sandbox ?? "")
-    : sandbox;
-  const selectedTaskApprovalPolicy = selectedTask
-    ? (isEditing || isDirty ? draft.approvalPolicy : selectedTask.approvalPolicy ?? "")
-    : approvalPolicy;
-  const repoRoot = selectedTaskExecutionWorkspace.trim();
-  const codexExecutable = selectedTaskCodexExecutable.trim();
+  const {
+    codexExecutable,
+    hasUnsavedTaskSettings,
+    repoRoot,
+    selectedTaskApprovalPolicy,
+    selectedTaskApprovalPolicyForRun,
+    selectedTaskCodexExecutable,
+    selectedTaskExecutionWorkspace,
+    selectedTaskSandbox,
+    selectedTaskSandboxForRun,
+    updateSelectedTaskApprovalPolicy,
+    updateSelectedTaskCodexExecutable,
+    updateSelectedTaskExecutionWorkspace,
+    updateSelectedTaskSandbox,
+  } = useAgentQueueRunSettings({
+    applyUpdatedTask,
+    approvalPolicy,
+    codexExecutableDraft,
+    draft,
+    isDirty,
+    isEditing,
+    onUpdateAgentQueueTask,
+    repoRootDraft,
+    sandbox,
+    selectedTask,
+    setApprovalPolicy,
+    setCodexExecutableDraft,
+    setDeleteError,
+    setDeleteMessage,
+    setRepoRootDraft,
+    setSandbox,
+    setStartError,
+    tasksRef,
+  });
   const startApiAvailable = Boolean(onStartAssignedAgentQueueTask);
   const selectedQueueTagId = selectedTask
     ? normalizeQueueTag(selectedTask).queueTagId
@@ -868,25 +579,6 @@ export function useAgentQueueController({
     [loadTasks, selectedTask?.queueItemId],
   );
   const canStart = !readinessMessage && preconditionMessages.length === 0;
-  const selectedTaskSandboxForRun =
-    selectedTaskSandbox === "read_only" ||
-    selectedTaskSandbox === "workspace_write" ||
-    selectedTaskSandbox === "danger_full_access"
-      ? selectedTaskSandbox
-      : sandbox;
-  const selectedTaskApprovalPolicyForRun =
-    selectedTaskApprovalPolicy === "never" ||
-    selectedTaskApprovalPolicy === "on_request" ||
-    selectedTaskApprovalPolicy === "untrusted"
-      ? selectedTaskApprovalPolicy
-      : approvalPolicy;
-  const hasUnsavedTaskSettings = Boolean(
-    selectedTask &&
-      (draft.executionWorkspace !== (selectedTask.executionWorkspace ?? "") ||
-        draft.codexExecutable !== (selectedTask.codexExecutable ?? "") ||
-        draft.sandbox !== (selectedTask.sandbox ?? "") ||
-        draft.approvalPolicy !== (selectedTask.approvalPolicy ?? "")),
-  );
   const queueRunner = useAgentQueueSequentialRunner({
     approvalPolicy,
     assignmentApiAvailable,
@@ -1029,13 +721,6 @@ export function useAgentQueueController({
       selectedTask,
     ],
   );
-  const {
-    createQueueTag,
-    deleteQueueTag,
-    pauseQueueTag,
-    renameQueueTag,
-    resumeQueueTag,
-  } = tagActions;
   const taskActions = createAgentQueueTaskActions({
     applyUpdatedTask,
     autorunSnapshot,
@@ -1087,22 +772,6 @@ export function useAgentQueueController({
     tasksRef,
     workerScopes,
   });
-  const {
-    cancelDeleteSelectedTask,
-    cancelSelectedTaskEdits,
-    confirmDeleteSelectedTask,
-    createDiffReviewTask,
-    createTask,
-    refreshTasks,
-    requestDeleteSelectedTask,
-    saveTask,
-    selectTask,
-    startEditingSelectedTask,
-    updateDraft,
-    updatePriority,
-    promoteSelectedDraftToQueued,
-    applyCoordinatorFinalization,
-  } = taskActions;
   const planningActions = createAgentQueuePlanningActions({
     applyUpdatedTask,
     hasOpenTaskEdit,
@@ -1127,101 +796,6 @@ export function useAgentQueueController({
     tasksRef,
     workerCount: workers.length,
   });
-  const {
-    attachDemoWorkerReport,
-    generateExecutionPlanPreview,
-    moveSelectedTask,
-    startWorkers,
-    stopAndKillRunning,
-    stopWorkers,
-    updateMaxExecutors,
-  } = planningActions;
-  function updateSelectedTaskExecutionWorkspace(value: string) {
-    if (selectedTask) {
-      updateSelectedTaskRunSettings({ executionWorkspace: value });
-    } else {
-      setRepoRootDraft(value);
-    }
-    setStartError(null);
-    setDeleteError(null);
-    setDeleteMessage(null);
-  }
-
-  function updateSelectedTaskCodexExecutable(value: string) {
-    if (selectedTask) {
-      updateSelectedTaskRunSettings({ codexExecutable: value });
-    } else {
-      setCodexExecutableDraft(value);
-    }
-    setStartError(null);
-  }
-
-  function updateSelectedTaskSandbox(value: DirectWorkSandbox) {
-    if (selectedTask) {
-      updateSelectedTaskRunSettings({ sandbox: value });
-    } else {
-      setSandbox(value);
-    }
-    setStartError(null);
-  }
-
-  function updateSelectedTaskApprovalPolicy(value: DirectWorkApprovalPolicy) {
-    if (selectedTask) {
-      updateSelectedTaskRunSettings({ approvalPolicy: value });
-    } else {
-      setApprovalPolicy(value);
-    }
-    setStartError(null);
-  }
-
-  function updateSelectedTaskRunSettings(
-    nextSettings: Partial<Pick<
-      AgentQueueTask,
-      "executionWorkspace" | "codexExecutable" | "sandbox" | "approvalPolicy"
-    >>,
-  ) {
-    if (!selectedTask) {
-      return;
-    }
-
-    const currentSelectedTask =
-      tasksRef.current.find((task) => task.queueItemId === selectedTask.queueItemId) ??
-      selectedTask;
-    const updatedTask: AgentQueueTask = {
-      ...currentSelectedTask,
-      ...nextSettings,
-    };
-    applyUpdatedTask(updatedTask, { select: true });
-
-    if (!onUpdateAgentQueueTask) {
-      return;
-    }
-
-    void onUpdateAgentQueueTask({
-      approvalPolicy: updatedTask.approvalPolicy ?? null,
-      codexExecutable: updatedTask.codexExecutable ?? null,
-      description: updatedTask.description,
-      executionPolicy: normalizeTaskExecutionPolicy(updatedTask.executionPolicy),
-      executionWorkspace: updatedTask.executionWorkspace ?? null,
-      itemType: normalizeItemType(updatedTask.itemType),
-      priority: updatedTask.priority,
-      prompt: updatedTask.prompt,
-      queueItemId: updatedTask.queueItemId,
-      queueTagId: normalizeQueueTag(updatedTask).queueTagId,
-      queueTagName: normalizeQueueTag(updatedTask).queueTagName,
-      sandbox: updatedTask.sandbox ?? null,
-      status: normalizeTaskStatus(updatedTask.status),
-      title: updatedTask.title,
-      validationStatus: normalizeValidationStatus(updatedTask.validationStatus),
-    }).then((persistedTask) => {
-      if (persistedTask) {
-        applyUpdatedTask(persistedTask, { select: true });
-      }
-    }, (error) => {
-      setStartError(errorToMessage(error, "Unable to save task run settings."));
-    });
-  }
-
   const runActions = createAgentQueueRunActions({
     applyUpdatedTask,
     agentExecutorSlots,
@@ -1273,37 +847,7 @@ export function useAgentQueueController({
     workerConfigsRef,
     workerScopes,
   });
-  const {
-    armAutorunSession,
-    assignSelectedTask,
-    clearSelectedTaskAssignment,
-    refreshAutorunSnapshot,
-    selectExecutorWidget,
-    startAssignedTask,
-    stopAutorunSession,
-    updateCodexExecutableDraft,
-    updateRepoRootDraft,
-  } = runActions;
-
-  const runActivitySnapshot = useMemo(
-    () =>
-      selectedTask
-        ? buildAgentQueueRunActivitySnapshot({
-            activity: runActivityState,
-            latestRun: latestRunLink,
-            selectedTask,
-          })
-        : {
-            currentMessage: "No Queue task selected.",
-            currentStage: "Starting" as const,
-            lastCommand: null,
-            lastCommandStatus: null,
-            rawEvents: [],
-            recentEvents: [],
-            statusLine: "No active run selected.",
-          },
-    [latestRunLink, runActivityState, selectedTask],
-  );
+  const { refreshAutorunSnapshot } = runActions;
 
   function markReportActionCardShown(cardId: string) {
     if (!selectedTask) {
@@ -1330,277 +874,106 @@ export function useAgentQueueController({
     );
   }
 
-  return {
+  return buildAgentQueueControllerViewModel({
     agentExecutorSlots,
     apiAvailable,
     assignmentApiAvailable,
     assignmentError,
     assignmentMessage,
-    createTask,
+    assignedWorkerRoutingStates,
+    autorunApiAvailable,
+    autorunError,
+    autorunMessage,
+    autorunPreconditionMessages,
+    autorunSelectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
+    autorunSnapshot,
+    autonomousController: autonomousRunner.controller,
+    canArmAutorun,
+    canStart,
+    canUseDefaultLocalExecutor,
+    coordinatorFinalizationMessage,
+    deleteBlockedReason,
+    deleteError,
+    deleteMessage,
+    dependencyStates,
+    diffReviewReportActionCard,
     draft,
     editorError,
+    embeddedExecutor,
+    executionPlanMessage,
     filteredTasks,
+    globalExecutionState,
+    globalMessage,
+    hasOpenTaskEdit,
+    hasUnsavedTaskSettings,
     isAssigning,
+    isAutorunLoading,
+    isAutorunStarting,
+    isAutorunStopping,
+    isConfirmingDelete,
     isCreating,
+    isDeleting,
     isDirty,
     isEditing,
+    isLatestRunLinkLoading,
     isLoading,
+    isRunEvidenceLoading,
     isSaving,
     isSelecting,
+    isStarting,
+    latestRunLink,
+    latestRunLinkError,
     loadError,
-    deleteTask: {
-      blockedReason: deleteBlockedReason,
-      canRequest: Boolean(selectedTask && !deleteBlockedReason),
-      error: deleteError,
-      isConfirming: isConfirmingDelete,
-      isDeleting,
-      message: deleteMessage,
-      onCancel: () => cancelDeleteSelectedTask(),
-      onConfirm: () => void confirmDeleteSelectedTask(),
-      onRequest: () => requestDeleteSelectedTask(),
-    } satisfies AgentQueueDeleteController,
-    ordering: {
-      ...queueTaskOrderingControls({
-        selectedTask,
-        tasks,
-      }),
-      message: orderingMessage,
-      onMoveDown: () => moveSelectedTask("down"),
-      onMoveToBottom: () => moveSelectedTask("bottom"),
-      onMoveToTop: () => moveSelectedTask("top"),
-      onMoveUp: () => moveSelectedTask("up"),
-    } satisfies AgentQueueOrderingController,
-    editTask: {
-      isEditing,
-      onCancel: cancelSelectedTaskEdits,
-      onStart: startEditingSelectedTask,
-    } satisfies AgentQueueEditController,
-    draftPromotion: {
-      canPromote: Boolean(
-        selectedTask?.status === "draft" &&
-          onUpdateAgentQueueTask &&
-          !hasOpenTaskEdit &&
-          !isSaving &&
-          !isCreating,
-      ),
-      isPromoting: Boolean(selectedTask?.status === "draft" && isSaving),
-      onPromote: () => void promoteSelectedDraftToQueued(),
-    },
-    executionPlan: {
-      canGenerate: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
-      message: executionPlanMessage,
-      onGenerate: generateExecutionPlanPreview,
-      plan: selectedTask?.executionPlanPreview ?? null,
-    } satisfies AgentQueueExecutionPlanController,
-    workerReport: {
-      canAttach: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
-      latestReport:
-        selectedTask?.workerExecutionReports?.[
-          selectedTask.workerExecutionReports.length - 1
-        ] ?? null,
-      message: workerReportMessage,
-      onAttachDemoReport: attachDemoWorkerReport,
-    } satisfies AgentQueueWorkerReportController,
-    diffReview: {
-      canCreate: Boolean(
-        selectedTask &&
-          canCreateDiffReviewItem(selectedTask) &&
-          !hasOpenTaskEdit &&
-          !isSaving &&
-          !isCreating,
-      ),
-      linkedReviewTasks: linkedDiffReviewTasks(selectedTask, tasks),
-      message: workerReportMessage,
-      onCreate: () => void createDiffReviewTask(),
-    } satisfies AgentQueueDiffReviewController,
-    reportActionCard: {
-      diffReviewReportCard: diffReviewReportActionCard,
-      latestShownCardId: selectedTask?.workspaceChatReportCardId ?? null,
-      message: workerReportMessage,
-      onShown: markReportActionCardShown,
-      workerReportCard: workerReportActionCard,
-    } satisfies AgentQueueReportActionCardController,
-    coordinatorFinalization: {
-      canAct: Boolean(selectedTask && !isEditing && !isSaving && !isCreating),
-      message: coordinatorFinalizationMessage,
-      onCreateFollowUp: () => void applyCoordinatorFinalization("create_follow_up"),
-      onFinalize: () => void applyCoordinatorFinalization("finalize_accept_item"),
-      onMarkBlocked: () => void applyCoordinatorFinalization("mark_blocked"),
-      onMarkFailedRejected: () =>
-        void applyCoordinatorFinalization("mark_failed_rejected"),
-      onMarkFollowUpRequired: () =>
-        void applyCoordinatorFinalization("mark_follow_up_required"),
-      onMarkNeedsChanges: () =>
-        void applyCoordinatorFinalization("mark_needs_changes"),
-      onMarkReadyForFinalization: () =>
-        void applyCoordinatorFinalization("mark_ready_for_finalization"),
-      onMarkRollbackRequired: () =>
-        void applyCoordinatorFinalization("mark_rollback_required"),
-      status: selectedTask?.coordinatorStatus ?? "not_reported",
-    } satisfies AgentQueueCoordinatorFinalizationController,
-    run: {
-      approvalPolicy: selectedTaskApprovalPolicy,
-      canStart,
-      codexExecutableDraft: selectedTaskCodexExecutable,
-      hasUnsavedTaskSettings,
-      isStarting,
-      onApprovalPolicyChange: updateSelectedTaskApprovalPolicy,
-      onCodexExecutableDraftChange: updateSelectedTaskCodexExecutable,
-      onRepoRootDraftChange: updateSelectedTaskExecutionWorkspace,
-      onSandboxChange: updateSelectedTaskSandbox,
-      onSaveTaskSettings: () => void saveTask(),
-      onStartAssignedTask: () => void startAssignedTask(),
-      preconditionMessages,
-      readinessMessage,
-      repoRootDraft: selectedTaskExecutionWorkspace,
-      sandbox: selectedTaskSandbox,
-      startError,
-      startedRunId,
-      startMessage,
-      usesDefaultExecutorOnStart: canUseDefaultLocalExecutor,
-      executorSelectionMessage: executorSelectionMessage({
-        assignedExecutorWidgetId: selectedTask?.assignedExecutorWidgetId ?? null,
-        label: selectedExecutorSelection.label,
-        source: selectedExecutorSelection.source,
-      }),
-    } satisfies AgentQueueRunController,
-    latestRun: {
-      apiAvailable: Boolean(
-        onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,
-      ),
-      error: latestRunLinkError,
-      isLoading: isLatestRunLinkLoading,
-      link: latestRunLink,
-      onRefresh: () =>
-        void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
-    } satisfies AgentQueueLatestRunLinkController,
-    runEvidence: {
-      apiAvailable: Boolean(onGetAgentExecutorRunDetail),
-      detail: runEvidenceDetail,
-      error: runEvidenceError,
-      isLoading: isRunEvidenceLoading,
-      onRefresh: () => void refreshRunEvidence(latestRunLink),
-    } satisfies AgentQueueRunEvidenceController,
-    runActivity: {
-      ...runActivitySnapshot,
-      eventState: runActivityState,
-    } satisfies AgentQueueRunActivityController,
-    runHistory: {
-      apiAvailable: Boolean(
-        onListAgentQueueTaskRunLinks || onGetAgentQueueTaskLatestRunLink,
-      ),
-      error: latestRunLinkError,
-      isLoading: isLatestRunLinkLoading,
-      links: runHistoryLinks,
-      onRefresh: () =>
-        void refreshLatestRunLink(selectedTask?.queueItemId ?? null),
-      totalCount: runHistoryLinks.length,
-    } satisfies AgentQueueRunHistoryController,
-    autorun: {
-      apiAvailable: autorunApiAvailable,
-      canArm: canArmAutorun,
-      error: autorunError,
-      isLoading: isAutorunLoading,
-      isStarting: isAutorunStarting,
-      isStopping: isAutorunStopping,
-      message: autorunMessage,
-      onArm: () => void armAutorunSession(),
-      onRefresh: () => void refreshAutorunSnapshot(),
-      onStop: () => void stopAutorunSession(),
-      preconditionMessages: autorunPreconditionMessages,
-      selectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
-      snapshot: autorunSnapshot,
-    } satisfies AgentQueueAutorunController,
-    autonomous: {
-      ...autonomousRunner.controller,
-    } satisfies AgentQueueAutonomousController,
-    foundation: {
-      embeddedExecutor,
-      globalExecutionState,
-      globalMessage,
-      globalStatus: globalExecutionState,
-      maxExecutorMessage,
-      onMaxExecutorsChange: updateMaxExecutors,
-      onCreateQueueTag: createQueueTag,
-      onCreateWorker: createWorker,
-      onDeleteQueueTag: deleteQueueTag,
-      onDeleteWorker: deleteWorker,
-      onPauseQueueTag: pauseQueueTag,
-      onRenameWorker: renameWorker,
-      onRenameQueueTag: renameQueueTag,
-      onResumeQueueTag: resumeQueueTag,
-      onStartWorkers: startWorkers,
-      onStopAndKillRunning: stopAndKillRunning,
-      onStopWorkers: stopWorkers,
-      onWorkerEnabledChange: setWorkerEnabled,
-      onWorkerScopeChange: changeWorkerScope,
-      pausedQueueTagIds,
-      queueTags,
-      schedulerPlan,
-      tagManagementError,
-      tagManagementMessage,
-      validationSummary: queueValidationSummary,
-      workers,
-    } satisfies AgentQueueFoundationController,
-    runner: {
-      ...queueRunner.controller,
-    } satisfies AgentQueueRunnerController,
+    markReportActionCardShown,
+    maxExecutorMessage,
+    onGetAgentExecutorRunDetail,
+    onGetAgentQueueTaskLatestRunLink,
+    onListAgentQueueTaskRunLinks,
+    onUpdateAgentQueueTask,
+    orderingMessage,
+    pausedQueueTagIds,
+    planningActions,
+    preconditionMessages,
+    queueTags,
+    queueValidationSummary,
+    readinessMessage,
     refreshAfterExternalMutation,
-    refreshTasks,
+    refreshLatestRunLink,
+    refreshRunEvidence,
+    runActions,
+    runActivitySnapshot,
+    runActivityState,
+    runEvidenceDetail,
+    runEvidenceError,
+    runHistoryLinks,
+    runnerController: queueRunner.controller,
     saveStateText,
-    saveTask,
+    schedulerPlan,
+    selectedExecutorSelection,
     selectedExecutorWidgetId,
     selectedTask,
-    selectExecutorWidget,
-    selectTask,
+    selectedTaskApprovalPolicy,
+    selectedTaskCodexExecutable,
+    selectedTaskExecutionWorkspace,
+    selectedTaskSandbox,
     setStatusFilter,
+    startError,
+    startMessage,
+    startedRunId,
     statusFilter,
+    tagActions,
+    tagManagementError,
+    tagManagementMessage,
+    taskActions,
     tasks,
-    dependencyStates,
-    assignedWorkerRoutingStates,
-    updateDraft,
-    updatePriority,
+    updateSelectedTaskApprovalPolicy,
+    updateSelectedTaskCodexExecutable,
+    updateSelectedTaskExecutionWorkspace,
+    updateSelectedTaskSandbox,
     validationMessage,
-    assignSelectedTask,
-    clearSelectedTaskAssignment,
-  };
-}
-
-function executorSelectionMessage({
-  assignedExecutorWidgetId,
-  label,
-  source,
-}: {
-  assignedExecutorWidgetId: string | null;
-  label: string | null;
-  source: "assigned" | "automatic" | "manual" | null;
-}) {
-  if (!label || !source) {
-    return null;
-  }
-
-  if (source === "assigned") {
-    return `Local executor assigned: ${label}.`;
-  }
-
-  if (source === "manual") {
-    return `Local executor override selected: ${label}.`;
-  }
-
-  return assignedExecutorWidgetId
-    ? `Local executor selected automatically: ${label}. The previous assignment is unavailable.`
-    : `Local executor selected automatically: ${label}.`;
-}
-
-function isSelectedQueueRunStreamEvent(
-  event: DirectWorkStreamEvent,
-  selectedRun: {
-    runId: string;
-    widgetInstanceId: string;
-  },
-) {
-  return (
-    event.runId === selectedRun.runId &&
-    event.widgetInstanceId === selectedRun.widgetInstanceId
-  );
+    workerActions,
+    workerReportActionCard,
+    workerReportMessage,
+    workers,
+  });
 }
