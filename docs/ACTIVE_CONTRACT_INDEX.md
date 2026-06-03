@@ -375,6 +375,13 @@ unless the task explicitly requests it.
 
 ### Finder
 
+- `docs/FINDER_WIDGET_API_CONTRACT.md` - planned docs-only Finder Widget API
+  and Finder Git Plugin API contract for Stable v0.1. It defines
+  open-root/list/search/preview/select/attach/edit API boundaries plus
+  WorkspaceGitApi-backed Git status, changed-file, diff, history, commit
+  detail, manual commit, and manual push boundaries. It does not implement
+  Finder, WorkspaceGitApi, frontend UI, backend/Tauri commands, storage/schema
+  changes, provider tools, hidden reads, or Git mutations.
 - `docs/FINDER_UX_CONTRACT.md` - planned Finder UX contract for macOS-like
   column navigation, Finder-owned floating preview, edit-in-place with
   explicit Save / Cancel, selected-file Git diff preview, pane presentation
@@ -500,10 +507,12 @@ These documents should not override the Workspace Agent model or
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
   `docs/WORKSPACE_CONTRACT.md`, and the affected domain contract.
-- Finder UX or implementation planning: read `docs/FINDER_UX_CONTRACT.md`,
+- Finder API, UX, or implementation planning: read
+  `docs/FINDER_WIDGET_API_CONTRACT.md`, `docs/FINDER_UX_CONTRACT.md`,
   `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and
   `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add `docs/GIT_WIDGET_CONTRACT.md`
-  only when changing current Git behavior or Git mutation boundaries.
+  only when changing current Git behavior, Git plugin API, or Git mutation
+  boundaries.
 - Queue work: read `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
