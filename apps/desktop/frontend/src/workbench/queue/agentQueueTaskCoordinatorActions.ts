@@ -66,6 +66,31 @@ export function coordinatorDecisionForAction(
         status: "completed",
         validationStatus: "passed",
       };
+    case "accept_without_commit": {
+      const closureState = task
+        ? closureStateForAcceptingReport(task)
+        : "no_change_accepted";
+
+      if (closureState !== "no_change_accepted") {
+        return {
+          closureState,
+          coordinatorStatus: "ready_for_finalization",
+          message:
+            "Accept without commit requires a no-change report. No commit was created and the Queue item was not finalized.",
+          status: "review_needed",
+          validationStatus: "needs_review",
+        };
+      }
+
+      return {
+        closureState: "no_change_accepted",
+        coordinatorStatus: "finalized",
+        message:
+          "No file changes; no commit created. Queue item finalized / accepted and evidence was preserved.",
+        status: "completed",
+        validationStatus: "passed",
+      };
+    }
     case "mark_needs_changes":
       return {
         closureState: "closure_blocked",

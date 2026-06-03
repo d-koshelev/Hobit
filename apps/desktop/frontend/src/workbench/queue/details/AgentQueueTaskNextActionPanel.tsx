@@ -140,6 +140,12 @@ function nextActionForSelectedTask(
     });
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,
+      label: "Accept without commit",
+      onClick: () => queue.coordinatorFinalization.onAcceptWithoutCommit(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
       label: "Finalize / Accept",
       onClick: () => queue.coordinatorFinalization.onFinalize(),
       variant: "secondary",
@@ -256,6 +262,12 @@ function nextActionForSelectedTask(
       disabled: !queue.coordinatorFinalization.canAct,
       label: "Mark ready for finalization",
       onClick: () => queue.coordinatorFinalization.onMarkReadyForFinalization(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Accept without commit",
+      onClick: () => queue.coordinatorFinalization.onAcceptWithoutCommit(),
       variant: "secondary",
     });
     actions.push({

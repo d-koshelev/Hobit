@@ -1876,6 +1876,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       onUpdateAgentQueueTask: updateQueueTask,
       queueReportActionCardRequest: queueReportCardRequest(
         queueReportCard({
+          changedFiles: [],
+          commitHash: undefined,
           recommendedActions: [
             {
               actionId: "mark_ready_for_finalization",
@@ -1892,6 +1894,13 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
               type: "finalize_accept_item",
             },
             {
+              actionId: "accept_without_commit",
+              description: "Accept no-change.",
+              enabled: true,
+              label: "Accept without commit",
+              type: "accept_without_commit",
+            },
+            {
               actionId: "mark_rollback_required",
               description: "Rollback required.",
               enabled: true,
@@ -1904,6 +1913,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     });
 
     await clickButton("Ready for finalization");
+    await clickButton("Accept without commit");
     await clickButton("Finalize / accept");
     await clickButton("Rollback required");
 
@@ -1924,9 +1934,19 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(updateQueueTask).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({
+        status: "completed",
+        validationStatus: "passed",
+      }),
+    );
+    expect(updateQueueTask).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
         status: "review_needed",
         validationStatus: "needs_review",
       }),
+    );
+    expect(document.body.textContent).toContain(
+      "No file changes; no commit created.",
     );
     expect(document.body.textContent).toContain("No rollback");
     expect(provider).not.toHaveBeenCalled();

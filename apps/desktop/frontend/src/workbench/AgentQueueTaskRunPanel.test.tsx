@@ -1759,6 +1759,7 @@ function renderDetailsPanel({
     coordinatorFinalization: {
       canAct: true,
       message: null,
+      onAcceptWithoutCommit: vi.fn(),
       onCreateFollowUp: vi.fn(),
       onFinalize: vi.fn(),
       onMarkBlocked: vi.fn(),

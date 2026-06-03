@@ -156,6 +156,7 @@ export type AgentQueueReportActionType =
   | "open_linked_diff_review"
   | "mark_ready_for_finalization"
   | "finalize_accept_item"
+  | "accept_without_commit"
   | "mark_needs_changes"
   | "mark_follow_up_required"
   | "create_follow_up"

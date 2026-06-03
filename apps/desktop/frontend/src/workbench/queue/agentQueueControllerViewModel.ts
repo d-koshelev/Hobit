@@ -406,6 +406,8 @@ export function buildAgentQueueControllerViewModel({
     coordinatorFinalization: {
       canAct: Boolean(selectedTask && !isEditing && !isSaving && !isCreating),
       message: coordinatorFinalizationMessage,
+      onAcceptWithoutCommit: () =>
+        void applyCoordinatorFinalization("accept_without_commit"),
       onCreateFollowUp: () => void applyCoordinatorFinalization("create_follow_up"),
       onFinalize: () => void applyCoordinatorFinalization("finalize_accept_item"),
       onMarkBlocked: () => void applyCoordinatorFinalization("mark_blocked"),

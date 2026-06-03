@@ -131,6 +131,8 @@ export function WorkspaceAgentQueueReportActionCard({
         });
       case "finalize_accept_item":
         return finalizeSourceItem();
+      case "accept_without_commit":
+        return acceptSourceItemWithoutCommit();
       case "mark_follow_up_required":
         return markSourceDecision({
           closureState: "closure_blocked",
@@ -258,6 +260,28 @@ export function WorkspaceAgentQueueReportActionCard({
         closureState === "commit_created"
           ? "Source Queue item finalized / accepted with an existing commit reference. No commit was created by Queue."
           : "Source Queue item finalized / accepted as no-change work. No commit was created.",
+      status: "completed",
+      validationStatus: "passed",
+    });
+  }
+
+  async function acceptSourceItemWithoutCommit() {
+    if (card.changedFiles.length > 0 || card.commitHash) {
+      return markSourceDecision({
+        closureState: card.commitHash ? "commit_created" : "commit_required",
+        coordinatorStatus: "ready_for_finalization",
+        result:
+          "Accept without commit requires a no-change report. The source Queue item was not finalized.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      });
+    }
+
+    return markSourceDecision({
+      closureState: "no_change_accepted",
+      coordinatorStatus: "finalized",
+      result:
+        "No file changes; no commit created. Source Queue item finalized / accepted and evidence was preserved.",
       status: "completed",
       validationStatus: "passed",
     });
@@ -433,7 +457,8 @@ function ReportFact({ label, value }: { label: string; value: string }) {
 function primaryActionVariant(actionType: AgentQueueReportActionType) {
   return actionType === "create_follow_up" ||
     actionType === "create_diff_review" ||
-    actionType === "finalize_accept_item"
+    actionType === "finalize_accept_item" ||
+    actionType === "accept_without_commit"
     ? "primary"
     : "secondary";
 }

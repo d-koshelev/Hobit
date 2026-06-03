@@ -42,7 +42,10 @@ export function buildWorkerExecutionReportActionCard({
     linkedDiffReviewItemId: linkedDiffReviewTask?.queueItemId,
     linkedDiffReviewStatus: linkedDiffReviewTask?.status,
     linkedFollowUpItemIds: [],
-    recommendedActions: workerReportActions(Boolean(linkedDiffReviewTask)),
+    recommendedActions: workerReportActions({
+      hasLinkedDiffReview: Boolean(linkedDiffReviewTask),
+      isNoChangeReport: report.changedFiles.length === 0 && !report.commitHash,
+    }),
     reportKind: "worker_execution",
     reportStatus: report.reportStatus,
     reportSummary: report.summary,
@@ -96,7 +99,11 @@ export function buildDiffReviewReportActionCard({
     linkedDiffReviewItemId: diffReviewTask.queueItemId,
     linkedDiffReviewStatus: diffReviewTask.status,
     linkedFollowUpItemIds: [],
-    recommendedActions: diffReviewReportActions(),
+    recommendedActions: diffReviewReportActions(
+      (sourceReport?.changedFiles.length ?? 0) === 0 &&
+        !metadata?.sourceCommitHash &&
+        !sourceReport?.commitHash,
+    ),
     reportKind: "diff_review",
     reportStatus: normalizeTaskStatus(diffReviewTask.status),
     reportSummary:
@@ -175,7 +182,13 @@ export function diffReviewTaskPromptFromReportCard(
     .join("\n");
 }
 
-function workerReportActions(hasLinkedDiffReview: boolean): AgentQueueReportAction[] {
+function workerReportActions({
+  hasLinkedDiffReview,
+  isNoChangeReport,
+}: {
+  hasLinkedDiffReview: boolean;
+  isNoChangeReport: boolean;
+}): AgentQueueReportAction[] {
   return [
     reportAction("open_source_item", "Open source item", "Open the source Queue item."),
     reportAction(
@@ -187,6 +200,12 @@ function workerReportActions(hasLinkedDiffReview: boolean): AgentQueueReportActi
       "finalize_accept_item",
       "Finalize / accept",
       "Explicitly accept the source Queue item. Dependent work may become eligible only in dry-run.",
+    ),
+    reportAction(
+      "accept_without_commit",
+      "Accept without commit",
+      "Explicitly accept this no-change Queue item. No Git commit is created.",
+      isNoChangeReport,
     ),
     reportAction(
       "mark_needs_changes",
@@ -245,7 +264,7 @@ function workerReportActions(hasLinkedDiffReview: boolean): AgentQueueReportActi
   ];
 }
 
-function diffReviewReportActions(): AgentQueueReportAction[] {
+function diffReviewReportActions(isNoChangeReport: boolean): AgentQueueReportAction[] {
   return [
     reportAction("open_source_item", "Open source item", "Open the source Queue item."),
     reportAction(
@@ -262,6 +281,12 @@ function diffReviewReportActions(): AgentQueueReportAction[] {
       "finalize_accept_item",
       "Finalize / accept",
       "Explicitly accept the source Queue item. Dependent work may become eligible only in dry-run.",
+    ),
+    reportAction(
+      "accept_without_commit",
+      "Accept without commit",
+      "Explicitly accept this no-change Queue item. No Git commit is created.",
+      isNoChangeReport,
     ),
     reportAction(
       "mark_needs_changes",

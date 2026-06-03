@@ -2,6 +2,7 @@ import { act } from "react";
 import type {
   AgentQueueCoordinatorStatus,
   AgentQueueTaskStatus,
+  AgentQueueWorkerExecutionReport,
 } from "../../workspace/types";
 
 import {
@@ -277,6 +278,59 @@ describe("useAgentQueueController planning and reports", () => {
       ),
     ).toBe(true);
     expect(harness.updateRequests[0]?.status).toBe("review_needed");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("accepts a no-change report without creating a commit or starting runtime work", async () => {
+    const noChangeReport: AgentQueueWorkerExecutionReport = {
+      changedFiles: [],
+      commandsRun: [],
+      createdAt: "2026-05-20T10:02:00.000Z",
+      errors: [],
+      itemId: "queue-1",
+      reportId: "report-1",
+      reportStatus: "completed",
+      summary: "Report-ready no-change task.",
+      validationCommandsSuggested: [],
+      validationResult: "passed",
+      warnings: [],
+      workerId: "executor-1",
+    };
+    const harness = createQueueHarness([
+      queueTask({
+        prompt: "Review no-change report",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        validationStatus: "needs_review",
+        workerExecutionReports: [noChangeReport],
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onAcceptWithoutCommit();
+      await flushHookEffects();
+    });
+
+    expect(hook.result.current.selectedTask?.closureState).toBe(
+      "no_change_accepted",
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "finalized",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("completed");
+    expect(hook.result.current.selectedTask?.validationStatus).toBe("passed");
+    expect(
+      hook.result.current.coordinatorFinalization.message?.includes(
+        "No file changes; no commit created.",
+      ),
+    ).toBe(true);
+    expect(harness.updateRequests).toHaveLength(1);
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
 

@@ -43,6 +43,7 @@ describe("agentQueueReportActionCardModel", () => {
       expect.arrayContaining([
         "mark_ready_for_finalization",
         "finalize_accept_item",
+        "accept_without_commit",
         "mark_needs_changes",
         "mark_follow_up_required",
         "mark_blocked",
@@ -50,6 +51,34 @@ describe("agentQueueReportActionCardModel", () => {
         "mark_rollback_required",
       ]),
     );
+  });
+
+  it("enables explicit accept without commit only for no-change reports", () => {
+    const noChangeCard = buildWorkerExecutionReportActionCard({
+      report: workerReport({
+        changedFiles: [],
+        commitHash: undefined,
+      }),
+      sourceTask: task({ queueItemId: "source-1" }),
+    });
+    const changedFilesCard = buildWorkerExecutionReportActionCard({
+      report: workerReport(),
+      sourceTask: task({ queueItemId: "source-1" }),
+    });
+
+    expect(
+      noChangeCard.recommendedActions.find(
+        (action) => action.type === "accept_without_commit",
+      ),
+    ).toMatchObject({
+      enabled: true,
+      label: "Accept without commit",
+    });
+    expect(
+      changedFilesCard.recommendedActions.find(
+        (action) => action.type === "accept_without_commit",
+      )?.enabled,
+    ).toBe(false);
   });
 
   it("builds queued follow-up and diff-review prompts without runtime instructions", () => {

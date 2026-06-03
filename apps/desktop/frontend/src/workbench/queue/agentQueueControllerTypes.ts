@@ -220,6 +220,7 @@ export type AgentQueueDiffReviewController = {
 export type AgentQueueCoordinatorFinalizationController = {
   canAct: boolean;
   message: string | null;
+  onAcceptWithoutCommit: () => void;
   onCreateFollowUp: () => void;
   onFinalize: () => void;
   onMarkBlocked: () => void;
