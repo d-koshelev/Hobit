@@ -289,7 +289,7 @@ export function createAgentQueueTaskActions({
       });
     }
 
-    const decision = coordinatorDecisionForAction(actionType);
+    const decision = coordinatorDecisionForAction(actionType, selectedTask);
 
     if (!decision) {
       setCoordinatorFinalizationMessage(
@@ -334,6 +334,7 @@ export function createAgentQueueTaskActions({
       }
 
       const taskFoundation: Partial<AgentQueueTask> = {
+        closureState: decision.closureState,
         coordinatorStatus: decision.coordinatorStatus,
         validationStatus: decision.validationStatus,
       };

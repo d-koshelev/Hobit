@@ -92,6 +92,7 @@ export async function createFollowUpTaskFromSelectedTask({
       workerExecutionReports: [],
     };
     const sourceFoundation: Partial<AgentQueueTask> = {
+      closureState: "follow_up_created",
       coordinatorStatus: "follow_up_required",
       validationStatus: "needs_review",
     };

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import type {
+  AgentQueueClosureState,
   AgentQueueReportActionCard,
   AgentQueueReportActionType,
   AgentQueueCoordinatorStatus,
@@ -9,6 +10,10 @@ import type {
   CreateAgentQueueTaskRequest,
   UpdateAgentQueueTaskRequest,
 } from "../workspace/types";
+import {
+  queueClosureStateBadgeVariant,
+  queueClosureStateLabel,
+} from "./queue/agentQueueClosureState";
 import {
   diffReviewTaskPromptFromReportCard,
   followUpTaskPromptFromReportCard,
@@ -22,6 +27,7 @@ export type WorkspaceAgentQueueReportActionResult = {
 export type WorkspaceAgentQueueReportActionCardPatch = {
   linkedDiffReviewItemId?: string;
   linkedFollowUpItemIds?: string[];
+  sourceClosureState?: AgentQueueClosureState;
   sourceCoordinatorStatus?: AgentQueueCoordinatorStatus;
 };
 
@@ -107,6 +113,7 @@ export function WorkspaceAgentQueueReportActionCard({
         return createDiffReviewItem();
       case "mark_needs_changes":
         return markSourceDecision({
+          closureState: "closure_blocked",
           coordinatorStatus: "needs_changes",
           result:
             "Source Queue item marked needs changes. It was not finalized as done or failed.",
@@ -115,6 +122,7 @@ export function WorkspaceAgentQueueReportActionCard({
         });
       case "mark_ready_for_finalization":
         return markSourceDecision({
+          closureState: "closure_required",
           coordinatorStatus: "ready_for_finalization",
           result:
             "Source Queue item marked ready for explicit coordinator finalization. No work was started.",
@@ -122,15 +130,10 @@ export function WorkspaceAgentQueueReportActionCard({
           validationStatus: "needs_review",
         });
       case "finalize_accept_item":
-        return markSourceDecision({
-          coordinatorStatus: "finalized",
-          result:
-            "Source Queue item finalized / accepted by explicit coordinator action. No dependent work was started.",
-          status: "completed",
-          validationStatus: "passed",
-        });
+        return finalizeSourceItem();
       case "mark_follow_up_required":
         return markSourceDecision({
+          closureState: "closure_blocked",
           coordinatorStatus: "follow_up_required",
           result:
             "Source Queue item marked follow-up required. Dependencies remain blocked.",
@@ -139,6 +142,7 @@ export function WorkspaceAgentQueueReportActionCard({
         });
       case "mark_blocked":
         return markSourceDecision({
+          closureState: "closure_blocked",
           coordinatorStatus: "blocked",
           result:
             "Source Queue item marked blocked by coordinator. No follow-up was auto-run.",
@@ -147,6 +151,7 @@ export function WorkspaceAgentQueueReportActionCard({
         });
       case "mark_failed_rejected":
         return markSourceDecision({
+          closureState: "closure_blocked",
           coordinatorStatus: "failed",
           result:
             "Source Queue item marked failed / rejected. Evidence was preserved and rollback was not executed.",
@@ -155,6 +160,7 @@ export function WorkspaceAgentQueueReportActionCard({
         });
       case "mark_rollback_required":
         return markSourceDecision({
+          closureState: "closure_blocked",
           coordinatorStatus: "rollback_required",
           result:
             "Rollback required marker recorded. No rollback, git reset, or process kill was started.",
@@ -194,6 +200,8 @@ export function WorkspaceAgentQueueReportActionCard({
         ...(card.linkedFollowUpItemIds ?? []),
         createdTask.queueItemId,
       ],
+      sourceClosureState: "follow_up_created",
+      sourceCoordinatorStatus: "follow_up_required",
     });
 
     return `Queued follow-up item ${createdTask.queueItemId}. It was not run.`;
@@ -229,19 +237,50 @@ export function WorkspaceAgentQueueReportActionCard({
     return `Queued Diff Review item ${createdTask.queueItemId}. It was not run.`;
   }
 
+  async function finalizeSourceItem() {
+    const closureState = sourceClosureStateForAccept(card);
+
+    if (closureState === "commit_required") {
+      return markSourceDecision({
+        closureState,
+        coordinatorStatus: "ready_for_finalization",
+        result:
+          "Closure requires an explicit commit. No commit was created and the source Queue item was not finalized.",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      });
+    }
+
+    return markSourceDecision({
+      closureState,
+      coordinatorStatus: "finalized",
+      result:
+        closureState === "commit_created"
+          ? "Source Queue item finalized / accepted with an existing commit reference. No commit was created by Queue."
+          : "Source Queue item finalized / accepted as no-change work. No commit was created.",
+      status: "completed",
+      validationStatus: "passed",
+    });
+  }
+
   async function markSourceDecision({
+    closureState,
     coordinatorStatus,
     result,
     status,
     validationStatus,
   }: {
+    closureState: AgentQueueClosureState;
     coordinatorStatus: AgentQueueCoordinatorStatus;
     result: string;
     status: UpdateAgentQueueTaskRequest["status"];
     validationStatus: NonNullable<UpdateAgentQueueTaskRequest["validationStatus"]>;
   }) {
     if (!onUpdateQueueTask || !card.sourceItemPrompt) {
-      onPatchCard(card.cardId, { sourceCoordinatorStatus: coordinatorStatus });
+      onPatchCard(card.cardId, {
+        sourceClosureState: closureState,
+        sourceCoordinatorStatus: coordinatorStatus,
+      });
       return `${result} Source Queue update is unavailable, so only this card was marked.`;
     }
 
@@ -258,7 +297,10 @@ export function WorkspaceAgentQueueReportActionCard({
       title: card.sourceItemTitle,
       validationStatus,
     });
-    onPatchCard(card.cardId, { sourceCoordinatorStatus: coordinatorStatus });
+    onPatchCard(card.cardId, {
+      sourceClosureState: closureState,
+      sourceCoordinatorStatus: coordinatorStatus,
+    });
 
     return result;
   }
@@ -275,6 +317,9 @@ export function WorkspaceAgentQueueReportActionCard({
         </div>
         <div className="coordinator-proposal-badges">
           <Badge variant="warning">Coordinator action required</Badge>
+          <Badge variant={queueClosureStateBadgeVariant(card.sourceClosureState)}>
+            {queueClosureStateLabel(card.sourceClosureState)}
+          </Badge>
           <Badge variant="neutral">
             {card.sourceCoordinatorStatus === "finalized"
               ? "Finalized by coordinator"
@@ -290,6 +335,12 @@ export function WorkspaceAgentQueueReportActionCard({
         <ReportFact label="Status" value={card.reportStatus} />
         {card.sourceCoordinatorStatus ? (
           <ReportFact label="Coordinator" value={card.sourceCoordinatorStatus} />
+        ) : null}
+        {card.sourceClosureState ? (
+          <ReportFact
+            label="Closure"
+            value={queueClosureStateLabel(card.sourceClosureState)}
+          />
         ) : null}
         {card.commitHash ? <ReportFact label="Commit" value={card.commitHash} /> : null}
       </dl>
@@ -385,4 +436,18 @@ function primaryActionVariant(actionType: AgentQueueReportActionType) {
     actionType === "finalize_accept_item"
     ? "primary"
     : "secondary";
+}
+
+function sourceClosureStateForAccept(
+  card: AgentQueueReportActionCard,
+): AgentQueueClosureState {
+  if (card.commitHash) {
+    return "commit_created";
+  }
+
+  if (card.changedFiles.length > 0) {
+    return "commit_required";
+  }
+
+  return "no_change_accepted";
 }

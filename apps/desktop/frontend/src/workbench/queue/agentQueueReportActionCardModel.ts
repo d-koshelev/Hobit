@@ -11,6 +11,7 @@ import {
   normalizeTaskStatus,
   normalizeValidationStatus,
 } from "../agentQueueTaskUiModel";
+import { queueClosureStateForTask } from "./agentQueueClosureState";
 import { latestWorkerExecutionReport } from "./agentQueueDiffReviewModel";
 
 export function buildWorkerExecutionReportActionCard({
@@ -54,6 +55,7 @@ export function buildWorkerExecutionReportActionCard({
     sourceItemTitle: displayTaskTitle(sourceTask),
     sourceItemType: normalizeItemType(sourceTask.itemType),
     sourceCoordinatorStatus: sourceTask.coordinatorStatus,
+    sourceClosureState: queueClosureStateForTask(sourceTask) ?? "closure_required",
     sourceQueueTag: queueTag.queueTagName,
     sourceQueueTagId: queueTag.queueTagId,
     sourceReportId: report.reportId,
@@ -109,6 +111,8 @@ export function buildDiffReviewReportActionCard({
     sourceItemTitle: source ? displayTaskTitle(source) : metadata?.sourceItemId ?? "Source item",
     sourceItemType: normalizeItemType(source?.itemType ?? "implementation"),
     sourceCoordinatorStatus: source?.coordinatorStatus,
+    sourceClosureState:
+      queueClosureStateForTask(source ?? diffReviewTask) ?? "closure_required",
     sourceQueueTag: queueTag.queueTagName,
     sourceQueueTagId: queueTag.queueTagId,
     sourceReportId,

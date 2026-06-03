@@ -5,6 +5,11 @@ import {
   coordinatorStatusBlocksNewWork,
   coordinatorStatusLabel,
 } from "../../agentQueueTaskUiModel";
+import {
+  queueClosureStateBadgeVariant,
+  queueClosureStateForTask,
+  queueClosureStateLabel,
+} from "../agentQueueClosureState";
 import { executionPlanStatusLabel } from "../agentQueueExecutionPlanModel";
 import {
   compactNextActionBlocker,
@@ -106,6 +111,7 @@ function nextActionForSelectedTask(
       ? routingState.blockedReasons[0]?.label ?? null
       : null;
   const actions: NextAction["actions"] = [];
+  const closureState = queueClosureStateForTask(selectedTask);
 
   if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
     return {
@@ -156,8 +162,8 @@ function nextActionForSelectedTask(
 
     return {
       actions,
-      badge: failed ? "Run failed" : "Report ready",
-      badgeVariant: failed ? "error" : "info",
+      badge: failed ? "Run failed" : queueClosureStateLabel(closureState),
+      badgeVariant: failed ? "error" : queueClosureStateBadgeVariant(closureState),
       copy: failed
         ? "Run failed. Review the visible error evidence and make an explicit coordinator decision."
         : "Execution complete. Review report evidence and make an explicit coordinator decision.",

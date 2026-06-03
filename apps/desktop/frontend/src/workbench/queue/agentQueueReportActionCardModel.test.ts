@@ -33,6 +33,7 @@ describe("agentQueueReportActionCardModel", () => {
     expect(card.warnings).toEqual(["Diff review recommended."]);
     expect(card.errors).toEqual(["One validation failed."]);
     expect(card.commitHash).toBe("abc1234");
+    expect(card.sourceClosureState).toBe("closure_required");
     expect(card.linkedDiffReviewItemId).toBe("diff-review-1");
     expect(card.dependentItemIds).toEqual(["dependent-1"]);
     expect(card.recommendedActions.map((action) => action.type)).toContain(

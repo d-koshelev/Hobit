@@ -5,6 +5,11 @@ import {
   coordinatorStatusBlocksNewWork,
   coordinatorStatusLabel,
 } from "../../agentQueueTaskUiModel";
+import {
+  queueClosureStateBadgeVariant,
+  queueClosureStateForTask,
+  queueClosureStateLabel,
+} from "../agentQueueClosureState";
 import { hasReviewEvidenceForTask } from "./agentQueueTaskDetailsEvidence";
 import type { AgentQueueController } from "./agentQueueTaskDetailsTypes";
 
@@ -19,6 +24,7 @@ export function AgentQueueTaskCoordinatorDecisionSection({
     ? hasReviewEvidenceForTask(queue, selectedTask) ||
       Boolean(queue.reportActionCard.diffReviewReportCard)
     : false;
+  const closureState = queueClosureStateForTask(selectedTask);
   const isRelevant =
     hasReport || coordinatorStatusBlocksNewWork(finalization.status);
 
@@ -96,6 +102,9 @@ export function AgentQueueTaskCoordinatorDecisionSection({
             automatically.
           </p>
         </div>
+        <Badge variant={queueClosureStateBadgeVariant(closureState)}>
+          {queueClosureStateLabel(closureState)}
+        </Badge>
         <Badge variant={coordinatorStatusBadgeVariant(finalization.status)}>
           {coordinatorStatusLabel(finalization.status)}
         </Badge>

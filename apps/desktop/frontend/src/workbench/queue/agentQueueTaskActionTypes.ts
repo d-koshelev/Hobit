@@ -15,6 +15,7 @@ import type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type AgentQueueLocalTaskFields = Pick<
   AgentQueueTask,
   | "assignedWorkerId"
+  | "closureState"
   | "coordinatorStatus"
   | "dependsOn"
   | "diffReview"

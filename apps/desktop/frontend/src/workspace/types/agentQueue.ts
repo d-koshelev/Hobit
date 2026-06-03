@@ -52,6 +52,14 @@ export type AgentQueueCoordinatorStatus =
   | "failed"
   | "rollback_required";
 
+export type AgentQueueClosureState =
+  | "closure_required"
+  | "commit_required"
+  | "commit_created"
+  | "no_change_accepted"
+  | "follow_up_created"
+  | "closure_blocked";
+
 export type AgentQueueTaskItemType =
   | "implementation"
   | "diff_review"
@@ -179,6 +187,7 @@ export type AgentQueueReportActionCard = {
   sourceQueueTag: string;
   sourceQueueTagId?: string;
   sourceValidationStatus?: AgentQueueTaskValidationStatus;
+  sourceClosureState?: AgentQueueClosureState;
   reportKind: AgentQueueReportKind;
   reportSummary: string;
   reportStatus: string;
@@ -461,6 +470,7 @@ export type AgentQueueTask = {
   workspaceChatReportCardId?: string;
   workspaceChatReportCardStatus?: "not_shown" | "shown";
   coordinatorStatus?: AgentQueueCoordinatorStatus;
+  closureState?: AgentQueueClosureState;
   assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;

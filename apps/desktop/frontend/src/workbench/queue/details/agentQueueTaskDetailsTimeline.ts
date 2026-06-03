@@ -1,4 +1,8 @@
 import {
+  queueClosureStateForTask,
+  queueClosureStateLabel,
+} from "../agentQueueClosureState";
+import {
   coordinatorStatusBlocksNewWork,
   coordinatorStatusLabel,
   statusLabel,
@@ -243,11 +247,14 @@ export function buildHumanTimeline(
     hasReviewEvidenceForTask(queue, selectedTask) &&
     selectedTask.coordinatorStatus !== "finalized"
   ) {
+    const closureState = queueClosureStateForTask(selectedTask);
     entries.push({
       badge: "Review",
       badgeVariant: "warning",
       key: "coordinator-review-required",
-      message: "Review report evidence and make an explicit coordinator decision.",
+      message: `${queueClosureStateLabel(
+        closureState,
+      )}. Review report evidence and make an explicit coordinator decision.`,
       time: selectedTask.updatedAt,
       title: "Coordinator review required",
     });

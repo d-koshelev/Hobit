@@ -61,6 +61,7 @@ describe("useAgentQueueController planning and reports", () => {
     expect(selectedTask?.coordinatorStatus).toBe(
       "awaiting_coordinator_review",
     );
+    expect(selectedTask?.closureState).toBe("closure_required");
     expect(report?.reportStatus).toBe("needs_follow_up");
     expect(report?.validationResult).toBe("not_run");
     expect(report?.changedFiles).toEqual([
@@ -222,6 +223,66 @@ describe("useAgentQueueController planning and reports", () => {
     finalizeHook.unmount();
   });
 
+  it("keeps changed-file report closure in review when an explicit commit is still required", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        executionPlanPreview: {
+          complexity: "medium",
+          estimatedMinutesMax: 20,
+          estimatedMinutesMin: 10,
+          estimatedTokenMax: 2400,
+          estimatedTokenMin: 1200,
+          expectedValidationCommands: [
+            "npm.cmd run typecheck --prefix apps/desktop/frontend",
+          ],
+          generatedAt: "2026-05-20T10:00:00.000Z",
+          itemId: "queue-1",
+          likelyFilesOrAreas: ["apps/desktop/frontend/src/workbench/Queue.tsx"],
+          planId: "plan-1",
+          risk: "medium",
+          source: "heuristic",
+          status: "planned",
+          steps: ["Implement"],
+          workerId: "executor-1",
+        },
+        prompt: "Review changed-file report",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        validationStatus: "needs_review",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.workerReport.onAttachDemoReport();
+    });
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onFinalize();
+      await flushHookEffects();
+    });
+
+    expect(hook.result.current.selectedTask?.closureState).toBe(
+      "commit_required",
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "ready_for_finalization",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("review_needed");
+    expect(
+      hook.result.current.coordinatorFinalization.message?.includes(
+        "No commit was created",
+      ),
+    ).toBe(true);
+    expect(harness.updateRequests[0]?.status).toBe("review_needed");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("marks coordinator needs changes, rollback, blocked, and failed as model-only decisions", async () => {
     await expectCoordinatorDecision("onMarkNeedsChanges", {
       coordinatorStatus: "needs_changes",
@@ -272,6 +333,10 @@ describe("useAgentQueueController planning and reports", () => {
       hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
         ?.coordinatorStatus,
     ).toBe("follow_up_required");
+    expect(
+      hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
+        ?.closureState,
+    ).toBe("follow_up_created");
     expect(hook.result.current.tasks.find(
       (task) => task.queueItemId !== "queue-1",
     )?.itemType).toBe("follow_up");

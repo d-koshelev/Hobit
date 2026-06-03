@@ -123,6 +123,7 @@ export function createAgentQueuePlanningActions({
     const reports = [...(selectedTask.workerExecutionReports ?? []), report];
     const updatedTask = {
       ...selectedTask,
+      closureState: "closure_required" as const,
       coordinatorStatus: "awaiting_coordinator_review" as const,
       workerExecutionReports: reports,
     };
@@ -130,6 +131,7 @@ export function createAgentQueuePlanningActions({
     setLocalTaskFields((current) =>
       new Map(current).set(selectedTask.queueItemId, {
         ...(current.get(selectedTask.queueItemId) ?? {}),
+        closureState: "closure_required",
         coordinatorStatus: "awaiting_coordinator_review",
         workerExecutionReports: reports,
       }),
