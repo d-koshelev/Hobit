@@ -12,6 +12,11 @@ Every widget must comply with `DESIGN_SYSTEM_CONTRACT.md` and
 `docs/PRODUCT_UI_VISUAL_CONTRACT.md`. Widgets should normally use the shared
 WidgetFrame anatomy and the unified widget surface rule.
 
+Universal shell and pane layout vocabulary is defined in
+`docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`. In that model, the WidgetInstance is
+the shell/container, Workspace APIs own logic/state/actions, and panes are
+visualizations inside the widget shell.
+
 Near-term agent/work widget roles are defined in `docs/AGENT_SURFACE_MODEL.md`
 and `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`. Coordinator Chat is the
 primary operator-facing AI surface. Widgets expose controlled capabilities to

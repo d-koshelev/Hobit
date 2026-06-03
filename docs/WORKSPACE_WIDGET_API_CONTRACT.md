@@ -591,6 +591,9 @@ This contract extends the widget-first model without changing current
 implementation status.
 
 - `docs/CURRENT_WIDGET_SURFACE.md` remains authoritative for current behavior.
+- `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md` defines how Widget shell/container
+  presentation and pane visualizations relate to Workspace API-owned logic,
+  state, actions, events, evidence, and logs.
 - `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md` defines capability risk,
   confirmation, context, secrets, and audit expectations.
 - `docs/WORKSPACE_AGENT_COORDINATOR_MODEL.md` defines the single-coordinator

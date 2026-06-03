@@ -210,6 +210,12 @@ unless the task explicitly requests it.
   test hooks, safety policy, app-native action rules, and semantic widget
   testing. It does not add runtime APIs, Finder, storage/schema, backend/Tauri
   commands, provider tools, or widget behavior changes.
+- `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md` - active docs-only type-design
+  contract for universal widget shell and pane layout vocabulary. It defines
+  Widget as shell/container, Workspace API as logic/state/action owner, and
+  Pane as visualization, including pane states and pane types. It does not add
+  frontend UI, backend/Tauri commands, storage/schema, Finder implementation,
+  Terminal split panes, runtime behavior, or widget behavior changes.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. It defines the singleton Queue identity,
   snapshot, item shape, app-native actions, QueuePatch model, events,
@@ -456,13 +462,19 @@ These documents should not override the Workspace Agent model or
   `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md`, use
   `docs/WIDGET_CONTRACT_TEMPLATE.md`, then add
   `docs/WORKSPACE_WIDGET_API_CONTRACT.md`,
+  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`,
   `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md`, and the affected
   widget/domain contract when one exists. Implementation should not start until
   the contract packet reaches Definition of Ready.
+- Universal widget shell, pane layout, or pane type/state work: read
+  `docs/WIDGET_CONTRACT.md`, `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and
+  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add affected widget/domain
+  contracts only when changing domain behavior.
 - Docs-only product model work: read the default set plus the affected domain
   contract.
 - Workspace Widget API or semantic widget testing model work: read
   `docs/WORKSPACE_WIDGET_API_CONTRACT.md`,
+  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`,
   `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`, and the affected widget/domain
   contract.
 - Workspace Agent Coordinator, Queue coordination, or multi-coordinator
