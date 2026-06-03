@@ -19,6 +19,13 @@ association, storage schema changes, polling, watching, fetch, push, reset,
 clean, checkout/switch branch, restore, rebase, merge, patch apply,
 auto-commit, Agent Executor auto-commit, or broader runtime behavior.
 
+Future Stable v0.1 product UX should place common Git review inside Finder
+space, as defined in `docs/FINDER_UX_CONTRACT.md`: changed-file indicators and
+selected-file diffs belong next to file navigation and preview. The current
+standalone Git Widget remains the implemented supporting/compatibility surface
+until an explicit future Finder/Git migration or implementation block changes
+that behavior.
+
 Current and future explicit local commit support must also follow
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
 

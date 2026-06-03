@@ -56,6 +56,9 @@ Current preview surfaces:
 Required Stable v0.1 gap:
 
 - Finder, not implemented yet.
+  Planned Finder UX direction is defined in `docs/FINDER_UX_CONTRACT.md` for
+  column navigation, Finder-owned preview/edit/diff panes, and future Git
+  review inside Finder space. That contract does not make Finder current.
 
 Supporting / compatibility surfaces that may remain implemented or insertable
 for transition, diagnostics, or runtime detail but are not Stable v0.1 product
@@ -961,7 +964,8 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
-- Finder implementation, despite being a required Stable v0.1 product gap
+- Finder implementation, despite being a required Stable v0.1 product gap with
+  planned UX in `docs/FINDER_UX_CONTRACT.md`
 - separate legacy Coordinator preview surface
 - Knowledge Catalog
 - Stages

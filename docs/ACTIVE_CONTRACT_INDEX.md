@@ -373,6 +373,15 @@ unless the task explicitly requests it.
 - `docs/GIT_COMMIT_SUPPORT_CONTRACT.md` - explicit local commit support and
   confirmation requirements.
 
+### Finder
+
+- `docs/FINDER_UX_CONTRACT.md` - planned Finder UX contract for macOS-like
+  column navigation, Finder-owned floating preview, edit-in-place with
+  explicit Save / Cancel, selected-file Git diff preview, pane presentation
+  states, and the future direction that Git review lives in Finder space.
+  Finder remains unimplemented unless a future task explicitly scopes an
+  implementation slice.
+
 ### Notes
 
 - `docs/NOTES_WIDGET_CONTRACT.md` - authoritative current Notes widget
@@ -491,6 +500,10 @@ These documents should not override the Workspace Agent model or
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
   `docs/WORKSPACE_CONTRACT.md`, and the affected domain contract.
+- Finder UX or implementation planning: read `docs/FINDER_UX_CONTRACT.md`,
+  `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and
+  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add `docs/GIT_WIDGET_CONTRACT.md`
+  only when changing current Git behavior or Git mutation boundaries.
 - Queue work: read `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
