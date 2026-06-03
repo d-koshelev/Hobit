@@ -240,13 +240,17 @@ v0.1 product widget.
 - Lists a bounded, non-recursive directory column for the approved root and
   opens selected folders as additional macOS-like columns while previous
   folders remain visible.
-- Selecting a file updates a read-only selected-file preview placeholder with
-  the selected root-relative path.
+- Selecting a file opens a floating file preview with bounded text content,
+  selected root-relative path, size, capped-preview state, and binary/unsupported
+  errors.
+- Uncapped text files with a writable File System Access handle support explicit
+  edit-in-place with save and cancel. Save writes only the selected file through
+  the approved handle; changing selection or closing with unsaved edits is
+  blocked until save/cancel.
 - Directory listing state is current-session frontend state only.
-- Does not read selected file contents, preview diffs, show Git status, mutate
-  files, persist approved roots, scan recursively, watch folders, search files,
-  attach context to Workspace Agent, launch Terminal, create Queue/Executor
-  work, or expose Git UI.
+- Does not preview Git diffs, show Git status, persist approved roots, scan
+  recursively, watch folders, search files, attach context to Workspace Agent,
+  launch Terminal, create Queue/Executor work, or expose Git UI.
 
 ### Terminal
 
@@ -979,9 +983,8 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
-- Finder file content preview, edit-in-place, Git review, root persistence,
-  search, folder watching, and context attachment beyond the current preview
-  column-navigation MVP
+- Finder Git review, root persistence, search, folder watching, and context
+  attachment beyond the current preview column-navigation and file-preview MVP
 - separate legacy Coordinator preview surface
 - Knowledge Catalog
 - Stages

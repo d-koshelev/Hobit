@@ -9,8 +9,14 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
 type FakeFileHandle = {
+  createWritable: () => Promise<{
+    close: () => Promise<void>;
+    write: (content: string) => Promise<void>;
+  }>;
+  getFile: () => Promise<File>;
   kind: "file";
   name: string;
+  readContent: () => string;
 };
 
 type FakeDirectoryHandle = {
@@ -40,10 +46,14 @@ afterEach(() => {
 });
 
 describe("FinderWidget", () => {
-  it("opens an approved root, navigates folder columns, and selects a file preview placeholder", async () => {
+  it("opens an approved root, navigates folder columns, and edits a selected file in the floating preview", async () => {
+    const appFile = file(
+      "App.tsx",
+      "export function App() {\n  return 'hello';\n}\n",
+    );
     const projectRoot = directory("project", [
       file("README.md"),
-      directory("src", [file("App.tsx"), file("main.tsx")]),
+      directory("src", [appFile, file("main.tsx")]),
     ]);
     const showDirectoryPicker = vi.fn(async () => projectRoot);
     Object.defineProperty(window, "showDirectoryPicker", {
@@ -71,11 +81,42 @@ describe("FinderWidget", () => {
     await clickButtonContaining("App.tsx");
 
     expect(document.body.textContent).toContain("src/App.tsx");
-    expect(document.body.textContent).toContain(
-      "File content preview is intentionally not wired in this MVP.",
-    );
+    expect(document.body.textContent).toContain("export function App()");
+    expect(
+      document.querySelector(".finder-floating-preview-normal"),
+    ).not.toBeNull();
     expect(document.body.textContent).not.toContain("Git");
-    expect(document.body.textContent).not.toContain("Save");
+
+    await clickButton("Minimize");
+    expect(
+      document.querySelector(".finder-floating-preview-minimized"),
+    ).not.toBeNull();
+
+    await clickButton("Restore");
+    await clickButton("Maximize");
+    expect(
+      document.querySelector(".finder-floating-preview-maximized"),
+    ).not.toBeNull();
+
+    await clickButton("Edit");
+    await changeTextarea("export function App() {\n  return 'saved';\n}\n");
+
+    expect(document.body.textContent).toContain("Unsaved");
+
+    await clickButton("Save");
+
+    expect(appFile.readContent()).toContain("return 'saved'");
+    expect(document.body.textContent).toContain("Saved");
+
+    await clickButton("Edit");
+    await changeTextarea("export function App() {\n  return 'discarded';\n}\n");
+    await clickButton("Cancel");
+
+    expect(appFile.readContent()).toContain("return 'saved'");
+    expect(appFile.readContent()).not.toContain("discarded");
+
+    await clickButton("Close");
+    expect(document.querySelector(".finder-floating-preview")).toBeNull();
   });
 
   it("shows an honest unsupported listing state when only the native directory label picker is available", async () => {
@@ -134,6 +175,23 @@ async function clickButtonContaining(text: string) {
   });
 }
 
+async function changeTextarea(value: string) {
+  await act(async () => {
+    const textarea = document.querySelector("textarea");
+    if (!textarea) {
+      throw new Error("Textarea not found");
+    }
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
@@ -164,10 +222,20 @@ function directory(name: string, children: FakeHandle[]): FakeDirectoryHandle {
   };
 }
 
-function file(name: string): FakeFileHandle {
+function file(name: string, content = ""): FakeFileHandle {
+  let currentContent = content;
+
   return {
+    createWritable: async () => ({
+      close: async () => undefined,
+      write: async (nextContent: string) => {
+        currentContent = nextContent;
+      },
+    }),
+    getFile: async () => new File([currentContent], name, { type: "text/plain" }),
     kind: "file" as const,
     name,
+    readContent: () => currentContent,
   };
 }
 
