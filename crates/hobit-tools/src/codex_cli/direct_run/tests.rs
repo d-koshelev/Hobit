@@ -95,7 +95,6 @@ fn built_args_put_global_options_before_exec_and_exec_options_after() {
             "exec".to_owned(),
             "--output-last-message".to_owned(),
             output_last_message_arg,
-            "-".to_owned(),
         ]
     );
     assert!(arg_index(&args, "--ask-for-approval") < arg_index(&args, "exec"));
@@ -103,7 +102,11 @@ fn built_args_put_global_options_before_exec_and_exec_options_after() {
     assert!(arg_index(&args, "--cd") < arg_index(&args, "exec"));
     assert!(arg_index(&args, "--output-last-message") > arg_index(&args, "exec"));
     assert!(!args.iter().any(|part| part == prompt));
-    assert_eq!(args.last().map(String::as_str), Some("-"));
+    assert_eq!(
+        args.last().map(String::as_str),
+        Some(output_last_message_path.to_string_lossy().as_ref())
+    );
+    assert_no_image_generation_tooling(&args);
 }
 
 #[test]
@@ -160,6 +163,7 @@ fn command_summary_matches_argv_order_and_redacts_prompt() {
         summary.last().map(String::as_str),
         Some("<operator-prompt-stdin>")
     );
+    assert_no_image_generation_tooling(&summary);
 }
 
 #[test]
@@ -175,7 +179,8 @@ fn args_are_passed_without_shell_concatenation() {
     let final_message = output.final_message.unwrap();
     assert!(final_message.contains("--ask-for-approval\non-request\nexec\n"));
     assert!(final_message.contains("exec\n--output-last-message\n"));
-    assert!(final_message.contains("\n-\nstdin:\n"));
+    assert!(final_message.contains("--output-last-message\n"));
+    assert!(final_message.contains("stdin:\n"));
     assert!(final_message.ends_with(&prompt));
     assert!(!output.command_summary.iter().any(|part| part == &prompt));
     assert!(output
@@ -273,7 +278,7 @@ fn multiline_prompt_is_written_to_stdin() {
 
     assert_eq!(output.status, CodexDirectRunStatus::Completed);
     let final_message = output.final_message.unwrap();
-    assert!(final_message.contains("\n-\nstdin:\n"));
+    assert!(final_message.contains("stdin:\n"));
     assert!(final_message.ends_with(prompt));
     assert!(!output.command_summary.iter().any(|part| part == prompt));
 }
@@ -614,6 +619,19 @@ fn assert_no_skip_git_repo_check_before_exec(args: &[String]) {
     assert!(!args[..exec_index]
         .iter()
         .any(|arg| arg == "--skip-git-repo-check"));
+}
+
+fn assert_no_image_generation_tooling(args: &[String]) {
+    let forbidden_fragments = ["gpt-image", "image_generation", "image-generation"];
+    assert!(
+        args.iter().all(|arg| {
+            let arg = arg.to_ascii_lowercase();
+            forbidden_fragments
+                .iter()
+                .all(|fragment| !arg.contains(fragment))
+        }),
+        "Codex text Direct Work args must not include image-generation tool/model options: {args:?}"
+    );
 }
 
 fn request_with_program(

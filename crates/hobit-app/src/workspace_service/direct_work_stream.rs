@@ -15,8 +15,9 @@ use super::{
         direct_work_approval_policy_value, direct_work_input_runtime_artifacts,
         direct_work_no_git_mutation_log_payload, direct_work_requested_log_payload,
         direct_work_sandbox_value, direct_work_started_log_payload, normalize_direct_work_input,
-        NormalizedDirectWorkInput, CODEX_DIRECT_WORK_COMMAND_KIND, CODEX_DIRECT_WORK_EXECUTOR_KIND,
-        CODEX_DIRECT_WORK_MODE, CODEX_DIRECT_WORK_RESULT_TYPE, WIDGET_LOG_ERROR_LEVEL,
+        sanitized_codex_invocation_payload, NormalizedDirectWorkInput,
+        CODEX_DIRECT_WORK_COMMAND_KIND, CODEX_DIRECT_WORK_EXECUTOR_KIND, CODEX_DIRECT_WORK_MODE,
+        CODEX_DIRECT_WORK_RESULT_TYPE, WIDGET_LOG_ERROR_LEVEL,
     },
     direct_work_artifacts::{
         DirectWorkOutputRuntimeArtifacts, DirectWorkStreamEventRuntimeArtifact,
@@ -464,6 +465,7 @@ fn direct_work_stream_completion_log_payload(
         "failed_stage": direct_work_stream_failed_stage(output.status),
         "cancellation_requested": output.status == CodexDirectStreamStatus::Cancelled,
         "force_killed": output.force_killed,
+        "sanitized_invocation": sanitized_codex_invocation_payload(&output.command_summary),
     })
     .to_string()
 }

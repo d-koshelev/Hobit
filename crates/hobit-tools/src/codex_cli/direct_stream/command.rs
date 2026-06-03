@@ -55,7 +55,6 @@ pub(super) fn build_codex_exec_json_args(
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "-".to_owned(),
     ]);
 
     args
@@ -94,18 +93,13 @@ pub(super) fn safe_command_summary(
         "--json".to_owned(),
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "-".to_owned(),
     ]);
     debug_assert!(launch_args.ends_with(&expected_codex_args));
 
-    let mut summary = Vec::with_capacity(1 + launch_args.len());
+    let mut summary = Vec::with_capacity(2 + launch_args.len());
     summary.push(launch_program.to_owned());
     summary.extend(launch_args.iter().cloned());
-    if summary.last().map(String::as_str) == Some("-") {
-        if let Some(last) = summary.last_mut() {
-            *last = "<operator-prompt-stdin>".to_owned();
-        }
-    }
+    summary.push("<operator-prompt-stdin>".to_owned());
     summary
 }
 

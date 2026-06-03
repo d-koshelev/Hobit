@@ -7,7 +7,7 @@ use hobit_tools::codex_cli::{
     CodexDirectRunStatus, CodexSandboxMode, DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES,
     DEFAULT_CODEX_DIRECT_RUN_STDOUT_CAP_BYTES, DEFAULT_CODEX_DIRECT_RUN_TIMEOUT_MS,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::WorkspaceServiceError;
 
@@ -406,20 +406,22 @@ pub(super) fn direct_work_input_runtime_artifacts(
     input: &NormalizedDirectWorkInput,
 ) -> DirectWorkInputRuntimeArtifacts {
     let repo_root = input.repo_root.to_string_lossy().into_owned();
-    let mut command_parts = vec![input.codex_executable.as_str(), "exec"];
-    if let Some(thread_id) = input.codex_thread_id.as_deref() {
-        command_parts.extend(["resume", thread_id]);
-    }
-    command_parts.extend([
+    let mut command_parts = vec![
+        input.codex_executable.as_str(),
         "--cd",
         repo_root.as_str(),
         "--sandbox",
-        direct_work_sandbox_value(input.sandbox),
+        input.sandbox.as_cli_arg(),
         "--ask-for-approval",
-        direct_work_approval_policy_value(input.approval_policy),
-    ]);
+        input.approval_policy.as_cli_arg(),
+        "exec",
+    ];
+    if let Some(thread_id) = input.codex_thread_id.as_deref() {
+        command_parts.extend(["resume", thread_id]);
+    }
+    command_parts.extend(["--output-last-message", "<temp-file>"]);
     if input.skip_git_repo_check {
-        command_parts.push("--skip-git-repo-check");
+        command_parts.insert(command_parts.len() - 2, "--skip-git-repo-check");
     }
     command_parts.push("<operator-prompt-stdin>");
 
@@ -467,8 +469,29 @@ fn direct_work_completion_log_payload(output: &CodexDirectRunOutput, final_statu
         "stderr_truncated": output.stderr_truncated,
         "final_message_present": output.final_message.is_some(),
         "error_message": &output.error_message,
+        "sanitized_invocation": sanitized_codex_invocation_payload(&output.command_summary),
     })
     .to_string()
+}
+
+pub(super) fn sanitized_codex_invocation_payload(command_summary: &[String]) -> Value {
+    json!({
+        "command_summary": command_summary,
+        "stdin": "<operator-prompt-stdin>",
+        "environment": {
+            "mode": "inherits_parent_environment",
+            "overrides": [],
+            "sensitive_values": "<redacted>",
+            "redacted_variable_patterns": [
+                "*_API_KEY",
+                "*_TOKEN",
+                "*_SECRET",
+                "*_PASSWORD",
+                "OPENAI_API_KEY",
+                "CODEX_*"
+            ],
+        },
+    })
 }
 
 pub(super) fn direct_work_no_git_mutation_log_payload() -> String {

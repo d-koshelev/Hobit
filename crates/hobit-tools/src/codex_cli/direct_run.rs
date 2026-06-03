@@ -159,7 +159,7 @@ impl fmt::Display for CodexDirectRunStatus {
 /// Non-zero Codex exits are returned as `CodexDirectRunStatus::Failed`, while a
 /// zero exit is `Completed`. Process spawn failures and timeouts are separate
 /// infrastructure statuses. The prompt is passed to the process over stdin and
-/// is intentionally not copied into `command_summary`.
+/// is intentionally not copied into the argv.
 pub fn run_codex_direct_work(request: CodexDirectRunRequest) -> CodexDirectRunOutput {
     run_codex_direct_work_inner(request, None)
 }
@@ -328,7 +328,6 @@ fn build_codex_exec_args(
     args.extend([
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "-".to_owned(),
     ]);
 
     args
@@ -366,18 +365,13 @@ fn safe_command_summary(
     expected_codex_args.extend([
         "--output-last-message".to_owned(),
         output_last_message_path.to_string_lossy().into_owned(),
-        "-".to_owned(),
     ]);
     debug_assert!(launch_args.ends_with(&expected_codex_args));
 
-    let mut summary = Vec::with_capacity(1 + launch_args.len());
+    let mut summary = Vec::with_capacity(2 + launch_args.len());
     summary.push(launch_program.to_owned());
     summary.extend(launch_args.iter().cloned());
-    if summary.last().map(String::as_str) == Some("-") {
-        if let Some(last) = summary.last_mut() {
-            *last = "<operator-prompt-stdin>".to_owned();
-        }
-    }
+    summary.push("<operator-prompt-stdin>".to_owned());
     summary
 }
 

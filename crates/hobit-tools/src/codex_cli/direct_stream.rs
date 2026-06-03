@@ -45,7 +45,7 @@ pub use types::{
 /// events to `on_event`.
 ///
 /// Non-zero Codex exits return `Failed`; zero exits return `Completed`. The
-/// prompt is passed over stdin and is not copied into `command_summary`.
+/// prompt is passed over stdin and is not copied into the argv.
 pub fn run_codex_direct_work_streaming<F>(
     request: CodexDirectStreamRequest,
     on_event: F,

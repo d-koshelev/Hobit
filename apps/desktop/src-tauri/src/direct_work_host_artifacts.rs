@@ -313,14 +313,23 @@ fn error_kind_for_non_error_status(status: &str) -> Option<RuntimeErrorKind> {
 fn direct_work_host_command_parts(input: &RunCodexDirectWorkInput) -> Vec<String> {
     let mut parts = vec![
         input.codex_executable.clone(),
+        "--cd".to_owned(),
+        input.repo_root.display().to_string(),
+        "--sandbox".to_owned(),
+        codex_sandbox_cli_arg(&input.sandbox).to_owned(),
+        "--ask-for-approval".to_owned(),
+        codex_approval_cli_arg(&input.approval_policy).to_owned(),
         "exec".to_owned(),
         "--json".to_owned(),
-        "--sandbox".to_owned(),
-        input.sandbox.clone(),
-        "--approval-policy".to_owned(),
-        input.approval_policy.clone(),
+        "--output-last-message".to_owned(),
+        "<temp-file>".to_owned(),
         "<operator-prompt-stdin>".to_owned(),
     ];
+
+    if input.skip_git_repo_check {
+        let insert_at = parts.len() - 3;
+        parts.insert(insert_at, "--skip-git-repo-check".to_owned());
+    }
 
     if let Some(timeout_ms) = input.timeout_ms {
         parts.push("--timeout-ms".to_owned());
@@ -336,6 +345,22 @@ fn direct_work_host_command_parts(input: &RunCodexDirectWorkInput) -> Vec<String
     }
 
     parts
+}
+
+fn codex_sandbox_cli_arg(value: &str) -> &str {
+    match value {
+        "read_only" => "read-only",
+        "workspace_write" => "workspace-write",
+        "danger_full_access" => "danger-full-access",
+        other => other,
+    }
+}
+
+fn codex_approval_cli_arg(value: &str) -> &str {
+    match value {
+        "on_request" => "on-request",
+        other => other,
+    }
 }
 
 fn redaction_status_for_strings(parts: &[String]) -> RuntimeRedactionStatus {

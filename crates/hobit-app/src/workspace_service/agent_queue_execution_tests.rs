@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use hobit_storage_sqlite::SqliteStore;
 use hobit_tools::codex_cli::{
-    CodexDirectStreamEvent, CodexDirectStreamEventKind, CodexDirectStreamOutput,
-    CodexDirectStreamRequest, CodexDirectStreamStatus,
+    CodexApprovalPolicy, CodexDirectStreamEvent, CodexDirectStreamEventKind,
+    CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus, CodexSandboxMode,
 };
 use serde_json::Value;
 
@@ -111,6 +111,65 @@ fn queue_owned_task_start_does_not_require_agent_executor_assignment() {
     assert_eq!(run.widget_instance_id, queue_widget_id);
     assert_eq!(link.executor_widget_id, queue_widget_id);
     assert_eq!(link.direct_work_run_id, start.run_id);
+}
+
+#[test]
+fn queue_owned_task_stream_uses_text_only_direct_work_request() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+    let queue_widget_id = add_widget(
+        &service,
+        &workspace.id,
+        workbench_id,
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        "Agent Queue",
+    );
+    let task = create_task(
+        &service,
+        &workspace.id,
+        "queued",
+        "Say OK. Do not use tools.",
+    );
+    let mut input = start_input(&workspace.id, &task.queue_item_id);
+    input.queue_owner_widget_instance_id = Some(queue_widget_id);
+    input.sandbox = "danger_full_access".to_owned();
+    input.approval_policy = "never".to_owned();
+
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("start queue-owned task");
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            start.direct_work_input.clone(),
+            &start.run_id,
+            |request, on_event| {
+                assert_eq!(request.program.as_deref(), Some("codex"));
+                assert_eq!(request.prompt, "Say OK. Do not use tools.");
+                assert_eq!(request.sandbox, CodexSandboxMode::DangerFullAccess);
+                assert_eq!(request.approval_policy, CodexApprovalPolicy::Never);
+                assert!(request.skip_git_repo_check);
+                assert_eq!(request.resume_thread_id, None);
+                assert!(request.output_last_message_path.is_none());
+
+                stream_output(request, CodexDirectStreamStatus::Completed, on_event)
+            },
+            |_| {},
+        )
+        .expect("run queue-owned Direct Work stream")
+        .expect("Direct Work summary");
+
+    assert_eq!(summary.status, "completed");
+    assert!(!summary
+        .command_summary
+        .iter()
+        .any(|part| part.to_ascii_lowercase().contains("gpt-image")));
+    assert!(!summary
+        .command_summary
+        .iter()
+        .any(|part| part.to_ascii_lowercase().contains("image-generation")));
 }
 
 #[test]

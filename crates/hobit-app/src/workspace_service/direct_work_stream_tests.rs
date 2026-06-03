@@ -299,6 +299,79 @@ fn codex_direct_work_stream_events_append_logs_and_emit_tauri_ready_payloads() {
 }
 
 #[test]
+fn codex_direct_work_stream_completion_log_includes_sanitized_invocation_diagnostics() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
+    let input = direct_work_input(
+        &workspace_id,
+        &workbench_id,
+        &widget_id,
+        current_repo_root(),
+        "Stream Codex without image tools.",
+        "workspace_write",
+        "never",
+    );
+    let start = service
+        .start_codex_direct_work_stream(input.clone())
+        .expect("start stream")
+        .expect("stream start summary");
+
+    let summary = service
+        .run_codex_direct_work_stream_with_runner(
+            input,
+            &start.run_id,
+            |request, on_event| {
+                emit_completed_stream_events_without_thread_id(on_event);
+                CodexDirectStreamOutput {
+                    command_summary: vec![
+                        "codex".to_owned(),
+                        "--cd".to_owned(),
+                        request.repo_root.display().to_string(),
+                        "--sandbox".to_owned(),
+                        "workspace-write".to_owned(),
+                        "--ask-for-approval".to_owned(),
+                        "never".to_owned(),
+                        "exec".to_owned(),
+                        "--skip-git-repo-check".to_owned(),
+                        "--json".to_owned(),
+                        "--output-last-message".to_owned(),
+                        "<temp-file>".to_owned(),
+                        "<operator-prompt-stdin>".to_owned(),
+                    ],
+                    ..completed_stream_output(&request, 3)
+                }
+            },
+            |_| {},
+        )
+        .expect("run stream")
+        .expect("stream summary");
+    let payload = widget_log_payload_by_message(&service, &widget_id, "Codex process completed");
+    let invocation = &payload["sanitized_invocation"];
+    let command_summary = invocation["command_summary"]
+        .as_array()
+        .expect("command summary array")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+
+    assert_eq!(summary.status, "completed");
+    assert!(
+        arg_index(&command_summary, "--ask-for-approval") < arg_index(&command_summary, "exec")
+    );
+    assert!(arg_index(&command_summary, "--sandbox") < arg_index(&command_summary, "exec"));
+    assert!(arg_index(&command_summary, "--cd") < arg_index(&command_summary, "exec"));
+    assert!(arg_index(&command_summary, "--json") > arg_index(&command_summary, "exec"));
+    assert!(
+        arg_index(&command_summary, "--output-last-message") > arg_index(&command_summary, "exec")
+    );
+    assert_eq!(command_summary.last(), Some(&"<operator-prompt-stdin>"));
+    assert!(!command_summary
+        .iter()
+        .any(|part| part.to_ascii_lowercase().contains("gpt-image")));
+    assert_eq!(invocation["environment"]["sensitive_values"], "<redacted>");
+}
+
+#[test]
 fn codex_direct_work_stream_missing_thread_id_still_completes_without_thread() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_coordinator_widget(&service);
@@ -865,11 +938,15 @@ fn stream_output(
             "codex".to_owned(),
             "--cd".to_owned(),
             request.repo_root.display().to_string(),
+            "--sandbox".to_owned(),
+            request.sandbox.as_cli_arg().to_owned(),
+            "--ask-for-approval".to_owned(),
+            request.approval_policy.as_cli_arg().to_owned(),
             "exec".to_owned(),
             "--json".to_owned(),
             "--output-last-message".to_owned(),
             "<temp-file>".to_owned(),
-            "<operator-prompt>".to_owned(),
+            "<operator-prompt-stdin>".to_owned(),
         ],
         event_count,
         force_killed: false,
@@ -895,6 +972,29 @@ fn current_repo_root() -> PathBuf {
 
 fn widget_log_messages(logs: &[WidgetLogSummary]) -> Vec<&str> {
     logs.iter().map(|log| log.message.as_str()).collect()
+}
+
+fn widget_log_payload_by_message(
+    service: &WorkspaceService,
+    widget_id: &str,
+    message: &str,
+) -> Value {
+    let logs = service
+        .store
+        .list_widget_logs_for_widget(widget_id, 30)
+        .expect("list logs");
+    let log = logs
+        .iter()
+        .find(|log| log.message == message)
+        .unwrap_or_else(|| panic!("missing log message: {message}"));
+
+    serde_json::from_str(log.details.as_deref().expect("log details")).expect("log details json")
+}
+
+fn arg_index(args: &[&str], arg: &str) -> usize {
+    args.iter()
+        .position(|item| *item == arg)
+        .unwrap_or_else(|| panic!("missing arg: {arg}"))
 }
 
 fn direct_work_stream_failed_stage(status: CodexDirectStreamStatus) -> Option<&'static str> {

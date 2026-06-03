@@ -413,6 +413,78 @@ fn codex_direct_work_result_json_records_executor_mode_safety_and_policy_fields(
 }
 
 #[test]
+fn codex_direct_work_completion_log_includes_sanitized_invocation_diagnostics() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
+
+    let summary = service
+        .run_codex_direct_work_with_runner(
+            direct_work_input(
+                &workspace_id,
+                &workbench_id,
+                &widget_id,
+                current_repo_root(),
+                "Run Codex without leaking this prompt in argv.",
+                "workspace_write",
+                "never",
+            ),
+            |request| CodexDirectRunOutput {
+                command_summary: vec![
+                    "codex".to_owned(),
+                    "--cd".to_owned(),
+                    request.repo_root.display().to_string(),
+                    "--sandbox".to_owned(),
+                    "workspace-write".to_owned(),
+                    "--ask-for-approval".to_owned(),
+                    "never".to_owned(),
+                    "exec".to_owned(),
+                    "--skip-git-repo-check".to_owned(),
+                    "--output-last-message".to_owned(),
+                    "<temp-file>".to_owned(),
+                    "<operator-prompt-stdin>".to_owned(),
+                ],
+                ..completed_output(&request)
+            },
+        )
+        .expect("run direct work")
+        .expect("direct work summary");
+    let payload = widget_log_payload_by_message(&service, &widget_id, "Codex process completed");
+    let invocation = &payload["sanitized_invocation"];
+    let command_summary = invocation["command_summary"]
+        .as_array()
+        .expect("command summary array")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+
+    assert_eq!(summary.status, "completed");
+    assert_eq!(command_summary[0], "codex");
+    assert!(
+        arg_index(&command_summary, "--ask-for-approval") < arg_index(&command_summary, "exec")
+    );
+    assert!(arg_index(&command_summary, "--sandbox") < arg_index(&command_summary, "exec"));
+    assert!(arg_index(&command_summary, "--cd") < arg_index(&command_summary, "exec"));
+    assert!(
+        arg_index(&command_summary, "--skip-git-repo-check") > arg_index(&command_summary, "exec")
+    );
+    assert!(
+        arg_index(&command_summary, "--output-last-message") > arg_index(&command_summary, "exec")
+    );
+    assert_eq!(command_summary.last(), Some(&"<operator-prompt-stdin>"));
+    assert!(!command_summary
+        .iter()
+        .any(|part| *part == "Run Codex without leaking this prompt in argv."));
+    assert!(!command_summary
+        .iter()
+        .any(|part| part.to_ascii_lowercase().contains("gpt-image")));
+    assert_eq!(invocation["environment"]["sensitive_values"], "<redacted>");
+    assert_eq!(
+        invocation["environment"]["mode"],
+        "inherits_parent_environment"
+    );
+}
+
+#[test]
 fn codex_direct_work_accepts_danger_full_access_sandbox() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_direct_work_widget(&service);
@@ -597,10 +669,16 @@ fn codex_output(
         },
         command_summary: vec![
             "codex".to_owned(),
-            "exec".to_owned(),
             "--cd".to_owned(),
             request.repo_root.display().to_string(),
-            "<operator-prompt>".to_owned(),
+            "--sandbox".to_owned(),
+            request.sandbox.as_cli_arg().to_owned(),
+            "--ask-for-approval".to_owned(),
+            request.approval_policy.as_cli_arg().to_owned(),
+            "exec".to_owned(),
+            "--output-last-message".to_owned(),
+            "<temp-file>".to_owned(),
+            "<operator-prompt-stdin>".to_owned(),
         ],
         repo_root: request.repo_root.clone(),
         sandbox: request.sandbox,
@@ -628,6 +706,29 @@ fn last_widget_log(service: &WorkspaceService, widget_id: &str) -> Option<String
         .expect("list logs")
         .last()
         .map(|log| log.message.clone())
+}
+
+fn widget_log_payload_by_message(
+    service: &WorkspaceService,
+    widget_id: &str,
+    message: &str,
+) -> Value {
+    let logs = service
+        .store
+        .list_widget_logs_for_widget(widget_id, 20)
+        .expect("list logs");
+    let log = logs
+        .iter()
+        .find(|log| log.message == message)
+        .unwrap_or_else(|| panic!("missing log message: {message}"));
+
+    serde_json::from_str(log.details.as_deref().expect("log details")).expect("log details json")
+}
+
+fn arg_index(args: &[&str], arg: &str) -> usize {
+    args.iter()
+        .position(|item| *item == arg)
+        .unwrap_or_else(|| panic!("missing arg: {arg}"))
 }
 
 fn current_repo_root() -> PathBuf {
