@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
+import type { GenerateCoordinatorProviderResponse } from "../workspace/types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   QueueWidgetActionResult,
@@ -429,6 +430,102 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
 
     expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
     expect(document.body.textContent).toContain("Autonomous Queue started.");
+  });
+
+  it("handles explicit Queue-only multi-task chat locally without provider or Codex", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult("queue.createItem", {
+          approvalPolicy: request.approvalPolicy,
+          codexExecutable: request.codexExecutable,
+          executionPolicy: request.executionPolicy,
+          executionWorkspace: request.executionWorkspace ?? "",
+          id: `queue-created-${(createItem.mock.calls.length + 1).toString()}`,
+          prompt: request.prompt,
+          sandbox: request.sandbox,
+          status: request.status,
+          title: request.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+    const provider = vi.fn(async () => providerResponse());
+    const startCodex = vi.fn();
+    const runTerminal = vi.fn();
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startCodex,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        getRunSettingsDefaults: () => null,
+        runAutonomousQueue,
+      }),
+    });
+
+    await sendWorkspaceAgentMessage(multiTaskQueueOnlyCommand(), "Run with Codex");
+
+    expect(createItem).toHaveBeenCalledTimes(3);
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Created 3 Queue items and started Autonomous Queue.",
+    );
+  });
+
+  it("shows a local Queue API error without provider fallback when the bridge is missing", async () => {
+    const provider = vi.fn(async () => providerResponse());
+    const startCodex = vi.fn();
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onStartCodexDirectWorkStream: startCodex,
+    });
+
+    await sendWorkspaceAgentMessage(multiTaskQueueOnlyCommand(), "Run with Codex");
+
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Agent Queue API is not available in this workspace view.",
+    );
+  });
+
+  it("keeps non-Queue chat on the provider path", async () => {
+    const provider = vi.fn(async () =>
+      providerResponse({ assistantText: "Provider handled ordinary chat." }),
+    );
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        runAutonomousQueue,
+      }),
+    });
+
+    await sendWorkspaceAgentMessage("Explain the current frontend architecture.");
+
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Provider handled ordinary chat.",
+    );
   });
 
   it("explains failed Queue evidence without Direct Work, provider, Queue creation, or Autorun", async () => {
@@ -912,6 +1009,45 @@ function queueIntentBlock(intent: Record<string, unknown>) {
     JSON.stringify(intent),
     "```",
   ].join("\n");
+}
+
+function multiTaskQueueOnlyCommand() {
+  return [
+    "Use Agent Queue only. Do not execute commands directly.",
+    "",
+    "Create three separate queued Queue tasks with task-scoped run settings:",
+    "",
+    "* workspace: C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+    "* codex executable: codex.cmd",
+    "* sandbox: danger_full_access",
+    "* approval: never",
+    "",
+    "Task 1: read AGENTS.md first line",
+    "Task 2: show current location",
+    "Task 3: show git status",
+    "",
+    "After creating all three Queue tasks, start Autonomous Queue.",
+  ].join("\n");
+}
+
+function providerResponse(
+  overrides: Partial<GenerateCoordinatorProviderResponse> = {},
+): GenerateCoordinatorProviderResponse {
+  return {
+    allowedTools: [],
+    assistantText: "Provider answer.",
+    noHiddenContextUsed: true,
+    noMutationsPerformed: true,
+    noToolsExecuted: true,
+    proposalDrafts: [],
+    providerError: null,
+    providerKind: "mock-local",
+    providerStatus: "completed",
+    requestId: "provider-test-request",
+    visibleContextMessageCount: 1,
+    visibleProposalDraftCount: 0,
+    ...overrides,
+  };
 }
 
 function buttonWithText(text: string) {

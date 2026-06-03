@@ -1,4 +1,5 @@
 import type {
+  AgentQueueTaskExecutionPolicy,
   AgentQueueTaskStatus,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -26,7 +27,15 @@ export type WorkspaceAgentQueueCommand =
   | { type: "analyzeQueue" }
   | { type: "explainFailure" }
   | {
+      commands: WorkspaceAgentQueueCommand[];
+      forceLocal: boolean;
+      type: "batch";
+    }
+  | {
+      executionPolicy?: AgentQueueTaskExecutionPolicy;
       prompt: string;
+      runSettings?: Partial<AgentQueueTaskRunSettingsDefaults>;
+      status?: Extract<AgentQueueTaskStatus, "draft" | "queued">;
       title: string;
       type: "createItem";
     }
@@ -37,7 +46,8 @@ export type WorkspaceAgentQueueCommand =
       type: "updateItem";
     }
   | { type: "runAutonomousQueue" }
-  | { type: "stopAutonomousQueueAfterCurrent" };
+  | { type: "stopAutonomousQueueAfterCurrent" }
+  | { type: "unsupportedQueueCommand" };
 
 export type WorkspaceAgentQueueCommandResult = {
   body: string;
@@ -51,7 +61,19 @@ type WorkspaceAgentQueueCommandHandlerOptions = {
 
 const CREATE_PHRASES = [
   "create queue item",
+  "create queue task",
+  "create queued queue task",
+  "create queued task",
+  "create queued tasks",
+  "create queued queue tasks",
+  "create tasks",
+  "create queue tasks",
+  "create separate queued queue tasks",
+  "create separate queued tasks",
   "add queue task",
+  "add queue tasks",
+  "add these tasks to queue",
+  "add these tasks to the queue",
   "create task",
   "\u0441\u043e\u0437\u0434\u0430\u0439 \u0437\u0430\u0434\u0430\u0447\u0443",
   "\u0434\u043e\u0431\u0430\u0432\u044c \u0437\u0430\u0434\u0430\u0447\u0443",
@@ -120,6 +142,20 @@ const APPROVAL_POLICIES: DirectWorkApprovalPolicy[] = [
   "untrusted",
 ];
 
+const QUEUE_ONLY_PATTERNS = [
+  /\buse\s+agent\s+queue\s+only\b/i,
+  /\bqueue\s+only\b/i,
+];
+
+const QUEUE_CONTROL_PATTERNS = [
+  /\bcreate\s+(?:\w+\s+){0,4}(?:queued\s+)?(?:queue\s+)?tasks?\b/i,
+  /\badd\s+(?:these\s+)?tasks?\s+to\s+(?:the\s+)?queue\b/i,
+  /\banalyze\s+queue\b/i,
+  /\brun\s+autonomous\s+queue\b/i,
+  /\bstart\s+autonomous\s+queue\b/i,
+  /\bupdate\s+task\s+\S+/i,
+];
+
 export function parseWorkspaceAgentQueueCommand(
   text: string,
 ): WorkspaceAgentQueueCommand | null {
@@ -127,6 +163,23 @@ export function parseWorkspaceAgentQueueCommand(
 
   if (!visibleText) {
     return null;
+  }
+
+  const batchCommand = parseBatchQueueCommand(visibleText);
+  if (batchCommand) {
+    return batchCommand;
+  }
+
+  const visibleNonFencedText = stripFenceBlocks(visibleText);
+
+  if (!startsWithAnyKnownQueuePhrase(visibleText)) {
+    const embeddedCommandText = embeddedQueueCommandText(visibleNonFencedText);
+    if (embeddedCommandText) {
+      const embeddedCommand = parseWorkspaceAgentQueueCommand(embeddedCommandText);
+      if (embeddedCommand) {
+        return embeddedCommand;
+      }
+    }
   }
 
   if (startsWithAnyPhrase(visibleText, ANALYZE_PHRASES)) {
@@ -164,7 +217,10 @@ export function parseWorkspaceAgentQueueCommand(
     };
   }
 
-  return parseUpdateCommand(visibleText);
+  return (
+    parseUpdateCommand(visibleText) ??
+    forcedLocalQueueCommand(visibleNonFencedText)
+  );
 }
 
 export async function runWorkspaceAgentQueueCommand(
@@ -179,7 +235,7 @@ export async function runWorkspaceAgentQueueCommand(
 
   if (!options.bridge) {
     return {
-      body: "Queue command could not run: Agent Queue bridge is unavailable.",
+      body: "Agent Queue API is not available in this workspace view.",
       handled: true,
     };
   }
@@ -193,6 +249,14 @@ export async function runWorkspaceAgentQueueCommand(
     case "explainFailure":
       return {
         body: await explainQueueFailure(options.bridge),
+        handled: true,
+      };
+    case "batch":
+      return {
+        body: await runQueueCommandBatch(command, {
+          ...options,
+          bridge: options.bridge,
+        }),
         handled: true,
       };
     case "createItem":
@@ -215,7 +279,177 @@ export async function runWorkspaceAgentQueueCommand(
         body: await stopAutonomousQueueAfterCurrent(options.bridge),
         handled: true,
       };
+    case "unsupportedQueueCommand":
+      return {
+        body: "Queue action failed: no supported Queue command was recognized.",
+        handled: true,
+      };
   }
+}
+
+function parseBatchQueueCommand(
+  text: string,
+): WorkspaceAgentQueueCommand | null {
+  if (!isMultiTaskQueueCreateIntent(text)) {
+    return null;
+  }
+
+  const taskIntents = numberedTaskIntents(text);
+  if (taskIntents.length === 0) {
+    return null;
+  }
+
+  const runSettings = queueRunSettingsFromText(text);
+  const shouldRunAutonomous = hasRunAutonomousQueueIntent(text);
+  const commands: WorkspaceAgentQueueCommand[] = taskIntents.map((intent) => {
+    const structuredPrompt = structuredCreateQueueTaskPrompt(intent);
+
+    return {
+      executionPolicy: shouldRunAutonomous ? "auto" : "manual",
+      prompt: structuredPrompt.prompt,
+      runSettings,
+      status: "queued",
+      title: structuredPrompt.title,
+      type: "createItem",
+    };
+  });
+
+  if (shouldRunAutonomous) {
+    commands.push({ type: "runAutonomousQueue" });
+  }
+
+  return {
+    commands,
+    forceLocal: hasQueueOnlyIntent(text),
+    type: "batch",
+  };
+}
+
+function isMultiTaskQueueCreateIntent(text: string) {
+  return (
+    /\bcreate\s+(?:two|three|four|five|\d+)\s+(?:separate\s+)?(?:queued\s+)?(?:queue\s+)?tasks?\b/i.test(
+      text,
+    ) ||
+    /\badd\s+these\s+tasks\s+to\s+(?:the\s+)?queue\b/i.test(text)
+  );
+}
+
+function numberedTaskIntents(text: string) {
+  const taskIntents: string[] = [];
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^[*-]\s+/, "").trim();
+    const taskMatch =
+      line.match(/^task\s+\d+\s*[:.)-]\s*(.+)$/i) ??
+      line.match(/^\d+\s*[.)-]\s*(.+)$/);
+    const taskIntent = taskMatch?.[1]?.trim();
+
+    if (taskIntent) {
+      taskIntents.push(taskIntent);
+    }
+  }
+
+  return taskIntents;
+}
+
+function queueRunSettingsFromText(
+  text: string,
+): Partial<AgentQueueTaskRunSettingsDefaults> {
+  const executionWorkspace = lineSettingValue(text, [
+    "execution workspace",
+    "task workspace",
+    "workspace",
+  ]);
+  const codexExecutable = lineSettingValue(text, [
+    "codex executable",
+    "codex",
+  ]);
+  const sandbox = normalizedSandbox(lineSettingValue(text, ["sandbox"]));
+  const approvalPolicy = normalizedApprovalPolicy(
+    lineSettingValue(text, ["approval policy", "approval"]),
+  );
+
+  return {
+    ...(approvalPolicy ? { approvalPolicy } : {}),
+    ...(codexExecutable ? { codexExecutable } : {}),
+    ...(executionWorkspace ? { executionWorkspace } : {}),
+    ...(sandbox ? { sandbox } : {}),
+  };
+}
+
+function lineSettingValue(text: string, labels: string[]) {
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^[*-]\s+/, "").trim();
+
+    for (const label of labels) {
+      const pattern = new RegExp(
+        `^${escapeRegExp(label)}\\s*:\\s*(.+)$`,
+        "i",
+      );
+      const value = line.match(pattern)?.[1]?.trim();
+
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return "";
+}
+
+function normalizedSandbox(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return isOneOf(normalized, SANDBOXES) ? normalized : null;
+}
+
+function normalizedApprovalPolicy(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return isOneOf(normalized, APPROVAL_POLICIES) ? normalized : null;
+}
+
+function hasRunAutonomousQueueIntent(text: string) {
+  return /\b(?:run|start)\s+autonomous\s+queue\b/i.test(text);
+}
+
+function hasQueueOnlyIntent(text: string) {
+  return QUEUE_ONLY_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function forcedLocalQueueCommand(
+  text: string,
+): WorkspaceAgentQueueCommand | null {
+  return hasQueueOnlyIntent(text) || hasQueueControlIntent(text)
+    ? { type: "unsupportedQueueCommand" }
+    : null;
+}
+
+function hasQueueControlIntent(text: string) {
+  return QUEUE_CONTROL_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function embeddedQueueCommandText(text: string) {
+  const lowerText = text.toLowerCase();
+  const phraseIndexes = [
+    ...CREATE_PHRASES,
+    ...ANALYZE_PHRASES,
+    ...RUN_AUTONOMOUS_PHRASES,
+    ...STOP_AUTONOMOUS_PHRASES,
+  ]
+    .map((phrase) => lowerText.indexOf(phrase))
+    .filter((index) => index > 0)
+    .sort((left, right) => left - right);
+  const firstIndex = phraseIndexes[0];
+
+  return firstIndex === undefined ? "" : text.slice(firstIndex).trim();
+}
+
+function startsWithAnyKnownQueuePhrase(text: string) {
+  return startsWithAnyPhrase(text, [
+    ...CREATE_PHRASES,
+    ...ANALYZE_PHRASES,
+    ...RUN_AUTONOMOUS_PHRASES,
+    ...STOP_AUTONOMOUS_PHRASES,
+  ]);
 }
 
 function parseUpdateCommand(
@@ -389,22 +623,10 @@ async function createQueueItem(
   command: Extract<WorkspaceAgentQueueCommand, { type: "createItem" }>,
   options: WorkspaceAgentQueueCommandHandlerOptions,
 ) {
-  const runSettings = queueCreateRunSettings(options);
-  const hasExecutionWorkspace = Boolean(runSettings.executionWorkspace);
+  const request = queueCreateItemRequest(command, options);
 
   try {
-    const result = await options.bridge?.createItem({
-      approvalPolicy: runSettings.approvalPolicy,
-      codexExecutable: runSettings.codexExecutable,
-      executionPolicy: "manual",
-      executionWorkspace: runSettings.executionWorkspace || undefined,
-      priority: 0,
-      prompt: command.prompt,
-      queueTag: { name: "Default" },
-      sandbox: runSettings.sandbox,
-      status: hasExecutionWorkspace ? "queued" : "draft",
-      title: command.title,
-    });
+    const result = await options.bridge?.createItem(request);
 
     if (!result) {
       return "Queue item could not be created: Agent Queue bridge is unavailable.";
@@ -420,6 +642,97 @@ async function createQueueItem(
   } catch (error) {
     return `Queue item could not be created: ${errorToMessage(error)}`;
   }
+}
+
+async function runQueueCommandBatch(
+  command: Extract<WorkspaceAgentQueueCommand, { type: "batch" }>,
+  options: WorkspaceAgentQueueCommandHandlerOptions & {
+    bridge: WorkspaceAgentQueueBridge;
+  },
+) {
+  const createdItems: QueueWidgetItemSnapshot[] = [];
+  const failedMessages: string[] = [];
+  let autonomousStarted = false;
+  let autonomousMessage = "";
+
+  for (const batchCommand of command.commands) {
+    if (batchCommand.type === "createItem") {
+      try {
+        const result = await options.bridge.createItem(
+          queueCreateItemRequest(batchCommand, options),
+        );
+
+        if (!result.ok || !result.item) {
+          failedMessages.push(
+            `Queue item could not be created: ${
+              result.error?.message ?? result.message
+            }`,
+          );
+          continue;
+        }
+
+        createdItems.push(result.item);
+      } catch (error) {
+        failedMessages.push(
+          `Queue item could not be created: ${errorToMessage(error)}`,
+        );
+      }
+      continue;
+    }
+
+    if (batchCommand.type === "runAutonomousQueue") {
+      autonomousMessage = await runAutonomousQueue(options.bridge);
+      autonomousStarted = /^Autonomous Queue started\./i.test(autonomousMessage);
+      if (!autonomousStarted) {
+        failedMessages.push(autonomousMessage);
+      }
+    }
+  }
+
+  if (failedMessages.length > 0) {
+    const createdSummary =
+      createdItems.length > 0
+        ? `Created ${createdItems.length.toString()} Queue item${
+            createdItems.length === 1 ? "" : "s"
+          }. `
+        : "";
+    return `${createdSummary}Queue action failed: ${failedMessages.join(" ")}`;
+  }
+
+  if (createdItems.length > 0 && autonomousStarted) {
+    return `Created ${createdItems.length.toString()} Queue item${
+      createdItems.length === 1 ? "" : "s"
+    } and started Autonomous Queue.`;
+  }
+
+  if (createdItems.length > 0) {
+    return `Created ${createdItems.length.toString()} Queue item${
+      createdItems.length === 1 ? "" : "s"
+    }.`;
+  }
+
+  return autonomousMessage || "Queue action completed.";
+}
+
+function queueCreateItemRequest(
+  command: Extract<WorkspaceAgentQueueCommand, { type: "createItem" }>,
+  options: WorkspaceAgentQueueCommandHandlerOptions,
+): Parameters<WorkspaceAgentQueueBridge["createItem"]>[0] {
+  const runSettings = queueCreateRunSettings(options, command.runSettings);
+  const hasExecutionWorkspace = Boolean(runSettings.executionWorkspace);
+
+  return {
+    approvalPolicy: runSettings.approvalPolicy,
+    codexExecutable: runSettings.codexExecutable,
+    executionPolicy: command.executionPolicy ?? "manual",
+    executionWorkspace: runSettings.executionWorkspace || undefined,
+    priority: 0,
+    prompt: command.prompt,
+    queueTag: { name: "Default" },
+    sandbox: runSettings.sandbox,
+    status: command.status ?? (hasExecutionWorkspace ? "queued" : "draft"),
+    title: command.title,
+  };
 }
 
 async function updateQueueItem(
@@ -1090,14 +1403,17 @@ function explicitWorkspaceRoot(value: string | null | undefined) {
 
 function queueCreateRunSettings(
   options: WorkspaceAgentQueueCommandHandlerOptions,
+  commandSettings: Partial<AgentQueueTaskRunSettingsDefaults> = {},
 ): AgentQueueTaskRunSettingsDefaults {
   const baseSettings = defaultAgentQueueTaskRunSettings();
   const bridgeSettings = options.bridge?.getRunSettingsDefaults?.() ?? null;
   const mergedSettings = {
     ...baseSettings,
     ...(bridgeSettings ?? {}),
+    ...commandSettings,
   };
   const executionWorkspace =
+    explicitWorkspaceRoot(commandSettings.executionWorkspace) ??
     explicitWorkspaceRoot(bridgeSettings?.executionWorkspace) ??
     explicitWorkspaceRoot(options.currentWorkspaceRoot) ??
     "";
