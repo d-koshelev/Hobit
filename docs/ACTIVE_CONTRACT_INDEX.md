@@ -38,6 +38,12 @@ checklist for future Codex-driven feature slices. It does not override product
 contracts, does not expand the global mandatory read set, and does not make
 Planned or Deferred behavior current.
 
+`docs/DEVELOPMENT_EFFICIENCY_RULE.md` is the mandatory docs-only process rule
+for token-efficient development. It requires current-blocker-only work,
+smallest necessary file/context sets, targeted inspection, smallest sufficient
+validation, and short reports. It does not override product contracts or permit
+agents to skip validation that is needed to prove a task.
+
 `docs/WIDGET_IMPLEMENTATION_PLAYBOOK.md` is the docs-only process contract for
 contract-first new widget and major widget change work. It requires product
 scenario, Widget API, state machine, UI composition, action/event, semantic
@@ -102,6 +108,9 @@ of truth for their domains.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
+- `docs/DEVELOPMENT_EFFICIENCY_RULE.md` - mandatory process rule for
+  token-efficient development: current blocker only, smallest relevant context,
+  targeted inspection, smallest sufficient validation, and short reports.
 - `docs/development/FEATURE_SLICE_CHECKLIST.md` - process checklist for
   docs-only, frontend-only, dev/mock/fallback, persisted workspace,
   runtime/tooling, and compatibility/deprecation feature slices.

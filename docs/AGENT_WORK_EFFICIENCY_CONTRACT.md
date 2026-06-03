@@ -84,11 +84,16 @@ Validation should match the size and risk of the block:
 
 - Use `scripts/hobit/validate.ps1 -Profile fast` during iteration.
 - Use `scripts/hobit/validate.ps1 -Profile changed` after focused edits.
-- Use `scripts/hobit/validate.ps1 -Profile full` before commit/final response unless a prompt explicitly says otherwise.
+- Use `scripts/hobit/validate.ps1 -Profile full` only when needed to prove
+  cross-cutting architecture, Rust workspace-wide API, build configuration,
+  validation tooling, or broad runtime/product-risk changes.
 
 Do not duplicate full validation with repeated individual commands when the `full` profile already covers them, unless the prompt explicitly requests the duplicate commands or a failure needs focused diagnosis.
 
 Fast validation is for iteration, not final acceptance.
+
+For the permanent development-wide rule, see
+`docs/DEVELOPMENT_EFFICIENCY_RULE.md`.
 
 ## Relationship To Toolbelt
 
