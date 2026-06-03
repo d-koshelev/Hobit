@@ -223,6 +223,115 @@
   padding-top: var(--space-sm);
 }
 
+.finder-git-manual-commit {
+  display: grid;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.finder-git-commit-header,
+.finder-git-commit-actions,
+.finder-git-commit-selection-header {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.finder-git-commit-header,
+.finder-git-commit-selection-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.finder-git-commit-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.finder-git-commit-fields,
+.finder-git-commit-file-list,
+.finder-git-commit-confirmation,
+.finder-git-commit-confirmation-files,
+.finder-git-commit-result,
+.finder-git-commit-result-grid {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.finder-git-commit-field {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.finder-git-commit-body {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.finder-git-commit-file-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-overlay-surface);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.finder-git-commit-file-row-selected {
+  border-color: var(--color-primary-quiet);
+  background: var(--color-primary-soft);
+}
+
+.finder-git-commit-file-main {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.finder-git-commit-confirmation,
+.finder-git-commit-result {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-overlay-surface);
+  padding: var(--space-sm);
+}
+
+.finder-git-commit-warning-list {
+  margin: 0;
+  padding-left: var(--space-lg);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.finder-git-commit-message {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.finder-git-commit-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.finder-git-commit-fact > :last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.finder-git-commit-result-success {
+  border-color: var(--color-success);
+}
+
+.finder-git-commit-result-error {
+  border-color: var(--color-error);
+}
+
 .finder-git-history-header,
 .finder-git-history-layout,
 .finder-git-history-row,

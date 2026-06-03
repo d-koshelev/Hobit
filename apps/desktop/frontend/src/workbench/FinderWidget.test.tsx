@@ -3,11 +3,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createWorkspaceGitCommit,
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "../workspace/workspaceGitApi";
 import type {
+  GitCommitResponse,
   GitFileChange,
   GitFileDiff,
   GitLog,
@@ -17,6 +19,7 @@ import { FinderWidget } from "./FinderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
 
 vi.mock("../workspace/workspaceGitApi", () => ({
+  createWorkspaceGitCommit: vi.fn(),
   getWorkspaceGitFileDiff: vi.fn(),
   getWorkspaceGitLog: vi.fn(),
   getWorkspaceGitStatus: vi.fn(),
@@ -27,6 +30,7 @@ let container: HTMLDivElement | null = null;
 const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
 const getWorkspaceGitFileDiffMock = vi.mocked(getWorkspaceGitFileDiff);
 const getWorkspaceGitLogMock = vi.mocked(getWorkspaceGitLog);
+const createWorkspaceGitCommitMock = vi.mocked(createWorkspaceGitCommit);
 
 type FakeFileHandle = {
   createWritable: () => Promise<{
@@ -65,6 +69,7 @@ afterEach(() => {
   getWorkspaceGitStatusMock.mockReset();
   getWorkspaceGitFileDiffMock.mockReset();
   getWorkspaceGitLogMock.mockReset();
+  createWorkspaceGitCommitMock.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -302,6 +307,68 @@ describe("FinderWidget", () => {
       "Git diff attached to Workspace Agent as visible context.",
     );
   });
+
+  it("creates a manual local commit from selected Finder Git changes", async () => {
+    const projectRoot = directory("project", [
+      file("README.md"),
+      directory("src", [file("App.tsx")]),
+    ]);
+    getWorkspaceGitStatusMock
+      .mockResolvedValueOnce(
+        gitStatus([
+          gitChange("unstaged", "modified", "README.md"),
+          gitChange("unstaged", "added", "src/App.tsx"),
+        ]),
+      )
+      .mockResolvedValueOnce(gitStatus([]));
+    getWorkspaceGitLogMock
+      .mockResolvedValueOnce(gitLog([]))
+      .mockResolvedValueOnce(
+        gitLog([
+          gitLogEntry(
+            "abc123456789",
+            "abc1234",
+            "finder: commit selected files",
+          ),
+        ]),
+      );
+    createWorkspaceGitCommitMock.mockResolvedValue(
+      gitCommitResponse({
+        commitHash: "abc123456789",
+        includedFiles: ["README.md"],
+      }),
+    );
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget();
+
+    await clickButton("Open root");
+    await clickButton("Commit");
+    await changeInput("Commit title", "finder: commit selected files");
+    await changeTextareaByLabel("Commit body", "Manual Finder Git commit.");
+    await clickCheckboxForPath("src/App.tsx");
+    await clickButton("Commit selected files");
+
+    expect(document.body.textContent).toContain("Confirm local commit");
+    expect(document.body.textContent).toContain("Manual Finder Git commit.");
+
+    await clickButton("Commit");
+
+    expect(createWorkspaceGitCommitMock).toHaveBeenCalledWith({
+      commitMessage:
+        "finder: commit selected files\n\nManual Finder Git commit.",
+      includedFiles: ["README.md"],
+      repoRoot: "project",
+    });
+    expect(document.body.textContent).toContain("Commit created");
+    expect(document.body.textContent).toContain("abc123456789");
+    expect(getWorkspaceGitStatusMock).toHaveBeenCalledTimes(2);
+    expect(getWorkspaceGitLogMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 function renderWidget(overrides: Partial<Parameters<typeof FinderWidget>[0]> = {}) {
@@ -357,6 +424,60 @@ async function changeTextarea(value: string) {
     valueSetter?.call(textarea, value);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+async function changeInput(label: string, value: string) {
+  await act(async () => {
+    const input = document.querySelector<HTMLInputElement>(
+      `input[aria-label="${label}"]`,
+    );
+    if (!input) {
+      throw new Error(`Input not found: ${label}`);
+    }
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+async function changeTextareaByLabel(label: string, value: string) {
+  await act(async () => {
+    const textarea = document.querySelector<HTMLTextAreaElement>(
+      `textarea[aria-label="${label}"]`,
+    );
+    if (!textarea) {
+      throw new Error(`Textarea not found: ${label}`);
+    }
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+async function clickCheckboxForPath(path: string) {
+  await act(async () => {
+    const label = Array.from(document.querySelectorAll("label")).find(
+      (candidate) => candidate.textContent?.includes(path),
+    );
+    const checkbox = label?.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    if (!checkbox) {
+      throw new Error(`Checkbox not found for path: ${path}`);
+    }
+    checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await flushPromises();
   });
 }
@@ -450,6 +571,35 @@ function gitFileDiff(path: string, patch: string): GitFileDiff {
     path,
     repoRoot: "project",
     status: "available",
+  };
+}
+
+function gitCommitResponse({
+  commitHash,
+  includedFiles,
+}: {
+  commitHash: string;
+  includedFiles: string[];
+}): GitCommitResponse {
+  return {
+    autoCommit: false,
+    branch: "main",
+    cleanPerformed: false,
+    commandSummary: [{ args: ["commit"], program: "git" }],
+    commitHash,
+    commitMessage: "finder: commit selected files",
+    durationMs: 42,
+    errorMessage: null,
+    exitCode: 0,
+    forcePushPerformed: false,
+    includedFiles,
+    operatorConfirmedRequired: true,
+    pushPerformed: false,
+    repoRoot: "project",
+    resetPerformed: false,
+    status: "committed",
+    stderr: "",
+    stdout: "",
   };
 }
 

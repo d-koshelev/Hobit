@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
+  createWorkspaceGitCommit,
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
 } from "../workspace/workspaceGitApi";
 import type {
+  GitCommitResponse,
   GitFileChange,
   GitFileDiff,
   GitLog,
@@ -116,6 +118,12 @@ type FinderGitHistoryState = {
   loading: boolean;
   log: GitLog | null;
   selectedHash: string | null;
+};
+
+type FinderCommitCandidate = {
+  areas: string[];
+  kinds: string[];
+  path: string;
 };
 
 declare global {
@@ -382,6 +390,23 @@ export function FinderWidget({
         selectedHash: null,
       });
     }
+  }
+
+  async function createFinderGitCommit(request: {
+    commitMessage: string;
+    includedFiles: string[];
+    repoRoot: string;
+  }) {
+    return createWorkspaceGitCommit(request);
+  }
+
+  async function refreshGitAfterCommit(repoRoot = root?.gitRoot ?? null) {
+    if (!repoRoot) {
+      return;
+    }
+
+    await refreshGitStatusForRoot(repoRoot);
+    await loadGitHistoryForRoot(repoRoot);
   }
 
   async function loadColumn(
@@ -761,7 +786,9 @@ export function FinderWidget({
           error={gitStatus.error}
           history={gitHistory}
           loading={gitStatus.loading}
+          onCreateCommit={createFinderGitCommit}
           onChangeViewMode={setViewMode}
+          onRefreshAfterCommit={() => refreshGitAfterCommit()}
           onRefreshHistory={() => void loadGitHistoryForRoot()}
           onSelectHistoryEntry={(hash) =>
             setGitHistory((currentHistory) => ({
@@ -769,6 +796,7 @@ export function FinderWidget({
               selectedHash: hash,
             }))
           }
+          repositoryRoot={root?.gitRoot ?? null}
           status={gitStatus.status}
           viewMode={viewMode}
         />
@@ -1205,9 +1233,12 @@ function FinderGitStatusPanel({
   error,
   history,
   loading,
+  onCreateCommit,
   onChangeViewMode,
+  onRefreshAfterCommit,
   onRefreshHistory,
   onSelectHistoryEntry,
+  repositoryRoot,
   status,
   viewMode,
 }: {
@@ -1215,9 +1246,16 @@ function FinderGitStatusPanel({
   error: string | null;
   history: FinderGitHistoryState;
   loading: boolean;
+  onCreateCommit: (request: {
+    commitMessage: string;
+    includedFiles: string[];
+    repoRoot: string;
+  }) => Promise<GitCommitResponse>;
   onChangeViewMode: (viewMode: FinderViewMode) => void;
+  onRefreshAfterCommit: () => Promise<void>;
   onRefreshHistory: () => void;
   onSelectHistoryEntry: (hash: string) => void;
+  repositoryRoot: string | null;
   status: GitRepositoryStatus | null;
   viewMode: FinderViewMode;
 }) {
@@ -1295,12 +1333,472 @@ function FinderGitStatusPanel({
       ) : status && !loading ? (
         <p className="finder-column-state">No changed files in this Git snapshot.</p>
       ) : null}
+      <FinderGitManualCommitPanel
+        onCreateCommit={onCreateCommit}
+        onRefreshAfterCommit={onRefreshAfterCommit}
+        repositoryRoot={repositoryRoot}
+        status={status}
+      />
       <FinderGitHistoryPanel
         history={history}
         onRefreshHistory={onRefreshHistory}
         onSelectHistoryEntry={onSelectHistoryEntry}
       />
     </section>
+  );
+}
+
+function FinderGitManualCommitPanel({
+  onCreateCommit,
+  onRefreshAfterCommit,
+  repositoryRoot,
+  status,
+}: {
+  onCreateCommit: (request: {
+    commitMessage: string;
+    includedFiles: string[];
+    repoRoot: string;
+  }) => Promise<GitCommitResponse>;
+  onRefreshAfterCommit: () => Promise<void>;
+  repositoryRoot: string | null;
+  status: GitRepositoryStatus | null;
+}) {
+  const candidates = useMemo(
+    () => buildFinderCommitCandidates(status?.changedFiles ?? []),
+    [status?.changedFiles],
+  );
+  const candidateKey = candidates
+    .map((candidate) => candidate.path)
+    .join("\n");
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [commitTitle, setCommitTitle] = useState("");
+  const [commitBody, setCommitBody] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [commitResult, setCommitResult] = useState<GitCommitResponse | null>(
+    null,
+  );
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const selectedCandidates = candidates.filter((candidate) =>
+    selectedPaths.includes(candidate.path),
+  );
+  const selectedFiles = selectedCandidates.map((candidate) => candidate.path);
+  const allCandidatesSelected =
+    candidates.length > 0 && selectedFiles.length === candidates.length;
+  const changedFileCount = status?.changedFiles.length ?? 0;
+  const excludedFileCount = changedFileCount - candidates.length;
+  const shouldRender = Boolean(
+    commitError ||
+      commitResult ||
+      (repositoryRoot && status && changedFileCount > 0),
+  );
+
+  useEffect(() => {
+    setSelectedPaths(candidates.map((candidate) => candidate.path));
+    setIsOpen(false);
+    setIsConfirming(false);
+    setFieldError(null);
+    setCommitError(null);
+    setRefreshError(null);
+  }, [candidateKey]);
+
+  if (!shouldRender) {
+    return null;
+  }
+
+  function updateCommitTitle(value: string) {
+    setCommitTitle(value);
+    setFieldError(null);
+  }
+
+  function updateCommitBody(value: string) {
+    setCommitBody(value);
+    setFieldError(null);
+  }
+
+  function toggleSelectedPath(path: string) {
+    setSelectedPaths((currentPaths) =>
+      currentPaths.includes(path)
+        ? currentPaths.filter((currentPath) => currentPath !== path)
+        : [...currentPaths, path],
+    );
+    setIsConfirming(false);
+    setCommitError(null);
+  }
+
+  function startConfirmation() {
+    setCommitError(null);
+    setCommitResult(null);
+    setRefreshError(null);
+
+    if (!commitTitle.trim()) {
+      setFieldError("Enter a commit title before confirming.");
+      setIsConfirming(false);
+      return;
+    }
+
+    if (selectedFiles.length === 0) {
+      setFieldError("Select at least one changed file to include.");
+      setIsConfirming(false);
+      return;
+    }
+
+    setFieldError(null);
+    setIsConfirming(true);
+  }
+
+  async function confirmCommit() {
+    if (!repositoryRoot || !commitTitle.trim() || selectedFiles.length === 0) {
+      setIsConfirming(false);
+      return;
+    }
+
+    setIsCommitting(true);
+    setCommitError(null);
+    setCommitResult(null);
+    setRefreshError(null);
+
+    try {
+      const result = await onCreateCommit({
+        commitMessage: buildFinderCommitMessage(commitTitle, commitBody),
+        includedFiles: selectedFiles,
+        repoRoot: repositoryRoot,
+      });
+
+      setCommitResult(result);
+      setIsConfirming(false);
+
+      if (result.status === "committed") {
+        try {
+          await onRefreshAfterCommit();
+        } catch (error) {
+          setRefreshError(errorToReadableMessage(error));
+        }
+      }
+    } catch (error) {
+      setCommitError(errorToReadableMessage(error));
+      setIsConfirming(false);
+    } finally {
+      setIsCommitting(false);
+    }
+  }
+
+  return (
+    <section
+      aria-label="Finder manual Git commit"
+      className="finder-git-manual-commit"
+    >
+      <div className="finder-git-commit-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Manual commit</p>
+          <p className="finder-text">
+            {candidates.length > 0
+              ? `${candidates.length} selectable changed files`
+              : "No selectable changed files in this status snapshot."}
+          </p>
+        </div>
+        <div className="finder-git-commit-actions">
+          <Badge variant="warning">Local only</Badge>
+          {repositoryRoot && candidates.length > 0 ? (
+            <Button
+              disabled={isCommitting}
+              onClick={() => {
+                setIsOpen((currentValue) => !currentValue);
+                setIsConfirming(false);
+              }}
+              variant={isOpen ? "ghost" : "secondary"}
+            >
+              {isOpen ? "Close" : "Commit"}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {excludedFileCount > 0 ? (
+        <p className="finder-text">
+          {excludedFileCount} changed paths were excluded because they were not
+          safe repo-relative file paths.
+        </p>
+      ) : null}
+
+      {repositoryRoot && candidates.length > 0 && isOpen ? (
+        <>
+          <div className="finder-git-commit-fields">
+            <label className="finder-git-commit-field">
+              <span className="finder-title">Commit title</span>
+              <input
+                aria-label="Commit title"
+                className="input"
+                disabled={isCommitting}
+                onChange={(event) => updateCommitTitle(event.target.value)}
+                placeholder="Short local commit title"
+                type="text"
+                value={commitTitle}
+              />
+            </label>
+            <label className="finder-git-commit-field">
+              <span className="finder-title">Commit body</span>
+              <textarea
+                aria-label="Commit body"
+                className="input finder-git-commit-body"
+                disabled={isCommitting}
+                onChange={(event) => updateCommitBody(event.target.value)}
+                placeholder="Optional details"
+                spellCheck
+                value={commitBody}
+              />
+            </label>
+          </div>
+
+          <div className="finder-git-commit-selection-header">
+            <div className="finder-scope-copy">
+              <p className="finder-title">Diff summary</p>
+              <p className="finder-text">
+                Selected changed files from the latest Git status snapshot.
+              </p>
+            </div>
+            <div className="finder-git-commit-actions">
+              <Badge variant="neutral">{selectedFiles.length} selected</Badge>
+              <Button
+                disabled={allCandidatesSelected || isCommitting}
+                onClick={() =>
+                  setSelectedPaths(candidates.map((candidate) => candidate.path))
+                }
+                variant="ghost"
+              >
+                Select all
+              </Button>
+              <Button
+                disabled={selectedFiles.length === 0 || isCommitting}
+                onClick={() => setSelectedPaths([])}
+                variant="ghost"
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="finder-git-commit-file-list" role="list">
+            {candidates.map((candidate) => (
+              <FinderGitCommitFileRow
+                candidate={candidate}
+                checked={selectedPaths.includes(candidate.path)}
+                disabled={isCommitting}
+                key={candidate.path}
+                onToggle={toggleSelectedPath}
+              />
+            ))}
+          </div>
+
+          {fieldError ? (
+            <p className="finder-preview-error">{fieldError}</p>
+          ) : null}
+
+          {isConfirming ? (
+            <FinderGitCommitConfirmation
+              commitBody={commitBody}
+              commitTitle={commitTitle.trim()}
+              isCommitting={isCommitting}
+              onBack={() => setIsConfirming(false)}
+              onConfirm={() => void confirmCommit()}
+              repositoryRoot={repositoryRoot}
+              selectedCandidates={selectedCandidates}
+            />
+          ) : (
+            <Button
+              disabled={isCommitting || selectedFiles.length === 0}
+              onClick={startConfirmation}
+              variant="primary"
+            >
+              {isCommitting ? "Committing" : "Commit selected files"}
+            </Button>
+          )}
+        </>
+      ) : null}
+
+      {commitError ? (
+        <div className="finder-git-commit-result finder-git-commit-result-error">
+          <p className="finder-title">Commit failed</p>
+          <p className="finder-text">{commitError}</p>
+        </div>
+      ) : null}
+
+      {commitResult ? (
+        <FinderGitCommitResult
+          refreshError={refreshError}
+          result={commitResult}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function FinderGitCommitFileRow({
+  candidate,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  candidate: FinderCommitCandidate;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: (path: string) => void;
+}) {
+  return (
+    <label
+      className={`finder-git-commit-file-row${
+        checked ? " finder-git-commit-file-row-selected" : ""
+      }`}
+    >
+      <input
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onToggle(candidate.path)}
+        type="checkbox"
+      />
+      <span className="finder-git-commit-file-main">
+        <code className="finder-changed-file-path">{candidate.path}</code>
+        <span className="finder-changed-file-meta">
+          {candidate.areas.map((area) => (
+            <Badge key={area} variant="neutral">
+              {finderGitAreaLabel(area)}
+            </Badge>
+          ))}
+          {candidate.kinds.map((kind) => (
+            <Badge key={kind} variant={finderGitBadgeVariant(kind)}>
+              {finderGitKindLabel(kind)}
+            </Badge>
+          ))}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function FinderGitCommitConfirmation({
+  commitBody,
+  commitTitle,
+  isCommitting,
+  onBack,
+  onConfirm,
+  repositoryRoot,
+  selectedCandidates,
+}: {
+  commitBody: string;
+  commitTitle: string;
+  isCommitting: boolean;
+  onBack: () => void;
+  onConfirm: () => void;
+  repositoryRoot: string;
+  selectedCandidates: FinderCommitCandidate[];
+}) {
+  return (
+    <div className="finder-git-commit-confirmation">
+      <div className="finder-git-commit-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Confirm local commit</p>
+          <p className="finder-text">
+            Selected files will be staged for this local commit.
+          </p>
+        </div>
+        <Badge variant="warning">No push</Badge>
+      </div>
+      <FinderGitCommitFact label="Repository root" value={<code>{repositoryRoot}</code>} />
+      <FinderGitCommitFact label="Commit title" value={commitTitle} />
+      {commitBody.trim() ? (
+        <FinderGitCommitFact
+          label="Commit body"
+          value={<pre className="finder-git-commit-message">{commitBody.trim()}</pre>}
+        />
+      ) : null}
+      <div className="finder-git-commit-confirmation-files">
+        <p className="finder-title">
+          Selected files ({selectedCandidates.length})
+        </p>
+        {selectedCandidates.map((candidate) => (
+          <code className="finder-changed-file-path" key={candidate.path}>
+            {candidate.path}
+          </code>
+        ))}
+      </div>
+      <ul className="finder-git-commit-warning-list">
+        <li>Local commit only. No push will be performed.</li>
+        <li>Only the selected files are sent to the commit API.</li>
+        <li>No reset, clean, stash, checkout, or restore is performed.</li>
+      </ul>
+      <div className="finder-git-commit-actions">
+        <Button disabled={isCommitting} onClick={onBack} variant="secondary">
+          Back
+        </Button>
+        <Button disabled={isCommitting} onClick={onConfirm} variant="primary">
+          {isCommitting ? "Committing" : "Commit"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FinderGitCommitResult({
+  refreshError,
+  result,
+}: {
+  refreshError: string | null;
+  result: GitCommitResponse;
+}) {
+  const isSuccess = result.status === "committed";
+
+  return (
+    <div
+      aria-live="polite"
+      className={`finder-git-commit-result finder-git-commit-result-${
+        isSuccess ? "success" : "error"
+      }`}
+    >
+      <div className="finder-git-commit-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">
+            {isSuccess ? "Commit created" : "Commit failed"}
+          </p>
+          <p className="finder-text">
+            {isSuccess
+              ? "Local Git commit completed."
+              : (result.errorMessage ?? "Git reported a commit failure.")}
+          </p>
+        </div>
+        <Badge variant={isSuccess ? "success" : "error"}>{result.status}</Badge>
+      </div>
+      <div className="finder-git-commit-result-grid">
+        <FinderGitCommitFact
+          label="Commit hash"
+          value={result.commitHash ? <code>{result.commitHash}</code> : "Not returned"}
+        />
+        <FinderGitCommitFact label="Branch" value={result.branch ?? "Not returned"} />
+        <FinderGitCommitFact label="Included files" value={result.includedFiles.length} />
+      </div>
+      {refreshError ? (
+        <p className="finder-text">
+          Commit succeeded, but Git refresh failed: {refreshError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function FinderGitCommitFact({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="finder-git-commit-fact">
+      <span className="finder-title">{label}</span>
+      <span className="finder-text">{value}</span>
+    </div>
   );
 }
 
@@ -1427,6 +1925,78 @@ function FinderGitCommitDetails({ entry }: { entry: GitLogEntry | null }) {
       </p>
     </div>
   );
+}
+
+function buildFinderCommitCandidates(
+  files: GitFileChange[],
+): FinderCommitCandidate[] {
+  const candidates = new Map<string, FinderCommitCandidate>();
+
+  for (const file of files) {
+    if (!isSafeRepoRelativeFilePath(file.path)) {
+      continue;
+    }
+
+    const existingCandidate = candidates.get(file.path);
+
+    if (existingCandidate) {
+      addUnique(existingCandidate.areas, file.area);
+      addUnique(existingCandidate.kinds, file.kind);
+      continue;
+    }
+
+    candidates.set(file.path, {
+      areas: [file.area],
+      kinds: [file.kind],
+      path: file.path,
+    });
+  }
+
+  return Array.from(candidates.values());
+}
+
+function buildFinderCommitMessage(title: string, body: string) {
+  const trimmedTitle = title.trim();
+  const trimmedBody = body.trim();
+
+  return trimmedBody ? `${trimmedTitle}\n\n${trimmedBody}` : trimmedTitle;
+}
+
+function addUnique(items: string[], item: string) {
+  if (!items.includes(item)) {
+    items.push(item);
+  }
+}
+
+function isSafeRepoRelativeFilePath(path: string) {
+  const normalizedPath = path.split("\\").join("/");
+
+  if (!path || path.trim() !== path || path.includes("\0")) {
+    return false;
+  }
+
+  if (
+    path.startsWith("-") ||
+    path.startsWith(":") ||
+    path.startsWith("/") ||
+    path.startsWith("\\\\") ||
+    /^[A-Za-z]:[\\/]/.test(path)
+  ) {
+    return false;
+  }
+
+  if (
+    normalizedPath === "." ||
+    normalizedPath === ".." ||
+    normalizedPath.endsWith("/") ||
+    normalizedPath.startsWith("../") ||
+    normalizedPath.includes("/../") ||
+    normalizedPath.includes("/./")
+  ) {
+    return false;
+  }
+
+  return !/[?*[\]]/.test(path);
 }
 
 async function readDirectoryEntries(
