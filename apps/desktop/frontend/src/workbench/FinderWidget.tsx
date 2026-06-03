@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import { getWorkspaceGitStatus } from "../workspace/workspaceGitApi";
+import type { GitFileChange, GitRepositoryStatus } from "../workspace/types";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { WidgetRenderProps } from "./types";
 
@@ -54,12 +56,15 @@ type FinderSelectedItem = {
 };
 
 type FinderRootState = {
+  gitRoot: string | null;
   handle: FinderDirectoryHandle | null;
   label: string;
   listingAvailable: boolean;
 };
 
 type FinderPreviewPaneState = "hidden" | "minimized" | "normal" | "maximized";
+
+type FinderViewMode = "all" | "changed";
 
 type FinderFilePreview = {
   canEdit: boolean;
@@ -75,6 +80,12 @@ type FinderFilePreview = {
   savedMessage: string | null;
   saving: boolean;
   sizeBytes: number | null;
+};
+
+type FinderGitStatusState = {
+  error: string | null;
+  loading: boolean;
+  status: GitRepositoryStatus | null;
 };
 
 declare global {
@@ -106,10 +117,18 @@ export function FinderWidget({
   );
   const [previewPaneState, setPreviewPaneState] =
     useState<FinderPreviewPaneState>("hidden");
+  const [viewMode, setViewMode] = useState<FinderViewMode>("all");
+  const [gitStatus, setGitStatus] = useState<FinderGitStatusState>({
+    error: null,
+    loading: false,
+    status: null,
+  });
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
     : root?.label ?? "No root selected";
+  const changedFiles = gitStatus.status?.changedFiles ?? [];
+  const changeByPath = buildGitChangeByPath(changedFiles);
   const canUseDirectoryPicker =
     typeof window !== "undefined" &&
     typeof window.showDirectoryPicker === "function";
@@ -124,12 +143,19 @@ export function FinderWidget({
     setSelectedItem(null);
     setFilePreview(null);
     setPreviewPaneState("hidden");
+    setGitStatus({
+      error: null,
+      loading: false,
+      status: null,
+    });
+    setViewMode("all");
 
     try {
       if (canUseDirectoryPicker && window.showDirectoryPicker) {
         const directoryHandle = await window.showDirectoryPicker();
         const rootLabel = directoryHandle.name || "Selected root";
         setRoot({
+          gitRoot: rootLabel,
           handle: directoryHandle,
           label: rootLabel,
           listingAvailable: true,
@@ -145,6 +171,7 @@ export function FinderWidget({
           },
         ]);
         await loadColumn(directoryHandle, [], 0);
+        await refreshGitStatusForRoot(rootLabel);
         return;
       }
 
@@ -152,6 +179,7 @@ export function FinderWidget({
         const selectedDirectory = await onSelectWorkspaceDirectory();
         if (selectedDirectory) {
           setRoot({
+            gitRoot: selectedDirectory,
             handle: null,
             label: selectedDirectory,
             listingAvailable: false,
@@ -160,6 +188,7 @@ export function FinderWidget({
           setRootError(
             "Directory listing is unavailable in this frontend runtime.",
           );
+          await refreshGitStatusForRoot(selectedDirectory);
         }
         return;
       }
@@ -171,6 +200,38 @@ export function FinderWidget({
       setRootError(`Open root failed: ${errorToReadableMessage(error)}`);
     } finally {
       setIsOpeningRoot(false);
+    }
+  }
+
+  async function refreshGitStatusForRoot(repoRoot = root?.gitRoot ?? null) {
+    if (!repoRoot) {
+      setGitStatus({
+        error: "Git status requires an approved local root path.",
+        loading: false,
+        status: null,
+      });
+      return;
+    }
+
+    setGitStatus((currentStatus) => ({
+      ...currentStatus,
+      error: null,
+      loading: true,
+    }));
+
+    try {
+      const status = await getWorkspaceGitStatus({ repoRoot });
+      setGitStatus({
+        error: null,
+        loading: false,
+        status,
+      });
+    } catch (error) {
+      setGitStatus({
+        error: errorToReadableMessage(error),
+        loading: false,
+        status: null,
+      });
     }
   }
 
@@ -455,6 +516,13 @@ export function FinderWidget({
               {root?.listingAvailable ? "Root open" : "No root"}
             </Badge>
             <Button
+              disabled={!root?.gitRoot || gitStatus.loading}
+              onClick={() => void refreshGitStatusForRoot()}
+              variant="secondary"
+            >
+              {gitStatus.loading ? "Reading Git" : "Refresh Git"}
+            </Button>
+            <Button
               disabled={isOpeningRoot}
               onClick={() => void openRoot()}
               variant="secondary"
@@ -463,6 +531,15 @@ export function FinderWidget({
             </Button>
           </div>
         </section>
+
+        <FinderGitStatusPanel
+          changedFiles={changedFiles}
+          error={gitStatus.error}
+          loading={gitStatus.loading}
+          onChangeViewMode={setViewMode}
+          status={gitStatus.status}
+          viewMode={viewMode}
+        />
 
         {rootError ? (
           <section aria-label="Finder runtime status" className="finder-error">
@@ -488,7 +565,10 @@ export function FinderWidget({
                   onSelectEntry={(entry) =>
                     void selectEntry(entry, columnIndex)
                   }
+                  changeByPath={changeByPath}
+                  changedFiles={changedFiles}
                   selectedItem={selectedItem}
+                  viewMode={viewMode}
                 />
               ))
             )}
@@ -652,18 +732,30 @@ function FinderFloatingPreview({
 }
 
 function FinderColumnView({
+  changeByPath,
+  changedFiles,
   column,
   onSelectEntry,
   selectedItem,
+  viewMode,
 }: {
+  changeByPath: Map<string, GitFileChange>;
+  changedFiles: GitFileChange[];
   column: FinderColumn;
   onSelectEntry: (entry: FinderEntry) => void;
   selectedItem: FinderSelectedItem | null;
+  viewMode: FinderViewMode;
 }) {
   const columnLabel =
     column.pathSegments.length === 0
       ? "Root"
       : column.pathSegments[column.pathSegments.length - 1];
+  const entries =
+    viewMode === "changed"
+      ? column.entries.filter((entry) =>
+          entryMatchesChangedFilter(entry, changedFiles),
+        )
+      : column.entries;
 
   return (
     <section className="finder-column" aria-label={`${columnLabel} entries`}>
@@ -675,14 +767,17 @@ function FinderColumnView({
       {column.error ? (
         <p className="finder-column-state finder-column-error">{column.error}</p>
       ) : null}
-      {!column.loading && !column.error && column.entries.length === 0 ? (
-        <p className="finder-column-state">Empty folder.</p>
+      {!column.loading && !column.error && entries.length === 0 ? (
+        <p className="finder-column-state">
+          {viewMode === "changed" ? "No changed files here." : "Empty folder."}
+        </p>
       ) : null}
       <div className="finder-entry-list" role="list">
-        {column.entries.map((entry) => {
+        {entries.map((entry) => {
           const isSelected =
             selectedItem?.pathSegments.join("/") ===
             entry.pathSegments.join("/");
+          const change = changeForEntry(entry, changeByPath, changedFiles);
 
           return (
             <button
@@ -701,6 +796,14 @@ function FinderColumnView({
                 {entry.kind === "directory" ? "Folder" : "File"}
               </span>
               <span className="finder-entry-name">{entry.name}</span>
+              {change ? (
+                <Badge
+                  className="finder-entry-status"
+                  variant={finderGitBadgeVariant(change.kind)}
+                >
+                  {finderGitStatusMarker(change.kind)}
+                </Badge>
+              ) : null}
               {entry.kind === "directory" ? (
                 <span className="finder-entry-arrow" aria-hidden="true">
                   &gt;
@@ -710,6 +813,99 @@ function FinderColumnView({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function FinderGitStatusPanel({
+  changedFiles,
+  error,
+  loading,
+  onChangeViewMode,
+  status,
+  viewMode,
+}: {
+  changedFiles: GitFileChange[];
+  error: string | null;
+  loading: boolean;
+  onChangeViewMode: (viewMode: FinderViewMode) => void;
+  status: GitRepositoryStatus | null;
+  viewMode: FinderViewMode;
+}) {
+  const branchLabel = status?.branch?.name ?? "No branch loaded";
+  const statusLabel = loading
+    ? "Reading"
+    : status
+      ? status.workingTree.isClean
+        ? "Clean"
+        : "Dirty"
+      : "Not loaded";
+
+  return (
+    <section aria-label="Finder Git status" className="finder-git-status">
+      <div className="finder-git-status-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Git status</p>
+          <p className="finder-text">{branchLabel}</p>
+        </div>
+        <div className="finder-git-status-actions">
+          <Badge
+            variant={
+              loading
+                ? "info"
+                : status?.workingTree.isClean
+                  ? "success"
+                  : status
+                    ? "warning"
+                    : "neutral"
+            }
+          >
+            {statusLabel}
+          </Badge>
+          <Badge variant={changedFiles.length > 0 ? "warning" : "neutral"}>
+            {changedFiles.length} changed
+          </Badge>
+          <div className="finder-view-toggle" role="group" aria-label="Finder file view">
+            <Button
+              onClick={() => onChangeViewMode("all")}
+              variant={viewMode === "all" ? "primary" : "secondary"}
+            >
+              All files
+            </Button>
+            <Button
+              disabled={!status}
+              onClick={() => onChangeViewMode("changed")}
+              variant={viewMode === "changed" ? "primary" : "secondary"}
+            >
+              Changed files
+            </Button>
+          </div>
+        </div>
+      </div>
+      {error ? <p className="finder-preview-error">{error}</p> : null}
+      {changedFiles.length > 0 ? (
+        <div className="finder-changed-file-list" role="list">
+          {changedFiles.map((file, index) => (
+            <div
+              className="finder-changed-file-row"
+              key={`${file.area}:${file.kind}:${file.path}:${index}`}
+              role="listitem"
+            >
+              <code className="finder-changed-file-path">
+                {file.originalPath ? `${file.originalPath} -> ${file.path}` : file.path}
+              </code>
+              <span className="finder-changed-file-meta">
+                <Badge variant={finderGitBadgeVariant(file.kind)}>
+                  {finderGitKindLabel(file.kind)}
+                </Badge>
+                <Badge variant="neutral">{finderGitAreaLabel(file.area)}</Badge>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : status && !loading ? (
+        <p className="finder-column-state">No changed files in this Git snapshot.</p>
+      ) : null}
     </section>
   );
 }
@@ -810,6 +1006,152 @@ function compareFinderEntries(first: FinderEntry, second: FinderEntry) {
     numeric: true,
     sensitivity: "base",
   });
+}
+
+function buildGitChangeByPath(changedFiles: GitFileChange[]) {
+  const changesByPath = new Map<string, GitFileChange>();
+
+  for (const file of changedFiles) {
+    changesByPath.set(normalizeFinderPath(file.path), file);
+    if (file.originalPath) {
+      changesByPath.set(normalizeFinderPath(file.originalPath), file);
+    }
+  }
+
+  return changesByPath;
+}
+
+function changeForEntry(
+  entry: FinderEntry,
+  changeByPath: Map<string, GitFileChange>,
+  changedFiles: GitFileChange[],
+) {
+  const entryPath = normalizeFinderPath(entry.pathSegments.join("/"));
+  const exactChange = changeByPath.get(entryPath);
+
+  if (exactChange) {
+    return exactChange;
+  }
+
+  if (entry.kind !== "directory") {
+    return null;
+  }
+
+  const directoryPrefix = `${entryPath}/`;
+
+  return (
+    changedFiles.find((file) =>
+      normalizeFinderPath(file.path).startsWith(directoryPrefix),
+    ) ?? null
+  );
+}
+
+function entryMatchesChangedFilter(
+  entry: FinderEntry,
+  changedFiles: GitFileChange[],
+) {
+  const entryPath = normalizeFinderPath(entry.pathSegments.join("/"));
+
+  if (entry.kind === "file") {
+    return changedFiles.some(
+      (file) =>
+        normalizeFinderPath(file.path) === entryPath ||
+        (file.originalPath
+          ? normalizeFinderPath(file.originalPath) === entryPath
+          : false),
+    );
+  }
+
+  const directoryPrefix = `${entryPath}/`;
+
+  return changedFiles.some((file) => {
+    const filePath = normalizeFinderPath(file.path);
+    const originalPath = file.originalPath
+      ? normalizeFinderPath(file.originalPath)
+      : null;
+
+    return (
+      filePath.startsWith(directoryPrefix) ||
+      Boolean(originalPath?.startsWith(directoryPrefix))
+    );
+  });
+}
+
+function normalizeFinderPath(path: string) {
+  return path.split("\\").join("/");
+}
+
+function finderGitStatusMarker(kind: string) {
+  switch (kind.toLowerCase()) {
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "untracked":
+      return "U";
+    case "renamed":
+      return "R";
+    case "copied":
+      return "C";
+    case "conflicted":
+      return "!";
+    case "modified":
+      return "M";
+    default:
+      return "?";
+  }
+}
+
+function finderGitKindLabel(kind: string) {
+  switch (kind.toLowerCase()) {
+    case "added":
+      return "Added";
+    case "deleted":
+      return "Deleted";
+    case "modified":
+      return "Modified";
+    case "renamed":
+      return "Renamed";
+    case "copied":
+      return "Copied";
+    case "untracked":
+      return "Untracked";
+    case "conflicted":
+      return "Conflicted";
+    default:
+      return "Unknown";
+  }
+}
+
+function finderGitAreaLabel(area: string) {
+  switch (area.toLowerCase()) {
+    case "staged":
+      return "Staged";
+    case "unstaged":
+      return "Unstaged";
+    case "untracked":
+      return "Untracked";
+    default:
+      return "Unknown";
+  }
+}
+
+function finderGitBadgeVariant(kind: string) {
+  switch (kind.toLowerCase()) {
+    case "added":
+      return "success";
+    case "conflicted":
+      return "error";
+    case "deleted":
+    case "untracked":
+      return "warning";
+    case "modified":
+    case "renamed":
+    case "copied":
+      return "info";
+    default:
+      return "neutral";
+  }
 }
 
 function errorToReadableMessage(error: unknown) {

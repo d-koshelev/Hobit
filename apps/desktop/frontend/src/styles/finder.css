@@ -7,6 +7,7 @@
 
 .finder-scope,
 .finder-error,
+.finder-git-status,
 .finder-column {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -14,7 +15,8 @@
 }
 
 .finder-scope,
-.finder-error {
+.finder-error,
+.finder-git-status {
   padding: var(--space-sm) var(--space-md);
 }
 
@@ -34,19 +36,41 @@
 
 .finder-scope-actions,
 .finder-column-header,
+.finder-git-status-header,
+.finder-git-status-actions,
 .finder-floating-preview-header,
 .finder-preview-toolbar,
 .finder-preview-actions,
-.finder-preview-meta {
+.finder-preview-meta,
+.finder-changed-file-meta {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
 }
 
-.finder-scope-actions {
+.finder-scope-actions,
+.finder-git-status-actions,
+.finder-view-toggle,
+.finder-changed-file-meta {
   align-items: center;
   flex: 0 0 auto;
+}
+
+.finder-git-status {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.finder-git-status-header {
+  align-items: flex-start;
+}
+
+.finder-git-status-actions,
+.finder-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .finder-title,
@@ -152,10 +176,42 @@
   white-space: nowrap;
 }
 
+.finder-entry-status {
+  justify-self: end;
+}
+
 .finder-entry-arrow {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
+}
+
+.finder-changed-file-list {
+  display: grid;
+  gap: var(--space-xs);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.finder-changed-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-overlay-surface);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.finder-changed-file-path {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .finder-empty {

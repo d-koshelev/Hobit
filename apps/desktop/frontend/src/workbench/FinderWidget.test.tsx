@@ -2,11 +2,18 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { getWorkspaceGitStatus } from "../workspace/workspaceGitApi";
+import type { GitFileChange, GitRepositoryStatus } from "../workspace/types";
 import { FinderWidget } from "./FinderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
 
+vi.mock("../workspace/workspaceGitApi", () => ({
+  getWorkspaceGitStatus: vi.fn(),
+}));
+
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
 
 type FakeFileHandle = {
   createWritable: () => Promise<{
@@ -42,6 +49,7 @@ afterEach(() => {
     value: undefined,
     writable: true,
   });
+  getWorkspaceGitStatusMock.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -55,6 +63,12 @@ describe("FinderWidget", () => {
       file("README.md"),
       directory("src", [appFile, file("main.tsx")]),
     ]);
+    getWorkspaceGitStatusMock.mockResolvedValue(
+      gitStatus([
+        gitChange("unstaged", "modified", "README.md"),
+        gitChange("unstaged", "added", "src/App.tsx"),
+      ]),
+    );
     const showDirectoryPicker = vi.fn(async () => projectRoot);
     Object.defineProperty(window, "showDirectoryPicker", {
       configurable: true,
@@ -67,16 +81,26 @@ describe("FinderWidget", () => {
     await clickButton("Open root");
 
     expect(showDirectoryPicker).toHaveBeenCalledTimes(1);
+    expect(getWorkspaceGitStatusMock).toHaveBeenCalledWith({
+      repoRoot: "project",
+    });
     expect(document.body.textContent).toContain("project");
     expect(document.body.textContent).toContain("src");
     expect(document.body.textContent).toContain("README.md");
+    expect(document.body.textContent).toContain("2 changed");
+    expect(document.body.textContent).toContain("Modified");
+    expect(document.body.textContent).toContain("Added");
     expect(document.querySelectorAll(".finder-column")).toHaveLength(1);
+
+    await clickButton("Changed files");
+    expect(document.body.textContent).toContain("README.md");
+    expect(document.body.textContent).toContain("src");
 
     await clickButtonContaining("src");
 
     expect(document.querySelectorAll(".finder-column")).toHaveLength(2);
     expect(document.body.textContent).toContain("App.tsx");
-    expect(document.body.textContent).toContain("main.tsx");
+    expect(document.body.textContent).not.toContain("main.tsx");
 
     await clickButtonContaining("App.tsx");
 
@@ -85,7 +109,6 @@ describe("FinderWidget", () => {
     expect(
       document.querySelector(".finder-floating-preview-normal"),
     ).not.toBeNull();
-    expect(document.body.textContent).not.toContain("Git");
 
     await clickButton("Minimize");
     expect(
@@ -121,17 +144,65 @@ describe("FinderWidget", () => {
 
   it("shows an honest unsupported listing state when only the native directory label picker is available", async () => {
     const onSelectWorkspaceDirectory = vi.fn(async () => "C:/work/project");
+    getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
 
     renderWidget({ onSelectWorkspaceDirectory });
 
     await clickButton("Open root");
 
     expect(onSelectWorkspaceDirectory).toHaveBeenCalledTimes(1);
+    expect(getWorkspaceGitStatusMock).toHaveBeenCalledWith({
+      repoRoot: "C:/work/project",
+    });
     expect(document.body.textContent).toContain("C:/work/project");
     expect(document.body.textContent).toContain(
       "Directory listing is unavailable in this frontend runtime.",
     );
+    expect(document.body.textContent).toContain("Clean");
+    expect(document.body.textContent).toContain("0 changed");
     expect(document.querySelectorAll(".finder-column")).toHaveLength(0);
+  });
+
+  it("renders modified, added, deleted, and untracked Git markers from WorkspaceGitApi", async () => {
+    const projectRoot = directory("project", [
+      file("README.md"),
+      file("scratch.ts"),
+      directory("src", [file("App.tsx"), file("main.tsx")]),
+    ]);
+    getWorkspaceGitStatusMock.mockResolvedValue(
+      gitStatus([
+        gitChange("unstaged", "modified", "README.md"),
+        gitChange("unstaged", "added", "src/App.tsx"),
+        gitChange("unstaged", "deleted", "src/old.ts"),
+        gitChange("untracked", "untracked", "scratch.ts"),
+      ]),
+    );
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget();
+
+    await clickButton("Open root");
+
+    expect(document.body.textContent).toContain("4 changed");
+    expect(document.body.textContent).toContain("Modified");
+    expect(document.body.textContent).toContain("Added");
+    expect(document.body.textContent).toContain("Deleted");
+    expect(document.body.textContent).toContain("Untracked");
+
+    await clickButton("Changed files");
+
+    expect(document.body.textContent).toContain("README.md");
+    expect(document.body.textContent).toContain("scratch.ts");
+    expect(document.body.textContent).toContain("src");
+
+    await clickButtonContaining("src");
+
+    expect(document.body.textContent).toContain("App.tsx");
+    expect(document.body.textContent).not.toContain("main.tsx");
   });
 });
 
@@ -236,6 +307,39 @@ function file(name: string, content = ""): FakeFileHandle {
     kind: "file" as const,
     name,
     readContent: () => currentContent,
+  };
+}
+
+function gitStatus(changedFiles: GitFileChange[]): GitRepositoryStatus {
+  return {
+    branch: {
+      ahead: 0,
+      behind: 0,
+      isDetached: false,
+      name: "main",
+      upstream: "origin/main",
+    },
+    changedFiles,
+    lastCommit: null,
+    warnings: [],
+    workingTree: {
+      isClean: changedFiles.length === 0,
+      isDirty: changedFiles.length > 0,
+      stagedCount: changedFiles.filter((file) => file.area === "staged").length,
+      unstagedCount: changedFiles.filter((file) => file.area === "unstaged")
+        .length,
+      untrackedCount: changedFiles.filter((file) => file.area === "untracked")
+        .length,
+    },
+  };
+}
+
+function gitChange(area: string, kind: string, path: string): GitFileChange {
+  return {
+    area,
+    kind,
+    originalPath: null,
+    path,
   };
 }
 
