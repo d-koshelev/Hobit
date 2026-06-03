@@ -263,6 +263,13 @@ unless the task explicitly requests it.
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
   what the recent foundation series completed, what remains type-only, and
   which future steps are safe docs/inspect-first blocks.
+- `docs/HOBIT_STABLE_V0_1_CONTRACT.md` - canonical Stable v0.1 product and
+  architecture contract. Read before Stable v0.1 product-surface, acceptance,
+  milestone, release-readiness, or cross-surface scope work. It does not
+  override `docs/CURRENT_WIDGET_SURFACE.md` for current implemented behavior.
+- `docs/HOBIT_STABLE_V0_1_ACCEPTANCE.md` - canonical Stable v0.1 acceptance
+  gate and manual/semantic validation checklist. Read when preparing, running,
+  or reviewing Stable v0.1 acceptance.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language. Stable v0.1 product-surface language
   treats Workspace Agent plus Agent Queue as the core dogfooding loop, Terminal
