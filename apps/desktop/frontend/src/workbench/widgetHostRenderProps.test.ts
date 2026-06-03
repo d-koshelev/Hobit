@@ -142,10 +142,13 @@ describe("widgetHostRenderProps", () => {
 
   it("wires Finder to directory selection without Git or mutation actions", () => {
     const actions = widgetActions();
+    const attach = vi.fn();
     const props = renderPropsFor(FINDER_WIDGET_COMPONENT_KEY, {
+      onAttachContextToCoordinator: attach,
       widgetActions: actions,
     });
 
+    expect(props.onAttachContextToCoordinator).toBe(attach);
     expect(props.onSelectWorkspaceDirectory).toBe(
       actions.selectWorkspaceDirectory,
     );

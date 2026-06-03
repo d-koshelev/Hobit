@@ -2,18 +2,27 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getWorkspaceGitStatus } from "../workspace/workspaceGitApi";
-import type { GitFileChange, GitRepositoryStatus } from "../workspace/types";
+import {
+  getWorkspaceGitFileDiff,
+  getWorkspaceGitStatus,
+} from "../workspace/workspaceGitApi";
+import type {
+  GitFileChange,
+  GitFileDiff,
+  GitRepositoryStatus,
+} from "../workspace/types";
 import { FinderWidget } from "./FinderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
 
 vi.mock("../workspace/workspaceGitApi", () => ({
+  getWorkspaceGitFileDiff: vi.fn(),
   getWorkspaceGitStatus: vi.fn(),
 }));
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
+const getWorkspaceGitFileDiffMock = vi.mocked(getWorkspaceGitFileDiff);
 
 type FakeFileHandle = {
   createWritable: () => Promise<{
@@ -50,6 +59,7 @@ afterEach(() => {
     writable: true,
   });
   getWorkspaceGitStatusMock.mockReset();
+  getWorkspaceGitFileDiffMock.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -68,6 +78,12 @@ describe("FinderWidget", () => {
         gitChange("unstaged", "modified", "README.md"),
         gitChange("unstaged", "added", "src/App.tsx"),
       ]),
+    );
+    getWorkspaceGitFileDiffMock.mockResolvedValue(
+      gitFileDiff(
+        "src/App.tsx",
+        "diff --git a/src/App.tsx b/src/App.tsx\n+  return 'hello';",
+      ),
     );
     const showDirectoryPicker = vi.fn(async () => projectRoot);
     Object.defineProperty(window, "showDirectoryPicker", {
@@ -104,11 +120,23 @@ describe("FinderWidget", () => {
 
     await clickButtonContaining("App.tsx");
 
+    expect(getWorkspaceGitFileDiffMock).toHaveBeenCalledWith({
+      maxPatchBytes: 96 * 1024,
+      path: "src/App.tsx",
+      repoRoot: "project",
+    });
     expect(document.body.textContent).toContain("src/App.tsx");
     expect(document.body.textContent).toContain("export function App()");
     expect(
       document.querySelector(".finder-floating-preview-normal"),
     ).not.toBeNull();
+
+    await clickButton("Git");
+    expect(document.body.textContent).toContain(
+      "diff --git a/src/App.tsx b/src/App.tsx",
+    );
+    expect(document.body.textContent).toContain("available");
+    await clickButton("Content");
 
     await clickButton("Minimize");
     expect(
@@ -203,6 +231,48 @@ describe("FinderWidget", () => {
 
     expect(document.body.textContent).toContain("App.tsx");
     expect(document.body.textContent).not.toContain("main.tsx");
+  });
+
+  it("attaches selected-file Git diff context to Workspace Agent when the context API is available", async () => {
+    const appFile = file("App.tsx", "export function App() {}\n");
+    const projectRoot = directory("project", [directory("src", [appFile])]);
+    const attachContext = vi.fn();
+    getWorkspaceGitStatusMock.mockResolvedValue(
+      gitStatus([gitChange("unstaged", "modified", "src/App.tsx")]),
+    );
+    getWorkspaceGitFileDiffMock.mockResolvedValue(
+      gitFileDiff(
+        "src/App.tsx",
+        "diff --git a/src/App.tsx b/src/App.tsx\n@@\n-export function App() {}\n+export function App() { return null; }",
+      ),
+    );
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget({ onAttachContextToCoordinator: attachContext });
+
+    await clickButton("Open root");
+    await clickButtonContaining("src");
+    await clickButtonContaining("App.tsx");
+    await clickButton("Git");
+    await clickButton("Attach to Workspace Agent");
+
+    expect(attachContext).toHaveBeenCalledWith({
+      sourceLabel: "Finder / Git diff",
+      contextText: expect.stringContaining("Finder selected-file Git diff"),
+    });
+    expect(attachContext.mock.calls[0][0].contextText).toContain(
+      "Path: src/App.tsx",
+    );
+    expect(attachContext.mock.calls[0][0].contextText).toContain(
+      "Patch preview:",
+    );
+    expect(document.body.textContent).toContain(
+      "Git diff attached to Workspace Agent as visible context.",
+    );
   });
 });
 
@@ -340,6 +410,18 @@ function gitChange(area: string, kind: string, path: string): GitFileChange {
     kind,
     originalPath: null,
     path,
+  };
+}
+
+function gitFileDiff(path: string, patch: string): GitFileDiff {
+  return {
+    commandSummary: [{ args: ["diff", "--", path], program: "git" }],
+    errorMessage: null,
+    patch,
+    patchTruncated: false,
+    path,
+    repoRoot: "project",
+    status: "available",
   };
 }
 

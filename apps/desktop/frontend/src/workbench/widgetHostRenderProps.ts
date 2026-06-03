@@ -131,6 +131,7 @@ export function widgetHostRenderProps({
   if (componentKey === FINDER_WIDGET_COMPONENT_KEY) {
     return {
       ...commonProps,
+      onAttachContextToCoordinator,
       onSelectWorkspaceDirectory: widgetActions.selectWorkspaceDirectory,
     };
   }

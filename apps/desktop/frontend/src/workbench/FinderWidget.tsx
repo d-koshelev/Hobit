@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
-import { getWorkspaceGitStatus } from "../workspace/workspaceGitApi";
-import type { GitFileChange, GitRepositoryStatus } from "../workspace/types";
+import {
+  getWorkspaceGitFileDiff,
+  getWorkspaceGitStatus,
+} from "../workspace/workspaceGitApi";
+import type {
+  GitFileChange,
+  GitFileDiff,
+  GitRepositoryStatus,
+} from "../workspace/types";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { WidgetRenderProps } from "./types";
 
 const MAX_DIRECTORY_ENTRIES = 200;
 const MAX_FILE_PREVIEW_BYTES = 100 * 1024;
+const MAX_GIT_DIFF_PATCH_BYTES = 96 * 1024;
+const MAX_GIT_DIFF_ATTACHMENT_CHARS = 6_000;
 
 type FinderEntryKind = "directory" | "file";
 
@@ -66,6 +75,8 @@ type FinderPreviewPaneState = "hidden" | "minimized" | "normal" | "maximized";
 
 type FinderViewMode = "all" | "changed";
 
+type FinderPreviewMode = "content" | "git";
+
 type FinderFilePreview = {
   canEdit: boolean;
   capped: boolean;
@@ -88,6 +99,14 @@ type FinderGitStatusState = {
   status: GitRepositoryStatus | null;
 };
 
+type FinderGitDiffPreviewState = {
+  attachedMessage: string | null;
+  diff: GitFileDiff | null;
+  error: string | null;
+  loading: boolean;
+  path: string | null;
+};
+
 declare global {
   interface Window {
     showDirectoryPicker?: () => Promise<FinderDirectoryHandle>;
@@ -100,6 +119,7 @@ export function FinderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  onAttachContextToCoordinator,
   onLoadLogs,
   onSelectWorkspaceDirectory,
   onStartFrameMove,
@@ -117,12 +137,21 @@ export function FinderWidget({
   );
   const [previewPaneState, setPreviewPaneState] =
     useState<FinderPreviewPaneState>("hidden");
+  const [previewMode, setPreviewMode] = useState<FinderPreviewMode>("content");
   const [viewMode, setViewMode] = useState<FinderViewMode>("all");
   const [gitStatus, setGitStatus] = useState<FinderGitStatusState>({
     error: null,
     loading: false,
     status: null,
   });
+  const [gitDiffPreview, setGitDiffPreview] =
+    useState<FinderGitDiffPreviewState>({
+      attachedMessage: null,
+      diff: null,
+      error: null,
+      loading: false,
+      path: null,
+    });
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
@@ -143,6 +172,8 @@ export function FinderWidget({
     setSelectedItem(null);
     setFilePreview(null);
     setPreviewPaneState("hidden");
+    setPreviewMode("content");
+    resetGitDiffPreview();
     setGitStatus({
       error: null,
       loading: false,
@@ -235,6 +266,58 @@ export function FinderWidget({
     }
   }
 
+  async function loadGitDiffForPath(path: string, repoRoot = root?.gitRoot ?? null) {
+    if (!repoRoot) {
+      setGitDiffPreview({
+        attachedMessage: null,
+        diff: null,
+        error: "Git diff requires an approved local root path.",
+        loading: false,
+        path,
+      });
+      return;
+    }
+
+    setGitDiffPreview({
+      attachedMessage: null,
+      diff: null,
+      error: null,
+      loading: true,
+      path,
+    });
+
+    try {
+      const diff = await getWorkspaceGitFileDiff({
+        maxPatchBytes: MAX_GIT_DIFF_PATCH_BYTES,
+        path,
+        repoRoot,
+      });
+      setGitDiffPreview((currentDiff) =>
+        currentDiff.path === path
+          ? {
+              attachedMessage: null,
+              diff,
+              error: diff.errorMessage,
+              loading: false,
+              path,
+            }
+          : currentDiff,
+      );
+    } catch (error) {
+      setGitDiffPreview((currentDiff) =>
+        currentDiff.path === path
+          ? {
+              attachedMessage: null,
+              diff: null,
+              error: errorToReadableMessage(error),
+              loading: false,
+              path,
+            }
+          : currentDiff,
+      );
+    }
+  }
+
   async function loadColumn(
     directoryHandle: FinderDirectoryHandle,
     pathSegments: string[],
@@ -306,6 +389,8 @@ export function FinderWidget({
 
     setFilePreview(null);
     setPreviewPaneState("hidden");
+    setPreviewMode("content");
+    resetGitDiffPreview();
 
     const directoryHandle = entry.handle as FinderDirectoryHandle;
     const nextColumnIndex = columnIndex + 1;
@@ -326,7 +411,11 @@ export function FinderWidget({
   async function openFilePreview(entry: FinderEntry) {
     const fileHandle = entry.handle as FinderFileHandle;
     const path = entry.pathSegments.join("/");
+    const gitChange = changeByPath.get(normalizeFinderPath(path)) ?? null;
+    const repoRoot = root?.gitRoot ?? null;
     setPreviewPaneState("normal");
+    setPreviewMode("content");
+    resetGitDiffPreview(path);
     setFilePreview({
       canEdit: false,
       capped: false,
@@ -368,6 +457,10 @@ export function FinderWidget({
             }
           : currentPreview,
       );
+    }
+
+    if (gitChange) {
+      await loadGitDiffForPath(path, repoRoot);
     }
   }
 
@@ -489,6 +582,62 @@ export function FinderWidget({
     }
   }
 
+  function showGitDiffPreview() {
+    if (!filePreview) {
+      return;
+    }
+
+    setPreviewMode("git");
+    if (
+      !gitDiffPreview.loading &&
+      (gitDiffPreview.path !== filePreview.path || !gitDiffPreview.diff)
+    ) {
+      void loadGitDiffForPath(filePreview.path);
+    }
+  }
+
+  function attachGitDiffToWorkspaceAgent() {
+    const change = filePreview
+      ? changeByPath.get(normalizeFinderPath(filePreview.path)) ?? null
+      : null;
+
+    if (
+      !filePreview ||
+      !gitDiffPreview.diff ||
+      !onAttachContextToCoordinator
+    ) {
+      return;
+    }
+
+    onAttachContextToCoordinator({
+      contextText: finderGitDiffContextText({
+        change,
+        diff: gitDiffPreview.diff,
+        rootLabel: root?.label ?? "Approved Finder root",
+      }),
+      sourceLabel: "Finder / Git diff",
+    });
+    setGitDiffPreview((currentDiff) =>
+      currentDiff.path === filePreview.path
+        ? {
+            ...currentDiff,
+            attachedMessage:
+              "Git diff attached to Workspace Agent as visible context.",
+          }
+        : currentDiff,
+    );
+  }
+
+  function resetGitDiffPreview(path: string | null = null) {
+    setGitDiffPreview({
+      attachedMessage: null,
+      diff: null,
+      error: null,
+      loading: false,
+      path,
+    });
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -577,15 +726,25 @@ export function FinderWidget({
 
         {filePreview && previewPaneState !== "hidden" ? (
           <FinderFloatingPreview
+            canAttachGitDiff={Boolean(onAttachContextToCoordinator)}
+            gitChange={
+              changeByPath.get(normalizeFinderPath(filePreview.path)) ?? null
+            }
+            gitDiffPreview={gitDiffPreview}
             onCancelEdit={cancelEdit}
+            onAttachGitDiffToWorkspaceAgent={attachGitDiffToWorkspaceAgent}
             onClose={closePreview}
             onMaximize={() => setPreviewPaneState("maximized")}
             onMinimize={() => setPreviewPaneState("minimized")}
             onRestore={() => setPreviewPaneState("normal")}
+            onShowContentPreview={() => setPreviewMode("content")}
+            onShowGitDiff={showGitDiffPreview}
+            onRefreshGitDiff={() => void loadGitDiffForPath(filePreview.path)}
             onSave={() => void saveEdit()}
             onStartEdit={startEdit}
             onUpdateDraft={updateDraft}
             preview={filePreview}
+            previewMode={previewMode}
             state={previewPaneState}
           />
         ) : null}
@@ -595,30 +754,47 @@ export function FinderWidget({
 }
 
 function FinderFloatingPreview({
+  canAttachGitDiff,
+  gitChange,
+  gitDiffPreview,
   onCancelEdit,
+  onAttachGitDiffToWorkspaceAgent,
   onClose,
   onMaximize,
   onMinimize,
+  onRefreshGitDiff,
   onRestore,
   onSave,
+  onShowContentPreview,
+  onShowGitDiff,
   onStartEdit,
   onUpdateDraft,
   preview,
+  previewMode,
   state,
 }: {
+  canAttachGitDiff: boolean;
+  gitChange: GitFileChange | null;
+  gitDiffPreview: FinderGitDiffPreviewState;
   onCancelEdit: () => void;
+  onAttachGitDiffToWorkspaceAgent: () => void;
   onClose: () => void;
   onMaximize: () => void;
   onMinimize: () => void;
+  onRefreshGitDiff: () => void;
   onRestore: () => void;
   onSave: () => void;
+  onShowContentPreview: () => void;
+  onShowGitDiff: () => void;
   onStartEdit: () => void;
   onUpdateDraft: (draft: string) => void;
   preview: FinderFilePreview;
+  previewMode: FinderPreviewMode;
   state: FinderPreviewPaneState;
 }) {
   const isDirty = hasDirtyPreview(preview);
   const showBody = state !== "minimized";
+  const isGitMode = previewMode === "git";
 
   return (
     <section
@@ -673,6 +849,35 @@ function FinderFloatingPreview({
                 ? "Editable text file"
                 : "Read-only or unsupported edit target"}
             </span>
+            {gitChange ? (
+              <span>
+                Git: {finderGitKindLabel(gitChange.kind)} /{" "}
+                {finderGitAreaLabel(gitChange.area)}
+              </span>
+            ) : (
+              <span>Git: no selected-file change</span>
+            )}
+          </div>
+
+          <div className="finder-preview-tabs" role="group" aria-label="Finder preview mode">
+            <Button
+              onClick={onShowContentPreview}
+              variant={!isGitMode ? "primary" : "secondary"}
+            >
+              Content
+            </Button>
+            <Button
+              disabled={!gitChange}
+              onClick={onShowGitDiff}
+              title={
+                gitChange
+                  ? "Show the selected file Git diff."
+                  : "No Git change is loaded for this selected file."
+              }
+              variant={isGitMode ? "primary" : "secondary"}
+            >
+              Git
+            </Button>
           </div>
 
           {preview.error ? (
@@ -680,7 +885,12 @@ function FinderFloatingPreview({
           ) : null}
 
           <div className="finder-preview-body">
-            {preview.loading ? (
+            {isGitMode ? (
+              <FinderGitDiffPreview
+                change={gitChange}
+                diffState={gitDiffPreview}
+              />
+            ) : preview.loading ? (
               <p className="finder-column-state">Loading selected file...</p>
             ) : preview.editMode ? (
               <textarea
@@ -698,7 +908,27 @@ function FinderFloatingPreview({
           </div>
 
           <div className="finder-preview-actions">
-            {preview.editMode ? (
+            {isGitMode ? (
+              <>
+                <Button
+                  disabled={!gitChange || gitDiffPreview.loading}
+                  onClick={onRefreshGitDiff}
+                  variant="secondary"
+                >
+                  {gitDiffPreview.loading ? "Reading diff" : "Refresh diff"}
+                </Button>
+                {canAttachGitDiff ? (
+                  <Button
+                    disabled={!gitDiffPreview.diff || gitDiffPreview.loading}
+                    onClick={onAttachGitDiffToWorkspaceAgent}
+                    title="Attach the visible bounded diff context to Workspace Agent. Does not send automatically."
+                    variant="secondary"
+                  >
+                    Attach to Workspace Agent
+                  </Button>
+                ) : null}
+              </>
+            ) : preview.editMode ? (
               <>
                 <Button
                   disabled={!isDirty || preview.saving}
@@ -725,9 +955,79 @@ function FinderFloatingPreview({
               </Button>
             )}
           </div>
+          {gitDiffPreview.attachedMessage && isGitMode ? (
+            <p className="finder-preview-message">
+              {gitDiffPreview.attachedMessage}
+            </p>
+          ) : null}
         </>
       ) : null}
     </section>
+  );
+}
+
+function FinderGitDiffPreview({
+  change,
+  diffState,
+}: {
+  change: GitFileChange | null;
+  diffState: FinderGitDiffPreviewState;
+}) {
+  if (!change) {
+    return (
+      <div className="finder-git-diff-empty">
+        <p className="finder-title">No selected-file Git diff.</p>
+        <p className="finder-text">
+          Select a changed file from this approved root to preview its bounded
+          read-only patch.
+        </p>
+      </div>
+    );
+  }
+
+  if (diffState.loading) {
+    return <p className="finder-column-state">Reading selected-file diff...</p>;
+  }
+
+  if (diffState.error && !diffState.diff) {
+    return <p className="finder-preview-error">{diffState.error}</p>;
+  }
+
+  if (!diffState.diff) {
+    return (
+      <div className="finder-git-diff-empty">
+        <p className="finder-title">Diff not loaded.</p>
+        <p className="finder-text">Use Refresh diff to load this file patch.</p>
+      </div>
+    );
+  }
+
+  const patch = diffState.diff.patch || diffState.diff.errorMessage;
+
+  return (
+    <div className="finder-git-diff-preview">
+      <div
+        aria-label="Finder Git diff summary"
+        className="finder-git-diff-summary"
+      >
+        <span className="finder-title">Diff summary</span>
+        <Badge variant={finderGitBadgeVariant(change.kind)}>
+          {finderGitKindLabel(change.kind)}
+        </Badge>
+        <Badge variant="neutral">{finderGitAreaLabel(change.area)}</Badge>
+        <Badge variant="neutral">{diffState.diff.status}</Badge>
+        {diffState.diff.patchTruncated ? (
+          <Badge variant="warning">Diff capped</Badge>
+        ) : null}
+      </div>
+      {diffState.error ? (
+        <p className="finder-preview-error">{diffState.error}</p>
+      ) : null}
+      <p className="finder-title">Patch preview</p>
+      <pre className="finder-preview-content finder-git-diff-patch">
+        {patch || "No patch preview returned for this file."}
+      </pre>
+    </div>
   );
 }
 
@@ -1152,6 +1452,42 @@ function finderGitBadgeVariant(kind: string) {
     default:
       return "neutral";
   }
+}
+
+function finderGitDiffContextText({
+  change,
+  diff,
+  rootLabel,
+}: {
+  change: GitFileChange | null;
+  diff: GitFileDiff;
+  rootLabel: string;
+}) {
+  const patch = diff.patch ?? diff.errorMessage ?? "No patch preview returned.";
+  const patchExcerpt = truncateText(patch, MAX_GIT_DIFF_ATTACHMENT_CHARS);
+
+  return [
+    "Finder selected-file Git diff",
+    `Root: ${rootLabel}`,
+    `Path: ${diff.path}`,
+    `Diff status: ${diff.status}`,
+    change
+      ? `Change: ${finderGitKindLabel(change.kind)} / ${finderGitAreaLabel(
+          change.area,
+        )}`
+      : "Change: unknown",
+    `Patch capped by backend: ${diff.patchTruncated ? "yes" : "no"}`,
+    "Patch preview:",
+    patchExcerpt,
+  ].join("\n");
+}
+
+function truncateText(text: string, maxLength: number) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}\n[Finder diff attachment capped]`;
 }
 
 function errorToReadableMessage(error: unknown) {

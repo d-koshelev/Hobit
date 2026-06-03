@@ -41,8 +41,10 @@
 .finder-floating-preview-header,
 .finder-preview-toolbar,
 .finder-preview-actions,
+.finder-preview-tabs,
 .finder-preview-meta,
-.finder-changed-file-meta {
+.finder-changed-file-meta,
+.finder-git-diff-summary {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -269,10 +271,15 @@
 
 .finder-preview-toolbar,
 .finder-preview-actions,
+.finder-preview-tabs,
 .finder-preview-meta {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.finder-preview-tabs {
+  justify-content: flex-start;
 }
 
 .finder-preview-meta {
@@ -298,6 +305,28 @@
   overflow: hidden;
 }
 
+.finder-git-diff-preview {
+  display: grid;
+  gap: var(--space-sm);
+  height: 100%;
+  min-height: 0;
+}
+
+.finder-git-diff-summary {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.finder-git-diff-empty {
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-overlay-surface);
+  padding: var(--space-sm);
+}
+
 .finder-preview-content,
 .finder-preview-editor {
   width: 100%;
@@ -319,6 +348,17 @@
 .finder-preview-editor {
   min-height: 280px;
   resize: none;
+}
+
+.finder-git-diff-patch {
+  min-height: 220px;
+}
+
+.finder-preview-message {
+  margin: 0;
+  color: var(--color-success);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
 }
 
 @media (max-width: 920px) {
