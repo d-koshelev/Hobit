@@ -1199,6 +1199,7 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(activityText).toContain("Run completed");
     expect(document.body.textContent).not.toContain("Coordinator decision");
     expect(buttonByText("Accept result")).toBeUndefined();
+    expect(buttonByText("Create follow-up")).toBeDefined();
     expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 

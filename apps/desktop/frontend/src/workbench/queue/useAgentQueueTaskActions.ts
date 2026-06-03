@@ -278,6 +278,7 @@ export function createAgentQueueTaskActions({
         isCreating,
         isSaving,
         onCreateAgentQueueTask,
+        onUpdateAgentQueueTask,
         selectedTask,
         setCoordinatorFinalizationMessage,
         setEditorError,

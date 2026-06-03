@@ -18,6 +18,7 @@ type FollowUpTaskActionContext = Pick<
   | "isCreating"
   | "isSaving"
   | "onCreateAgentQueueTask"
+  | "onUpdateAgentQueueTask"
   | "selectedTask"
   | "setCoordinatorFinalizationMessage"
   | "setEditorError"
@@ -33,6 +34,7 @@ export async function createFollowUpTaskFromSelectedTask({
   isCreating,
   isSaving,
   onCreateAgentQueueTask,
+  onUpdateAgentQueueTask,
   selectedTask,
   setCoordinatorFinalizationMessage,
   setEditorError,
@@ -77,6 +79,24 @@ export async function createFollowUpTaskFromSelectedTask({
       title: `Follow-up: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
       validationStatus: "not_started",
     });
+    const sourceTask =
+      (await onUpdateAgentQueueTask?.({
+        approvalPolicy: selectedTask.approvalPolicy ?? null,
+        codexExecutable: selectedTask.codexExecutable ?? null,
+        description: selectedTask.description,
+        executionPolicy: selectedTask.executionPolicy ?? "manual",
+        executionWorkspace: selectedTask.executionWorkspace ?? null,
+        itemType: selectedTask.itemType ?? "implementation",
+        priority: selectedTask.priority,
+        prompt: selectedTask.prompt,
+        queueItemId: selectedTask.queueItemId,
+        queueTagId: queueTag.queueTagId,
+        queueTagName: queueTag.queueTagName,
+        sandbox: selectedTask.sandbox ?? null,
+        status: "review_needed",
+        title: selectedTask.title,
+        validationStatus: "needs_review",
+      })) ?? selectedTask;
     const createdFoundation: AgentQueueLocalTaskFields = {
       coordinatorStatus: "not_reported",
       dependsOn: [],
@@ -111,6 +131,7 @@ export async function createFollowUpTaskFromSelectedTask({
         task.queueItemId === selectedTask.queueItemId
           ? {
               ...task,
+              ...sourceTask,
               ...sourceFoundation,
               status: "review_needed" as const,
             }
@@ -124,6 +145,7 @@ export async function createFollowUpTaskFromSelectedTask({
     applyUpdatedTask(
       {
         ...selectedTask,
+        ...sourceTask,
         ...sourceFoundation,
         status: "review_needed",
       },

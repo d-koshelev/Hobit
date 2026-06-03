@@ -360,10 +360,15 @@ describe("useAgentQueueController planning and reports", () => {
   it("creates an explicit queued follow-up item and leaves the source unfinalized", async () => {
     const harness = createQueueHarness([
       queueTask({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex-custom",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/source-workspace",
         prompt: "Needs follow-up",
         queueItemId: "queue-1",
         queueTagId: "implementation",
         queueTagName: "Implementation",
+        sandbox: "workspace_write",
         status: "review_needed",
         validationStatus: "needs_review",
       }),
@@ -378,11 +383,26 @@ describe("useAgentQueueController planning and reports", () => {
     });
 
     expect(harness.createRequests[0]?.executionPolicy).toBe("manual");
+    expect(harness.createRequests[0]?.approvalPolicy).toBe("on_request");
+    expect(harness.createRequests[0]?.codexExecutable).toBe("codex-custom");
+    expect(harness.createRequests[0]?.executionWorkspace).toBe(
+      "C:/source-workspace",
+    );
     expect(harness.createRequests[0]?.itemType).toBe("follow_up");
     expect(harness.createRequests[0]?.queueTagId).toBe("implementation");
     expect(harness.createRequests[0]?.queueTagName).toBe("Implementation");
+    expect(harness.createRequests[0]?.sandbox).toBe("workspace_write");
     expect(harness.createRequests[0]?.status).toBe("queued");
     expect(harness.createRequests[0]?.validationStatus).toBe("not_started");
+    expect(
+      harness.createRequests[0]?.prompt.includes(
+        "Source failure summary: status=review_needed; validation=needs_review; coordinator=not_reported",
+      ),
+    ).toBe(true);
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0]?.queueItemId).toBe("queue-1");
+    expect(harness.updateRequests[0]?.status).toBe("review_needed");
+    expect(harness.updateRequests[0]?.validationStatus).toBe("needs_review");
     expect(
       hook.result.current.tasks.find((task) => task.queueItemId === "queue-1")
         ?.coordinatorStatus,

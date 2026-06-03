@@ -145,12 +145,23 @@ export function followUpPromptFromTask(task: AgentQueueTask) {
   const report = task.workerExecutionReports?.[
     task.workerExecutionReports.length - 1
   ];
+  const sourceFailureSummary = [
+    `status=${task.status}`,
+    `validation=${task.validationStatus ?? "not_started"}`,
+    `coordinator=${task.coordinatorStatus ?? "not_reported"}`,
+    report?.reportStatus ? `report=${report.reportStatus}` : null,
+    report?.errors?.length ? `errors=${report.errors.join("; ")}` : null,
+    report?.warnings?.length ? `warnings=${report.warnings.join("; ")}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
 
   return [
     `Follow-up/sub-block for Queue item ${task.queueItemId}.`,
     "",
     `Source title: ${task.title.trim() || DEFAULT_TASK_TITLE}`,
     `Source status: ${task.status}`,
+    `Source failure summary: ${sourceFailureSummary}`,
     `Coordinator decision: follow-up required`,
     report ? `Source report: ${report.reportId}` : null,
     report?.summary ? `Report summary: ${report.summary}` : null,

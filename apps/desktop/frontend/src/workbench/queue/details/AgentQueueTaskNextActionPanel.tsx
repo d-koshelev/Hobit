@@ -159,6 +159,12 @@ function nextActionForSelectedTask(
     });
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,
+      label: "Create follow-up",
+      onClick: () => queue.coordinatorFinalization.onCreateFollowUp(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
       label: "Follow-up required",
       onClick: () => queue.coordinatorFinalization.onMarkFollowUpRequired(),
       variant: "secondary",
@@ -210,6 +216,12 @@ function nextActionForSelectedTask(
       label: "Developer details",
       onClick: () => scrollToDeveloperDetails(),
       variant: "ghost",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Create follow-up",
+      onClick: () => queue.coordinatorFinalization.onCreateFollowUp(),
+      variant: "secondary",
     });
 
     const failed = isFailedRunEvidence(queue, selectedTask);
@@ -281,6 +293,12 @@ function nextActionForSelectedTask(
       disabled: !queue.coordinatorFinalization.canAct,
       label: "Request changes",
       onClick: () => queue.coordinatorFinalization.onMarkNeedsChanges(),
+      variant: "secondary",
+    });
+    actions.push({
+      disabled: !queue.coordinatorFinalization.canAct,
+      label: "Create follow-up",
+      onClick: () => queue.coordinatorFinalization.onCreateFollowUp(),
       variant: "secondary",
     });
     actions.push({
