@@ -15,6 +15,8 @@ export const AGENT_RUN_PLACEHOLDER_COMPONENT_KEY = "agent-run-placeholder";
 // product catalog widget; Workspace Git APIs own current Git reads.
 export const GIT_WIDGET_DEFINITION_ID = "git";
 export const GIT_PLACEHOLDER_COMPONENT_KEY = "git-placeholder";
+export const FINDER_WIDGET_DEFINITION_ID = "finder";
+export const FINDER_WIDGET_COMPONENT_KEY = "finder-widget";
 export const JDBC_WIDGET_DEFINITION_ID = "database-jdbc";
 export const JDBC_WIDGET_COMPONENT_KEY = "database-jdbc-widget";
 export const INTERACTIVE_AGENT_WIDGET_DEFINITION_ID = "interactive-agent";
@@ -63,6 +65,12 @@ export const widgetLayoutDefaultsByDefinitionId: Record<
     defaultHeight: 600,
     minWidth: 576,
     minHeight: 456,
+  },
+  [FINDER_WIDGET_DEFINITION_ID]: {
+    defaultWidth: 840,
+    defaultHeight: 600,
+    minWidth: 672,
+    minHeight: 432,
   },
   [INTERACTIVE_AGENT_WIDGET_DEFINITION_ID]: {
     defaultWidth: 840,
@@ -174,6 +182,18 @@ export const widgetRegistry: WidgetDefinition[] = [
     layoutDefaults:
       widgetLayoutDefaultsByDefinitionId[SKILL_LIBRARY_WIDGET_DEFINITION_ID],
     componentKey: SKILL_LIBRARY_COMPONENT_KEY,
+  },
+  {
+    id: FINDER_WIDGET_DEFINITION_ID,
+    title: "Finder",
+    category: "codebase",
+    description:
+      "Column-based project file navigation from an explicit approved root.",
+    defaultTitle: "Finder",
+    defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[FINDER_WIDGET_DEFINITION_ID],
+    componentKey: FINDER_WIDGET_COMPONENT_KEY,
   },
   {
     id: GIT_WIDGET_DEFINITION_ID,

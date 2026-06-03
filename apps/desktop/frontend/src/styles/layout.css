@@ -6,6 +6,7 @@
 @import "./components.css";
 @import "./terminal.css";
 @import "./notes.css";
+@import "./finder.css";
 @import "./agent-queue.css";
 @import "./jdbc.css";
 @import "./skills.css";

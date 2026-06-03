@@ -53,8 +53,9 @@ semantic test runner behavior, or new widgets.
 
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
-examples for planning vocabulary only; Finder is a required Stable v0.1 gap but
-remains unimplemented unless explicitly scoped by a future block.
+examples for planning vocabulary only; the current Finder implementation is
+limited to the explicitly scoped frontend-first column-navigation MVP in
+`docs/CURRENT_WIDGET_SURFACE.md`.
 
 `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
 a process/status document only. It does not override product contracts,

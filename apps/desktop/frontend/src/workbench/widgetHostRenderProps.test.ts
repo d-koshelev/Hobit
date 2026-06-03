@@ -9,6 +9,7 @@ import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  FINDER_WIDGET_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   JDBC_WIDGET_COMPONENT_KEY,
@@ -137,6 +138,23 @@ describe("widgetHostRenderProps", () => {
         onPublishAgentActivityEvents: publish,
       }).onPublishAgentActivityEvents,
     ).toBe(publish);
+  });
+
+  it("wires Finder to directory selection without Git or mutation actions", () => {
+    const actions = widgetActions();
+    const props = renderPropsFor(FINDER_WIDGET_COMPONENT_KEY, {
+      widgetActions: actions,
+    });
+
+    expect(props.onSelectWorkspaceDirectory).toBe(
+      actions.selectWorkspaceDirectory,
+    );
+    expect(props.onGetGitRepositoryStatus).toBeUndefined();
+    expect(props.onGetGitFileDiff).toBeUndefined();
+    expect(props.onCreateGitCommit).toBeUndefined();
+    expect(props.onRunTerminalCommand).toBeUndefined();
+    expect(props.onRunCodexDirectWork).toBeUndefined();
+    expect(props.onUpdateState).toBe(actions.updateWidgetState);
   });
 
   it("wires Git review and local commit props only to Git", () => {

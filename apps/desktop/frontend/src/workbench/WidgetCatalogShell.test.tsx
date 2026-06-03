@@ -11,6 +11,7 @@ import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   AGENT_RUN_WIDGET_DEFINITION_ID,
+  FINDER_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
@@ -46,6 +47,7 @@ describe("WidgetCatalogShell", () => {
     expect(document.body.textContent).toContain("Agent Activity");
     expect(document.body.textContent).toContain("Knowledge / Skills");
     expect(document.body.textContent).toContain("Notes");
+    expect(document.body.textContent).toContain("Finder");
     expect(document.body.textContent).not.toContain("Git");
     expect(document.body.textContent).toContain("Terminal");
     expect(document.body.textContent).toContain("Agent Queue");
@@ -114,6 +116,7 @@ describe("widgetCatalogTemplates", () => {
       SKILL_LIBRARY_WIDGET_DEFINITION_ID,
       NOTES_WIDGET_DEFINITION_ID,
       TERMINAL_WIDGET_DEFINITION_ID,
+      FINDER_WIDGET_DEFINITION_ID,
       JDBC_WIDGET_DEFINITION_ID,
       RUNBOOK_WIDGET_DEFINITION_ID,
     ]);
@@ -129,6 +132,12 @@ describe("widgetCatalogTemplates", () => {
     expect(templateFor(TERMINAL_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
       defaultHeight: 600,
       defaultWidth: 816,
+      minHeight: 432,
+      minWidth: 672,
+    });
+    expect(templateFor(FINDER_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
+      defaultHeight: 600,
+      defaultWidth: 840,
       minHeight: 432,
       minWidth: 672,
     });

@@ -10,6 +10,7 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import { AgentActivityWidget } from "./AgentActivityWidget";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
+import { FinderWidget } from "./FinderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
@@ -46,6 +47,7 @@ import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_WIDGET_DEFINITION_ID,
+  FINDER_WIDGET_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
@@ -62,6 +64,7 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [AGENT_ACTIVITY_COMPONENT_KEY]: AgentActivityWidget,
   [AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]: AgentQueuePlaceholderWidget,
   [AGENT_RUN_PLACEHOLDER_COMPONENT_KEY]: AgentRunPlaceholderWidget,
+  [FINDER_WIDGET_COMPONENT_KEY]: FinderWidget,
   [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
   [INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY]:
     InteractiveAgentPlaceholderWidget,

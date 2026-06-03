@@ -6,6 +6,7 @@ import type {
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  FINDER_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
@@ -173,6 +174,23 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Session-only output buffer",
     ],
     futureWidgetDefinitionId: TERMINAL_WIDGET_DEFINITION_ID,
+  },
+  {
+    id: FINDER_WIDGET_DEFINITION_ID,
+    title: "Finder",
+    catalogCategory: "developer-tools",
+    category: "codebase",
+    description:
+      "Navigate an explicitly approved project root with Finder-style columns.",
+    readiness: "preview",
+    availability: "available",
+    layoutDefaults: getWidgetLayoutDefaults(FINDER_WIDGET_DEFINITION_ID),
+    capabilitySummary: [
+      "Explicit root selection",
+      "Column navigation for folders and files",
+      "Read-only selected-file preview placeholder",
+    ],
+    futureWidgetDefinitionId: FINDER_WIDGET_DEFINITION_ID,
   },
   {
     id: JDBC_WIDGET_DEFINITION_ID,

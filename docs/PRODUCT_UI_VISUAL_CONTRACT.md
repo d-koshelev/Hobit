@@ -51,11 +51,8 @@ Ready / MVP capabilities:
 Preview:
 
 - Database / JDBC
+- Finder
 - Runbook
-
-Required gap:
-
-- Finder, not implemented yet
 
 Supporting / compatibility surfaces:
 

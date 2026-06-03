@@ -32,6 +32,7 @@ import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  FINDER_WIDGET_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   JDBC_WIDGET_COMPONENT_KEY,
@@ -124,6 +125,13 @@ export function widgetHostRenderProps({
         onAttachContextToCoordinator,
         onPublishAgentActivityEvents,
       }),
+    };
+  }
+
+  if (componentKey === FINDER_WIDGET_COMPONENT_KEY) {
+    return {
+      ...commonProps,
+      onSelectWorkspaceDirectory: widgetActions.selectWorkspaceDirectory,
     };
   }
 

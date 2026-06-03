@@ -29,9 +29,8 @@ crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. Stable v0.1
 is centered on the Workspace Agent + Agent Queue dogfooding loop, with
 Terminal as the explicit command surface. Agent Activity, Notes, Knowledge /
-Skills, Database / JDBC Preview, and Runbook Preview remain workbench
-capabilities. Finder is a required Stable v0.1 product gap and is not
-implemented yet. Agent Executor and Git remain implemented supporting /
+Skills, Finder Preview, Database / JDBC Preview, and Runbook Preview remain
+workbench capabilities. Agent Executor and Git remain implemented supporting /
 compatibility surfaces, but they are not Stable v0.1 product widgets.
 Workspace Agent reuses the
 existing `interactive-agent` widget id/component for compatibility and is a
@@ -828,9 +827,9 @@ durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
 The current app includes Workspace Agent, Agent Activity, Agent Queue,
-Knowledge / Skills, Database / JDBC, Runbook, Terminal, and Notes product-facing
-widgets, with Agent Executor and Git retained as supporting/compatibility
-surfaces. Finder is a required Stable v0.1 gap and is not implemented.
+Knowledge / Skills, Finder, Database / JDBC, Runbook, Terminal, and Notes
+product-facing widgets, with Agent Executor and Git retained as
+supporting/compatibility surfaces.
 Workspace Agent is the current foreground chat-based agent work surface and
 compatibility foundation for the target foreground Workspace Agent. It has
 local current-session chat state through the existing `interactive-agent`
@@ -857,8 +856,9 @@ Windows and Linux.
 There is no Notebook tab model, text formatting tool surface, folder UI,
 Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block
 preview system, autosave, archive/delete UI, tags, sync, Knowledge ingestion
-flow, AI-in-Notes behavior, Finder implementation, Agent Queue automatic execution/response
-capture/validation, real external JDBC SQL execution, Template Library runtime,
+flow, AI-in-Notes behavior, Finder file preview/edit/Git/search behavior,
+Agent Queue automatic execution/response capture/validation, real external
+JDBC SQL execution, Template Library runtime,
 template storage/editing/request generation/response validation, Git behavior
 beyond status/diff review and selected-file local commit, or executable
 Workspace Agent runtime in the current repository.
@@ -927,8 +927,8 @@ plus backend-only opt-in runtime config parsing that does not switch the
 product default away from mock execution, retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
 desktop-only Git status/diff and selected-file local commit path for the
-supporting Git surface. Finder is not implemented. Generated Tauri schema
-artifacts under `apps/desktop/src-tauri/gen/`
+supporting Git surface, and a frontend-first Finder column-navigation preview.
+Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/`
 are ignored.
 
 Future feature implementation must preserve the Workbench-first, widget-first, approval-aware contracts while adding real widgets, runtime behavior, and editing capabilities intentionally.

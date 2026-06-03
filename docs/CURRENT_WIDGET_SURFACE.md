@@ -51,14 +51,8 @@ Stable v0.1 product-facing workbench surfaces:
 Current preview surfaces:
 
 - Database / JDBC
+- Finder
 - Runbook
-
-Required Stable v0.1 gap:
-
-- Finder, not implemented yet.
-  Planned Finder UX direction is defined in `docs/FINDER_UX_CONTRACT.md` for
-  column navigation, Finder-owned preview/edit/diff panes, and future Git
-  review inside Finder space. That contract does not make Finder current.
 
 Supporting / compatibility surfaces that may remain implemented for internal
 runtime detail, persisted compatibility, or focused transition work but are not
@@ -74,12 +68,11 @@ Compatibility IDs and component keys may still appear in code and persistence.
 
 New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
-Agent Queue, Terminal, Database / JDBC, Knowledge / Skills, and Runbook remain
-optional product-facing widgets added when needed. Agent Executor and Git may
-remain implemented as supporting/compatibility surfaces, but they are not
-Stable v0.1 product widgets and are not normal Widget Catalog entries. Finder
-is a required Stable v0.1 gap and is not
-implemented by this inventory.
+Agent Queue, Terminal, Finder, Database / JDBC, Knowledge / Skills, and
+Runbook remain optional product-facing widgets added when needed. Agent
+Executor and Git may remain implemented as supporting/compatibility surfaces,
+but they are not Stable v0.1 product widgets and are not normal Widget Catalog
+entries.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
 Workspace Start Screen. Close is navigation only: it does not delete the
@@ -235,6 +228,25 @@ v0.1 product widget.
 - Does not persist repository roots, poll, watch, fetch, push, reset, clean,
   stash, checkout/switch branches, revert files, auto-commit Agent Executor
   output, or mutate Git outside the explicit local commit path.
+
+### Finder
+
+- Current preview frontend-first file navigation widget.
+- Uses the `finder` widget definition id.
+- Provides explicit root approval through the browser File System Access
+  directory picker when available. If only the native Workspace directory
+  picker path is available, Finder shows the selected root label and an honest
+  unsupported listing state rather than fake file data.
+- Lists a bounded, non-recursive directory column for the approved root and
+  opens selected folders as additional macOS-like columns while previous
+  folders remain visible.
+- Selecting a file updates a read-only selected-file preview placeholder with
+  the selected root-relative path.
+- Directory listing state is current-session frontend state only.
+- Does not read selected file contents, preview diffs, show Git status, mutate
+  files, persist approved roots, scan recursively, watch folders, search files,
+  attach context to Workspace Agent, launch Terminal, create Queue/Executor
+  work, or expose Git UI.
 
 ### Terminal
 
@@ -967,8 +979,9 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
-- Finder implementation, despite being a required Stable v0.1 product gap with
-  planned UX in `docs/FINDER_UX_CONTRACT.md`
+- Finder file content preview, edit-in-place, Git review, root persistence,
+  search, folder watching, and context attachment beyond the current preview
+  column-navigation MVP
 - separate legacy Coordinator preview surface
 - Knowledge Catalog
 - Stages
