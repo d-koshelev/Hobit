@@ -40,10 +40,7 @@ import type {
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
-import type {
-  WorkspaceAgentQueueAutonomousControls,
-  WorkspaceAgentQueueViewControls,
-} from "./workspaceAgentQueueBridge";
+import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -85,8 +82,6 @@ type WidgetHostProps = {
   hasGitWidget: boolean;
   agentActivityEvents: AgentActivityEvent[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
-  agentQueueAutonomousControls: WorkspaceAgentQueueAutonomousControls | null;
-  agentQueueViewControls: WorkspaceAgentQueueViewControls | null;
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
@@ -106,12 +101,6 @@ type WidgetHostProps = {
   ) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
-  onRegisterAgentQueueAutonomousControls?: (
-    controls: WorkspaceAgentQueueAutonomousControls,
-  ) => () => void;
-  onRegisterAgentQueueViewControls?: (
-    controls: WorkspaceAgentQueueViewControls,
-  ) => () => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
     pointerX: number,
@@ -124,6 +113,7 @@ type WidgetHostProps = {
   ) => void;
   presentationMode: WidgetPresentationMode;
   widgetActions: WorkbenchWidgetInstanceActions;
+  workspaceQueueApi: WorkspaceQueueApi;
   workspaceId: string;
 };
 
@@ -134,8 +124,6 @@ export function WidgetHost({
   hasGitWidget,
   agentActivityEvents,
   agentExecutorRunOpenRequest,
-  agentQueueAutonomousControls,
-  agentQueueViewControls,
   agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
   queueReportActionCardRequest,
@@ -148,12 +136,11 @@ export function WidgetHost({
   onShowQueueReportInWorkspaceChat,
   onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
-  onRegisterAgentQueueAutonomousControls,
-  onRegisterAgentQueueViewControls,
   onStartDockedDrag,
   onStartPopoutDrag,
   presentationMode,
   widgetActions,
+  workspaceQueueApi,
   workspaceId,
 }: WidgetHostProps) {
   const definition = getWidgetDefinition(instance.definitionId);
@@ -248,8 +235,6 @@ export function WidgetHost({
     agentActivityEvents,
     agentExecutorSlots,
     agentExecutorRunOpenRequest,
-    agentQueueAutonomousControls,
-    agentQueueViewControls,
     agentQueueItemOpenRequest,
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
@@ -263,10 +248,8 @@ export function WidgetHost({
     onOpenAgentQueueItem,
     onOpenAgentExecutorRun,
     onPublishAgentActivityEvents,
-    onRegisterAgentQueueAutonomousControls,
-    onRegisterAgentQueueViewControls,
     widgetActions,
-    workspaceId,
+    workspaceQueueApi,
   });
 
   if (!Component) {

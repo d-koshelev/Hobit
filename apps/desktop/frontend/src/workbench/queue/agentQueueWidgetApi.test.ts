@@ -167,7 +167,7 @@ describe("agentQueueWidgetApi", () => {
     const refreshAfterMutation = vi.fn(async () => undefined);
     const bridge = createWorkspaceAgentQueueBridge({
       queueApi: harness.api,
-      queueViewControls: {
+      queueState: {
         getRunSettingsDefaults: () => ({
           approvalPolicy: "never",
           codexExecutable: "codex.cmd",

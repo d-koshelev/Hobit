@@ -1,9 +1,10 @@
-import { act } from "react";
+import { act, useMemo } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
+import { useAgentQueueController } from "./queue/useAgentQueueController";
 import type { WidgetRenderProps } from "./types";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -394,7 +395,7 @@ function renderQueueWidget(
 
   act(() => {
     root?.render(
-      <AgentQueuePlaceholderWidget
+      <AgentQueueWidgetHarness
         agentExecutorSlots={[
           {
             label: "Local executor",
@@ -455,6 +456,56 @@ function renderQueueWidget(
       />,
     );
   });
+}
+
+function AgentQueueWidgetHarness(props: WidgetRenderProps) {
+  const queueOwnedExecutorSlots = useMemo(
+    () => [
+      {
+        label: "Local executor ready",
+        ownerKind: "agent_queue" as const,
+        widgetInstanceId: props.instance.id,
+      },
+      ...(props.agentExecutorSlots ?? []).map((slot) => ({
+        ...slot,
+        ownerKind: slot.ownerKind ?? ("agent_executor" as const),
+      })),
+    ],
+    [props.agentExecutorSlots, props.instance.id],
+  );
+  const controller = useAgentQueueController({
+    agentExecutorSlots: queueOwnedExecutorSlots,
+    onAssignAgentQueueTaskToExecutor: props.onAssignAgentQueueTaskToExecutor,
+    onClearAgentQueueTaskAssignment: props.onClearAgentQueueTaskAssignment,
+    onCreateAgentQueueTask: props.onCreateAgentQueueTask,
+    onCreateAgentQueueWorker: props.onCreateAgentQueueWorker,
+    onDeleteAgentQueueTask: props.onDeleteAgentQueueTask,
+    onDeleteAgentQueueWorker: props.onDeleteAgentQueueWorker,
+    onDirectWorkRunHandoffStarted: props.onDirectWorkRunHandoffStarted,
+    onGetAgentExecutorRunDetail: props.onGetAgentExecutorRunDetail,
+    onGetAgentQueueRunnerSnapshot: props.onGetAgentQueueRunnerSnapshot,
+    onGetAgentQueueTask: props.onGetAgentQueueTask,
+    onGetAgentQueueTaskLatestRunLink: props.onGetAgentQueueTaskLatestRunLink,
+    onListenToDirectWorkStreamEvents: props.onListenToDirectWorkStreamEvents,
+    onListAgentQueueTaskRunLinks: props.onListAgentQueueTaskRunLinks,
+    onListAgentQueueTasks: props.onListAgentQueueTasks,
+    onListAgentQueueWorkers: props.onListAgentQueueWorkers,
+    onStartAgentQueueRunnerSession: props.onStartAgentQueueRunnerSession,
+    onStartAssignedAgentQueueTask: props.onStartAssignedAgentQueueTask,
+    onStopAgentQueueRunnerSession: props.onStopAgentQueueRunnerSession,
+    onUpdateAgentQueueTask: props.onUpdateAgentQueueTask,
+    onUpdateAgentQueueWorker: props.onUpdateAgentQueueWorker,
+    queueTaskAutoRefreshRequest: props.queueTaskAutoRefreshRequest,
+    queueWidgetInstanceId: props.instance.id,
+  });
+
+  return (
+    <AgentQueuePlaceholderWidget
+      {...props}
+      agentExecutorSlots={queueOwnedExecutorSlots}
+      agentQueueController={controller}
+    />
+  );
 }
 
 async function flushRender() {

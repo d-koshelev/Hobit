@@ -49,7 +49,7 @@ export type UseAgentQueueControllerOptions = Pick<
   | "onUpdateAgentQueueWorker"
   | "queueTaskAutoRefreshRequest"
 > & {
-  queueWidgetInstanceId?: string;
+  queueWidgetInstanceId?: string | null;
 };
 
 export type AgentQueueAutonomousStatus =

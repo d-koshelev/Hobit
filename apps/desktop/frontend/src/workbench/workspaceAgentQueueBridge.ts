@@ -24,12 +24,12 @@ export type WorkspaceAgentQueueAutonomousActionResult = {
   status?: string;
 };
 
-export type WorkspaceAgentQueueAutonomousControls = {
+export type WorkspaceQueueAutonomousActions = {
   runAutonomousQueue: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
   stopAutonomousQueueAfterCurrent: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
 };
 
-export type WorkspaceAgentQueueViewControls = {
+export type WorkspaceQueueStateAccess = {
   getRunSettingsDefaults: () => AgentQueueTaskRunSettingsDefaults;
   refreshAfterMutation: (queueItemId: string) => Promise<void> | void;
 };
@@ -50,14 +50,14 @@ export type WorkspaceAgentQueueBridge = {
 };
 
 export function createWorkspaceAgentQueueBridge({
-  autonomousControls,
+  autonomousActions,
   queueApi,
-  queueViewControls,
+  queueState,
   workspaceId,
 }: {
-  autonomousControls?: WorkspaceAgentQueueAutonomousControls | null;
+  autonomousActions?: WorkspaceQueueAutonomousActions | null;
   queueApi: AgentQueueWidgetApi;
-  queueViewControls?: WorkspaceAgentQueueViewControls | null;
+  queueState?: WorkspaceQueueStateAccess | null;
   workspaceId: string;
 }): WorkspaceAgentQueueBridge {
   return {
@@ -68,12 +68,12 @@ export function createWorkspaceAgentQueueBridge({
         workspaceId,
       });
 
-      await refreshQueueViewAfterMutation(queueViewControls, result);
+      await refreshQueueStateAfterMutation(queueState, result);
 
       return result;
     },
     getRunSettingsDefaults: () =>
-      queueViewControls?.getRunSettingsDefaults() ?? null,
+      queueState?.getRunSettingsDefaults() ?? null,
     getSnapshot: (request = {}) =>
       queueApi.getSnapshot({
         ...request,
@@ -86,13 +86,13 @@ export function createWorkspaceAgentQueueBridge({
         workspaceId,
       });
 
-      await refreshQueueViewAfterMutation(queueViewControls, result);
+      await refreshQueueStateAfterMutation(queueState, result);
 
       return result;
     },
     runAutonomousQueue: () =>
-      autonomousControls
-        ? autonomousControls.runAutonomousQueue()
+      autonomousActions
+        ? autonomousActions.runAutonomousQueue()
         : Promise.resolve(
             unavailableAutonomousResult(
               "queue.runAutonomousQueue",
@@ -100,8 +100,8 @@ export function createWorkspaceAgentQueueBridge({
             ),
           ),
     stopAutonomousQueueAfterCurrent: () =>
-      autonomousControls
-        ? autonomousControls.stopAutonomousQueueAfterCurrent()
+      autonomousActions
+        ? autonomousActions.stopAutonomousQueueAfterCurrent()
         : Promise.resolve(
             unavailableAutonomousResult(
               "queue.stopAutonomousQueueAfterCurrent",
@@ -111,8 +111,8 @@ export function createWorkspaceAgentQueueBridge({
   };
 }
 
-async function refreshQueueViewAfterMutation(
-  queueViewControls: WorkspaceAgentQueueViewControls | null | undefined,
+async function refreshQueueStateAfterMutation(
+  queueState: WorkspaceQueueStateAccess | null | undefined,
   result: QueueWidgetActionResult<QueueWidgetItemSnapshot>,
 ) {
   if (!result.ok || !result.item) {
@@ -120,7 +120,7 @@ async function refreshQueueViewAfterMutation(
   }
 
   try {
-    await queueViewControls?.refreshAfterMutation(result.item.id);
+    await queueState?.refreshAfterMutation(result.item.id);
   } catch {
     // Queue CRUD already succeeded; refresh failures are non-mutating UI state.
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
@@ -11,6 +11,7 @@ import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
+import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   GIT_WIDGET_DEFINITION_ID,
@@ -31,10 +32,6 @@ import type {
   WorkbenchViewState,
 } from "./types";
 import type { AgentQueueReportActionCard } from "../workspace/types";
-import type {
-  WorkspaceAgentQueueAutonomousControls,
-  WorkspaceAgentQueueViewControls,
-} from "./workspaceAgentQueueBridge";
 import {
   clampPopoutPosition,
   defaultPopoutPosition,
@@ -92,12 +89,6 @@ export function WorkbenchCanvas({
   const [agentActivityEvents, setAgentActivityEvents] = useState<
     AgentActivityEvent[]
   >([]);
-  const [
-    agentQueueAutonomousControls,
-    setAgentQueueAutonomousControls,
-  ] = useState<WorkspaceAgentQueueAutonomousControls | null>(null);
-  const [agentQueueViewControls, setAgentQueueViewControls] =
-    useState<WorkspaceAgentQueueViewControls | null>(null);
   const coordinatorAttachedContextRequestIdRef = useRef(0);
   const [
     coordinatorAttachedContextRequest,
@@ -126,6 +117,13 @@ export function WorkbenchCanvas({
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff();
   const directWorkRunHandoff = useDirectWorkRunHandoff();
+  const workspaceQueueApi = useWorkspaceQueueApi({
+    actions: widgetActions,
+    agentExecutorSlots,
+    directWorkRunHandoff,
+    queueWidgetInstanceId: queueWidget?.id ?? null,
+    workspaceId: viewState.workspace.id,
+  });
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
   const renderedVisibleWidgets = isLayoutEditing
@@ -164,32 +162,6 @@ export function WorkbenchCanvas({
   useEffect(() => {
     setAgentActivityEvents([]);
   }, [viewState.workspace.id]);
-
-  const registerAgentQueueAutonomousControls = useCallback(
-    (controls: WorkspaceAgentQueueAutonomousControls) => {
-      setAgentQueueAutonomousControls(controls);
-
-      return () => {
-        setAgentQueueAutonomousControls((currentControls) =>
-          currentControls === controls ? null : currentControls,
-        );
-      };
-    },
-    [],
-  );
-
-  const registerAgentQueueViewControls = useCallback(
-    (controls: WorkspaceAgentQueueViewControls) => {
-      setAgentQueueViewControls(controls);
-
-      return () => {
-        setAgentQueueViewControls((currentControls) =>
-          currentControls === controls ? null : currentControls,
-        );
-      };
-    },
-    [],
-  );
 
   useEffect(() => {
     const surface = layoutSurfaceRef.current;
@@ -530,10 +502,6 @@ export function WorkbenchCanvas({
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
                         }
-                        agentQueueAutonomousControls={
-                          agentQueueAutonomousControls
-                        }
-                        agentQueueViewControls={agentQueueViewControls}
                         agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                         coordinatorAttachedContextRequest={
                           coordinatorAttachedContextRequest
@@ -563,18 +531,13 @@ export function WorkbenchCanvas({
                         onPublishAgentActivityEvents={
                           publishAgentActivityEvents
                         }
-                        onRegisterAgentQueueAutonomousControls={
-                          registerAgentQueueAutonomousControls
-                        }
-                        onRegisterAgentQueueViewControls={
-                          registerAgentQueueViewControls
-                        }
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
                         onStartPopoutDrag={startPopoutDrag}
                         presentationMode="popped-out"
                         widgetActions={widgetActions}
+                        workspaceQueueApi={workspaceQueueApi}
                         workspaceId={viewState.workspace.id}
                       />
                     </div>
@@ -585,10 +548,6 @@ export function WorkbenchCanvas({
                       agentActivityEvents={agentActivityEvents}
                       agentExecutorSlots={agentExecutorSlots}
                       agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
-                      agentQueueAutonomousControls={
-                        agentQueueAutonomousControls
-                      }
-                      agentQueueViewControls={agentQueueViewControls}
                       agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                       coordinatorAttachedContextRequest={
                         coordinatorAttachedContextRequest
@@ -611,18 +570,13 @@ export function WorkbenchCanvas({
                         queueWidget ? openAgentQueueItem : undefined
                       }
                       onPublishAgentActivityEvents={publishAgentActivityEvents}
-                      onRegisterAgentQueueAutonomousControls={
-                        registerAgentQueueAutonomousControls
-                      }
-                      onRegisterAgentQueueViewControls={
-                        registerAgentQueueViewControls
-                      }
                       onOpenAgentExecutorRun={openAgentExecutorRun}
                       onPopOut={popOutWidget}
                       onStartDockedDrag={startDockedDrag}
                       onStartPopoutDrag={startPopoutDrag}
                       presentationMode="docked"
                       widgetActions={widgetActions}
+                      workspaceQueueApi={workspaceQueueApi}
                       workspaceId={viewState.workspace.id}
                     />
                     {isLayoutEditing && widget.layout.mode === "docked" ? (

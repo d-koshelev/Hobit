@@ -616,7 +616,7 @@ export function useAgentQueueController({
     onCodexExecutableDraftChange: setCodexExecutableDraft,
     onRepoRootDraftChange: setRepoRootDraft,
     onSandboxChange: setSandbox,
-    queueWidgetInstanceId,
+    queueWidgetInstanceId: queueWidgetInstanceId ?? undefined,
     repoRoot,
     repoRootDraft,
     sandbox,
@@ -977,3 +977,5 @@ export function useAgentQueueController({
     workers,
   });
 }
+
+export type AgentQueueController = ReturnType<typeof useAgentQueueController>;

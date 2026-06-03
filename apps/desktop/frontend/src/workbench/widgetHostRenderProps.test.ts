@@ -4,6 +4,7 @@ import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
+import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -36,16 +37,7 @@ describe("widgetHostRenderProps", () => {
   it("wires Workspace Agent directory, Knowledge, activity, Direct Work, and Queue bridge callbacks", async () => {
     const actions = widgetActions();
     const publish = vi.fn();
-    const queueViewControls = {
-      getRunSettingsDefaults: vi.fn(() => ({
-        approvalPolicy: "never" as const,
-        codexExecutable: "codex.cmd",
-        executionWorkspace: "C:/repo",
-        sandbox: "read_only" as const,
-      })),
-      refreshAfterMutation: vi.fn(),
-    };
-    const autonomousControls = {
+    const workspaceQueue = workspaceQueueApi({
       runAutonomousQueue: vi.fn(async () => ({
         action: "queue.runAutonomousQueue" as const,
         message: "Autonomous Queue started.",
@@ -58,10 +50,8 @@ describe("widgetHostRenderProps", () => {
         ok: true,
         status: "stopping",
       })),
-    };
+    });
     const props = renderPropsFor(INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY, {
-      agentQueueAutonomousControls: autonomousControls,
-      agentQueueViewControls: queueViewControls,
       coordinatorAttachedContextRequest: {
         contextText: "visible context",
         id: 1,
@@ -70,6 +60,7 @@ describe("widgetHostRenderProps", () => {
       },
       onPublishAgentActivityEvents: publish,
       widgetActions: actions,
+      workspaceQueueApi: workspaceQueue,
     });
 
     expect(props.coordinatorAttachedContextRequest?.contextText).toBe(
@@ -105,9 +96,9 @@ describe("widgetHostRenderProps", () => {
     );
     await props.workspaceAgentQueueBridge?.runAutonomousQueue?.();
     await props.workspaceAgentQueueBridge?.stopAutonomousQueueAfterCurrent?.();
-    expect(autonomousControls.runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(workspaceQueue.runAutonomousQueue).toHaveBeenCalledTimes(1);
     expect(
-      autonomousControls.stopAutonomousQueueAfterCurrent,
+      workspaceQueue.stopAutonomousQueueAfterCurrent,
     ).toHaveBeenCalledTimes(1);
     expect(props.onPublishAgentActivityEvents).toBe(publish);
     expect(props.onSearchKnowledgeDocuments).toBe(
@@ -258,8 +249,6 @@ describe("widgetHostRenderProps", () => {
     const actions = widgetActions();
     const attach = vi.fn();
     const openExecutorRun = vi.fn();
-    const registerAutonomousControls = vi.fn();
-    const registerViewControls = vi.fn();
     const handoff = directWorkRunHandoffController();
     const slots = [
       {
@@ -272,41 +261,20 @@ describe("widgetHostRenderProps", () => {
       directWorkRunHandoff: handoff,
       onAttachContextToCoordinator: attach,
       onOpenAgentExecutorRun: openExecutorRun,
-      onRegisterAgentQueueAutonomousControls: registerAutonomousControls,
-      onRegisterAgentQueueViewControls: registerViewControls,
+      workspaceQueueApi: workspaceQueueApi({
+        controller: { agentExecutorSlots: slots } as WorkspaceQueueApi["controller"],
+        queueExecutorSlots: slots,
+      }),
       widgetActions: actions,
     });
 
     expect(props.agentExecutorSlots).toBe(slots);
+    expect(props.agentQueueController?.agentExecutorSlots).toBe(slots);
     expect(props.onAttachContextToCoordinator).toBe(attach);
-    expect(props.onAssignAgentQueueTaskToExecutor).toBe(
-      actions.assignAgentQueueTaskToExecutor,
-    );
-    expect(props.onCreateAgentQueueTask).toBe(actions.createAgentQueueTask);
-    expect(props.onDirectWorkRunHandoffStarted).toBe(handoff.recordHandoff);
     expect(props.onOpenAgentExecutorRun).toBe(openExecutorRun);
-    expect(props.onRegisterAgentQueueAutonomousControls).toBe(
-      registerAutonomousControls,
-    );
-    expect(props.onRegisterAgentQueueViewControls).toBe(registerViewControls);
-    expect(props.onStartAssignedAgentQueueTask).toBe(
-      actions.startAssignedAgentQueueTask,
-    );
-    expect(props.onStartAgentQueueRunnerSession).toBe(
-      actions.startAgentQueueRunnerSession,
-    );
-    expect(props.queueTaskAutoRefreshRequest).toBe(
-      handoff.queueTaskAutoRefreshRequest,
-    );
-
-    await props.onGetAgentQueueTaskLatestRunLink?.("queue_1");
-    expect(actions.getAgentQueueTaskLatestRunLink).toHaveBeenCalledWith({
-      queueItemId: "queue_1",
-    });
-    await props.onListAgentQueueTaskRunLinks?.("queue_1");
-    expect(actions.listAgentQueueTaskRunLinks).toHaveBeenCalledWith({
-      queueItemId: "queue_1",
-    });
+    expect(props.onAssignAgentQueueTaskToExecutor).toBeUndefined();
+    expect(props.onCreateAgentQueueTask).toBeUndefined();
+    expect(props.onStartAssignedAgentQueueTask).toBeUndefined();
     expect(props.onRunCodexDirectWork).toBeUndefined();
   });
 
@@ -416,8 +384,6 @@ function renderPropsFor(
   return widgetHostRenderProps({
     agentActivityEvents: [],
     agentExecutorRunOpenRequest: null,
-    agentQueueAutonomousControls: null,
-    agentQueueViewControls: null,
     agentQueueItemOpenRequest: null,
     agentExecutorSlots: [],
     componentKey,
@@ -431,9 +397,31 @@ function renderPropsFor(
     onOpenAgentExecutorRun: vi.fn(),
     onPublishAgentActivityEvents: vi.fn(),
     widgetActions: widgetActions(),
-    workspaceId: "workspace_1",
+    workspaceQueueApi: workspaceQueueApi(),
     ...overrides,
   });
+}
+
+function workspaceQueueApi(
+  overrides: Partial<WorkspaceQueueApi> = {},
+): WorkspaceQueueApi {
+  return {
+    controller: {} as WorkspaceQueueApi["controller"],
+    createItem: vi.fn(),
+    getRunSettingsDefaults: vi.fn(() => ({
+      approvalPolicy: "never" as const,
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:/repo",
+      sandbox: "read_only" as const,
+    })),
+    getSnapshot: vi.fn(),
+    queueExecutorSlots: [],
+    queueId: "workspace:workspace_1:agent-queue",
+    runAutonomousQueue: vi.fn(),
+    stopAutonomousQueueAfterCurrent: vi.fn(),
+    updateItem: vi.fn(),
+    ...overrides,
+  };
 }
 
 function agentActivityEvent() {

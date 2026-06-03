@@ -70,7 +70,7 @@ type UseAgentQueueAutonomousRunnerOptions = {
   onCodexExecutableDraftChange: (codexExecutable: string) => void;
   onRepoRootDraftChange: (repoRoot: string) => void;
   onSandboxChange: (sandbox: DirectWorkSandbox) => void;
-  queueWidgetInstanceId: string;
+  queueWidgetInstanceId?: string;
   repoRoot: string;
   repoRootDraft: string;
   sandbox: DirectWorkSandbox;
@@ -585,7 +585,11 @@ export function useAgentQueueAutonomousRunner({
       validationCommandsSuggested: [],
       validationResult: "failed",
       warnings: [],
-      workerId: queueWidgetInstanceId,
+      workerId:
+        queueWidgetInstanceId ??
+        currentTask.assignedWorkerId ??
+        currentTask.assignedExecutorWidgetId ??
+        "agent-queue",
     };
     const failedTask: AgentQueueTask = {
       ...currentTask,

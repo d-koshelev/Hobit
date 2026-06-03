@@ -13,30 +13,8 @@ import type {
   WidgetInstanceId,
   WidgetRenderProps,
 } from "../types";
+import type { AgentQueueController } from "../queue/useAgentQueueController";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
-
-type AgentQueueActions = Pick<
-  WorkbenchWidgetInstanceActions,
-  | "assignAgentQueueTaskToExecutor"
-  | "clearAgentQueueTaskAssignment"
-  | "createAgentQueueTask"
-  | "deleteAgentQueueTask"
-  | "createAgentQueueWorker"
-  | "deleteAgentQueueWorker"
-  | "getAgentExecutorRunDetail"
-  | "getAgentQueueRunnerSnapshot"
-  | "getAgentQueueTask"
-  | "getAgentQueueTaskLatestRunLink"
-  | "listenToDirectWorkStreamEvents"
-  | "listAgentQueueTaskRunLinks"
-  | "listAgentQueueTasks"
-  | "listAgentQueueWorkers"
-  | "startAgentQueueRunnerSession"
-  | "startAssignedAgentQueueTask"
-  | "stopAgentQueueRunnerSession"
-  | "updateAgentQueueTask"
-  | "updateAgentQueueWorker"
->;
 
 type AgentExecutorActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -52,10 +30,9 @@ type AgentExecutorActions = Pick<
 >;
 
 type AgentQueueWidgetPropsOptions = {
-  actions: AgentQueueActions;
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
+  agentQueueController: AgentQueueController;
   agentExecutorSlots: AgentExecutorSlot[];
-  directWorkRunHandoff: DirectWorkRunHandoffController;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
@@ -65,8 +42,6 @@ type AgentQueueWidgetPropsOptions = {
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
-  onRegisterAgentQueueAutonomousControls?: WidgetRenderProps["onRegisterAgentQueueAutonomousControls"];
-  onRegisterAgentQueueViewControls?: WidgetRenderProps["onRegisterAgentQueueViewControls"];
 };
 
 type AgentExecutorWidgetPropsOptions = {
@@ -83,48 +58,20 @@ type AgentExecutorWidgetPropsOptions = {
 };
 
 export function agentQueueWidgetProps({
-  actions,
   agentQueueItemOpenRequest,
+  agentQueueController,
   agentExecutorSlots,
-  directWorkRunHandoff,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
-  onRegisterAgentQueueAutonomousControls,
-  onRegisterAgentQueueViewControls,
 }: AgentQueueWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
     agentQueueItemOpenRequest,
+    agentQueueController,
     agentExecutorSlots,
-    onAssignAgentQueueTaskToExecutor: actions.assignAgentQueueTaskToExecutor,
     onAttachContextToCoordinator,
     onShowQueueReportInWorkspaceChat,
-    onClearAgentQueueTaskAssignment: actions.clearAgentQueueTaskAssignment,
-    onCreateAgentQueueTask: actions.createAgentQueueTask,
-    onCreateAgentQueueWorker: actions.createAgentQueueWorker,
-    onDeleteAgentQueueTask: actions.deleteAgentQueueTask,
-    onDeleteAgentQueueWorker: actions.deleteAgentQueueWorker,
-    onDirectWorkRunHandoffStarted: directWorkRunHandoff.recordHandoff,
-    onGetAgentExecutorRunDetail: actions.getAgentExecutorRunDetail,
-    onGetAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
-    onGetAgentQueueTask: actions.getAgentQueueTask,
-    onGetAgentQueueTaskLatestRunLink: (queueItemId) =>
-      actions.getAgentQueueTaskLatestRunLink({ queueItemId }),
-    onListenToDirectWorkStreamEvents: actions.listenToDirectWorkStreamEvents,
-    onListAgentQueueTaskRunLinks: (queueItemId) =>
-      actions.listAgentQueueTaskRunLinks({ queueItemId }),
-    onListAgentQueueTasks: actions.listAgentQueueTasks,
-    onListAgentQueueWorkers: actions.listAgentQueueWorkers,
     onOpenAgentExecutorRun,
-    onRegisterAgentQueueAutonomousControls,
-    onRegisterAgentQueueViewControls,
-    onStartAgentQueueRunnerSession: actions.startAgentQueueRunnerSession,
-    onStartAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,
-    onStopAgentQueueRunnerSession: actions.stopAgentQueueRunnerSession,
-    onUpdateAgentQueueTask: actions.updateAgentQueueTask,
-    onUpdateAgentQueueWorker: actions.updateAgentQueueWorker,
-    queueTaskAutoRefreshRequest:
-      directWorkRunHandoff.queueTaskAutoRefreshRequest,
   };
 }
 

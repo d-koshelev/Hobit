@@ -98,14 +98,12 @@ import type {
   WidgetLogEntry,
   WidgetState,
 } from "./types";
-import type {
-  WorkspaceAgentQueueAutonomousControls,
-  WorkspaceAgentQueueBridge,
-  WorkspaceAgentQueueViewControls,
-} from "./workspaceAgentQueueBridge";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type { AgentQueueController } from "./queue/useAgentQueueController";
 
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
+  agentQueueController?: AgentQueueController;
   agentExecutorSlots?: AgentExecutorSlot[];
   config: Record<string, unknown>;
   definition: WidgetDefinition;
@@ -372,15 +370,7 @@ export type WidgetRenderProps = {
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
-  onRegisterAgentQueueAutonomousControls?: (
-    controls: WorkspaceAgentQueueAutonomousControls,
-  ) => () => void;
-  onRegisterAgentQueueViewControls?: (
-    controls: WorkspaceAgentQueueViewControls,
-  ) => () => void;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
-  agentQueueAutonomousControls?: WorkspaceAgentQueueAutonomousControls | null;
-  agentQueueViewControls?: WorkspaceAgentQueueViewControls | null;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;

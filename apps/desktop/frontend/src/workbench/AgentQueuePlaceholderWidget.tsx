@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
@@ -21,26 +21,16 @@ import {
   validateDraft,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
-import {
-  useAgentQueueController,
-  type AgentQueueRunController,
-  type QueueTaskInsertPosition,
+import type {
+  AgentQueueController,
+  AgentQueueRunController,
+  QueueTaskInsertPosition,
 } from "./queue/useAgentQueueController";
 import {
   agentQueueTaskRunSettingsDefaultsFromRun,
   defaultAgentQueueTaskRunSettings,
 } from "./queue/agentQueueRunSettingsDefaults";
-import {
-  NO_ELIGIBLE_TASK_BLOCKER,
-} from "./queue/agentQueueAutonomousRunnerModel";
-import type { AgentQueueAutonomousController } from "./queue/agentQueueControllerTypes";
 import type { WidgetRenderProps } from "./types";
-import type {
-  WorkspaceAgentQueueAutonomousActionName,
-  WorkspaceAgentQueueAutonomousActionResult,
-  WorkspaceAgentQueueAutonomousControls,
-  WorkspaceAgentQueueViewControls,
-} from "./workspaceAgentQueueBridge";
 
 export const DEFAULT_AGENT_QUEUE_VIEW_MODE = "flow";
 
@@ -52,34 +42,12 @@ export function AgentQueuePlaceholderWidget({
   logRefreshToken,
   agentQueueItemOpenRequest,
   agentExecutorSlots = [],
-  onAssignAgentQueueTaskToExecutor,
-  onClearAgentQueueTaskAssignment,
-  onCreateAgentQueueTask,
-  onCreateAgentQueueWorker,
-  onDeleteAgentQueueTask,
-  onDeleteAgentQueueWorker,
-  onGetAgentQueueTask,
-  onGetAgentQueueTaskLatestRunLink,
-  onGetAgentQueueRunnerSnapshot,
-  onListAgentQueueTaskRunLinks,
-  onListAgentQueueTasks,
-  onListAgentQueueWorkers,
+  agentQueueController,
   onLoadLogs,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
-  onDirectWorkRunHandoffStarted,
-  onGetAgentExecutorRunDetail,
-  queueTaskAutoRefreshRequest,
-  onListenToDirectWorkStreamEvents,
   onStartFrameMove,
-  onStartAssignedAgentQueueTask,
-  onStartAgentQueueRunnerSession,
-  onStopAgentQueueRunnerSession,
-  onUpdateAgentQueueTask,
-  onUpdateAgentQueueWorker,
-  onRegisterAgentQueueAutonomousControls,
-  onRegisterAgentQueueViewControls,
   title,
 }: WidgetRenderProps) {
   const titleInputId = useId();
@@ -111,49 +79,9 @@ export function AgentQueuePlaceholderWidget({
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
-  const queueOwnedExecutorSlots = useMemo(
-    () => [
-      {
-        label: "Local executor ready",
-        ownerKind: "agent_queue" as const,
-        widgetInstanceId: instance.id,
-      },
-      ...agentExecutorSlots.map((slot) => ({
-        ...slot,
-        ownerKind: slot.ownerKind ?? ("agent_executor" as const),
-      })),
-    ],
-    [agentExecutorSlots, instance.id],
-  );
-  const queue = useAgentQueueController({
-    agentExecutorSlots: queueOwnedExecutorSlots,
-    onAssignAgentQueueTaskToExecutor,
-    onClearAgentQueueTaskAssignment,
-    onCreateAgentQueueTask,
-    onCreateAgentQueueWorker,
-    onDeleteAgentQueueTask,
-    onDeleteAgentQueueWorker,
-    onDirectWorkRunHandoffStarted,
-    onGetAgentExecutorRunDetail,
-    onGetAgentQueueTask,
-    onGetAgentQueueTaskLatestRunLink,
-    onListenToDirectWorkStreamEvents,
-    onGetAgentQueueRunnerSnapshot,
-    onListAgentQueueTaskRunLinks,
-    onListAgentQueueTasks,
-    onListAgentQueueWorkers,
-    onStartAssignedAgentQueueTask,
-    onStartAgentQueueRunnerSession,
-    onStopAgentQueueRunnerSession,
-    onUpdateAgentQueueTask,
-    onUpdateAgentQueueWorker,
-    queueWidgetInstanceId: instance.id,
-    queueTaskAutoRefreshRequest,
-  });
-  const autonomousControlsRef =
-    useRef<WorkspaceAgentQueueAutonomousControls | null>(null);
-  const queueViewControlsRef =
-    useRef<WorkspaceAgentQueueViewControls | null>(null);
+  const queue = agentQueueController as AgentQueueController;
+  const queueOwnedExecutorSlots = agentQueueController?.agentExecutorSlots ?? agentExecutorSlots;
+
   const {
     apiAvailable,
     createTask,
@@ -164,73 +92,10 @@ export function AgentQueuePlaceholderWidget({
     isSelecting,
     loadError,
     refreshTasks,
-    refreshAfterExternalMutation,
     selectedTask,
     selectTask,
     tasks,
   } = queue;
-
-  autonomousControlsRef.current = {
-    runAutonomousQueue: () => runAutonomousQueue(queue.autonomous),
-    stopAutonomousQueueAfterCurrent: () =>
-      stopAutonomousQueueAfterCurrent(queue.autonomous),
-  };
-  queueViewControlsRef.current = {
-    getRunSettingsDefaults: () =>
-      agentQueueTaskRunSettingsDefaultsFromRun(queue.run),
-    refreshAfterMutation: (queueItemId) =>
-      refreshAfterExternalMutation(queueItemId),
-  };
-
-  useEffect(() => {
-    if (!onRegisterAgentQueueAutonomousControls) {
-      return undefined;
-    }
-
-    const controls: WorkspaceAgentQueueAutonomousControls = {
-      runAutonomousQueue: () =>
-        autonomousControlsRef.current?.runAutonomousQueue() ??
-        Promise.resolve(
-          autonomousQueueResult({
-            action: "queue.runAutonomousQueue",
-            code: "autonomous_controls_unavailable",
-            message: "Queue autonomous controls are unavailable.",
-            ok: false,
-            status: "unavailable",
-          }),
-        ),
-      stopAutonomousQueueAfterCurrent: () =>
-        autonomousControlsRef.current?.stopAutonomousQueueAfterCurrent() ??
-        Promise.resolve(
-          autonomousQueueResult({
-            action: "queue.stopAutonomousQueueAfterCurrent",
-            code: "autonomous_controls_unavailable",
-            message: "Queue autonomous controls are unavailable.",
-            ok: false,
-            status: "unavailable",
-          }),
-        ),
-    };
-
-    return onRegisterAgentQueueAutonomousControls(controls);
-  }, [onRegisterAgentQueueAutonomousControls]);
-
-  useEffect(() => {
-    if (!onRegisterAgentQueueViewControls) {
-      return undefined;
-    }
-
-    const controls: WorkspaceAgentQueueViewControls = {
-      getRunSettingsDefaults: () =>
-        queueViewControlsRef.current?.getRunSettingsDefaults() ??
-        defaultAgentQueueTaskRunSettings(),
-      refreshAfterMutation: (queueItemId) =>
-        queueViewControlsRef.current?.refreshAfterMutation(queueItemId) ??
-        Promise.resolve(),
-    };
-
-    return onRegisterAgentQueueViewControls(controls);
-  }, [onRegisterAgentQueueViewControls]);
 
   useEffect(() => {
     if (
@@ -257,7 +122,9 @@ export function AgentQueuePlaceholderWidget({
         onClick={() => {
           setCreateDraft(newTaskDialogDraft(selectedTask));
           setCreateInsertPosition("bottom");
-          setCreateRunSetup(runSetupFromQueueRun(queue.run));
+          setCreateRunSetup(
+            selectedTask ? runSetupFromQueueRun(queue.run) : defaultCreateRunSetup(),
+          );
           setCreateDialogError(null);
           setIsCreateDialogOpen(true);
         }}
@@ -470,7 +337,7 @@ function defaultCreateRunSetup(): AgentQueueNewTaskRunSetup {
     approvalPolicy: defaults.approvalPolicy,
     codexExecutableDraft: defaults.codexExecutable,
     repoRootDraft: defaults.executionWorkspace,
-    sandbox: defaults.sandbox,
+    sandbox: "read_only",
   };
 }
 
@@ -516,103 +383,4 @@ function validateQueuedRunSetup(
   }
 
   return null;
-}
-
-function runAutonomousQueue(
-  autonomous: AgentQueueAutonomousController,
-): Promise<WorkspaceAgentQueueAutonomousActionResult> {
-  if (!autonomous.apiAvailable || !autonomous.canStart) {
-    return Promise.resolve(
-      autonomousQueueResult({
-        action: "queue.runAutonomousQueue",
-        code: "autonomous_start_blocked",
-        message: autonomousStartBlockerMessage(autonomous),
-        ok: false,
-        status: autonomous.status,
-      }),
-    );
-  }
-
-  if (autonomous.remainingEligibleCount <= 0) {
-    return Promise.resolve(
-      autonomousQueueResult({
-        action: "queue.runAutonomousQueue",
-        code: "autonomous_no_eligible_tasks",
-        message: NO_ELIGIBLE_TASK_BLOCKER,
-        ok: false,
-        status: autonomous.status,
-      }),
-    );
-  }
-
-  autonomous.onStart();
-
-  return Promise.resolve(
-    autonomousQueueResult({
-      action: "queue.runAutonomousQueue",
-      message: "Autonomous Queue started.",
-      ok: true,
-      status: autonomous.status,
-    }),
-  );
-}
-
-function stopAutonomousQueueAfterCurrent(
-  autonomous: AgentQueueAutonomousController,
-): Promise<WorkspaceAgentQueueAutonomousActionResult> {
-  if (autonomous.status !== "running" && autonomous.status !== "stopping") {
-    return Promise.resolve(
-      autonomousQueueResult({
-        action: "queue.stopAutonomousQueueAfterCurrent",
-        code: "autonomous_not_running",
-        message: "Autonomous Queue is not running.",
-        ok: false,
-        status: autonomous.status,
-      }),
-    );
-  }
-
-  autonomous.onStopAfterCurrent();
-
-  return Promise.resolve(
-    autonomousQueueResult({
-      action: "queue.stopAutonomousQueueAfterCurrent",
-      message: "Autonomous Queue will stop after the current task.",
-      ok: true,
-      status: autonomous.status,
-    }),
-  );
-}
-
-function autonomousStartBlockerMessage(
-  autonomous: AgentQueueAutonomousController,
-) {
-  return (
-    autonomous.preconditionMessages[0] ??
-    autonomous.error ??
-    autonomous.message ??
-    "Autonomous Queue is not ready."
-  );
-}
-
-function autonomousQueueResult({
-  action,
-  code,
-  message,
-  ok,
-  status,
-}: {
-  action: WorkspaceAgentQueueAutonomousActionName;
-  code?: string;
-  message: string;
-  ok: boolean;
-  status: string;
-}): WorkspaceAgentQueueAutonomousActionResult {
-  return {
-    action,
-    error: ok || !code ? undefined : { code, message },
-    message,
-    ok,
-    status,
-  };
 }
