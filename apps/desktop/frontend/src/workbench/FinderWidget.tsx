@@ -6,6 +6,7 @@ import {
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
+  pushWorkspaceGit,
 } from "../workspace/workspaceGitApi";
 import type {
   GitCommitResponse,
@@ -13,6 +14,7 @@ import type {
   GitFileDiff,
   GitLog,
   GitLogEntry,
+  GitPushResponse,
   GitRepositoryStatus,
 } from "../workspace/types";
 import { WidgetFrame } from "../design-system/WidgetFrame";
@@ -409,6 +411,26 @@ export function FinderWidget({
     await loadGitHistoryForRoot(repoRoot);
   }
 
+  async function pushFinderGit(request: {
+    expectedAhead?: number | null;
+    expectedBehind?: number | null;
+    expectedBranch: string;
+    expectedUpstream: string;
+    operatorConfirmed: boolean;
+    repoRoot: string;
+  }) {
+    return pushWorkspaceGit(request);
+  }
+
+  async function refreshGitAfterPush(repoRoot = root?.gitRoot ?? null) {
+    if (!repoRoot) {
+      return;
+    }
+
+    await refreshGitStatusForRoot(repoRoot);
+    await loadGitHistoryForRoot(repoRoot);
+  }
+
   async function loadColumn(
     directoryHandle: FinderDirectoryHandle,
     pathSegments: string[],
@@ -789,6 +811,8 @@ export function FinderWidget({
           onCreateCommit={createFinderGitCommit}
           onChangeViewMode={setViewMode}
           onRefreshAfterCommit={() => refreshGitAfterCommit()}
+          onPush={pushFinderGit}
+          onRefreshAfterPush={() => refreshGitAfterPush()}
           onRefreshHistory={() => void loadGitHistoryForRoot()}
           onSelectHistoryEntry={(hash) =>
             setGitHistory((currentHistory) => ({
@@ -1236,6 +1260,8 @@ function FinderGitStatusPanel({
   onCreateCommit,
   onChangeViewMode,
   onRefreshAfterCommit,
+  onPush,
+  onRefreshAfterPush,
   onRefreshHistory,
   onSelectHistoryEntry,
   repositoryRoot,
@@ -1253,6 +1279,15 @@ function FinderGitStatusPanel({
   }) => Promise<GitCommitResponse>;
   onChangeViewMode: (viewMode: FinderViewMode) => void;
   onRefreshAfterCommit: () => Promise<void>;
+  onPush: (request: {
+    expectedAhead?: number | null;
+    expectedBehind?: number | null;
+    expectedBranch: string;
+    expectedUpstream: string;
+    operatorConfirmed: boolean;
+    repoRoot: string;
+  }) => Promise<GitPushResponse>;
+  onRefreshAfterPush: () => Promise<void>;
   onRefreshHistory: () => void;
   onSelectHistoryEntry: (hash: string) => void;
   repositoryRoot: string | null;
@@ -1336,6 +1371,12 @@ function FinderGitStatusPanel({
       <FinderGitManualCommitPanel
         onCreateCommit={onCreateCommit}
         onRefreshAfterCommit={onRefreshAfterCommit}
+        repositoryRoot={repositoryRoot}
+        status={status}
+      />
+      <FinderGitManualPushPanel
+        onPush={onPush}
+        onRefreshAfterPush={onRefreshAfterPush}
         repositoryRoot={repositoryRoot}
         status={status}
       />
@@ -1633,6 +1674,209 @@ function FinderGitManualCommitPanel({
         />
       ) : null}
     </section>
+  );
+}
+
+function FinderGitManualPushPanel({
+  onPush,
+  onRefreshAfterPush,
+  repositoryRoot,
+  status,
+}: {
+  onPush: (request: {
+    expectedAhead?: number | null;
+    expectedBehind?: number | null;
+    expectedBranch: string;
+    expectedUpstream: string;
+    operatorConfirmed: boolean;
+    repoRoot: string;
+  }) => Promise<GitPushResponse>;
+  onRefreshAfterPush: () => Promise<void>;
+  repositoryRoot: string | null;
+  status: GitRepositoryStatus | null;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushResult, setPushResult] = useState<GitPushResponse | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const branch = status?.branch ?? null;
+  const pushBlocker = getFinderGitPushBlocker(repositoryRoot, status);
+  const ahead = branch?.ahead ?? 0;
+  const behind = branch?.behind ?? 0;
+
+  function toggleOpen() {
+    setIsOpen((current) => !current);
+    setIsConfirming(false);
+    setPushError(null);
+    setRefreshError(null);
+  }
+
+  function startConfirmation() {
+    setPushError(null);
+    setRefreshError(null);
+    setPushResult(null);
+
+    if (pushBlocker) {
+      setPushError(pushBlocker);
+      return;
+    }
+
+    setIsConfirming(true);
+  }
+
+  async function confirmPush() {
+    if (!repositoryRoot || !branch?.name || !branch.upstream || pushBlocker) {
+      setPushError(pushBlocker ?? "Git push requires a safe branch and upstream.");
+      return;
+    }
+
+    setIsPushing(true);
+    setPushError(null);
+    setPushResult(null);
+    setRefreshError(null);
+
+    try {
+      const result = await onPush({
+        expectedAhead: branch.ahead,
+        expectedBehind: branch.behind,
+        expectedBranch: branch.name,
+        expectedUpstream: branch.upstream,
+        operatorConfirmed: true,
+        repoRoot: repositoryRoot,
+      });
+      setPushResult(result);
+      setIsConfirming(false);
+      try {
+        await onRefreshAfterPush();
+      } catch (error) {
+        setRefreshError(errorToReadableMessage(error));
+      }
+    } catch (error) {
+      setPushError(errorToReadableMessage(error));
+    } finally {
+      setIsPushing(false);
+    }
+  }
+
+  return (
+    <section aria-label="Finder Git manual push" className="finder-git-commit-panel">
+      <div className="finder-git-commit-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Manual push</p>
+          <p className="finder-text">
+            Push local commits to the visible upstream only.
+          </p>
+        </div>
+        <Button disabled={!status || isPushing} onClick={toggleOpen} variant="secondary">
+          {isOpen ? "Close" : "Push"}
+        </Button>
+      </div>
+
+      {isOpen ? (
+        <>
+          <div className="finder-git-commit-result-grid">
+            <FinderGitCommitFact
+              label="Branch"
+              value={branch?.name ?? "Not loaded"}
+            />
+            <FinderGitCommitFact
+              label="Upstream"
+              value={branch?.upstream ?? "Unknown"}
+            />
+            <FinderGitCommitFact label="Ahead" value={formatGitCount(branch?.ahead)} />
+            <FinderGitCommitFact label="Behind" value={formatGitCount(branch?.behind)} />
+          </div>
+
+          {pushBlocker ? (
+            <p className="finder-preview-error">{pushBlocker}</p>
+          ) : null}
+
+          {isConfirming && branch?.name && branch.upstream ? (
+            <div className="finder-git-commit-confirmation">
+              <div className="finder-git-commit-header">
+                <div className="finder-scope-copy">
+                  <p className="finder-title">Confirm push</p>
+                  <p className="finder-text">
+                    This will push {ahead} local commit{ahead === 1 ? "" : "s"} to{" "}
+                    {branch.upstream}.
+                  </p>
+                </div>
+                <Badge variant="warning">Network mutation</Badge>
+              </div>
+              <FinderGitCommitFact label="Repository root" value={<code>{repositoryRoot}</code>} />
+              <FinderGitCommitFact label="Branch" value={branch.name} />
+              <FinderGitCommitFact label="Upstream" value={branch.upstream} />
+              <FinderGitCommitFact label="Ahead / behind" value={`${ahead} / ${behind}`} />
+              <ul className="finder-git-commit-warning-list">
+                <li>No force push will be performed.</li>
+                <li>No reset, clean, stash, checkout, or branch management is performed.</li>
+                <li>Push is blocked if the branch snapshot changes before execution.</li>
+              </ul>
+              <div className="finder-git-commit-actions">
+                <Button disabled={isPushing} onClick={() => setIsConfirming(false)} variant="secondary">
+                  Back
+                </Button>
+                <Button disabled={isPushing} onClick={() => void confirmPush()} variant="primary">
+                  {isPushing ? "Pushing" : "Push"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button disabled={Boolean(pushBlocker) || isPushing} onClick={startConfirmation} variant="primary">
+              {isPushing ? "Pushing" : "Push upstream"}
+            </Button>
+          )}
+        </>
+      ) : null}
+
+      {pushError ? (
+        <div className="finder-git-commit-result finder-git-commit-result-error">
+          <p className="finder-title">Push failed</p>
+          <p className="finder-text">{pushError}</p>
+        </div>
+      ) : null}
+
+      {pushResult ? (
+        <FinderGitPushResult refreshError={refreshError} result={pushResult} />
+      ) : null}
+    </section>
+  );
+}
+
+function FinderGitPushResult({
+  refreshError,
+  result,
+}: {
+  refreshError: string | null;
+  result: GitPushResponse;
+}) {
+  return (
+    <div
+      aria-live="polite"
+      className="finder-git-commit-result finder-git-commit-result-success"
+    >
+      <div className="finder-git-commit-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">Push completed</p>
+          <p className="finder-text">
+            Pushed {result.branch} to {result.upstream}.
+          </p>
+        </div>
+        <Badge variant="success">{result.status}</Badge>
+      </div>
+      <div className="finder-git-commit-result-grid">
+        <FinderGitCommitFact label="Remote" value={result.remote} />
+        <FinderGitCommitFact label="Remote branch" value={result.remoteBranch} />
+        <FinderGitCommitFact label="Ahead / behind" value={`${result.ahead} / ${result.behind}`} />
+      </div>
+      {refreshError ? (
+        <p className="finder-text">
+          Push succeeded, but Git refresh failed: {refreshError}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -1960,6 +2204,47 @@ function buildFinderCommitMessage(title: string, body: string) {
   const trimmedBody = body.trim();
 
   return trimmedBody ? `${trimmedTitle}\n\n${trimmedBody}` : trimmedTitle;
+}
+
+function getFinderGitPushBlocker(
+  repositoryRoot: string | null,
+  status: GitRepositoryStatus | null,
+) {
+  if (!repositoryRoot) {
+    return "Push requires an approved local root path.";
+  }
+
+  if (!status?.branch) {
+    return "Push requires a loaded Git branch snapshot.";
+  }
+
+  if (status.branch.isDetached) {
+    return "Push is blocked while HEAD is detached.";
+  }
+
+  if (!status.branch.name) {
+    return "Push is blocked because the branch name is unknown.";
+  }
+
+  if (!status.branch.upstream) {
+    return "Push is blocked because upstream is unknown.";
+  }
+
+  const behind = status.branch.behind ?? 0;
+  if (behind > 0) {
+    return `Push is blocked because the branch is behind upstream by ${behind}.`;
+  }
+
+  const ahead = status.branch.ahead ?? 0;
+  if (ahead === 0) {
+    return "Push is blocked because there are no local commits ahead of upstream.";
+  }
+
+  return null;
+}
+
+function formatGitCount(value: number | null | undefined) {
+  return typeof value === "number" ? String(value) : "0";
 }
 
 function addUnique(items: string[], item: string) {

@@ -8,7 +8,9 @@ import type {
   GitCommitResponse,
   GitFileDiff,
   GitLog,
+  GitPushResponse,
   GitRepositoryStatus,
+  PushWorkspaceGitRequest,
   WorkspaceGitDiffSummary,
 } from "./types";
 
@@ -40,4 +42,10 @@ export function createWorkspaceGitCommit(
   request: CreateWorkspaceGitCommitRequest,
 ): Promise<GitCommitResponse> {
   return getWorkspaceApi().createWorkspaceGitCommit(request);
+}
+
+export function pushWorkspaceGit(
+  request: PushWorkspaceGitRequest,
+): Promise<GitPushResponse> {
+  return getWorkspaceApi().pushWorkspaceGit(request);
 }

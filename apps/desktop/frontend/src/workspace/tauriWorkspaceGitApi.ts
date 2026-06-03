@@ -10,7 +10,9 @@ import type {
   GitFileDiff,
   GitLog,
   GitLogEntry,
+  GitPushResponse,
   GitRepositoryStatus,
+  PushWorkspaceGitRequest,
   WorkspaceGitDiffSummary,
 } from "./types";
 import { normalizeGitCommitResponse } from "./tauriGitCommitApi";
@@ -141,6 +143,24 @@ type TauriGitCommitCommandSummary = {
   args: string[];
 };
 
+type TauriWorkspaceGitPushResponse = {
+  status: string;
+  branch: string;
+  upstream: string;
+  remote: string;
+  remote_branch: string;
+  repo_root: string;
+  ahead: number;
+  behind: number;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  duration_ms: number;
+  command_summary: TauriGitDiffCommandSummary[];
+  force_push_performed: boolean;
+  operator_confirmed_required: boolean;
+};
+
 export async function getWorkspaceGitStatus(
   request: GetWorkspaceGitStatusRequest,
 ): Promise<GitRepositoryStatus> {
@@ -221,6 +241,26 @@ export async function createWorkspaceGitCommit(
   return normalizeGitCommitResponse(response);
 }
 
+export async function pushWorkspaceGit(
+  request: PushWorkspaceGitRequest,
+): Promise<GitPushResponse> {
+  const response = await invoke<TauriWorkspaceGitPushResponse>(
+    "push_workspace_git",
+    {
+      request: {
+        repo_root: request.repoRoot,
+        expected_branch: request.expectedBranch,
+        expected_upstream: request.expectedUpstream,
+        expected_ahead: request.expectedAhead ?? null,
+        expected_behind: request.expectedBehind ?? null,
+        operator_confirmed: request.operatorConfirmed,
+      },
+    },
+  );
+
+  return normalizeWorkspaceGitPushResponse(response);
+}
+
 function normalizeWorkspaceGitDiffSummary(
   summary: TauriWorkspaceGitDiffSummary,
 ): WorkspaceGitDiffSummary {
@@ -272,6 +312,28 @@ function normalizeWorkspaceGitLog(log: TauriWorkspaceGitLog): GitLog {
     repoRoot: log.repo_root,
     entries: log.entries.map(normalizeWorkspaceGitLogEntry),
     commandSummary: log.command_summary.map(normalizeGitDiffCommandSummary),
+  };
+}
+
+function normalizeWorkspaceGitPushResponse(
+  response: TauriWorkspaceGitPushResponse,
+): GitPushResponse {
+  return {
+    status: response.status,
+    branch: response.branch,
+    upstream: response.upstream,
+    remote: response.remote,
+    remoteBranch: response.remote_branch,
+    repoRoot: response.repo_root,
+    ahead: response.ahead,
+    behind: response.behind,
+    exitCode: response.exit_code,
+    stdout: response.stdout,
+    stderr: response.stderr,
+    durationMs: response.duration_ms,
+    commandSummary: response.command_summary.map(normalizeGitDiffCommandSummary),
+    forcePushPerformed: response.force_push_performed,
+    operatorConfirmedRequired: response.operator_confirmed_required,
   };
 }
 

@@ -79,7 +79,9 @@ import type {
   GitCommitResponse,
   GitFileDiff,
   GitLog,
+  GitPushResponse,
   GitRepositoryStatus,
+  PushWorkspaceGitRequest,
   WorkspaceGitDiffSummary,
   KnowledgeDocument,
   KnowledgeDocumentSearchResult,
@@ -320,6 +322,9 @@ export type WorkspaceApi = {
   createWorkspaceGitCommit: (
     request: CreateWorkspaceGitCommitRequest,
   ) => Promise<GitCommitResponse>;
+  pushWorkspaceGit: (
+    request: PushWorkspaceGitRequest,
+  ) => Promise<GitPushResponse>;
   persistAgentChatProposal: (
     request: PersistAgentChatProposalRequest,
   ) => Promise<PersistAgentChatProposalResponse | null>;

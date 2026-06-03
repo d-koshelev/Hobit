@@ -142,6 +142,7 @@ pub fn run() {
             workspace_commands::get_workspace_git_file_diff,
             workspace_commands::get_workspace_git_log,
             workspace_commands::create_workspace_git_commit,
+            workspace_commands::push_workspace_git,
             notes_commands::create_workspace_note,
             notes_commands::list_workspace_notes,
             notes_commands::get_workspace_note,

@@ -422,6 +422,14 @@ export const createWorkspaceGitCommit: WorkspaceApi["createWorkspaceGitCommit"] 
     );
   };
 
+export const pushWorkspaceGit: WorkspaceApi["pushWorkspaceGit"] = async (
+  _request,
+) => {
+  throw new Error(
+    "Workspace Git push is only available in the Tauri desktop shell. Browser fallback cannot mutate Git repositories.",
+  );
+};
+
 export const runTerminalCommand: WorkspaceApi["runTerminalCommand"] = async (
   _request,
 ) => {

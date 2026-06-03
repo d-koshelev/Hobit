@@ -47,6 +47,7 @@ import {
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
+  pushWorkspaceGit,
 } from "./tauriWorkspaceGitApi";
 import {
   createJdbcConnector,
@@ -185,6 +186,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   createWorkspaceGitCommit,
+  pushWorkspaceGit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   generateCoordinatorProviderResponse,

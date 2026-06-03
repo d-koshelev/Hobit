@@ -7,12 +7,14 @@ import {
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
+  pushWorkspaceGit,
 } from "../workspace/workspaceGitApi";
 import type {
   GitCommitResponse,
   GitFileChange,
   GitFileDiff,
   GitLog,
+  GitPushResponse,
   GitRepositoryStatus,
 } from "../workspace/types";
 import { FinderWidget } from "./FinderWidget";
@@ -23,6 +25,7 @@ vi.mock("../workspace/workspaceGitApi", () => ({
   getWorkspaceGitFileDiff: vi.fn(),
   getWorkspaceGitLog: vi.fn(),
   getWorkspaceGitStatus: vi.fn(),
+  pushWorkspaceGit: vi.fn(),
 }));
 
 let root: Root | null = null;
@@ -31,6 +34,7 @@ const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
 const getWorkspaceGitFileDiffMock = vi.mocked(getWorkspaceGitFileDiff);
 const getWorkspaceGitLogMock = vi.mocked(getWorkspaceGitLog);
 const createWorkspaceGitCommitMock = vi.mocked(createWorkspaceGitCommit);
+const pushWorkspaceGitMock = vi.mocked(pushWorkspaceGit);
 
 type FakeFileHandle = {
   createWritable: () => Promise<{
@@ -70,6 +74,7 @@ afterEach(() => {
   getWorkspaceGitFileDiffMock.mockReset();
   getWorkspaceGitLogMock.mockReset();
   createWorkspaceGitCommitMock.mockReset();
+  pushWorkspaceGitMock.mockReset();
   vi.restoreAllMocks();
 });
 
@@ -369,6 +374,69 @@ describe("FinderWidget", () => {
     expect(getWorkspaceGitStatusMock).toHaveBeenCalledTimes(2);
     expect(getWorkspaceGitLogMock).toHaveBeenCalledTimes(2);
   });
+
+  it("pushes local commits only after manual Finder Git confirmation", async () => {
+    const projectRoot = directory("project", [file("README.md")]);
+    getWorkspaceGitStatusMock
+      .mockResolvedValueOnce(gitStatus([], { ahead: 2 }))
+      .mockResolvedValueOnce(gitStatus([]));
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+    pushWorkspaceGitMock.mockResolvedValue(gitPushResponse());
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget();
+
+    await clickButton("Open root");
+    await clickButton("Push");
+
+    expect(document.body.textContent).toContain("Branch");
+    expect(document.body.textContent).toContain("origin/main");
+    expect(document.body.textContent).toContain("2");
+
+    await clickButton("Push upstream");
+    expect(document.body.textContent).toContain("Confirm push");
+    expect(document.body.textContent).toContain("No force push will be performed.");
+
+    await clickButton("Push");
+
+    expect(pushWorkspaceGitMock).toHaveBeenCalledWith({
+      expectedAhead: 2,
+      expectedBehind: 0,
+      expectedBranch: "main",
+      expectedUpstream: "origin/main",
+      operatorConfirmed: true,
+      repoRoot: "project",
+    });
+    expect(document.body.textContent).toContain("Push completed");
+    expect(getWorkspaceGitStatusMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks manual Finder Git push when upstream is unknown", async () => {
+    const projectRoot = directory("project", [file("README.md")]);
+    getWorkspaceGitStatusMock.mockResolvedValue(
+      gitStatus([], { ahead: 1, upstream: null }),
+    );
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget();
+
+    await clickButton("Open root");
+    await clickButton("Push");
+
+    expect(document.body.textContent).toContain(
+      "Push is blocked because upstream is unknown.",
+    );
+    expect(pushWorkspaceGitMock).not.toHaveBeenCalled();
+  });
 });
 
 function renderWidget(overrides: Partial<Parameters<typeof FinderWidget>[0]> = {}) {
@@ -529,7 +597,10 @@ function file(name: string, content = ""): FakeFileHandle {
   };
 }
 
-function gitStatus(changedFiles: GitFileChange[]): GitRepositoryStatus {
+function gitStatus(
+  changedFiles: GitFileChange[],
+  branchOverrides: Partial<NonNullable<GitRepositoryStatus["branch"]>> = {},
+): GitRepositoryStatus {
   return {
     branch: {
       ahead: 0,
@@ -537,6 +608,7 @@ function gitStatus(changedFiles: GitFileChange[]): GitRepositoryStatus {
       isDetached: false,
       name: "main",
       upstream: "origin/main",
+      ...branchOverrides,
     },
     changedFiles,
     lastCommit: null,
@@ -550,6 +622,28 @@ function gitStatus(changedFiles: GitFileChange[]): GitRepositoryStatus {
       untrackedCount: changedFiles.filter((file) => file.area === "untracked")
         .length,
     },
+  };
+}
+
+function gitPushResponse(): GitPushResponse {
+  return {
+    ahead: 2,
+    behind: 0,
+    branch: "main",
+    commandSummary: [
+      { args: ["push", "origin", "HEAD:main"], program: "git" },
+    ],
+    durationMs: 12,
+    exitCode: 0,
+    forcePushPerformed: false,
+    operatorConfirmedRequired: true,
+    remote: "origin",
+    remoteBranch: "main",
+    repoRoot: "project",
+    status: "pushed",
+    stderr: "",
+    stdout: "",
+    upstream: "origin/main",
   };
 }
 

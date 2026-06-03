@@ -49,8 +49,9 @@ use crate::workspace_dto::{
 use crate::workspace_git_dto::{
     CreateWorkspaceGitCommitRequest, GetWorkspaceGitDiffSummaryRequest,
     GetWorkspaceGitFileDiffRequest, GetWorkspaceGitLogRequest, GetWorkspaceGitStatusRequest,
-    WorkspaceGitCommitResponseDto, WorkspaceGitDiffSummaryDto, WorkspaceGitFileDiffDto,
-    WorkspaceGitLogDto, WorkspaceGitStatusDto,
+    PushWorkspaceGitRequest, WorkspaceGitCommitResponseDto, WorkspaceGitDiffSummaryDto,
+    WorkspaceGitFileDiffDto, WorkspaceGitLogDto, WorkspaceGitPushResponseDto,
+    WorkspaceGitStatusDto,
 };
 
 #[tauri::command]
@@ -874,6 +875,28 @@ fn create_workspace_git_commit_blocking(
     service
         .create_workspace_git_commit(request.into())
         .map(WorkspaceGitCommitResponseDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn push_workspace_git(
+    request: PushWorkspaceGitRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitPushResponseDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || push_workspace_git_blocking(request, db_path))
+        .await
+        .map_err(command_error)?
+}
+
+fn push_workspace_git_blocking(
+    request: PushWorkspaceGitRequest,
+    db_path: PathBuf,
+) -> Result<WorkspaceGitPushResponseDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .push_workspace_git(request.into())
+        .map(WorkspaceGitPushResponseDto::from)
         .map_err(command_error)
 }
 

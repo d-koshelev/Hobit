@@ -61,6 +61,15 @@ export type CreateWorkspaceGitCommitRequest = {
   includedFiles: string[];
 };
 
+export type PushWorkspaceGitRequest = {
+  repoRoot: string;
+  expectedBranch: string;
+  expectedUpstream: string;
+  expectedAhead?: number | null;
+  expectedBehind?: number | null;
+  operatorConfirmed: boolean;
+};
+
 export type WorkspaceGitDiffSummary = AgentExecutorDiffSummary;
 
 export type GitCommitResponse = {
@@ -85,6 +94,29 @@ export type GitCommitResponse = {
 };
 
 export type GitCommitCommandSummary = {
+  program: string;
+  args: string[];
+};
+
+export type GitPushResponse = {
+  status: string;
+  branch: string;
+  upstream: string;
+  remote: string;
+  remoteBranch: string;
+  repoRoot: string;
+  ahead: number;
+  behind: number;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  commandSummary: GitPushCommandSummary[];
+  forcePushPerformed: boolean;
+  operatorConfirmedRequired: boolean;
+};
+
+export type GitPushCommandSummary = {
   program: string;
   args: string[];
 };

@@ -37,6 +37,7 @@ import {
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
   getWorkspaceGitStatus,
+  pushWorkspaceGit,
 } from "./tauriWorkspaceGitApi";
 import {
   createTerminalPtySession,
@@ -254,7 +255,8 @@ describe("tauri workspace api adapter", () => {
         ],
         command_summary: [{ program: "git", args: ["log"] }],
       })
-      .mockResolvedValueOnce(tauriGitCommit());
+      .mockResolvedValueOnce(tauriGitCommit())
+      .mockResolvedValueOnce(tauriGitPush());
 
     await getWorkspaceGitStatus({ repoRoot: "C:/repo" });
     await getWorkspaceGitDiffSummary({
@@ -276,6 +278,14 @@ describe("tauri workspace api adapter", () => {
       repoRoot: "C:/repo",
       commitMessage: "test commit",
       includedFiles: ["src/lib.rs"],
+    });
+    await pushWorkspaceGit({
+      expectedAhead: 2,
+      expectedBehind: 0,
+      expectedBranch: "main",
+      expectedUpstream: "origin/main",
+      operatorConfirmed: true,
+      repoRoot: "C:/repo",
     });
 
     expect(mocks.invoke).toHaveBeenNthCalledWith(1, "get_workspace_git_status", {
@@ -327,6 +337,16 @@ describe("tauri workspace api adapter", () => {
         },
       },
     );
+    expect(mocks.invoke).toHaveBeenNthCalledWith(6, "push_workspace_git", {
+      request: {
+        repo_root: "C:/repo",
+        expected_branch: "main",
+        expected_upstream: "origin/main",
+        expected_ahead: 2,
+        expected_behind: 0,
+        operator_confirmed: true,
+      },
+    });
   });
 
   it("normalizes Git diff, history, status, and local commit DTOs", async () => {
@@ -789,6 +809,26 @@ function tauriGitCommit() {
     reset_performed: false,
     clean_performed: false,
     auto_commit: false,
+    operator_confirmed_required: true,
+  };
+}
+
+function tauriGitPush() {
+  return {
+    status: "pushed",
+    branch: "main",
+    upstream: "origin/main",
+    remote: "origin",
+    remote_branch: "main",
+    repo_root: "C:/repo",
+    ahead: 2,
+    behind: 0,
+    exit_code: 0,
+    stdout: "",
+    stderr: "",
+    duration_ms: 12,
+    command_summary: [{ program: "git", args: ["push", "origin", "HEAD:main"] }],
+    force_push_performed: false,
     operator_confirmed_required: true,
   };
 }

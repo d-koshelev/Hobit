@@ -572,6 +572,41 @@ pub struct CreateWorkspaceGitCommitInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateWorkspaceGitPushInput {
+    pub repo_root: PathBuf,
+    pub expected_branch: String,
+    pub expected_upstream: String,
+    pub expected_ahead: Option<u32>,
+    pub expected_behind: Option<u32>,
+    pub operator_confirmed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitPushRunSummary {
+    pub status: String,
+    pub branch: String,
+    pub upstream: String,
+    pub remote: String,
+    pub remote_branch: String,
+    pub repo_root: String,
+    pub ahead: u32,
+    pub behind: u32,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub duration_ms: u128,
+    pub command_summary: Vec<GitPushCommandSummary>,
+    pub force_push_performed: bool,
+    pub operator_confirmed_required: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitPushCommandSummary {
+    pub program: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GitCommitRunSummary {
     pub status: String,
     pub commit_hash: Option<String>,
