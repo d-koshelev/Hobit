@@ -42,6 +42,12 @@ import { createGitCommit } from "./tauriGitCommitApi";
 import { getGitFileDiff, getGitLog } from "./tauriGitReviewApi";
 import { getGitRepositoryStatus } from "./tauriGitStatusApi";
 import {
+  createWorkspaceGitCommit,
+  getWorkspaceGitDiffSummary,
+  getWorkspaceGitFileDiff,
+  getWorkspaceGitStatus,
+} from "./tauriWorkspaceGitApi";
+import {
   createJdbcConnector,
   getJdbcConnector,
   listJdbcConnectors,
@@ -173,6 +179,10 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   getGitFileDiff,
   getGitLog,
   createGitCommit,
+  getWorkspaceGitStatus,
+  getWorkspaceGitDiffSummary,
+  getWorkspaceGitFileDiff,
+  createWorkspaceGitCommit,
   persistAgentChatProposal,
   generateAgentChatAiProposal,
   generateCoordinatorProviderResponse,

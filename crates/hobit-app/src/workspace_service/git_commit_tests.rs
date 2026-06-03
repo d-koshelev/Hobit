@@ -54,6 +54,102 @@ fn valid_git_widget_commit_succeeds() {
 }
 
 #[test]
+fn workspace_git_commit_succeeds_without_git_widget_instance() {
+    let service = initialized_service();
+    let request_seen = RefCell::new(None);
+
+    let summary = service
+        .create_workspace_git_commit_with_runner(
+            CreateWorkspaceGitCommitInput {
+                repo_root: PathBuf::from("repo-root"),
+                commit_message: "Commit message".to_owned(),
+                included_files: vec!["src/lib.rs".to_owned()],
+            },
+            |request| {
+                *request_seen.borrow_mut() = Some(request);
+                Ok(commit_result_fixture("repo-root"))
+            },
+        )
+        .expect("create workspace Git commit");
+
+    assert_eq!(summary.status, "committed");
+    assert_eq!(summary.commit_hash.as_deref(), Some("abc123"));
+    assert_eq!(summary.included_files, vec!["src/lib.rs"]);
+    assert!(!summary.push_performed);
+    assert!(!summary.reset_performed);
+    assert!(!summary.clean_performed);
+    assert!(!summary.auto_commit);
+
+    let request: GitCommitRequest = request_seen.into_inner().expect("request seen");
+    assert_eq!(request.repo_root, PathBuf::from("repo-root"));
+    assert_eq!(request.commit_message, "Commit message");
+    assert_eq!(request.included_files, vec!["src/lib.rs"]);
+}
+
+#[test]
+fn workspace_git_commit_surfaces_empty_message_and_files_before_mutation() {
+    let service = initialized_service();
+
+    let empty_message = service
+        .create_workspace_git_commit_with_runner(
+            CreateWorkspaceGitCommitInput {
+                repo_root: PathBuf::from("repo-root"),
+                commit_message: " ".to_owned(),
+                included_files: vec!["src/lib.rs".to_owned()],
+            },
+            |_| Err(GitCommitError::EmptyCommitMessage),
+        )
+        .expect_err("empty commit message should be rejected");
+
+    assert!(matches!(
+        empty_message,
+        WorkspaceServiceError::GitCommit(GitCommitError::EmptyCommitMessage)
+    ));
+
+    let empty_files = service
+        .create_workspace_git_commit_with_runner(
+            CreateWorkspaceGitCommitInput {
+                repo_root: PathBuf::from("repo-root"),
+                commit_message: "Commit".to_owned(),
+                included_files: Vec::new(),
+            },
+            |_| Err(GitCommitError::EmptyIncludedFiles),
+        )
+        .expect_err("empty included files should be rejected");
+
+    assert!(matches!(
+        empty_files,
+        WorkspaceServiceError::GitCommit(GitCommitError::EmptyIncludedFiles)
+    ));
+}
+
+#[test]
+fn workspace_git_commit_rejects_files_outside_repo_root() {
+    let service = initialized_service();
+
+    let error = service
+        .create_workspace_git_commit_with_runner(
+            CreateWorkspaceGitCommitInput {
+                repo_root: PathBuf::from("repo-root"),
+                commit_message: "Commit".to_owned(),
+                included_files: vec!["../outside.txt".to_owned()],
+            },
+            |_| {
+                Err(GitCommitError::InvalidIncludedFile {
+                    path: "../outside.txt".to_owned(),
+                    reason: "path must not escape repo root".to_owned(),
+                })
+            },
+        )
+        .expect_err("outside file should be rejected");
+
+    assert!(matches!(
+        error,
+        WorkspaceServiceError::GitCommit(GitCommitError::InvalidIncludedFile { .. })
+    ));
+}
+
+#[test]
 fn non_git_widget_is_rejected() {
     let service = initialized_service();
     let (workspace_id, workbench_id, widget_id) = add_widget(&service, "notes");

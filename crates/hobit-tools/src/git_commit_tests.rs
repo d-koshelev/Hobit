@@ -186,7 +186,7 @@ fn staged_file_inside_included_files_can_be_committed() {
 }
 
 #[test]
-fn git_push_reset_and_clean_commands_are_not_used() {
+fn git_push_reset_clean_and_stash_commands_are_not_used() {
     let repo = TestRepo::new();
     repo.write_file("tracked.txt", "one\n");
     repo.git(["add", "--", "tracked.txt"]);
@@ -200,7 +200,7 @@ fn git_push_reset_and_clean_commands_are_not_used() {
     })
     .expect("commit should succeed");
 
-    let forbidden = ["push", "reset", "clean"];
+    let forbidden = ["push", "reset", "clean", "stash"];
     assert!(result.command_summary.iter().all(|command| {
         command.program == "git"
             && command

@@ -101,16 +101,12 @@ fn patch_preview_is_capped_and_marked_truncated() {
 }
 
 #[test]
-fn non_git_directory_returns_unavailable_summary() {
+fn non_git_directory_is_rejected() {
     let dir = TempDir::new("hobit-git-diff-nongit");
 
-    let summary = read_git_diff_summary(request(dir.path())).expect("diff summary");
+    let error = read_git_diff_summary(request(dir.path())).expect_err("reject non-git root");
 
-    assert_eq!(summary.status, GitDiffSummaryStatus::Unavailable);
-    assert!(summary
-        .error_message
-        .as_deref()
-        .is_some_and(|message| message.contains("not a git repository")));
+    assert_eq!(error, GitDiffError::NotGitRepository);
 }
 
 #[test]
@@ -130,7 +126,7 @@ fn command_summary_uses_safe_program_and_args_without_mutating_commands() {
 
     let summary = read_git_diff_summary(request(repo.path())).expect("diff summary");
     let forbidden = [
-        "add", "commit", "push", "reset", "clean", "checkout", "restore",
+        "add", "commit", "push", "reset", "clean", "stash", "checkout", "restore",
     ];
 
     assert!(!summary.command_summary.is_empty());
@@ -166,7 +162,7 @@ fn selected_file_diff_returns_read_only_patch() {
         assert!(!command.args.iter().any(|arg| {
             matches!(
                 arg.as_str(),
-                "add" | "commit" | "push" | "reset" | "clean" | "checkout" | "restore"
+                "add" | "commit" | "push" | "reset" | "clean" | "stash" | "checkout" | "restore"
             )
         }));
     }
@@ -242,7 +238,7 @@ fn recent_log_returns_structured_entries_without_mutating_commands() {
     assert!(!log.command_summary[0].args.iter().any(|arg| {
         matches!(
             arg.as_str(),
-            "add" | "commit" | "push" | "reset" | "clean" | "checkout" | "restore"
+            "add" | "commit" | "push" | "reset" | "clean" | "stash" | "checkout" | "restore"
         )
     }));
 }

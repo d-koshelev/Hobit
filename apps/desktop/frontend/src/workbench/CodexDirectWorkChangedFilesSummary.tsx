@@ -146,14 +146,14 @@ function DirectWorkChangedFileRow({
 
 function directWorkChangedFilesSummaryView(
   gitReviewStatus: DirectWorkGitReviewStatus | null | undefined,
-  hasGitWidget: boolean,
+  _hasGitWidget: boolean,
 ): {
   badgeLabel: string;
   badgeVariant: "neutral" | "info" | "success" | "warning" | "error";
   message: string;
   repositoryStatus: GitRepositoryStatus | null;
 } {
-  if (!hasGitWidget || !gitReviewStatus) {
+  if (!gitReviewStatus) {
     return {
       badgeLabel: "Unavailable",
       badgeVariant: "neutral",

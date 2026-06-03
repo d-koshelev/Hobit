@@ -6,7 +6,6 @@ import type {
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   JDBC_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
@@ -157,22 +156,6 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "Plain source text remains the record",
     ],
     futureWidgetDefinitionId: NOTES_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: GIT_WIDGET_DEFINITION_ID,
-    title: "Git",
-    catalogCategory: "developer-tools",
-    category: "codebase",
-    description: "Review changes, diffs, history, and create local commits.",
-    readiness: "ready",
-    availability: "available",
-    layoutDefaults: getWidgetLayoutDefaults(GIT_WIDGET_DEFINITION_ID),
-    capabilitySummary: [
-      "Changes, Diff, History, and Commit",
-      "Explicit repository root",
-      "No push, reset, clean, or stash",
-    ],
-    futureWidgetDefinitionId: GIT_WIDGET_DEFINITION_ID,
   },
   {
     id: TERMINAL_WIDGET_DEFINITION_ID,

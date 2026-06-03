@@ -17,6 +17,7 @@ import {
   RUNBOOK_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
+  isUserFacingWidgetDefinition,
 } from "./widgetRegistry";
 
 let root: Root | null = null;
@@ -42,7 +43,7 @@ describe("WidgetCatalogShell", () => {
     expect(document.body.textContent).toContain("Agent Activity");
     expect(document.body.textContent).toContain("Knowledge / Skills");
     expect(document.body.textContent).toContain("Notes");
-    expect(document.body.textContent).toContain("Git");
+    expect(document.body.textContent).not.toContain("Git");
     expect(document.body.textContent).toContain("Terminal");
     expect(document.body.textContent).toContain("Agent Queue");
     expect(document.body.textContent).not.toContain("Agent Executor");
@@ -102,14 +103,13 @@ describe("WidgetCatalogShell", () => {
 });
 
 describe("widgetCatalogTemplates", () => {
-  it("preserves registry and persistence compatibility ids", () => {
+  it("preserves current catalog insertion ids", () => {
     expect(catalogIds()).toEqual([
       INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
       AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
       AGENT_QUEUE_WIDGET_DEFINITION_ID,
       SKILL_LIBRARY_WIDGET_DEFINITION_ID,
       NOTES_WIDGET_DEFINITION_ID,
-      GIT_WIDGET_DEFINITION_ID,
       TERMINAL_WIDGET_DEFINITION_ID,
       JDBC_WIDGET_DEFINITION_ID,
       RUNBOOK_WIDGET_DEFINITION_ID,
@@ -147,12 +147,6 @@ describe("widgetCatalogTemplates", () => {
       minHeight: 480,
       minWidth: 576,
     });
-    expect(templateFor(GIT_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
-      defaultHeight: 600,
-      defaultWidth: 768,
-      minHeight: 456,
-      minWidth: 576,
-    });
     expect(templateFor(JDBC_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
       defaultHeight: 600,
       defaultWidth: 768,
@@ -182,15 +176,17 @@ describe("widgetCatalogTemplates", () => {
     ).toBe(true);
   });
 
-  it("describes Git and Terminal with the current MVP surfaces", () => {
-    const gitDescription = templateFor(GIT_WIDGET_DEFINITION_ID).description;
+  it("does not offer Git as a normal catalog widget", () => {
+    expect(widgetCatalogTemplates.some((template) => template.id === GIT_WIDGET_DEFINITION_ID))
+      .toBe(false);
+    expect(isUserFacingWidgetDefinition(GIT_WIDGET_DEFINITION_ID)).toBe(false);
+  });
+
+  it("describes Terminal with the current MVP surface", () => {
     const terminalDescription = templateFor(
       TERMINAL_WIDGET_DEFINITION_ID,
     ).description;
 
-    expect(gitDescription).toMatch(/review/i);
-    expect(gitDescription).toMatch(/diff/i);
-    expect(gitDescription).toMatch(/history/i);
     expect(terminalDescription).toMatch(/terminal commands/i);
     expect(terminalDescription).toMatch(/working directory/i);
   });

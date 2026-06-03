@@ -565,6 +565,13 @@ pub struct CreateGitCommitInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateWorkspaceGitCommitInput {
+    pub repo_root: PathBuf,
+    pub commit_message: String,
+    pub included_files: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GitCommitRunSummary {
     pub status: String,
     pub commit_hash: Option<String>,

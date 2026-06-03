@@ -124,7 +124,7 @@ export function WorkbenchCanvas({
     (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
-  const directWorkGitReview = useDirectWorkGitReviewHandoff(hasGitWidget);
+  const directWorkGitReview = useDirectWorkGitReviewHandoff();
   const directWorkRunHandoff = useDirectWorkRunHandoff();
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";

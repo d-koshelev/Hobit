@@ -112,6 +112,11 @@ describe("memory workspace api fallback", () => {
       }),
     ).rejects.toThrow("Git status is only available");
     await expect(
+      memoryWorkspaceApi.getWorkspaceGitStatus({
+        repoRoot: "C:/repo",
+      }),
+    ).rejects.toThrow("Workspace Git status is only available");
+    await expect(
       memoryWorkspaceApi.createTerminalPtySession({
         workspaceId: "ws_1",
         workbenchId: "wb_1",

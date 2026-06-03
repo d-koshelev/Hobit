@@ -10,7 +10,7 @@ export function CodexDirectWorkPromptGuidance({
       <p className="codex-direct-work-note">
         Codex Direct Work stays inside the selected execution workspace. It
         cannot click or inspect Hobit UI widgets. For repository work, ask Codex
-        to inspect git status/diff, or refresh the Git widget manually after the
+        to inspect git status/diff, then review Workspace Git status after the
         run.
       </p>
       {promptWarningMessage ? (

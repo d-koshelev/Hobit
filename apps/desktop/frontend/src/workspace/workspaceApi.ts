@@ -7,6 +7,7 @@ export * from "./workspaceApiCore";
 export * from "./workspaceApiCoordinatorProvider";
 export * from "./workspaceApiDirectWork";
 export * from "./workspaceApiGit";
+export * from "./workspaceGitApi";
 export * from "./workspaceApiJdbc";
 export * from "./workspaceApiNotes";
 export * from "./workspaceApiSkills";

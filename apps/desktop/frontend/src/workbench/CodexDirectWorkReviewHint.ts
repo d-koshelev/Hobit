@@ -11,36 +11,32 @@ export function directWorkGitReviewHint(
     status === "failed" || status === "timed_out" || status === "cancelled";
 
   if (gitReviewStatus?.state === "completed") {
-    return "Git widget is available; refreshed read-only status for this repo root.";
+    return "Workspace Git status refreshed for this repo root.";
   }
 
   if (gitReviewStatus?.state === "failed") {
-    return `Git widget auto-refresh failed: ${
+    return `Workspace Git status refresh failed: ${
       gitReviewStatus.errorMessage ?? "unknown error"
-    }. You can refresh it manually.`;
+    }.`;
   }
 
   if (gitReviewStatus?.state === "pending") {
-    return "Git widget is available; refreshing read-only status for this repo root.";
+    return "Refreshing Workspace Git status for this repo root.";
   }
 
   if (needsLogReview) {
-    if (gitWidgetAvailability === "missing") {
-      return "Manual next step: inspect the live log, then add the Git widget if files may have changed.";
-    }
-
-    return "Manual next step: inspect the live log, then refresh the Git widget if files may have changed.";
+    return "Manual next step: inspect the live log, then review Workspace Git status if files may have changed.";
   }
 
   if (gitWidgetAvailability === "available") {
-    return "Manual next step: Git widget is available; refresh it to review changed files.";
+    return "Manual next step: review Workspace Git status for changed files.";
   }
 
   if (gitWidgetAvailability === "missing") {
-    return "Manual next step: Add the Git widget to review repository changes.";
+    return "Manual next step: review Workspace Git status for repository changes.";
   }
 
-  return "Manual next step: refresh the Git widget to review changed files.";
+  return "Manual next step: review Workspace Git status for changed files.";
 }
 
 export function directWorkGitWidgetAvailability(hasGitWidget?: boolean) {

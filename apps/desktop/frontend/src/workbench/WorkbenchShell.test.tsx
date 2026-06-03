@@ -11,7 +11,6 @@ import type {
 } from "../workspace/types";
 import {
   AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
-  GIT_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
@@ -243,13 +242,12 @@ describe("WorkbenchShell widget layout controls", () => {
       NOTES_WIDGET_DEFINITION_ID,
       { width: 480, height: 552 },
     ],
-    [
-      "Knowledge / Skills",
-      SKILL_LIBRARY_WIDGET_DEFINITION_ID,
-      { width: 744, height: 600 },
-    ],
-    ["Git", GIT_WIDGET_DEFINITION_ID, { width: 768, height: 600 }],
-  ])(
+      [
+        "Knowledge / Skills",
+        SKILL_LIBRARY_WIDGET_DEFINITION_ID,
+        { width: 744, height: 600 },
+      ],
+    ])(
     "adds %s from the catalog with its usable default size",
     async (_title, definitionId, expectedSize) => {
       workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValue(

@@ -2,7 +2,7 @@
 //!
 //! This module is intentionally narrow. It creates only local commits from an
 //! explicit repository root, operator-provided commit message, and explicit
-//! repo-relative file list. It does not push, reset, clean, checkout, restore,
+//! repo-relative file list. It does not push, reset, clean, stash, checkout, restore,
 //! rebase, merge, apply patches, discover repositories, or invoke a shell.
 
 use std::collections::BTreeSet;

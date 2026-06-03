@@ -386,6 +386,34 @@ export const createGitCommit: WorkspaceApi["createGitCommit"] = async (
   );
 };
 
+export const getWorkspaceGitStatus: WorkspaceApi["getWorkspaceGitStatus"] =
+  async (_request) => {
+    throw new Error(
+      "Workspace Git status is only available in the Tauri desktop shell. Browser fallback cannot read Git repositories.",
+    );
+  };
+
+export const getWorkspaceGitDiffSummary: WorkspaceApi["getWorkspaceGitDiffSummary"] =
+  async (_request) => {
+    throw new Error(
+      "Workspace Git diff summary is only available in the Tauri desktop shell. Browser fallback cannot read local Git diffs.",
+    );
+  };
+
+export const getWorkspaceGitFileDiff: WorkspaceApi["getWorkspaceGitFileDiff"] =
+  async (_request) => {
+    throw new Error(
+      "Workspace Git file diff is only available in the Tauri desktop shell. Browser fallback cannot read local Git diffs.",
+    );
+  };
+
+export const createWorkspaceGitCommit: WorkspaceApi["createWorkspaceGitCommit"] =
+  async (_request) => {
+    throw new Error(
+      "Workspace Git commit creation is only available in the Tauri desktop shell. Browser fallback cannot mutate Git repositories.",
+    );
+  };
+
 export const runTerminalCommand: WorkspaceApi["runTerminalCommand"] = async (
   _request,
 ) => {

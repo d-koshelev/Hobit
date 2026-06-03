@@ -40,6 +40,7 @@ import type {
   CreateAgentQueueTaskRequest,
   CreateAgentQueueWorkerRequest,
   CreateGitCommitRequest,
+  CreateWorkspaceGitCommitRequest,
   CreateKnowledgeDocumentRequest,
   CreateWorkspaceNoteRequest,
   CreateSkillRequest,
@@ -68,6 +69,9 @@ import type {
   GetGitFileDiffRequest,
   GetGitLogRequest,
   GetGitRepositoryStatusRequest,
+  GetWorkspaceGitDiffSummaryRequest,
+  GetWorkspaceGitFileDiffRequest,
+  GetWorkspaceGitStatusRequest,
   GetKnowledgeDocumentRequest,
   GetWorkspaceNoteRequest,
   GetSkillRequest,
@@ -75,6 +79,7 @@ import type {
   GitFileDiff,
   GitLog,
   GitRepositoryStatus,
+  WorkspaceGitDiffSummary,
   KnowledgeDocument,
   KnowledgeDocumentSearchResult,
   ListAgentExecutorRunsRequest,
@@ -301,6 +306,18 @@ export type WorkspaceApi = {
   createGitCommit: (
     request: CreateGitCommitRequest,
   ) => Promise<GitCommitResponse | null>;
+  getWorkspaceGitStatus: (
+    request: GetWorkspaceGitStatusRequest,
+  ) => Promise<GitRepositoryStatus>;
+  getWorkspaceGitDiffSummary: (
+    request: GetWorkspaceGitDiffSummaryRequest,
+  ) => Promise<WorkspaceGitDiffSummary>;
+  getWorkspaceGitFileDiff: (
+    request: GetWorkspaceGitFileDiffRequest,
+  ) => Promise<GitFileDiff>;
+  createWorkspaceGitCommit: (
+    request: CreateWorkspaceGitCommitRequest,
+  ) => Promise<GitCommitResponse>;
   persistAgentChatProposal: (
     request: PersistAgentChatProposalRequest,
   ) => Promise<PersistAgentChatProposalResponse | null>;

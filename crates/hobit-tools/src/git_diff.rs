@@ -1,7 +1,7 @@
 //! Read-only Git diff summary adapter.
 //!
 //! This module runs only fixed read-only Git commands against an explicit
-//! repository root. It does not stage, commit, push, reset, clean, checkout,
+//! repository root. It does not stage, commit, push, reset, clean, stash, checkout,
 //! restore, apply patches, discover repositories, or invoke a shell.
 
 use std::collections::BTreeMap;
@@ -187,6 +187,7 @@ pub enum GitDiffError {
     RepositoryNotConfigured,
     PathNotFound,
     NotDirectory,
+    NotGitRepository,
     PermissionDenied,
     GitUnavailable,
     TimedOut,
@@ -200,6 +201,7 @@ impl fmt::Display for GitDiffError {
             Self::RepositoryNotConfigured => write!(formatter, "repository is not configured"),
             Self::PathNotFound => write!(formatter, "repository path was not found"),
             Self::NotDirectory => write!(formatter, "repository path is not a directory"),
+            Self::NotGitRepository => write!(formatter, "repository path is not a Git repository"),
             Self::PermissionDenied => write!(formatter, "permission denied while reading Git diff"),
             Self::GitUnavailable => write!(formatter, "Git is not available"),
             Self::TimedOut => write!(formatter, "Git diff read timed out"),
@@ -239,11 +241,7 @@ pub fn read_git_diff_summary(
     };
 
     if !status_output.exit_success {
-        return Ok(status_failure_summary(
-            repo_root_label,
-            &status_output,
-            command_summary,
-        ));
+        return Err(status_failure_error(&status_output));
     }
 
     let status_text =
@@ -301,12 +299,7 @@ pub fn read_git_file_diff(request: GitFileDiffRequest) -> Result<GitFileDiffResu
     )?;
 
     if !status_output.exit_success {
-        return Ok(file_diff_failure(
-            repo_root_label,
-            path,
-            "Git status command failed while preparing selected-file diff.",
-            command_summary,
-        ));
+        return Err(status_failure_error(&status_output));
     }
 
     let status_text =
@@ -406,10 +399,7 @@ pub fn read_git_log(request: GitLogRequest) -> Result<GitLogResult, GitDiffError
     )?;
 
     if !output.exit_success {
-        return Err(GitDiffError::Unknown(format!(
-            "Git log failed: {}",
-            compact_error_message(&output.stderr)
-        )));
+        return Err(status_failure_error(&output));
     }
 
     let stdout = String::from_utf8(output.stdout).map_err(|_| GitDiffError::NonUtf8Output)?;
@@ -530,23 +520,6 @@ fn append_patch_chunk(
 
     chunks.push(format!("--- {label} ---\n{stdout}"));
     Ok(())
-}
-
-fn file_diff_failure(
-    repo_root: String,
-    path: String,
-    message: impl Into<String>,
-    command_summary: Vec<GitDiffCommandSummary>,
-) -> GitFileDiffResult {
-    GitFileDiffResult {
-        repo_root,
-        path,
-        status: GitFileDiffStatus::Failed,
-        patch: None,
-        patch_truncated: false,
-        error_message: Some(message.into()),
-        command_summary,
-    }
 }
 
 fn aggregate_status_files(output: &str) -> BTreeMap<String, GitDiffFileSummary> {
@@ -706,30 +679,24 @@ fn failed_summary(
     }
 }
 
-fn status_failure_summary(
-    repo_root: String,
-    output: &GitCommandOutput,
-    command_summary: Vec<GitDiffCommandSummary>,
-) -> GitDiffSummary {
+fn status_failure_error(output: &GitCommandOutput) -> GitDiffError {
     let stderr = compact_error_message(&output.stderr);
     let lower_stderr = stderr.to_ascii_lowercase();
-    let status = if lower_stderr.contains("not a git repository")
+
+    if lower_stderr.contains("not a git repository")
         || lower_stderr.contains("not in a git directory")
     {
-        GitDiffSummaryStatus::Unavailable
-    } else {
-        GitDiffSummaryStatus::Failed
-    };
-    let message = if stderr.is_empty() {
-        format!(
-            "Git status command failed with exit code {:?}.",
-            output.exit_code
-        )
-    } else {
-        stderr
-    };
+        return GitDiffError::NotGitRepository;
+    }
 
-    failed_summary(repo_root, status, message, command_summary)
+    if stderr.is_empty() {
+        GitDiffError::Unknown(format!(
+            "Git status command failed with exit code {:?}.",
+            output.exit_code,
+        ))
+    } else {
+        GitDiffError::Unknown(stderr)
+    }
 }
 
 fn ensure_explicit_repo_root(repo_root: &Path) -> Result<(), GitDiffError> {

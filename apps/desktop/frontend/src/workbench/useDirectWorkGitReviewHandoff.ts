@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import { getWorkspaceGitStatus } from "../workspace/workspaceGitApi";
 import type {
   DirectWorkGitReviewRequest,
   DirectWorkGitReviewRequestInput,
@@ -13,9 +14,7 @@ export type DirectWorkGitReviewHandoff = {
   updateStatus: (status: DirectWorkGitReviewStatus) => void;
 };
 
-export function useDirectWorkGitReviewHandoff(
-  hasGitWidget: boolean,
-): DirectWorkGitReviewHandoff {
+export function useDirectWorkGitReviewHandoff(): DirectWorkGitReviewHandoff {
   const requestIdRef = useRef(0);
   const [request, setRequest] = useState<DirectWorkGitReviewRequest | null>(
     null,
@@ -25,7 +24,7 @@ export function useDirectWorkGitReviewHandoff(
   function requestReview(requestInput: DirectWorkGitReviewRequestInput) {
     const repositoryRoot = requestInput.repositoryRoot.trim();
 
-    if (!repositoryRoot || !hasGitWidget) {
+    if (!repositoryRoot) {
       setRequest(null);
       setStatus(null);
       return;
@@ -45,6 +44,27 @@ export function useDirectWorkGitReviewHandoff(
       sourceWidgetInstanceId: nextRequest.sourceWidgetInstanceId,
       state: "pending",
     });
+
+    void getWorkspaceGitStatus({ repoRoot: repositoryRoot })
+      .then((repositoryStatus) => {
+        updateStatus({
+          repositoryRoot: nextRequest.repositoryRoot,
+          repositoryStatus,
+          requestId: nextRequest.id,
+          sourceWidgetInstanceId: nextRequest.sourceWidgetInstanceId,
+          state: "completed",
+        });
+      })
+      .catch((error: unknown) => {
+        updateStatus({
+          errorMessage: errorToMessage(error),
+          repositoryRoot: nextRequest.repositoryRoot,
+          repositoryStatus: null,
+          requestId: nextRequest.id,
+          sourceWidgetInstanceId: nextRequest.sourceWidgetInstanceId,
+          state: "failed",
+        });
+      });
   }
 
   function updateStatus(nextStatus: DirectWorkGitReviewStatus) {
@@ -63,4 +83,16 @@ export function useDirectWorkGitReviewHandoff(
     status,
     updateStatus,
   };
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return "Git status read failed.";
 }

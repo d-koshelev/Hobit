@@ -453,7 +453,9 @@ fn git_diff_error_kind(error: &GitDiffError) -> (RuntimeExecutionStatus, Runtime
             RuntimeExecutionStatus::Failed,
             RuntimeErrorKind::PermissionDenied,
         ),
-        GitDiffError::PathNotFound | GitDiffError::NotDirectory => (
+        GitDiffError::PathNotFound
+        | GitDiffError::NotDirectory
+        | GitDiffError::NotGitRepository => (
             RuntimeExecutionStatus::Failed,
             RuntimeErrorKind::ValidationFailed,
         ),

@@ -86,6 +86,7 @@ mod workspace_commands;
 mod workspace_dto;
 #[cfg(test)]
 mod workspace_dto_tests;
+mod workspace_git_dto;
 
 use app_state::initialize_app_state;
 use tauri::Manager;
@@ -136,6 +137,10 @@ pub fn run() {
             workspace_commands::get_git_file_diff,
             workspace_commands::get_git_log,
             workspace_commands::create_git_commit,
+            workspace_commands::get_workspace_git_status,
+            workspace_commands::get_workspace_git_diff_summary,
+            workspace_commands::get_workspace_git_file_diff,
+            workspace_commands::create_workspace_git_commit,
             notes_commands::create_workspace_note,
             notes_commands::list_workspace_notes,
             notes_commands::get_workspace_note,

@@ -1,4 +1,4 @@
-import type { GitDiffCommandSummary } from "./agentExecutor";
+import type { AgentExecutorDiffSummary, GitDiffCommandSummary } from "./agentExecutor";
 
 export type GetGitRepositoryStatusRequest = {
   workspaceId: string;
@@ -32,6 +32,31 @@ export type CreateGitCommitRequest = {
   commitMessage: string;
   includedFiles: string[];
 };
+
+export type GetWorkspaceGitStatusRequest = {
+  repoRoot: string;
+};
+
+export type GetWorkspaceGitDiffSummaryRequest = {
+  repoRoot: string;
+  maxFiles?: number | null;
+  maxPatchBytesPerFile?: number | null;
+  includePatchPreview?: boolean | null;
+};
+
+export type GetWorkspaceGitFileDiffRequest = {
+  repoRoot: string;
+  path: string;
+  maxPatchBytes?: number | null;
+};
+
+export type CreateWorkspaceGitCommitRequest = {
+  repoRoot: string;
+  commitMessage: string;
+  includedFiles: string[];
+};
+
+export type WorkspaceGitDiffSummary = AgentExecutorDiffSummary;
 
 export type GitCommitResponse = {
   status: string;

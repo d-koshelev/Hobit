@@ -177,7 +177,8 @@ export const widgetRegistry: WidgetDefinition[] = [
     id: GIT_WIDGET_DEFINITION_ID,
     title: "Git",
     category: "codebase",
-    description: "Review changes, diffs, history, and create local commits.",
+    description:
+      "Internal/deprecated compatibility surface. Workspace Git APIs own current Git functionality.",
     defaultTitle: "Git",
     defaultConfig: {},
     layoutDefaults:
@@ -221,8 +222,16 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
 ];
 
+export const internalDeprecatedWidgetDefinitionIds = new Set<WidgetDefinitionId>([
+  GIT_WIDGET_DEFINITION_ID,
+]);
+
 export const userFacingWidgetDefinitionIds = new Set<WidgetDefinitionId>(
-  widgetRegistry.map((definition) => definition.id),
+  widgetRegistry
+    .filter(
+      (definition) => !internalDeprecatedWidgetDefinitionIds.has(definition.id),
+    )
+    .map((definition) => definition.id),
 );
 
 export function getWidgetDefinition(id: WidgetDefinitionId) {

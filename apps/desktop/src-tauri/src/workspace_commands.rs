@@ -46,6 +46,11 @@ use crate::workspace_dto::{
     UpdateWidgetInstanceStateRequest, WidgetLogDto, WorkspaceDeletionResponseDto,
     WorkspaceSessionSummaryDto, WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
+use crate::workspace_git_dto::{
+    CreateWorkspaceGitCommitRequest, GetWorkspaceGitDiffSummaryRequest,
+    GetWorkspaceGitFileDiffRequest, GetWorkspaceGitStatusRequest, WorkspaceGitCommitResponseDto,
+    WorkspaceGitDiffSummaryDto, WorkspaceGitFileDiffDto, WorkspaceGitStatusDto,
+};
 
 #[tauri::command]
 pub(crate) fn create_workspace(
@@ -331,6 +336,35 @@ fn get_agent_executor_diff_summary_blocking(
             request.include_patch_preview,
         )
         .map(|summary| summary.map(AgentExecutorDiffSummaryDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_workspace_git_diff_summary(
+    request: GetWorkspaceGitDiffSummaryRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitDiffSummaryDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        get_workspace_git_diff_summary_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn get_workspace_git_diff_summary_blocking(
+    request: GetWorkspaceGitDiffSummaryRequest,
+    db_path: PathBuf,
+) -> Result<WorkspaceGitDiffSummaryDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_workspace_git_diff_summary(
+            &request.repo_root,
+            request.max_files,
+            request.max_patch_bytes_per_file,
+            request.include_patch_preview,
+        )
+        .map(WorkspaceGitDiffSummaryDto::from)
         .map_err(command_error)
 }
 
@@ -739,6 +773,42 @@ fn get_git_log_blocking(
 }
 
 #[tauri::command]
+pub(crate) fn get_workspace_git_status(
+    request: GetWorkspaceGitStatusRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitStatusDto, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .get_workspace_git_status(&request.repo_root)
+        .map(WorkspaceGitStatusDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_workspace_git_file_diff(
+    request: GetWorkspaceGitFileDiffRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitFileDiffDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        get_workspace_git_file_diff_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn get_workspace_git_file_diff_blocking(
+    request: GetWorkspaceGitFileDiffRequest,
+    db_path: PathBuf,
+) -> Result<WorkspaceGitFileDiffDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .get_workspace_git_file_diff(&request.repo_root, &request.path, request.max_patch_bytes)
+        .map(WorkspaceGitFileDiffDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
 pub(crate) async fn create_git_commit(
     request: CreateGitCommitRequest,
     state: State<'_, AppState>,
@@ -757,6 +827,30 @@ fn create_git_commit_blocking(
     service
         .create_git_commit(request.into())
         .map(|summary| summary.map(GitCommitResponseDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn create_workspace_git_commit(
+    request: CreateWorkspaceGitCommitRequest,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceGitCommitResponseDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        create_workspace_git_commit_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)?
+}
+
+fn create_workspace_git_commit_blocking(
+    request: CreateWorkspaceGitCommitRequest,
+    db_path: PathBuf,
+) -> Result<WorkspaceGitCommitResponseDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .create_workspace_git_commit(request.into())
+        .map(WorkspaceGitCommitResponseDto::from)
         .map_err(command_error)
 }
 

@@ -32,6 +32,12 @@ import { createGitCommit } from "./tauriGitCommitApi";
 import { getGitFileDiff, getGitLog } from "./tauriGitReviewApi";
 import { getGitRepositoryStatus } from "./tauriGitStatusApi";
 import {
+  createWorkspaceGitCommit,
+  getWorkspaceGitDiffSummary,
+  getWorkspaceGitFileDiff,
+  getWorkspaceGitStatus,
+} from "./tauriWorkspaceGitApi";
+import {
   createTerminalPtySession,
   closeTerminalPtySession,
   killTerminalPtySession,
@@ -221,39 +227,83 @@ describe("tauri workspace api adapter", () => {
     });
   });
 
+  it("maps widget-independent Workspace Git command names without widget ids", async () => {
+    mocks.invoke
+      .mockResolvedValueOnce(tauriGitStatus())
+      .mockResolvedValueOnce(tauriGitDiffSummary())
+      .mockResolvedValueOnce({
+        repo_root: "C:/repo",
+        path: "src/lib.rs",
+        status: "available",
+        patch: "diff",
+        patch_truncated: false,
+        error_message: null,
+        command_summary: [{ program: "git", args: ["diff"] }],
+      })
+      .mockResolvedValueOnce(tauriGitCommit());
+
+    await getWorkspaceGitStatus({ repoRoot: "C:/repo" });
+    await getWorkspaceGitDiffSummary({
+      repoRoot: "C:/repo",
+      maxFiles: 25,
+      maxPatchBytesPerFile: 4096,
+      includePatchPreview: false,
+    });
+    await getWorkspaceGitFileDiff({
+      repoRoot: "C:/repo",
+      path: "src/lib.rs",
+      maxPatchBytes: 42,
+    });
+    await createWorkspaceGitCommit({
+      repoRoot: "C:/repo",
+      commitMessage: "test commit",
+      includedFiles: ["src/lib.rs"],
+    });
+
+    expect(mocks.invoke).toHaveBeenNthCalledWith(1, "get_workspace_git_status", {
+      request: {
+        repo_root: "C:/repo",
+      },
+    });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(
+      2,
+      "get_workspace_git_diff_summary",
+      {
+        request: {
+          repo_root: "C:/repo",
+          max_files: 25,
+          max_patch_bytes_per_file: 4096,
+          include_patch_preview: false,
+        },
+      },
+    );
+    expect(mocks.invoke).toHaveBeenNthCalledWith(
+      3,
+      "get_workspace_git_file_diff",
+      {
+        request: {
+          repo_root: "C:/repo",
+          path: "src/lib.rs",
+          max_patch_bytes: 42,
+        },
+      },
+    );
+    expect(mocks.invoke).toHaveBeenNthCalledWith(
+      4,
+      "create_workspace_git_commit",
+      {
+        request: {
+          repo_root: "C:/repo",
+          commit_message: "test commit",
+          included_files: ["src/lib.rs"],
+        },
+      },
+    );
+  });
+
   it("normalizes Git diff, history, status, and local commit DTOs", async () => {
     mocks.invoke
-      .mockResolvedValueOnce({
-        branch: {
-          name: "main",
-          upstream: "origin/main",
-          ahead: 1,
-          behind: 2,
-          is_detached: false,
-        },
-        working_tree: {
-          is_clean: false,
-          is_dirty: true,
-          staged_count: 1,
-          unstaged_count: 2,
-          untracked_count: 3,
-        },
-        changed_files: [
-          {
-            area: "unstaged",
-            kind: "renamed",
-            path: "src/new.ts",
-            original_path: "src/old.ts",
-          },
-        ],
-        last_commit: {
-          hash: "abcdef",
-          title: "subject",
-          author: "Hobit",
-          committed_at: "2026-05-27T10:00:00Z",
-        },
-        warnings: ["bounded"],
-      })
+      .mockResolvedValueOnce(tauriGitStatus())
       .mockResolvedValueOnce({
         repo_root: "C:/repo",
         path: "src/lib.rs",
@@ -276,26 +326,7 @@ describe("tauri workspace api adapter", () => {
         ],
         command_summary: [{ program: "git", args: ["log"] }],
       })
-      .mockResolvedValueOnce({
-        status: "committed",
-        commit_hash: "abc123",
-        branch: "main",
-        repo_root: "C:/repo",
-        included_files: ["src/lib.rs"],
-        commit_message: "message",
-        exit_code: 0,
-        stdout: "out",
-        stderr: "",
-        duration_ms: 9,
-        error_message: null,
-        command_summary: [{ program: "git", args: ["commit"] }],
-        push_performed: false,
-        force_push_performed: false,
-        reset_performed: false,
-        clean_performed: false,
-        auto_commit: false,
-        operator_confirmed_required: true,
-      });
+      .mockResolvedValueOnce(tauriGitCommit());
 
     await expect(getGitRepositoryStatus(gitScope())).resolves.toMatchObject({
       branch: { isDetached: false },
@@ -626,6 +657,95 @@ function gitScope() {
     workbenchId: "wb_1",
     widgetInstanceId: "git_1",
     repositoryRoot: "C:/repo",
+  };
+}
+
+function tauriGitStatus() {
+  return {
+    branch: {
+      name: "main",
+      upstream: "origin/main",
+      ahead: 1,
+      behind: 2,
+      is_detached: false,
+    },
+    working_tree: {
+      is_clean: false,
+      is_dirty: true,
+      staged_count: 1,
+      unstaged_count: 2,
+      untracked_count: 3,
+    },
+    changed_files: [
+      {
+        area: "unstaged",
+        kind: "renamed",
+        path: "src/new.ts",
+        original_path: "src/old.ts",
+      },
+    ],
+    last_commit: {
+      hash: "abcdef",
+      title: "subject",
+      author: "Hobit",
+      committed_at: "2026-05-27T10:00:00Z",
+    },
+    warnings: ["bounded"],
+  };
+}
+
+function tauriGitDiffSummary() {
+  return {
+    repo_root: "C:/repo",
+    status: "dirty",
+    files: [
+      {
+        path: "src/lib.rs",
+        status: "modified",
+        staged: false,
+        unstaged: true,
+        untracked: false,
+        conflicted: false,
+        additions: 2,
+        deletions: 1,
+        patch_preview: "diff",
+        patch_truncated: false,
+      },
+    ],
+    summary: {
+      total_files: 1,
+      staged_count: 0,
+      unstaged_count: 1,
+      untracked_count: 0,
+      conflicted_count: 0,
+      total_additions: 2,
+      total_deletions: 1,
+    },
+    error_message: null,
+    command_summary: [{ program: "git", args: ["status"] }],
+  };
+}
+
+function tauriGitCommit() {
+  return {
+    status: "committed",
+    commit_hash: "abc123",
+    branch: "main",
+    repo_root: "C:/repo",
+    included_files: ["src/lib.rs"],
+    commit_message: "message",
+    exit_code: 0,
+    stdout: "out",
+    stderr: "",
+    duration_ms: 9,
+    error_message: null,
+    command_summary: [{ program: "git", args: ["commit"] }],
+    push_performed: false,
+    force_push_performed: false,
+    reset_performed: false,
+    clean_performed: false,
+    auto_commit: false,
+    operator_confirmed_required: true,
   };
 }
 

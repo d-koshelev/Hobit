@@ -8,13 +8,44 @@ use crate::WorkspaceServiceError;
 use super::{
     git_artifacts::{classify_git_commit_error_passthrough, GitCommitRuntimeArtifacts},
     validation::{required_input, validate_widget_ownership},
-    CreateGitCommitInput, GitCommitCommandSummary, GitCommitRunSummary, WorkspaceService,
-    GIT_WIDGET_DEFINITION_ID,
+    CreateGitCommitInput, CreateWorkspaceGitCommitInput, GitCommitCommandSummary,
+    GitCommitRunSummary, WorkspaceService, GIT_WIDGET_DEFINITION_ID,
 };
 
 const GIT_COMMIT_WIDGET_ERROR: &str = "Git commit is only available for Git widgets.";
 
 impl WorkspaceService {
+    pub fn create_workspace_git_commit(
+        &self,
+        input: CreateWorkspaceGitCommitInput,
+    ) -> Result<GitCommitRunSummary, WorkspaceServiceError> {
+        self.create_workspace_git_commit_with_runner(input, create_git_commit)
+    }
+
+    pub(super) fn create_workspace_git_commit_with_runner<F>(
+        &self,
+        input: CreateWorkspaceGitCommitInput,
+        create_commit: F,
+    ) -> Result<GitCommitRunSummary, WorkspaceServiceError>
+    where
+        F: FnOnce(GitCommitRequest) -> Result<ToolsGitCommitResult, GitCommitError>,
+    {
+        let _input_artifacts = GitCommitRuntimeArtifacts::from_input(
+            &input.repo_root,
+            &input.commit_message,
+            &input.included_files,
+        );
+        let result = create_commit(GitCommitRequest {
+            repo_root: input.repo_root,
+            commit_message: input.commit_message,
+            included_files: input.included_files,
+        })
+        .map_err(classify_git_commit_error_passthrough)?;
+        let _result_artifacts = GitCommitRuntimeArtifacts::from_result(&result);
+
+        Ok(GitCommitRunSummary::from(result))
+    }
+
     pub fn create_git_commit(
         &self,
         input: CreateGitCommitInput,

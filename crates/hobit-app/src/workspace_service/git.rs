@@ -8,7 +8,8 @@ use hobit_tools::git::{
     GitWorkingTreeSummary as ToolsGitWorkingTreeSummary,
 };
 use hobit_tools::git_diff::{
-    read_git_file_diff, read_git_log, GitDiffError, GitFileDiffRequest,
+    read_git_diff_summary, read_git_file_diff, read_git_log, GitDiffError,
+    GitDiffSummary as ToolsGitDiffSummary, GitDiffSummaryRequest, GitFileDiffRequest,
     GitFileDiffResult as ToolsGitFileDiffResult, GitLogEntry as ToolsGitLogEntry, GitLogRequest,
     GitLogResult as ToolsGitLogResult,
 };
@@ -19,12 +20,118 @@ use super::{
     git_artifacts::{classify_git_diff_error_passthrough, GitDiffRuntimeArtifacts},
     git_artifacts::{classify_git_status_error_passthrough, GitStatusRuntimeArtifacts},
     validation::{required_input, validate_widget_ownership},
-    GitBranchStatusSummary, GitDiffCommandSummary, GitFileChangeSummary, GitFileDiffSummary,
-    GitLastCommitSummary, GitLogEntrySummary, GitLogSummary, GitRepositoryStatusSummary,
-    GitWorkingTreeStatusSummary, WorkspaceService, GIT_WIDGET_DEFINITION_ID,
+    AgentExecutorDiffSummary, GitBranchStatusSummary, GitDiffCommandSummary, GitFileChangeSummary,
+    GitFileDiffSummary, GitLastCommitSummary, GitLogEntrySummary, GitLogSummary,
+    GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, WorkspaceService,
+    GIT_WIDGET_DEFINITION_ID,
 };
 
 impl WorkspaceService {
+    pub fn get_workspace_git_status(
+        &self,
+        repo_root: &str,
+    ) -> Result<GitRepositoryStatusSummary, WorkspaceServiceError> {
+        self.get_workspace_git_status_with_reader(repo_root, read_git_repository_status)
+    }
+
+    pub(super) fn get_workspace_git_status_with_reader<F>(
+        &self,
+        repo_root: &str,
+        read_status: F,
+    ) -> Result<GitRepositoryStatusSummary, WorkspaceServiceError>
+    where
+        F: FnOnce(PathBuf) -> Result<ToolsGitRepositoryStatus, GitStatusError>,
+    {
+        let repo_root = required_input(repo_root, "repository root")?;
+        let repo_root_path = PathBuf::from(repo_root);
+        let _request_artifacts = GitStatusRuntimeArtifacts::from_request(&repo_root_path);
+        let status =
+            read_status(repo_root_path.clone()).map_err(classify_git_status_error_passthrough)?;
+        let _status_artifacts = GitStatusRuntimeArtifacts::from_status(&repo_root_path, &status);
+
+        Ok(GitRepositoryStatusSummary::from(status))
+    }
+
+    pub fn get_workspace_git_diff_summary(
+        &self,
+        repo_root: &str,
+        max_files: Option<usize>,
+        max_patch_bytes_per_file: Option<usize>,
+        include_patch_preview: Option<bool>,
+    ) -> Result<AgentExecutorDiffSummary, WorkspaceServiceError> {
+        self.get_workspace_git_diff_summary_with_reader(
+            repo_root,
+            max_files,
+            max_patch_bytes_per_file,
+            include_patch_preview,
+            read_git_diff_summary,
+        )
+    }
+
+    pub(super) fn get_workspace_git_diff_summary_with_reader<F>(
+        &self,
+        repo_root: &str,
+        max_files: Option<usize>,
+        max_patch_bytes_per_file: Option<usize>,
+        include_patch_preview: Option<bool>,
+        read_diff_summary: F,
+    ) -> Result<AgentExecutorDiffSummary, WorkspaceServiceError>
+    where
+        F: FnOnce(GitDiffSummaryRequest) -> Result<ToolsGitDiffSummary, GitDiffError>,
+    {
+        let repo_root = required_input(repo_root, "repository root")?;
+        let repo_root = PathBuf::from(repo_root);
+        let _request_artifacts = GitDiffRuntimeArtifacts::from_request(&repo_root);
+        let summary = read_diff_summary(GitDiffSummaryRequest {
+            repo_root,
+            max_files,
+            max_patch_bytes_per_file,
+            include_patch_preview: include_patch_preview.unwrap_or(true),
+        })
+        .map_err(classify_git_diff_error_passthrough)?;
+        let _summary_artifacts = GitDiffRuntimeArtifacts::from_summary(&summary);
+
+        Ok(AgentExecutorDiffSummary::from(summary))
+    }
+
+    pub fn get_workspace_git_file_diff(
+        &self,
+        repo_root: &str,
+        path: &str,
+        max_patch_bytes: Option<usize>,
+    ) -> Result<GitFileDiffSummary, WorkspaceServiceError> {
+        self.get_workspace_git_file_diff_with_reader(
+            repo_root,
+            path,
+            max_patch_bytes,
+            read_git_file_diff,
+        )
+    }
+
+    pub(super) fn get_workspace_git_file_diff_with_reader<F>(
+        &self,
+        repo_root: &str,
+        path: &str,
+        max_patch_bytes: Option<usize>,
+        read_diff: F,
+    ) -> Result<GitFileDiffSummary, WorkspaceServiceError>
+    where
+        F: FnOnce(GitFileDiffRequest) -> Result<ToolsGitFileDiffResult, GitDiffError>,
+    {
+        let repo_root = required_input(repo_root, "repository root")?;
+        let path = required_input(path, "file path")?;
+        let repo_root = PathBuf::from(repo_root);
+        let _request_artifacts = GitDiffRuntimeArtifacts::from_request(&repo_root);
+        let diff = read_diff(GitFileDiffRequest {
+            repo_root,
+            path: path.to_owned(),
+            max_patch_bytes,
+        })
+        .map_err(classify_git_diff_error_passthrough)?;
+
+        Ok(GitFileDiffSummary::from(diff))
+    }
+
     pub fn get_git_repository_status(
         &self,
         workspace_id: &str,
