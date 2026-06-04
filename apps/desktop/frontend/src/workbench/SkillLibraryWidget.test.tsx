@@ -27,20 +27,27 @@ describe("SkillLibraryWidget", () => {
     renderWidget({
       onListSkills: vi.fn(async () => []),
       onGetSkill: vi.fn(),
+      onListKnowledgeDocuments: vi.fn(async () => []),
     });
 
     await flush();
 
+    expect(document.body.textContent).toContain("No catalog items yet.");
+    expect(document.body.textContent).toContain(
+      "Scoped Knowledge Catalog for documents and skills.",
+    );
+    expect(document.body.textContent).toContain(
+      "Global and workspace-local items stay visible.",
+    );
+    expect(document.body.textContent).toContain(
+      "Catalog views combine scoped documents and saved skills.",
+    );
+    expect(buttonWithText("Codebase")).toBeDefined();
+    expect(buttonWithText("Prompt templates")).toBeDefined();
+
+    await clickButton("Skills");
+
     expect(document.body.textContent).toContain("No skills yet.");
-    expect(document.body.textContent).toContain(
-      "Workspace and local-global documents.",
-    );
-    expect(document.body.textContent).toContain(
-      "Skills attach explicitly.",
-    );
-    expect(document.body.textContent).toContain(
-      "Skills are not sent to Workspace Agent unless explicitly attached.",
-    );
   });
 
   it("attaches the selected Skill to Workspace Agent as visible allowed fields only", async () => {
@@ -64,6 +71,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Skills");
 
     expect(attachToCoordinator).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
@@ -80,8 +88,12 @@ describe("SkillLibraryWidget", () => {
     expect(request.contextText).toContain(
       "When to use:\nBefore merging frontend changes",
     );
-    expect(request.contextText).toContain("Prerequisites:\nReviewed working tree");
-    expect(request.contextText).toContain("Steps:\nRun typecheck\nRun focused tests");
+    expect(request.contextText).toContain(
+      "Prerequisites:\nReviewed working tree",
+    );
+    expect(request.contextText).toContain(
+      "Steps:\nRun typecheck\nRun focused tests",
+    );
     expect(request.contextText).toContain("Validation:\nnpm test passes");
     expect(request.contextText).toContain("Risks:\nValidation may be slow");
     expect(request.contextText).toContain("Tags: frontend, review");
@@ -107,6 +119,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Skills");
 
     expect(buttonWithText("Attach to Workspace Agent")).toBeUndefined();
     expect(document.body.textContent).toContain(
@@ -137,6 +150,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Skills");
     await changeTextarea(2, "Unsaved edited step");
 
     const attachButton = buttonWithText("Attach to Workspace Agent");
@@ -181,14 +195,16 @@ describe("SkillLibraryWidget", () => {
     renderWidget({
       onCreateSkill: createSkill,
       onDeleteSkill: deleteSkill,
-      onGetSkill: vi.fn(async (skillId) =>
-        skills.find((skill) => skill.skillId === skillId) ?? null,
+      onGetSkill: vi.fn(
+        async (skillId) =>
+          skills.find((skill) => skill.skillId === skillId) ?? null,
       ),
       onListSkills: vi.fn(async () => skills),
       onUpdateSkill: updateSkill,
     });
 
     await flush();
+    await clickButton("Skills");
     await changeInput('input[placeholder="Untitled skill"]', "Deploy review");
     await changeTextarea(0, "Before a production deploy");
     await changeTextarea(2, "Run validation\nReview changed files");
@@ -224,7 +240,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("No skills yet.");
   });
 
-  it("renders Documents tab and creates, saves, and deletes a document", async () => {
+  it("renders Catalog tab and creates, saves, and deletes a document", async () => {
     let documents: KnowledgeDocument[] = [];
     const createKnowledgeDocument = vi.fn(async (request) => {
       const document = knowledgeDocumentFixture({
@@ -252,34 +268,48 @@ describe("SkillLibraryWidget", () => {
     renderWidget({
       onCreateKnowledgeDocument: createKnowledgeDocument,
       onDeleteKnowledgeDocument: deleteKnowledgeDocument,
-      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
-        documents.find(
-          (document) =>
-            document.knowledgeDocumentId === knowledgeDocumentId,
-        ) ?? null,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
       ),
       onListKnowledgeDocuments: vi.fn(async () => documents),
       onUpdateKnowledgeDocument: updateKnowledgeDocument,
     });
 
     await flush();
-    await clickButton("Documents");
 
-    expect(document.body.textContent).toContain("No documents yet.");
+    expect(document.body.textContent).toContain("No catalog items yet.");
     expect(document.body.textContent).toContain(
-      "Workspace Agent can search enabled workspace and global documents.",
+      "Only enabled active documents are searched for Workspace Agent Codex",
     );
 
     await changeInput('input[placeholder="Untitled document"]', "API docs");
-    await changeInput('input[placeholder="README.md or pasted docs"]', "README.md");
+    await changeSelectByLabel("Type", "documentation_knowledge");
+    await changeSelectByLabel("Status", "active");
+    await changeTextareaByLabel(
+      "Quick summary",
+      "Reference for API onboarding.",
+    );
+    await changeInput(
+      'input[placeholder="README.md or pasted docs"]',
+      "README.md",
+    );
     await changeInput('input[placeholder="api, onboarding"]', "api, docs");
-    await changeTextarea(0, "Use this API reference for onboarding.");
+    await changeTextareaByLabel(
+      "Full content",
+      "Use this API reference for onboarding.",
+    );
     await clickButton("Save document");
 
     expect(createKnowledgeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
+        catalogItemType: "documentation_knowledge",
         content: "Use this API reference for onboarding.",
         enabled: true,
+        lifecycleStatus: "active",
+        quickSummary: "Reference for API onboarding.",
         scope: "workspace",
         sourceLabel: "README.md",
         tags: "api, docs",
@@ -288,7 +318,10 @@ describe("SkillLibraryWidget", () => {
     );
     expect(document.body.textContent).toContain("API docs");
 
-    await changeInput('input[placeholder="Untitled document"]', "Updated API docs");
+    await changeInput(
+      'input[placeholder="Untitled document"]',
+      "Updated API docs",
+    );
     await changeCheckbox("Searchable by Workspace Agent", false);
     await clickButton("Save document");
 
@@ -309,7 +342,109 @@ describe("SkillLibraryWidget", () => {
     expect(deleteKnowledgeDocument).toHaveBeenCalledWith({
       knowledgeDocumentId: "doc_created",
     });
-    expect(document.body.textContent).toContain("No documents yet.");
+    expect(document.body.textContent).toContain("No catalog items yet.");
+  });
+
+  it("shows catalog filters, metadata cards, selected preview, and Skill actions", async () => {
+    const documents = [
+      knowledgeDocumentFixture({
+        catalogItemType: "codebase_knowledge",
+        knowledgeDocumentId: "doc_code",
+        lifecycleStatus: "active",
+        quickSummary: "Frontend widgets use registry-driven rendering.",
+        scope: "workspace",
+        sourceLabel: "docs/ARCHITECTURE.md",
+        sourceRef: "docs/ARCHITECTURE.md",
+        tags: "frontend, registry",
+        title: "Widget registry boundary",
+        updatedAt: "2026-05-25T12:00:00Z",
+      }),
+      knowledgeDocumentFixture({
+        catalogItemType: "architecture_decision",
+        knowledgeDocumentId: "doc_decision",
+        lifecycleStatus: "stale",
+        quickSummary: "Older decision needs review.",
+        scope: "global",
+        sourceLabel: "decisions/old.md",
+        tags: "decision",
+        title: "Old decision",
+        updatedAt: "2026-05-24T12:00:00Z",
+      }),
+    ];
+    const skill = skillFixture({
+      reviewStatus: "reviewed",
+      skillId: "skill_review",
+      steps: "Inspect changed files",
+      tags: "review",
+      title: "Review skill",
+      updatedAt: "2026-05-26T12:00:00Z",
+      validation: "Run focused tests",
+      whenToUse: "Before accepting frontend changes",
+    });
+    const attachToCoordinator = vi.fn();
+
+    renderWidget({
+      onAttachContextToCoordinator: attachToCoordinator,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
+      ),
+      onGetSkill: vi.fn(async () => skill),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onListSkills: vi.fn(async () => [skill]),
+    });
+
+    await flush();
+
+    expect(visibleListRowsText()).toContain("Review skill");
+    expect(visibleListRowsText()).toContain("Skill - Reviewed - review");
+    expect(visibleListRowsText()).toContain("Widget registry boundary");
+    expect(visibleListRowsText()).toContain("Codebase - Active");
+    expect(visibleListRowsText()).toContain(
+      "Frontend widgets use registry-driven rendering.",
+    );
+    expect(document.body.textContent).toContain("Selected preview");
+    expect(document.body.textContent).toContain("Source");
+    expect(document.body.textContent).toContain("Relations");
+
+    await clickButton("Global");
+
+    expect(visibleListRowsText()).toContain("Old decision");
+    expect(visibleListRowsText()).not.toContain("Widget registry boundary");
+
+    await clickButton("Codebase");
+
+    expect(visibleListRowsText()).toContain("Widget registry boundary");
+    expect(visibleListRowsText()).not.toContain("Old decision");
+
+    await clickButton("Stale");
+
+    expect(visibleListRowsText()).toContain("Old decision");
+    expect(visibleListRowsText()).not.toContain("Review skill");
+
+    await clickCatalogView("Skills");
+    await clickListRow("Review skill");
+
+    expect(document.body.textContent).toContain("Full content");
+    expect(document.body.textContent).toContain(
+      "When to use:\nBefore accepting frontend changes",
+    );
+    expect(document.body.textContent).toContain("Workspace Skill record");
+
+    await clickButton("Attach to Workspace Agent");
+
+    expect(attachToCoordinator).toHaveBeenCalledTimes(1);
+    expect(attachToCoordinator.mock.calls[0][0].contextText).toContain(
+      "Title: Review skill",
+    );
+
+    await clickButton("Open Skills tab");
+
+    expect(document.body.textContent).toContain(
+      "Skills are not sent to Workspace Agent unless explicitly attached.",
+    );
   });
 
   it("imports an explicit text or Markdown file through Knowledge Document creation", async () => {
@@ -331,11 +466,11 @@ describe("SkillLibraryWidget", () => {
     renderWidget({
       onCreateKnowledgeDocument: createKnowledgeDocument,
       onDeleteKnowledgeDocument: vi.fn(async () => true),
-      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
-        documents.find(
-          (document) =>
-            document.knowledgeDocumentId === knowledgeDocumentId,
-        ) ?? null,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
       ),
       onListKnowledgeDocuments: vi.fn(async () => documents),
       onReadKnowledgeDocumentImportFile: readImportFile,
@@ -345,7 +480,6 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
-    await clickButton("Documents");
     await changeInput(
       'input[placeholder="Path to .txt, .md, or .markdown file"]',
       "C:\\docs\\README.md",
@@ -389,11 +523,11 @@ describe("SkillLibraryWidget", () => {
     renderWidget({
       onCreateKnowledgeDocument: createKnowledgeDocument,
       onDeleteKnowledgeDocument: vi.fn(async () => true),
-      onGetKnowledgeDocument: vi.fn(async (knowledgeDocumentId) =>
-        documents.find(
-          (document) =>
-            document.knowledgeDocumentId === knowledgeDocumentId,
-        ) ?? null,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
       ),
       onListKnowledgeDocuments: vi.fn(async () => documents),
       onReadKnowledgeDocumentImportFile: readImportFile,
@@ -403,10 +537,12 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
-    await clickButton("Documents");
     await changeSelectByLabel("Scope", "global");
     await changeInput('input[placeholder="Untitled document"]', "Global docs");
-    await changeTextarea(0, "Global troubleshooting reference.");
+    await changeTextareaByLabel(
+      "Full content",
+      "Global troubleshooting reference.",
+    );
     await clickButton("Save document");
 
     expect(createKnowledgeDocument).toHaveBeenCalledWith(
@@ -438,7 +574,6 @@ describe("SkillLibraryWidget", () => {
     renderWidget();
 
     await flush();
-    await clickButton("Documents");
     await clickButton("Skills");
 
     expect(document.body.textContent).toContain("No skills yet.");
@@ -464,6 +599,15 @@ function renderWidget(
         onGetSkill={vi.fn(async () => null)}
         onListSkills={vi.fn(async () => [])}
         onUpdateSkill={vi.fn(async (request) => skillFixture(request))}
+        onCreateKnowledgeDocument={vi.fn(async (request) =>
+          knowledgeDocumentFixture(request),
+        )}
+        onDeleteKnowledgeDocument={vi.fn(async () => true)}
+        onGetKnowledgeDocument={vi.fn(async () => null)}
+        onListKnowledgeDocuments={vi.fn(async () => [])}
+        onUpdateKnowledgeDocument={vi.fn(async (request) =>
+          knowledgeDocumentFixture(request),
+        )}
         title="Skill Library"
         {...overrides}
       />,
@@ -483,6 +627,25 @@ async function clickButton(text: string) {
     const button = buttonWithText(text);
     if (!button) {
       throw new Error(`Button not found: ${text}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function clickCatalogView(text: string) {
+  await act(async () => {
+    const group = Array.from(document.querySelectorAll("[aria-label]")).find(
+      (candidate) =>
+        !isHidden(candidate) &&
+        candidate.getAttribute("aria-label") === "Knowledge catalog views",
+    );
+    const button = Array.from(group?.querySelectorAll("button") ?? []).find(
+      (candidate) => candidate.textContent === text,
+    );
+    if (!button) {
+      throw new Error(`Catalog view not found: ${text}`);
     }
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
@@ -517,6 +680,23 @@ async function changeTextarea(index: number, value: string) {
   )[index];
   if (!textarea) {
     throw new Error(`Textarea not found: ${index}`);
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function changeTextareaByLabel(labelText: string, value: string) {
+  const label = Array.from(document.querySelectorAll("label")).find(
+    (candidate) =>
+      !isHidden(candidate) && candidate.textContent?.includes(labelText),
+  );
+  const textarea = label?.querySelector("textarea");
+  if (!textarea) {
+    throw new Error(`Textarea not found: ${labelText}`);
   }
 
   await act(async () => {
@@ -598,6 +778,30 @@ function setNativeChecked(field: HTMLInputElement, checked: boolean) {
 
 function isHidden(element: Element) {
   return Boolean(element.closest("[hidden]"));
+}
+
+function visibleListRowsText() {
+  return Array.from(document.querySelectorAll(".skill-list-row"))
+    .filter((candidate) => !isHidden(candidate))
+    .map((candidate) => candidate.textContent ?? "")
+    .join("\n");
+}
+
+async function clickListRow(text: string) {
+  await act(async () => {
+    const row = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".skill-list-row"),
+    ).find(
+      (candidate) =>
+        !isHidden(candidate) && candidate.textContent?.includes(text),
+    );
+    if (!row) {
+      throw new Error(`List row not found: ${text}`);
+    }
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 function skillFixture(

@@ -7,13 +7,24 @@ import {
 } from "react";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
-import type { KnowledgeDocument } from "../workspace/types";
+import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
+  CatalogDocumentEditor,
+  CatalogSkillPreview,
+} from "./SkillLibraryCatalogPreview";
+import {
+  KNOWLEDGE_CATALOG_VIEW_OPTIONS,
   DEFAULT_DOCUMENT_TITLE,
   EMPTY_DOCUMENT_DRAFT,
+  filterKnowledgeCatalogItems,
+  formatKnowledgeCatalogDate,
   isKnowledgeDocumentDraftDirty,
+  knowledgeCatalogItemsFromRecords,
   knowledgeDocumentDraftFromDocument,
+  skillCoordinatorContextText,
   type KnowledgeDocumentDraft,
+  type KnowledgeCatalogListItem,
+  type KnowledgeCatalogView,
 } from "./skillLibraryModel";
 import type { WidgetRenderProps } from "./types";
 
@@ -21,19 +32,21 @@ export type SkillLibraryDocumentsPanelHandle = {
   startNewDocument: () => void;
 };
 
-type KnowledgeDocumentScopeFilter = "workspace" | "global" | "all";
-
 export type SkillLibraryDocumentsToolbarState = {
   isNewDisabled: boolean;
 };
 
 type SkillLibraryDocumentsPanelProps = {
   isActive: boolean;
+  onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onDeleteKnowledgeDocument: WidgetRenderProps["onDeleteKnowledgeDocument"];
   onGetKnowledgeDocument: WidgetRenderProps["onGetKnowledgeDocument"];
+  onGetSkill: WidgetRenderProps["onGetSkill"];
   onListKnowledgeDocuments: WidgetRenderProps["onListKnowledgeDocuments"];
+  onListSkills: WidgetRenderProps["onListSkills"];
   onReadKnowledgeDocumentImportFile: WidgetRenderProps["onReadKnowledgeDocumentImportFile"];
+  onShowSkills: () => void;
   onToolbarStateChange: (state: SkillLibraryDocumentsToolbarState) => void;
   onUpdateKnowledgeDocument: WidgetRenderProps["onUpdateKnowledgeDocument"];
 };
@@ -44,11 +57,15 @@ export const SkillLibraryDocumentsPanel = forwardRef<
 >(function SkillLibraryDocumentsPanel(
   {
     isActive,
+    onAttachContextToCoordinator,
     onCreateKnowledgeDocument,
     onDeleteKnowledgeDocument,
     onGetKnowledgeDocument,
+    onGetSkill,
     onListKnowledgeDocuments,
+    onListSkills,
     onReadKnowledgeDocumentImportFile,
+    onShowSkills,
     onToolbarStateChange,
     onUpdateKnowledgeDocument,
   },
@@ -56,16 +73,20 @@ export const SkillLibraryDocumentsPanel = forwardRef<
 ) {
   const documentApiAvailable = Boolean(
     onCreateKnowledgeDocument &&
-      onDeleteKnowledgeDocument &&
-      onGetKnowledgeDocument &&
-      onListKnowledgeDocuments &&
-      onUpdateKnowledgeDocument,
+    onDeleteKnowledgeDocument &&
+    onGetKnowledgeDocument &&
+    onListKnowledgeDocuments &&
+    onUpdateKnowledgeDocument,
   );
+  const skillApiAvailable = Boolean(onGetSkill && onListSkills);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedDocument, setSelectedDocument] =
     useState<KnowledgeDocument | null>(null);
-  const [documentDraft, setDocumentDraft] =
-    useState<KnowledgeDocumentDraft>({ ...EMPTY_DOCUMENT_DRAFT });
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [documentDraft, setDocumentDraft] = useState<KnowledgeDocumentDraft>({
+    ...EMPTY_DOCUMENT_DRAFT,
+  });
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [isSavingDocument, setIsSavingDocument] = useState(false);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
@@ -74,26 +95,33 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [documentImportPath, setDocumentImportPath] = useState("");
   const [documentImportScope, setDocumentImportScope] =
     useState<KnowledgeDocumentDraft["scope"]>("workspace");
-  const [scopeFilter, setScopeFilter] =
-    useState<KnowledgeDocumentScopeFilter>("all");
+  const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const isDocumentDirty = useMemo(
     () => isKnowledgeDocumentDraftDirty(documentDraft, selectedDocument),
     [documentDraft, selectedDocument],
   );
-  const visibleDocuments = useMemo(
-    () =>
-      documents.filter(
-        (document) =>
-          scopeFilter === "all" || document.scope === scopeFilter,
-      ),
-    [documents, scopeFilter],
+  const catalogItems = useMemo(
+    () => knowledgeCatalogItemsFromRecords(documents, skills),
+    [documents, skills],
   );
+  const visibleCatalogItems = useMemo(
+    () => filterKnowledgeCatalogItems(catalogItems, catalogView),
+    [catalogItems, catalogView],
+  );
+  const selectedCatalogItemId = selectedDocument
+    ? `document:${selectedDocument.knowledgeDocumentId}`
+    : selectedSkill
+      ? `skill:${selectedSkill.skillId}`
+      : null;
+  const selectedCatalogItem = selectedCatalogItemId
+    ? (catalogItems.find((item) => item.id === selectedCatalogItemId) ?? null)
+    : null;
 
   useEffect(() => {
     void loadDocuments(null);
-  }, [documentApiAvailable]);
+  }, [documentApiAvailable, skillApiAvailable]);
 
   useEffect(() => {
     onToolbarStateChange({
@@ -106,14 +134,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   }));
 
   async function loadDocuments(preferredDocumentId: string | null) {
-    if (
-      !documentApiAvailable ||
-      !onListKnowledgeDocuments ||
-      !onGetKnowledgeDocument
-    ) {
+    if (!documentApiAvailable && !skillApiAvailable) {
       setDocuments([]);
+      setSkills([]);
       clearDocumentDraft();
-      setDocumentError("Knowledge Document API is not available in this runtime.");
+      setDocumentError(
+        "Knowledge Catalog APIs are not available in this runtime.",
+      );
       setIsLoadingDocuments(false);
       return;
     }
@@ -123,8 +150,14 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setDocumentMessage(null);
 
     try {
-      const loadedDocuments = await onListKnowledgeDocuments();
+      const loadedDocuments =
+        documentApiAvailable && onListKnowledgeDocuments
+          ? await onListKnowledgeDocuments()
+          : [];
+      const loadedSkills =
+        skillApiAvailable && onListSkills ? await onListSkills() : [];
       setDocuments(loadedDocuments);
+      setSkills(loadedSkills);
       const preferredExists = loadedDocuments.some(
         (document) => document.knowledgeDocumentId === preferredDocumentId,
       );
@@ -133,7 +166,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<
         : loadedDocuments[0]?.knowledgeDocumentId;
 
       if (!documentIdToSelect) {
-        clearDocumentDraft();
+        if (!selectedSkill) {
+          clearDocumentDraft();
+        }
+        return;
+      }
+
+      if (!onGetKnowledgeDocument) {
         return;
       }
 
@@ -147,6 +186,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       setSelectedDocumentDraft(detail);
     } catch (loadError) {
       setDocuments([]);
+      setSkills([]);
       clearDocumentDraft();
       setDocumentError(errorToMessage(loadError, "Unable to load documents."));
     } finally {
@@ -163,9 +203,61 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     }
 
     setSelectedDocument(null);
+    setSelectedSkill(null);
     setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
     setDocumentMessage(null);
     setDocumentError(null);
+  }
+
+  async function selectCatalogItem(item: KnowledgeCatalogListItem) {
+    if (item.recordKind === "skill") {
+      await selectSkill(item.recordId);
+      return;
+    }
+
+    await selectDocument(item.recordId);
+  }
+
+  async function selectSkill(skillId: string) {
+    if (
+      !onGetSkill ||
+      selectedSkill?.skillId === skillId ||
+      isSelectingDocument
+    ) {
+      return;
+    }
+
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard the current document before selecting another catalog item.",
+      );
+      return;
+    }
+
+    setIsSelectingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const detail = await onGetSkill(skillId);
+      if (!detail) {
+        setDocumentError("The selected skill could not be found.");
+        return;
+      }
+
+      setSelectedSkill(detail);
+      setSelectedDocument(null);
+      setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
+      setSkills((currentSkills) =>
+        currentSkills.map((skill) =>
+          skill.skillId === detail.skillId ? detail : skill,
+        ),
+      );
+    } catch (selectError) {
+      setDocumentError(errorToMessage(selectError, "Unable to open skill."));
+    } finally {
+      setIsSelectingDocument(false);
+    }
   }
 
   async function selectDocument(knowledgeDocumentId: string) {
@@ -196,6 +288,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       }
 
       setSelectedDocumentDraft(detail);
+      setSelectedSkill(null);
       setDocuments((currentDocuments) =>
         currentDocuments.map((document) =>
           document.knowledgeDocumentId === detail.knowledgeDocumentId
@@ -211,7 +304,11 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   }
 
   async function saveDocument() {
-    if (!onCreateKnowledgeDocument || !onUpdateKnowledgeDocument || isSavingDocument) {
+    if (
+      !onCreateKnowledgeDocument ||
+      !onUpdateKnowledgeDocument ||
+      isSavingDocument
+    ) {
       return;
     }
 
@@ -293,7 +390,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       await loadDocuments(null);
       setDocumentMessage("Document deleted.");
     } catch (deleteError) {
-      setDocumentError(errorToMessage(deleteError, "Unable to delete document."));
+      setDocumentError(
+        errorToMessage(deleteError, "Unable to delete document."),
+      );
     } finally {
       setIsDeletingDocument(false);
     }
@@ -367,11 +466,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<
 
   function setSelectedDocumentDraft(document: KnowledgeDocument) {
     setSelectedDocument(document);
+    setSelectedSkill(null);
     setDocumentDraft(knowledgeDocumentDraftFromDocument(document));
   }
 
   function clearDocumentDraft() {
     setSelectedDocument(null);
+    setSelectedSkill(null);
     setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
   }
 
@@ -384,30 +485,45 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setDocumentError(null);
   }
 
+  function attachSelectedSkillToCoordinator() {
+    if (!selectedSkill || !onAttachContextToCoordinator) {
+      return;
+    }
+
+    onAttachContextToCoordinator({
+      contextText: skillCoordinatorContextText(selectedSkill),
+      sourceLabel: "Skill Library / Skill",
+    });
+    setDocumentMessage("Skill attached to Workspace Agent as visible context.");
+    setDocumentError(null);
+  }
+
   return (
     <div className="skill-library-tab-panel" hidden={!isActive} role="tabpanel">
       <div className="skill-library-summary skill-library-summary-secondary">
-        <span>Plain-text or Markdown reference documents.</span>
+        <span>Catalog views combine scoped documents and saved skills.</span>
         <span>
-          Workspace Agent can search enabled workspace and global documents.
-          Used documents show scope in the answer context.
+          Only enabled active documents are searched for Workspace Agent Codex
+          runs.
         </span>
       </div>
-      <div className="skill-scope-filter" aria-label="Document scope filter">
-        {(["workspace", "global", "all"] as const).map((filter) => (
+      <div className="skill-scope-filter" aria-label="Knowledge catalog views">
+        {KNOWLEDGE_CATALOG_VIEW_OPTIONS.map((filter) => (
           <button
-            aria-pressed={scopeFilter === filter}
+            aria-pressed={catalogView === filter.value}
             className={[
               "skill-scope-filter-button",
-              scopeFilter === filter ? "skill-scope-filter-button-active" : "",
+              catalogView === filter.value
+                ? "skill-scope-filter-button-active"
+                : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            key={filter}
-            onClick={() => setScopeFilter(filter)}
+            key={filter.value}
+            onClick={() => setCatalogView(filter.value)}
             type="button"
           >
-            {scopeFilterLabel(filter)}
+            {filter.label}
           </button>
         ))}
       </div>
@@ -431,9 +547,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
             className="input"
             onChange={(event) =>
               setDocumentImportScope(
-                event.currentTarget.value === "global"
-                  ? "global"
-                  : "workspace",
+                event.currentTarget.value === "global" ? "global" : "workspace",
               )
             }
             value={documentImportScope}
@@ -463,184 +577,90 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       </div>
       {isLoadingDocuments ? (
         <EmptyState
-          text="Workspace-local documents are loading from desktop storage."
-          title="Loading documents."
+          text="Knowledge catalog items are loading from workspace APIs."
+          title="Loading catalog."
         />
-      ) : documentError && documents.length === 0 ? (
-        <EmptyState text={documentError} title="Documents unavailable." />
+      ) : documentError && documents.length === 0 && skills.length === 0 ? (
+        <EmptyState text={documentError} title="Catalog unavailable." />
       ) : (
-        <div className="skill-library-layout">
-          <aside className="skill-list-pane" aria-label="Documents">
-            {visibleDocuments.length === 0 ? (
+        <div className="skill-catalog-layout">
+          <section className="skill-list-pane" aria-label="Catalog items">
+            {visibleCatalogItems.length === 0 ? (
               <EmptyState
-                text={emptyDocumentText(scopeFilter)}
-                title="No documents yet."
+                text={emptyCatalogText(catalogView)}
+                title="No catalog items yet."
               />
             ) : (
               <div className="skill-list">
-                {visibleDocuments.map((document) => (
+                {visibleCatalogItems.map((item) => (
                   <button
                     className={[
                       "skill-list-row",
-                      selectedDocument?.knowledgeDocumentId ===
-                      document.knowledgeDocumentId
+                      selectedCatalogItemId === item.id
                         ? "skill-list-row-selected"
                         : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     disabled={isSelectingDocument}
-                    key={document.knowledgeDocumentId}
-                    onClick={() =>
-                      void selectDocument(document.knowledgeDocumentId)
-                    }
+                    key={item.id}
+                    onClick={() => void selectCatalogItem(item)}
                     type="button"
                   >
                     <span className="skill-list-title-row">
-                      <span className="skill-list-title">{document.title}</span>
+                      <span className="skill-list-title">{item.title}</span>
                       <span className="skill-scope-badge">
-                        {knowledgeDocumentScopeLabel(document.scope)}
+                        {item.scopeLabel}
                       </span>
                     </span>
+                    <span className="skill-catalog-card-summary">
+                      {item.quickSummary}
+                    </span>
                     <span className="skill-list-meta">
-                      {document.enabled ? "Enabled" : "Disabled"}
-                      {document.tags ? ` - ${document.tags}` : ""}
+                      {item.typeLabel} - {item.statusLabel}
+                      {item.tags ? ` - ${item.tags}` : ""}
+                    </span>
+                    <span className="skill-list-meta">
+                      Updated {formatKnowledgeCatalogDate(item.updatedAt)}
                     </span>
                   </button>
                 ))}
               </div>
             )}
-          </aside>
+          </section>
 
-          <section className="skill-editor-pane" aria-label="Selected document">
-            <div className="skill-editor">
-              <label className="skill-field skill-field-wide">
-                <span>Title</span>
-                <input
-                  className="input"
-                  onChange={(event) =>
-                    setDocumentDraftField("title", event.currentTarget.value)
-                  }
-                  placeholder={DEFAULT_DOCUMENT_TITLE}
-                  value={documentDraft.title}
-                />
-              </label>
-
-              <label className="skill-field">
-                <span>Scope</span>
-                <select
-                  className="input"
-                  onChange={(event) =>
-                    setDocumentDraftField(
-                      "scope",
-                      event.currentTarget.value === "global"
-                        ? "global"
-                        : "workspace",
-                    )
-                  }
-                  value={documentDraft.scope}
-                >
-                  <option value="workspace">Workspace</option>
-                  <option value="global">Global</option>
-                </select>
-              </label>
-
-              <label className="skill-field">
-                <span>Source label</span>
-                <input
-                  className="input"
-                  onChange={(event) =>
-                    setDocumentDraftField(
-                      "sourceLabel",
-                      event.currentTarget.value,
-                    )
-                  }
-                  placeholder="README.md or pasted docs"
-                  value={documentDraft.sourceLabel}
-                />
-              </label>
-
-              <label className="skill-field">
-                <span>Tags</span>
-                <input
-                  className="input"
-                  onChange={(event) =>
-                    setDocumentDraftField("tags", event.currentTarget.value)
-                  }
-                  placeholder="api, onboarding"
-                  value={documentDraft.tags}
-                />
-              </label>
-
-              <label className="skill-field skill-checkbox-field">
-                <input
-                  checked={documentDraft.enabled}
-                  onChange={(event) =>
-                    setDocumentDraftField("enabled", event.currentTarget.checked)
-                  }
-                  type="checkbox"
-                />
-                <span>Searchable by Workspace Agent</span>
-              </label>
-
-              <label className="skill-field skill-field-wide">
-                <span>Content</span>
-                <textarea
-                  className="input skill-document-textarea"
-                  onChange={(event) =>
-                    setDocumentDraftField("content", event.currentTarget.value)
-                  }
-                  value={documentDraft.content}
-                />
-              </label>
-
-              <div className="skill-editor-actions">
-                <Button
-                  disabled={
-                    !documentApiAvailable ||
-                    !isDocumentDirty ||
-                    isSavingDocument ||
-                    isDeletingDocument
-                  }
-                  onClick={() => void saveDocument()}
-                  variant="primary"
-                >
-                  {isSavingDocument ? "Saving" : "Save document"}
-                </Button>
-                <Button
-                  disabled={
-                    !isDocumentDirty || isSavingDocument || isDeletingDocument
-                  }
-                  onClick={discardDocumentDraft}
-                  variant="secondary"
-                >
-                  Discard
-                </Button>
-                <Button
-                  disabled={
-                    !documentDraft.knowledgeDocumentId ||
-                    isSavingDocument ||
-                    isDeletingDocument
-                  }
-                  onClick={() => void deleteSelectedDocument()}
-                  variant="ghost"
-                >
-                  {isDeletingDocument ? "Deleting" : "Delete"}
-                </Button>
-              </div>
-              <p className="skill-attach-note">
-                Enabled saved workspace and global documents may be searched
-                before Run with Codex. Disabled documents are ignored.
-              </p>
-              {documentMessage ? (
-                <p className="skill-message">{documentMessage}</p>
-              ) : null}
-              {documentError ? (
-                <p className="skill-message skill-message-error" role="alert">
-                  {documentError}
-                </p>
-              ) : null}
-            </div>
+          <section
+            className="skill-editor-pane"
+            aria-label="Selected catalog item"
+          >
+            {selectedSkill ? (
+              <CatalogSkillPreview
+                canAttachToWorkspaceAgent={Boolean(
+                  onAttachContextToCoordinator,
+                )}
+                error={documentError}
+                item={selectedCatalogItem}
+                message={documentMessage}
+                onAttachToWorkspaceAgent={attachSelectedSkillToCoordinator}
+                onShowSkills={onShowSkills}
+                skill={selectedSkill}
+              />
+            ) : (
+              <CatalogDocumentEditor
+                documentApiAvailable={documentApiAvailable}
+                draft={documentDraft}
+                error={documentError}
+                isDeletingDocument={isDeletingDocument}
+                isDirty={isDocumentDirty}
+                isSavingDocument={isSavingDocument}
+                item={selectedCatalogItem}
+                message={documentMessage}
+                onDeleteDocument={() => void deleteSelectedDocument()}
+                onDiscardDraft={discardDocumentDraft}
+                onSaveDocument={() => void saveDocument()}
+                onSetDraftField={setDocumentDraftField}
+              />
+            )}
           </section>
         </div>
       )}
@@ -656,30 +676,18 @@ function errorToMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function scopeFilterLabel(filter: KnowledgeDocumentScopeFilter) {
-  switch (filter) {
-    case "workspace":
-      return "Workspace";
-    case "global":
-      return "Global";
-    case "all":
-    default:
-      return "All";
-  }
-}
-
-function knowledgeDocumentScopeLabel(scope: KnowledgeDocument["scope"]) {
-  return scope === "global" ? "Global" : "Workspace";
-}
-
-function emptyDocumentText(filter: KnowledgeDocumentScopeFilter) {
-  if (filter === "global") {
-    return "Add the first local-global reference document for this desktop database.";
+function emptyCatalogText(view: KnowledgeCatalogView) {
+  if (view === "global") {
+    return "Add the first local-global catalog item for this desktop database.";
   }
 
-  if (filter === "workspace") {
-    return "Add the first workspace-local reference document for this workspace.";
+  if (view === "workspace") {
+    return "Add the first workspace-local catalog item for this workspace.";
   }
 
-  return "Add the first workspace-local or local-global reference document.";
+  if (view === "skills") {
+    return "Create the first saved Skill from the Skills tab.";
+  }
+
+  return "Add the first workspace-local or local-global catalog item.";
 }

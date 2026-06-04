@@ -43,9 +43,10 @@ export function SkillLibraryWidget({
   title,
 }: WidgetRenderProps) {
   const skillsPanelRef = useRef<SkillLibrarySkillsPanelHandle | null>(null);
-  const documentsPanelRef =
-    useRef<SkillLibraryDocumentsPanelHandle | null>(null);
-  const [activeTab, setActiveTab] = useState<KnowledgeSurfaceTab>("skills");
+  const documentsPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(
+    null,
+  );
+  const [activeTab, setActiveTab] = useState<KnowledgeSurfaceTab>("catalog");
   const [skillsToolbarState, setSkillsToolbarState] =
     useState<SkillLibrarySkillsToolbarState>({
       isNewDisabled: true,
@@ -96,7 +97,7 @@ export function SkillLibraryWidget({
             onClick={startNewActiveItem}
             variant="secondary"
           >
-            {activeTab === "skills" ? "New skill" : "New document"}
+            {activeTab === "skills" ? "New skill" : "New catalog item"}
           </Button>
           {frameActions}
         </>
@@ -111,9 +112,9 @@ export function SkillLibraryWidget({
     >
       <div className="skill-library-shell">
         <div className="skill-library-summary">
-          <span>Workspace and local-global documents.</span>
-          <span>Skills attach explicitly.</span>
-          <span>Enabled documents are searched visibly for Workspace Agent runs.</span>
+          <span>Scoped Knowledge Catalog for documents and skills.</span>
+          <span>Global and workspace-local items stay visible.</span>
+          <span>Skills attach explicitly from the saved Skill record.</span>
         </div>
 
         <div
@@ -121,6 +122,20 @@ export function SkillLibraryWidget({
           role="tablist"
           aria-label="Knowledge surface tabs"
         >
+          <button
+            aria-selected={activeTab === "catalog"}
+            className={[
+              "skill-library-tab",
+              activeTab === "catalog" ? "skill-library-tab-active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setActiveTab("catalog")}
+            role="tab"
+            type="button"
+          >
+            Catalog
+          </button>
           <button
             aria-selected={activeTab === "skills"}
             className={[
@@ -134,20 +149,6 @@ export function SkillLibraryWidget({
             type="button"
           >
             Skills
-          </button>
-          <button
-            aria-selected={activeTab === "documents"}
-            className={[
-              "skill-library-tab",
-              activeTab === "documents" ? "skill-library-tab-active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => setActiveTab("documents")}
-            role="tab"
-            type="button"
-          >
-            Documents
           </button>
         </div>
 
@@ -163,12 +164,16 @@ export function SkillLibraryWidget({
           ref={skillsPanelRef}
         />
         <SkillLibraryDocumentsPanel
-          isActive={activeTab === "documents"}
+          isActive={activeTab === "catalog"}
+          onAttachContextToCoordinator={onAttachContextToCoordinator}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
           onGetKnowledgeDocument={onGetKnowledgeDocument}
+          onGetSkill={onGetSkill}
           onListKnowledgeDocuments={onListKnowledgeDocuments}
+          onListSkills={onListSkills}
           onReadKnowledgeDocumentImportFile={onReadKnowledgeDocumentImportFile}
+          onShowSkills={() => setActiveTab("skills")}
           onToolbarStateChange={onDocumentsToolbarStateChange}
           onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
           ref={documentsPanelRef}
