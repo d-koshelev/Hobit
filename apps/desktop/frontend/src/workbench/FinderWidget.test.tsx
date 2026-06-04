@@ -16,6 +16,7 @@ import type {
   GitLog,
   GitPushResponse,
   GitRepositoryStatus,
+  AgentQueueTask,
 } from "../workspace/types";
 import { FinderWidget } from "./FinderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
@@ -255,6 +256,130 @@ describe("FinderWidget", () => {
     expect(document.body.textContent).toContain("Clean");
     expect(document.body.textContent).toContain("0 changed");
     expect(document.querySelectorAll(".finder-column")).toHaveLength(0);
+  });
+
+  it("creates a manual Knowledge Queue task from a selected Finder file", async () => {
+    const projectRoot = directory("project", [
+      directory("src", [file("App.tsx", "export function App() {}\n")]),
+    ]);
+    const createQueueTask = vi.fn(async (request) =>
+      queueTaskFromRequest(request, "Q-FILE"),
+    );
+    getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await clickButton("Open root");
+    await clickButtonContaining("src");
+    await clickButtonContaining("App.tsx");
+    await clickButton("Create Knowledge task");
+
+    expect(createQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Generate draft Knowledge from selected Finder file: src/App.tsx. Draft output only; do not activate Knowledge.",
+        executionPolicy: "manual",
+        priority: 0,
+        queueTagName: "Knowledge generation",
+        status: "queued",
+        title: "Generate file Knowledge: src/App.tsx",
+        validationStatus: "not_started",
+      }),
+    );
+    const request = createQueueTask.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Queue knowledge generation task.");
+    expect(request?.prompt).toContain("* Finder approved root: project");
+    expect(request?.prompt).toContain("* codebase file: src/App.tsx");
+    expect(request?.prompt).toContain("Return draft Knowledge only.");
+    expect(request?.prompt).toContain(
+      "Do not create, edit, enable, or activate Knowledge records.",
+    );
+    expect(document.body.textContent).toContain(
+      "Queue task Q-FILE created. It was not assigned or run.",
+    );
+  });
+
+  it("creates a manual Knowledge Queue task from a selected Finder folder", async () => {
+    const projectRoot = directory("project", [
+      directory("docs", [file("README.md", "# Docs\n")]),
+    ]);
+    const createQueueTask = vi.fn(async (request) =>
+      queueTaskFromRequest(request, "Q-FOLDER"),
+    );
+    getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await clickButton("Open root");
+    await clickButtonContaining("docs");
+    await clickButton("Create Knowledge task");
+
+    expect(createQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Generate draft Knowledge from selected Finder folder: docs. Draft output only; do not activate Knowledge.",
+        executionPolicy: "manual",
+        queueTagName: "Knowledge generation",
+        status: "queued",
+        title: "Generate folder Knowledge: docs",
+      }),
+    );
+    expect(createQueueTask.mock.calls[0]?.[0].prompt).toContain(
+      "* codebase folder: docs",
+    );
+    expect(document.body.textContent).toContain(
+      "Queue task Q-FOLDER created. It was not assigned or run.",
+    );
+  });
+
+  it("blocks oversized and binary selected files from direct Knowledge source import", async () => {
+    const projectRoot = directory("project", [
+      file("large.md", "x".repeat(101 * 1024)),
+      file("binary.dat", "before\u0000after"),
+    ]);
+    const createQueueTask = vi.fn(async (request) =>
+      queueTaskFromRequest(request, "Q-BLOCKED"),
+    );
+    getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn(async () => projectRoot),
+      writable: true,
+    });
+
+    renderWidget({ onCreateAgentQueueTask: createQueueTask });
+
+    await clickButton("Open root");
+    await clickButtonContaining("large.md");
+
+    expect(buttonWithText("Create Knowledge task")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "oversized for direct source import",
+    );
+
+    await clickButtonContaining("binary.dat");
+
+    expect(buttonWithText("Create Knowledge task")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "not supported for direct source import",
+    );
+    expect(document.body.textContent).toContain(
+      "Binary file preview is unsupported.",
+    );
+    expect(createQueueTask).not.toHaveBeenCalled();
   });
 
   it("renders modified, added, deleted, and untracked Git markers from WorkspaceGitApi", async () => {
@@ -763,6 +888,29 @@ function gitLogEntry(hash: string, shortHash: string, subject: string) {
     hash,
     shortHash,
     subject,
+  };
+}
+
+function queueTaskFromRequest(
+  request: Parameters<
+    NonNullable<Parameters<typeof FinderWidget>[0]["onCreateAgentQueueTask"]>
+  >[0],
+  queueItemId: string,
+): AgentQueueTask {
+  return {
+    assignedExecutorWidgetId: null,
+    createdAt: "2026-06-04T00:00:00.000Z",
+    description: request.description,
+    executionPolicy: request.executionPolicy,
+    prompt: request.prompt,
+    priority: request.priority,
+    queueItemId,
+    queueTagName: request.queueTagName,
+    status: request.status,
+    title: request.title,
+    updatedAt: "2026-06-04T00:00:00.000Z",
+    validationStatus: request.validationStatus,
+    workspaceId: "workspace",
   };
 }
 

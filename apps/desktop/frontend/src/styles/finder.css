@@ -6,6 +6,7 @@
 }
 
 .finder-scope,
+.finder-knowledge-source,
 .finder-error,
 .finder-column,
 .finder-pane {
@@ -15,15 +16,18 @@
 }
 
 .finder-scope,
+.finder-knowledge-source,
 .finder-error {
   padding: var(--space-sm) var(--space-md);
 }
 
-.finder-scope {
+.finder-scope,
+.finder-knowledge-source {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .finder-scope-copy,
@@ -34,6 +38,7 @@
 }
 
 .finder-scope-actions,
+.finder-source-actions,
 .finder-column-header,
 .finder-git-status-header,
 .finder-git-status-actions,
@@ -53,6 +58,7 @@
 }
 
 .finder-scope-actions,
+.finder-source-actions,
 .finder-git-status-actions,
 .finder-pane-actions,
 .finder-view-toggle,

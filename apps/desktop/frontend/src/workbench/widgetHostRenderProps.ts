@@ -132,6 +132,7 @@ export function widgetHostRenderProps({
     return {
       ...commonProps,
       onAttachContextToCoordinator,
+      onCreateAgentQueueTask: widgetActions.createAgentQueueTask,
       onSelectWorkspaceDirectory: widgetActions.selectWorkspaceDirectory,
     };
   }

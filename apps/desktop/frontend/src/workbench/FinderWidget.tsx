@@ -154,6 +154,7 @@ export function FinderWidget({
   instance,
   logRefreshToken,
   onAttachContextToCoordinator,
+  onCreateAgentQueueTask,
   onLoadLogs,
   onSelectWorkspaceDirectory,
   onStartFrameMove,
@@ -195,10 +196,22 @@ export function FinderWidget({
   const [paneStates, setPaneStates] = useState<FinderPaneStates>({
     ...DEFAULT_FINDER_PANE_STATES,
   });
+  const [knowledgeTaskMessage, setKnowledgeTaskMessage] = useState<
+    string | null
+  >(null);
+  const [knowledgeTaskError, setKnowledgeTaskError] = useState<string | null>(
+    null,
+  );
+  const [isCreatingKnowledgeTask, setIsCreatingKnowledgeTask] = useState(false);
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
     : root?.label ?? "No root selected";
+  const knowledgeTaskBlocker = getFinderKnowledgeTaskBlocker({
+    filePreview,
+    onCreateAgentQueueTask,
+    selectedItem,
+  });
   const changedFiles = gitStatus.status?.changedFiles ?? [];
   const changeByPath = buildGitChangeByPath(changedFiles);
   const hasMaximizedPane = Object.values(paneStates).some(
@@ -207,6 +220,11 @@ export function FinderWidget({
   const canUseDirectoryPicker =
     typeof window !== "undefined" &&
     typeof window.showDirectoryPicker === "function";
+
+  useEffect(() => {
+    setKnowledgeTaskMessage(null);
+    setKnowledgeTaskError(null);
+  }, [selectedPath]);
 
   async function openRoot() {
     if (isOpeningRoot) {
@@ -760,6 +778,39 @@ export function FinderWidget({
     );
   }
 
+  async function createKnowledgeTaskFromSelection() {
+    if (!selectedItem || !onCreateAgentQueueTask || knowledgeTaskBlocker) {
+      setKnowledgeTaskError(
+        knowledgeTaskBlocker ?? "Select a Finder file or folder first.",
+      );
+      return;
+    }
+
+    setIsCreatingKnowledgeTask(true);
+    setKnowledgeTaskMessage(null);
+    setKnowledgeTaskError(null);
+
+    try {
+      const task = await onCreateAgentQueueTask(
+        finderKnowledgeQueueTaskRequest({
+          rootLabel: root?.label ?? "Approved Finder root",
+          selectedItem,
+        }),
+      );
+      setKnowledgeTaskMessage(
+        `Queue task ${task.queueItemId} created. It was not assigned or run.`,
+      );
+    } catch (error) {
+      setKnowledgeTaskError(
+        `Unable to create Knowledge Queue task: ${errorToReadableMessage(
+          error,
+        )}`,
+      );
+    } finally {
+      setIsCreatingKnowledgeTask(false);
+    }
+  }
+
   function resetGitDiffPreview(path: string | null = null) {
     setGitDiffPreview({
       attachedMessage: null,
@@ -842,6 +893,15 @@ export function FinderWidget({
             <p className="finder-text">{rootError}</p>
           </section>
         ) : null}
+
+        <FinderKnowledgeSourcePanel
+          blocker={knowledgeTaskBlocker}
+          error={knowledgeTaskError}
+          isCreating={isCreatingKnowledgeTask}
+          message={knowledgeTaskMessage}
+          onCreateTask={() => void createKnowledgeTaskFromSelection()}
+          selectedItem={selectedItem}
+        />
 
         <div aria-label="Finder panes" className="finder-pane-layout">
           <FinderPaneShell
@@ -1264,6 +1324,59 @@ function FinderFloatingPreview({
           ) : null}
         </>
       ) : null}
+    </section>
+  );
+}
+
+function FinderKnowledgeSourcePanel({
+  blocker,
+  error,
+  isCreating,
+  message,
+  onCreateTask,
+  selectedItem,
+}: {
+  blocker: string | null;
+  error: string | null;
+  isCreating: boolean;
+  message: string | null;
+  onCreateTask: () => void;
+  selectedItem: FinderSelectedItem | null;
+}) {
+  const selectedLabel = selectedItem
+    ? selectedItem.pathSegments.join("/")
+    : "No file or folder selected";
+
+  return (
+    <section
+      aria-label="Finder Knowledge source"
+      className="finder-knowledge-source"
+    >
+      <div className="finder-scope-copy">
+        <p className="finder-title">Knowledge source</p>
+        <p className="finder-text">
+          {selectedItem
+            ? `${finderEntryKindLabel(selectedItem.kind)}: ${selectedLabel}`
+            : selectedLabel}
+        </p>
+      </div>
+      <div className="finder-source-actions">
+        <Badge variant={selectedItem ? "info" : "neutral"}>
+          {selectedItem ? finderEntryKindLabel(selectedItem.kind) : "No selection"}
+        </Badge>
+        <Badge variant="neutral">Manual Queue</Badge>
+        <Button
+          disabled={Boolean(blocker) || isCreating}
+          onClick={onCreateTask}
+          title={blocker ?? "Create a manual Queue task from the selected source."}
+          variant="secondary"
+        >
+          {isCreating ? "Creating task" : "Create Knowledge task"}
+        </Button>
+      </div>
+      {blocker ? <p className="finder-column-state">{blocker}</p> : null}
+      {message ? <p className="finder-preview-message">{message}</p> : null}
+      {error ? <p className="finder-preview-error">{error}</p> : null}
     </section>
   );
 }
@@ -2493,6 +2606,118 @@ function hasDirtyPreview(preview: FinderFilePreview | null) {
   return Boolean(preview?.editMode && preview.draft !== preview.content);
 }
 
+function getFinderKnowledgeTaskBlocker({
+  filePreview,
+  onCreateAgentQueueTask,
+  selectedItem,
+}: {
+  filePreview: FinderFilePreview | null;
+  onCreateAgentQueueTask: WidgetRenderProps["onCreateAgentQueueTask"];
+  selectedItem: FinderSelectedItem | null;
+}) {
+  if (!onCreateAgentQueueTask) {
+    return "Queue task creation is unavailable in this runtime.";
+  }
+
+  if (!selectedItem) {
+    return "Select a file or folder to create a Knowledge Queue task.";
+  }
+
+  if (selectedItem.kind === "directory") {
+    return null;
+  }
+
+  const selectedPath = selectedItem.pathSegments.join("/");
+  if (!filePreview || filePreview.path !== selectedPath) {
+    return "Wait for the selected file preview before creating a Knowledge task.";
+  }
+
+  if (filePreview.loading) {
+    return "Selected file preview is still loading.";
+  }
+
+  if (filePreview.capped) {
+    return "The selected file is oversized for direct source import. Select its folder for Queue analysis or choose a smaller text file.";
+  }
+
+  if (filePreview.error) {
+    return `The selected file is not supported for direct source import: ${filePreview.error}`;
+  }
+
+  return null;
+}
+
+function finderKnowledgeQueueTaskRequest({
+  rootLabel,
+  selectedItem,
+}: {
+  rootLabel: string;
+  selectedItem: FinderSelectedItem;
+}) {
+  const sourcePath = selectedItem.pathSegments.join("/");
+  const sourceType = selectedItem.kind === "directory" ? "folder" : "file";
+  const sourceRef = `${sourceType}: ${sourcePath}`;
+
+  return {
+    description: `Generate draft Knowledge from selected Finder ${sourceType}: ${sourcePath}. Draft output only; do not activate Knowledge.`,
+    executionPolicy: "manual" as const,
+    priority: 0,
+    prompt: [
+      "Mode:",
+      "Queue knowledge generation task.",
+      "",
+      "Task type:",
+      "knowledge_generation",
+      "",
+      "Workflow:",
+      "Create Knowledge from Finder selection.",
+      "",
+      "Objective:",
+      "Generate a draft Knowledge pack from the explicitly selected Finder source.",
+      "",
+      "Selected source refs:",
+      `* Finder approved root: ${rootLabel}`,
+      `* codebase ${sourceRef}`,
+      "",
+      "Desired draft Knowledge pack:",
+      "",
+      "* source-attributed overview",
+      "* important files, folders, interfaces, and boundaries",
+      "* safe modification rules",
+      "* relevant validation commands to consider later",
+      "* proposed Knowledge item titles, types, tags, and workspace-local scope",
+      "* blockers, uncertainty, stale source risks, or missing source refs",
+      "",
+      "Source rules:",
+      "",
+      "* Use only the listed Finder source refs and explicit operator-provided context.",
+      "* Do not read unrelated folders or unselected files.",
+      "* If the selected folder is too broad, report a blocker instead of broadening scope.",
+      "* If more source is needed, list the missing source refs instead of inventing context.",
+      "",
+      "Draft Knowledge rules:",
+      "",
+      "* Return draft Knowledge only.",
+      "* Do not create, edit, enable, or activate Knowledge records.",
+      "* Do not mutate Notes, files, Git, Queue, Executor, Terminal, JDBC, or workspace state.",
+      "* Do not run commands unless a later explicit Queue execution task asks for them.",
+      "* Default suggested scope to workspace-local unless the operator explicitly chose another target.",
+      "",
+      "Report:",
+      "",
+      "* status",
+      "* draft pack summary",
+      "* proposed items with quick summary, full content outline, suggested type, tags, scope, confidence, and source refs",
+      "* blockers or omitted unsupported content",
+      "* confirmation that no Knowledge was activated",
+    ].join("\n"),
+    queueTagName: "Knowledge generation",
+    status: "queued" as const,
+    title: `Generate ${sourceType} Knowledge: ${compactFinderTitle(sourcePath)}`,
+    validationStatus: "not_started" as const,
+  };
+}
+
 function formatPreviewSize(sizeBytes: number | null) {
   if (sizeBytes === null) {
     return "Size unavailable";
@@ -2514,6 +2739,17 @@ function compareFinderEntries(first: FinderEntry, second: FinderEntry) {
     numeric: true,
     sensitivity: "base",
   });
+}
+
+function finderEntryKindLabel(kind: FinderEntryKind) {
+  return kind === "directory" ? "Folder" : "File";
+}
+
+function compactFinderTitle(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= 48
+    ? normalized
+    : `${normalized.slice(0, 47).trim()}...`;
 }
 
 function buildGitChangeByPath(changedFiles: GitFileChange[]) {

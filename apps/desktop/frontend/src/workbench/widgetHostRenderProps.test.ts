@@ -140,7 +140,7 @@ describe("widgetHostRenderProps", () => {
     ).toBe(publish);
   });
 
-  it("wires Finder to directory selection without Git or mutation actions", () => {
+  it("wires Finder to directory selection and Queue task creation without execution actions", () => {
     const actions = widgetActions();
     const attach = vi.fn();
     const props = renderPropsFor(FINDER_WIDGET_COMPONENT_KEY, {
@@ -152,6 +152,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onSelectWorkspaceDirectory).toBe(
       actions.selectWorkspaceDirectory,
     );
+    expect(props.onCreateAgentQueueTask).toBe(actions.createAgentQueueTask);
     expect(props.onGetGitRepositoryStatus).toBeUndefined();
     expect(props.onGetGitFileDiff).toBeUndefined();
     expect(props.onCreateGitCommit).toBeUndefined();
