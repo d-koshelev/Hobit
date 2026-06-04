@@ -8,8 +8,14 @@ import type {
   AgentQueueCoordinatorStatus,
   AgentQueueTask,
   CreateAgentQueueTaskRequest,
+  GitRepositoryStatus,
   UpdateAgentQueueTaskRequest,
+  WorkspaceGitDiffSummary,
 } from "../workspace/types";
+import {
+  getWorkspaceGitDiffSummary,
+  getWorkspaceGitStatus,
+} from "../workspace/workspaceGitApi";
 import {
   queueClosureStateBadgeVariant,
   queueClosureStateLabel,
@@ -29,6 +35,17 @@ export type WorkspaceAgentQueueReportActionCardPatch = {
   linkedFollowUpItemIds?: string[];
   sourceClosureState?: AgentQueueClosureState;
   sourceCoordinatorStatus?: AgentQueueCoordinatorStatus;
+};
+
+type WorkspaceAgentGitReviewSummary = {
+  changedFilesSummary: string;
+  fileSummaries: string[];
+  finalResponse: string;
+  gitStatusSummary: string;
+  repoRoot: string;
+  taskId: string;
+  taskTitle: string;
+  warnings: string[];
 };
 
 type WorkspaceAgentQueueReportActionCardProps = {
@@ -63,6 +80,8 @@ export function WorkspaceAgentQueueReportActionCard({
 }: WorkspaceAgentQueueReportActionCardProps) {
   const [pendingAction, setPendingAction] =
     useState<AgentQueueReportActionType | null>(null);
+  const [gitReviewSummary, setGitReviewSummary] =
+    useState<WorkspaceAgentGitReviewSummary | null>(null);
   const compactChangedFiles = card.changedFiles.slice(0, 3);
   const hiddenChangedFiles = Math.max(
     0,
@@ -107,6 +126,8 @@ export function WorkspaceAgentQueueReportActionCard({
         }
         onOpenQueueItem?.(card.linkedDiffReviewItemId);
         return "Open linked Diff Review item request sent. No status was changed.";
+      case "review_changes":
+        return reviewChanges();
       case "create_follow_up":
         return createFollowUpItem();
       case "create_diff_review":
@@ -207,6 +228,31 @@ export function WorkspaceAgentQueueReportActionCard({
     });
 
     return `Queued follow-up item ${createdTask.queueItemId}. It was not run.`;
+  }
+
+  async function reviewChanges() {
+    const repoRoot = card.sourceExecutionWorkspace?.trim();
+
+    if (!repoRoot) {
+      setGitReviewSummary(null);
+      return "Review changes needs an execution workspace / repository root on the source Queue item. No Git read ran.";
+    }
+
+    const [repositoryStatus, diffSummary] = await Promise.all([
+      getWorkspaceGitStatus({ repoRoot }),
+      getWorkspaceGitDiffSummary({
+        includePatchPreview: false,
+        maxFiles: 20,
+        maxPatchBytesPerFile: 0,
+        repoRoot,
+      }),
+    ]);
+
+    setGitReviewSummary(
+      gitReviewSummaryFromCard(card, repoRoot, repositoryStatus, diffSummary),
+    );
+
+    return "Review changes loaded read-only Workspace Git status and diff summary. No commit was created.";
   }
 
   async function createDiffReviewItem() {
@@ -441,6 +487,49 @@ export function WorkspaceAgentQueueReportActionCard({
           ))}
         </div>
       ) : null}
+
+      {gitReviewSummary ? (
+        <section
+          aria-label="Coordinator review summary"
+          className="workspace-agent-report-card-review-summary"
+        >
+          <p className="coordinator-proposal-kicker">Coordinator review summary</p>
+          <dl className="workspace-agent-report-card-facts">
+            <ReportFact label="Task id" value={gitReviewSummary.taskId} />
+            <ReportFact label="Task title" value={gitReviewSummary.taskTitle} />
+            <ReportFact label="Repository" value={gitReviewSummary.repoRoot} />
+          </dl>
+          <ReviewSummaryBlock
+            label="Final response"
+            value={gitReviewSummary.finalResponse}
+          />
+          <ReviewSummaryBlock
+            label="Changed files summary"
+            value={gitReviewSummary.changedFilesSummary}
+          />
+          {gitReviewSummary.fileSummaries.length ? (
+            <ul className="workspace-agent-report-card-file-list">
+              {gitReviewSummary.fileSummaries.map((summary) => (
+                <li key={summary}>{summary}</li>
+              ))}
+            </ul>
+          ) : null}
+          <ReviewSummaryBlock
+            label="Git status summary"
+            value={gitReviewSummary.gitStatusSummary}
+          />
+          {gitReviewSummary.warnings.length ? (
+            <ReviewSummaryBlock
+              label="Warnings"
+              value={gitReviewSummary.warnings.join("\n")}
+            />
+          ) : null}
+          <p className="coordinator-proposal-note">
+            Read-only Workspace Git review. No Git widget was opened and no
+            commit, push, reset, checkout, clean, or stash action ran.
+          </p>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -450,6 +539,15 @@ function ReportFact({ label, value }: { label: string; value: string }) {
     <div>
       <dt>{label}</dt>
       <dd>{value}</dd>
+    </div>
+  );
+}
+
+function ReviewSummaryBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="workspace-agent-report-card-review-block">
+      <p className="coordinator-proposal-section-label">{label}</p>
+      <pre>{value}</pre>
     </div>
   );
 }
@@ -475,4 +573,113 @@ function sourceClosureStateForAccept(
   }
 
   return "no_change_accepted";
+}
+
+function gitReviewSummaryFromCard(
+  card: AgentQueueReportActionCard,
+  repoRoot: string,
+  repositoryStatus: GitRepositoryStatus,
+  diffSummary: WorkspaceGitDiffSummary,
+): WorkspaceAgentGitReviewSummary {
+  const finalResponse = boundedReviewText(
+    card.finalResponse?.trim() ||
+      card.reportSummary.trim() ||
+      "No final response captured on this Queue report.",
+  );
+  const fileSummaries = diffSummary.files.slice(0, 10).map((file) =>
+    [
+      file.path,
+      file.status,
+      file.additions === null ? null : `+${file.additions.toString()}`,
+      file.deletions === null ? null : `-${file.deletions.toString()}`,
+      file.staged ? "staged" : null,
+      file.unstaged ? "unstaged" : null,
+      file.untracked ? "untracked" : null,
+      file.conflicted ? "conflicted" : null,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const hiddenFiles = Math.max(0, diffSummary.files.length - fileSummaries.length);
+
+  if (hiddenFiles) {
+    fileSummaries.push(`+${hiddenFiles.toString()} more file(s)`);
+  }
+
+  return {
+    changedFilesSummary: diffSummarySummary(diffSummary),
+    fileSummaries,
+    finalResponse,
+    gitStatusSummary: repositoryStatusSummary(repositoryStatus),
+    repoRoot,
+    taskId: card.sourceItemId,
+    taskTitle: card.sourceItemTitle,
+    warnings: [...repositoryStatus.warnings],
+  };
+}
+
+function diffSummarySummary(diffSummary: WorkspaceGitDiffSummary) {
+  const totals = diffSummary.summary;
+  const additions =
+    totals.totalAdditions === null
+      ? "additions unknown"
+      : `${totals.totalAdditions.toString()} addition(s)`;
+  const deletions =
+    totals.totalDeletions === null
+      ? "deletions unknown"
+      : `${totals.totalDeletions.toString()} deletion(s)`;
+
+  return [
+    `${totals.totalFiles.toString()} changed file(s)`,
+    `${totals.stagedCount.toString()} staged`,
+    `${totals.unstagedCount.toString()} unstaged`,
+    `${totals.untrackedCount.toString()} untracked`,
+    `${totals.conflictedCount.toString()} conflicted`,
+    additions,
+    deletions,
+    diffSummary.errorMessage ? `error: ${diffSummary.errorMessage}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
+function repositoryStatusSummary(status: GitRepositoryStatus) {
+  const branch = status.branch
+    ? status.branch.isDetached
+      ? `detached at ${status.branch.name ?? "unknown"}`
+      : status.branch.name ?? "unknown branch"
+    : "branch unavailable";
+  const upstream = status.branch?.upstream
+    ? `upstream ${status.branch.upstream}`
+    : "no upstream reported";
+  const ahead =
+    status.branch?.ahead === null || status.branch?.ahead === undefined
+      ? "ahead unknown"
+      : `ahead ${status.branch.ahead.toString()}`;
+  const behind =
+    status.branch?.behind === null || status.branch?.behind === undefined
+      ? "behind unknown"
+      : `behind ${status.branch.behind.toString()}`;
+  const tree = status.workingTree;
+
+  return [
+    `Branch ${branch}`,
+    upstream,
+    ahead,
+    behind,
+    tree.isClean ? "working tree clean" : "working tree dirty",
+    `${tree.stagedCount.toString()} staged`,
+    `${tree.unstagedCount.toString()} unstaged`,
+    `${tree.untrackedCount.toString()} untracked`,
+  ].join("; ");
+}
+
+function boundedReviewText(value: string) {
+  const maxLength = 1600;
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}\n[Final response preview truncated.]`;
 }

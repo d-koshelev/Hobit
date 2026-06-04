@@ -39,6 +39,7 @@ export function buildWorkerExecutionReportActionCard({
     dependentItemIds: dependentTasks.map((task) => task.queueItemId),
     errors: report.errors,
     followUpRecommendation: report.followUpRecommendation,
+    finalResponse: report.rawReportPreview,
     linkedDiffReviewItemId: linkedDiffReviewTask?.queueItemId,
     linkedDiffReviewStatus: linkedDiffReviewTask?.status,
     linkedFollowUpItemIds: [],
@@ -50,6 +51,7 @@ export function buildWorkerExecutionReportActionCard({
     reportStatus: report.reportStatus,
     reportSummary: report.summary,
     rollbackRecommendation: report.rollbackRecommendation,
+    sourceExecutionWorkspace: sourceTask.executionWorkspace,
     sourceItemDescription: sourceTask.description,
     sourceItemId: sourceTask.queueItemId,
     sourceItemPriority: sourceTask.priority,
@@ -96,6 +98,7 @@ export function buildDiffReviewReportActionCard({
     dependentItemIds: [],
     errors: [],
     followUpRecommendation: sourceReport?.followUpRecommendation,
+    finalResponse: sourceReport?.rawReportPreview,
     linkedDiffReviewItemId: diffReviewTask.queueItemId,
     linkedDiffReviewStatus: diffReviewTask.status,
     linkedFollowUpItemIds: [],
@@ -110,6 +113,8 @@ export function buildDiffReviewReportActionCard({
       metadata?.reviewTargetSummary ||
       `Diff Review item ${displayTaskTitle(diffReviewTask)} is available for coordinator review.`,
     rollbackRecommendation: sourceReport?.rollbackRecommendation,
+    sourceExecutionWorkspace:
+      source?.executionWorkspace ?? diffReviewTask.executionWorkspace,
     sourceItemDescription: source?.description,
     sourceItemId: metadata?.sourceItemId ?? source?.queueItemId ?? diffReviewTask.queueItemId,
     sourceItemPriority: source?.priority ?? diffReviewTask.priority,
@@ -192,6 +197,11 @@ function workerReportActions({
   return [
     reportAction("open_source_item", "Open source item", "Open the source Queue item."),
     reportAction(
+      "review_changes",
+      "Review changes",
+      "Load a read-only Workspace Git status and diff summary for coordinator review. No Git mutation or commit runs.",
+    ),
+    reportAction(
       "mark_ready_for_finalization",
       "Ready for finalization",
       "Mark the source item ready for explicit coordinator finalization. No work starts.",
@@ -267,6 +277,11 @@ function workerReportActions({
 function diffReviewReportActions(isNoChangeReport: boolean): AgentQueueReportAction[] {
   return [
     reportAction("open_source_item", "Open source item", "Open the source Queue item."),
+    reportAction(
+      "review_changes",
+      "Review changes",
+      "Load a read-only Workspace Git status and diff summary for coordinator review. No Git mutation or commit runs.",
+    ),
     reportAction(
       "open_linked_diff_review",
       "Open diff review item",

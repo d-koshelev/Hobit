@@ -2238,6 +2238,28 @@
   gap: var(--space-xs);
 }
 
+.workspace-agent-report-card-review-summary {
+  background: var(--color-nested-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.workspace-agent-report-card-review-block {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-agent-report-card-review-block pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .workspace-agent-queue-actions,
 .workspace-agent-queue-action-card {
   display: grid;

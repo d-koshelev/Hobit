@@ -19,6 +19,7 @@ describe("agentQueueReportActionCardModel", () => {
       }),
       report: workerReport(),
       sourceTask: task({
+        executionWorkspace: "C:/repo",
         queueItemId: "source-1",
         queueTagName: "Implementation",
         title: "Implement report cards",
@@ -30,6 +31,8 @@ describe("agentQueueReportActionCardModel", () => {
     expect(card.sourceQueueTag).toBe("Implementation");
     expect(card.reportStatus).toBe("needs_follow_up");
     expect(card.changedFiles).toEqual(["src/report-card.tsx"]);
+    expect(card.finalResponse).toBe("Final response preview.");
+    expect(card.sourceExecutionWorkspace).toBe("C:/repo");
     expect(card.warnings).toEqual(["Diff review recommended."]);
     expect(card.errors).toEqual(["One validation failed."]);
     expect(card.commitHash).toBe("abc1234");
@@ -44,6 +47,7 @@ describe("agentQueueReportActionCardModel", () => {
         "mark_ready_for_finalization",
         "finalize_accept_item",
         "accept_without_commit",
+        "review_changes",
         "mark_needs_changes",
         "mark_follow_up_required",
         "mark_blocked",
@@ -162,6 +166,7 @@ function workerReport(
     itemId: "source-1",
     reportId: "report-1",
     reportStatus: "needs_follow_up",
+    rawReportPreview: "Final response preview.",
     rollbackRecommendation: "Review rollback need.",
     summary: "Worker report summary.",
     validationCommandsSuggested: ["npm.cmd run test --prefix apps/desktop/frontend"],

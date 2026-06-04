@@ -154,6 +154,7 @@ export type AgentQueueReportKind =
 export type AgentQueueReportActionType =
   | "open_source_item"
   | "open_linked_diff_review"
+  | "review_changes"
   | "mark_ready_for_finalization"
   | "finalize_accept_item"
   | "accept_without_commit"
@@ -182,6 +183,7 @@ export type AgentQueueReportActionCard = {
   sourceItemTitle: string;
   sourceItemDescription?: string;
   sourceItemPrompt?: string;
+  sourceExecutionWorkspace?: string | null;
   sourceItemPriority: number;
   sourceItemStatus: AgentQueueTaskStatus;
   sourceItemType: AgentQueueTaskItemType;
@@ -190,6 +192,7 @@ export type AgentQueueReportActionCard = {
   sourceValidationStatus?: AgentQueueTaskValidationStatus;
   sourceClosureState?: AgentQueueClosureState;
   reportKind: AgentQueueReportKind;
+  finalResponse?: string;
   reportSummary: string;
   reportStatus: string;
   createdAt: string;
