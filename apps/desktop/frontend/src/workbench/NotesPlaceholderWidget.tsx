@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesEditor } from "./notes/NotesEditor";
 import { NotesEmptyState, notesSingleState } from "./notes/NotesEmptyState";
@@ -26,6 +26,7 @@ export function NotesPlaceholderWidget({
   const searchInputId = useId();
   const titleInputId = useId();
   const bodyInputId = useId();
+  const [isListCollapsed, setIsListCollapsed] = useState(false);
   const {
     apiAvailable,
     cancelKnowledgePromotion,
@@ -123,22 +124,46 @@ export function NotesPlaceholderWidget({
           />
         </div>
       ) : (
-        <div className="notes-product-shell">
-          <NotesList
-            draftPinned={draftPinned}
-            filteredNotes={filteredNotes}
-            isLoading={isLoading}
-            isSaving={isSaving}
-            isSelecting={isSelecting}
-            loadError={loadError}
-            notes={notes}
-            onSearchTextChange={setSearchText}
-            onSelectNote={selectNote}
-            onUpdateDraftPinned={updateDraftPinned}
-            searchInputId={searchInputId}
-            searchText={searchText}
-            selectedNote={selectedNote}
-          />
+        <div
+          className={
+            isListCollapsed
+              ? "notes-product-shell notes-product-shell-list-collapsed"
+              : "notes-product-shell"
+          }
+        >
+          {isListCollapsed ? null : (
+            <NotesList
+              draftPinned={draftPinned}
+              filteredNotes={filteredNotes}
+              isLoading={isLoading}
+              isSaving={isSaving}
+              isSelecting={isSelecting}
+              loadError={loadError}
+              notes={notes}
+              onSearchTextChange={setSearchText}
+              onSelectNote={selectNote}
+              onUpdateDraftPinned={updateDraftPinned}
+              searchInputId={searchInputId}
+              searchText={searchText}
+              selectedNote={selectedNote}
+            />
+          )}
+
+          <div className="notes-pane-rail">
+            <button
+              aria-label={
+                isListCollapsed ? "Expand notes list" : "Collapse notes list"
+              }
+              className="notes-pane-rail-button"
+              onClick={() => setIsListCollapsed((current) => !current)}
+              title={
+                isListCollapsed ? "Expand notes list" : "Collapse notes list"
+              }
+              type="button"
+            >
+              <span aria-hidden="true">{isListCollapsed ? ">" : "<"}</span>
+            </button>
+          </div>
 
           <NotesEditor
             bodyInputId={bodyInputId}

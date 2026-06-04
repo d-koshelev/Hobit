@@ -8,6 +8,7 @@ import type {
   CreateKnowledgeDocumentRequest,
   CreateWorkspaceNoteRequest,
   KnowledgeDocument,
+  UpdateWorkspaceNoteRequest,
   WorkspaceNote,
 } from "../workspace/types";
 
@@ -16,6 +17,7 @@ type CreateKnowledgeDocumentInput = Omit<
   CreateKnowledgeDocumentRequest,
   "workspaceId"
 >;
+type UpdateNoteInput = Omit<UpdateWorkspaceNoteRequest, "workspaceId">;
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -64,9 +66,9 @@ describe("NotesPlaceholderWidget empty state", () => {
     );
     expect(document.querySelector(".notes-empty-state-compact")).not.toBeNull();
     expect(document.querySelector(".notes-empty-state-action")).toBeNull();
-    expect(buttonsWithText("New note")).toHaveLength(1);
+    expect(buttonWithLabel("New note")).toBeDefined();
 
-    await clickButton("New note");
+    await clickButtonWithLabel("New note");
     await flushEffects();
 
     expect(onCreateWorkspaceNote).toHaveBeenCalledTimes(1);
@@ -138,6 +140,99 @@ describe("NotesPlaceholderWidget empty state", () => {
       "Knowledge Document created: Falcon deployment note. Note unchanged.",
     );
   });
+
+  it("keeps the notes list and editor in a split layout with a collapsible list rail", async () => {
+    const selectedNote = note({
+      body: "Keep this selected.",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    expect(document.querySelector(".notes-product-shell")).not.toBeNull();
+    expect(document.querySelector(".notes-list-pane")).not.toBeNull();
+    expect(document.querySelector(".notes-pane-rail")).not.toBeNull();
+    expect(document.querySelector(".notes-editor-pane")).not.toBeNull();
+
+    await clickButtonWithLabel("Collapse notes list");
+    expect(document.querySelector(".notes-list-pane")).toBeNull();
+    expect(
+      document.querySelector(".notes-product-shell-list-collapsed"),
+    ).not.toBeNull();
+    expect(document.querySelector(".notes-editor-pane")).not.toBeNull();
+
+    await clickButtonWithLabel("Expand notes list");
+    expect(document.querySelector(".notes-list-pane")).not.toBeNull();
+  });
+
+  it("saves a dirty focused note with Ctrl+S and clears the dirty state", async () => {
+    const selectedNote = note({
+      body: "Original body.",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const updatedNote = {
+      ...selectedNote,
+      body: "Updated body.",
+      updatedAt: "2026-05-25T00:01:00.000Z",
+    };
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn(
+      async (_request: UpdateNoteInput) => updatedNote,
+    );
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    changeTextarea(".notes-body-input", "Updated body.");
+    expect(document.body.textContent).toContain("Unsaved");
+
+    await act(async () => {
+      const textarea =
+        document.querySelector<HTMLTextAreaElement>(".notes-body-input");
+      if (!textarea) {
+        throw new Error("Textarea not found: .notes-body-input");
+      }
+
+      textarea.focus();
+      textarea.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          ctrlKey: true,
+          key: "s",
+        }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(onUpdateWorkspaceNote).toHaveBeenCalledTimes(1);
+    expect(onUpdateWorkspaceNote.mock.calls[0][0]).toEqual({
+      body: "Updated body.",
+      noteId: "note_42",
+      pinned: false,
+      title: "Falcon deployment note",
+    });
+    expect(document.body.textContent).toContain("Saved");
+  });
 });
 
 function renderWidget(
@@ -171,6 +266,17 @@ async function clickButton(text: string) {
   });
 }
 
+async function clickButtonWithLabel(label: string) {
+  await act(async () => {
+    const button = buttonWithLabel(label);
+    if (!button) {
+      throw new Error(`Button not found: ${label}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 function changeInput(selector: string, value: string) {
   act(() => {
     const input = document.querySelector<HTMLInputElement>(selector);
@@ -180,6 +286,18 @@ function changeInput(selector: string, value: string) {
 
     setNativeValue(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function changeTextarea(selector: string, value: string) {
+  act(() => {
+    const textarea = document.querySelector<HTMLTextAreaElement>(selector);
+    if (!textarea) {
+      throw new Error(`Textarea not found: ${selector}`);
+    }
+
+    setNativeValue(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -196,13 +314,14 @@ function changeSelect(index: number, value: string) {
 }
 
 function setNativeValue(
-  element: HTMLInputElement | HTMLSelectElement,
+  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   value: string,
 ) {
   const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
   const prototype = Object.getPrototypeOf(element) as
     | HTMLInputElement
-    | HTMLSelectElement;
+    | HTMLSelectElement
+    | HTMLTextAreaElement;
   const prototypeValueSetter = Object.getOwnPropertyDescriptor(
     prototype,
     "value",
@@ -223,9 +342,9 @@ function buttonWithText(text: string) {
   );
 }
 
-function buttonsWithText(text: string) {
-  return Array.from(document.querySelectorAll("button")).filter(
-    (button) => button.textContent === text,
+function buttonWithLabel(label: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.getAttribute("aria-label") === label,
   );
 }
 

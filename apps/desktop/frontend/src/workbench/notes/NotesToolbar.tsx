@@ -32,11 +32,13 @@ export function NotesToolbar({
           <span aria-hidden="true" className="button-icon-refresh" />
         </Button>
         <Button
+          aria-label="New note"
           disabled={isCreating || isLoading || !apiAvailable}
           onClick={onCreateNote}
+          title="New note"
           variant="primary"
         >
-          {isCreating ? "Creating" : "New note"}
+          {isCreating ? "Creating" : "New"}
         </Button>
       </span>
       {frameActions}

@@ -1,4 +1,5 @@
 import { Button } from "../../design-system/Button";
+import type { KeyboardEvent } from "react";
 import type { KnowledgeDocument, WorkspaceNote } from "../../workspace/types";
 import {
   KNOWLEDGE_DOCUMENT_TYPE_OPTIONS,
@@ -75,8 +76,30 @@ export function NotesEditor({
   titleInputId: string;
   validationMessage: string | null;
 }) {
+  function saveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
+      return;
+    }
+
+    if (!isNoteEditorInput(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!selectedNote || !isDirty || isSaving) {
+      return;
+    }
+
+    void onSaveNote();
+  }
+
   return (
-    <section className="notes-editor-pane" aria-label="Selected note">
+    <section
+      className="notes-editor-pane"
+      aria-label="Selected note"
+      onKeyDown={saveFromKeyboard}
+    >
       {isLoading ? (
         <NotesEmptyState
           text="Workspace-local notes are loading from desktop storage."
@@ -248,5 +271,13 @@ export function NotesEditor({
         <NotesEmptyState text="Select a note from the list." title="No note selected." />
       )}
     </section>
+  );
+}
+
+function isNoteEditorInput(target: EventTarget) {
+  return (
+    target instanceof Element &&
+    (target.classList.contains("notes-title-input") ||
+      target.classList.contains("notes-body-input"))
   );
 }
