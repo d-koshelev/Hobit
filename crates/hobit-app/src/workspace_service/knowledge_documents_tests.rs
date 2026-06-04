@@ -252,6 +252,73 @@ fn non_active_knowledge_documents_are_not_searchable() {
 }
 
 #[test]
+fn knowledge_search_uses_only_enabled_active_documents_across_scopes() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge safety workspace");
+    let unique_needle = "enabled_active_scope_safety_needle";
+
+    let mut active_workspace_input = create_document_input(workspace.id.clone());
+    active_workspace_input.title = "Active workspace safety".to_owned();
+    active_workspace_input.content = format!("{unique_needle} workspace active.");
+    let active_workspace = service
+        .create_knowledge_document(active_workspace_input)
+        .expect("create active workspace document");
+
+    let mut active_global_input = create_document_input(workspace.id.clone());
+    active_global_input.scope = Some("global".to_owned());
+    active_global_input.title = "Active global safety".to_owned();
+    active_global_input.content = format!("{unique_needle} global active.");
+    let active_global = service
+        .create_knowledge_document(active_global_input)
+        .expect("create active global document");
+
+    let mut disabled_input = create_document_input(workspace.id.clone());
+    disabled_input.title = "Disabled safety".to_owned();
+    disabled_input.content = format!("{unique_needle} disabled.");
+    disabled_input.enabled = false;
+    service
+        .create_knowledge_document(disabled_input)
+        .expect("create disabled document");
+
+    let mut stale_input = create_document_input(workspace.id.clone());
+    stale_input.title = "Stale safety".to_owned();
+    stale_input.content = format!("{unique_needle} stale.");
+    stale_input.lifecycle_status = Some("stale".to_owned());
+    service
+        .create_knowledge_document(stale_input)
+        .expect("create stale document");
+
+    let results = service
+        .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+            workspace_id: workspace.id,
+            query: unique_needle.to_owned(),
+            limit: Some(10),
+        })
+        .expect("search documents");
+    let result_ids = results
+        .iter()
+        .map(|result| result.knowledge_document_id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(results.len(), 2);
+    assert!(result_ids.contains(&active_workspace.knowledge_document_id.as_str()));
+    assert!(result_ids.contains(&active_global.knowledge_document_id.as_str()));
+    assert!(results
+        .iter()
+        .any(|result| result.scope == "workspace"
+            && result.document_title == "Active workspace safety"));
+    assert!(results
+        .iter()
+        .any(|result| result.scope == "global" && result.document_title == "Active global safety"));
+    assert!(!results
+        .iter()
+        .any(|result| result.document_title.contains("Disabled")));
+    assert!(!results
+        .iter()
+        .any(|result| result.document_title.contains("Stale")));
+}
+
+#[test]
 fn knowledge_document_search_result_shape_and_snippet_cap_are_preserved() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Knowledge workspace");

@@ -67,10 +67,35 @@ describe("agentQueueKnowledgeContext", () => {
       document: knowledgeDocument({ lifecycleStatus: "stale" }),
       kind: "knowledge_document",
     });
+    const taskWithStaleContext = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: "Stale context remains visible but warning-bearing.",
+          lifecycleStatus: "stale",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const materialized = materializeQueueExecutionPrompt(taskWithStaleContext);
 
     expect(attachment.warnings).toEqual([
       expect.objectContaining({ code: "stale", severity: "warning" }),
     ]);
+    expect(taskWithStaleContext.context?.contextWarnings).toEqual([
+      expect.objectContaining({
+        code: "stale",
+        id: "knowledge_document:doc-1:stale",
+        severity: "warning",
+      }),
+    ]);
+    expect(materialized.materializedPrompt).toContain(
+      "Stale context remains visible but warning-bearing.",
+    );
+    expect(materialized.evidenceSection).toContain(
+      "Context warning ids: knowledge_document:doc-1:stale",
+    );
   });
 
   it("blocks deprecated Skills and allows reviewed Skills", () => {

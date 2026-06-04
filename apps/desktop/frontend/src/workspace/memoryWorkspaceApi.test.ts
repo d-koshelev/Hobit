@@ -121,6 +121,34 @@ describe("memory workspace api fallback", () => {
     ]);
   });
 
+  it("caps large Knowledge Document search snippets in the browser memory API", async () => {
+    const workspace = await memoryWorkspaceApi.createWorkspace({
+      title: "Knowledge cap memory",
+    });
+    const largeNeedle = `capneedle_${Date.now()}_${Math.random()}`;
+
+    await memoryWorkspaceApi.createKnowledgeDocument({
+      workspaceId: workspace.id,
+      scope: "workspace",
+      title: "Large active doc",
+      sourceLabel: "Large paste",
+      content: `${largeNeedle} ${"large-body ".repeat(200)}`,
+      tags: "large",
+      enabled: true,
+    });
+
+    const results = await memoryWorkspaceApi.searchKnowledgeDocuments({
+      workspaceId: workspace.id,
+      query: largeNeedle,
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].snippet.length).toBeLessThanOrEqual(900);
+    expect(results[0].snippet).toContain(largeNeedle);
+    expect(results[0].snippet).toMatch(/\.\.\.$/);
+  });
+
   it("uses explicit unsupported behavior for desktop-only browser fallbacks", async () => {
     await expect(
       memoryWorkspaceApi.getGitRepositoryStatus({

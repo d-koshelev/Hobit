@@ -9,6 +9,7 @@ import {
   renderQueueController,
 } from "./useAgentQueueControllerTestHelpers";
 import { attachContextToQueueTask } from "../agentQueueKnowledgeContext";
+import type { KnowledgeDocument } from "../../workspace/types";
 
 describe("useAgentQueueController task actions", () => {
   it("saves priority changes through explicit edit mode and pauses the tag", async () => {
@@ -272,6 +273,41 @@ describe("useAgentQueueController task actions", () => {
         materializedPrompt.indexOf("Run this local Hobit task"),
     ).toBe(true);
     expect(materializedPrompt.includes("Queue Context Evidence")).toBe(true);
+
+    hook.unmount();
+  });
+
+  it("blocks disabled Knowledge attach without materializing or starting Queue work", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this local Hobit task",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    const result = hook.result.current.knowledgeContext.onAttachSelected({
+      document: knowledgeDocument({
+        content: "Disabled document body must not materialize.",
+        enabled: false,
+        title: "Disabled Queue docs",
+      }),
+      kind: "knowledge_document",
+    });
+
+    expect(result).toEqual({
+      message: "Disabled Queue docs is disabled and cannot be used as Queue context.",
+      status: "blocked",
+      taskTitle: "Queue task",
+    });
+    expect(hook.result.current.selectedTask?.context).toBe(undefined);
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
 
     hook.unmount();
   });
@@ -584,3 +620,26 @@ describe("useAgentQueueController task actions", () => {
     hook.unmount();
   });
 });
+
+function knowledgeDocument(
+  overrides: Partial<KnowledgeDocument> = {},
+): KnowledgeDocument {
+  return {
+    catalogItemType: "documentation_knowledge",
+    content: "Document content.",
+    createdAt: "2026-06-04T08:00:00.000Z",
+    enabled: true,
+    knowledgeDocumentId: "doc-1",
+    lifecycleStatus: "active",
+    quickSummary: "Document summary.",
+    scope: "workspace",
+    sourceKind: "operator_authored",
+    sourceLabel: "Workspace document",
+    sourceRef: "",
+    tags: "docs",
+    title: "Knowledge document",
+    updatedAt: "2026-06-04T09:00:00.000Z",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
