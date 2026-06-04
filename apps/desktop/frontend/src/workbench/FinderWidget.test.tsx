@@ -79,6 +79,36 @@ afterEach(() => {
 });
 
 describe("FinderWidget", () => {
+  it("renders universal pane controls for columns, Git, commit, and history", async () => {
+    renderWidget();
+
+    expect(finderPane("Finder Columns view").textContent).toContain(
+      "Columns view",
+    );
+    expect(finderPane("Finder Git panel").textContent).toContain("Git panel");
+    expect(finderPane("Finder Commit panel").textContent).toContain(
+      "Commit panel",
+    );
+    expect(finderPane("Finder History panel").textContent).toContain(
+      "History panel",
+    );
+
+    await clickButtonByLabel("Minimize Git panel");
+    expect(finderPane("Finder Git panel").className).toContain(
+      "finder-pane-minimized",
+    );
+
+    await clickButtonByLabel("Restore Git panel");
+    expect(finderPane("Finder Git panel").className).toContain(
+      "finder-pane-normal",
+    );
+
+    await clickButtonByLabel("Maximize History panel");
+    expect(finderPane("Finder History panel").className).toContain(
+      "finder-pane-maximized",
+    );
+  });
+
   it("opens an approved root, navigates folder columns, and edits a selected file in the floating preview", async () => {
     const appFile = file(
       "App.tsx",
@@ -477,6 +507,27 @@ async function clickButtonContaining(text: string) {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await flushPromises();
   });
+}
+
+async function clickButtonByLabel(label: string) {
+  await act(async () => {
+    const button = document.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}"]`,
+    );
+    if (!button) {
+      throw new Error(`Button not found by label: ${label}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushPromises();
+  });
+}
+
+function finderPane(label: string) {
+  const pane = document.querySelector<HTMLElement>(`section[aria-label="${label}"]`);
+  if (!pane) {
+    throw new Error(`Finder pane not found: ${label}`);
+  }
+  return pane;
 }
 
 async function changeTextarea(value: string) {

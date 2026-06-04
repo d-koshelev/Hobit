@@ -81,6 +81,12 @@ type FinderRootState = {
 
 type FinderPreviewPaneState = "hidden" | "minimized" | "normal" | "maximized";
 
+type FinderPaneState = "minimized" | "normal" | "maximized";
+
+type FinderPaneId = "columns" | "git" | "commit" | "history";
+
+type FinderPaneStates = Record<FinderPaneId, FinderPaneState>;
+
 type FinderViewMode = "all" | "changed";
 
 type FinderPreviewMode = "content" | "git";
@@ -126,6 +132,13 @@ type FinderCommitCandidate = {
   areas: string[];
   kinds: string[];
   path: string;
+};
+
+const DEFAULT_FINDER_PANE_STATES: FinderPaneStates = {
+  columns: "normal",
+  commit: "normal",
+  git: "normal",
+  history: "normal",
 };
 
 declare global {
@@ -179,12 +192,18 @@ export function FinderWidget({
     log: null,
     selectedHash: null,
   });
+  const [paneStates, setPaneStates] = useState<FinderPaneStates>({
+    ...DEFAULT_FINDER_PANE_STATES,
+  });
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
     : root?.label ?? "No root selected";
   const changedFiles = gitStatus.status?.changedFiles ?? [];
   const changeByPath = buildGitChangeByPath(changedFiles);
+  const hasMaximizedPane = Object.values(paneStates).some(
+    (paneState) => paneState === "maximized",
+  );
   const canUseDirectoryPicker =
     typeof window !== "undefined" &&
     typeof window.showDirectoryPicker === "function";
@@ -760,6 +779,13 @@ export function FinderWidget({
     });
   }
 
+  function setPaneState(paneId: FinderPaneId, state: FinderPaneState) {
+    setPaneStates((currentStates) => ({
+      ...currentStates,
+      [paneId]: state,
+    }));
+  }
+
   return (
     <WidgetFrame
       actions={frameActions}
@@ -772,7 +798,14 @@ export function FinderWidget({
       subtitle={root ? selectedPath : "Explicit root required"}
       title={title}
     >
-      <div className="finder-widget">
+      <div
+        className={[
+          "finder-widget",
+          hasMaximizedPane ? "finder-widget-has-maximized-pane" : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <section aria-label="Finder root scope" className="finder-scope">
           <div className="finder-scope-copy">
             <p className="finder-title">Workspace root</p>
@@ -803,28 +836,6 @@ export function FinderWidget({
           </div>
         </section>
 
-        <FinderGitStatusPanel
-          changedFiles={changedFiles}
-          error={gitStatus.error}
-          history={gitHistory}
-          loading={gitStatus.loading}
-          onCreateCommit={createFinderGitCommit}
-          onChangeViewMode={setViewMode}
-          onRefreshAfterCommit={() => refreshGitAfterCommit()}
-          onPush={pushFinderGit}
-          onRefreshAfterPush={() => refreshGitAfterPush()}
-          onRefreshHistory={() => void loadGitHistoryForRoot()}
-          onSelectHistoryEntry={(hash) =>
-            setGitHistory((currentHistory) => ({
-              ...currentHistory,
-              selectedHash: hash,
-            }))
-          }
-          repositoryRoot={root?.gitRoot ?? null}
-          status={gitStatus.status}
-          viewMode={viewMode}
-        />
-
         {rootError ? (
           <section aria-label="Finder runtime status" className="finder-error">
             <p className="finder-title">Preview unavailable</p>
@@ -832,31 +843,114 @@ export function FinderWidget({
           </section>
         ) : null}
 
-        <div className="finder-layout">
-          <section aria-label="Finder columns" className="finder-column-strip">
-            {columns.length === 0 ? (
-              <div className="finder-empty">
-                <p className="finder-title">No columns yet.</p>
-                <p className="finder-text">
-                  The first column appears after an approved root can be listed.
-                </p>
-              </div>
-            ) : (
-              columns.map((column, columnIndex) => (
-                <FinderColumnView
-                  column={column}
-                  key={column.pathSegments.join("/") || "root"}
-                  onSelectEntry={(entry) =>
-                    void selectEntry(entry, columnIndex)
-                  }
-                  changeByPath={changeByPath}
-                  changedFiles={changedFiles}
-                  selectedItem={selectedItem}
-                  viewMode={viewMode}
-                />
-              ))
-            )}
-          </section>
+        <div aria-label="Finder panes" className="finder-pane-layout">
+          <FinderPaneShell
+            onMaximize={() => setPaneState("columns", "maximized")}
+            onMinimize={() => setPaneState("columns", "minimized")}
+            onRestore={() => setPaneState("columns", "normal")}
+            state={paneStates.columns}
+            subtitle={
+              columns.length > 0
+                ? `${columns.length} visible folder columns`
+                : "Approves and lists one root at a time"
+            }
+            title="Columns view"
+          >
+            <div className="finder-layout">
+              <section aria-label="Finder columns" className="finder-column-strip">
+                {columns.length === 0 ? (
+                  <div className="finder-empty">
+                    <p className="finder-title">No columns yet.</p>
+                    <p className="finder-text">
+                      The first column appears after an approved root can be listed.
+                    </p>
+                  </div>
+                ) : (
+                  columns.map((column, columnIndex) => (
+                    <FinderColumnView
+                      column={column}
+                      key={column.pathSegments.join("/") || "root"}
+                      onSelectEntry={(entry) =>
+                        void selectEntry(entry, columnIndex)
+                      }
+                      changeByPath={changeByPath}
+                      changedFiles={changedFiles}
+                      selectedItem={selectedItem}
+                      viewMode={viewMode}
+                    />
+                  ))
+                )}
+              </section>
+            </div>
+          </FinderPaneShell>
+
+          <FinderPaneShell
+            onMaximize={() => setPaneState("git", "maximized")}
+            onMinimize={() => setPaneState("git", "minimized")}
+            onRestore={() => setPaneState("git", "normal")}
+            state={paneStates.git}
+            subtitle={
+              gitStatus.status
+                ? `${changedFiles.length} changed files in latest snapshot`
+                : "Read-only status for the approved root"
+            }
+            title="Git panel"
+          >
+            <FinderGitStatusPanel
+              changedFiles={changedFiles}
+              error={gitStatus.error}
+              loading={gitStatus.loading}
+              onChangeViewMode={setViewMode}
+              status={gitStatus.status}
+              viewMode={viewMode}
+            />
+          </FinderPaneShell>
+
+          <FinderPaneShell
+            onMaximize={() => setPaneState("commit", "maximized")}
+            onMinimize={() => setPaneState("commit", "minimized")}
+            onRestore={() => setPaneState("commit", "normal")}
+            state={paneStates.commit}
+            subtitle="Explicit selected-file commit controls"
+            title="Commit panel"
+          >
+            <FinderGitManualCommitPanel
+              onCreateCommit={createFinderGitCommit}
+              onRefreshAfterCommit={() => refreshGitAfterCommit()}
+              repositoryRoot={root?.gitRoot ?? null}
+              status={gitStatus.status}
+            />
+            <FinderGitManualPushPanel
+              onPush={pushFinderGit}
+              onRefreshAfterPush={() => refreshGitAfterPush()}
+              repositoryRoot={root?.gitRoot ?? null}
+              status={gitStatus.status}
+            />
+          </FinderPaneShell>
+
+          <FinderPaneShell
+            onMaximize={() => setPaneState("history", "maximized")}
+            onMinimize={() => setPaneState("history", "minimized")}
+            onRestore={() => setPaneState("history", "normal")}
+            state={paneStates.history}
+            subtitle={
+              gitHistory.log
+                ? `${gitHistory.log.entries.length} commits loaded`
+                : "Read-only recent commit history"
+            }
+            title="History panel"
+          >
+            <FinderGitHistoryPanel
+              history={gitHistory}
+              onRefreshHistory={() => void loadGitHistoryForRoot()}
+              onSelectHistoryEntry={(hash) =>
+                setGitHistory((currentHistory) => ({
+                  ...currentHistory,
+                  selectedHash: hash,
+                }))
+              }
+            />
+          </FinderPaneShell>
         </div>
 
         {filePreview && previewPaneState !== "hidden" ? (
@@ -885,6 +979,79 @@ export function FinderWidget({
         ) : null}
       </div>
     </WidgetFrame>
+  );
+}
+
+function FinderPaneShell({
+  children,
+  onMaximize,
+  onMinimize,
+  onRestore,
+  state,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  onMaximize: () => void;
+  onMinimize: () => void;
+  onRestore: () => void;
+  state: FinderPaneState;
+  subtitle: string;
+  title: string;
+}) {
+  const isMinimized = state === "minimized";
+  const isMaximized = state === "maximized";
+
+  return (
+    <section
+      aria-label={`Finder ${title}`}
+      className={["finder-pane", `finder-pane-${state}`].join(" ")}
+    >
+      <header className="finder-pane-header">
+        <div className="finder-scope-copy">
+          <p className="finder-title">{title}</p>
+          <p className="finder-text">{subtitle}</p>
+        </div>
+        <div className="finder-pane-actions">
+          <Badge variant="neutral">{finderPaneStateLabel(state)}</Badge>
+          {isMinimized ? (
+            <Button
+              aria-label={`Restore ${title}`}
+              onClick={onRestore}
+              variant="ghost"
+            >
+              Restore pane
+            </Button>
+          ) : (
+            <Button
+              aria-label={`Minimize ${title}`}
+              onClick={onMinimize}
+              variant="ghost"
+            >
+              Minimize pane
+            </Button>
+          )}
+          {isMaximized ? (
+            <Button
+              aria-label={`Return ${title} to normal size`}
+              onClick={onRestore}
+              variant="ghost"
+            >
+              Normal pane
+            </Button>
+          ) : (
+            <Button
+              aria-label={`Maximize ${title}`}
+              onClick={onMaximize}
+              variant="ghost"
+            >
+              Maximize pane
+            </Button>
+          )}
+        </div>
+      </header>
+      <div className="finder-pane-body">{children}</div>
+    </section>
   );
 }
 
@@ -1101,6 +1268,17 @@ function FinderFloatingPreview({
   );
 }
 
+function finderPaneStateLabel(state: FinderPaneState) {
+  switch (state) {
+    case "maximized":
+      return "Maximized";
+    case "minimized":
+      return "Minimized";
+    case "normal":
+      return "Normal";
+  }
+}
+
 function FinderGitDiffPreview({
   change,
   diffState,
@@ -1255,42 +1433,15 @@ function FinderColumnView({
 function FinderGitStatusPanel({
   changedFiles,
   error,
-  history,
   loading,
-  onCreateCommit,
   onChangeViewMode,
-  onRefreshAfterCommit,
-  onPush,
-  onRefreshAfterPush,
-  onRefreshHistory,
-  onSelectHistoryEntry,
-  repositoryRoot,
   status,
   viewMode,
 }: {
   changedFiles: GitFileChange[];
   error: string | null;
-  history: FinderGitHistoryState;
   loading: boolean;
-  onCreateCommit: (request: {
-    commitMessage: string;
-    includedFiles: string[];
-    repoRoot: string;
-  }) => Promise<GitCommitResponse>;
   onChangeViewMode: (viewMode: FinderViewMode) => void;
-  onRefreshAfterCommit: () => Promise<void>;
-  onPush: (request: {
-    expectedAhead?: number | null;
-    expectedBehind?: number | null;
-    expectedBranch: string;
-    expectedUpstream: string;
-    operatorConfirmed: boolean;
-    repoRoot: string;
-  }) => Promise<GitPushResponse>;
-  onRefreshAfterPush: () => Promise<void>;
-  onRefreshHistory: () => void;
-  onSelectHistoryEntry: (hash: string) => void;
-  repositoryRoot: string | null;
   status: GitRepositoryStatus | null;
   viewMode: FinderViewMode;
 }) {
@@ -1304,7 +1455,7 @@ function FinderGitStatusPanel({
       : "Not loaded";
 
   return (
-    <section aria-label="Finder Git status" className="finder-git-status">
+    <div aria-label="Finder Git status" className="finder-git-status">
       <div className="finder-git-status-header">
         <div className="finder-scope-copy">
           <p className="finder-title">Git status</p>
@@ -1368,24 +1519,7 @@ function FinderGitStatusPanel({
       ) : status && !loading ? (
         <p className="finder-column-state">No changed files in this Git snapshot.</p>
       ) : null}
-      <FinderGitManualCommitPanel
-        onCreateCommit={onCreateCommit}
-        onRefreshAfterCommit={onRefreshAfterCommit}
-        repositoryRoot={repositoryRoot}
-        status={status}
-      />
-      <FinderGitManualPushPanel
-        onPush={onPush}
-        onRefreshAfterPush={onRefreshAfterPush}
-        repositoryRoot={repositoryRoot}
-        status={status}
-      />
-      <FinderGitHistoryPanel
-        history={history}
-        onRefreshHistory={onRefreshHistory}
-        onSelectHistoryEntry={onSelectHistoryEntry}
-      />
-    </section>
+    </div>
   );
 }
 

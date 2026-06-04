@@ -7,16 +7,15 @@
 
 .finder-scope,
 .finder-error,
-.finder-git-status,
-.finder-column {
+.finder-column,
+.finder-pane {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-nested-surface);
 }
 
 .finder-scope,
-.finder-error,
-.finder-git-status {
+.finder-error {
   padding: var(--space-sm) var(--space-md);
 }
 
@@ -39,6 +38,8 @@
 .finder-git-status-header,
 .finder-git-status-actions,
 .finder-floating-preview-header,
+.finder-pane-header,
+.finder-pane-actions,
 .finder-preview-toolbar,
 .finder-preview-actions,
 .finder-preview-tabs,
@@ -53,15 +54,68 @@
 
 .finder-scope-actions,
 .finder-git-status-actions,
+.finder-pane-actions,
 .finder-view-toggle,
 .finder-changed-file-meta {
   align-items: center;
   flex: 0 0 auto;
 }
 
+.finder-pane-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: var(--space-md);
+  min-height: 0;
+}
+
+.finder-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.finder-pane-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.finder-pane-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.finder-pane-body {
+  display: grid;
+  gap: var(--space-sm);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-sm);
+}
+
+.finder-pane-minimized {
+  grid-template-rows: auto;
+}
+
+.finder-pane-minimized .finder-pane-body {
+  display: none;
+}
+
+.finder-pane-maximized {
+  grid-column: 1 / -1;
+  min-height: 520px;
+}
+
+.finder-widget-has-maximized-pane .finder-pane:not(.finder-pane-maximized) {
+  min-height: 0;
+}
+
 .finder-git-status {
   display: grid;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .finder-git-status-header {
@@ -103,6 +157,7 @@
 
 .finder-layout {
   min-height: 320px;
+  min-width: 0;
 }
 
 .finder-column-strip {
@@ -219,13 +274,17 @@
 .finder-git-history {
   display: grid;
   gap: var(--space-sm);
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-sm);
+  min-width: 0;
 }
 
-.finder-git-manual-commit {
+.finder-git-manual-commit,
+.finder-git-commit-panel {
   display: grid;
   gap: var(--space-sm);
+  min-width: 0;
+}
+
+.finder-git-commit-panel {
   border-top: 1px solid var(--color-border-subtle);
   padding-top: var(--space-sm);
 }
@@ -599,6 +658,10 @@
 }
 
 @media (max-width: 920px) {
+  .finder-pane-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .finder-column {
     flex-basis: 200px;
   }
