@@ -4,14 +4,20 @@ import {
   DEFAULT_DOCUMENT_TITLE,
   KNOWLEDGE_DOCUMENT_TYPE_OPTIONS,
   KNOWLEDGE_LIFECYCLE_STATUS_OPTIONS,
+  knowledgeDocumentRelations,
+  skillRelations,
   skillCatalogFullContent,
+  type KnowledgeCatalogAttachmentState,
   type KnowledgeCatalogListItem,
   type KnowledgeDocumentDraft,
+  type KnowledgeRelation,
 } from "./skillLibraryModel";
 
 type CatalogSkillPreviewProps = {
+  attachmentState?: KnowledgeCatalogAttachmentState;
   canAttachToWorkspaceAgent: boolean;
   canAttachToQueueTask: boolean;
+  documents: KnowledgeDocument[];
   error: string | null;
   item: KnowledgeCatalogListItem | null;
   onAttachToQueueTask: () => void;
@@ -19,11 +25,14 @@ type CatalogSkillPreviewProps = {
   onAttachToWorkspaceAgent: () => void;
   onShowSkills: () => void;
   skill: Skill;
+  skills: Skill[];
 };
 
 type CatalogDocumentEditorProps = {
+  attachmentState?: KnowledgeCatalogAttachmentState;
   canCreateRefreshTask: boolean;
   documentApiAvailable: boolean;
+  documents: KnowledgeDocument[];
   draft: KnowledgeDocumentDraft;
   error: string | null;
   canAttachToQueueTask: boolean;
@@ -45,11 +54,14 @@ type CatalogDocumentEditorProps = {
     key: Key,
     value: KnowledgeDocumentDraft[Key],
   ) => void;
+  skills: Skill[];
 };
 
 export function CatalogSkillPreview({
+  attachmentState,
   canAttachToWorkspaceAgent,
   canAttachToQueueTask,
+  documents,
   error,
   item,
   message,
@@ -57,7 +69,15 @@ export function CatalogSkillPreview({
   onAttachToWorkspaceAgent,
   onShowSkills,
   skill,
+  skills,
 }: CatalogSkillPreviewProps) {
+  const relations = skillRelations({
+    attachmentState,
+    documents,
+    skill,
+    skills,
+  });
+
   return (
     <div className="skill-editor">
       <CatalogPreviewHeader item={item} />
@@ -69,7 +89,7 @@ export function CatalogSkillPreview({
       <PreviewField label="Source" value="Workspace Skill record" />
       <PreviewField
         label="Relations"
-        value="Related files, tasks, commits, and catalog relations are not implemented in this MVP."
+        value={knowledgeRelationsText(relations)}
       />
       <div className="skill-editor-actions">
         {canAttachToWorkspaceAgent ? (
@@ -103,8 +123,10 @@ export function CatalogSkillPreview({
 }
 
 export function CatalogDocumentEditor({
+  attachmentState,
   canCreateRefreshTask,
   documentApiAvailable,
+  documents,
   draft,
   error,
   canAttachToQueueTask,
@@ -123,8 +145,15 @@ export function CatalogDocumentEditor({
   onRestoreDocument,
   onSaveDocument,
   onSetDraftField,
+  skills,
 }: CatalogDocumentEditorProps) {
   const isStale = draft.lifecycleStatus === "stale";
+  const relations = knowledgeDocumentRelations({
+    attachmentState,
+    documents,
+    draft,
+    skills,
+  });
 
   return (
     <div className="skill-editor">
@@ -277,7 +306,7 @@ export function CatalogDocumentEditor({
 
       <PreviewField
         label="Relations"
-        value="Related files, tasks, commits, and catalog relations are not implemented in this MVP."
+        value={knowledgeRelationsText(relations)}
       />
 
       <div className="skill-editor-actions">
@@ -385,6 +414,16 @@ export function CatalogDocumentEditor({
       <CatalogMessages error={error} message={message} />
     </div>
   );
+}
+
+function knowledgeRelationsText(relations: KnowledgeRelation[]) {
+  if (relations.length === 0) {
+    return "No relations found in saved metadata.";
+  }
+
+  return relations
+    .map((relation) => `${relation.label}: ${relation.value}`)
+    .join("\n");
 }
 
 function CatalogPreviewHeader({

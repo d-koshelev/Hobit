@@ -472,6 +472,112 @@ describe("SkillLibraryWidget", () => {
     );
   });
 
+  it("shows lightweight Knowledge relations from saved metadata and current attachments", async () => {
+    const documents = [
+      knowledgeDocumentFixture({
+        catalogItemType: "codebase_knowledge",
+        knowledgeDocumentId: "doc_file",
+        quickSummary: "Source-backed frontend knowledge.",
+        sourceKind: "file_import",
+        sourceLabel: "docs/feature.md commit abc1234",
+        sourceRef: "docs/feature.md",
+        tags: "frontend, relations",
+        title: "Feature docs",
+        updatedAt: "2026-05-27T12:00:00Z",
+      }),
+      knowledgeDocumentFixture({
+        catalogItemType: "documentation_knowledge",
+        knowledgeDocumentId: "doc_queue",
+        quickSummary: "Generated from Queue review.",
+        sourceKind: "queue_draft",
+        sourceLabel: "Queue task queue_knowledge_1",
+        sourceRef: "queue:queue_knowledge_1;draft:draft_doc",
+        tags: "queue, relations",
+        title: "Queue draft docs",
+        updatedAt: "2026-05-26T12:00:00Z",
+      }),
+    ];
+    const skill = skillFixture({
+      prerequisites:
+        "Queue task queue_skill_1\nSource ref: docs/skill.md\nCommit def5678",
+      reviewStatus: "reviewed",
+      skillId: "skill_relations",
+      tags: "frontend, queue",
+      title: "Queue review skill",
+      updatedAt: "2026-05-25T12:00:00Z",
+      whenToUse: "When reviewing Queue-produced Knowledge.",
+    });
+    const attachToCoordinator = vi.fn();
+    const attachKnowledgeContextToQueueTask = vi.fn(() => ({
+      message: "Queue review skill attached to Implement frontend.",
+      status: "attached" as const,
+      taskTitle: "Implement frontend",
+    }));
+
+    renderWidget({
+      onAttachContextToCoordinator: attachToCoordinator,
+      onAttachKnowledgeContextToQueueTask: attachKnowledgeContextToQueueTask,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
+      ),
+      onGetSkill: vi.fn(async () => skill),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onListSkills: vi.fn(async () => [skill]),
+    });
+
+    await flush();
+
+    expect(document.body.textContent).toContain(
+      "Source file/path: docs/feature.md",
+    );
+    expect(document.body.textContent).toContain("Related catalog items:");
+    expect(document.body.textContent).toContain(
+      "Queue review skill (tags: frontend)",
+    );
+    expect(document.body.textContent).toContain(
+      "Related commits: abc1234",
+    );
+
+    await clickListRow("Queue draft docs");
+
+    expect(document.body.textContent).toContain(
+      "Source Queue task: queue_knowledge_1",
+    );
+
+    await clickCatalogView("Skills");
+    await clickListRow("Queue review skill");
+
+    expect(document.body.textContent).toContain(
+      "Source file/path: docs/skill.md",
+    );
+    expect(document.body.textContent).toContain(
+      "Source Queue task: queue_skill_1",
+    );
+    expect(document.body.textContent).toContain(
+      "Related commits: def5678",
+    );
+
+    await clickButton("Attach to Workspace Agent");
+
+    expect(attachToCoordinator).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain(
+      "Workspace Agent context: Attached in this session",
+    );
+
+    await clickButton("Attach to Queue task");
+
+    expect(attachKnowledgeContextToQueueTask).toHaveBeenCalledWith({
+      kind: "skill",
+      skill: expect.objectContaining({ skillId: "skill_relations" }),
+    });
+    expect(document.body.textContent).toContain(
+      "Attached Queue task: Implement frontend",
+    );
+  });
+
   it("imports an explicit text or Markdown file through Knowledge Document creation", async () => {
     let documents: KnowledgeDocument[] = [];
     const createKnowledgeDocument = vi.fn(async (request) => {

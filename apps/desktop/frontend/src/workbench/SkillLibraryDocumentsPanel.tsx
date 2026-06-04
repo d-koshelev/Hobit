@@ -29,6 +29,7 @@ import {
   knowledgeCatalogItemsFromRecords,
   knowledgeDocumentDraftFromDocument,
   skillCoordinatorContextText,
+  type KnowledgeCatalogAttachmentState,
   type KnowledgeDocumentDraft,
   type KnowledgeCatalogListItem,
   type KnowledgeCatalogView,
@@ -116,6 +117,8 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [draftReviewDecisions, setDraftReviewDecisions] = useState<
     Record<string, "accepted" | "pending" | "rejected">
   >({});
+  const [attachmentStateByCatalogItemId, setAttachmentStateByCatalogItemId] =
+    useState<Record<string, KnowledgeCatalogAttachmentState>>({});
   const [isAcceptingDraftItem, setIsAcceptingDraftItem] = useState(false);
   const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
@@ -140,6 +143,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const selectedCatalogItem = selectedCatalogItemId
     ? (catalogItems.find((item) => item.id === selectedCatalogItemId) ?? null)
     : null;
+  const selectedAttachmentState = selectedCatalogItemId
+    ? attachmentStateByCatalogItemId[selectedCatalogItemId]
+    : undefined;
 
   useEffect(() => {
     void loadDocuments(null);
@@ -727,6 +733,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       contextText: skillCoordinatorContextText(selectedSkill),
       sourceLabel: "Skill Library / Skill",
     });
+    rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
+      workspaceAgentContextAttached: true,
+    });
     setDocumentMessage("Skill attached to Workspace Agent as visible context.");
     setDocumentError(null);
   }
@@ -740,6 +749,11 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       kind: "skill",
       skill: selectedSkill,
     });
+    if (result.status === "attached") {
+      rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
+        queueTaskTitle: result.taskTitle ?? "Selected Queue task",
+      });
+    }
     setDocumentMessage(result.message);
     setDocumentError(result.status === "blocked" ? result.message : null);
   }
@@ -766,12 +780,33 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       document: selectedDocument,
       kind: "knowledge_document",
     });
+    if (result.status === "attached") {
+      rememberCatalogAttachment(
+        `document:${selectedDocument.knowledgeDocumentId}`,
+        {
+          queueTaskTitle: result.taskTitle ?? "Selected Queue task",
+        },
+      );
+    }
     setDocumentMessage(
       result.status === "attached" && selectedDocument.lifecycleStatus === "stale"
         ? `${result.message} Stale context warning will be shown on the Queue task.`
         : result.message,
     );
     setDocumentError(result.status === "blocked" ? result.message : null);
+  }
+
+  function rememberCatalogAttachment(
+    catalogItemId: string,
+    state: KnowledgeCatalogAttachmentState,
+  ) {
+    setAttachmentStateByCatalogItemId((currentState) => ({
+      ...currentState,
+      [catalogItemId]: {
+        ...currentState[catalogItemId],
+        ...state,
+      },
+    }));
   }
 
   return (
@@ -1026,12 +1061,14 @@ export const SkillLibraryDocumentsPanel = forwardRef<
           >
             {selectedSkill ? (
               <CatalogSkillPreview
+                attachmentState={selectedAttachmentState}
                 canAttachToWorkspaceAgent={Boolean(
                   onAttachContextToCoordinator,
                 )}
                 canAttachToQueueTask={Boolean(
                   selectedSkill && onAttachKnowledgeContextToQueueTask,
                 )}
+                documents={documents}
                 error={documentError}
                 item={selectedCatalogItem}
                 message={documentMessage}
@@ -1039,9 +1076,11 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 onAttachToWorkspaceAgent={attachSelectedSkillToCoordinator}
                 onShowSkills={onShowSkills}
                 skill={selectedSkill}
+                skills={skills}
               />
             ) : (
               <CatalogDocumentEditor
+                attachmentState={selectedAttachmentState}
                 canAttachToQueueTask={Boolean(
                   selectedDocument &&
                     !isDocumentDirty &&
@@ -1054,6 +1093,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                     isSourceBackedDocument(selectedDocument),
                 )}
                 documentApiAvailable={documentApiAvailable}
+                documents={documents}
                 draft={documentDraft}
                 error={documentError}
                 isCreatingRefreshTask={isCreatingRefreshTask}
@@ -1075,6 +1115,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 }
                 onSaveDocument={() => void saveDocument()}
                 onSetDraftField={setDocumentDraftField}
+                skills={skills}
               />
             )}
           </section>
