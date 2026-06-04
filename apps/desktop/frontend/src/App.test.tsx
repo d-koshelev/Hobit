@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { LAST_OPEN_WORKSPACE_STORAGE_KEY } from "./workspace/workspaceRecoveryStorage";
 import type {
   WorkspaceSessionSummary,
   WorkspaceSummary,
@@ -52,6 +53,7 @@ afterEach(() => {
   root = null;
   container = null;
   document.body.innerHTML = "";
+  window.localStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -95,6 +97,15 @@ describe("App workspace lifecycle", () => {
     await flushEffects();
 
     expect(workspaceApiMocks.openWorkspace).toHaveBeenCalledWith(workspace.id);
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(LAST_OPEN_WORKSPACE_STORAGE_KEY) ?? "{}",
+      ),
+    ).toMatchObject({
+      workspaceId: workspace.id,
+      workspaceTitle: workspace.title,
+      workbenchId: workspace.workbenchId,
+    });
     expect(document.body.textContent).toContain("Close workspace");
     expect(document.body.textContent).toContain("Lifecycle Workspace");
 
@@ -107,6 +118,9 @@ describe("App workspace lifecycle", () => {
 
     expect(document.body.textContent).toContain("New Workspace");
     expect(document.body.textContent).toContain("Lifecycle Workspace");
+    expect(
+      window.localStorage.getItem(LAST_OPEN_WORKSPACE_STORAGE_KEY),
+    ).toBeNull();
     expect(workspaceApiMocks.deleteWorkspace).not.toHaveBeenCalled();
   });
 
@@ -330,10 +344,9 @@ function radioWithValue(value: string) {
 }
 
 async function flushEffects() {
-  await act(async () => {
-    await Promise.resolve();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
+  for (let index = 0; index < 4; index += 1) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
 }

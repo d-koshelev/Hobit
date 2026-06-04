@@ -11,11 +11,16 @@ import { WorkspaceRecentItem } from "./WorkspaceRecentItem";
 
 type WorkspaceStartScreenProps = {
   onOpenWorkspace: (selection: WorkspaceStartSelection) => void;
+  recoveryNotice?: {
+    title: string;
+    message: string;
+  } | null;
   theme: AppThemeController;
 };
 
 export function WorkspaceStartScreen({
   onOpenWorkspace,
+  recoveryNotice = null,
   theme,
 }: WorkspaceStartScreenProps) {
   const {
@@ -211,6 +216,24 @@ export function WorkspaceStartScreen({
         <h1 className="workspace-start-heading" id="workspace-start-title">
           Continue your work
         </h1>
+
+        {recoveryNotice ? (
+          <section
+            aria-labelledby="workspace-recovery-notice-title"
+            className="workspace-recovery-notice"
+            role="alert"
+          >
+            <h2
+              className="workspace-recovery-notice-title"
+              id="workspace-recovery-notice-title"
+            >
+              {recoveryNotice.title}
+            </h2>
+            <p className="workspace-recovery-notice-text">
+              {recoveryNotice.message}
+            </p>
+          </section>
+        ) : null}
 
         <div className={layoutClassName}>
           {hasRecentWorkspaces ? (

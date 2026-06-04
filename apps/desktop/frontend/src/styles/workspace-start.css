@@ -91,6 +91,47 @@
   line-height: var(--line-normal);
 }
 
+.workspace-recovery-shell {
+  min-height: calc(100vh - 64px);
+}
+
+.workspace-recovery-progress,
+.workspace-recovery-notice {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-widget-surface);
+  padding: var(--scaled-space-lg);
+}
+
+.workspace-recovery-progress {
+  max-width: 560px;
+}
+
+.workspace-recovery-notice {
+  border-left: 2px solid var(--color-warning);
+}
+
+.workspace-recovery-notice-title,
+.workspace-recovery-notice-text {
+  margin: 0;
+}
+
+.workspace-recovery-notice-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 740;
+  letter-spacing: 0;
+  line-height: var(--line-tight);
+}
+
+.workspace-recovery-notice-text {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+}
+
 .workspace-field,
 .preset-field {
   display: grid;
