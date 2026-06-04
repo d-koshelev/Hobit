@@ -272,7 +272,63 @@ describe("useAgentQueueController task actions", () => {
       materializedPrompt.indexOf("Attached Queue Context") <
         materializedPrompt.indexOf("Run this local Hobit task"),
     ).toBe(true);
-    expect(materializedPrompt.includes("Queue Context Evidence")).toBe(true);
+    expect(materializedPrompt.includes("Queue Context Run Handoff")).toBe(true);
+    expect(
+      materializedPrompt.includes(
+        "Context storage: current-session UI state; not saved as Queue task context.",
+      ),
+    ).toBe(true);
+
+    hook.unmount();
+  });
+
+  it("keeps attached Queue context frontend-local and drops it after remount", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this local Hobit task",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+    ]);
+    let hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    let result: ReturnType<
+      typeof hook.result.current.knowledgeContext.onAttachSelected
+    > | null = null;
+
+    act(() => {
+      result = hook.result.current.knowledgeContext.onAttachSelected({
+        document: knowledgeDocument({
+          content: "Session-only body can be prepared before a visible run.",
+          title: "Session-only docs",
+        }),
+        kind: "knowledge_document",
+      });
+    });
+
+    expect(result).toEqual({
+      message: "Session-only docs attached to Queue task.",
+      status: "attached",
+      taskTitle: "Queue task",
+    });
+    expect(
+      hook.result.current.selectedTask?.context?.attachedKnowledgeRefs,
+    ).toHaveLength(1);
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+    hook = renderQueueController(harness);
+    await flushControllerLoad();
+
+    expect(hook.result.current.selectedTask?.context).toBe(undefined);
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
 
     hook.unmount();
   });

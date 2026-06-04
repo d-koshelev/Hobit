@@ -40,10 +40,14 @@ export function AgentQueueTaskContextSection({
 
       {!hasContext ? (
         <p className="agent-queue-section-copy">
-          No Knowledge or Skill refs are attached to this task.
+          No Knowledge or Skill refs are attached for this session.
         </p>
       ) : (
         <>
+          <p className="agent-queue-section-copy">
+            Attached for this session only. These refs and bounded snapshots are
+            visible before run, but they are not saved as Queue task context.
+          </p>
           <ContextRefList
             label="Knowledge"
             refs={context?.attachedKnowledgeRefs ?? []}
@@ -60,13 +64,13 @@ export function AgentQueueTaskContextSection({
             </details>
           ) : null}
           <p className="agent-queue-section-copy">
-            Context is stored as safe refs and bounded snapshots. The visible
-            prompt preview above is what is added before the task prompt for an
-            explicit manual run.
+            The prompt preview above is the prepared context that will be added
+            before the task prompt for an explicit manual or frontend runner
+            start.
           </p>
           <p className="agent-queue-section-copy">
-            Materialized: {context?.materializedAt ?? "Not materialized"}.
-            Estimated context tokens:{" "}
+            Prepared: {context?.materializedAt ?? "Not prepared"}.
+            Estimated prepared context tokens:{" "}
             {context?.contextTokenBudget.estimatedTokens.toString() ?? "0"} /{" "}
             {context?.contextTokenBudget.maxTokens.toString() ?? "0"}.
           </p>
@@ -87,7 +91,7 @@ function SnapshotList({
 
   return (
     <div className="agent-queue-context-group">
-      <p className="agent-queue-context-label">Materialized snapshots</p>
+      <p className="agent-queue-context-label">Prepared session snapshots</p>
       {snapshots.map((snapshot) => (
         <article className="agent-queue-context-ref" key={snapshot.id}>
           <div className="agent-queue-context-ref-header">

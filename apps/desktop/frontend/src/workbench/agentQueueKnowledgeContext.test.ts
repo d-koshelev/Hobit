@@ -171,7 +171,7 @@ describe("agentQueueKnowledgeContext", () => {
     );
   });
 
-  it("materializes visible Queue context before the task prompt with evidence refs", () => {
+  it("materializes visible Queue context before the task prompt with run handoff refs", () => {
     const taskWithDocument = attachContextToQueueTask(
       queueTask(),
       {
@@ -201,10 +201,24 @@ describe("agentQueueKnowledgeContext", () => {
     expect(materialized.contextSection).toContain(
       "Visible Knowledge Document Excerpts",
     );
+    expect(materialized.contextSection).toContain(
+      "Only this visible, bounded, current-session Queue task context is included.",
+    );
+    expect(materialized.contextSection).toContain(
+      "This is not saved as Queue task context.",
+    );
     expect(materialized.materializedPrompt.indexOf("Attached Queue Context")).toBeLessThan(
       materialized.materializedPrompt.indexOf("Do the task."),
     );
-    expect(materialized.materializedPrompt).toContain("Queue Context Evidence");
+    expect(materialized.materializedPrompt).toContain(
+      "Queue Context Run Handoff",
+    );
+    expect(materialized.materializedPrompt).toContain(
+      "Context storage: current-session UI state; not saved as Queue task context.",
+    );
+    expect(materialized.materializedPrompt).toContain(
+      "Included in this run prompt: yes.",
+    );
     expect(materialized.materializedPrompt).toContain("Knowledge refs used: doc-1@");
     expect(materialized.materializedPrompt).toContain("Skill refs used: skill-1@");
     expect(materialized.snapshotsUsed).toHaveLength(2);

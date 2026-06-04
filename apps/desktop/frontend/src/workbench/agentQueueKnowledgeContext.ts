@@ -322,7 +322,8 @@ function promptContextSection(snapshots: AgentQueueTaskContextSnapshot[]) {
 
   return [
     "Attached Queue Context",
-    "Only this visible, bounded Queue task context is included.",
+    "Only this visible, bounded, current-session Queue task context is included.",
+    "This is not saved as Queue task context.",
     skills.length > 0 ? "Visible Skill Instructions" : null,
     ...skills.map(snapshotPromptBlock),
     knowledge.length > 0 ? "Visible Knowledge Document Excerpts" : null,
@@ -339,8 +340,10 @@ function promptEvidenceSection(
 ) {
   const warningIds = warnings.map((warning) => warning.id);
   return [
-    "Queue Context Evidence",
+    "Queue Context Run Handoff",
     `Queue task id: ${task.queueItemId}`,
+    "Context storage: current-session UI state; not saved as Queue task context.",
+    "Included in this run prompt: yes.",
     `Snapshot ids used: ${snapshots.map((snapshot) => snapshot.id).join(", ")}`,
     `Knowledge refs used: ${snapshots
       .filter((snapshot) => snapshot.kind === "knowledge_document")
