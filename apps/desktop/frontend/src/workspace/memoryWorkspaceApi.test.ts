@@ -87,6 +87,11 @@ describe("memory workspace api fallback", () => {
       lifecycleStatus: "stale",
     });
 
+    const firstManualResults = await memoryWorkspaceApi.searchKnowledgeDocuments({
+      workspaceId: first.id,
+      query: "workspace-only",
+      limit: 5,
+    });
     const secondResults = await memoryWorkspaceApi.searchKnowledgeDocuments({
       workspaceId: second.id,
       query: uniqueNeedle,
@@ -95,6 +100,10 @@ describe("memory workspace api fallback", () => {
 
     expect(workspaceDocument.scope).toBe("workspace");
     expect(globalDocument).toMatchObject({ scope: "global", workspaceId: "" });
+    expect(
+      firstManualResults.map((result) => result.documentTitle),
+    ).toEqual(["Workspace doc"]);
+    expect(firstManualResults[0]?.snippet).toContain("workspace-only");
     expect(
       secondResults.map((result) => ({
         documentTitle: result.documentTitle,
