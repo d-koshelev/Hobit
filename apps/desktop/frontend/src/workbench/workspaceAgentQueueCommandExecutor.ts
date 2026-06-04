@@ -228,19 +228,28 @@ function queueCreateItemRequest(
 ): Parameters<WorkspaceAgentQueueBridge["createItem"]>[0] {
   const runSettings = queueCreateRunSettings(options, command.runSettings);
   const hasExecutionWorkspace = Boolean(runSettings.executionWorkspace);
-
-  return {
+  const request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0] = {
     approvalPolicy: runSettings.approvalPolicy,
     codexExecutable: runSettings.codexExecutable,
     executionPolicy: command.executionPolicy ?? "manual",
     executionWorkspace: runSettings.executionWorkspace || undefined,
     priority: 0,
     prompt: command.prompt,
-    queueTag: { name: "Default" },
+    queueTag: { name: command.queueTagName ?? "Default" },
     sandbox: runSettings.sandbox,
     status: hasExecutionWorkspace ? command.status ?? "queued" : "draft",
     title: command.title,
   };
+
+  if (command.description) {
+    request.description = command.description;
+  }
+
+  if (command.itemType) {
+    request.itemType = command.itemType;
+  }
+
+  return request;
 }
 
 function hasQueuedCreateWithoutWorkspace(

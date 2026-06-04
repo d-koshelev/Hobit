@@ -20,7 +20,16 @@ import {
 import type { WorkspaceAgentQueueCommand } from "./workspaceAgentQueueCommandTypes";
 import { parsePromptThroughQueueCommand } from "./workspaceAgentQueueBatchCommands";
 import { parseUpdateCommand } from "./workspaceAgentQueueUpdateCommands";
-import { structuredCreateQueueTaskPrompt } from "./workspaceAgentQueuePromptTemplates";
+import {
+  codebaseKnowledgeGenerationQueueTaskPrompt,
+  structuredCreateQueueTaskPrompt,
+} from "./workspaceAgentQueuePromptTemplates";
+
+const CODEBASE_KNOWLEDGE_GENERATION_PATTERNS = [
+  /\b(?:create|generate|draft|prepare)\s+(?:draft\s+)?(?:codebase\s+)?knowledge\b/i,
+  /\bknowledge\s+(?:about|for|from)\s+(?:the\s+)?(?:codebase|codebase\s+area|code|module|folder|directory|path)\b/i,
+  /\b(?:create|generate|draft|prepare)\s+(?:a\s+)?(?:queue\s+)?task\s+(?:to|for)\s+(?:create|generate|draft|prepare)\s+(?:draft\s+)?(?:codebase\s+)?knowledge\b/i,
+];
 
 export function parseWorkspaceAgentQueueCommand(
   text: string,
@@ -42,6 +51,21 @@ export function parseWorkspaceAgentQueueCommand(
   }
 
   const visibleNonFencedText = stripFenceBlocks(visibleText);
+
+  if (isCodebaseKnowledgeGenerationIntent(visibleNonFencedText)) {
+    const draft =
+      codebaseKnowledgeGenerationQueueTaskPrompt(visibleNonFencedText);
+
+    return {
+      description: draft.description,
+      executionPolicy: "manual",
+      prompt: draft.prompt,
+      queueTagName: "Knowledge generation",
+      status: "queued",
+      title: draft.title,
+      type: "createItem",
+    };
+  }
 
   if (!startsWithAnyKnownQueuePhrase(visibleText)) {
     const embeddedCommandText = embeddedQueueCommandText(visibleNonFencedText);
@@ -92,6 +116,12 @@ export function parseWorkspaceAgentQueueCommand(
   return (
     parseUpdateCommand(visibleText) ??
     forcedLocalQueueCommand(visibleNonFencedText)
+  );
+}
+
+function isCodebaseKnowledgeGenerationIntent(text: string) {
+  return CODEBASE_KNOWLEDGE_GENERATION_PATTERNS.some((pattern) =>
+    pattern.test(text),
   );
 }
 

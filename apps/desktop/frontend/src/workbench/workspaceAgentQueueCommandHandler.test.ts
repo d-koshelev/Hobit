@@ -785,6 +785,91 @@ describe("workspaceAgentQueueCommandHandler", () => {
     expect(request?.prompt).not.toContain("Run only:");
   });
 
+  it("parses codebase Knowledge generation as a queued manual Queue task", () => {
+    expect(
+      parseWorkspaceAgentQueueCommand(
+        "Generate codebase knowledge. Area: apps/desktop/frontend/src/workbench",
+      ),
+    ).toMatchObject({
+      description:
+        "Generate draft Knowledge from selected codebase area: apps/desktop/frontend/src/workbench. Draft output only; do not activate Knowledge.",
+      executionPolicy: "manual",
+      queueTagName: "Knowledge generation",
+      status: "queued",
+      title: "Generate codebase Knowledge: apps/desktop/frontend/src/workbench",
+      type: "createItem",
+    });
+  });
+
+  it("creates a codebase Knowledge generation task without executing analysis or activating Knowledge", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        description: request.description ?? "",
+        executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace ?? "",
+        id: "Q-KNOWLEDGE",
+        prompt: request.prompt,
+        queueTag: request.queueTag,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(
+      "Create Queue task to generate codebase knowledge. Area: apps/desktop/frontend/src/workbench",
+      {
+        bridge: queueBridge({
+          createItem,
+          runAutonomousQueue,
+        }),
+        currentWorkspaceRoot: "C:/repo",
+      },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Generate draft Knowledge from selected codebase area: apps/desktop/frontend/src/workbench. Draft output only; do not activate Knowledge.",
+        executionPolicy: "manual",
+        executionWorkspace: "C:/repo",
+        priority: 0,
+        queueTag: { name: "Knowledge generation" },
+        status: "queued",
+        title: "Generate codebase Knowledge: apps/desktop/frontend/src/workbench",
+      }),
+    );
+
+    const request = createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Queue knowledge generation task.");
+    expect(request?.prompt).toContain(
+      "* codebase: apps/desktop/frontend/src/workbench",
+    );
+    expect(request?.prompt).toContain("* architecture overview");
+    expect(request?.prompt).toContain("* important files and why they matter");
+    expect(request?.prompt).toContain("* key flows and boundaries");
+    expect(request?.prompt).toContain("* safe modification rules");
+    expect(request?.prompt).toContain("* relevant validation commands");
+    expect(request?.prompt).toContain(
+      "* proposed Knowledge item types, tags, and scope",
+    );
+    expect(request?.prompt).toContain("* Return draft Knowledge only.");
+    expect(request?.prompt).toContain(
+      "* Do not create, edit, enable, or activate Knowledge records.",
+    );
+    expect(request?.prompt).toContain(
+      "* confirmation that no Knowledge was activated",
+    );
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain(
+      "Created Queue item: Q-KNOWLEDGE",
+    );
+    expect(result.body).toContain("Status: queued.");
+  });
+
   it("does not invent full validation in create task prompts", async () => {
     const createItem = vi.fn(async (request) =>
       itemResult("queue.createItem", {

@@ -1,4 +1,5 @@
 import type {
+  AgentQueueTaskItemType,
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskStatus,
 } from "../workspace/types";
@@ -16,7 +17,10 @@ export type WorkspaceAgentQueueCommand =
     }
   | {
       executionPolicy?: AgentQueueTaskExecutionPolicy;
+      description?: string;
+      itemType?: AgentQueueTaskItemType;
       prompt: string;
+      queueTagName?: string;
       runSettings?: Partial<AgentQueueTaskRunSettingsDefaults>;
       status?: Extract<AgentQueueTaskStatus, "draft" | "queued">;
       title: string;
