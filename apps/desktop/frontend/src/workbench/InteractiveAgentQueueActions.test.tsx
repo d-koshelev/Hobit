@@ -33,12 +33,21 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
   it("renders the app-native Queue action surface when the bridge is present", () => {
     renderWidget({ workspaceAgentQueueBridge: queueBridge() });
 
+    const queueActions = document.querySelector<HTMLDetailsElement>(
+      'details[aria-label="Workspace Agent Queue actions"]',
+    );
+
+    expect(queueActions).not.toBeNull();
+    expect(queueActions?.open).toBe(false);
+    expect(queueActions?.querySelector("summary")?.textContent).toContain(
+      "Queue tools",
+    );
     expect(document.body.textContent).toContain("Agent Queue API");
     expect(document.body.textContent).toContain("Inspect Queue");
     expect(document.body.textContent).toContain("Create Queue item");
     expect(document.body.textContent).toContain("Update Queue item");
     expect(document.body.textContent).toContain(
-      "App-native Queue actions. No shell, Codex, or storage edits.",
+      "Secondary Queue inspect/create/update controls.",
     );
   });
 

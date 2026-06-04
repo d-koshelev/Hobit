@@ -2270,6 +2270,21 @@
   padding: var(--space-sm);
 }
 
+.workspace-agent-queue-actions-summary,
+.workspace-agent-queue-action-details summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-queue-actions-body {
+  display: grid;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+
 .workspace-agent-queue-actions-header,
 .workspace-agent-queue-actions-row,
 .workspace-agent-queue-action-card-header {
@@ -2283,14 +2298,6 @@
 .workspace-agent-queue-action-details {
   display: grid;
   gap: var(--space-xs);
-}
-
-.workspace-agent-queue-action-details summary {
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-tight);
 }
 
 .workspace-agent-queue-action-grid {
