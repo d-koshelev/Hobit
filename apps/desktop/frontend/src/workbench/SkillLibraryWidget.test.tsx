@@ -42,8 +42,10 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain(
       "Catalog views combine scoped documents and saved skills.",
     );
+    expect(buttonWithText("Active")).toBeDefined();
     expect(buttonWithText("Codebase")).toBeDefined();
     expect(buttonWithText("Prompt templates")).toBeDefined();
+    expect(buttonWithText("Archived")).toBeDefined();
 
     await clickButton("Skills");
 
@@ -370,6 +372,17 @@ describe("SkillLibraryWidget", () => {
         title: "Old decision",
         updatedAt: "2026-05-24T12:00:00Z",
       }),
+      knowledgeDocumentFixture({
+        catalogItemType: "known_issue",
+        knowledgeDocumentId: "doc_archived",
+        lifecycleStatus: "archived",
+        quickSummary: "Retained for review only.",
+        scope: "workspace",
+        sourceLabel: "docs/old-known-issue.md",
+        tags: "issue",
+        title: "Archived known issue",
+        updatedAt: "2026-05-23T12:00:00Z",
+      }),
     ];
     const skill = skillFixture({
       reviewStatus: "reviewed",
@@ -414,6 +427,13 @@ describe("SkillLibraryWidget", () => {
     expect(visibleListRowsText()).toContain("Old decision");
     expect(visibleListRowsText()).not.toContain("Widget registry boundary");
 
+    await clickButton("Active");
+
+    expect(visibleListRowsText()).toContain("Widget registry boundary");
+    expect(visibleListRowsText()).toContain("Review skill");
+    expect(visibleListRowsText()).not.toContain("Old decision");
+    expect(visibleListRowsText()).not.toContain("Archived known issue");
+
     await clickButton("Codebase");
 
     expect(visibleListRowsText()).toContain("Widget registry boundary");
@@ -423,6 +443,11 @@ describe("SkillLibraryWidget", () => {
 
     expect(visibleListRowsText()).toContain("Old decision");
     expect(visibleListRowsText()).not.toContain("Review skill");
+
+    await clickButton("Archived");
+
+    expect(visibleListRowsText()).toContain("Archived known issue");
+    expect(visibleListRowsText()).not.toContain("Widget registry boundary");
 
     await clickCatalogView("Skills");
     await clickListRow("Review skill");
@@ -687,8 +712,8 @@ describe("SkillLibraryWidget", () => {
     expect(createSkill).toHaveBeenCalledTimes(1);
   });
 
-  it("marks a saved Knowledge Document stale without changing content", async () => {
-    const knowledgeDocument = knowledgeDocumentFixture({
+  it("marks a saved Knowledge Document stale, warns on attach, and restores active", async () => {
+    let knowledgeDocument = knowledgeDocumentFixture({
       content: "Current active content.",
       knowledgeDocumentId: "doc_stale",
       quickSummary: "Current summary.",
@@ -698,15 +723,24 @@ describe("SkillLibraryWidget", () => {
       tags: "docs",
       title: "Source-backed docs",
     });
-    const updateKnowledgeDocument = vi.fn(async (request) =>
-      knowledgeDocumentFixture({
+    const updateKnowledgeDocument = vi.fn(async (request) => {
+      knowledgeDocument = knowledgeDocumentFixture({
         ...knowledgeDocument,
         ...request,
         updatedAt: "2026-05-24T01:00:00Z",
-      }),
-    );
+      });
+      return knowledgeDocument;
+    });
+    const attachKnowledgeContextToQueueTask = vi.fn(() => ({
+      message: "Source-backed docs attached to Refresh docs.",
+      status: "attached" as const,
+      taskTitle: "Refresh docs",
+    }));
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     renderWidget({
+      onAttachKnowledgeContextToQueueTask: attachKnowledgeContextToQueueTask,
       onGetKnowledgeDocument: vi.fn(async () => knowledgeDocument),
       onListKnowledgeDocuments: vi.fn(async () => [knowledgeDocument]),
       onUpdateKnowledgeDocument: updateKnowledgeDocument,
@@ -727,6 +761,37 @@ describe("SkillLibraryWidget", () => {
       }),
     );
     expect(document.body.textContent).toContain("Document marked stale.");
+    expect(document.body.textContent).toContain(
+      "This document is stale. Attaching it to a Queue task will keep a visible warning",
+    );
+
+    await clickEnabledButton("Attach to Queue task");
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Attach stale Knowledge Document "Source-backed docs" to the selected Queue task? The task will keep a visible stale-context warning.',
+    );
+    expect(attachKnowledgeContextToQueueTask).toHaveBeenCalledWith({
+      document: expect.objectContaining({
+        knowledgeDocumentId: "doc_stale",
+        lifecycleStatus: "stale",
+      }),
+      kind: "knowledge_document",
+    });
+    expect(document.body.textContent).toContain(
+      "Stale context warning will be shown on the Queue task.",
+    );
+
+    await clickEnabledButton("Restore active");
+
+    expect(updateKnowledgeDocument).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content: "Current active content.",
+        knowledgeDocumentId: "doc_stale",
+        lifecycleStatus: "active",
+        title: "Source-backed docs",
+      }),
+    );
+    expect(document.body.textContent).toContain("Document restored to active.");
   });
 
   it("creates a manual Queue refresh task for a source-backed Knowledge Document", async () => {

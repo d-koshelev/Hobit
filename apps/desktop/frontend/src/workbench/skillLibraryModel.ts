@@ -35,6 +35,7 @@ export type KnowledgeSurfaceTab = "catalog" | "skills";
 
 export type KnowledgeCatalogView =
   | "all"
+  | "active"
   | "global"
   | "workspace"
   | "skills"
@@ -46,7 +47,8 @@ export type KnowledgeCatalogView =
   | "validation_rules"
   | "workflows"
   | "drafts"
-  | "stale";
+  | "stale"
+  | "archived";
 
 export type KnowledgeCatalogRecordKind = "document" | "skill";
 
@@ -69,6 +71,7 @@ export const KNOWLEDGE_CATALOG_VIEW_OPTIONS: Array<{
   value: KnowledgeCatalogView;
 }> = [
   { label: "All", value: "all" },
+  { label: "Active", value: "active" },
   { label: "Global", value: "global" },
   { label: "Workspace", value: "workspace" },
   { label: "Skills", value: "skills" },
@@ -81,6 +84,7 @@ export const KNOWLEDGE_CATALOG_VIEW_OPTIONS: Array<{
   { label: "Workflows", value: "workflows" },
   { label: "Drafts", value: "drafts" },
   { label: "Stale", value: "stale" },
+  { label: "Archived", value: "archived" },
 ];
 
 export const KNOWLEDGE_DOCUMENT_TYPE_OPTIONS: Array<{
@@ -435,6 +439,8 @@ function knowledgeCatalogItemMatchesView(
   view: KnowledgeCatalogView,
 ) {
   switch (view) {
+    case "active":
+      return item.status === "active";
     case "global":
       return item.scopeLabel === "Global";
     case "workspace":
@@ -459,6 +465,8 @@ function knowledgeCatalogItemMatchesView(
       return item.status === "draft";
     case "stale":
       return item.status === "stale";
+    case "archived":
+      return item.status === "archived";
     case "all":
     default:
       return true;

@@ -427,9 +427,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       setSelectedDocumentDraft(updatedDocument);
       await loadDocuments(updatedDocument.knowledgeDocumentId);
       setDocumentMessage(
-        lifecycleStatus === "stale"
-          ? "Document marked stale."
-          : "Document archived.",
+        documentLifecycleUpdateMessage(lifecycleStatus),
       );
     } catch (statusError) {
       setDocumentError(
@@ -755,11 +753,24 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       return;
     }
 
+    if (selectedDocument.lifecycleStatus === "stale") {
+      const confirmed = window.confirm(
+        `Attach stale Knowledge Document "${selectedDocument.title.trim() || DEFAULT_DOCUMENT_TITLE}" to the selected Queue task? The task will keep a visible stale-context warning.`,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     const result = onAttachKnowledgeContextToQueueTask({
       document: selectedDocument,
       kind: "knowledge_document",
     });
-    setDocumentMessage(result.message);
+    setDocumentMessage(
+      result.status === "attached" && selectedDocument.lifecycleStatus === "stale"
+        ? `${result.message} Stale context warning will be shown on the Queue task.`
+        : result.message,
+    );
     setDocumentError(result.status === "blocked" ? result.message : null);
   }
 
@@ -1059,6 +1070,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 onDeleteDocument={() => void deleteSelectedDocument()}
                 onDiscardDraft={discardDocumentDraft}
                 onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
+                onRestoreDocument={() =>
+                  void updateSelectedDocumentLifecycle("active")
+                }
                 onSaveDocument={() => void saveDocument()}
                 onSetDraftField={setDocumentDraftField}
               />
@@ -1079,6 +1093,10 @@ function errorToMessage(error: unknown, fallback: string): string {
 }
 
 function emptyCatalogText(view: KnowledgeCatalogView) {
+  if (view === "active") {
+    return "No active catalog items match this view.";
+  }
+
   if (view === "global") {
     return "Add the first local-global catalog item for this desktop database.";
   }
@@ -1091,7 +1109,38 @@ function emptyCatalogText(view: KnowledgeCatalogView) {
     return "Create the first saved Skill from the Skills tab.";
   }
 
+  if (view === "drafts") {
+    return "No draft catalog items need review.";
+  }
+
+  if (view === "stale") {
+    return "No stale catalog items need refresh.";
+  }
+
+  if (view === "archived") {
+    return "No archived catalog items are retained for review.";
+  }
+
   return "Add the first workspace-local or local-global catalog item.";
+}
+
+function documentLifecycleUpdateMessage(
+  lifecycleStatus: KnowledgeDocument["lifecycleStatus"],
+) {
+  switch (lifecycleStatus) {
+    case "active":
+      return "Document restored to active.";
+    case "stale":
+      return "Document marked stale.";
+    case "archived":
+      return "Document archived.";
+    case "draft":
+      return "Document marked draft.";
+    case "rejected":
+      return "Document rejected.";
+    default:
+      return "Document status updated.";
+  }
 }
 
 function draftDecisionLabel(decision: "accepted" | "pending" | "rejected") {

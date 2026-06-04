@@ -39,6 +39,7 @@ type CatalogDocumentEditorProps = {
   onCreateRefreshTask: () => void;
   onDiscardDraft: () => void;
   onMarkStale: () => void;
+  onRestoreDocument: () => void;
   onSaveDocument: () => void;
   onSetDraftField: <Key extends keyof KnowledgeDocumentDraft>(
     key: Key,
@@ -119,9 +120,12 @@ export function CatalogDocumentEditor({
   onDeleteDocument,
   onDiscardDraft,
   onMarkStale,
+  onRestoreDocument,
   onSaveDocument,
   onSetDraftField,
 }: CatalogDocumentEditorProps) {
+  const isStale = draft.lifecycleStatus === "stale";
+
   return (
     <div className="skill-editor">
       <CatalogPreviewHeader item={item} />
@@ -252,6 +256,13 @@ export function CatalogDocumentEditor({
         />
         <span>Searchable by Workspace Agent</span>
       </label>
+      {isStale ? (
+        <p className="skill-lifecycle-warning">
+          This document is stale. Attaching it to a Queue task will keep a
+          visible warning on that task until the context is reviewed or the
+          document is restored.
+        </p>
+      ) : null}
 
       <label className="skill-field skill-field-wide">
         <span>Full content</span>
@@ -298,7 +309,7 @@ export function CatalogDocumentEditor({
         <Button
           disabled={
             !draft.knowledgeDocumentId ||
-            draft.lifecycleStatus === "stale" ||
+            isStale ||
             isDirty ||
             isSavingDocument ||
             isDeletingDocument
@@ -308,6 +319,20 @@ export function CatalogDocumentEditor({
           variant="secondary"
         >
           Mark stale
+        </Button>
+        <Button
+          disabled={
+            !draft.knowledgeDocumentId ||
+            draft.lifecycleStatus === "active" ||
+            isDirty ||
+            isSavingDocument ||
+            isDeletingDocument
+          }
+          onClick={onRestoreDocument}
+          title="Restores this saved item to active Knowledge. Active enabled documents may be searched before Workspace Agent Codex runs."
+          variant="secondary"
+        >
+          Restore active
         </Button>
         <Button
           disabled={
