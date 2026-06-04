@@ -923,6 +923,17 @@ v0.1 product widget.
   No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
   embeddings, vector database, Evidence store, Context Pack builder,
   team/server sharing, server runtime, or RBAC is implemented.
+- Quick summary is the current preview field for scan, review, attach, and
+  materialized-context surfaces. Summaries are bounded where supplied, and
+  draft acceptance plus Notes promotion populate them, but manual/import paths
+  may still leave summaries empty. Missing summaries remain a quality gap, not
+  proof that the full Knowledge Catalog is implemented.
+- Current source refs are explicit but partial. Generation and refresh tasks
+  preserve source selection through visible prompt/task/report text, safe refs,
+  and existing source label/kind/ref fields where available. Durable
+  structured `sourceRefs`, full provenance replay, first-class
+  `createdByTaskId`, and graph relations remain future Catalog/generation
+  work.
 - Notes can be promoted to Knowledge only through an explicit operator action
   from a saved selected Note. Promotion creates a separate Knowledge Document
   with source metadata and leaves the original Note unchanged. Notes are not
@@ -934,9 +945,11 @@ v0.1 product widget.
   durable source refs and a dedicated generation runtime remain future.
 - Queue worker report output can expose draft Knowledge packs for review in
   Knowledge / Skills. Accept/reject requires explicit operator action.
-  Rejected draft review is a review disposition, not a durable rejected
-  Knowledge record unless a separate Knowledge Document lifecycle action is
-  taken.
+  Accepted drafts can create durable Knowledge Documents through the explicit
+  acceptance path with best-effort current provenance fields. Rejected draft
+  review is review-local for Stable v0.1; it is not a durable rejected
+  Knowledge record, audit record, Evidence record, or complete review replay
+  unless a future focused persistence slice adds that model.
 - Knowledge / Skills is operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.

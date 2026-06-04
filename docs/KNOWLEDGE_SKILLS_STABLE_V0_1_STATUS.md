@@ -28,6 +28,54 @@ behavior unless already represented indirectly in an explicit materialized
 prompt/run handoff; durable Queue-owned context storage/API state and a
 separate Evidence/Context Pack store remain future.
 
+## Refresh Notes
+
+Implemented behavior after cleanup:
+
+- Knowledge / Skills is Ready / MVP for Stable v0.1 as the `skill-library`
+  compatibility widget identity with explicit Skill CRUD, workspace-local and
+  local-global Knowledge Document CRUD/search/import, enabled-only Knowledge
+  retrieval for Workspace Agent Codex runs, visible selected Skill attach,
+  Notes promotion, Queue generation task drafts, draft-pack review, and
+  frontend-local Queue context attach/materialization.
+- Knowledge Documents now carry partial catalog-shaped fields: title, quick
+  summary, item type, lifecycle/status, source label, source kind/ref, content,
+  tags, enabled flag, scope, and deterministic chunks. This is not the full
+  Knowledge Catalog because there is no standalone Catalog store, no
+  first-class related files/tasks/commits, no durable created-by-task field,
+  no graph relation model, and no Evidence or Context Pack store.
+- Queue Knowledge / Skills context is frontend-local and current-session for
+  Stable v0.1. It can be represented indirectly in an explicit materialized
+  prompt or run handoff after the operator starts a task, but that artifact is
+  not durable Queue-owned context state and not full execution evidence.
+
+Current limitations and policies:
+
+- `quickSummary` is the required preview vocabulary for review, scan,
+  attachment, and materialized context surfaces. Services cap summaries to
+  one to three lines where they are supplied, and draft acceptance plus Notes
+  promotion populate them. Manual and import paths may still leave summaries
+  empty, so Stable v0.1 must treat missing summaries as a quality gap rather
+  than claiming every active document has a useful non-empty summary.
+- Source refs are explicit and visible but partial in the current model.
+  Generation tasks preserve source selection primarily through visible
+  prompt/task text, safe refs, and existing Knowledge source label/kind/ref
+  fields. Stable v0.1 must not claim durable structured `sourceRefs`, source
+  snapshots, full provenance replay, or first-class `createdByTaskId`
+  Catalog fields.
+- Draft review persistence follows
+  `docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md`: accepted drafts can
+  become durable Knowledge Documents through explicit operator acceptance with
+  best-effort current provenance fields; rejected drafts are review-local
+  unless the operator records them through an existing explicit Queue
+  surface. Rejection does not create rejected Knowledge, Evidence, audit, or
+  hidden memory records.
+- Queue context wording should describe "attached for this session",
+  "prepared context", "materialized for this run", or "included in this run
+  prompt". It must not describe current behavior as saved Queue task context,
+  Queue memory, replayable context, durable evidence, or automatic Knowledge
+  context.
+
 ## Acceptance Status
 
 | Area | Automated status | Acceptance note |
@@ -83,6 +131,18 @@ Manual smoke remains required for final Stable v0.1 acceptance:
 - Verify no hidden Notes, files, logs, Queue/Executor output, Git/JDBC/Terminal
   state, Evidence, Context Packs, team/server knowledge, secrets, or raw
   payloads are sent automatically.
+
+This manual smoke has not been rerun in this docs-only refresh block.
+
+## File-Size / Maintainability Risks
+
+Knowledge-related implementation remains under file-size pressure. The
+current post-run audit records a new oversized Knowledge document panel,
+new oversized warnings in Knowledge test/model files, and ratchet violations
+in related Finder, Queue, Terminal, proposal-generation, frontend API, and
+desktop runner files. Future Knowledge / Queue / Finder changes should start
+with focused extraction or file-size remediation blocks before adding more
+surface area.
 
 ## Intentionally Not Accepted
 
