@@ -128,6 +128,14 @@ Use this before adding to existing large files. It has explicit facade limits fo
 `crates/hobit-storage-sqlite/src/store.rs` and
 `crates/hobit-app/src/workspace_service.rs`.
 
+Known legacy oversized files are recorded in
+`scripts/hobit/file-size-baseline.json`. Baseline entries are reported as
+file-size debt and do not fail validation while they stay at or below the
+recorded line count. Changed-only validation fails a changed file that becomes
+newly oversized or grows beyond its baseline while still oversized. Full scans
+report the current debt inventory clearly and fail only active errors or
+ratchet violations.
+
 ### `module-map.py`
 
 Prints a compact directory/module map with line counts:

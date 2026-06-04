@@ -37,10 +37,16 @@ SOURCE_EXTENSIONS = {
     ".ps1",
     ".sh",
 }
+BASELINE_PATH = Path("scripts/hobit/file-size-baseline.json")
 SPECIAL_LIMITS = {
     Path("crates/hobit-storage-sqlite/src/store.rs"): (250, 300, "sqlite store facade"),
     Path("crates/hobit-app/src/workspace_service.rs"): (300, 400, "workspace service facade"),
 }
+
+
+@dataclass(frozen=True)
+class BaselineEntry:
+    lines: int
 
 
 @dataclass(frozen=True)
@@ -57,6 +63,8 @@ class Finding:
     severity: str
     threshold: int
     limit_kind: str
+    status: str
+    baseline_lines: int | None = None
 
 
 def repo_root() -> Path:
@@ -117,6 +125,35 @@ def changed_paths(root: Path) -> set[Path]:
     return paths
 
 
+def load_baseline(root: Path) -> dict[str, BaselineEntry]:
+    baseline_path = root / BASELINE_PATH
+    if not baseline_path.is_file():
+        return {}
+
+    try:
+        with baseline_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"{BASELINE_PATH.as_posix()} is not valid JSON: {error}") from error
+
+    files = data.get("files")
+    if not isinstance(files, dict):
+        raise RuntimeError(f"{BASELINE_PATH.as_posix()} must contain a 'files' object")
+
+    baseline: dict[str, BaselineEntry] = {}
+    for path, entry in files.items():
+        if not isinstance(path, str) or not isinstance(entry, dict):
+            raise RuntimeError(f"{BASELINE_PATH.as_posix()} contains an invalid file entry")
+        lines = entry.get("lines")
+        if not isinstance(lines, int) or lines < 1:
+            raise RuntimeError(
+                f"{BASELINE_PATH.as_posix()} has invalid line count for {path!r}"
+            )
+        baseline[path] = BaselineEntry(lines=lines)
+
+    return baseline
+
+
 def iter_source_files(root: Path, changed_only: bool) -> Iterable[Path]:
     if changed_only:
         candidates = changed_paths(root)
@@ -163,7 +200,20 @@ def is_test_file(path: Path) -> bool:
     )
 
 
-def check_files(root: Path, changed_only: bool) -> tuple[list[Finding], int]:
+def finding_status(path: str, lines: int, baseline: dict[str, BaselineEntry]) -> tuple[str, int | None]:
+    entry = baseline.get(path)
+    if entry is None:
+        return "active", None
+    if lines > entry.lines:
+        return "ratchet", entry.lines
+    return "debt", entry.lines
+
+
+def check_files(
+    root: Path,
+    changed_only: bool,
+    baseline: dict[str, BaselineEntry],
+) -> tuple[list[Finding], int]:
     findings: list[Finding] = []
     scanned = 0
     for relative_path in iter_source_files(root, changed_only):
@@ -180,13 +230,17 @@ def check_files(root: Path, changed_only: bool) -> tuple[list[Finding], int]:
             threshold = limit.warning
 
         if severity is not None:
+            path = relative_path.as_posix()
+            status, baseline_lines = finding_status(path, count, baseline)
             findings.append(
                 Finding(
-                    path=relative_path.as_posix(),
+                    path=path,
                     lines=count,
                     severity=severity,
                     threshold=threshold,
                     limit_kind=limit.kind,
+                    status=status,
+                    baseline_lines=baseline_lines,
                 )
             )
     return findings, scanned
@@ -198,12 +252,55 @@ def print_human(findings: list[Finding], scanned: int) -> None:
         print("No file size warnings or errors.")
         return
 
+    debt = [finding for finding in findings if finding.status == "debt"]
+    ratchets = [finding for finding in findings if finding.status == "ratchet"]
+    active = [finding for finding in findings if finding.status == "active"]
+    if debt:
+        print(f"Legacy file-size debt: {len(debt)} unchanged/improved oversized file(s).")
+    if ratchets:
+        print(f"File-size ratchet violations: {len(ratchets)} worsened baseline file(s).")
+    if active:
+        print(f"New oversized files: {len(active)} file(s).")
+
+    ordered = [*ratchets, *active, *debt]
+    for finding in ordered:
+        if finding.status == "ratchet":
+            print(
+                f"RATCHET: {finding.path} {finding.lines} lines > "
+                f"baseline {finding.baseline_lines} "
+                f"(threshold {finding.threshold}, {finding.limit_kind})"
+            )
+        elif finding.status == "debt":
+            print(
+                f"DEBT: {finding.path} {finding.lines} lines > {finding.threshold} "
+                f"(baseline {finding.baseline_lines}, {finding.limit_kind})"
+            )
+        else:
+            print(
+                f"{finding.severity.upper()}: {finding.path} "
+                f"{finding.lines} lines > {finding.threshold} "
+                f"({finding.limit_kind})"
+            )
+
+
+def failing_findings(
+    findings: list[Finding],
+    *,
+    changed_only: bool,
+    fail_on_warning: bool,
+) -> list[Finding]:
+    failures: list[Finding] = []
     for finding in findings:
-        print(
-            f"{finding.severity.upper()}: {finding.path} "
-            f"{finding.lines} lines > {finding.threshold} "
-            f"({finding.limit_kind})"
-        )
+        if finding.status == "debt":
+            continue
+        if finding.status == "ratchet":
+            failures.append(finding)
+            continue
+        if finding.severity == "error":
+            failures.append(finding)
+        elif finding.severity == "warning" and (changed_only or fail_on_warning):
+            failures.append(finding)
+    return failures
 
 
 def main(argv: list[str]) -> int:
@@ -225,21 +322,40 @@ def main(argv: list[str]) -> int:
 
     try:
         root = repo_root()
-        findings, scanned = check_files(root, args.changed_only)
+        baseline = load_baseline(root)
+        findings, scanned = check_files(root, args.changed_only, baseline)
     except RuntimeError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return EXIT_USAGE_OR_ENVIRONMENT
 
-    errors = [finding for finding in findings if finding.severity == "error"]
-    warnings = [finding for finding in findings if finding.severity == "warning"]
+    failures = failing_findings(
+        findings,
+        changed_only=args.changed_only,
+        fail_on_warning=args.fail_on_warning,
+    )
+    active_errors = [
+        finding
+        for finding in findings
+        if finding.status == "active" and finding.severity == "error"
+    ]
+    active_warnings = [
+        finding
+        for finding in findings
+        if finding.status == "active" and finding.severity == "warning"
+    ]
+    debt = [finding for finding in findings if finding.status == "debt"]
+    ratchets = [finding for finding in findings if finding.status == "ratchet"]
 
     if args.json:
         print(
             json.dumps(
                 {
                     "scanned": scanned,
-                    "warnings": len(warnings),
-                    "errors": len(errors),
+                    "active_warnings": len(active_warnings),
+                    "active_errors": len(active_errors),
+                    "legacy_debt": len(debt),
+                    "ratchet_violations": len(ratchets),
+                    "failures": len(failures),
                     "findings": [finding.__dict__ for finding in findings],
                 },
                 indent=2,
@@ -249,7 +365,7 @@ def main(argv: list[str]) -> int:
     else:
         print_human(findings, scanned)
 
-    if errors or (args.fail_on_warning and warnings):
+    if failures:
         return EXIT_CHECK_FAILED
     return EXIT_OK
 

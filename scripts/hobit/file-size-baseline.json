@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "description": "Legacy oversized source files. These entries are file-size debt: validation allows a file to remain at or below its recorded line count, and fails if it grows while still oversized.",
+  "files": {
+    "apps/desktop/frontend/src/smoke/queueExecutorMockSmokeApp.tsx": {
+      "lines": 761
+    },
+    "apps/desktop/frontend/src/workbench/AgentQueueFlowMap.tsx": {
+      "lines": 801
+    },
+    "apps/desktop/frontend/src/workbench/AgentQueueSidebar.tsx": {
+      "lines": 793
+    },
+    "apps/desktop/frontend/src/workbench/AgentQueueTaskRunPanel.test.tsx": {
+      "lines": 2310
+    },
+    "apps/desktop/frontend/src/workbench/AgentQueueTaskRunPanel.tsx": {
+      "lines": 816
+    },
+    "apps/desktop/frontend/src/workbench/FinderWidget.tsx": {
+      "lines": 2711
+    },
+    "apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.test.tsx": {
+      "lines": 3247
+    },
+    "apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.tsx": {
+      "lines": 911
+    },
+    "apps/desktop/frontend/src/workbench/InteractiveAgentQueueActions.test.tsx": {
+      "lines": 1355
+    },
+    "apps/desktop/frontend/src/workbench/JdbcConnectorWidget.test.tsx": {
+      "lines": 1350
+    },
+    "apps/desktop/frontend/src/workbench/JdbcReadOnlyQueryPanel.tsx": {
+      "lines": 813
+    },
+    "apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx": {
+      "lines": 809
+    },
+    "apps/desktop/frontend/src/workbench/coordinatorLocalProposalGeneration.ts": {
+      "lines": 753
+    },
+    "apps/desktop/frontend/src/workbench/jdbcConnectorWidgetModel.ts": {
+      "lines": 844
+    },
+    "apps/desktop/frontend/src/workbench/queue/agentQueueFlowMapModel.ts": {
+      "lines": 811
+    },
+    "apps/desktop/frontend/src/workbench/queue/agentQueueWidgetSnapshotModel.ts": {
+      "lines": 702
+    },
+    "apps/desktop/frontend/src/workbench/queue/useAgentQueueAutonomousRunner.ts": {
+      "lines": 790
+    },
+    "apps/desktop/frontend/src/workbench/queue/useAgentQueueController.executionState.test.tsx": {
+      "lines": 1810
+    },
+    "apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts": {
+      "lines": 981
+    },
+    "apps/desktop/frontend/src/workbench/queue/useAgentQueueTaskActions.ts": {
+      "lines": 981
+    },
+    "apps/desktop/frontend/src/workbench/workspaceAgentQueueCommandHandler.test.ts": {
+      "lines": 1216
+    },
+    "apps/desktop/frontend/src/workspace/memoryWorkspaceApi.ts": {
+      "lines": 701
+    },
+    "apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts": {
+      "lines": 703
+    },
+    "apps/desktop/src-tauri/src/agent_queue_runner.rs": {
+      "lines": 1298
+    },
+    "apps/desktop/src-tauri/src/agent_queue_runner_commands.rs": {
+      "lines": 791
+    },
+    "apps/desktop/src-tauri/src/agent_queue_runner_commands/tests.rs": {
+      "lines": 1406
+    },
+    "apps/desktop/src-tauri/src/terminal_pty.rs": {
+      "lines": 793
+    },
+    "apps/desktop/src-tauri/src/workspace_commands.rs": {
+      "lines": 920
+    },
+    "apps/desktop/src-tauri/src/workspace_dto.rs": {
+      "lines": 711
+    },
+    "crates/hobit-app/src/audit_events/mod.rs": {
+      "lines": 641
+    },
+    "crates/hobit-app/src/capabilities/mod.rs": {
+      "lines": 453
+    },
+    "crates/hobit-app/src/context_packs/mod.rs": {
+      "lines": 584
+    },
+    "crates/hobit-app/src/workspace_service/agent_executor_history_tests.rs": {
+      "lines": 940
+    },
+    "crates/hobit-app/src/workspace_service/agent_queue_tasks_tests.rs": {
+      "lines": 788
+    },
+    "crates/hobit-app/src/workspace_service/direct_work_stream_tests.rs": {
+      "lines": 1008
+    },
+    "crates/hobit-app/src/workspace_service/direct_work_tests.rs": {
+      "lines": 740
+    },
+    "crates/hobit-app/src/workspace_service/jdbc_sidecar_protocol.rs": {
+      "lines": 878
+    },
+    "crates/hobit-app/src/workspace_service/types.rs": {
+      "lines": 881
+    },
+    "crates/hobit-storage-sqlite/src/store.rs": {
+      "lines": 360
+    },
+    "crates/hobit-storage-sqlite/src/store/tests.rs": {
+      "lines": 1397
+    },
+    "crates/hobit-tools/src/git_diff.rs": {
+      "lines": 825
+    }
+  }
+}
