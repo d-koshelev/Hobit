@@ -5,36 +5,37 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
-  knowledgeDraftAcceptedSourceLabel,
-  knowledgeDraftAcceptedSourceRef,
-  parseKnowledgeDraftPackFromText,
-  type KnowledgeDraftReviewItem,
-  type KnowledgeDraftReviewPack,
-} from "./knowledgeDraftPacks";
-import {
-  CatalogDocumentEditor,
-  CatalogSkillPreview,
-} from "./SkillLibraryCatalogPreview";
-import {
-  KNOWLEDGE_CATALOG_VIEW_OPTIONS,
   DEFAULT_DOCUMENT_TITLE,
   EMPTY_DOCUMENT_DRAFT,
   filterKnowledgeCatalogItems,
-  formatKnowledgeCatalogDate,
   isKnowledgeDocumentDraftDirty,
   knowledgeCatalogItemsFromRecords,
   knowledgeDocumentDraftFromDocument,
-  skillCoordinatorContextText,
-  type KnowledgeCatalogAttachmentState,
   type KnowledgeDocumentDraft,
   type KnowledgeCatalogListItem,
   type KnowledgeCatalogView,
 } from "./skillLibraryModel";
+import {
+  SkillLibraryCatalogListView,
+  SkillLibraryCatalogSummary,
+  SkillLibraryCatalogViewControls,
+} from "./SkillLibraryCatalogListView";
+import { SkillLibraryCatalogDetailPane } from "./SkillLibraryCatalogDetailPane";
+import { SkillLibraryDocumentImportControls } from "./SkillLibraryDocumentImportControls";
+import {
+  documentLifecycleUpdateMessage,
+  errorToMessage,
+  isSourceBackedDocument,
+  refreshQueueTaskRequestFromDocument,
+} from "./SkillLibraryDocumentsPanel.helpers";
+import { SkillLibraryDraftReviewPanel } from "./SkillLibraryDraftReviewPanel";
 import type { WidgetRenderProps } from "./types";
+import { useSkillLibraryCatalogAttachments } from "./useSkillLibraryCatalogAttachments";
+import { useSkillLibraryDocumentImport } from "./useSkillLibraryDocumentImport";
+import { useSkillLibraryDraftReview } from "./useSkillLibraryDraftReview";
 
 export type SkillLibraryDocumentsPanelHandle = {
   startNewDocument: () => void;
@@ -106,20 +107,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [isSavingDocument, setIsSavingDocument] = useState(false);
   const [isCreatingRefreshTask, setIsCreatingRefreshTask] = useState(false);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
-  const [isImportingDocument, setIsImportingDocument] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
-  const [documentImportPath, setDocumentImportPath] = useState("");
-  const [documentImportScope, setDocumentImportScope] =
-    useState<KnowledgeDocumentDraft["scope"]>("workspace");
-  const [draftPayload, setDraftPayload] = useState("");
-  const [draftReviewPack, setDraftReviewPack] =
-    useState<KnowledgeDraftReviewPack | null>(null);
-  const [draftReviewDecisions, setDraftReviewDecisions] = useState<
-    Record<string, "accepted" | "pending" | "rejected">
-  >({});
-  const [attachmentStateByCatalogItemId, setAttachmentStateByCatalogItemId] =
-    useState<Record<string, KnowledgeCatalogAttachmentState>>({});
-  const [isAcceptingDraftItem, setIsAcceptingDraftItem] = useState(false);
   const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
@@ -143,6 +131,54 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const selectedCatalogItem = selectedCatalogItemId
     ? (catalogItems.find((item) => item.id === selectedCatalogItemId) ?? null)
     : null;
+  const {
+    documentImportPath,
+    documentImportScope,
+    importDocumentFromPath,
+    isImportingDocument,
+    setDocumentImportScope,
+    updateDocumentImportPath,
+  } = useSkillLibraryDocumentImport({
+    isDocumentDirty,
+    loadDocuments,
+    onCreateKnowledgeDocument,
+    onReadKnowledgeDocumentImportFile,
+    setDocumentError,
+    setDocumentMessage,
+    setSelectedDocumentDraft,
+  });
+  const {
+    acceptDraftItem,
+    clearDraftReviewPayload,
+    draftPayload,
+    draftReviewDecisions,
+    draftReviewPack,
+    isAcceptingDraftItem,
+    loadDraftReviewPayload,
+    rejectDraftItem,
+    updateDraftPayload,
+  } = useSkillLibraryDraftReview({
+    loadDocuments,
+    onCreateKnowledgeDocument,
+    onCreateSkill,
+    setDocumentError,
+    setDocumentMessage,
+    setSelectedDocumentDraft,
+  });
+  const {
+    attachSelectedDocumentToQueueTask,
+    attachSelectedSkillToCoordinator,
+    attachSelectedSkillToQueueTask,
+    attachmentStateByCatalogItemId,
+  } = useSkillLibraryCatalogAttachments({
+    isDocumentDirty,
+    onAttachContextToCoordinator,
+    onAttachKnowledgeContextToQueueTask,
+    selectedDocument,
+    selectedSkill,
+    setDocumentError,
+    setDocumentMessage,
+  });
   const selectedAttachmentState = selectedCatalogItemId
     ? attachmentStateByCatalogItemId[selectedCatalogItemId]
     : undefined;
@@ -529,170 +565,6 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     }
   }
 
-  async function importDocumentFromPath() {
-    if (
-      !onReadKnowledgeDocumentImportFile ||
-      !onCreateKnowledgeDocument ||
-      isImportingDocument
-    ) {
-      return;
-    }
-
-    if (isDocumentDirty) {
-      setDocumentMessage(
-        "Save or discard the current document before importing another.",
-      );
-      return;
-    }
-
-    const path = documentImportPath.trim();
-    if (!path) {
-      setDocumentMessage("Path is required before importing.");
-      return;
-    }
-
-    setIsImportingDocument(true);
-    setDocumentMessage(null);
-    setDocumentError(null);
-
-    try {
-      const importedFile = await onReadKnowledgeDocumentImportFile({ path });
-      const importedDocument = await onCreateKnowledgeDocument({
-        title: importedFile.title,
-        scope: documentImportScope,
-        catalogItemType: "documentation_knowledge",
-        quickSummary: "",
-        lifecycleStatus: "active",
-        sourceLabel: importedFile.fileName,
-        sourceKind: "file_import",
-        sourceRef: path,
-        content: importedFile.content,
-        tags: "",
-        enabled: true,
-      });
-
-      setSelectedDocumentDraft(importedDocument);
-      await loadDocuments(importedDocument.knowledgeDocumentId);
-      setDocumentImportPath("");
-      setDocumentImportScope("workspace");
-      setDocumentMessage("Imported document");
-    } catch (importError) {
-      setDocumentError(
-        errorToMessage(importError, "Unable to import document."),
-      );
-    } finally {
-      setIsImportingDocument(false);
-    }
-  }
-
-  function loadDraftReviewPayload() {
-    const parsedPack = parseKnowledgeDraftPackFromText(draftPayload);
-
-    if (!parsedPack) {
-      setDocumentMessage(null);
-      setDocumentError(
-        "No draft Knowledge pack was found in the imported payload.",
-      );
-      return;
-    }
-
-    setDraftReviewPack(parsedPack);
-    setDraftReviewDecisions(
-      Object.fromEntries(
-        parsedPack.proposedItems.map((item) => [item.draftItemId, "pending"]),
-      ),
-    );
-    setDocumentMessage(
-      `Loaded ${parsedPack.proposedItems.length.toString()} draft item${
-        parsedPack.proposedItems.length === 1 ? "" : "s"
-      } for review.`,
-    );
-    setDocumentError(null);
-  }
-
-  function clearDraftReviewPayload() {
-    setDraftPayload("");
-    setDraftReviewPack(null);
-    setDraftReviewDecisions({});
-    setDocumentMessage(null);
-    setDocumentError(null);
-  }
-
-  function rejectDraftItem(item: KnowledgeDraftReviewItem) {
-    setDraftReviewDecisions((current) => ({
-      ...current,
-      [item.draftItemId]: "rejected",
-    }));
-    setDocumentMessage("Draft item rejected and archived for this review.");
-    setDocumentError(null);
-  }
-
-  async function acceptDraftItem(item: KnowledgeDraftReviewItem) {
-    if (!draftReviewPack || isAcceptingDraftItem) {
-      return;
-    }
-
-    if (item.targetKind === "skill" && !onCreateSkill) {
-      setDocumentError("Skill API is not available for accepting this draft.");
-      return;
-    }
-
-    if (item.targetKind === "document" && !onCreateKnowledgeDocument) {
-      setDocumentError(
-        "Knowledge Document API is not available for accepting this draft.",
-      );
-      return;
-    }
-
-    setIsAcceptingDraftItem(true);
-    setDocumentMessage(null);
-    setDocumentError(null);
-
-    try {
-      if (item.targetKind === "skill" && onCreateSkill) {
-        await onCreateSkill({
-          title: item.title,
-          whenToUse: item.quickSummary,
-          prerequisites: sourceNotesForDraft(draftReviewPack, item),
-          steps: item.fullContent,
-          validation: "",
-          risks: draftRiskNotes(item),
-          tags: item.suggestedTags,
-          reviewStatus: "reviewed",
-        });
-        await loadDocuments(null);
-      } else if (onCreateKnowledgeDocument) {
-        const acceptedDocument = await onCreateKnowledgeDocument({
-          scope: item.suggestedScope,
-          catalogItemType: item.suggestedType,
-          quickSummary: item.quickSummary,
-          lifecycleStatus: "active",
-          title: item.title,
-          sourceLabel: knowledgeDraftAcceptedSourceLabel(draftReviewPack, item),
-          sourceKind: "queue_draft",
-          sourceRef: knowledgeDraftAcceptedSourceRef(draftReviewPack, item),
-          content: item.fullContent,
-          tags: item.suggestedTags,
-          enabled: true,
-        });
-        setSelectedDocumentDraft(acceptedDocument);
-        await loadDocuments(acceptedDocument.knowledgeDocumentId);
-      }
-
-      setDraftReviewDecisions((current) => ({
-        ...current,
-        [item.draftItemId]: "accepted",
-      }));
-      setDocumentMessage("Draft item accepted into Knowledge / Skills.");
-    } catch (acceptError) {
-      setDocumentError(
-        errorToMessage(acceptError, "Unable to accept draft item."),
-      );
-    } finally {
-      setIsAcceptingDraftItem(false);
-    }
-  }
-
   function discardDocumentDraft() {
     if (selectedDocument) {
       setSelectedDocumentDraft(selectedDocument);
@@ -724,283 +596,38 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setDocumentError(null);
   }
 
-  function attachSelectedSkillToCoordinator() {
-    if (!selectedSkill || !onAttachContextToCoordinator) {
-      return;
-    }
-
-    onAttachContextToCoordinator({
-      contextText: skillCoordinatorContextText(selectedSkill),
-      sourceLabel: "Skill Library / Skill",
-    });
-    rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
-      workspaceAgentContextAttached: true,
-    });
-    setDocumentMessage("Skill attached to Workspace Agent as visible context.");
-    setDocumentError(null);
-  }
-
-  function attachSelectedSkillToQueueTask() {
-    if (!selectedSkill || !onAttachKnowledgeContextToQueueTask) {
-      return;
-    }
-
-    const result = onAttachKnowledgeContextToQueueTask({
-      kind: "skill",
-      skill: selectedSkill,
-    });
-    if (result.status === "attached") {
-      rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
-        queueTaskTitle: result.taskTitle ?? "Selected Queue task",
-      });
-    }
-    setDocumentMessage(result.message);
-    setDocumentError(result.status === "blocked" ? result.message : null);
-  }
-
-  function attachSelectedDocumentToQueueTask() {
-    if (
-      !selectedDocument ||
-      isDocumentDirty ||
-      !onAttachKnowledgeContextToQueueTask
-    ) {
-      return;
-    }
-
-    if (selectedDocument.lifecycleStatus === "stale") {
-      const confirmed = window.confirm(
-        `Attach stale Knowledge Document "${selectedDocument.title.trim() || DEFAULT_DOCUMENT_TITLE}" to the selected Queue task? The task will keep a visible stale-context warning.`,
-      );
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    const result = onAttachKnowledgeContextToQueueTask({
-      document: selectedDocument,
-      kind: "knowledge_document",
-    });
-    if (result.status === "attached") {
-      rememberCatalogAttachment(
-        `document:${selectedDocument.knowledgeDocumentId}`,
-        {
-          queueTaskTitle: result.taskTitle ?? "Selected Queue task",
-        },
-      );
-    }
-    setDocumentMessage(
-      result.status === "attached" && selectedDocument.lifecycleStatus === "stale"
-        ? `${result.message} Stale context warning will be shown on the Queue task.`
-        : result.message,
-    );
-    setDocumentError(result.status === "blocked" ? result.message : null);
-  }
-
-  function rememberCatalogAttachment(
-    catalogItemId: string,
-    state: KnowledgeCatalogAttachmentState,
-  ) {
-    setAttachmentStateByCatalogItemId((currentState) => ({
-      ...currentState,
-      [catalogItemId]: {
-        ...currentState[catalogItemId],
-        ...state,
-      },
-    }));
-  }
-
   return (
     <div className="skill-library-tab-panel" hidden={!isActive} role="tabpanel">
-      <div className="skill-library-summary skill-library-summary-secondary">
-        <span>Catalog views combine scoped documents and saved skills.</span>
-        <span>
-          Only enabled active documents are searched for Workspace Agent Codex
-          runs.
-        </span>
-      </div>
-      <div className="skill-scope-filter" aria-label="Knowledge catalog views">
-        {KNOWLEDGE_CATALOG_VIEW_OPTIONS.map((filter) => (
-          <button
-            aria-pressed={catalogView === filter.value}
-            className={[
-              "skill-scope-filter-button",
-              catalogView === filter.value
-                ? "skill-scope-filter-button-active"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            key={filter.value}
-            onClick={() => setCatalogView(filter.value)}
-            type="button"
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-      <div className="skill-document-import">
-        <label className="skill-field skill-document-import-path">
-          <span>Import path</span>
-          <input
-            className="input"
-            onChange={(event) => {
-              setDocumentImportPath(event.currentTarget.value);
-              setDocumentMessage(null);
-              setDocumentError(null);
-            }}
-            placeholder="Path to .txt, .md, or .markdown file"
-            value={documentImportPath}
-          />
-        </label>
-        <label className="skill-field skill-document-import-scope">
-          <span>Import as</span>
-          <select
-            className="input"
-            onChange={(event) =>
-              setDocumentImportScope(
-                event.currentTarget.value === "global" ? "global" : "workspace",
-              )
-            }
-            value={documentImportScope}
-          >
-            <option value="workspace">Workspace document</option>
-            <option value="global">Global document</option>
-          </select>
-        </label>
-        <Button
-          disabled={
-            !documentApiAvailable ||
-            !onReadKnowledgeDocumentImportFile ||
-            isImportingDocument ||
-            isSavingDocument ||
-            isDeletingDocument
-          }
-          onClick={() => void importDocumentFromPath()}
-          title={
-            onReadKnowledgeDocumentImportFile
-              ? "Imports one explicit .txt, .md, or .markdown file into this workspace."
-              : "Import from path is only available in the Tauri desktop shell."
-          }
-          variant="secondary"
-        >
-          {isImportingDocument ? "Importing" : "Import .txt/.md"}
-        </Button>
-      </div>
-      <section
-        className="skill-draft-review"
-        aria-label="Draft Knowledge review"
-      >
-        <div className="skill-draft-review-header">
-          <div>
-            <p className="skill-list-meta">Draft review</p>
-            <h3>Queue Knowledge drafts</h3>
-          </div>
-          {draftReviewPack ? (
-            <span className="skill-scope-badge">
-              {draftReviewPack.proposedItems.length.toString()} item
-              {draftReviewPack.proposedItems.length === 1 ? "" : "s"}
-            </span>
-          ) : null}
-        </div>
-        <label className="skill-field skill-field-wide">
-          <span>Draft payload</span>
-          <textarea
-            className="input skill-draft-payload-textarea"
-            onChange={(event) => {
-              setDraftPayload(event.currentTarget.value);
-              setDocumentMessage(null);
-              setDocumentError(null);
-            }}
-            placeholder="Paste a Queue result, worker report, or draft pack JSON."
-            value={draftPayload}
-          />
-        </label>
-        <div className="skill-editor-actions">
-          <Button
-            disabled={!documentApiAvailable && !skillCreateAvailable}
-            onClick={loadDraftReviewPayload}
-            variant="secondary"
-          >
-            Load drafts
-          </Button>
-          <Button
-            disabled={!draftReviewPack}
-            onClick={clearDraftReviewPayload}
-            variant="ghost"
-          >
-            Clear drafts
-          </Button>
-        </div>
-        {draftReviewPack ? (
-          <div className="skill-draft-review-list">
-            <p className="skill-draft-review-pack-title">
-              {draftReviewPack.packTitle}
-              {draftReviewPack.queueItemId
-                ? ` - Queue task ${draftReviewPack.queueItemId}`
-                : ""}
-            </p>
-            {draftReviewPack.proposedItems.map((item) => {
-              const decision =
-                draftReviewDecisions[item.draftItemId] ?? "pending";
-              const isActionDisabled =
-                decision !== "pending" || isAcceptingDraftItem;
-
-              return (
-                <article
-                  className="skill-draft-review-item"
-                  key={item.draftItemId}
-                >
-                  <div className="skill-draft-review-item-header">
-                    <div>
-                      <h4>{item.title}</h4>
-                      <p>{item.quickSummary || item.fullContent}</p>
-                    </div>
-                    <span className="skill-scope-badge">
-                      {draftDecisionLabel(decision)}
-                    </span>
-                  </div>
-                  <dl className="skill-draft-review-facts">
-                    <div>
-                      <dt>Target</dt>
-                      <dd>
-                        {item.targetKind === "skill" ? "Skill" : "Document"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Type</dt>
-                      <dd>{item.suggestedType}</dd>
-                    </div>
-                    <div>
-                      <dt>Scope</dt>
-                      <dd>{item.suggestedScope}</dd>
-                    </div>
-                    <div>
-                      <dt>Source</dt>
-                      <dd>{knowledgeDraftAcceptedSourceRef(draftReviewPack, item)}</dd>
-                    </div>
-                  </dl>
-                  <div className="skill-editor-actions">
-                    <Button
-                      disabled={isActionDisabled}
-                      onClick={() => void acceptDraftItem(item)}
-                      variant="primary"
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      disabled={isActionDisabled}
-                      onClick={() => rejectDraftItem(item)}
-                      variant="secondary"
-                    >
-                      Reject / archive
-                    </Button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
-      </section>
+      <SkillLibraryCatalogSummary />
+      <SkillLibraryCatalogViewControls
+        catalogView={catalogView}
+        onCatalogViewChange={setCatalogView}
+      />
+      <SkillLibraryDocumentImportControls
+        documentApiAvailable={documentApiAvailable}
+        documentImportPath={documentImportPath}
+        documentImportScope={documentImportScope}
+        hasImportFileApi={Boolean(onReadKnowledgeDocumentImportFile)}
+        isDeletingDocument={isDeletingDocument}
+        isImportingDocument={isImportingDocument}
+        isSavingDocument={isSavingDocument}
+        onDocumentImportPathChange={updateDocumentImportPath}
+        onDocumentImportScopeChange={setDocumentImportScope}
+        onImportDocument={() => void importDocumentFromPath()}
+      />
+      <SkillLibraryDraftReviewPanel
+        documentApiAvailable={documentApiAvailable}
+        draftPayload={draftPayload}
+        draftReviewDecisions={draftReviewDecisions}
+        draftReviewPack={draftReviewPack}
+        isAcceptingDraftItem={isAcceptingDraftItem}
+        onAcceptDraftItem={(item) => void acceptDraftItem(item)}
+        onClearDraftReviewPayload={clearDraftReviewPayload}
+        onDraftPayloadChange={updateDraftPayload}
+        onLoadDraftReviewPayload={loadDraftReviewPayload}
+        onRejectDraftItem={rejectDraftItem}
+        skillCreateAvailable={skillCreateAvailable}
+      />
       {isLoadingDocuments ? (
         <EmptyState
           text="Knowledge catalog items are loading from workspace APIs."
@@ -1010,260 +637,52 @@ export const SkillLibraryDocumentsPanel = forwardRef<
         <EmptyState text={documentError} title="Catalog unavailable." />
       ) : (
         <div className="skill-catalog-layout">
-          <section className="skill-list-pane" aria-label="Catalog items">
-            {visibleCatalogItems.length === 0 ? (
-              <EmptyState
-                text={emptyCatalogText(catalogView)}
-                title="No catalog items yet."
-              />
-            ) : (
-              <div className="skill-list">
-                {visibleCatalogItems.map((item) => (
-                  <button
-                    className={[
-                      "skill-list-row",
-                      selectedCatalogItemId === item.id
-                        ? "skill-list-row-selected"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    disabled={isSelectingDocument}
-                    key={item.id}
-                    onClick={() => void selectCatalogItem(item)}
-                    type="button"
-                  >
-                    <span className="skill-list-title-row">
-                      <span className="skill-list-title">{item.title}</span>
-                      <span className="skill-scope-badge">
-                        {item.scopeLabel}
-                      </span>
-                    </span>
-                    <span className="skill-catalog-card-summary">
-                      {item.quickSummary}
-                    </span>
-                    <span className="skill-list-meta">
-                      {item.typeLabel} - {item.statusLabel}
-                      {item.tags ? ` - ${item.tags}` : ""}
-                    </span>
-                    <span className="skill-list-meta">
-                      Updated {formatKnowledgeCatalogDate(item.updatedAt)}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          <SkillLibraryCatalogListView
+            catalogView={catalogView}
+            isSelectingDocument={isSelectingDocument}
+            onSelectCatalogItem={(item) => void selectCatalogItem(item)}
+            selectedCatalogItemId={selectedCatalogItemId}
+            visibleCatalogItems={visibleCatalogItems}
+          />
+          <SkillLibraryCatalogDetailPane
+            attachmentState={selectedAttachmentState}
+            canAttachContextToCoordinator={Boolean(onAttachContextToCoordinator)}
+            canAttachKnowledgeContextToQueueTask={Boolean(
+              onAttachKnowledgeContextToQueueTask,
             )}
-          </section>
-
-          <section
-            className="skill-editor-pane"
-            aria-label="Selected catalog item"
-          >
-            {selectedSkill ? (
-              <CatalogSkillPreview
-                attachmentState={selectedAttachmentState}
-                canAttachToWorkspaceAgent={Boolean(
-                  onAttachContextToCoordinator,
-                )}
-                canAttachToQueueTask={Boolean(
-                  selectedSkill && onAttachKnowledgeContextToQueueTask,
-                )}
-                documents={documents}
-                error={documentError}
-                item={selectedCatalogItem}
-                message={documentMessage}
-                onAttachToQueueTask={attachSelectedSkillToQueueTask}
-                onAttachToWorkspaceAgent={attachSelectedSkillToCoordinator}
-                onShowSkills={onShowSkills}
-                skill={selectedSkill}
-                skills={skills}
-              />
-            ) : (
-              <CatalogDocumentEditor
-                attachmentState={selectedAttachmentState}
-                canAttachToQueueTask={Boolean(
-                  selectedDocument &&
-                    !isDocumentDirty &&
-                    onAttachKnowledgeContextToQueueTask,
-                )}
-                canCreateRefreshTask={Boolean(
-                  selectedDocument &&
-                    !isDocumentDirty &&
-                    onCreateAgentQueueTask &&
-                    isSourceBackedDocument(selectedDocument),
-                )}
-                documentApiAvailable={documentApiAvailable}
-                documents={documents}
-                draft={documentDraft}
-                error={documentError}
-                isCreatingRefreshTask={isCreatingRefreshTask}
-                isDeletingDocument={isDeletingDocument}
-                isDirty={isDocumentDirty}
-                isSavingDocument={isSavingDocument}
-                item={selectedCatalogItem}
-                message={documentMessage}
-                onAttachToQueueTask={attachSelectedDocumentToQueueTask}
-                onArchiveDocument={() =>
-                  void updateSelectedDocumentLifecycle("archived")
-                }
-                onCreateRefreshTask={() => void createRefreshQueueTask()}
-                onDeleteDocument={() => void deleteSelectedDocument()}
-                onDiscardDraft={discardDocumentDraft}
-                onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
-                onRestoreDocument={() =>
-                  void updateSelectedDocumentLifecycle("active")
-                }
-                onSaveDocument={() => void saveDocument()}
-                onSetDraftField={setDocumentDraftField}
-                skills={skills}
-              />
-            )}
-          </section>
+            canCreateAgentQueueTask={Boolean(onCreateAgentQueueTask)}
+            documentApiAvailable={documentApiAvailable}
+            documentDraft={documentDraft}
+            documents={documents}
+            error={documentError}
+            isCreatingRefreshTask={isCreatingRefreshTask}
+            isDeletingDocument={isDeletingDocument}
+            isDocumentDirty={isDocumentDirty}
+            isSavingDocument={isSavingDocument}
+            item={selectedCatalogItem}
+            message={documentMessage}
+            onArchiveDocument={() =>
+              void updateSelectedDocumentLifecycle("archived")
+            }
+            onAttachDocumentToQueueTask={attachSelectedDocumentToQueueTask}
+            onAttachSkillToQueueTask={attachSelectedSkillToQueueTask}
+            onAttachSkillToWorkspaceAgent={attachSelectedSkillToCoordinator}
+            onCreateRefreshTask={() => void createRefreshQueueTask()}
+            onDeleteDocument={() => void deleteSelectedDocument()}
+            onDiscardDraft={discardDocumentDraft}
+            onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
+            onRestoreDocument={() =>
+              void updateSelectedDocumentLifecycle("active")
+            }
+            onSaveDocument={() => void saveDocument()}
+            onSetDocumentDraftField={setDocumentDraftField}
+            onShowSkills={onShowSkills}
+            selectedDocument={selectedDocument}
+            selectedSkill={selectedSkill}
+            skills={skills}
+          />
         </div>
       )}
     </div>
   );
 });
-
-function errorToMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
-function emptyCatalogText(view: KnowledgeCatalogView) {
-  if (view === "active") {
-    return "No active catalog items match this view.";
-  }
-
-  if (view === "global") {
-    return "Add the first local-global catalog item for this desktop database.";
-  }
-
-  if (view === "workspace") {
-    return "Add the first workspace-local catalog item for this workspace.";
-  }
-
-  if (view === "skills") {
-    return "Create the first saved Skill from the Skills tab.";
-  }
-
-  if (view === "drafts") {
-    return "No draft catalog items need review.";
-  }
-
-  if (view === "stale") {
-    return "No stale catalog items need refresh.";
-  }
-
-  if (view === "archived") {
-    return "No archived catalog items are retained for review.";
-  }
-
-  return "Add the first workspace-local or local-global catalog item.";
-}
-
-function documentLifecycleUpdateMessage(
-  lifecycleStatus: KnowledgeDocument["lifecycleStatus"],
-) {
-  switch (lifecycleStatus) {
-    case "active":
-      return "Document restored to active.";
-    case "stale":
-      return "Document marked stale.";
-    case "archived":
-      return "Document archived.";
-    case "draft":
-      return "Document marked draft.";
-    case "rejected":
-      return "Document rejected.";
-    default:
-      return "Document status updated.";
-  }
-}
-
-function draftDecisionLabel(decision: "accepted" | "pending" | "rejected") {
-  switch (decision) {
-    case "accepted":
-      return "Accepted";
-    case "rejected":
-      return "Archived";
-    case "pending":
-    default:
-      return "Pending";
-  }
-}
-
-function sourceNotesForDraft(
-  pack: KnowledgeDraftReviewPack,
-  item: KnowledgeDraftReviewItem,
-) {
-  return [
-    knowledgeDraftAcceptedSourceLabel(pack, item),
-    knowledgeDraftAcceptedSourceRef(pack, item)
-      ? `Source ref: ${knowledgeDraftAcceptedSourceRef(pack, item)}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function draftRiskNotes(item: KnowledgeDraftReviewItem) {
-  return [
-    item.blockers ? `Blockers: ${item.blockers}` : "",
-    item.reviewNotes ? `Review notes: ${item.reviewNotes}` : "",
-    item.confidence ? `Confidence: ${item.confidence}` : "",
-    item.activationRecommendation
-      ? `Activation recommendation: ${item.activationRecommendation}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function isSourceBackedDocument(document: KnowledgeDocument) {
-  return Boolean(document.sourceRef.trim());
-}
-
-function refreshQueueTaskRequestFromDocument(document: KnowledgeDocument) {
-  const sourceLabel = document.sourceLabel.trim() || "Knowledge source";
-  const sourceRef = document.sourceRef.trim();
-  const title = `Refresh Knowledge: ${document.title.trim() || DEFAULT_DOCUMENT_TITLE}`;
-
-  return {
-    title,
-    description: [
-      "Refresh an existing source-backed Knowledge item and return a draft update for operator review.",
-      `Knowledge document id: ${document.knowledgeDocumentId}`,
-      `Current status: ${document.lifecycleStatus}`,
-      `Scope: ${document.scope}`,
-      `Type: ${document.catalogItemType}`,
-      `Source label: ${sourceLabel}`,
-      `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
-      `Source ref: ${sourceRef}`,
-      "The current item must remain unchanged until the operator manually accepts an update.",
-    ].join("\n"),
-    executionPolicy: "manual" as const,
-    priority: 2,
-    prompt: [
-      "Create a draft Knowledge update for the existing Knowledge item below.",
-      "",
-      "Use only the explicitly listed source ref. Do not scan folders, use hidden workspace context, mutate files, mutate Git, create Knowledge, enable Knowledge, or run background refresh.",
-      "",
-      `Knowledge document id: ${document.knowledgeDocumentId}`,
-      `Title: ${document.title}`,
-      `Current quick summary: ${document.quickSummary || "(empty)"}`,
-      `Current tags: ${document.tags || "(empty)"}`,
-      `Current scope: ${document.scope}`,
-      `Current type: ${document.catalogItemType}`,
-      `Source label: ${sourceLabel}`,
-      `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
-      `Source ref: ${sourceRef}`,
-      "",
-      "Return a bounded draft Knowledge pack for review. The draft should propose updated title, quickSummary, fullContent, tags, type, scope, confidence, blockers, and source refs. Do not activate the update.",
-    ].join("\n"),
-    status: "queued" as const,
-  };
-}
