@@ -267,6 +267,13 @@ unless the task explicitly requests it.
   and `crates/hobit-app/src/context_packs/` partly as type scaffolding. They do
   not add an evidence store, Context Pack store, hidden ingestion, team/server
   knowledge, server runtime, or RBAC.
+- `docs/KNOWLEDGE_CATALOG_CONTRACT.md` - read for future Knowledge Catalog
+  product-model or type-design work. It defines explicit global and
+  workspace-local project memory, item types, required fields, scopes,
+  lifecycle, operations, visible Agent/Queue context rules, and no hidden AI
+  memory. It is docs/type-design only and does not add storage, schema,
+  frontend UI, backend/Tauri commands, provider behavior, Queue behavior,
+  Workspace Agent behavior, automatic ingestion, or runtime execution.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
