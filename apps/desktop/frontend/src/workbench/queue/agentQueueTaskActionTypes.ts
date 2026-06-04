@@ -25,6 +25,7 @@ export type AgentQueueLocalTaskFields = Pick<
   | "queueTagName"
   | "validationStatus"
   | "executionPlanPreview"
+  | "context"
   | "workerExecutionReports"
   | "workspaceChatReportCardId"
   | "workspaceChatReportCardStatus"

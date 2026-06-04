@@ -110,6 +110,7 @@ export function createAgentQueueSelectionModel({
         task.coordinatorStatus ??
         "not_reported",
       closureState: localFields?.closureState ?? task.closureState,
+      context: localFields?.context ?? task.context,
       dependsOn: normalizeTaskDependencies(
         localFields?.dependsOn ?? task.dependsOn,
       ),

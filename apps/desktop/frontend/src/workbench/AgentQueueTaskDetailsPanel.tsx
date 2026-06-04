@@ -10,6 +10,7 @@ import { AgentQueueFlowSelectionSummary } from "./queue/details/AgentQueueFlowSe
 import { AgentQueueTaskActivityTimelineSection } from "./queue/details/AgentQueueTaskActivityTimelineSection";
 import { AgentQueueTaskActionSurface } from "./queue/details/AgentQueueTaskActionSurface";
 import { AgentQueueTaskCoordinatorDecisionSection } from "./queue/details/AgentQueueTaskCoordinatorDecisionSection";
+import { AgentQueueTaskContextSection } from "./queue/details/AgentQueueTaskContextSection";
 import {
   AgentQueueTaskDeveloperDetailsSection,
   SubmittedMetadata,
@@ -133,6 +134,8 @@ export function AgentQueueTaskDetailsPanel({
       ) : selectedTask ? (
         <div className="agent-queue-task-editor">
           <AgentQueueTaskOverviewSection queue={queue} selectedTask={selectedTask} />
+
+          <AgentQueueTaskContextSection selectedTask={selectedTask} />
 
           <AgentQueueTaskPromptSection prompt={selectedTask.prompt} />
 

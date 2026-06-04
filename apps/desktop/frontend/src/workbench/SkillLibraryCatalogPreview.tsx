@@ -11,8 +11,10 @@ import {
 
 type CatalogSkillPreviewProps = {
   canAttachToWorkspaceAgent: boolean;
+  canAttachToQueueTask: boolean;
   error: string | null;
   item: KnowledgeCatalogListItem | null;
+  onAttachToQueueTask: () => void;
   message: string | null;
   onAttachToWorkspaceAgent: () => void;
   onShowSkills: () => void;
@@ -23,12 +25,14 @@ type CatalogDocumentEditorProps = {
   documentApiAvailable: boolean;
   draft: KnowledgeDocumentDraft;
   error: string | null;
+  canAttachToQueueTask: boolean;
   isDeletingDocument: boolean;
   isDirty: boolean;
   isSavingDocument: boolean;
   item: KnowledgeCatalogListItem | null;
   message: string | null;
   onDeleteDocument: () => void;
+  onAttachToQueueTask: () => void;
   onDiscardDraft: () => void;
   onSaveDocument: () => void;
   onSetDraftField: <Key extends keyof KnowledgeDocumentDraft>(
@@ -39,9 +43,11 @@ type CatalogDocumentEditorProps = {
 
 export function CatalogSkillPreview({
   canAttachToWorkspaceAgent,
+  canAttachToQueueTask,
   error,
   item,
   message,
+  onAttachToQueueTask,
   onAttachToWorkspaceAgent,
   onShowSkills,
   skill,
@@ -69,13 +75,21 @@ export function CatalogSkillPreview({
             Attach to Workspace Agent
           </Button>
         ) : null}
+        <Button
+          disabled={!canAttachToQueueTask}
+          onClick={onAttachToQueueTask}
+          title="Attaches this saved Skill to the selected Queue task as a safe ref and summary. Does not run automatically."
+          variant="secondary"
+        >
+          Attach to Queue task
+        </Button>
         <Button onClick={onShowSkills} variant="secondary">
           Open Skills tab
         </Button>
       </div>
       <p className="skill-attach-note">
         Skills are shown in the catalog for discovery. Edit and delete them from
-        the Skills tab.
+        the Skills tab. Queue attachments store refs and summaries only.
       </p>
       <CatalogMessages error={error} message={message} />
     </div>
@@ -86,11 +100,13 @@ export function CatalogDocumentEditor({
   documentApiAvailable,
   draft,
   error,
+  canAttachToQueueTask,
   isDeletingDocument,
   isDirty,
   isSavingDocument,
   item,
   message,
+  onAttachToQueueTask,
   onDeleteDocument,
   onDiscardDraft,
   onSaveDocument,
@@ -245,6 +261,18 @@ export function CatalogDocumentEditor({
 
       <div className="skill-editor-actions">
         <Button
+          disabled={!canAttachToQueueTask || isSavingDocument || isDeletingDocument}
+          onClick={onAttachToQueueTask}
+          title={
+            isDirty
+              ? "Save this Knowledge Document before attaching it to a Queue task."
+              : "Attaches this saved Knowledge Document to the selected Queue task as a safe ref and summary. Does not run automatically."
+          }
+          variant="secondary"
+        >
+          Attach to Queue task
+        </Button>
+        <Button
           disabled={
             !documentApiAvailable ||
             !isDirty ||
@@ -275,7 +303,8 @@ export function CatalogDocumentEditor({
       </div>
       <p className="skill-attach-note">
         Enabled saved workspace and global documents may be searched before Run
-        with Codex. Disabled documents are ignored.
+        with Codex. Disabled documents are ignored. Queue attachments store safe
+        refs and summaries only.
       </p>
       <CatalogMessages error={error} message={message} />
     </div>

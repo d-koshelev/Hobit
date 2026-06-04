@@ -348,6 +348,38 @@ export type AgentQueueTaskRunStatus =
 
 export type AgentQueueTaskRunReviewStatus = "review_needed" | "unknown";
 
+export type AgentQueueTaskContextRefKind = "knowledge_document" | "skill";
+
+export type AgentQueueTaskContextWarningSeverity = "info" | "warning" | "blocked";
+
+export type AgentQueueTaskContextWarning = {
+  id: string;
+  sourceRefId: string;
+  severity: AgentQueueTaskContextWarningSeverity;
+  code: string;
+  message: string;
+  createdAt: string;
+};
+
+export type AgentQueueTaskContextRef = {
+  attachedAt: string;
+  id: string;
+  kind: AgentQueueTaskContextRefKind;
+  quickSummary: string;
+  scope: string;
+  source: string;
+  status: string;
+  title: string;
+  version: string;
+};
+
+export type AgentQueueTaskContext = {
+  attachedKnowledgeRefs: AgentQueueTaskContextRef[];
+  attachedSkillRefs: AgentQueueTaskContextRef[];
+  contextWarnings: AgentQueueTaskContextWarning[];
+  materializedAt: string | null;
+};
+
 export type GetAgentQueueTaskLatestRunLinkRequest = GetAgentQueueTaskRequest;
 
 export type ListAgentQueueTaskRunLinksRequest = GetAgentQueueTaskRequest;
@@ -475,6 +507,7 @@ export type AgentQueueTask = {
   workspaceChatReportCardStatus?: "not_shown" | "shown";
   coordinatorStatus?: AgentQueueCoordinatorStatus;
   closureState?: AgentQueueClosureState;
+  context?: AgentQueueTaskContext;
   assignedExecutorWidgetId: string | null;
   createdAt: string;
   updatedAt: string;

@@ -46,6 +46,7 @@ export type SkillLibraryDocumentsToolbarState = {
 type SkillLibraryDocumentsPanelProps = {
   isActive: boolean;
   onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
+  onAttachKnowledgeContextToQueueTask: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onDeleteKnowledgeDocument: WidgetRenderProps["onDeleteKnowledgeDocument"];
@@ -66,6 +67,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   {
     isActive,
     onAttachContextToCoordinator,
+    onAttachKnowledgeContextToQueueTask,
     onCreateKnowledgeDocument,
     onCreateSkill,
     onDeleteKnowledgeDocument,
@@ -623,6 +625,36 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setDocumentError(null);
   }
 
+  function attachSelectedSkillToQueueTask() {
+    if (!selectedSkill || !onAttachKnowledgeContextToQueueTask) {
+      return;
+    }
+
+    const result = onAttachKnowledgeContextToQueueTask({
+      kind: "skill",
+      skill: selectedSkill,
+    });
+    setDocumentMessage(result.message);
+    setDocumentError(result.status === "blocked" ? result.message : null);
+  }
+
+  function attachSelectedDocumentToQueueTask() {
+    if (
+      !selectedDocument ||
+      isDocumentDirty ||
+      !onAttachKnowledgeContextToQueueTask
+    ) {
+      return;
+    }
+
+    const result = onAttachKnowledgeContextToQueueTask({
+      document: selectedDocument,
+      kind: "knowledge_document",
+    });
+    setDocumentMessage(result.message);
+    setDocumentError(result.status === "blocked" ? result.message : null);
+  }
+
   return (
     <div className="skill-library-tab-panel" hidden={!isActive} role="tabpanel">
       <div className="skill-library-summary skill-library-summary-secondary">
@@ -878,15 +910,24 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 canAttachToWorkspaceAgent={Boolean(
                   onAttachContextToCoordinator,
                 )}
+                canAttachToQueueTask={Boolean(
+                  selectedSkill && onAttachKnowledgeContextToQueueTask,
+                )}
                 error={documentError}
                 item={selectedCatalogItem}
                 message={documentMessage}
+                onAttachToQueueTask={attachSelectedSkillToQueueTask}
                 onAttachToWorkspaceAgent={attachSelectedSkillToCoordinator}
                 onShowSkills={onShowSkills}
                 skill={selectedSkill}
               />
             ) : (
               <CatalogDocumentEditor
+                canAttachToQueueTask={Boolean(
+                  selectedDocument &&
+                    !isDocumentDirty &&
+                    onAttachKnowledgeContextToQueueTask,
+                )}
                 documentApiAvailable={documentApiAvailable}
                 draft={documentDraft}
                 error={documentError}
@@ -895,6 +936,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                 isSavingDocument={isSavingDocument}
                 item={selectedCatalogItem}
                 message={documentMessage}
+                onAttachToQueueTask={attachSelectedDocumentToQueueTask}
                 onDeleteDocument={() => void deleteSelectedDocument()}
                 onDiscardDraft={discardDocumentDraft}
                 onSaveDocument={() => void saveDocument()}

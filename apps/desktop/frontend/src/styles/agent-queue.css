@@ -2002,6 +2002,109 @@
   padding-top: var(--space-xs);
 }
 
+.agent-queue-context-section,
+.agent-queue-context-group,
+.agent-queue-context-ref,
+.agent-queue-context-warnings {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.agent-queue-context-section {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.agent-queue-context-count {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--line-tight);
+  min-width: 28px;
+  padding: 2px 6px;
+  text-align: center;
+}
+
+.agent-queue-context-label,
+.agent-queue-context-ref p,
+.agent-queue-context-warning {
+  margin: 0;
+}
+
+.agent-queue-context-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.agent-queue-context-ref {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(
+    in srgb,
+    var(--color-nested-surface) 62%,
+    transparent
+  );
+  padding: var(--space-xs);
+}
+
+.agent-queue-context-ref-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.agent-queue-context-ref-header strong,
+.agent-queue-context-ref-header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-queue-context-ref-header strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+}
+
+.agent-queue-context-ref-header span,
+.agent-queue-context-ref p,
+.agent-queue-context-ref dl,
+.agent-queue-context-warning {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.agent-queue-context-ref dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.agent-queue-context-ref dt,
+.agent-queue-context-ref dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-queue-context-ref dt {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.agent-queue-context-warning {
+  border-left: 2px solid var(--color-warning);
+  padding-left: var(--space-xs);
+}
+
+.agent-queue-context-warning-blocked {
+  border-left-color: var(--color-error);
+}
+
 .agent-queue-actions-settings,
 .agent-queue-human-log-report,
 .agent-queue-overview {

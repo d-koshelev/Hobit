@@ -39,6 +39,12 @@ import { useAgentQueueRunMetadata } from "./useAgentQueueRunMetadata";
 import { useAgentQueueRunSettings } from "./useAgentQueueRunSettings";
 import { useAgentQueueWorkerState } from "./useAgentQueueWorkerState";
 import { useAgentQueueReportActionCards } from "./useAgentQueueReportActionCards";
+import {
+  attachContextToQueueTask,
+  buildQueueContextAttachment,
+  type AgentQueueKnowledgeContextAttachInput,
+  type AgentQueueKnowledgeContextAttachResult,
+} from "../agentQueueKnowledgeContext";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -874,6 +880,62 @@ export function useAgentQueueController({
     );
   }
 
+  function attachKnowledgeContextToSelectedTask(
+    input: AgentQueueKnowledgeContextAttachInput,
+  ): AgentQueueKnowledgeContextAttachResult {
+    if (!selectedTask) {
+      return {
+        message: "Select a Queue task before attaching Knowledge / Skills context.",
+        status: "unavailable",
+      };
+    }
+
+    if (hasOpenTaskEdit) {
+      return {
+        message: "Save or cancel the selected Queue task edits before attaching context.",
+        status: "unavailable",
+        taskTitle: selectedTask.title,
+      };
+    }
+
+    const attachment = buildQueueContextAttachment(input);
+    const blockedWarnings = attachment.warnings.filter(
+      (warning) => warning.severity === "blocked",
+    );
+
+    if (blockedWarnings.length > 0) {
+      return {
+        message: blockedWarnings[0]?.message ?? "This context is blocked.",
+        status: "blocked",
+        taskTitle: selectedTask.title,
+      };
+    }
+
+    const updatedTask = attachContextToQueueTask(selectedTask, input);
+    const taskFoundation: Partial<AgentQueueTask> = {
+      context: updatedTask.context,
+    };
+    const nextLocalTaskFields = new Map(localTaskFieldsRef.current).set(
+      updatedTask.queueItemId,
+      {
+        ...(localTaskFieldsRef.current.get(updatedTask.queueItemId) ?? {}),
+        ...taskFoundation,
+      },
+    );
+    localTaskFieldsRef.current = nextLocalTaskFields;
+    setLocalTaskFields(nextLocalTaskFields);
+    applyUpdatedTask(updatedTask, { select: true });
+    setValidationMessage(
+      "Context attached to the selected Queue task as safe refs and summaries. No prompt was materialized and no work was started.",
+    );
+
+    return {
+      message: `${attachment.ref.title} attached to ${selectedTask.title}.`,
+      status: "attached",
+      taskTitle: selectedTask.title,
+    };
+  }
+
   return buildAgentQueueControllerViewModel({
     agentExecutorSlots,
     apiAvailable,
@@ -926,6 +988,9 @@ export function useAgentQueueController({
     loadError,
     markReportActionCardShown,
     maxExecutorMessage,
+    knowledgeContext: {
+      onAttachSelected: attachKnowledgeContextToSelectedTask,
+    },
     onGetAgentExecutorRunDetail,
     onGetAgentQueueTaskLatestRunLink,
     onListAgentQueueTaskRunLinks,

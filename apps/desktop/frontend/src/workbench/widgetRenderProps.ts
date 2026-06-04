@@ -364,6 +364,7 @@ export type WidgetRenderProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onAttachKnowledgeContextToQueueTask?: AgentQueueController["knowledgeContext"]["onAttachSelected"];
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;

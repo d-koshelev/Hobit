@@ -11,6 +11,10 @@ import type {
   DirectWorkSandbox,
 } from "../../workspace/types";
 import type {
+  AgentQueueKnowledgeContextAttachInput,
+  AgentQueueKnowledgeContextAttachResult,
+} from "../agentQueueKnowledgeContext";
+import type {
   AgentWorkerSummary,
   QueueGlobalStatus,
   QueueTagSummary,
@@ -250,6 +254,12 @@ export type AgentQueueEditController = {
   isEditing: boolean;
   onCancel: () => void;
   onStart: () => void;
+};
+
+export type AgentQueueKnowledgeContextController = {
+  onAttachSelected: (
+    input: AgentQueueKnowledgeContextAttachInput,
+  ) => AgentQueueKnowledgeContextAttachResult;
 };
 
 export type AgentQueueFoundationController = {

@@ -178,6 +178,8 @@ export function widgetHostRenderProps({
       ...knowledgeSkillsWidgetProps({
         actions: widgetActions,
         onAttachContextToCoordinator,
+        onAttachKnowledgeContextToQueueTask:
+          workspaceQueueApi.controller.knowledgeContext?.onAttachSelected,
       }),
     };
   }

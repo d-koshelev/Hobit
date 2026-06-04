@@ -32,6 +32,7 @@ export type SkillLibrarySkillsToolbarState = {
 type SkillLibrarySkillsPanelProps = {
   isActive: boolean;
   onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
+  onAttachKnowledgeContextToQueueTask: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onDeleteSkill: WidgetRenderProps["onDeleteSkill"];
   onGetSkill: WidgetRenderProps["onGetSkill"];
@@ -47,6 +48,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
   {
     isActive,
     onAttachContextToCoordinator,
+    onAttachKnowledgeContextToQueueTask,
     onCreateSkill,
     onDeleteSkill,
     onGetSkill,
@@ -74,6 +76,9 @@ export const SkillLibrarySkillsPanel = forwardRef<
   );
   const canAttachToCoordinator = Boolean(
     selectedSkill && !isDirty && onAttachContextToCoordinator,
+  );
+  const canAttachToQueueTask = Boolean(
+    selectedSkill && !isDirty && onAttachKnowledgeContextToQueueTask,
   );
 
   useEffect(() => {
@@ -282,6 +287,19 @@ export const SkillLibrarySkillsPanel = forwardRef<
     setError(null);
   }
 
+  function attachSelectedSkillToQueueTask() {
+    if (!selectedSkill || isDirty || !onAttachKnowledgeContextToQueueTask) {
+      return;
+    }
+
+    const result = onAttachKnowledgeContextToQueueTask({
+      kind: "skill",
+      skill: selectedSkill,
+    });
+    setMessage(result.message);
+    setError(result.status === "blocked" ? result.message : null);
+  }
+
   function setSelectedDraft(skill: Skill) {
     setSelectedSkill(skill);
     setDraft(skillDraftFromSkill(skill));
@@ -440,6 +458,20 @@ export const SkillLibrarySkillsPanel = forwardRef<
                     Attach to Workspace Agent
                   </Button>
                 ) : null}
+                {onAttachKnowledgeContextToQueueTask ? (
+                  <Button
+                    disabled={!canAttachToQueueTask || isSaving || isDeleting}
+                    onClick={attachSelectedSkillToQueueTask}
+                    title={
+                      isDirty
+                        ? "Save this Skill before attaching it to a Queue task."
+                        : "Attaches this saved Skill to the selected Queue task as a safe ref and summary. Does not run automatically."
+                    }
+                    variant="secondary"
+                  >
+                    Attach to Queue task
+                  </Button>
+                ) : null}
                 <Button
                   disabled={!apiAvailable || !isDirty || isSaving || isDeleting}
                   onClick={() => void saveSkill()}
@@ -463,9 +495,11 @@ export const SkillLibrarySkillsPanel = forwardRef<
                 </Button>
               </div>
               <p className="skill-attach-note">
-                {onAttachContextToCoordinator
-                  ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
-                  : "Add Workspace Agent to attach saved Skills as visible context."}
+                {onAttachKnowledgeContextToQueueTask
+                  ? "Attach uses the last saved Skill. Save edits before attaching. Queue attachment stores refs and summaries only; no work starts automatically."
+                  : onAttachContextToCoordinator
+                    ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
+                    : "Add Workspace Agent to attach saved Skills as visible context."}
               </p>
 
               {message ? <p className="skill-message">{message}</p> : null}

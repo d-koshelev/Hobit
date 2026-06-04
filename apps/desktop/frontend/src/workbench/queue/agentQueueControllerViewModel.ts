@@ -31,6 +31,7 @@ import type {
   AgentQueueEditController,
   AgentQueueExecutionPlanController,
   AgentQueueFoundationController,
+  AgentQueueKnowledgeContextController,
   AgentQueueLatestRunLinkController,
   AgentQueueOrderingController,
   AgentQueueReportActionCardController,
@@ -108,6 +109,7 @@ type AgentQueueControllerViewModelInput = Pick<
   loadError: string | null;
   markReportActionCardShown: (cardId: string) => void;
   maxExecutorMessage: string | null;
+  knowledgeContext: AgentQueueKnowledgeContextController;
   coordinatorFinalizationMessage: string | null;
   orderingMessage: string | null;
   pausedQueueTagIds: ReadonlySet<string>;
@@ -213,6 +215,7 @@ export function buildAgentQueueControllerViewModel({
   loadError,
   markReportActionCardShown,
   maxExecutorMessage,
+  knowledgeContext,
   coordinatorFinalizationMessage,
   onGetAgentExecutorRunDetail,
   onGetAgentQueueTaskLatestRunLink,
@@ -329,6 +332,7 @@ export function buildAgentQueueControllerViewModel({
     isDirty,
     isEditing,
     isLoading,
+    knowledgeContext,
     isSaving,
     isSelecting,
     loadError,

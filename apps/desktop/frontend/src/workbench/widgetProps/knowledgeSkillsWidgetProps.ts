@@ -24,14 +24,17 @@ type KnowledgeSkillsWidgetPropsOptions = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
 };
 
 export function knowledgeSkillsWidgetProps({
   actions,
   onAttachContextToCoordinator,
+  onAttachKnowledgeContextToQueueTask,
 }: KnowledgeSkillsWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
     onAttachContextToCoordinator,
+    onAttachKnowledgeContextToQueueTask,
     onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateSkill: actions.createSkill,
     onDeleteKnowledgeDocument: actions.deleteKnowledgeDocument,

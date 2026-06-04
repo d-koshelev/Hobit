@@ -35,6 +35,7 @@ export function SkillLibraryWidget({
   onListKnowledgeDocuments,
   onListSkills,
   onLoadLogs,
+  onAttachKnowledgeContextToQueueTask,
   onReadKnowledgeDocumentImportFile,
   onAttachContextToCoordinator,
   onStartFrameMove,
@@ -155,6 +156,7 @@ export function SkillLibraryWidget({
         <SkillLibrarySkillsPanel
           isActive={activeTab === "skills"}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
+          onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
           onCreateSkill={onCreateSkill}
           onDeleteSkill={onDeleteSkill}
           onGetSkill={onGetSkill}
@@ -166,6 +168,7 @@ export function SkillLibraryWidget({
         <SkillLibraryDocumentsPanel
           isActive={activeTab === "catalog"}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
+          onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
           onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
