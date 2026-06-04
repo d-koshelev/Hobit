@@ -1,200 +1,264 @@
 # Stable v0.1 File-Size Gate Audit
 
+Date: 2026-06-04
+
+Block: STABLE-FILESIZE-AUDIT-01
+
+Mode: docs-producing inspect-only audit
+
 ## Status
 
-Audit block: `STABLE-FILESIZE-AUDIT-01`
+The current whole-repository file-size gate is failing after the Stable /
+Knowledge implementation pass.
 
-Mode: docs-producing inspect-only audit.
+The changed-only gate is clean for this audit block because no changed source
+files were present when the check ran.
 
-No code, backend, frontend, test, validation script, schema, runtime, Git
-mutation, or commit work was performed.
+No frontend, backend, test, validation-script, or contract-index changes were
+made.
 
 ## Commands Run
 
-- `python scripts/hobit/check-file-sizes.py`
-  - Result: failed.
-  - Scanned 756 source files.
-  - Reported 31 unchanged/improved legacy oversized files, 6 ratchet
-    violations, and 2 new oversized files.
-- `python scripts/hobit/check-file-sizes.py --changed-only`
-  - Result: passed.
-  - Scanned 0 source files.
-  - Reported no warnings or errors.
+```text
+python scripts/hobit/check-file-sizes.py
+```
+
+Result: failed.
+
+- Scanned: 756 source files.
+- Legacy file-size debt: 31 unchanged/improved oversized files.
+- File-size ratchet violations: 6 worsened baseline files.
+- New oversized files: 2 files.
+
+```text
+python scripts/hobit/check-file-sizes.py --changed-only
+```
+
+Result: passed.
+
+- Scanned: 0 source files.
+- No file-size warnings or errors.
 
 ## Current File-Size Gate Verdict
 
-The repo-wide Stable v0.1 file-size gate is not clean.
+Stable v0.1 is blocked by the full file-size gate until the 6 ratchet
+violations are brought back to baseline or below.
 
-The current hard failure is caused by six ratchet violations. The two
-Knowledge / Skills files are new oversized warning files under the current
-default script behavior, but they did not cause the full command's failing
-exit by themselves because they are warnings, not active errors.
+The 2 new Knowledge / Skills oversized warning files should also be remediated
+before Stable v0.1 acceptance so the release does not introduce new file-size
+debt, even though the current full-check script treats warning-level active
+files as advisory unless `--fail-on-warning` or `--changed-only` applies.
 
-## Hard Blockers
+## Finding Classification
 
-These findings currently block a clean Stable v0.1 file-size gate because they
-are ratchet violations against the existing baseline:
+### Hard Blockers
 
-| File | Current | Baseline | Threshold | Classification |
+The hard gate failure is the 6 ratchet violations. These are non-legacy files
+whose current line counts worsened against the stored baseline.
+
+### Ratchet Violations
+
+| File | Current | Baseline | Threshold | Kind |
 | --- | ---: | ---: | ---: | --- |
-| `apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx` | 830 | 809 | 700 | hard blocker / ratchet |
-| `apps/desktop/frontend/src/workbench/queue/useAgentQueueAutonomousRunner.ts` | 797 | 790 | 700 | hard blocker / ratchet |
-| `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts` | 1065 | 981 | 1000 | hard blocker / ratchet |
-| `apps/desktop/frontend/src/workbench/workspaceAgentQueueCommandHandler.test.ts` | 1381 | 1216 | 1200 | hard blocker / ratchet |
-| `apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts` | 704 | 703 | 700 | hard blocker / ratchet |
-| `apps/desktop/src-tauri/src/agent_queue_runner_commands.rs` | 794 | 791 | 700 | hard blocker / ratchet |
+| `apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx` | 830 | 809 | 700 | source file |
+| `apps/desktop/frontend/src/workbench/queue/useAgentQueueAutonomousRunner.ts` | 797 | 790 | 700 | source file |
+| `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts` | 1065 | 981 | 1000 | source file |
+| `apps/desktop/frontend/src/workbench/workspaceAgentQueueCommandHandler.test.ts` | 1381 | 1216 | 1200 | test file |
+| `apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts` | 704 | 703 | 700 | source file |
+| `apps/desktop/src-tauri/src/agent_queue_runner_commands.rs` | 794 | 791 | 700 | source file |
 
-## New Oversized Files
+### New Oversized Files
 
-These are active oversized warnings not present in the baseline. They should
-not be folded into the baseline during Stable v0.1 cleanup.
+| File | Current | Threshold | Kind | Stable disposition |
+| --- | ---: | ---: | --- | --- |
+| `apps/desktop/frontend/src/workbench/SkillLibraryWidget.test.tsx` | 1314 | 1200 | test file | Remediate before Stable v0.1 acceptance. |
+| `apps/desktop/frontend/src/workbench/skillLibraryModel.ts` | 855 | 700 | source file | Remediate before Stable v0.1 acceptance. |
 
-| File | Current | Threshold | Classification |
-| --- | ---: | ---: | --- |
-| `apps/desktop/frontend/src/workbench/SkillLibraryWidget.test.tsx` | 1314 | 1200 | new oversized warning |
-| `apps/desktop/frontend/src/workbench/skillLibraryModel.ts` | 855 | 700 | new oversized warning |
+### Unchanged Legacy Debt
 
-Stable v0.1 decision: these are not the immediate failing exit condition for
-the default full command, but they are release-quality cleanup for Knowledge /
-Skills. Treat them as the next advisory cleanup after the six ratchets unless
-the Stable v0.1 gate is tightened to require zero warnings.
+These files are oversized but unchanged or improved against baseline. They do
+not block this Stable v0.1 gate unless touched by a future block.
 
-## Unchanged Legacy Debt
+- `apps/desktop/frontend/src/smoke/queueExecutorMockSmokeApp.tsx`
+- `apps/desktop/frontend/src/workbench/AgentQueueFlowMap.tsx`
+- `apps/desktop/frontend/src/workbench/AgentQueueSidebar.tsx`
+- `apps/desktop/frontend/src/workbench/AgentQueueTaskRunPanel.tsx`
+- `apps/desktop/frontend/src/workbench/FinderWidget.tsx`
+- `apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.tsx`
+- `apps/desktop/frontend/src/workbench/InteractiveAgentQueueActions.test.tsx`
+- `apps/desktop/frontend/src/workbench/JdbcConnectorWidget.test.tsx`
+- `apps/desktop/frontend/src/workbench/JdbcReadOnlyQueryPanel.tsx`
+- `apps/desktop/frontend/src/workbench/coordinatorLocalProposalGeneration.ts`
+- `apps/desktop/frontend/src/workbench/jdbcConnectorWidgetModel.ts`
+- `apps/desktop/frontend/src/workbench/queue/agentQueueFlowMapModel.ts`
+- `apps/desktop/frontend/src/workbench/queue/agentQueueWidgetSnapshotModel.ts`
+- `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.executionState.test.tsx`
+- `apps/desktop/frontend/src/workbench/queue/useAgentQueueTaskActions.ts`
+- `apps/desktop/frontend/src/workspace/memoryWorkspaceApi.ts`
+- `apps/desktop/src-tauri/src/agent_queue_runner_commands/tests.rs`
+- `apps/desktop/src-tauri/src/terminal_pty.rs`
+- `apps/desktop/src-tauri/src/workspace_commands.rs`
+- `apps/desktop/src-tauri/src/workspace_dto.rs`
+- `crates/hobit-app/src/capabilities/mod.rs`
+- `crates/hobit-app/src/context_packs/mod.rs`
+- `crates/hobit-app/src/workspace_service/agent_executor_history_tests.rs`
+- `crates/hobit-app/src/workspace_service/agent_queue_tasks_tests.rs`
+- `crates/hobit-app/src/workspace_service/direct_work_stream_tests.rs`
+- `crates/hobit-app/src/workspace_service/direct_work_tests.rs`
+- `crates/hobit-app/src/workspace_service/jdbc_sidecar_protocol.rs`
+- `crates/hobit-app/src/workspace_service/types.rs`
+- `crates/hobit-storage-sqlite/src/store.rs`
+- `crates/hobit-storage-sqlite/src/store/tests.rs`
+- `crates/hobit-tools/src/git_diff.rs`
 
-The full check reports 31 unchanged or improved oversized files as legacy debt.
-They do not fail the current gate because they are at or below their recorded
-baseline.
+### Advisory Warnings
 
-Legacy debt should remain post-v0.1 cleanup unless a focused block touches one
-of those files. If touched, the changed-only gate can make the oversized file a
-local blocker.
+The advisory warnings are the 2 new Knowledge / Skills oversized files listed
+above. They are warning-level, not error-level, but they are new debt and
+should be treated as Stable v0.1 cleanup before acceptance.
 
-## Advisory Warnings
+## Stable v0.1 Blockers
 
-Current advisory warnings are the two Knowledge / Skills new oversized files.
-They are important because Knowledge / Skills just moved to Stable v0.1 ready
-for MVP scope, but they are smaller and less urgent than the Queue and
-Terminal ratchets that fail the gate today.
+Must fix before Stable v0.1 file-size acceptance:
 
-## Stable v0.1 Blocking Scope
+1. Reduce all 6 ratchet files to no more than their baselines.
+2. Prefer reducing those files under their warning thresholds where feasible,
+   especially files that are only slightly above 700 lines.
+3. Split the 2 new Knowledge / Skills oversized warning files so Stable v0.1
+   does not ship with new file-size debt.
 
-Stable v0.1 blockers:
+Post-v0.1 cleanup:
 
-- The six ratchet violations listed under Hard Blockers.
+- The 31 unchanged/improved legacy debt files can remain as tracked debt for
+  Stable v0.1 if they are not touched by the acceptance block.
+- Large legacy surfaces such as Finder, JDBC, Terminal, Queue panels, and Rust
+  workspace-service tests should be split in later focused cleanup blocks.
 
-Post-v0.1 cleanup unless touched or explicitly promoted:
+## Recommended Next Refactor Blocks
 
-- The 31 unchanged legacy-debt files.
-- The two Knowledge / Skills advisory warnings, if Stable v0.1 acceptance keeps
-  the current default script behavior and does not require zero warnings.
+### STABLE-FILESIZE-QUEUE-CONTROLLER-01
 
-## Recommended Refactor Blocks
-
-### Block 1: Terminal PTY Panel Split
-
-- Target file: `apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx`
-- Objective: bring the Terminal PTY panel back under the ratchet baseline and
-  ideally under the 700-line source warning threshold.
-- Expected extraction/split: move PTY settings form helpers, session-status
-  rendering, and xterm lifecycle/polling helpers into focused sibling modules
-  without adding Terminal behavior.
+- Target files: `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts`
+- Objective: remove the controller ratchet and bring the hook below its stored
+  baseline, preferably below 700 lines.
+- Expected split/extraction: move command-handler wiring, runner state
+  derivation, worker/task action composition, or selection/update helper groups
+  into narrowly named queue controller helper modules while keeping the public
+  `useAgentQueueController` API stable.
 - Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  plus the narrow frontend typecheck if implementation changes require it.
-- Acceptance criteria: the file is below its 809-line baseline, no new
-  oversized files are introduced, and Terminal behavior remains unchanged.
+  plus the smallest targeted Queue controller tests available.
+- Acceptance criteria: file is at or below 981 lines, no new oversized helper
+  files are created, and Queue controller behavior is unchanged.
 
-### Block 2: Queue Autorun Hook Split
-
-- Target file:
-  `apps/desktop/frontend/src/workbench/queue/useAgentQueueAutonomousRunner.ts`
-- Objective: remove autorun ratchet growth while preserving the
-  operator-armed, current-session-only Queue Autorun boundary.
-- Expected extraction/split: extract eligibility selection, reconciliation
-  state transitions, and run-result normalization into pure helper modules.
-- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  and the narrow Queue autorun/controller tests if available.
-- Acceptance criteria: the hook is below its 790-line baseline, no hidden
-  scheduler or durable runner behavior is added, and changed-only file-size
-  validation passes.
-
-### Block 3: Queue Controller Split
-
-- Target file:
-  `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts`
-- Objective: reduce the central Queue controller below the 1000-line source
-  error threshold and below its 981-line baseline.
-- Expected extraction/split: separate task CRUD/selection, assignment/run
-  actions, context attachment, and view-state derivation into controller
-  sub-hooks or pure model helpers.
-- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  and focused Queue controller tests.
-- Acceptance criteria: the controller is below 981 lines, no Queue API or
-  runtime behavior changes are introduced, and no replacement helper exceeds
-  thresholds.
-
-### Block 4: Queue API Bridge Split
-
-- Target file: `apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts`
-- Objective: remove the one-line API bridge ratchet and create room for future
-  typed API maintenance.
-- Expected extraction/split: move DTO normalization or command-specific
-  wrappers into a small adjacent Queue API helper module.
-- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  and focused API typecheck.
-- Acceptance criteria: the bridge is below its 703-line baseline and no Tauri
-  command names, DTO shapes, or persistence behavior changes.
-
-### Block 5: Rust Queue Runner Commands Split
-
-- Target file: `apps/desktop/src-tauri/src/agent_queue_runner_commands.rs`
-- Objective: remove the backend Queue runner command ratchet while preserving
-  the current explicit assigned-task/Autorun command boundary.
-- Expected extraction/split: move request validation, command DTO conversion,
-  or runner-state helpers into sibling Rust modules under the same Tauri
-  command ownership.
-- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  plus `cargo fmt --all` and focused Rust checks for the touched module.
-- Acceptance criteria: the command file is below its 791-line baseline, public
-  command surface stays unchanged, and no Queue scheduler/runtime capability is
-  added.
-
-### Block 6: Queue Command Handler Test Split
-
-- Target file:
-  `apps/desktop/frontend/src/workbench/workspaceAgentQueueCommandHandler.test.ts`
-- Objective: remove test-file ratchet growth without weakening behavior
-  coverage.
-- Expected extraction/split: split tests by command class, such as create task,
-  update task, attach/materialize context, and error handling; move shared
-  setup into a small test fixture helper.
-- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  and the split test files.
-- Acceptance criteria: the original test file is below its 1216-line baseline,
-  no split test exceeds the 1200-line warning threshold, and coverage intent is
-  preserved.
-
-### Block 7: Knowledge Advisory Cleanup
+### STABLE-FILESIZE-QUEUE-AUTORUN-01
 
 - Target files:
-  - `apps/desktop/frontend/src/workbench/skillLibraryModel.ts`
-  - `apps/desktop/frontend/src/workbench/SkillLibraryWidget.test.tsx`
-- Objective: remove the new Knowledge / Skills oversized warnings after the
-  current hard blockers are cleared.
-- Expected extraction/split: extract Knowledge document helpers, draft-review
-  helpers, queue-context/materialization helpers, and test fixtures into
-  focused modules.
+  `apps/desktop/frontend/src/workbench/queue/useAgentQueueAutonomousRunner.ts`,
+  `apps/desktop/src-tauri/src/agent_queue_runner_commands.rs`
+- Objective: remove frontend and desktop Queue Autorun ratchets without
+  changing current-session-only, operator-armed Autorun behavior.
+- Expected split/extraction: extract pure readiness/signature helpers from the
+  frontend hook; extract Rust request/runtime-config conversion, continuation
+  selection, and tick/reconcile helpers into sibling modules where appropriate.
 - Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
-  and focused Knowledge / Skills tests.
-- Acceptance criteria: both files are below their warning thresholds, no new
-  oversized helper files are created, and the Knowledge / Skills Stable v0.1
-  MVP scope remains behaviorally unchanged.
+  plus targeted Queue Autorun frontend/Rust tests.
+- Acceptance criteria: frontend file is at or below 790 lines, Rust command
+  file is at or below 791 lines, no backend scheduler or durable runner
+  behavior is added.
 
-## Do Not Do In These Blocks
+### STABLE-FILESIZE-QUEUE-BRIDGE-01
 
-- Do not update `scripts/hobit/file-size-baseline.json` to absorb ratchets or
-  new warnings.
-- Do not introduce new dependencies.
-- Do not add Queue scheduler, hidden execution, Terminal behavior, Knowledge
-  hidden ingestion, or new widget behavior while splitting files.
-- Do not rename compatibility widget ids or Tauri command names.
+- Target files: `apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts`
+- Objective: remove the 1-line ratchet and prevent the Tauri Queue bridge from
+  becoming a mixed command/type/normalizer file.
+- Expected split/extraction: move Tauri DTO types and normalization helpers to
+  separate `tauriAgentQueueApiTypes` / `tauriAgentQueueApiNormalizers` style
+  modules, leaving command functions as the bridge facade.
+- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
+  plus targeted Queue API frontend tests/typecheck for touched files.
+- Acceptance criteria: bridge file is at or below 703 lines, exported API
+  behavior stays compatible, no new runtime bridge capability is added.
+
+### STABLE-FILESIZE-QUEUE-COMMAND-TESTS-01
+
+- Target files:
+  `apps/desktop/frontend/src/workbench/workspaceAgentQueueCommandHandler.test.ts`
+- Objective: remove the test ratchet while preserving command-handler coverage.
+- Expected split/extraction: split fixture builders/shared helpers into a test
+  helper module and separate Queue-only, multi-task, snapshot, and autonomous
+  runner scenarios into focused test files.
+- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
+  plus the split command-handler test files.
+- Acceptance criteria: original test file is at or below 1216 lines, each new
+  test/helper file stays under the applicable threshold, and coverage is not
+  weakened.
+
+### STABLE-FILESIZE-TERMINAL-PTY-PANEL-01
+
+- Target files: `apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx`
+- Objective: remove the Terminal PTY panel ratchet and reduce UI/lifecycle
+  concentration in the panel.
+- Expected split/extraction: extract lifecycle note rendering and stable
+  settings/input sections into small presentational modules or a PTY panel
+  model/helper module while preserving the current PTY-first UI and collapsed
+  legacy fallback boundary.
+- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
+  plus targeted Terminal PTY frontend tests if present.
+- Acceptance criteria: file is at or below 809 lines, preferably below 700, and
+  no new Terminal runtime behavior is added.
+
+### STABLE-FILESIZE-KNOWLEDGE-MODEL-01
+
+- Target files: `apps/desktop/frontend/src/workbench/skillLibraryModel.ts`
+- Objective: eliminate new Knowledge / Skills source-file debt from the Stable
+  pass.
+- Expected split/extraction: move catalog relation derivation
+  (`knowledgeDocumentRelations`, `skillRelations`, relation reason helpers) and
+  static option/label helpers into focused model modules, keeping existing
+  imports stable through a facade only if needed.
+- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
+  plus targeted Knowledge / Skills model tests if present.
+- Acceptance criteria: file is below 700 lines and no new helper file exceeds
+  its threshold.
+
+### STABLE-FILESIZE-KNOWLEDGE-WIDGET-TESTS-01
+
+- Target files: `apps/desktop/frontend/src/workbench/SkillLibraryWidget.test.tsx`
+- Objective: eliminate new Knowledge / Skills test-file debt without reducing
+  Stable v0.1 behavior coverage.
+- Expected split/extraction: move shared render/fixture helpers into a small
+  test helper and split tests by Skill CRUD/attach, Knowledge Document CRUD,
+  import/search/catalog metadata, and Queue/Finder/Workspace Agent interaction
+  scenarios.
+- Minimal validation: `python scripts/hobit/check-file-sizes.py --changed-only`
+  plus the split Knowledge / Skills widget tests.
+- Acceptance criteria: original file is below 1200 lines, new test/helper files
+  stay under thresholds, and existing assertions remain covered.
+
+## Post-v0.1 Cleanup Blocks
+
+### POST-V0_1-FILESIZE-FINDER-01
+
+- Target files: `apps/desktop/frontend/src/workbench/FinderWidget.tsx`
+- Objective: split the large Finder widget into column navigation, file
+  preview/edit, and Finder Git plugin modules.
+- Minimal validation: changed-only file-size check plus Finder-focused tests.
+- Acceptance criteria: Finder behavior remains within the current Stable v0.1
+  explicit-root, bounded-preview, explicit-save, and manual Git boundaries.
+
+### POST-V0_1-FILESIZE-LEGACY-WIDGETS-01
+
+- Target files: unchanged legacy oversized Queue, JDBC, Terminal, Git, and
+  workspace-service test files listed in this audit.
+- Objective: retire legacy file-size debt opportunistically when those surfaces
+  are next touched.
+- Minimal validation: changed-only file-size check plus targeted tests for each
+  touched surface.
+- Acceptance criteria: no touched file remains above its baseline, no unrelated
+  behavior changes are introduced, and no new oversized files are created.
+
+## Active Index
+
+No update to `docs/ACTIVE_CONTRACT_INDEX.md` is needed. This audit is a status
+document, not a new active product or implementation contract.
 
