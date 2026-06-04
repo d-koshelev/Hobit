@@ -113,6 +113,12 @@ of truth for their domains.
   Queue-based Knowledge generation drafts, draft review, Queue context attach,
   prompt materialization, and safety/non-goals. It does not add behavior or
   override current widget contracts.
+- `docs/KNOWLEDGE_POST_RUN_AUDIT.md` - inspect-only post-run audit for the
+  Knowledge Catalog implementation queue. It records implemented partial
+  Catalog fields, Queue-based generation task creation, draft review,
+  Queue-context attach/materialization, Finder/Notes integrations, safety
+  status, docs drift, and file-size blockers. It does not add behavior or
+  override current widget contracts.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
@@ -300,6 +306,10 @@ unless the task explicitly requests it.
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
   Skills scope, Queue context, or acceptance-hardening work.
+- `docs/KNOWLEDGE_POST_RUN_AUDIT.md` - inspect-only post-run audit after the
+  Knowledge Catalog prompt queue. Read before future Knowledge Catalog,
+  Queue-context durability, Finder/Notes Knowledge integration, or
+  Knowledge-related docs drift cleanup work.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
   what the recent foundation series completed, what remains type-only, and
