@@ -282,6 +282,13 @@ unless the task explicitly requests it.
   not add storage, schema, frontend UI, backend/Tauri commands, provider
   tools, Queue execution, background ingestion, hidden memory, vector search,
   folder watching, or automatic activation.
+- `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` - read for future Queue task
+  Knowledge / Skills attachment semantics. It defines Queue-owned attached
+  context refs, bounded materialized snapshots, warnings, token budget, right
+  rail visibility, and execution evidence requirements. It is docs/type-design
+  only and does not add storage, schema, frontend UI, backend/Tauri commands,
+  provider behavior, Queue execution, hidden memory, or automatic context
+  injection.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
@@ -547,6 +554,11 @@ These documents should not override the Workspace Agent model or
   `docs/KNOWLEDGE_CATALOG_CONTRACT.md`,
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`, and
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
+- Queue task Knowledge / Skills context attachment work: read
+  `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md`,
+  `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`,
+  `docs/KNOWLEDGE_CATALOG_CONTRACT.md`, and
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.
 - Workspace Agent/JDBC work: read
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`,
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
