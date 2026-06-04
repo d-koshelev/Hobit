@@ -221,6 +221,7 @@ export type AgentQueueCoordinatorFinalizationController = {
   canAct: boolean;
   message: string | null;
   onAcceptWithoutCommit: () => void;
+  onCommitResult: () => void;
   onCreateFollowUp: () => void;
   onFinalize: () => void;
   onMarkBlocked: () => void;

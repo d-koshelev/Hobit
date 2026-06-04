@@ -2,6 +2,7 @@ import type {
   AgentQueueReportActionType,
   AgentQueueTask,
 } from "../../workspace/types";
+import { createWorkspaceGitCommit } from "../../workspace/workspaceGitApi";
 import {
   clamp,
   DEFAULT_TASK_TITLE,
@@ -362,6 +363,142 @@ export function createAgentQueueTaskActions({
     } catch (error) {
       setCoordinatorFinalizationMessage(
         errorToMessage(error, "Unable to apply coordinator finalization action."),
+      );
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function commitSelectedResult() {
+    if (!selectedTask || isEditing || isSaving || isCreating) {
+      return false;
+    }
+
+    const repoRoot = selectedTask.executionWorkspace?.trim();
+    if (!repoRoot) {
+      setCoordinatorFinalizationMessage(
+        "Commit result requires an execution workspace / repository root. No commit was created and the Queue item was not finalized.",
+      );
+      return false;
+    }
+
+    const reports = selectedTask.workerExecutionReports ?? [];
+    const latestReport = reports[reports.length - 1] ?? null;
+    if (!latestReport) {
+      setCoordinatorFinalizationMessage(
+        "Commit result requires a worker report with changed files. No commit was created and the Queue item was not finalized.",
+      );
+      return false;
+    }
+
+    const includedFiles = Array.from(
+      new Set(
+        latestReport.changedFiles.map((file) => file.trim()).filter(Boolean),
+      ),
+    );
+    if (includedFiles.length === 0) {
+      setCoordinatorFinalizationMessage(
+        "Commit result requires at least one changed file from the latest report. No commit was created and the Queue item was not finalized.",
+      );
+      return false;
+    }
+
+    const commitMessage = `[QUEUE ${selectedTask.queueItemId}] ${
+      selectedTask.title.trim() || DEFAULT_TASK_TITLE
+    }`;
+
+    setIsSaving(true);
+    setEditorError(null);
+    setCoordinatorFinalizationMessage(null);
+    setValidationMessage(null);
+
+    try {
+      const commitResult = await createWorkspaceGitCommit({
+        commitMessage,
+        includedFiles,
+        repoRoot,
+      });
+
+      if (commitResult.status !== "committed" || !commitResult.commitHash) {
+        const commitError =
+          commitResult.errorMessage ?? commitResult.stderr.trim();
+        setCoordinatorFinalizationMessage(
+          `Commit result failed: ${
+            commitError || "Git did not return a committed result."
+          } The Queue item was not finalized.`,
+        );
+        return false;
+      }
+
+      const updatedReports = [
+        ...reports.slice(0, -1),
+        {
+          ...latestReport,
+          commitHash: commitResult.commitHash,
+          finalGitStatus: commitResult.status,
+        },
+      ];
+      const taskFoundation: Partial<AgentQueueTask> = {
+        closureState: "commit_created",
+        coordinatorStatus: "ready_for_finalization",
+        validationStatus: "needs_review",
+        workerExecutionReports: updatedReports,
+      };
+      const updatedTask = onUpdateAgentQueueTask
+        ? await onUpdateAgentQueueTask({
+            approvalPolicy: selectedTask.approvalPolicy ?? null,
+            codexExecutable: selectedTask.codexExecutable ?? null,
+            description: selectedTask.description,
+            executionPolicy: normalizeTaskExecutionPolicy(
+              selectedTask.executionPolicy,
+            ),
+            executionWorkspace: selectedTask.executionWorkspace ?? null,
+            itemType: normalizeItemType(selectedTask.itemType),
+            priority: selectedTask.priority,
+            prompt: selectedTask.prompt,
+            queueItemId: selectedTask.queueItemId,
+            queueTagId: normalizeQueueTag(selectedTask).queueTagId,
+            queueTagName: normalizeQueueTag(selectedTask).queueTagName,
+            sandbox: selectedTask.sandbox ?? null,
+            status: "review_needed",
+            title: selectedTask.title,
+            validationStatus: "needs_review",
+          })
+        : selectedTask;
+
+      if (!updatedTask) {
+        setCoordinatorFinalizationMessage(
+          `Commit created ${commitResult.commitHash}, but the source Queue item could not be found. Closure outcome was not saved.`,
+        );
+        return false;
+      }
+
+      const nextLocalTaskFields = new Map(localTaskFieldsRef.current).set(
+        updatedTask.queueItemId,
+        {
+          ...(localTaskFieldsRef.current.get(updatedTask.queueItemId) ?? {}),
+          ...taskFoundation,
+        },
+      );
+      localTaskFieldsRef.current = nextLocalTaskFields;
+      setLocalTaskFields(nextLocalTaskFields);
+      applyUpdatedTask(
+        {
+          ...updatedTask,
+          ...taskFoundation,
+          status: "review_needed",
+        },
+        { select: true },
+      );
+      setCoordinatorFinalizationMessage(
+        `Commit created ${commitResult.commitHash}. Closure outcome commit_created. Queue item remains ready for finalization; no push was performed.`,
+      );
+      setSaveStateText("Saved");
+      return true;
+    } catch (error) {
+      setCoordinatorFinalizationMessage(
+        `${errorToMessage(error, "Unable to create Queue result commit.")} The Queue item was not finalized.`,
       );
       return false;
     } finally {
@@ -828,6 +965,7 @@ export function createAgentQueueTaskActions({
     cancelDeleteSelectedTask,
     cancelSelectedTaskEdits,
     confirmDeleteSelectedTask,
+    commitSelectedResult,
     createTask,
     createDiffReviewTask,
     applyCoordinatorFinalization,

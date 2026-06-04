@@ -117,6 +117,15 @@ export function AgentQueueTaskCoordinatorDecisionSection({
         >
           Accept result
         </Button>
+        {closureState === "commit_required" ? (
+          <Button
+            disabled={!finalization.canAct}
+            onClick={() => finalization.onCommitResult()}
+            variant="primary"
+          >
+            Commit result
+          </Button>
+        ) : null}
         <Button
           disabled={!finalization.canAct}
           onClick={() => finalization.onAcceptWithoutCommit()}

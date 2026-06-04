@@ -132,6 +132,15 @@ function nextActionForSelectedTask(
       variant: "primary",
     });
 
+    if (closureState === "commit_required") {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Commit result",
+        onClick: () => queue.coordinatorFinalization.onCommitResult(),
+        variant: "primary",
+      });
+    }
+
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,
       label: "Mark ready for finalization",
@@ -269,6 +278,15 @@ function nextActionForSelectedTask(
       onClick: () => scrollToSelectedTaskReport(),
       variant: "primary",
     });
+
+    if (closureState === "commit_required") {
+      actions.push({
+        disabled: !queue.coordinatorFinalization.canAct,
+        label: "Commit result",
+        onClick: () => queue.coordinatorFinalization.onCommitResult(),
+        variant: "primary",
+      });
+    }
 
     actions.push({
       disabled: !queue.coordinatorFinalization.canAct,

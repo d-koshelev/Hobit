@@ -1,8 +1,11 @@
 import { act } from "react";
+import { vi } from "vitest";
+import { createWorkspaceGitCommit } from "../../workspace/workspaceGitApi";
 import type {
   AgentQueueCoordinatorStatus,
   AgentQueueTaskStatus,
   AgentQueueWorkerExecutionReport,
+  GitCommitResponse,
 } from "../../workspace/types";
 
 import {
@@ -13,7 +16,17 @@ import {
   renderQueueController,
 } from "./useAgentQueueControllerTestHelpers";
 
+vi.mock("../../workspace/workspaceGitApi", () => ({
+  createWorkspaceGitCommit: vi.fn(),
+}));
+
+const createWorkspaceGitCommitMock = vi.mocked(createWorkspaceGitCommit);
+
 describe("useAgentQueueController planning and reports", () => {
+  beforeEach(() => {
+    createWorkspaceGitCommitMock.mockReset();
+  });
+
   it("attaches a worker report as coordinator-review evidence without finalizing or starting work", async () => {
     const harness = createQueueHarness([
       queueTask({
@@ -284,6 +297,138 @@ describe("useAgentQueueController planning and reports", () => {
     hook.unmount();
   });
 
+  it("creates an explicit local commit for the selected report-ready Queue item", async () => {
+    const report: AgentQueueWorkerExecutionReport = {
+      changedFiles: ["src/queue.ts", "src/queue.test.ts"],
+      commandsRun: [],
+      createdAt: "2026-05-20T10:02:00.000Z",
+      errors: [],
+      itemId: "queue-1",
+      reportId: "report-1",
+      reportStatus: "completed",
+      summary: "Report-ready implementation with changed files.",
+      validationCommandsSuggested: [],
+      validationResult: "passed",
+      warnings: [],
+      workerId: "executor-1",
+    };
+    createWorkspaceGitCommitMock.mockResolvedValue(
+      gitCommitResponse({
+        commitHash: "abc1234",
+        commitMessage: "[QUEUE queue-1] Implement Queue commit",
+        includedFiles: ["src/queue.ts", "src/queue.test.ts"],
+        repoRoot: "C:/repo",
+      }),
+    );
+    const harness = createQueueHarness([
+      queueTask({
+        executionWorkspace: "C:/repo",
+        prompt: "Review changed-file report",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        title: "Implement Queue commit",
+        validationStatus: "needs_review",
+        workerExecutionReports: [report],
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onCommitResult();
+      await flushHookEffects();
+    });
+
+    expect(createWorkspaceGitCommitMock.mock.calls[0]?.[0]).toEqual({
+      commitMessage: "[QUEUE queue-1] Implement Queue commit",
+      includedFiles: ["src/queue.ts", "src/queue.test.ts"],
+      repoRoot: "C:/repo",
+    });
+    expect(hook.result.current.selectedTask?.closureState).toBe(
+      "commit_created",
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "ready_for_finalization",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("review_needed");
+    expect(
+      hook.result.current.selectedTask?.workerExecutionReports?.[0]?.commitHash,
+    ).toBe("abc1234");
+    expect(
+      hook.result.current.coordinatorFinalization.message?.includes(
+        "Commit created abc1234. Closure outcome commit_created.",
+      ),
+    ).toBe(true);
+    expect(harness.updateRequests[0]?.status).toBe("review_needed");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("keeps the selected Queue item unfinalized when result commit creation fails", async () => {
+    const report: AgentQueueWorkerExecutionReport = {
+      changedFiles: ["src/queue.ts"],
+      commandsRun: [],
+      createdAt: "2026-05-20T10:02:00.000Z",
+      errors: [],
+      itemId: "queue-1",
+      reportId: "report-1",
+      reportStatus: "completed",
+      summary: "Report-ready implementation with changed files.",
+      validationCommandsSuggested: [],
+      validationResult: "passed",
+      warnings: [],
+      workerId: "executor-1",
+    };
+    createWorkspaceGitCommitMock.mockResolvedValue(
+      gitCommitResponse({
+        commitHash: null,
+        errorMessage: "staged files outside selected set",
+        status: "failed",
+      }),
+    );
+    const harness = createQueueHarness([
+      queueTask({
+        closureState: "commit_required",
+        executionWorkspace: "C:/repo",
+        prompt: "Review changed-file report",
+        queueItemId: "queue-1",
+        status: "review_needed",
+        title: "Implement Queue commit",
+        validationStatus: "needs_review",
+        workerExecutionReports: [report],
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      hook.result.current.coordinatorFinalization.onCommitResult();
+      await flushHookEffects();
+    });
+
+    expect(hook.result.current.selectedTask?.closureState).toBe(
+      "commit_required",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("review_needed");
+    expect(
+      hook.result.current.selectedTask?.coordinatorStatus === "finalized",
+    ).toBe(false);
+    expect(
+      hook.result.current.coordinatorFinalization.message?.includes(
+        "The Queue item was not finalized.",
+      ),
+    ).toBe(true);
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("accepts a no-change report without creating a commit or starting runtime work", async () => {
     const noChangeReport: AgentQueueWorkerExecutionReport = {
       changedFiles: [],
@@ -541,4 +686,30 @@ async function expectCoordinatorDecision(
   expect(harness.autorunStartRequests).toHaveLength(0);
 
   hook.unmount();
+}
+
+function gitCommitResponse(
+  overrides: Partial<GitCommitResponse> = {},
+): GitCommitResponse {
+  return {
+    autoCommit: false,
+    branch: "main",
+    cleanPerformed: false,
+    commandSummary: [],
+    commitHash: "abc1234",
+    commitMessage: "[QUEUE queue-1] Implement Queue commit",
+    durationMs: 10,
+    errorMessage: null,
+    exitCode: 0,
+    forcePushPerformed: false,
+    includedFiles: ["src/queue.ts"],
+    operatorConfirmedRequired: true,
+    pushPerformed: false,
+    repoRoot: "C:/repo",
+    resetPerformed: false,
+    status: "committed",
+    stderr: "",
+    stdout: "",
+    ...overrides,
+  };
 }
