@@ -304,6 +304,11 @@ unless the task explicitly requests it.
   rail visibility, and execution evidence requirements. It does not add
   storage, schema, frontend UI, backend/Tauri commands, provider behavior,
   Queue execution, hidden memory, or automatic context injection.
+- `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md` - read with
+  `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` before proposing Queue Knowledge
+  context storage/API work. It decides that Stable v0.1 remains
+  frontend-local/current-session and defers durable Queue-owned context until a
+  focused future storage/API slice.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
@@ -575,6 +580,7 @@ These documents should not override the Workspace Agent model or
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
 - Queue task Knowledge / Skills context attachment work: read
   `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md`,
+  `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md`,
   `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`,
   `docs/KNOWLEDGE_CATALOG_CONTRACT.md`, and
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`.

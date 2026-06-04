@@ -11,6 +11,13 @@ commands, provider behavior, Queue execution, Workspace Agent behavior,
 Knowledge retrieval changes, Agent Executor prompt changes, audit emission, or
 automatic ingestion.
 
+Durability decision: `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md`
+keeps Stable v0.1 Queue Knowledge / Skills context frontend-local and
+current-session. Durable Queue-owned context storage/API state is deferred
+until a future focused storage/API slice implements the full task-owned context
+model, warnings, token budget, materialized snapshots, and execution evidence
+references.
+
 ## Status
 
 Partially implemented contract for Queue task context semantics.
@@ -25,11 +32,11 @@ bounded summaries/snapshots, warnings, token estimates, and visible
 materialized context prepended before explicit Queue execution prompts. Attach
 does not start work and does not create Queue tasks automatically.
 
-Current limitation: this context attachment/materialization is frontend-local
-and current-session unless already represented indirectly in an explicit
-materialized prompt/run handoff. It is not durable Queue-owned storage/API
-state, not a backend scheduler input, and not a Context Pack or Evidence
-store.
+Current limitation and Stable v0.1 decision: this context
+attachment/materialization is frontend-local and current-session unless
+already represented indirectly in an explicit materialized prompt/run handoff.
+It is not durable Queue-owned storage/API state, not a backend scheduler input,
+and not a Context Pack or Evidence store.
 
 ## Ownership Model
 
