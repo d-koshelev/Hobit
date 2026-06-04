@@ -296,6 +296,13 @@ describe("FinderWidget", () => {
     expect(request?.prompt).toContain("Queue knowledge generation task.");
     expect(request?.prompt).toContain("* Finder approved root: project");
     expect(request?.prompt).toContain("* codebase file: src/App.tsx");
+    expect(request?.prompt).toContain("Structured source refs:");
+    expect(request?.prompt).toContain("label: Finder approved root");
+    expect(request?.prompt).toContain("label: Finder selected file");
+    expect(request?.prompt).toContain("path: src/App.tsx");
+    expect(request?.prompt).toContain(
+      "Current Queue task API has no durable sourceRefs field",
+    );
     expect(request?.prompt).toContain("Return draft Knowledge only.");
     expect(request?.prompt).toContain(
       "Do not create, edit, enable, or activate Knowledge records.",
@@ -339,6 +346,10 @@ describe("FinderWidget", () => {
     expect(createQueueTask.mock.calls[0]?.[0].prompt).toContain(
       "* codebase folder: docs",
     );
+    expect(createQueueTask.mock.calls[0]?.[0].prompt).toContain(
+      "label: Finder selected folder",
+    );
+    expect(createQueueTask.mock.calls[0]?.[0].prompt).toContain("path: docs");
     expect(document.body.textContent).toContain(
       "Queue task Q-FOLDER created. It was not assigned or run.",
     );

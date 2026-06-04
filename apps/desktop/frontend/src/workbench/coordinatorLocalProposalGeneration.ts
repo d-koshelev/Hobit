@@ -6,7 +6,7 @@ import {
   type CoordinatorProposalTypeDefinition,
 } from "./coordinatorActionProposalRegistry";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
-import { historyKnowledgeGenerationQueueTaskPrompt } from "./workspaceAgentQueuePromptTemplates";
+import { localKnowledgeGenerationProposal } from "./coordinatorKnowledgeGenerationProposals";
 
 export type LocalProposalGenerationResult = {
   plan: CoordinatorPlanDraft | null;
@@ -34,65 +34,23 @@ export type CoordinatorOutcomeReviewDraft = {
   title: string;
 };
 
-const NO_PROPOSAL_RESPONSE =
-  "I can help plan work, draft Queue tasks, or review pasted results. This workspace does not have a live time tool connected.";
+const NO_PROPOSAL_RESPONSE = "I can help plan work, draft Queue tasks, or review pasted results. This workspace does not have a live time tool connected.";
 
-const GENERATED_PROPOSAL_RESPONSE =
-  "I drafted reviewable proposal cards from your message. Review or edit the visible inputs before approval; approval does not execute by itself.";
+const GENERATED_PROPOSAL_RESPONSE = "I drafted reviewable proposal cards from your message. Review or edit the visible inputs before approval; approval does not execute by itself.";
 
-const GENERATED_PLAN_RESPONSE =
-  "I drafted a plan from the visible chat. Review the steps and decide whether any work should become a Queue task.";
+const GENERATED_PLAN_RESPONSE = "I drafted a plan from the visible chat. Review the steps and decide whether any work should become a Queue task.";
 
-const GENERATED_PLAN_AND_PROPOSAL_RESPONSE =
-  "I drafted a plan and reviewable proposal cards from the visible chat. Review or edit visible fields before approval; approval does not execute by itself.";
+const GENERATED_PLAN_AND_PROPOSAL_RESPONSE = "I drafted a plan and reviewable proposal cards from the visible chat. Review or edit visible fields before approval; approval does not execute by itself.";
 
-const GENERATED_REVIEW_RESPONSE =
-  "I reviewed the pasted result text and summarized what it appears to show. No Queue, Executor, validation logs, files, artifacts, or hidden context were read.";
+const GENERATED_REVIEW_RESPONSE = "I reviewed the pasted result text and summarized what it appears to show. No Queue, Executor, validation logs, files, artifacts, or hidden context were read.";
 
-const GENERATED_REVIEW_AND_PROPOSAL_RESPONSE =
-  "I reviewed the pasted result text and drafted a follow-up Queue task card. Review or edit visible fields before approval; approval does not execute by itself.";
+const GENERATED_REVIEW_AND_PROPOSAL_RESPONSE = "I reviewed the pasted result text and drafted a follow-up Queue task card. Review or edit visible fields before approval; approval does not execute by itself.";
 
 const MAX_TITLE_LENGTH = 72;
 const MAX_LOCAL_QUEUE_DRAFTS = 4;
 const LABELED_VALUE_BOUNDARY = [
-  "title",
-  "task title",
-  "note title",
-  "description",
-  "docs",
-  "doc",
-  "documentation",
-  "path",
-  "paths",
-  "source",
-  "sources",
-  "selected docs",
-  "selected path",
-  "history",
-  "selected history",
-  "coordinator history",
-  "workspace agent transcript",
-  "agent transcript",
-  "command history",
-  "command summaries",
-  "run history",
-  "run summaries",
-  "queue history",
-  "queue reports",
-  "terminal history",
-  "terminal excerpt",
-  "executor history",
-  "executor summary",
-  "external runner summary",
-  "source refs",
-  "prompt",
-  "body",
-  "goal",
-  "priority",
-  "question",
-  "sql",
-  "query",
-  "connector",
+  "title", "task title", "note title", "description", "prompt", "body",
+  "goal", "priority", "question", "sql", "query", "connector",
   "connector label",
 ].join("|");
 
@@ -111,30 +69,13 @@ const QUEUE_INTENT_PATTERNS = [
   /\bqueue\s+task\s+drafts?\b/i,
 ];
 
-const KNOWLEDGE_FROM_DOCS_INTENT_PATTERNS = [
-  /\bcreate\s+knowledge\s+from\s+docs?\b/i,
-  /\bgenerate\s+(?:documentation\s+)?knowledge\s+from\s+docs?\b/i,
-  /\bturn\s+(?:selected\s+)?docs?\s+into\s+(?:draft\s+)?knowledge\b/i,
-  /\bdocs?\s+(?:to|into)\s+(?:draft\s+)?knowledge\b/i,
-  /\bknowledge\s+generation\s+(?:from|for)\s+docs?\b/i,
-];
-
-const KNOWLEDGE_FROM_HISTORY_INTENT_PATTERNS = [
-  /\bcreate\s+knowledge\s+from\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue|history)\s*(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)?\b/i,
-  /\bgenerate\s+(?:draft\s+)?knowledge\s+from\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue|history)\s*(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)?\b/i,
-  /\bsummar(?:ize|ise)\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue)\s+(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)\s+into\s+(?:draft\s+)?knowledge\b/i,
-  /\b(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue)\s+(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)\s+(?:to|into)\s+(?:draft\s+)?knowledge\b/i,
-];
-
 const NOTE_INTENT_PATTERNS = [
-  /\bcreate\s+(?:an?\s+)?note\b/i,
-  /\bsave\s+(?:an?\s+)?note\b/i,
+  /\bcreate\s+(?:an?\s+)?note\b/i, /\bsave\s+(?:an?\s+)?note\b/i,
   /\bwrite\s+(?:an?\s+)?note\b/i,
 ];
 
 const JDBC_INTENT_PATTERNS = [
-  /\bprepare\s+sql\b/i,
-  /\bwrite\s+sql\b/i,
+  /\bprepare\s+sql\b/i, /\bwrite\s+sql\b/i,
   /\bsuggest\s+(?:a\s+)?query\b/i,
 ];
 
@@ -153,11 +94,9 @@ const FOLLOW_UP_QUEUE_INTENT_PATTERNS = [
 ];
 
 const PLAN_INTENT_PATTERNS = [
-  /\bmake\s+(?:a\s+)?plan\b/i,
-  /\bplan\s+(?:this|the|my|our)\b/i,
+  /\bmake\s+(?:a\s+)?plan\b/i, /\bplan\s+(?:this|the|my|our)\b/i,
   /\bbreak\s+(?:this|it|that|the\s+work|this\s+work)\s+(?:down|into)\b/i,
-  /\bdraft\s+tasks?\s+for\b/i,
-  /\bexplain\s+how\s+to\s+execute\s+this\s+safely\b/i,
+  /\bdraft\s+tasks?\s+for\b/i, /\bexplain\s+how\s+to\s+execute\s+this\s+safely\b/i,
   /\bsuggest\s+next\s+actions\b/i,
 ];
 
@@ -167,17 +106,14 @@ export function generateLocalCoordinatorProposals(
 ): LocalProposalGenerationResult {
   const visibleMessage = message.trim();
   const normalizedMessage = normalizeWhitespace(message);
-  const shouldCreateKnowledgeFromDocs = matchesAny(
+  const knowledgeGenerationProposal = localKnowledgeGenerationProposal({
     normalizedMessage,
-    KNOWLEDGE_FROM_DOCS_INTENT_PATTERNS,
-  );
-  const shouldCreateKnowledgeFromHistory = matchesAny(
-    normalizedMessage,
-    KNOWLEDGE_FROM_HISTORY_INTENT_PATTERNS,
-  );
+    proposalIndex: 0,
+    sourceMessageId,
+    visibleMessage,
+  });
   const shouldCreatePlan =
-    shouldCreateKnowledgeFromDocs ||
-    shouldCreateKnowledgeFromHistory ||
+    knowledgeGenerationProposal.shouldCreatePlan ||
     matchesAny(normalizedMessage, PLAN_INTENT_PATTERNS) ||
     matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS);
   const review = matchesAny(normalizedMessage, OUTCOME_REVIEW_INTENT_PATTERNS)
@@ -195,23 +131,16 @@ export function generateLocalCoordinatorProposals(
 
   proposals.push(...catalogProposals);
 
-  if (shouldCreateKnowledgeFromDocs) {
+  if (knowledgeGenerationProposal.proposal) {
     proposals.push(
-      createDocsKnowledgeQueueProposal(
-        visibleMessage,
-        normalizedMessage,
-        sourceMessageId,
-        proposals.length,
-      ),
-    );
-  } else if (shouldCreateKnowledgeFromHistory) {
-    proposals.push(
-      createHistoryKnowledgeQueueProposal(
-        visibleMessage,
-        normalizedMessage,
-        sourceMessageId,
-        proposals.length,
-      ),
+      proposals.length === 0
+        ? knowledgeGenerationProposal.proposal
+        : localKnowledgeGenerationProposal({
+            normalizedMessage,
+            proposalIndex: proposals.length,
+            sourceMessageId,
+            visibleMessage,
+          }).proposal!,
     );
   } else if (matchesAny(normalizedMessage, QUEUE_INTENT_PATTERNS)) {
     proposals.push(
@@ -246,106 +175,6 @@ export function generateLocalCoordinatorProposals(
     proposals,
     review,
     responseBody: responseBodyFor(plan, review, proposals.length),
-  };
-}
-
-function createDocsKnowledgeQueueProposal(
-  visibleMessage: string,
-  normalizedMessage: string,
-  sourceMessageId: string,
-  index = 0,
-): CoordinatorActionProposal {
-  const definition = proposalTypeDefinition("create-agent-queue-task");
-  const sourceRefs = docsKnowledgeSourceRefs(normalizedMessage);
-  const title =
-    extractLabeledValue(normalizedMessage, ["title", "task title"]) ||
-    "Generate documentation Knowledge drafts";
-
-  return {
-    approvalStatus: "Pending preview",
-    executionStatus: "Not run",
-    expectedResult:
-      "A manual draft Queue task can be created to generate draft Knowledge items from the listed docs/path only. It does not run or activate Knowledge.",
-    id: `${sourceMessageId}-docs-knowledge-queue-task-${index}`,
-    inputs: [
-      { label: "Title", value: title },
-      {
-        label: "Description",
-        value: `Generate draft Knowledge items from selected documentation refs: ${sourceRefs}`,
-      },
-      { label: "Source docs/path", value: sourceRefs },
-      { label: "Prompt", value: docsKnowledgeQueuePrompt(sourceRefs) },
-      { label: "Priority", value: "1" },
-      { label: "Policy", value: "manual" },
-    ],
-    intent:
-      "Create a manual Agent Queue task that asks a future worker to turn explicitly selected documentation into draft Knowledge items.",
-    resultSummary:
-      "Drafted locally from explicit chat text. No docs were read and no Queue task or Knowledge item has been created yet.",
-    riskLevel: definition.riskLevel,
-    riskNotes: [
-      ...definition.safetyNotes,
-      "Workspace Agent did not scan docs or read files; it only copied the visible docs/path refs into a Queue task draft.",
-      "The Queue task must use only the listed source refs and explicit operator-provided context.",
-      "Generated Knowledge must remain draft/disabled until separate operator review and acceptance.",
-      "No automatic Knowledge activation, Queue execution, Agent Executor handoff, or hidden ingestion.",
-      `Original visible request: ${truncateForRiskNote(visibleMessage)}`,
-    ],
-    targetCapability: definition.targetCapability,
-    targetWidget: definition.targetWidget,
-    title,
-    typeId: definition.typeId,
-  };
-}
-
-function createHistoryKnowledgeQueueProposal(
-  visibleMessage: string,
-  normalizedMessage: string,
-  sourceMessageId: string,
-  index = 0,
-): CoordinatorActionProposal {
-  const definition = proposalTypeDefinition("create-agent-queue-task");
-  const sourceRefs = historyKnowledgeSourceRefs(normalizedMessage);
-  const draft = historyKnowledgeGenerationQueueTaskPrompt(normalizedMessage);
-  const title =
-    extractLabeledValue(normalizedMessage, ["title", "task title"]) ||
-    draft.title;
-
-  return {
-    approvalStatus: "Pending preview",
-    executionStatus: "Not run",
-    expectedResult:
-      "A manual draft Queue task can be created to generate draft Knowledge items from selected history summaries only. It does not run or activate Knowledge.",
-    id: `${sourceMessageId}-history-knowledge-queue-task-${index}`,
-    inputs: [
-      { label: "Title", value: title },
-      {
-        label: "Description",
-        value: draft.description,
-      },
-      { label: "Source history refs", value: sourceRefs },
-      { label: "Prompt", value: draft.prompt },
-      { label: "Priority", value: "1" },
-      { label: "Policy", value: "manual" },
-    ],
-    intent:
-      "Create a manual Agent Queue task that asks a future worker to turn explicitly selected coordinator, command, or run history summaries into draft Knowledge items.",
-    resultSummary:
-      "Drafted locally from explicit chat text. No history, logs, transcripts, Queue reports, Terminal output, or Executor output were read automatically.",
-    riskLevel: definition.riskLevel,
-    riskNotes: [
-      ...definition.safetyNotes,
-      "Workspace Agent did not auto-read transcript, Queue, Terminal, Executor, Agent Activity, files, logs, or hidden Workspace state.",
-      "The Queue task must use only the listed source refs and explicit operator-provided context.",
-      "Terminal history, raw Executor output, provider responses, Git diffs, repo paths, and secrets must be omitted unless explicitly selected under a later safe policy.",
-      "Generated Knowledge must remain draft/disabled until separate operator review and acceptance.",
-      "No automatic Knowledge activation, Queue execution, Agent Executor handoff, or hidden ingestion.",
-      `Original visible request: ${truncateForRiskNote(visibleMessage)}`,
-    ],
-    targetCapability: definition.targetCapability,
-    targetWidget: definition.targetWidget,
-    title,
-    typeId: definition.typeId,
   };
 }
 
@@ -384,102 +213,6 @@ function createQueueProposal(
     title,
     typeId: definition.typeId,
   };
-}
-
-function docsKnowledgeSourceRefs(message: string) {
-  const labeledSource =
-    extractLabeledValue(message, ["selected docs", "docs", "documentation"]) ||
-    extractLabeledValue(message, ["selected path", "path", "paths"]) ||
-    extractLabeledValue(message, ["source", "sources"]);
-
-  if (labeledSource) {
-    return labeledSource;
-  }
-
-  const fromDocsMatch = message.match(
-    /\bfrom\s+(?:docs?|documentation|path|paths)\s+([^\n;]+)$/i,
-  );
-  const sourceRefs = fromDocsMatch?.[1]?.trim();
-
-  if (sourceRefs) {
-    return sourceRefs;
-  }
-
-  return "Not selected yet. Edit this task to list the approved documentation paths, imported docs, decisions, contracts, README sections, or external refs before running.";
-}
-
-function historyKnowledgeSourceRefs(message: string) {
-  const labeledSource =
-    extractLabeledValue(message, [
-      "selected history",
-      "history",
-      "coordinator history",
-      "workspace agent transcript",
-      "agent transcript",
-    ]) ||
-    extractLabeledValue(message, [
-      "command history",
-      "command summaries",
-      "run history",
-      "run summaries",
-      "queue history",
-      "queue reports",
-      "terminal history",
-      "terminal excerpt",
-      "executor history",
-      "executor summary",
-      "external runner summary",
-    ]) ||
-    extractLabeledValue(message, ["source refs", "source", "sources"]);
-
-  if (labeledSource) {
-    return labeledSource;
-  }
-
-  const fromHistoryMatch = message.match(
-    /\bfrom\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue|history)\s*(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)?\s+([^\n;]+)$/i,
-  );
-  const sourceRefs = fromHistoryMatch?.[1]?.trim();
-
-  if (sourceRefs) {
-    return sourceRefs;
-  }
-
-  return "Not selected yet. Edit this task to list the approved visible transcript excerpts, Queue task/report summaries, validation or command summaries, selected Terminal excerpts, Executor run summaries, Agent Activity summaries, or external runner summary files before running.";
-}
-
-function docsKnowledgeQueuePrompt(sourceRefs: string) {
-  return [
-    "Task type: knowledge_generation",
-    "Workflow: create Knowledge from docs",
-    "",
-    "Selected source refs:",
-    sourceRefs,
-    "",
-    "Use only the listed source refs and explicit operator-provided context in this Queue task. Do not scan folders, read unlisted files, use hidden Workspace state, inspect Notes, logs, Git/JDBC/Terminal/Executor output, or substitute extra sources.",
-    "",
-    "Analyze the selected docs/path and return draft Knowledge items only. Do not create Knowledge Documents, activate Knowledge, enable Knowledge, mutate files, mutate Git, assign/run Executor work, or dispatch Queue tasks.",
-    "",
-    "Draft item requirements:",
-    "- overview",
-    "- component responsibilities",
-    "- acceptance criteria",
-    "- non-goals",
-    "- known gaps",
-    "- related docs index",
-    "- quick summaries",
-    "",
-    "Preserve source attribution. Distinguish current, planned, deferred, compatibility, deprecated, and superseded language when sources use those statuses.",
-    "",
-    "Return a bounded draft pack with proposed items containing title, quickSummary, fullContent, suggestedType, suggestedTags, suggestedScope, sourceRefs, confidence, blockers, reviewNotes, related docs/files/tasks/commits where explicit, and activationRecommendation. Default suggestedScope to workspace-local and activationRecommendation to draft/disabled unless the operator later accepts it separately.",
-  ].join("\n");
-}
-
-function truncateForRiskNote(value: string) {
-  const normalized = normalizeWhitespace(value);
-  return normalized.length <= 180
-    ? normalized
-    : `${normalized.slice(0, 177).trim()}...`;
 }
 
 type QueueTaskDraft = {

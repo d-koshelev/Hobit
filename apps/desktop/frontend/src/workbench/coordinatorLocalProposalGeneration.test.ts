@@ -29,6 +29,14 @@ describe("coordinatorLocalProposalGeneration", () => {
     expect(input(queueProposal, "Prompt")).toContain(
       "Task type: knowledge_generation",
     );
+    expect(input(queueProposal, "Prompt")).toContain("Structured source refs:");
+    expect(input(queueProposal, "Prompt")).toContain("kind: docs");
+    expect(input(queueProposal, "Prompt")).toContain(
+      "path: docs/ACTIVE_CONTRACT_INDEX.md",
+    );
+    expect(input(queueProposal, "Prompt")).toContain(
+      "Current Queue task API has no durable sourceRefs field",
+    );
     expect(input(queueProposal, "Prompt")).toContain("overview");
     expect(input(queueProposal, "Prompt")).toContain(
       "component responsibilities",
@@ -95,6 +103,16 @@ describe("coordinatorLocalProposalGeneration", () => {
     );
     expect(input(queueProposal, "Policy")).toBe("manual");
     expect(input(queueProposal, "Prompt")).toContain("knowledge_generation");
+    expect(input(queueProposal, "Prompt")).toContain("Structured source refs:");
+    expect(input(queueProposal, "Prompt")).toContain(
+      "kind: coordinator_history",
+    );
+    expect(input(queueProposal, "Prompt")).toContain(
+      "selector: visible transcript local-1..local-5 and Queue report summary Q-7",
+    );
+    expect(input(queueProposal, "Prompt")).toContain(
+      "scope: current-session-visible",
+    );
     expect(input(queueProposal, "Prompt")).toContain(
       "* coordinator_history: visible transcript local-1..local-5 and Queue report summary Q-7",
     );

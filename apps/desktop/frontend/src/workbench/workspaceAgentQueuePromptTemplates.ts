@@ -71,6 +71,147 @@ export function structuredCreateQueueTaskPrompt(rawIntent: string) {
   };
 }
 
+export type KnowledgeGenerationSourceRefKind =
+  | "codebase"
+  | "docs"
+  | "coordinator_history"
+  | "command_history";
+
+export type KnowledgeGenerationSourceRef = {
+  caps: string[];
+  id?: string;
+  kind: KnowledgeGenerationSourceRefKind;
+  label: string;
+  path?: string;
+  reason: string;
+  scope: string;
+  selector?: string;
+  warnings: string[];
+};
+
+const SOURCE_REF_PROMPT_EMBEDDED_WARNING =
+  "Current Queue task API has no durable sourceRefs field; these structured refs are embedded in the prompt only.";
+
+export function formatKnowledgeGenerationSourceRefs(
+  refs: KnowledgeGenerationSourceRef[],
+) {
+  return [
+    "Structured source refs:",
+    ...refs.flatMap((ref, index) => [
+      `${index + 1}. kind: ${ref.kind}`,
+      `   label: ${ref.label}`,
+      ...(ref.selector ? [`   selector: ${ref.selector}`] : []),
+      ...(ref.path ? [`   path: ${ref.path}`] : []),
+      ...(ref.id ? [`   id: ${ref.id}`] : []),
+      `   reason: ${ref.reason}`,
+      `   scope: ${ref.scope}`,
+      `   caps: ${ref.caps.join("; ")}`,
+      `   warnings: ${ref.warnings.join("; ") || "none"}`,
+    ]),
+  ].join("\n");
+}
+
+export function codebaseKnowledgeGenerationSourceRefs(
+  sourceRef: string,
+): KnowledgeGenerationSourceRef[] {
+  const selectedSource = sourceRef.trim();
+  const hasConcretePath =
+    selectedSource &&
+    selectedSource !== "the explicitly selected codebase area";
+
+  return [
+    {
+      caps: [
+        "Use only this selected codebase area",
+        "No recursive scan outside selected refs",
+      ],
+      kind: "codebase",
+      label: "Selected codebase area",
+      path: hasConcretePath ? selectedSource : undefined,
+      reason: "Generate draft Knowledge from the operator-selected codebase area.",
+      scope: "workspace-local",
+      selector: selectedSource,
+      warnings: [
+        ...(hasConcretePath
+          ? []
+          : ["No concrete path was captured; report a blocker before running if the source remains ambiguous."]),
+        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+      ],
+    },
+  ];
+}
+
+export function docsKnowledgeGenerationSourceRefs(
+  sourceRefs: string,
+): KnowledgeGenerationSourceRef[] {
+  const refs = sourceRefs
+    .split(",")
+    .map((ref) => ref.trim())
+    .filter(Boolean);
+  const selectedRefs = refs.length > 0 ? refs : [sourceRefs.trim()];
+
+  return selectedRefs.map((ref) => {
+    const hasConcreteRef = ref && !ref.toLowerCase().startsWith("not selected");
+    const path = hasConcreteRef && looksLikePath(ref) ? ref : undefined;
+    const id = hasConcreteRef && looksLikeId(ref) ? ref : undefined;
+
+    return {
+      caps: [
+        "Use only this selected documentation ref",
+        "No folder scan, hidden docs read, Notes read, or broad source discovery",
+      ],
+      id,
+      kind: "docs" as const,
+      label: path ? "Selected documentation path" : "Selected documentation ref",
+      path,
+      reason:
+        "Generate draft Knowledge from explicitly selected documentation refs.",
+      scope: "workspace-local",
+      selector: ref,
+      warnings: [
+        ...(hasConcreteRef
+          ? []
+          : ["No concrete docs/path refs were captured; report a blocker before running if the source remains ambiguous."]),
+        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+      ],
+    };
+  });
+}
+
+export function historyKnowledgeGenerationSourceRefs({
+  sourceKind,
+  sourceRefs,
+}: {
+  sourceKind: "coordinator_history" | "command_history";
+  sourceRefs: string;
+}): KnowledgeGenerationSourceRef[] {
+  const selectedSourceRefs = sourceRefs.trim();
+
+  return [
+    {
+      caps: [
+        "Use only selected visible summaries or excerpts",
+        "No hidden transcript, log, Terminal, Executor, provider, Git, JDBC, Notes, or file reads",
+      ],
+      kind: sourceKind,
+      label:
+        sourceKind === "coordinator_history"
+          ? "Selected Workspace Agent history refs"
+          : "Selected command/run history refs",
+      reason:
+        "Generate draft Knowledge from explicitly selected visible history refs.",
+      scope: "current-session-visible",
+      selector: selectedSourceRefs,
+      warnings: [
+        ...(selectedSourceRefs.toLowerCase().startsWith("selected ")
+          ? ["No concrete history refs were captured; report a blocker before running if the source remains ambiguous."]
+          : []),
+        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+      ],
+    },
+  ];
+}
+
 export function codebaseKnowledgeGenerationQueueTaskPrompt(rawIntent: string) {
   const area = selectedCodebaseArea(rawIntent);
   const sourceRef = area || "the explicitly selected codebase area";
@@ -86,6 +227,10 @@ export function codebaseKnowledgeGenerationQueueTaskPrompt(rawIntent: string) {
       "",
       "Selected source refs:",
       `* codebase: ${sourceRef}`,
+      "",
+      formatKnowledgeGenerationSourceRefs(
+        codebaseKnowledgeGenerationSourceRefs(sourceRef),
+      ),
       "",
       "Required output:",
       "",
@@ -157,6 +302,10 @@ export function historyKnowledgeGenerationQueueTaskPrompt(rawIntent: string) {
       "",
       "Selected source refs:",
       `* ${sourceKind}: ${sourceRefs}`,
+      "",
+      formatKnowledgeGenerationSourceRefs(
+        historyKnowledgeGenerationSourceRefs({ sourceKind, sourceRefs }),
+      ),
       "",
       "Allowed selected sources:",
       "",
@@ -402,6 +551,19 @@ function compactTitle(value: string) {
 
 function stripTrailingPunctuation(value: string) {
   return value.trim().replace(/[.!?]+$/g, "").trim();
+}
+
+function looksLikePath(value: string) {
+  return (
+    /^[A-Za-z0-9_. -]+[\\/][A-Za-z0-9_. \\/-]+$/.test(value) ||
+    /^[A-Za-z0-9_. -]+\.(?:md|markdown|txt|tsx?|jsx?|rs|json|toml|ya?ml)$/i.test(
+      value,
+    )
+  );
+}
+
+function looksLikeId(value: string) {
+  return /^[A-Za-z][A-Za-z0-9_-]*:[A-Za-z0-9_.:/-]+$/.test(value);
 }
 
 function escapeRegExp(value: string) {
