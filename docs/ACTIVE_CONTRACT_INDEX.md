@@ -274,6 +274,14 @@ unless the task explicitly requests it.
   memory. It is docs/type-design only and does not add storage, schema,
   frontend UI, backend/Tauri commands, provider behavior, Queue behavior,
   Workspace Agent behavior, automatic ingestion, or runtime execution.
+- `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md` - read for future
+  Queue-based Knowledge generation workflow work. It defines how Workspace
+  Agent may create approved Queue tasks that analyze selected codebase,
+  documentation, and coordinator/command history sources and return draft
+  Knowledge packs for operator review. It is docs/type-design only and does
+  not add storage, schema, frontend UI, backend/Tauri commands, provider
+  tools, Queue execution, background ingestion, hidden memory, vector search,
+  folder watching, or automatic activation.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
@@ -533,6 +541,12 @@ These documents should not override the Workspace Agent model or
 - Queue work: read `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
+- Queue-based Knowledge generation work: read
+  `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md`,
+  `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`,
+  `docs/KNOWLEDGE_CATALOG_CONTRACT.md`,
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`, and
+  `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
 - Workspace Agent/JDBC work: read
   `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`,
   `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md`,
