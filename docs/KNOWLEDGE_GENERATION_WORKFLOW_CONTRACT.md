@@ -56,8 +56,16 @@ hidden context, or create durable provider/tool permissions.
 
 Still future: structured durable `sourceRefs` on Queue tasks, a dedicated
 generation runtime, automatic source analysis, full Knowledge Catalog item
-creation, durable review disposition for rejected draft proposals, vector
-search, folder watching, background indexing, and automatic activation.
+creation, durable draft-review disposition records, durable rejected-draft
+history, vector search, folder watching, background indexing, and automatic
+activation.
+
+Draft review persistence is governed by
+`docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md`. Stable v0.1 may persist
+accepted drafts as Knowledge / Skills Knowledge Documents through the explicit
+acceptance path, but rejected draft decisions remain review-local unless the
+operator records them through an existing explicit Queue task/report/status
+surface.
 
 ## Source Selection Rules
 
@@ -350,9 +358,22 @@ Acceptance must preserve:
 - accepted type/tags;
 - status or enabled flag appropriate to the target Knowledge surface.
 
+Current implementation note: Stable v0.1 acceptance preserves only the
+provenance and review metadata supported by the current Knowledge Document
+model and visible source/report text. It does not require a separate durable
+draft-review ledger, first-class `createdByTaskId` Catalog field, audit event,
+or Evidence record.
+
 Acceptance does not grant provider context permission. Accepted Knowledge may
 be eligible for later explicit retrieval or selection only under the active
 Knowledge / Skills and future Knowledge Catalog context rules.
+
+Rejection is review-local for Stable v0.1. Rejecting a draft must not create
+active Knowledge, enable Knowledge, approve Evidence, mutate Queue execution
+state invisibly, or preserve hidden prompt/context memory. Durable
+rejected-draft history is deferred until a focused future storage/API slice
+defines draft-pack identity, review disposition records, source versioning,
+retention, audit readiness, and Evidence linkage.
 
 ## Queue State And Reporting
 
@@ -381,6 +402,12 @@ Current implementation note: current Queue task creation is manual/draft, and
 any analysis depends on an explicit Queue/Executor run. Review-ready draft pack
 content is surfaced from the visible worker report; raw Executor logs and
 payloads are not copied into Knowledge by default.
+
+Queue task completion, worker success, and draft-pack availability do not imply
+Knowledge acceptance. Accepted Knowledge should record the source Queue task as
+best-effort provenance through existing source fields or visible content when
+available; rejected drafts do not require a durable Queue relation in Stable
+v0.1.
 
 ## Safety Rules
 
@@ -439,6 +466,7 @@ This contract is complete when:
   summaries, full content, suggested type/tags/scope, confidence/blockers, and
   review actions;
 - operator review and acceptance are separate from generation;
+- Stable v0.1 draft-review persistence boundaries are explicit;
 - non-goals rule out background ingestion, hidden memory, vector search, folder
   watch, and automatic activation;
 - no implementation behavior is added by this document.

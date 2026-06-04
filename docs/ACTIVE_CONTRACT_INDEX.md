@@ -297,6 +297,13 @@ unless the task explicitly requests it.
   schema, frontend UI, backend/Tauri commands, provider tools, Queue
   execution, background ingestion, hidden memory, vector search, folder
   watching, or automatic activation.
+- `docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md` - read with
+  `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md` before proposing durable
+  draft review storage, accepted/rejected draft handling, Queue task review
+  linkage, audit readiness, or Evidence linkage. It decides that Stable v0.1
+  persists accepted drafts only through explicit Knowledge Document acceptance
+  while rejected draft decisions remain review-local unless recorded through an
+  existing explicit Queue surface.
 - `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` - read for Queue task Knowledge /
   Skills attachment semantics. It records current frontend-local/current-session
   attach and materialization behavior, and defines future durable Queue-owned
@@ -574,6 +581,7 @@ These documents should not override the Workspace Agent model or
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
 - Queue-based Knowledge generation work: read
   `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md`,
+  `docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md`,
   `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`,
   `docs/KNOWLEDGE_CATALOG_CONTRACT.md`,
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`, and
