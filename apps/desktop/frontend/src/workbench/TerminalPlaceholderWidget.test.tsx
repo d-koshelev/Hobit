@@ -151,6 +151,10 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(document.body.textContent).toContain("cwd");
     expect(document.body.textContent).toContain("~");
     expect(document.body.textContent).toContain("shell");
+    expect(document.body.textContent).toContain("state");
+    expect(document.body.textContent).toContain("not started");
+    expect(document.body.textContent).toContain("exit");
+    expect(document.body.textContent).toContain("none");
     expect(document.body.textContent).toContain(
       "Start a terminal session to run commands.",
     );
@@ -591,6 +595,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     >()
       .mockResolvedValueOnce(
         terminalSession({
+          exitCode: 7,
           outputText: "done\r\n",
           status: "exited",
           workingDirectory: "C:\\repo",
@@ -620,7 +625,13 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await clickButton("Start");
 
     expect(document.body.textContent).toContain(
-      "Session exited without an exit code. Close it before starting a new session.",
+      "Session exited with code 7. Close it before starting a new session.",
+    );
+    expect(document.querySelector(".terminal-shell")?.textContent).toContain(
+      "exited",
+    );
+    expect(document.querySelector(".terminal-shell")?.textContent).toContain(
+      "7",
     );
     expect(buttonWithText("Close")).not.toBeNull();
     expect(buttonWithText("Stop")).toBeUndefined();
@@ -772,6 +783,7 @@ function instance(): WidgetInstance {
 
 function terminalSession({
   cols = 80,
+  exitCode = null,
   outputText = "",
   rows = 24,
   sessionId = "pty_1",
@@ -779,6 +791,7 @@ function terminalSession({
   workingDirectory = "C:\\repo",
 }: {
   cols?: number;
+  exitCode?: number | null;
   outputText?: string;
   rows?: number;
   sessionId?: string;
@@ -788,7 +801,7 @@ function terminalSession({
   return {
     endedAt: null,
     errorMessage: null,
-    exitCode: null,
+    exitCode,
     output: {
       capBytes: 65536,
       chunks: outputText

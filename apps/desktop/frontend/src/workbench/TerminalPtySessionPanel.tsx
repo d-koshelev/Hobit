@@ -103,6 +103,12 @@ export function TerminalPtySessionPanel({
   const shellLabel = session?.shell || shell || DEFAULT_SHELL_LABEL;
   const workingDirectoryLabel =
     session?.workingDirectory || workingDirectory || "Not selected";
+  const sessionStateLabel = session?.status ?? statusView.label.toLowerCase();
+  const exitCodeLabel = session
+    ? session.exitCode === null
+      ? "none"
+      : String(session.exitCode)
+    : "none";
   const canStart =
     Boolean(onCreateTerminalPtySession) &&
     !hasOpenSession &&
@@ -436,6 +442,21 @@ export function TerminalPtySessionPanel({
               <span className="terminal-shell-meta-label">shell</span>
               <span className="terminal-shell-meta-value" title={shellLabel}>
                 {shellLabel}
+              </span>
+            </span>
+            <span className="terminal-shell-meta-item">
+              <span className="terminal-shell-meta-label">state</span>
+              <span
+                className="terminal-shell-meta-value"
+                title={sessionStateLabel}
+              >
+                {sessionStateLabel}
+              </span>
+            </span>
+            <span className="terminal-shell-meta-item">
+              <span className="terminal-shell-meta-label">exit</span>
+              <span className="terminal-shell-meta-value" title={exitCodeLabel}>
+                {exitCodeLabel}
               </span>
             </span>
           </div>
