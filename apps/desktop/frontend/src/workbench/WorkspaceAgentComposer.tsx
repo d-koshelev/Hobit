@@ -1,7 +1,9 @@
 import {
   type FormEvent,
   type RefObject,
+  useEffect,
   useId,
+  useState,
 } from "react";
 import { Button } from "../design-system/Button";
 import type { DirectWorkSandbox } from "../workspace/types";
@@ -10,6 +12,7 @@ import {
   type CoordinatorDirectWorkStatus,
   type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
+  shortCodexThreadId,
 } from "./workspaceAgentDirectWorkModel";
 import { WorkspaceAgentDirectModePanel } from "./WorkspaceAgentDirectModePanel";
 import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContextPanel";
@@ -56,19 +59,44 @@ export function WorkspaceAgentComposer({
   isProviderPending: boolean;
   onMessageChange: (value: string) => void;
   onRemoveVisibleContext: () => void;
-  onRunWithCodex: () => void | Promise<void>;
+  onRunWithCodex: (
+    options?: { startNewThread?: boolean },
+  ) => void | Promise<void>;
   onSend: () => void | Promise<void>;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   visibleAttachedContext: WorkspaceAgentVisibleContext | null;
 }) {
   const textareaId = useId();
+  const newThreadInputId = useId();
+  const [startNewThreadOnNextRun, setStartNewThreadOnNextRun] =
+    useState(false);
   const isDirectModeEnabled = Boolean(directMode);
+  const hasActiveThread = Boolean(directMode?.threadId);
+  const currentThreadText = directMode?.threadId
+    ? `Current thread: ${shortCodexThreadId(directMode.threadId)}`
+    : "Current thread: No active thread";
+  const currentThreadTitle = directMode?.threadId
+    ? `Codex thread id: ${directMode.threadId}`
+    : "No active Codex thread.";
+
+  useEffect(() => {
+    if (!hasActiveThread) {
+      setStartNewThreadOnNextRun(false);
+    }
+  }, [hasActiveThread]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (directMode) {
-      await onRunWithCodex();
+      const startNewThread = startNewThreadOnNextRun && hasActiveThread;
+      try {
+        await onRunWithCodex({ startNewThread });
+      } finally {
+        if (startNewThread) {
+          setStartNewThreadOnNextRun(false);
+        }
+      }
       return;
     }
 
@@ -112,6 +140,38 @@ export function WorkspaceAgentComposer({
             >
               {directMode.isStopPending ? "Stopping" : "Stop"}
             </Button>
+          ) : null}
+          {directMode ? (
+            <div
+              aria-label="Current Codex thread"
+              className="interactive-agent-run-thread-state"
+              title={currentThreadTitle}
+            >
+              {currentThreadText}
+            </div>
+          ) : null}
+          {directMode ? (
+            <label
+              className="interactive-agent-run-new-thread"
+              htmlFor={newThreadInputId}
+              title={
+                hasActiveThread
+                  ? "Start the next Run with Codex in a new thread."
+                  : "No active thread. The next Run with Codex already starts a new thread."
+              }
+            >
+              <input
+                aria-label="New Thread"
+                checked={startNewThreadOnNextRun}
+                disabled={!hasActiveThread || directMode.status === "running"}
+                id={newThreadInputId}
+                onChange={(event) =>
+                  setStartNewThreadOnNextRun(event.currentTarget.checked)
+                }
+                type="checkbox"
+              />
+              <span>New Thread</span>
+            </label>
           ) : null}
           <Button
             disabled={

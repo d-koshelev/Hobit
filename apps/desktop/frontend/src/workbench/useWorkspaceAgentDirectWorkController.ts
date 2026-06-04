@@ -59,6 +59,10 @@ type UseWorkspaceAgentDirectWorkControllerOptions = {
   workspaceId?: string;
 };
 
+type RunWithCodexOptions = {
+  startNewThread?: boolean;
+};
+
 export function useWorkspaceAgentDirectWorkController({
   draft,
   instanceId,
@@ -129,7 +133,7 @@ export function useWorkspaceAgentDirectWorkController({
 
   useEffect(() => () => stopDirectWorkEventListening(), []);
 
-  async function handleRunWithCodex() {
+  async function handleRunWithCodex(options: RunWithCodexOptions = {}) {
     if (directWorkStatus === "running") {
       return;
     }
@@ -162,12 +166,20 @@ export function useWorkspaceAgentDirectWorkController({
       workingDirectory: repoRoot,
       workspaceId: workspaceScopeId,
     };
-    const resumeThreadId = codexThreadIdForScope(
-      currentCodexThread,
-      workspaceScopeId,
-      instanceId,
-      repoRoot,
-    );
+    const startNewThread = Boolean(options.startNewThread);
+    const resumeThreadId = startNewThread
+      ? null
+      : codexThreadIdForScope(
+          currentCodexThread,
+          workspaceScopeId,
+          instanceId,
+          repoRoot,
+        );
+    if (startNewThread && currentCodexThread) {
+      setCurrentCodexThread(null);
+      setCodexThreadNotice("Starting a new Codex thread.");
+      setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
+    }
     if (currentCodexThread && !resumeThreadId) {
       setCurrentCodexThread(null);
     }

@@ -906,8 +906,36 @@
 .interactive-agent-composer-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--space-xs);
+}
+
+.interactive-agent-run-thread-state,
+.interactive-agent-run-new-thread {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.interactive-agent-run-thread-state {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.interactive-agent-run-new-thread {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  color: var(--color-text-secondary);
+  font-weight: 680;
+}
+
+.interactive-agent-run-new-thread input {
+  margin: 0;
 }
 
 .interactive-agent-status-copy,

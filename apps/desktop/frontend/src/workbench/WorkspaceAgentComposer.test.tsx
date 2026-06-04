@@ -54,13 +54,48 @@ describe("WorkspaceAgentComposer", () => {
     await setTextareaValue("Run this with Codex.");
     await clickButton("Run with Codex");
 
-    expect(onRunWithCodex).toHaveBeenCalledTimes(1);
+    expect(onRunWithCodex).toHaveBeenCalledWith({ startNewThread: false });
   });
 
   it("disables Run with Codex when the composer is empty", () => {
     renderComposer({ directModeEnabled: true });
 
     expect(buttonWithText("Run with Codex")?.disabled).toBe(true);
+  });
+
+  it("shows current thread state and disables New Thread when no thread is active", () => {
+    renderComposer({ directModeEnabled: true });
+
+    expect(document.body.textContent).toContain(
+      "Current thread: No active thread",
+    );
+    expect(checkboxWithLabel("New Thread")?.disabled).toBe(true);
+    expect(checkboxWithLabel("New Thread")?.checked).toBe(false);
+  });
+
+  it("passes New Thread as a next-run-only Codex option", async () => {
+    const onRunWithCodex = vi.fn();
+    const threadId = "thread_visible_1234567890";
+    renderComposer({
+      directModeEnabled: true,
+      onRunWithCodex,
+      threadId,
+    });
+
+    expect(document.body.textContent).toContain("Current thread: thread_v...");
+
+    await setTextareaValue("Run this with a fresh Codex thread.");
+    await setCheckboxChecked("New Thread", true);
+    await clickButton("Run with Codex");
+    await clickButton("Run with Codex");
+
+    expect(onRunWithCodex).toHaveBeenNthCalledWith(1, {
+      startNewThread: true,
+    });
+    expect(onRunWithCodex).toHaveBeenNthCalledWith(2, {
+      startNewThread: false,
+    });
+    expect(checkboxWithLabel("New Thread")?.checked).toBe(false);
   });
 
   it("keeps the message input before Direct Work controls", () => {
@@ -101,8 +136,9 @@ type RenderComposerOptions = {
   directModeEnabled?: boolean;
   initialDraft?: string;
   onRemoveVisibleContext?: () => void;
-  onRunWithCodex?: () => void;
+  onRunWithCodex?: (options?: { startNewThread?: boolean }) => void;
   onSend?: () => void;
+  threadId?: string | null;
   visibleAttachedContext?: Parameters<
     typeof WorkspaceAgentComposer
   >[0]["visibleAttachedContext"];
@@ -118,6 +154,7 @@ function ComposerHarness({
   onRemoveVisibleContext = vi.fn(),
   onRunWithCodex = vi.fn(),
   onSend = vi.fn(),
+  threadId = null,
   visibleAttachedContext = null,
 }: RenderComposerOptions) {
   const [draft, setDraft] = useState(initialDraft);
@@ -147,7 +184,7 @@ function ComposerHarness({
               onStopDirectWork: vi.fn(),
               runId: null,
               status: "idle",
-              threadId: null,
+              threadId,
               threadNotice: null,
               warning: null,
             }
@@ -211,10 +248,30 @@ function buttonWithText(text: string) {
   );
 }
 
+function checkboxWithLabel(text: string) {
+  return Array.from(document.querySelectorAll("label")).find((label) =>
+    label.textContent?.includes(text),
+  )?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+}
+
 function messageTextarea() {
   const textarea = document.querySelector("textarea");
   if (!textarea) {
     throw new Error("Message textarea not found.");
   }
   return textarea;
+}
+
+async function setCheckboxChecked(label: string, checked: boolean) {
+  const checkbox = checkboxWithLabel(label);
+  if (!checkbox) {
+    throw new Error(`Checkbox not found: ${label}`);
+  }
+
+  await act(async () => {
+    if (checkbox.checked !== checked) {
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    await Promise.resolve();
+  });
 }

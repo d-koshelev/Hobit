@@ -21,6 +21,7 @@ import {
   renderWidgetTree,
   rerenderWidget,
   setSandboxValue,
+  setCheckboxChecked,
   setTextareaValue,
   setTextareaValueIn,
   setTextInputValue,
@@ -284,6 +285,75 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     ).not.toContain("I have 5 apples");
     expect(document.body.textContent).toContain("Continuing Codex thread");
     expect(document.body.textContent).toContain("Thread active thread_s...");
+  });
+
+  it("New Thread checkbox starts only the next Codex run without the active thread", async () => {
+    const startDirectWork = vi.fn(
+      async (
+        _widgetInstanceId: string,
+        request: unknown,
+        onEvent: (event: DirectWorkStreamEvent) => void,
+      ) => {
+        const requestedThreadId = (request as { codexThreadId?: string | null })
+          .codexThreadId;
+        const runIndex = startDirectWork.mock.calls.length;
+        const runId = `run_checkbox_${runIndex}`;
+        const threadId =
+          runIndex === 1
+            ? "thread_checkbox_first_123456"
+            : requestedThreadId ?? "thread_checkbox_forced_new_123456";
+        onEvent(directWorkEvent({ eventKind: "started", runId }));
+        onEvent(
+          directWorkEvent({
+            codexThreadId: threadId,
+            eventKind: "codex_json_event",
+            parsedCodexEventType: "thread.started",
+            runId,
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            eventKind: "completed",
+            finalStatus: "completed",
+            isFinal: true,
+            runId,
+            text: "Done.",
+          }),
+        );
+        return {
+          runId,
+          status: "started",
+          stopListening: vi.fn(),
+        };
+      },
+    );
+    renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
+
+    await setTextareaValue("First run.");
+    await clickButton("Run with Codex");
+    expect(document.body.textContent).toContain("Current thread: thread_c...");
+
+    await setTextareaValue("Fresh run.");
+    await setCheckboxChecked("New Thread", true);
+    await clickButton("Run with Codex");
+
+    await setTextareaValue("Follow up after fresh run.");
+    await clickButton("Run with Codex");
+
+    expect(startDirectWork).toHaveBeenCalledTimes(3);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "First run.",
+    });
+    expect(startDirectWork.mock.calls[1][1]).toMatchObject({
+      codexThreadId: null,
+      operatorPrompt: "Fresh run.",
+    });
+    expect(startDirectWork.mock.calls[2][1]).toMatchObject({
+      codexThreadId: "thread_checkbox_forced_new_123456",
+      operatorPrompt: "Follow up after fresh run.",
+    });
+    expect(checkboxWithLabel("New Thread")?.checked).toBe(false);
   });
 
 

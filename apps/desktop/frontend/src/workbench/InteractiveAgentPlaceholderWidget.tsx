@@ -877,12 +877,12 @@ export function InteractiveAgentPlaceholderWidget({
           isProviderPending={isProviderPending}
           onMessageChange={setDraft}
           onRemoveVisibleContext={removeVisibleAttachedContext}
-          onRunWithCodex={async () => {
+          onRunWithCodex={async ({ startNewThread } = {}) => {
             if (await sendQueueCommandFromDraft(draft.trim())) {
               return;
             }
 
-            await directWork.handleRunWithCodex();
+            await directWork.handleRunWithCodex({ startNewThread });
           }}
           onSend={sendCoordinatorMessage}
           textareaRef={textareaRef}

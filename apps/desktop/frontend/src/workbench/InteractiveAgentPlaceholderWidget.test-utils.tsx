@@ -183,6 +183,20 @@ export function checkboxWithLabel(text: string) {
   )?.querySelector<HTMLInputElement>('input[type="checkbox"]');
 }
 
+export async function setCheckboxChecked(label: string, checked: boolean) {
+  const checkbox = checkboxWithLabel(label);
+  if (!checkbox) {
+    throw new Error(`Checkbox not found: ${label}`);
+  }
+
+  await act(async () => {
+    if (checkbox.checked !== checked) {
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
+    await Promise.resolve();
+  });
+}
+
 export async function toggleDirectMode() {
   await act(async () => {
     await Promise.resolve();
