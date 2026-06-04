@@ -106,6 +106,13 @@ of truth for their domains.
   Agent runs, Knowledge / Skills, Git, Terminal, Agent Activity, theme/UI
   scale, movable widgets, Queue execution, Executor review, and visible-context
   safety checks.
+- `docs/KNOWLEDGE_SKILLS_STABLE_V0_1_STATUS.md` - docs-only Knowledge /
+  Skills Stable v0.1 acceptance status record after focused automated
+  implementation/tests. It records automated pass/manual-smoke-pending status
+  for Skill CRUD/attach, Document CRUD/import/search, quick summaries,
+  Queue-based Knowledge generation drafts, draft review, Queue context attach,
+  prompt materialization, and safety/non-goals. It does not add behavior or
+  override current widget contracts.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
