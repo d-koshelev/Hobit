@@ -18,6 +18,7 @@ import {
   type KnowledgeCatalogListItem,
   type KnowledgeCatalogView,
 } from "./skillLibraryModel";
+import { knowledgeDocumentMessageWithSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
 import {
   SkillLibraryCatalogListView,
   SkillLibraryCatalogSummary,
@@ -414,7 +415,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<
 
       setSelectedDocumentDraft(savedDocument);
       await loadDocuments(savedDocument.knowledgeDocumentId);
-      setDocumentMessage("Document saved.");
+      setDocumentMessage(
+        knowledgeDocumentMessageWithSummaryWarning("Document saved.", savedDocument),
+      );
     } catch (saveError) {
       setDocumentError(errorToMessage(saveError, "Unable to save document."));
     } finally {
@@ -469,7 +472,10 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       setSelectedDocumentDraft(updatedDocument);
       await loadDocuments(updatedDocument.knowledgeDocumentId);
       setDocumentMessage(
-        documentLifecycleUpdateMessage(lifecycleStatus),
+        knowledgeDocumentMessageWithSummaryWarning(
+          documentLifecycleUpdateMessage(lifecycleStatus),
+          updatedDocument,
+        ),
       );
     } catch (statusError) {
       setDocumentError(

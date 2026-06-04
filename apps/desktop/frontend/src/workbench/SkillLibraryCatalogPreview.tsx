@@ -12,6 +12,7 @@ import {
   type KnowledgeDocumentDraft,
   type KnowledgeRelation,
 } from "./skillLibraryModel";
+import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
 
 type CatalogSkillPreviewProps = {
   attachmentState?: KnowledgeCatalogAttachmentState;
@@ -148,6 +149,7 @@ export function CatalogDocumentEditor({
   skills,
 }: CatalogDocumentEditorProps) {
   const isStale = draft.lifecycleStatus === "stale";
+  const quickSummaryWarning = knowledgeDocumentQuickSummaryWarning(draft);
   const relations = knowledgeDocumentRelations({
     attachmentState,
     documents,
@@ -238,6 +240,9 @@ export function CatalogDocumentEditor({
           value={draft.quickSummary}
         />
       </label>
+      {quickSummaryWarning ? (
+        <p className="skill-lifecycle-warning">{quickSummaryWarning}</p>
+      ) : null}
 
       <label className="skill-field">
         <span>Source label</span>

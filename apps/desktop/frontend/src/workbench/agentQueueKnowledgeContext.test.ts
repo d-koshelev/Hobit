@@ -98,6 +98,38 @@ describe("agentQueueKnowledgeContext", () => {
     );
   });
 
+  it("keeps missing Knowledge quick summaries visible as warning-bearing context", () => {
+    const taskWithContext = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: "Context body is still bounded and visible.",
+          quickSummary: "",
+          title: "Unsummarized docs",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const materialized = materializeQueueExecutionPrompt(taskWithContext);
+
+    expect(taskWithContext.context?.attachedKnowledgeRefs[0]).toMatchObject({
+      quickSummary: "Summary missing.",
+      title: "Unsummarized docs",
+    });
+    expect(taskWithContext.context?.contextWarnings).toEqual([
+      expect.objectContaining({
+        code: "summary_missing",
+        id: "knowledge_document:doc-1:summary_missing",
+        severity: "warning",
+      }),
+    ]);
+    expect(materialized.materializedPrompt).toContain("Summary: Summary missing.");
+    expect(materialized.evidenceSection).toContain(
+      "Context warning ids: knowledge_document:doc-1:summary_missing",
+    );
+  });
+
   it("blocks deprecated Skills and allows reviewed Skills", () => {
     expect(
       buildQueueContextAttachment({

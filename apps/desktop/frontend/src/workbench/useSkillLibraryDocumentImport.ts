@@ -4,6 +4,7 @@ import {
   EMPTY_DOCUMENT_DRAFT,
   type KnowledgeDocumentDraft,
 } from "./skillLibraryModel";
+import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
 import { errorToMessage } from "./SkillLibraryDocumentsPanel.helpers";
 import type { WidgetRenderProps } from "./types";
 
@@ -83,7 +84,14 @@ export function useSkillLibraryDocumentImport({
       await loadDocuments(importedDocument.knowledgeDocumentId);
       setDocumentImportPath("");
       setDocumentImportScope("workspace");
-      setDocumentMessage("Imported document");
+      setDocumentMessage(
+        [
+          "Imported document",
+          knowledgeDocumentQuickSummaryWarning(importedDocument),
+        ]
+          .filter(Boolean)
+          .join(". "),
+      );
     } catch (importError) {
       setDocumentError(
         errorToMessage(importError, "Unable to import document."),

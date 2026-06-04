@@ -87,6 +87,7 @@ export function SkillLibraryDraftReviewPanel({
               draftReviewDecisions[item.draftItemId] ?? "pending";
             const isActionDisabled =
               decision !== "pending" || isAcceptingDraftItem;
+            const quickSummaryMissing = !item.quickSummary.trim();
 
             return (
               <article
@@ -96,7 +97,11 @@ export function SkillLibraryDraftReviewPanel({
                 <div className="skill-draft-review-item-header">
                   <div>
                     <h4>{item.title}</h4>
-                    <p>{item.quickSummary || item.fullContent}</p>
+                    <p>
+                      {quickSummaryMissing
+                        ? "Summary missing. Accepted active Knowledge will remain warning-bearing until a quick summary is added."
+                        : item.quickSummary}
+                    </p>
                   </div>
                   <span className="skill-scope-badge">
                     {draftDecisionLabel(decision)}

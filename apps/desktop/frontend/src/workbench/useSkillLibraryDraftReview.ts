@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { KnowledgeDocument } from "../workspace/types";
+import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
 import {
   knowledgeDraftAcceptedSourceLabel,
   knowledgeDraftAcceptedSourceRef,
@@ -109,6 +110,8 @@ export function useSkillLibraryDraftReview({
     setDocumentError(null);
 
     try {
+      let acceptedMessage = "Draft item accepted into Knowledge / Skills.";
+
       if (item.targetKind === "skill" && onCreateSkill) {
         await onCreateSkill({
           title: item.title,
@@ -125,7 +128,7 @@ export function useSkillLibraryDraftReview({
         const acceptedDocument = await onCreateKnowledgeDocument({
           scope: item.suggestedScope,
           catalogItemType: item.suggestedType,
-          quickSummary: item.quickSummary,
+          quickSummary: item.quickSummary.trim(),
           lifecycleStatus: "active",
           title: item.title,
           sourceLabel: knowledgeDraftAcceptedSourceLabel(draftReviewPack, item),
@@ -137,13 +140,19 @@ export function useSkillLibraryDraftReview({
         });
         setSelectedDocumentDraft(acceptedDocument);
         await loadDocuments(acceptedDocument.knowledgeDocumentId);
+        acceptedMessage = [
+          "Draft item accepted into Knowledge / Skills. Proposed quick summary was used when present.",
+          knowledgeDocumentQuickSummaryWarning(acceptedDocument),
+        ]
+          .filter(Boolean)
+          .join(" ");
       }
 
       setDraftReviewDecisions((current) => ({
         ...current,
         [item.draftItemId]: "accepted",
       }));
-      setDocumentMessage("Draft item accepted into Knowledge / Skills.");
+      setDocumentMessage(acceptedMessage);
     } catch (acceptError) {
       setDocumentError(
         errorToMessage(acceptError, "Unable to accept draft item."),

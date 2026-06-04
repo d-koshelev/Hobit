@@ -423,6 +423,10 @@ function knowledgeDocumentWarnings(
 ) {
   const warnings: AgentQueueTaskContextWarning[] = [];
 
+  if (!document.quickSummary.trim()) {
+    warnings.push(contextWarning(ref, "warning", "summary_missing", createdAt));
+  }
+
   if (!document.enabled) {
     warnings.push(contextWarning(ref, "blocked", "disabled", createdAt));
   }
@@ -491,13 +495,15 @@ function contextWarningMessage(ref: AgentQueueTaskContextRef, code: string) {
       return `${ref.title} needs review before it is treated as reliable guidance.`;
     case "archived":
       return `${ref.title} is archived. Review before any future materialization.`;
+    case "summary_missing":
+      return `${ref.title} has a summary missing warning. Add a quick summary before relying on this Knowledge context.`;
     default:
       return `${ref.title} has a context warning: ${code}.`;
   }
 }
 
 function visibleSummary(value: string) {
-  return visibleValue(value, "No quick summary yet.");
+  return visibleValue(value, "Summary missing.");
 }
 
 function visibleValue(value: string, fallback: string) {
