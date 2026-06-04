@@ -7,7 +7,7 @@ This document defines the acceptance gate for Hobit Stable v0.1.
 Acceptance verifies that the product behaves as the operator-controlled AI
 Workbench defined in `docs/HOBIT_STABLE_V0_1_CONTRACT.md`. It is a manual and
 semantic validation checklist. It does not implement automation, frontend UI,
-backend behavior, storage/schema changes, runtime behavior, Finder, provider
+backend behavior, storage/schema changes, runtime behavior, Finder behavior, provider
 tools, Queue scheduling, or new widgets.
 
 ## Acceptance Result Model
@@ -45,9 +45,12 @@ Every Stable v0.1 acceptance run must record:
   v0.1 acceptance gate.
 - [ ] `docs/CURRENT_WIDGET_SURFACE.md` still matches the accepted current
   product surface.
-- [ ] Widget Catalog exposes only Workspace Agent, Agent Queue, Terminal, Agent
-  Activity, Notes, Knowledge / Skills, Database / JDBC, Runbook, and allowed
-  supporting/compatibility Agent Executor and Git entries.
+- [ ] Widget Catalog exposes only product-facing Workspace Agent, Agent Queue,
+  Terminal, Agent Activity, Notes, Knowledge / Skills, Finder, Database / JDBC
+  Preview, and Runbook Preview entries.
+- [ ] Agent Executor and standalone Git are not presented as normal product
+  widgets; if reachable for compatibility/internal support, they are clearly
+  labeled as supporting/deprecated compatibility surfaces.
 - [ ] Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI,
   Script Runner, JIRA, Confluence, Image Edit, Knowledge Catalog, Stages, and
   separate legacy Coordinator surfaces are not presented as current product
@@ -127,6 +130,12 @@ Every Stable v0.1 acceptance run must record:
 - [ ] Verify Queue selected-task run history shows only safe metadata and never
   raw prompts, stdout/stderr, full logs, full final responses, diffs, repo
   paths, secrets, or raw JSON payloads.
+- [ ] Verify closure outcomes are explicit coordinator/operator decisions:
+  commit created, no-change accepted, follow-up created, or closure blocked /
+  commit required.
+- [ ] Verify Report ready is review evidence only and does not finalize a task.
+- [ ] Verify Queue, Autorun, runner, and worker paths do not auto-commit,
+  auto-accept, or auto-finalize work.
 
 ## F. Agent Executor Support
 
@@ -201,18 +210,26 @@ Every Stable v0.1 acceptance run must record:
 - [ ] Verify unsupported platforms report visible unsupported behavior rather
   than pretending live PTY works.
 
-## K. Git
+## K. Finder Git Plugin And Git Compatibility
 
-- [ ] Enter an explicit repository root.
-- [ ] Refresh status manually.
-- [ ] Verify grouped changed files render.
-- [ ] Select a changed file and verify bounded read-only diff renders.
-- [ ] Verify recent history renders.
-- [ ] Commit only selected files with an operator-provided message and explicit
-  confirmation.
-- [ ] Verify Git does not persist repository root/status as Workspace state.
-- [ ] Verify Git does not fetch, push, reset, clean, stash, checkout/switch,
-  watch, poll, scan parent directories, or auto-commit Executor output.
+- [ ] From Finder, select an explicit approved root before any Git read.
+- [ ] Verify Finder shows status badges or changed-file state for changed
+  files where Git data is available.
+- [ ] Select a changed file and verify bounded selected-file diff preview
+  renders in Finder.
+- [ ] Verify recent Git history renders in Finder where available.
+- [ ] Commit only explicit selected files with an operator-provided message and
+  explicit confirmation.
+- [ ] Push only through an explicit Finder Git manual push action after visible
+  branch/upstream/ahead-behind review.
+- [ ] Verify manual push does not support force push, push-all, hidden push,
+  automatic push after commit or Executor completion, reset, clean, stash, or
+  branch management.
+- [ ] Verify standalone Git, if reachable, is labeled deprecated/internal
+  compatibility and is not presented as a normal product widget.
+- [ ] Verify Git does not persist repository root/status as Workspace state,
+  scan parent directories, auto-commit Executor output, or perform unsupported
+  Git mutations.
 
 ## L. Database / JDBC Preview
 
@@ -239,15 +256,22 @@ Every Stable v0.1 acceptance run must record:
   steps, launch Terminal, create Queue items, mutate Git, or integrate with
   Workspace Agent.
 
-## N. Finder Gap
+## N. Finder
 
-- [ ] Verify Finder is either implemented under an accepted Finder contract or
-  recorded as a blocking Stable v0.1 gap.
-- [ ] Verify Finder is not silently added as a generic file browser, hidden
-  scanner, Git surface, Terminal launcher, broad context ingestion path, or
-  Workspace Agent hidden context source.
-
-Stable v0.1 cannot pass while this section remains `[ ]`, `[~]`, or `[!]`.
+- [ ] Select an explicit root before listing files or folders.
+- [ ] Navigate nested folders through column-based navigation.
+- [ ] Verify previous folders remain visible as earlier columns.
+- [ ] Select a file and verify bounded file content preview renders.
+- [ ] Minimize and maximize the floating preview pane without changing widget
+  identity, reading hidden content, saving edits, refreshing Git, or sending
+  context.
+- [ ] Edit a supported uncapped text file in place and save explicitly.
+- [ ] Edit a supported uncapped text file in place and cancel explicitly.
+- [ ] Verify unsupported, capped, binary, permission-denied, or too-large files
+  show visible states rather than fake content.
+- [ ] Verify Finder is not a generic IDE, hidden scanner, Terminal launcher,
+  arbitrary command prompt, broad context ingestion path, or Workspace Agent
+  hidden context source.
 
 ## O. UI And Product Rules
 
@@ -270,6 +294,8 @@ Stable v0.1 cannot pass while this section remains `[ ]`, `[~]`, or `[!]`.
 - [ ] Workspace Agent does not silently read Executor logs/results.
 - [ ] Workspace Agent does not silently read Terminal output.
 - [ ] Workspace Agent does not silently read Git status/diffs/history.
+- [ ] Workspace Agent does not silently read Finder files, previews, edit
+  drafts, or Finder Git data.
 - [ ] Workspace Agent does not silently read JDBC connector/query data.
 - [ ] Workspace Agent does not silently read files or folders.
 - [ ] Workspace Agent provider requests keep `allowed_tools: []`.
@@ -280,8 +306,8 @@ Stable v0.1 cannot pass while this section remains `[ ]`, `[~]`, or `[!]`.
 - [ ] Queue does not auto-accept work.
 - [ ] Executor success does not imply acceptance.
 - [ ] No hidden execution, hidden mutation, hidden Queue dispatch, Terminal
-  launch, Git mutation, JDBC execution, or broad file mutation is presented as
-  implemented.
+  launch, Git mutation, push, JDBC execution, or broad file mutation is
+  presented as implemented.
 
 ## Q. Required Validation Commands
 
@@ -319,10 +345,10 @@ G. Agent Activity: [ ] pass [ ] partial [ ] fail [ ] not attempted
 H. Notes: [ ] pass [ ] partial [ ] fail [ ] not attempted
 I. Knowledge / Skills: [ ] pass [ ] partial [ ] fail [ ] not attempted
 J. Terminal: [ ] pass [ ] partial [ ] fail [ ] not attempted
-K. Git: [ ] pass [ ] partial [ ] fail [ ] not attempted
+K. Finder Git plugin and Git compatibility: [ ] pass [ ] partial [ ] fail [ ] not attempted
 L. Database / JDBC Preview: [ ] pass [ ] partial [ ] fail [ ] not attempted
 M. Runbook Preview: [ ] pass [ ] partial [ ] fail [ ] not attempted
-N. Finder gap: [ ] pass [ ] partial [ ] fail [ ] not attempted
+N. Finder: [ ] pass [ ] partial [ ] fail [ ] not attempted
 O. UI and product rules: [ ] pass [ ] partial [ ] fail [ ] not attempted
 P. Safety assertions: [ ] pass [ ] partial [ ] fail [ ] not attempted
 Q. Required validation commands: [ ] pass [ ] partial [ ] fail [ ] not attempted

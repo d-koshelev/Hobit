@@ -53,8 +53,8 @@ semantic test runner behavior, or new widgets.
 
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
-examples for planning vocabulary only; the current Finder implementation is
-limited to the explicitly scoped frontend-first column-navigation MVP in
+examples for planning vocabulary only; current Finder behavior is governed by
+the explicitly scoped Stable v0.1 Finder surface in
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
 `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
@@ -192,7 +192,8 @@ unless the task explicitly requests it.
   product-model work. Coordinator was the previous name for the Workspace
   Agent surface. Workspace Agent is a foreground interactive AI agent widget;
   multiple Workspace Agents may exist in one Workspace. Queue organizes
-  promoted async work, and Executor is the queued/background worker.
+  promoted async work. Agent Executor is internal/compatibility Direct Work
+  runtime detail; Queue owns the operator-facing local executor flow.
 - `docs/WORKSPACE_COORDINATOR_AGENT_CONTRACT.md` - legacy-named contract for
   target Workspace Agent capability architecture, agent modes,
   safety/action levels, widget capability use, and Queue/Executor role
@@ -273,8 +274,9 @@ unless the task explicitly requests it.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language. Stable v0.1 product-surface language
   treats Workspace Agent plus Agent Queue as the core dogfooding loop, Terminal
-  as the explicit command surface, Finder as a required gap, and Agent Executor
-  plus Git as supporting/compatibility surfaces rather than product widgets.
+  as the explicit command surface, Finder as the file/project navigation
+  surface, and Agent Executor plus Git as supporting/compatibility surfaces
+  rather than product widgets.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,
   presentation, registry, and Workbench composition rules.
 - `docs/WORKSPACE_CONTRACT.md` - read for Workspace isolation, Workbench
@@ -318,6 +320,10 @@ unless the task explicitly requests it.
   history, and observability expectations.
 - `docs/GIT_COMMIT_SUPPORT_CONTRACT.md` - read only when Direct Work touches
   commit/review integration.
+
+Agent Executor uses the retained `agent-run` compatibility identity for Direct
+Work runtime detail. It is not a normal Stable v0.1 product widget; Queue owns
+the local executor flow visible to operators.
 
 ### Agent Queue
 
@@ -370,25 +376,24 @@ unless the task explicitly requests it.
 
 ### Git
 
-- `docs/GIT_WIDGET_CONTRACT.md` - Git Widget read/review/control boundaries.
+- `docs/GIT_WIDGET_CONTRACT.md` - deprecated/internal Git Widget compatibility
+  boundary plus Workspace Git / Finder Git product direction.
 - `docs/GIT_COMMIT_SUPPORT_CONTRACT.md` - explicit local commit support and
   confirmation requirements.
 
 ### Finder
 
-- `docs/FINDER_WIDGET_API_CONTRACT.md` - planned docs-only Finder Widget API
-  and Finder Git Plugin API contract for Stable v0.1. It defines
+- `docs/FINDER_WIDGET_API_CONTRACT.md` - Finder Widget API and Finder Git
+  Plugin API contract for Stable v0.1. It defines
   open-root/list/search/preview/select/attach/edit API boundaries plus
   WorkspaceGitApi-backed Git status, changed-file, diff, history, commit
-  detail, manual commit, and manual push boundaries. It does not implement
-  Finder, WorkspaceGitApi, frontend UI, backend/Tauri commands, storage/schema
-  changes, provider tools, hidden reads, or Git mutations.
-- `docs/FINDER_UX_CONTRACT.md` - planned Finder UX contract for macOS-like
+  detail, manual commit, and manual push boundaries. Current behavior is the
+  implemented subset described in `docs/CURRENT_WIDGET_SURFACE.md`; future
+  vocabulary in this contract does not add runtime behavior by itself.
+- `docs/FINDER_UX_CONTRACT.md` - Finder UX contract for macOS-like
   column navigation, Finder-owned floating preview, edit-in-place with
   explicit Save / Cancel, selected-file Git diff preview, pane presentation
-  states, and the future direction that Git review lives in Finder space.
-  Finder remains unimplemented unless a future task explicitly scopes an
-  implementation slice.
+  states, and the Stable v0.1 direction that Git review lives in Finder space.
 
 ### Notes
 

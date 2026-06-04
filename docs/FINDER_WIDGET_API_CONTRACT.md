@@ -2,19 +2,30 @@
 
 ## Purpose
 
-This contract defines the planned Finder Widget API and Finder Git Plugin API
+This contract defines the Finder Widget API and Finder Git Plugin API boundary
 for Stable v0.1.
 
-Status: Planned / docs-only / type-design only.
+Status: Current Stable v0.1 contract / docs-only / API-boundary design.
 
 This contract does not implement frontend UI, backend or Tauri commands, Rust
-or TypeScript types, storage/schema changes, filesystem reads or writes, Git
-commands, WorkspaceGitApi runtime behavior, Workspace Agent tools, provider
-tools, catalog insertion, or semantic tests.
+or TypeScript types, storage/schema changes, additional filesystem reads or
+writes, additional Git commands, additional WorkspaceGitApi runtime behavior,
+Workspace Agent tools, provider tools, or semantic tests.
 
 Current implemented behavior remains governed by
-`docs/CURRENT_WIDGET_SURFACE.md`. Finder is still a required Stable v0.1 gap
-and is not implemented.
+`docs/CURRENT_WIDGET_SURFACE.md`.
+
+The implemented Stable v0.1 Finder surface includes explicit root selection,
+column-based navigation with previous folders visible, bounded file content
+preview, a Finder-owned floating preview pane, edit-in-place with explicit
+Save / Cancel for supported uncapped text files, preview pane minimize /
+maximize behavior, and a Finder Git plugin for status badges/changed files,
+selected-file diff preview, Git history, manual local commit, and explicit
+manual push.
+
+Conceptual actions in this document that are not listed in the implemented
+surface remain future contract vocabulary and must not be claimed as current
+runtime behavior.
 
 ## Product Boundary
 
@@ -46,7 +57,7 @@ widgetInstanceId: <finder widget view id>
 workspaceId: <owning workspace>
 workbenchId: <owning workbench>
 approvedRootId: <operator-approved root reference>
-providerStatus: planned | unavailable | unsupported | ready
+providerStatus: unavailable | unsupported | ready
 ```
 
 Multiple Finder widgets may exist in one Workspace if each has its own visible
@@ -475,25 +486,26 @@ AI-readable context.
 
 ## Capability Summary
 
-Finder capabilities:
+Current Finder capabilities:
 
 - `finder.root.open`
 - `finder.directory.list`
-- `finder.search.bounded`
 - `finder.path.select`
 - `finder.file.preview`
-- `finder.file.attach_to_workspace_agent`
 - `finder.file.edit_in_place`
 
-Finder Git plugin capabilities:
+Current Finder Git plugin capabilities:
 
 - `finder.git.status.read`
 - `finder.git.changed_files.read`
 - `finder.git.file_diff.read`
 - `finder.git.history.read`
-- `finder.git.commit_details.read`
 - `finder.git.commit.manual`
 - `finder.git.push.manual`
+
+Future Finder capabilities described by this API vocabulary but not Stable
+v0.1 current behavior include bounded file search, selected Finder context
+attachment to Workspace Agent, and selected commit detail review.
 
 Risk classes:
 
@@ -545,31 +557,34 @@ Rules:
 
 ## Semantic Test Targets
 
-Future semantic tests should use app-native Finder and WorkspaceGitApi-backed
+Semantic tests should use app-native Finder and WorkspaceGitApi-backed
 actions, not shell commands or private component state.
 
-Required test targets before implementation acceptance:
+Stable v0.1 acceptance targets:
 
 - open explicit fixture root and list first directory;
 - reject list, preview, edit, search, or Git operations outside approved root;
 - select path without reading file content;
 - open capped text preview for selected file;
-- attach bounded visible preview excerpt to Workspace Agent without auto-send;
 - start edit, update draft, cancel, and verify no file mutation;
 - start edit, update draft, save, and verify selected file mutation only;
 - load Git status through Finder Git plugin for explicit root;
 - list changed files and load selected-file bounded diff;
-- read recent history and selected commit details with caps;
+- read recent history with caps;
 - require explicit confirmation for manual commit;
 - require explicit confirmation and safe upstream state for manual push;
 - report unsupported browser/runtime states without fake data.
+
+Future-only test targets include bounded search, selected Finder context
+attachment to Workspace Agent, and selected commit detail review.
 
 ## Non-Goals
 
 This contract does not add:
 
-- Finder implementation or catalog insertion;
-- WorkspaceGitApi implementation;
+- additional Finder implementation beyond current Stable v0.1 behavior;
+- additional WorkspaceGitApi implementation beyond current Stable v0.1
+  behavior;
 - storage/schema changes or approved-root persistence;
 - filesystem watcher or background index;
 - hidden recursive scan or repository discovery;

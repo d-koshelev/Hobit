@@ -47,11 +47,11 @@ Stable v0.1 product-facing workbench surfaces:
 - Agent Activity
 - Notes
 - Knowledge / Skills
+- Finder
 
 Current preview surfaces:
 
 - Database / JDBC
-- Finder
 - Runbook
 
 Supporting / compatibility surfaces that may remain implemented for internal
@@ -212,9 +212,12 @@ v0.1 product widget.
 
 ### Git
 
-- Supporting / compatibility desktop Git review/control surface for an
+- Deprecated/internal compatibility desktop Git review/control surface for an
   explicit operator-provided repository root. It is not a Stable v0.1 product
-  widget.
+  widget or normal product catalog entry.
+- Stable v0.1 product Git functionality belongs to the Workspace Git API and
+  the Finder Git plugin. The standalone Git widget code is retained only for
+  compatibility and transition work.
 - Reads a manual read-only status snapshot, grouped changed-file data,
   selected-file diff, and recent Git history in the Tauri desktop shell.
 - The compact widget surface is organized as Changes, Diff, History, and
@@ -231,7 +234,7 @@ v0.1 product widget.
 
 ### Finder
 
-- Current preview frontend-first file navigation widget.
+- Current Stable v0.1 file/project navigation widget.
 - Uses the `finder` widget definition id.
 - Provides explicit root approval through the browser File System Access
   directory picker when available. If only the native Workspace directory
@@ -247,10 +250,22 @@ v0.1 product widget.
   edit-in-place with save and cancel. Save writes only the selected file through
   the approved handle; changing selection or closing with unsaved edits is
   blocked until save/cancel.
+- The floating preview pane can be minimized or maximized as Finder
+  presentation state without creating a new widget instance, reading hidden
+  content, saving edits, refreshing Git, or sending context to Workspace Agent.
+- Finder includes a Git plugin for the approved root. The plugin can show Git
+  status badges/changed-file state, load a bounded selected-file diff preview,
+  show recent Git history, create an explicit manual local commit, and perform
+  an explicit manual push when safe upstream state is visible.
+- Finder Git manual push is an operator-triggered external/network mutation.
+  It has no force push, no push-all, no hidden push, no automatic push after
+  commit or Executor completion, no reset/clean/stash, and no branch
+  management unless a later contract explicitly implements it.
 - Directory listing state is current-session frontend state only.
-- Does not preview Git diffs, show Git status, persist approved roots, scan
-  recursively, watch folders, search files, attach context to Workspace Agent,
-  launch Terminal, create Queue/Executor work, or expose Git UI.
+- Does not persist approved roots, scan recursively, watch folders, perform
+  broad IDE search/indexing, attach context to Workspace Agent, launch
+  Terminal, create Queue/Executor work, expose arbitrary command prompts,
+  provide broad IDE behavior, or run unsupported Git operations.
 
 ### Terminal
 
@@ -704,6 +719,11 @@ v0.1 product widget.
   and coordinator-finalized/accepted. Follow-up/sub-block creation is explicit
   and queued. Rollback required is a marker/recommendation only; rollback
   execution remains unimplemented.
+- Stable v0.1 closure outcomes are explicit coordinator/operator decisions:
+  commit created, no-change accepted, follow-up created, or closure blocked /
+  commit required. Report ready is review evidence, not a final state.
+  Autonomous Queue, runner, and worker paths must not auto-commit,
+  auto-accept, or auto-finalize closure.
 - Task deletion is explicit and confirmation-gated, blocks running/current
   active runner tasks, and removes only the Queue task row. It does not delete
   Agent Executor runs, logs, results, artifacts, or Direct Work history.
@@ -964,8 +984,8 @@ v0.1 product widget.
 - The Terminal one-shot command runner is a Compatibility fallback, not the
   normal Terminal surface and not Script Runner.
 - Agent Executor and Git are supporting/compatibility surfaces for current
-  Direct Work detail and explicit repository review. They are not Stable v0.1
-  product widgets.
+  Direct Work detail and legacy explicit repository review. They are not Stable
+  v0.1 product widgets; Git product functionality belongs to Finder Git.
 - The older Notes widget-local `{ "body": "..." }` state is
   Compatibility/Deprecated for new product work.
 
@@ -983,8 +1003,10 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
-- Finder Git review, root persistence, search, folder watching, and context
-  attachment beyond the current preview column-navigation and file-preview MVP
+- Finder root persistence, broad search/indexing, folder watching, context
+  attachment, branch management, push-all, force push, and Git operations
+  beyond the current column navigation, file preview/edit, selected-file diff,
+  history, manual local commit, and explicit manual push behavior
 - separate legacy Coordinator preview surface
 - Knowledge Catalog
 - Stages

@@ -2,53 +2,73 @@
 
 ## Purpose
 
-This contract defines the Hobit Git Widget / Git Plugin as a visual review and control surface for code changes produced during AI-assisted work.
+This contract defines the Hobit Git Widget compatibility boundary and the
+Workspace Git / Finder Git product boundary for code changes produced during
+AI-assisted work.
 
-The full future Git review cockpit is not implemented yet. This document is a
-product/domain contract. The old standalone Git widget code remains as an
-internal/deprecated compatibility surface with a transient explicit
-repository-root input, manual desktop-only read-only status refresh through
-`get_git_repository_status`, compact Changes / Diff / History / Commit
-sections, grouped changed files, bounded selected-file diff review, recent
-history, and an explicit local commit UI owned by Git Widget.
+The standalone Git widget is deprecated/internal compatibility only. It is not
+a Stable v0.1 product widget and must not be offered as a normal product
+Widget Catalog entry. Product Git functionality belongs to the Workspace Git
+API and the Finder Git plugin.
+
+The old standalone Git widget code remains as an internal/deprecated
+compatibility surface with a transient explicit repository-root input, manual
+desktop-only read-only status refresh through `get_git_repository_status`,
+compact Changes / Diff / History / Commit sections, grouped changed files,
+bounded selected-file diff review, recent history, and an explicit local
+commit UI owned by Git Widget.
 Local commit creation is selected-file based, uses an
 operator-provided message, and requires operator confirmation. Agent Executor
 also has a read-only backend/Tauri diff summary API and compact frontend diff
 summary UI for an explicit repository root. These foundations do not add
 repository root/status persistence, validation association, Git-response
-association, storage schema changes, polling, watching, fetch, push, reset,
-clean, checkout/switch branch, restore, rebase, merge, patch apply,
-auto-commit, Agent Executor auto-commit, or broader runtime behavior.
+association, storage schema changes, polling, watching, fetch, reset, clean,
+checkout/switch branch, restore, rebase, merge, patch apply, auto-commit,
+Agent Executor auto-commit, or broader runtime behavior.
 
-Future Stable v0.1 product UX should place common Git review inside Finder
-space, as defined in `docs/FINDER_UX_CONTRACT.md`: changed-file indicators and
-selected-file diffs belong next to file navigation and preview. The standalone
-Git Widget must not be offered as a normal product Widget Catalog entry unless
-an explicit future Finder/Git migration or implementation block changes that
-behavior.
+Stable v0.1 product UX places common Git review inside Finder space, as
+defined in `docs/FINDER_UX_CONTRACT.md`: status badges/changed files,
+selected-file diffs, Git history, manual local commit, and explicit manual push
+belong next to file navigation and preview. Manual push is explicit
+operator-triggered external/network mutation only: no force push, no push-all,
+no hidden push, no automatic push after commit or Executor completion, no
+reset/clean/stash, and no branch management unless a future contract
+implements it.
 
 Current and future explicit local commit support must also follow
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`.
 
 ## Role
 
-The Git Widget is a first-class Workbench widget/plugin for reviewing and controlling repository state.
+The standalone Git Widget is a retained compatibility WidgetInstance/plugin
+for reviewing repository state. It is not a normal Stable v0.1 product widget.
+The Finder Git plugin is the Stable v0.1 product Git review/control surface.
 
-It should be the natural review companion after an executor agent finishes a code block. Its job is to help the operator review, validate, commit, push, revert, or request follow-up work from a clear visual surface.
+Finder Git should be the natural review companion after an executor agent
+finishes a code block. Its job is to help the operator review changed files,
+inspect selected-file diffs, inspect history, create an explicit local commit,
+perform an explicit safe manual push, or request follow-up work from a clear
+visual surface. Revert, reset, clean, stash, branch management, force push, and
+push-all are not Stable v0.1 behavior.
 
-The Git Widget must not be only raw `git` command output. Raw output may be available in expandable details, but the primary surface should present readable summaries, risks, and operator actions.
+Git review surfaces must not be only raw `git` command output. Raw output may
+be available in expandable details, but the primary surface should present
+readable summaries, risks, and operator actions.
 
 Rules:
 
 - The operator remains in control.
 - The widget must not perform hidden Git mutations.
 - Mutating and destructive operations require explicit approval.
-- The widget must make validation failures, skipped validation, dirty state, untracked files, and push-needed state visible.
+- The product Git surface must make validation failures, skipped validation,
+  dirty state, untracked files, and push-needed state visible where that data
+  is available.
 - The widget should connect code changes to the agent block, response, validation results, and Workspace history when available.
 
 ## When It Should Surface
 
-Future Hobit UI may surface or refresh the Git Widget when:
+Hobit may surface or refresh Finder Git, or the standalone compatibility Git
+surface where retained internally, when:
 
 - an executor final response is received
 - executor response structure is validated
@@ -60,7 +80,8 @@ Future Hobit UI may surface or refresh the Git Widget when:
 - validation failed or was skipped
 - the operator opens a Workspace with unresolved repository state
 
-Surfacing the widget must not execute Git mutations. It only presents review state and available explicit actions.
+Surfacing Git review must not execute Git mutations. It only presents review
+state and available explicit actions.
 
 ## Visual Review Sections
 
@@ -170,7 +191,8 @@ Before any Git status, diff, log, branch, or other Git command is executed, Hobi
 
 Repository root selection is a safety boundary:
 
-- The repository root must be visible and reviewable in the Git Widget UI.
+- The repository root must be visible and reviewable in Finder Git or retained
+  Git compatibility UI.
 - Hobit must not silently infer a repository by scanning parent directories.
 - Hobit must not crawl Workspace directories looking for repositories.
 - Hobit must not run Git commands against arbitrary paths selected by hidden logic.
@@ -187,7 +209,7 @@ Rules:
 - The first slice does not require SQLite schema changes.
 - The UI clearly shows when no repository root is configured.
 - Browser/Vite fallback shows an unsupported state for real Git reads.
-- The Git Widget must not present fake live repository data.
+- Git UI must not present fake live repository data.
 
 ### Future Workspace Model
 
@@ -196,7 +218,8 @@ A future Workspace-level project path or repository root may be introduced later
 Future rules:
 
 - A Workspace may have one or more approved repository roots.
-- The Git Widget may default to a Workspace-approved repository root when one is available.
+- Finder Git or retained Git compatibility UI may default to a
+  Workspace-approved repository root when one is available.
 - Applying or changing a repository root must be operator-visible and auditable.
 - Future persistence must not silently change historical Git review context.
 - Captured Git review artifacts should preserve which repository root they used.
@@ -254,7 +277,8 @@ Adapter rules:
 
 ### Relation To UI
 
-The Git Widget should make repository root state obvious.
+The retained standalone Git compatibility surface and Finder Git should make
+repository root state obvious.
 
 UI rules:
 
@@ -266,7 +290,8 @@ UI rules:
 
 ### Relation To Workspace
 
-In the first implementation slice, repository root may remain Git-widget-local and transient.
+In the retained standalone compatibility surface, repository root remains
+Git-widget-local and transient.
 
 Future Workspace history may link Git status snapshots, executor responses, validation results, and commits to a known repository root. If a repository root changes later, historical Git review artifacts must preserve the root they used.
 
@@ -290,26 +315,32 @@ Read-only operations should still be visible as widget activity/log output when 
 
 ### Mutating Operations Requiring Explicit Approval
 
-These operations require explicit operator approval:
+Current Stable v0.1 Finder Git mutations require explicit operator approval:
 
-- stage selected files
-- unstage selected files
-- commit
-- amend commit later
-- push
-- stash
-- restore selected file
-- revert commit
+- manual local commit for an explicit selected file set;
+- manual push only after visible branch/upstream/ahead-behind review.
+
+Future Git mutations, if implemented later, also require explicit operator
+approval:
+
+- stage selected files;
+- unstage selected files;
+- amend commit;
+- stash;
+- restore selected file;
+- revert commit.
 
 The widget must show purpose, expected effect, affected files or commits, and risk before executing these actions.
 
 Commit creation has a dedicated safety contract in
 `docs/GIT_COMMIT_SUPPORT_CONTRACT.md`. Commit support must be explicit only,
 must show the included change set and operator-approved message, and must not
-include push in the current local commit slice. The current Git Widget UI can
-create a local commit for an explicit selected file set only after operator
-confirmation. General staging/unstaging UI, push, stash, restore, revert,
-reset, clean, and other broader Git controls remain future work.
+auto-push after commit. The current Finder Git plugin and retained standalone
+Git compatibility UI can create a local commit for an explicit selected file
+set only after operator confirmation. Manual push belongs to Finder Git and is
+separate from commit. General staging/unstaging UI, stash, restore, revert,
+reset, clean, branch management, force push, push-all, and other broader Git
+controls remain future work.
 
 ### High-Risk Operations Requiring Stronger Confirmation
 
@@ -326,6 +357,7 @@ High-risk actions must never be automatic or hidden. They should require an expl
 
 - No hidden Git mutations.
 - No automatic push.
+- No force push or push-all.
 - No automatic discard, reset, or clean.
 - Destructive actions must show affected files and require confirmation.
 - Generated commit messages must be reviewable before commit.
@@ -339,34 +371,39 @@ High-risk actions must never be automatic or hidden. They should require an expl
 
 ## Relation To Workspace Agent / Executor Workflow
 
-Expected future workflow:
+Expected Stable v0.1 workflow:
 
 1. Executor agent completes a focused code block.
 2. Final response is parsed or validated using the selected Response Template and `docs/AGENT_RESPONSE_CONTRACT.md`.
-3. Git Widget refreshes repository state.
-4. Git Widget presents a review card for the block and repository.
-5. Operator decides accept, fix, push, revert, or follow-up.
+3. Finder Git refreshes repository state for the approved root.
+4. Finder Git presents changed files, selected-file diff/history, and explicit
+   commit/push actions where safe.
+5. Operator decides commit created, no-change accepted, follow-up created, or
+   closure blocked / commit required.
 6. Accepted result becomes part of Workspace history when future storage supports it.
 
-The Git Widget should help the operator or future Workspace Agent decide
-whether to accept the block, request a fix, rerun validation, create a
-follow-up block, push, or revert.
+Finder Git should help the operator decide whether to accept the block,
+request a fix, rerun validation, create a follow-up block, commit, or manually
+push. Report ready is not final closure, and autonomous Queue must not
+auto-commit, auto-accept, or auto-finalize.
 
 Future Agent Queue behavior is defined in `docs/AGENT_QUEUE_CONTRACT.md`. Code-related Queue Items may link to Git Widget review state, but the queue must not hide dirty Git state, failed validation, skipped validation, untracked files, or push-needed state.
 
 ## Relation To Direct Mode
 
 Direct Mode is defined in `docs/DIRECT_MODE_AGENT_CONTRACT.md`. After a Direct
-Work run, the Git Widget is the review surface for repository status, changed
-files, compact status/diff understanding, and explicit selected-file local
-commit after operator confirmation. Validation association remains future work.
+Work run, Finder Git is the product review surface for repository status,
+changed files, compact status/diff/history understanding, explicit selected-file
+local commit, and explicit manual push after operator confirmation. The
+standalone Git widget remains compatibility only. Validation association
+remains future work.
 
 MVP rules:
 
 - Direct Work may prompt the operator to refresh Git status after the run.
 - A post-run refresh must use an explicit approved repository root.
-- The Git Widget must show changed files and dirty state without treating the
-  run as accepted.
+- Finder Git must show changed files and dirty state without treating the run
+  as accepted where that data is available.
 - No automatic stage, commit, push, restore, revert, reset, clean, stash, or
   discard behavior may be added for Direct Work MVP.
 - Generated commit messages, if supported later, must remain reviewable before
@@ -379,7 +416,8 @@ auto-commit.
 
 ## Relation To Request And Response Templates
 
-The Git Widget may associate repository state with:
+Finder Git or retained standalone Git compatibility may associate repository
+state with:
 
 - Request Snapshot
 - Response Template
@@ -401,7 +439,9 @@ Generated follow-up requests must remain reviewable and operator-controlled.
 
 ## Relation To Widgets
 
-The Git Widget is a first-class widget/plugin and must follow `docs/WIDGET_CONTRACT.md`.
+The retained standalone Git surface is a compatibility widget/plugin and must
+follow `docs/WIDGET_CONTRACT.md` while it exists. Finder Git is owned by the
+Finder widget and Workspace Git API boundaries.
 
 It must support:
 
@@ -413,11 +453,13 @@ It must support:
 - approval-aware mutating operations
 - Workbench state/event communication rather than private widget coupling
 
-The Git Widget may also act as a Workbench companion surface after agent work, but it must not become a permanent required product center.
+Git review may also act as a Workbench companion surface after agent work, but
+the standalone Git widget must not become a permanent required product center.
 
 ## Future UI Direction
 
-The Git Widget should feel like a polished visual Git cockpit for post-agent review.
+Finder Git should feel like a clear visual Git review/control pane for
+post-agent review.
 
 Top-level UI should prioritize:
 
@@ -445,6 +487,7 @@ This contract does not implement:
 - background Git watcher
 - automatic commit
 - automatic push
+- force push or push-all
 - destructive Git operations
 - PR provider integration
 - agent runtime behavior
@@ -468,23 +511,28 @@ changed-files summary. The compatibility component can also read a bounded
 selected-file diff and recent history through Git-widget-owned read-only Tauri
 commands.
 
-The visible Git Widget surface has read-only repository review plus explicit
-local-only commit controls. The repository root and refreshed status stay in
-local React state only; they are not persisted, restored, polled, watched,
-validated into Workspace state, or reused after reopening. Browser/Vite
-fallback cannot read local Git status, diffs, history, or create local commits.
+The retained standalone Git Widget compatibility surface has read-only
+repository review plus explicit local-only commit controls. The repository
+root and refreshed status stay in local React state only; they are not
+persisted, restored, polled, watched, validated into Workspace state, or reused
+after reopening. Browser/Vite fallback cannot read local Git status, diffs,
+history, or create local commits.
 Agent Executor has a read-only diff summary API and compact frontend diff
 summary UI for an explicit repository root;
 untracked file patch previews are not included in that MVP. Git review beyond
-these manual status/selected-diff/history surfaces and the explicit local
-commit flow remains future optional capability work.
+these manual status/selected-diff/history surfaces, the explicit local commit
+flow, and Finder Git explicit manual push remains future optional capability
+work.
 
 The backend/Tauri/frontend implementation also includes an explicit local
-commit flow for Git Widget ownership. It requires explicit selected files, an
+commit flow for Git Widget compatibility ownership and Finder Git product
+ownership where wired. It requires explicit selected files, an
 operator-provided message, and operator confirmation; stages only that selected
 set; rejects unrelated staged files; returns structured command output and
-safety flags; and performs no push, reset, clean, checkout, restore, rebase,
-merge, fetch, watch, poll, or patch apply.
+safety flags. Finder Git also owns explicit manual push where current Workspace
+Git API support is available. No path performs force push, push-all, hidden
+push, automatic push, reset, clean, checkout, restore, rebase, merge, fetch,
+watch, poll, branch management, or patch apply.
 
 Not implemented:
 
@@ -493,6 +541,7 @@ Not implemented:
 - Full commit show UI, commit graph, and patch-level diff/stage controls beyond
   the current bounded selected-file diff and recent history surfaces
 - validation association or Git-response association
-- general staging UI, unstaging UI, push, revert, reset, clean, stash, or other
-  Git controls beyond the explicit selected-file local commit flow
+- general staging UI, unstaging UI, revert, reset, clean, stash, force push,
+  push-all, branch management, or other Git controls beyond the explicit
+  selected-file local commit flow and Finder Git manual push
 - storage schema changes or broader runtime behavior

@@ -12,7 +12,7 @@ that must be cleared before Stable v0.1 acceptance.
 
 This document is docs-only. It does not implement frontend behavior, backend
 behavior, Tauri commands, storage/schema changes, runtime execution, provider
-tools, Queue scheduling, Finder, Git mutation, Terminal behavior, JDBC
+tools, Queue scheduling, Finder behavior, Git mutation, Terminal behavior, JDBC
 production execution, or new widgets.
 
 ## Source Of Truth
@@ -45,8 +45,8 @@ The Stable v0.1 core dogfooding loop is:
    Queue or operator-started execution.
 4. Agent Activity shows readable current-session activity.
 5. Notes and Knowledge / Skills preserve explicit operator-authored context.
-6. Terminal, Git, Database / JDBC, Runbook, and Finder remain bounded widgets
-   or preview/gap surfaces, not hidden automation paths.
+6. Terminal, Finder, Database / JDBC Preview, and Runbook Preview remain
+   bounded widgets, not hidden automation paths.
 
 Stable v0.1 must feel like Hobit: a modular AI Workbench. It must not become a
 script executor, terminal wrapper, IDE clone, runbook runner, knowledge
@@ -63,15 +63,16 @@ Stable v0.1 product-facing Workbench surfaces are:
 - Agent Activity.
 - Notes.
 - Knowledge / Skills.
-- Database / JDBC.
-- Runbook.
+- Database / JDBC Preview.
+- Runbook Preview.
 - Finder.
 
 Stable v0.1 supporting / compatibility surfaces are:
 
 - Agent Executor, for Direct Work runtime detail, run history, logs, results,
   cancellation, validation capture, and Queue task execution support.
-- Git, for explicit repository review/control.
+- Git, as deprecated/internal compatibility only. Stable v0.1 product Git
+  functionality belongs to the Workspace Git API and Finder Git plugin.
 
 Stable v0.1 must not present these as current product surfaces:
 
@@ -212,6 +213,16 @@ Agent Queue must not:
 - mutate Notes, Git, Terminal, files, JDBC, or Knowledge directly;
 - copy raw Executor logs, stdout/stderr, prompts, diffs, repo paths, secrets,
   or raw payloads into Queue state.
+- auto-commit, auto-accept, or auto-finalize work.
+
+Stable v0.1 closure outcomes are explicit coordinator/operator decisions:
+
+- commit created;
+- no-change accepted;
+- follow-up created;
+- closure blocked / commit required.
+
+Report ready is review evidence, not final closure.
 
 ### Agent Executor
 
@@ -323,7 +334,8 @@ Terminal must not:
 
 ### Git
 
-Git is a supporting / compatibility repository review/control surface.
+Git is deprecated/internal compatibility implementation, not a Stable v0.1
+product widget.
 
 It is responsible for:
 
@@ -338,9 +350,18 @@ Git must not:
 
 - persist repository roots;
 - scan Workspace parents;
-- fetch, push, reset, clean, stash, checkout, switch branches, or watch/poll;
+- fetch, push, reset, clean, stash, checkout, switch branches, or watch/poll
+  through the standalone compatibility widget;
 - auto-commit Agent Executor output;
 - mutate Git outside the explicit local commit path.
+
+Stable v0.1 product Git review/control belongs in Finder through the Finder
+Git plugin and Workspace Git API. Finder Git may show status badges/changed
+files, selected-file diff preview, Git history, explicit manual local commit,
+and explicit manual push. Manual push is user-triggered only: no force push,
+no push-all, no hidden push, no automatic push after commit or Executor
+completion, no reset/clean/stash, and no branch management unless a later
+contract implements it.
 
 ### Database / JDBC
 
@@ -385,22 +406,22 @@ Runbook must not:
 
 ### Finder
 
-Finder is a required Stable v0.1 product gap.
+Finder is the Stable v0.1 operator-controlled file/project navigation surface.
 
-Finder may not be added silently as a generic file browser, hidden Workspace
-scanner, Git surface, Terminal launcher, or broad context ingestion path. Any
-Finder implementation must start contract-first and define:
+It is responsible for:
 
-- operator purpose and scenario;
-- visible file/folder selection semantics;
-- safe bounded listing/snapshot rules;
-- hidden context and ingestion prohibitions;
-- Workspace Agent context approval boundary;
-- persistence rules;
-- semantic acceptance tests.
+- explicit root selection before file or Git reads;
+- column-based navigation with previous folders visible as columns;
+- bounded file content preview;
+- a floating preview pane with minimize/maximize presentation behavior;
+- edit-in-place with Save / Cancel for supported uncapped text files;
+- selected-file Git status badges/changed-file state;
+- selected-file diff preview, Git history, manual local commit, and manual
+  push through the Finder Git plugin.
 
-Until Finder exists under an accepted contract and passes acceptance, Stable
-v0.1 remains blocked.
+Finder must not become a broad IDE clone, hidden Workspace scanner, Terminal
+launcher, arbitrary command prompt, broad context ingestion path, hidden
+Workspace Agent file tool, or unsupported Git control surface.
 
 ## API Semantics
 
@@ -434,7 +455,10 @@ surface:
 - Agent Executor / Direct Work APIs;
 - Agent Activity stream consumption;
 - Terminal PTY and collapsed one-shot fallback APIs;
-- Git explicit-root status/diff/history/local commit APIs;
+- Finder approved-root file navigation, preview/edit, pane presentation, and
+  Finder Git status/diff/history/local commit/manual push APIs;
+- deprecated/internal Git explicit-root status/diff/history/local commit APIs
+  where retained for compatibility;
 - JDBC metadata and bounded read-only mock/safe query APIs;
 - Workspace Agent visible-context provider/proposal APIs with
   `allowed_tools: []`.
@@ -469,6 +493,8 @@ Current-session state includes:
 - Agent Activity timeline;
 - Terminal PTY sessions and PTY output buffers;
 - Git selected repository root/status/diff/history UI state;
+- Finder approved-root, column navigation, preview pane, edit draft, and
+  Finder Git plugin UI state;
 - Runbook current local step state;
 - Queue-to-Executor frontend handoff and current-session runner state where
   current contracts define it.
@@ -543,10 +569,8 @@ mutation, Terminal launch, JDBC execution, Notes mutation, or file mutation.
 
 Stable v0.1 acceptance is blocked until:
 
-- Finder has an accepted contract-first implementation or the Stable v0.1
-  surface is explicitly changed to remove Finder as a required gap.
 - Workspace Agent, Agent Queue, Agent Executor support, Agent Activity, Notes,
-  Knowledge / Skills, Terminal, Git, Database / JDBC Preview, and Runbook
+  Knowledge / Skills, Terminal, Finder, Database / JDBC Preview, and Runbook
   Preview pass the acceptance checks in
   `docs/HOBIT_STABLE_V0_1_ACCEPTANCE.md`.
 - The Widget Catalog exposes only the accepted Stable v0.1 product-facing
@@ -573,7 +597,8 @@ Stable v0.1 does not include:
 - durable Queue runner reconnect/resume;
 - automatic acceptance;
 - automatic Git commit/push;
-- Git fetch/push/reset/clean/stash/checkout/watch/poll;
+- force push, push-all, hidden push, or branch management;
+- Git fetch/reset/clean/stash/checkout/watch/poll;
 - Terminal tabs/splits/history/transcripts/profiles;
 - Script Runner;
 - production JDBC execution or credentials;

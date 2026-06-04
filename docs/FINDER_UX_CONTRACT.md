@@ -2,19 +2,19 @@
 
 ## Purpose
 
-This contract defines the planned Finder user experience for Hobit.
+This contract defines the Finder user experience for Hobit.
 
-Finder is the Stable v0.1 file/project navigation gap. It should provide an
+Finder is the Stable v0.1 file/project navigation surface. It provides an
 operator-controlled Workspace/project view for files, folders, previews,
 in-place text edits, and Git-aware review without becoming a shell, hidden
 filesystem scanner, broad context-ingestion path, or standalone IDE clone.
 
-Status: Planned / docs-only.
+Status: Current Stable v0.1 contract / docs-only.
 
 This contract does not implement frontend UI, backend or Tauri commands, Rust
-or TypeScript types, storage/schema changes, file watching, Git mutations,
-Workspace Agent tools, provider tools, hidden reads, hidden writes, or Finder
-catalog insertion.
+or TypeScript types, storage/schema changes, additional file watching, Git
+mutations beyond current Finder Git manual commit/push behavior, Workspace
+Agent tools, provider tools, hidden reads, or hidden writes.
 
 Current implemented behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`.
@@ -26,9 +26,8 @@ Finder is the operator's visible Workspace/project navigation surface.
 Git review belongs in the Finder space for the Stable v0.1 product direction:
 changed files, selected-file diffs, and Git-aware file status should appear
 where the operator is already navigating files. The current standalone Git
-surface may remain as supporting/compatibility behavior until explicit future
-migration work, but future product UX should not treat Git as a separate
-Workbench center.
+surface may remain as deprecated/internal compatibility behavior, but Stable
+v0.1 product UX should not treat Git as a separate Workbench center.
 
 Finder must preserve these rules:
 
@@ -63,7 +62,7 @@ What they must control:
 - which folder/file is selected;
 - whether a preview opens;
 - whether text changes are saved or canceled;
-- whether any future Git mutation is requested.
+- whether any manual Git commit or push is requested.
 
 ## Product Scenario
 
@@ -80,7 +79,7 @@ state, and selected-file Git diff together in one Finder widget.
 
 Why this belongs in a widget: Finder is an optional Workbench capability with
 its own approved scope, state snapshot, action boundaries, logs, layout, pane
-composition, and future Widget API.
+composition, and Widget API boundary.
 
 ## Widget Identity
 
@@ -90,14 +89,14 @@ widgetInstanceId: <finder widget view id>
 workspaceId: <owning workspace>
 workbenchId: <owning workbench>
 user-facing title: Finder
-status: Planned / not implemented
+status: Current Stable v0.1
 singleton or multiple: multiple Finder widgets may exist if each has visible approved scope
-provider status: unavailable until explicitly implemented
+provider status: unavailable | unsupported | ready
 ```
 
 Multiple Finder widgets may point at different approved roots inside the same
-Workspace when future implementation allows it. Finder state must not leak
-across Workspaces.
+Workspace where current behavior allows it. Finder state must not leak across
+Workspaces.
 
 ## Scope And Root Model
 
@@ -114,8 +113,8 @@ Approved root rules:
 - no parent traversal or Workspace-wide scanning may infer a root;
 - no hidden folder scan may discover repositories, secrets, or project files.
 
-The first implementation slice may use a transient root. Persistence of
-approved roots is a separate future storage/API decision.
+The current implementation uses a transient approved root. Persistence of
+approved roots remains a separate future storage/API decision.
 
 ## UX Layout
 
@@ -187,7 +186,7 @@ Agent by themselves.
 
 ## Edit In Place
 
-Finder supports planned edit-in-place for selected supported text files.
+Finder supports edit-in-place for selected supported text files.
 
 Edit rules:
 
@@ -197,8 +196,8 @@ Edit rules:
 - unsaved changes are visible in the preview/header state;
 - changing selection with unsaved edits must require a visible decision:
   save, discard/cancel, or stay;
-- Save writes only the selected file inside the approved root through a future
-  app-native Finder file-write action;
+- Save writes only the selected file inside the approved root through the
+  current approved file handle/API path where available;
 - Cancel discards the draft and returns to the last loaded preview;
 - autosave is not part of this contract;
 - formatting, refactors, multi-file edits, and agent-authored patches are out
@@ -211,7 +210,8 @@ be read-only or unsupported with visible reasons.
 
 ## Git Diff Preview
 
-Finder may show Git-aware review for the approved root.
+Finder shows Git-aware review for the approved root where Git data is
+available.
 
 Git-in-Finder rules:
 
@@ -224,17 +224,20 @@ Git-in-Finder rules:
 - diff preview must show truncation, binary, generated-file, and unsupported
   states when applicable;
 - raw diff is not default AI context;
-- Git status/diff reads are read-only;
-- commit, stage, unstage, restore, reset, clean, stash, push, rebase, merge,
-  checkout, and branch operations remain out of scope unless a later explicit
-  Finder/Git mutation contract adds approval-gated actions.
+- Git status/diff/history reads are read-only;
+- manual local commit and manual push are explicit approval-gated Finder Git
+  plugin actions;
+- stage, unstage, restore, reset, clean, stash, rebase, merge, checkout,
+  branch management, force push, push-all, automatic push, and hidden push
+  remain out of scope unless a later explicit Finder/Git mutation contract
+  adds them.
 
 Current standalone Git Widget behavior remains governed by
 `docs/GIT_WIDGET_CONTRACT.md` and `docs/CURRENT_WIDGET_SURFACE.md`.
 
 ## State Snapshot
 
-Future safe Finder snapshots should include:
+Safe Finder snapshots should include:
 
 - snapshot revision;
 - provider/runtime status;
@@ -255,7 +258,7 @@ payloads, or hidden Workspace context.
 
 ## Capabilities
 
-Planned Finder capabilities:
+Current Finder capabilities:
 
 ```text
 finder.root.select
@@ -267,7 +270,9 @@ finder.file.save_selected
 finder.file.cancel_edit
 finder.git.status_read
 finder.git.diff_selected
-finder.search.bounded_future
+finder.git.history_read
+finder.git.commit_manual
+finder.git.push_manual
 ```
 
 Capability risk:
@@ -277,13 +282,15 @@ Capability risk:
 - file preview: sensitive read when selected, capped, and visible;
 - edit draft: local UI mutation only until saved;
 - save selected file: local file mutation and requires explicit operator action;
-- Git status/diff: safe or sensitive read depending on content, always capped
-  and selected;
-- bounded search: future read capability with caps and ignore rules.
+- Git status/diff/history: safe or sensitive read depending on content, always
+  capped and selected;
+- manual commit: local Git mutation with explicit operator approval;
+- manual push: external/network Git mutation with explicit operator approval,
+  no force push, no push-all, no hidden push, and no automatic push.
 
 ## Actions
 
-Planned app-native actions:
+Current app-native actions:
 
 - `finder.root.select`: approve a root and load its first bounded column.
 - `finder.directory.list`: list one selected directory inside the approved root.
@@ -294,6 +301,11 @@ Planned app-native actions:
 - `finder.file.cancel_edit`: discard the visible draft.
 - `finder.git.status_read`: read bounded Git status for the approved root.
 - `finder.git.diff_selected`: load bounded diff for the selected changed file.
+- `finder.git.history_read`: read bounded Git history for the approved root.
+- `finder.git.commit_manual`: create an explicit local commit from selected
+  files and an operator-provided message.
+- `finder.git.push_manual`: push local commits only after visible
+  branch/upstream/ahead-behind review and explicit operator confirmation.
 
 Actions must use Workspace/widget APIs. They must not be implemented as shell
 strings, DOM clicks, direct storage edits, hidden filesystem operations,
@@ -301,7 +313,7 @@ localStorage mutation, provider tool calls, or private React state access.
 
 ## Events
 
-Planned Finder events:
+Finder events:
 
 - root selected;
 - directory listed;
@@ -315,6 +327,9 @@ Planned Finder events:
 - save failed;
 - Git status loaded;
 - Git diff loaded;
+- Git history loaded;
+- manual commit completed or failed;
+- manual push completed or failed;
 - unsupported runtime or file state shown.
 
 Events should include compact summaries, previous/next lifecycle state when
@@ -371,9 +386,9 @@ approved Finder context through app-native capability boundaries.
 
 ## Semantic Tests
 
-Future semantic tests should use app-native Finder actions and safe snapshots.
+Semantic tests should use app-native Finder actions and safe snapshots.
 
-Required test scenarios before implementation acceptance:
+Stable v0.1 test scenarios:
 
 - select fixture root, list first column, and assert cap metadata;
 - navigate nested folders and assert previous columns remain visible;
@@ -383,32 +398,27 @@ Required test scenarios before implementation acceptance:
 - enter edit mode, modify draft, save, and assert selected fixture file changed;
 - load Git status for an explicit fixture repository root;
 - select changed fixture file and load bounded diff in the same preview pane;
+- read bounded Git history;
+- require explicit confirmation for manual commit;
+- require explicit confirmation and safe upstream state for manual push;
 - reject preview, edit, save, status, or diff outside approved root;
 - report unsupported browser/runtime state without fake data.
 
 Tests must not use shell commands, DOM scraping, direct SQLite edits, or hidden
 filesystem rewrites as product behavior substitutes.
 
-## Implementation Slice Guidance
+## Future Slice Guidance
 
-Suggested future slices:
-
-1. Contract-only Finder UX, active index navigation, no runtime behavior.
-2. Minimal Finder shell with explicit root state and unsupported/runtime honesty.
-3. Column navigation with bounded directory listing for approved root.
-4. Floating preview pane with capped selected-file text preview.
-5. Edit-in-place draft with Save / Cancel for supported text files.
-6. Git status indicators and selected-file diff preview inside Finder.
-7. Later approval-gated Git/file mutations only under separate contracts.
-
-Each slice should declare its display level and changed layers before work
-starts.
+Future Finder work should stay contract-first and narrow. Candidate future
+slices include approved-root persistence, bounded search/indexing, explicit
+Workspace Agent attachment of visible selected context, commit detail review,
+and any broader Git/file mutation workflows.
 
 ## Out Of Scope
 
 This contract does not add:
 
-- Finder implementation or catalog insertion;
+- additional Finder implementation beyond current Stable v0.1 behavior;
 - storage/schema changes;
 - approved root persistence;
 - hidden filesystem access;
@@ -425,5 +435,6 @@ This contract does not add:
 - automatic context ingestion;
 - multi-file refactor tools;
 - patch apply;
-- staging, committing, pushing, restoring, resetting, cleaning, stashing,
-  rebasing, merging, checking out branches, or any hidden Git mutation.
+- staging, push-all, force push, automatic push, restoring, resetting,
+  cleaning, stashing, rebasing, merging, checking out branches, branch
+  management, or any hidden Git mutation.

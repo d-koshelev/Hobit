@@ -248,13 +248,14 @@ rules.
 
 ## Examples
 
-These examples describe target shell/pane composition. They do not implement
-new UI, APIs, storage, runtime behavior, or current Finder behavior.
+These examples describe shell/pane composition. They do not implement new UI,
+APIs, storage, runtime behavior, or widget behavior changes.
 
 ### Finder
 
-Status: future/reference. Finder is a required Stable v0.1 gap and is not
-implemented by this contract.
+Status: current Stable v0.1 example. Finder behavior remains governed by
+`docs/CURRENT_WIDGET_SURFACE.md`, `docs/FINDER_WIDGET_API_CONTRACT.md`, and
+`docs/FINDER_UX_CONTRACT.md`.
 
 Shell:
 
@@ -265,22 +266,26 @@ Shell:
 Workspace API:
 
 - owns approved root selection, bounded listing, item selection, file preview,
-  search caps, redaction, and events.
+  edit draft/save/cancel state, Finder Git status/diff/history/manual
+  commit/manual push actions, caps, redaction, and events.
 
 Pane composition:
 
 - `tree` for approved root/directory hierarchy;
 - `columns` or `list` for bounded entries;
 - `preview` for selected text/file preview with caps;
+- `diff` for selected-file Finder Git diff preview;
+- `history` for bounded Git history when loaded;
 - `details` for selected item metadata;
-- optional `history` for recent selections, if explicitly implemented later.
 
 Safety:
 
 - no hidden filesystem scan;
 - no shell-backed file operations;
 - no automatic Workspace Agent context ingestion;
-- file preview is selected and capped.
+- file preview and diff preview are selected and capped;
+- manual push is explicit only, with no force push, push-all, hidden push,
+  automatic push, reset, clean, stash, or branch management.
 
 ### Agent Queue
 
@@ -403,7 +408,7 @@ This contract does not implement:
 - backend or Tauri commands;
 - Rust or TypeScript type definitions;
 - storage/schema changes;
-- Finder implementation;
+- Finder behavior changes;
 - Queue runtime changes;
 - Workspace Agent tool execution;
 - provider tools;
@@ -412,4 +417,3 @@ This contract does not implement:
 - hidden context access;
 - hidden execution;
 - hidden mutation.
-
