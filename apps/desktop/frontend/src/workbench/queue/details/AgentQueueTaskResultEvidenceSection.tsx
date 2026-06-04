@@ -5,6 +5,10 @@ import type {
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
 import {
+  parseKnowledgeDraftPackFromText,
+  type KnowledgeDraftReviewPack,
+} from "../../knowledgeDraftPacks";
+import {
   directWorkEvidenceForQueue,
   finalResponseEvidence,
   hasFinishedRunLink,
@@ -145,6 +149,9 @@ function WorkerReportEvidenceSummary({
       : `${report.changedFiles.length.toString()} reported; see Developer details.`;
   const finalResponse = finalResponseEvidence(workerReportFinalResponse(report));
   const failed = report.reportStatus === "failed";
+  const draftPack = parseKnowledgeDraftPackFromText(
+    workerReportFinalResponse(report),
+  );
 
   return (
     <div className="agent-queue-human-report-summary">
@@ -152,6 +159,7 @@ function WorkerReportEvidenceSummary({
         label={failed && !report.rawReportPreview?.trim() ? "Failure summary" : "Final response"}
         response={finalResponse}
       />
+      {draftPack ? <KnowledgeDraftPackNotice pack={draftPack} /> : null}
 
       <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
         <div>
@@ -233,6 +241,9 @@ export function DirectWorkEvidenceSummary({
 }) {
   const failed = evidence.status === "failed";
   const finalResponse = finalResponseEvidence(evidence.finalText);
+  const draftPack = parseKnowledgeDraftPackFromText(
+    [evidence.finalText, evidence.developerDetails].filter(Boolean).join("\n\n"),
+  );
 
   return (
     <div className="agent-queue-human-report-summary">
@@ -240,6 +251,7 @@ export function DirectWorkEvidenceSummary({
         label={failed ? "Failure summary" : "Final response"}
         response={finalResponse}
       />
+      {draftPack ? <KnowledgeDraftPackNotice pack={draftPack} /> : null}
       {failed ? (
         <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
           <div>
@@ -322,6 +334,38 @@ function FinalResponseBlock({
       ) : null}
     </div>
   );
+}
+
+function KnowledgeDraftPackNotice({ pack }: { pack: KnowledgeDraftReviewPack }) {
+  return (
+    <div className="agent-queue-knowledge-draft-notice">
+      <div>
+        <p className="agent-queue-final-response-label">
+          Knowledge draft pack
+        </p>
+        <p className="agent-queue-run-note">
+          {pack.packTitle} contains {pack.proposedItems.length.toString()} draft
+          item{pack.proposedItems.length === 1 ? "" : "s"}. Review and accept
+          items from Knowledge / Skills.
+        </p>
+      </div>
+      <Button
+        onClick={() => void copyDraftPackPayload(pack)}
+        title="Copies the draft pack JSON for explicit import in Knowledge / Skills."
+        variant="secondary"
+      >
+        Copy draft payload
+      </Button>
+    </div>
+  );
+}
+
+async function copyDraftPackPayload(pack: KnowledgeDraftReviewPack) {
+  if (!navigator.clipboard) {
+    return;
+  }
+
+  await navigator.clipboard.writeText(pack.rawJson);
 }
 
 function workerReportFinalResponse(report: AgentQueueWorkerExecutionReport) {

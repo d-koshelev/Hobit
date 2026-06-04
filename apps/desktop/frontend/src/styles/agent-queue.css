@@ -2159,6 +2159,16 @@
   overflow-wrap: anywhere;
 }
 
+.agent-queue-knowledge-draft-notice {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  padding: var(--space-xs);
+}
+
 .agent-queue-assignment-controls,
 .agent-queue-assignment-buttons,
 .agent-queue-dependency-add-row,
@@ -2896,6 +2906,7 @@
   .agent-queue-dependency-add-row,
   .agent-queue-execution-header,
   .agent-queue-execution-group-header,
+  .agent-queue-knowledge-draft-notice,
   .agent-queue-prepare-header,
   .agent-queue-prepare-item,
   .agent-queue-run-actions {
@@ -2973,6 +2984,7 @@
   .agent-queue-dependency-add-row,
   .agent-queue-execution-header,
   .agent-queue-execution-group-header,
+  .agent-queue-knowledge-draft-notice,
   .agent-queue-prepare-header,
   .agent-queue-prepare-item,
   .agent-queue-run-actions {

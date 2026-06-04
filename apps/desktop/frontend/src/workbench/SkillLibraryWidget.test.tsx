@@ -570,6 +570,123 @@ describe("SkillLibraryWidget", () => {
     );
   });
 
+  it("reviews imported Queue draft Knowledge items before accepting or rejecting them", async () => {
+    let documents: KnowledgeDocument[] = [];
+    let skills: Skill[] = [];
+    const createKnowledgeDocument = vi.fn(async (request) => {
+      const document = knowledgeDocumentFixture({
+        ...request,
+        knowledgeDocumentId: `doc_${documents.length + 1}`,
+      });
+      documents = [document, ...documents];
+      return document;
+    });
+    const createSkill = vi.fn(async (request) => {
+      const skill = skillFixture({
+        ...request,
+        skillId: `skill_${skills.length + 1}`,
+      });
+      skills = [skill, ...skills];
+      return skill;
+    });
+    const draftPayload = JSON.stringify({
+      draftPackId: "pack_queue_1",
+      packTitle: "Generated Queue knowledge",
+      proposedItems: [
+        {
+          draftItemId: "draft_doc",
+          fullContent: "Review Queue results from the Knowledge widget.",
+          quickSummary: "Queue result drafts require operator review.",
+          suggestedScope: "workspace-local",
+          suggestedTags: ["queue", "knowledge"],
+          suggestedType: "documentation_knowledge",
+          title: "Queue draft review path",
+        },
+        {
+          draftItemId: "draft_skill",
+          fullContent: "Inspect the draft, edit if needed, then accept.",
+          quickSummary: "Use when reviewing generated Knowledge drafts.",
+          suggestedTags: "review, queue",
+          suggestedType: "skill",
+          title: "Review generated drafts",
+        },
+        {
+          draftItemId: "draft_reject",
+          fullContent: "This draft should not become active Knowledge.",
+          quickSummary: "Reject this item.",
+          suggestedType: "known_issue",
+          title: "Rejected draft",
+        },
+      ],
+      queueItemId: "queue_knowledge_1",
+    });
+
+    renderWidget({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onCreateSkill: createSkill,
+      onGetKnowledgeDocument: vi.fn(
+        async (knowledgeDocumentId) =>
+          documents.find(
+            (document) => document.knowledgeDocumentId === knowledgeDocumentId,
+          ) ?? null,
+      ),
+      onGetSkill: vi.fn(
+        async (skillId) =>
+          skills.find((skill) => skill.skillId === skillId) ?? null,
+      ),
+      onListKnowledgeDocuments: vi.fn(async () => documents),
+      onListSkills: vi.fn(async () => skills),
+    });
+
+    await flush();
+    await changeTextareaByLabel("Draft payload", draftPayload);
+    await clickButton("Load drafts");
+
+    expect(document.body.textContent).toContain("Generated Queue knowledge");
+    expect(document.body.textContent).toContain("Queue draft review path");
+    expect(document.body.textContent).toContain("Review generated drafts");
+    expect(document.body.textContent).toContain("Rejected draft");
+
+    await clickEnabledButton("Accept");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        catalogItemType: "documentation_knowledge",
+        content: "Review Queue results from the Knowledge widget.",
+        enabled: true,
+        lifecycleStatus: "active",
+        quickSummary: "Queue result drafts require operator review.",
+        scope: "workspace",
+        sourceKind: "queue_draft",
+        sourceLabel: "Queue task queue_knowledge_1",
+        sourceRef: "queue:queue_knowledge_1;draft:draft_doc",
+        tags: "queue, knowledge",
+        title: "Queue draft review path",
+      }),
+    );
+
+    await clickEnabledButton("Accept");
+
+    expect(createSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prerequisites:
+          "Queue task queue_knowledge_1\nSource ref: queue:queue_knowledge_1;draft:draft_skill",
+        reviewStatus: "reviewed",
+        steps: "Inspect the draft, edit if needed, then accept.",
+        tags: "review, queue",
+        title: "Review generated drafts",
+        whenToUse: "Use when reviewing generated Knowledge drafts.",
+      }),
+    );
+
+    await clickEnabledButton("Reject / archive");
+
+    expect(document.body.textContent).toContain("Accepted");
+    expect(document.body.textContent).toContain("Archived");
+    expect(createKnowledgeDocument).toHaveBeenCalledTimes(1);
+    expect(createSkill).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps existing Skills tab available after adding Documents tab", async () => {
     renderWidget();
 
@@ -627,6 +744,23 @@ async function clickButton(text: string) {
     const button = buttonWithText(text);
     if (!button) {
       throw new Error(`Button not found: ${text}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function clickEnabledButton(text: string) {
+  await act(async () => {
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) =>
+        !isHidden(candidate) &&
+        !candidate.disabled &&
+        candidate.textContent === text,
+    );
+    if (!button) {
+      throw new Error(`Enabled button not found: ${text}`);
     }
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();

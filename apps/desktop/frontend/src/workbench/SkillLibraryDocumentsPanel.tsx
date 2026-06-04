@@ -9,6 +9,13 @@ import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
+  knowledgeDraftAcceptedSourceLabel,
+  knowledgeDraftAcceptedSourceRef,
+  parseKnowledgeDraftPackFromText,
+  type KnowledgeDraftReviewItem,
+  type KnowledgeDraftReviewPack,
+} from "./knowledgeDraftPacks";
+import {
   CatalogDocumentEditor,
   CatalogSkillPreview,
 } from "./SkillLibraryCatalogPreview";
@@ -40,6 +47,7 @@ type SkillLibraryDocumentsPanelProps = {
   isActive: boolean;
   onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onDeleteKnowledgeDocument: WidgetRenderProps["onDeleteKnowledgeDocument"];
   onGetKnowledgeDocument: WidgetRenderProps["onGetKnowledgeDocument"];
   onGetSkill: WidgetRenderProps["onGetSkill"];
@@ -59,6 +67,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     isActive,
     onAttachContextToCoordinator,
     onCreateKnowledgeDocument,
+    onCreateSkill,
     onDeleteKnowledgeDocument,
     onGetKnowledgeDocument,
     onGetSkill,
@@ -79,6 +88,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     onUpdateKnowledgeDocument,
   );
   const skillApiAvailable = Boolean(onGetSkill && onListSkills);
+  const skillCreateAvailable = Boolean(onCreateSkill);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedDocument, setSelectedDocument] =
@@ -95,6 +105,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [documentImportPath, setDocumentImportPath] = useState("");
   const [documentImportScope, setDocumentImportScope] =
     useState<KnowledgeDocumentDraft["scope"]>("workspace");
+  const [draftPayload, setDraftPayload] = useState("");
+  const [draftReviewPack, setDraftReviewPack] =
+    useState<KnowledgeDraftReviewPack | null>(null);
+  const [draftReviewDecisions, setDraftReviewDecisions] = useState<
+    Record<string, "accepted" | "pending" | "rejected">
+  >({});
+  const [isAcceptingDraftItem, setIsAcceptingDraftItem] = useState(false);
   const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
@@ -454,6 +471,114 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     }
   }
 
+  function loadDraftReviewPayload() {
+    const parsedPack = parseKnowledgeDraftPackFromText(draftPayload);
+
+    if (!parsedPack) {
+      setDocumentMessage(null);
+      setDocumentError(
+        "No draft Knowledge pack was found in the imported payload.",
+      );
+      return;
+    }
+
+    setDraftReviewPack(parsedPack);
+    setDraftReviewDecisions(
+      Object.fromEntries(
+        parsedPack.proposedItems.map((item) => [item.draftItemId, "pending"]),
+      ),
+    );
+    setDocumentMessage(
+      `Loaded ${parsedPack.proposedItems.length.toString()} draft item${
+        parsedPack.proposedItems.length === 1 ? "" : "s"
+      } for review.`,
+    );
+    setDocumentError(null);
+  }
+
+  function clearDraftReviewPayload() {
+    setDraftPayload("");
+    setDraftReviewPack(null);
+    setDraftReviewDecisions({});
+    setDocumentMessage(null);
+    setDocumentError(null);
+  }
+
+  function rejectDraftItem(item: KnowledgeDraftReviewItem) {
+    setDraftReviewDecisions((current) => ({
+      ...current,
+      [item.draftItemId]: "rejected",
+    }));
+    setDocumentMessage("Draft item rejected and archived for this review.");
+    setDocumentError(null);
+  }
+
+  async function acceptDraftItem(item: KnowledgeDraftReviewItem) {
+    if (!draftReviewPack || isAcceptingDraftItem) {
+      return;
+    }
+
+    if (item.targetKind === "skill" && !onCreateSkill) {
+      setDocumentError("Skill API is not available for accepting this draft.");
+      return;
+    }
+
+    if (item.targetKind === "document" && !onCreateKnowledgeDocument) {
+      setDocumentError(
+        "Knowledge Document API is not available for accepting this draft.",
+      );
+      return;
+    }
+
+    setIsAcceptingDraftItem(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      if (item.targetKind === "skill" && onCreateSkill) {
+        await onCreateSkill({
+          title: item.title,
+          whenToUse: item.quickSummary,
+          prerequisites: sourceNotesForDraft(draftReviewPack, item),
+          steps: item.fullContent,
+          validation: "",
+          risks: draftRiskNotes(item),
+          tags: item.suggestedTags,
+          reviewStatus: "reviewed",
+        });
+        await loadDocuments(null);
+      } else if (onCreateKnowledgeDocument) {
+        const acceptedDocument = await onCreateKnowledgeDocument({
+          scope: item.suggestedScope,
+          catalogItemType: item.suggestedType,
+          quickSummary: item.quickSummary,
+          lifecycleStatus: "active",
+          title: item.title,
+          sourceLabel: knowledgeDraftAcceptedSourceLabel(draftReviewPack, item),
+          sourceKind: "queue_draft",
+          sourceRef: knowledgeDraftAcceptedSourceRef(draftReviewPack, item),
+          content: item.fullContent,
+          tags: item.suggestedTags,
+          enabled: true,
+        });
+        setSelectedDocumentDraft(acceptedDocument);
+        await loadDocuments(acceptedDocument.knowledgeDocumentId);
+      }
+
+      setDraftReviewDecisions((current) => ({
+        ...current,
+        [item.draftItemId]: "accepted",
+      }));
+      setDocumentMessage("Draft item accepted into Knowledge / Skills.");
+    } catch (acceptError) {
+      setDocumentError(
+        errorToMessage(acceptError, "Unable to accept draft item."),
+      );
+    } finally {
+      setIsAcceptingDraftItem(false);
+    }
+  }
+
   function discardDocumentDraft() {
     if (selectedDocument) {
       setSelectedDocumentDraft(selectedDocument);
@@ -575,6 +700,121 @@ export const SkillLibraryDocumentsPanel = forwardRef<
           {isImportingDocument ? "Importing" : "Import .txt/.md"}
         </Button>
       </div>
+      <section
+        className="skill-draft-review"
+        aria-label="Draft Knowledge review"
+      >
+        <div className="skill-draft-review-header">
+          <div>
+            <p className="skill-list-meta">Draft review</p>
+            <h3>Queue Knowledge drafts</h3>
+          </div>
+          {draftReviewPack ? (
+            <span className="skill-scope-badge">
+              {draftReviewPack.proposedItems.length.toString()} item
+              {draftReviewPack.proposedItems.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+        <label className="skill-field skill-field-wide">
+          <span>Draft payload</span>
+          <textarea
+            className="input skill-draft-payload-textarea"
+            onChange={(event) => {
+              setDraftPayload(event.currentTarget.value);
+              setDocumentMessage(null);
+              setDocumentError(null);
+            }}
+            placeholder="Paste a Queue result, worker report, or draft pack JSON."
+            value={draftPayload}
+          />
+        </label>
+        <div className="skill-editor-actions">
+          <Button
+            disabled={!documentApiAvailable && !skillCreateAvailable}
+            onClick={loadDraftReviewPayload}
+            variant="secondary"
+          >
+            Load drafts
+          </Button>
+          <Button
+            disabled={!draftReviewPack}
+            onClick={clearDraftReviewPayload}
+            variant="ghost"
+          >
+            Clear drafts
+          </Button>
+        </div>
+        {draftReviewPack ? (
+          <div className="skill-draft-review-list">
+            <p className="skill-draft-review-pack-title">
+              {draftReviewPack.packTitle}
+              {draftReviewPack.queueItemId
+                ? ` - Queue task ${draftReviewPack.queueItemId}`
+                : ""}
+            </p>
+            {draftReviewPack.proposedItems.map((item) => {
+              const decision =
+                draftReviewDecisions[item.draftItemId] ?? "pending";
+              const isActionDisabled =
+                decision !== "pending" || isAcceptingDraftItem;
+
+              return (
+                <article
+                  className="skill-draft-review-item"
+                  key={item.draftItemId}
+                >
+                  <div className="skill-draft-review-item-header">
+                    <div>
+                      <h4>{item.title}</h4>
+                      <p>{item.quickSummary || item.fullContent}</p>
+                    </div>
+                    <span className="skill-scope-badge">
+                      {draftDecisionLabel(decision)}
+                    </span>
+                  </div>
+                  <dl className="skill-draft-review-facts">
+                    <div>
+                      <dt>Target</dt>
+                      <dd>
+                        {item.targetKind === "skill" ? "Skill" : "Document"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Type</dt>
+                      <dd>{item.suggestedType}</dd>
+                    </div>
+                    <div>
+                      <dt>Scope</dt>
+                      <dd>{item.suggestedScope}</dd>
+                    </div>
+                    <div>
+                      <dt>Source</dt>
+                      <dd>{knowledgeDraftAcceptedSourceRef(draftReviewPack, item)}</dd>
+                    </div>
+                  </dl>
+                  <div className="skill-editor-actions">
+                    <Button
+                      disabled={isActionDisabled}
+                      onClick={() => void acceptDraftItem(item)}
+                      variant="primary"
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      disabled={isActionDisabled}
+                      onClick={() => rejectDraftItem(item)}
+                      variant="secondary"
+                    >
+                      Reject / archive
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
       {isLoadingDocuments ? (
         <EmptyState
           text="Knowledge catalog items are loading from workspace APIs."
@@ -690,4 +930,43 @@ function emptyCatalogText(view: KnowledgeCatalogView) {
   }
 
   return "Add the first workspace-local or local-global catalog item.";
+}
+
+function draftDecisionLabel(decision: "accepted" | "pending" | "rejected") {
+  switch (decision) {
+    case "accepted":
+      return "Accepted";
+    case "rejected":
+      return "Archived";
+    case "pending":
+    default:
+      return "Pending";
+  }
+}
+
+function sourceNotesForDraft(
+  pack: KnowledgeDraftReviewPack,
+  item: KnowledgeDraftReviewItem,
+) {
+  return [
+    knowledgeDraftAcceptedSourceLabel(pack, item),
+    knowledgeDraftAcceptedSourceRef(pack, item)
+      ? `Source ref: ${knowledgeDraftAcceptedSourceRef(pack, item)}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function draftRiskNotes(item: KnowledgeDraftReviewItem) {
+  return [
+    item.blockers ? `Blockers: ${item.blockers}` : "",
+    item.reviewNotes ? `Review notes: ${item.reviewNotes}` : "",
+    item.confidence ? `Confidence: ${item.confidence}` : "",
+    item.activationRecommendation
+      ? `Activation recommendation: ${item.activationRecommendation}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

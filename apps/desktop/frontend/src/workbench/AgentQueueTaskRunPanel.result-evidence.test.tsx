@@ -281,6 +281,47 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(reportMetadata?.open).toBe(false);
   });
 
+  it("exposes draft Knowledge packs from Queue worker report output", () => {
+    const report = workerReport({
+      rawReportPreview: JSON.stringify({
+        draftPackId: "pack_queue_1",
+        packTitle: "Generated Knowledge Pack",
+        proposedItems: [
+          {
+            draftItemId: "draft_doc",
+            fullContent: "Review generated Queue drafts in Knowledge / Skills.",
+            quickSummary: "Queue draft review is explicit.",
+            suggestedType: "documentation_knowledge",
+            title: "Queue draft review",
+          },
+        ],
+        queueItemId: "task_1",
+      }),
+      reportStatus: "completed",
+    });
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    const resultText = sectionText("Result / Evidence");
+
+    expect(resultText).toContain("Knowledge draft pack");
+    expect(resultText).toContain("Generated Knowledge Pack contains 1 draft item");
+    expect(resultText).toContain(
+      "Review and accept items from Knowledge / Skills.",
+    );
+    expect(buttonByText("Copy draft payload")).toBeDefined();
+  });
+
   it("shows completed Direct Work output as report evidence without finalizing", () => {
     const selectedTask = {
       ...queueTask(),

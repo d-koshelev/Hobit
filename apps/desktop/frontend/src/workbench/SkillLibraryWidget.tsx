@@ -167,6 +167,7 @@ export function SkillLibraryWidget({
           isActive={activeTab === "catalog"}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
           onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
           onGetKnowledgeDocument={onGetKnowledgeDocument}
           onGetSkill={onGetSkill}

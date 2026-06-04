@@ -81,6 +81,94 @@
   padding: var(--scaled-space-sm) var(--panel-padding);
 }
 
+.skill-draft-review {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--scaled-space-sm) var(--panel-padding);
+}
+
+.skill-draft-review-header,
+.skill-draft-review-item-header {
+  align-items: start;
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.skill-draft-review-header h3,
+.skill-draft-review-item h4,
+.skill-draft-review-item p,
+.skill-draft-review-pack-title {
+  margin: 0;
+}
+
+.skill-draft-review-header h3,
+.skill-draft-review-item h4 {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--line-tight);
+  overflow-wrap: anywhere;
+}
+
+.skill-draft-payload-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.skill-draft-review-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.skill-draft-review-pack-title,
+.skill-draft-review-item p {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.skill-draft-review-item {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.skill-draft-review-facts {
+  display: grid;
+  gap: var(--space-xs);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.skill-draft-review-facts > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.skill-draft-review-facts dt,
+.skill-draft-review-facts dd {
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.skill-draft-review-facts dt {
+  color: var(--color-text-muted);
+}
+
+.skill-draft-review-facts dd {
+  color: var(--color-text-primary);
+}
+
 .skill-document-import-path {
   min-width: 0;
 }
@@ -297,6 +385,10 @@
 
   .skill-document-import {
     align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .skill-draft-review-facts {
     grid-template-columns: 1fr;
   }
 
