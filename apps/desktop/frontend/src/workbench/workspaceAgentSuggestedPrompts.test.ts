@@ -14,6 +14,7 @@ describe("workspaceAgentSuggestedPrompts", () => {
       "Break into Queue tasks",
       "Draft tasks for this goal",
       "Docs to Knowledge task",
+      "History to Knowledge task",
       "Review pasted Queue result",
       "Explain this Executor failure",
       "Turn this result into next steps",
@@ -31,12 +32,15 @@ describe("workspaceAgentSuggestedPrompts", () => {
       "Create knowledge from docs by drafting a manual Queue task only. Docs/path: ",
     );
     expect(WORKSPACE_AGENT_SUGGESTED_PROMPTS[4]?.prompt).toBe(
-      "Review pasted Queue result using visible chat text only. Paste result here: ",
+      "Create knowledge from recent history by creating a manual Queue task only. Source history refs or pasted summary: ",
     );
     expect(WORKSPACE_AGENT_SUGGESTED_PROMPTS[5]?.prompt).toBe(
+      "Review pasted Queue result using visible chat text only. Paste result here: ",
+    );
+    expect(WORKSPACE_AGENT_SUGGESTED_PROMPTS[6]?.prompt).toBe(
       "Explain this Executor failure using visible chat text only. Paste failure here: ",
     );
-    expect(WORKSPACE_AGENT_SUGGESTED_PROMPTS[9]?.prompt).toBe(
+    expect(WORKSPACE_AGENT_SUGGESTED_PROMPTS[10]?.prompt).toBe(
       "Explain how to execute this safely from visible chat only. Do not start Queue, Executor, Terminal, Git, or JDBC actions.",
     );
   });

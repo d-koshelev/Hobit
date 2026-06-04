@@ -22,6 +22,7 @@ import { parsePromptThroughQueueCommand } from "./workspaceAgentQueueBatchComman
 import { parseUpdateCommand } from "./workspaceAgentQueueUpdateCommands";
 import {
   codebaseKnowledgeGenerationQueueTaskPrompt,
+  historyKnowledgeGenerationQueueTaskPrompt,
   structuredCreateQueueTaskPrompt,
 } from "./workspaceAgentQueuePromptTemplates";
 
@@ -29,6 +30,12 @@ const CODEBASE_KNOWLEDGE_GENERATION_PATTERNS = [
   /\b(?:create|generate|draft|prepare)\s+(?:draft\s+)?(?:codebase\s+)?knowledge\b/i,
   /\bknowledge\s+(?:about|for|from)\s+(?:the\s+)?(?:codebase|codebase\s+area|code|module|folder|directory|path)\b/i,
   /\b(?:create|generate|draft|prepare)\s+(?:a\s+)?(?:queue\s+)?task\s+(?:to|for)\s+(?:create|generate|draft|prepare)\s+(?:draft\s+)?(?:codebase\s+)?knowledge\b/i,
+];
+
+const HISTORY_KNOWLEDGE_GENERATION_PATTERNS = [
+  /\b(?:create|generate|draft|prepare)\s+(?:draft\s+)?knowledge\s+from\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue|history)\s*(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)?\b/i,
+  /\bsummar(?:ize|ise)\s+(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue)\s+(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)\s+into\s+(?:draft\s+)?knowledge\b/i,
+  /\b(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue)\s+(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)\s+(?:to|into)\s+(?:draft\s+)?knowledge\b/i,
 ];
 
 export function parseWorkspaceAgentQueueCommand(
@@ -51,6 +58,20 @@ export function parseWorkspaceAgentQueueCommand(
   }
 
   const visibleNonFencedText = stripFenceBlocks(visibleText);
+
+  if (isHistoryKnowledgeGenerationIntent(visibleNonFencedText)) {
+    const draft = historyKnowledgeGenerationQueueTaskPrompt(visibleNonFencedText);
+
+    return {
+      description: draft.description,
+      executionPolicy: "manual",
+      prompt: draft.prompt,
+      queueTagName: "Knowledge generation",
+      status: "queued",
+      title: draft.title,
+      type: "createItem",
+    };
+  }
 
   if (isCodebaseKnowledgeGenerationIntent(visibleNonFencedText)) {
     const draft =
@@ -121,6 +142,12 @@ export function parseWorkspaceAgentQueueCommand(
 
 function isCodebaseKnowledgeGenerationIntent(text: string) {
   return CODEBASE_KNOWLEDGE_GENERATION_PATTERNS.some((pattern) =>
+    pattern.test(text),
+  );
+}
+
+function isHistoryKnowledgeGenerationIntent(text: string) {
+  return HISTORY_KNOWLEDGE_GENERATION_PATTERNS.some((pattern) =>
     pattern.test(text),
   );
 }

@@ -71,6 +71,77 @@ describe("coordinatorLocalProposalGeneration", () => {
     expect(queueProposal?.expectedResult).toContain("does not run or activate");
     expect(queueProposal?.resultSummary).toContain("No docs were read");
   });
+
+  it("drafts a manual Queue task for history-to-Knowledge generation without reading hidden history", () => {
+    const result = generateLocalCoordinatorProposals(
+      "Create knowledge from coordinator history. Coordinator history: visible transcript local-1..local-5 and Queue report summary Q-7",
+      "assistant-history-1",
+    );
+    const queueProposal = result.proposals.find(
+      (proposal) => proposal.typeId === "create-agent-queue-task",
+    );
+
+    expect(queueProposal).toBeTruthy();
+    expect(result.proposals).toHaveLength(1);
+    expect(queueProposal).toMatchObject({
+      approvalStatus: "Pending preview",
+      executionStatus: "Not run",
+      targetWidget: "Agent Queue",
+      title: "Generate Workspace Agent history Knowledge draft",
+      typeId: "create-agent-queue-task",
+    });
+    expect(input(queueProposal, "Source history refs")).toBe(
+      "visible transcript local-1..local-5 and Queue report summary Q-7",
+    );
+    expect(input(queueProposal, "Policy")).toBe("manual");
+    expect(input(queueProposal, "Prompt")).toContain("knowledge_generation");
+    expect(input(queueProposal, "Prompt")).toContain(
+      "* coordinator_history: visible transcript local-1..local-5 and Queue report summary Q-7",
+    );
+    expect(input(queueProposal, "Prompt")).toContain("* what was learned");
+    expect(input(queueProposal, "Prompt")).toContain(
+      "* what remains uncertain",
+    );
+    expect(input(queueProposal, "Prompt")).toContain(
+      "Do not read hidden Workspace Agent messages",
+    );
+    expect(input(queueProposal, "Prompt")).toContain(
+      "raw Terminal transcripts",
+    );
+    expect(queueProposal?.riskNotes.join(" ")).toContain(
+      "did not auto-read transcript, Queue, Terminal, Executor",
+    );
+
+    const request = queueTaskRequestFromProposal(queueProposal!);
+    expect(request).toMatchObject({
+      executionPolicy: "manual",
+      priority: 1,
+      status: "draft",
+      title: "Generate Workspace Agent history Knowledge draft",
+    });
+    expect(request.prompt).toContain("Return draft Knowledge only.");
+    expect(request.prompt).toContain(
+      "confirmation that no Knowledge was activated",
+    );
+  });
+
+  it("keeps history-to-Knowledge Queue creation draft-only when no history refs are selected yet", () => {
+    const result = generateLocalCoordinatorProposals(
+      "Create knowledge from recent history",
+      "assistant-history-2",
+    );
+    const queueProposal = result.proposals.find(
+      (proposal) => proposal.typeId === "create-agent-queue-task",
+    );
+
+    expect(input(queueProposal, "Source history refs")).toContain(
+      "Not selected yet",
+    );
+    expect(queueProposal?.expectedResult).toContain("does not run or activate");
+    expect(queueProposal?.resultSummary).toContain(
+      "No history, logs, transcripts",
+    );
+  });
 });
 
 function input(

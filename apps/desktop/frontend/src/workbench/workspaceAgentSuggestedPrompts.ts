@@ -28,6 +28,11 @@ export const WORKSPACE_AGENT_SUGGESTED_PROMPTS: WorkspaceAgentSuggestedPrompt[] 
         "Create knowledge from docs by drafting a manual Queue task only. Docs/path: ",
     },
     {
+      label: "History to Knowledge task",
+      prompt:
+        "Create knowledge from recent history by creating a manual Queue task only. Source history refs or pasted summary: ",
+    },
+    {
       label: "Review pasted Queue result",
       prompt:
         "Review pasted Queue result using visible chat text only. Paste result here: ",

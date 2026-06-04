@@ -132,6 +132,86 @@ export function codebaseKnowledgeGenerationQueueTaskPrompt(rawIntent: string) {
   };
 }
 
+export function historyKnowledgeGenerationQueueTaskPrompt(rawIntent: string) {
+  const sourceKind = selectedHistorySourceKind(rawIntent);
+  const sourceRefs = selectedHistorySourceRefs(rawIntent, sourceKind);
+  const sourceLabel =
+    sourceKind === "coordinator_history"
+      ? "coordinator/Workspace Agent history"
+      : "command/run history";
+
+  return {
+    description: `Generate draft Knowledge from selected ${sourceLabel}: ${sourceRefs}. Draft output only; do not activate Knowledge.`,
+    prompt: [
+      "Mode:",
+      "Queue knowledge generation task.",
+      "",
+      "Task type:",
+      "knowledge_generation",
+      "",
+      "Workflow:",
+      `Create Knowledge from ${sourceLabel}.`,
+      "",
+      "Objective:",
+      "Generate a draft Knowledge pack from explicitly selected history summaries and excerpts.",
+      "",
+      "Selected source refs:",
+      `* ${sourceKind}: ${sourceRefs}`,
+      "",
+      "Allowed selected sources:",
+      "",
+      "* visible Workspace Agent transcript excerpts explicitly included in this task",
+      "* approved proposal card summaries explicitly included in this task",
+      "* Queue task summaries, run-link summaries, report summaries, or review decisions explicitly included in this task",
+      "* validation summaries, command summaries, Agent Activity summaries, or selected visible output excerpts explicitly included in this task",
+      "* Terminal history only when the operator explicitly selected and pasted or attached the excerpt",
+      "* external runner summaries only when explicitly referenced as selected files or pasted summaries",
+      "",
+      "Required output:",
+      "",
+      "* what was learned",
+      "* what remains uncertain",
+      "* source refs supporting each conclusion",
+      "* reusable workflow or validation rules",
+      "* known issues, blockers, and stale-source risks",
+      "* quick summaries for review surfaces",
+      "* proposed Knowledge item types, tags, and scope",
+      "",
+      "Draft Knowledge rules:",
+      "",
+      "* Return draft Knowledge only.",
+      "* Do not create, edit, enable, or activate Knowledge records.",
+      "* Do not mutate Notes, files, Git, Queue, Executor, Terminal, JDBC, or workspace state.",
+      "* Use only the selected source refs and explicit operator-provided context.",
+      "* Do not read hidden Workspace Agent messages, hidden widget state, Notes bodies, raw logs, raw Terminal transcripts, raw Executor stdout/stderr, raw provider responses, Git diffs, repo paths, secrets, or unselected files.",
+      "* If selected source refs are missing, ambiguous, too broad, or sensitive, report a blocker instead of broadening scope.",
+      "* Preserve source attribution and distinguish observation, inference, uncertainty, and operator decision.",
+      "* Default suggested scope to workspace-local unless the prompt explicitly says otherwise.",
+      "",
+      "Suggested draft item types:",
+      "",
+      "* command_history_summary",
+      "* investigation_summary",
+      "* known_issue",
+      "* validation_rule",
+      "* workflow",
+      "* skill",
+      "",
+      "Report:",
+      "",
+      "* status",
+      "* draft pack summary",
+      "* proposed items with quick summary, full content outline, suggested type, tags, scope, confidence, and source refs",
+      "* blockers or omitted sensitive content",
+      "* confirmation that no Knowledge was activated",
+    ].join("\n"),
+    title:
+      sourceKind === "coordinator_history"
+        ? "Generate Workspace Agent history Knowledge draft"
+        : "Generate command history Knowledge draft",
+  };
+}
+
 function explicitEditIntent(value: string) {
   return /\b(?:edit|modify|change|update)\s+(?:the\s+)?(?:file|files|code|implementation)\b/i.test(
     value,
@@ -209,6 +289,82 @@ function selectedCodebaseArea(value: string) {
   const area = match?.[1]?.trim() ?? "";
 
   return stripTrailingPunctuation(area);
+}
+
+function selectedHistorySourceKind(
+  value: string,
+): "coordinator_history" | "command_history" {
+  return /\b(?:coordinator|workspace\s+agent|agent\s+transcript|chat\s+transcript|conversation)\b/i.test(
+    value,
+  )
+    ? "coordinator_history"
+    : "command_history";
+}
+
+function selectedHistorySourceRefs(
+  value: string,
+  sourceKind: "coordinator_history" | "command_history",
+) {
+  const labeledSource = labeledHistorySourceValue(value);
+  if (labeledSource) {
+    return labeledSource;
+  }
+
+  const match = value.match(
+    /\b(?:from|using|about|for)\s+(?:the\s+)?(?:recent\s+)?(?:coordinator|workspace\s+agent|agent|command|terminal|run|executor|queue)?\s*(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)?\s*[:=-]?\s*([\s\S]+)$/i,
+  );
+  const sourceRefs = stripTrailingPunctuation(match?.[1]?.trim() ?? "");
+  if (
+    sourceRefs &&
+    !/^(?:history|transcript|summar(?:y|ies)|reports?|excerpts?)$/i.test(
+      sourceRefs,
+    )
+  ) {
+    return sourceRefs;
+  }
+
+  return sourceKind === "coordinator_history"
+    ? "Visible Workspace Agent transcript excerpts, proposal summaries, or operator-written coordinator history summaries explicitly selected for this task. If none are included, report a blocker."
+    : "Selected command summaries, validation summaries, Queue run/report summaries, Agent Activity summaries, Terminal excerpts, Executor run summaries, or external runner summary files explicitly selected for this task. If none are included, report a blocker.";
+}
+
+function labeledHistorySourceValue(value: string) {
+  for (const label of [
+    "history",
+    "selected history",
+    "coordinator history",
+    "workspace agent transcript",
+    "agent transcript",
+    "command history",
+    "command summaries",
+    "run history",
+    "run summaries",
+    "queue history",
+    "queue reports",
+    "terminal history",
+    "terminal excerpt",
+    "executor history",
+    "executor summary",
+    "external runner summary",
+    "source",
+    "sources",
+    "source refs",
+    "files",
+    "file",
+  ]) {
+    const pattern = new RegExp(
+      `\\b${escapeRegExp(label)}\\s*[:=]\\s*(?:"([^"]+)"|'([^']+)'|([^\\n;]+))`,
+      "i",
+    );
+    const match = value.match(pattern);
+    const sourceRefs = match?.[1] ?? match?.[2] ?? match?.[3];
+
+    if (sourceRefs?.trim()) {
+      return stripTrailingPunctuation(sourceRefs.trim());
+    }
+  }
+
+  return "";
 }
 
 function labeledAreaValue(value: string) {

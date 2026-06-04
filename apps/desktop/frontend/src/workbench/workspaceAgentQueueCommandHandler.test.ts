@@ -870,6 +870,86 @@ describe("workspaceAgentQueueCommandHandler", () => {
     expect(result.body).toContain("Status: queued.");
   });
 
+  it("parses coordinator history Knowledge generation as a queued manual Queue task", () => {
+    expect(
+      parseWorkspaceAgentQueueCommand(
+        "Create knowledge from coordinator history. Source refs: visible messages local-1..local-4 and proposal summary P-2",
+      ),
+    ).toMatchObject({
+      description:
+        "Generate draft Knowledge from selected coordinator/Workspace Agent history: visible messages local-1..local-4 and proposal summary P-2. Draft output only; do not activate Knowledge.",
+      executionPolicy: "manual",
+      queueTagName: "Knowledge generation",
+      status: "queued",
+      title: "Generate Workspace Agent history Knowledge draft",
+      type: "createItem",
+    });
+  });
+
+  it("creates a command history Knowledge generation task without reading hidden history or activating Knowledge", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        description: request.description ?? "",
+        executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace ?? "",
+        id: "Q-HISTORY",
+        prompt: request.prompt,
+        queueTag: request.queueTag,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(
+      "Summarize command history into knowledge. Command summaries: typecheck passed; build failed in Vite spawn limitation",
+      {
+        bridge: queueBridge({
+          createItem,
+          runAutonomousQueue,
+        }),
+        currentWorkspaceRoot: "C:/repo",
+      },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Generate draft Knowledge from selected command/run history: typecheck passed. Draft output only; do not activate Knowledge.",
+        executionPolicy: "manual",
+        executionWorkspace: "C:/repo",
+        priority: 0,
+        queueTag: { name: "Knowledge generation" },
+        status: "queued",
+        title: "Generate command history Knowledge draft",
+      }),
+    );
+
+    const request = createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Task type:");
+    expect(request?.prompt).toContain("knowledge_generation");
+    expect(request?.prompt).toContain(
+      "* command_history: typecheck passed",
+    );
+    expect(request?.prompt).toContain("* what was learned");
+    expect(request?.prompt).toContain("* what remains uncertain");
+    expect(request?.prompt).toContain(
+      "* Terminal history only when the operator explicitly selected and pasted or attached the excerpt",
+    );
+    expect(request?.prompt).toContain(
+      "* Do not read hidden Workspace Agent messages, hidden widget state, Notes bodies, raw logs, raw Terminal transcripts, raw Executor stdout/stderr, raw provider responses, Git diffs, repo paths, secrets, or unselected files.",
+    );
+    expect(request?.prompt).toContain(
+      "* confirmation that no Knowledge was activated",
+    );
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain("Created Queue item: Q-HISTORY");
+    expect(result.body).toContain("Status: queued.");
+  });
+
   it("does not invent full validation in create task prompts", async () => {
     const createItem = vi.fn(async (request) =>
       itemResult("queue.createItem", {
