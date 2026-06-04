@@ -16,8 +16,13 @@ fn create_document_input(workspace_id: String) -> CreateKnowledgeDocumentInput {
     CreateKnowledgeDocumentInput {
         workspace_id,
         scope: None,
+        catalog_item_type: None,
+        quick_summary: None,
+        lifecycle_status: None,
         title: "Deploy guide".to_owned(),
         source_label: "Manual paste".to_owned(),
+        source_kind: None,
+        source_ref: None,
         content: "Blue green deployment requires validation.".to_owned(),
         tags: "deploy, release".to_owned(),
         enabled: true,
@@ -35,8 +40,13 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
 
     assert_eq!(document.workspace_id, workspace.id);
     assert_eq!(document.scope, "workspace");
+    assert_eq!(document.catalog_item_type, "documentation_knowledge");
+    assert_eq!(document.quick_summary, "");
+    assert_eq!(document.lifecycle_status, "active");
     assert_eq!(document.title, "Deploy guide");
     assert_eq!(document.source_label, "Manual paste");
+    assert_eq!(document.source_kind, "operator_authored");
+    assert_eq!(document.source_ref, "");
     assert_eq!(document.tags, "deploy, release");
     assert!(document.enabled);
     assert!(!document.created_at.is_empty());
@@ -73,8 +83,16 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
             workspace_id: workspace.id.clone(),
             knowledge_document_id: document.knowledge_document_id.clone(),
             scope: None,
+            catalog_item_type: Some("validation_rule".to_owned()),
+            quick_summary: Some(
+                "Rollback requires database snapshots.\nOperator must verify.\nExtra line.\nIgnored line."
+                    .to_owned(),
+            ),
+            lifecycle_status: Some("stale".to_owned()),
             title: "Rollback guide".to_owned(),
             source_label: "".to_owned(),
+            source_kind: Some("file".to_owned()),
+            source_ref: Some(" docs/rollback.md ".to_owned()),
             content: "Rollback needs database snapshots.".to_owned(),
             tags: "rollback,  release, ".to_owned(),
             enabled: false,
@@ -83,7 +101,15 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
         .expect("updated document");
 
     assert_eq!(updated.title, "Rollback guide");
+    assert_eq!(updated.catalog_item_type, "validation_rule");
+    assert_eq!(
+        updated.quick_summary,
+        "Rollback requires database snapshots.\nOperator must verify.\nExtra line."
+    );
+    assert_eq!(updated.lifecycle_status, "stale");
     assert_eq!(updated.source_label, "Workspace document");
+    assert_eq!(updated.source_kind, "file");
+    assert_eq!(updated.source_ref, "docs/rollback.md");
     assert_eq!(updated.tags, "rollback, release");
     assert!(!updated.enabled);
     assert_ne!(updated.updated_at, document.updated_at);
@@ -201,6 +227,31 @@ fn global_knowledge_documents_are_visible_and_searchable_across_workspaces() {
 }
 
 #[test]
+fn non_active_knowledge_documents_are_not_searchable() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge workspace");
+    let unique_needle = "stale_lifecycle_needle";
+    let mut input = create_document_input(workspace.id.clone());
+    input.lifecycle_status = Some("stale".to_owned());
+    input.content = format!("{unique_needle} should not be used.");
+    let document = service
+        .create_knowledge_document(input)
+        .expect("create stale document");
+
+    assert_eq!(document.lifecycle_status, "stale");
+
+    let results = service
+        .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+            workspace_id: workspace.id,
+            query: unique_needle.to_owned(),
+            limit: Some(5),
+        })
+        .expect("search documents");
+
+    assert!(results.is_empty());
+}
+
+#[test]
 fn knowledge_document_search_result_shape_and_snippet_cap_are_preserved() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Knowledge workspace");
@@ -264,8 +315,13 @@ fn knowledge_document_methods_reject_unknown_and_cross_workspace_access() {
             workspace_id: second.id.clone(),
             knowledge_document_id: document.knowledge_document_id.clone(),
             scope: None,
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Other".to_owned(),
             source_label: "Other".to_owned(),
+            source_kind: None,
+            source_ref: None,
             content: "Other".to_owned(),
             tags: "other".to_owned(),
             enabled: true,

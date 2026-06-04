@@ -11,8 +11,13 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
         CreateKnowledgeDocumentRequest {
             workspace_id: workspace_id.clone(),
             scope: None,
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Deploy guide".to_owned(),
             source_label: "Manual paste".to_owned(),
+            source_kind: None,
+            source_ref: None,
             content: "Blue green deploys need validation.".to_owned(),
             tags: "deploy".to_owned(),
             enabled: true,
@@ -70,8 +75,13 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
             workspace_id: workspace_id.clone(),
             knowledge_document_id: created.knowledge_document_id.clone(),
             scope: None,
+            catalog_item_type: Some("known_issue".to_owned()),
+            quick_summary: Some("Rollback needs snapshots.".to_owned()),
+            lifecycle_status: Some("stale".to_owned()),
             title: "Rollback guide".to_owned(),
             source_label: "README.md".to_owned(),
+            source_kind: Some("file".to_owned()),
+            source_ref: Some("README.md".to_owned()),
             content: "Rollback needs snapshots.".to_owned(),
             tags: "rollback".to_owned(),
             enabled: false,
@@ -82,6 +92,11 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
     .expect("updated document");
 
     assert_eq!(updated.title, "Rollback guide");
+    assert_eq!(updated.catalog_item_type, "known_issue");
+    assert_eq!(updated.quick_summary, "Rollback needs snapshots.");
+    assert_eq!(updated.lifecycle_status, "stale");
+    assert_eq!(updated.source_kind, "file");
+    assert_eq!(updated.source_ref, "README.md");
     assert!(!updated.enabled);
 
     let disabled_results = search_knowledge_documents_blocking(
@@ -117,8 +132,13 @@ fn create_knowledge_document_command_helper_rejects_unknown_workspace() {
         CreateKnowledgeDocumentRequest {
             workspace_id: "missing-workspace".to_owned(),
             scope: None,
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Doc".to_owned(),
             source_label: "".to_owned(),
+            source_kind: None,
+            source_ref: None,
             content: "".to_owned(),
             tags: "".to_owned(),
             enabled: true,
@@ -141,8 +161,13 @@ fn knowledge_document_command_helpers_include_global_scope_in_list_and_search() 
         CreateKnowledgeDocumentRequest {
             workspace_id: first_workspace_id,
             scope: Some("global".to_owned()),
+            catalog_item_type: Some("documentation_knowledge".to_owned()),
+            quick_summary: Some("Global EON troubleshooting.".to_owned()),
+            lifecycle_status: Some("active".to_owned()),
             title: "Global Vertica EON troubleshooting".to_owned(),
             source_label: "Global paste".to_owned(),
+            source_kind: Some("operator_authored".to_owned()),
+            source_ref: None,
             content: "Global EON troubleshooting needle.".to_owned(),
             tags: "global".to_owned(),
             enabled: true,

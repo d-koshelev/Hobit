@@ -228,8 +228,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     try {
       const request = {
         scope: documentDraft.scope,
+        catalogItemType: documentDraft.catalogItemType,
+        quickSummary: documentDraft.quickSummary,
+        lifecycleStatus: documentDraft.lifecycleStatus,
         title: documentTitle,
         sourceLabel: documentDraft.sourceLabel,
+        sourceKind: documentDraft.sourceKind,
+        sourceRef: documentDraft.sourceRef,
         content: documentDraft.content,
         tags: documentDraft.tags,
         enabled: documentDraft.enabled,
@@ -325,7 +330,12 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       const importedDocument = await onCreateKnowledgeDocument({
         title: importedFile.title,
         scope: documentImportScope,
+        catalogItemType: "documentation_knowledge",
+        quickSummary: "",
+        lifecycleStatus: "active",
         sourceLabel: importedFile.fileName,
+        sourceKind: "file_import",
+        sourceRef: path,
         content: importedFile.content,
         tags: "",
         enabled: true,

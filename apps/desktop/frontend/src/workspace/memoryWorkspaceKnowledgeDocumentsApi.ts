@@ -12,8 +12,13 @@ export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
       knowledgeDocumentId: `dev_memory_kdoc_${nextDocumentId++}`,
       workspaceId: request.scope === "global" ? "" : request.workspaceId,
       scope: request.scope ?? "workspace",
+      catalogItemType: request.catalogItemType ?? "documentation_knowledge",
+      quickSummary: normalizeQuickSummary(request.quickSummary),
+      lifecycleStatus: request.lifecycleStatus ?? "active",
       title: request.title,
       sourceLabel: request.sourceLabel,
+      sourceKind: normalizeSourceKind(request.sourceKind),
+      sourceRef: normalizeSourceRef(request.sourceRef),
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
@@ -67,8 +72,21 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
       ...currentDocument,
       workspaceId: nextScope === "global" ? "" : request.workspaceId,
       scope: nextScope,
+      catalogItemType:
+        request.catalogItemType ?? currentDocument.catalogItemType,
+      quickSummary: normalizeQuickSummary(
+        request.quickSummary ?? currentDocument.quickSummary,
+      ),
+      lifecycleStatus:
+        request.lifecycleStatus ?? currentDocument.lifecycleStatus,
       title: request.title,
       sourceLabel: request.sourceLabel,
+      sourceKind: normalizeSourceKind(
+        request.sourceKind ?? currentDocument.sourceKind,
+      ),
+      sourceRef: normalizeSourceRef(
+        request.sourceRef ?? currentDocument.sourceRef,
+      ),
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
@@ -123,6 +141,7 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
 
     const results = getVisibleDocuments(request.workspaceId)
       .filter((document) => document.enabled)
+      .filter((document) => document.lifecycleStatus === "active")
       .flatMap((document) =>
         chunkDocumentContent(document.content).map((snippet, index) => ({
           knowledgeDocumentId: document.knowledgeDocumentId,
@@ -178,6 +197,24 @@ function cloneSearchResult(
   result: KnowledgeDocumentSearchResult,
 ): KnowledgeDocumentSearchResult {
   return { ...result };
+}
+
+function normalizeQuickSummary(quickSummary: string | null | undefined) {
+  return (quickSummary ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join("\n");
+}
+
+function normalizeSourceKind(sourceKind: string | null | undefined) {
+  const trimmed = sourceKind?.trim();
+  return trimmed || "operator_authored";
+}
+
+function normalizeSourceRef(sourceRef: string | null | undefined) {
+  return sourceRef?.trim() ?? "";
 }
 
 function chunkDocumentContent(content: string) {

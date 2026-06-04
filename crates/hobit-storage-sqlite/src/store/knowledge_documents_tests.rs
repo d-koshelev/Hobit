@@ -25,8 +25,13 @@ fn create_document(
             knowledge_document_id: document_id,
             workspace_id,
             scope: None,
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title,
             source_label: "Manual paste",
+            source_kind: None,
+            source_ref: None,
             content,
             tags: "deploy, runbook",
             enabled,
@@ -51,8 +56,13 @@ fn create_document_with_metadata(
             knowledge_document_id: document_id,
             workspace_id,
             scope: None,
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title,
             source_label,
+            source_kind: None,
+            source_ref: None,
             content,
             tags,
             enabled,
@@ -79,8 +89,13 @@ fn create_list_get_update_and_delete_knowledge_document() {
     assert_eq!(document.knowledge_document_id, "doc-1");
     assert_eq!(document.workspace_id, "workspace-1");
     assert_eq!(document.scope, "workspace");
+    assert_eq!(document.catalog_item_type, "documentation_knowledge");
+    assert_eq!(document.quick_summary, "");
+    assert_eq!(document.lifecycle_status, "active");
     assert_eq!(document.title, "Deploy Guide");
     assert_eq!(document.source_label, "Manual paste");
+    assert_eq!(document.source_kind, "operator_authored");
+    assert_eq!(document.source_ref, "");
     assert_eq!(document.tags, "deploy, runbook");
     assert!(document.enabled);
 
@@ -100,8 +115,13 @@ fn create_list_get_update_and_delete_knowledge_document() {
             "doc-1",
             KnowledgeDocumentUpdate {
                 scope: None,
+                catalog_item_type: Some("known_issue"),
+                quick_summary: Some("Rollback changed."),
+                lifecycle_status: Some("stale"),
                 title: "Updated",
                 source_label: "README.md",
+                source_kind: Some("file"),
+                source_ref: Some("README.md"),
                 content: "Updated rollback procedure.",
                 tags: "rollback",
                 enabled: false,
@@ -112,7 +132,12 @@ fn create_list_get_update_and_delete_knowledge_document() {
         .expect("updated document");
 
     assert_eq!(updated.title, "Updated");
+    assert_eq!(updated.catalog_item_type, "known_issue");
+    assert_eq!(updated.quick_summary, "Rollback changed.");
+    assert_eq!(updated.lifecycle_status, "stale");
     assert_eq!(updated.source_label, "README.md");
+    assert_eq!(updated.source_kind, "file");
+    assert_eq!(updated.source_ref, "README.md");
     assert_eq!(updated.content, "Updated rollback procedure.");
     assert_eq!(updated.tags, "rollback");
     assert!(!updated.enabled);
@@ -154,8 +179,13 @@ fn chunks_are_created_updated_and_deleted_with_document() {
             "doc-1",
             KnowledgeDocumentUpdate {
                 scope: None,
+                catalog_item_type: None,
+                quick_summary: None,
+                lifecycle_status: None,
                 title: "Chunked",
                 source_label: "Manual paste",
+                source_kind: None,
+                source_ref: None,
                 content: "Replacement content about rollback.",
                 tags: "rollback",
                 enabled: true,
@@ -238,6 +268,37 @@ fn disabled_documents_are_not_searched() {
 }
 
 #[test]
+fn non_active_documents_are_not_searched() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    store
+        .create_knowledge_document(NewKnowledgeDocument {
+            knowledge_document_id: "doc-stale",
+            workspace_id: "workspace-1",
+            scope: None,
+            catalog_item_type: Some("documentation_knowledge"),
+            quick_summary: Some("Stale summary"),
+            lifecycle_status: Some("stale"),
+            title: "Stale guide",
+            source_label: "Manual paste",
+            source_kind: Some("operator_authored"),
+            source_ref: None,
+            content: "Contains unique stale lifecycle keyword.",
+            tags: "stale",
+            enabled: true,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create stale document");
+
+    let results = store
+        .search_knowledge_documents("workspace-1", "stale lifecycle keyword", 5)
+        .expect("search documents");
+
+    assert!(results.is_empty());
+}
+
+#[test]
 fn create_global_document_and_list_with_workspace_documents() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
@@ -255,8 +316,13 @@ fn create_global_document_and_list_with_workspace_documents() {
             knowledge_document_id: "doc-global",
             workspace_id: "workspace-1",
             scope: Some("global"),
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Global Vertica EON troubleshooting",
             source_label: "Global paste",
+            source_kind: None,
+            source_ref: None,
             content: "Global EON troubleshooting content.",
             tags: "global, eon",
             enabled: true,
@@ -371,8 +437,13 @@ fn search_includes_global_documents_for_each_workspace_without_cross_workspace_l
             knowledge_document_id: "doc-global",
             workspace_id: "workspace-a",
             scope: Some("global"),
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Global Vertica EON troubleshooting",
             source_label: "Global paste",
+            source_kind: None,
+            source_ref: None,
             content: "Global EON needle.",
             tags: "global",
             enabled: true,
@@ -417,8 +488,13 @@ fn disabled_and_deleted_global_documents_are_not_searched() {
             knowledge_document_id: "doc-global-disabled",
             workspace_id: "workspace-1",
             scope: Some("global"),
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Disabled global",
             source_label: "Global paste",
+            source_kind: None,
+            source_ref: None,
             content: "disabledglobal needle.",
             tags: "",
             enabled: false,
@@ -431,8 +507,13 @@ fn disabled_and_deleted_global_documents_are_not_searched() {
             knowledge_document_id: "doc-global-delete",
             workspace_id: "workspace-1",
             scope: Some("global"),
+            catalog_item_type: None,
+            quick_summary: None,
+            lifecycle_status: None,
             title: "Deleted global",
             source_label: "Global paste",
+            source_kind: None,
+            source_ref: None,
             content: "deletedglobal needle.",
             tags: "",
             enabled: true,

@@ -341,12 +341,17 @@ function queueTaskResult() {
 
 function knowledgeDocumentResult() {
   return {
+    catalogItemType: "documentation_knowledge" as const,
     content: "Visible content",
     createdAt: "2026-01-01T00:00:00Z",
     enabled: true,
     knowledgeDocumentId: "doc_1",
+    lifecycleStatus: "active" as const,
+    quickSummary: "",
     scope: "workspace" as const,
+    sourceKind: "operator_authored",
     sourceLabel: "Workspace Agent conversation",
+    sourceRef: "",
     tags: "docs",
     title: "Created document",
     updatedAt: "2026-01-01T00:00:00Z",

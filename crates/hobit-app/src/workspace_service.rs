@@ -42,6 +42,7 @@ mod jdbc_runtime;
 mod jdbc_runtime_config;
 mod jdbc_sidecar_protocol;
 mod knowledge_document_search;
+mod knowledge_document_types;
 mod knowledge_documents;
 mod logs;
 mod mapping;
@@ -170,6 +171,11 @@ pub use jdbc_query_types::{
     ValidateJdbcReadOnlySqlInput,
 };
 use jdbc_runtime_config::JdbcRuntimeConfig;
+pub use knowledge_document_types::{
+    CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
+    UpdateKnowledgeDocumentInput,
+};
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,
     AgentChatAiRequestArtifact, AgentChatProposalActionInput, AgentChatProposalInput,
@@ -180,22 +186,20 @@ pub use types::{
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
-    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateKnowledgeDocumentInput,
-    CreateSkillInput, CreateWorkspaceGitCommitInput, CreateWorkspaceGitPushInput,
-    CreateWorkspaceNoteInput, DeleteKnowledgeDocumentInput, DeleteSkillInput,
-    DirectWorkValidationRunSummary, ForceKillCodexDirectWorkRunInput,
+    CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateSkillInput,
+    CreateWorkspaceGitCommitInput, CreateWorkspaceGitPushInput, CreateWorkspaceNoteInput,
+    DeleteSkillInput, DirectWorkValidationRunSummary, ForceKillCodexDirectWorkRunInput,
     GenerateAgentChatAiProposalInput, GitBranchStatusSummary, GitCommitCommandSummary,
     GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary, GitFileDiffSummary,
     GitLastCommitSummary, GitLogEntrySummary, GitLogSummary, GitPushCommandSummary,
     GitPushRunSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, PersistAgentChatProposalInput,
-    RunCodexDirectWorkInput, RunDirectWorkValidationInput, RunTerminalCommandInput,
-    SearchKnowledgeDocumentsInput, SharedStateObjectSummary, SkillSummary,
-    TerminalCommandRunSummary, UpdateKnowledgeDocumentInput, UpdateSkillInput,
-    UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
-    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
-    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary,
-    WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
+    RunTerminalCommandInput, SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
+    UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary,
+    WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput,
+    WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
+    WorkspaceWorkbenchState,
 };
 
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);

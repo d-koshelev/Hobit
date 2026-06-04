@@ -10,8 +10,18 @@ pub(crate) struct CreateKnowledgeDocumentRequest {
     pub workspace_id: String,
     #[serde(default)]
     pub scope: Option<String>,
+    #[serde(default)]
+    pub catalog_item_type: Option<String>,
+    #[serde(default)]
+    pub quick_summary: Option<String>,
+    #[serde(default)]
+    pub lifecycle_status: Option<String>,
     pub title: String,
     pub source_label: String,
+    #[serde(default)]
+    pub source_kind: Option<String>,
+    #[serde(default)]
+    pub source_ref: Option<String>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -34,8 +44,18 @@ pub(crate) struct UpdateKnowledgeDocumentRequest {
     pub knowledge_document_id: String,
     #[serde(default)]
     pub scope: Option<String>,
+    #[serde(default)]
+    pub catalog_item_type: Option<String>,
+    #[serde(default)]
+    pub quick_summary: Option<String>,
+    #[serde(default)]
+    pub lifecycle_status: Option<String>,
     pub title: String,
     pub source_label: String,
+    #[serde(default)]
+    pub source_kind: Option<String>,
+    #[serde(default)]
+    pub source_ref: Option<String>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -59,8 +79,13 @@ pub(crate) struct KnowledgeDocumentDto {
     pub knowledge_document_id: String,
     pub workspace_id: String,
     pub scope: String,
+    pub catalog_item_type: String,
+    pub quick_summary: String,
+    pub lifecycle_status: String,
     pub title: String,
     pub source_label: String,
+    pub source_kind: String,
+    pub source_ref: String,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -86,8 +111,13 @@ impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
         Self {
             workspace_id: request.workspace_id,
             scope: request.scope,
+            catalog_item_type: request.catalog_item_type,
+            quick_summary: request.quick_summary,
+            lifecycle_status: request.lifecycle_status,
             title: request.title,
             source_label: request.source_label,
+            source_kind: request.source_kind,
+            source_ref: request.source_ref,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
@@ -101,8 +131,13 @@ impl From<UpdateKnowledgeDocumentRequest> for UpdateKnowledgeDocumentInput {
             workspace_id: request.workspace_id,
             knowledge_document_id: request.knowledge_document_id,
             scope: request.scope,
+            catalog_item_type: request.catalog_item_type,
+            quick_summary: request.quick_summary,
+            lifecycle_status: request.lifecycle_status,
             title: request.title,
             source_label: request.source_label,
+            source_kind: request.source_kind,
+            source_ref: request.source_ref,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
@@ -135,8 +170,13 @@ impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
             knowledge_document_id: summary.knowledge_document_id,
             workspace_id: summary.workspace_id,
             scope: summary.scope,
+            catalog_item_type: summary.catalog_item_type,
+            quick_summary: summary.quick_summary,
+            lifecycle_status: summary.lifecycle_status,
             title: summary.title,
             source_label: summary.source_label,
+            source_kind: summary.source_kind,
+            source_ref: summary.source_ref,
             content: summary.content,
             tags: summary.tags,
             enabled: summary.enabled,

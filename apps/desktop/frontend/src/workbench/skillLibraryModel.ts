@@ -35,8 +35,13 @@ export type KnowledgeSurfaceTab = "skills" | "documents";
 export type KnowledgeDocumentDraft = {
   knowledgeDocumentId: string | null;
   scope: KnowledgeDocumentScope;
+  catalogItemType: KnowledgeDocument["catalogItemType"];
+  quickSummary: string;
+  lifecycleStatus: KnowledgeDocument["lifecycleStatus"];
   title: string;
   sourceLabel: string;
+  sourceKind: string;
+  sourceRef: string;
   content: string;
   tags: string;
   enabled: boolean;
@@ -57,8 +62,13 @@ export const EMPTY_SKILL_DRAFT: SkillDraft = {
 export const EMPTY_DOCUMENT_DRAFT: KnowledgeDocumentDraft = {
   knowledgeDocumentId: null,
   scope: "workspace",
+  catalogItemType: "documentation_knowledge",
+  quickSummary: "",
+  lifecycleStatus: "active",
   title: DEFAULT_DOCUMENT_TITLE,
   sourceLabel: "Workspace document",
+  sourceKind: "operator_authored",
+  sourceRef: "",
   content: "",
   tags: "",
   enabled: true,
@@ -84,8 +94,13 @@ export function knowledgeDocumentDraftFromDocument(
   return {
     knowledgeDocumentId: document.knowledgeDocumentId,
     scope: document.scope,
+    catalogItemType: document.catalogItemType,
+    quickSummary: document.quickSummary,
+    lifecycleStatus: document.lifecycleStatus,
     title: document.title,
     sourceLabel: document.sourceLabel,
+    sourceKind: document.sourceKind,
+    sourceRef: document.sourceRef,
     content: document.content,
     tags: document.tags,
     enabled: document.enabled,
@@ -110,7 +125,12 @@ export function hasKnowledgeDocumentDraftContent(
   return Boolean(
     draft.title.trim() !== DEFAULT_DOCUMENT_TITLE ||
       draft.scope !== "workspace" ||
+      draft.catalogItemType !== "documentation_knowledge" ||
+      draft.quickSummary.trim() ||
+      draft.lifecycleStatus !== "active" ||
       draft.sourceLabel.trim() !== "Workspace document" ||
+      draft.sourceKind.trim() !== "operator_authored" ||
+      draft.sourceRef.trim() ||
       draft.content.trim() ||
       draft.tags.trim() ||
       !draft.enabled,
@@ -146,7 +166,12 @@ export function isKnowledgeDocumentDraftDirty(
         selectedDocument &&
           (draft.title !== selectedDocument.title ||
             draft.scope !== selectedDocument.scope ||
+            draft.catalogItemType !== selectedDocument.catalogItemType ||
+            draft.quickSummary !== selectedDocument.quickSummary ||
+            draft.lifecycleStatus !== selectedDocument.lifecycleStatus ||
             draft.sourceLabel !== selectedDocument.sourceLabel ||
+            draft.sourceKind !== selectedDocument.sourceKind ||
+            draft.sourceRef !== selectedDocument.sourceRef ||
             draft.content !== selectedDocument.content ||
             draft.tags !== selectedDocument.tags ||
             draft.enabled !== selectedDocument.enabled),

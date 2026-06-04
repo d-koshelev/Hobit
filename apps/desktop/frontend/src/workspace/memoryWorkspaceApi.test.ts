@@ -76,6 +76,16 @@ describe("memory workspace api fallback", () => {
       tags: "disabled",
       enabled: false,
     });
+    await memoryWorkspaceApi.createKnowledgeDocument({
+      workspaceId: second.id,
+      scope: "workspace",
+      title: "Stale doc",
+      sourceLabel: "Stale paste",
+      content: `${uniqueNeedle} stale`,
+      tags: "stale",
+      enabled: true,
+      lifecycleStatus: "stale",
+    });
 
     const secondResults = await memoryWorkspaceApi.searchKnowledgeDocuments({
       workspaceId: second.id,

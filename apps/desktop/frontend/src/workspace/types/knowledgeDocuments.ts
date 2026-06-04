@@ -1,10 +1,36 @@
 export type KnowledgeDocumentScope = "workspace" | "global";
 
+export type KnowledgeCatalogItemType =
+  | "codebase_knowledge"
+  | "documentation_knowledge"
+  | "architecture_decision"
+  | "runbook"
+  | "skill"
+  | "prompt_template"
+  | "validation_rule"
+  | "known_issue"
+  | "workflow"
+  | "command_history_summary"
+  | "investigation_summary"
+  | "external_reference";
+
+export type KnowledgeLifecycleStatus =
+  | "draft"
+  | "active"
+  | "stale"
+  | "archived"
+  | "rejected";
+
 export type CreateKnowledgeDocumentRequest = {
   workspaceId: string;
   scope?: KnowledgeDocumentScope;
+  catalogItemType?: KnowledgeCatalogItemType;
+  quickSummary?: string;
+  lifecycleStatus?: KnowledgeLifecycleStatus;
   title: string;
   sourceLabel: string;
+  sourceKind?: string;
+  sourceRef?: string;
   content: string;
   tags: string;
   enabled: boolean;
@@ -23,8 +49,13 @@ export type UpdateKnowledgeDocumentRequest = {
   workspaceId: string;
   knowledgeDocumentId: string;
   scope?: KnowledgeDocumentScope;
+  catalogItemType?: KnowledgeCatalogItemType;
+  quickSummary?: string;
+  lifecycleStatus?: KnowledgeLifecycleStatus;
   title: string;
   sourceLabel: string;
+  sourceKind?: string;
+  sourceRef?: string;
   content: string;
   tags: string;
   enabled: boolean;
@@ -55,8 +86,13 @@ export type KnowledgeDocument = {
   knowledgeDocumentId: string;
   workspaceId: string;
   scope: KnowledgeDocumentScope;
+  catalogItemType: KnowledgeCatalogItemType;
+  quickSummary: string;
+  lifecycleStatus: KnowledgeLifecycleStatus;
   title: string;
   sourceLabel: string;
+  sourceKind: string;
+  sourceRef: string;
   content: string;
   tags: string;
   enabled: boolean;

@@ -11,8 +11,13 @@ fn maps_create_knowledge_document_request_to_app_input_with_scope_and_enabled() 
     let request = CreateKnowledgeDocumentRequest {
         workspace_id: "ws_1".to_owned(),
         scope: Some("global".to_owned()),
+        catalog_item_type: Some("known_issue".to_owned()),
+        quick_summary: Some("Quick note".to_owned()),
+        lifecycle_status: Some("draft".to_owned()),
         title: "Doc".to_owned(),
         source_label: "Paste".to_owned(),
+        source_kind: Some("operator_authored".to_owned()),
+        source_ref: Some("manual".to_owned()),
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: true,
@@ -22,7 +27,12 @@ fn maps_create_knowledge_document_request_to_app_input_with_scope_and_enabled() 
 
     assert_eq!(input.workspace_id, "ws_1");
     assert_eq!(input.scope.as_deref(), Some("global"));
+    assert_eq!(input.catalog_item_type.as_deref(), Some("known_issue"));
+    assert_eq!(input.quick_summary.as_deref(), Some("Quick note"));
+    assert_eq!(input.lifecycle_status.as_deref(), Some("draft"));
     assert_eq!(input.source_label, "Paste");
+    assert_eq!(input.source_kind.as_deref(), Some("operator_authored"));
+    assert_eq!(input.source_ref.as_deref(), Some("manual"));
     assert!(input.enabled);
 }
 
@@ -32,8 +42,13 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
         workspace_id: "ws_1".to_owned(),
         knowledge_document_id: "kdoc_1".to_owned(),
         scope: Some("workspace".to_owned()),
+        catalog_item_type: Some("validation_rule".to_owned()),
+        quick_summary: Some("Validate before release".to_owned()),
+        lifecycle_status: Some("active".to_owned()),
         title: "Doc".to_owned(),
         source_label: "Paste".to_owned(),
+        source_kind: Some("file".to_owned()),
+        source_ref: Some("docs/checks.md".to_owned()),
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: false,
@@ -44,6 +59,14 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
     assert_eq!(input.workspace_id, "ws_1");
     assert_eq!(input.knowledge_document_id, "kdoc_1");
     assert_eq!(input.scope.as_deref(), Some("workspace"));
+    assert_eq!(input.catalog_item_type.as_deref(), Some("validation_rule"));
+    assert_eq!(
+        input.quick_summary.as_deref(),
+        Some("Validate before release")
+    );
+    assert_eq!(input.lifecycle_status.as_deref(), Some("active"));
+    assert_eq!(input.source_kind.as_deref(), Some("file"));
+    assert_eq!(input.source_ref.as_deref(), Some("docs/checks.md"));
     assert!(!input.enabled);
 }
 
@@ -69,8 +92,13 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
         knowledge_document_id: "kdoc_1".to_owned(),
         workspace_id: "ws_1".to_owned(),
         scope: "global".to_owned(),
+        catalog_item_type: "external_reference".to_owned(),
+        quick_summary: "One-line summary".to_owned(),
+        lifecycle_status: "active".to_owned(),
         title: "Doc".to_owned(),
         source_label: "Paste".to_owned(),
+        source_kind: "external_url".to_owned(),
+        source_ref: "https://example.invalid/doc".to_owned(),
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: true,
@@ -84,8 +112,13 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
             "knowledge_document_id": "kdoc_1",
             "workspace_id": "ws_1",
             "scope": "global",
+            "catalog_item_type": "external_reference",
+            "quick_summary": "One-line summary",
+            "lifecycle_status": "active",
             "title": "Doc",
             "source_label": "Paste",
+            "source_kind": "external_url",
+            "source_ref": "https://example.invalid/doc",
             "content": "Content",
             "tags": "ops",
             "enabled": true,

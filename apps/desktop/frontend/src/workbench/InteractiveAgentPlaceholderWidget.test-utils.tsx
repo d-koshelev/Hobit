@@ -524,12 +524,17 @@ export function knowledgeDocumentFixture(
   } = {},
 ): KnowledgeDocument {
   return {
+    catalogItemType: "documentation_knowledge",
     content: "",
     createdAt: "2026-05-24T00:00:00Z",
     enabled: true,
     knowledgeDocumentId: "doc_1",
+    lifecycleStatus: "active",
+    quickSummary: "",
     scope: "workspace",
+    sourceKind: "operator_authored",
     sourceLabel: "Workspace Agent conversation",
+    sourceRef: "",
     tags: "",
     title: "Document",
     updatedAt: "2026-05-24T00:00:00Z",

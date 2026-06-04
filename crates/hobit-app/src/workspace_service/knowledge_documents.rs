@@ -12,6 +12,24 @@ use super::{
     UpdateKnowledgeDocumentInput, WorkspaceService,
 };
 
+const CATALOG_ITEM_TYPE_CODEBASE_KNOWLEDGE: &str = "codebase_knowledge";
+const CATALOG_ITEM_TYPE_DOCUMENTATION_KNOWLEDGE: &str = "documentation_knowledge";
+const CATALOG_ITEM_TYPE_ARCHITECTURE_DECISION: &str = "architecture_decision";
+const CATALOG_ITEM_TYPE_RUNBOOK: &str = "runbook";
+const CATALOG_ITEM_TYPE_SKILL: &str = "skill";
+const CATALOG_ITEM_TYPE_PROMPT_TEMPLATE: &str = "prompt_template";
+const CATALOG_ITEM_TYPE_VALIDATION_RULE: &str = "validation_rule";
+const CATALOG_ITEM_TYPE_KNOWN_ISSUE: &str = "known_issue";
+const CATALOG_ITEM_TYPE_WORKFLOW: &str = "workflow";
+const CATALOG_ITEM_TYPE_COMMAND_HISTORY_SUMMARY: &str = "command_history_summary";
+const CATALOG_ITEM_TYPE_INVESTIGATION_SUMMARY: &str = "investigation_summary";
+const CATALOG_ITEM_TYPE_EXTERNAL_REFERENCE: &str = "external_reference";
+const LIFECYCLE_STATUS_DRAFT: &str = "draft";
+const LIFECYCLE_STATUS_ACTIVE: &str = "active";
+const LIFECYCLE_STATUS_STALE: &str = "stale";
+const LIFECYCLE_STATUS_ARCHIVED: &str = "archived";
+const LIFECYCLE_STATUS_REJECTED: &str = "rejected";
+
 impl WorkspaceService {
     pub fn create_knowledge_document(
         &self,
@@ -34,8 +52,13 @@ impl WorkspaceService {
                     knowledge_document_id: &knowledge_document_id,
                     workspace_id: &input.workspace_id,
                     scope: Some(&input.scope),
+                    catalog_item_type: Some(&input.catalog_item_type),
+                    quick_summary: Some(&input.quick_summary),
+                    lifecycle_status: Some(&input.lifecycle_status),
                     title: &input.title,
                     source_label: &input.source_label,
+                    source_kind: Some(&input.source_kind),
+                    source_ref: Some(&input.source_ref),
                     content: &input.content,
                     tags: &input.tags,
                     enabled: input.enabled,
@@ -103,7 +126,12 @@ impl WorkspaceService {
                 KnowledgeDocumentUpdate {
                     title: &input.title,
                     scope: Some(&input.scope),
+                    catalog_item_type: Some(&input.catalog_item_type),
+                    quick_summary: Some(&input.quick_summary),
+                    lifecycle_status: Some(&input.lifecycle_status),
                     source_label: &input.source_label,
+                    source_kind: Some(&input.source_kind),
+                    source_ref: Some(&input.source_ref),
                     content: &input.content,
                     tags: &input.tags,
                     enabled: input.enabled,
@@ -202,7 +230,12 @@ impl WorkspaceService {
 struct NormalizedCreateKnowledgeDocumentInput {
     workspace_id: String,
     title: String,
+    catalog_item_type: String,
+    quick_summary: String,
+    lifecycle_status: String,
     source_label: String,
+    source_kind: String,
+    source_ref: String,
     content: String,
     tags: String,
     enabled: bool,
@@ -214,7 +247,12 @@ struct NormalizedUpdateKnowledgeDocumentInput {
     workspace_id: String,
     knowledge_document_id: String,
     title: String,
+    catalog_item_type: String,
+    quick_summary: String,
+    lifecycle_status: String,
     source_label: String,
+    source_kind: String,
+    source_ref: String,
     content: String,
     tags: String,
     enabled: bool,
@@ -233,7 +271,12 @@ fn normalize_create_knowledge_document_input(
     Ok(NormalizedCreateKnowledgeDocumentInput {
         workspace_id: required_owned(input.workspace_id, "workspace id")?,
         title: required_owned(input.title, "knowledge document title")?,
+        catalog_item_type: normalize_catalog_item_type(input.catalog_item_type)?,
+        quick_summary: normalize_quick_summary(input.quick_summary),
+        lifecycle_status: normalize_lifecycle_status(input.lifecycle_status)?,
         source_label: normalize_source_label(input.source_label),
+        source_kind: normalize_source_kind(input.source_kind),
+        source_ref: normalize_source_ref(input.source_ref),
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
@@ -251,7 +294,12 @@ fn normalize_update_knowledge_document_input(
             "knowledge document id",
         )?,
         title: required_owned(input.title, "knowledge document title")?,
+        catalog_item_type: normalize_catalog_item_type(input.catalog_item_type)?,
+        quick_summary: normalize_quick_summary(input.quick_summary),
+        lifecycle_status: normalize_lifecycle_status(input.lifecycle_status)?,
         source_label: normalize_source_label(input.source_label),
+        source_kind: normalize_source_kind(input.source_kind),
+        source_ref: normalize_source_ref(input.source_ref),
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
@@ -277,6 +325,86 @@ fn normalize_source_label(source_label: String) -> String {
         "Workspace document".to_owned()
     } else {
         trimmed.to_owned()
+    }
+}
+
+fn normalize_source_kind(source_kind: Option<String>) -> String {
+    source_kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|source_kind| !source_kind.is_empty())
+        .unwrap_or("operator_authored")
+        .to_owned()
+}
+
+fn normalize_source_ref(source_ref: Option<String>) -> String {
+    source_ref
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("")
+        .to_owned()
+}
+
+fn normalize_quick_summary(quick_summary: Option<String>) -> String {
+    quick_summary
+        .as_deref()
+        .unwrap_or("")
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn normalize_catalog_item_type(
+    catalog_item_type: Option<String>,
+) -> Result<String, WorkspaceServiceError> {
+    let catalog_item_type = catalog_item_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|catalog_item_type| !catalog_item_type.is_empty())
+        .unwrap_or(CATALOG_ITEM_TYPE_DOCUMENTATION_KNOWLEDGE)
+        .to_owned();
+
+    match catalog_item_type.as_str() {
+        CATALOG_ITEM_TYPE_CODEBASE_KNOWLEDGE
+        | CATALOG_ITEM_TYPE_DOCUMENTATION_KNOWLEDGE
+        | CATALOG_ITEM_TYPE_ARCHITECTURE_DECISION
+        | CATALOG_ITEM_TYPE_RUNBOOK
+        | CATALOG_ITEM_TYPE_SKILL
+        | CATALOG_ITEM_TYPE_PROMPT_TEMPLATE
+        | CATALOG_ITEM_TYPE_VALIDATION_RULE
+        | CATALOG_ITEM_TYPE_KNOWN_ISSUE
+        | CATALOG_ITEM_TYPE_WORKFLOW
+        | CATALOG_ITEM_TYPE_COMMAND_HISTORY_SUMMARY
+        | CATALOG_ITEM_TYPE_INVESTIGATION_SUMMARY
+        | CATALOG_ITEM_TYPE_EXTERNAL_REFERENCE => Ok(catalog_item_type),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported knowledge catalog item type: {catalog_item_type}"
+        ))),
+    }
+}
+
+fn normalize_lifecycle_status(
+    lifecycle_status: Option<String>,
+) -> Result<String, WorkspaceServiceError> {
+    let lifecycle_status = lifecycle_status
+        .as_deref()
+        .map(str::trim)
+        .filter(|lifecycle_status| !lifecycle_status.is_empty())
+        .unwrap_or(LIFECYCLE_STATUS_ACTIVE)
+        .to_owned();
+
+    match lifecycle_status.as_str() {
+        LIFECYCLE_STATUS_DRAFT
+        | LIFECYCLE_STATUS_ACTIVE
+        | LIFECYCLE_STATUS_STALE
+        | LIFECYCLE_STATUS_ARCHIVED
+        | LIFECYCLE_STATUS_REJECTED => Ok(lifecycle_status),
+        _ => Err(WorkspaceServiceError::InvalidInput(format!(
+            "unsupported knowledge lifecycle status: {lifecycle_status}"
+        ))),
     }
 }
 
