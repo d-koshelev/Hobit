@@ -518,6 +518,132 @@ describe("WorkbenchShell widget layout controls", () => {
     );
   });
 
+  it("resizes from the left edge and highlights only the active edge", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: ["notes"],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [
+          {
+            ...notesWidget(),
+            layout: {
+              ...notesWidget().layout,
+              width: 360,
+              x: 96,
+            },
+          },
+        ],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithLabel("Resize widget left edge").dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 96, clientY: 120 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(
+      document
+        .querySelector(".widget-resize-handle-left")
+        ?.classList.contains("widget-resize-handle-active"),
+    ).toBe(true);
+    expect(
+      document
+        .querySelector(".widget-resize-handle-right")
+        ?.classList.contains("widget-resize-handle-active"),
+    ).toBe(false);
+    expect(
+      document
+        .querySelector(".widget-resize-handle-bottom")
+        ?.classList.contains("widget-resize-handle-active"),
+    ).toBe(false);
+
+    await awaitAct(() => {
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 48, clientY: 120 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointerup", { clientX: 48, clientY: 120 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 240,
+          dockWidth: 408,
+          dockX: 48,
+          dockY: 0,
+        }),
+        widgetInstanceId: "widget_notes_1",
+      }),
+    );
+  });
+
+  it("resizes from the top edge and preserves the bottom edge", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: ["notes"],
+      }),
+    );
+    renderShell(
+      workbenchViewState({
+        widgets: [
+          {
+            ...notesWidget(),
+            layout: {
+              ...notesWidget().layout,
+              height: 240,
+              y: 96,
+            },
+          },
+        ],
+      }),
+    );
+    setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithLabel("Resize widget top edge").dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 180, clientY: 96 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(
+      document
+        .querySelector(".widget-resize-handle-top")
+        ?.classList.contains("widget-resize-handle-active"),
+    ).toBe(true);
+
+    await awaitAct(() => {
+      window.dispatchEvent(
+        pointerEvent("pointermove", { clientX: 180, clientY: 48 }),
+      );
+      window.dispatchEvent(
+        pointerEvent("pointerup", { clientX: 180, clientY: 48 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 288,
+          dockWidth: 360,
+          dockX: 0,
+          dockY: 48,
+        }),
+        widgetInstanceId: "widget_notes_1",
+      }),
+    );
+  });
+
   it("locks layout from the optional top bar toggle", async () => {
     renderShell(
       workbenchViewState({
@@ -535,6 +661,7 @@ describe("WorkbenchShell widget layout controls", () => {
     expect(document.body.textContent).toContain("Layout locked");
     expect(document.querySelector(".widget-header-movable")).toBeNull();
     expect(buttonWithLabel("Resize widget", false)).toBeNull();
+    expect(document.querySelector(".widget-resize-handle")).toBeNull();
 
     await awaitAct(() => {
       document

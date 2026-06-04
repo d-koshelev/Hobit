@@ -134,6 +134,7 @@ export function WorkbenchCanvas({
       });
   const {
     activeDockedDragWidgetInstanceId,
+    activeDockedResizeDirection,
     activeDockedResizeWidgetInstanceId,
     dockedDragPositions,
     dockedResizeSizes,
@@ -580,6 +581,9 @@ export function WorkbenchCanvas({
                     />
                     {isLayoutEditing && widget.layout.mode === "docked" ? (
                       <WorkbenchResizeHandles
+                        activeDirection={
+                          isResizing ? activeDockedResizeDirection : null
+                        }
                         onStartResize={(direction, pointerX, pointerY) =>
                           startDockedResize(
                             widget.id,

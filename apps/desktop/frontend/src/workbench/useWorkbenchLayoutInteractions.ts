@@ -5,13 +5,14 @@ import {
   clampDockedPosition,
   clampDockedSize,
   nextDockedDragPosition as nextDockedDragPositionFromGeometry,
-  nextDockedResizeSize as nextDockedResizeSizeFromGeometry,
+  nextDockedResizeGeometry,
   removeSettledDockedDragPositions,
   removeSettledDockedResizeSizes,
   removeWidgetPosition,
   removeWidgetSize,
   widgetDockedPosition,
   widgetDockedSize,
+  type DockedResizeGeometry,
   type DockedPosition,
   type DockedPositionMap,
   type DockedSize,
@@ -36,7 +37,7 @@ type ActiveDockedResize = {
   originalSize: DockedSize;
   pointerX: number;
   pointerY: number;
-  position: DockedPosition;
+  originalPosition: DockedPosition;
   widgetInstanceId: WidgetInstanceId;
 };
 
@@ -159,29 +160,40 @@ export function useWorkbenchLayoutInteractions({
     document.body.classList.add("widget-docked-resizing", resizeClassName);
 
     function resizeDockedWidget(event: PointerEvent) {
-      const nextSize = nextDockedResizeSize(event, resize);
+      const nextGeometry = nextDockedResize(event, resize);
 
       setDockedResizeSizes((currentSizes) => ({
         ...currentSizes,
-        [resize.widgetInstanceId]: nextSize,
+        [resize.widgetInstanceId]: nextGeometry.size,
+      }));
+      setDockedDragPositions((currentPositions) => ({
+        ...currentPositions,
+        [resize.widgetInstanceId]: nextGeometry.position,
       }));
     }
 
     function finishDockedWidgetResize(event: PointerEvent) {
-      const nextSize = nextDockedResizeSize(event, resize);
+      const nextGeometry = nextDockedResize(event, resize);
 
       setActiveDockedResize(null);
       setDockedResizeSizes((currentSizes) => ({
         ...currentSizes,
-        [resize.widgetInstanceId]: nextSize,
+        [resize.widgetInstanceId]: nextGeometry.size,
       }));
-      void persistDockedWidgetSize(resize, nextSize);
+      setDockedDragPositions((currentPositions) => ({
+        ...currentPositions,
+        [resize.widgetInstanceId]: nextGeometry.position,
+      }));
+      void persistDockedWidgetResize(resize, nextGeometry);
     }
 
     function cancelDockedWidgetResize() {
       setActiveDockedResize(null);
       setDockedResizeSizes((currentSizes) =>
         removeWidgetSize(currentSizes, resize.widgetInstanceId),
+      );
+      setDockedDragPositions((currentPositions) =>
+        removeWidgetPosition(currentPositions, resize.widgetInstanceId),
       );
     }
 
@@ -319,15 +331,22 @@ export function useWorkbenchLayoutInteractions({
       return;
     }
 
-    const position =
+    const currentPosition =
       dockedDragPositionsRef.current[widgetInstanceId] ??
       widgetDockedPosition(widget);
     const currentSize =
       dockedResizeSizesRef.current[widgetInstanceId] ?? widgetDockedSize(widget);
+    const clampedPosition = clampDockedPosition(
+      currentPosition,
+      surfaceRect,
+      currentSize.width,
+      currentSize.height,
+      gridSize,
+    );
     const clampedSize = clampDockedSize(
       currentSize,
       surfaceRect,
-      position,
+      clampedPosition,
       gridSize,
       {
         minHeight: widget.layout.minHeight,
@@ -339,33 +358,40 @@ export function useWorkbenchLayoutInteractions({
       ...currentSizes,
       [widgetInstanceId]: clampedSize,
     }));
+    setDockedDragPositions((currentPositions) => ({
+      ...currentPositions,
+      [widgetInstanceId]: clampedPosition,
+    }));
     setActiveDockedResize({
       direction,
       layout: widget.layout,
       originalSize: clampedSize,
       pointerX,
       pointerY,
-      position,
+      originalPosition: clampedPosition,
       widgetInstanceId,
     });
   }
 
-  function nextDockedResizeSize(
+  function nextDockedResize(
     event: PointerEvent,
     resize: ActiveDockedResize,
-  ): DockedSize {
+  ): DockedResizeGeometry {
     const surfaceRect = layoutSurfaceRef.current?.getBoundingClientRect();
 
     if (!surfaceRect) {
-      return resize.originalSize;
+      return {
+        position: resize.originalPosition,
+        size: resize.originalSize,
+      };
     }
 
-    return nextDockedResizeSizeFromGeometry({
+    return nextDockedResizeGeometry({
       direction: resize.direction,
       originalSize: resize.originalSize,
       pointerX: event.clientX,
       pointerY: event.clientY,
-      position: resize.position,
+      position: resize.originalPosition,
       resizePointerX: resize.pointerX,
       resizePointerY: resize.pointerY,
       surfaceRect,
@@ -377,21 +403,30 @@ export function useWorkbenchLayoutInteractions({
     });
   }
 
-  async function persistDockedWidgetSize(
+  async function persistDockedWidgetResize(
     resize: ActiveDockedResize,
-    size: DockedSize,
+    geometry: DockedResizeGeometry,
   ) {
+    const nextPosition = {
+      x: Math.round(geometry.position.x),
+      y: Math.round(geometry.position.y),
+    };
     const nextSize = {
-      height: Math.round(size.height),
-      width: Math.round(size.width),
+      height: Math.round(geometry.size.height),
+      width: Math.round(geometry.size.width),
     };
 
     if (
       nextSize.width === resize.originalSize.width &&
-      nextSize.height === resize.originalSize.height
+      nextSize.height === resize.originalSize.height &&
+      nextPosition.x === resize.originalPosition.x &&
+      nextPosition.y === resize.originalPosition.y
     ) {
       setDockedResizeSizes((currentSizes) =>
         removeWidgetSize(currentSizes, resize.widgetInstanceId),
+      );
+      setDockedDragPositions((currentPositions) =>
+        removeWidgetPosition(currentPositions, resize.widgetInstanceId),
       );
       return;
     }
@@ -404,15 +439,23 @@ export function useWorkbenchLayoutInteractions({
           height: nextSize.height,
           mode: "docked",
           width: nextSize.width,
+          x: nextPosition.x,
+          y: nextPosition.y,
         },
       );
       setDockedResizeSizes((currentSizes) =>
         removeWidgetSize(currentSizes, resize.widgetInstanceId),
       );
+      setDockedDragPositions((currentPositions) =>
+        removeWidgetPosition(currentPositions, resize.widgetInstanceId),
+      );
     } catch (error) {
       console.error("Failed to update docked widget size.", error);
       setDockedResizeSizes((currentSizes) =>
         removeWidgetSize(currentSizes, resize.widgetInstanceId),
+      );
+      setDockedDragPositions((currentPositions) =>
+        removeWidgetPosition(currentPositions, resize.widgetInstanceId),
       );
     }
   }
@@ -422,6 +465,7 @@ export function useWorkbenchLayoutInteractions({
       activeDockedDrag?.widgetInstanceId ?? null,
     activeDockedResizeWidgetInstanceId:
       activeDockedResize?.widgetInstanceId ?? null,
+    activeDockedResizeDirection: activeDockedResize?.direction ?? null,
     dockedDragPositions,
     dockedResizeSizes,
     layoutSurfaceRef,

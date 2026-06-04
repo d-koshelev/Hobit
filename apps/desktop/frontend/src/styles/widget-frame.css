@@ -30,8 +30,7 @@
   border-color: color-mix(in srgb, var(--color-border-strong) 42%, transparent);
 }
 
-.widget-layout-item-dragging .widget-frame-editing,
-.widget-layout-item-resizing .widget-frame-editing {
+.widget-layout-item-dragging .widget-frame-editing {
   border-color: color-mix(in srgb, var(--color-primary) 62%, transparent);
   box-shadow: none;
 }
@@ -77,8 +76,7 @@
 
 .widget-header-movable:hover::before,
 .widget-header-movable:focus-within::before,
-.widget-layout-item-dragging .widget-header-movable::before,
-.widget-layout-item-resizing .widget-header-movable::before {
+.widget-layout-item-dragging .widget-header-movable::before {
   opacity: 0.76;
 }
 
