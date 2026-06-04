@@ -7,6 +7,7 @@ import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetAction
 type KnowledgeSkillsActions = Pick<
   WorkbenchWidgetInstanceActions,
   | "createKnowledgeDocument"
+  | "createAgentQueueTask"
   | "createSkill"
   | "deleteKnowledgeDocument"
   | "deleteSkill"
@@ -35,6 +36,7 @@ export function knowledgeSkillsWidgetProps({
   return {
     onAttachContextToCoordinator,
     onAttachKnowledgeContextToQueueTask,
+    onCreateAgentQueueTask: actions.createAgentQueueTask,
     onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateSkill: actions.createSkill,
     onDeleteKnowledgeDocument: actions.deleteKnowledgeDocument,

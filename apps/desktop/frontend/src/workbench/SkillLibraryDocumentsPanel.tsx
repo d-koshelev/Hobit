@@ -47,6 +47,7 @@ type SkillLibraryDocumentsPanelProps = {
   isActive: boolean;
   onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
   onAttachKnowledgeContextToQueueTask: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
+  onCreateAgentQueueTask: WidgetRenderProps["onCreateAgentQueueTask"];
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onDeleteKnowledgeDocument: WidgetRenderProps["onDeleteKnowledgeDocument"];
@@ -68,6 +69,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     isActive,
     onAttachContextToCoordinator,
     onAttachKnowledgeContextToQueueTask,
+    onCreateAgentQueueTask,
     onCreateKnowledgeDocument,
     onCreateSkill,
     onDeleteKnowledgeDocument,
@@ -101,6 +103,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   });
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [isSavingDocument, setIsSavingDocument] = useState(false);
+  const [isCreatingRefreshTask, setIsCreatingRefreshTask] = useState(false);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
   const [isImportingDocument, setIsImportingDocument] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
@@ -374,6 +377,111 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       setDocumentError(errorToMessage(saveError, "Unable to save document."));
     } finally {
       setIsSavingDocument(false);
+    }
+  }
+
+  async function updateSelectedDocumentLifecycle(
+    lifecycleStatus: KnowledgeDocument["lifecycleStatus"],
+  ) {
+    if (
+      !selectedDocument ||
+      !onUpdateKnowledgeDocument ||
+      isSavingDocument ||
+      isDeletingDocument
+    ) {
+      return;
+    }
+
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard edits before changing this item's status.",
+      );
+      return;
+    }
+
+    setIsSavingDocument(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const updatedDocument = await onUpdateKnowledgeDocument({
+        knowledgeDocumentId: selectedDocument.knowledgeDocumentId,
+        scope: selectedDocument.scope,
+        catalogItemType: selectedDocument.catalogItemType,
+        quickSummary: selectedDocument.quickSummary,
+        lifecycleStatus,
+        title: selectedDocument.title,
+        sourceLabel: selectedDocument.sourceLabel,
+        sourceKind: selectedDocument.sourceKind,
+        sourceRef: selectedDocument.sourceRef,
+        content: selectedDocument.content,
+        tags: selectedDocument.tags,
+        enabled: selectedDocument.enabled,
+      });
+
+      if (!updatedDocument) {
+        setDocumentError("The selected document could not be found.");
+        return;
+      }
+
+      setSelectedDocumentDraft(updatedDocument);
+      await loadDocuments(updatedDocument.knowledgeDocumentId);
+      setDocumentMessage(
+        lifecycleStatus === "stale"
+          ? "Document marked stale."
+          : "Document archived.",
+      );
+    } catch (statusError) {
+      setDocumentError(
+        errorToMessage(statusError, "Unable to update document status."),
+      );
+    } finally {
+      setIsSavingDocument(false);
+    }
+  }
+
+  async function createRefreshQueueTask() {
+    if (
+      !selectedDocument ||
+      !onCreateAgentQueueTask ||
+      isCreatingRefreshTask ||
+      isSavingDocument ||
+      isDeletingDocument
+    ) {
+      return;
+    }
+
+    if (isDocumentDirty) {
+      setDocumentMessage(
+        "Save or discard edits before creating a refresh task.",
+      );
+      return;
+    }
+
+    if (!isSourceBackedDocument(selectedDocument)) {
+      setDocumentMessage(
+        "Add a source ref before creating a refresh task for this item.",
+      );
+      return;
+    }
+
+    setIsCreatingRefreshTask(true);
+    setDocumentMessage(null);
+    setDocumentError(null);
+
+    try {
+      const task = await onCreateAgentQueueTask(
+        refreshQueueTaskRequestFromDocument(selectedDocument),
+      );
+      setDocumentMessage(
+        `Refresh task ${task.queueItemId} created. The current Knowledge item was not changed.`,
+      );
+    } catch (taskError) {
+      setDocumentError(
+        errorToMessage(taskError, "Unable to create refresh Queue task."),
+      );
+    } finally {
+      setIsCreatingRefreshTask(false);
     }
   }
 
@@ -928,17 +1036,29 @@ export const SkillLibraryDocumentsPanel = forwardRef<
                     !isDocumentDirty &&
                     onAttachKnowledgeContextToQueueTask,
                 )}
+                canCreateRefreshTask={Boolean(
+                  selectedDocument &&
+                    !isDocumentDirty &&
+                    onCreateAgentQueueTask &&
+                    isSourceBackedDocument(selectedDocument),
+                )}
                 documentApiAvailable={documentApiAvailable}
                 draft={documentDraft}
                 error={documentError}
+                isCreatingRefreshTask={isCreatingRefreshTask}
                 isDeletingDocument={isDeletingDocument}
                 isDirty={isDocumentDirty}
                 isSavingDocument={isSavingDocument}
                 item={selectedCatalogItem}
                 message={documentMessage}
                 onAttachToQueueTask={attachSelectedDocumentToQueueTask}
+                onArchiveDocument={() =>
+                  void updateSelectedDocumentLifecycle("archived")
+                }
+                onCreateRefreshTask={() => void createRefreshQueueTask()}
                 onDeleteDocument={() => void deleteSelectedDocument()}
                 onDiscardDraft={discardDocumentDraft}
+                onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
                 onSaveDocument={() => void saveDocument()}
                 onSetDraftField={setDocumentDraftField}
               />
@@ -1011,4 +1131,49 @@ function draftRiskNotes(item: KnowledgeDraftReviewItem) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function isSourceBackedDocument(document: KnowledgeDocument) {
+  return Boolean(document.sourceRef.trim());
+}
+
+function refreshQueueTaskRequestFromDocument(document: KnowledgeDocument) {
+  const sourceLabel = document.sourceLabel.trim() || "Knowledge source";
+  const sourceRef = document.sourceRef.trim();
+  const title = `Refresh Knowledge: ${document.title.trim() || DEFAULT_DOCUMENT_TITLE}`;
+
+  return {
+    title,
+    description: [
+      "Refresh an existing source-backed Knowledge item and return a draft update for operator review.",
+      `Knowledge document id: ${document.knowledgeDocumentId}`,
+      `Current status: ${document.lifecycleStatus}`,
+      `Scope: ${document.scope}`,
+      `Type: ${document.catalogItemType}`,
+      `Source label: ${sourceLabel}`,
+      `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
+      `Source ref: ${sourceRef}`,
+      "The current item must remain unchanged until the operator manually accepts an update.",
+    ].join("\n"),
+    executionPolicy: "manual" as const,
+    priority: 2,
+    prompt: [
+      "Create a draft Knowledge update for the existing Knowledge item below.",
+      "",
+      "Use only the explicitly listed source ref. Do not scan folders, use hidden workspace context, mutate files, mutate Git, create Knowledge, enable Knowledge, or run background refresh.",
+      "",
+      `Knowledge document id: ${document.knowledgeDocumentId}`,
+      `Title: ${document.title}`,
+      `Current quick summary: ${document.quickSummary || "(empty)"}`,
+      `Current tags: ${document.tags || "(empty)"}`,
+      `Current scope: ${document.scope}`,
+      `Current type: ${document.catalogItemType}`,
+      `Source label: ${sourceLabel}`,
+      `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
+      `Source ref: ${sourceRef}`,
+      "",
+      "Return a bounded draft Knowledge pack for review. The draft should propose updated title, quickSummary, fullContent, tags, type, scope, confidence, blockers, and source refs. Do not activate the update.",
+    ].join("\n"),
+    status: "queued" as const,
+  };
 }

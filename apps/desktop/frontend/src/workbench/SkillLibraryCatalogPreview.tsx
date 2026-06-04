@@ -22,10 +22,12 @@ type CatalogSkillPreviewProps = {
 };
 
 type CatalogDocumentEditorProps = {
+  canCreateRefreshTask: boolean;
   documentApiAvailable: boolean;
   draft: KnowledgeDocumentDraft;
   error: string | null;
   canAttachToQueueTask: boolean;
+  isCreatingRefreshTask: boolean;
   isDeletingDocument: boolean;
   isDirty: boolean;
   isSavingDocument: boolean;
@@ -33,7 +35,10 @@ type CatalogDocumentEditorProps = {
   message: string | null;
   onDeleteDocument: () => void;
   onAttachToQueueTask: () => void;
+  onArchiveDocument: () => void;
+  onCreateRefreshTask: () => void;
   onDiscardDraft: () => void;
+  onMarkStale: () => void;
   onSaveDocument: () => void;
   onSetDraftField: <Key extends keyof KnowledgeDocumentDraft>(
     key: Key,
@@ -97,18 +102,23 @@ export function CatalogSkillPreview({
 }
 
 export function CatalogDocumentEditor({
+  canCreateRefreshTask,
   documentApiAvailable,
   draft,
   error,
   canAttachToQueueTask,
+  isCreatingRefreshTask,
   isDeletingDocument,
   isDirty,
   isSavingDocument,
   item,
   message,
   onAttachToQueueTask,
+  onArchiveDocument,
+  onCreateRefreshTask,
   onDeleteDocument,
   onDiscardDraft,
+  onMarkStale,
   onSaveDocument,
   onSetDraftField,
 }: CatalogDocumentEditorProps) {
@@ -271,6 +281,47 @@ export function CatalogDocumentEditor({
           variant="secondary"
         >
           Attach to Queue task
+        </Button>
+        <Button
+          disabled={
+            !canCreateRefreshTask ||
+            isCreatingRefreshTask ||
+            isSavingDocument ||
+            isDeletingDocument
+          }
+          onClick={onCreateRefreshTask}
+          title="Creates a manual Queue task to draft a refreshed Knowledge item from the explicit source ref. Does not change this item."
+          variant="secondary"
+        >
+          {isCreatingRefreshTask ? "Creating task" : "Create refresh task"}
+        </Button>
+        <Button
+          disabled={
+            !draft.knowledgeDocumentId ||
+            draft.lifecycleStatus === "stale" ||
+            isDirty ||
+            isSavingDocument ||
+            isDeletingDocument
+          }
+          onClick={onMarkStale}
+          title="Marks this saved item stale. Stale items are not searched as active Knowledge."
+          variant="secondary"
+        >
+          Mark stale
+        </Button>
+        <Button
+          disabled={
+            !draft.knowledgeDocumentId ||
+            draft.lifecycleStatus === "archived" ||
+            isDirty ||
+            isSavingDocument ||
+            isDeletingDocument
+          }
+          onClick={onArchiveDocument}
+          title="Archives this saved item while retaining it for review."
+          variant="ghost"
+        >
+          Archive
         </Button>
         <Button
           disabled={

@@ -227,6 +227,7 @@ describe("widgetHostRenderProps", () => {
     });
 
     expect(props.onAttachContextToCoordinator).toBe(attach);
+    expect(props.onCreateAgentQueueTask).toBe(actions.createAgentQueueTask);
     expect(props.onCreateKnowledgeDocument).toBe(
       actions.createKnowledgeDocument,
     );

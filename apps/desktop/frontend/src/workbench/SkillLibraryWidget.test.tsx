@@ -687,6 +687,130 @@ describe("SkillLibraryWidget", () => {
     expect(createSkill).toHaveBeenCalledTimes(1);
   });
 
+  it("marks a saved Knowledge Document stale without changing content", async () => {
+    const knowledgeDocument = knowledgeDocumentFixture({
+      content: "Current active content.",
+      knowledgeDocumentId: "doc_stale",
+      quickSummary: "Current summary.",
+      sourceKind: "file_import",
+      sourceLabel: "README.md",
+      sourceRef: "README.md",
+      tags: "docs",
+      title: "Source-backed docs",
+    });
+    const updateKnowledgeDocument = vi.fn(async (request) =>
+      knowledgeDocumentFixture({
+        ...knowledgeDocument,
+        ...request,
+        updatedAt: "2026-05-24T01:00:00Z",
+      }),
+    );
+
+    renderWidget({
+      onGetKnowledgeDocument: vi.fn(async () => knowledgeDocument),
+      onListKnowledgeDocuments: vi.fn(async () => [knowledgeDocument]),
+      onUpdateKnowledgeDocument: updateKnowledgeDocument,
+    });
+
+    await flush();
+    await clickEnabledButton("Mark stale");
+
+    expect(updateKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "Current active content.",
+        knowledgeDocumentId: "doc_stale",
+        lifecycleStatus: "stale",
+        quickSummary: "Current summary.",
+        sourceKind: "file_import",
+        sourceRef: "README.md",
+        title: "Source-backed docs",
+      }),
+    );
+    expect(document.body.textContent).toContain("Document marked stale.");
+  });
+
+  it("creates a manual Queue refresh task for a source-backed Knowledge Document", async () => {
+    const knowledgeDocument = knowledgeDocumentFixture({
+      catalogItemType: "documentation_knowledge",
+      knowledgeDocumentId: "doc_refresh",
+      lifecycleStatus: "active",
+      quickSummary: "Current docs summary.",
+      sourceKind: "file_import",
+      sourceLabel: "README.md",
+      sourceRef: "README.md",
+      tags: "docs, refresh",
+      title: "Refreshable docs",
+    });
+    const createAgentQueueTask = vi.fn(async (request) => ({
+      assignedExecutorWidgetId: null,
+      approvalPolicy: null,
+      codexExecutable: null,
+      createdAt: "2026-05-24T01:00:00Z",
+      description: request.description,
+      executionPolicy: request.executionPolicy ?? "manual",
+      executionWorkspace: null,
+      priority: request.priority,
+      prompt: request.prompt,
+      queueItemId: "queue_refresh_1",
+      sandbox: null,
+      status: request.status,
+      title: request.title,
+      updatedAt: "2026-05-24T01:00:00Z",
+      workspaceId: "workspace_1",
+    }));
+
+    renderWidget({
+      onCreateAgentQueueTask: createAgentQueueTask,
+      onGetKnowledgeDocument: vi.fn(async () => knowledgeDocument),
+      onListKnowledgeDocuments: vi.fn(async () => [knowledgeDocument]),
+    });
+
+    await flush();
+    await clickEnabledButton("Create refresh task");
+
+    expect(createAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPolicy: "manual",
+        priority: 2,
+        status: "queued",
+        title: "Refresh Knowledge: Refreshable docs",
+      }),
+    );
+    const request = createAgentQueueTask.mock.calls[0][0];
+    expect(request.description).toContain(
+      "The current item must remain unchanged until the operator manually accepts an update.",
+    );
+    expect(request.prompt).toContain(
+      "Use only the explicitly listed source ref.",
+    );
+    expect(request.prompt).toContain("Source ref: README.md");
+    expect(request.prompt).toContain("Do not activate the update.");
+    expect(document.body.textContent).toContain(
+      "Refresh task queue_refresh_1 created. The current Knowledge item was not changed.",
+    );
+  });
+
+  it("does not offer refresh task creation for unsourced Knowledge Documents", async () => {
+    const knowledgeDocument = knowledgeDocumentFixture({
+      knowledgeDocumentId: "doc_manual",
+      sourceKind: "operator_authored",
+      sourceRef: "",
+      title: "Manual docs",
+    });
+
+    renderWidget({
+      onCreateAgentQueueTask: vi.fn(),
+      onGetKnowledgeDocument: vi.fn(async () => knowledgeDocument),
+      onListKnowledgeDocuments: vi.fn(async () => [knowledgeDocument]),
+    });
+
+    await flush();
+
+    const button = buttonWithText("Create refresh task");
+    expect(button).toBeDefined();
+    expect(button?.disabled).toBe(true);
+  });
+
   it("keeps existing Skills tab available after adding Documents tab", async () => {
     renderWidget();
 

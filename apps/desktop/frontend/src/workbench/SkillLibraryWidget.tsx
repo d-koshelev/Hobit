@@ -27,6 +27,7 @@ export function SkillLibraryWidget({
   instance,
   logRefreshToken,
   onCreateSkill,
+  onCreateAgentQueueTask,
   onCreateKnowledgeDocument,
   onDeleteKnowledgeDocument,
   onDeleteSkill,
@@ -169,6 +170,7 @@ export function SkillLibraryWidget({
           isActive={activeTab === "catalog"}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
           onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+          onCreateAgentQueueTask={onCreateAgentQueueTask}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
           onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
