@@ -1,26 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AgentQueueRunnerSnapshot, AgentQueueTask, AgentQueueWorkerConfig, DirectWorkApprovalPolicy, DirectWorkSandbox } from "../../workspace/types";
-import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, getQueueTaskDependencyState, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, queueDependencyReadinessMessage, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
+import { DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE, emptyDraft, normalizeItemType, normalizeQueueTag, normalizeTaskDependencies, normalizeTaskExecutionPolicy, normalizeTaskStatus, normalizeValidationStatus, selectBestAvailableExecutorForTask, sortQueueTasksForDisplay, type QueueFilter, type QueueGlobalStatus, type QueueTagPauseState, type QueueTagRecord, type TaskDraft, type WorkerScope } from "../agentQueueTaskUiModel";
 import { useQueueTaskAutoRefreshFromExecutor } from "../useQueueTaskAutoRefreshFromExecutor";
 import type { UseAgentQueueControllerOptions } from "./agentQueueControllerTypes";
 import { buildAgentQueueControllerViewModel } from "./agentQueueControllerViewModel";
 import {
   areStringArraysEqual,
   defaultCodexExecutable,
-  queueAutorunPreconditionMessages,
-  queueRunReadinessMessage,
   queueTaskDeleteBlockedReason,
-  runPreconditionMessages,
   type AgentQueueRunnerStatus,
 } from "./agentQueueControllerHelpers";
+import {
+  buildAgentQueueAutorunState,
+  buildAgentQueueSelectedRunState,
+} from "./agentQueueControllerDerivedState";
 import {
   loadAgentQueueTasks,
 } from "./agentQueueLoadHelpers";
 import { createAgentQueueSelectionModel } from "./agentQueueSelectionModel";
-import {
-  firstRoutingBlockedReasonLabel,
-} from "./agentQueueRoutingModel";
+import { createAgentQueueSelectedTaskActions } from "./agentQueueSelectedTaskActions";
 import { useAgentQueueSequentialRunner } from "./useAgentQueueSequentialRunner";
 import { useAgentQueueAutonomousRunner } from "./useAgentQueueAutonomousRunner";
 import { createAgentQueuePlanningActions } from "./useAgentQueuePlanningActions";
@@ -39,12 +38,6 @@ import { useAgentQueueRunMetadata } from "./useAgentQueueRunMetadata";
 import { useAgentQueueRunSettings } from "./useAgentQueueRunSettings";
 import { useAgentQueueWorkerState } from "./useAgentQueueWorkerState";
 import { useAgentQueueReportActionCards } from "./useAgentQueueReportActionCards";
-import {
-  attachContextToQueueTask,
-  buildQueueContextAttachment,
-  type AgentQueueKnowledgeContextAttachInput,
-  type AgentQueueKnowledgeContextAttachResult,
-} from "../agentQueueKnowledgeContext";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -463,116 +456,54 @@ export function useAgentQueueController({
     tasksRef,
   });
   const startApiAvailable = Boolean(onStartAssignedAgentQueueTask);
-  const selectedQueueTagId = selectedTask
-    ? normalizeQueueTag(selectedTask).queueTagId
-    : null;
-  const selectedQueueTagPaused = Boolean(
-    selectedQueueTagId && pausedQueueTagIds.has(selectedQueueTagId),
-  );
   const hasOpenTaskEdit = isEditing || isDirty;
-  const selectedTaskAssignedWorkerRouting = selectedTask
-    ? assignedWorkerRoutingStates.get(selectedTask.queueItemId)
-    : null;
-  const selectedExecutorSelection = selectBestAvailableExecutorForTask({
-    currentSelection: selectedExecutorWidgetId,
-    executorSlots: agentExecutorSlots,
-    manualOverride: selectedTask
-      ? manualExecutorOverrideTaskId === selectedTask.queueItemId
-      : false,
-    task: selectedTask,
-    workers,
-  });
-  const selectedTaskRoutingMessage =
-    selectedTaskAssignedWorkerRouting &&
-    selectedTaskAssignedWorkerRouting.blockedReasons.length > 0
-      ? firstRoutingBlockedReasonLabel(
-          selectedTaskAssignedWorkerRouting.blockedReasons.filter(
-            (reason) => reason.code !== "queue_stopped",
-          ),
-        )
-      : null;
-  const globalRunBlockMessage =
-    globalExecutionState === "stop_kill_requested"
-        ? "STOP + KILL RUNNING is requested. Review running work or click Enable before starting new work."
-        : null;
-  const canUseDefaultLocalExecutor =
-    Boolean(
-      selectedTask &&
-        selectedExecutorSelection.executorWidgetId &&
-        (agentExecutorSlots.find(
-          (slot) =>
-            slot.widgetInstanceId === selectedExecutorSelection.executorWidgetId,
-        )?.ownerKind === "agent_queue" ||
-          assignmentApiAvailable) &&
-        selectedTask.assignedExecutorWidgetId !==
-          selectedExecutorSelection.executorWidgetId &&
+  const {
+    canStart,
+    canUseDefaultLocalExecutor,
+    preconditionMessages,
+    readinessMessage,
+    selectedExecutorSelection,
+  } = useMemo(
+    () =>
+      buildAgentQueueSelectedRunState({
+        agentExecutorSlots,
+        assignedWorkerRoutingStates,
+        assignmentApiAvailable,
+        codexExecutable,
+        dependencyStates,
+        globalExecutionState,
+        hasOpenTaskEdit,
+        isStarting,
+        manualExecutorOverrideTaskId,
+        pausedQueueTagIds,
+        repoRoot,
         selectedExecutorWidgetId,
-    );
-  const effectiveSelectedTaskRoutingMessage =
-    canUseDefaultLocalExecutor &&
-    (selectedTaskAssignedWorkerRouting?.blockedReasons.some(
-      (reason) =>
-        reason.code === "assigned_worker_unavailable" ||
-        reason.code === "worker_disabled" ||
-        reason.code === "worker_scope_mismatch",
-    ) ??
-      false)
-      ? null
-      : selectedTaskRoutingMessage;
-  const executorAvailabilityMessage =
-    selectedTask && !selectedExecutorSelection.executorWidgetId
-      ? "Local executor unavailable."
-      : null;
-  const readinessMessage = globalRunBlockMessage
-    ? globalRunBlockMessage
-    : selectedQueueTagPaused
-      ? "Resume this queue tag before running the selected task."
-      : selectedTask
-        ? executorAvailabilityMessage ??
-        queueRunReadinessMessage({
-          allowDefaultExecutorAssignment: canUseDefaultLocalExecutor,
-          isDirty: hasOpenTaskEdit,
-          selectedTask,
-          startApiAvailable,
-        }) ??
-        queueDependencyReadinessMessage(
-          dependencyStates.get(selectedTask.queueItemId) ??
-            getQueueTaskDependencyState(selectedTask, tasks),
-        ) ??
-        effectiveSelectedTaskRoutingMessage
-      : "Local executor unavailable.";
-  const preconditionMessages = useMemo(
-    () => {
-      if (readinessMessage) {
-        return [];
-      }
-
-      const messages = runPreconditionMessages({
-            codexExecutable,
-            isStarting,
-            repoRoot,
-          }).map((message) =>
-            message === "Set workspace." ? "Set task workspace." : message,
-          );
-
-      if (selectedTask && !selectedTaskSandbox) {
-        messages.push("Set sandbox.");
-      }
-
-      if (selectedTask && !selectedTaskApprovalPolicy) {
-        messages.push("Set approval policy.");
-      }
-
-      return messages;
-    },
+        selectedTask,
+        selectedTaskApprovalPolicy,
+        selectedTaskSandbox,
+        startApiAvailable,
+        tasks,
+        workers,
+      }),
     [
+      agentExecutorSlots,
+      assignedWorkerRoutingStates,
+      assignmentApiAvailable,
       codexExecutable,
+      dependencyStates,
+      globalExecutionState,
+      hasOpenTaskEdit,
       isStarting,
-      readinessMessage,
+      manualExecutorOverrideTaskId,
+      pausedQueueTagIds,
       repoRoot,
+      selectedExecutorWidgetId,
       selectedTask,
       selectedTaskApprovalPolicy,
       selectedTaskSandbox,
+      startApiAvailable,
+      tasks,
+      workers,
     ],
   );
 
@@ -584,7 +515,6 @@ export function useAgentQueueController({
     },
     [loadTasks, selectedTask?.queueItemId],
   );
-  const canStart = !readinessMessage && preconditionMessages.length === 0;
   const queueRunner = useAgentQueueSequentialRunner({
     approvalPolicy,
     assignmentApiAvailable,
@@ -642,74 +572,45 @@ export function useAgentQueueController({
     },
     setValidationMessage,
   });
-  const autorunSelectedExecutor = agentExecutorSlots.find(
-    (slot) => slot.widgetInstanceId === selectedExecutorWidgetId,
+  const {
+    autorunPreconditionMessages,
+    autorunSelectedExecutorLabel,
+    canArmAutorun,
+  } = useMemo(
+    () =>
+      buildAgentQueueAutorunState({
+        agentExecutorSlots,
+        assignedWorkerRoutingStates,
+        autorunApiAvailable,
+        autorunSnapshot,
+        codexExecutable,
+        dependencyStates,
+        globalExecutionState,
+        isAutorunLoading,
+        isAutorunStarting,
+        isAutorunStopping,
+        pausedQueueTagIds,
+        repoRoot,
+        selectedExecutorWidgetId,
+        tasks,
+      }),
+    [
+      agentExecutorSlots,
+      assignedWorkerRoutingStates,
+      autorunApiAvailable,
+      autorunSnapshot,
+      codexExecutable,
+      dependencyStates,
+      globalExecutionState,
+      isAutorunLoading,
+      isAutorunStarting,
+      isAutorunStopping,
+      pausedQueueTagIds,
+      repoRoot,
+      selectedExecutorWidgetId,
+      tasks,
+    ],
   );
-  const autorunPreconditionMessages = queueAutorunPreconditionMessages({
-    apiAvailable: autorunApiAvailable,
-    codexExecutable,
-    globalExecutionState,
-    hasExecutorSelection: Boolean(selectedExecutorWidgetId),
-    isStarting: isAutorunStarting,
-    repoRoot,
-  });
-  if (pausedQueueTagIds.size > 0) {
-    autorunPreconditionMessages.unshift(
-      "Resume paused queue tags before arming Queue Autorun.",
-    );
-  }
-  if (
-    Array.from(dependencyStates.values()).some(
-      (dependencyState) => dependencyState.status !== "ready",
-    )
-  ) {
-    autorunPreconditionMessages.unshift(
-      "Resolve blocked or invalid queue dependencies before arming Queue Autorun.",
-    );
-  }
-  if (selectedExecutorWidgetId) {
-    const hasEligibleAssignedAutorunTask = tasks.some((task) => {
-      const assignedWorkerId = task.assignedWorkerId ?? task.assignedExecutorWidgetId;
-      const routingState = assignedWorkerRoutingStates.get(task.queueItemId);
-
-      return (
-        assignedWorkerId === selectedExecutorWidgetId &&
-        task.executionPolicy === "auto" &&
-        Boolean(routingState?.canTake)
-      );
-    });
-    const hasContextAttachedAutorunTask = tasks.some((task) => {
-      const assignedWorkerId = task.assignedWorkerId ?? task.assignedExecutorWidgetId;
-      const routingState = assignedWorkerRoutingStates.get(task.queueItemId);
-      const contextSummary = task.context
-        ? (task.context.attachedKnowledgeRefs.length +
-          task.context.attachedSkillRefs.length)
-        : 0;
-
-      return (
-        assignedWorkerId === selectedExecutorWidgetId &&
-        task.executionPolicy === "auto" &&
-        contextSummary > 0 &&
-        Boolean(routingState?.canTake)
-      );
-    });
-
-    if (!hasEligibleAssignedAutorunTask) {
-      autorunPreconditionMessages.unshift(
-        "No assigned auto task is currently eligible for the selected worker.",
-      );
-    } else if (hasContextAttachedAutorunTask) {
-      autorunPreconditionMessages.unshift(
-        "Attached Queue context requires a visible manual or frontend runner start before execution.",
-      );
-    }
-  }
-  const isAutorunActive = Boolean(autorunSnapshot?.isActive);
-  const canArmAutorun =
-    autorunPreconditionMessages.length === 0 &&
-    !isAutorunActive &&
-    !isAutorunLoading &&
-    !isAutorunStopping;
   const deleteBlockedReason = queueTaskDeleteBlockedReason({
     apiAvailable: Boolean(onDeleteAgentQueueTask),
     autorunSnapshot,
@@ -873,87 +774,18 @@ export function useAgentQueueController({
     workerScopes,
   });
   const { refreshAutorunSnapshot } = runActions;
-
-  function markReportActionCardShown(cardId: string) {
-    if (!selectedTask) {
-      return;
-    }
-
-    const taskFoundation = {
-      ...(localTaskFieldsRef.current.get(selectedTask.queueItemId) ?? {}),
-      workspaceChatReportCardId: cardId,
-      workspaceChatReportCardStatus: "shown" as const,
-    };
-    const updatedTask = {
-      ...selectedTask,
-      workspaceChatReportCardId: cardId,
-      workspaceChatReportCardStatus: "shown" as const,
-    };
-
-    setLocalTaskFields((current) =>
-      new Map(current).set(selectedTask.queueItemId, taskFoundation),
-    );
-    applyUpdatedTask(updatedTask, { select: true });
-    setWorkerReportMessage(
-      "Report card shown in Workspace Chat. Coordinator action is still required; no final status was applied.",
-    );
-  }
-
-  function attachKnowledgeContextToSelectedTask(
-    input: AgentQueueKnowledgeContextAttachInput,
-  ): AgentQueueKnowledgeContextAttachResult {
-    if (!selectedTask) {
-      return {
-        message: "Select a Queue task before attaching Knowledge / Skills context.",
-        status: "unavailable",
-      };
-    }
-
-    if (hasOpenTaskEdit) {
-      return {
-        message: "Save or cancel the selected Queue task edits before attaching context.",
-        status: "unavailable",
-        taskTitle: selectedTask.title,
-      };
-    }
-
-    const attachment = buildQueueContextAttachment(input);
-    const blockedWarnings = attachment.warnings.filter(
-      (warning) => warning.severity === "blocked",
-    );
-
-    if (blockedWarnings.length > 0) {
-      return {
-        message: blockedWarnings[0]?.message ?? "This context is blocked.",
-        status: "blocked",
-        taskTitle: selectedTask.title,
-      };
-    }
-
-    const updatedTask = attachContextToQueueTask(selectedTask, input);
-    const taskFoundation: Partial<AgentQueueTask> = {
-      context: updatedTask.context,
-    };
-    const nextLocalTaskFields = new Map(localTaskFieldsRef.current).set(
-      updatedTask.queueItemId,
-      {
-        ...(localTaskFieldsRef.current.get(updatedTask.queueItemId) ?? {}),
-        ...taskFoundation,
-      },
-    );
-    localTaskFieldsRef.current = nextLocalTaskFields;
-    setLocalTaskFields(nextLocalTaskFields);
-    applyUpdatedTask(updatedTask, { select: true });
-    setValidationMessage(
-      "Context attached to the selected Queue task as safe refs and summaries. No prompt was materialized and no work was started.",
-    );
-
-    return {
-      message: `${attachment.ref.title} attached to ${selectedTask.title}.`,
-      status: "attached",
-      taskTitle: selectedTask.title,
-    };
-  }
+  const {
+    attachKnowledgeContextToSelectedTask,
+    markReportActionCardShown,
+  } = createAgentQueueSelectedTaskActions({
+    applyUpdatedTask,
+    hasOpenTaskEdit,
+    localTaskFieldsRef,
+    selectedTask,
+    setLocalTaskFields,
+    setValidationMessage,
+    setWorkerReportMessage,
+  });
 
   return buildAgentQueueControllerViewModel({
     agentExecutorSlots,
@@ -966,7 +798,7 @@ export function useAgentQueueController({
     autorunError,
     autorunMessage,
     autorunPreconditionMessages,
-    autorunSelectedExecutorLabel: autorunSelectedExecutor?.label ?? null,
+    autorunSelectedExecutorLabel,
     autorunSnapshot,
     autonomousController: autonomousRunner.controller,
     canArmAutorun,
