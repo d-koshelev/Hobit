@@ -166,7 +166,7 @@ describe("workbench presets", () => {
           NOTES_WIDGET_DEFINITION_ID,
         ],
       }).title,
-    ).toBe("Workspace Agent Workspace");
+    ).toBe("Agent + Notes Workbench");
 
     expect(
       workbenchPresetForOriginOrWidgets({

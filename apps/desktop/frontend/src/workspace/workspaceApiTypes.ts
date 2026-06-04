@@ -113,6 +113,7 @@ import type {
   TerminalPtySessionActionRequest,
   UpdateAgentQueueTaskRequest,
   UpdateAgentQueueWorkerRequest,
+  UpdateWorkspaceRequest,
   UpdateKnowledgeDocumentRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
@@ -131,6 +132,9 @@ export type WorkspaceApi = {
   createWorkspace: (
     request: CreateWorkspaceRequest,
   ) => Promise<WorkspaceSummary>;
+  updateWorkspace: (
+    request: UpdateWorkspaceRequest,
+  ) => Promise<WorkspaceSummary | null>;
   listWorkspaces: () => Promise<WorkspaceSummary[]>;
   deleteWorkspace: (
     request: DeleteWorkspaceRequest,

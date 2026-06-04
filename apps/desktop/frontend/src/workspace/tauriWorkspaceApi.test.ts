@@ -127,6 +127,53 @@ describe("tauri workspace api adapter", () => {
     expect(mocks.invoke).toHaveBeenCalledWith("list_workspaces");
   });
 
+  it("maps workspace rename payloads and normalized summaries", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      id: "ws_1",
+      title: "Incident Review",
+      description: "Review",
+      status: "active",
+      created_at: "2026-05-27T10:00:00Z",
+      updated_at: "2026-05-27T11:05:00Z",
+      last_opened_at: "2026-05-27T12:00:00Z",
+      widget_count: 7,
+      workspace_agent_count: 2,
+      note_count: 3,
+      skill_count: 4,
+      knowledge_document_count: 5,
+      queue_task_count: 6,
+      workbench_id: "wb_1",
+    });
+
+    await expect(
+      tauriWorkspaceApi.updateWorkspace({
+        title: "Incident Review",
+        workspaceId: "ws_1",
+      }),
+    ).resolves.toEqual({
+      id: "ws_1",
+      title: "Incident Review",
+      description: "Review",
+      status: "active",
+      createdAt: "2026-05-27T10:00:00Z",
+      updatedAt: "2026-05-27T11:05:00Z",
+      lastOpenedAt: "2026-05-27T12:00:00Z",
+      widgetCount: 7,
+      workspaceAgentCount: 2,
+      noteCount: 3,
+      skillCount: 4,
+      knowledgeDocumentCount: 5,
+      queueTaskCount: 6,
+      workbenchId: "wb_1",
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("update_workspace", {
+      request: {
+        title: "Incident Review",
+        workspace_id: "ws_1",
+      },
+    });
+  });
+
   it("maps widget layout update payloads without changing layout metadata names", async () => {
     mocks.invoke.mockResolvedValueOnce(null);
 

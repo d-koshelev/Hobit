@@ -188,6 +188,32 @@ fn get_workspace_summary_returns_none_for_missing_workspace() {
 }
 
 #[test]
+fn update_workspace_title_persists_rename() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Incident", None)
+        .expect("create workspace");
+
+    let renamed = service
+        .update_workspace_title(&workspace.id, "Incident Review")
+        .expect("rename workspace")
+        .expect("workspace summary");
+    let reopened = service
+        .get_workspace_summary(&workspace.id)
+        .expect("get workspace summary")
+        .expect("workspace summary");
+    let events = service
+        .store
+        .list_workbench_events(&workspace.id)
+        .expect("list events");
+
+    assert_eq!(renamed.title, "Incident Review");
+    assert_eq!(reopened.title, "Incident Review");
+    assert!(renamed.updated_at >= workspace.updated_at);
+    assert!(events.iter().any(|event| event.kind == "workspace_renamed"));
+}
+
+#[test]
 fn open_workspace_creates_workspace_session() {
     let service = initialized_service();
     let workspace = service

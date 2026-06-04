@@ -17,6 +17,7 @@ const workspaceApiMocks = vi.hoisted(() => ({
   listTerminalPtySessions: vi.fn(),
   listWorkspaces: vi.fn(),
   openWorkspace: vi.fn(),
+  updateWorkspace: vi.fn(),
   updateWidgetInstanceLayout: vi.fn(),
 }));
 
@@ -33,6 +34,7 @@ vi.mock("./workspace/workspaceApi", async (importOriginal) => {
     listTerminalPtySessions: workspaceApiMocks.listTerminalPtySessions,
     listWorkspaces: workspaceApiMocks.listWorkspaces,
     openWorkspace: workspaceApiMocks.openWorkspace,
+    updateWorkspace: workspaceApiMocks.updateWorkspace,
     updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
   };
 });

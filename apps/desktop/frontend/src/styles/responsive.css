@@ -39,8 +39,22 @@
     width: 100%;
   }
 
+  .workspace-identity,
+  .workspace-rename-form,
+  .workspace-view-control,
   .layout-mode-toggle {
     width: 100%;
+  }
+
+  .workspace-rename-input.input,
+  .workspace-view-trigger.button,
+  .layout-mode-toggle.button,
+  .workspace-view-panel {
+    width: 100%;
+  }
+
+  .workspace-view-panel {
+    position: static;
   }
 
   .layout-mode-toggle .button {
@@ -62,6 +76,7 @@
     min-width: 0;
   }
 
+  .workbench-layout-pill,
   .topbar-left .select {
     width: 100%;
     max-width: none;

@@ -38,6 +38,23 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn update_workspace_title(&self, id: &str, title: &str) -> Result<WorkspaceRow> {
+        let updated_at = now_precise_timestamp();
+        let affected_rows = self.connection.execute(
+            "UPDATE workspaces
+             SET title = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![title, updated_at, id],
+        )?;
+
+        if affected_rows == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+
+        self.get_workspace(id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
     pub fn list_workspaces(&self) -> Result<Vec<WorkspaceRow>> {
         let mut statement = self.connection.prepare(
             "SELECT id, title, description, status, created_at, updated_at

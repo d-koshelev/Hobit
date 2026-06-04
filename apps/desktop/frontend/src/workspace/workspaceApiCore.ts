@@ -3,6 +3,7 @@ import type {
   CreateWorkspaceRequest,
   DeleteWorkspaceRequest,
   DeleteWorkspaceResponse,
+  UpdateWorkspaceRequest,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -18,6 +19,12 @@ export function createWorkspace(
 
 export function listWorkspaces(): Promise<WorkspaceSummary[]> {
   return getWorkspaceApi().listWorkspaces();
+}
+
+export function updateWorkspace(
+  request: UpdateWorkspaceRequest,
+): Promise<WorkspaceSummary | null> {
+  return getWorkspaceApi().updateWorkspace(normalizeUpdateWorkspaceRequest(request));
 }
 
 export function deleteWorkspace(
@@ -54,5 +61,14 @@ function normalizeCreateWorkspaceRequest(
   return {
     title: request.title,
     description: request.description ?? null,
+  };
+}
+
+function normalizeUpdateWorkspaceRequest(
+  request: UpdateWorkspaceRequest,
+): UpdateWorkspaceRequest {
+  return {
+    workspaceId: request.workspaceId,
+    title: request.title,
   };
 }

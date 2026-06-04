@@ -57,6 +57,42 @@ impl WorkspaceService {
             .map(workspace_summary_row))
     }
 
+    pub fn update_workspace_title(
+        &self,
+        workspace_id: &str,
+        title: impl Into<String>,
+    ) -> Result<Option<WorkspaceSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let title = title.into();
+        let title = required_input(&title, "workspace title")?;
+
+        self.store
+            .with_immediate_transaction(|store| {
+                store.update_workspace_title(workspace_id, title)?;
+                store.append_workbench_event(
+                    &placeholder_id("evt_"),
+                    workspace_id,
+                    "workspace_renamed",
+                    "Workspace renamed",
+                    None,
+                )?;
+                store.get_workspace_summary_with_workbench(workspace_id)
+            })
+            .map(|summary| summary.map(workspace_summary_row))
+            .map_err(|error| {
+                if matches!(
+                    error,
+                    hobit_storage_sqlite::StorageError::QueryReturnedNoRows
+                ) {
+                    WorkspaceServiceError::InvalidInput(format!(
+                        "workspace not found: {workspace_id}"
+                    ))
+                } else {
+                    WorkspaceServiceError::from(error)
+                }
+            })
+    }
+
     pub fn list_workspaces(&self) -> Result<Vec<WorkspaceSummary>, WorkspaceServiceError> {
         Ok(self
             .store

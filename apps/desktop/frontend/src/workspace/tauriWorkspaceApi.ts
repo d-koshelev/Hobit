@@ -104,6 +104,7 @@ import type {
   CreateWorkspaceRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   ListWidgetLogsRequest,
+  UpdateWorkspaceRequest,
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
@@ -115,6 +116,7 @@ import type { WorkspaceApi } from "./workspaceApiTypes";
 
 export const tauriWorkspaceApi: WorkspaceApi = {
   createWorkspace,
+  updateWorkspace,
   listWorkspaces,
   deleteWorkspace,
   getWorkspaceSummary,
@@ -306,6 +308,22 @@ async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   const workspaces = await invoke<TauriWorkspaceSummary[]>("list_workspaces");
 
   return workspaces.map(normalizeWorkspaceSummary);
+}
+
+async function updateWorkspace(
+  request: UpdateWorkspaceRequest,
+): Promise<WorkspaceSummary | null> {
+  const workspace = await invoke<TauriWorkspaceSummary | null>(
+    "update_workspace",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        title: request.title,
+      },
+    },
+  );
+
+  return workspace ? normalizeWorkspaceSummary(workspace) : null;
 }
 
 async function getWorkspaceSummary(

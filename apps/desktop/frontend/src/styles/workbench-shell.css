@@ -49,6 +49,65 @@
   justify-content: flex-end;
 }
 
+.workspace-identity {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workspace-rename-form {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workspace-rename-input.input {
+  width: clamp(168px, 22vw, 300px);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
+}
+
+.workspace-rename-action.button,
+.workspace-rename-form .button {
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
+}
+
+.workspace-rename-error {
+  max-width: 240px;
+  color: var(--color-error);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.workspace-view-control {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.workspace-view-trigger.button {
+  min-height: var(--control-height-sm);
+  padding: 0 var(--control-padding-x-sm);
+}
+
+.workspace-view-panel {
+  position: absolute;
+  z-index: 34;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  display: grid;
+  min-width: 240px;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-overlay-surface);
+  box-shadow: var(--shadow-elevated);
+  padding: var(--space-sm);
+}
+
 .layout-mode-toggle.button {
   min-height: var(--control-height-sm);
   padding: 0 var(--control-padding-x-sm);
@@ -107,6 +166,14 @@
   flex: 0 0 auto;
   min-width: 112px;
   max-width: 260px;
+  min-height: var(--control-height-sm);
+  overflow: hidden;
+}
+
+.workbench-layout-pill {
+  flex: 0 1 240px;
+  min-width: 168px;
+  max-width: 280px;
   min-height: var(--control-height-sm);
   overflow: hidden;
 }

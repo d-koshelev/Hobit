@@ -25,6 +25,7 @@ const workspaceApiMocks = vi.hoisted(() => ({
   listTerminalPtySessions: vi.fn(),
   listAgentQueueTaskRunLinks: vi.fn(),
   listAgentQueueTasks: vi.fn(),
+  updateWorkspace: vi.fn(),
   updateWidgetInstanceLayout: vi.fn(),
 }));
 
@@ -42,6 +43,7 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
     listAgentQueueTaskRunLinks: workspaceApiMocks.listAgentQueueTaskRunLinks,
     listAgentQueueTasks: workspaceApiMocks.listAgentQueueTasks,
     listTerminalPtySessions: workspaceApiMocks.listTerminalPtySessions,
+    updateWorkspace: workspaceApiMocks.updateWorkspace,
     updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
   };
 });
@@ -197,7 +199,7 @@ describe("WorkbenchShell empty canvas recovery", () => {
       ),
     ).toEqual(["interactive-agent", "notes"]);
     expect(onViewStateChange.mock.calls[0][0].workbench.preset.title).toBe(
-      "Workspace Agent Workspace",
+      "Agent + Notes Workbench",
     );
   });
 });
@@ -446,7 +448,8 @@ describe("WorkbenchShell widget layout controls", () => {
     );
     setLayoutSurfaceRect();
 
-    expect(document.body.textContent).toContain("Layout unlocked");
+    expect(document.body.textContent).toContain("View");
+    expect(document.body.textContent).not.toContain("Layout unlocked");
     expect(document.body.textContent).not.toContain("Edit layout");
     expect(document.querySelector(".widget-header-movable")).not.toBeNull();
     expect(buttonWithLabel("Resize widget")).not.toBeNull();
@@ -651,6 +654,12 @@ describe("WorkbenchShell widget layout controls", () => {
       }),
     );
     setLayoutSurfaceRect();
+
+    await awaitAct(() => {
+      buttonWithText("View").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
 
     await awaitAct(() => {
       buttonWithText("Layout unlocked").dispatchEvent(

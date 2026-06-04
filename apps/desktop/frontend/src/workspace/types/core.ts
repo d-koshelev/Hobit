@@ -20,6 +20,11 @@ export type CreateWorkspaceRequest = {
   description?: string | null;
 };
 
+export type UpdateWorkspaceRequest = {
+  workspaceId: string;
+  title: string;
+};
+
 export type DeleteWorkspaceRequest = {
   workspaceId: string;
 };

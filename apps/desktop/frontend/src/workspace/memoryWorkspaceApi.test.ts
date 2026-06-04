@@ -25,6 +25,10 @@ describe("memory workspace api fallback", () => {
     });
 
     const session = await memoryWorkspaceApi.openWorkspace(workspace.id);
+    const renamed = await memoryWorkspaceApi.updateWorkspace({
+      title: "Renamed memory workspace",
+      workspaceId: workspace.id,
+    });
     const listed = await memoryWorkspaceApi.listWorkspaces();
 
     expect(session).toMatchObject({
@@ -32,10 +36,14 @@ describe("memory workspace api fallback", () => {
       status: "open",
       workspaceId: workspace.id,
     });
+    expect(renamed?.title).toBe("Renamed memory workspace");
     expect(listed.some((candidate) => candidate.id === workspace.id)).toBe(true);
     expect(
       await memoryWorkspaceApi.getWorkspaceWorkbenchState(workspace.id),
     ).toMatchObject({
+      workspace: {
+        title: "Renamed memory workspace",
+      },
       widgetInstances: [],
     });
   });

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { AppThemeController } from "../theme/useAppTheme";
-import { listTerminalPtySessions } from "../workspace/workspaceApi";
+import {
+  listTerminalPtySessions,
+  updateWorkspace,
+} from "../workspace/workspaceApi";
 import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import { coordinatorWorkspacePreset } from "./presets";
 import { addPresetWidgetsToWorkbench } from "./presetWidgetSetup";
@@ -127,6 +130,30 @@ export function WorkbenchShell({
     onCloseWorkspace?.();
   }
 
+  async function renameWorkspace(title: string) {
+    const updatedWorkspace = await updateWorkspace({
+      title,
+      workspaceId: viewState.workspace.id,
+    });
+
+    if (!updatedWorkspace) {
+      return false;
+    }
+
+    onViewStateChange({
+      ...viewState,
+      workspace: {
+        ...viewState.workspace,
+        description: updatedWorkspace.description,
+        id: updatedWorkspace.id,
+        status: updatedWorkspace.status,
+        title: updatedWorkspace.title,
+      },
+    });
+
+    return true;
+  }
+
   return (
     <main className="app-shell">
       <div className="workbench">
@@ -143,6 +170,7 @@ export function WorkbenchShell({
           }
           onLayoutModeChange={setLayoutMode}
           onOpenWidgetCatalog={openWidgetCatalog}
+          onRenameWorkspace={renameWorkspace}
           onToggleActivityPanel={() =>
             setIsActivityPanelOpen((current) => !current)
           }

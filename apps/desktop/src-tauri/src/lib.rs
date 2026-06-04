@@ -87,6 +87,7 @@ mod workspace_dto;
 #[cfg(test)]
 mod workspace_dto_tests;
 mod workspace_git_dto;
+mod workspace_metadata_commands;
 
 use app_state::initialize_app_state;
 use tauri::Manager;
@@ -101,6 +102,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace_commands::create_workspace,
             workspace_commands::list_workspaces,
+            workspace_metadata_commands::update_workspace,
             workspace_commands::delete_workspace,
             workspace_commands::get_workspace_summary,
             workspace_commands::open_workspace,

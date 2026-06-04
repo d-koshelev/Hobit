@@ -90,6 +90,12 @@ import {
   updateKnowledgeDocument as updateMemoryKnowledgeDocument,
 } from "./memoryWorkspaceKnowledgeDocumentsApi";
 import {
+  createMemoryAgentQueueWorker,
+  deleteMemoryAgentQueueWorker,
+  listMemoryAgentQueueWorkers,
+  updateMemoryAgentQueueWorker,
+} from "./memoryAgentQueueWorkersApi";
+import {
   createWorkspaceNote as createMemoryWorkspaceNote,
   getWorkspaceNote as getMemoryWorkspaceNote,
   listWorkspaceNotes as listMemoryWorkspaceNotes,
@@ -103,7 +109,6 @@ import {
   updateSkill as updateMemorySkill,
 } from "./memoryWorkspaceSkillsApi";
 import type {
-  AgentQueueWorkerConfig,
   AddWidgetInstanceToWorkbenchRequest,
   CreateWorkspaceRequest,
   ListWidgetLogsRequest,
@@ -182,12 +187,12 @@ const memoryAgentQueueWorkersApi = import.meta.env.DEV
       listAgentQueueWorkers: unsupportedListAgentQueueWorkers,
       updateAgentQueueWorker: unsupportedUpdateAgentQueueWorker,
       deleteAgentQueueWorker: unsupportedDeleteAgentQueueWorker,
-    };
+};
 let fallbackId = 1;
-const fallbackAgentQueueWorkers = new Map<string, AgentQueueWorkerConfig[]>();
 
 export const memoryWorkspaceApi: WorkspaceApi = {
   createWorkspace,
+  updateWorkspace,
   listWorkspaces,
   deleteWorkspace,
   getWorkspaceSummary,
@@ -330,6 +335,26 @@ async function createWorkspace(
 
 async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   return fallbackWorkspaces.map(cloneWorkspaceSummary);
+}
+
+async function updateWorkspace(
+  request: Parameters<WorkspaceApi["updateWorkspace"]>[0],
+): ReturnType<WorkspaceApi["updateWorkspace"]> {
+  const workspace = fallbackWorkspaces.find(
+    (candidate) => candidate.id === request.workspaceId,
+  );
+  if (!workspace) {
+    return null;
+  }
+  workspace.title = requiredValue(request.title, "workspace title");
+  workspace.updatedAt = new Date().toISOString();
+  const state = fallbackWorkbenchStates.get(workspace.id);
+
+  if (state) {
+    state.workspace = workspace;
+    appendRecentEvent(state, "workspace_renamed", "Workspace renamed");
+  }
+  return cloneWorkspaceSummary(workspace);
 }
 
 async function getWorkspaceSummary(
@@ -519,88 +544,11 @@ async function listWidgetLogs(
   return [];
 }
 
-async function listMemoryAgentQueueWorkers(
-  request: Parameters<WorkspaceApi["listAgentQueueWorkers"]>[0],
-): ReturnType<WorkspaceApi["listAgentQueueWorkers"]> {
-  return (fallbackAgentQueueWorkers.get(request.workspaceId) ?? [])
-    .slice()
-    .sort((first, second) => first.displayOrder - second.displayOrder)
-    .map(cloneAgentQueueWorker);
-}
-
-async function createMemoryAgentQueueWorker(
-  request: Parameters<WorkspaceApi["createAgentQueueWorker"]>[0],
-): ReturnType<WorkspaceApi["createAgentQueueWorker"]> {
-  const now = new Date().toISOString();
-  const worker: AgentQueueWorkerConfig = {
-    workerId: request.workerId?.trim() || `fallback_worker_${fallbackId++}`,
-    workspaceId: request.workspaceId,
-    name: requiredValue(request.name, "worker name"),
-    enabled: request.enabled,
-    scopeKind: request.scopeKind === "queue_tag" ? "queue_tag" : "all",
-    queueTagId: request.scopeKind === "queue_tag" ? request.queueTagId ?? null : null,
-    queueTagName:
-      request.scopeKind === "queue_tag" ? request.queueTagName ?? null : null,
-    displayOrder: request.displayOrder,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
-  fallbackAgentQueueWorkers.set(request.workspaceId, [
-    ...workers.filter((candidate) => candidate.workerId !== worker.workerId),
-    worker,
-  ]);
-
-  return cloneAgentQueueWorker(worker);
-}
-
-async function updateMemoryAgentQueueWorker(
-  request: Parameters<WorkspaceApi["updateAgentQueueWorker"]>[0],
-): ReturnType<WorkspaceApi["updateAgentQueueWorker"]> {
-  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
-  const existing = workers.find((worker) => worker.workerId === request.workerId);
-
-  if (!existing) {
-    return null;
-  }
-
-  const updated: AgentQueueWorkerConfig = {
-    ...existing,
-    name: requiredValue(request.name, "worker name"),
-    enabled: request.enabled,
-    scopeKind: request.scopeKind === "queue_tag" ? "queue_tag" : "all",
-    queueTagId: request.scopeKind === "queue_tag" ? request.queueTagId ?? null : null,
-    queueTagName:
-      request.scopeKind === "queue_tag" ? request.queueTagName ?? null : null,
-    displayOrder: request.displayOrder,
-    updatedAt: new Date().toISOString(),
-  };
-  fallbackAgentQueueWorkers.set(
-    request.workspaceId,
-    workers.map((worker) => (worker.workerId === request.workerId ? updated : worker)),
-  );
-
-  return cloneAgentQueueWorker(updated);
-}
-
-async function deleteMemoryAgentQueueWorker(
-  request: Parameters<WorkspaceApi["deleteAgentQueueWorker"]>[0],
-): ReturnType<WorkspaceApi["deleteAgentQueueWorker"]> {
-  const workers = fallbackAgentQueueWorkers.get(request.workspaceId) ?? [];
-  const nextWorkers = workers.filter(
-    (worker) => worker.workerId !== request.workerId,
-  );
-  fallbackAgentQueueWorkers.set(request.workspaceId, nextWorkers);
-  return nextWorkers.length !== workers.length;
-}
-
 function requiredValue(value: string, label: string) {
   const trimmedValue = value.trim();
-
   if (!trimmedValue) {
     throw new Error(`${label} must not be empty`);
   }
-
   return trimmedValue;
 }
 
@@ -640,11 +588,9 @@ function validateDimension(value: number | null, label: string) {
   if (value === null) {
     return;
   }
-
   if (value <= 0) {
     throw new Error(`${label} must be positive`);
   }
-
   if (value > 16_384) {
     throw new Error(`${label} must be no greater than 16384`);
   }
@@ -658,10 +604,10 @@ function appendRecentEvent(
   state.recentEvents = [
     ...state.recentEvents,
     {
+      createdAt: new Date().toISOString(),
       id: `fallback_evt_${fallbackId++}`,
       kind,
       summary,
-      createdAt: new Date().toISOString(),
     },
   ].slice(-RECENT_EVENT_LIMIT);
 }
@@ -682,12 +628,6 @@ function cloneWorkspaceWorkbenchState(
     })),
     recentEvents: state.recentEvents.map((event) => ({ ...event })),
   };
-}
-
-function cloneAgentQueueWorker(
-  worker: AgentQueueWorkerConfig,
-): AgentQueueWorkerConfig {
-  return { ...worker };
 }
 
 function syncWorkspaceStats(
