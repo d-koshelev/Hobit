@@ -240,6 +240,8 @@ function WorkspaceAgentTranscriptEmptyState({
   onSuggestionClick: (prompt: string) => void;
   suggestedPrompts: WorkspaceAgentSuggestedPrompt[];
 }) {
+  const starterPrompts = suggestedPrompts.slice(0, 2);
+
   return (
     <div className="interactive-agent-empty">
       <p className="interactive-agent-empty-title">
@@ -253,11 +255,14 @@ function WorkspaceAgentTranscriptEmptyState({
         Drafts stay inert until you approve them and use the separate create or
         copy action.
       </p>
+      <p className="interactive-agent-empty-text">
+        Use Examples above for more prompt starters.
+      </p>
       <div
         aria-label="Workspace Agent suggested prompts"
         className="interactive-agent-suggestion-list"
       >
-        {suggestedPrompts.map((suggestion) => (
+        {starterPrompts.map((suggestion) => (
           <button
             className="interactive-agent-suggestion"
             key={suggestion.label}

@@ -1,6 +1,6 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
 
@@ -20,10 +20,11 @@ afterEach(() => {
 });
 
 describe("WorkspaceAgentStatusPanel", () => {
-  it("renders Agent Codex and the Ready state", () => {
+  it("renders Provider Codex and the Ready state", () => {
     render(<WorkspaceAgentHeaderStatus status="idle" />);
 
-    expect(document.body.textContent).toContain("Agent");
+    expect(document.body.textContent).toContain("Provider");
+    expect(document.body.textContent).not.toContain("Agent");
     expect(document.body.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("Ready");
     expect(workspaceAgentPicker()?.getAttribute("aria-label")).toBe(
@@ -53,6 +54,44 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(document.body.textContent).not.toContain("Direct Mode");
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
   });
+
+  it("renders a compact prompt examples toggle when provided", () => {
+    const onPromptExampleClick = vi.fn();
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        onPromptExampleClick={onPromptExampleClick}
+        promptExamples={[
+          { label: "Make a plan", prompt: "Make a plan from visible text." },
+        ]}
+        status="idle"
+      />,
+    );
+
+    const button = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Workspace Agent prompt examples"]',
+    );
+
+    expect(button?.textContent).toBe("Examples");
+    expect(button?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => {
+      button?.click();
+    });
+
+    expect(button?.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      document.querySelector('[aria-label="Workspace Agent prompt examples"]'),
+    ).not.toBeNull();
+
+    act(() => {
+      buttonWithText("Make a plan")?.click();
+    });
+
+    expect(onPromptExampleClick).toHaveBeenCalledWith(
+      "Make a plan from visible text.",
+    );
+  });
 });
 
 function render(node: ReactNode) {
@@ -69,4 +108,10 @@ function render(node: ReactNode) {
 
 function workspaceAgentPicker() {
   return document.querySelector('select[aria-label="Workspace Agent picker"]');
+}
+
+function buttonWithText(text: string): HTMLButtonElement | undefined {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button): button is HTMLButtonElement => button.textContent === text,
+  );
 }

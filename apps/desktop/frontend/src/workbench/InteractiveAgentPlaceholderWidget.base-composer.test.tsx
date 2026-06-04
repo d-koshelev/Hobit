@@ -40,13 +40,16 @@ import {
   type UpdateQueueTaskInput,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
 describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
-  it("renders suggested prompts and compact safety badges in the empty state", () => {
+  it("renders suggested prompts and compact safety badges in the empty state", async () => {
     renderWidget();
 
     expect(document.body.textContent).not.toContain("Direct Mode");
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
     expect(checkboxWithLabel("Direct Mode")).toBeUndefined();
-    expect(document.body.textContent).toContain("Agent");
+    expect(
+      document.querySelector(".interactive-agent-agent-picker span")
+        ?.textContent,
+    ).toBe("Provider");
     expect(document.body.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("Status");
     expect(document.body.textContent).toContain("Ready");
@@ -54,14 +57,20 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(agentPicker()?.disabled).toBe(true);
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break into Queue tasks");
-    expect(document.body.textContent).toContain("Draft tasks for this goal");
-    expect(document.body.textContent).toContain("Review pasted Queue result");
-    expect(document.body.textContent).toContain("Explain this Executor failure");
-    expect(document.body.textContent).toContain("Turn this result into next steps");
-    expect(document.body.textContent).toContain("Draft follow-up Queue tasks");
-    expect(document.body.textContent).toContain("Summarize validation output");
+    expect(document.body.textContent).not.toContain("Draft tasks for this goal");
+    expect(document.body.textContent).not.toContain("Review pasted Queue result");
+    expect(document.body.textContent).not.toContain(
+      "Explain this Executor failure",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Turn this result into next steps",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Draft follow-up Queue tasks",
+    );
+    expect(document.body.textContent).not.toContain("Summarize validation output");
     expect(document.body.textContent).toContain(
-      "Explain how to execute this safely",
+      "Use Examples above for more prompt starters.",
     );
     expect(document.body.textContent).toContain("visible chat only");
     expect(document.body.textContent).toContain("No tools run");
@@ -83,8 +92,26 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       document.querySelector('[aria-label="Workspace Agent suggested prompts"]'),
     ).not.toBeNull();
     expect(
+      document.querySelector('[aria-label="Workspace Agent prompt examples"]'),
+    ).toBeNull();
+    expect(
       document.querySelector(".interactive-agent-empty")?.textContent,
     ).toContain("Workspace Agent works from visible chat and explicit attachments.");
+
+    await clickButton("Examples");
+
+    expect(
+      document.querySelector('[aria-label="Workspace Agent prompt examples"]'),
+    ).not.toBeNull();
+    expect(document.body.textContent).toContain("Draft tasks for this goal");
+    expect(document.body.textContent).toContain("Review pasted Queue result");
+    expect(document.body.textContent).toContain("Explain this Executor failure");
+    expect(document.body.textContent).toContain("Turn this result into next steps");
+    expect(document.body.textContent).toContain("Draft follow-up Queue tasks");
+    expect(document.body.textContent).toContain("Summarize validation output");
+    expect(document.body.textContent).toContain(
+      "Explain how to execute this safely",
+    );
   });
 
 
@@ -301,6 +328,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       onGenerateCoordinatorProviderResponse: provider,
     });
 
+    await clickButton("Examples");
     await clickButton("Explain this Executor failure");
 
     expect(textareaValue()).toBe(

@@ -189,7 +189,6 @@ export function InteractiveAgentPlaceholderWidget({
   const isDirectModeEnabled = directWork.isDirectModeEnabled;
   const canSend =
     !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
-
   useEffect(() => {
     const messageList = messageListRef.current;
     if (!messageList) {
@@ -198,7 +197,6 @@ export function InteractiveAgentPlaceholderWidget({
 
     messageList.scrollTop = messageList.scrollHeight;
   }, [messages.length, isProviderPending]);
-
   useEffect(() => {
     if (sessionScopeKeyRef.current === sessionScopeKey) {
       return;
@@ -207,7 +205,6 @@ export function InteractiveAgentPlaceholderWidget({
     sessionScopeKeyRef.current = sessionScopeKey;
     resetCurrentSessionState();
   }, [sessionScopeKey]);
-
   useEffect(() => {
     if (!coordinatorAttachedContextRequest) {
       return;
@@ -256,7 +253,6 @@ export function InteractiveAgentPlaceholderWidget({
       }
     }, 0);
   }, [queueReportActionCardRequest?.id]);
-
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
     body: string,
@@ -801,7 +797,11 @@ export function InteractiveAgentPlaceholderWidget({
       onMoveStart={onStartFrameMove}
       style={frameStyle}
       status={
-        <WorkspaceAgentHeaderStatus status={directWork.directWorkStatus} />
+        <WorkspaceAgentHeaderStatus
+          onPromptExampleClick={useSuggestedPrompt}
+          promptExamples={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
+          status={directWork.directWorkStatus}
+        />
       }
       title={title}
     >

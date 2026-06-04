@@ -1,19 +1,28 @@
+import { useState } from "react";
 import { Badge } from "../design-system/Badge";
+import type { WorkspaceAgentSuggestedPrompt } from "./workspaceAgentSuggestedPrompts";
 import type { CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
 
 type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 export function WorkspaceAgentHeaderStatus({
   agentLabel = "Codex",
+  onPromptExampleClick,
+  promptExamples = [],
   status,
 }: {
   agentLabel?: string;
+  onPromptExampleClick?: (prompt: string) => void;
+  promptExamples?: WorkspaceAgentSuggestedPrompt[];
   status: CoordinatorDirectWorkStatus;
 }) {
+  const [promptExamplesOpen, setPromptExamplesOpen] = useState(false);
+  const showPromptExamples = promptExamples.length > 0 && onPromptExampleClick;
+
   return (
     <div className="interactive-agent-frame-status">
       <label className="interactive-agent-agent-picker">
-        <span>Agent</span>
+        <span>Provider</span>
         <select
           aria-label="Workspace Agent picker"
           className="input interactive-agent-agent-select"
@@ -27,6 +36,38 @@ export function WorkspaceAgentHeaderStatus({
       <Badge variant={workspaceAgentStatusVariant(status)}>
         {workspaceAgentStatusLabel(status)}
       </Badge>
+      {showPromptExamples ? (
+        <div className="interactive-agent-examples-menu">
+          <button
+            aria-expanded={promptExamplesOpen}
+            aria-label="Toggle Workspace Agent prompt examples"
+            className="button button-secondary interactive-agent-examples-toggle"
+            onClick={() => setPromptExamplesOpen((isOpen) => !isOpen)}
+            type="button"
+          >
+            Examples
+          </button>
+          {promptExamplesOpen ? (
+            <section
+              aria-label="Workspace Agent prompt examples"
+              className="interactive-agent-examples-panel"
+            >
+              <div className="interactive-agent-suggestion-list">
+                {promptExamples.map((suggestion) => (
+                  <button
+                    className="interactive-agent-suggestion"
+                    key={suggestion.label}
+                    onClick={() => onPromptExampleClick(suggestion.prompt)}
+                    type="button"
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
