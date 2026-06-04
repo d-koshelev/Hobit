@@ -4,9 +4,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
-import type { CreateWorkspaceNoteRequest, WorkspaceNote } from "../workspace/types";
+import type {
+  CreateKnowledgeDocumentRequest,
+  CreateWorkspaceNoteRequest,
+  KnowledgeDocument,
+  WorkspaceNote,
+} from "../workspace/types";
 
 type CreateNoteInput = Omit<CreateWorkspaceNoteRequest, "workspaceId">;
+type CreateKnowledgeDocumentInput = Omit<
+  CreateKnowledgeDocumentRequest,
+  "workspaceId"
+>;
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -69,6 +78,66 @@ describe("NotesPlaceholderWidget empty state", () => {
     expect(onGetWorkspaceNote).toHaveBeenCalledWith("note_1");
     expect(document.body.textContent).toContain("Untitled note");
   });
+
+  it("promotes the selected saved note to a Knowledge Document without changing the note", async () => {
+    const selectedNote = note({
+      body: "Deploy Falcon with the staged checklist.\nKeep rollback ready.",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const createdDocument = knowledgeDocument({
+      content: selectedNote.body,
+      knowledgeDocumentId: "kdoc_42",
+      sourceRef: selectedNote.noteId,
+      title: selectedNote.title,
+    });
+    const onCreateKnowledgeDocument = vi.fn(
+      async (_request: CreateKnowledgeDocumentInput) => createdDocument,
+    );
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateKnowledgeDocument,
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    expect(buttonWithText("Create document")).toBeUndefined();
+    await clickButton("Promote to Knowledge");
+    await flushEffects();
+
+    expect(buttonWithText("Create document")).toBeDefined();
+    changeSelect(1, "global");
+    changeSelect(2, "draft");
+    changeInput(".notes-promotion-tags input", "deployment, falcon");
+    await clickButton("Create document");
+    await flushEffects();
+
+    expect(onCreateKnowledgeDocument).toHaveBeenCalledTimes(1);
+    expect(onCreateKnowledgeDocument.mock.calls[0][0]).toEqual({
+      catalogItemType: "documentation_knowledge",
+      content: selectedNote.body,
+      enabled: false,
+      lifecycleStatus: "draft",
+      quickSummary: "Deploy Falcon with the staged checklist.",
+      scope: "global",
+      sourceKind: "workspace_note",
+      sourceLabel: "Note: Falcon deployment note",
+      sourceRef: "note_42",
+      tags: "deployment, falcon",
+      title: "Falcon deployment note",
+    });
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Knowledge Document created: Falcon deployment note. Note unchanged.",
+    );
+  });
 });
 
 function renderWidget(
@@ -100,6 +169,52 @@ async function clickButton(text: string) {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
   });
+}
+
+function changeInput(selector: string, value: string) {
+  act(() => {
+    const input = document.querySelector<HTMLInputElement>(selector);
+    if (!input) {
+      throw new Error(`Input not found: ${selector}`);
+    }
+
+    setNativeValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function changeSelect(index: number, value: string) {
+  act(() => {
+    const select = Array.from(document.querySelectorAll("select"))[index];
+    if (!select) {
+      throw new Error(`Select not found at index: ${index.toString()}`);
+    }
+
+    setNativeValue(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function setNativeValue(
+  element: HTMLInputElement | HTMLSelectElement,
+  value: string,
+) {
+  const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
+  const prototype = Object.getPrototypeOf(element) as
+    | HTMLInputElement
+    | HTMLSelectElement;
+  const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+    prototype,
+    "value",
+  )?.set;
+
+  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+    prototypeValueSetter.call(element, value);
+  } else if (valueSetter) {
+    valueSetter.call(element, value);
+  } else {
+    element.value = value;
+  }
 }
 
 function buttonWithText(text: string) {
@@ -162,6 +277,29 @@ function note(overrides: Partial<WorkspaceNote> = {}): WorkspaceNote {
     createdAt: "2026-05-25T00:00:00.000Z",
     noteId: "note_1",
     pinned: false,
+    title: "Untitled note",
+    updatedAt: "2026-05-25T00:00:00.000Z",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function knowledgeDocument(
+  overrides: Partial<KnowledgeDocument> = {},
+): KnowledgeDocument {
+  return {
+    catalogItemType: "documentation_knowledge",
+    content: "",
+    createdAt: "2026-05-25T00:00:00.000Z",
+    enabled: true,
+    knowledgeDocumentId: "kdoc_1",
+    lifecycleStatus: "active",
+    quickSummary: "",
+    scope: "workspace",
+    sourceKind: "workspace_note",
+    sourceLabel: "Note: Untitled note",
+    sourceRef: "note_1",
+    tags: "",
     title: "Untitled note",
     updatedAt: "2026-05-25T00:00:00.000Z",
     workspaceId: "workspace_1",

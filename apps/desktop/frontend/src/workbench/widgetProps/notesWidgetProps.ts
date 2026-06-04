@@ -3,6 +3,7 @@ import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetAction
 
 type NotesActions = Pick<
   WorkbenchWidgetInstanceActions,
+  | "createKnowledgeDocument"
   | "createWorkspaceNote"
   | "getWorkspaceNote"
   | "listWorkspaceNotes"
@@ -13,6 +14,7 @@ export function notesWidgetProps(
   actions: NotesActions,
 ): Partial<WidgetRenderProps> {
   return {
+    onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateWorkspaceNote: actions.createWorkspaceNote,
     onGetWorkspaceNote: actions.getWorkspaceNote,
     onListWorkspaceNotes: actions.listWorkspaceNotes,

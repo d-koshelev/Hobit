@@ -261,6 +261,9 @@ describe("widgetHostRenderProps", () => {
     });
 
     expect(props.onCreateWorkspaceNote).toBe(actions.createWorkspaceNote);
+    expect(props.onCreateKnowledgeDocument).toBe(
+      actions.createKnowledgeDocument,
+    );
     expect(props.onGetWorkspaceNote).toBe(actions.getWorkspaceNote);
     expect(props.onListWorkspaceNotes).toBe(actions.listWorkspaceNotes);
     expect(props.onUpdateWorkspaceNote).toBe(actions.updateWorkspaceNote);

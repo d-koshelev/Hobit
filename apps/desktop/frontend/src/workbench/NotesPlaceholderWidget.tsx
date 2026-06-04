@@ -14,6 +14,7 @@ export function NotesPlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  onCreateKnowledgeDocument,
   onCreateWorkspaceNote,
   onGetWorkspaceNote,
   onListWorkspaceNotes,
@@ -27,6 +28,7 @@ export function NotesPlaceholderWidget({
   const bodyInputId = useId();
   const {
     apiAvailable,
+    cancelKnowledgePromotion,
     createNote,
     draftBody,
     draftPinned,
@@ -36,21 +38,37 @@ export function NotesPlaceholderWidget({
     isCreating,
     isDirty,
     isLoading,
+    isPromotingToKnowledge,
+    isPromotionOpen,
     isSaving,
     isSelecting,
+    knowledgePromotionAvailable,
     loadError,
     notes,
+    openKnowledgePromotion,
+    promoteSelectedNoteToKnowledge,
+    promotionCatalogItemType,
+    promotionError,
+    promotionLifecycleStatus,
+    promotionMessage,
+    promotionScope,
+    promotionTags,
     refreshNotes,
     saveNote,
     searchText,
     selectNote,
     selectedNote,
+    setPromotionCatalogItemType,
+    setPromotionLifecycleStatus,
+    setPromotionScope,
+    setPromotionTags,
     setSearchText,
     updateDraftBody,
     updateDraftPinned,
     updateDraftTitle,
     validationMessage,
   } = useWorkspaceNotesController({
+    onCreateKnowledgeDocument,
     onCreateWorkspaceNote,
     onGetWorkspaceNote,
     onListWorkspaceNotes,
@@ -129,11 +147,27 @@ export function NotesPlaceholderWidget({
             editorError={editorError}
             isDirty={isDirty}
             isLoading={isLoading}
+            isPromotingToKnowledge={isPromotingToKnowledge}
+            isPromotionOpen={isPromotionOpen}
             isSaving={isSaving}
+            knowledgePromotionAvailable={knowledgePromotionAvailable}
             loadError={loadError}
+            onCancelKnowledgePromotion={cancelKnowledgePromotion}
+            onOpenKnowledgePromotion={openKnowledgePromotion}
+            onPromoteSelectedNoteToKnowledge={promoteSelectedNoteToKnowledge}
             onSaveNote={saveNote}
+            onSetPromotionCatalogItemType={setPromotionCatalogItemType}
+            onSetPromotionLifecycleStatus={setPromotionLifecycleStatus}
+            onSetPromotionScope={setPromotionScope}
+            onSetPromotionTags={setPromotionTags}
             onUpdateDraftBody={updateDraftBody}
             onUpdateDraftTitle={updateDraftTitle}
+            promotionCatalogItemType={promotionCatalogItemType}
+            promotionError={promotionError}
+            promotionLifecycleStatus={promotionLifecycleStatus}
+            promotionMessage={promotionMessage}
+            promotionScope={promotionScope}
+            promotionTags={promotionTags}
             selectedNote={selectedNote}
             titleInputId={titleInputId}
             validationMessage={validationMessage}

@@ -47,7 +47,7 @@ export function NotesStatusMessage({
   variant,
 }: {
   children: ReactNode;
-  variant: "error" | "warning";
+  variant: "error" | "success" | "warning";
 }) {
   return (
     <p className={`notes-message notes-message-${variant}`} role="alert">

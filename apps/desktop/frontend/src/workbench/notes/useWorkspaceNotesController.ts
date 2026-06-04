@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { WorkspaceNote } from "../../workspace/types";
+import type { KnowledgeDocument, WorkspaceNote } from "../../workspace/types";
 import type { WidgetRenderProps } from "../types";
 
 export const DEFAULT_NOTE_TITLE = "Untitled note";
+const DEFAULT_PROMOTION_TYPE: KnowledgeDocument["catalogItemType"] =
+  "documentation_knowledge";
+const DEFAULT_PROMOTION_STATUS: KnowledgeDocument["lifecycleStatus"] = "active";
 
 type WorkspaceNotesControllerProps = Pick<
   WidgetRenderProps,
+  | "onCreateKnowledgeDocument"
   | "onCreateWorkspaceNote"
   | "onGetWorkspaceNote"
   | "onListWorkspaceNotes"
@@ -13,6 +17,7 @@ type WorkspaceNotesControllerProps = Pick<
 >;
 
 export function useWorkspaceNotesController({
+  onCreateKnowledgeDocument,
   onCreateWorkspaceNote,
   onGetWorkspaceNote,
   onListWorkspaceNotes,
@@ -32,13 +37,24 @@ export function useWorkspaceNotesController({
   const [searchText, setSearchText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [isPromotionOpen, setIsPromotionOpen] = useState(false);
+  const [isPromotingToKnowledge, setIsPromotingToKnowledge] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
+  const [promotionCatalogItemType, setPromotionCatalogItemType] =
+    useState<KnowledgeDocument["catalogItemType"]>(DEFAULT_PROMOTION_TYPE);
+  const [promotionLifecycleStatus, setPromotionLifecycleStatus] =
+    useState<KnowledgeDocument["lifecycleStatus"]>(DEFAULT_PROMOTION_STATUS);
+  const [promotionScope, setPromotionScope] =
+    useState<KnowledgeDocument["scope"]>("workspace");
+  const [promotionTags, setPromotionTags] = useState("");
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
+  const [promotionMessage, setPromotionMessage] = useState<string | null>(null);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
   const isDirty = Boolean(
     selectedNote &&
       (draftTitle !== selectedNote.title ||
@@ -196,6 +212,87 @@ export function useWorkspaceNotesController({
     await loadNotes(selectedNote?.noteId ?? null);
   }
 
+  function openKnowledgePromotion() {
+    if (!selectedNote || isLoading) {
+      return;
+    }
+
+    if (!onCreateKnowledgeDocument) {
+      setPromotionError(
+        "Knowledge Document creation is not available in this runtime.",
+      );
+      return;
+    }
+
+    if (isDirty) {
+      setValidationMessage("Save current note before promoting to Knowledge.");
+      return;
+    }
+
+    setPromotionCatalogItemType(DEFAULT_PROMOTION_TYPE);
+    setPromotionLifecycleStatus(DEFAULT_PROMOTION_STATUS);
+    setPromotionScope("workspace");
+    setPromotionTags("");
+    setIsPromotionOpen(true);
+    setPromotionMessage(null);
+    setPromotionError(null);
+    setValidationMessage(null);
+  }
+
+  function cancelKnowledgePromotion() {
+    if (isPromotingToKnowledge) {
+      return;
+    }
+
+    setIsPromotionOpen(false);
+    setPromotionMessage(null);
+    setPromotionError(null);
+  }
+
+  async function promoteSelectedNoteToKnowledge() {
+    if (!selectedNote || !onCreateKnowledgeDocument || isPromotingToKnowledge) {
+      return;
+    }
+
+    if (isDirty) {
+      setValidationMessage("Save current note before promoting to Knowledge.");
+      return;
+    }
+
+    const documentTitle = selectedNote.title.trim() || DEFAULT_NOTE_TITLE;
+
+    setIsPromotingToKnowledge(true);
+    setPromotionMessage(null);
+    setPromotionError(null);
+
+    try {
+      const createdDocument = await onCreateKnowledgeDocument({
+        scope: promotionScope,
+        catalogItemType: promotionCatalogItemType,
+        quickSummary: firstUsefulLine(selectedNote.body),
+        lifecycleStatus: promotionLifecycleStatus,
+        title: documentTitle,
+        sourceLabel: `Note: ${documentTitle}`,
+        sourceKind: "workspace_note",
+        sourceRef: selectedNote.noteId,
+        content: selectedNote.body,
+        tags: promotionTags,
+        enabled: promotionLifecycleStatus === "active",
+      });
+
+      setIsPromotionOpen(false);
+      setPromotionMessage(
+        `Knowledge Document created: ${createdDocument.title}. Note unchanged.`,
+      );
+    } catch (error) {
+      setPromotionError(
+        errorToMessage(error, "Unable to promote note to Knowledge."),
+      );
+    } finally {
+      setIsPromotingToKnowledge(false);
+    }
+  }
+
   async function saveNote() {
     if (!selectedNote || !onUpdateWorkspaceNote || !isDirty || isSaving) {
       return;
@@ -241,11 +338,15 @@ export function useWorkspaceNotesController({
   function updateDraftTitle(value: string) {
     setDraftTitle(value);
     setValidationMessage(null);
+    setPromotionMessage(null);
+    setPromotionError(null);
   }
 
   function updateDraftBody(value: string) {
     setDraftBody(value);
     setValidationMessage(null);
+    setPromotionMessage(null);
+    setPromotionError(null);
   }
 
   function updateDraftPinned(value: boolean) {
@@ -258,6 +359,9 @@ export function useWorkspaceNotesController({
     setDraftTitle(note.title);
     setDraftBody(note.body);
     setDraftPinned(note.pinned);
+    setIsPromotionOpen(false);
+    setPromotionMessage(null);
+    setPromotionError(null);
   }
 
   function clearSelectedNote() {
@@ -265,10 +369,14 @@ export function useWorkspaceNotesController({
     setDraftTitle("");
     setDraftBody("");
     setDraftPinned(false);
+    setIsPromotionOpen(false);
+    setPromotionMessage(null);
+    setPromotionError(null);
   }
 
   return {
     apiAvailable,
+    cancelKnowledgePromotion,
     createNote,
     draftBody,
     draftPinned,
@@ -278,15 +386,30 @@ export function useWorkspaceNotesController({
     isCreating,
     isDirty,
     isLoading,
+    isPromotingToKnowledge,
+    isPromotionOpen,
     isSaving,
     isSelecting,
+    knowledgePromotionAvailable: Boolean(onCreateKnowledgeDocument),
     loadError,
     notes,
+    openKnowledgePromotion,
+    promoteSelectedNoteToKnowledge,
+    promotionCatalogItemType,
+    promotionError,
+    promotionLifecycleStatus,
+    promotionMessage,
+    promotionScope,
+    promotionTags,
     refreshNotes,
     saveNote,
     searchText,
     selectNote,
     selectedNote,
+    setPromotionCatalogItemType,
+    setPromotionLifecycleStatus,
+    setPromotionScope,
+    setPromotionTags,
     setSearchText,
     updateDraftBody,
     updateDraftPinned,
@@ -301,4 +424,13 @@ function errorToMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function firstUsefulLine(value: string) {
+  return (
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) ?? ""
+  );
 }
