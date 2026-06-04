@@ -57,10 +57,14 @@ describe("WidgetCatalogShell", () => {
     expect(document.body.textContent).not.toContain("Coordinator Chat");
   });
 
-  it("renders compact category groups and current catalog copy", () => {
+  it("renders a compact header and current category groups", () => {
     renderCatalog();
 
-    expect(document.body.textContent).toContain("Add tools to this workspace.");
+    expect(document.body.textContent).toContain("Widget Catalog");
+    expect(document.body.textContent).toContain("Close");
+    expect(document.body.textContent).not.toContain(
+      "Add tools to this workspace.",
+    );
     expect(groupTitles()).toEqual([
       "Agents",
       "Knowledge",

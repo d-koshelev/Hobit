@@ -50,9 +50,6 @@ export function WidgetCatalogShell({
             <h2 className="widget-catalog-title" id="widget-catalog-title">
               Widget Catalog
             </h2>
-            <p className="widget-catalog-subtitle">
-              Add tools to this workspace.
-            </p>
           </div>
           <Button onClick={onClose} variant="ghost">
             Close
