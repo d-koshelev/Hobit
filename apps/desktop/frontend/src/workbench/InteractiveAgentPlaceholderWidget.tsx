@@ -50,9 +50,6 @@ import {
   type WorkspaceAgentTranscriptMessage,
 } from "./WorkspaceAgentTranscript";
 import {
-  WorkspaceAgentQueueActionPanel,
-} from "./WorkspaceAgentQueueActionCards";
-import {
   workspaceAgentQueueActionCardTitle,
   type WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
@@ -844,11 +841,6 @@ export function InteractiveAgentPlaceholderWidget({
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
           workspaceAgentQueueBridge={workspaceAgentQueueBridge}
-        />
-
-        <WorkspaceAgentQueueActionPanel
-          bridge={workspaceAgentQueueBridge}
-          onActionResult={recordQueueActionResult}
         />
 
         <WorkspaceAgentComposer

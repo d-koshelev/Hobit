@@ -30,234 +30,17 @@ afterEach(() => {
 });
 
 describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
-  it("renders the app-native Queue action surface when the bridge is present", () => {
+  it("does not render Queue admin tools in the primary Workspace Agent surface", () => {
     renderWidget({ workspaceAgentQueueBridge: queueBridge() });
 
     const queueActions = document.querySelector<HTMLDetailsElement>(
       'details[aria-label="Workspace Agent Queue actions"]',
     );
 
-    expect(queueActions).not.toBeNull();
-    expect(queueActions?.open).toBe(false);
-    expect(queueActions?.querySelector("summary")?.textContent).toContain(
-      "Queue tools",
-    );
-    expect(document.body.textContent).toContain("Agent Queue API");
-    expect(document.body.textContent).toContain("Inspect Queue");
-    expect(document.body.textContent).toContain("Create Queue item");
-    expect(document.body.textContent).toContain("Update Queue item");
-    expect(document.body.textContent).toContain(
-      "Secondary Queue inspect/create/update controls.",
-    );
-  });
-
-  it("loads a Queue snapshot through the bridge and displays a snapshot result card", async () => {
-    const snapshot = queueSnapshot({
-      autonomousRunnerState: {
-        activeItemId: null,
-        available: true,
-        isActive: false,
-        isSessionOnly: true,
-        status: "idle",
-        stopReason: null,
-        waitingRunId: null,
-      },
-      blockers: [
-        {
-          code: "missing_execution_workspace",
-          itemId: "queue-blocked",
-          message: "Execution workspace is not set.",
-        },
-      ],
-      itemCounts: countsFixture({
-        blocked: 1,
-        finalized: 1,
-        queued: 2,
-        reportReady: 1,
-        running: 1,
-        total: 5,
-      }),
-      selectedItem: queueItemSnapshot({
-        id: "queue-selected",
-        status: "review_needed",
-        title: "Selected Queue item",
-      }),
-    });
-    snapshot.countsByStatus = snapshot.itemCounts;
-    snapshot.blockersCount = snapshot.blockers.length;
-    const getSnapshot = vi.fn(async () => snapshotResult(snapshot));
-    const bridge = queueBridge({ getSnapshot });
-
-    renderWidget({ workspaceAgentQueueBridge: bridge });
-
-    await clickButton("Inspect Queue");
-
-    expect(getSnapshot).toHaveBeenCalledWith({ includeSelectedItem: true });
-    expect(document.body.textContent).toContain("Queue snapshot loaded");
-    expect(document.body.textContent).toContain("queue.getSnapshot");
-    expect(document.body.textContent).toContain(
-      "Queue has 5 items: 2 queued, 1 running, 1 blocked, 1 report-ready, 1 finalized.",
-    );
-    expect(document.body.textContent).toContain("Selected Queue item");
-    expect(document.body.textContent).toContain(
-      "queue-blocked: Execution workspace is not set.",
-    );
-    expect(document.body.textContent).toContain("idle session-only");
-  });
-
-  it("creates a Queue item through the bridge and displays the created item result", async () => {
-    const createItem = vi.fn(async () =>
-      itemResult("queue.createItem", {
-        approvalPolicy: "on_request",
-        codexExecutable: "codex.cmd",
-        executionPolicy: "auto",
-        executionWorkspace: "C:/repo",
-        id: "queue-created",
-        priority: 4,
-        prompt: "Implement the focused slice.",
-        queueTag: { id: null, name: "QUEUE-API" },
-        sandbox: "workspace_write",
-        status: "queued",
-        title: "Create from Workspace Agent",
-      }),
-    );
-    const legacyCreate = vi.fn();
-    const provider = vi.fn();
-    const startCodex = vi.fn();
-    const bridge = queueBridge({ createItem });
-
-    renderWidget({
-      onCreateAgentQueueTask: legacyCreate,
-      onGenerateCoordinatorProviderResponse: provider,
-      onStartCodexDirectWorkStream: startCodex,
-      workspaceAgentQueueBridge: bridge,
-    });
-
-    await setFieldValue("Title", "Create from Workspace Agent", 0);
-    await setFieldValue("Prompt", "Implement the focused slice.", 0);
-    await setFieldValue("Queue tag", "QUEUE-API", 0);
-    await setFieldValue("Priority", "4", 0);
-    await setSelectValue("Initial status", "queued");
-    await setSelectValue("Execution policy", "auto", 0);
-    await setFieldValue("Execution workspace", "C:/repo", 0);
-    await setFieldValue("Codex executable", "codex.cmd", 0);
-    await setSelectValue("Sandbox", "workspace_write", 0);
-    await setSelectValue("Approval policy", "on_request", 0);
-    await clickButton("Create Queue item");
-
-    expect(createItem).toHaveBeenCalledWith(
-      expect.objectContaining({
-        approvalPolicy: "on_request",
-        codexExecutable: "codex.cmd",
-        executionPolicy: "auto",
-        executionWorkspace: "C:/repo",
-        priority: 4,
-        prompt: "Implement the focused slice.",
-        queueTag: { name: "QUEUE-API" },
-        sandbox: "workspace_write",
-        status: "queued",
-        title: "Create from Workspace Agent",
-      }),
-    );
-    expect(document.body.textContent).toContain("Queue item created");
-    expect(document.body.textContent).toContain("queue.createItem");
-    expect(document.body.textContent).toContain("queue-created");
-    expect(document.body.textContent).toContain("Create from Workspace Agent");
-    expect(legacyCreate).not.toHaveBeenCalled();
-    expect(provider).not.toHaveBeenCalled();
-    expect(startCodex).not.toHaveBeenCalled();
-  });
-
-  it("updates a Queue item through the bridge and displays the updated item result", async () => {
-    const updateItem = vi.fn(async () =>
-      itemResult("queue.updateItem", {
-        executionPolicy: "manual",
-        id: "queue-updated",
-        priority: 7,
-        status: "queued",
-        title: "Updated Queue item",
-      }),
-    );
-    const legacyUpdate = vi.fn();
-    const startCodex = vi.fn();
-    const bridge = queueBridge({ updateItem });
-
-    renderWidget({
-      onStartCodexDirectWorkStream: startCodex,
-      onUpdateAgentQueueTask: legacyUpdate,
-      workspaceAgentQueueBridge: bridge,
-    });
-
-    await setFieldValue("Item id", "queue-updated");
-    await setFieldValue("Title", "Updated Queue item", 1);
-    await setFieldValue("Priority", "7", 1);
-    await setSelectValue("Status", "queued");
-    await clickButton("Update Queue item");
-
-    expect(updateItem).toHaveBeenCalledWith({
-      itemId: "queue-updated",
-      patch: {
-        priority: 7,
-        status: "queued",
-        title: "Updated Queue item",
-      },
-    });
-    expect(document.body.textContent).toContain("Queue item updated");
-    expect(document.body.textContent).toContain("queue.updateItem");
-    expect(document.body.textContent).toContain("queue-updated");
-    expect(document.body.textContent).toContain("Updated Queue item");
-    expect(legacyUpdate).not.toHaveBeenCalled();
-    expect(startCodex).not.toHaveBeenCalled();
-  });
-
-  it("displays a Queue action failed card when the bridge action fails", async () => {
-    const getSnapshot = vi.fn(async () => {
-      throw new Error("Queue bridge unavailable");
-    });
-    const bridge = queueBridge({ getSnapshot });
-
-    renderWidget({ workspaceAgentQueueBridge: bridge });
-
-    await clickButton("Inspect Queue");
-
-    expect(document.body.textContent).toContain("Queue action failed");
-    expect(document.body.textContent).toContain("queue.getSnapshot");
-    expect(document.body.textContent).toContain("Queue bridge unavailable");
-    expect(document.body.textContent).toContain("Failed");
-  });
-
-  it("does not use shell, Codex, provider, or legacy Queue callbacks for Queue CRUD", async () => {
-    const createItem = vi.fn(async () => itemResult("queue.createItem"));
-    const updateItem = vi.fn(async () => itemResult("queue.updateItem"));
-    const legacyCreate = vi.fn();
-    const legacyUpdate = vi.fn();
-    const provider = vi.fn();
-    const startCodex = vi.fn();
-    const runTerminal = vi.fn();
-    const bridge = queueBridge({ createItem, updateItem });
-
-    renderWidget({
-      onCreateAgentQueueTask: legacyCreate,
-      onGenerateCoordinatorProviderResponse: provider,
-      onRunTerminalCommand: runTerminal,
-      onStartCodexDirectWorkStream: startCodex,
-      onUpdateAgentQueueTask: legacyUpdate,
-      workspaceAgentQueueBridge: bridge,
-    });
-
-    await setFieldValue("Title", "CRUD bridge task", 0);
-    await clickButton("Create Queue item");
-    await setFieldValue("Item id", "queue-1");
-    await setFieldValue("Title", "CRUD bridge task update", 1);
-    await clickButton("Update Queue item");
-
-    expect(createItem).toHaveBeenCalledTimes(1);
-    expect(updateItem).toHaveBeenCalledTimes(1);
-    expect(legacyCreate).not.toHaveBeenCalled();
-    expect(legacyUpdate).not.toHaveBeenCalled();
-    expect(provider).not.toHaveBeenCalled();
-    expect(startCodex).not.toHaveBeenCalled();
-    expect(runTerminal).not.toHaveBeenCalled();
+    expect(queueActions).toBeNull();
+    expect(document.body.textContent).not.toContain("Queue tools");
+    expect(document.body.textContent).not.toContain("Agent Queue API");
+    expect(document.body.textContent).not.toContain("Inspect Queue");
   });
 
   it("handles analyze Queue chat commands through getSnapshot", async () => {
@@ -1019,37 +802,6 @@ async function clickButton(text: string) {
   });
 }
 
-async function setFieldValue(label: string, value: string, index = 0) {
-  const field = fieldsByLabel(label)[index];
-  if (!field) {
-    throw new Error(`Field not found: ${label}`);
-  }
-
-  await act(async () => {
-    setNativeValue(field, value);
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-  });
-}
-
-async function setSelectValue(label: string, value: string, index = 0) {
-  const select = selectsByLabel(label)[index];
-  if (!select) {
-    throw new Error(`Select not found: ${label}`);
-  }
-
-  await act(async () => {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      HTMLSelectElement.prototype,
-      "value",
-    );
-    descriptor?.set?.call(select, value);
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    await Promise.resolve();
-  });
-}
-
 function setNativeValue(
   field: HTMLInputElement | HTMLTextAreaElement,
   value: string,
@@ -1131,20 +883,6 @@ function providerResponse(
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
-  );
-}
-
-function fieldsByLabel(label: string) {
-  return Array.from(
-    document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-      `input[aria-label="${label}"], textarea[aria-label="${label}"]`,
-    ),
-  );
-}
-
-function selectsByLabel(label: string) {
-  return Array.from(
-    document.querySelectorAll<HTMLSelectElement>(`select[aria-label="${label}"]`),
   );
 }
 
