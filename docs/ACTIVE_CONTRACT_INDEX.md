@@ -267,6 +267,10 @@ unless the task explicitly requests it.
   and `crates/hobit-app/src/context_packs/` partly as type scaffolding. They do
   not add an evidence store, Context Pack store, hidden ingestion, team/server
   knowledge, server runtime, or RBAC.
+- `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
+  Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
+  known gaps, and recommended next blocks. Read before future Knowledge /
+  Skills scope, Queue context, or acceptance-hardening work.
 - `docs/ARCHITECTURE_MILESTONE_STATUS.md` - read before beginning Knowledge,
   Skills, Evidence, Artifact, or Context Pack UI/storage work. It summarizes
   what the recent foundation series completed, what remains type-only, and
