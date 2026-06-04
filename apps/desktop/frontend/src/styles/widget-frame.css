@@ -12,29 +12,18 @@
   min-width: 0;
   flex-direction: column;
   overflow: hidden;
-  border-color: transparent;
+  border-color: var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  background: color-mix(
-    in srgb,
-    var(--color-widget-surface) 96%,
-    transparent
-  );
-  box-shadow:
-    0 16px 40px color-mix(in srgb, var(--color-app-bg) 34%, transparent),
-    inset 0 1px 0
-      color-mix(in srgb, var(--color-border-subtle) 32%, transparent);
+  background: var(--color-widget-surface);
+  box-shadow: none;
   transition:
     background 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease;
+    border-color 120ms ease;
 }
 
 .widget-frame-editing {
-  border-color: transparent;
-  box-shadow:
-    0 16px 40px color-mix(in srgb, var(--color-app-bg) 34%, transparent),
-    inset 0 1px 0
-      color-mix(in srgb, var(--color-border-subtle) 32%, transparent);
+  border-color: var(--color-border-subtle);
+  box-shadow: none;
 }
 
 .widget-frame-editing:focus-within {
@@ -44,10 +33,7 @@
 .widget-layout-item-dragging .widget-frame-editing,
 .widget-layout-item-resizing .widget-frame-editing {
   border-color: color-mix(in srgb, var(--color-primary) 62%, transparent);
-  box-shadow:
-    0 22px 56px color-mix(in srgb, var(--color-app-bg) 54%, transparent),
-    0 0 0 2px color-mix(in srgb, var(--color-primary) 82%, transparent),
-    inset 0 1px 0 var(--color-primary-hairline);
+  box-shadow: none;
 }
 
 .widget-header {
@@ -284,7 +270,7 @@
   overscroll-behavior: contain;
   overflow: auto;
   border-top: 1px solid var(--color-border-subtle);
-  background: color-mix(in srgb, var(--color-io-surface) 94%, transparent);
+  background: var(--color-io-surface);
   padding:
     var(--scaled-space-sm) var(--widget-header-padding-x)
     var(--panel-padding);
@@ -345,11 +331,7 @@
 
 .widget-footer {
   border-top: 1px solid var(--color-border-subtle);
-  background: color-mix(
-    in srgb,
-    var(--color-widget-surface-raised) 62%,
-    transparent
-  );
+  background: var(--color-widget-surface-raised);
   padding: var(--scaled-space-sm) var(--widget-header-padding-x);
 }
 

@@ -408,7 +408,7 @@
 .widget-popout-layer .widget-frame {
   min-height: min(620px, calc(100vh - 120px));
   width: 100%;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .widget-popout-dragging {
