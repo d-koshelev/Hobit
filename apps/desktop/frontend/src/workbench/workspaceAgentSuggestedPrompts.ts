@@ -23,6 +23,11 @@ export const WORKSPACE_AGENT_SUGGESTED_PROMPTS: WorkspaceAgentSuggestedPrompt[] 
       prompt: "Draft tasks for this goal using only the visible chat: ",
     },
     {
+      label: "Docs to Knowledge task",
+      prompt:
+        "Create knowledge from docs by drafting a manual Queue task only. Docs/path: ",
+    },
+    {
       label: "Review pasted Queue result",
       prompt:
         "Review pasted Queue result using visible chat text only. Paste result here: ",
