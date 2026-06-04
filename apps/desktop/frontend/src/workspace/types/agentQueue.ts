@@ -318,6 +318,7 @@ export type StartAssignedAgentQueueTaskRequest = Omit<
   RunCodexDirectWorkRequest,
   "workbenchId" | "widgetInstanceId" | "operatorPrompt"
 > & {
+  materializedOperatorPrompt?: string | null;
   queueItemId: string;
   queueOwnerWidgetInstanceId?: string;
 };
@@ -373,10 +374,33 @@ export type AgentQueueTaskContextRef = {
   version: string;
 };
 
+export type AgentQueueTaskContextSnapshot = {
+  capped: boolean;
+  content: string;
+  id: string;
+  kind: AgentQueueTaskContextRefKind;
+  materializedAt: string;
+  scope: string;
+  source: string;
+  sourceRefId: string;
+  status: string;
+  title: string;
+  tokenEstimate: number;
+  version: string;
+};
+
+export type AgentQueueTaskContextTokenBudget = {
+  estimatedTokens: number;
+  maxTokens: number;
+  overBudget: boolean;
+};
+
 export type AgentQueueTaskContext = {
   attachedKnowledgeRefs: AgentQueueTaskContextRef[];
   attachedSkillRefs: AgentQueueTaskContextRef[];
+  attachedKnowledgeSnapshots: AgentQueueTaskContextSnapshot[];
   contextWarnings: AgentQueueTaskContextWarning[];
+  contextTokenBudget: AgentQueueTaskContextTokenBudget;
   materializedAt: string | null;
 };
 

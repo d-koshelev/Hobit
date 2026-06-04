@@ -225,6 +225,7 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         workspace_id: workspace_id.to_owned(),
         queue_item_id: queue_item_id.to_owned(),
         queue_owner_widget_instance_id: None,
+        materialized_operator_prompt: None,
         codex_executable: "codex".to_owned(),
         repo_root: PathBuf::from("."),
         sandbox: "workspace_write".to_owned(),

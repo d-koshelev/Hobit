@@ -17,6 +17,7 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
         workspace_id: "ws_1".to_owned(),
         queue_item_id: "task_1".to_owned(),
         queue_owner_widget_instance_id: Some("queue_widget_1".to_owned()),
+        materialized_operator_prompt: Some("Visible context\n\nPrompt".to_owned()),
         codex_executable: "codex.cmd".to_owned(),
         repo_root: "C:/work/repo".to_owned(),
         sandbox: "workspace_write".to_owned(),
@@ -33,6 +34,10 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
     assert_eq!(
         input.queue_owner_widget_instance_id.as_deref(),
         Some("queue_widget_1")
+    );
+    assert_eq!(
+        input.materialized_operator_prompt.as_deref(),
+        Some("Visible context\n\nPrompt")
     );
     assert_eq!(input.codex_executable, "codex.cmd");
     assert_eq!(input.repo_root, PathBuf::from("C:/work/repo"));

@@ -46,7 +46,10 @@ impl WorkspaceService {
             &input,
             executor.workbench_id.clone(),
             executor.id.clone(),
-            task.prompt,
+            input
+                .materialized_operator_prompt
+                .clone()
+                .unwrap_or(task.prompt),
         )?;
 
         Ok(AssignedAgentQueueTaskRunPlan {
@@ -90,7 +93,10 @@ impl WorkspaceService {
                     &input,
                     executor.workbench_id.clone(),
                     executor.id.clone(),
-                    task.prompt.clone(),
+                    input
+                        .materialized_operator_prompt
+                        .clone()
+                        .unwrap_or_else(|| task.prompt.clone()),
                 )
                 .map_err(|error| storage_invalid_input(error.to_string()))?;
                 let normalized_direct_work_input =
@@ -218,6 +224,7 @@ struct NormalizedStartAssignedAgentQueueTaskInput {
     workspace_id: String,
     queue_item_id: String,
     queue_owner_widget_instance_id: Option<String>,
+    materialized_operator_prompt: Option<String>,
     codex_executable: String,
     repo_root: std::path::PathBuf,
     sandbox: String,
@@ -252,6 +259,10 @@ fn normalize_start_assigned_agent_queue_task_input(
             .queue_owner_widget_instance_id
             .map(|widget_id| widget_id.trim().to_owned())
             .filter(|widget_id| !widget_id.is_empty()),
+        materialized_operator_prompt: input
+            .materialized_operator_prompt
+            .map(|prompt| prompt.trim().to_owned())
+            .filter(|prompt| !prompt.is_empty()),
         codex_executable: required_input(&input.codex_executable, "codex executable")?.to_owned(),
         repo_root: input.repo_root,
         sandbox: required_input(&input.sandbox, "direct work sandbox")?.to_owned(),

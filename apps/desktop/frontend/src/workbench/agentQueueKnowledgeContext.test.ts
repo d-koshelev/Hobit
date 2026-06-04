@@ -4,6 +4,7 @@ import type { AgentQueueTask, KnowledgeDocument, Skill } from "../workspace/type
 import {
   attachContextToQueueTask,
   buildQueueContextAttachment,
+  materializeQueueExecutionPrompt,
 } from "./agentQueueKnowledgeContext";
 
 describe("agentQueueKnowledgeContext", () => {
@@ -26,10 +27,17 @@ describe("agentQueueKnowledgeContext", () => {
       status: "active",
       version: "2026-06-04T09:00:00.000Z",
     });
-    expect(JSON.stringify(updatedTask.context)).not.toContain(
+    expect(JSON.stringify(updatedTask.context?.attachedKnowledgeRefs)).not.toContain(
       "raw body must not be copied",
     );
-    expect(updatedTask.context?.materializedAt).toBeNull();
+    expect(updatedTask.context?.attachedKnowledgeSnapshots).toHaveLength(1);
+    expect(updatedTask.context?.attachedKnowledgeSnapshots[0]?.content).toContain(
+      "Use the API contract before editing.",
+    );
+    expect(updatedTask.context?.attachedKnowledgeSnapshots[0]?.content).toContain(
+      "raw body must not be copied",
+    );
+    expect(updatedTask.context?.materializedAt).toBe("2026-06-04T10:00:00.000Z");
   });
 
   it("blocks disabled and rejected Knowledge Documents", () => {
@@ -104,6 +112,65 @@ describe("agentQueueKnowledgeContext", () => {
     expect(updatedTask.context?.attachedKnowledgeRefs[0]?.quickSummary).toBe(
       "New summary",
     );
+  });
+
+  it("materializes visible Queue context before the task prompt with evidence refs", () => {
+    const taskWithDocument = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: "Read the active contract before changing the Queue run path.",
+          quickSummary: "Use the active contract.",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const taskWithSkill = attachContextToQueueTask(
+      taskWithDocument,
+      {
+        kind: "skill",
+        skill: skill({
+          steps: "Keep the patch scoped.\nRun targeted validation.",
+          validation: "Typecheck and targeted tests.",
+        }),
+      },
+      "2026-06-04T10:01:00.000Z",
+    );
+
+    const materialized = materializeQueueExecutionPrompt(taskWithSkill);
+
+    expect(materialized.contextSection).toContain("Visible Skill Instructions");
+    expect(materialized.contextSection).toContain(
+      "Visible Knowledge Document Excerpts",
+    );
+    expect(materialized.materializedPrompt.indexOf("Attached Queue Context")).toBeLessThan(
+      materialized.materializedPrompt.indexOf("Do the task."),
+    );
+    expect(materialized.materializedPrompt).toContain("Queue Context Evidence");
+    expect(materialized.materializedPrompt).toContain("Knowledge refs used: doc-1@");
+    expect(materialized.materializedPrompt).toContain("Skill refs used: skill-1@");
+    expect(materialized.snapshotsUsed).toHaveLength(2);
+    expect(materialized.tokenEstimate).toBeGreaterThan(0);
+  });
+
+  it("caps materialized Knowledge excerpts deterministically", () => {
+    const updatedTask = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: "A".repeat(3000),
+          quickSummary: "Long document",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const snapshot = updatedTask.context?.attachedKnowledgeSnapshots[0];
+
+    expect(snapshot?.capped).toBe(true);
+    expect(snapshot?.content).toContain("[truncated]");
+    expect(snapshot?.content.length).toBeLessThan(2600);
   });
 });
 

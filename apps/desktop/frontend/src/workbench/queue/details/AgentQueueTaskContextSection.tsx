@@ -1,9 +1,13 @@
 import type {
   AgentQueueTask,
   AgentQueueTaskContextRef,
+  AgentQueueTaskContextSnapshot,
   AgentQueueTaskContextWarning,
 } from "../../../workspace/types";
-import { queueContextSummary } from "../../agentQueueKnowledgeContext";
+import {
+  materializeQueueExecutionPrompt,
+  queueContextSummary,
+} from "../../agentQueueKnowledgeContext";
 
 type AgentQueueTaskContextSectionProps = {
   selectedTask: AgentQueueTask;
@@ -15,6 +19,9 @@ export function AgentQueueTaskContextSection({
   const context = selectedTask.context;
   const summary = queueContextSummary(context);
   const hasContext = summary.knowledgeCount > 0 || summary.skillCount > 0;
+  const materialized = hasContext
+    ? materializeQueueExecutionPrompt(selectedTask)
+    : null;
 
   return (
     <section
@@ -42,18 +49,65 @@ export function AgentQueueTaskContextSection({
             refs={context?.attachedKnowledgeRefs ?? []}
           />
           <ContextRefList label="Skills" refs={context?.attachedSkillRefs ?? []} />
+          <SnapshotList snapshots={context?.attachedKnowledgeSnapshots ?? []} />
           <ContextWarningList warnings={context?.contextWarnings ?? []} />
+          {materialized?.contextSection ? (
+            <details className="agent-queue-details agent-queue-secondary-details">
+              <summary>Prompt context preview</summary>
+              <pre className="agent-queue-flow-selection-prompt">
+                {materialized.contextSection}
+              </pre>
+            </details>
+          ) : null}
           <p className="agent-queue-section-copy">
-            Context is stored as safe refs and summaries. No raw document body,
-            prompt materialization, Executor run, provider call, or Queue
-            Autorun was started by attachment.
+            Context is stored as safe refs and bounded snapshots. The visible
+            prompt preview above is what is added before the task prompt for an
+            explicit manual run.
           </p>
           <p className="agent-queue-section-copy">
-            Materialized: {context?.materializedAt ?? "Not materialized"}
+            Materialized: {context?.materializedAt ?? "Not materialized"}.
+            Estimated context tokens:{" "}
+            {context?.contextTokenBudget.estimatedTokens.toString() ?? "0"} /{" "}
+            {context?.contextTokenBudget.maxTokens.toString() ?? "0"}.
           </p>
         </>
       )}
     </section>
+  );
+}
+
+function SnapshotList({
+  snapshots,
+}: {
+  snapshots: AgentQueueTaskContextSnapshot[];
+}) {
+  if (snapshots.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="agent-queue-context-group">
+      <p className="agent-queue-context-label">Materialized snapshots</p>
+      {snapshots.map((snapshot) => (
+        <article className="agent-queue-context-ref" key={snapshot.id}>
+          <div className="agent-queue-context-ref-header">
+            <strong>{snapshot.title}</strong>
+            <span>{snapshot.capped ? "Capped" : "Bounded"}</span>
+          </div>
+          <p>{snapshot.content}</p>
+          <dl>
+            <div>
+              <dt>Snapshot</dt>
+              <dd>{snapshot.id}</dd>
+            </div>
+            <div>
+              <dt>Tokens</dt>
+              <dd>{snapshot.tokenEstimate.toString()}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </div>
   );
 }
 

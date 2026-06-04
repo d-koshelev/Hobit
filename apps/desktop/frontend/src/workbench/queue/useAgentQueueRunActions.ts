@@ -8,6 +8,7 @@ import type {
 } from "../../workspace/types";
 import { errorToMessage, normalizeQueueTag, shortWidgetInstanceId } from "../agentQueueTaskUiModel";
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
+import { materializeQueueExecutionPrompt } from "../agentQueueKnowledgeContext";
 import type { WidgetRenderProps } from "../types";
 import { queueRunStartErrorMessage } from "./agentQueueControllerHelpers";
 import { staleExecutionPlanPreview } from "./agentQueueExecutionPlanModel";
@@ -320,6 +321,12 @@ export function createAgentQueueRunActions({
     const request: AgentQueueTaskStartRequest = {
       approvalPolicy,
       codexExecutable,
+      materializedOperatorPrompt:
+        taskForRun.context &&
+        (taskForRun.context.attachedKnowledgeRefs.length > 0 ||
+          taskForRun.context.attachedSkillRefs.length > 0)
+          ? materializeQueueExecutionPrompt(taskForRun).materializedPrompt
+          : null,
       queueItemId: taskForRun.queueItemId,
       queueOwnerWidgetInstanceId: selectedExecutorIsQueueOwned
         ? selectedExecutorWidgetId

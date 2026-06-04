@@ -678,10 +678,29 @@ export function useAgentQueueController({
         Boolean(routingState?.canTake)
       );
     });
+    const hasContextAttachedAutorunTask = tasks.some((task) => {
+      const assignedWorkerId = task.assignedWorkerId ?? task.assignedExecutorWidgetId;
+      const routingState = assignedWorkerRoutingStates.get(task.queueItemId);
+      const contextSummary = task.context
+        ? (task.context.attachedKnowledgeRefs.length +
+          task.context.attachedSkillRefs.length)
+        : 0;
+
+      return (
+        assignedWorkerId === selectedExecutorWidgetId &&
+        task.executionPolicy === "auto" &&
+        contextSummary > 0 &&
+        Boolean(routingState?.canTake)
+      );
+    });
 
     if (!hasEligibleAssignedAutorunTask) {
       autorunPreconditionMessages.unshift(
         "No assigned auto task is currently eligible for the selected worker.",
+      );
+    } else if (hasContextAttachedAutorunTask) {
+      autorunPreconditionMessages.unshift(
+        "Attached Queue context requires a visible manual or frontend runner start before execution.",
       );
     }
   }

@@ -2,10 +2,17 @@ import type {
   AgentQueueTask,
   AgentQueueTaskContext,
   AgentQueueTaskContextRef,
+  AgentQueueTaskContextRefKind,
+  AgentQueueTaskContextSnapshot,
   AgentQueueTaskContextWarning,
   KnowledgeDocument,
   Skill,
 } from "../workspace/types";
+
+const CONTEXT_TOKEN_BUDGET = 1600;
+const CONTEXT_CHAR_BUDGET = CONTEXT_TOKEN_BUDGET * 4;
+const KNOWLEDGE_DOCUMENT_EXCERPT_CHARS = 2200;
+const SKILL_INSTRUCTION_CHARS = 1800;
 
 export type AgentQueueKnowledgeContextAttachInput =
   | {
@@ -21,6 +28,14 @@ export type AgentQueueKnowledgeContextAttachResult = {
   message: string;
   status: "attached" | "blocked" | "unavailable";
   taskTitle?: string;
+};
+
+export type AgentQueueContextPromptMaterialization = {
+  contextSection: string | null;
+  evidenceSection: string | null;
+  materializedPrompt: string;
+  snapshotsUsed: AgentQueueTaskContextSnapshot[];
+  tokenEstimate: number;
 };
 
 export function buildQueueContextAttachment(
@@ -48,6 +63,7 @@ export function attachContextToQueueTask(
 export function queueContextSummary(context: AgentQueueTaskContext | undefined) {
   const knowledgeCount = context?.attachedKnowledgeRefs.length ?? 0;
   const skillCount = context?.attachedSkillRefs.length ?? 0;
+  const snapshotCount = context?.attachedKnowledgeSnapshots.length ?? 0;
   const blockedCount =
     context?.contextWarnings.filter((warning) => warning.severity === "blocked")
       .length ?? 0;
@@ -55,7 +71,7 @@ export function queueContextSummary(context: AgentQueueTaskContext | undefined) 
     context?.contextWarnings.filter((warning) => warning.severity === "warning")
       .length ?? 0;
 
-  return { blockedCount, knowledgeCount, skillCount, warningCount };
+  return { blockedCount, knowledgeCount, skillCount, snapshotCount, warningCount };
 }
 
 export function isQueueContextAttachmentBlocked(
@@ -64,6 +80,34 @@ export function isQueueContextAttachmentBlocked(
   return buildQueueContextAttachment(input).warnings.some(
     (warning) => warning.severity === "blocked",
   );
+}
+
+export function materializeQueueExecutionPrompt(
+  task: AgentQueueTask,
+): AgentQueueContextPromptMaterialization {
+  const context = task.context;
+  const snapshots = context?.attachedKnowledgeSnapshots ?? [];
+  const snapshotsUsed = cappedSnapshotsForPrompt(snapshots);
+  const contextSection =
+    snapshotsUsed.length > 0 ? promptContextSection(snapshotsUsed) : null;
+  const evidenceSection =
+    snapshotsUsed.length > 0
+      ? promptEvidenceSection(task, snapshotsUsed, context?.contextWarnings ?? [])
+      : null;
+  const materializedPrompt = [contextSection, task.prompt.trim(), evidenceSection]
+    .filter((section): section is string => Boolean(section?.trim()))
+    .join("\n\n");
+
+  return {
+    contextSection,
+    evidenceSection,
+    materializedPrompt,
+    snapshotsUsed,
+    tokenEstimate: snapshotsUsed.reduce(
+      (total, snapshot) => total + snapshot.tokenEstimate,
+      0,
+    ),
+  };
 }
 
 function buildKnowledgeDocumentAttachment(
@@ -84,6 +128,7 @@ function buildKnowledgeDocumentAttachment(
 
   return {
     ref,
+    snapshot: knowledgeDocumentSnapshot(document, ref, attachedAt),
     warnings: knowledgeDocumentWarnings(document, ref, attachedAt),
   };
 }
@@ -103,6 +148,7 @@ function buildSkillAttachment(skill: Skill, attachedAt: string) {
 
   return {
     ref,
+    snapshot: skillSnapshot(skill, ref, attachedAt),
     warnings: skillWarnings(skill, ref, attachedAt),
   };
 }
@@ -111,11 +157,13 @@ function mergeTaskContext(
   context: AgentQueueTaskContext | undefined,
   attachment: {
     ref: AgentQueueTaskContextRef;
+    snapshot: AgentQueueTaskContextSnapshot;
     warnings: AgentQueueTaskContextWarning[];
   },
 ): AgentQueueTaskContext {
   const existingKnowledgeRefs = context?.attachedKnowledgeRefs ?? [];
   const existingSkillRefs = context?.attachedSkillRefs ?? [];
+  const existingSnapshots = context?.attachedKnowledgeSnapshots ?? [];
   const existingWarnings = context?.contextWarnings ?? [];
   const nextWarnings = [
     ...existingWarnings.filter(
@@ -123,28 +171,249 @@ function mergeTaskContext(
     ),
     ...attachment.warnings,
   ];
+  const nextSnapshots = [
+    ...existingSnapshots.filter(
+      (snapshot) => snapshot.sourceRefId !== attachment.ref.id,
+    ),
+    attachment.snapshot,
+  ];
 
   if (attachment.ref.kind === "knowledge_document") {
-    return {
+    return withContextBudget({
       attachedKnowledgeRefs: [
         ...existingKnowledgeRefs.filter((ref) => ref.id !== attachment.ref.id),
         attachment.ref,
       ],
       attachedSkillRefs: existingSkillRefs,
+      attachedKnowledgeSnapshots: nextSnapshots,
       contextWarnings: nextWarnings,
-      materializedAt: null,
-    };
+      contextTokenBudget: emptyContextBudget(),
+      materializedAt: attachment.snapshot.materializedAt,
+    });
   }
 
-  return {
+  return withContextBudget({
     attachedKnowledgeRefs: existingKnowledgeRefs,
     attachedSkillRefs: [
       ...existingSkillRefs.filter((ref) => ref.id !== attachment.ref.id),
       attachment.ref,
     ],
+    attachedKnowledgeSnapshots: nextSnapshots,
     contextWarnings: nextWarnings,
-    materializedAt: null,
+    contextTokenBudget: emptyContextBudget(),
+    materializedAt: attachment.snapshot.materializedAt,
+  });
+}
+
+function knowledgeDocumentSnapshot(
+  document: KnowledgeDocument,
+  ref: AgentQueueTaskContextRef,
+  materializedAt: string,
+): AgentQueueTaskContextSnapshot {
+  const excerpt = boundedText(document.content, KNOWLEDGE_DOCUMENT_EXCERPT_CHARS);
+  const content = [
+    `Knowledge Document: ${ref.title}`,
+    `Scope: ${ref.scope}`,
+    `Source: ${ref.source}`,
+    `Version: ${ref.version || "Unknown"}`,
+    `Status: ${ref.status}`,
+    `Summary: ${ref.quickSummary}`,
+    excerpt.text ? `Bounded excerpt:\n${excerpt.text}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+
+  return snapshot({
+    capped: excerpt.capped,
+    content,
+    kind: "knowledge_document",
+    materializedAt,
+    ref,
+  });
+}
+
+function skillSnapshot(
+  skill: Skill,
+  ref: AgentQueueTaskContextRef,
+  materializedAt: string,
+): AgentQueueTaskContextSnapshot {
+  const body = [
+    `Skill Instructions: ${ref.title}`,
+    `Scope: ${ref.scope}`,
+    `Source: ${ref.source}`,
+    `Version: ${ref.version || "Unknown"}`,
+    `Review status: ${ref.status}`,
+    `When to use: ${visibleSummary(skill.whenToUse)}`,
+    skill.prerequisites.trim() ? `Prerequisites:\n${skill.prerequisites.trim()}` : null,
+    skill.steps.trim() ? `Steps:\n${skill.steps.trim()}` : null,
+    skill.validation.trim() ? `Validation:\n${skill.validation.trim()}` : null,
+    skill.risks.trim() ? `Risks:\n${skill.risks.trim()}` : null,
+    skill.tags.trim() ? `Tags: ${skill.tags.trim()}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+  const bounded = boundedText(body, SKILL_INSTRUCTION_CHARS);
+
+  return snapshot({
+    capped: bounded.capped,
+    content: bounded.text,
+    kind: "skill",
+    materializedAt,
+    ref,
+  });
+}
+
+function snapshot({
+  capped,
+  content,
+  kind,
+  materializedAt,
+  ref,
+}: {
+  capped: boolean;
+  content: string;
+  kind: AgentQueueTaskContextRefKind;
+  materializedAt: string;
+  ref: AgentQueueTaskContextRef;
+}): AgentQueueTaskContextSnapshot {
+  return {
+    capped,
+    content,
+    id: `snapshot:${kind}:${ref.id}:${materializedAt}`,
+    kind,
+    materializedAt,
+    scope: ref.scope,
+    source: ref.source,
+    sourceRefId: ref.id,
+    status: ref.status,
+    title: ref.title,
+    tokenEstimate: estimateTokens(content),
+    version: ref.version,
   };
+}
+
+function cappedSnapshotsForPrompt(snapshots: AgentQueueTaskContextSnapshot[]) {
+  const selected: AgentQueueTaskContextSnapshot[] = [];
+  let usedChars = 0;
+
+  for (const snapshot of snapshots) {
+    if (usedChars >= CONTEXT_CHAR_BUDGET) {
+      break;
+    }
+
+    const remaining = CONTEXT_CHAR_BUDGET - usedChars;
+    const bounded = boundedText(snapshot.content, remaining);
+    const content = bounded.text;
+    selected.push({
+      ...snapshot,
+      capped: snapshot.capped || bounded.capped,
+      content,
+      tokenEstimate: estimateTokens(content),
+    });
+    usedChars += content.length;
+  }
+
+  return selected;
+}
+
+function promptContextSection(snapshots: AgentQueueTaskContextSnapshot[]) {
+  const knowledge = snapshots.filter((snapshot) => snapshot.kind === "knowledge_document");
+  const skills = snapshots.filter((snapshot) => snapshot.kind === "skill");
+
+  return [
+    "Attached Queue Context",
+    "Only this visible, bounded Queue task context is included.",
+    skills.length > 0 ? "Visible Skill Instructions" : null,
+    ...skills.map(snapshotPromptBlock),
+    knowledge.length > 0 ? "Visible Knowledge Document Excerpts" : null,
+    ...knowledge.map(snapshotPromptBlock),
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n\n");
+}
+
+function promptEvidenceSection(
+  task: AgentQueueTask,
+  snapshots: AgentQueueTaskContextSnapshot[],
+  warnings: AgentQueueTaskContextWarning[],
+) {
+  const warningIds = warnings.map((warning) => warning.id);
+  return [
+    "Queue Context Evidence",
+    `Queue task id: ${task.queueItemId}`,
+    `Snapshot ids used: ${snapshots.map((snapshot) => snapshot.id).join(", ")}`,
+    `Knowledge refs used: ${snapshots
+      .filter((snapshot) => snapshot.kind === "knowledge_document")
+      .map((snapshot) => `${snapshot.sourceRefId}@${snapshot.version || "unknown"}`)
+      .join(", ") || "None"}`,
+    `Skill refs used: ${snapshots
+      .filter((snapshot) => snapshot.kind === "skill")
+      .map((snapshot) => `${snapshot.sourceRefId}@${snapshot.version || "unknown"}`)
+      .join(", ") || "None"}`,
+    `Materialized at: ${snapshots[0]?.materializedAt ?? "Not materialized"}`,
+    `Context token estimate: ${snapshots
+      .reduce((total, snapshot) => total + snapshot.tokenEstimate, 0)
+      .toString()}`,
+    `Context warning ids: ${warningIds.length > 0 ? warningIds.join(", ") : "None"}`,
+    `Source scopes: ${Array.from(new Set(snapshots.map((snapshot) => snapshot.scope))).join(", ")}`,
+    `Source labels: ${Array.from(new Set(snapshots.map((snapshot) => snapshot.source))).join(", ")}`,
+  ].join("\n");
+}
+
+function snapshotPromptBlock(snapshot: AgentQueueTaskContextSnapshot) {
+  return [
+    `[${snapshot.kind}] ${snapshot.title}`,
+    `Ref: ${snapshot.sourceRefId}`,
+    `Scope: ${snapshot.scope}`,
+    `Source: ${snapshot.source}`,
+    `Version: ${snapshot.version || "Unknown"}`,
+    `Snapshot: ${snapshot.id}`,
+    snapshot.content,
+    snapshot.capped ? "[Capped excerpt]" : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+}
+
+function withContextBudget(context: AgentQueueTaskContext): AgentQueueTaskContext {
+  const estimatedTokens = context.attachedKnowledgeSnapshots.reduce(
+    (total, snapshot) => total + snapshot.tokenEstimate,
+    0,
+  );
+
+  return {
+    ...context,
+    contextTokenBudget: {
+      estimatedTokens,
+      maxTokens: CONTEXT_TOKEN_BUDGET,
+      overBudget: estimatedTokens > CONTEXT_TOKEN_BUDGET,
+    },
+  };
+}
+
+function emptyContextBudget() {
+  return {
+    estimatedTokens: 0,
+    maxTokens: CONTEXT_TOKEN_BUDGET,
+    overBudget: false,
+  };
+}
+
+function boundedText(value: string, maxChars: number) {
+  const text = value.trim();
+
+  if (text.length <= maxChars) {
+    return { capped: false, text };
+  }
+
+  return {
+    capped: true,
+    text: `${text.slice(0, Math.max(0, maxChars - 12)).trimEnd()}\n[truncated]`,
+  };
+}
+
+function estimateTokens(value: string) {
+  return Math.max(1, Math.ceil(value.length / 4));
 }
 
 function knowledgeDocumentWarnings(

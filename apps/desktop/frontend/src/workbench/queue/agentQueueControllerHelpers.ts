@@ -256,6 +256,14 @@ export function queueRunReadinessMessage({
     return "Add a task prompt before configuring execution.";
   }
 
+  const blockedContextWarning = selectedTask.context?.contextWarnings.find(
+    (warning) => warning.severity === "blocked",
+  );
+
+  if (blockedContextWarning) {
+    return blockedContextWarning.message;
+  }
+
   if (selectedTask.status === "draft") {
     return "Draft tasks can stay in planning without an execution workspace. Set status to queued, ready, or review needed before configuring execution.";
   }

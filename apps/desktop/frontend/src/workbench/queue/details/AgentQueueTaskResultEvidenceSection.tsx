@@ -46,6 +46,10 @@ export function AgentQueueTaskResultEvidenceSection({
   const runEvidence = directWorkEvidenceForQueue(queue);
   const failed = isFailedRunEvidence(queue, selectedTask);
   const state = resultEvidenceState(queue, selectedTask, report, runEvidence);
+  const shouldShowContextEvidence = Boolean(
+    selectedTask.context?.attachedKnowledgeSnapshots.length &&
+      (report || runEvidence || hasFinishedRunLink(queue)),
+  );
 
   return (
     <section
@@ -126,6 +130,9 @@ export function AgentQueueTaskResultEvidenceSection({
             : "No run evidence attached. Run the task or attach a report before coordinator review."}
         </p>
       )}
+      {shouldShowContextEvidence ? (
+        <QueueContextEvidenceSummary selectedTask={selectedTask} />
+      ) : null}
     </section>
   );
 }
@@ -229,6 +236,53 @@ function WorkerReportEvidenceSummary({
         </Button>
       </div>
     </div>
+  );
+}
+
+function QueueContextEvidenceSummary({
+  selectedTask,
+}: {
+  selectedTask: SelectedAgentQueueTask;
+}) {
+  const snapshots = selectedTask.context?.attachedKnowledgeSnapshots ?? [];
+  const warnings = selectedTask.context?.contextWarnings ?? [];
+  const tokenEstimate =
+    selectedTask.context?.contextTokenBudget.estimatedTokens ?? 0;
+
+  if (snapshots.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="agent-queue-details agent-queue-secondary-details">
+      <summary>Context used</summary>
+      <dl className="agent-queue-result-evidence-facts">
+        <div>
+          <dt>Queue task</dt>
+          <dd>{selectedTask.queueItemId}</dd>
+        </div>
+        <div>
+          <dt>Snapshots</dt>
+          <dd>{snapshots.length.toString()} used</dd>
+        </div>
+        <div>
+          <dt>Token estimate</dt>
+          <dd>{tokenEstimate.toString()}</dd>
+        </div>
+        <div>
+          <dt>Warnings</dt>
+          <dd>{warnings.length > 0 ? warnings.map((warning) => warning.id).join(", ") : "None"}</dd>
+        </div>
+      </dl>
+      <pre className="agent-queue-flow-selection-prompt">
+        {snapshots
+          .map(
+            (snapshot) =>
+              `${snapshot.id}\n${snapshot.kind}: ${snapshot.sourceRefId}@${snapshot.version || "unknown"}\nScope: ${snapshot.scope}\nSource: ${snapshot.source}\nMaterialized: ${snapshot.materializedAt}`,
+          )
+          .join("\n\n")}
+      </pre>
+    </details>
   );
 }
 

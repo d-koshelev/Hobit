@@ -53,6 +53,7 @@ pub struct StartAssignedAgentQueueTaskInput {
     pub workspace_id: String,
     pub queue_item_id: String,
     pub queue_owner_widget_instance_id: Option<String>,
+    pub materialized_operator_prompt: Option<String>,
     pub codex_executable: String,
     pub repo_root: std::path::PathBuf,
     pub sandbox: String,

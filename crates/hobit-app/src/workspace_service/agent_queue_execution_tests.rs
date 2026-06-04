@@ -62,6 +62,51 @@ fn assigned_queue_task_start_creates_direct_work_run_and_marks_running() {
 }
 
 #[test]
+fn assigned_queue_task_start_uses_visible_materialized_prompt_override() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", "Stored task prompt.");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let mut input = start_input(&workspace_id, &task.queue_item_id);
+    input.materialized_operator_prompt = Some(
+        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt.".to_owned(),
+    );
+
+    let plan = service
+        .prepare_assigned_agent_queue_task_run(input.clone())
+        .expect("prepare queue task run");
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("start queue task");
+    let stored_task = service
+        .get_agent_queue_task(&workspace_id, &task.queue_item_id)
+        .expect("get queue task")
+        .expect("queue task");
+    let run = service
+        .store
+        .get_widget_run(&start.run_id)
+        .expect("get Direct Work run")
+        .expect("Direct Work run");
+    let command_payload: Value =
+        serde_json::from_str(run.command_payload.as_deref().expect("command payload"))
+            .expect("command payload JSON");
+
+    assert_eq!(
+        plan.direct_work_input.operator_prompt,
+        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+    );
+    assert_eq!(
+        start.direct_work_input.operator_prompt,
+        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+    );
+    assert_eq!(stored_task.prompt, "Stored task prompt.");
+    assert_eq!(
+        command_payload["operator_prompt"],
+        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+    );
+}
+
+#[test]
 fn queue_owned_task_start_does_not_require_agent_executor_assignment() {
     let service = initialized_service();
     let workspace = service
@@ -491,6 +536,7 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         workspace_id: workspace_id.to_owned(),
         queue_item_id: queue_item_id.to_owned(),
         queue_owner_widget_instance_id: None,
+        materialized_operator_prompt: None,
         codex_executable: "codex".to_owned(),
         repo_root: std::env::current_dir().expect("current dir"),
         sandbox: "workspace_write".to_owned(),

@@ -8,6 +8,7 @@ import {
   queueTask,
   renderQueueController,
 } from "./useAgentQueueControllerTestHelpers";
+import { attachContextToQueueTask } from "../agentQueueKnowledgeContext";
 
 describe("useAgentQueueController task actions", () => {
   it("saves priority changes through explicit edit mode and pauses the tag", async () => {
@@ -208,6 +209,7 @@ describe("useAgentQueueController task actions", () => {
       {
         approvalPolicy: "never",
         codexExecutable: "codex.cmd",
+        materializedOperatorPrompt: null,
         queueItemId: "queue-1",
         queueOwnerWidgetInstanceId: undefined,
         repoRoot: "C:\\repo",
@@ -215,6 +217,61 @@ describe("useAgentQueueController task actions", () => {
       },
     ]);
     expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("starts assigned tasks with visible materialized Queue context before the stored prompt", async () => {
+    const taskWithContext = attachContextToQueueTask(
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        prompt: "Run this local Hobit task",
+        queueItemId: "queue-1",
+        status: "ready",
+      }),
+      {
+        kind: "skill",
+        skill: {
+          createdAt: "2026-06-04T08:00:00.000Z",
+          prerequisites: "Read visible context first.",
+          reviewStatus: "reviewed",
+          risks: "None",
+          skillId: "skill-1",
+          steps: "Use the attached instructions.",
+          tags: "queue",
+          title: "Queue execution skill",
+          updatedAt: "2026-06-04T09:00:00.000Z",
+          validation: "Run targeted validation.",
+          whenToUse: "Use when Queue tasks need context.",
+          workspaceId: "workspace-1",
+        },
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const harness = createQueueHarness([taskWithContext]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+      hook.result.current.run.onRepoRootDraftChange("C:\\repo");
+    });
+
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(1);
+    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
+    const materializedPrompt =
+      harness.startRequests[0].materializedOperatorPrompt ?? "";
+    expect(materializedPrompt.includes("Visible Skill Instructions")).toBe(true);
+    expect(
+      materializedPrompt.indexOf("Attached Queue Context") <
+        materializedPrompt.indexOf("Run this local Hobit task"),
+    ).toBe(true);
+    expect(materializedPrompt.includes("Queue Context Evidence")).toBe(true);
 
     hook.unmount();
   });
