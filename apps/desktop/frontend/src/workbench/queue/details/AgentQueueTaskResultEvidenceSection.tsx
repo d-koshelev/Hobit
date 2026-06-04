@@ -247,12 +247,6 @@ export function DirectWorkEvidenceSummary({
             <dd>Failed</dd>
           </div>
           <div>
-            <dt>Failed command</dt>
-            <dd className="agent-queue-mono">
-              {evidence.commandSummary ?? "Not reported"}
-            </dd>
-          </div>
-          <div>
             <dt>Error</dt>
             <dd>{evidence.error ?? "Not reported"}</dd>
           </div>
@@ -270,16 +264,6 @@ export function DirectWorkEvidenceSummary({
           <div>
             <dt>Status</dt>
             <dd>Passed</dd>
-          </div>
-          <div>
-            <dt>Working directory</dt>
-            <dd className="agent-queue-mono">
-              {evidence.workingDirectory ?? "Not reported"}
-            </dd>
-          </div>
-          <div>
-            <dt>AGENTS.md first line</dt>
-            <dd>{evidence.agentsSummary ?? "Not reported"}</dd>
           </div>
           <div>
             <dt>Git status</dt>

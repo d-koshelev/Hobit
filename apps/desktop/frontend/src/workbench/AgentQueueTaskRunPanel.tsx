@@ -323,19 +323,6 @@ export function AgentQueueTaskRunPanel({
                     Clear
                   </Button>
                 ) : null}
-                <Button
-                  disabled={
-                    !selectedTask.assignedExecutorWidgetId ||
-                    selectedExecutorIsQueueOwned
-                  }
-                  onClick={() =>
-                    openAssignedExecutor(selectedTask.assignedExecutorWidgetId)
-                  }
-                  title="Scroll to the assigned local executor compatibility surface."
-                  variant="ghost"
-                >
-                  Open compatibility surface
-                </Button>
               </div>
             </div>
           </details>
@@ -415,9 +402,6 @@ function QueueTaskRunStatePanel({
   status: "running" | "report-ready" | "evidence-missing";
 }) {
   const link = latestRun.link;
-  const runId = link?.directWorkRunId ?? null;
-  const executorId =
-    link?.executorWidgetId ?? selectedTask.assignedExecutorWidgetId ?? null;
   const isRunning = status === "running";
   const evidenceMissing = status === "evidence-missing";
   const failed = isFailedRunState(link?.status ?? selectedTask.status);
@@ -486,12 +470,24 @@ function QueueTaskRunStatePanel({
       ) : (
         <dl className="agent-queue-run-state-facts">
           <div>
-            <dt>Local executor</dt>
-            <dd>{executorId ?? "Not recorded"}</dd>
+            <dt>Result state</dt>
+            <dd>
+              {evidenceMissing
+                ? "Evidence missing"
+                : failed
+                  ? "Failure evidence ready"
+                  : "Report ready"}
+            </dd>
           </div>
           <div>
-            <dt>Run id</dt>
-            <dd>{runId ?? "Not recorded"}</dd>
+            <dt>Review state</dt>
+            <dd>
+              {evidenceMissing
+                ? "Not ready"
+                : failed
+                  ? "Coordinator review needed"
+                  : "Awaiting coordinator review"}
+            </dd>
           </div>
           <div>
             <dt>Started</dt>
@@ -709,23 +705,6 @@ export function AgentQueueTaskRunAdvancedDetails({
       {content}
     </details>
   );
-}
-
-function openAssignedExecutor(assignedExecutorWidgetId: string | null) {
-  if (!assignedExecutorWidgetId || typeof document === "undefined") {
-    return;
-  }
-
-  const target = Array.from(
-    document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
-  ).find(
-    (element) => element.dataset.widgetInstanceId === assignedExecutorWidgetId,
-  );
-
-  target?.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
 }
 
 function scrollToSelectedTaskReport() {

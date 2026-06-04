@@ -578,8 +578,10 @@ describe("AgentQueueTaskRunPanel latest run summary", () => {
     expect(executionText).toContain("Report ready");
     expect(executionText).toContain("Awaiting coordinator review");
     expect(executionText).toContain("View report");
-    expect(executionText).toContain("queue_owned_executor");
-    expect(executionText).toContain("run_done_123456");
+    expect(executionText).toContain("Result stateReport ready");
+    expect(executionText).toContain("Review stateAwaiting coordinator review");
+    expect(executionText).not.toContain("queue_owned_executor");
+    expect(executionText).not.toContain("run_done_123456");
     expect(executionText).not.toContain("Local executor unavailable");
     expect(executionText).not.toContain("Select local executor");
     expect(executionText).not.toContain("Assign");
@@ -991,13 +993,12 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Final response");
     expect(resultText).toContain("StatusPassed");
-    expect(resultText).toContain(
-      "Working directoryC:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
-    );
-    expect(resultText).toContain("AGENTS.md first line# AGENTS.md");
     expect(resultText).toContain("Git statusmain...origin/main [ahead 1]");
     expect(resultText).toContain("Files changed by this runNone");
     expect(resultText).toContain("Final Direct Work response visible to coordinator.");
+    expect(resultText).not.toContain("Working directory");
+    expect(resultText).not.toContain("AGENTS.md first line");
+    expect(resultText).not.toContain("codex exec --json");
     expect(resultText.indexOf("Final response")).toBeLessThan(
       resultText.indexOf("Files changed by this run"),
     );
@@ -1314,9 +1315,10 @@ describe("AgentQueueTaskDetailsPanel expanded detail", () => {
     expect(reportText).toContain("Run failed");
     expect(reportText).toContain("Failure summary");
     expect(reportText).toContain("StatusFailed");
-    expect(reportText).toContain("Failed commandcodex exec --json");
     expect(reportText).toContain("ErrorCodex executable not found.");
     expect(reportText).toContain("OutputCodex Direct Work stream failed");
+    expect(reportText).not.toContain("Failed command");
+    expect(reportText).not.toContain("codex exec --json");
     expect(reportText).not.toContain("Final error");
     expect(reportText).not.toContain(
       "Evidence summary for coordinator review. Raw output is collapsed below.",

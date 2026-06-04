@@ -235,7 +235,6 @@ export function AgentQueueRunReadinessPanel({
         <>
           <p className="agent-queue-message agent-queue-message-success">
             {run.startMessage}
-            {run.startedRunId ? ` Run id: ${run.startedRunId}.` : ""}
           </p>
           <p className="agent-queue-run-note">
             Result appears in Logs/report when available.
