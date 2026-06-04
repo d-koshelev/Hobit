@@ -2,27 +2,37 @@
 
 ## Purpose
 
-This contract defines the future Knowledge Catalog model for dynamic
-global and workspace-local project knowledge.
+This contract defines the full Knowledge Catalog model for dynamic global and
+workspace-local project knowledge.
 
 The Knowledge Catalog is explicit project memory. It is not hidden AI memory,
 not automatic prompt augmentation, not a background ingestion system, and not a
 replacement for operator review.
 
-This is a docs/type-design contract only. It does not add storage, schema,
-frontend UI, backend/Tauri commands, provider behavior, Queue behavior,
-Workspace Agent behavior, automatic ingestion, or runtime execution.
+This is primarily a docs/type-design contract. It also records the current
+partial catalog-shaped Knowledge Document fields so future work does not treat
+that partial implementation as either absent or complete.
+
+This document does not add storage, schema, frontend UI, backend/Tauri
+commands, provider behavior, Queue behavior, Workspace Agent behavior,
+automatic ingestion, or runtime execution.
 
 ## Status
 
-Knowledge Catalog is not implemented in the current product surface.
+The full Knowledge Catalog is not implemented in the current product surface.
+
+The current Knowledge / Skills implementation has a partial catalog-shaped
+Knowledge Document model. Knowledge Documents can carry a catalog item type,
+quick summary, lifecycle/status, source kind/source ref, source label, scope,
+enabled flag, tags, and content. This is not a standalone Knowledge Catalog
+store and does not implement the full item model in this contract.
 
 The current implemented Knowledge / Skills MVP remains limited to scoped
 plain-text/Markdown Knowledge Documents and Skills as described in
 `docs/CURRENT_WIDGET_SURFACE.md` and
 `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`.
 
-This contract defines the intended product model for a later explicit
+This contract defines the intended product model for a later explicit full
 Knowledge Catalog slice.
 
 ## Product Definition
@@ -101,6 +111,14 @@ Related file, task, and commit fields may be empty when not applicable, but
 the fields must exist in the item model so provenance can be represented
 consistently.
 
+Current partial implementation note: Knowledge Documents already support a
+compatible subset of these fields for review and scan surfaces, including
+`quickSummary`, item type, lifecycle/status, scope, source label/kind/ref,
+tags, enabled state, and content. First-class `relatedFiles`, `relatedTasks`,
+`relatedCommits`, and `createdByTaskId` fields are not implemented as durable
+required Catalog fields. Prompt-text source refs, draft source refs, and source
+labels provide partial provenance only.
+
 ## Quick Knowledge
 
 Every item has quick knowledge through `quickSummary`.
@@ -170,6 +188,13 @@ Knowledge Catalog must support these explicit operations when implemented:
 All operations are explicit and operator-visible. Generated drafts may suggest
 changes, but generation does not create active project memory by itself.
 
+Current partial implementation note: Knowledge Documents support explicit
+create, edit/update, lifecycle/status changes, delete, import, Notes
+promotion, draft acceptance, and source-backed refresh Queue task creation in
+the Knowledge / Skills UI. Those operations remain Knowledge Document
+operations; they do not complete the full Knowledge Catalog operation set,
+merge/split model, relationship model, or standalone Catalog store.
+
 ## Agent And Queue Context Rules
 
 Every use of Knowledge Catalog content in Workspace Agent, Agent Queue, Agent
@@ -196,16 +221,23 @@ execution path.
 
 ## Relationship To Knowledge / Skills / Evidence
 
-Knowledge Catalog is a future product model that may organize Knowledge
-Documents, Skills, runbooks, validation rules, known issues, decisions, and
-other reviewed project memory under a single explicit catalog.
+The full Knowledge Catalog is a future product model that may organize
+Knowledge Documents, Skills, runbooks, validation rules, known issues,
+decisions, and other reviewed project memory under a single explicit catalog.
+
+Current Knowledge Documents intentionally use some Catalog-compatible fields so
+they can be reviewed, summarized, sourced, scoped, searched, attached to Queue
+tasks, materialized for explicit Queue runs, or promoted from Notes without
+becoming hidden memory or a complete Catalog item store.
 
 It does not replace the current Knowledge / Skills MVP and does not make
 existing Knowledge Documents, Skills, Notes, artifacts, evidence refs, Queue
 tasks, Executor output, Terminal output, Git diffs, SQL results, provider text,
 or files into catalog items automatically.
 
-Notes are not Knowledge Catalog items by default.
+Notes are not Knowledge Catalog items by default. The current Notes surface can
+explicitly promote a saved selected Note into a separate Knowledge Document
+after operator action; the original Note remains unchanged.
 
 Artifacts are not Knowledge Catalog items by default.
 
@@ -229,7 +261,7 @@ This contract does not add:
 - hidden filesystem scanning;
 - automatic Notes, artifact, log, result, Git, JDBC, Terminal, Queue, Executor,
   provider, or file ingestion;
-- automatic Queue task creation;
+- hidden or unapproved Queue task creation;
 - automatic execution;
 - tool permission grants;
 - provider tool calls;
@@ -241,4 +273,4 @@ This contract does not add:
 - embeddings or vector search;
 - binary document parsing;
 - folder watchers;
-- Knowledge Catalog implementation.
+- full Knowledge Catalog implementation.

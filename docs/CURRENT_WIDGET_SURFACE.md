@@ -912,14 +912,31 @@ v0.1 product widget.
   use, prerequisites, steps, validation, risks, tags, and review status.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
 - Knowledge Documents are plain-text/Markdown reference records with title,
-  source label, content, tags, enabled flag, scope, and deterministic text
+  quick summary, catalog-shaped item type, lifecycle/status, source label,
+  source kind/ref, content, tags, enabled flag, scope, and deterministic text
   chunks. Workspace-scoped documents belong only to one Workspace. Global
   documents are local-user/global records available across Workspaces in this
   desktop database. Import is limited to explicit single-file plain
-  text/Markdown reads.
+  text/Markdown reads. The partial catalog-shaped fields do not implement a
+  standalone full Knowledge Catalog item store, first-class related
+  files/tasks/commits, created-by-task provenance fields, or graph relations.
   No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
   embeddings, vector database, Evidence store, Context Pack builder,
   team/server sharing, server runtime, or RBAC is implemented.
+- Notes can be promoted to Knowledge only through an explicit operator action
+  from a saved selected Note. Promotion creates a separate Knowledge Document
+  with source metadata and leaves the original Note unchanged. Notes are not
+  read, summarized, indexed, or promoted automatically.
+- Workspace Agent and Finder can create visible manual Knowledge-generation
+  Queue task drafts from explicit selected codebase/docs/history refs or
+  prompt text. Creating the task does not run analysis, activate Knowledge,
+  search hidden context, or create provider/tool permissions. Structured
+  durable source refs and a dedicated generation runtime remain future.
+- Queue worker report output can expose draft Knowledge packs for review in
+  Knowledge / Skills. Accept/reject requires explicit operator action.
+  Rejected draft review is a review disposition, not a durable rejected
+  Knowledge record unless a separate Knowledge Document lifecycle action is
+  taken.
 - Knowledge / Skills is operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
@@ -937,11 +954,18 @@ v0.1 product widget.
   Workspace/Global scope labels, and added to the Codex prompt only for that
   run. No disabled documents, Skills, Notes, files, logs, or hidden Workspace
   context are searched by this path.
-- Knowledge / Skills does not implement Knowledge Items, Evidence links,
-  Context Pack links, Artifact links, Notes-to-Knowledge promotion, Runbook
-  execution, tool execution, team/server sharing, RBAC, embeddings/vector DB,
-  PDF/DOCX parsing, folder scanning, filesystem watchers, hidden ingestion, or
-  server runtime behavior.
+- Selected saved Knowledge Documents and Skills can attach to the selected
+  Queue task as safe refs/summaries with bounded snapshots, warnings, token
+  estimates, and visible prompt materialization before explicit Queue
+  execution. This Queue context behavior is frontend-local and current-session
+  unless already represented indirectly in an explicit materialized prompt/run
+  handoff; it is not durable Queue-owned context storage/API state, not a
+  Context Pack, and not an Evidence store.
+- Knowledge / Skills does not implement a full Knowledge Catalog, full
+  Knowledge Item store, Evidence links, Context Pack links, Artifact links,
+  Runbook execution, tool execution, team/server sharing, RBAC,
+  embeddings/vector DB, PDF/DOCX parsing, folder scanning, filesystem
+  watchers, hidden ingestion, background indexing, or server runtime behavior.
 
 ### Runbook
 
@@ -1008,7 +1032,7 @@ or surfaced unless explicitly requested by a future task:
   beyond the current column navigation, file preview/edit, selected-file diff,
   history, manual local commit, and explicit manual push behavior
 - separate legacy Coordinator preview surface
-- Knowledge Catalog
+- full Knowledge Catalog
 - Stages
 - full Notebook
 - real Runbook engine

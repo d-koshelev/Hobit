@@ -21,6 +21,13 @@ MVP and the focused Queue-context extensions listed below.
 Stable v0.1 final acceptance status: manual smoke still required before the
 overall Stable gate can be closed.
 
+Current boundary: Knowledge Documents have partial catalog-shaped fields, but
+the full Knowledge Catalog is not accepted as implemented. Queue context
+attach/materialization is implemented as frontend-local/current-session
+behavior unless already represented indirectly in an explicit materialized
+prompt/run handoff; durable Queue-owned context storage/API state and a
+separate Evidence/Context Pack store remain future.
+
 ## Acceptance Status
 
 | Area | Automated status | Acceptance note |
@@ -32,8 +39,9 @@ overall Stable gate can be closed.
 | Knowledge generation via Queue task | Pass for current boundary | Workspace Agent/Finder-style generation prompts create visible manual Queue task drafts for docs/codebase/history-to-Knowledge workflows. Creating the task does not execute analysis or activate Knowledge. |
 | Draft review | Pass | Queue worker report output can expose draft Knowledge packs; Knowledge / Skills can review imported draft items before accept/reject. Accepted records still require explicit operator action. |
 | Attach to Workspace Agent | Pass for current Stable scope | Selected Skills attach to Workspace Agent as visible editable context. Knowledge Documents are not silently attached; enabled document snippets may be visibly materialized for explicit Workspace Agent Codex runs. |
-| Attach to Queue task | Pass | Selected saved Knowledge Documents and Skills can attach to the selected Queue task as task-owned safe refs/summaries. Disabled or blocked Knowledge is rejected with visible feedback. |
-| Prompt materialization | Pass | Queue execution can materialize visible attached Queue context before the task prompt with evidence refs, warnings, token estimate, and capped Knowledge excerpts. Workspace Agent Codex Knowledge snippets remain capped and scope-labeled. |
+| Notes promotion | Pass | A saved selected Note can be explicitly promoted into a separate Knowledge Document with source metadata. The Note remains unchanged and no Notes content is read or promoted automatically. |
+| Attach to Queue task | Pass for current boundary | Selected saved Knowledge Documents and Skills can attach to the selected Queue task as frontend-local safe refs/summaries. Disabled or blocked Knowledge is rejected with visible feedback. Durable Queue-owned context storage/API state remains future. |
+| Prompt materialization | Pass for current boundary | Queue execution can materialize visible attached Queue context before the task prompt with evidence-style refs, warnings, token estimate, and capped Knowledge excerpts. Workspace Agent Codex Knowledge snippets remain capped and scope-labeled. Separate durable Evidence/Context Pack records remain future. |
 | Safety/non-goals | Pass | No hidden memory, folder scan, binary parsing, embeddings/vector DB, Evidence store, Context Pack runtime, team/server sharing, auto-activation, auto-execution, provider tools, or automatic Skill injection is accepted. |
 
 ## Automated Evidence
@@ -82,10 +90,11 @@ The following remain outside Stable v0.1 Knowledge / Skills acceptance:
 
 - hidden AI memory or automatic prompt augmentation;
 - automatic Skill search/injection;
-- automatic Queue task creation, execution, or acceptance;
+- hidden or unapproved Queue task creation, execution, or acceptance;
 - automatic Knowledge activation from generated drafts;
 - selected-document full-body attach to Workspace Agent by default;
 - folder scans, filesystem watchers, recursive ingestion, PDF/DOCX parsing, or
   binary parsing;
-- embeddings, vector database, Knowledge Catalog implementation, Evidence
-  store, Context Pack runtime, team/server sharing, RBAC, or provider tools.
+- embeddings, vector database, full Knowledge Catalog implementation, Evidence
+  store, Context Pack runtime, durable Queue-owned context storage/API state,
+  team/server sharing, RBAC, or provider tools.

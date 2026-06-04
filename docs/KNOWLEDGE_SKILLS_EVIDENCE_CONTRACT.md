@@ -17,11 +17,15 @@ Hobit currently has workspace-local and local-global Knowledge Documents for
 plain-text or Markdown reference material explicitly added through the
 Knowledge / Skills widget. Workspace documents belong to one Workspace only.
 Global documents are local-user/global records available across Workspaces in
-this desktop database. The widget supports manual document authoring and
-explicit single-file import for `.txt`, `.md`, and `.markdown` files.
-Documents are chunked deterministically and searched with bounded lexical
-search only. This is not a Knowledge Item/Evidence/Context Pack store and is
-not team/server knowledge.
+this desktop database. The widget supports manual document authoring, explicit
+single-file import for `.txt`, `.md`, and `.markdown` files, explicit Notes
+promotion from a saved selected Note, and explicit draft acceptance from
+reviewed generated Knowledge packs. Documents are chunked deterministically
+and searched with bounded lexical search only. Knowledge Documents now carry
+partial catalog-shaped fields such as quick summary, item type,
+lifecycle/status, source label/kind/ref, scope, tags, enabled state, and
+content. This is not a full Knowledge Item store, Evidence store, Context Pack
+store, standalone Knowledge Catalog, or team/server knowledge.
 
 Hobit currently has no implemented evidence store.
 
@@ -29,8 +33,9 @@ Hobit currently has a Knowledge / Skills widget for
 workspace-local operator-authored Skill records and scoped Knowledge Documents. It
 supports explicit create/list/read/update/delete of simple text Skill records
 with review status and tags, and explicit create/list/read/update/delete/search
-of Knowledge Documents with title, source label, content, tags, enabled flag,
-scope, and chunks. Explicit text/Markdown import creates Knowledge Documents
+of Knowledge Documents with title, quick summary, item type, lifecycle/status,
+source label/kind/ref, content, tags, enabled flag, scope, and chunks. Explicit
+text/Markdown import and explicit Notes promotion create Knowledge Documents
 through the same document create path. The operator can explicitly attach the
 selected Skill to Workspace Agent as visible current-session composer context.
 Workspace Agent can also draft visible catalog creation proposals from explicit
@@ -48,6 +53,11 @@ Enabled workspace-local and enabled local-global Knowledge Documents may be
 automatically searched by Workspace Agent before an explicit Run with Codex.
 Retrieved snippets are capped, visible in the Direct Work details with
 Workspace/Global scope labels, and added only to that run's Codex prompt.
+Selected saved Knowledge Documents and Skills may also be attached explicitly
+to a selected Queue task as frontend-local/current-session safe refs,
+summaries, warnings, token estimates, and bounded materialized prompt context.
+This is not durable Queue-owned context storage/API state, not a Context Pack,
+and not an Evidence store.
 
 The current Rust reference vocabulary lives in
 `crates/hobit-app/src/knowledge/`. It is mostly type-only scaffolding for
@@ -66,9 +76,11 @@ context wiring, provider prompt changes, UI, schema changes, or runtime
 behavior.
 
 Notes exist as workspace-local human-authored text records, but Notes are not
-Knowledge Documents. A Note does not become reusable Knowledge by default, and
-existing Notes content is not silently read, summarized, indexed, or sent to
-Workspace Agent.
+Knowledge Documents. A Note does not become reusable Knowledge by default.
+Current Notes promotion requires an explicit operator action from a saved
+selected Note and creates a separate Knowledge Document with source metadata;
+existing Notes content is not silently read, summarized, indexed, promoted, or
+sent to Workspace Agent.
 
 Artifacts currently exist as reference vocabulary only through
 `docs/ARTIFACT_REFERENCE_OWNERSHIP_CONTRACT.md`. Artifact refs do not create an
@@ -285,14 +297,17 @@ Runbook engine behavior beyond that Knowledge / Skills MVP.
 
 This contract does not add:
 
-- full Knowledge Item store beyond scoped plain-text Knowledge Documents;
+- full Knowledge Item store beyond scoped plain-text Knowledge Documents with
+  partial catalog-shaped fields;
 - embeddings/vector database;
 - PDF/DOCX parsing or binary ingestion;
 - folder scanning, recursive ingestion, filesystem watchers, or hidden file
   ingestion;
 - evidence store;
-- full Knowledge/Skills system beyond the current Knowledge / Skills MVP;
+- full Knowledge/Skills system beyond the current Knowledge / Skills MVP and
+  focused frontend-local Queue context extensions;
 - Context Pack UI or runtime;
+- durable Queue-owned context storage/API state;
 - automatic context ingestion;
 - hidden prompt augmentation;
 - hidden Workspace scanning;
@@ -307,8 +322,9 @@ This contract does not add:
 - permissions;
 - schema changes beyond Knowledge / Skills MVP storage;
 - frontend behavior changes beyond Knowledge / Skills MVP UI,
-  scoped document search, and explicit selected Skill attach to
-  Workspace Agent;
+  scoped document search, explicit selected Skill attach to Workspace Agent,
+  explicit Notes promotion, draft review, and current-session Queue context
+  attach/materialization;
 - Tauri commands or DTO changes beyond Knowledge / Skills MVP CRUD;
 - Queue, Direct Work, Terminal, Git, JDBC, Workspace Agent, Notes, or Runbook
   behavior changes.

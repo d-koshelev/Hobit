@@ -280,28 +280,30 @@ unless the task explicitly requests it.
   and `crates/hobit-app/src/context_packs/` partly as type scaffolding. They do
   not add an evidence store, Context Pack store, hidden ingestion, team/server
   knowledge, server runtime, or RBAC.
-- `docs/KNOWLEDGE_CATALOG_CONTRACT.md` - read for future Knowledge Catalog
-  product-model or type-design work. It defines explicit global and
+- `docs/KNOWLEDGE_CATALOG_CONTRACT.md` - read for full Knowledge Catalog
+  product-model or type-design work and for the current partial
+  catalog-shaped Knowledge Document fields. It defines explicit global and
   workspace-local project memory, item types, required fields, scopes,
   lifecycle, operations, visible Agent/Queue context rules, and no hidden AI
-  memory. It is docs/type-design only and does not add storage, schema,
-  frontend UI, backend/Tauri commands, provider behavior, Queue behavior,
-  Workspace Agent behavior, automatic ingestion, or runtime execution.
-- `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md` - read for future
-  Queue-based Knowledge generation workflow work. It defines how Workspace
-  Agent may create approved Queue tasks that analyze selected codebase,
-  documentation, and coordinator/command history sources and return draft
-  Knowledge packs for operator review. It is docs/type-design only and does
-  not add storage, schema, frontend UI, backend/Tauri commands, provider
-  tools, Queue execution, background ingestion, hidden memory, vector search,
-  folder watching, or automatic activation.
-- `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` - read for future Queue task
-  Knowledge / Skills attachment semantics. It defines Queue-owned attached
+  memory. The full Catalog remains future; the current Knowledge / Skills
+  implementation has partial document fields only and this contract does not
+  add storage, schema, frontend UI, backend/Tauri commands, provider behavior,
+  Queue behavior, Workspace Agent behavior, automatic ingestion, or runtime
+  execution.
+- `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md` - read for Queue-based
+  Knowledge generation workflow work. It records the current partial behavior
+  for visible/manual Queue task creation and draft-pack review, and defines the
+  future structured source-ref/generation workflow. It does not add storage,
+  schema, frontend UI, backend/Tauri commands, provider tools, Queue
+  execution, background ingestion, hidden memory, vector search, folder
+  watching, or automatic activation.
+- `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` - read for Queue task Knowledge /
+  Skills attachment semantics. It records current frontend-local/current-session
+  attach and materialization behavior, and defines future durable Queue-owned
   context refs, bounded materialized snapshots, warnings, token budget, right
-  rail visibility, and execution evidence requirements. It is docs/type-design
-  only and does not add storage, schema, frontend UI, backend/Tauri commands,
-  provider behavior, Queue execution, hidden memory, or automatic context
-  injection.
+  rail visibility, and execution evidence requirements. It does not add
+  storage, schema, frontend UI, backend/Tauri commands, provider behavior,
+  Queue execution, hidden memory, or automatic context injection.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /

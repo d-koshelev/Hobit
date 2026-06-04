@@ -3,20 +3,33 @@
 ## Purpose
 
 This contract defines how Knowledge Documents and Skills may be attached to
-Agent Queue tasks before implementation.
+Agent Queue tasks, including the current partial frontend-local behavior and
+the future durable Queue-owned model.
 
-This is docs/type-design only. It does not add storage, schema, frontend UI,
-backend/Tauri commands, provider behavior, Queue execution, Workspace Agent
-behavior, Knowledge retrieval changes, Agent Executor prompt changes, runtime
-context materialization, audit emission, or automatic ingestion.
+This document does not add storage, schema, frontend UI, backend/Tauri
+commands, provider behavior, Queue execution, Workspace Agent behavior,
+Knowledge retrieval changes, Agent Executor prompt changes, audit emission, or
+automatic ingestion.
 
 ## Status
 
-Planned contract for future Queue task context semantics.
+Partially implemented contract for Queue task context semantics.
 
 Current implemented behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`, `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`,
 and `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`.
+
+Current implemented behavior includes explicit operator attachment of saved
+Knowledge Documents and Skills to the selected Queue task as safe refs,
+bounded summaries/snapshots, warnings, token estimates, and visible
+materialized context prepended before explicit Queue execution prompts. Attach
+does not start work and does not create Queue tasks automatically.
+
+Current limitation: this context attachment/materialization is frontend-local
+and current-session unless already represented indirectly in an explicit
+materialized prompt/run handoff. It is not durable Queue-owned storage/API
+state, not a backend scheduler input, and not a Context Pack or Evidence
+store.
 
 ## Ownership Model
 
@@ -30,8 +43,8 @@ Knowledge / Skills owns source records:
 - document content, skill content, lifecycle status, scope, source, version,
   enabled state, and review state.
 
-Agent Queue owns task-scoped context references and task-scoped materialized
-snapshots:
+In the full future model, Agent Queue owns task-scoped context references and
+task-scoped materialized snapshots:
 
 - which Knowledge refs are attached to the Queue task;
 - which Skill refs are attached to the Queue task;
@@ -44,7 +57,9 @@ snapshots:
 The Knowledge / Skills widget only sends explicit attach, detach, or replace
 actions selected by the operator. The widget does not transfer ownership of
 source records to Queue, does not create Queue tasks automatically, and does
-not silently attach active Knowledge or Skills to existing tasks.
+not silently attach active Knowledge or Skills to existing tasks. In the
+current implementation, those actions update frontend-local selected-task
+context state rather than durable Queue task records.
 
 Queue must not mutate Knowledge Documents or Skills when attaching, detaching,
 materializing, running, completing, accepting, rejecting, or archiving a task.
@@ -53,7 +68,8 @@ or warning-bearing, but they do not silently rewrite historical task snapshots.
 
 ## Queue Task Context Shape
 
-Future Queue task context state should be modeled as a task-owned object:
+Future durable Queue task context state should be modeled as a task-owned
+object:
 
 ```ts
 type QueueTaskContext = {
@@ -66,9 +82,12 @@ type QueueTaskContext = {
 };
 ```
 
-This shape is vocabulary for future implementation. Field names may be refined
-when API and storage work starts, but the ownership and safety semantics in
-this contract must be preserved.
+This shape is vocabulary for future durable implementation. Current
+frontend-local Queue context uses compatible refs, snapshots, warnings, token
+estimates, and materialized prompt content where available, but field names and
+persistence are not a stable backend API. Field names may be refined when API
+and storage work starts, but the ownership and safety semantics in this
+contract must be preserved.
 
 ## Attached Knowledge Refs
 
@@ -194,10 +213,21 @@ severity. Queue may allow execution with warning-level context only after the
 warning is visible in the Queue task review surface and the operator makes the
 future required acknowledgement.
 
+Current implementation note: disabled and rejected Knowledge are blocked on
+attach, stale Knowledge is warning-bearing with visible confirmation, and
+draft/archived Knowledge are warning-bearing. These warnings are part of the
+frontend-local context state and materialized prompt review path, not durable
+Queue-owned policy records.
+
 ## Token Budget
 
 Queue task context must have an explicit token budget before execution context
 is materialized.
+
+Current implementation note: Queue context materialization computes and shows
+bounded context, warnings, evidence refs, and token estimates before explicit
+Queue execution. This is current-session frontend behavior and does not create
+a durable Context Pack or evidence record.
 
 `contextTokenBudget` should include:
 
@@ -261,6 +291,11 @@ Historical evidence must remain tied to the context used at the time of run.
 Later edits to Knowledge Documents, Skills, Queue task prompt text, or context
 attachments must not rewrite past execution evidence.
 
+Current implementation note: durable execution evidence is not implemented as
+a separate evidence store. The current run handoff can include visible
+materialized context and safe evidence-style refs in the task prompt path, but
+that does not satisfy the full future execution evidence model above.
+
 ## Safety Rules
 
 - No raw full Knowledge or Skill bodies by default.
@@ -282,8 +317,9 @@ attachments must not rewrite past execution evidence.
 ## Relationships To Existing Contracts
 
 `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md` defines Queue as the
-Workspace-level task and executor-history surface. This contract adds only
-future task-context semantics for Knowledge and Skills.
+Workspace-level task and executor-history surface. This contract records
+current frontend-local task-context behavior and defines future durable
+task-context semantics for Knowledge and Skills.
 
 `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md` defines the current Knowledge /
 Skills MVP, the no-hidden-memory rule, and the explicit AI context boundary.
@@ -291,13 +327,13 @@ This contract preserves those boundaries for Queue tasks.
 
 `docs/KNOWLEDGE_CATALOG_CONTRACT.md` defines future Knowledge Catalog items,
 including `quickSummary`, scope, source, and lifecycle status. This contract
-uses those fields as the minimum visible context vocabulary for future Queue
-attachments.
+uses those fields as the minimum visible context vocabulary for current
+frontend-local Queue attachments and future durable Queue attachments.
 
 `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` governs explicit execution of assigned
 Queue tasks. This contract does not add execution behavior; it only defines
-what context metadata future execution evidence must record when context use is
-implemented.
+what context metadata future durable execution evidence must record when that
+evidence model is implemented.
 
 ## Non-Goals
 
@@ -307,7 +343,7 @@ This contract does not add:
 - Knowledge storage fields;
 - SQLite migrations;
 - Tauri commands;
-- frontend UI;
+- new frontend UI beyond the current partial attach/materialization surface;
 - Widget API methods;
 - Workspace Agent provider changes;
 - Agent Executor prompt changes;
@@ -320,7 +356,7 @@ This contract does not add:
 - embeddings or vector search;
 - binary parsing;
 - folder scanning;
-- runtime context resolver;
+- durable runtime context resolver;
 - automatic Knowledge generation;
 - automatic task creation;
 - automatic attachment;

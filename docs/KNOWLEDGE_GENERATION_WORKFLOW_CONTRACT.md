@@ -1,15 +1,15 @@
 # Knowledge Generation Workflow Contract
 
-Contract status: docs/type-design only.
+Contract status: docs/type-design plus implemented partial workflow record.
 
-This contract defines how Workspace Agent may use Agent Queue to generate
-draft Knowledge from explicitly selected codebase, documentation, and
-coordinator/command history sources.
+This contract defines how Workspace Agent, Finder, and Queue may support
+operator-reviewed draft Knowledge generation from explicitly selected codebase,
+documentation, and coordinator/command history sources.
 
-It does not implement frontend UI, backend/Tauri commands, storage/schema
-changes, provider tools, Agent Executor behavior, Queue execution behavior,
-Knowledge Catalog behavior, vector search, filesystem scanning, or automatic
-ingestion.
+This document does not add frontend UI, backend/Tauri commands,
+storage/schema changes, provider tools, Agent Executor behavior, Queue
+execution behavior, full Knowledge Catalog behavior, vector search, filesystem
+scanning, or automatic ingestion.
 
 ## Purpose
 
@@ -40,16 +40,24 @@ Workspace Agent owns conversation, proposal, and interpretation.
 
 ## Status And Current Boundary
 
-This is a planned workflow contract.
+This is a partially implemented workflow contract.
 
-Current implemented behavior remains limited to the Knowledge / Skills MVP in
-`docs/CURRENT_WIDGET_SURFACE.md` and
-`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`.
+Current implemented behavior remains limited to the Knowledge / Skills MVP and
+focused Queue-generation extensions in `docs/CURRENT_WIDGET_SURFACE.md`,
+`docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`, and
+`docs/KNOWLEDGE_SKILLS_STABLE_V0_1_STATUS.md`.
 
-Existing Workspace Agent proposal behavior can create draft Queue tasks only
-through visible approval and a separate create action. This contract does not
-expand that current runtime. Future implementation must still preserve the
-same approval boundary.
+Current implemented behavior includes visible/manual Knowledge-generation
+Queue task creation from Workspace Agent/Finder-style prompts for selected
+codebase, docs, and history refs; draft Knowledge pack parsing/review from
+worker report output; and explicit accept/reject actions in Knowledge /
+Skills. Creating a task does not execute analysis, activate Knowledge, read
+hidden context, or create durable provider/tool permissions.
+
+Still future: structured durable `sourceRefs` on Queue tasks, a dedicated
+generation runtime, automatic source analysis, full Knowledge Catalog item
+creation, durable review disposition for rejected draft proposals, vector
+search, folder watching, background indexing, and automatic activation.
 
 ## Source Selection Rules
 
@@ -83,6 +91,12 @@ caps
 redaction
 visibility
 ```
+
+Current implementation note: current generation tasks preserve source
+selection primarily in visible prompt/task text and safe refs rather than a
+durable structured `sourceRefs` storage model. Future API/storage work should
+use the shape above without expanding source access beyond explicit operator
+selection.
 
 Examples:
 
@@ -242,6 +256,11 @@ transcripts into Knowledge by default.
 
 A Knowledge generation task returns one or more draft packs.
 
+Current implementation note: draft packs can be exposed from Queue worker
+report text and parsed for review in Knowledge / Skills. This is a review
+surface over returned report content, not an automatic generation runtime or
+automatic Knowledge activation path.
+
 Conceptual shape:
 
 ```text
@@ -358,6 +377,11 @@ worker success.
 Queue reports should include safe summaries and refs, not raw logs. Agent
 Executor or the future worker owns raw execution details.
 
+Current implementation note: current Queue task creation is manual/draft, and
+any analysis depends on an explicit Queue/Executor run. Review-ready draft pack
+content is surfaced from the visible worker report; raw Executor logs and
+payloads are not copied into Knowledge by default.
+
 ## Safety Rules
 
 Knowledge generation must preserve these rules:
@@ -388,10 +412,10 @@ This contract does not add:
 - recursive repository scanning;
 - filesystem watchers;
 - automatic activation;
-- automatic Queue task creation;
+- hidden or unapproved Queue task creation;
 - automatic Queue execution;
 - automatic acceptance;
-- automatic Knowledge Catalog implementation;
+- automatic full Knowledge Catalog implementation;
 - automatic Notes, logs, results, Git, JDBC, Terminal, provider, Queue, or
   Executor ingestion;
 - broad source discovery;
