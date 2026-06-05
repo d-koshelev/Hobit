@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buttonWithText,
-  changeTextarea,
+  changeTextareaByLabel,
   clickButton,
+  clickCatalogView,
+  clickListRow,
   flush,
   renderWidget,
   skillFixture,
@@ -31,7 +33,8 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
     });
 
     await flush();
-    await clickButton("Skills");
+    await clickCatalogView("Skills");
+    await clickListRow("Frontend review");
 
     expect(attachToCoordinator).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
@@ -79,7 +82,8 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
     });
 
     await flush();
-    await clickButton("Skills");
+    await clickCatalogView("Skills");
+    await clickListRow("Saved Skill");
 
     expect(buttonWithText("Attach to Workspace Agent")).toBeUndefined();
     expect(document.body.textContent).toContain(
@@ -110,8 +114,8 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
     });
 
     await flush();
-    await clickButton("Skills");
-    await changeTextarea(2, "Unsaved edited step");
+    await clickButton("Manage skills");
+    await changeTextareaByLabel("Steps", "Unsaved edited step");
 
     const attachButton = buttonWithText("Attach to Workspace Agent");
     expect(attachButton).toBeDefined();

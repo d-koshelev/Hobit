@@ -20,32 +20,6 @@
   background: var(--color-nested-surface);
 }
 
-.skill-library-tabs {
-  align-items: center;
-  border-bottom: 1px solid var(--color-border-subtle);
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.skill-library-tab {
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: var(--scaled-space-sm) var(--panel-padding);
-}
-
-.skill-library-tab:hover,
-.skill-library-tab-active {
-  color: var(--color-text-primary);
-}
-
-.skill-library-tab-active {
-  border-bottom-color: var(--color-border-strong);
-}
-
 .skill-library-tab-panel {
   display: flex;
   flex-direction: column;
@@ -71,22 +45,55 @@
   min-height: 0;
 }
 
-.skill-document-import {
-  align-items: end;
+.skill-library-panel-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.skill-library-utility-panel {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   display: grid;
-  gap: var(--space-sm);
-  grid-template-columns: minmax(0, 1fr) minmax(160px, auto) auto;
+  gap: var(--space-md);
   padding: var(--scaled-space-sm) var(--panel-padding);
 }
 
-.skill-draft-review {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+.skill-library-utility-panel[hidden] {
+  display: none;
+}
+
+.skill-library-panel-header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.skill-library-panel-header h3,
+.skill-library-panel-header p {
+  margin: 0;
+}
+
+.skill-library-panel-header h3 {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--line-tight);
+}
+
+.skill-document-import {
+  align-items: end;
   display: grid;
   gap: var(--space-sm);
-  padding: var(--scaled-space-sm) var(--panel-padding);
+  grid-template-columns: minmax(0, 1fr) minmax(160px, auto) auto;
+}
+
+.skill-draft-review {
+  display: grid;
+  gap: var(--space-sm);
 }
 
 .skill-draft-review-header,

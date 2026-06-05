@@ -7,17 +7,6 @@ import {
   type SkillLibraryDocumentsPanelHandle,
   type SkillLibraryDocumentsToolbarState,
 } from "./SkillLibraryDocumentsPanel";
-import {
-  SkillLibrarySkillsPanel,
-  type SkillLibrarySkillsPanelHandle,
-  type SkillLibrarySkillsToolbarState,
-} from "./SkillLibrarySkillsPanel";
-import {
-  EMPTY_SKILL_DRAFT,
-  statusLabel,
-  statusVariant,
-  type KnowledgeSurfaceTab,
-} from "./skillLibraryModel";
 import type { WidgetRenderProps } from "./types";
 
 export function SkillLibraryWidget({
@@ -44,26 +33,13 @@ export function SkillLibraryWidget({
   onUpdateSkill,
   title,
 }: WidgetRenderProps) {
-  const skillsPanelRef = useRef<SkillLibrarySkillsPanelHandle | null>(null);
   const documentsPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(
     null,
   );
-  const [activeTab, setActiveTab] = useState<KnowledgeSurfaceTab>("catalog");
-  const [skillsToolbarState, setSkillsToolbarState] =
-    useState<SkillLibrarySkillsToolbarState>({
-      isNewDisabled: true,
-      reviewStatus: EMPTY_SKILL_DRAFT.reviewStatus,
-    });
   const [documentsToolbarState, setDocumentsToolbarState] =
     useState<SkillLibraryDocumentsToolbarState>({
       isNewDisabled: true,
     });
-  const onSkillsToolbarStateChange = useCallback(
-    (state: SkillLibrarySkillsToolbarState) => {
-      setSkillsToolbarState(state);
-    },
-    [],
-  );
   const onDocumentsToolbarStateChange = useCallback(
     (state: SkillLibraryDocumentsToolbarState) => {
       setDocumentsToolbarState(state);
@@ -71,22 +47,11 @@ export function SkillLibraryWidget({
     [],
   );
 
-  const newActionDisabled =
-    activeTab === "skills"
-      ? skillsToolbarState.isNewDisabled
-      : documentsToolbarState.isNewDisabled;
   const statusBadge = (
-    <Badge variant={statusVariant(skillsToolbarState.reviewStatus)}>
-      {statusLabel(skillsToolbarState.reviewStatus)}
-    </Badge>
+    <Badge variant="info">Catalog</Badge>
   );
 
-  function startNewActiveItem() {
-    if (activeTab === "skills") {
-      skillsPanelRef.current?.startNewSkill();
-      return;
-    }
-
+  function startNewCatalogItem() {
     documentsPanelRef.current?.startNewDocument();
   }
 
@@ -95,11 +60,11 @@ export function SkillLibraryWidget({
       actions={
         <>
           <Button
-            disabled={newActionDisabled}
-            onClick={startNewActiveItem}
+            disabled={documentsToolbarState.isNewDisabled}
+            onClick={startNewCatalogItem}
             variant="secondary"
           >
-            {activeTab === "skills" ? "New skill" : "New catalog item"}
+            New catalog item
           </Button>
           {frameActions}
         </>
@@ -113,75 +78,23 @@ export function SkillLibraryWidget({
       title={title}
     >
       <div className="skill-library-shell">
-        <div className="skill-library-summary">
-          <span>Scoped Knowledge Catalog for documents and skills.</span>
-          <span>Global and workspace-local items stay visible.</span>
-          <span>Skills attach explicitly from the saved Skill record.</span>
-        </div>
-
-        <div
-          className="skill-library-tabs"
-          role="tablist"
-          aria-label="Knowledge surface tabs"
-        >
-          <button
-            aria-selected={activeTab === "catalog"}
-            className={[
-              "skill-library-tab",
-              activeTab === "catalog" ? "skill-library-tab-active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => setActiveTab("catalog")}
-            role="tab"
-            type="button"
-          >
-            Catalog
-          </button>
-          <button
-            aria-selected={activeTab === "skills"}
-            className={[
-              "skill-library-tab",
-              activeTab === "skills" ? "skill-library-tab-active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => setActiveTab("skills")}
-            role="tab"
-            type="button"
-          >
-            Skills
-          </button>
-        </div>
-
-        <SkillLibrarySkillsPanel
-          isActive={activeTab === "skills"}
-          onAttachContextToCoordinator={onAttachContextToCoordinator}
-          onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
-          onCreateSkill={onCreateSkill}
-          onDeleteSkill={onDeleteSkill}
-          onGetSkill={onGetSkill}
-          onListSkills={onListSkills}
-          onToolbarStateChange={onSkillsToolbarStateChange}
-          onUpdateSkill={onUpdateSkill}
-          ref={skillsPanelRef}
-        />
         <SkillLibraryDocumentsPanel
-          isActive={activeTab === "catalog"}
+          isActive={true}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
           onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
           onCreateAgentQueueTask={onCreateAgentQueueTask}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
           onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
+          onDeleteSkill={onDeleteSkill}
           onGetKnowledgeDocument={onGetKnowledgeDocument}
           onGetSkill={onGetSkill}
           onListKnowledgeDocuments={onListKnowledgeDocuments}
           onListSkills={onListSkills}
           onReadKnowledgeDocumentImportFile={onReadKnowledgeDocumentImportFile}
-          onShowSkills={() => setActiveTab("skills")}
           onToolbarStateChange={onDocumentsToolbarStateChange}
           onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
+          onUpdateSkill={onUpdateSkill}
           ref={documentsPanelRef}
         />
       </div>

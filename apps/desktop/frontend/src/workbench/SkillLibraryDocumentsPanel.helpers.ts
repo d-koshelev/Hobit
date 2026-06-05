@@ -7,6 +7,7 @@ import {
 } from "./knowledgeDraftPacks";
 import {
   DEFAULT_DOCUMENT_TITLE,
+  type KnowledgeDocumentDraft,
   type KnowledgeCatalogView,
 } from "./skillLibraryModel";
 
@@ -32,7 +33,7 @@ export function emptyCatalogText(view: KnowledgeCatalogView) {
   }
 
   if (view === "skills") {
-    return "Create the first saved Skill from the Skills tab.";
+    return "Create the first saved Skill from Manage skills.";
   }
 
   if (view === "drafts") {
@@ -154,5 +155,43 @@ export function refreshQueueTaskRequestFromDocument(
       "Return a bounded draft Knowledge pack for review. The draft should propose updated title, quickSummary, fullContent, tags, type, scope, confidence, blockers, and source refs. Do not activate the update.",
     ].join("\n"),
     status: "queued" as const,
+  };
+}
+
+export function knowledgeDocumentRequestFromDraft(
+  draft: KnowledgeDocumentDraft,
+  title: string,
+) {
+  return {
+    scope: draft.scope,
+    catalogItemType: draft.catalogItemType,
+    quickSummary: draft.quickSummary,
+    lifecycleStatus: draft.lifecycleStatus,
+    title,
+    sourceLabel: draft.sourceLabel,
+    sourceKind: draft.sourceKind,
+    sourceRef: draft.sourceRef,
+    content: draft.content,
+    tags: draft.tags,
+    enabled: draft.enabled,
+  };
+}
+
+export function knowledgeDocumentRequestFromDocument(
+  document: KnowledgeDocument,
+  lifecycleStatus = document.lifecycleStatus,
+) {
+  return {
+    scope: document.scope,
+    catalogItemType: document.catalogItemType,
+    quickSummary: document.quickSummary,
+    lifecycleStatus,
+    title: document.title,
+    sourceLabel: document.sourceLabel,
+    sourceKind: document.sourceKind,
+    sourceRef: document.sourceRef,
+    content: document.content,
+    tags: document.tags,
+    enabled: document.enabled,
   };
 }

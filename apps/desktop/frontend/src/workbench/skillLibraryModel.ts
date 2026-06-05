@@ -31,8 +31,6 @@ export type SkillDraft = {
   reviewStatus: SkillReviewStatus;
 };
 
-export type KnowledgeSurfaceTab = "catalog" | "skills";
-
 export type KnowledgeCatalogView =
   | "all"
   | "active"

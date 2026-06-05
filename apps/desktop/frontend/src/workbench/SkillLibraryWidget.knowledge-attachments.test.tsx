@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
   clickButton,
+  clickCatalogView,
   clickListRow,
   flush,
   knowledgeDocumentFixture,
@@ -11,7 +12,7 @@ import {
 } from "./SkillLibraryWidget.test-helpers";
 
 describe("SkillLibraryWidget Knowledge / Queue attachments", () => {
-  it("attaches the selected saved Skill to the selected Queue task from the Skills tab", async () => {
+  it("attaches the selected saved Skill to the selected Queue task from the catalog", async () => {
     const skill = skillFixture({
       reviewStatus: "reviewed",
       skillId: "skill_queue",
@@ -32,7 +33,8 @@ describe("SkillLibraryWidget Knowledge / Queue attachments", () => {
     });
 
     await flush();
-    await clickButton("Skills");
+    await clickCatalogView("Skills");
+    await clickListRow("Queue planning skill");
     await clickButton("Attach to Queue task");
 
     expect(attachKnowledgeContextToQueueTask).toHaveBeenCalledTimes(1);

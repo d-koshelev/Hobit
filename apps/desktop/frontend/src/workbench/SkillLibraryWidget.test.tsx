@@ -31,23 +31,24 @@ describe("SkillLibraryWidget", () => {
     await flush();
 
     expect(document.body.textContent).toContain("No catalog items yet.");
-    expect(document.body.textContent).toContain(
-      "Scoped Knowledge Catalog for documents and skills.",
-    );
-    expect(document.body.textContent).toContain(
-      "Global and workspace-local items stay visible.",
+    expect(document.body.textContent).not.toContain(
+      "Scoped Knowledge Catalog",
     );
     expect(document.body.textContent).toContain(
       "Catalog views combine scoped documents and saved skills.",
     );
+    expect(document.body.textContent).not.toContain("Draft payload");
+    expect(document.body.textContent).not.toContain("Import path");
     expect(buttonWithText("Active")).toBeDefined();
     expect(buttonWithText("Codebase")).toBeDefined();
     expect(buttonWithText("Prompt templates")).toBeDefined();
     expect(buttonWithText("Archived")).toBeDefined();
 
-    await clickButton("Skills");
+    await clickCatalogView("Skills");
 
-    expect(document.body.textContent).toContain("No skills yet.");
+    expect(document.body.textContent).toContain(
+      "Create the first saved Skill from Manage skills.",
+    );
   });
 
   it("creates, edits, saves, and deletes an operator-authored skill", async () => {
@@ -87,10 +88,10 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
-    await clickButton("Skills");
+    await clickButton("Manage skills");
     await changeInput('input[placeholder="Untitled skill"]', "Deploy review");
-    await changeTextarea(0, "Before a production deploy");
-    await changeTextarea(2, "Run validation\nReview changed files");
+    await changeTextareaByLabel("When to use", "Before a production deploy");
+    await changeTextareaByLabel("Steps", "Run validation\nReview changed files");
     await changeInput('input[placeholder="review, deploy"]', "deploy, review");
     await clickButton("Save skill");
 
@@ -106,7 +107,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("Deploy review");
 
     await changeInput('input[placeholder="Untitled skill"]', "Reviewed deploy");
-    await changeSelect("reviewed");
+    await changeSelectByLabel("Review status", "reviewed");
     await clickButton("Save skill");
 
     expect(updateSkill).toHaveBeenCalledWith(
@@ -123,7 +124,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("No skills yet.");
   });
 
-  it("renders Catalog tab and creates, saves, and deletes a document", async () => {
+  it("renders catalog and creates, saves, and deletes a document", async () => {
     let documents: KnowledgeDocument[] = [];
     const createKnowledgeDocument = vi.fn(async (request) => {
       const document = knowledgeDocumentFixture({
@@ -346,7 +347,7 @@ describe("SkillLibraryWidget", () => {
       "Title: Review skill",
     );
 
-    await clickButton("Open Skills tab");
+    await clickButton("Manage skill");
 
     expect(document.body.textContent).toContain(
       "Skills are not sent to Workspace Agent unless explicitly attached.",
@@ -492,6 +493,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Import file");
     await changeInput(
       'input[placeholder="Path to .txt, .md, or .markdown file"]',
       "C:\\docs\\README.md",
@@ -565,6 +567,7 @@ describe("SkillLibraryWidget", () => {
     );
     expect(document.body.textContent).toContain("Global");
 
+    await clickButton("Import file");
     await changeInput(
       'input[placeholder="Path to .txt, .md, or .markdown file"]',
       "C:\\docs\\GLOBAL.md",
@@ -651,6 +654,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Review Queue drafts");
     await changeTextareaByLabel("Draft payload", draftPayload);
     await clickButton("Load drafts");
 
@@ -863,11 +867,11 @@ describe("SkillLibraryWidget", () => {
     expect(button?.disabled).toBe(true);
   });
 
-  it("keeps existing Skills tab available after adding Documents tab", async () => {
+  it("keeps Skill CRUD available behind the skill manager", async () => {
     renderWidget();
 
     await flush();
-    await clickButton("Skills");
+    await clickButton("Manage skills");
 
     expect(document.body.textContent).toContain("No skills yet.");
     expect(buttonWithText("New skill")).toBeDefined();

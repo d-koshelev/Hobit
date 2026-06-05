@@ -22,6 +22,7 @@ import type { WidgetRenderProps } from "./types";
 
 export type SkillLibrarySkillsPanelHandle = {
   startNewSkill: () => void;
+  selectSkill: (skillId: string) => Promise<void>;
 };
 
 export type SkillLibrarySkillsToolbarState = {
@@ -37,6 +38,7 @@ type SkillLibrarySkillsPanelProps = {
   onDeleteSkill: WidgetRenderProps["onDeleteSkill"];
   onGetSkill: WidgetRenderProps["onGetSkill"];
   onListSkills: WidgetRenderProps["onListSkills"];
+  onSkillsChanged?: () => void;
   onToolbarStateChange: (state: SkillLibrarySkillsToolbarState) => void;
   onUpdateSkill: WidgetRenderProps["onUpdateSkill"];
 };
@@ -53,6 +55,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
     onDeleteSkill,
     onGetSkill,
     onListSkills,
+    onSkillsChanged,
     onToolbarStateChange,
     onUpdateSkill,
   },
@@ -93,6 +96,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
   }, [apiAvailable, draft.reviewStatus, isLoading, onToolbarStateChange]);
 
   useImperativeHandle(ref, () => ({
+    selectSkill,
     startNewSkill,
   }));
 
@@ -224,6 +228,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
 
       setSelectedDraft(savedSkill);
       await loadSkills(savedSkill.skillId);
+      onSkillsChanged?.();
       setMessage("Skill saved.");
     } catch (saveError) {
       setError(errorToMessage(saveError, "Unable to save skill."));
@@ -256,6 +261,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
       }
 
       await loadSkills(null);
+      onSkillsChanged?.();
       setMessage("Skill deleted.");
     } catch (deleteError) {
       setError(errorToMessage(deleteError, "Unable to delete skill."));
@@ -320,7 +326,12 @@ export const SkillLibrarySkillsPanel = forwardRef<
   }
 
   return (
-    <div className="skill-library-tab-panel" hidden={!isActive} role="tabpanel">
+    <div
+      className="skill-library-tab-panel"
+      hidden={!isActive}
+      role="region"
+      aria-label="Skill records editor"
+    >
       <div className="skill-library-summary skill-library-summary-secondary">
         <span>Operator-authored procedures.</span>
         <span>

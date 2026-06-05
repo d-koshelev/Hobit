@@ -28,7 +28,7 @@ type CatalogSkillPreviewProps = {
   onAttachToQueueTask: () => void;
   message: string | null;
   onAttachToWorkspaceAgent: () => void;
-  onShowSkills: () => void;
+  onManageSkill: () => void;
   skill: Skill;
   skills: Skill[];
 };
@@ -72,7 +72,7 @@ export function CatalogSkillPreview({
   message,
   onAttachToQueueTask,
   onAttachToWorkspaceAgent,
-  onShowSkills,
+  onManageSkill,
   skill,
   skills,
 }: CatalogSkillPreviewProps) {
@@ -114,13 +114,13 @@ export function CatalogSkillPreview({
         >
           Attach to Queue task
         </Button>
-        <Button onClick={onShowSkills} variant="secondary">
-          Open Skills tab
+        <Button onClick={onManageSkill} variant="secondary">
+          Manage skill
         </Button>
       </div>
       <p className="skill-attach-note">
-        Skills are shown in the catalog for discovery. Edit and delete them from
-        the Skills tab. Queue attachments store refs and summaries only.
+        Skills are catalog items for discovery. Manage skill opens the editable
+        Skill record panel. Queue attachments store refs and summaries only.
       </p>
       <CatalogMessages error={error} message={message} />
     </div>

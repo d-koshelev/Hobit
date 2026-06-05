@@ -42,7 +42,7 @@ type SkillLibraryCatalogDetailPaneProps = {
     key: Key,
     value: KnowledgeDocumentDraft[Key],
   ) => void;
-  onShowSkills: () => void;
+  onManageSkill: () => void;
 };
 
 export function SkillLibraryCatalogDetailPane({
@@ -74,7 +74,7 @@ export function SkillLibraryCatalogDetailPane({
   onRestoreDocument,
   onSaveDocument,
   onSetDocumentDraftField,
-  onShowSkills,
+  onManageSkill,
 }: SkillLibraryCatalogDetailPaneProps) {
   return (
     <section className="skill-editor-pane" aria-label="Selected catalog item">
@@ -91,7 +91,7 @@ export function SkillLibraryCatalogDetailPane({
           message={message}
           onAttachToQueueTask={onAttachSkillToQueueTask}
           onAttachToWorkspaceAgent={onAttachSkillToWorkspaceAgent}
-          onShowSkills={onShowSkills}
+          onManageSkill={onManageSkill}
           skill={selectedSkill}
           skills={skills}
         />
