@@ -8,6 +8,7 @@ import { startsWithAnyPhrase } from "./workspaceAgentQueueCommandUtils";
 export const CREATE_PHRASES = [
   "create queue item",
   "create queue task",
+  "create a queue task",
   "create queued queue task",
   "create queued task",
   "create queued tasks",

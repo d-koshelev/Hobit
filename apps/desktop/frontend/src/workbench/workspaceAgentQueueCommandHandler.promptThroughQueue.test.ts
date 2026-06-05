@@ -54,15 +54,15 @@ describe("workspaceAgentQueueCommandHandler prompt-through-Queue routing", () =>
     expect(createItem).toHaveBeenCalledTimes(1);
     expect(createItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        approvalPolicy: "never",
-        codexExecutable: "codex.cmd",
+        approvalPolicy: "on_request",
+        codexExecutable: "codex-custom",
         executionPolicy: "auto",
         executionWorkspace: "C:/queue-default",
         prompt: expect.stringContaining(
           "Get-Content .\\AGENTS.md -TotalCount 1",
         ),
         queueTag: { name: "Default" },
-        sandbox: "danger_full_access",
+        sandbox: "read_only",
         status: "queued",
         title: "Read AGENTS.md first line",
       }),
@@ -202,9 +202,10 @@ describe("workspaceAgentQueueCommandHandler prompt-through-Queue routing", () =>
     );
 
     expect(result.handled).toBe(true);
-    expect(result.body).toBe(
+    expect(result.body).toContain(
       "Queue action failed: task workspace is missing. No Queue items were created or run.",
     );
+    expect(result.body).toContain("Workspace:");
     expect(createItem).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
   });

@@ -62,7 +62,28 @@ export function parsePromptThroughQueueCommand(
   }
 
   const explicitPrompt = fencedPrompt(text);
+  const sectionTask = promptThroughQueueSectionTask(body);
   const promptIntents = numberedTaskIntents(body);
+  const runSettings = promptThroughQueueRunSettings(text);
+
+  if (sectionTask) {
+    return {
+      commands: [
+        {
+          executionPolicy: "auto",
+          prompt: sectionTask.prompt,
+          runSettings,
+          status: "queued",
+          title: sectionTask.title,
+          type: "createItem",
+        },
+        { type: "runAutonomousQueue" },
+      ],
+      forceLocal: true,
+      type: "batch",
+    };
+  }
+
   const taskIntents =
     promptIntents.length > 0
       ? promptIntents
@@ -74,7 +95,6 @@ export function parsePromptThroughQueueCommand(
     return { type: "unsupportedQueueCommand" };
   }
 
-  const runSettings = promptThroughQueueRunSettings(text);
   const commands: WorkspaceAgentQueueCommand[] = taskIntents.map((intent) => {
     const structuredPrompt = structuredCreateQueueTaskPrompt(intent);
 
@@ -128,7 +148,12 @@ function singlePromptThroughQueueIntent(text: string) {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line && !isQueueRunSettingLine(line));
+    .filter(
+      (line) =>
+        line &&
+        !isQueueRunSettingLine(line) &&
+        !/^with\s+task-scoped\s+run\s+settings\s*:?\s*$/i.test(line),
+    );
 
   return lines.join("\n").trim();
 }
@@ -169,16 +194,14 @@ function queueRunSettingsFromText(
 function promptThroughQueueRunSettings(
   text: string,
 ): Partial<AgentQueueTaskRunSettingsDefaults> {
-  return {
-    ...queueRunSettingsFromText(text),
-    approvalPolicy: "never",
-    codexExecutable: "codex.cmd",
-    sandbox: "danger_full_access",
-  };
+  return queueRunSettingsFromText(text);
 }
 
 function lineSettingValue(text: string, labels: string[]) {
-  for (const rawLine of text.split(/\r?\n/)) {
+  const lines = text.split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
     const line = rawLine.trim().replace(/^[*-]\s+/, "").trim();
 
     for (const label of labels) {
@@ -191,10 +214,100 @@ function lineSettingValue(text: string, labels: string[]) {
       if (value) {
         return value;
       }
+
+      const emptyLabelPattern = new RegExp(
+        `^${escapeRegExp(label)}\\s*:\\s*$`,
+        "i",
+      );
+      if (!emptyLabelPattern.test(line)) {
+        continue;
+      }
+
+      for (
+        let valueIndex = index + 1;
+        valueIndex < lines.length;
+        valueIndex += 1
+      ) {
+        const nextLine = lines[valueIndex]?.trim() ?? "";
+        if (!nextLine) {
+          continue;
+        }
+        if (isSettingsOrSectionLabelLine(nextLine)) {
+          break;
+        }
+        return nextLine;
+      }
     }
   }
 
   return "";
+}
+
+function promptThroughQueueSectionTask(text: string) {
+  const prompt = labeledSectionValue(text, "prompt", []);
+  if (!prompt) {
+    return null;
+  }
+
+  const title =
+    labeledSectionValue(text, "title", ["prompt"]) ||
+    structuredCreateQueueTaskPrompt(prompt).title;
+
+  return {
+    prompt,
+    title,
+  };
+}
+
+function labeledSectionValue(
+  text: string,
+  label: string,
+  stopLabels: string[],
+) {
+  const lines = text.split(/\r?\n/);
+  const labelPattern = new RegExp(`^${escapeRegExp(label)}\\s*:\\s*(.*)$`, "i");
+  const stopPatterns = stopLabels.map(
+    (stopLabel) =>
+      new RegExp(`^${escapeRegExp(stopLabel)}\\s*:`, "i"),
+  );
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]?.trim() ?? "";
+    const match = line.match(labelPattern);
+    if (!match) {
+      continue;
+    }
+
+    const collected: string[] = [];
+    const inlineValue = match[1]?.trim() ?? "";
+    if (inlineValue) {
+      collected.push(inlineValue);
+    }
+
+    for (
+      let valueIndex = index + 1;
+      valueIndex < lines.length;
+      valueIndex += 1
+    ) {
+      const nextLine = lines[valueIndex] ?? "";
+      const trimmed = nextLine.trim();
+      if (stopPatterns.some((pattern) => pattern.test(trimmed))) {
+        break;
+      }
+      collected.push(nextLine);
+    }
+
+    return collected.join("\n").trim();
+  }
+
+  return "";
+}
+
+function isSettingsOrSectionLabelLine(line: string) {
+  const normalized = line.replace(/^[*-]\s+/, "").trim().toLowerCase();
+  return /^(?:execution\s+workspace|task\s+workspace|workspace|codex\s+executable|codex|sandbox|approval\s+policy|approval|title|prompt)\s*:/.test(
+    normalized,
+  );
 }
 
 function normalizedSandbox(value: string) {

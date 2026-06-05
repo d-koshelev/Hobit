@@ -341,6 +341,71 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     );
   });
 
+  it("handles exact explicit-settings smoke prompt locally without provider, Codex, or Terminal callbacks", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult("queue.createItem", {
+          approvalPolicy: request.approvalPolicy,
+          codexExecutable: request.codexExecutable,
+          executionPolicy: request.executionPolicy,
+          executionWorkspace: request.executionWorkspace ?? "",
+          id: "queue-smoke-explicit",
+          prompt: request.prompt,
+          sandbox: request.sandbox,
+          status: request.status,
+          title: request.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn(async () => ({
+      action: "queue.runAutonomousQueue" as const,
+      message: "Autonomous Queue started.",
+      ok: true,
+      status: "running",
+    }));
+    const provider = vi.fn(async () => providerResponse());
+    const startCodex = vi.fn();
+    const runTerminal = vi.fn();
+
+    renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startCodex,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        getRunSettingsDefaults: () => null,
+        runAutonomousQueue,
+      }),
+    });
+
+    await sendWorkspaceAgentMessage(
+      exactExplicitSettingsSmokePrompt(),
+      "Run with Codex",
+    );
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+        sandbox: "danger_full_access",
+        status: "queued",
+        title: "Smoke read AGENTS first line",
+      }),
+    );
+    expect(createItem.mock.calls[0]?.[0].prompt).toContain(
+      "Get-Content .\\AGENTS.md -TotalCount 1",
+    );
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(provider).not.toHaveBeenCalled();
+    expect(startCodex).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Created 1 Queue item and started Autonomous Queue.",
+    );
+  });
+
   it("shows a local Queue API error without provider fallback when the bridge is missing", async () => {
     const provider = vi.fn(async () => providerResponse());
     const startCodex = vi.fn();
@@ -857,6 +922,46 @@ function multiTaskQueueOnlyCommand() {
     "Task 3: show git status",
     "",
     "After creating all three Queue tasks, start Autonomous Queue.",
+  ].join("\n");
+}
+
+function exactExplicitSettingsSmokePrompt() {
+  return [
+    "Use Agent Queue only. Do not execute directly.",
+    "",
+    "Run this prompt through Queue with task-scoped run settings:",
+    "",
+    "Workspace:",
+    "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+    "",
+    "Codex executable:",
+    "codex.cmd",
+    "",
+    "Sandbox:",
+    "danger_full_access",
+    "",
+    "Approval:",
+    "never",
+    "",
+    "Title:",
+    "Smoke read AGENTS first line",
+    "",
+    "Prompt:",
+    "Run only:",
+    "",
+    "Get-Content .\\AGENTS.md -TotalCount 1",
+    "",
+    "Do not edit files.",
+    "Do not create files.",
+    "Do not delete files.",
+    "Do not commit.",
+    "Do not push.",
+    "Do not reset, clean, stash, checkout, rebase, merge, or force anything.",
+    "",
+    "Report:",
+    "- AGENTS.md first line",
+    "- confirmation that no files were changed",
+    "- git status --short --branch output",
   ].join("\n");
 }
 

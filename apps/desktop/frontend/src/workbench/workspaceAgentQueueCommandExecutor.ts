@@ -160,7 +160,7 @@ async function runQueueCommandBatch(
   );
 
   if (shouldRunAutonomous && hasQueuedCreateWithoutWorkspace(command, options)) {
-    return "Queue action failed: task workspace is missing. No Queue items were created or run.";
+    return missingWorkspaceQueueActionMessage();
   }
 
   for (const batchCommand of command.commands) {
@@ -220,6 +220,16 @@ async function runQueueCommandBatch(
   }
 
   return autonomousMessage || "Queue action completed.";
+}
+
+function missingWorkspaceQueueActionMessage() {
+  return [
+    "Queue action failed: task workspace is missing. No Queue items were created or run.",
+    "Add a task-scoped Workspace setting to the local prompt, for example:",
+    "",
+    "Workspace:",
+    "C:\\path\\to\\project",
+  ].join("\n");
 }
 
 function queueCreateItemRequest(

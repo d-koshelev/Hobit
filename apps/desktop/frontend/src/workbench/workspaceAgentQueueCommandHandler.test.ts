@@ -140,6 +140,166 @@ describe("workspaceAgentQueueCommandHandler", () => {
     expect(result.body).not.toContain("Missing settings");
   });
 
+  it("recognizes create a Queue task phrasing", () => {
+    expect(
+      parseWorkspaceAgentQueueCommand(
+        "Create a Queue task read AGENTS.md first line",
+      ),
+    ).toMatchObject({
+      title: "Read AGENTS.md first line",
+      type: "createItem",
+    });
+  });
+
+  it("covers exact prompt-through-Queue smoke prompt with implicit workspace fallback", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        approvalPolicy: request.approvalPolicy,
+        codexExecutable: request.codexExecutable,
+        executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace ?? "",
+        id: "Q-SMOKE-IMPLICIT",
+        prompt: request.prompt,
+        sandbox: request.sandbox,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue", {
+        message: "Autonomous Queue started.",
+        ok: true,
+        status: "running",
+      }),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(exactSmokePrompt(), {
+      bridge: queueBridge({
+        createItem,
+        getRunSettingsDefaults: () => ({
+          approvalPolicy: "on_request",
+          codexExecutable: "codex-default.cmd",
+          executionWorkspace: "C:/queue-default",
+          sandbox: "workspace_write",
+        }),
+        runAutonomousQueue,
+      }),
+      currentWorkspaceRoot: "C:/workspace-root",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex-default.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:/queue-default",
+        queueTag: { name: "Default" },
+        sandbox: "workspace_write",
+        status: "queued",
+        title: "Smoke read AGENTS first line",
+      }),
+    );
+    const request = createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Run only:");
+    expect(request?.prompt).toContain(
+      "Get-Content .\\AGENTS.md -TotalCount 1",
+    );
+    expect(request?.prompt).toContain("Do not edit files.");
+    expect(request?.prompt).toContain("Do not create files.");
+    expect(request?.prompt).toContain("Do not delete files.");
+    expect(request?.prompt).toContain(
+      "Do not reset, clean, stash, checkout, rebase, merge, or force anything.",
+    );
+    expect(request?.prompt).toContain("git status --short --branch output");
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(result.body).toBe(
+      "Created 1 Queue item and started Autonomous Queue.",
+    );
+  });
+
+  it("covers exact explicit-settings prompt-through-Queue smoke prompt", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        approvalPolicy: request.approvalPolicy,
+        codexExecutable: request.codexExecutable,
+        executionPolicy: request.executionPolicy,
+        executionWorkspace: request.executionWorkspace ?? "",
+        id: "Q-SMOKE-EXPLICIT",
+        prompt: request.prompt,
+        sandbox: request.sandbox,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue", {
+        message: "Autonomous Queue started.",
+        ok: true,
+        status: "running",
+      }),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(
+      exactExplicitSettingsSmokePrompt(),
+      {
+        bridge: queueBridge({
+          createItem,
+          getRunSettingsDefaults: () => null,
+          runAutonomousQueue,
+        }),
+      },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionPolicy: "auto",
+        executionWorkspace: "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+        sandbox: "danger_full_access",
+        status: "queued",
+        title: "Smoke read AGENTS first line",
+      }),
+    );
+    const request = createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Run only:");
+    expect(request?.prompt).toContain(
+      "Get-Content .\\AGENTS.md -TotalCount 1",
+    );
+    expect(runAutonomousQueue).toHaveBeenCalledTimes(1);
+    expect(result.body).toBe(
+      "Created 1 Queue item and started Autonomous Queue.",
+    );
+  });
+
+  it("shows a clear local missing-workspace error when no prompt-through fallback exists", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(exactSmokePrompt(), {
+      bridge: queueBridge({
+        createItem,
+        getRunSettingsDefaults: () => null,
+        runAutonomousQueue,
+      }),
+      currentWorkspaceRoot: "~",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain(
+      "Queue action failed: task workspace is missing. No Queue items were created or run.",
+    );
+    expect(result.body).toContain("Workspace:");
+    expect(result.body).toContain("C:\\path\\to\\project");
+  });
+
   it("uses Queue run defaults from the bridge before Workspace Agent fallbacks", async () => {
     const createItem = vi.fn(async (request) =>
       itemResult("queue.createItem", {
@@ -668,3 +828,71 @@ describe("workspaceAgentQueueCommandHandler", () => {
     ).toBeNull();
   });
 });
+
+function exactSmokePrompt() {
+  return [
+    "Use Agent Queue only. Do not execute directly.",
+    "",
+    "Run this prompt through Queue:",
+    "",
+    "Title:",
+    "Smoke read AGENTS first line",
+    "",
+    "Prompt:",
+    "Run only:",
+    "",
+    "Get-Content .\\AGENTS.md -TotalCount 1",
+    "",
+    "Do not edit files.",
+    "Do not create files.",
+    "Do not delete files.",
+    "Do not commit.",
+    "Do not push.",
+    "Do not reset, clean, stash, checkout, rebase, merge, or force anything.",
+    "",
+    "Report:",
+    "- AGENTS.md first line",
+    "- confirmation that no files were changed",
+    "- git status --short --branch output",
+  ].join("\n");
+}
+
+function exactExplicitSettingsSmokePrompt() {
+  return [
+    "Use Agent Queue only. Do not execute directly.",
+    "",
+    "Run this prompt through Queue with task-scoped run settings:",
+    "",
+    "Workspace:",
+    "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+    "",
+    "Codex executable:",
+    "codex.cmd",
+    "",
+    "Sandbox:",
+    "danger_full_access",
+    "",
+    "Approval:",
+    "never",
+    "",
+    "Title:",
+    "Smoke read AGENTS first line",
+    "",
+    "Prompt:",
+    "Run only:",
+    "",
+    "Get-Content .\\AGENTS.md -TotalCount 1",
+    "",
+    "Do not edit files.",
+    "Do not create files.",
+    "Do not delete files.",
+    "Do not commit.",
+    "Do not push.",
+    "Do not reset, clean, stash, checkout, rebase, merge, or force anything.",
+    "",
+    "Report:",
+    "- AGENTS.md first line",
+    "- confirmation that no files were changed",
+    "- git status --short --branch output",
+  ].join("\n");
+}
