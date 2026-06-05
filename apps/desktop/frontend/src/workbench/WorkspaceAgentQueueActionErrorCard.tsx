@@ -1,3 +1,7 @@
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { WorkspaceAgentQueueActionCardResult } from "./workspaceAgentQueueActions";
 
 export function WorkspaceAgentQueueActionErrorCard({
@@ -11,7 +15,10 @@ export function WorkspaceAgentQueueActionErrorCard({
 
   return (
     <p className="coordinator-proposal-result coordinator-proposal-result-error">
-      {result.error.message}
+      {cappedPreviewText(
+        result.error.message,
+        RENDER_MEMORY_CAPS.transcriptPayloadChars,
+      )}
     </p>
   );
 }

@@ -521,8 +521,18 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
 
     expect(preview?.textContent).toContain("Result start");
     expect(preview?.textContent).not.toContain(hiddenTail);
-    expect(preview?.textContent?.trim().endsWith("...")).toBe(true);
+    expect(preview?.textContent).toContain("[Preview capped]");
     expect(fullResponse?.open).toBe(false);
+
+    expect(fullResponse?.textContent).not.toContain(hiddenTail);
+
+    act(() => {
+      if (fullResponse) {
+        fullResponse.open = true;
+        fullResponse.dispatchEvent(new Event("toggle", { bubbles: true }));
+      }
+    });
+
     expect(fullResponse?.textContent).toContain(hiddenTail);
   });
 

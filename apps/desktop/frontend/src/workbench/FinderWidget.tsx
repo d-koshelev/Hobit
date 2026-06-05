@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
+import {
   createWorkspaceGitCommit,
   getWorkspaceGitFileDiff,
   getWorkspaceGitLog,
@@ -1184,19 +1188,24 @@ function FinderFloatingPreview({
               />
             ) : preview.loading ? (
               <p className="finder-column-state">Loading selected file...</p>
-            ) : preview.editMode ? (
-              <textarea
+              ) : preview.editMode ? (
+                <textarea
                 aria-label="Finder file edit draft"
                 className="finder-preview-editor"
                 onChange={(event) => onUpdateDraft(event.target.value)}
                 spellCheck={false}
                 value={preview.draft}
               />
-            ) : (
-              <pre className="finder-preview-content">
-                {preview.content || "File is empty."}
-              </pre>
-            )}
+              ) : (
+                <pre className="finder-preview-content">
+                  {preview.content
+                    ? cappedPreviewText(
+                        preview.content,
+                        RENDER_MEMORY_CAPS.knowledgePreviewChars,
+                      )
+                    : "File is empty."}
+                </pre>
+              )}
           </div>
 
           <div className="finder-preview-actions">
@@ -1381,7 +1390,9 @@ function FinderGitDiffPreview({
       ) : null}
       <p className="finder-title">Patch preview</p>
       <pre className="finder-preview-content finder-git-diff-patch">
-        {patch || "No patch preview returned for this file."}
+        {patch
+          ? cappedPreviewText(patch, RENDER_MEMORY_CAPS.evidenceRawDetailsChars)
+          : "No patch preview returned for this file."}
       </pre>
     </div>
   );
@@ -2132,7 +2143,14 @@ function FinderGitCommitConfirmation({
       {commitBody.trim() ? (
         <FinderGitCommitFact
           label="Commit body"
-          value={<pre className="finder-git-commit-message">{commitBody.trim()}</pre>}
+          value={
+            <pre className="finder-git-commit-message">
+              {cappedPreviewText(
+                commitBody.trim(),
+                RENDER_MEMORY_CAPS.transcriptPayloadChars,
+              )}
+            </pre>
+          }
         />
       ) : null}
       <div className="finder-git-commit-confirmation-files">

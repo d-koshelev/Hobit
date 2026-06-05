@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  RENDER_MEMORY_CAPS,
+  capArrayToLast,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 
 export type WidgetLogsPanelLogEntry = {
   id: string;
@@ -47,7 +52,7 @@ export function WidgetLogsPanel({
         const logs = loadLogsRef.current ? await loadLogsRef.current() : [];
 
         if (shouldUpdate) {
-          setLogEntries(logs);
+          setLogEntries(capArrayToLast(logs, RENDER_MEMORY_CAPS.widgetLogRows).items);
         }
       } catch (error) {
         if (shouldUpdate) {
@@ -119,6 +124,13 @@ function WidgetLogPanelBody({
 
   return (
     <ol className="widget-log-list">
+      {logs.length >= RENDER_MEMORY_CAPS.widgetLogRows ? (
+        <li className="widget-log-item">
+          <p className="widget-log-message">
+            Showing last {logs.length.toString()} events. Preview capped.
+          </p>
+        </li>
+      ) : null}
       {logs.map((log) => (
         <li className="widget-log-item" key={log.id}>
           <div className="widget-log-meta">
@@ -128,7 +140,12 @@ function WidgetLogPanelBody({
             <span>{log.level}</span>
             {log.runId ? <span>Run {log.runId}</span> : null}
           </div>
-          <p className="widget-log-message">{log.message}</p>
+          <p className="widget-log-message">
+            {cappedPreviewText(
+              log.message,
+              RENDER_MEMORY_CAPS.widgetLogMessageChars,
+            )}
+          </p>
         </li>
       ))}
     </ol>

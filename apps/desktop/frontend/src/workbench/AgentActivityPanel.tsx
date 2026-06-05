@@ -2,6 +2,11 @@ import { type UIEvent, useEffect, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { EmptyState } from "../design-system/EmptyState";
+import {
+  RENDER_MEMORY_CAPS,
+  capArrayToLast,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { AgentActivityEvent } from "./agentActivityModel";
 
 const FOLLOW_LATEST_THRESHOLD_PX = 32;
@@ -21,6 +26,10 @@ export function AgentActivityPanel({
   const [isFollowingLatest, setIsFollowingLatest] = useState(true);
   const timelineRef = useRef<HTMLOListElement | null>(null);
   const latestEventId = events[events.length - 1]?.id;
+  const renderedEvents = capArrayToLast(
+    events,
+    RENDER_MEMORY_CAPS.activityRenderedEvents,
+  );
 
   const panelClassName = compact
     ? "agent-activity-panel agent-activity-panel-compact"
@@ -71,7 +80,16 @@ export function AgentActivityPanel({
       onScroll={handleTimelineScroll}
       ref={timelineRef}
     >
-      {events.map((event) => {
+      {renderedEvents.hiddenCount > 0 ? (
+        <li className="agent-activity-event agent-activity-event-neutral">
+          <p className="agent-activity-event-summary">
+            Showing last {renderedEvents.items.length.toString()} events.
+            Preview capped; {renderedEvents.hiddenCount.toString()} older
+            event(s) hidden from the renderer.
+          </p>
+        </li>
+      ) : null}
+      {renderedEvents.items.map((event) => {
         const isExpanded = expandedEventIds.has(event.id);
         const tone = eventTone(event);
         const title = compactTitle(event);
@@ -154,10 +172,16 @@ function ExpandedEventDetails({ event }: { event: AgentActivityEvent }) {
 }
 
 function DetailBlock({ label, value }: { label: string; value: string }) {
+  const cappedValue = cappedPreviewText(
+    value,
+    RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+    label.toLowerCase().includes("raw") ? "Raw details capped" : "Preview capped",
+  );
+
   return (
     <div className="agent-activity-event-detail-block">
       <span className="agent-activity-event-detail-label">{label}</span>
-      <pre className="agent-activity-event-detail-text">{value}</pre>
+      <pre className="agent-activity-event-detail-text">{cappedValue}</pre>
     </div>
   );
 }

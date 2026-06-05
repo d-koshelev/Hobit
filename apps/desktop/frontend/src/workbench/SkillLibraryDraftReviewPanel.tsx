@@ -1,5 +1,9 @@
 import { Button } from "../design-system/Button";
 import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
+import {
   knowledgeDraftAcceptedSourceRef,
   type KnowledgeDraftReviewItem,
   type KnowledgeDraftReviewPack,
@@ -35,6 +39,13 @@ export function SkillLibraryDraftReviewPanel({
   onLoadDraftReviewPayload,
   onRejectDraftItem,
 }: SkillLibraryDraftReviewPanelProps) {
+  const visibleDraftItems =
+    draftReviewPack?.proposedItems.slice(0, RENDER_MEMORY_CAPS.eventRows) ??
+    [];
+  const hiddenDraftItemCount = draftReviewPack
+    ? Math.max(0, draftReviewPack.proposedItems.length - visibleDraftItems.length)
+    : 0;
+
   return (
     <section className="skill-draft-review" aria-label="Draft Knowledge review">
       <div className="skill-draft-review-header">
@@ -82,7 +93,7 @@ export function SkillLibraryDraftReviewPanel({
               ? ` - Queue task ${draftReviewPack.queueItemId}`
               : ""}
           </p>
-          {draftReviewPack.proposedItems.map((item) => {
+          {visibleDraftItems.map((item) => {
             const decision =
               draftReviewDecisions[item.draftItemId] ?? "pending";
             const isActionDisabled =
@@ -100,7 +111,10 @@ export function SkillLibraryDraftReviewPanel({
                     <p>
                       {quickSummaryMissing
                         ? "Summary missing. Accepted active Knowledge will remain warning-bearing until a quick summary is added."
-                        : item.quickSummary}
+                        : cappedPreviewText(
+                            item.quickSummary,
+                            RENDER_MEMORY_CAPS.knowledgePreviewChars,
+                          )}
                     </p>
                   </div>
                   <span className="skill-scope-badge">
@@ -144,6 +158,12 @@ export function SkillLibraryDraftReviewPanel({
               </article>
             );
           })}
+          {hiddenDraftItemCount > 0 ? (
+            <p className="skill-attach-note">
+              Preview capped. Showing first {visibleDraftItems.length.toString()}{" "}
+              of {draftReviewPack.proposedItems.length.toString()} draft item(s).
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

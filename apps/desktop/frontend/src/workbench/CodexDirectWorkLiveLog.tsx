@@ -1,4 +1,9 @@
+import { useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import { CodexDirectWorkChangedFilesSummary } from "./CodexDirectWorkChangedFilesSummary";
 import {
   directWorkGitReviewHint,
@@ -100,7 +105,10 @@ export function CodexDirectWorkLiveLog({
         <div className="codex-direct-work-error-message">
           <span className="codex-direct-work-result-label">Failure reason</span>
           <span className="codex-direct-work-result-value">
-            {liveRun.errorMessage ?? "No failure detail was reported."}
+            {cappedPreviewText(
+              liveRun.errorMessage ?? "No failure detail was reported.",
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
           </span>
           <p className="codex-direct-work-review-note">
             More lifecycle details may be available in Logs.
@@ -131,30 +139,52 @@ export function CodexDirectWorkLiveLog({
       ) : null}
 
       {liveRun?.stdoutPreview ? (
-        <details className="codex-direct-work-output-details">
-          <summary className="codex-direct-work-output-summary">
-            live stdout preview
-          </summary>
+        <LazyDetails
+          className="codex-direct-work-output-details"
+          summary="live stdout preview"
+        >
           <pre className="codex-direct-work-output">
             <code>{previewLiveOutput(liveRun.stdoutPreview)}</code>
           </pre>
-        </details>
+        </LazyDetails>
       ) : null}
 
       {liveRun?.stderrPreview ? (
-        <details className="codex-direct-work-output-details">
-          <summary className="codex-direct-work-output-summary">
-            live stderr preview
-          </summary>
+        <LazyDetails
+          className="codex-direct-work-output-details"
+          summary="live stderr preview"
+        >
           <pre className="codex-direct-work-output">
             <code>{previewLiveOutput(liveRun.stderrPreview)}</code>
           </pre>
-        </details>
+        </LazyDetails>
       ) : null}
 
       {reviewHint ? (
         <p className="codex-direct-work-review-note">{reviewHint}</p>
       ) : null}
     </section>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="codex-direct-work-output-summary">{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }

@@ -1,3 +1,9 @@
+import { useState, type ReactNode } from "react";
+
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../../../renderMemoryGuards";
 import { promptSummary } from "./agentQueueTaskDetailsFormatters";
 
 export function AgentQueueTaskPromptSection({ prompt }: { prompt: string }) {
@@ -19,11 +25,40 @@ export function AgentQueueTaskPromptSection({ prompt }: { prompt: string }) {
         </p>
       </div>
       {hasPrompt ? (
-        <details className="agent-queue-details agent-queue-secondary-details">
-          <summary>Full prompt</summary>
-          <pre>{promptText}</pre>
-        </details>
+        <LazyDetails
+          className="agent-queue-details agent-queue-secondary-details"
+          summary="Full prompt"
+        >
+          <pre>
+            {cappedPreviewText(
+              promptText,
+              RENDER_MEMORY_CAPS.transcriptPayloadChars,
+            )}
+          </pre>
+        </LazyDetails>
       ) : null}
     </section>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }

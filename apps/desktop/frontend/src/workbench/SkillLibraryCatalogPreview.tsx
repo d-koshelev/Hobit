@@ -1,4 +1,8 @@
 import { Button } from "../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
   DEFAULT_DOCUMENT_TITLE,
@@ -457,7 +461,11 @@ function PreviewField({ label, value }: { label: string; value: string }) {
   return (
     <div className="skill-preview-field">
       <span>{label}</span>
-      <p>{value.trim() || "(empty)"}</p>
+      <p>
+        {value.trim()
+          ? cappedPreviewText(value.trim(), RENDER_MEMORY_CAPS.knowledgePreviewChars)
+          : "(empty)"}
+      </p>
     </div>
   );
 }

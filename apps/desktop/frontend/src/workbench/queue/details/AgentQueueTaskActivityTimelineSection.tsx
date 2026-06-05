@@ -1,5 +1,10 @@
+import { useState, type ReactNode } from "react";
 import { Badge } from "../../../design-system/Badge";
 import { Button } from "../../../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedRawDetailsText,
+} from "../../../renderMemoryGuards";
 import type { AgentQueueReportActionCard } from "../../../workspace/types";
 import {
   directWorkEvidenceForQueue,
@@ -180,11 +185,43 @@ export function RawRunActivityDetails({ queue }: { queue: AgentQueueController }
         <p className="agent-queue-execution-group-title">Raw Direct Work events</p>
         <Badge variant="neutral">{rawEvents.length.toString()} recent</Badge>
       </div>
-      <details className="agent-queue-details agent-queue-secondary-details">
-        <summary>Raw event payloads</summary>
-        <pre>{JSON.stringify(rawEvents, null, 2)}</pre>
-      </details>
+      <LazyDetails
+        className="agent-queue-details agent-queue-secondary-details"
+        summary="Raw event payloads"
+      >
+        <pre>
+          {cappedRawDetailsText(
+            JSON.stringify(rawEvents, null, 2),
+            RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+          )}
+        </pre>
+        <p className="agent-queue-run-note">
+          Raw details capped. Showing last {rawEvents.length.toString()} events.
+        </p>
+      </LazyDetails>
     </section>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 

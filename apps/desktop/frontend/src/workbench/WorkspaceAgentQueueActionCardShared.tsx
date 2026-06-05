@@ -4,6 +4,10 @@ import type {
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { WorkspaceAgentQueueIntentDraft } from "./workspaceAgentQueueIntent";
 
 export const EXECUTION_POLICY_OPTIONS: AgentQueueTaskExecutionPolicy[] = [
@@ -170,7 +174,9 @@ export function ActionFact({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt>{label}</dt>
-      <dd>{value}</dd>
+      <dd>
+        {cappedPreviewText(value, RENDER_MEMORY_CAPS.transcriptPayloadChars)}
+      </dd>
     </div>
   );
 }

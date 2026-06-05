@@ -1,4 +1,9 @@
 import type { AgentExecutorRunDetail } from "../../../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+  cappedRawDetailsText,
+} from "../../../renderMemoryGuards";
 import { previewText, isReportReadyStatus } from "./agentQueueTaskDetailsFormatters";
 import type {
   AgentQueueController,
@@ -9,6 +14,7 @@ import type {
 } from "./agentQueueTaskDetailsTypes";
 
 const FINAL_RESPONSE_PREVIEW_LENGTH = 720;
+const FINAL_RESPONSE_FULL_PREVIEW_LENGTH = RENDER_MEMORY_CAPS.evidenceRawDetailsChars;
 
 export function resultEvidenceState(
   queue: AgentQueueController,
@@ -187,19 +193,43 @@ export function finalResponseEvidence(
 
   return {
     isLong: true,
-    preview: `${text.slice(0, FINAL_RESPONSE_PREVIEW_LENGTH).trim()}...`,
-    text,
+    preview: `${text.slice(0, FINAL_RESPONSE_PREVIEW_LENGTH).trim()}...\n[Preview capped]`,
+    text: cappedPreviewText(
+      text,
+      FINAL_RESPONSE_FULL_PREVIEW_LENGTH,
+      "Preview capped",
+    ),
   };
 }
 
 export function directWorkDeveloperDetails(detail: AgentExecutorRunDetail) {
   const sections = [
-    detail.resultPayload ? `Result payload:\n${detail.resultPayload}` : null,
-    detail.stdoutPreview ? `Stdout preview:\n${detail.stdoutPreview}` : null,
-    detail.stderrPreview ? `Stderr preview:\n${detail.stderrPreview}` : null,
+    detail.resultPayload
+      ? `Result payload:\n${cappedRawDetailsText(
+          detail.resultPayload,
+          RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+        )}`
+      : null,
+    detail.stdoutPreview
+      ? `Stdout preview:\n${cappedPreviewText(
+          detail.stdoutPreview,
+          RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+        )}`
+      : null,
+    detail.stderrPreview
+      ? `Stderr preview:\n${cappedPreviewText(
+          detail.stderrPreview,
+          RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+        )}`
+      : null,
   ].filter((value): value is string => Boolean(value));
 
-  return sections.length > 0 ? sections.join("\n\n") : null;
+  return sections.length > 0
+    ? cappedRawDetailsText(
+        sections.join("\n\n"),
+        RENDER_MEMORY_CAPS.evidenceRawDetailsChars,
+      )
+    : null;
 }
 
 function directWorkResultPayloadObject(

@@ -32,6 +32,21 @@ describe("WorkspaceAgentVisibleContextPanel", () => {
     );
   });
 
+  it("caps rendered attached context preview without dropping the attachment", () => {
+    const hiddenTail = "large attached context tail";
+
+    renderPanel(vi.fn(), {
+      contextText: `${"A".repeat(5000)}\n${hiddenTail}`,
+      sourceLabel: "Executor run detail",
+    });
+
+    expect(document.body.textContent).toContain("Preview capped");
+    expect(document.body.textContent).toContain(
+      "The full attached context remains included",
+    );
+    expect(document.body.textContent).not.toContain(hiddenTail);
+  });
+
   it("calls onRemove from the remove action", () => {
     const onRemove = vi.fn();
     renderPanel(onRemove);

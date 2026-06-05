@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type {
   AgentExecutorDiffFileSummary,
   AgentExecutorDiffSummary,
@@ -9,7 +13,7 @@ import type {
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { WidgetInstanceId } from "./types";
 
-const PATCH_PREVIEW_LIMIT = 5000;
+const PATCH_PREVIEW_LIMIT = RENDER_MEMORY_CAPS.evidenceRawDetailsChars;
 
 type DiffSummaryState =
   | {
@@ -278,21 +282,49 @@ function DiffFileRow({
       </p>
 
       {file.patchPreview ? (
-        <details className="codex-direct-work-output-details">
-          <summary className="codex-direct-work-output-summary">
-            Patch preview
-            {file.patchTruncated ? (
-              <Badge variant="warning">Patch preview truncated</Badge>
-            ) : null}
-          </summary>
+        <LazyDetails
+          className="codex-direct-work-output-details"
+          summary={
+            <>
+              Patch preview
+              {file.patchTruncated ? (
+                <Badge variant="warning">Patch preview truncated</Badge>
+              ) : null}
+            </>
+          }
+        >
           <pre className="codex-direct-work-output codex-direct-work-diff-patch">
             <code>{previewPatch(file.patchPreview)}</code>
           </pre>
-        </details>
+        </LazyDetails>
       ) : (
         <p className="codex-direct-work-review-note">{patchState}</p>
       )}
     </article>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="codex-direct-work-output-summary">
+        {summary}
+      </summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 
@@ -466,11 +498,7 @@ function lineDeltaLabel(file: AgentExecutorDiffFileSummary) {
 }
 
 function previewPatch(patch: string) {
-  if (patch.length <= PATCH_PREVIEW_LIMIT) {
-    return patch;
-  }
-
-  return `${patch.slice(0, PATCH_PREVIEW_LIMIT)}\n[Patch preview truncated in UI.]`;
+  return cappedPreviewText(patch, PATCH_PREVIEW_LIMIT, "Preview capped");
 }
 
 function valueOrUnavailable(value: number | null) {

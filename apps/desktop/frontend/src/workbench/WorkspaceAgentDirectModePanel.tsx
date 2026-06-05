@@ -3,10 +3,16 @@ import {
   useId,
   useRef,
   useState,
+  type ReactNode,
   type MutableRefObject,
 } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  capArrayToLast,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { DirectWorkSandbox } from "../workspace/types";
 import {
   compactDirectWorkText,
@@ -70,6 +76,7 @@ export function WorkspaceAgentDirectModePanel({
     useState(false);
   const [threadCopyStatus, setThreadCopyStatus] = useState<string | null>(null);
   const latestLog = logs[logs.length - 1]?.text ?? null;
+  const visibleLogs = capArrayToLast(logs, RENDER_MEMORY_CAPS.eventRows);
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
     directWorkScratchWorkspaceSuggestion(directWorkDirectory);
@@ -338,8 +345,10 @@ export function WorkspaceAgentDirectModePanel({
           ) : null}
         </div>
         <div className="interactive-agent-direct-mode-disclosures">
-          <details className="interactive-agent-direct-mode-details">
-            <summary>Direct Work details</summary>
+          <LazyDetails
+            className="interactive-agent-direct-mode-details"
+            summary="Direct Work details"
+          >
             <div className="interactive-agent-direct-mode-detail-body">
               <p className="interactive-agent-direct-mode-help">
                 <span>{resolutionText}</span>
@@ -347,10 +356,21 @@ export function WorkspaceAgentDirectModePanel({
                   <span>Try: {scratchSuggestion}</span>
                 ) : null}
               </p>
-              {logs.length > 0 ? (
+              {visibleLogs.items.length > 0 ? (
                 <ul className="interactive-agent-direct-mode-log">
-                  {logs.map((entry) => (
-                    <li key={entry.id}>{entry.text}</li>
+                  {visibleLogs.hiddenCount > 0 ? (
+                    <li>
+                      Showing last {visibleLogs.items.length.toString()} events.
+                      Preview capped.
+                    </li>
+                  ) : null}
+                  {visibleLogs.items.map((entry) => (
+                    <li key={entry.id}>
+                      {cappedPreviewText(
+                        entry.text,
+                        RENDER_MEMORY_CAPS.transcriptPayloadChars,
+                      )}
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -363,17 +383,24 @@ export function WorkspaceAgentDirectModePanel({
                   <p className="interactive-agent-status-label">
                     Final result
                   </p>
-                  <pre>{finalResult}</pre>
+                  <pre>
+                    {cappedPreviewText(
+                      finalResult,
+                      RENDER_MEMORY_CAPS.transcriptMessageChars,
+                    )}
+                  </pre>
                 </div>
               ) : null}
             </div>
-          </details>
-          <details className="interactive-agent-direct-mode-details">
-            <summary>{workspaceKnowledgeSummaryText(knowledgeLookup)}</summary>
+          </LazyDetails>
+          <LazyDetails
+            className="interactive-agent-direct-mode-details"
+            summary={workspaceKnowledgeSummaryText(knowledgeLookup)}
+          >
             <div className="interactive-agent-direct-mode-detail-body">
               <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
             </div>
-          </details>
+          </LazyDetails>
           <details className="interactive-agent-direct-mode-details">
             <summary>Working directory notes</summary>
             <div className="interactive-agent-direct-mode-detail-body">
@@ -391,6 +418,28 @@ export function WorkspaceAgentDirectModePanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 
@@ -488,7 +537,12 @@ function WorkspaceKnowledgeLookupDetails({
             {result.sourceLabel}
             {result.tags ? ` - ${result.tags}` : ""}
           </p>
-          <pre>{result.snippet}</pre>
+          <pre>
+            {cappedPreviewText(
+              result.snippet,
+              RENDER_MEMORY_CAPS.knowledgePreviewChars,
+            )}
+          </pre>
         </section>
       ))}
     </div>

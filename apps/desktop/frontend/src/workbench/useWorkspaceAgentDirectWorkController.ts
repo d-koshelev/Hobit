@@ -3,6 +3,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
 import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
 import {
@@ -424,12 +428,18 @@ export function useWorkspaceAgentDirectWorkController({
     }
 
     if (event.eventKind === "final_message" && event.text) {
-      directWorkFinalMessageRef.current = event.text;
+      directWorkFinalMessageRef.current = cappedPreviewText(
+        event.text,
+        RENDER_MEMORY_CAPS.transcriptMessageChars,
+      );
     }
 
     const codexAgentMessage = codexAgentMessageFromEvent(event);
     if (codexAgentMessage) {
-      directWorkFinalMessageRef.current = codexAgentMessage;
+      directWorkFinalMessageRef.current = cappedPreviewText(
+        codexAgentMessage,
+        RENDER_MEMORY_CAPS.transcriptMessageChars,
+      );
     }
 
     appendDirectWorkLog(
@@ -458,12 +468,14 @@ export function useWorkspaceAgentDirectWorkController({
         ? DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING
         : null;
     const finalAgentMessage = directWorkFinalMessageRef.current;
-    const finalResult =
+    const finalResult = cappedPreviewText(
       finalAgentMessage ??
-      event.text ??
-      failureReason ??
-      event.stderrPreview ??
-      `Codex Direct Work ended with status ${event.finalStatus ?? finalStatus}.`;
+        event.text ??
+        failureReason ??
+        event.stderrPreview ??
+        `Codex Direct Work ended with status ${event.finalStatus ?? finalStatus}.`,
+      RENDER_MEMORY_CAPS.transcriptMessageChars,
+    );
 
     setDirectWorkStatus(finalStatus);
     setDirectWorkRunId(null);
@@ -500,7 +512,17 @@ export function useWorkspaceAgentDirectWorkController({
   ) {
     const id = `direct-log-${++directWorkLogSequenceRef.current}`;
     setDirectWorkLogs((currentLogs) =>
-      [...currentLogs, { id, kind, text }].slice(-6),
+      [
+        ...currentLogs,
+        {
+          id,
+          kind,
+          text: cappedPreviewText(
+            text,
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          ),
+        },
+      ].slice(-6),
     );
   }
 

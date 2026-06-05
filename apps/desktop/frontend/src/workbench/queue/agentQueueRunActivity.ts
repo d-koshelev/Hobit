@@ -3,6 +3,11 @@ import {
   mergeAgentActivityEvents,
   type AgentActivityEvent,
 } from "../agentActivityModel";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+  cappedRawDetailsText,
+} from "../../renderMemoryGuards";
 import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
@@ -58,7 +63,38 @@ export function appendAgentQueueRunActivityEvent(
     events: readable
       ? mergeAgentActivityEvents(current.events, [readable], 50)
       : current.events,
-    rawEvents: [...current.rawEvents, event].slice(-RAW_EVENT_LIMIT),
+    rawEvents: [...current.rawEvents, cappedRawRunActivityEvent(event)].slice(
+      -RAW_EVENT_LIMIT,
+    ),
+  };
+}
+
+function cappedRawRunActivityEvent(
+  event: DirectWorkStreamEvent,
+): DirectWorkStreamEvent {
+  return {
+    ...event,
+    errorMessage: event.errorMessage
+      ? cappedPreviewText(
+          event.errorMessage,
+          RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+        )
+      : event.errorMessage,
+    line: event.line
+      ? cappedRawDetailsText(event.line, RENDER_MEMORY_CAPS.rawJsonPreviewChars)
+      : event.line,
+    stderrPreview: event.stderrPreview
+      ? cappedPreviewText(
+          event.stderrPreview,
+          RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+        )
+      : event.stderrPreview,
+    text: event.text
+      ? cappedPreviewText(
+          event.text,
+          RENDER_MEMORY_CAPS.transcriptPayloadChars,
+        )
+      : event.text,
   };
 }
 

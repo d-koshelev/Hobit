@@ -2,11 +2,15 @@ import { useRef, useState } from "react";
 
 import { Badge } from "../../design-system/Badge";
 import { Button } from "../../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+  cappedRawDetailsText,
+} from "../../renderMemoryGuards";
 import type { AgentExecutorRunDetail } from "../../workspace/types";
 import { StaticPreviewFieldList } from "../StaticPreviewPrimitives";
 import {
   previewOutput,
-  formatRawPayload,
   formatRunDuration,
   formatTimestamp,
   runModeLabel,
@@ -111,7 +115,7 @@ function AgentExecutorRunDetailContent({
   const summary = detail.summary;
   const finalText =
     detail.finalMessage ?? detail.resultContent ?? detail.resultSummary;
-  const logs = detail.logs.slice(0, AGENT_EXECUTOR_LOG_PREVIEW_LIMIT);
+  const logs = detail.logs.slice(-AGENT_EXECUTOR_LOG_PREVIEW_LIMIT);
   const finalPreview = finalText ? visibleOutputPreview(finalText) : null;
   const stdoutPreview = detail.stdoutPreview
     ? visibleOutputPreview(detail.stdoutPreview)
@@ -141,7 +145,10 @@ function AgentExecutorRunDetailContent({
         detail.validationProfile
           ? `Validation profile: ${detail.validationProfile}`
           : null,
-        `Error message:\n${detail.errorMessage}`,
+        `Error message:\n${cappedPreviewText(
+          detail.errorMessage,
+          RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+        )}`,
       ]
         .filter((line): line is string => Boolean(line))
         .join("\n")
@@ -298,7 +305,10 @@ function AgentExecutorRunDetailContent({
               : null}
           </div>
           <span className="codex-direct-work-result-value">
-            {detail.errorMessage}
+            {cappedPreviewText(
+              detail.errorMessage,
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
           </span>
         </div>
       ) : null}
@@ -351,7 +361,10 @@ function AgentExecutorRunDetailContent({
       {detail.resultPayload ? (
         <AgentExecutorRunOutputDetails
           label="Raw payload"
-          value={formatRawPayload(detail.resultPayload)}
+          value={cappedRawDetailsText(
+            detail.resultPayload,
+            RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+          )}
         />
       ) : null}
     </div>

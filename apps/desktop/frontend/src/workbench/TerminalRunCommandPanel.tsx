@@ -2,6 +2,10 @@ import { useEffect, useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { Input } from "../design-system/Input";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type {
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
@@ -484,7 +488,12 @@ function TerminalResultCard({
       {result.errorMessage ? (
         <div className="terminal-result-error">
           <span className="terminal-result-label">Error message</span>
-          <span className="terminal-result-value">{result.errorMessage}</span>
+          <span className="terminal-result-value">
+            {cappedPreviewText(
+              result.errorMessage,
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
+          </span>
         </div>
       ) : null}
 
@@ -511,14 +520,20 @@ function TerminalOutputPreview({
   output: string;
   truncated: boolean;
 }) {
+  const preview = output
+    ? cappedPreviewText(output, RENDER_MEMORY_CAPS.stdoutStderrPreviewChars)
+    : "No output captured.";
+  const isPreviewCapped = Boolean(output) && preview !== output;
+
   return (
     <div className="terminal-output-preview">
       <div className="terminal-output-header">
         <span className="terminal-result-label">{label}</span>
         {truncated ? <Badge variant="warning">Truncated</Badge> : null}
+        {isPreviewCapped ? <Badge variant="warning">Preview capped</Badge> : null}
       </div>
       <pre aria-label={label} className="terminal-placeholder-output">
-        <code>{output || "No output captured."}</code>
+        <code>{preview}</code>
       </pre>
     </div>
   );

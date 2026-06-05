@@ -6,6 +6,10 @@ import type {
   CreateAgentQueueTaskRequest,
   UpdateAgentQueueTaskRequest,
 } from "../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  capArrayToLast,
+} from "../renderMemoryGuards";
 import type {
   CoordinatorActionProposal,
 } from "./coordinatorActionProposalRegistry";
@@ -145,6 +149,11 @@ export function WorkspaceAgentTranscript({
   transcriptRef: Ref<HTMLDivElement>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
 }) {
+  const renderedMessages = capArrayToLast(
+    messages,
+    RENDER_MEMORY_CAPS.eventRows,
+  );
+
   return (
     <div
       aria-label="Local Workspace Agent transcript"
@@ -159,7 +168,14 @@ export function WorkspaceAgentTranscript({
           suggestedPrompts={suggestedPrompts}
         />
       ) : null}
-      {messages.map((message) => (
+      {renderedMessages.hiddenCount > 0 ? (
+        <p className="coordinator-proposal-note">
+          Showing last {renderedMessages.items.length.toString()} events.
+          Preview capped; {renderedMessages.hiddenCount.toString()} older
+          transcript message(s) hidden from the renderer.
+        </p>
+      ) : null}
+      {renderedMessages.items.map((message) => (
         <WorkspaceAgentMessageBubble
           body={message.body}
           key={message.id}

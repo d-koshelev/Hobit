@@ -1,10 +1,14 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { WidgetLogEntry } from "../../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  capArrayToLast,
+  cappedPreviewText,
+  cappedRawDetailsText,
+} from "../../renderMemoryGuards";
 import { AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT } from "./agentExecutorRunHistoryTypes";
 import {
-  formatRawPayload,
   formatTimestamp,
-  previewOutput,
 } from "./agentExecutorRunHistoryFormatters";
 
 export function AgentExecutorRunOutputBlock({
@@ -23,7 +27,13 @@ export function AgentExecutorRunOutputBlock({
         {action}
       </div>
       <pre className="codex-direct-work-output">
-        <code>{previewOutput(value, AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT)}</code>
+        <code>
+          {cappedPreviewText(
+            value,
+            AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT,
+            "Preview capped",
+          )}
+        </code>
       </pre>
     </div>
   );
@@ -39,15 +49,25 @@ export function AgentExecutorRunOutputDetails({
   value: string;
 }) {
   return (
-    <details className="codex-direct-work-output-details">
-      <summary className="codex-direct-work-output-summary">
+    <LazyDetails
+      className="codex-direct-work-output-details"
+      summary={
         <span>{label}</span>
-        {action}
-      </summary>
+      }
+      summaryAction={action}
+    >
       <pre className="codex-direct-work-output">
-        <code>{previewOutput(value, AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT)}</code>
+        <code>
+          {cappedPreviewText(
+            value,
+            AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT,
+            label.toLowerCase().includes("raw")
+              ? "Raw details capped"
+              : "Preview capped",
+          )}
+        </code>
       </pre>
-    </details>
+    </LazyDetails>
   );
 }
 
@@ -58,19 +78,31 @@ export function AgentExecutorRunLogs({
   logs: WidgetLogEntry[];
   totalCount: number;
 }) {
+  const cappedLogs = capArrayToLast(logs, RENDER_MEMORY_CAPS.widgetLogRows);
+
   return (
-    <details className="codex-direct-work-output-details">
-      <summary className="codex-direct-work-output-summary">
-        Logs{" "}
-        {totalCount > logs.length
-          ? `first ${logs.length} of ${totalCount}`
-          : totalCount}
-      </summary>
+    <LazyDetails
+      className="codex-direct-work-output-details"
+      summary={
+        <>
+          Logs{" "}
+          {totalCount > cappedLogs.items.length
+            ? `last ${cappedLogs.items.length} of ${totalCount}`
+            : totalCount}
+        </>
+      }
+    >
+      {cappedLogs.hiddenCount > 0 ? (
+        <p className="codex-direct-work-review-note">
+          Showing last {cappedLogs.items.length.toString()} events. Preview
+          capped.
+        </p>
+      ) : null}
       {logs.length === 0 ? (
         <p className="codex-direct-work-review-note">No logs captured.</p>
       ) : (
         <div className="agent-executor-history-log-list" role="list">
-          {logs.map((log) => (
+          {cappedLogs.items.map((log) => (
             <div
               className="agent-executor-history-log"
               key={log.id}
@@ -84,26 +116,58 @@ export function AgentExecutorRunLogs({
                   {log.level}
                 </span>
                 <span className="codex-direct-work-result-value">
-                  {log.message}
+                  {cappedPreviewText(
+                    log.message,
+                    RENDER_MEMORY_CAPS.widgetLogMessageChars,
+                  )}
                 </span>
               </div>
               {log.payload ? (
-                <details className="codex-direct-work-live-log-raw">
-                  <summary className="codex-direct-work-live-log-detail">
-                    payload
-                  </summary>
+                <LazyDetails
+                  className="codex-direct-work-live-log-raw"
+                  summary="payload"
+                >
                   <pre className="codex-direct-work-output">
-                    <code>{previewOutput(
-                      formatRawPayload(log.payload),
-                      AGENT_EXECUTOR_OUTPUT_PREVIEW_LIMIT,
-                    )}</code>
+                    <code>
+                      {cappedRawDetailsText(
+                        log.payload,
+                        RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+                      )}
+                    </code>
                   </pre>
-                </details>
+                </LazyDetails>
               ) : null}
             </div>
           ))}
         </div>
       )}
+    </LazyDetails>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+  summaryAction,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: ReactNode;
+  summaryAction?: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="codex-direct-work-output-summary">
+        {summary}
+        {summaryAction}
+      </summary>
+      {isOpen ? children : null}
     </details>
   );
 }

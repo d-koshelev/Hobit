@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import { RENDER_MEMORY_CAPS, cappedPreviewText } from "../renderMemoryGuards";
 import type {
   AgentQueueClosureState,
   AgentQueueReportActionCard,
@@ -415,7 +416,12 @@ export function WorkspaceAgentQueueReportActionCard({
         {card.commitHash ? <ReportFact label="Commit" value={card.commitHash} /> : null}
       </dl>
 
-      <p className="coordinator-proposal-section-value">{card.reportSummary}</p>
+      <p className="coordinator-proposal-section-value">
+        {cappedPreviewText(
+          card.reportSummary,
+          RENDER_MEMORY_CAPS.transcriptPayloadChars,
+        )}
+      </p>
 
       <div className="workspace-agent-report-card-counts">
         <Badge variant="neutral">
@@ -440,12 +446,20 @@ export function WorkspaceAgentQueueReportActionCard({
 
       {card.followUpRecommendation ? (
         <p className="agent-queue-run-warning">
-          Follow-up recommendation: {card.followUpRecommendation}
+          Follow-up recommendation:{" "}
+          {cappedPreviewText(
+            card.followUpRecommendation,
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          )}
         </p>
       ) : null}
       {card.rollbackRecommendation ? (
         <p className="agent-queue-run-warning">
-          Rollback recommendation: {card.rollbackRecommendation}
+          Rollback recommendation:{" "}
+          {cappedPreviewText(
+            card.rollbackRecommendation,
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          )}
         </p>
       ) : null}
       {card.linkedDiffReviewItemId ? (
@@ -482,7 +496,10 @@ export function WorkspaceAgentQueueReportActionCard({
               className={`coordinator-proposal-result coordinator-proposal-result-${result.status === "failed" ? "error" : "success"}`}
               key={actionType}
             >
-              {result.message}
+              {cappedPreviewText(
+                result.message,
+                RENDER_MEMORY_CAPS.transcriptPayloadChars,
+              )}
             </p>
           ))}
         </div>
@@ -547,7 +564,12 @@ function ReviewSummaryBlock({ label, value }: { label: string; value: string }) 
   return (
     <div className="workspace-agent-report-card-review-block">
       <p className="coordinator-proposal-section-label">{label}</p>
-      <pre>{value}</pre>
+      <pre>
+        {cappedPreviewText(
+          value,
+          RENDER_MEMORY_CAPS.transcriptPayloadChars,
+        )}
+      </pre>
     </div>
   );
 }
@@ -581,10 +603,11 @@ function gitReviewSummaryFromCard(
   repositoryStatus: GitRepositoryStatus,
   diffSummary: WorkspaceGitDiffSummary,
 ): WorkspaceAgentGitReviewSummary {
-  const finalResponse = boundedReviewText(
+  const finalResponse = cappedPreviewText(
     card.finalResponse?.trim() ||
       card.reportSummary.trim() ||
       "No final response captured on this Queue report.",
+    RENDER_MEMORY_CAPS.transcriptPayloadChars,
   );
   const fileSummaries = diffSummary.files.slice(0, 10).map((file) =>
     [
@@ -672,14 +695,4 @@ function repositoryStatusSummary(status: GitRepositoryStatus) {
     `${tree.unstagedCount.toString()} unstaged`,
     `${tree.untrackedCount.toString()} untracked`,
   ].join("; ");
-}
-
-function boundedReviewText(value: string) {
-  const maxLength = 1600;
-
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength).trimEnd()}\n[Final response preview truncated.]`;
 }

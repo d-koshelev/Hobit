@@ -1,6 +1,10 @@
 import { useId, useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type {
   CoordinatorActionProposal,
   CoordinatorProposalInput,
@@ -136,6 +140,8 @@ export function CoordinatorActionProposalCard({
   const queueDraft = actions.isCreateQueueTaskProposal
     ? queueDraftSummary(proposal)
     : null;
+  const visibleInputs = proposal.inputs.slice(0, RENDER_MEMORY_CAPS.eventRows);
+  const hiddenInputCount = Math.max(0, proposal.inputs.length - visibleInputs.length);
 
   return (
     <section
@@ -248,28 +254,53 @@ export function CoordinatorActionProposalCard({
           <div className="coordinator-proposal-section">
             <p className="coordinator-proposal-section-label">Visible inputs</p>
             <dl className="coordinator-proposal-inputs">
-              {proposal.inputs.map((input) => (
+              {visibleInputs.map((input) => (
                 <div className="coordinator-proposal-input" key={input.label}>
                   <dt>{input.label}</dt>
                   <dd>
                     {isSqlSuggestionInput(input) ? (
                       <pre className="coordinator-proposal-sql">
-                        <code>{input.value}</code>
+                        <code>
+                          {cappedPreviewText(
+                            input.value,
+                            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+                          )}
+                        </code>
                       </pre>
                     ) : (
-                      input.value
+                      cappedPreviewText(
+                        input.value,
+                        RENDER_MEMORY_CAPS.transcriptPayloadChars,
+                      )
                     )}
                   </dd>
                 </div>
               ))}
+              {hiddenInputCount > 0 ? (
+                <div className="coordinator-proposal-input">
+                  <dt>Preview capped</dt>
+                  <dd>
+                    Showing first {visibleInputs.length.toString()} of{" "}
+                    {proposal.inputs.length.toString()} input(s).
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </div>
           <details className="coordinator-proposal-safety" open>
             <summary>Risk / safety notes</summary>
             <ul className="coordinator-proposal-risk-list">
-              {proposal.riskNotes.map((riskNote) => (
-                <li key={riskNote}>{riskNote}</li>
+              {proposal.riskNotes.slice(0, RENDER_MEMORY_CAPS.eventRows).map((riskNote, index) => (
+                <li key={`${index.toString()}-${riskNote.slice(0, 24)}`}>
+                  {cappedPreviewText(
+                    riskNote,
+                    RENDER_MEMORY_CAPS.transcriptPayloadChars,
+                  )}
+                </li>
               ))}
+              {proposal.riskNotes.length > RENDER_MEMORY_CAPS.eventRows ? (
+                <li>Preview capped.</li>
+              ) : null}
             </ul>
           </details>
           <ProposalSection
@@ -425,7 +456,12 @@ function QueueDraftWorkItem({ draft }: { draft: QueueDraftSummary }) {
       </div>
       <div className="coordinator-queue-draft-prompt">
         <p className="coordinator-proposal-section-label">Prompt preview</p>
-        <p className="coordinator-proposal-section-value">{draft.prompt}</p>
+        <p className="coordinator-proposal-section-value">
+          {cappedPreviewText(
+            draft.prompt,
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          )}
+        </p>
       </div>
       <p className="coordinator-proposal-note">
         Creates a draft task. Does not run it. Queue/Executor run work only
@@ -460,7 +496,9 @@ function ProposalSection({ label, value }: { label: string; value: string }) {
   return (
     <div className="coordinator-proposal-section">
       <p className="coordinator-proposal-section-label">{label}</p>
-      <p className="coordinator-proposal-section-value">{value}</p>
+      <p className="coordinator-proposal-section-value">
+        {cappedPreviewText(value, RENDER_MEMORY_CAPS.transcriptPayloadChars)}
+      </p>
     </div>
   );
 }
@@ -471,9 +509,19 @@ function ProposalResult({ result }: { result: ProposalResultDisplay }) {
       className={`coordinator-proposal-result coordinator-proposal-result-${result.tone}`}
     >
       <p className="coordinator-proposal-section-label">{result.title}</p>
-      <p className="coordinator-proposal-section-value">{result.detail}</p>
+      <p className="coordinator-proposal-section-value">
+        {cappedPreviewText(
+          result.detail,
+          RENDER_MEMORY_CAPS.transcriptPayloadChars,
+        )}
+      </p>
       {result.summary ? (
-        <p className="coordinator-proposal-note">{result.summary}</p>
+        <p className="coordinator-proposal-note">
+          {cappedPreviewText(
+            result.summary,
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          )}
+        </p>
       ) : null}
     </div>
   );

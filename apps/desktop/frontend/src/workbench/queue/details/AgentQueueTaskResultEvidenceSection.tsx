@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { Badge } from "../../../design-system/Badge";
 import { Button } from "../../../design-system/Button";
 import type {
@@ -347,10 +348,13 @@ export function DirectWorkEvidenceSummary({
         </Button>
       </div>
       {evidence.developerDetails ? (
-        <details className="agent-queue-details agent-queue-secondary-details">
-          <summary>Raw Direct Work details</summary>
+        <LazyDetails
+          className="agent-queue-details agent-queue-secondary-details"
+          summary="Raw Direct Work details"
+        >
           <pre>{evidence.developerDetails}</pre>
-        </details>
+          <p className="agent-queue-run-note">Raw details capped.</p>
+        </LazyDetails>
       ) : null}
     </div>
   );
@@ -379,14 +383,39 @@ function FinalResponseBlock({
         {response.preview}
       </pre>
       {response.isLong ? (
-        <details className="agent-queue-details agent-queue-secondary-details">
-          <summary>Full response</summary>
+        <LazyDetails
+          className="agent-queue-details agent-queue-secondary-details"
+          summary="Full response"
+        >
           <pre className="agent-queue-flow-selection-prompt">
             {response.text}
           </pre>
-        </details>
+          <p className="agent-queue-run-note">Preview capped.</p>
+        </LazyDetails>
       ) : null}
     </div>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 

@@ -1,4 +1,9 @@
+import { useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { RunCodexDirectWorkResponse } from "../workspace/types";
 import { CodexDirectWorkChangedFilesSummary } from "./CodexDirectWorkChangedFilesSummary";
 import {
@@ -12,7 +17,7 @@ import {
 import { StaticPreviewFieldList } from "./StaticPreviewPrimitives";
 import type { DirectWorkGitReviewStatus } from "./types";
 
-const OUTPUT_PREVIEW_LIMIT = 4000;
+const OUTPUT_PREVIEW_LIMIT = RENDER_MEMORY_CAPS.stdoutStderrPreviewChars;
 
 type CodexDirectWorkResultSummaryProps = {
   gitReviewStatus?: DirectWorkGitReviewStatus | null;
@@ -130,7 +135,9 @@ export function CodexDirectWorkResultSummary({
       {result.errorMessage ? (
         <div className="codex-direct-work-error-message">
           <span className="codex-direct-work-result-label">Error message</span>
-          <span className="codex-direct-work-result-value">{result.errorMessage}</span>
+          <span className="codex-direct-work-result-value">
+            {previewOutput(result.errorMessage)}
+          </span>
         </div>
       ) : null}
 
@@ -150,41 +157,73 @@ export function CodexDirectWorkResultSummary({
         hasGitWidget={hasGitWidget}
       />
 
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
+      <LazyDetails
+        className="codex-direct-work-output-details"
+        summary={
+          <>
           stdout preview
           {result.stdoutTruncated ? (
             <Badge variant="warning">Backend truncated</Badge>
           ) : null}
-        </summary>
+          </>
+        }
+      >
         <pre className="codex-direct-work-output">
           <code>{previewOutput(result.stdout || "No stdout captured.")}</code>
         </pre>
-      </details>
+      </LazyDetails>
 
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
+      <LazyDetails
+        className="codex-direct-work-output-details"
+        summary={
+          <>
           stderr preview
           {result.stderrTruncated ? (
             <Badge variant="warning">Backend truncated</Badge>
           ) : null}
-        </summary>
+          </>
+        }
+      >
         <pre className="codex-direct-work-output">
           <code>{previewOutput(result.stderr || "No stderr captured.")}</code>
         </pre>
-      </details>
+      </LazyDetails>
 
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">Command summary</summary>
+      <LazyDetails
+        className="codex-direct-work-output-details"
+        summary="Command summary"
+      >
         <pre className="codex-direct-work-output">
-          <code>{result.commandSummary.join("\n") || "No command summary."}</code>
+          <code>{previewOutput(result.commandSummary.join("\n") || "No command summary.")}</code>
         </pre>
-      </details>
+      </LazyDetails>
 
       <p className="codex-direct-work-review-note">
         {reviewHint}
       </p>
     </section>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="codex-direct-work-output-summary">{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 
@@ -243,7 +282,7 @@ function previewOutput(output: string): string {
     return output;
   }
 
-  return `${output.slice(0, OUTPUT_PREVIEW_LIMIT)}\n[Preview truncated in UI.]`;
+  return cappedPreviewText(output, OUTPUT_PREVIEW_LIMIT, "Preview capped");
 }
 
 function yesNo(value: boolean): string {

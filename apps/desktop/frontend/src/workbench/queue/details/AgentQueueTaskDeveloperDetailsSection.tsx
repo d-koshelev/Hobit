@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AgentQueueTaskRunAdvancedDetails,
 } from "../../AgentQueueTaskRunPanel";
@@ -19,6 +19,11 @@ import type {
   AgentQueueReportActionCard,
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  capText,
+  cappedRawDetailsText,
+} from "../../../renderMemoryGuards";
 import {
   directWorkEvidenceForQueue,
   hasFinishedRunLink,
@@ -445,10 +450,18 @@ function WorkerReportSummary({
         </p>
       ) : null}
       {report.rawReportPreview ? (
-        <details className="agent-queue-details agent-queue-worker-report-raw">
-          <summary>Raw report preview</summary>
-          <pre>{report.rawReportPreview}</pre>
-        </details>
+        <LazyDetails
+          className="agent-queue-details agent-queue-worker-report-raw"
+          summary="Raw report preview"
+        >
+          <pre>
+            {cappedRawDetailsText(
+              report.rawReportPreview,
+              RENDER_MEMORY_CAPS.evidenceRawDetailsChars,
+            )}
+          </pre>
+          <p className="agent-queue-run-note">Raw details capped.</p>
+        </LazyDetails>
       ) : null}
       <p className="agent-queue-run-note">
         Worker reports do not finalize Queue item status. Coordinator review,
@@ -467,19 +480,60 @@ function ReportList({
   title: string;
   values: string[];
 }) {
+  const visibleValues = values.slice(0, RENDER_MEMORY_CAPS.eventRows);
+  const hiddenCount = Math.max(0, values.length - visibleValues.length);
+
   return (
     <div className="agent-queue-report-list">
       <p className="field-label">{title}</p>
       {values.length > 0 ? (
         <ul>
-          {values.map((value) => (
-            <li key={value}>{value}</li>
+          {visibleValues.map((value, index) => (
+            <li key={`${index.toString()}-${value.slice(0, 24)}`}>
+              {cappedReportListValue(value)}
+            </li>
           ))}
+          {hiddenCount > 0 ? (
+            <li>
+              Preview capped. Showing first {visibleValues.length.toString()} of{" "}
+              {values.length.toString()} item(s).
+            </li>
+          ) : null}
         </ul>
       ) : (
         <p className="agent-queue-run-note">{emptyText ?? "None reported."}</p>
       )}
     </div>
+  );
+}
+
+function cappedReportListValue(value: string) {
+  const capped = capText(value, RENDER_MEMORY_CAPS.transcriptPayloadChars);
+
+  return capped.isCapped
+    ? `${capped.text} [Preview capped: ${capped.omittedChars.toString()} character(s) omitted.]`
+    : capped.text;
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 

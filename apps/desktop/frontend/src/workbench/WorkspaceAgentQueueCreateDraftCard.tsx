@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
+import {
   ActionFact,
   CREATE_STATUS_OPTIONS,
   EXECUTION_POLICY_OPTIONS,
@@ -128,7 +132,10 @@ export function WorkspaceAgentQueueCreateDraftCard({
       <div className="coordinator-proposal-section">
         <p className="coordinator-proposal-section-label">Prompt preview</p>
         <p className="coordinator-proposal-section-value">
-          {workspaceAgentQueueIntentPromptPreview(draft)}
+          {cappedPreviewText(
+            workspaceAgentQueueIntentPromptPreview(draft),
+            RENDER_MEMORY_CAPS.transcriptPayloadChars,
+          )}
         </p>
       </div>
 

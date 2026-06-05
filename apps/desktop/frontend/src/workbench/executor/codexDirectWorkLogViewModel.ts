@@ -1,5 +1,11 @@
 import type { DirectWorkStreamEvent } from "../../workspace/types";
 import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+  cappedRawDetailsText,
+  cappedTailPreviewText,
+} from "../../renderMemoryGuards";
+import {
   codexJsonEventLabel,
   codexJsonEventText,
 } from "../CodexDirectWorkLiveLogCodexEvents";
@@ -12,9 +18,10 @@ import type {
   CodexDirectWorkLiveRun,
 } from "./codexDirectWorkLogTypes";
 
-const LIVE_LOG_ENTRY_LIMIT = 200;
-const OUTPUT_PREVIEW_LIMIT = 4000;
+const LIVE_LOG_ENTRY_LIMIT = RENDER_MEMORY_CAPS.directWorkLogRenderedEvents;
+const OUTPUT_PREVIEW_LIMIT = RENDER_MEMORY_CAPS.stdoutStderrPreviewChars;
 const RAW_EVENT_PREVIEW_LIMIT = 180;
+const LIVE_LOG_ROW_TEXT_LIMIT = 1200;
 
 export function liveRunFromEvent(
   currentRun: CodexDirectWorkLiveRun | null,
@@ -49,7 +56,10 @@ export function liveRunFromEvent(
     failedStage: event.failedStage ?? base.failedStage,
     finalMessage:
       event.eventKind === "final_message" && event.text
-        ? event.text
+        ? cappedPreviewText(
+            event.text,
+            RENDER_MEMORY_CAPS.transcriptMessageChars,
+          )
         : base.finalMessage,
     finalStatus: event.finalStatus ?? base.finalStatus,
     startedAtMs: base.startedAtMs ?? startedAtMs,
@@ -160,11 +170,23 @@ function liveLogEventText(event: DirectWorkStreamEvent) {
   }
 
   if (event.eventKind === "stdout_line") {
-    return event.line || "Runtime output.";
+    return event.line
+      ? cappedTailPreviewText(
+          event.line,
+          LIVE_LOG_ROW_TEXT_LIMIT,
+          "Preview capped",
+        )
+      : "Runtime output.";
   }
 
   if (event.eventKind === "stderr_line") {
-    return event.line || (isInformationalStderrLine(event.line)
+    return event.line
+      ? cappedTailPreviewText(
+          event.line,
+          LIVE_LOG_ROW_TEXT_LIMIT,
+          "Preview capped",
+        )
+      : (isInformationalStderrLine(event.line)
       ? "Runtime note."
       : "Error output.");
   }
@@ -238,7 +260,10 @@ function liveLogEventLabel(event: DirectWorkStreamEvent) {
 
 function liveLogRawPreview(event: DirectWorkStreamEvent) {
   return event.eventKind === "codex_json_event" && event.line
-    ? shortEventDetail(event.line, RAW_EVENT_PREVIEW_LIMIT)
+    ? cappedRawDetailsText(
+        shortEventDetail(event.line, RAW_EVENT_PREVIEW_LIMIT),
+        RENDER_MEMORY_CAPS.rawJsonPreviewChars,
+      )
     : undefined;
 }
 
@@ -330,7 +355,10 @@ function liveStderrPreviewFromEvent(
   event: DirectWorkStreamEvent,
 ) {
   if (event.stderrPreview) {
-    return event.stderrPreview;
+    return cappedTailPreviewText(
+      event.stderrPreview,
+      RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+    );
   }
 
   if (event.eventKind === "stderr_line" && event.line) {

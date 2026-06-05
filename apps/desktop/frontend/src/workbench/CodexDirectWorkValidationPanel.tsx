@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type {
   DirectWorkValidationProfile,
   RunDirectWorkValidationResponse,
@@ -156,7 +160,10 @@ export function CodexDirectWorkValidationPanel({
             Validation request failed
           </span>
           <span className="codex-direct-work-result-value">
-            {validationState.message}
+            {cappedPreviewText(
+              validationState.message,
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
           </span>
         </div>
       ) : null}
@@ -269,30 +276,70 @@ function ValidationResult({
         </div>
       ) : null}
 
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
+      <LazyDetails
+        className="codex-direct-work-output-details"
+        summary={
+          <>
           stdout preview
           {result.stdoutTruncated ? (
             <Badge variant="warning">Output truncated</Badge>
           ) : null}
-        </summary>
+          </>
+        }
+      >
         <pre className="codex-direct-work-output">
-          <code>{validationOutputPreview(result.stdout || "No stdout captured.")}</code>
+          <code>
+            {cappedPreviewText(
+              validationOutputPreview(result.stdout || "No stdout captured."),
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
+          </code>
         </pre>
-      </details>
+      </LazyDetails>
 
-      <details className="codex-direct-work-output-details">
-        <summary className="codex-direct-work-output-summary">
+      <LazyDetails
+        className="codex-direct-work-output-details"
+        summary={
+          <>
           stderr preview
           {result.stderrTruncated ? (
             <Badge variant="warning">stderr truncated</Badge>
           ) : null}
-        </summary>
+          </>
+        }
+      >
         <pre className="codex-direct-work-output">
-          <code>{validationOutputPreview(result.stderr || "No stderr captured.")}</code>
+          <code>
+            {cappedPreviewText(
+              validationOutputPreview(result.stderr || "No stderr captured."),
+              RENDER_MEMORY_CAPS.stdoutStderrPreviewChars,
+            )}
+          </code>
         </pre>
-      </details>
+      </LazyDetails>
     </>
+  );
+}
+
+function LazyDetails({
+  children,
+  className,
+  summary,
+}: {
+  children: ReactNode;
+  className: string;
+  summary: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className={className}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="codex-direct-work-output-summary">{summary}</summary>
+      {isOpen ? children : null}
+    </details>
   );
 }
 

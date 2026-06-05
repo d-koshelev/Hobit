@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 import type { CoordinatorProviderMessageMeta } from "./coordinatorProviderRequest";
 
 export type WorkspaceAgentMessageBubbleRole = "operator" | "assistant";
@@ -31,7 +35,11 @@ export function WorkspaceAgentMessageBubble({
         >
           <summary>Details</summary>
           <p>
-            Source: {providerMeta.label}. {providerMeta.detail}
+            Source: {providerMeta.label}.{" "}
+            {cappedPreviewText(
+              providerMeta.detail,
+              RENDER_MEMORY_CAPS.transcriptPayloadChars,
+            )}
           </p>
         </details>
       ) : null}
@@ -44,7 +52,11 @@ function renderMessageBody(body: string): ReactNode {
   const segments = body.split(/```/);
 
   if (segments.length === 1) {
-    return <p>{body}</p>;
+    return (
+      <p>
+        {cappedPreviewText(body, RENDER_MEMORY_CAPS.transcriptMessageChars)}
+      </p>
+    );
   }
 
   return segments.map((segment, index) => {
@@ -53,11 +65,23 @@ function renderMessageBody(body: string): ReactNode {
       const code = segment.replace(/^[\w-]+\n/, "").trim();
       return (
         <pre className="interactive-agent-code-block" key={key}>
-          <code>{code}</code>
+          <code>
+            {cappedPreviewText(
+              code,
+              RENDER_MEMORY_CAPS.transcriptPayloadChars,
+            )}
+          </code>
         </pre>
       );
     }
 
-    return segment.trim() ? <p key={key}>{segment.trim()}</p> : null;
+    return segment.trim() ? (
+      <p key={key}>
+        {cappedPreviewText(
+          segment.trim(),
+          RENDER_MEMORY_CAPS.transcriptMessageChars,
+        )}
+      </p>
+    ) : null;
   });
 }

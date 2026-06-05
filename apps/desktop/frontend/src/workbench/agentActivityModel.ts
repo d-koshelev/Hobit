@@ -1,4 +1,8 @@
 import type { DirectWorkStreamEvent } from "../workspace/types";
+import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../renderMemoryGuards";
 
 export type AgentActivitySourceKind = "workspace-agent" | "agent-executor";
 
@@ -74,7 +78,7 @@ export function agentActivityEventFromDirectWorkStreamEvent({
 export function mergeAgentActivityEvents(
   currentEvents: AgentActivityEvent[],
   nextEvents: AgentActivityEvent[],
-  limit = 200,
+  limit: number = RENDER_MEMORY_CAPS.activityRetainedEvents,
 ) {
   if (nextEvents.length === 0) {
     return currentEvents;
@@ -337,7 +341,7 @@ function rawPreviewForEvent(event: DirectWorkStreamEvent) {
     return undefined;
   }
 
-  return compactText(event.line, RAW_PREVIEW_LIMIT);
+  return cappedPreviewText(event.line, RAW_PREVIEW_LIMIT, "Raw details capped");
 }
 
 type JsonRecord = Record<string, unknown>;
